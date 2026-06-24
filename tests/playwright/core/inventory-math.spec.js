@@ -996,29 +996,55 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   });
 
   // STRK-233 — the Settings inventory summary card reports CURRENT in-stock holdings only.
-  // Disposed (sold/traded/gifted/lost/returned) items must drop out of the count, total
-  // weight, and melt figures via the canonical isDisposed() predicate — they otherwise
-  // inflate every total with stock the user no longer holds.
-  test("inventory summary card excludes disposed items from count and weight", async ({ page }) => {
-    const liveAse = { ...MONEY_ITEM, uuid: "strk233-live", serial: 1, qty: 4 };
+  // Disposed (sold/traded/gifted/lost/returned) items must drop out of ALL four figures —
+  // count, total weight, melt value, AND last-modified — via the canonical isDisposed()
+  // predicate, otherwise they inflate the card with stock the user no longer holds.
+  test("inventory summary card excludes disposed items from count, weight, melt, and last-modified", async ({
+    page,
+  }) => {
+    const LIVE_TS = 1717000000000; // 2024-05-29 — older
+    const DISPOSED_TS = 1740000000000; // 2025-02-19 — strictly NEWER; would win last-modified if unfiltered
+    const liveAse = { ...MONEY_ITEM, uuid: "strk233-live", serial: 1, qty: 4, updatedAt: LIVE_TS };
     const disposedAse = {
       ...MONEY_ITEM,
       uuid: "strk233-disposed",
       serial: 2,
       qty: 4,
+      updatedAt: DISPOSED_TS,
       disposition: { type: "sold", amount: 500, date: "2026-05-01" },
     };
     await seedMoneyData(page, { inventory: [liveAse, disposedAse] });
     await gotoApp(page);
+    // Live spot so the melt reduce yields a real figure (spotPrices defaults to 0).
+    await page.evaluate(() => {
+      if (typeof spotPrices !== "undefined") spotPrices.silver = 30;
+    });
     await openConstitutionalSettings(page, "system");
-    await expect(page.locator("#invSummaryCount")).toBeVisible();
+
     // Count: only the 4 live units, NOT 8 (live + disposed).
     await expect(page.locator("#invSummaryCount")).toHaveText("4 items");
+
     // Weight: ~4 ozt (4 × 1 oz live), NOT ~8 ozt including the disposed bag.
     const wText = await page.locator("#invSummaryWeight").textContent();
     const liveOz = parseFloat(String(wText).replace(/[^0-9.]/g, ""));
     expect(liveOz).toBeGreaterThan(3.5);
     expect(liveOz).toBeLessThan(4.5);
+
+    // Melt: 4 oz × $30 × 0.999 ≈ $120 (live only), NOT ~$240 including the disposed bag.
+    const mText = await page.locator("#invSummaryMelt").textContent();
+    const liveMelt = parseFloat(String(mText).replace(/[^0-9.]/g, ""));
+    expect(liveMelt).toBeGreaterThan(100);
+    expect(liveMelt).toBeLessThan(140);
+
+    // Last modified: driven by the live item's date, NOT the strictly-newer disposed item's.
+    const fmt = (ts) =>
+      new Date(ts).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    await expect(page.locator("#invSummaryModified")).toHaveText(fmt(LIVE_TS));
+    await expect(page.locator("#invSummaryModified")).not.toHaveText(fmt(DISPOSED_TS));
   });
 
   test("the per-item details view shows the variant and derived silver content", async ({

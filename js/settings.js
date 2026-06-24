@@ -108,13 +108,14 @@ const switchSettingsSection = (name) => {
     const modEl = safeGetElement("invSummaryModified");
     if (countEl || weightEl || meltEl || modEl) {
       try {
-        const allItems = loadDataSync(LS_KEY, []);
         // STRK-233: the summary card reflects CURRENT in-stock holdings, so disposed
         // (sold/traded/gifted/lost/returned) items must drop out of every total via the
-        // canonical isDisposed() predicate (constants.js) — otherwise they inflate count,
-        // weight, melt, and the last-modified date with stock the user no longer holds.
-        const items =
-          typeof isDisposed === "function" ? allItems.filter((it) => !isDisposed(it)) : allItems;
+        // canonical isDisposed() predicate — otherwise they inflate count, weight, melt,
+        // and the last-modified date with stock the user no longer holds.
+        // isDisposed is a guaranteed constants.js global (loaded before this script, same as
+        // LS_KEY above), so it is used unguarded; the enclosing try/catch surfaces any load
+        // failure rather than silently falling back to the inflated totals this fix removes.
+        const items = loadDataSync(LS_KEY, []).filter((it) => !isDisposed(it));
         if (countEl)
           countEl.textContent =
             items.reduce((sum, it) => sum + (Number(it.qty) || 1), 0) + " items";
