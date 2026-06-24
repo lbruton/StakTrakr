@@ -1216,6 +1216,29 @@ const _filterByDefault = (result, values, exclude, field) => {
 };
 
 /**
+ * Weight filter (STRK-240). Constitutional ("cu") items store a face value in
+ * `item.weight`, but the table displays — and therefore filters on — the derived
+ * pure-silver oz (rounded to the displayed 2 decimals). This keeps the chip matching the
+ * clicked cell and stops a $10-face item from colliding with a 10 oz item. Every other
+ * unit keeps the raw `item.weight` comparison, identical to `_filterByDefault`.
+ * @param {Array<Object>} result - Items to filter
+ * @param {Array<string>} values - Selected values
+ * @param {boolean} exclude - Exclusion mode
+ * @returns {Array<Object>} Filtered items
+ */
+const _filterByWeight = (result, values, exclude) => {
+  const lowerVals = values.map((v) => String(v).toLowerCase());
+  return result.filter((item) => {
+    const fieldVal =
+      item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
+        ? getConstitutionalSilverOz(item).toFixed(2)
+        : String(item.weight ?? "");
+    const match = lowerVals.includes(fieldVal.toLowerCase());
+    return exclude ? !match : match;
+  });
+};
+
+/**
  * Routes a multi-value (array-criteria) active filter to its per-field handler.
  * `_filterByCustomGroup` (regex-bearing) is defined near the file end and resolved
  * here at call time.
@@ -1246,6 +1269,8 @@ const _applyArrayFilter = (result, field, values, exclude) => {
       return _filterByDynamicName(result, values, exclude);
     case "groupedName":
       return _filterByGroupedName(result, values, exclude);
+    case "weight":
+      return _filterByWeight(result, values, exclude);
     default:
       return _filterByDefault(result, values, exclude, field);
   }
