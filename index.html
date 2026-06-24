@@ -2159,7 +2159,12 @@
                   <option value="lb">pound</option>
                   <option value="gb">goldback</option>
                   <option value="sb">silverback</option>
-                  <option value="cu">constitutional</option>
+                  <!-- STRK-243: cu is Type-driven only — Type=Constitutional sets this
+                       value programmatically and reveals the dedicated entry card. Hidden
+                       from the manual dropdown because picking it while Type is not
+                       Constitutional left the card hidden and dead-ended the save (weight 0).
+                       gb/sb keep the standard row usable when picked manually, so they stay. -->
+                  <option value="cu" hidden>constitutional</option>
                 </select>
               </div>
             </div>

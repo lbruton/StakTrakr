@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.56] - 2026-06-24
+
+### Fixed — STRK-241 / STRK-243: Constitutional silver pre-ship fixes
+
+- **Cloud sync detects constitutional denomination/mode edits**: The inventory hash the cloud-sync poller compares now includes a constitutional item's `constitutionalVariant` and `constitutionalEntryMode`. Previously a remote edit that changed only a synced junk-silver item's denomination or entry mode on the same item produced an identical hash, so the poller silently recorded the pull and never opened the diff/merge path — the change was lost on the other device. Distinct denominations can share a face-per-coin value, so the stored weight could not catch it either (STRK-241).
+- **Constitutional unit is Type-driven, not a manual dropdown choice**: Picking "constitutional" directly from the weight-unit dropdown while Type was still Coin/Bar left the constitutional entry card hidden, so saving read blank fields and dead-ended on a "weight required" error with no weight field shown. The option is now hidden from manual selection; adding junk silver via Type → Constitutional remains the supported path and wires up the entry card correctly (STRK-243).
+
+---
+
 ## [3.35.55] - 2026-06-24
 
 ### Changed — STRK-240: Constitutional weight filter keys on derived silver ounces

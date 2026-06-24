@@ -143,7 +143,16 @@ async function computeInventoryHash(items) {
         "|" +
         // STRK-159: canonicalize disposition (sorted keys) so a different key
         // insertion order of the same object is not a false inventory mismatch.
-        (item.disposition ? _stableCanonicalString(item.disposition) : "");
+        (item.disposition ? _stableCanonicalString(item.disposition) : "") +
+        "|" +
+        // STRK-241: include constitutional denomination/entry-mode so a remote
+        // edit that changes only a junk-silver item's variant/mode on the same
+        // uuid changes the hash. Distinct variants share facePerCoin, so neither
+        // the item key (uuid) nor weight can catch the swap — without this the
+        // empty-diff poller fast-path silently drops the remote change.
+        (item.constitutionalVariant || "") +
+        "|" +
+        (item.constitutionalEntryMode || "");
       keys.push(itemKey + "::" + contentSample);
     }
     keys.sort();
