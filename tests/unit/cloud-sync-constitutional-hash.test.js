@@ -36,6 +36,10 @@ function buildHashFn() {
   const start = src.indexOf("async function computeInventoryHash(items) {");
   assert.ok(start !== -1, "could not locate computeInventoryHash in js/cloud-sync.js");
   const end = src.indexOf("\n}", start) + 2;
+  assert.ok(
+    end > start + 1,
+    "could not locate the end of computeInventoryHash in js/cloud-sync.js"
+  );
   const fnSrc = src.slice(start, end);
   const factory = new Function(
     "crypto",
