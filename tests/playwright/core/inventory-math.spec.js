@@ -1384,3 +1384,28 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(Number(restored.qty)).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// STRK-243 — constitutional pre-ship fix (surfaced by the v3.35.55 dev→main ship
+// review). Picking the cu weight-unit option directly dead-ends the save.
+// ---------------------------------------------------------------------------
+test.describe("core/inventory-math — STRK-243 constitutional pre-ship fix", () => {
+  test("STRK-243 — the constitutional unit is Type-driven, not a manual dropdown choice", async ({
+    page,
+  }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+
+    // The cu unit option must not be user-selectable: choosing it directly while
+    // Type != Constitutional left the constitutional card hidden, so the save read
+    // blank hidden fields -> weight 0 validation dead-end. Type=Constitutional is
+    // the canonical path and drives the unit programmatically.
+    await expect(page.locator('#itemWeightUnit option[value="cu"]')).toHaveAttribute("hidden", "");
+
+    // The canonical path still wires everything: Type=Constitutional -> unit=cu + card shown.
+    await page.selectOption("#itemType", "Constitutional");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("cu");
+    await expect(page.locator("#item-constitutional-group")).toBeVisible();
+  });
+});
