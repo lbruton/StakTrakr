@@ -1216,24 +1216,25 @@ const _filterByDefault = (result, values, exclude, field) => {
 };
 
 /**
- * Weight filter (STRK-240). Constitutional ("cu") items store a face value in
- * `item.weight`, but the table displays — and therefore filters on — the derived
- * pure-silver oz (rounded to the displayed 2 decimals). This keeps the chip matching the
- * clicked cell and stops a $10-face item from colliding with a 10 oz item. Every other
- * unit keeps the raw `item.weight` comparison, identical to `_filterByDefault`.
+ * Weight filter (STRK-240). Compares weights NUMERICALLY so values that are numerically
+ * identical but formatted differently (e.g. "0.5" vs "0.50") still match. Constitutional
+ * ("cu") items resolve to their displayed derived pure-silver oz (rounded to the shown 2
+ * decimals via `getConstitutionalFilterOz`), so the chip matches the clicked cell and a
+ * $10-face item no longer collides with a 10 oz item; every other unit uses its raw stored
+ * `item.weight`.
  * @param {Array<Object>} result - Items to filter
  * @param {Array<string>} values - Selected values
  * @param {boolean} exclude - Exclusion mode
  * @returns {Array<Object>} Filtered items
  */
 const _filterByWeight = (result, values, exclude) => {
-  const lowerVals = values.map((v) => String(v).toLowerCase());
+  const targets = values.map((v) => parseFloat(v));
   return result.filter((item) => {
-    const fieldVal =
-      item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
-        ? getConstitutionalSilverOz(item).toFixed(2)
-        : String(item.weight ?? "");
-    const match = lowerVals.includes(fieldVal.toLowerCase());
+    const itemWeight =
+      item.weightUnit === "cu" && typeof getConstitutionalFilterOz === "function"
+        ? parseFloat(getConstitutionalFilterOz(item))
+        : parseFloat(item.weight);
+    const match = targets.some((t) => t === itemWeight);
     return exclude ? !match : match;
   });
 };

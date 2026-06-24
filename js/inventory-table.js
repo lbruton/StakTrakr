@@ -817,8 +817,8 @@
     // pure-silver oz. Filter on that displayed oz so the chip matches the clicked cell and a
     // $10-face item no longer collides with a 10 oz item. Other units keep raw item.weight.
     const weightFilterValue =
-      item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
-        ? getConstitutionalSilverOz(item).toFixed(2)
+      item.weightUnit === "cu" && typeof getConstitutionalFilterOz === "function"
+        ? getConstitutionalFilterOz(item)
         : item.weight;
 
     return `

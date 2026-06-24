@@ -790,6 +790,16 @@ const getConstitutionalSilverOz = (item) => {
 };
 
 /**
+ * The constitutional ("cu") weight value used by the inventory-table Weight chip and the
+ * weight filter (STRK-240): the derived pure-silver oz rounded to the 2 decimals shown in
+ * the cell. Centralised so the table's filter-chip value and the filters.js predicate stay
+ * in lockstep on precision — a cu cell must match its own chip.
+ * @param {Object} item - A weightUnit "cu" inventory item
+ * @returns {string} Derived pure-silver oz formatted to 2 decimals (e.g. "7.15")
+ */
+const getConstitutionalFilterOz = (item) => getConstitutionalSilverOz(item).toFixed(2);
+
+/**
  * Computes the melt value for an inventory item.
  * Centralises the formula: weight × qty × spot × purity.
  * Constitutional ("cu") items return early via getConstitutionalSilverOz × spot —
@@ -1339,6 +1349,7 @@ if (typeof window !== "undefined") {
   window.computeMeltValue = computeMeltValue;
   window.getConstitutionalWearFactor = getConstitutionalWearFactor;
   window.getConstitutionalSilverOz = getConstitutionalSilverOz;
+  window.getConstitutionalFilterOz = getConstitutionalFilterOz;
   window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
