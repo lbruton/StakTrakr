@@ -28,15 +28,6 @@
     return `$${face.toFixed(2)} face value · ${basis} basis`;
   };
 
-  // STRK-237 (PR #1328, Codex P2): the cu Weight cell shows DERIVED silver oz, but the column
-  // quick-filter (`applyColumnFilter('weight', …)`) compares the raw stored `weight` (face value).
-  // A click-to-filter would key on the face value the user no longer sees, so cu weight renders as
-  // plain non-filterable text — display + tooltip preserved, no misleading raw-weight filter entry.
-  const cuWeightCell = (item, basis) =>
-    `<span class="weight-static" style="color: var(--text-primary);" title="${sanitizeHtml(
-      cuWeightTooltip(item, basis)
-    )}">${sanitizeHtml(formatWeight(item.weight, item.weightUnit, item))}</span>`;
-
   let _thumbBlobUrls = [];
 
   window.addEventListener("beforeunload", () => {
@@ -835,7 +826,7 @@
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${item.weightUnit === "cu" ? cuWeightCell(item, cuBasis) : filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit), WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit, item), item.weightUnit === "cu" ? cuWeightTooltip(item, cuBasis) : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>

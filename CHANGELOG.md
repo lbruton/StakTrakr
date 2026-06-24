@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.54] - 2026-06-23
+
+### Changed — STRK-239: Restore click-to-filter on constitutional weight cells
+
+- **Constitutional weight cells filter again**: Clicking a constitutional (junk-silver) row's Weight cell creates a filter chip again, matching every other weight unit including goldback and silverback. The cell still displays the derived silver troy ounces and keeps the face value in its hover tooltip; the filter keys on the stored face value, the same way goldback/silverback filter on their stored weight. Reverses the STRK-237 decision (v3.35.52) that disabled it (STRK-239).
+
+---
+
 ## [3.35.53] - 2026-06-23
 
 ### Changed — STRK-233: Settings inventory summary excludes disposed items

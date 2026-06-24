@@ -6038,11 +6038,6 @@ td .filter-text {
   font-weight: 600;
 }
 
-td .weight-static {
-  font-weight: 600;
-  cursor: help; /* has a title tooltip, not a click action */
-}
-
 .na-value {
   color: var(--text-muted);
   font-style: italic;

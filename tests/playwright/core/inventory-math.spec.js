@@ -1069,7 +1069,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     const weightCell = page
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
-      .locator("td[data-column='weight'] .weight-static");
+      .locator("td[data-column='weight'] .filter-text");
     // 40 quarters worn ≈ 7.15 ozt silver — shown as a weight, NOT the raw "$10.00 face".
     await expect(weightCell).toHaveText(/^\d+\.\d+\s*oz$/);
     await expect(weightCell).not.toContainText("face");
@@ -1080,13 +1080,45 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     const title = await weightCell.getAttribute("title");
     expect(title).toMatch(/\$10\.00 face/);
     expect(title).toMatch(/worn/i);
-    // STRK-237 (PR #1328, Codex P2): the displayed oz is derived, not the raw stored weight the
-    // column filter keys on — so the cu weight cell must NOT be a click-to-filter button.
-    // Codex T2: cell must NOT carry .filter-text, which would make it a dead tap target on mobile
-    // (the _bindTableInteractions tap handler skips .filter-text, preventing row-open on narrow screens).
-    await expect(weightCell).not.toHaveClass(/\bfilter-text\b/);
-    await expect(weightCell).not.toHaveAttribute("onclick", /.+/);
-    await expect(weightCell).not.toHaveAttribute("role", "button");
+    // STRK-239 (beta feedback): the cu weight cell is click-to-filter like every other weight unit
+    // (oz/g/gb/sb). The filter keys on the raw stored `weight` (face value) — the same mechanism as
+    // goldback/silverback filtering on their stored weight — even though the cell DISPLAYS the
+    // derived oz. The face value stays in the tooltip (asserted above).
+    await expect(weightCell).toHaveClass(/\bfilter-text\b/);
+    await expect(weightCell).toHaveAttribute("onclick", /^applyColumnFilter\('weight', .+\)$/);
+    await expect(weightCell).toHaveAttribute("role", "button");
+  });
+
+  // STRK-239 (beta feedback): the cu weight cell is interactive again — clicking it applies the
+  // weight column filter keyed on the stored face value (matching how goldback/silverback filter
+  // on their stored weight), narrowing the table. The STRK-237 disable is reversed.
+  test("clicking a constitutional weight cell filters the table by its stored face value", async ({
+    page,
+  }) => {
+    const CU_SILVER_DOLLAR = {
+      ...CU_QUARTERS_40,
+      uuid: "core-cu-dollar-filter",
+      name: "Core Silver Dollar",
+      constitutionalVariant: "con-90-dollar",
+      weight: 1,
+      qty: 1,
+      serial: 34,
+    };
+    await seedMoneyData(page, { inventory: [CU_QUARTERS_40, CU_SILVER_DOLLAR] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    const weightCell = page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core 40 Silver Quarters" })
+      .locator("td[data-column='weight'] .filter-text");
+    // Keys on the raw stored per-coin face ($0.25), not the displayed derived oz — same contract as
+    // gb/sb (filter on stored weight). con-90-dollar stores weight 1, so it is filtered out.
+    await expect(weightCell).toHaveAttribute("onclick", /^applyColumnFilter\('weight', 0\.25\)$/);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await weightCell.click();
+    // Only the $0.25-face quarters remain; the $1.00-face dollar drops out.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    await expect(page.locator("#inventoryTable tbody tr")).toContainText("Core 40 Silver Quarters");
   });
 
   // STRK-237 follow-up (PR #1328 review, T10/Codex): the Weight column now displays derived
@@ -1140,7 +1172,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     const title = await page
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core Face Mode Qty2" })
-      .locator("td[data-column='weight'] .weight-static")
+      .locator("td[data-column='weight'] .filter-text")
       .getAttribute("title");
     // Stored total face is $50.00; the old weight × qty would have wrongly shown $100.00.
     expect(title).toMatch(/\$50\.00 face/);
