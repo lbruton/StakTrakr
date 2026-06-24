@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.55] - 2026-06-24
+
+### Changed — STRK-240: Constitutional weight filter keys on derived silver ounces
+
+- **Constitutional weight cells filter by silver weight, not face value**: Clicking a constitutional (junk-silver) row's Weight cell now creates a filter chip keyed on the derived silver troy ounces shown in the cell, not the stored dollar face value — so filtering a `$10`-face bag no longer also pulls in unrelated 10 oz items. The face value stays in the cell's hover tooltip. Refines STRK-239 (v3.35.54), which keyed the filter on the face value and could collide with same-numbered weights (STRK-240).
+
+---
+
 ## [3.35.54] - 2026-06-23
 
 ### Changed — STRK-239: Restore click-to-filter on constitutional weight cells

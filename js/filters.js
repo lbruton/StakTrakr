@@ -1216,6 +1216,33 @@ const _filterByDefault = (result, values, exclude, field) => {
 };
 
 /**
+ * Weight filter (STRK-240). Resolves each item's filterable weight via `getItemFilterWeight`:
+ * constitutional ("cu") items use their displayed derived pure-silver oz (so the chip matches
+ * the clicked cell and a $10-face item no longer collides with a 10 oz item); every other unit
+ * keeps the raw `item.weight` string comparison, byte-identical to `_filterByDefault`. The
+ * storage-backed constitutional wear factor is read once per pass (not per item) so a large cu
+ * inventory keeps O(1) storage access inside the loop.
+ * @param {Array<Object>} result - Items to filter
+ * @param {Array<string>} values - Selected values
+ * @param {boolean} exclude - Exclusion mode
+ * @returns {Array<Object>} Filtered items
+ */
+const _filterByWeight = (result, values, exclude) => {
+  const lowerVals = values.map((v) => String(v).toLowerCase());
+  // Hoist the storage-backed wear factor out of the per-item loop (STRK-240 review).
+  const wear =
+    typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : undefined;
+  return result.filter((item) => {
+    const fieldVal =
+      typeof getItemFilterWeight === "function"
+        ? getItemFilterWeight(item, wear)
+        : String(item.weight ?? "");
+    const match = lowerVals.includes(fieldVal.toLowerCase());
+    return exclude ? !match : match;
+  });
+};
+
+/**
  * Routes a multi-value (array-criteria) active filter to its per-field handler.
  * `_filterByCustomGroup` (regex-bearing) is defined near the file end and resolved
  * here at call time.
@@ -1246,6 +1273,8 @@ const _applyArrayFilter = (result, field, values, exclude) => {
       return _filterByDynamicName(result, values, exclude);
     case "groupedName":
       return _filterByGroupedName(result, values, exclude);
+    case "weight":
+      return _filterByWeight(result, values, exclude);
     default:
       return _filterByDefault(result, values, exclude, field);
   }

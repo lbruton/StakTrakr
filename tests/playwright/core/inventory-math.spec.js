@@ -1081,18 +1081,22 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(title).toMatch(/\$10\.00 face/);
     expect(title).toMatch(/worn/i);
     // STRK-239 (beta feedback): the cu weight cell is click-to-filter like every other weight unit
-    // (oz/g/gb/sb). The filter keys on the raw stored `weight` (face value) — the same mechanism as
-    // goldback/silverback filtering on their stored weight — even though the cell DISPLAYS the
-    // derived oz. The face value stays in the tooltip (asserted above).
+    // (oz/g/gb/sb). STRK-240: the filter value is the DISPLAYED derived oz (a quoted string), not
+    // the raw stored face value — so the chip matches what's shown and a $-face value can't collide
+    // with an oz weight. The face value stays in the tooltip (asserted above).
     await expect(weightCell).toHaveClass(/\bfilter-text\b/);
-    await expect(weightCell).toHaveAttribute("onclick", /^applyColumnFilter\('weight', .+\)$/);
+    const displayedOz239 = (await weightCell.textContent()).replace(/[^0-9.]/g, "");
+    await expect(weightCell).toHaveAttribute(
+      "onclick",
+      new RegExp(`^applyColumnFilter\\('weight', "?${displayedOz239.replace(/\./g, "\\.")}"?\\)$`)
+    );
     await expect(weightCell).toHaveAttribute("role", "button");
   });
 
   // STRK-239 (beta feedback): the cu weight cell is interactive again — clicking it applies the
-  // weight column filter keyed on the stored face value (matching how goldback/silverback filter
-  // on their stored weight), narrowing the table. The STRK-237 disable is reversed.
-  test("clicking a constitutional weight cell filters the table by its stored face value", async ({
+  // weight column filter, narrowing the table. The STRK-237 disable is reversed.
+  // STRK-240: the filter keys on the DISPLAYED derived oz, not the stored face value.
+  test("clicking a constitutional weight cell filters the table by its derived silver oz", async ({
     page,
   }) => {
     const CU_SILVER_DOLLAR = {
@@ -1111,14 +1115,67 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
       .locator("td[data-column='weight'] .filter-text");
-    // Keys on the raw stored per-coin face ($0.25), not the displayed derived oz — same contract as
-    // gb/sb (filter on stored weight). con-90-dollar stores weight 1, so it is filtered out.
-    await expect(weightCell).toHaveAttribute("onclick", /^applyColumnFilter\('weight', 0\.25\)$/);
+    // STRK-240: keys on the displayed derived oz (quoted string), not the stored per-coin face. The
+    // ~0.76 oz silver dollar derives a different oz, so it is filtered out.
+    const quartersOz = (await weightCell.textContent()).replace(/[^0-9.]/g, "");
+    await expect(weightCell).toHaveAttribute(
+      "onclick",
+      new RegExp(`^applyColumnFilter\\('weight', "?${quartersOz.replace(/\./g, "\\.")}"?\\)$`)
+    );
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
     await weightCell.click();
-    // Only the $0.25-face quarters remain; the $1.00-face dollar drops out.
+    // Only the ~7.15 oz quarters remain; the ~0.76 oz dollar (a different derived oz) drops out.
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
     await expect(page.locator("#inventoryTable tbody tr")).toContainText("Core 40 Silver Quarters");
+  });
+
+  // STRK-240: the constitutional weight filter must key on the DISPLAYED derived oz, not the stored
+  // face value. A FACE-mode item stores its $ face in `weight` (e.g. $10), so the old face-keyed
+  // filter (STRK-239) compared dollars-of-face to ounces-of-weight and a $10-face bag wrongly
+  // matched a 10 oz bar. Clicking the cu cell now filters on its ~7.15 oz and excludes the bar.
+  test("constitutional weight filter keys on derived oz, not face — no collision with a same-numbered oz item", async ({
+    page,
+  }) => {
+    const CU_FACE_10 = {
+      ...CU_FACE_50,
+      uuid: "core-cu-face-10",
+      name: "Core $10 Face Bag",
+      weight: 10, // $10 total face → derives ~7.15 oz (NOT 10 oz)
+      serial: 40,
+    };
+    const TEN_OZ_BAR = {
+      ...MONEY_ITEM,
+      uuid: "core-ten-oz-bar",
+      name: "Core Ten Oz Bar",
+      type: "Bar",
+      weightUnit: "oz",
+      weight: 10, // raw weight 10 — the value the old face-keyed filter wrongly collided with
+      qty: 1,
+      serial: 41,
+    };
+    await seedMoneyData(page, { inventory: [CU_FACE_10, TEN_OZ_BAR] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+
+    const cuWeightCell = page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core $10 Face Bag" })
+      .locator("td[data-column='weight'] .filter-text");
+    // The chip value is the displayed derived oz (~7.15), decisively != the stored face 10.
+    const cuOz = (await cuWeightCell.textContent()).replace(/[^0-9.]/g, "");
+    expect(parseFloat(cuOz)).toBeGreaterThan(6.5);
+    expect(parseFloat(cuOz)).toBeLessThan(8);
+    await expect(cuWeightCell).toHaveAttribute(
+      "onclick",
+      new RegExp(`^applyColumnFilter\\('weight', "?${cuOz.replace(/\./g, "\\.")}"?\\)$`)
+    );
+
+    await cuWeightCell.click();
+    // Only the constitutional row survives; the 10 oz bar (raw weight 10) is NOT pulled in.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    await expect(page.locator("#inventoryTable tbody tr")).toContainText("Core $10 Face Bag");
+    await expect(page.locator("#inventoryTable tbody tr")).not.toContainText("Core Ten Oz Bar");
   });
 
   // STRK-237 follow-up (PR #1328 review, T10/Codex): the Weight column now displays derived

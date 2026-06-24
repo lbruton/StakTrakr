@@ -813,6 +813,13 @@
     const dispositionBadge = _buildDispositionBadge(item);
     const actionsCellInner = _buildActionsCellInner(item, originalIdx);
     const disposedRowClass = isDisposed(item) ? ' class="disposed-row"' : "";
+    // STRK-240: the cu Weight cell filter chip keys on the displayed derived oz (via the shared
+    // getItemFilterWeight helper) so a $10-face item doesn't collide with a 10 oz item; every
+    // other unit keeps its raw item.weight, so the non-cu onclick value is unchanged.
+    const weightFilterValue =
+      item.weightUnit === "cu" && typeof getItemFilterWeight === "function"
+        ? getItemFilterWeight(item)
+        : item.weight;
 
     return `
       <tr data-idx="${originalIdx}"${disposedRowClass}>
@@ -826,7 +833,7 @@
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", item.weight, "var(--text-primary)", formatWeight(item.weight, item.weightUnit, item), item.weightUnit === "cu" ? cuWeightTooltip(item, cuBasis) : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", weightFilterValue, "var(--text-primary)", formatWeight(item.weight, item.weightUnit, item), item.weightUnit === "cu" ? cuWeightTooltip(item, cuBasis) : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
