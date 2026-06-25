@@ -1351,7 +1351,9 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk type→Goldback with a denomination yields a valid gb item and records history", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
+    // Seed a NON-fine (90%) source item so the purity reset is observable: gb melt
+    // multiplies by item.purity, so a leftover 0.9 would under-value the conversion.
+    await seedMoneyData(page, { inventory: [{ ...MONEY_ITEM, purity: 0.9 }] });
     await gotoApp(page);
     await page.waitForFunction(() => typeof window.openBulkEdit === "function");
     await page.evaluate(() => window.openBulkEdit());
@@ -1384,6 +1386,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
         weightUnit: it.weightUnit,
         metal: it.metal,
         weight: Number(it.weight),
+        purity: Number(it.purity),
         historyPoints: (hist[it.uuid] || []).length,
       };
     });
@@ -1391,6 +1394,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(result.weightUnit).toBe("gb");
     expect(result.metal).toBe("Gold");
     expect(result.weight).toBe(5); // denomination NUMBER, the key getGoldbackRetailPrice prices off
+    expect(result.purity).toBe(0.999); // stale 0.9 reset to goldback fineness — no melt under-valuation
     // STRK-244 gate now records the converted valuation (bundle keys are price-relevant).
     expect(result.historyPoints).toBeGreaterThanOrEqual(1);
   });

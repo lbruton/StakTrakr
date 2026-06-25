@@ -103,6 +103,7 @@ describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle",
     assert.equal(valuesToApply.weightUnit, "gb", "weightUnit coerced to gb");
     assert.equal(valuesToApply.metal, "Gold", "metal forced to Gold");
     assert.equal(valuesToApply.weight, "5", "weight = the picked denomination number");
+    assert.equal(valuesToApply.purity, "0.999", "stale source purity reset to goldback fineness");
   });
 
   test("defaults to the 1-Goldback denomination when the picker has no value", () => {
@@ -121,6 +122,7 @@ describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle",
     apply(valuesToApply);
     assert.equal(valuesToApply.weightUnit, "gb");
     assert.equal(valuesToApply.metal, "Gold");
+    assert.equal(valuesToApply.purity, "0.999");
     assert.equal(valuesToApply.weight, "1", "absent picker falls back to the 1-Goldback default");
   });
 });

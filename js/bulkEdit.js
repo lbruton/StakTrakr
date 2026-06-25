@@ -1797,13 +1797,22 @@ const applyBulkConstitutionalBundle = (valuesToApply) => {
  * Silverback weightUnit coercion and the Constitutional bundle are, so only the Type
  * field need be enabled. The picked denomination drives `weight`; default to the
  * 1-Goldback option (matches updateBulkDenomLabels' default) rather than a hardcoded
- * value so a renamed/missing denom can't silently coerce a 0-value goldback.
+ * value so a renamed/missing denom can't silently coerce a 0-value goldback. Purity is
+ * also reset to the standard goldback fineness (0.999) so a converted non-fine item's
+ * stale purity can't under-value the gb melt or pollute its recorded price history.
  * @param {Object<string, string>} valuesToApply - Collected field values (mutated)
  * @returns {void}
  */
 const applyBulkGoldbackBundle = (valuesToApply) => {
   valuesToApply.weightUnit = "gb";
   valuesToApply.metal = "Gold";
+  // STRK-246 (PR #1337 review): reset the source item's purity to the standard
+  // goldback fineness. Unlike cu (whose melt early-returns before ×purity), the gb
+  // melt branch DOES multiply by item.purity, so a 90%/sterling item converted to
+  // Goldback would otherwise keep its stale purity, under-value the melt, and record
+  // that wrong value into item-price-history. Mirrors the single-item Type→Goldback
+  // default (0.999). Coerced to a number by FIELD_COERCIONS.purity on apply.
+  valuesToApply.purity = "0.999";
 
   const denoms = typeof GOLDBACK_DENOMINATIONS !== "undefined" ? GOLDBACK_DENOMINATIONS : [];
   const denomSelectEl = safeGetElement("bulkFieldVal_weightDenom");
