@@ -1741,12 +1741,21 @@ const recordBulkPriceHistory = (valuesToApply = {}) => {
     "constitutionalVariant",
     "constitutionalEntryMode",
   ];
-  // A Type→cu/gb/sb coercion injects its valuation fields into valuesToApply PAST the
+  // A Type→cu/sb coercion injects its valuation fields into valuesToApply PAST the
   // checkbox gate (STRK-238), so bulkEnabledFields can be just {type}. Record when
   // EITHER an enabled checkbox OR an injected applied value is price-relevant.
   const enabledHasPriceField = [...bulkEnabledFields].some((id) => priceFields.includes(id));
   const injectedHasPriceField = Object.keys(valuesToApply).some((key) => priceFields.includes(key));
-  if (!enabledHasPriceField && !injectedHasPriceField) return;
+  // STRK-244 (Codex review): a Type coercion is itself a valuation change, but the bulk
+  // Goldback path injects no price-field key (unlike sb's weightUnit or cu's bundle), so
+  // it slips both checks above. Treat any Type change as recordable — recordItemPrice
+  // recomputes the live valuation and dedups against the last point, so an unchanged
+  // valuation still adds nothing. (The single-edit gate needs no equivalent: its
+  // handleTypeChange sets weightUnit for every deferred conversion, which valuationFieldChanged
+  // already samples.)
+  const isTypeCoercion =
+    bulkEnabledFields.has("type") || Object.prototype.hasOwnProperty.call(valuesToApply, "type");
+  if (!enabledHasPriceField && !injectedHasPriceField && !isTypeCoercion) return;
   inventory.forEach((item) => {
     if (bulkSelection.has(String(item.serial))) recordItemPrice(item, "bulk");
   });
