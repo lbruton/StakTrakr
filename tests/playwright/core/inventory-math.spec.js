@@ -1478,7 +1478,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
       .toBe(1);
   });
 
-  test("STRK-245 — converting a Custom-purity item to Constitutional hides and resets the custom-purity input", async ({
+  test("STRK-245 — converting a Custom-purity item to Constitutional hides the wrapper and saves the reset purity", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
@@ -1495,9 +1495,9 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     await page.selectOption("#itemType", "Constitutional");
     await expect(page.locator("#purityCustomWrapper")).toBeHidden();
 
-    // And the stale custom purity must not persist onto the saved cu item — the
-    // contract resets the select to 0.999 (cu valuation ignores purity, but the stored
-    // value must be the reset preset, not the orphaned 0.875).
+    // And the stale custom purity must not persist onto the saved cu item — the reset
+    // lands at SAVE time (parseItemFormFields coerces cu purity to 0.999), so the saved
+    // cu item carries 0.999, not the orphaned 0.875 (cu valuation ignores purity anyway).
     await page.fill("#item-constitutional-face", "50");
     await submitItemForm(page);
     const saved = await getInventoryItem(page, "Core Oz Coin");
@@ -1527,5 +1527,33 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
       () => document.getElementById("itemPuritySelect")?.value
     );
     expect(purityValue).toBe("0.925");
+  });
+
+  test("STRK-245 — backing out of Constitutional before saving preserves a custom purity (no data loss)", async ({
+    page,
+  }) => {
+    // Codex review guard: the purity reset must land at SAVE time (final type = cu), not
+    // on the transient type-change. Toggling INTO Constitutional and back OUT must not
+    // destroy the custom value, else the user silently loses it on the next save.
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.875");
+
+    // Pass THROUGH Constitutional (hides the wrapper) and back to a normal type.
+    await page.selectOption("#itemType", "Constitutional");
+    await page.selectOption("#itemType", "Coin");
+
+    // The custom input is restored and its value survives the round-trip.
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.875");
+
+    // Saving as a normal Coin keeps the original custom purity (not reset to 0.999).
+    await submitItemForm(page);
+    const saved = await getInventoryItem(page, "Core Oz Coin");
+    expect(saved.weightUnit).toBe("oz");
+    expect(saved.purity).toBeCloseTo(0.875, 4);
   });
 });

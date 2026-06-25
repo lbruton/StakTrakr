@@ -1679,7 +1679,14 @@ const parseItemFormFields = (isEditing, existingItem) => {
     certNumber: elements.itemCertNumber?.value?.trim() ?? "",
     pcgsNumber: elements.itemPcgsNumber?.value?.trim() ?? "",
     marketValue,
-    purity: parsePurity(isEditing, existingItem),
+    // STRK-245: a cu item derives its valuation from the variant, not purity — never
+    // persist a "custom" form value onto it (meaningless, and it would resurface if the
+    // item is later converted back to a normal type). This is where the constitutional
+    // purity reset actually lands, so backing out before saving keeps the original value.
+    purity:
+      cu && elements.itemPuritySelect?.value === "custom"
+        ? 0.999
+        : parsePurity(isEditing, existingItem),
     currency: displayCurrency,
     obverseImageFrame: _pendingObverseFrame,
     reverseImageFrame: _pendingReverseFrame,
@@ -2415,20 +2422,15 @@ const handleTypeChange = () => {
       if (hasSilver) metalSelect.value = "Silver";
     }
     if (metalLockPill) metalLockPill.style.display = "";
-    // STRK-245: constitutional derives purity from the variant (90/40/35) — the
+    // STRK-245: constitutional derives purity from the variant (90/40/35), so the
     // purity control is meaningless here. toggleConstitutionalGroup hides the standard
-    // measure row, but #purityCustomWrapper sits OUTSIDE it. Hide + clear the orphaned
-    // custom input, and reset the select off "custom" ONLY — never clobber a non-custom
-    // preset (a Type→Constitutional→back toggle would otherwise lose it). A pre-existing
-    // custom purity is then neither stuck-visible nor persisted onto the cu item.
-    const cuPuritySelect = safeGetElement("itemPuritySelect");
-    if (cuPuritySelect instanceof HTMLSelectElement && cuPuritySelect.value === "custom") {
-      cuPuritySelect.value = "0.999";
-    }
+    // measure row, but #purityCustomWrapper sits OUTSIDE it — hide the orphaned custom
+    // input. This only manages VISIBILITY: the select/input values are left untouched so
+    // backing out of Constitutional before saving never loses a custom (or preset) purity.
+    // The actual reset lands at save time (parseItemFormFields coerces cu purity), i.e.
+    // only when the FINAL saved type is Constitutional (Codex review).
     const cuPurityWrapper = safeGetElement("purityCustomWrapper");
     if (cuPurityWrapper instanceof HTMLElement) cuPurityWrapper.style.display = "none";
-    const cuPurityInput = safeGetElement("itemPurity");
-    if (cuPurityInput instanceof HTMLInputElement) cuPurityInput.value = "";
     // Default a fresh add to FACE-value mode; editItem restores the stored mode after.
     if (typeof window.constitutionalSetEntryMode === "function") {
       window.constitutionalSetEntryMode("face");
@@ -2454,6 +2456,14 @@ const handleTypeChange = () => {
       unitSelect.value = "oz";
     }
     if (unitGroup) unitGroup.classList.remove("hidden");
+    // STRK-245: re-show the custom-purity input if the user backed out of a deferred
+    // type while purity is still "custom" (the constitutional branch hid it without
+    // mutating it). Mirrors the init.js purity-select listener's show/hide rule.
+    const purityWrapper = safeGetElement("purityCustomWrapper");
+    const puritySelect = safeGetElement("itemPuritySelect");
+    if (purityWrapper instanceof HTMLElement && puritySelect instanceof HTMLSelectElement) {
+      purityWrapper.style.display = puritySelect.value === "custom" ? "" : "none";
+    }
   }
 
   if (typeof toggleGbDenomPicker === "function") {
