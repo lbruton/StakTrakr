@@ -2460,8 +2460,9 @@ const handleTypeChange = () => {
   // the gb/sb branch preserves a "custom" select but never re-showed the wrapper, leaving
   // it stuck hidden while parsePurity() silently persisted the stale input value. Recompute
   // once here — visible only when purity is still "custom" AND the type is not
-  // Constitutional (constitutional derives purity from its variant). This mirrors the
-  // init.js purity-select listener's rule and stops the omission from recurring per-branch.
+  // Constitutional (constitutional derives purity from its variant). This EXTENDS the
+  // init.js purity-select listener's rule (which keys on the select value alone) with the
+  // Constitutional override, and stops the omission from recurring per-branch.
   // VISIBILITY only: select/input values are left untouched so a round-trip never loses a
   // custom purity; the cu reset lands at save time (parseItemFormFields).
   const purityWrapper = safeGetElement("purityCustomWrapper");
