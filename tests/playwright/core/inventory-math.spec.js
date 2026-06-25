@@ -1638,3 +1638,64 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     expect(saved.purity).toBeCloseTo(0.875, 4);
   });
 });
+
+test.describe("core/inventory-math — STRK-247 purity-wrapper visibility centralization", () => {
+  test("custom purity → Constitutional → Goldback re-shows the custom-purity wrapper", async ({
+    page,
+  }) => {
+    // STRK-247 (Codex, PR #1336 follow-up): the gb/sb branch of handleTypeChange
+    // preserves a "custom" purity select but historically never re-showed
+    // #purityCustomWrapper. Threading custom → Constitutional (hides it) → Goldback
+    // left the wrapper stuck hidden while the select stayed "custom", silently
+    // persisting a stale value the user could neither see nor correct. Only the
+    // non-special else branch (STRK-245) restored visibility — same per-branch
+    // omission class as STRK-245 itself. The centralized recompute fixes all branches.
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    // Put the modal in a visible custom-purity state.
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.875");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+
+    // Pass THROUGH Constitutional — the orphaned custom input hides (it lives outside
+    // #standardMeasureRow, so toggleConstitutionalGroup alone would not hide it).
+    await page.selectOption("#itemType", "Constitutional");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+
+    // …then jump straight to Goldback. Centralized visibility re-shows the wrapper
+    // because the select is still "custom" and the type is not Constitutional, so the
+    // persisted purity is once again an honest, visible, editable value.
+    await page.selectOption("#itemType", "Goldback");
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("custom");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.875");
+  });
+
+  test("custom purity → Constitutional → Silverback re-shows the wrapper and saves the visible purity", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.85");
+
+    // custom → Constitutional (hides wrapper) → Silverback (gb/sb branch).
+    await page.selectOption("#itemType", "Constitutional");
+    await page.selectOption("#itemType", "Silverback");
+
+    // The wrapper is honest again: visible, tracking the still-"custom" select. What
+    // the user sees is exactly what persists — no hidden purity silently feeding the
+    // sb melt valuation (computeMeltValue applies ×purity for non-cu items).
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.85");
+
+    await submitItemForm(page);
+    const saved = await getInventoryItem(page, "Core Oz Coin");
+    expect(saved.weightUnit).toBe("sb");
+    expect(saved.purity).toBeCloseTo(0.85, 4);
+  });
+});
