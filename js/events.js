@@ -2422,15 +2422,12 @@ const handleTypeChange = () => {
       if (hasSilver) metalSelect.value = "Silver";
     }
     if (metalLockPill) metalLockPill.style.display = "";
-    // STRK-245: constitutional derives purity from the variant (90/40/35), so the
-    // purity control is meaningless here. toggleConstitutionalGroup hides the standard
-    // measure row, but #purityCustomWrapper sits OUTSIDE it — hide the orphaned custom
-    // input. This only manages VISIBILITY: the select/input values are left untouched so
-    // backing out of Constitutional before saving never loses a custom (or preset) purity.
-    // The actual reset lands at save time (parseItemFormFields coerces cu purity), i.e.
-    // only when the FINAL saved type is Constitutional (Codex review).
-    const cuPurityWrapper = safeGetElement("purityCustomWrapper");
-    if (cuPurityWrapper instanceof HTMLElement) cuPurityWrapper.style.display = "none";
+    // STRK-247: #purityCustomWrapper visibility is recomputed once after the branch
+    // dispatch (below) for ALL types — constitutional hides it there since purity is
+    // derived from the variant (90/40/35). The select/input values are left untouched so
+    // backing out of Constitutional before saving never loses a custom (or preset) purity;
+    // the actual cu purity reset lands at save time (parseItemFormFields), only when the
+    // FINAL saved type is Constitutional (STRK-245, Codex review).
     // Default a fresh add to FACE-value mode; editItem restores the stored mode after.
     if (typeof window.constitutionalSetEntryMode === "function") {
       window.constitutionalSetEntryMode("face");
@@ -2456,14 +2453,23 @@ const handleTypeChange = () => {
       unitSelect.value = "oz";
     }
     if (unitGroup) unitGroup.classList.remove("hidden");
-    // STRK-245: re-show the custom-purity input if the user backed out of a deferred
-    // type while purity is still "custom" (the constitutional branch hid it without
-    // mutating it). Mirrors the init.js purity-select listener's show/hide rule.
-    const purityWrapper = safeGetElement("purityCustomWrapper");
-    const puritySelect = safeGetElement("itemPuritySelect");
-    if (purityWrapper instanceof HTMLElement && puritySelect instanceof HTMLSelectElement) {
-      purityWrapper.style.display = puritySelect.value === "custom" ? "" : "none";
-    }
+  }
+
+  // STRK-247: centralize #purityCustomWrapper visibility across ALL type branches.
+  // The per-branch restores (STRK-245) missed the custom → Constitutional → gb/sb path:
+  // the gb/sb branch preserves a "custom" select but never re-showed the wrapper, leaving
+  // it stuck hidden while parsePurity() silently persisted the stale input value. Recompute
+  // once here — visible only when purity is still "custom" AND the type is not
+  // Constitutional (constitutional derives purity from its variant). This EXTENDS the
+  // init.js purity-select listener's rule (which keys on the select value alone) with the
+  // Constitutional override, and stops the omission from recurring per-branch.
+  // VISIBILITY only: select/input values are left untouched so a round-trip never loses a
+  // custom purity; the cu reset lands at save time (parseItemFormFields).
+  const purityWrapper = safeGetElement("purityCustomWrapper");
+  const puritySelect = safeGetElement("itemPuritySelect");
+  if (purityWrapper instanceof HTMLElement && puritySelect instanceof HTMLSelectElement) {
+    purityWrapper.style.display =
+      puritySelect.value === "custom" && !isConstitutionalType ? "" : "none";
   }
 
   if (typeof toggleGbDenomPicker === "function") {

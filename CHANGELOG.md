@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.59] - 2026-06-25
+
+### Fixed — STRK-247: Centralized custom-purity wrapper visibility
+
+- **Custom purity is no longer silently persisted by a hidden field on a Goldback/Silverback conversion**: Setting a Custom purity, then changing Type to Constitutional (which hides the custom-purity field) and then directly to Goldback or Silverback before saving, used to leave the custom-purity input stuck hidden while still holding — and saving — its stale value. `handleTypeChange` now recomputes the field's visibility once for every Type (shown only when purity is "custom" and the Type is not Constitutional), so the wrapper re-appears and the persisted purity is always a value you can see and correct. This centralizes the per-branch fix STRK-245 added only to the non-special types, removing the recurring source of this class of bug (STRK-247).
+
+---
+
 ## [3.35.58] - 2026-06-24
 
 ### Fixed — STRK-246: Bulk Type→Goldback metadata bundle
