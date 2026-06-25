@@ -1395,6 +1395,44 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(result.historyPoints).toBeGreaterThanOrEqual(1);
   });
 
+  // STRK-246 — the Goldback bundle must also fire on a manual Weight-Unit→gb change
+  // (the second branch of isGoldbackApply), not only Type→Goldback — mirroring the
+  // STRK-238 constitutional manual-unit path. metal="Gold" must be injected even
+  // though the Type and Metal fields are never touched.
+  test("bulk manual weight-unit→gb injects the goldback bundle without a Type change", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
+    await gotoApp(page);
+    await page.waitForFunction(() => typeof window.openBulkEdit === "function");
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+    await page.click(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
+    );
+
+    // Enable Weight Unit + Weight, pick gb directly (no Type change). The denomination
+    // picker reveals; metal="Gold" and the picked denomination as weight are injected
+    // by applyBulkGoldbackBundle via the isGoldbackApply weightUnit branch.
+    await page.click("#bulkField_weightUnit");
+    await page.click("#bulkField_weight");
+    await page.selectOption("#bulkFieldVal_weightUnit", "gb");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_weightDenom", "10");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      return { weightUnit: it.weightUnit, metal: it.metal, weight: Number(it.weight) };
+    });
+    expect(result.weightUnit).toBe("gb");
+    expect(result.metal).toBe("Gold"); // injected by the bundle — Metal field untouched
+    expect(result.weight).toBe(10);
+  });
+
   test("existing manually-entered 90% Silver coins are unaffected", async ({ page }) => {
     const legacyCoin = {
       ...MONEY_ITEM,

@@ -13,7 +13,7 @@
 //
 // applyBulkGoldbackBundle is sliced out of source and evaluated with stubbed deps —
 // the project's slice-and-eval idiom for no-export script-global modules (mirrors
-// strk-244-valuation-history-gate.test.js). The sliced `fnSrc` is read from the
+// strk-244-valuation-history-gate.test.js). The sliced source is read from the
 // repo's own js/ files, never external input.
 
 import { test, describe } from "node:test";
@@ -21,9 +21,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const bulkSrc = readFileSync(new URL("../../js/bulkEdit.js", import.meta.url), "utf-8");
+const constantsSrc = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
 
-// Slice an arrow-const function body bounded by the first column-0 "\n}" after its
-// declaration head (every nested brace is indented, so "\n}" bounds it precisely).
+/**
+ * Slice an arrow-const function body bounded by the first column-0 "\n}" after its
+ * declaration head (every nested brace is indented, so "\n}" bounds it precisely).
+ * @param {string} src - Source file contents to slice from
+ * @param {string} declHead - The `const NAME = (` declaration head to locate
+ * @returns {string} The sliced function source, including the closing `};`
+ */
 function sliceArrowConst(src, declHead) {
   const start = src.indexOf(declHead);
   assert.ok(start !== -1, `could not locate "${declHead}" in source`);
@@ -32,26 +38,50 @@ function sliceArrowConst(src, declHead) {
   return src.slice(start, end);
 }
 
-// Goldback denominations as defined in js/constants.js — `weight` is the
-// denomination NUMBER, not an oz weight. updateBulkDenomLabels defaults the bulk
-// picker to the weight===1 ("1 Goldback") option.
-const GOLDBACK_DENOMINATIONS = [
-  { weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 },
-  { weight: 0.5, label: "½ Goldback", goldOz: 0.0005 },
-  { weight: 1, label: "1 Goldback", goldOz: 0.001 },
-  { weight: 5, label: "5 Goldback", goldOz: 0.005 },
-  { weight: 50, label: "50 Goldback", goldOz: 0.05 },
-];
+/**
+ * Slice a top-level `const NAME = [ … ];` array literal out of source, bounded by
+ * the first column-0 "\n];" after the declaration head. Lets the test consume the
+ * real production array instead of a hand-copied duplicate that can drift out of
+ * sync (Codacy MEDIUM, PR #1337).
+ * @param {string} src - Source file contents to slice from
+ * @param {string} declHead - The `const NAME = [` declaration head to locate
+ * @returns {string} The sliced array-literal source, including the closing `];`
+ */
+function sliceConstArray(src, declHead) {
+  const start = src.indexOf(declHead);
+  assert.ok(start !== -1, `could not locate "${declHead}" in source`);
+  const end = src.indexOf("\n];", start) + 3;
+  assert.ok(end > start + 2, `could not locate the end of "${declHead}"`);
+  return src.slice(start, end);
+}
 
-// Minimal stand-in for the DOM <select> so the function's `instanceof
-// HTMLSelectElement` guard (safeGetElement returns a truthy dummy on a miss — see
-// the safeGetElement-truthy-dummy convention) resolves the same way it does live.
+// Pull the REAL GOLDBACK_DENOMINATIONS out of js/constants.js (a pure literal of
+// primitives) rather than duplicating it — keeps the test locked to the production
+// denomination set and weights, and the `weight===1` default the picker relies on.
+const GOLDBACK_DENOMINATIONS = new Function(
+  sliceConstArray(constantsSrc, "const GOLDBACK_DENOMINATIONS = [") +
+    "\nreturn GOLDBACK_DENOMINATIONS;"
+)();
+
+/**
+ * Minimal stand-in for the DOM `<select>` so the function's `instanceof
+ * HTMLSelectElement` guard (safeGetElement returns a truthy dummy on a miss — see
+ * the safeGetElement-truthy-dummy convention) resolves the same way it does live.
+ */
 class FakeSelect {
+  /** @param {string} value - The select's current `.value` */
   constructor(value) {
     this.value = value;
   }
 }
 
+/**
+ * Slice applyBulkGoldbackBundle out of source and bind its globals to test stubs.
+ * @param {FakeSelect|undefined} denomSelect - The fake denom picker safeGetElement
+ *   returns; pass `undefined` to make safeGetElement return a non-select dummy and
+ *   exercise the instanceof guard's fallback path.
+ * @returns {(valuesToApply: Object<string, string>) => void} The bound function
+ */
 function buildApplyBulkGoldbackBundle(denomSelect) {
   const fnSrc = sliceArrowConst(bulkSrc, "const applyBulkGoldbackBundle = (");
   const factory = new Function(
@@ -60,8 +90,6 @@ function buildApplyBulkGoldbackBundle(denomSelect) {
     "HTMLSelectElement",
     fnSrc + "\nreturn applyBulkGoldbackBundle;"
   );
-  // safeGetElement returns the provided fake denom select (or a non-select dummy
-  // when null is passed, to exercise the instanceof guard's fallback path).
   const safeGetElement = () =>
     denomSelect === undefined ? { value: "ignored-dummy" } : denomSelect;
   return factory(safeGetElement, GOLDBACK_DENOMINATIONS, FakeSelect);
@@ -102,6 +130,12 @@ describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle",
 // only {type} checked). Guards against weight/weightUnit/metal being dropped from
 // recordBulkPriceHistory's priceFields, which would re-stale the value chart.
 describe("STRK-246 — the injected gb bundle re-arms the STRK-244 recording gate", () => {
+  /**
+   * Slice recordBulkPriceHistory out of source and bind its globals to test stubs.
+   * @param {Object} env - Stubs: recordItemPrice, bulkEnabledFields, inventory,
+   *   bulkSelection, saveItemPriceHistory
+   * @returns {(valuesToApply: Object<string, string>) => void} The bound function
+   */
   function buildRecordBulkPriceHistory(env) {
     const fnSrc = sliceArrowConst(bulkSrc, "const recordBulkPriceHistory = (");
     const factory = new Function(
