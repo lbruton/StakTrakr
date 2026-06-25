@@ -1343,6 +1343,58 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(result.oz).toBeCloseTo(result.expected, 6);
   });
 
+  // STRK-246 — bulk type→Goldback must stage the full goldback metadata bundle
+  // (weightUnit="gb" + metal="Gold" + the picked denomination as `weight`) past the
+  // checkbox gate, mirroring STRK-238's constitutional bundle. Without it the item
+  // keeps weightUnit="oz" and is a malformed goldback valued as plain oz, and the
+  // STRK-244 recording gate captures nothing — leaving the value chart stale.
+  test("bulk type→Goldback with a denomination yields a valid gb item and records history", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
+    await gotoApp(page);
+    await page.waitForFunction(() => typeof window.openBulkEdit === "function");
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+    await page.click(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
+    );
+
+    // Goldback is a Gold-only type — set Metal→Gold first to un-hide it (the bulk
+    // type<-metal filter, see strk-117). Enable Weight so the denomination picker is
+    // interactive, but deliberately leave weightUnit UNCHECKED: the resulting
+    // weightUnit="gb" can then only come from applyBulkGoldbackBundle's past-the-gate
+    // injection, which is exactly the STRK-246 fix under test.
+    await page.click("#bulkField_metal");
+    await page.selectOption("#bulkFieldVal_metal", "Gold");
+    await page.click("#bulkField_type");
+    await page.click("#bulkField_weight");
+    await page.selectOption("#bulkFieldVal_type", "Goldback");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_weightDenom", "5");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      const hist = JSON.parse(localStorage.getItem("item-price-history") || "{}");
+      return {
+        weightUnit: it.weightUnit,
+        metal: it.metal,
+        weight: Number(it.weight),
+        historyPoints: (hist[it.uuid] || []).length,
+      };
+    });
+    // The conversion actually takes effect (not a malformed oz-valued goldback).
+    expect(result.weightUnit).toBe("gb");
+    expect(result.metal).toBe("Gold");
+    expect(result.weight).toBe(5); // denomination NUMBER, the key getGoldbackRetailPrice prices off
+    // STRK-244 gate now records the converted valuation (bundle keys are price-relevant).
+    expect(result.historyPoints).toBeGreaterThanOrEqual(1);
+  });
+
   test("existing manually-entered 90% Silver coins are unaffected", async ({ page }) => {
     const legacyCoin = {
       ...MONEY_ITEM,
