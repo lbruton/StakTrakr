@@ -19,41 +19,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { sliceArrowConst, sliceConstArray } from "./test-helpers.js";
 
 const bulkSrc = readFileSync(new URL("../../js/bulkEdit.js", import.meta.url), "utf-8");
 const constantsSrc = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
-
-/**
- * Slice an arrow-const function body bounded by the first column-0 "\n}" after its
- * declaration head (every nested brace is indented, so "\n}" bounds it precisely).
- * @param {string} src - Source file contents to slice from
- * @param {string} declHead - The `const NAME = (` declaration head to locate
- * @returns {string} The sliced function source, including the closing `};`
- */
-function sliceArrowConst(src, declHead) {
-  const start = src.indexOf(declHead);
-  assert.ok(start !== -1, `could not locate "${declHead}" in source`);
-  const end = src.indexOf("\n}", start) + 2;
-  assert.ok(end > start + 1, `could not locate the end of "${declHead}"`);
-  return src.slice(start, end);
-}
-
-/**
- * Slice a top-level `const NAME = [ … ];` array literal out of source, bounded by
- * the first column-0 "\n];" after the declaration head. Lets the test consume the
- * real production array instead of a hand-copied duplicate that can drift out of
- * sync (Codacy MEDIUM, PR #1337).
- * @param {string} src - Source file contents to slice from
- * @param {string} declHead - The `const NAME = [` declaration head to locate
- * @returns {string} The sliced array-literal source, including the closing `];`
- */
-function sliceConstArray(src, declHead) {
-  const start = src.indexOf(declHead);
-  assert.ok(start !== -1, `could not locate "${declHead}" in source`);
-  const end = src.indexOf("\n];", start) + 3;
-  assert.ok(end > start + 2, `could not locate the end of "${declHead}"`);
-  return src.slice(start, end);
-}
 
 // Pull the REAL GOLDBACK_DENOMINATIONS out of js/constants.js (a pure literal of
 // primitives) rather than duplicating it — keeps the test locked to the production

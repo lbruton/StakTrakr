@@ -601,9 +601,10 @@ async function openConstitutionalSettings(page, section) {
   }, section);
 }
 
-// STRK-238: shared setup for the bulk constitutional-conversion tests — seed the
-// inventory, boot the app, open the bulk-edit modal, and select the seeded item.
-async function openBulkEditForConstitutional(page, inventory) {
+// Shared setup for the bulk-conversion tests (STRK-238 constitutional, STRK-246
+// goldback) — seed the inventory, boot the app, open the bulk-edit modal, and select
+// the first seeded row.
+async function seedAndOpenBulkEdit(page, inventory) {
   await seedMoneyData(page, { inventory });
   await gotoApp(page);
   await page.waitForFunction(() => typeof window.openBulkEdit === "function");
@@ -1271,7 +1272,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk type→Constitutional with a denomination yields valid, non-zero-oz items", async ({
     page,
   }) => {
-    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable only the Type field, choose Constitutional, then pick a denomination
     // from the new sub-control. weightUnit/metal/entryMode/variant are coupled.
@@ -1310,7 +1311,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk manual weight-unit→cu reveals the denomination picker and applies valid metadata", async ({
     page,
   }) => {
-    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable the Weight Unit field and pick cu directly — no Type change.
     await page.click("#bulkField_weightUnit");
@@ -1353,14 +1354,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   }) => {
     // Seed a NON-fine (90%) source item so the purity reset is observable: gb melt
     // multiplies by item.purity, so a leftover 0.9 would under-value the conversion.
-    await seedMoneyData(page, { inventory: [{ ...MONEY_ITEM, purity: 0.9 }] });
-    await gotoApp(page);
-    await page.waitForFunction(() => typeof window.openBulkEdit === "function");
-    await page.evaluate(() => window.openBulkEdit());
-    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
-    await page.click(
-      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
-    );
+    await seedAndOpenBulkEdit(page, [{ ...MONEY_ITEM, purity: 0.9 }]);
 
     // Goldback is a Gold-only type — set Metal→Gold first to un-hide it (the bulk
     // type<-metal filter, see strk-117). Enable Weight so the denomination picker is
@@ -1406,14 +1400,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk manual weight-unit→gb injects the goldback bundle without a Type change", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
-    await gotoApp(page);
-    await page.waitForFunction(() => typeof window.openBulkEdit === "function");
-    await page.evaluate(() => window.openBulkEdit());
-    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
-    await page.click(
-      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] input[type="checkbox"]'
-    );
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable Weight Unit + Weight, pick gb directly (no Type change). The denomination
     // picker reveals; metal="Gold" and the picked denomination as weight are injected
