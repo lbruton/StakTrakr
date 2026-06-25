@@ -1495,12 +1495,37 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     await page.selectOption("#itemType", "Constitutional");
     await expect(page.locator("#purityCustomWrapper")).toBeHidden();
 
-    // And the stale custom purity must not persist onto the saved cu item.
+    // And the stale custom purity must not persist onto the saved cu item — the
+    // contract resets the select to 0.999 (cu valuation ignores purity, but the stored
+    // value must be the reset preset, not the orphaned 0.875).
     await page.fill("#item-constitutional-face", "50");
     await submitItemForm(page);
     const saved = await getInventoryItem(page, "Core Oz Coin");
     expect(saved).toBeTruthy();
     expect(saved.weightUnit).toBe("cu");
-    expect(saved.purity).not.toBeCloseTo(0.875, 4);
+    expect(saved.purity).toBeCloseTo(0.999, 4);
+  });
+
+  test("STRK-245 — converting an item with a NON-custom preset purity to Constitutional preserves the preset", async ({
+    page,
+  }) => {
+    // Copilot review guard: the purity reset must fire ONLY for "custom". Forcing a
+    // non-custom preset (e.g. .925 Sterling) to 0.999 would silently corrupt purity
+    // if the user toggled Type to Constitutional and back to a normal type.
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    await page.selectOption("#itemPuritySelect", "0.925");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+
+    await page.selectOption("#itemType", "Constitutional");
+    // The preset must survive untouched (not clobbered to 0.999); the wrapper stays
+    // hidden since this was never the custom case.
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+    const purityValue = await page.evaluate(
+      () => document.getElementById("itemPuritySelect")?.value
+    );
+    expect(purityValue).toBe("0.925");
   });
 });

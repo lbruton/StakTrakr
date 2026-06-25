@@ -2417,15 +2417,18 @@ const handleTypeChange = () => {
     if (metalLockPill) metalLockPill.style.display = "";
     // STRK-245: constitutional derives purity from the variant (90/40/35) — the
     // purity control is meaningless here. toggleConstitutionalGroup hides the standard
-    // measure row, but #purityCustomWrapper sits OUTSIDE it; reset the select off
-    // "custom" and hide+clear the orphaned custom input so a pre-existing custom
-    // purity is neither stuck-visible nor persisted onto the cu item via parsePurity().
-    const cuPuritySelect = document.getElementById("itemPuritySelect");
-    if (cuPuritySelect) cuPuritySelect.value = "0.999";
-    const cuPurityWrapper = document.getElementById("purityCustomWrapper");
-    if (cuPurityWrapper) cuPurityWrapper.style.display = "none";
-    const cuPurityInput = document.getElementById("itemPurity");
-    if (cuPurityInput) cuPurityInput.value = "";
+    // measure row, but #purityCustomWrapper sits OUTSIDE it. Hide + clear the orphaned
+    // custom input, and reset the select off "custom" ONLY — never clobber a non-custom
+    // preset (a Type→Constitutional→back toggle would otherwise lose it). A pre-existing
+    // custom purity is then neither stuck-visible nor persisted onto the cu item.
+    const cuPuritySelect = safeGetElement("itemPuritySelect");
+    if (cuPuritySelect instanceof HTMLSelectElement && cuPuritySelect.value === "custom") {
+      cuPuritySelect.value = "0.999";
+    }
+    const cuPurityWrapper = safeGetElement("purityCustomWrapper");
+    if (cuPurityWrapper instanceof HTMLElement) cuPurityWrapper.style.display = "none";
+    const cuPurityInput = safeGetElement("itemPurity");
+    if (cuPurityInput instanceof HTMLInputElement) cuPurityInput.value = "";
     // Default a fresh add to FACE-value mode; editItem restores the stored mode after.
     if (typeof window.constitutionalSetEntryMode === "function") {
       window.constitutionalSetEntryMode("face");

@@ -165,7 +165,7 @@ describe("STRK-244 — bulk guard records on Type-coercion-injected valuation fi
   test("Type→Constitutional with only 'type' enabled records via injected valuesToApply", () => {
     // bulkEnabledFields stays {type}, but applyBulkConstitutionalBundle injects the
     // valuation fields into valuesToApply past the checkbox gate — recording must fire.
-    const { env, recorded } = makeEnv({ enabled: ["type"], inventory: inv });
+    const { env, recorded, getSaved } = makeEnv({ enabled: ["type"], inventory: inv });
     const recordBulkPriceHistory = buildRecordBulkPriceHistory(env);
     recordBulkPriceHistory({
       type: "Constitutional",
@@ -180,19 +180,22 @@ describe("STRK-244 — bulk guard records on Type-coercion-injected valuation fi
       recorded.every((r) => r.trigger === "bulk"),
       "recorded with the 'bulk' trigger"
     );
+    assert.equal(getSaved(), 1, "the price-history change is persisted once");
   });
 
   test("a non-price bulk edit (notes only) records nothing", () => {
-    const { env, recorded } = makeEnv({ enabled: ["notes"], inventory: inv });
+    const { env, recorded, getSaved } = makeEnv({ enabled: ["notes"], inventory: inv });
     const recordBulkPriceHistory = buildRecordBulkPriceHistory(env);
     recordBulkPriceHistory({ notes: "hello" });
     assert.equal(recorded.length, 0);
+    assert.equal(getSaved(), 0, "no persistence when nothing is recorded");
   });
 
   test("a legacy price-field checkbox still records (non-regression)", () => {
-    const { env, recorded } = makeEnv({ enabled: ["marketValue"], inventory: inv });
+    const { env, recorded, getSaved } = makeEnv({ enabled: ["marketValue"], inventory: inv });
     const recordBulkPriceHistory = buildRecordBulkPriceHistory(env);
     recordBulkPriceHistory({ marketValue: "100" });
     assert.equal(recorded.length, 2);
+    assert.equal(getSaved(), 1);
   });
 });
