@@ -19,19 +19,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { sliceArrowConst } from "./test-helpers.js";
 
 const eventsSrc = readFileSync(new URL("../../js/events.js", import.meta.url), "utf-8");
 const bulkSrc = readFileSync(new URL("../../js/bulkEdit.js", import.meta.url), "utf-8");
-
-// Slice an arrow-const function body bounded by the first column-0 "\n}" after its
-// declaration head (every nested brace is indented, so "\n}" bounds it precisely).
-function sliceArrowConst(src, declHead) {
-  const start = src.indexOf(declHead);
-  assert.ok(start !== -1, `could not locate "${declHead}" in source`);
-  const end = src.indexOf("\n}", start) + 2;
-  assert.ok(end > start + 1, `could not locate the end of "${declHead}"`);
-  return src.slice(start, end);
-}
 
 function buildValuationFieldChanged() {
   const fnSrc = sliceArrowConst(eventsSrc, "const valuationFieldChanged = (oldItem, newItem) => {");

@@ -601,9 +601,10 @@ async function openConstitutionalSettings(page, section) {
   }, section);
 }
 
-// STRK-238: shared setup for the bulk constitutional-conversion tests — seed the
-// inventory, boot the app, open the bulk-edit modal, and select the seeded item.
-async function openBulkEditForConstitutional(page, inventory) {
+// Shared setup for the bulk-conversion tests (STRK-238 constitutional, STRK-246
+// goldback) — seed the inventory, boot the app, open the bulk-edit modal, and select
+// the first seeded row.
+async function seedAndOpenBulkEdit(page, inventory) {
   await seedMoneyData(page, { inventory });
   await gotoApp(page);
   await page.waitForFunction(() => typeof window.openBulkEdit === "function");
@@ -1271,7 +1272,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk type→Constitutional with a denomination yields valid, non-zero-oz items", async ({
     page,
   }) => {
-    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable only the Type field, choose Constitutional, then pick a denomination
     // from the new sub-control. weightUnit/metal/entryMode/variant are coupled.
@@ -1310,7 +1311,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk manual weight-unit→cu reveals the denomination picker and applies valid metadata", async ({
     page,
   }) => {
-    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable the Weight Unit field and pick cu directly — no Type change.
     await page.click("#bulkField_weightUnit");
@@ -1341,6 +1342,86 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(result.qty).toBe(4);
     expect(result.oz).toBeGreaterThan(0);
     expect(result.oz).toBeCloseTo(result.expected, 6);
+  });
+
+  // STRK-246 — bulk type→Goldback must stage the full goldback metadata bundle
+  // (weightUnit="gb" + metal="Gold" + the picked denomination as `weight`) past the
+  // checkbox gate, mirroring STRK-238's constitutional bundle. Without it the item
+  // keeps weightUnit="oz" and is a malformed goldback valued as plain oz, and the
+  // STRK-244 recording gate captures nothing — leaving the value chart stale.
+  test("bulk type→Goldback with a denomination yields a valid gb item and records history", async ({
+    page,
+  }) => {
+    // Seed a NON-fine (90%) source item so the purity reset is observable: gb melt
+    // multiplies by item.purity, so a leftover 0.9 would under-value the conversion.
+    await seedAndOpenBulkEdit(page, [{ ...MONEY_ITEM, purity: 0.9 }]);
+
+    // Goldback is a Gold-only type — set Metal→Gold first to un-hide it (the bulk
+    // type<-metal filter, see strk-117). Enable Weight so the denomination picker is
+    // interactive, but deliberately leave weightUnit UNCHECKED: the resulting
+    // weightUnit="gb" can then only come from applyBulkGoldbackBundle's past-the-gate
+    // injection, which is exactly the STRK-246 fix under test.
+    await page.click("#bulkField_metal");
+    await page.selectOption("#bulkFieldVal_metal", "Gold");
+    await page.click("#bulkField_type");
+    await page.click("#bulkField_weight");
+    await page.selectOption("#bulkFieldVal_type", "Goldback");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_weightDenom", "5");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      const hist = JSON.parse(localStorage.getItem("item-price-history") || "{}");
+      return {
+        weightUnit: it.weightUnit,
+        metal: it.metal,
+        weight: Number(it.weight),
+        purity: Number(it.purity),
+        historyPoints: (hist[it.uuid] || []).length,
+      };
+    });
+    // The conversion actually takes effect (not a malformed oz-valued goldback).
+    expect(result.weightUnit).toBe("gb");
+    expect(result.metal).toBe("Gold");
+    expect(result.weight).toBe(5); // denomination NUMBER, the key getGoldbackRetailPrice prices off
+    expect(result.purity).toBe(0.999); // stale 0.9 reset to goldback fineness — no melt under-valuation
+    // STRK-244 gate now records the converted valuation (bundle keys are price-relevant).
+    expect(result.historyPoints).toBeGreaterThanOrEqual(1);
+  });
+
+  // STRK-246 — the Goldback bundle must also fire on a manual Weight-Unit→gb change
+  // (the second branch of isGoldbackApply), not only Type→Goldback — mirroring the
+  // STRK-238 constitutional manual-unit path. metal="Gold" must be injected even
+  // though the Type and Metal fields are never touched.
+  test("bulk manual weight-unit→gb injects the goldback bundle without a Type change", async ({
+    page,
+  }) => {
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
+
+    // Enable Weight Unit + Weight, pick gb directly (no Type change). The denomination
+    // picker reveals; metal="Gold" and the picked denomination as weight are injected
+    // by applyBulkGoldbackBundle via the isGoldbackApply weightUnit branch.
+    await page.click("#bulkField_weightUnit");
+    await page.click("#bulkField_weight");
+    await page.selectOption("#bulkFieldVal_weightUnit", "gb");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_weightDenom", "10");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      return { weightUnit: it.weightUnit, metal: it.metal, weight: Number(it.weight) };
+    });
+    expect(result.weightUnit).toBe("gb");
+    expect(result.metal).toBe("Gold"); // injected by the bundle — Metal field untouched
+    expect(result.weight).toBe(10);
   });
 
   test("existing manually-entered 90% Silver coins are unaffected", async ({ page }) => {
