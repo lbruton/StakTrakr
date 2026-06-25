@@ -1409,3 +1409,98 @@ test.describe("core/inventory-math — STRK-243 constitutional pre-ship fix", ()
     await expect(page.locator("#item-constitutional-group")).toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------
+// STRK-244 / STRK-245 — constitutional valuation-change price-history recording
+// and the Type→Constitutional custom-purity reset (surfaced by the v3.35.56
+// dev→main ship review; same systemic root as STRK-241 — a valuation field not
+// registered at a value-change-detection site).
+// ---------------------------------------------------------------------------
+const CU_HALVES_90 = {
+  ...MONEY_ITEM,
+  uuid: "core-cu-halves-90",
+  name: "Core 90% Half Dollars",
+  type: "Constitutional",
+  metal: "Silver",
+  composition: "Silver",
+  weightUnit: "cu",
+  constitutionalEntryMode: "denom",
+  constitutionalVariant: "con-90-half",
+  weight: 0.5,
+  qty: 20,
+  purity: 0.9,
+  price: 0,
+  serial: 60,
+};
+
+const OZ_COIN_FOR_CONVERT = {
+  ...MONEY_ITEM,
+  uuid: "core-oz-coin-convert",
+  name: "Core Oz Coin",
+  type: "Coin",
+  metal: "Silver",
+  composition: "Silver",
+  weightUnit: "oz",
+  weight: 1,
+  qty: 1,
+  purity: 0.999,
+  price: 100,
+  serial: 61,
+};
+
+test.describe("core/inventory-math — STRK-244/245 constitutional valuation history + purity reset", () => {
+  test("STRK-244 — a denomination-only edit (con-90-half → con-40-half) records a price-history point", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [CU_HALVES_90] });
+    await gotoApp(page);
+
+    // Start from an empty per-item history so the recording is unconditional (no
+    // prior entry to dedup against) — isolates the edit gate from spot/melt timing.
+    await page.evaluate(() => {
+      localStorage.setItem("item-price-history", JSON.stringify({}));
+      if (window.loadItemPriceHistory) window.loadItemPriceHistory();
+    });
+
+    await openEditModal(page, 0);
+    // Both variants share facePerCoin 0.5, so the stored `weight` is unchanged —
+    // only constitutionalVariant (90%→40%) moves, which the legacy gate missed.
+    await page.selectOption("#item-constitutional-variant", "con-40-half");
+    await submitItemForm(page);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const h = JSON.parse(localStorage.getItem("item-price-history") || "{}");
+          return (h["core-cu-halves-90"] || []).length;
+        })
+      )
+      .toBe(1);
+  });
+
+  test("STRK-245 — converting a Custom-purity item to Constitutional hides and resets the custom-purity input", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    // Put the modal in the buggy state: a visible custom-purity input.
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.875");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+
+    // Convert to Constitutional — the orphaned custom input must hide. It lives
+    // outside #standardMeasureRow, so toggleConstitutionalGroup alone won't hide it.
+    await page.selectOption("#itemType", "Constitutional");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+
+    // And the stale custom purity must not persist onto the saved cu item.
+    await page.fill("#item-constitutional-face", "50");
+    await submitItemForm(page);
+    const saved = await getInventoryItem(page, "Core Oz Coin");
+    expect(saved).toBeTruthy();
+    expect(saved.weightUnit).toBe("cu");
+    expect(saved.purity).not.toBeCloseTo(0.875, 4);
+  });
+});

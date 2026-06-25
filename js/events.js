@@ -1839,6 +1839,35 @@ const buildItemFields = (f) => {
 };
 
 /**
+ * STRK-244: True if any price/valuation-relevant field differs between two item
+ * snapshots — the gate for recording a single-edit price-history point. Beyond the
+ * legacy marketValue/price/weight/qty/metal/purity set it samples `weightUnit` and
+ * the constitutional metadata (constitutionalVariant/constitutionalEntryMode): a
+ * junk-silver denomination swap (e.g. con-90-half→con-40-half — identical facePerCoin,
+ * so `weight` is unchanged) or a Type→cu/gb/sb coercion changes the derived melt
+ * without touching any legacy field, and would otherwise leave the value chart stale.
+ * Keep this set in sync with recordBulkPriceHistory's priceFields (js/bulkEdit.js) —
+ * both are STRK-244 valuation-change detection sites.
+ * @param {Object} oldItem - Pre-edit item snapshot.
+ * @param {Object} newItem - Post-edit item.
+ * @returns {boolean} True when a valuation-relevant field changed.
+ */
+const valuationFieldChanged = (oldItem, newItem) => {
+  const fields = [
+    "marketValue",
+    "price",
+    "weight",
+    "qty",
+    "metal",
+    "purity",
+    "weightUnit",
+    "constitutionalVariant",
+    "constitutionalEntryMode",
+  ];
+  return fields.some((field) => oldItem?.[field] !== newItem?.[field]);
+};
+
+/**
  * Commits a parsed item to inventory (add or edit mode).
  * @param {Object} f - Parsed fields from parseItemFormFields()
  * @param {boolean} isEditing - Whether in edit mode
@@ -1997,14 +2026,10 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     // Record price data point if price-related fields changed (STACK-43)
     if (typeof recordSingleItemPrice === "function") {
       const cur = inventory[editIdx];
-      const priceChanged =
-        oldItem.marketValue !== cur.marketValue ||
-        oldItem.price !== cur.price ||
-        oldItem.weight !== cur.weight ||
-        oldItem.qty !== cur.qty ||
-        oldItem.metal !== cur.metal ||
-        oldItem.purity !== cur.purity;
-      if (priceChanged) recordSingleItemPrice(cur, "edit");
+      // STRK-244: gate on the full valuation field set (incl. weightUnit + the
+      // constitutional metadata) so denomination/variant swaps and Type→cu/gb/sb
+      // coercions — which leave the legacy fields untouched — still record a point.
+      if (valuationFieldChanged(oldItem, cur)) recordSingleItemPrice(cur, "edit");
     }
 
     renderTable();
@@ -2390,6 +2415,17 @@ const handleTypeChange = () => {
       if (hasSilver) metalSelect.value = "Silver";
     }
     if (metalLockPill) metalLockPill.style.display = "";
+    // STRK-245: constitutional derives purity from the variant (90/40/35) — the
+    // purity control is meaningless here. toggleConstitutionalGroup hides the standard
+    // measure row, but #purityCustomWrapper sits OUTSIDE it; reset the select off
+    // "custom" and hide+clear the orphaned custom input so a pre-existing custom
+    // purity is neither stuck-visible nor persisted onto the cu item via parsePurity().
+    const cuPuritySelect = document.getElementById("itemPuritySelect");
+    if (cuPuritySelect) cuPuritySelect.value = "0.999";
+    const cuPurityWrapper = document.getElementById("purityCustomWrapper");
+    if (cuPurityWrapper) cuPurityWrapper.style.display = "none";
+    const cuPurityInput = document.getElementById("itemPurity");
+    if (cuPurityInput) cuPurityInput.value = "";
     // Default a fresh add to FACE-value mode; editItem restores the stored mode after.
     if (typeof window.constitutionalSetEntryMode === "function") {
       window.constitutionalSetEntryMode("face");

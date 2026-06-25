@@ -1725,10 +1725,28 @@ const applyBulkValuesToSelection = (valuesToApply) => {
  * was edited (STACK-43), then persists price history.
  * @returns {void}
  */
-const recordBulkPriceHistory = () => {
+const recordBulkPriceHistory = (valuesToApply = {}) => {
   if (typeof recordItemPrice !== "function") return;
-  const priceFields = ["price", "marketValue", "weight", "weightUnit", "qty", "metal", "purity"];
-  if (![...bulkEnabledFields].some((id) => priceFields.includes(id))) return;
+  // STRK-244: keep this set in sync with valuationFieldChanged (js/events.js) — both
+  // are valuation-change detection sites. constitutionalVariant/entryMode drive the
+  // derived melt for cu items even when the legacy weight/purity are unchanged.
+  const priceFields = [
+    "price",
+    "marketValue",
+    "weight",
+    "weightUnit",
+    "qty",
+    "metal",
+    "purity",
+    "constitutionalVariant",
+    "constitutionalEntryMode",
+  ];
+  // A Type→cu/gb/sb coercion injects its valuation fields into valuesToApply PAST the
+  // checkbox gate (STRK-238), so bulkEnabledFields can be just {type}. Record when
+  // EITHER an enabled checkbox OR an injected applied value is price-relevant.
+  const enabledHasPriceField = [...bulkEnabledFields].some((id) => priceFields.includes(id));
+  const injectedHasPriceField = Object.keys(valuesToApply).some((key) => priceFields.includes(key));
+  if (!enabledHasPriceField && !injectedHasPriceField) return;
   inventory.forEach((item) => {
     if (bulkSelection.has(String(item.serial))) recordItemPrice(item, "bulk");
   });
@@ -1801,7 +1819,7 @@ const applyBulkEdit = async () => {
 
   const updated = applyBulkValuesToSelection(valuesToApply);
 
-  recordBulkPriceHistory();
+  recordBulkPriceHistory(valuesToApply);
 
   // Persist and re-render
   if (typeof saveInventory === "function") saveInventory();
