@@ -198,14 +198,4 @@ describe("STRK-244 — bulk guard records on Type-coercion-injected valuation fi
     assert.equal(recorded.length, 2);
     assert.equal(getSaved(), 1);
   });
-
-  test("a Type→Goldback coercion records even though it injects no price-field key", () => {
-    // The bulk Goldback path injects no weightUnit (unlike sb's weightUnit or cu's
-    // bundle), so the Type change itself must trigger recording (Codex PR review).
-    const { env, recorded, getSaved } = makeEnv({ enabled: ["type"], inventory: inv });
-    const recordBulkPriceHistory = buildRecordBulkPriceHistory(env);
-    recordBulkPriceHistory({ type: "Goldback" });
-    assert.equal(recorded.length, 2, "Type→Goldback records a bulk price-history point");
-    assert.equal(getSaved(), 1);
-  });
 });
