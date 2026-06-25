@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.57] - 2026-06-24
+
+### Fixed — STRK-244 / STRK-245: Constitutional valuation history + custom-purity reset
+
+- **Value-chart staleness on valuation-only edits**: Editing a constitutional coin's denomination/variant — or converting an item's Type to Constitutional, Goldback, or Silverback — now records an item-price-history point. The single-edit gate and the bulk-edit guard both sample `weightUnit` and the constitutional metadata (`constitutionalVariant`/`constitutionalEntryMode`), so a change that moves the derived melt without touching the legacy weight/price/purity fields no longer leaves the per-item value chart stale until the next price edit. Same systemic root as STRK-241 (STRK-244).
+- **Custom-purity field cleared on Type → Constitutional**: Converting an item that had a custom purity to Constitutional now hides and clears the custom-purity input. Previously the field stayed visible and its stale value was saved onto the junk-silver item (whose purity is derived from the denomination, not entered), so the workaround was to reset purity to a preset first (STRK-245).
+
+---
+
 ## [3.35.56] - 2026-06-24
 
 ### Fixed — STRK-241 / STRK-243: Constitutional silver pre-ship fixes

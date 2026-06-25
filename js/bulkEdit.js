@@ -1725,10 +1725,34 @@ const applyBulkValuesToSelection = (valuesToApply) => {
  * was edited (STACK-43), then persists price history.
  * @returns {void}
  */
-const recordBulkPriceHistory = () => {
+const recordBulkPriceHistory = (valuesToApply = {}) => {
   if (typeof recordItemPrice !== "function") return;
-  const priceFields = ["price", "marketValue", "weight", "weightUnit", "qty", "metal", "purity"];
-  if (![...bulkEnabledFields].some((id) => priceFields.includes(id))) return;
+  // STRK-244: keep this set in sync with valuationFieldChanged (js/events.js) — both
+  // are valuation-change detection sites. constitutionalVariant/entryMode drive the
+  // derived melt for cu items even when the legacy weight/purity are unchanged.
+  const priceFields = [
+    "price",
+    "marketValue",
+    "weight",
+    "weightUnit",
+    "qty",
+    "metal",
+    "purity",
+    "constitutionalVariant",
+    "constitutionalEntryMode",
+  ];
+  // A Type→cu/sb coercion injects its valuation fields into valuesToApply PAST the
+  // checkbox gate (STRK-238), so bulkEnabledFields can be just {type}. Record when
+  // EITHER an enabled checkbox OR an injected applied value is price-relevant.
+  const enabledHasPriceField = [...bulkEnabledFields].some((id) => priceFields.includes(id));
+  const injectedHasPriceField = Object.keys(valuesToApply).some((key) => priceFields.includes(key));
+  // STRK-246: a bulk Type→Goldback does NOT inject its weightUnit/denomination bundle
+  // (unlike sb's weightUnit or cu's applyBulkConstitutionalBundle), so the item keeps
+  // weightUnit="oz" and is valued as oz — recording it here would only capture the
+  // pre-conversion oz value, leaving the chart "stale" anyway. It is intentionally
+  // skipped until STRK-246 adds the Goldback bundle; cu/sb coercions still record via
+  // injectedHasPriceField above.
+  if (!enabledHasPriceField && !injectedHasPriceField) return;
   inventory.forEach((item) => {
     if (bulkSelection.has(String(item.serial))) recordItemPrice(item, "bulk");
   });
@@ -1801,7 +1825,7 @@ const applyBulkEdit = async () => {
 
   const updated = applyBulkValuesToSelection(valuesToApply);
 
-  recordBulkPriceHistory();
+  recordBulkPriceHistory(valuesToApply);
 
   // Persist and re-render
   if (typeof saveInventory === "function") saveInventory();
