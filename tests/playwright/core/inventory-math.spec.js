@@ -1966,6 +1966,37 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     await expect(page.locator("#itemPrice")).toHaveValue("100.00");
   });
 
+  // ---- Review regressions (PR #1340): override-bleed + count re-default ----
+  test("cu denom qty override does not bleed into a Coin's lot/each conversion (type exit clears it)", async ({
+    page,
+  }) => {
+    // codex P2 / CodeRabbit: switching Type away from Constitutional must clear the qty
+    // override, or readQty keeps reading #item-constitutional-count for the next item.
+    await freshAddCuDenom(page, { count: 40 });
+    await expectToggleVisible(page, "lot");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "Bleed Guard Coin");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemDate", "2026-04-01");
+    await page.fill("#itemQty", "3");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "90");
+    await selectPurchaseMode(page, "each");
+    // 90 / #itemQty(3) = 30.00 — NOT 90 / count(40) = 2.25 (which a bled override would give)
+    await expect(page.locator("#itemPrice")).toHaveValue("30.00");
+  });
+
+  test("editing a stored denom EACH item does not flip to LOT when the count changes", async ({
+    page,
+  }) => {
+    // Copilot: after restore, wasInteracted() is false, so a count edit previously re-applied
+    // the LOT default and silently converted a per-coin (each) item to lot pricing.
+    await seedAndEdit(page, CU_DENOM_EACH_STORED);
+    await expectToggleVisible(page, "each");
+    await page.fill("#item-constitutional-count", "20");
+    await expectToggleVisible(page, "each");
+  });
+
   // ---- B.4: pricingType persistence registration (D-6 / AC-7, AC-4 durability) ----
   test("pricingType survives a JSON export → import round-trip (AC-7 durability)", async ({
     page,

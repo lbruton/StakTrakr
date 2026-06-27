@@ -214,8 +214,14 @@ const createLotEachToggle = (config) => {
 
     toggle.classList.toggle("is-hidden", !showToggle);
 
-    if (!showToggle && mode === "lot") {
-      // STRK-88: changing qty while LOT active invalidates the exact-lot cache
+    if (!showToggle && mode === "lot" && _qtyOverride === null) {
+      // STRK-88: for a normal (non-cu) toggle, qty ≤ 1 makes LOT meaningless — revert to
+      // EACH and invalidate the exact-lot cache.
+      // STRK-242: when a cu qty-override is installed, the by-denomination LOT intent must
+      // SURVIVE a transient count ≤ 1 (e.g. mid-typing or a count cleared then re-entered),
+      // so we skip the self-revert here. The override is cleared explicitly on type exit /
+      // face switch, never via this gate — that keeps a restored EACH item from being
+      // flipped to LOT by a later count edit.
       _lotExactPrice = null;
       setMode("each", { convertInput: false });
     }
@@ -1624,8 +1630,8 @@ const resolveLotEachPriceInput = (priceInput, parsedQty, cu) => {
   if (!(divisorQty > 0)) return cu ? priceInput : "0";
   const rawInput = parseFloat(priceInput) || 0;
   const exactLotPrice =
-    typeof window.purchasePriceGetExactLotPrice === "function"
-      ? window.purchasePriceGetExactLotPrice(rawInput, divisorQty)
+    typeof purchasePriceToggle.getExactLotPrice === "function"
+      ? purchasePriceToggle.getExactLotPrice(rawInput, divisorQty)
       : null;
   const lotPrice = exactLotPrice ?? rawInput;
   return String(lotPrice / divisorQty);
@@ -2433,22 +2439,19 @@ const setupConstitutionalControls = () => {
       }
     }
   );
-  // STRK-242: keep the purchase-price toggle's qty>1 visibility gate live as the coin
-  // count changes in denomination mode (the override reads #item-constitutional-count),
-  // and default a fresh denom item to LOT the moment the toggle becomes available (AC-2,
-  // AC-9 corner). This is the one narrow call site beyond the constitutionalSetEntryMode
-  // chokepoint, needed because typing the count does not re-dispatch the entry mode.
+  // STRK-242: keep ONLY the purchase-toggle's qty>1 visibility gate live as the coin count
+  // changes in denomination mode (the override reads #item-constitutional-count). The mode
+  // is deliberately NOT changed here — the LOT default is set once by constitutionalSetEntryMode
+  // and persists across count edits (updateVisibility skips its self-revert while a cu override
+  // is installed), so tweaking the count never flips a restored EACH item to LOT. Typing the
+  // count does not re-dispatch the entry mode, hence this narrow extra call site.
   const countEl = document.getElementById("item-constitutional-count");
   if (countEl) {
     safeAttachListener(
       countEl,
       "input",
       () => {
-        if (typeof purchasePriceToggle === "undefined") return;
-        if (_constitutionalEntryMode === "denom" && !purchasePriceToggle.wasInteracted()) {
-          purchasePriceToggle.setMode("lot", { convertInput: false });
-        }
-        purchasePriceToggle.updateVisibility();
+        if (typeof purchasePriceToggle !== "undefined") purchasePriceToggle.updateVisibility();
       },
       "Constitutional count → purchase-toggle visibility"
     );
@@ -2477,6 +2480,15 @@ const handleTypeChange = () => {
   if (metalEl instanceof HTMLElement) metalEl.disabled = false;
   const metalLockPill = document.getElementById("metalLock");
   if (metalLockPill) metalLockPill.style.display = "none";
+
+  // STRK-242: clear any stale cu by-denomination qty override on EVERY type change so it
+  // can't bleed into a non-constitutional item (readQty would otherwise keep reading the
+  // hidden #item-constitutional-count). The Constitutional branch re-installs it via the
+  // constitutionalSetEntryMode chokepoint when the entry mode resolves to denomination;
+  // editItem/duplicateItem likewise re-install it after this runs.
+  if (typeof purchasePriceToggle !== "undefined") {
+    purchasePriceToggle.clearQtySource();
+  }
 
   if (isGoldbackType || isSilverbackType) {
     unitSelect.value = isGoldbackType ? "gb" : "sb";
