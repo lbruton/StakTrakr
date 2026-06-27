@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.60] - 2026-06-27
+
+### Added — STRK-242: Constitutional by-denomination lot pricing
+
+- **Lot pricing for junk silver entered by denomination**: The purchase-price Lot/Each toggle is now shown (and defaults to Lot) for constitutional items entered by denomination, dividing the entered lot total by the coin count (`cu.qty`) rather than the hidden `#itemQty` (pinned to 1). By-face-value entries remain a lot of one with no division, and editing an item restores the stored `pricingType` (legacy/absent → each). The lot/each hint is now registered for JSON export/import, ZIP backup, and cloud-sync (cu-scoped hash/diff/change-log) persistence; cost basis and table/view totals stay `price × qty` (STRK-242).
+
+---
+
 ## [3.35.59] - 2026-06-25
 
 ### Fixed — STRK-247: Centralized custom-purity wrapper visibility
