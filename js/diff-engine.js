@@ -44,6 +44,9 @@ const DIFF_FIELDS = [
   "year",
   // Financials
   "price",
+  // STRK-242: pricingType (lot/each) is load-bearing for cu denom edit-restore; a
+  // lot↔each change must be diffable on import-merge (D-6). Keep in sync with changeLog.js.
+  "pricingType",
   "purchasePrice",
   "retailPrice",
   "marketValue",

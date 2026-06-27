@@ -103,6 +103,9 @@
     // ZIP backup so restored items value correctly via getConstitutionalSilverOz().
     constitutionalVariant: item.constitutionalVariant || "",
     constitutionalEntryMode: item.constitutionalEntryMode || "",
+    // STRK-242: pricingType is load-bearing for cu denom edit-restore (lot vs each);
+    // include it so ZIP backup/restore is lossless (restore JSON.parses verbatim) (D-6).
+    pricingType: item.pricingType || "",
     serial: item.serial,
     uuid: item.uuid,
   });
