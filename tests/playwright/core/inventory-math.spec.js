@@ -1787,6 +1787,22 @@ async function seedAndEdit(page, item) {
   await openEditModal(page, 0);
 }
 
+/** Assert the purchase-price toggle is shown (not is-hidden). */
+async function expectToggleShown(page) {
+  await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
+}
+
+/** Assert the toggle is shown AND the given mode button is active. */
+async function expectToggleVisible(page, mode) {
+  await expectToggleShown(page);
+  await expect(purchaseModeButton(page, mode)).toHaveClass(/active/);
+}
+
+/** Assert the purchase-price toggle is hidden (is-hidden). */
+async function expectToggleHidden(page) {
+  await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
+}
+
 // Shared base for the cu persistence-detection evaluates (hash/diff) — passed into
 // page.evaluate so this object literal is declared once (keeps the duplication gate happy).
 const CU_DETECT_BASE = {
@@ -1841,32 +1857,29 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     page,
   }) => {
     await freshAddCuDenom(page, { count: 40 });
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
-    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expectToggleVisible(page, "lot");
   });
 
   test("denomination count > 1 shows the toggle; count <= 1 hides it (AC-9 corner)", async ({
     page,
   }) => {
     await freshAddCuDenom(page, { count: 40 });
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
+    await expectToggleShown(page);
     await page.fill("#item-constitutional-count", "1");
-    await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
+    await expectToggleHidden(page);
   });
 
   test("switching constitutional entry mode live re-resolves the toggle (AC-5, AC-9)", async ({
     page,
   }) => {
     await freshAddCuDenom(page, { count: 40 });
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
-    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expectToggleVisible(page, "lot");
     // denom → face: toggle disappears, reverts to EACH
     await page.click('#constitutional-entry-mode-toggle [data-mode="face"]');
-    await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
+    await expectToggleHidden(page);
     // face → denom: toggle reappears and snaps to LOT
     await page.click('#constitutional-entry-mode-toggle [data-mode="denom"]');
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
-    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expectToggleVisible(page, "lot");
   });
 
   // ---- B.2: save divides by cu.qty + exact-lot round-trip + face never divides (AC-3, AC-4, AC-6) ----
@@ -1911,7 +1924,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     await page.selectOption("#itemType", "Constitutional");
     await page.click('#constitutional-entry-mode-toggle [data-mode="face"]');
     await page.fill("#item-constitutional-face", "50");
-    await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
+    await expectToggleHidden(page);
     await page.fill("#itemName", name);
     await page.fill("#itemDate", "2026-04-01");
     await page.fill("#itemPrice", "100");
@@ -1928,8 +1941,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     page,
   }) => {
     await seedAndEdit(page, CU_DENOM_LOT_STORED);
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
-    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expectToggleVisible(page, "lot");
     await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
   });
 
@@ -1937,22 +1949,20 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     page,
   }) => {
     await seedAndEdit(page, CU_DENOM_EACH_STORED);
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
-    await expect(purchaseModeButton(page, "each")).toHaveClass(/active/);
+    await expectToggleVisible(page, "each");
     await expect(page.locator("#itemPrice")).toHaveValue("56.67");
   });
 
   test("editing a legacy denom item (no pricingType) defaults to EACH (AC-7)", async ({ page }) => {
     await seedAndEdit(page, CU_DENOM_LEGACY_NOTYPE);
-    await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
-    await expect(purchaseModeButton(page, "each")).toHaveClass(/active/);
+    await expectToggleVisible(page, "each");
   });
 
   test("editing a stored face item keeps toggle hidden, price = stored total (AC-8)", async ({
     page,
   }) => {
     await seedAndEdit(page, CU_FACE_STORED);
-    await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
+    await expectToggleHidden(page);
     await expect(page.locator("#itemPrice")).toHaveValue("100.00");
   });
 
