@@ -1743,6 +1743,12 @@ const CU_FACE_STORED = {
   serial: 45,
 };
 
+/** Fresh app on an empty inventory. */
+async function gotoFresh(page) {
+  await seedMoneyData(page);
+  await gotoApp(page);
+}
+
 /** Drive the add-item modal into cu by-denomination mode with a given coin count. */
 async function addModalCuDenom(page, { variant = "con-90-quarter", count }) {
   await openAddModal(page);
@@ -1752,6 +1758,49 @@ async function addModalCuDenom(page, { variant = "con-90-quarter", count }) {
   await page.selectOption("#item-constitutional-variant", variant);
   await page.fill("#item-constitutional-count", String(count));
 }
+
+/** Fresh app + add-item modal already in cu by-denomination mode. */
+async function freshAddCuDenom(page, opts) {
+  await gotoFresh(page);
+  await addModalCuDenom(page, opts);
+}
+
+/** Add + save a cu by-denomination item through the real modal save path. */
+async function saveCuDenomItem(page, { name, count, price, variant = "con-90-quarter" }) {
+  await freshAddCuDenom(page, { variant, count });
+  await page.fill("#itemName", name);
+  await page.fill("#itemDate", "2026-04-01");
+  await page.fill("#itemPrice", String(price));
+  await page.click("#itemModalSubmit");
+  await expect(page.locator("#itemModal")).toBeHidden();
+}
+
+/** Seed one item and load the app. */
+async function seedAndGoto(page, item) {
+  await seedMoneyData(page, { inventory: [item] });
+  await gotoApp(page);
+}
+
+/** Seed one item, load the app, and open it in the edit modal. */
+async function seedAndEdit(page, item) {
+  await seedAndGoto(page, item);
+  await openEditModal(page, 0);
+}
+
+// Shared base for the cu persistence-detection evaluates (hash/diff) — passed into
+// page.evaluate so this object literal is declared once (keeps the duplication gate happy).
+const CU_DETECT_BASE = {
+  name: "CU Detect Base",
+  metal: "Silver",
+  weight: 0.25,
+  date: "2026-04-01",
+  type: "Constitutional",
+  weightUnit: "cu",
+  constitutionalVariant: "con-90-quarter",
+  constitutionalEntryMode: "denom",
+  qty: 30,
+  price: 1700 / 30,
+};
 
 /** Capture window.exportJson()'s JSON payload without writing a file to disk. */
 async function captureJsonExport(page) {
@@ -1791,9 +1840,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("denomination mode shows the purchase toggle defaulted to LOT (AC-1, AC-2)", async ({
     page,
   }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    await addModalCuDenom(page, { count: 40 });
+    await freshAddCuDenom(page, { count: 40 });
     await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
     await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
   });
@@ -1801,9 +1848,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("denomination count > 1 shows the toggle; count <= 1 hides it (AC-9 corner)", async ({
     page,
   }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    await addModalCuDenom(page, { count: 40 });
+    await freshAddCuDenom(page, { count: 40 });
     await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
     await page.fill("#item-constitutional-count", "1");
     await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
@@ -1812,9 +1857,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("switching constitutional entry mode live re-resolves the toggle (AC-5, AC-9)", async ({
     page,
   }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    await addModalCuDenom(page, { count: 40 });
+    await freshAddCuDenom(page, { count: 40 });
     await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
     await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
     // denom → face: toggle disappears, reverts to EACH
@@ -1831,14 +1874,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     page,
   }) => {
     const name = "Core CU Denom LOT Divide";
-    await seedMoneyData(page);
-    await gotoApp(page);
-    await addModalCuDenom(page, { count: 30 });
-    await page.fill("#itemName", name);
-    await page.fill("#itemDate", "2026-04-01");
-    await page.fill("#itemPrice", "1700");
-    await page.click("#itemModalSubmit");
-    await expect(page.locator("#itemModal")).toBeHidden();
+    await saveCuDenomItem(page, { name, count: 30, price: 1700 });
 
     const saved = await getInventoryItem(page, name);
     expect(saved).toBeTruthy();
@@ -1852,14 +1888,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     page,
   }) => {
     const name = "Core CU Denom Exact Lot";
-    await seedMoneyData(page);
-    await gotoApp(page);
-    await addModalCuDenom(page, { count: 30 });
-    await page.fill("#itemName", name);
-    await page.fill("#itemDate", "2026-04-01");
-    await page.fill("#itemPrice", "1700");
-    await page.click("#itemModalSubmit");
-    await expect(page.locator("#itemModal")).toBeHidden();
+    await saveCuDenomItem(page, { name, count: 30, price: 1700 });
 
     const saved = await getInventoryItem(page, name);
     expect(saved.price * saved.qty).toBeCloseTo(1700, 9);
@@ -1876,8 +1905,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     // before AND after Cohort C — it protects the C.3 guard reshape from accidentally
     // dividing a face entry. B.2's RED signal comes from AC-3/AC-4, not this guard.
     const name = "Core CU Face No Divide";
-    await seedMoneyData(page);
-    await gotoApp(page);
+    await gotoFresh(page);
     await openAddModal(page);
     await page.selectOption("#itemMetal", "Silver");
     await page.selectOption("#itemType", "Constitutional");
@@ -1899,9 +1927,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("editing a stored denom LOT item restores toggle visible + LOT, reconstructed total (AC-7)", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [CU_DENOM_LOT_STORED] });
-    await gotoApp(page);
-    await openEditModal(page, 0);
+    await seedAndEdit(page, CU_DENOM_LOT_STORED);
     await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
     await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
     await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
@@ -1910,18 +1936,14 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("editing a stored denom EACH item restores toggle visible + EACH per-coin (AC-7)", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [CU_DENOM_EACH_STORED] });
-    await gotoApp(page);
-    await openEditModal(page, 0);
+    await seedAndEdit(page, CU_DENOM_EACH_STORED);
     await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
     await expect(purchaseModeButton(page, "each")).toHaveClass(/active/);
     await expect(page.locator("#itemPrice")).toHaveValue("56.67");
   });
 
   test("editing a legacy denom item (no pricingType) defaults to EACH (AC-7)", async ({ page }) => {
-    await seedMoneyData(page, { inventory: [CU_DENOM_LEGACY_NOTYPE] });
-    await gotoApp(page);
-    await openEditModal(page, 0);
+    await seedAndEdit(page, CU_DENOM_LEGACY_NOTYPE);
     await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
     await expect(purchaseModeButton(page, "each")).toHaveClass(/active/);
   });
@@ -1929,9 +1951,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("editing a stored face item keeps toggle hidden, price = stored total (AC-8)", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [CU_FACE_STORED] });
-    await gotoApp(page);
-    await openEditModal(page, 0);
+    await seedAndEdit(page, CU_FACE_STORED);
     await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
     await expect(page.locator("#itemPrice")).toHaveValue("100.00");
   });
@@ -1940,8 +1960,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("pricingType survives a JSON export → import round-trip (AC-7 durability)", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [CU_DENOM_LOT_STORED] });
-    await gotoApp(page);
+    await seedAndGoto(page, CU_DENOM_LOT_STORED);
 
     const exported = await captureJsonExport(page);
     const exportedItem = exported.items.find((it) => it.uuid === CU_DENOM_LOT_STORED.uuid);
@@ -1964,8 +1983,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   }) => {
     // Backup WRITE coverage (C.10). restoreBackupZip JSON.parses the stored inventory
     // verbatim (no per-field whitelist), so a written field round-trips on restore.
-    await seedMoneyData(page, { inventory: [CU_DENOM_LOT_STORED] });
-    await gotoApp(page);
+    await seedAndGoto(page, CU_DENOM_LOT_STORED);
     const backedUp = await page.evaluate(async (uuid) => {
       const blob = await window.createBackupZip();
       const zip = await JSZip.loadAsync(blob);
@@ -1978,24 +1996,10 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("computeInventoryHash is cu-scoped and changes when only pricingType differs (AC-7 durability)", async ({
     page,
   }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const result = await page.evaluate(async () => {
-      const baseCu = {
-        uuid: "h-cu",
-        name: "Hash CU",
-        metal: "Silver",
-        weight: 0.25,
-        date: "2026-04-01",
-        type: "Constitutional",
-        weightUnit: "cu",
-        constitutionalVariant: "con-90-quarter",
-        constitutionalEntryMode: "denom",
-        qty: 30,
-        price: 1700 / 30,
-      };
-      const cuLot = { ...baseCu, pricingType: "lot" };
-      const cuEach = { ...baseCu, pricingType: "each" };
+    await gotoFresh(page);
+    const result = await page.evaluate(async (base) => {
+      const cuLot = { ...base, uuid: "h-cu", pricingType: "lot" };
+      const cuEach = { ...base, uuid: "h-cu", pricingType: "each" };
       // non-cu pair differing only in pricingType — must stay equal (cu-scope guard,
       // no one-time upgrade-sync churn for inventories without junk silver).
       const baseCoin = {
@@ -2017,7 +2021,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
         coinLot: await window.computeInventoryHash([coinLot]),
         coinEach: await window.computeInventoryHash([coinEach]),
       };
-    });
+    }, CU_DETECT_BASE);
     expect(result.cuLot).toBeTruthy();
     expect(result.cuLot).not.toBe(result.cuEach); // C.11 — cu hash includes pricingType
     expect(result.coinLot).toBe(result.coinEach); // non-cu hash unchanged
@@ -2026,31 +2030,17 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
   test("DiffEngine and changeLog register a pricingType-only change (AC-7 durability)", async ({
     page,
   }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const result = await page.evaluate(() => {
-      const base = {
-        uuid: "d-cu",
-        name: "Diff CU",
-        metal: "Silver",
-        weight: 0.25,
-        date: "2026-04-01",
-        type: "Constitutional",
-        weightUnit: "cu",
-        constitutionalVariant: "con-90-quarter",
-        constitutionalEntryMode: "denom",
-        qty: 30,
-        price: 1700 / 30,
-      };
-      const each = { ...base, pricingType: "each" };
-      const lot = { ...base, pricingType: "lot" };
+    await gotoFresh(page);
+    const result = await page.evaluate((base) => {
+      const each = { ...base, uuid: "d-cu", pricingType: "each" };
+      const lot = { ...base, uuid: "d-cu", pricingType: "lot" };
       const diff = window.DiffEngine.compareItems([each], [lot]);
       const modifiedFields = diff.modified.flatMap((m) => m.changes.map((c) => c.field));
       window.changeLog.splice(0, window.changeLog.length);
       window.logItemChanges(each, lot);
       const logged = window.changeLog.filter((e) => e.field === "pricingType").length;
       return { modifiedFields, logged };
-    });
+    }, CU_DETECT_BASE);
     expect(result.modifiedFields).toContain("pricingType"); // C.12 — DIFF_FIELDS
     expect(result.logged).toBe(1); // C.13 — logItemChanges tracked fields
   });
@@ -2063,14 +2053,7 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     // view-modal price-history chart is asserted untouched by the no-production-change
     // invariant for display surfaces (verified in CLOSE-3; the chart code is not edited).
     const name = "Core CU Denom Display";
-    await seedMoneyData(page);
-    await gotoApp(page);
-    await addModalCuDenom(page, { count: 30 });
-    await page.fill("#itemName", name);
-    await page.fill("#itemDate", "2026-04-01");
-    await page.fill("#itemPrice", "1700");
-    await page.click("#itemModalSubmit");
-    await expect(page.locator("#itemModal")).toBeHidden();
+    await saveCuDenomItem(page, { name, count: 30, price: 1700 });
 
     const saved = await getInventoryItem(page, name);
     expect(saved.price * saved.qty).toBeCloseTo(1700, 9);
