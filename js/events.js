@@ -65,6 +65,10 @@ const createLotEachToggle = (config) => {
   /** @STRK-88 Cache the exact LOT price the user typed, keyed to qty, so LOT→EACH→LOT
    *  can restore the original value without floating-point round-trip drift. */
   let _lotExactPrice = null; // {price: number, qty: number} | null
+  /** @STRK-242 Optional qty-source override. When installed (cu by-denomination entry),
+   *  qty reads resolve to the coin count instead of #itemQty, which cu forces to 1.
+   *  Default null → readQty() reads the DOM qty input exactly as before (byte-identical). */
+  let _qtyOverride = null;
 
   const getButtons = () => {
     const toggle = safeGetElement(toggleId);
@@ -72,14 +76,16 @@ const createLotEachToggle = (config) => {
     return Array.from(toggle.children).filter((child) => child.dataset?.mode);
   };
 
+  /** @STRK-242 Single qty-source seam — the only place qty is read for conversion/visibility. */
+  const readQty = () => (_qtyOverride ? _qtyOverride() : Number(safeGetElement(qtyInputId)?.value));
+
   const maybeConvert = (nextMode) => {
     const priceEl = safeGetElement(priceInputId);
     if (!priceEl || nextMode === mode) return;
 
     const rawPrice = priceEl.value.trim();
     const price = Number(rawPrice);
-    const qtyEl = safeGetElement(qtyInputId);
-    const qty = parseInt(qtyEl?.value?.trim() ?? "", 10);
+    const qty = readQty();
 
     if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
     if (!Number.isFinite(qty) || qty <= 1) return;
@@ -183,6 +189,18 @@ const createLotEachToggle = (config) => {
     // STRK-88: clear exact-lot cache on modal reset/close so stale LOT prices
     // don't bleed across sessions or between add→edit modal openings.
     _lotExactPrice = null;
+    // @STRK-242 Intentionally does NOT clear _qtyOverride. The in-restore resetInteracted()
+    // (restorePurchasePriceToggle) must not wipe an active denom override; clearing it is a
+    // dedicated path (clearQtySource), called explicitly from resetPurchasePriceToggle.
+  };
+
+  /** @STRK-242 Install a qty-source override (cu by-denomination → coin count). */
+  const setQtySource = (fn) => {
+    _qtyOverride = typeof fn === "function" ? fn : null;
+  };
+  /** @STRK-242 Remove the qty-source override → qty reads fall back to the DOM input. */
+  const clearQtySource = () => {
+    _qtyOverride = null;
   };
 
   // Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
@@ -191,9 +209,7 @@ const createLotEachToggle = (config) => {
     const toggle = safeGetElement(toggleId);
     if (!toggle) return;
 
-    const qtyEl = safeGetElement(qtyInputId);
-    const qtyRaw = qtyEl?.value?.trim() ?? "";
-    const qty = parseInt(qtyRaw, 10);
+    const qty = readQty();
     const showToggle = Number.isFinite(qty) && qty > 1;
 
     toggle.classList.toggle("is-hidden", !showToggle);
@@ -237,6 +253,8 @@ const createLotEachToggle = (config) => {
     wasInteracted,
     markInteracted,
     resetInteracted,
+    setQtySource,
+    clearQtySource,
     seedLotCache,
     getExactLotPrice,
   };
@@ -254,6 +272,9 @@ const purchasePriceToggle = createLotEachToggle({
 
 const resetPurchasePriceToggle = () => {
   purchasePriceToggle.setMode("each", { convertInput: false });
+  // @STRK-242 Clear any cu denom qty override BEFORE recomputing visibility, so the reset
+  // reads #itemQty (forced to 1 for cu) and correctly hides the toggle.
+  purchasePriceToggle.clearQtySource();
   purchasePriceToggle.updateVisibility();
   purchasePriceToggle.resetInteracted();
 };
