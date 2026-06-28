@@ -82,26 +82,45 @@ const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palla
 let _lastAcceptedSpotGeneratedAtMs = null;
 
 /**
- * Validate a v2 envelope's publication freshness (STRK-189).
+ * Validate a v2 envelope's publication freshness against a parameterized budget.
  * Payloads without a parseable generated_at are accepted (legacy envelopes).
- * Threshold = max(stale_after * 6, SPOT_MAX_PAYLOAD_AGE_MS) so a poller lag
- * never hard-fails the sync, but days-old SW-cache/CDN payloads are rejected.
- * @param {any} envelope - Parsed /spot/latest.json response
+ * Threshold = max(stale_after * multiplier, floorMs); the multiplier supplies
+ * slack over the endpoint's own stale_after and floorMs sets an absolute minimum.
+ * Strictness regimes:
+ *   - lenient (spot failover): { multiplier: 6, floorMs: SPOT_MAX_PAYLOAD_AGE_MS }
+ *     so poller lag never hard-fails the sync, but days-old SW-cache/CDN payloads
+ *     are rejected (STRK-189).
+ *   - strict (goldback/retail gates): { multiplier: 1, floorMs: 0 } rejects by the
+ *     endpoint's own stale_after with no slack.
+ * @param {any} envelope - Parsed v2 envelope response
+ * @param {Object} strictness - Freshness budget
+ * @param {number} strictness.multiplier - stale_after multiplier (slack factor)
+ * @param {number} strictness.floorMs - Absolute minimum acceptable age in ms
  * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator
  */
-const _checkSpotEnvelopeFreshness = (envelope) => {
+const _checkEnvelopeFreshness = (envelope, { multiplier, floorMs }) => {
   const gen = Date.parse(envelope?.generated_at);
   if (isNaN(gen)) return { ok: true };
   const age = Math.max(0, Date.now() - gen);
   const maxAge = Math.max(
-    (typeof envelope.stale_after === "number" ? envelope.stale_after : 0) * 6 * 1000,
-    SPOT_MAX_PAYLOAD_AGE_MS
+    (typeof envelope.stale_after === "number" ? envelope.stale_after : 0) * multiplier * 1000,
+    floorMs
   );
   return {
     ok: age <= maxAge,
     reason: `Stale spot payload (generated_at ${envelope?.generated_at})`,
   };
 };
+
+/**
+ * Validate a v2 spot envelope's publication freshness (STRK-189), lenient regime.
+ * Thin wrapper over _checkEnvelopeFreshness with the spot failover budget
+ * (multiplier 6, floor SPOT_MAX_PAYLOAD_AGE_MS) so spot behavior is byte-identical.
+ * @param {any} envelope - Parsed /spot/latest.json response
+ * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator
+ */
+const _checkSpotEnvelopeFreshness = (envelope) =>
+  _checkEnvelopeFreshness(envelope, { multiplier: 6, floorMs: SPOT_MAX_PAYLOAD_AGE_MS });
 
 const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
   const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", {
