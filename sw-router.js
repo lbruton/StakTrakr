@@ -40,9 +40,17 @@ const FAMILY_TABLE = [
     test: function (p) {
       return p === "/v2/goldback/latest.json";
     },
-    floor: 90000,
+    floor: 7200,
     hasEnvelope: true,
     networkFirst: true,
+  },
+  {
+    family: "goldback-intraday",
+    test: function (p) {
+      return p === "/v2/goldback/intraday.json";
+    },
+    floor: 1200,
+    hasEnvelope: true,
   },
   {
     family: "retail-latest",
