@@ -49,6 +49,19 @@ describe("buildGoldbackIntradayEntries", () => {
     assert.equal(out[1].g1_usd, 4.25);
   });
 
+  it("keeps one point per hour — last scrape in the hour wins", () => {
+    const out = buildGoldbackIntradayEntries([
+      { price: 4.2, scraped_at: "2026-06-28T17:05:00Z" },
+      { price: 4.28, scraped_at: "2026-06-28T17:55:00Z" },
+      { price: 4.3, scraped_at: "2026-06-28T18:10:00Z" },
+    ]);
+    assert.equal(out.length, 2);
+    assert.equal(out[0].t, "2026-06-28T17:00:00Z");
+    assert.equal(out[0].g1_usd, 4.28); // last scrape within 17:00 hour
+    assert.equal(out[1].t, "2026-06-28T18:00:00Z");
+    assert.equal(out[1].g1_usd, 4.3);
+  });
+
   it("emits NO OHLCA fields (raw point series)", () => {
     const out = buildGoldbackIntradayEntries(ROWS);
     for (const e of out) {

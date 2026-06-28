@@ -110,7 +110,7 @@ describe("classifyEndpoint — goldback-intraday", () => {
   it("classifies on both API hosts", () => {
     const { api1, api2 } = classifyOnBothHosts("/v2/goldback/intraday.json");
     assert.equal(api1.family, "goldback-intraday");
-    assert.equal(api1.floor, 1200);
+    assert.equal(api1.floor, 7200);
     assert.equal(api1.hasEnvelope, true);
     assert.equal(api2.family, "goldback-intraday");
   });
@@ -264,7 +264,7 @@ describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
     ["/data/v2/spot/latest.json", "spot-latest", 1200],
     ["/data/v2/spot/xau/2026/05/15.json", "spot-history-daily", 3600],
     ["/data/v2/goldback/latest.json", "goldback-latest", 7200],
-    ["/data/v2/goldback/intraday.json", "goldback-intraday", 1200],
+    ["/data/v2/goldback/intraday.json", "goldback-intraday", 7200],
     ["/data/v2/retail/apmex/latest.json", "retail-latest", 1800],
     ["/data/v2/retail/apmex/intraday.json", "retail-intraday", 1200],
     ["/data/v2/retail/apmex/history-7d.json", "retail-history-short", 3600],

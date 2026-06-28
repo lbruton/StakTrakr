@@ -35,7 +35,7 @@
  *   DATA_DIR=/path/to/data node api-export-v2.js
  */
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toTimestampPair, computeOhlca, wrapEnvelope } from "./v2-utils.js";
@@ -866,25 +866,28 @@ function buildGoldbackOhlcaBuckets(rows, granularity) {
 }
 
 /**
- * Build the raw hourly point series for `goldback/intraday.json`.
+ * Build the hourly point series for `goldback/intraday.json`.
  *
- * Maps each `price_snapshots` row to a raw `{ t, ts, g1_usd }` point with the
- * timestamp floored to the hour. This is intentionally NOT OHLCA-bucketed:
- * goldback scrapes roughly once per hour, so per-hour OHLC would be degenerate.
- * The mapping is 1:1 (multiple scrapes within one hour can share the same
- * hourly-floored `t`). Input is assumed ordered by `scraped_at ASC` (as
- * returned by {@link queryGoldbackRange}), so output preserves ascending order.
+ * Maps `price_snapshots` rows to raw `{ t, ts, g1_usd }` points with the
+ * timestamp floored to the hour — **one point per hour** (NOT OHLCA-bucketed;
+ * goldback scrapes ~once/hour, so per-hour OHLC would be degenerate). If more
+ * than one scrape lands in the same hour, the last (most recent) wins, so the
+ * series carries exactly one point per hourly bucket and duplicate `t` keys
+ * never reach a chart consumer. Input is assumed ordered by `scraped_at ASC`
+ * (as returned by {@link queryGoldbackRange}); the Map preserves that ascending
+ * insertion order.
  *
  * @param {{price: number|string, scraped_at: string}[]} rows - goldback `price_snapshots` rows
- * @returns {{t: string, ts: number, g1_usd: number}[]} raw hourly points (empty array for empty input)
+ * @returns {{t: string, ts: number, g1_usd: number}[]} one raw point per hour (empty array for empty input)
  */
 function buildGoldbackIntradayEntries(rows) {
-  const entries = [];
+  const byHour = new Map();
   for (const row of rows) {
     const { t, ts } = toTimestampPair(new Date(String(row.scraped_at)), "hourly");
-    entries.push({ t, ts, g1_usd: Math.round(Number(row.price) * 100) / 100 });
+    // One point per hour; rows are ascending, so the last scrape in an hour wins.
+    byHour.set(t, { t, ts, g1_usd: Math.round(Number(row.price) * 100) / 100 });
   }
-  return entries;
+  return Array.from(byHour.values());
 }
 
 // ---------------------------------------------------------------------------
@@ -1124,7 +1127,10 @@ async function main() {
 
 export { buildGoldbackIntradayEntries };
 
-const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+// Normalize argv[1] (resolves relative paths + symlinks) before comparing, so
+// main() still runs when invoked via a relative path or symlink — matches
+// backfill-spot-files.js.
+const isMain = realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
 if (isMain) {
   main().catch((err) => {
     console.error("Fatal:", err);
