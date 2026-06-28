@@ -8,7 +8,17 @@ const V2_API = "https://api.staktrakr.com/data/v2";
 // goldback fetch paths. _staktrakrFetch is defined in api.js, which executes
 // after this file (both deferred) — it exists by the time any market fetch
 // runs, and the typeof guard degrades to the primary endpoint only if not.
-const _marketV2Fetch = async (path) => {
+/**
+ * Fetch a market-data JSON path with ordered api1→api2 endpoint failover.
+ * @param {string} path - Path appended to each V2 endpoint base.
+ * @param {Object} [options]
+ * @param {function(any): {ok: boolean, reason?: string}} [options.validate] -
+ *   Payload validator forwarded to _staktrakrFetch (STRK-249/STRK-189); a falsy
+ *   verdict rejects the endpoint's payload and advances to the next endpoint.
+ *   Existing callers pass none, so failover behavior is unchanged for them.
+ * @returns {Promise<any>} Parsed JSON from the first successful endpoint.
+ */
+const _marketV2Fetch = async (path, { validate } = {}) => {
   const endpoints =
     typeof V2_API_ENDPOINTS !== "undefined" &&
     Array.isArray(V2_API_ENDPOINTS) &&
@@ -16,7 +26,7 @@ const _marketV2Fetch = async (path) => {
       ? V2_API_ENDPOINTS
       : [V2_API];
   if (typeof _staktrakrFetch === "function") {
-    return _staktrakrFetch(endpoints, path);
+    return _staktrakrFetch(endpoints, path, { validate });
   }
   // Fallback if api.js hasn't executed: same ordered failover with plain fetch.
   let lastErr;
