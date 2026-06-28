@@ -1681,6 +1681,73 @@ const renderVendorPrices = () => {
 // Init / Refresh
 // ---------------------------------------------------------------------------
 
+/**
+ * Seed the goldback G1 rate for first paint, then refine it from the network.
+ *
+ * Three phases (STRK-249):
+ *  1. Seed from the fresh goldbackPrices['1'] cache so the gated premium sites
+ *     (ticker / modal / vendor matrix) paint in the same pass as spot premiums —
+ *     before the network fetch resolves. selectGoldbackG1Seed declines a stale
+ *     value while online and preserves the last-known plain value offline.
+ *  2. Refine over the network (api1 → api2 failover via the strict freshness
+ *     gate) so a stale/offline seed is replaced by the latest figure, then
+ *     re-render so the premium reflects it.
+ *  3. US-5 offline re-seed: if the post-seed fetch fails and navigator.onLine was
+ *     a false-positive (captive portal), the online seed declined the stale cache
+ *     and _goldbackG1Rate is still unset → re-seed via the OFFLINE branch so the
+ *     last-known value renders instead of blank, never clobbering a good rate.
+ *
+ * @returns {Promise<void>}
+ */
+const _seedAndRefreshGoldbackG1Rate = async () => {
+  // Seed the goldback G1 rate from the fresh goldbackPrices['1'] cache so the
+  // gated premium sites (ticker / modal / vendor matrix) paint in the same pass
+  // as spot premiums — before the un-awaited network fetch below resolves.
+  // selectGoldbackG1Seed (spot-ratio-math.js) declines a stale value while
+  // online and preserves the last-known plain value offline.
+  if (typeof selectGoldbackG1Seed === "function") {
+    const seeded = selectGoldbackG1Seed(navigator.onLine);
+    if (typeof seeded === "number" && seeded > 0) _goldbackG1Rate = seeded;
+  }
+
+  // Fetch goldback G1 rate for premium calculation. This always runs (even when
+  // a cache seed already set _goldbackG1Rate) so a stale/offline seed is refined
+  // by the network; on success update the rate and re-render so the premium
+  // reflects the latest figure. STRK-249 (C.5): routed through _marketV2Fetch with
+  // the strict freshness gate so a stale-but-200 api1 origin fails over to api2
+  // instead of short-circuiting; _marketV2Fetch resolves the parsed envelope.
+  try {
+    const gbJson = await _marketV2Fetch("/goldback/latest.json", {
+      validate: _strictMarketFreshness,
+    });
+    if (gbJson && gbJson.data && gbJson.data.g1_usd) {
+      _goldbackG1Rate = gbJson.data.g1_usd;
+      debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
+    }
+  } catch (e) {
+    debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
+    // STRK-249 (US-5): the post-seed network fetch failed. If navigator.onLine was
+    // a false-positive (captive portal / "connected but no internet"), the ONLINE
+    // seed above declined the stale cache (returned null) and _goldbackG1Rate is
+    // still unset/≤0 → blank premium. Re-seed via the OFFLINE branch so the
+    // last-known value (even if stale) renders instead of blank. Never clobber an
+    // already-good rate (an online seed or a prior fetch).
+    if ((!_goldbackG1Rate || _goldbackG1Rate <= 0) && typeof selectGoldbackG1Seed === "function") {
+      const offlineSeed = selectGoldbackG1Seed(false);
+      if (typeof offlineSeed === "number" && offlineSeed > 0) {
+        _goldbackG1Rate = offlineSeed;
+        debugLog(
+          "[market-data] Goldback G1 rate re-seeded offline (last-known): $" + _goldbackG1Rate,
+          "info"
+        );
+      }
+    }
+  }
+
+  renderBestPriceTicker();
+  renderVendorPrices();
+};
+
 const initMarketData = async () => {
   if (_marketDataInitialized) return;
 
@@ -1744,52 +1811,7 @@ const initMarketData = async () => {
 
   // Charts now use per-slug retail data fetched on modal open — no pre-fetch needed
 
-  // Seed the goldback G1 rate from the fresh goldbackPrices['1'] cache so the
-  // gated premium sites (ticker / modal / vendor matrix) paint in the same pass
-  // as spot premiums — before the un-awaited network fetch below resolves.
-  // selectGoldbackG1Seed (spot-ratio-math.js) declines a stale value while
-  // online and preserves the last-known plain value offline.
-  if (typeof selectGoldbackG1Seed === "function") {
-    const seeded = selectGoldbackG1Seed(navigator.onLine);
-    if (typeof seeded === "number" && seeded > 0) _goldbackG1Rate = seeded;
-  }
-
-  // Fetch goldback G1 rate for premium calculation. This always runs (even when
-  // a cache seed already set _goldbackG1Rate) so a stale/offline seed is refined
-  // by the network; on success update the rate and re-render so the premium
-  // reflects the latest figure. STRK-249 (C.5): routed through _marketV2Fetch with
-  // the strict freshness gate so a stale-but-200 api1 origin fails over to api2
-  // instead of short-circuiting; _marketV2Fetch resolves the parsed envelope.
-  try {
-    const gbJson = await _marketV2Fetch("/goldback/latest.json", {
-      validate: _strictMarketFreshness,
-    });
-    if (gbJson && gbJson.data && gbJson.data.g1_usd) {
-      _goldbackG1Rate = gbJson.data.g1_usd;
-      debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
-    }
-  } catch (e) {
-    debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
-    // STRK-249 (US-5): the post-seed network fetch failed. If navigator.onLine was
-    // a false-positive (captive portal / "connected but no internet"), the ONLINE
-    // seed above declined the stale cache (returned null) and _goldbackG1Rate is
-    // still unset/≤0 → blank premium. Re-seed via the OFFLINE branch so the
-    // last-known value (even if stale) renders instead of blank. Never clobber an
-    // already-good rate (an online seed or a prior fetch).
-    if ((!_goldbackG1Rate || _goldbackG1Rate <= 0) && typeof selectGoldbackG1Seed === "function") {
-      const offlineSeed = selectGoldbackG1Seed(false);
-      if (typeof offlineSeed === "number" && offlineSeed > 0) {
-        _goldbackG1Rate = offlineSeed;
-        debugLog(
-          "[market-data] Goldback G1 rate re-seeded offline (last-known): $" + _goldbackG1Rate,
-          "info"
-        );
-      }
-    }
-  }
-
-  renderBestPriceTicker();
-  renderVendorPrices();
+  await _seedAndRefreshGoldbackG1Rate();
 
   _marketDataInitialized = true;
 };
