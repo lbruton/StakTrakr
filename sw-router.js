@@ -137,7 +137,7 @@ function classifyEndpoint(urlString, selfOrigin) {
           family: entry.family,
           floor: entry.floor,
           hasEnvelope: entry.hasEnvelope,
-          networkFirst: entry.networkFirst,
+          ...(entry.networkFirst === true ? { networkFirst: true } : {}),
         };
       }
     } else {
@@ -147,7 +147,7 @@ function classifyEndpoint(urlString, selfOrigin) {
           family: entry.family,
           floor: entry.floor,
           hasEnvelope: entry.hasEnvelope,
-          networkFirst: entry.networkFirst,
+          ...(entry.networkFirst === true ? { networkFirst: true } : {}),
         };
       }
     }

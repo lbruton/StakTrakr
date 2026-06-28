@@ -219,7 +219,8 @@ test.describe("SW classified caching", () => {
   // entry must NOT short-circuit to cache-hit on an online load; classifiedFetch
   // revalidates against the network first ("network"). Offline, the network leg
   // throws and the cached copy is served via the fallback path ("network-fallback").
-  // RED until C.2 branches classifiedFetch for realtime families.
+  // Implemented and GREEN: C.2 landed classifiedFetch networkFirst branching for
+  // realtime families in this PR.
 
   test("SC-6 — goldback-latest /data/v2: online fresh entry → network", async ({ page }) => {
     await page.goto("/");

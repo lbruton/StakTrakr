@@ -270,11 +270,10 @@ describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
   });
 });
 
-// STRK-249 (B.1, RED): classifyEndpoint must emit networkFirst:true on the
-// three realtime families (spot-latest, goldback-latest, retail-latest) and
-// must NOT emit it (absent/false) on the other 7 families. Production code
-// (sw-router.js classifyEndpoint) does not yet carry networkFirst — added in
-// C.1 — so these assertions are expected to FAIL until then.
+// STRK-249 (B.1): classifyEndpoint emits networkFirst:true on the three
+// realtime families (spot-latest, goldback-latest, retail-latest) and must
+// NOT emit the key at all on the other 7 families. C.1 is implemented in
+// this PR — these assertions are green.
 describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", () => {
   // A representative classifiable path per family (on an API host) so we can
   // inspect the descriptor classifyEndpoint returns for each.
@@ -313,10 +312,10 @@ describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", ()
   }
 
   for (const family of NON_REALTIME_FAMILIES) {
-    it(`does NOT emit networkFirst on ${family} (absent/false)`, () => {
+    it(`does NOT emit networkFirst on ${family} (key must be absent)`, () => {
       const r = classifyEndpoint(API1 + FAMILY_PATHS[family], SELF);
       assert.equal(r.family, family);
-      assert.notEqual(r.networkFirst, true);
+      assert.equal(Object.prototype.hasOwnProperty.call(r, "networkFirst"), false);
     });
   }
 });

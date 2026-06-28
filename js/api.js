@@ -119,7 +119,7 @@ const _checkEnvelopeFreshness = (envelope, { multiplier, floorMs, maxAgeCapMs })
   }
   return {
     ok: age <= maxAge,
-    reason: `Stale spot payload (generated_at ${envelope?.generated_at})`,
+    reason: `Stale payload (generated_at ${envelope?.generated_at})`,
   };
 };
 

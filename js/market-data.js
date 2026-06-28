@@ -1707,7 +1707,15 @@ const _seedAndRefreshGoldbackG1Rate = async () => {
   // online and preserves the last-known plain value offline.
   if (typeof selectGoldbackG1Seed === "function") {
     const seeded = selectGoldbackG1Seed(navigator.onLine);
-    if (typeof seeded === "number" && seeded > 0) _goldbackG1Rate = seeded;
+    if (typeof seeded === "number" && seeded > 0) {
+      _goldbackG1Rate = seeded;
+      // Paint the seeded rate immediately so gated premium sites (ticker / vendor
+      // matrix) render in lockstep with spot premiums — before the network fetch
+      // below resolves. The render calls at the bottom of this function will
+      // re-paint once the network refines the rate.
+      renderBestPriceTicker();
+      renderVendorPrices();
+    }
   }
 
   // Fetch goldback G1 rate for premium calculation. This always runs (even when

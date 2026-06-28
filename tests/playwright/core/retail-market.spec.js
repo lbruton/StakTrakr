@@ -155,6 +155,134 @@ function latestForSlug(slug) {
   };
 }
 
+/**
+ * Returns a v2-API route handler that serves the standard fixture set.
+ * @param {{ failGoldback?: boolean, goldbackG1Rate?: number }} opts
+ *   failGoldback  – return 503 for goldback/latest.json (default: false)
+ *   goldbackG1Rate – g1_usd for a successful goldback response (default: GOLDBACK_G1_RATE)
+ */
+function makeV2Handler({ failGoldback = false, goldbackG1Rate = GOLDBACK_G1_RATE } = {}) {
+  return async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/^\/data\/v2\//, "");
+    if (path === "goldback/latest.json") {
+      if (failGoldback) {
+        await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            v: 2,
+            generated_at: GENERATED_AT,
+            data: { g1_usd: goldbackG1Rate },
+          }),
+        });
+      }
+      return;
+    }
+    if (path === "manifest.json") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: GENERATED_AT,
+          data: {
+            coins: Object.entries(coinMeta).map(([slug, meta]) => ({
+              slug,
+              name: meta.name,
+              weight_oz: meta.weight,
+              metal: meta.metal === "silver" ? "xag" : meta.metal === "gold" ? "xau" : meta.metal,
+            })),
+            vendors: VENDORS,
+          },
+        }),
+      });
+      return;
+    }
+    if (path === "providers.json") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ v: 2, generated_at: GENERATED_AT, data: { coins: {} } }),
+      });
+      return;
+    }
+    const match = path.match(/^retail\/([^/]+)\/([^/]+)\.json$/);
+    if (!match) {
+      await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+      return;
+    }
+    const [, slug, file] = match;
+    const data =
+      file === "latest"
+        ? latestForSlug(slug)
+        : file === "intraday"
+          ? intradayRows[slug]
+          : file.startsWith("history-")
+            ? historyRows[slug]
+            : null;
+    await route.fulfill({
+      status: data ? 200 : 404,
+      contentType: "application/json",
+      body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
+    });
+  };
+}
+
+/** Stubs the exchange-rate and lightweight-charts CDN routes for a page. */
+async function routeExchangeAndCharts(page, exchangeRates = { EUR: 0.9 }) {
+  await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ result: "success", base_code: "USD", rates: exchangeRates }),
+    });
+  });
+  await page.route("https://cdn.jsdelivr.net/npm/lightweight-charts@4/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: lightweightChartsStub,
+    });
+  });
+}
+
+/**
+ * Common boot sequence after routes + initScript are wired: sets the fixed
+ * clock, navigates, waits for market functions and spot price to settle, then
+ * drives initMarketData + refreshMarketData before waiting for the table.
+ */
+async function bootMarketDataPage(page) {
+  await page.clock.setFixedTime(FIXED_NOW);
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () =>
+      typeof window.renderVendorPrices === "function" &&
+      typeof window.refreshMarketData === "function" &&
+      typeof window.initMarketData === "function" &&
+      typeof window.showSettingsModal === "function"
+  );
+  // STRK-148 de-flake: boot's awaited loadSeedSpotHistory() pushes the seed
+  // bundle's gold spot (~$4456) into spotPrices.gold AFTER the function-existence
+  // wait above, via fetchSpotPrice(). Wait for that boot seed write to land
+  // BEFORE the override below, so the override is the last writer and isn't
+  // clobbered before refreshMarketData() reads it.
+  await page.waitForFunction(
+    () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
+  );
+  await page.evaluate(async () => {
+    if (typeof spotPrices !== "undefined") {
+      spotPrices.gold = 2000;
+      spotPrices.silver = 36;
+    }
+    await window.initMarketData?.();
+    window.refreshMarketData();
+  });
+  await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+}
+
 async function setupRetailFixture(page, options = {}) {
   const {
     savedTab,
@@ -175,22 +303,7 @@ async function setupRetailFixture(page, options = {}) {
   } = options;
 
   await injectSeedInventory(page);
-
-  await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ result: "success", base_code: "USD", rates: exchangeRates }),
-    });
-  });
-
-  await page.route("https://cdn.jsdelivr.net/npm/lightweight-charts@4/**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: lightweightChartsStub,
-    });
-  });
+  await routeExchangeAndCharts(page, exchangeRates);
 
   await page.addInitScript(
     ({ seeded, meta, vendors, saved, filter, currency, rates }) => {
@@ -255,70 +368,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  const fulfillV2 = async (route) => {
-    const url = new URL(route.request().url());
-    const path = url.pathname.replace(/^\/data\/v2\//, "");
-    if (path === "manifest.json") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          v: 2,
-          generated_at: GENERATED_AT,
-          data: {
-            coins: Object.entries(coinMeta).map(([slug, meta]) => ({
-              slug,
-              name: meta.name,
-              weight_oz: meta.weight,
-              metal: meta.metal === "silver" ? "xag" : meta.metal === "gold" ? "xau" : meta.metal,
-            })),
-            vendors: VENDORS,
-          },
-        }),
-      });
-      return;
-    }
-    if (path === "providers.json") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ v: 2, generated_at: GENERATED_AT, data: { coins: {} } }),
-      });
-      return;
-    }
-    if (path === "goldback/latest.json") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          v: 2,
-          generated_at: GENERATED_AT,
-          data: { g1_usd: GOLDBACK_G1_RATE },
-        }),
-      });
-      return;
-    }
-    const match = path.match(/^retail\/([^/]+)\/([^/]+)\.json$/);
-    if (!match) {
-      await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
-      return;
-    }
-    const [, slug, file] = match;
-    const data =
-      file === "latest"
-        ? latestForSlug(slug)
-        : file === "intraday"
-          ? intradayRows[slug]
-          : file.startsWith("history-")
-            ? historyRows[slug]
-            : null;
-    await route.fulfill({
-      status: data ? 200 : 404,
-      contentType: "application/json",
-      body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
-    });
-  };
-
+  const fulfillV2 = makeV2Handler();
   const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
@@ -383,33 +433,7 @@ async function setupRetailFixture(page, options = {}) {
   // seed instead). Playwright still installs faked timers but drives them in
   // real time, so setTimeout/requestAnimationFrame keep firing and app boot /
   // chart / exchange-rate logic runs normally — we pin the clock, not pause it.
-  await page.clock.setFixedTime(FIXED_NOW);
-
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(
-    () =>
-      typeof window.renderVendorPrices === "function" &&
-      typeof window.refreshMarketData === "function" &&
-      typeof window.showSettingsModal === "function"
-  );
-  // STRK-148 de-flake: boot's awaited loadSeedSpotHistory() pushes the seed
-  // bundle's gold spot (~$4456) into spotPrices.gold AFTER the function-existence
-  // wait above, via fetchSpotPrice(). Wait for that boot seed write to land
-  // BEFORE the override below, so the override is the last writer and isn't
-  // clobbered before refreshMarketData() reads it. (Latent race surfaced by
-  // STRK-141's awaited boot-hydration timing; not a product bug — see STRK-148.)
-  await page.waitForFunction(
-    () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
-  );
-  await page.evaluate(async () => {
-    if (typeof spotPrices !== "undefined") {
-      spotPrices.gold = 2000;
-      spotPrices.silver = 36;
-    }
-    await window.initMarketData?.();
-    window.refreshMarketData();
-  });
-  await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+  await bootMarketDataPage(page);
 }
 
 const getActiveTab = (page) =>
@@ -628,22 +652,7 @@ test.describe("core/retail-market", () => {
   // goldback premium should paint in lockstep from the cache (it does not yet).
   async function bootGoldbackMatrixCacheOnly(page) {
     await injectSeedInventory(page);
-
-    await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ result: "success", base_code: "USD", rates: { EUR: 0.9 } }),
-      });
-    });
-
-    await page.route("https://cdn.jsdelivr.net/npm/lightweight-charts@4/**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/javascript",
-        body: lightweightChartsStub,
-      });
-    });
+    await routeExchangeAndCharts(page);
 
     await page.addInitScript(
       ({ seeded, meta, vendors, cacheRate }) => {
@@ -681,89 +690,17 @@ test.describe("core/retail-market", () => {
       }
     );
 
-    // Full v2 routing (mirrors setupRetailFixture's fulfillV2) so the manifest and
-    // per-slug detail load and spot premiums compute — EXCEPT goldback/latest.json,
-    // which fails on both hosts so _goldbackG1Rate stays null (network unseeded).
-    const fulfillV2 = async (route) => {
-      const url = new URL(route.request().url());
-      const path = url.pathname.replace(/^\/data\/v2\//, "");
-      if (path === "goldback/latest.json") {
-        await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
-        return;
-      }
-      if (path === "manifest.json") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            v: 2,
-            generated_at: GENERATED_AT,
-            data: {
-              coins: Object.entries(coinMeta).map(([slug, m]) => ({
-                slug,
-                name: m.name,
-                weight_oz: m.weight,
-                metal: m.metal === "silver" ? "xag" : m.metal === "gold" ? "xau" : m.metal,
-              })),
-              vendors: VENDORS,
-            },
-          }),
-        });
-        return;
-      }
-      if (path === "providers.json") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ v: 2, generated_at: GENERATED_AT, data: { coins: {} } }),
-        });
-        return;
-      }
-      const match = path.match(/^retail\/([^/]+)\/([^/]+)\.json$/);
-      if (!match) {
-        await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
-        return;
-      }
-      const [, slug, file] = match;
-      const data =
-        file === "latest"
-          ? latestForSlug(slug)
-          : file === "intraday"
-            ? intradayRows[slug]
-            : file.startsWith("history-")
-              ? historyRows[slug]
-              : null;
-      await route.fulfill({
-        status: data ? 200 : 404,
-        contentType: "application/json",
-        body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
-      });
-    };
-    await page.route("https://api.staktrakr.com/data/v2/**", fulfillV2);
+    // Full v2 routing so manifest + per-slug detail load and spot premiums compute —
+    // EXCEPT goldback/latest.json, which fails on both hosts so _goldbackG1Rate stays
+    // null (network unseeded). makeV2Handler({ failGoldback: true }) handles both.
+    await page.route("https://api.staktrakr.com/data/v2/**", makeV2Handler({ failGoldback: true }));
     await page.route("https://api2.staktrakr.com/data/v2/**", async (route) =>
       route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
     );
 
-    await page.clock.setFixedTime(FIXED_NOW);
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () =>
-        typeof window.renderVendorPrices === "function" &&
-        typeof window.refreshMarketData === "function" &&
-        typeof window.initMarketData === "function"
-    );
-    await page.waitForFunction(
-      () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
-    );
     // Run initMarketData with the goldback endpoint failing: manifest + per-slug
     // detail load (so spot premiums render) but _goldbackG1Rate stays null.
-    await page.evaluate(async () => {
-      spotPrices.gold = 2000;
-      spotPrices.silver = 36;
-      await window.initMarketData?.();
-      window.refreshMarketData();
-    });
-    await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+    await bootMarketDataPage(page);
   }
 
   // Returns the `.vp-premium` badge text inside the goldback matrix row, or null.
@@ -958,15 +895,11 @@ test.describe("core/retail-market", () => {
     // seeding. Goldback vendor price 5.1 / 4.25 = +20.0% once the api2 rate lands.
     await setupRetailFixture(page, { failPrimary: true });
 
-    const matrixBadge = page
-      .locator(".vendor-prices-table tbody tr")
-      .filter({ hasText: "Goldback" })
-      .locator(".vp-premium");
-
     // RED: the raw goldback fetch hits api1 only (503), never api2, so
     // _goldbackG1Rate stays null and the goldback premium badge never paints.
     // After C.5 routes it through _marketV2Fetch, failover reaches api2 and the
     // badge paints the api2-derived premium.
+    const matrixBadge = goldbackMatrixBadge(page);
     await expect(matrixBadge).toHaveCount(1);
     await expect(matrixBadge.first()).toHaveText("+20.0%");
     await expect(matrixBadge.first()).toHaveClass(/\bhigh\b/);
@@ -1011,15 +944,11 @@ test.describe("core/retail-market", () => {
       freshSecondaryRate: 5.0, // 5.1 / 5.0 =  +2.0% (api2 fresh, wins after #1)
     });
 
-    const matrixBadge = page
-      .locator(".vendor-prices-table tbody tr")
-      .filter({ hasText: "Goldback" })
-      .locator(".vp-premium");
-
     // RED: today's 25h gate budget accepts the 3h-old api1 200, so it short-circuits
     // the failover loop and the premium renders the api1 STALE rate (+70.0%) -- this
     // assertion FAILS. After finding #1 adds the 2h realtime cap, the 3h api1 200 is
     // rejected, failover reaches api2, and the premium renders the api2 FRESH rate.
+    const matrixBadge = goldbackMatrixBadge(page);
     await expect(matrixBadge).toHaveCount(1);
     await expect(matrixBadge.first()).toHaveText("+2.0%");
   });
@@ -1037,21 +966,7 @@ test.describe("core/retail-market", () => {
     // to V2_API (api1) and never reaches api2, so _buildVendorTableRow omits the row
     // entirely (no detail.vendors). After C.5's failover the fetch reaches api2, the
     // detail resolves, and the SLUG_SILVER_A row + its APMEX price cell paint.
-    await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ result: "success", base_code: "USD", rates: { EUR: 0.9 } }),
-      });
-    });
-    await page.route("https://cdn.jsdelivr.net/npm/lightweight-charts@4/**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/javascript",
-        body: lightweightChartsStub,
-      });
-    });
-
+    await routeExchangeAndCharts(page);
     await injectSeedInventory(page);
     await page.addInitScript(
       ({ seeded, meta, vendors, freshSync, uncachedSlug }) => {
@@ -1091,92 +1006,11 @@ test.describe("core/retail-market", () => {
     // api2 serves the v2 fixtures (manifest + per-slug latest.json, incl. the
     // stripped slug with its real vendors); api1 is hard-down (503). Mirrors
     // setupRetailFixture's fulfillV2 routing under failPrimary.
-    const fulfillV2 = async (route) => {
-      const url = new URL(route.request().url());
-      const path = url.pathname.replace(/^\/data\/v2\//, "");
-      if (path === "manifest.json") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            v: 2,
-            generated_at: GENERATED_AT,
-            data: {
-              coins: Object.entries(coinMeta).map(([slug, m]) => ({
-                slug,
-                name: m.name,
-                weight_oz: m.weight,
-                metal: m.metal === "silver" ? "xag" : m.metal === "gold" ? "xau" : m.metal,
-              })),
-              vendors: VENDORS,
-            },
-          }),
-        });
-        return;
-      }
-      if (path === "providers.json") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ v: 2, generated_at: GENERATED_AT, data: { coins: {} } }),
-        });
-        return;
-      }
-      if (path === "goldback/latest.json") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            v: 2,
-            generated_at: GENERATED_AT,
-            data: { g1_usd: GOLDBACK_G1_RATE },
-          }),
-        });
-        return;
-      }
-      const match = path.match(/^retail\/([^/]+)\/([^/]+)\.json$/);
-      if (!match) {
-        await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
-        return;
-      }
-      const [, slug, file] = match;
-      const data =
-        file === "latest"
-          ? latestForSlug(slug)
-          : file === "intraday"
-            ? intradayRows[slug]
-            : file.startsWith("history-")
-              ? historyRows[slug]
-              : null;
-      await route.fulfill({
-        status: data ? 200 : 404,
-        contentType: "application/json",
-        body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
-      });
-    };
     await page.route("https://api.staktrakr.com/data/v2/**", async (route) =>
       route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
     );
-    await page.route("https://api2.staktrakr.com/data/v2/**", fulfillV2);
-
-    await page.clock.setFixedTime(FIXED_NOW);
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () =>
-        typeof window.renderVendorPrices === "function" &&
-        typeof window.refreshMarketData === "function" &&
-        typeof window.initMarketData === "function"
-    );
-    await page.waitForFunction(
-      () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
-    );
-    await page.evaluate(async () => {
-      spotPrices.gold = 2000;
-      spotPrices.silver = 36;
-      await window.initMarketData?.();
-      window.refreshMarketData();
-    });
-    await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+    await page.route("https://api2.staktrakr.com/data/v2/**", makeV2Handler());
+    await bootMarketDataPage(page);
 
     // Coalesce the missing-cell sentinel to "" so the RED state reads as the
     // absent api2 price (not a null-matcher error). Today the SLUG_SILVER_A row is

@@ -196,13 +196,13 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
   // STRK-249 — AC-4 / AC-5: gold-card GB chip repaints after the async
   // goldback API fetch resolves, on a NORMAL (non-hard-refresh) load.
   //
-  // RED CONTRACT (fails until C.3 wires renderRatioChips() into the
-  // fetchGoldbackApiPrices() success AND failure paths):
-  //   js/goldback.js fetchGoldbackApiPrices (~:481-486) seeds goldbackPrices['1']
-  //   then calls saveGoldbackPrices / fetchGoldbackApiHistory / recordGoldbackPrices /
-  //   syncGoldbackSettingsUI — but NEVER renderRatioChips(). So a goldback fetch
-  //   that resolves with no subsequent spot DOM-write leaves the GB chip unpainted
-  //   (AC-4) and a failed fetch never re-asserts the prior chip (AC-5).
+  // Both paths are implemented and GREEN (C.3 shipped in this PR):
+  //   AC-4 (success): fetchGoldbackApiPrices() calls _repaintGoldbackRatioChips()
+  //     after seeding goldbackPrices['1'], so the GB chip is present synchronously
+  //     at the moment the fetch promise resolves.
+  //   AC-5 (failure regression guard): all failure/empty early-return paths exit
+  //     before the repaint call, so a failed fetch leaves a previously-painted chip
+  //     untouched — the chip neither blanks out nor throws.
   //
   // These assert via DOM STRUCTURE (the .spot-card[data-metal="gold"]
   // .spot-ratio-chip element + its .lab/.val children), not "text exists".
@@ -225,11 +225,16 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
     await expect(page.locator("#spotPriceDisplayGold")).not.toHaveText("—", { timeout: 10000 });
   }
 
-  // Override the goldback/latest.json endpoint on BOTH v2 hosts. A 503 leaves the
-  // goldback cache untouched; a 200 returns a fresh G1 envelope (ts=now, stale_after
-  // generous) so resolveGoldbackRate() yields a fresh, non-estimate rate.
+  // Override the goldback endpoints on BOTH v2 hosts to keep AC-4 / AC-5 hermetic.
+  // latest.json: a 503 leaves the goldback cache untouched; a 200 returns a fresh
+  //   G1 envelope (ts=now, stale_after generous) so resolveGoldbackRate() yields a
+  //   fresh, non-estimate rate.
+  // history-30d.json: fetchGoldbackApiPrices() calls fetchGoldbackApiHistory() with
+  //   the resolved endpoint after a successful latest.json fetch, which would hit the
+  //   LIVE history URL and make AC-4 / AC-5 CI-flaky. Stub it with an empty-but-valid
+  //   payload so no live network request escapes the test boundary.
   async function routeGoldbackLatest(page, { fails }) {
-    const handler = async (route) => {
+    const latestHandler = async (route) => {
       if (fails) {
         await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
         return;
@@ -245,8 +250,20 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
         }),
       });
     };
-    await page.route("https://api.staktrakr.com/data/v2/goldback/latest.json", handler);
-    await page.route("https://api2.staktrakr.com/data/v2/goldback/latest.json", handler);
+    const historyHandler = async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ v: 2, generated_at: new Date().toISOString(), data: [] }),
+      });
+    };
+    await page.route("https://api.staktrakr.com/data/v2/goldback/latest.json", latestHandler);
+    await page.route("https://api2.staktrakr.com/data/v2/goldback/latest.json", latestHandler);
+    await page.route("https://api.staktrakr.com/data/v2/goldback/history-30d.json", historyHandler);
+    await page.route(
+      "https://api2.staktrakr.com/data/v2/goldback/history-30d.json",
+      historyHandler
+    );
   }
 
   // Spy on the render choke point so we can prove the goldback FETCH itself drives
