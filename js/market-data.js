@@ -53,8 +53,16 @@ const _marketV2Fetch = async (path, { validate } = {}) => {
 //     staleness constraint, so it is accepted (mirrors the legacy unparseable-
 //     generated_at short-circuit). Production goldback/retail envelopes always carry a
 //     positive stale_after, so a genuinely stale SW copy is still rejected.
+// STRK-249 (review finding #1): the goldback envelope carries stale_after = 90000s
+// (~25h) — the very SW floor STRK-249 exists to escape (US-3). Cap the strict realtime
+// budget at SPOT_MAX_PAYLOAD_AGE_MS (~2h) so goldback's 25h collapses to 2h: a >2h
+// stale api1 200 is rejected → failover to api2. Retail's stale_after = 1800s (30min)
+// stays min(30min, 2h) = 30min (unchanged). A fresh goldback copy (≤~1h) still passes.
 /**
  * Strict v2-envelope freshness verdict for _marketV2Fetch's `validate` gate.
+ * Caps the accept budget at SPOT_MAX_PAYLOAD_AGE_MS (the realtime payload-age
+ * ceiling) so a high-stale_after endpoint (goldback ≈ 25h) cannot keep a
+ * stale-but-200 SW/CDN copy alive past the realtime ceiling (review finding #1).
  * @param {any} envelope - Parsed v2 envelope ({ generated_at, stale_after, data }).
  * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator.
  */
@@ -63,7 +71,11 @@ const _strictMarketFreshness = (envelope) => {
   if (!envelope || typeof envelope.stale_after !== "number" || envelope.stale_after <= 0) {
     return { ok: true };
   }
-  return _checkEnvelopeFreshness(envelope, { multiplier: 1, floorMs: 0 });
+  return _checkEnvelopeFreshness(envelope, {
+    multiplier: 1,
+    floorMs: 0,
+    maxAgeCapMs: SPOT_MAX_PAYLOAD_AGE_MS,
+  });
 };
 
 const _METAL_TO_ISO = { silver: "xag", gold: "xau", platinum: "xpt", palladium: "xpd" };
@@ -1758,6 +1770,22 @@ const initMarketData = async () => {
     }
   } catch (e) {
     debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
+    // STRK-249 (US-5): the post-seed network fetch failed. If navigator.onLine was
+    // a false-positive (captive portal / "connected but no internet"), the ONLINE
+    // seed above declined the stale cache (returned null) and _goldbackG1Rate is
+    // still unset/≤0 → blank premium. Re-seed via the OFFLINE branch so the
+    // last-known value (even if stale) renders instead of blank. Never clobber an
+    // already-good rate (an online seed or a prior fetch).
+    if ((!_goldbackG1Rate || _goldbackG1Rate <= 0) && typeof selectGoldbackG1Seed === "function") {
+      const offlineSeed = selectGoldbackG1Seed(false);
+      if (typeof offlineSeed === "number" && offlineSeed > 0) {
+        _goldbackG1Rate = offlineSeed;
+        debugLog(
+          "[market-data] Goldback G1 rate re-seeded offline (last-known): $" + _goldbackG1Rate,
+          "info"
+        );
+      }
+    }
   }
 
   renderBestPriceTicker();
