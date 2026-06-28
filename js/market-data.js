@@ -42,6 +42,30 @@ const _marketV2Fetch = async (path, { validate } = {}) => {
   throw lastErr || new Error("All market endpoints failed");
 };
 
+// STRK-249 (C.5): strict freshness gate for the goldback-G1 and retail-detail
+// fetches. Built on api.js's shared _checkEnvelopeFreshness with the strict regime
+// (multiplier:1, floorMs:0) — reject by the endpoint's OWN stale_after with no slack,
+// so a stale-but-200 api1 SW/CDN payload is rejected and _staktrakrFetch advances to
+// api2 instead of short-circuiting (C-8). Guarded two ways for robustness:
+//   - load order: api.js executes after this file (both deferred); the gate runs only
+//     at fetch RUNTIME, but if _checkEnvelopeFreshness is somehow absent we pass through.
+//   - no declared budget: an envelope without a positive stale_after declares no
+//     staleness constraint, so it is accepted (mirrors the legacy unparseable-
+//     generated_at short-circuit). Production goldback/retail envelopes always carry a
+//     positive stale_after, so a genuinely stale SW copy is still rejected.
+/**
+ * Strict v2-envelope freshness verdict for _marketV2Fetch's `validate` gate.
+ * @param {any} envelope - Parsed v2 envelope ({ generated_at, stale_after, data }).
+ * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator.
+ */
+const _strictMarketFreshness = (envelope) => {
+  if (typeof _checkEnvelopeFreshness !== "function") return { ok: true };
+  if (!envelope || typeof envelope.stale_after !== "number" || envelope.stale_after <= 0) {
+    return { ok: true };
+  }
+  return _checkEnvelopeFreshness(envelope, { multiplier: 1, floorMs: 0 });
+};
+
 const _METAL_TO_ISO = { silver: "xag", gold: "xau", platinum: "xpt", palladium: "xpd" };
 const _ISO_TO_METAL = { xag: "silver", xau: "gold", xpt: "platinum", xpd: "palladium" };
 
@@ -1195,9 +1219,11 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   }
 
   if (missingSlugs.length > 0) {
+    // STRK-249 (C.5): routed through _marketV2Fetch with the strict freshness gate
+    // so a stale-but-200 api1 origin fails over to api2 instead of short-circuiting;
+    // _marketV2Fetch resolves the parsed envelope, so consume json.data directly.
     const fetchPromises = missingSlugs.map((slug) =>
-      fetch(V2_API + "/retail/" + slug + "/latest.json", { signal: AbortSignal.timeout(8000) })
-        .then((r) => (r.ok ? r.json() : null))
+      _marketV2Fetch("/retail/" + slug + "/latest.json", { validate: _strictMarketFreshness })
         .then((json) => ({ slug, data: json && json.data ? json.data : null }))
         .catch(() => ({ slug, data: null }))
     );
@@ -1719,17 +1745,16 @@ const initMarketData = async () => {
   // Fetch goldback G1 rate for premium calculation. This always runs (even when
   // a cache seed already set _goldbackG1Rate) so a stale/offline seed is refined
   // by the network; on success update the rate and re-render so the premium
-  // reflects the latest figure.
+  // reflects the latest figure. STRK-249 (C.5): routed through _marketV2Fetch with
+  // the strict freshness gate so a stale-but-200 api1 origin fails over to api2
+  // instead of short-circuiting; _marketV2Fetch resolves the parsed envelope.
   try {
-    const gbResp = await fetch(V2_API + "/goldback/latest.json", {
-      signal: AbortSignal.timeout(10000),
+    const gbJson = await _marketV2Fetch("/goldback/latest.json", {
+      validate: _strictMarketFreshness,
     });
-    if (gbResp.ok) {
-      const gbJson = await gbResp.json();
-      if (gbJson && gbJson.data && gbJson.data.g1_usd) {
-        _goldbackG1Rate = gbJson.data.g1_usd;
-        debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
-      }
+    if (gbJson && gbJson.data && gbJson.data.g1_usd) {
+      _goldbackG1Rate = gbJson.data.g1_usd;
+      debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
     }
   } catch (e) {
     debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
