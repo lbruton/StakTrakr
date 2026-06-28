@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.60-b1782622500";
+const CACHE_NAME = "staktrakr-v3.35.60-b1782622623";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -382,7 +382,20 @@ function matchWithAgeCheck(request, family) {
 let lastStrategy = null;
 
 // Classified dispatcher: cache-first-with-TTL, network on miss, stale fallback on error.
+// Realtime families (family.networkFirst) skip the TTL check and go straight to network,
+// falling back to the cached copy on a fetch error.
 function classifiedFetch(request, family) {
+  if (family.networkFirst) {
+    return fetchAndCacheClassified(request, family)
+      .then((response) => {
+        lastStrategy = "network";
+        return response;
+      })
+      .catch(() => {
+        lastStrategy = "network-fallback";
+        return caches.match(request).then((stale) => stale || Response.error());
+      });
+  }
   return matchWithAgeCheck(request, family).then((cached) => {
     if (cached) {
       lastStrategy = "cache-hit";
