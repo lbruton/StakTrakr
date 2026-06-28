@@ -5,11 +5,11 @@
   "description": "Retail precious metals price extraction via local Firecrawl Docker + Playwright fallback",
   "type": "module",
   "dependencies": {
-    "@libsql/client": "^0.17.3",
+    "@libsql/client": "^0.17.4",
     "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
-    "playwright": "1.60.0",
-    "playwright-core": "1.60.0"
+    "playwright": "1.61.1",
+    "playwright-core": "1.61.1"
   },
   "overrides": {
     "ws": "^8.20.1"
