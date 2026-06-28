@@ -24,9 +24,9 @@
     "*.{js,css,html,json,md}": "prettier --write"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.1",
     "eslint": "^9.21.0",
-    "lint-staged": "^17.0.7",
-    "prettier": "^3.8.3"
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.8.4"
   }
 }
