@@ -867,4 +867,218 @@ test.describe("core/retail-market", () => {
       /[1-9]/
     );
   });
+
+  // =========================================================================
+  // STRK-249 — AC-8 / AC-9: the two RAW api1-only market-data fetches must fail
+  // over to api2 when the api1 origin is stale/down. Both fetches hardcode
+  // V2_API ("https://api.staktrakr.com/data/v2") today and never reach api2:
+  //   - AC-8 goldback-G1: js/market-data.js initMarketData() (`:1712`)
+  //       `fetch(V2_API + "/goldback/latest.json")` — api1-only, so with api1
+  //       down _goldbackG1Rate stays null and the goldback premium cell is blank.
+  //   - AC-9 retail-detail: js/market-data.js _resolveVendorDetailMap() (`:1199`)
+  //       `fetch(V2_API + "/retail/<slug>/latest.json")` — api1-only, so with api1
+  //       down an un-cached slug never resolves a detail and its price cell stays "—".
+  //
+  // Both mirror the STRK-188 failover pattern: setupRetailFixture(page,
+  // { failPrimary: true }) returns 503 from api1 while api2 serves the fixtures.
+  // Service workers are blocked in the core Playwright project
+  // (playwright.config.js:26), so these intercept as ordinary page fetches — the
+  // C-5 SW short-circuit caveat (a stale-but-200 must NOT end the failover loop)
+  // does not apply to this harness; here api1 is a hard 503.
+  //
+  // RED until C.5 routes BOTH raw fetches through _marketV2Fetch with the strict
+  // `validate` gate, at which point the ordered V2_API_ENDPOINTS failover reaches
+  // api2 and both rendered surfaces below reflect the api2 values.
+  // =========================================================================
+
+  test("AC-8: goldback-G1 fetch fails over to api2 so the goldback premium reflects the api2 G1 rate (STRK-249)", async ({
+    page,
+  }) => {
+    // api1 down, api2 serves goldback/latest.json with g1_usd = GOLDBACK_G1_RATE
+    // (4.25). No goldback cache is seeded, so _goldbackG1Rate's ONLY source is the
+    // (api1-only) network fetch — isolating the AC-8 failover gap from C.4's cache
+    // seeding. Goldback vendor price 5.1 / 4.25 = +20.0% once the api2 rate lands.
+    await setupRetailFixture(page, { failPrimary: true });
+
+    const matrixBadge = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ hasText: "Goldback" })
+      .locator(".vp-premium");
+
+    // RED: the raw goldback fetch hits api1 only (503), never api2, so
+    // _goldbackG1Rate stays null and the goldback premium badge never paints.
+    // After C.5 routes it through _marketV2Fetch, failover reaches api2 and the
+    // badge paints the api2-derived premium.
+    await expect(matrixBadge).toHaveCount(1);
+    await expect(matrixBadge.first()).toHaveText("+20.0%");
+    await expect(matrixBadge.first()).toHaveClass(/\bhigh\b/);
+  });
+
+  test("AC-9: retail-detail latest.json fetch fails over to api2 so the matrix consumes the api2 price (STRK-249)", async ({
+    page,
+  }) => {
+    // Boot with api1 DOWN and api2 serving fulfillV2, but pin the seeded summary
+    // FRESH (lastSync = FIXED_NOW) and seed providers so retail.js's boot sync — a
+    // SEPARATE data path that would otherwise pre-resolve every slug from api2 and
+    // mask this gap — is skipped. With sync skipped, market-data.js's render-time
+    // _resolveVendorDetailMap (`:1199`) is the SOLE network path for SLUG_SILVER_A,
+    // whose vendor detail is stripped from the summary so it is never cache-resolved.
+    // Its detail therefore resolves ONLY from that fetch; today the fetch is hardcoded
+    // to V2_API (api1) and never reaches api2, so _buildVendorTableRow omits the row
+    // entirely (no detail.vendors). After C.5's failover the fetch reaches api2, the
+    // detail resolves, and the SLUG_SILVER_A row + its APMEX price cell paint.
+    await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ result: "success", base_code: "USD", rates: { EUR: 0.9 } }),
+      });
+    });
+    await page.route("https://cdn.jsdelivr.net/npm/lightweight-charts@4/**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: lightweightChartsStub,
+      });
+    });
+
+    await injectSeedInventory(page);
+    await page.addInitScript(
+      ({ seeded, meta, vendors, freshSync, uncachedSlug }) => {
+        const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+        // Fresh-stamp the summary and strip the target slug's vendors so it is the
+        // only un-cached row (must be fetched), while every other slug renders from
+        // cache. lastSync = freshSync keeps retail.js's boot sync from triggering.
+        const summary = JSON.parse(JSON.stringify(seeded.prices));
+        summary.lastSync = freshSync;
+        if (summary.prices[uncachedSlug]) delete summary.prices[uncachedSlug].vendors;
+        writeJson("v2RetailPrices", summary);
+        writeJson("retailPrices", summary);
+        writeJson("v2RetailHistory", seeded.history);
+        writeJson("retailPriceHistory", seeded.history);
+        writeJson("v2RetailIntraday", seeded.intraday);
+        writeJson("retailIntradayData", seeded.intraday);
+        writeJson("retailManifestSlugs", Object.keys(meta));
+        writeJson("retailManifestCoinMeta", meta);
+        writeJson("retailManifestVendorMeta", vendors);
+        // Non-empty providers → retail.js boot sync's missingProviders gate is false.
+        writeJson("retailProviders", { [uncachedSlug]: { apmex: "https://apmex.com/x" } });
+        writeJson("displayCurrency", "USD");
+        writeJson("exchangeRates", { EUR: 0.9 });
+        localStorage.setItem("retailManifestGeneratedAt", seeded.generatedAt);
+        localStorage.setItem("spotSilver", JSON.stringify(36));
+        localStorage.setItem("spotGold", JSON.stringify(2000));
+      },
+      {
+        seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
+        meta: coinMeta,
+        vendors: vendorMeta,
+        freshSync: FIXED_NOW.toISOString(),
+        uncachedSlug: SLUG_SILVER_A,
+      }
+    );
+
+    // api2 serves the v2 fixtures (manifest + per-slug latest.json, incl. the
+    // stripped slug with its real vendors); api1 is hard-down (503). Mirrors
+    // setupRetailFixture's fulfillV2 routing under failPrimary.
+    const fulfillV2 = async (route) => {
+      const url = new URL(route.request().url());
+      const path = url.pathname.replace(/^\/data\/v2\//, "");
+      if (path === "manifest.json") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            v: 2,
+            generated_at: GENERATED_AT,
+            data: {
+              coins: Object.entries(coinMeta).map(([slug, m]) => ({
+                slug,
+                name: m.name,
+                weight_oz: m.weight,
+                metal: m.metal === "silver" ? "xag" : m.metal === "gold" ? "xau" : m.metal,
+              })),
+              vendors: VENDORS,
+            },
+          }),
+        });
+        return;
+      }
+      if (path === "providers.json") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ v: 2, generated_at: GENERATED_AT, data: { coins: {} } }),
+        });
+        return;
+      }
+      if (path === "goldback/latest.json") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            v: 2,
+            generated_at: GENERATED_AT,
+            data: { g1_usd: GOLDBACK_G1_RATE },
+          }),
+        });
+        return;
+      }
+      const match = path.match(/^retail\/([^/]+)\/([^/]+)\.json$/);
+      if (!match) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+        return;
+      }
+      const [, slug, file] = match;
+      const data =
+        file === "latest"
+          ? latestForSlug(slug)
+          : file === "intraday"
+            ? intradayRows[slug]
+            : file.startsWith("history-")
+              ? historyRows[slug]
+              : null;
+      await route.fulfill({
+        status: data ? 200 : 404,
+        contentType: "application/json",
+        body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
+      });
+    };
+    await page.route("https://api.staktrakr.com/data/v2/**", async (route) =>
+      route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
+    );
+    await page.route("https://api2.staktrakr.com/data/v2/**", fulfillV2);
+
+    await page.clock.setFixedTime(FIXED_NOW);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.renderVendorPrices === "function" &&
+        typeof window.refreshMarketData === "function" &&
+        typeof window.initMarketData === "function"
+    );
+    await page.waitForFunction(
+      () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
+    );
+    await page.evaluate(async () => {
+      spotPrices.gold = 2000;
+      spotPrices.silver = 36;
+      await window.initMarketData?.();
+      window.refreshMarketData();
+    });
+    await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+
+    // Coalesce the missing-cell sentinel to "" so the RED state reads as the
+    // absent api2 price (not a null-matcher error). Today the SLUG_SILVER_A row is
+    // omitted entirely (its detail never resolved), so getVendorCellText is null.
+    const apmexCell = async () =>
+      (await getVendorCellText(page, "Alpha Silver Bar", "APMEX")) ?? "";
+
+    // RED: the render-time latest.json fetch hits api1 only (503), never api2, so
+    // _resolveVendorDetailMap resolves no detail for the un-cached slug — its row
+    // (and APMEX price cell) never paints. After C.5 routes the fetch through
+    // _marketV2Fetch, failover reaches api2's latest.json (APMEX vendor price 38)
+    // and the matrix consumes the api2 price.
+    await expect.poll(apmexCell, { timeout: 8000 }).toContain("$38.00");
+  });
 });
