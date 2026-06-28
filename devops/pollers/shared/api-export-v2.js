@@ -865,6 +865,19 @@ function buildGoldbackOhlcaBuckets(rows, granularity) {
   return entries;
 }
 
+/**
+ * Build the raw hourly point series for `goldback/intraday.json`.
+ *
+ * Maps each `price_snapshots` row to a raw `{ t, ts, g1_usd }` point with the
+ * timestamp floored to the hour. This is intentionally NOT OHLCA-bucketed:
+ * goldback scrapes roughly once per hour, so per-hour OHLC would be degenerate.
+ * The mapping is 1:1 (multiple scrapes within one hour can share the same
+ * hourly-floored `t`). Input is assumed ordered by `scraped_at ASC` (as
+ * returned by {@link queryGoldbackRange}), so output preserves ascending order.
+ *
+ * @param {{price: number|string, scraped_at: string}[]} rows - goldback `price_snapshots` rows
+ * @returns {{t: string, ts: number, g1_usd: number}[]} raw hourly points (empty array for empty input)
+ */
 function buildGoldbackIntradayEntries(rows) {
   const entries = [];
   for (const row of rows) {

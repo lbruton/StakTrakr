@@ -27,10 +27,13 @@ describe("buildGoldbackIntradayEntries", () => {
     }
   });
 
-  it("floors t to the hour (ISO 8601 UTC Z)", () => {
+  it("floors t to the hour (ISO 8601 UTC Z) and ts to matching epoch seconds", () => {
     const out = buildGoldbackIntradayEntries(ROWS);
     assert.equal(out[0].t, "2026-06-28T17:00:00Z");
     assert.equal(out[1].t, "2026-06-28T18:00:00Z");
+    // ts is the epoch-seconds twin of the hourly-floored t (not the raw scrape time)
+    assert.equal(out[0].ts, Date.parse("2026-06-28T17:00:00Z") / 1000);
+    assert.equal(out[1].ts, Date.parse("2026-06-28T18:00:00Z") / 1000);
   });
 
   it("rounds g1_usd to 2 decimals", () => {
