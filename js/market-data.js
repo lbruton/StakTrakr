@@ -1706,22 +1706,33 @@ const initMarketData = async () => {
 
   // Charts now use per-slug retail data fetched on modal open — no pre-fetch needed
 
-  // Fetch goldback G1 rate for premium calculation
-  if (!_goldbackG1Rate) {
-    try {
-      const gbResp = await fetch(V2_API + "/goldback/latest.json", {
-        signal: AbortSignal.timeout(10000),
-      });
-      if (gbResp.ok) {
-        const gbJson = await gbResp.json();
-        if (gbJson && gbJson.data && gbJson.data.g1_usd) {
-          _goldbackG1Rate = gbJson.data.g1_usd;
-          debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
-        }
+  // Seed the goldback G1 rate from the fresh goldbackPrices['1'] cache so the
+  // gated premium sites (ticker / modal / vendor matrix) paint in the same pass
+  // as spot premiums — before the un-awaited network fetch below resolves.
+  // selectGoldbackG1Seed (spot-ratio-math.js) declines a stale value while
+  // online and preserves the last-known plain value offline.
+  if (typeof selectGoldbackG1Seed === "function") {
+    const seeded = selectGoldbackG1Seed(navigator.onLine);
+    if (typeof seeded === "number" && seeded > 0) _goldbackG1Rate = seeded;
+  }
+
+  // Fetch goldback G1 rate for premium calculation. This always runs (even when
+  // a cache seed already set _goldbackG1Rate) so a stale/offline seed is refined
+  // by the network; on success update the rate and re-render so the premium
+  // reflects the latest figure.
+  try {
+    const gbResp = await fetch(V2_API + "/goldback/latest.json", {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (gbResp.ok) {
+      const gbJson = await gbResp.json();
+      if (gbJson && gbJson.data && gbJson.data.g1_usd) {
+        _goldbackG1Rate = gbJson.data.g1_usd;
+        debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
       }
-    } catch (e) {
-      debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
     }
+  } catch (e) {
+    debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
   }
 
   renderBestPriceTicker();
@@ -1763,4 +1774,15 @@ if (typeof window !== "undefined") {
   window.renderVendorPrices = renderVendorPrices;
   window.openMarketDetailModal = openMarketDetailModal;
   window.closeMarketDetailModal = closeMarketDetailModal;
+  // _marketDataInitialized is a module-scoped `let`, so it is not visible on
+  // window by default (state.js gotcha). Bridge it with a getter/setter so a
+  // caller can re-arm a fresh init (e.g. to refine the goldback rate from the
+  // network) by writing window._marketDataInitialized = false.
+  Object.defineProperty(window, "_marketDataInitialized", {
+    configurable: true,
+    get: () => _marketDataInitialized,
+    set: (v) => {
+      _marketDataInitialized = v;
+    },
+  });
 }
