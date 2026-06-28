@@ -923,8 +923,8 @@ async function exportGoldback(client) {
   );
 
   // --- goldback/intraday.json (raw point series, hourly-floored `t` labels, last 72h) ---
-  // Raw 1:1 row→point mapping (NOT OHLCA-bucketed); multiple scrapes in one hour
-  // can share the same hourly-floored `t`.
+  // One point per hour (buildGoldbackIntradayEntries dedups, last scrape wins) —
+  // NOT OHLCA-bucketed.
   try {
     const intradayStart = new Date(now.getTime() - 72 * MS_PER_HOUR)
       .toISOString()
