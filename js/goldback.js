@@ -482,6 +482,11 @@ const fetchGoldbackApiPrices = async (options = {}) => {
   if (usedEndpoint) await fetchGoldbackApiHistory(usedEndpoint);
   if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
   if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();
+  if (typeof window !== "undefined" && typeof window.renderRatioChips === "function") {
+    window.renderRatioChips();
+  } else if (typeof renderRatioChips === "function") {
+    renderRatioChips();
+  }
 
   return { ok: true, g1_usd: g1 };
 };
