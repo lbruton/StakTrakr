@@ -535,6 +535,244 @@ test.describe("core/retail-market", () => {
     await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
   });
 
+  // =========================================================================
+  // STRK-249 — AC-6 / AC-7: market-table goldback premium cells render in
+  // LOCKSTEP with spot-based premiums (same paint when a fresh cached
+  // goldbackPrices['1'] exists), then refine after the network fetch resolves.
+  //
+  // RED CONTRACT (fails until C.4 seeds _goldbackG1Rate from the goldback cache):
+  //   js/market-data.js _goldbackG1Rate (`:113`) starts null and is only populated
+  //   by the initMarketData() network fetch (`:1710-1725`). The three premium cell
+  //   builders gate on `_goldbackG1Rate > 0` (_buildTickerItem `:396`,
+  //   _buildModalVendorRow `:889`, _buildVendorPriceCell `:1364`). So on the FIRST
+  //   synchronous paint — before the network resolves but WITH a fresh cache —
+  //   spot-based premiums render while the goldback premium cell stays blank (AC-6).
+  //   Once C.4 seeds the rate from goldbackPrices['1'], the goldback badge paints in
+  //   the same pass; after the network fetch resolves it reflects the updated rate
+  //   (AC-7).
+  //
+  // Asserted via DOM STRUCTURE: the goldback matrix row's `.vp-premium` badge cell
+  // builder output, compared against a spot-premium badge in the same paint.
+  // =========================================================================
+
+  // A fresh cache rate distinct from the network g1_usd (GOLDBACK_G1_RATE = 4.25),
+  // so AC-7's "updated rate" is observable: goldback vendor price 5.1 ÷ 5.0 = +2.0%
+  // from cache, vs 5.1 ÷ 4.25 = +20.0% from the network.
+  const GOLDBACK_CACHE_RATE = 5.0;
+  const GOLDBACK_CACHE_PREMIUM = "+2.0%";
+  const GOLDBACK_NETWORK_PREMIUM = "+20.0%";
+
+  // Boot the retail matrix exactly like setupRetailFixture (full v2 manifest +
+  // detail routes so spot-based premiums render), but with the goldback endpoint
+  // FAILING so the boot initMarketData() leaves _goldbackG1Rate null (the only
+  // network seeding path today) — while a FRESH goldbackPrices['1'] cache is seeded.
+  // This is the same-paint condition AC-6 probes: spot premiums paint, and the
+  // goldback premium should paint in lockstep from the cache (it does not yet).
+  async function bootGoldbackMatrixCacheOnly(page) {
+    await injectSeedInventory(page);
+
+    await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ result: "success", base_code: "USD", rates: { EUR: 0.9 } }),
+      });
+    });
+
+    await page.route("https://cdn.jsdelivr.net/npm/lightweight-charts@4/**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: lightweightChartsStub,
+      });
+    });
+
+    await page.addInitScript(
+      ({ seeded, meta, vendors, cacheRate }) => {
+        const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+        writeJson("v2RetailPrices", seeded.prices);
+        writeJson("retailPrices", seeded.prices);
+        writeJson("v2RetailHistory", seeded.history);
+        writeJson("retailPriceHistory", seeded.history);
+        writeJson("v2RetailIntraday", seeded.intraday);
+        writeJson("retailIntradayData", seeded.intraday);
+        writeJson("retailManifestSlugs", Object.keys(meta));
+        writeJson("retailManifestCoinMeta", meta);
+        writeJson("retailManifestVendorMeta", vendors);
+        localStorage.setItem("retailManifestGeneratedAt", seeded.generatedAt);
+        localStorage.setItem("spotSilver", JSON.stringify(36));
+        localStorage.setItem("spotGold", JSON.stringify(2000));
+        // Goldback "api" mode + a FRESH goldbackPrices['1'] cache: a correct
+        // implementation seeds _goldbackG1Rate from this on first render.
+        writeJson("goldback-pricing-source", "api");
+        writeJson("goldback-prices", {
+          1: {
+            price: cacheRate,
+            updatedAt: Date.now(),
+            source: "api",
+            ts: Math.floor(Date.now() / 1000),
+            staleAfter: 90000,
+          },
+        });
+      },
+      {
+        seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
+        meta: coinMeta,
+        vendors: vendorMeta,
+        cacheRate: GOLDBACK_CACHE_RATE,
+      }
+    );
+
+    // Full v2 routing (mirrors setupRetailFixture's fulfillV2) so the manifest and
+    // per-slug detail load and spot premiums compute — EXCEPT goldback/latest.json,
+    // which fails on both hosts so _goldbackG1Rate stays null (network unseeded).
+    const fulfillV2 = async (route) => {
+      const url = new URL(route.request().url());
+      const path = url.pathname.replace(/^\/data\/v2\//, "");
+      if (path === "goldback/latest.json") {
+        await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+        return;
+      }
+      if (path === "manifest.json") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            v: 2,
+            generated_at: GENERATED_AT,
+            data: {
+              coins: Object.entries(coinMeta).map(([slug, m]) => ({
+                slug,
+                name: m.name,
+                weight_oz: m.weight,
+                metal: m.metal === "silver" ? "xag" : m.metal === "gold" ? "xau" : m.metal,
+              })),
+              vendors: VENDORS,
+            },
+          }),
+        });
+        return;
+      }
+      if (path === "providers.json") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ v: 2, generated_at: GENERATED_AT, data: { coins: {} } }),
+        });
+        return;
+      }
+      const match = path.match(/^retail\/([^/]+)\/([^/]+)\.json$/);
+      if (!match) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+        return;
+      }
+      const [, slug, file] = match;
+      const data =
+        file === "latest"
+          ? latestForSlug(slug)
+          : file === "intraday"
+            ? intradayRows[slug]
+            : file.startsWith("history-")
+              ? historyRows[slug]
+              : null;
+      await route.fulfill({
+        status: data ? 200 : 404,
+        contentType: "application/json",
+        body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
+      });
+    };
+    await page.route("https://api.staktrakr.com/data/v2/**", fulfillV2);
+    await page.route("https://api2.staktrakr.com/data/v2/**", async (route) =>
+      route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
+    );
+
+    await page.clock.setFixedTime(FIXED_NOW);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.renderVendorPrices === "function" &&
+        typeof window.refreshMarketData === "function" &&
+        typeof window.initMarketData === "function"
+    );
+    await page.waitForFunction(
+      () => typeof spotPrices !== "undefined" && Number(spotPrices.gold) > 0
+    );
+    // Run initMarketData with the goldback endpoint failing: manifest + per-slug
+    // detail load (so spot premiums render) but _goldbackG1Rate stays null.
+    await page.evaluate(async () => {
+      spotPrices.gold = 2000;
+      spotPrices.silver = 36;
+      await window.initMarketData?.();
+      window.refreshMarketData();
+    });
+    await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+  }
+
+  // Returns the `.vp-premium` badge text inside the goldback matrix row, or null.
+  const goldbackMatrixBadge = (page) =>
+    page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ hasText: "Goldback" })
+      .locator(".vp-premium");
+
+  test("AC-6: goldback premium cell renders in the same paint as spot premiums when a fresh cache exists", async ({
+    page,
+  }) => {
+    await bootGoldbackMatrixCacheOnly(page);
+
+    // Sanity: confirm the goldback row exists and a sibling SPOT-premium cell DID
+    // paint in this pass (the cross-metal "All" view shares the same render).
+    await page.locator('.vendor-prices-tabs button[data-metal="all"]').click();
+    await page.waitForSelector(".vendor-prices-table", { timeout: 5000 });
+    const silverBadge = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ hasText: "Alpha Silver Bar" })
+      .locator(".vp-premium");
+    await expect(silverBadge.first()).toHaveText(/[+-]\d/);
+
+    // RED: with _goldbackG1Rate unseeded from cache, the goldback premium cell is
+    // blank in the very paint that already shows the spot-based silver premium.
+    // After C.4 seeds the rate from goldbackPrices['1'], the badge paints here too,
+    // reflecting the CACHE rate (5.1 ÷ 5.0 = +2.0%).
+    const gbBadge = goldbackMatrixBadge(page);
+    await expect(gbBadge).toHaveCount(1);
+    await expect(gbBadge.first()).toHaveText(GOLDBACK_CACHE_PREMIUM);
+  });
+
+  test("AC-7: goldback premium cell reflects the updated rate after the network fetch resolves", async ({
+    page,
+  }) => {
+    await bootGoldbackMatrixCacheOnly(page);
+
+    // First paint reflects the CACHE rate (AC-6 lockstep precondition). RED here too:
+    // the cache rate never seeds _goldbackG1Rate, so this badge is absent pre-network.
+    const gbBadge = goldbackMatrixBadge(page);
+    await expect(gbBadge).toHaveCount(1);
+    await expect(gbBadge.first()).toHaveText(GOLDBACK_CACHE_PREMIUM);
+
+    // Now let the network goldback fetch succeed and resolve.
+    const fulfillGoldback = async (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: GENERATED_AT,
+          data: { g1_usd: GOLDBACK_G1_RATE },
+        }),
+      });
+    await page.route("https://api.staktrakr.com/data/v2/goldback/latest.json", fulfillGoldback);
+    await page.evaluate(async () => {
+      window._marketDataInitialized = false;
+      await window.initMarketData();
+      window.renderVendorPrices();
+    });
+
+    // After the network resolves, the premium cell reflects the UPDATED (network)
+    // rate (5.1 ÷ 4.25 = +20.0%), not the prior cache rate.
+    await expect(goldbackMatrixBadge(page).first()).toHaveText(GOLDBACK_NETWORK_PREMIUM);
+  });
+
   test("retail ticker, matrix, history, and detail modal follow display currency changes", async ({
     page,
   }) => {

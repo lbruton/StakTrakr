@@ -192,6 +192,141 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
     await expect(c.locator(".val")).toHaveText(/^\$\d[\d,]*\.\d{2}$/);
   });
 
+  // =========================================================================
+  // STRK-249 — AC-4 / AC-5: gold-card GB chip repaints after the async
+  // goldback API fetch resolves, on a NORMAL (non-hard-refresh) load.
+  //
+  // RED CONTRACT (fails until C.3 wires renderRatioChips() into the
+  // fetchGoldbackApiPrices() success AND failure paths):
+  //   js/goldback.js fetchGoldbackApiPrices (~:481-486) seeds goldbackPrices['1']
+  //   then calls saveGoldbackPrices / fetchGoldbackApiHistory / recordGoldbackPrices /
+  //   syncGoldbackSettingsUI — but NEVER renderRatioChips(). So a goldback fetch
+  //   that resolves with no subsequent spot DOM-write leaves the GB chip unpainted
+  //   (AC-4) and a failed fetch never re-asserts the prior chip (AC-5).
+  //
+  // These assert via DOM STRUCTURE (the .spot-card[data-metal="gold"]
+  // .spot-ratio-chip element + its .lab/.val children), not "text exists".
+  // =========================================================================
+
+  // Boot the dashboard in goldback "api" mode while the goldback endpoint FAILS,
+  // so the fire-and-forget boot fetch (init.js ~:634-641) leaves goldbackPrices['1']
+  // empty and the gold card paints NO GB chip. The caller then controls the next
+  // fetch via the success/fail route below.
+  async function bootGoldbackApiMode(page, { goldbackFails }) {
+    await injectSeedInventory(page);
+    await page.addInitScript(() =>
+      localStorage.setItem("goldback-pricing-source", JSON.stringify("api"))
+    );
+    await routeGoldbackLatest(page, { fails: goldbackFails });
+    await page.goto("/index.html");
+    await dismissWhatsNew(page);
+    // Wait for gold spot to settle so the chip's eligibility depends only on the
+    // goldback cache, not on missing spot inputs.
+    await expect(page.locator("#spotPriceDisplayGold")).not.toHaveText("—", { timeout: 10000 });
+  }
+
+  // Override the goldback/latest.json endpoint on BOTH v2 hosts. A 503 leaves the
+  // goldback cache untouched; a 200 returns a fresh G1 envelope (ts=now, stale_after
+  // generous) so resolveGoldbackRate() yields a fresh, non-estimate rate.
+  async function routeGoldbackLatest(page, { fails }) {
+    const handler = async (route) => {
+      if (fails) {
+        await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: new Date().toISOString(),
+          data: { g1_usd: 4.25, ts: Math.floor(Date.now() / 1000) },
+          stale_after: 90000,
+        }),
+      });
+    };
+    await page.route("https://api.staktrakr.com/data/v2/goldback/latest.json", handler);
+    await page.route("https://api2.staktrakr.com/data/v2/goldback/latest.json", handler);
+  }
+
+  // Spy on the render choke point so we can prove the goldback FETCH itself drives
+  // the repaint, with a snapshot taken synchronously the instant the fetch resolves.
+  // (Stray boot spot-sync timers also call renderRatioChips(), so a polled toHaveCount
+  // would be rescued by an unrelated repaint and mask the C.3 gap — the snapshot fence
+  // captures the exact post-fetch state before any later timer can run.)
+  async function installRenderSpy(page) {
+    await page.evaluate(() => {
+      const orig = window.renderRatioChips;
+      window.__rrcCalls = 0;
+      window.renderRatioChips = function (...args) {
+        window.__rrcCalls += 1;
+        return orig.apply(this, args);
+      };
+    });
+  }
+
+  test("AC-4: fetchGoldbackApiPrices() repaints the gold-card GB chip when it resolves (normal load)", async ({
+    page,
+  }) => {
+    // Boot with the goldback fetch failing: the cache is empty → no GB chip yet.
+    await bootGoldbackApiMode(page, { goldbackFails: true });
+    await installRenderSpy(page);
+
+    // Let the goldback endpoint succeed and drive the production async fetch. It
+    // seeds a fresh goldbackPrices['1'] (so resolveGoldbackRate() yields a chip),
+    // then a correct implementation repaints. Snapshot the chip + render-call delta
+    // the instant the fetch resolves — before any stray spot-sync timer can repaint.
+    await routeGoldbackLatest(page, { fails: false });
+    const snap = await page.evaluate(async () => {
+      const before = window.__rrcCalls;
+      const result = await window.fetchGoldbackApiPrices({ expectedSource: "api" });
+      return {
+        ok: result.ok,
+        repainted: window.__rrcCalls > before, // did the fetch itself call renderRatioChips()?
+        chipPresent: !!document.querySelector('.spot-card[data-metal="gold"] .spot-ratio-chip'),
+      };
+    });
+
+    expect(snap.ok).toBe(true);
+    // RED: fetchGoldbackApiPrices() never calls renderRatioChips() (C.3 gap), so the
+    // fetch did not repaint and the freshly-cached GB chip is absent at resolve time.
+    expect(snap.repainted).toBe(true);
+    expect(snap.chipPresent).toBe(true);
+  });
+
+  // AC-5 = REGRESSION GUARD (green-by-construction, before AND after C.3).
+  // The approved C.3 design adds renderRatioChips() ONLY in the success block of
+  // fetchGoldbackApiPrices (js/goldback.js after :484, before the {ok:true} return
+  // at :486). Every failure/empty path early-returns {ok:false} BEFORE that block
+  // (:449, :453, :456, :460), so a FAILING fetch is a guarded skip — it never
+  // repaints. A previously-painted GB chip must therefore survive a failed fetch
+  // untouched (no throw, no blank-out). This test catches a wrong C.3 that repaints
+  // unconditionally and blanks/recomputes the chip on failure. It is NOT a RED test.
+  test("AC-5: a failed/empty goldback fetch leaves the previously-rendered GB chip untouched (no throw, no blank-out)", async ({
+    page,
+  }) => {
+    // Boot with the goldback fetch succeeding so a fresh GB chip is painted + cached.
+    await bootGoldbackApiMode(page, { goldbackFails: false });
+    const c = chip(page, "Gold");
+    await expect(c).toHaveCount(1);
+    const paintedValue = await c.locator(".val").textContent();
+
+    // Drive a FAILING goldback fetch (the cache stays fresh; HTTP error → {ok:false}).
+    // The chip is left in place — the guarded-skip design must not disturb it.
+    await routeGoldbackLatest(page, { fails: true });
+    const result = await page.evaluate(async () =>
+      // Must resolve cleanly (no throw) even though the fetch fails.
+      window.fetchGoldbackApiPrices({ expectedSource: "api" })
+    );
+    expect(result.ok).toBe(false);
+
+    // The previously-rendered chip is still present and unchanged (not blanked out).
+    const after = chip(page, "Gold");
+    await expect(after).toHaveCount(1);
+    await expect(after.locator(".lab")).toHaveText("GB");
+    await expect(after.locator(".val")).toHaveText(paintedValue);
+  });
+
   test("own-row contract: chip is a sibling AFTER .spot-card-change and BEFORE .spot-card-timestamp", async ({
     page,
   }) => {
