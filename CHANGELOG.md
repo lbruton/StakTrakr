@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.61] - 2026-06-28
+
+### Changed — STRK-249: Realtime pricing served network-first
+
+- **Service worker realtime families are now network-first**: The spot, goldback, and retail "latest" price endpoints are fetched fresh on every normal page load instead of being served from the service worker's cache (which previously held a copy for up to 25 hours); the cached copy is now used only as an offline fallback. This is the primary fix for the gold-card goldback badge being missing and the market premiums lagging on a normal load (STRK-249).
+- **Goldback badge repaints when fresh data arrives**: The gold spot card's goldback ("GB") chip now repaints as soon as `fetchGoldbackApiPrices()` resolves, so the current rate appears without a hard refresh; a failed or empty fetch leaves the previously-shown chip untouched (STRK-249).
+- **Market goldback premiums render in lockstep with spot premiums**: The market table seeds the goldback premium from the cached rate for an immediate first paint, then refines it once the network fetch resolves — removing the ~1–2 s lag where goldback premium cells were blank (STRK-249).
+- **Goldback and retail-detail price lookups fail over to the backup API**: Both market-data fetches now attempt the primary then the secondary API origin (api1 → api2) with a strict freshness gate, so a stale service-worker copy of the primary origin no longer short-circuits failover to the backup (STRK-249).
+
+---
+
 ## [3.35.60] - 2026-06-27
 
 ### Added — STRK-242: Constitutional by-denomination lot pricing
