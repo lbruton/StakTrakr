@@ -289,3 +289,106 @@ describe("resolveGoldbackRate — fresh/stale × mode matrix", () => {
     assert.equal(res, null, "mode=off must always return null");
   });
 });
+
+// =============================================================================
+// AC-6 — selectGoldbackG1Seed(isOnline): pure premium seed-selection helper
+//
+// C.4 extracts this pure helper INTO js/spot-ratio-math.js, beside
+// readFreshCachedGoldback, reading the same bare goldback globals
+// (goldbackPrices, getGoldbackDenominationPrice, isGoldbackStale). It governs
+// which G1 value seeds the premium chip:
+//   - isOnline === true  → readFreshCachedGoldback() — fresh + positive
+//     goldbackPrices['1'] only; NEVER paint a stale value online (no stale
+//     online paint).
+//   - isOnline === false → the last-known G1 (getGoldbackDenominationPrice(1)
+//     if > 0) EVEN IF stale, returned plain with no marker (US-5 / Non-Goal #1
+//     offline-display preservation).
+//   - absent / non-positive goldbackPrices['1'] → null in BOTH modes.
+//
+// RED until C.4 creates the helper — selectGoldbackG1Seed is undefined here.
+// "now" is frozen via Date.now so the seconds-based staleness window
+// (isGoldbackStale / readFreshCachedGoldback) is deterministic — NOT the 25h
+// getGoldbackPriceInfo reader.
+// =============================================================================
+describe("AC-6 selectGoldbackG1Seed — premium seed-selection (online vs offline × fresh/stale)", () => {
+  const FROZEN_NOW = 1_700_000_000_000;
+  const FRESH = { ts: Math.floor(FROZEN_NOW / 1000) - 1000, staleAfter: 90000 };
+  const STALE = { ts: Math.floor(FROZEN_NOW / 1000) - 90001, staleAfter: 90000 };
+  // Difference === staleAfter is the staleness EDGE: strictly-greater means this
+  // is NOT stale, so it must behave exactly like a fresh entry online.
+  const EDGE = { ts: Math.floor(FROZEN_NOW / 1000) - 90000, staleAfter: 90000 };
+  let realDateNow;
+
+  // Mirrors the resolveGoldbackRate build(): the cache entry lives at
+  // goldbackPrices['1'] for the freshness probe, and getGoldbackDenominationPrice(1)
+  // surfaces the last-known G1 value (the same seam readFreshCachedGoldback reads).
+  function build({ entry, g1 }) {
+    return loadModule({
+      Date,
+      goldbackPrices: { 1: entry },
+      getGoldbackDenominationPrice: (w) => (String(w) === "1" ? g1 : null),
+    });
+  }
+
+  beforeEach(() => {
+    realDateNow = Date.now;
+    Date.now = () => FROZEN_NOW;
+  });
+  afterEach(() => {
+    Date.now = realDateNow;
+  });
+
+  test("fresh + positive, online → returns that fresh G1 value", () => {
+    const mod = build({ entry: FRESH, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(true);
+    mod.restore();
+    assert.equal(seed, 8.68, "fresh online must seed the cached G1 value");
+  });
+
+  test("fresh + positive, offline → also returns that G1 value", () => {
+    const mod = build({ entry: FRESH, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(seed, 8.68, "fresh offline must seed the last-known G1 value");
+  });
+
+  test("stale, online → null (declines to seed a stale value, no stale online paint)", () => {
+    const mod = build({ entry: STALE, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(true);
+    mod.restore();
+    assert.equal(seed, null, "online must NEVER paint a stale G1 value");
+  });
+
+  test("stale, offline → returns the last-known value plain (no marker — US-5)", () => {
+    const mod = build({ entry: STALE, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(seed, 8.68, "offline must surface the last-known G1 even when stale");
+    assert.equal(typeof seed, "number", "offline seed is a plain number, never a marker object");
+  });
+
+  test("absent goldbackPrices['1'] → null in both modes", () => {
+    const mod = build({ entry: undefined, g1: 0 });
+    const online = mod.surface.selectGoldbackG1Seed(true);
+    const offline = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(online, null, "absent cache → null online");
+    assert.equal(offline, null, "absent cache → null offline");
+  });
+
+  test("non-positive G1 (0) → null in both modes", () => {
+    const mod = build({ entry: FRESH, g1: 0 });
+    const online = mod.surface.selectGoldbackG1Seed(true);
+    const offline = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(online, null, "non-positive G1 → null online");
+    assert.equal(offline, null, "non-positive G1 → null offline");
+  });
+
+  test("boundary: entry exactly AT the staleness edge → treated as fresh online", () => {
+    const mod = build({ entry: EDGE, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(true);
+    mod.restore();
+    assert.equal(seed, 8.68, "difference === staleAfter is NOT stale (strictly greater)");
+  });
+});
