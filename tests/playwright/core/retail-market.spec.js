@@ -162,6 +162,16 @@ async function setupRetailFixture(page, options = {}) {
     displayCurrency = "USD",
     exchangeRates = { EUR: 0.9 },
     failPrimary = false,
+    // STRK-249 (review finding #2): instead of failing api1, serve api1 a
+    // stale-but-200 goldback/latest.json envelope (HTTP 200, but generated_at
+    // is stalePrimaryAgeMs in the past) while api2 serves a FRESH envelope. This
+    // exercises the strict-freshness gate-rejection failover path that the hard
+    // api1=503 case (failPrimary) skips — the 503 throws on !resp.ok BEFORE the
+    // `validate` gate ever runs. Backward-compatible: off unless stalePrimary set.
+    stalePrimary = false,
+    stalePrimaryRate, // g1_usd carried by the api1 STALE 200 envelope
+    stalePrimaryAgeMs, // age of the api1 envelope's generated_at vs FIXED_NOW
+    freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
   } = options;
 
   await injectSeedInventory(page);
@@ -313,11 +323,59 @@ async function setupRetailFixture(page, options = {}) {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
 
+  // STRK-249 (review finding #2): api1 goldback handler that returns a stale-but-200
+  // envelope (HTTP 200, generated_at = stalePrimaryAgeMs in the past, but a positive
+  // stale_after so the strict gate has a budget to test against). All other api1 paths
+  // fall through to fulfillV2 so the manifest + per-slug details still load normally.
+  const STALE_AFTER_SECONDS = 90000; // production goldback stale_after (~25h gate budget)
+  const goldbackStaleV2 = async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/^\/data\/v2\//, "");
+    if (path !== "goldback/latest.json") return fulfillV2(route);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        v: 2,
+        generated_at: new Date(FIXED_NOW.getTime() - stalePrimaryAgeMs).toISOString(),
+        stale_after: STALE_AFTER_SECONDS,
+        data: { g1_usd: stalePrimaryRate },
+      }),
+    });
+  };
+
+  // STRK-249 (review finding #2): api2 goldback handler that returns a FRESH 200
+  // envelope (generated_at ≈ FIXED_NOW) with a DISTINCT g1_usd, so the rendered
+  // goldback premium unambiguously identifies whether api1 (stale) or api2 (fresh) won.
+  const goldbackFreshV2 = async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/^\/data\/v2\//, "");
+    if (path !== "goldback/latest.json") return fulfillV2(route);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        v: 2,
+        generated_at: FIXED_NOW.toISOString(),
+        stale_after: STALE_AFTER_SECONDS,
+        data: { g1_usd: freshSecondaryRate },
+      }),
+    });
+  };
+
   // STRK-188: failPrimary simulates an api1 (GitHub Pages) outage — the primary
   // endpoint returns 503 while api2 (Fly.io) serves the fixtures, exercising the
   // ordered failover in the market data fetch path.
-  await page.route("https://api.staktrakr.com/data/v2/**", failPrimary ? failV2 : fulfillV2);
-  await page.route("https://api2.staktrakr.com/data/v2/**", failPrimary ? fulfillV2 : failV2);
+  if (stalePrimary) {
+    // api1 serves a stale-but-200 goldback envelope (and normal fixtures otherwise);
+    // api2 serves a fresh goldback envelope (and normal fixtures otherwise). The
+    // strict gate must reject api1's stale 200 and advance to api2's fresh rate.
+    await page.route("https://api.staktrakr.com/data/v2/**", goldbackStaleV2);
+    await page.route("https://api2.staktrakr.com/data/v2/**", goldbackFreshV2);
+  } else {
+    await page.route("https://api.staktrakr.com/data/v2/**", failPrimary ? failV2 : fulfillV2);
+    await page.route("https://api2.staktrakr.com/data/v2/**", failPrimary ? fulfillV2 : failV2);
+  }
 
   // Freeze Date for the market-history 7-day window across the seeded
   // RECENT_DATE fixtures. setFixedTime pins Date.now()/new Date() at FIXED_NOW
@@ -912,6 +970,58 @@ test.describe("core/retail-market", () => {
     await expect(matrixBadge).toHaveCount(1);
     await expect(matrixBadge.first()).toHaveText("+20.0%");
     await expect(matrixBadge.first()).toHaveClass(/\bhigh\b/);
+  });
+
+  // =========================================================================
+  // STRK-249 — review finding #2: the AC-8 anti-short-circuit guard (a stale
+  // api1 200 must NOT end the failover loop) currently has ZERO coverage. The
+  // AC-8 test above drives api1 = hard 503, so _staktrakrFetch throws on
+  // `!resp.ok` (api.js:53) BEFORE the strict `validate` gate ever runs — the
+  // _strictMarketFreshness rejection path is never exercised.
+  //
+  // This test closes that gap. api1 returns a STALE-but-200 goldback envelope
+  // (HTTP 200, generated_at 3h before FIXED_NOW, stale_after 90000s) and api2
+  // returns a FRESH 200 envelope with a DISTINCT g1_usd. The rendered goldback
+  // premium tells us which endpoint's rate won:
+  //   - api1 STALE rate 3.0  -> goldback vendor price 5.1 / 3.0 = +70.0%
+  //   - api2 FRESH rate 5.0  -> goldback vendor price 5.1 / 5.0 =  +2.0%
+  //
+  // RED TODAY: _strictMarketFreshness uses { multiplier: 1, floorMs: 0 }, so the
+  // accept budget is stale_after itself = 90000s ~ 25h. A 3h-old envelope (well
+  // under 25h) PASSES the gate, so api1's stale 200 is accepted and short-circuits
+  // the loop -- the premium renders the api1 STALE rate (+70.0%), and the api2 FRESH
+  // assertion (+2.0%) FAILS. This proves the stale-200 short-circuit bug.
+  //
+  // GREEN after finding #1: once an absolute realtime cap (~2h) is added to the
+  // goldback freshness regime, the 3h api1 envelope is REJECTED, failover advances
+  // to api2's fresh 200, and the premium reflects the api2 rate (+2.0%). Production
+  // (finding #1) is out of scope here -- this RED test only locks the contract.
+  // =========================================================================
+  test("AC-8/AC-9 guard: a stale-but-200 api1 goldback envelope is rejected by the strict gate and fails over to the api2 fresh rate (STRK-249)", async ({
+    page,
+  }) => {
+    // api1 = stale-but-200 (generated_at 3h before FIXED_NOW, > the incoming 2h
+    // realtime cap but < the 25h stale_after), api2 = fresh, distinct rates. No
+    // goldback cache is seeded, so _goldbackG1Rate's only source is this network
+    // fetch -- isolating the strict-gate failover from C.4's cache seeding.
+    await setupRetailFixture(page, {
+      stalePrimary: true,
+      stalePrimaryAgeMs: 3 * 60 * 60 * 1000, // 3h
+      stalePrimaryRate: 3.0, // 5.1 / 3.0 = +70.0% (api1 stale, wins today)
+      freshSecondaryRate: 5.0, // 5.1 / 5.0 =  +2.0% (api2 fresh, wins after #1)
+    });
+
+    const matrixBadge = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ hasText: "Goldback" })
+      .locator(".vp-premium");
+
+    // RED: today's 25h gate budget accepts the 3h-old api1 200, so it short-circuits
+    // the failover loop and the premium renders the api1 STALE rate (+70.0%) -- this
+    // assertion FAILS. After finding #1 adds the 2h realtime cap, the 3h api1 200 is
+    // rejected, failover reaches api2, and the premium renders the api2 FRESH rate.
+    await expect(matrixBadge).toHaveCount(1);
+    await expect(matrixBadge.first()).toHaveText("+2.0%");
   });
 
   test("AC-9: retail-detail latest.json fetch fails over to api2 so the matrix consumes the api2 price (STRK-249)", async ({
