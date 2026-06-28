@@ -147,6 +147,8 @@ test.describe("SW classified caching", () => {
   // mint time); x-stale-after is the envelope TTL in seconds (spot-latest: 1200).
 
   const PROD_SPOT_LATEST = "https://api.staktrakr.com/data/v2/spot/latest.json";
+  const PROD_GOLDBACK_LATEST = "https://api.staktrakr.com/data/v2/goldback/latest.json";
+  const PROD_RETAIL_LATEST = "https://api.staktrakr.com/data/v2/retail/apmex/latest.json";
 
   async function seedClassifiedEntry(page, url, generatedAtSeconds, staleAfterSeconds) {
     const cacheName = await page.evaluate(async () => {
@@ -173,17 +175,20 @@ test.describe("SW classified caching", () => {
     );
   }
 
-  test("SC-4 — spot-latest /data/v2: fresh publication age → cache-hit", async ({ page }) => {
+  test("SC-4 — spot-latest /data/v2: online fresh entry → network-first revalidation", async ({
+    page,
+  }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await waitForSwControl(page);
 
-    // Publication age ≈ 0 s, TTL 1200 s → matchWithAgeCheck returns the entry
-    // without any network request. Before STRK-190 this asserted "cache-hit" but
-    // got SWR (lastStrategy stayed null) because the URL never classified.
+    // STRK-249: spot-latest is a realtime family. On an online load classifiedFetch
+    // now revalidates against the network first even though the seeded entry is fresh
+    // (publication age ≈ 0 s, TTL 1200 s), so lastStrategy must be "network" — NOT
+    // "cache-hit". RED until C.2 branches classifiedFetch for realtime families.
     await seedClassifiedEntry(page, PROD_SPOT_LATEST, Math.floor(Date.now() / 1000), 1200);
     await fetchClassified(page, PROD_SPOT_LATEST);
-    expect(await readSwStrategy(page)).toBe("cache-hit");
+    expect(await readSwStrategy(page)).toBe("network");
   });
 
   test("SC-5 — spot-latest /data/v2: stale publication age → never cache-hit", async ({ page }) => {
@@ -203,6 +208,98 @@ test.describe("SW classified caching", () => {
       const strategy = await readSwStrategy(page);
       expect(strategy).not.toBe("cache-hit");
       expect(strategy).toBe("network-fallback");
+    } finally {
+      await page.context().setOffline(false);
+    }
+  });
+
+  // SC-6 / SC-7 — STRK-249: goldback-latest is a realtime family. A fresh seeded
+  // entry must NOT short-circuit to cache-hit on an online load; classifiedFetch
+  // revalidates against the network first ("network"). Offline, the network leg
+  // throws and the cached copy is served via the fallback path ("network-fallback").
+  // RED until C.2 branches classifiedFetch for realtime families.
+
+  test("SC-6 — goldback-latest /data/v2: online fresh entry → network", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Publication age ≈ 0 s, floor 90000 s → entry is fresh. Today classifiedFetch
+    // returns it as "cache-hit"; STRK-249 requires online realtime to report "network".
+    await seedClassifiedEntry(page, PROD_GOLDBACK_LATEST, Math.floor(Date.now() / 1000), 90000);
+    await fetchClassified(page, PROD_GOLDBACK_LATEST);
+    expect(await readSwStrategy(page)).toBe("network");
+  });
+
+  test("SC-7 — goldback-latest /data/v2: offline fresh entry → network-fallback (cached copy served)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Seed a fresh entry, then go offline. Network-first leg throws (offline) →
+    // classifiedFetch falls back to the cached copy with lastStrategy "network-fallback".
+    await seedClassifiedEntry(page, PROD_GOLDBACK_LATEST, Math.floor(Date.now() / 1000), 90000);
+    await page.context().setOffline(true);
+    try {
+      await fetchClassified(page, PROD_GOLDBACK_LATEST);
+      expect(await readSwStrategy(page)).toBe("network-fallback");
+      // The cached copy is still served despite the offline network leg.
+      const served = await page.evaluate(
+        (u) =>
+          fetch(u)
+            .then((r) => r.json())
+            .then((b) => Boolean(b))
+            .catch(() => false),
+        PROD_GOLDBACK_LATEST
+      );
+      expect(served).toBe(true);
+    } finally {
+      await page.context().setOffline(false);
+    }
+  });
+
+  // SC-8 / SC-9 — STRK-249: retail-latest is a realtime family. Same network-first
+  // contract as goldback-latest: online fresh entry → "network"; offline → the
+  // cached copy is served with lastStrategy "network-fallback".
+
+  test("SC-8 — retail-latest /data/v2: online fresh entry → network", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Publication age ≈ 0 s, floor 1800 s → entry is fresh. Today classifiedFetch
+    // returns it as "cache-hit"; STRK-249 requires online realtime to report "network".
+    await seedClassifiedEntry(page, PROD_RETAIL_LATEST, Math.floor(Date.now() / 1000), 1800);
+    await fetchClassified(page, PROD_RETAIL_LATEST);
+    expect(await readSwStrategy(page)).toBe("network");
+  });
+
+  test("SC-9 — retail-latest /data/v2: offline fresh entry → network-fallback (cached copy served)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Seed a fresh entry, then go offline. Network-first leg throws (offline) →
+    // classifiedFetch falls back to the cached copy with lastStrategy "network-fallback".
+    await seedClassifiedEntry(page, PROD_RETAIL_LATEST, Math.floor(Date.now() / 1000), 1800);
+    await page.context().setOffline(true);
+    try {
+      await fetchClassified(page, PROD_RETAIL_LATEST);
+      expect(await readSwStrategy(page)).toBe("network-fallback");
+      // The cached copy is still served despite the offline network leg.
+      const served = await page.evaluate(
+        (u) =>
+          fetch(u)
+            .then((r) => r.json())
+            .then((b) => Boolean(b))
+            .catch(() => false),
+        PROD_RETAIL_LATEST
+      );
+      expect(served).toBe(true);
     } finally {
       await page.context().setOffline(false);
     }
