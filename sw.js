@@ -6,7 +6,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.61-b1782687165";
+const CACHE_NAME = "staktrakr-v3.35.62-b1782688014";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
