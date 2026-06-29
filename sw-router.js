@@ -40,9 +40,21 @@ const FAMILY_TABLE = [
     test: function (p) {
       return p === "/v2/goldback/latest.json";
     },
-    floor: 90000,
+    floor: 7200,
     hasEnvelope: true,
     networkFirst: true,
+  },
+  {
+    family: "goldback-intraday",
+    test: function (p) {
+      return p === "/v2/goldback/intraday.json";
+    },
+    // 7200 (2h) fallback floor — aligned with the endpoint's own stale_after
+    // budget and goldback's hourly publish cadence (the envelope's x-stale-after
+    // takes precedence over this floor when present; floor only applies to a
+    // header-less cached entry). Diverges from retail-intraday (1200) on purpose.
+    floor: 7200,
+    hasEnvelope: true,
   },
   {
     family: "retail-latest",

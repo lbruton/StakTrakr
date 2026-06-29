@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.62] - 2026-06-28
+
+### Changed — STRK-248: Goldback intraday price history
+
+- **New goldback intraday price feed**: A new `goldback/intraday.json` API endpoint publishes the last 72 hours of hourly goldback prices as a raw point series, giving a future intraday goldback chart a real data source at the hourly resolution the database already retains (STRK-248).
+- **Honest goldback timestamp**: The goldback "latest" price now stamps its timestamp at the actual scrape hour instead of a daily-noon placeholder, so the value no longer looks like a once-a-day snapshot (STRK-248).
+- **Goldback realtime freshness budget**: The goldback latest feed's staleness budget and its service-worker cache floor drop from ~25 hours to a 2-hour realtime budget, in lockstep with the STRK-249 realtime caching fix (STRK-248).
+
+---
+
 ## [3.35.61] - 2026-06-28
 
 ### Changed — STRK-249: Realtime pricing served network-first
