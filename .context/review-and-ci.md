@@ -27,8 +27,12 @@ Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass
 
 ## Pre-PR scan — Codacy local analysis (Gen-3)
 
-Run the local scan with the official Codacy analysis CLI (installed machine-wide via
-`npm i -g @codacy/analysis-cli`; no per-project bootstrap):
+Run the local scan with the **`codacy-analysis`** command (npm package `@codacy/analysis-cli`),
+which is **already installed machine-wide** — there is no per-project bootstrap and no
+per-task reinstall. NOTE: `codacy-analysis-cli` is the _skill_ name, **not** a command or npm
+package (it is also the name of the deprecated Gen-1 tool) — never run `codacy-analysis-cli` as
+a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
+`command -v codacy-analysis`; only run `npm i -g @codacy/analysis-cli` if that check fails.
 
 - Scan changed files: `codacy-analysis analyze --diff --output-format sarif --output codacy-findings.sarif`
 - Config: `.codacy/codacy.config.json` — a near-1:1 mirror of the Codacy Cloud dashboard,
@@ -50,8 +54,10 @@ Run the local scan with the official Codacy analysis CLI (installed machine-wide
   claiming a Codacy tool toggle or pattern suppression is done, confirm it with the
   Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend
   can diverge, and a UI-only check has been wrong repeatedly in a single session. The
-  Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli`
-  for cloud state, `codacy-analysis-cli` for local scans).
+  Codacy MCP server is retired; use the `codacy-skills` plugin **skills** — the
+  `codacy-cloud-cli` skill (which drives the `codacy` command) for cloud state, and the
+  `codacy-analysis-cli` skill (which drives the `codacy-analysis` command) for local scans.
+  These are skill names invoked via the Skill tool, not shell commands.
 
 ## Dual ESLint config — `.eslintrc.json` is read by Codacy and CodeRabbit
 
