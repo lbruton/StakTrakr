@@ -50,10 +50,11 @@ a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
   `codacy-analysis init --remote gh lbruton StakTrakr`, then re-relativize the two paths and
   commit (path-agnostic, runs on macOS and Linux):
   `perl -i -pe 's#("localConfigurationFile":\s*")[^"]*/(\.markdownlint\.json|eslint\.config\.cjs)"#$1$2"#g' .codacy/codacy.config.json`
-- **Cloud state is authoritative via the Cloud CLI, not the dashboard UI.** Before
-  claiming a Codacy tool toggle or pattern suppression is done, confirm it with the
-  Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend
-  can diverge, and a UI-only check has been wrong repeatedly in a single session. The
+- **Cloud state is authoritative via the `codacy` command (the Codacy Cloud CLI), not the
+  dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm
+  it by running the `codacy` command — invoked through the `codacy-cloud-cli` skill (Skill
+  tool) — because the dashboard UI and backend can diverge, and a UI-only check has been wrong
+  repeatedly in a single session. The
   Codacy MCP server is retired; use the `codacy-skills` plugin **skills** — the
   `codacy-cloud-cli` skill (which drives the `codacy` command) for cloud state, and the
   `codacy-analysis-cli` skill (which drives the `codacy-analysis` command) for local scans.
