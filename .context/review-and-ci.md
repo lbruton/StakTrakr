@@ -44,8 +44,8 @@ Run the local scan with the official Codacy analysis CLI (installed machine-wide
   `/Volumes/...` paths that then break in worktrees. Refresh **only** when the cloud
   "StakTrakr" standard actually changes, and do it **in the main checkout** — run
   `codacy-analysis init --remote gh lbruton StakTrakr`, then re-relativize the two paths and
-  commit:
-  `sed -i '' 's#"/Volumes/DATA/GitHub/StakTrakr/\(\.markdownlint\.json\|eslint\.config\.cjs\)"#"\1"#g' .codacy/codacy.config.json`
+  commit (path-agnostic, runs on macOS and Linux):
+  `perl -i -pe 's#("localConfigurationFile":\s*")[^"]*/(\.markdownlint\.json|eslint\.config\.cjs)"#$1$2"#g' .codacy/codacy.config.json`
 - **Cloud state is authoritative via the Cloud CLI, not the dashboard UI.** Before
   claiming a Codacy tool toggle or pattern suppression is done, confirm it with the
   Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend
