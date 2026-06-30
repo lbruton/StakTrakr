@@ -902,7 +902,7 @@ function buildGoldbackIntradayEntries(rows) {
  * @returns {string|undefined}
  */
 function resolveGoldbackGeneratedAt(scrapedAt, now, budgetSeconds) {
-  if (scrapedAt == null) return undefined;
+  if (scrapedAt === null || scrapedAt === undefined) return undefined;
   const scrapeMs = new Date(scrapedAt).getTime();
   if (Number.isNaN(scrapeMs)) return undefined;
   const ageSeconds = (now.getTime() - scrapeMs) / 1000;

@@ -1,10 +1,6 @@
 // Unit tests for STRK-250: honest envelope timestamp for goldback/latest.json
 // Run: node --test tests/unit/strk-250-goldback-honest-envelope.test.js
 //      or: npm run test:unit
-//
-// RED phase: resolveGoldbackGeneratedAt does not exist yet; wrapEnvelope ignores
-// the 3rd arg. The tests for the new behaviour will fail. Regression tests for
-// the default (publish-time) path already pass.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -22,14 +18,12 @@ const NOW_MS = NOW.getTime();
 
 describe("wrapEnvelope — generatedAt override (STRK-250)", () => {
   it("R3.1 — override: produced generated_at equals the injected timestamp (normalised ISO)", () => {
-    // Task 1 adds the 3rd param; currently wrapEnvelope ignores it → FAILS (red)
     const injected = new Date("2026-06-01T00:00:00Z");
     const env = wrapEnvelope({ x: 1 }, 7200, injected);
     assert.equal(env.generated_at, "2026-06-01T00:00:00Z");
   });
 
   it("R3.2 — no override: generated_at is within 5 s of publish time (default path)", () => {
-    // Default path is unchanged — this should PASS even in the red phase.
     const before = Date.now();
     const env = wrapEnvelope({ x: 1 }, 7200);
     const after = Date.now();
@@ -59,7 +53,6 @@ describe("wrapEnvelope — envelope shape regression (R2.1/R2.2)", () => {
   });
 
   it("R2.2 — override path: envelope shape is identical (v=2, stale_after, data)", () => {
-    // Will fail until Task 1 lands; here we verify shape not just timestamp.
     const data = { price: 4.25 };
     const env = wrapEnvelope(data, 7200, new Date("2026-06-01T00:00:00Z"));
     assert.equal(env.v, 2);
@@ -100,8 +93,7 @@ describe("resolveGoldbackGeneratedAt (STRK-250)", () => {
   });
 
   it("R3.3b — exactly on the budget boundary (== budget) → returns undefined (fresh, strict >)", () => {
-    // Age == budget seconds → should be treated as stale (> check uses >).
-    // Row is exactly 7200 s old: age (7200) > budget (7200) is FALSE → undefined.
+    // Row is exactly budget seconds old: age (7200) > budget (7200) is FALSE → fresh.
     const scrapedAt = new Date(NOW_MS - 7200 * 1000).toISOString();
     const result = resolveGoldbackGeneratedAt(scrapedAt, NOW, 7200);
     // Boundary at exactly budget is fresh (not stale): age === budget → NOT > budget
