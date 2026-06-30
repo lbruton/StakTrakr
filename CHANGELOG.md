@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.63] - 2026-06-30
+
+### Fixed — STRK-250: Goldback honest envelope timestamp
+
+- **Goldback outage indicator now fires correctly**: During a goldback scrape outage (row older than 2 hours), `goldback/latest.json` now carries a `generated_at` reflecting the true scrape time instead of the publish time — so the service worker's age check and `_strictMarketFreshness` correctly surface stale data to the user rather than silently accepting hours-old prices (STRK-250).
+
+---
+
 ## [3.35.62] - 2026-06-28
 
 ### Changed — STRK-248: Goldback intraday price history
