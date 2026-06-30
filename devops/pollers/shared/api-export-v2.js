@@ -90,7 +90,7 @@ function warn(msg) {
 // File writer
 // ---------------------------------------------------------------------------
 
-function writeV2File(relPath, data, staleAfterSeconds) {
+function writeV2File(relPath, data, staleAfterSeconds, generatedAt) {
   const resolved = resolve(join(DATA_DIR, "v2", relPath));
   if (!resolved.startsWith(resolve(join(DATA_DIR, "v2")))) {
     throw new Error(`Path traversal detected: ${relPath}`);
@@ -101,7 +101,7 @@ function writeV2File(relPath, data, staleAfterSeconds) {
     return;
   }
   mkdirSync(dirname(filePath), { recursive: true });
-  const envelope = wrapEnvelope(data, staleAfterSeconds);
+  const envelope = wrapEnvelope(data, staleAfterSeconds, generatedAt);
   writeFileSync(filePath, JSON.stringify(envelope, null, 2) + "\n");
   log(`Wrote ${filePath}`);
 }
@@ -890,6 +890,32 @@ function buildGoldbackIntradayEntries(rows) {
   return Array.from(byHour.values());
 }
 
+/**
+ * Resolve the honest `generated_at` timestamp for goldback/latest.json.
+ * Returns the normalised scraped_at ISO when the row is older than the budget,
+ * so envelope-validating consumers correctly detect staleness during an outage.
+ * Returns undefined when the row is fresh (publish-time default applies).
+ *
+ * @param {string|Date|null} scrapedAt - The scraped_at value from the latest row
+ * @param {Date} now - Current time (injected for testability)
+ * @param {number} budgetSeconds - Realtime freshness budget in seconds
+ * @returns {string|undefined}
+ */
+function resolveGoldbackGeneratedAt(scrapedAt, now, budgetSeconds) {
+  if (scrapedAt == null) return undefined;
+  const scrapeMs = new Date(scrapedAt).getTime();
+  if (Number.isNaN(scrapeMs)) return undefined;
+  const ageSeconds = (now.getTime() - scrapeMs) / 1000;
+  if (ageSeconds > budgetSeconds) {
+    return new Date(scrapedAt).toISOString().replace(".000Z", "Z");
+  }
+  return undefined;
+}
+
+// Realtime freshness budget for goldback/latest.json — mirrors stale_after and
+// the SW/api.js consumer budgets so the three values stay in sync.
+const GOLDBACK_REALTIME_BUDGET_SECONDS = 7200;
+
 // ---------------------------------------------------------------------------
 // Goldback export
 // ---------------------------------------------------------------------------
@@ -910,6 +936,11 @@ async function exportGoldback(client) {
   const g1 = Math.round(Number(latestRow.price) * 100) / 100;
   const { t, ts } = toTimestampPair(new Date(String(latestRow.scraped_at)), "hourly");
 
+  const generatedAt = resolveGoldbackGeneratedAt(
+    latestRow.scraped_at,
+    now,
+    GOLDBACK_REALTIME_BUDGET_SECONDS
+  );
   writeV2File(
     "goldback/latest.json",
     {
@@ -919,7 +950,8 @@ async function exportGoldback(client) {
       denominations: buildGoldbackDenominations(g1),
       source: "goldback.com",
     },
-    7200
+    GOLDBACK_REALTIME_BUDGET_SECONDS,
+    generatedAt
   );
 
   // --- goldback/intraday.json (raw point series, hourly-floored `t` labels, last 72h) ---
@@ -1125,7 +1157,7 @@ async function main() {
   if (hadError) process.exitCode = 1;
 }
 
-export { buildGoldbackIntradayEntries };
+export { buildGoldbackIntradayEntries, resolveGoldbackGeneratedAt };
 
 // Normalize argv[1] (resolves relative paths + symlinks) before comparing, so
 // main() still runs when invoked via a relative path or symlink — matches

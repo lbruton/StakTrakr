@@ -73,11 +73,22 @@ export function computeOhlca(samples) {
 
 /**
  * Wrap data in a v2 envelope with version, generated_at, and stale_after.
+ *
+ * @param {*} data - The payload to wrap
+ * @param {number} staleAfterSeconds - Budget in seconds before the envelope is stale
+ * @param {Date|string|number} [generatedAt] - Optional override for generated_at.
+ *   When provided, the envelope carries the real data-origin time (e.g. the
+ *   scrape timestamp for a stale goldback row) instead of publish time.
+ *   Spot and retail callers omit this param and keep the publish-time default.
+ * @returns {{ v: number, generated_at: string, stale_after: number, data: * }}
  */
-export function wrapEnvelope(data, staleAfterSeconds) {
+export function wrapEnvelope(data, staleAfterSeconds, generatedAt) {
   return {
     v: 2,
-    generated_at: new Date().toISOString().replace(".000Z", "Z"),
+    generated_at:
+      generatedAt !== undefined
+        ? new Date(generatedAt).toISOString().replace(".000Z", "Z")
+        : new Date().toISOString().replace(".000Z", "Z"),
     stale_after: staleAfterSeconds,
     data,
   };
