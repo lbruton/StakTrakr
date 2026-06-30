@@ -357,7 +357,7 @@
     },
     {
       "toolId": "markdownlint",
-      "localConfigurationFile": "/Volumes/DATA/GitHub/StakTrakr/.markdownlint.json",
+      "localConfigurationFile": ".markdownlint.json",
       "useLocalConfigurationFile": true,
       "patterns": []
     },
@@ -434,7 +434,7 @@
     },
     {
       "toolId": "ESLint9",
-      "localConfigurationFile": "/Volumes/DATA/GitHub/StakTrakr/eslint.config.cjs",
+      "localConfigurationFile": "eslint.config.cjs",
       "patterns": [
         {
           "patternId": "ESLint9_@typescript-eslint_related-getter-setter-pairs"
