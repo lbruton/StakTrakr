@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.64] - 2026-07-01
+
+### Fixed — STRK-251: Summit false OOS from related-products carousel
+
+- **Summit Metals prices restored to the retail matrix**: Summit's product pages embed a related-products carousel between the buy box and the trimmable page tail; when any carousel product sells out, its "Sold out" badge false-flagged every Summit item OOS while prices kept extracting. The Summit vendor module now declares a positive buy-box marker ("In Stock, Ready to Ship") that suppresses the negative OOS patterns; genuinely sold-out pages drop the marker and still detect correctly (STRK-251).
+
+---
+
 ## [3.35.63] - 2026-06-30
 
 ### Fixed — STRK-250: Goldback honest envelope timestamp

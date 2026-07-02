@@ -3970,5 +3970,53 @@
     "metal": "Silver",
     "source": "sqld",
     "timestamp": "2026-06-30 12:00:00"
+  },
+  {
+    "spot": 4019.43,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-07-01 12:00:00"
+  },
+  {
+    "spot": 1206.82,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-07-01 12:00:00"
+  },
+  {
+    "spot": 1565.43,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-07-01 12:00:00"
+  },
+  {
+    "spot": 58.73,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-07-01 12:00:00"
+  },
+  {
+    "spot": 4054.03,
+    "metal": "Gold",
+    "source": "sqld",
+    "timestamp": "2026-07-02 12:00:00"
+  },
+  {
+    "spot": 1226.75,
+    "metal": "Palladium",
+    "source": "sqld",
+    "timestamp": "2026-07-02 12:00:00"
+  },
+  {
+    "spot": 1600.66,
+    "metal": "Platinum",
+    "source": "sqld",
+    "timestamp": "2026-07-02 12:00:00"
+  },
+  {
+    "spot": 59.79,
+    "metal": "Silver",
+    "source": "sqld",
+    "timestamp": "2026-07-02 12:00:00"
   }
 ]
