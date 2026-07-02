@@ -12,6 +12,10 @@
  *     table over the "Regular price" bulk cards. Pipe path resolves via
  *     firstTableRowFirstPrice(); flattened prose path via tierAnchoredPrice();
  *     regularPricePrices() is the last-resort fallback only.
+ *   - positiveStockPatterns: buy-box "In Stock, Ready to Ship" suppresses the
+ *     negative OOS patterns so "Sold out" badges on related-product carousel
+ *     cards (which render before every cutoff anchor) cannot false-flag the
+ *     page OOS (STRK-251).
  */
 
 import { mergeProviderConfig } from "./price-extract-provider-config.js";
@@ -33,6 +37,14 @@ export const vendor = {
     /^#{0,6}\s*Faq'?s\s*$/im,
   ],
   headerSkipPattern: null,
+  // Summit's related-products carousel renders BETWEEN the buy box and every
+  // cutoff anchor above, so cutoffPatterns cannot trim it. When any carousel
+  // product sells out, its "Sold out" badge appears on EVERY product page and
+  // false-flags the whole vendor OOS (STRK-251). The buy box prints
+  // "In Stock, Ready to Ship" only for the main product — and drops it on
+  // genuinely sold-out pages (buy box shows "Out of Stock" instead) — so its
+  // presence suppresses the negative OOS patterns in detectStockStatus.
+  positiveStockPatterns: [/\bIn Stock, Ready to Ship\b/i],
   preorderTolerant: false,
   // Summit's Shopify JSON-LD advertises offer.price = the 100+ BULK tier (e.g.
   // $71.97), not the 1-9 single-unit Check/Wire price. The poller treats JSON-LD
