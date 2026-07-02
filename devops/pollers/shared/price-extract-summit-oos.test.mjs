@@ -256,8 +256,9 @@ test("BUG REPRO: raw page (FAQ included) false-flags OOS without the layered fix
   assert.equal(detectStockStatus(SUMMIT_PIPE, 1, "apmex").inStock, false);
   assert.equal(detectStockStatus(SUMMIT_PROSE, 1, "apmex").inStock, false);
   // Since STRK-251 the Summit positive buy-box marker rescues even the RAW page
-  // (defense in depth on top of the cutoff trim).
+  // (defense in depth on top of the cutoff trim) — on both extraction paths.
   assert.equal(detectStockStatus(SUMMIT_PIPE, 1, "summitmetals").inStock, true);
+  assert.equal(detectStockStatus(SUMMIT_PROSE, 1, "summitmetals").inStock, true);
 });
 
 test("cutoff removes the FAQ tail → not OOS (pipe path)", () => {
