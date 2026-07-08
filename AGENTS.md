@@ -135,7 +135,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Version-bump PRs: ensure Tailscale is active.
 - `dev → main` shipping: invoke `/ship` only on explicit user approval.
 - Cloud or infrastructure claims: read the matching Foundation doc before speculating.
-- Fly.io or home poller secret claims: verify through Infisical for project `stak-trakr-94m4`, env `dev`.
+- Fly.io or home poller secret claims: verify through Infisical with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken.
 - Cron schedule claims: grep `devops/pollers/home-poller/docker-entrypoint.sh`.
 
 ## Commit And PR Style

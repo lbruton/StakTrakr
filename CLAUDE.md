@@ -197,7 +197,7 @@ Read `.context/review-and-ci.md` before Codacy CLI scans, agentlint runs, pre-PR
 - **Before writing any JavaScript** → read `Foundation/coding-standards.md` (DocVault).
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` and `/retail-poller` first.
 - **Before speculating on infra failure mode** → read matching Foundation doc.
-- **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` (project `stak-trakr-94m4`, env `dev`).
+- **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken, so discovery is unavailable.
 - **Before any version-bump PR**:
   - Run `/update-spot-bundle`.
   - Ensure Tailscale is active.
