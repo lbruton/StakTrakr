@@ -39,9 +39,9 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 ## What's New in v3.35.64
 
-- **Retail price reliability** — Summit Metals prices restored after a related-products carousel false-flagged the whole vendor out of stock; goldback's stale-data warning now fires correctly during feed outages instead of silently showing hours-old prices (STRK-251, STRK-250)
+- **Retail price reliability** — Summit Metals prices restored after a related-products carousel false-flagged the whole vendor out of stock; Goldback's stale-data warning now fires correctly during feed outages instead of silently showing hours-old prices (STRK-251, STRK-250)
 - **Goldback intraday pricing** — new hourly price feed covering the last 72 hours, honest scrape-time timestamps instead of a daily placeholder, and a 2-hour freshness budget (STRK-248)
-- **Realtime price freshness** — spot, goldback, and retail prices load fresh on every visit instead of a stale cached copy, with automatic failover to the backup API (STRK-249)
+- **Real-time price freshness** — spot, Goldback, and retail prices load fresh on every visit instead of a stale cached copy, with automatic failover to the backup API (STRK-249)
 - **Constitutional (junk) silver** — lot pricing by denomination, bulk Type→Goldback conversion, custom-purity field reset on type changes, and value-chart history capture for valuation-only edits (STRK-242, STRK-244, STRK-245, STRK-246, STRK-247)
 
 Full details in the [Changelog](CHANGELOG.md).
