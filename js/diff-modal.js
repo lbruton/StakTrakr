@@ -1416,9 +1416,16 @@
           meta.itemCount != null ? String(meta.itemCount) : "\u2014"
         );
         if (typeof inventory !== "undefined") {
-          var localItemCount =
-            typeof cloudSafeItemCount === "function" ? cloudSafeItemCount() : inventory.length;
-          sourceHtml += _metaCell("Local Items", String(localItemCount));
+          const localItemCount =
+            typeof cloudSafeItemCount === "function"
+              ? cloudSafeItemCount()
+              : Array.isArray(inventory)
+                ? inventory.length
+                : 0;
+          sourceHtml += _metaCell(
+            "Local Items",
+            localItemCount != null ? String(localItemCount) : "—"
+          );
         }
         sourceHtml += _metaCell(
           "Device",
