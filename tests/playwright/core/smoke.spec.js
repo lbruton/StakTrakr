@@ -305,8 +305,8 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
     });
 
     expect(snap.ok).toBe(true);
-    // RED: fetchGoldbackApiPrices() never calls renderRatioChips() (C.3 gap), so the
-    // fetch did not repaint and the freshly-cached GB chip is absent at resolve time.
+    // fetchGoldbackApiPrices() calls renderRatioChips() on a successful fetch (C.3),
+    // so the freshly-cached GB chip repaints and is present at resolve time.
     expect(snap.repainted).toBe(true);
     expect(snap.chipPresent).toBe(true);
   });

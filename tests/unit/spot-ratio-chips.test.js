@@ -310,7 +310,7 @@ describe("resolveGoldbackRate — fresh/stale × mode matrix", () => {
 //     offline-display preservation).
 //   - absent / non-positive goldbackPrices['1'] → null in BOTH modes.
 //
-// RED until C.4 creates the helper — selectGoldbackG1Seed is undefined here.
+// selectGoldbackG1Seed is defined in js/spot-ratio-math.js and exposed on window.
 // "now" is frozen via Date.now so the seconds-based staleness window
 // (isGoldbackStale / readFreshCachedGoldback) is deterministic — NOT the 25h
 // getGoldbackPriceInfo reader.

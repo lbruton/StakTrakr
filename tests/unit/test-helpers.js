@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 
 /**
- * Slice an arrow-const function body bounded by the first column-0 "\n}" after its
- * declaration head (every nested brace is indented, so "\n}" bounds it precisely).
+ * Slice an arrow-const function body bounded by the first column-0 "\n};" after its
+ * declaration head (every nested brace is indented, so "\n};" bounds it precisely).
  * @param {string} src - Source file contents to slice from
  * @param {string} declHead - The `const NAME = (` declaration head to locate
  * @returns {string} The sliced function source, including the closing `};`
@@ -19,8 +19,8 @@ import assert from "node:assert/strict";
 export function sliceArrowConst(src, declHead) {
   const start = src.indexOf(declHead);
   assert.ok(start !== -1, `could not locate "${declHead}" in source`);
-  const end = src.indexOf("\n}", start) + 2;
-  assert.ok(end > start + 1, `could not locate the end of "${declHead}"`);
+  const end = src.indexOf("\n};", start) + 3;
+  assert.ok(end > start + 2, `could not locate the end of "${declHead}"`);
   return src.slice(start, end);
 }
 
