@@ -28,8 +28,8 @@ function classifyOnBothHosts(path) {
 }
 
 describe("FAMILY_TABLE", () => {
-  it("has exactly 10 entries", () => {
-    assert.equal(FAMILY_TABLE.length, 10);
+  it("has exactly 11 entries", () => {
+    assert.equal(FAMILY_TABLE.length, 11);
   });
 
   it("contains all expected family names in order", () => {
@@ -40,6 +40,7 @@ describe("FAMILY_TABLE", () => {
         "spot-latest",
         "spot-history-daily",
         "goldback-latest",
+        "goldback-intraday",
         "retail-latest",
         "retail-intraday",
         "retail-history-short",
@@ -99,9 +100,36 @@ describe("classifyEndpoint — goldback-latest", () => {
   it("classifies on both API hosts", () => {
     const { api1, api2 } = classifyOnBothHosts("/v2/goldback/latest.json");
     assert.equal(api1.family, "goldback-latest");
-    assert.equal(api1.floor, 90000);
+    assert.equal(api1.floor, 7200);
     assert.equal(api1.hasEnvelope, true);
     assert.equal(api2.family, "goldback-latest");
+  });
+});
+
+describe("classifyEndpoint — goldback-intraday", () => {
+  it("classifies on both API hosts", () => {
+    const { api1, api2 } = classifyOnBothHosts("/v2/goldback/intraday.json");
+    assert.equal(api1.family, "goldback-intraday");
+    assert.equal(api1.floor, 7200);
+    assert.equal(api1.hasEnvelope, true);
+    assert.equal(api2.family, "goldback-intraday");
+  });
+
+  it("does NOT emit networkFirst on goldback-intraday (key must be absent)", () => {
+    const r = classifyEndpoint(API1 + "/v2/goldback/intraday.json", SELF);
+    assert.equal(r.family, "goldback-intraday");
+    assert.equal(Object.prototype.hasOwnProperty.call(r, "networkFirst"), false);
+  });
+
+  it("returns null for a non-API host", () => {
+    assert.equal(classifyEndpoint("https://example.com/v2/goldback/intraday.json", SELF), null);
+  });
+
+  it("does NOT classify goldback/latest.json as goldback-intraday", () => {
+    assert.equal(
+      classifyEndpoint(API1 + "/v2/goldback/latest.json", SELF).family,
+      "goldback-latest"
+    );
   });
 });
 
@@ -235,7 +263,8 @@ describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
     ["/data/v2/manifest.json", "manifest", 1800],
     ["/data/v2/spot/latest.json", "spot-latest", 1200],
     ["/data/v2/spot/xau/2026/05/15.json", "spot-history-daily", 3600],
-    ["/data/v2/goldback/latest.json", "goldback-latest", 90000],
+    ["/data/v2/goldback/latest.json", "goldback-latest", 7200],
+    ["/data/v2/goldback/intraday.json", "goldback-intraday", 7200],
     ["/data/v2/retail/apmex/latest.json", "retail-latest", 1800],
     ["/data/v2/retail/apmex/intraday.json", "retail-intraday", 1200],
     ["/data/v2/retail/apmex/history-7d.json", "retail-history-short", 3600],
@@ -268,6 +297,56 @@ describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
   it("does not classify envelope families on the local origin even with /data prefix", () => {
     assert.equal(classifyEndpoint(SELF + "/data/v2/spot/latest.json", SELF), null);
   });
+});
+
+// STRK-249 (B.1): classifyEndpoint emits networkFirst:true on the three
+// realtime families (spot-latest, goldback-latest, retail-latest) and must
+// NOT emit the key at all on the other 7 families. C.1 is implemented in
+// this PR — these assertions are green.
+describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", () => {
+  // A representative classifiable path per family (on an API host) so we can
+  // inspect the descriptor classifyEndpoint returns for each.
+  const FAMILY_PATHS = {
+    manifest: "/v2/manifest.json",
+    "spot-latest": "/v2/spot/latest.json",
+    "spot-history-daily": "/v2/spot/xau/2026/05/15.json",
+    "goldback-latest": "/v2/goldback/latest.json",
+    "retail-latest": "/v2/retail/apmex/latest.json",
+    "retail-intraday": "/v2/retail/apmex/intraday.json",
+    "retail-history-short": "/v2/retail/apmex/history-7d.json",
+    "retail-history-long": "/v2/retail/apmex/history-30d.json",
+    providers: "/v2/providers.json",
+    "annual-spot-history": "/spot-history-2025.json",
+  };
+
+  const REALTIME_FAMILIES = ["spot-latest", "goldback-latest", "retail-latest"];
+  const NON_REALTIME_FAMILIES = [
+    "manifest",
+    "spot-history-daily",
+    "retail-intraday",
+    "retail-history-short",
+    "retail-history-long",
+    "providers",
+    "annual-spot-history",
+  ];
+
+  for (const family of REALTIME_FAMILIES) {
+    it(`emits networkFirst:true on ${family} (both API hosts)`, () => {
+      const { api1, api2 } = classifyOnBothHosts(FAMILY_PATHS[family]);
+      assert.equal(api1.family, family);
+      assert.equal(api1.networkFirst, true);
+      assert.equal(api2.family, family);
+      assert.equal(api2.networkFirst, true);
+    });
+  }
+
+  for (const family of NON_REALTIME_FAMILIES) {
+    it(`does NOT emit networkFirst on ${family} (key must be absent)`, () => {
+      const r = classifyEndpoint(API1 + FAMILY_PATHS[family], SELF);
+      assert.equal(r.family, family);
+      assert.equal(Object.prototype.hasOwnProperty.call(r, "networkFirst"), false);
+    });
+  }
 });
 
 describe("parseGeneratedAtSeconds — STRK-189", () => {

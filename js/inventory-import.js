@@ -484,6 +484,10 @@
       constitutionalVariant: row["Constitutional Variant"] || row["constitutionalVariant"] || "",
       constitutionalEntryMode:
         row["Constitutional Entry Mode"] || row["constitutionalEntryMode"] || "",
+      // STRK-242 (D-6 bounded carve-out): CSV deliberately carries NO pricingType column —
+      // CSV is the flat human-facing format and the cost basis (price×qty) is correct
+      // without it; a CSV-imported denom-LOT item simply reopens in EACH at the correct
+      // per-coin price. Lossless lot-vs-each round-trip is JSON/ZIP-only (audible skip).
       price,
       paymentMethod: row["Payment Method"] || row["paymentMethod"] || "",
       purchaseLocation: row["Purchase Location"] || "",
@@ -1337,6 +1341,9 @@
           // round-trip correctly (getConstitutionalSilverOz requires both fields).
           const constitutionalVariant = (raw.constitutionalVariant || "").toString().trim();
           const constitutionalEntryMode = (raw.constitutionalEntryMode || "").toString().trim();
+          // STRK-242: carry the lot/each pricing hint through JSON import (round-trips with
+          // the export whitelist) so a denom-LOT cu item reopens in LOT on edit (D-6).
+          const pricingType = (raw.pricingType || "").toString().trim();
 
           const processedItem = sanitizeImportedItem({
             metal,
@@ -1373,6 +1380,7 @@
             reverseImageUrl,
             ...(constitutionalVariant ? { constitutionalVariant } : {}),
             ...(constitutionalEntryMode ? { constitutionalEntryMode } : {}),
+            ...(pricingType ? { pricingType } : {}),
             ...(numistaData ? { numistaData } : {}),
             ...(fieldMeta ? { fieldMeta } : {}),
           });

@@ -37,12 +37,12 @@ A powerful, privacy-first portfolio tracker for Silver, Gold, Platinum, Palladiu
 
 ---
 
-## What's New in v3.35.0
+## What's New in v3.35.64
 
-- **Trade linking** — bidirectional links between disposed-traded items and received inventory with editable provenance, spot-derived trade values, undo support, and cloud-sync visibility (STRK-123)
-- **Cloud sync hardening** — tag merge on sync, conflict-loop fix after accepting remote changes, Bullion Exchanges content-quality retry (STRK-106, STRK-107, STRK-108)
-- **Retail & autocomplete fixes** — SDB/BE spot-ticker sidebar leak patched, autocomplete field name casing corrected (STRK-99, STRK-114)
-- **Test infrastructure** — full Playwright suite consolidation from 7 scattered spec tiers into compact domain suites with archived historical coverage (STRK-97 → STRK-122)
+- **Retail price reliability** — Summit Metals prices restored after a related-products carousel false-flagged the whole vendor out of stock; Goldback's stale-data warning now fires correctly during feed outages instead of silently showing hours-old prices (STRK-251, STRK-250)
+- **Goldback intraday pricing** — new hourly price feed covering the last 72 hours, honest scrape-time timestamps instead of a daily placeholder, and a 2-hour freshness budget (STRK-248)
+- **Real-time price freshness** — spot, Goldback, and retail prices try fresh network data on every visit instead of a stale cached copy, falling back to cache only when offline, with automatic failover to the backup API (STRK-249)
+- **Constitutional (junk) silver** — lot pricing by denomination, bulk Type→Goldback conversion, custom-purity field reset on type changes, and value-chart history capture for valuation-only edits (STRK-242, STRK-244, STRK-245, STRK-246, STRK-247)
 
 Full details in the [Changelog](CHANGELOG.md).
 

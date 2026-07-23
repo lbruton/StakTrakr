@@ -25,9 +25,9 @@ Missing the corner tier causes data cells to paint over the frozen header corner
 
 ## `--warning` color — accessibility fail on small text in light/sepia
 
-`--warning` (oklch L≈0.666) on `--bg-secondary` produces ~1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
+`--warning` (oklch L≈0.666) on `--bg-secondary` produces ≈1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
 That fails WCAG level AA for small text.
-Use a darker custom amber (~`oklch(0.55 0.15 60)`) for ticker or `font-size-xs` contexts in these themes.
+Use a darker custom amber (≈`oklch(0.55 0.15 60)`) for ticker or `font-size-xs` contexts in these themes.
 
 ## `_isMarketItemEnabled` guard — apply on both tab paths
 

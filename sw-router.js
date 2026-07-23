@@ -6,6 +6,9 @@ const _ALLOWED_API_HOSTS = ["api.staktrakr.com", "api2.staktrakr.com"];
 // Family descriptor table. Iterated in order; first match wins.
 // floor: minimum TTL in seconds (used when envelope stale_after is absent)
 // hasEnvelope: whether the v2 response body carries generated_at / stale_after fields
+// networkFirst: realtime families that should prefer the network over cache
+//   (spot-latest / goldback-latest / retail-latest). Absent on non-realtime
+//   families. Inert here — sw.js branches on it (STRK-249).
 const FAMILY_TABLE = [
   {
     family: "manifest",
@@ -22,6 +25,7 @@ const FAMILY_TABLE = [
     },
     floor: 1200,
     hasEnvelope: true,
+    networkFirst: true,
   },
   {
     family: "spot-history-daily",
@@ -36,7 +40,20 @@ const FAMILY_TABLE = [
     test: function (p) {
       return p === "/v2/goldback/latest.json";
     },
-    floor: 90000,
+    floor: 7200,
+    hasEnvelope: true,
+    networkFirst: true,
+  },
+  {
+    family: "goldback-intraday",
+    test: function (p) {
+      return p === "/v2/goldback/intraday.json";
+    },
+    // 7200 (2h) fallback floor — aligned with the endpoint's own stale_after
+    // budget and goldback's hourly publish cadence (the envelope's x-stale-after
+    // takes precedence over this floor when present; floor only applies to a
+    // header-less cached entry). Diverges from retail-intraday (1200) on purpose.
+    floor: 7200,
     hasEnvelope: true,
   },
   {
@@ -46,6 +63,7 @@ const FAMILY_TABLE = [
     },
     floor: 1800,
     hasEnvelope: true,
+    networkFirst: true,
   },
   {
     family: "retail-intraday",
@@ -90,7 +108,8 @@ const FAMILY_TABLE = [
   },
 ];
 
-// classifyEndpoint(urlString, selfOrigin) → { family, floor, hasEnvelope } | null
+// classifyEndpoint(urlString, selfOrigin) → { family, floor, hasEnvelope, networkFirst } | null
+//   networkFirst is present (true) only on the realtime families; absent otherwise.
 //
 // urlString: absolute URL string (Request.url or string literal in tests)
 // selfOrigin: the SW's self.location.origin (injected by sw.js; tests supply a mock)
@@ -126,12 +145,22 @@ function classifyEndpoint(urlString, selfOrigin) {
     if (entry.family === "annual-spot-history") {
       // Annual spot-history: valid on API hosts (API-root path) and local origin (/data/ path)
       if ((isApiHost || isSelfOrigin) && entry.test(pathname)) {
-        return { family: entry.family, floor: entry.floor, hasEnvelope: entry.hasEnvelope };
+        return {
+          family: entry.family,
+          floor: entry.floor,
+          hasEnvelope: entry.hasEnvelope,
+          ...(entry.networkFirst === true ? { networkFirst: true } : {}),
+        };
       }
     } else {
       // All other families: API hosts only
       if (isApiHost && entry.test(pathname)) {
-        return { family: entry.family, floor: entry.floor, hasEnvelope: entry.hasEnvelope };
+        return {
+          family: entry.family,
+          floor: entry.floor,
+          hasEnvelope: entry.hasEnvelope,
+          ...(entry.networkFirst === true ? { networkFirst: true } : {}),
+        };
       }
     }
   }

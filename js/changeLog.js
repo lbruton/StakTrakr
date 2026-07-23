@@ -154,6 +154,9 @@ const logItemChanges = (oldItem, newItem) => {
     "date",
     "year",
     "price",
+    // STRK-242: track pricingType (lot/each) so a cu lot↔each edit is recorded in the
+    // audit/change log (D-6). Mirrors DIFF_FIELDS in diff-engine.js.
+    "pricingType",
     "purchasePrice",
     "retailPrice",
     "marketValue",

@@ -8,7 +8,17 @@ const V2_API = "https://api.staktrakr.com/data/v2";
 // goldback fetch paths. _staktrakrFetch is defined in api.js, which executes
 // after this file (both deferred) — it exists by the time any market fetch
 // runs, and the typeof guard degrades to the primary endpoint only if not.
-const _marketV2Fetch = async (path) => {
+/**
+ * Fetch a market-data JSON path with ordered api1→api2 endpoint failover.
+ * @param {string} path - Path appended to each V2 endpoint base.
+ * @param {Object} [options]
+ * @param {function(any): {ok: boolean, reason?: string}} [options.validate] -
+ *   Payload validator forwarded to _staktrakrFetch (STRK-249/STRK-189); a falsy
+ *   verdict rejects the endpoint's payload and advances to the next endpoint.
+ *   Existing callers pass none, so failover behavior is unchanged for them.
+ * @returns {Promise<any>} Parsed JSON from the first successful endpoint.
+ */
+const _marketV2Fetch = async (path, { validate } = {}) => {
   const endpoints =
     typeof V2_API_ENDPOINTS !== "undefined" &&
     Array.isArray(V2_API_ENDPOINTS) &&
@@ -16,7 +26,7 @@ const _marketV2Fetch = async (path) => {
       ? V2_API_ENDPOINTS
       : [V2_API];
   if (typeof _staktrakrFetch === "function") {
-    return _staktrakrFetch(endpoints, path);
+    return _staktrakrFetch(endpoints, path, { validate });
   }
   // Fallback if api.js hasn't executed: same ordered failover with plain fetch.
   let lastErr;
@@ -30,6 +40,42 @@ const _marketV2Fetch = async (path) => {
     }
   }
   throw lastErr || new Error("All market endpoints failed");
+};
+
+// STRK-249 (C.5): strict freshness gate for the goldback-G1 and retail-detail
+// fetches. Built on api.js's shared _checkEnvelopeFreshness with the strict regime
+// (multiplier:1, floorMs:0) — reject by the endpoint's OWN stale_after with no slack,
+// so a stale-but-200 api1 SW/CDN payload is rejected and _staktrakrFetch advances to
+// api2 instead of short-circuiting (C-8). Guarded two ways for robustness:
+//   - load order: api.js executes after this file (both deferred); the gate runs only
+//     at fetch RUNTIME, but if _checkEnvelopeFreshness is somehow absent we pass through.
+//   - no declared budget: an envelope without a positive stale_after declares no
+//     staleness constraint, so it is accepted (mirrors the legacy unparseable-
+//     generated_at short-circuit). Production goldback/retail envelopes always carry a
+//     positive stale_after, so a genuinely stale SW copy is still rejected.
+// STRK-249 (review finding #1): the goldback envelope carries stale_after = 90000s
+// (~25h) — the very SW floor STRK-249 exists to escape (US-3). Cap the strict realtime
+// budget at SPOT_MAX_PAYLOAD_AGE_MS (~2h) so goldback's 25h collapses to 2h: a >2h
+// stale api1 200 is rejected → failover to api2. Retail's stale_after = 1800s (30min)
+// stays min(30min, 2h) = 30min (unchanged). A fresh goldback copy (≤~1h) still passes.
+/**
+ * Strict v2-envelope freshness verdict for _marketV2Fetch's `validate` gate.
+ * Caps the accept budget at SPOT_MAX_PAYLOAD_AGE_MS (the realtime payload-age
+ * ceiling) so a high-stale_after endpoint (goldback ≈ 25h) cannot keep a
+ * stale-but-200 SW/CDN copy alive past the realtime ceiling (review finding #1).
+ * @param {any} envelope - Parsed v2 envelope ({ generated_at, stale_after, data }).
+ * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator.
+ */
+const _strictMarketFreshness = (envelope) => {
+  if (typeof _checkEnvelopeFreshness !== "function") return { ok: true };
+  if (!envelope || typeof envelope.stale_after !== "number" || envelope.stale_after <= 0) {
+    return { ok: true };
+  }
+  return _checkEnvelopeFreshness(envelope, {
+    multiplier: 1,
+    floorMs: 0,
+    maxAgeCapMs: SPOT_MAX_PAYLOAD_AGE_MS,
+  });
 };
 
 const _METAL_TO_ISO = { silver: "xag", gold: "xau", platinum: "xpt", palladium: "xpd" };
@@ -1185,9 +1231,11 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   }
 
   if (missingSlugs.length > 0) {
+    // STRK-249 (C.5): routed through _marketV2Fetch with the strict freshness gate
+    // so a stale-but-200 api1 origin fails over to api2 instead of short-circuiting;
+    // _marketV2Fetch resolves the parsed envelope, so consume json.data directly.
     const fetchPromises = missingSlugs.map((slug) =>
-      fetch(V2_API + "/retail/" + slug + "/latest.json", { signal: AbortSignal.timeout(8000) })
-        .then((r) => (r.ok ? r.json() : null))
+      _marketV2Fetch("/retail/" + slug + "/latest.json", { validate: _strictMarketFreshness })
         .then((json) => ({ slug, data: json && json.data ? json.data : null }))
         .catch(() => ({ slug, data: null }))
     );
@@ -1633,6 +1681,81 @@ const renderVendorPrices = () => {
 // Init / Refresh
 // ---------------------------------------------------------------------------
 
+/**
+ * Seed the goldback G1 rate for first paint, then refine it from the network.
+ *
+ * Three phases (STRK-249):
+ *  1. Seed from the fresh goldbackPrices['1'] cache so the gated premium sites
+ *     (ticker / modal / vendor matrix) paint in the same pass as spot premiums —
+ *     before the network fetch resolves. selectGoldbackG1Seed declines a stale
+ *     value while online and preserves the last-known plain value offline.
+ *  2. Refine over the network (api1 → api2 failover via the strict freshness
+ *     gate) so a stale/offline seed is replaced by the latest figure, then
+ *     re-render so the premium reflects it.
+ *  3. US-5 offline re-seed: if the post-seed fetch fails and navigator.onLine was
+ *     a false-positive (captive portal), the online seed declined the stale cache
+ *     and _goldbackG1Rate is still unset → re-seed via the OFFLINE branch so the
+ *     last-known value renders instead of blank, never clobbering a good rate.
+ *
+ * @returns {Promise<void>}
+ */
+const _seedAndRefreshGoldbackG1Rate = async () => {
+  // Seed the goldback G1 rate from the fresh goldbackPrices['1'] cache so the
+  // gated premium sites (ticker / modal / vendor matrix) paint in the same pass
+  // as spot premiums — before the un-awaited network fetch below resolves.
+  // selectGoldbackG1Seed (spot-ratio-math.js) declines a stale value while
+  // online and preserves the last-known plain value offline.
+  if (typeof selectGoldbackG1Seed === "function") {
+    const seeded = selectGoldbackG1Seed(navigator.onLine);
+    if (typeof seeded === "number" && seeded > 0) {
+      _goldbackG1Rate = seeded;
+      // Paint the seeded rate immediately so gated premium sites (ticker / vendor
+      // matrix) render in lockstep with spot premiums — before the network fetch
+      // below resolves. The render calls at the bottom of this function will
+      // re-paint once the network refines the rate.
+      renderBestPriceTicker();
+      renderVendorPrices();
+    }
+  }
+
+  // Fetch goldback G1 rate for premium calculation. This always runs (even when
+  // a cache seed already set _goldbackG1Rate) so a stale/offline seed is refined
+  // by the network; on success update the rate and re-render so the premium
+  // reflects the latest figure. STRK-249 (C.5): routed through _marketV2Fetch with
+  // the strict freshness gate so a stale-but-200 api1 origin fails over to api2
+  // instead of short-circuiting; _marketV2Fetch resolves the parsed envelope.
+  try {
+    const gbJson = await _marketV2Fetch("/goldback/latest.json", {
+      validate: _strictMarketFreshness,
+    });
+    if (gbJson && gbJson.data && gbJson.data.g1_usd) {
+      _goldbackG1Rate = gbJson.data.g1_usd;
+      debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
+    }
+  } catch (e) {
+    debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
+    // STRK-249 (US-5): the post-seed network fetch failed. If navigator.onLine was
+    // a false-positive (captive portal / "connected but no internet"), the ONLINE
+    // seed above declined the stale cache (returned null) and _goldbackG1Rate is
+    // still unset/≤0 → blank premium. Re-seed via the OFFLINE branch so the
+    // last-known value (even if stale) renders instead of blank. Never clobber an
+    // already-good rate (an online seed or a prior fetch).
+    if ((!_goldbackG1Rate || _goldbackG1Rate <= 0) && typeof selectGoldbackG1Seed === "function") {
+      const offlineSeed = selectGoldbackG1Seed(false);
+      if (typeof offlineSeed === "number" && offlineSeed > 0) {
+        _goldbackG1Rate = offlineSeed;
+        debugLog(
+          "[market-data] Goldback G1 rate re-seeded offline (last-known): $" + _goldbackG1Rate,
+          "info"
+        );
+      }
+    }
+  }
+
+  renderBestPriceTicker();
+  renderVendorPrices();
+};
+
 const initMarketData = async () => {
   if (_marketDataInitialized) return;
 
@@ -1696,26 +1819,7 @@ const initMarketData = async () => {
 
   // Charts now use per-slug retail data fetched on modal open — no pre-fetch needed
 
-  // Fetch goldback G1 rate for premium calculation
-  if (!_goldbackG1Rate) {
-    try {
-      const gbResp = await fetch(V2_API + "/goldback/latest.json", {
-        signal: AbortSignal.timeout(10000),
-      });
-      if (gbResp.ok) {
-        const gbJson = await gbResp.json();
-        if (gbJson && gbJson.data && gbJson.data.g1_usd) {
-          _goldbackG1Rate = gbJson.data.g1_usd;
-          debugLog("[market-data] Goldback G1 rate: $" + _goldbackG1Rate, "info");
-        }
-      }
-    } catch (e) {
-      debugLog("[market-data] Goldback rate fetch failed: " + e.message, "warn");
-    }
-  }
-
-  renderBestPriceTicker();
-  renderVendorPrices();
+  await _seedAndRefreshGoldbackG1Rate();
 
   _marketDataInitialized = true;
 };
@@ -1753,4 +1857,15 @@ if (typeof window !== "undefined") {
   window.renderVendorPrices = renderVendorPrices;
   window.openMarketDetailModal = openMarketDetailModal;
   window.closeMarketDetailModal = closeMarketDetailModal;
+  // _marketDataInitialized is a module-scoped `let`, so it is not visible on
+  // window by default (state.js gotcha). Bridge it with a getter/setter so a
+  // caller can re-arm a fresh init (e.g. to refine the goldback rate from the
+  // network) by writing window._marketDataInitialized = false.
+  Object.defineProperty(window, "_marketDataInitialized", {
+    configurable: true,
+    get: () => _marketDataInitialized,
+    set: (v) => {
+      _marketDataInitialized = v;
+    },
+  });
 }

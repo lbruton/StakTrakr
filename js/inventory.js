@@ -2446,6 +2446,9 @@ const exportJson = () => {
     // export→import round-trip so getConstitutionalSilverOz() returns the correct oz.
     constitutionalVariant: item.constitutionalVariant || "",
     constitutionalEntryMode: item.constitutionalEntryMode || "",
+    // STRK-242: pricingType is load-bearing for cu by-denomination edit-restore (lot vs
+    // each) — carry it through JSON export so the lot-edit hint survives a round-trip (D-6).
+    pricingType: item.pricingType || "",
     serial: item.serial,
     uuid: item.uuid,
     obverseImageUrl: item.obverseImageUrl || "",

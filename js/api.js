@@ -82,26 +82,56 @@ const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palla
 let _lastAcceptedSpotGeneratedAtMs = null;
 
 /**
- * Validate a v2 envelope's publication freshness (STRK-189).
+ * Validate a v2 envelope's publication freshness against a parameterized budget.
  * Payloads without a parseable generated_at are accepted (legacy envelopes).
- * Threshold = max(stale_after * 6, SPOT_MAX_PAYLOAD_AGE_MS) so a poller lag
- * never hard-fails the sync, but days-old SW-cache/CDN payloads are rejected.
- * @param {any} envelope - Parsed /spot/latest.json response
+ * Threshold = max(stale_after * multiplier, floorMs); the multiplier supplies
+ * slack over the endpoint's own stale_after and floorMs sets an absolute minimum.
+ * When maxAgeCapMs is supplied, the threshold is additionally capped at that
+ * absolute ceiling — so an endpoint whose own stale_after exceeds the realtime
+ * budget (e.g. goldback's 90000s ≈ 25h) cannot keep a stale-but-200 SW/CDN copy
+ * alive past the realtime payload-age ceiling.
+ * Strictness regimes:
+ *   - lenient (spot failover): { multiplier: 6, floorMs: SPOT_MAX_PAYLOAD_AGE_MS }
+ *     so poller lag never hard-fails the sync, but days-old SW-cache/CDN payloads
+ *     are rejected (STRK-189).
+ *   - strict (goldback/retail gates): { multiplier: 1, floorMs: 0 } rejects by the
+ *     endpoint's own stale_after with no slack; goldback adds
+ *     { maxAgeCapMs: SPOT_MAX_PAYLOAD_AGE_MS } so its 25h stale_after collapses to
+ *     the ~2h realtime ceiling (STRK-249 review finding #1).
+ * @param {any} envelope - Parsed v2 envelope response
+ * @param {Object} strictness - Freshness budget
+ * @param {number} strictness.multiplier - stale_after multiplier (slack factor)
+ * @param {number} strictness.floorMs - Absolute minimum acceptable age in ms
+ * @param {number} [strictness.maxAgeCapMs] - Optional absolute ceiling on the
+ *   computed threshold in ms; when set, maxAge = min(maxAge, maxAgeCapMs)
  * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator
  */
-const _checkSpotEnvelopeFreshness = (envelope) => {
+const _checkEnvelopeFreshness = (envelope, { multiplier, floorMs, maxAgeCapMs }) => {
   const gen = Date.parse(envelope?.generated_at);
   if (isNaN(gen)) return { ok: true };
   const age = Math.max(0, Date.now() - gen);
-  const maxAge = Math.max(
-    (typeof envelope.stale_after === "number" ? envelope.stale_after : 0) * 6 * 1000,
-    SPOT_MAX_PAYLOAD_AGE_MS
+  let maxAge = Math.max(
+    (typeof envelope.stale_after === "number" ? envelope.stale_after : 0) * multiplier * 1000,
+    floorMs
   );
+  if (typeof maxAgeCapMs === "number") {
+    maxAge = Math.min(maxAge, maxAgeCapMs);
+  }
   return {
     ok: age <= maxAge,
-    reason: `Stale spot payload (generated_at ${envelope?.generated_at})`,
+    reason: `Stale payload (generated_at ${envelope?.generated_at})`,
   };
 };
+
+/**
+ * Validate a v2 spot envelope's publication freshness (STRK-189), lenient regime.
+ * Thin wrapper over _checkEnvelopeFreshness with the spot failover budget
+ * (multiplier 6, floor SPOT_MAX_PAYLOAD_AGE_MS) so spot behavior is byte-identical.
+ * @param {any} envelope - Parsed /spot/latest.json response
+ * @returns {{ok: boolean, reason?: string}} Verdict for the _staktrakrFetch validator
+ */
+const _checkSpotEnvelopeFreshness = (envelope) =>
+  _checkEnvelopeFreshness(envelope, { multiplier: 6, floorMs: SPOT_MAX_PAYLOAD_AGE_MS });
 
 const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
   const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", {

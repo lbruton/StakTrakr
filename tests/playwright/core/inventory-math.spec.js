@@ -601,9 +601,10 @@ async function openConstitutionalSettings(page, section) {
   }, section);
 }
 
-// STRK-238: shared setup for the bulk constitutional-conversion tests — seed the
-// inventory, boot the app, open the bulk-edit modal, and select the seeded item.
-async function openBulkEditForConstitutional(page, inventory) {
+// Shared setup for the bulk-conversion tests (STRK-238 constitutional, STRK-246
+// goldback) — seed the inventory, boot the app, open the bulk-edit modal, and select
+// the first seeded row.
+async function seedAndOpenBulkEdit(page, inventory) {
   await seedMoneyData(page, { inventory });
   await gotoApp(page);
   await page.waitForFunction(() => typeof window.openBulkEdit === "function");
@@ -1271,7 +1272,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk type→Constitutional with a denomination yields valid, non-zero-oz items", async ({
     page,
   }) => {
-    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable only the Type field, choose Constitutional, then pick a denomination
     // from the new sub-control. weightUnit/metal/entryMode/variant are coupled.
@@ -1310,7 +1311,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("bulk manual weight-unit→cu reveals the denomination picker and applies valid metadata", async ({
     page,
   }) => {
-    await openBulkEditForConstitutional(page, [MONEY_ITEM]);
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
 
     // Enable the Weight Unit field and pick cu directly — no Type change.
     await page.click("#bulkField_weightUnit");
@@ -1341,6 +1342,86 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(result.qty).toBe(4);
     expect(result.oz).toBeGreaterThan(0);
     expect(result.oz).toBeCloseTo(result.expected, 6);
+  });
+
+  // STRK-246 — bulk type→Goldback must stage the full goldback metadata bundle
+  // (weightUnit="gb" + metal="Gold" + the picked denomination as `weight`) past the
+  // checkbox gate, mirroring STRK-238's constitutional bundle. Without it the item
+  // keeps weightUnit="oz" and is a malformed goldback valued as plain oz, and the
+  // STRK-244 recording gate captures nothing — leaving the value chart stale.
+  test("bulk type→Goldback with a denomination yields a valid gb item and records history", async ({
+    page,
+  }) => {
+    // Seed a NON-fine (90%) source item so the purity reset is observable: gb melt
+    // multiplies by item.purity, so a leftover 0.9 would under-value the conversion.
+    await seedAndOpenBulkEdit(page, [{ ...MONEY_ITEM, purity: 0.9 }]);
+
+    // Goldback is a Gold-only type — set Metal→Gold first to un-hide it (the bulk
+    // type<-metal filter, see strk-117). Enable Weight so the denomination picker is
+    // interactive, but deliberately leave weightUnit UNCHECKED: the resulting
+    // weightUnit="gb" can then only come from applyBulkGoldbackBundle's past-the-gate
+    // injection, which is exactly the STRK-246 fix under test.
+    await page.click("#bulkField_metal");
+    await page.selectOption("#bulkFieldVal_metal", "Gold");
+    await page.click("#bulkField_type");
+    await page.click("#bulkField_weight");
+    await page.selectOption("#bulkFieldVal_type", "Goldback");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_weightDenom", "5");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      const hist = JSON.parse(localStorage.getItem("item-price-history") || "{}");
+      return {
+        weightUnit: it.weightUnit,
+        metal: it.metal,
+        weight: Number(it.weight),
+        purity: Number(it.purity),
+        historyPoints: (hist[it.uuid] || []).length,
+      };
+    });
+    // The conversion actually takes effect (not a malformed oz-valued goldback).
+    expect(result.weightUnit).toBe("gb");
+    expect(result.metal).toBe("Gold");
+    expect(result.weight).toBe(5); // denomination NUMBER, the key getGoldbackRetailPrice prices off
+    expect(result.purity).toBe(0.999); // stale 0.9 reset to goldback fineness — no melt under-valuation
+    // STRK-244 gate now records the converted valuation (bundle keys are price-relevant).
+    expect(result.historyPoints).toBeGreaterThanOrEqual(1);
+  });
+
+  // STRK-246 — the Goldback bundle must also fire on a manual Weight-Unit→gb change
+  // (the second branch of isGoldbackApply), not only Type→Goldback — mirroring the
+  // STRK-238 constitutional manual-unit path. metal="Gold" must be injected even
+  // though the Type and Metal fields are never touched.
+  test("bulk manual weight-unit→gb injects the goldback bundle without a Type change", async ({
+    page,
+  }) => {
+    await seedAndOpenBulkEdit(page, [MONEY_ITEM]);
+
+    // Enable Weight Unit + Weight, pick gb directly (no Type change). The denomination
+    // picker reveals; metal="Gold" and the picked denomination as weight are injected
+    // by applyBulkGoldbackBundle via the isGoldbackApply weightUnit branch.
+    await page.click("#bulkField_weightUnit");
+    await page.click("#bulkField_weight");
+    await page.selectOption("#bulkFieldVal_weightUnit", "gb");
+    await expect(page.locator("#bulkFieldVal_weightDenom")).toBeVisible();
+    await page.selectOption("#bulkFieldVal_weightDenom", "10");
+
+    await page.click("#bulkEditApplyBtn");
+    await page.waitForSelector("#bulkConfirmModal", { state: "visible" });
+    await page.click("#bulkConfirmOkBtn");
+
+    const result = await page.evaluate(() => {
+      const it = window.inventory.find((i) => i.serial === 1);
+      return { weightUnit: it.weightUnit, metal: it.metal, weight: Number(it.weight) };
+    });
+    expect(result.weightUnit).toBe("gb");
+    expect(result.metal).toBe("Gold"); // injected by the bundle — Metal field untouched
+    expect(result.weight).toBe(10);
   });
 
   test("existing manually-entered 90% Silver coins are unaffected", async ({ page }) => {
@@ -1407,5 +1488,619 @@ test.describe("core/inventory-math — STRK-243 constitutional pre-ship fix", ()
     await page.selectOption("#itemType", "Constitutional");
     await expect(page.locator("#itemWeightUnit")).toHaveValue("cu");
     await expect(page.locator("#item-constitutional-group")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// STRK-244 / STRK-245 — constitutional valuation-change price-history recording
+// and the Type→Constitutional custom-purity reset (surfaced by the v3.35.56
+// dev→main ship review; same systemic root as STRK-241 — a valuation field not
+// registered at a value-change-detection site).
+// ---------------------------------------------------------------------------
+const CU_HALVES_90 = {
+  ...MONEY_ITEM,
+  uuid: "core-cu-halves-90",
+  name: "Core 90% Half Dollars",
+  type: "Constitutional",
+  metal: "Silver",
+  composition: "Silver",
+  weightUnit: "cu",
+  constitutionalEntryMode: "denom",
+  constitutionalVariant: "con-90-half",
+  weight: 0.5,
+  qty: 20,
+  purity: 0.9,
+  price: 0,
+  serial: 60,
+};
+
+const OZ_COIN_FOR_CONVERT = {
+  ...MONEY_ITEM,
+  uuid: "core-oz-coin-convert",
+  name: "Core Oz Coin",
+  type: "Coin",
+  metal: "Silver",
+  composition: "Silver",
+  weightUnit: "oz",
+  weight: 1,
+  qty: 1,
+  purity: 0.999,
+  price: 100,
+  serial: 61,
+};
+
+test.describe("core/inventory-math — STRK-244/245 constitutional valuation history + purity reset", () => {
+  test("STRK-244 — a denomination-only edit (con-90-half → con-40-half) records a price-history point", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [CU_HALVES_90] });
+    await gotoApp(page);
+
+    // Start from an empty per-item history so the recording is unconditional (no
+    // prior entry to dedup against) — isolates the edit gate from spot/melt timing.
+    await page.evaluate(() => {
+      localStorage.setItem("item-price-history", JSON.stringify({}));
+      if (window.loadItemPriceHistory) window.loadItemPriceHistory();
+    });
+
+    await openEditModal(page, 0);
+    // Both variants share facePerCoin 0.5, so the stored `weight` is unchanged —
+    // only constitutionalVariant (90%→40%) moves, which the legacy gate missed.
+    await page.selectOption("#item-constitutional-variant", "con-40-half");
+    await submitItemForm(page);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const h = JSON.parse(localStorage.getItem("item-price-history") || "{}");
+          return (h["core-cu-halves-90"] || []).length;
+        })
+      )
+      .toBe(1);
+  });
+
+  test("STRK-245 — converting a Custom-purity item to Constitutional hides the wrapper and saves the reset purity", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    // Put the modal in the buggy state: a visible custom-purity input.
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.875");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+
+    // Convert to Constitutional — the orphaned custom input must hide. It lives
+    // outside #standardMeasureRow, so toggleConstitutionalGroup alone won't hide it.
+    await page.selectOption("#itemType", "Constitutional");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+
+    // And the stale custom purity must not persist onto the saved cu item — the reset
+    // lands at SAVE time (parseItemFormFields coerces cu purity to 0.999), so the saved
+    // cu item carries 0.999, not the orphaned 0.875 (cu valuation ignores purity anyway).
+    await page.fill("#item-constitutional-face", "50");
+    await submitItemForm(page);
+    const saved = await getInventoryItem(page, "Core Oz Coin");
+    expect(saved).toBeTruthy();
+    expect(saved.weightUnit).toBe("cu");
+    expect(saved.purity).toBeCloseTo(0.999, 4);
+  });
+
+  test("STRK-245 — converting an item with a NON-custom preset purity to Constitutional preserves the preset", async ({
+    page,
+  }) => {
+    // Copilot review guard: the purity reset must fire ONLY for "custom". Forcing a
+    // non-custom preset (e.g. .925 Sterling) to 0.999 would silently corrupt purity
+    // if the user toggled Type to Constitutional and back to a normal type.
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    await page.selectOption("#itemPuritySelect", "0.925");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+
+    await page.selectOption("#itemType", "Constitutional");
+    // The preset must survive untouched (not clobbered to 0.999); the wrapper stays
+    // hidden since this was never the custom case.
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+    const purityValue = await page.evaluate(
+      () => document.getElementById("itemPuritySelect")?.value
+    );
+    expect(purityValue).toBe("0.925");
+  });
+
+  test("STRK-245 — backing out of Constitutional before saving preserves a custom purity (no data loss)", async ({
+    page,
+  }) => {
+    // Codex review guard: the purity reset must land at SAVE time (final type = cu), not
+    // on the transient type-change. Toggling INTO Constitutional and back OUT must not
+    // destroy the custom value, else the user silently loses it on the next save.
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.875");
+
+    // Pass THROUGH Constitutional (hides the wrapper) and back to a normal type.
+    await page.selectOption("#itemType", "Constitutional");
+    await page.selectOption("#itemType", "Coin");
+
+    // The custom input is restored and its value survives the round-trip.
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.875");
+
+    // Saving as a normal Coin keeps the original custom purity (not reset to 0.999).
+    await submitItemForm(page);
+    const saved = await getInventoryItem(page, "Core Oz Coin");
+    expect(saved.weightUnit).toBe("oz");
+    expect(saved.purity).toBeCloseTo(0.875, 4);
+  });
+});
+
+test.describe("core/inventory-math — STRK-247 purity-wrapper visibility centralization", () => {
+  test("custom purity → Constitutional → Goldback re-shows the custom-purity wrapper", async ({
+    page,
+  }) => {
+    // STRK-247 (Codex, PR #1336 follow-up): the gb/sb branch of handleTypeChange
+    // preserves a "custom" purity select but historically never re-showed
+    // #purityCustomWrapper. Threading custom → Constitutional (hides it) → Goldback
+    // left the wrapper stuck hidden while the select stayed "custom", silently
+    // persisting a stale value the user could neither see nor correct. Only the
+    // non-special else branch (STRK-245) restored visibility — same per-branch
+    // omission class as STRK-245 itself. The centralized recompute fixes all branches.
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    // Put the modal in a visible custom-purity state.
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.875");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+
+    // Pass THROUGH Constitutional — the orphaned custom input hides (it lives outside
+    // #standardMeasureRow, so toggleConstitutionalGroup alone would not hide it).
+    await page.selectOption("#itemType", "Constitutional");
+    await expect(page.locator("#purityCustomWrapper")).toBeHidden();
+
+    // …then jump straight to Goldback. Centralized visibility re-shows the wrapper
+    // because the select is still "custom" and the type is not Constitutional, so the
+    // persisted purity is once again an honest, visible, editable value.
+    await page.selectOption("#itemType", "Goldback");
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("custom");
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.875");
+  });
+
+  test("custom purity → Constitutional → Silverback re-shows the wrapper and saves the visible purity", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+
+    await page.selectOption("#itemPuritySelect", "custom");
+    await page.fill("#itemPurity", "0.85");
+
+    // custom → Constitutional (hides wrapper) → Silverback (gb/sb branch).
+    await page.selectOption("#itemType", "Constitutional");
+    await page.selectOption("#itemType", "Silverback");
+
+    // The wrapper is honest again: visible, tracking the still-"custom" select. What
+    // the user sees is exactly what persists — no hidden purity silently feeding the
+    // sb melt valuation (computeMeltValue applies ×purity for non-cu items).
+    await expect(page.locator("#purityCustomWrapper")).toBeVisible();
+    await expect(page.locator("#itemPurity")).toHaveValue("0.85");
+
+    await submitItemForm(page);
+    const saved = await getInventoryItem(page, "Core Oz Coin");
+    expect(saved.weightUnit).toBe("sb");
+    expect(saved.purity).toBeCloseTo(0.85, 4);
+  });
+});
+
+// ===========================================================================
+// STRK-242 — Constitutional by-denomination lot pricing (coin-count = lot qty)
+// Cohort B (RED): asserts not-yet-built behavior; MUST fail before Cohort C.
+// Assertions check DOM structure + stored data (toggle `is-hidden` class, toggle
+// mode, item.price/pricingType/qty) — never just visible text (STRK-123).
+// ===========================================================================
+
+const CU_DENOM_LOT_STORED = {
+  ...CU_QUARTERS_40,
+  uuid: "core-cu-denom-lot-stored",
+  name: "Core CU Denom Lot Stored",
+  qty: 30,
+  price: 1700 / 30, // per-unit; price × qty reconstructs the 1700 lot total
+  pricingType: "lot",
+  serial: 42,
+};
+
+const CU_DENOM_EACH_STORED = {
+  ...CU_QUARTERS_40,
+  uuid: "core-cu-denom-each-stored",
+  name: "Core CU Denom Each Stored",
+  qty: 30,
+  price: 56.67,
+  pricingType: "each",
+  serial: 43,
+};
+
+const CU_DENOM_LEGACY_NOTYPE = { ...CU_QUARTERS_40 };
+CU_DENOM_LEGACY_NOTYPE.uuid = "core-cu-denom-legacy";
+CU_DENOM_LEGACY_NOTYPE.name = "Core CU Denom Legacy";
+CU_DENOM_LEGACY_NOTYPE.qty = 30;
+CU_DENOM_LEGACY_NOTYPE.price = 56.67;
+CU_DENOM_LEGACY_NOTYPE.serial = 44;
+delete CU_DENOM_LEGACY_NOTYPE.pricingType; // legacy item → treated as each (AC-7)
+
+const CU_FACE_STORED = {
+  ...CU_FACE_50,
+  uuid: "core-cu-face-stored",
+  name: "Core CU Face Stored",
+  price: 100,
+  serial: 45,
+};
+
+/** Fresh app on an empty inventory. */
+async function gotoFresh(page) {
+  await seedMoneyData(page);
+  await gotoApp(page);
+}
+
+/** Drive the add-item modal into cu by-denomination mode with a given coin count. */
+async function addModalCuDenom(page, { variant = "con-90-quarter", count }) {
+  await openAddModal(page);
+  await page.selectOption("#itemMetal", "Silver");
+  await page.selectOption("#itemType", "Constitutional");
+  await page.click('#constitutional-entry-mode-toggle [data-mode="denom"]');
+  await page.selectOption("#item-constitutional-variant", variant);
+  await page.fill("#item-constitutional-count", String(count));
+}
+
+/** Fresh app + add-item modal already in cu by-denomination mode. */
+async function freshAddCuDenom(page, opts) {
+  await gotoFresh(page);
+  await addModalCuDenom(page, opts);
+}
+
+/** Add + save a cu by-denomination item through the real modal save path. */
+async function saveCuDenomItem(page, { name, count, price, variant = "con-90-quarter" }) {
+  await freshAddCuDenom(page, { variant, count });
+  await page.fill("#itemName", name);
+  await page.fill("#itemDate", "2026-04-01");
+  await page.fill("#itemPrice", String(price));
+  await page.click("#itemModalSubmit");
+  await expect(page.locator("#itemModal")).toBeHidden();
+}
+
+/** Seed one item and load the app. */
+async function seedAndGoto(page, item) {
+  await seedMoneyData(page, { inventory: [item] });
+  await gotoApp(page);
+}
+
+/** Seed one item, load the app, and open it in the edit modal. */
+async function seedAndEdit(page, item) {
+  await seedAndGoto(page, item);
+  await openEditModal(page, 0);
+}
+
+/** Assert the purchase-price toggle is shown (not is-hidden). */
+async function expectToggleShown(page) {
+  await expect(page.locator("#purchasePriceModeToggle")).not.toHaveClass(/is-hidden/);
+}
+
+/** Assert the toggle is shown AND the given mode button is active. */
+async function expectToggleVisible(page, mode) {
+  await expectToggleShown(page);
+  await expect(purchaseModeButton(page, mode)).toHaveClass(/active/);
+}
+
+/** Assert the purchase-price toggle is hidden (is-hidden). */
+async function expectToggleHidden(page) {
+  await expect(page.locator("#purchasePriceModeToggle")).toHaveClass(/is-hidden/);
+}
+
+// Shared base for the cu persistence-detection evaluates (hash/diff) — passed into
+// page.evaluate so this object literal is declared once (keeps the duplication gate happy).
+const CU_DETECT_BASE = {
+  name: "CU Detect Base",
+  metal: "Silver",
+  weight: 0.25,
+  date: "2026-04-01",
+  type: "Constitutional",
+  weightUnit: "cu",
+  constitutionalVariant: "con-90-quarter",
+  constitutionalEntryMode: "denom",
+  qty: 30,
+  price: 1700 / 30,
+};
+
+/** Capture window.exportJson()'s JSON payload without writing a file to disk. */
+async function captureJsonExport(page) {
+  return page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const original = URL.createObjectURL;
+        URL.createObjectURL = (blob) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            URL.createObjectURL = original;
+            try {
+              resolve(JSON.parse(reader.result));
+            } catch (e) {
+              reject(e);
+            }
+          };
+          reader.onerror = () => {
+            URL.createObjectURL = original;
+            reject(new Error("FileReader failed to read export blob"));
+          };
+          reader.readAsText(blob);
+          return original.call(URL, blob);
+        };
+        try {
+          window.exportJson();
+        } catch (e) {
+          URL.createObjectURL = original;
+          reject(e);
+        }
+      })
+  );
+}
+
+test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () => {
+  // ---- B.1: toggle visibility + default + live re-resolve (AC-1, AC-2, AC-5, AC-9) ----
+  test("denomination mode shows the purchase toggle defaulted to LOT (AC-1, AC-2)", async ({
+    page,
+  }) => {
+    await freshAddCuDenom(page, { count: 40 });
+    await expectToggleVisible(page, "lot");
+  });
+
+  test("denomination count > 1 shows the toggle; count <= 1 hides it (AC-9 corner)", async ({
+    page,
+  }) => {
+    await freshAddCuDenom(page, { count: 40 });
+    await expectToggleShown(page);
+    await page.fill("#item-constitutional-count", "1");
+    await expectToggleHidden(page);
+  });
+
+  test("switching constitutional entry mode live re-resolves the toggle (AC-5, AC-9)", async ({
+    page,
+  }) => {
+    await freshAddCuDenom(page, { count: 40 });
+    await expectToggleVisible(page, "lot");
+    // denom → face: toggle disappears, reverts to EACH
+    await page.click('#constitutional-entry-mode-toggle [data-mode="face"]');
+    await expectToggleHidden(page);
+    // face → denom: toggle reappears and snaps to LOT
+    await page.click('#constitutional-entry-mode-toggle [data-mode="denom"]');
+    await expectToggleVisible(page, "lot");
+  });
+
+  // ---- B.2: save divides by cu.qty + exact-lot round-trip + face never divides (AC-3, AC-4, AC-6) ----
+  test("denomination LOT save divides the lot total by coin count, not #itemQty (AC-3)", async ({
+    page,
+  }) => {
+    const name = "Core CU Denom LOT Divide";
+    await saveCuDenomItem(page, { name, count: 30, price: 1700 });
+
+    const saved = await getInventoryItem(page, name);
+    expect(saved).toBeTruthy();
+    expect(saved.pricingType).toBe("lot");
+    expect(Number(saved.qty)).toBe(30);
+    expect(saved.price).toBeCloseTo(1700 / 30, 10);
+    expect(saved.price * saved.qty).toBeCloseTo(1700, 9);
+  });
+
+  test("uneven lot division reconstructs the exact total on edit without drift (AC-4)", async ({
+    page,
+  }) => {
+    const name = "Core CU Denom Exact Lot";
+    await saveCuDenomItem(page, { name, count: 30, price: 1700 });
+
+    const saved = await getInventoryItem(page, name);
+    expect(saved.price * saved.qty).toBeCloseTo(1700, 9);
+
+    await openEditModal(page, 0);
+    await expect(purchaseModeButton(page, "lot")).toHaveClass(/active/);
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
+  });
+
+  test("face-value mode never divides the entered price (AC-6 regression guard)", async ({
+    page,
+  }) => {
+    // Regression guard re-scoping STRK-235's no-divide protection to face mode. Green
+    // before AND after Cohort C — it protects the C.3 guard reshape from accidentally
+    // dividing a face entry. B.2's RED signal comes from AC-3/AC-4, not this guard.
+    const name = "Core CU Face No Divide";
+    await gotoFresh(page);
+    await openAddModal(page);
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Constitutional");
+    await page.click('#constitutional-entry-mode-toggle [data-mode="face"]');
+    await page.fill("#item-constitutional-face", "50");
+    await expectToggleHidden(page);
+    await page.fill("#itemName", name);
+    await page.fill("#itemDate", "2026-04-01");
+    await page.fill("#itemPrice", "100");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).toBeHidden();
+
+    const saved = await getInventoryItem(page, name);
+    expect(saved.constitutionalEntryMode).toBe("face");
+    expect(saved.price).toBe(100);
+  });
+
+  // ---- B.3: edit-restore of stored pricingType (AC-7, AC-8) ----
+  test("editing a stored denom LOT item restores toggle visible + LOT, reconstructed total (AC-7)", async ({
+    page,
+  }) => {
+    await seedAndEdit(page, CU_DENOM_LOT_STORED);
+    await expectToggleVisible(page, "lot");
+    await expect(page.locator("#itemPrice")).toHaveValue("1700.00");
+  });
+
+  test("editing a stored denom EACH item restores toggle visible + EACH per-coin (AC-7)", async ({
+    page,
+  }) => {
+    await seedAndEdit(page, CU_DENOM_EACH_STORED);
+    await expectToggleVisible(page, "each");
+    await expect(page.locator("#itemPrice")).toHaveValue("56.67");
+  });
+
+  test("editing a legacy denom item (no pricingType) defaults to EACH (AC-7)", async ({ page }) => {
+    await seedAndEdit(page, CU_DENOM_LEGACY_NOTYPE);
+    await expectToggleVisible(page, "each");
+  });
+
+  test("editing a stored face item keeps toggle hidden, price = stored total (AC-8)", async ({
+    page,
+  }) => {
+    await seedAndEdit(page, CU_FACE_STORED);
+    await expectToggleHidden(page);
+    await expect(page.locator("#itemPrice")).toHaveValue("100.00");
+  });
+
+  // ---- Review regressions (PR #1340): override-bleed + count re-default ----
+  test("cu denom qty override does not bleed into a Coin's lot/each conversion (type exit clears it)", async ({
+    page,
+  }) => {
+    // codex P2 / CodeRabbit: switching Type away from Constitutional must clear the qty
+    // override, or readQty keeps reading #item-constitutional-count for the next item.
+    await freshAddCuDenom(page, { count: 40 });
+    await expectToggleVisible(page, "lot");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "Bleed Guard Coin");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemDate", "2026-04-01");
+    await page.fill("#itemQty", "3");
+    await selectPurchaseMode(page, "lot");
+    await page.fill("#itemPrice", "90");
+    await selectPurchaseMode(page, "each");
+    // 90 / #itemQty(3) = 30.00 — NOT 90 / count(40) = 2.25 (which a bled override would give)
+    await expect(page.locator("#itemPrice")).toHaveValue("30.00");
+  });
+
+  test("editing a stored denom EACH item does not flip to LOT when the count changes", async ({
+    page,
+  }) => {
+    // Copilot: after restore, wasInteracted() is false, so a count edit previously re-applied
+    // the LOT default and silently converted a per-coin (each) item to lot pricing.
+    await seedAndEdit(page, CU_DENOM_EACH_STORED);
+    await expectToggleVisible(page, "each");
+    await page.fill("#item-constitutional-count", "20");
+    await expectToggleVisible(page, "each");
+  });
+
+  // ---- B.4: pricingType persistence registration (D-6 / AC-7, AC-4 durability) ----
+  test("pricingType survives a JSON export → import round-trip (AC-7 durability)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, CU_DENOM_LOT_STORED);
+
+    const exported = await captureJsonExport(page);
+    const exportedItem = exported.items.find((it) => it.uuid === CU_DENOM_LOT_STORED.uuid);
+    expect(exportedItem).toBeTruthy();
+    expect(exportedItem.pricingType).toBe("lot"); // C.8 — JSON export whitelist
+
+    await page.evaluate((text) => window.importJsonFromText(text, true), JSON.stringify(exported));
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (uuid) => (window.inventory.find((it) => it.uuid === uuid) || {}).pricingType,
+          CU_DENOM_LOT_STORED.uuid
+        )
+      )
+      .toBe("lot"); // C.9 — JSON import read
+  });
+
+  test("pricingType is written to the ZIP backup inventory whitelist (AC-7 durability)", async ({
+    page,
+  }) => {
+    // Backup WRITE coverage (C.10). restoreBackupZip JSON.parses the stored inventory
+    // verbatim (no per-field whitelist), so a written field round-trips on restore.
+    await seedAndGoto(page, CU_DENOM_LOT_STORED);
+    const backedUp = await page.evaluate(async (uuid) => {
+      const blob = await window.createBackupZip();
+      const zip = await JSZip.loadAsync(blob);
+      const json = JSON.parse(await zip.file("inventory_data.json").async("string"));
+      return (json.inventory.find((it) => it.uuid === uuid) || {}).pricingType;
+    }, CU_DENOM_LOT_STORED.uuid);
+    expect(backedUp).toBe("lot");
+  });
+
+  test("computeInventoryHash is cu-scoped and changes when only pricingType differs (AC-7 durability)", async ({
+    page,
+  }) => {
+    await gotoFresh(page);
+    const result = await page.evaluate(async (base) => {
+      const cuLot = { ...base, uuid: "h-cu", pricingType: "lot" };
+      const cuEach = { ...base, uuid: "h-cu", pricingType: "each" };
+      // non-cu pair differing only in pricingType — must stay equal (cu-scope guard,
+      // no one-time upgrade-sync churn for inventories without junk silver).
+      const baseCoin = {
+        uuid: "h-coin",
+        name: "Hash Coin",
+        metal: "Silver",
+        weight: 1,
+        date: "2026-04-01",
+        type: "Coin",
+        weightUnit: "oz",
+        qty: 2,
+        price: 50,
+      };
+      const coinLot = { ...baseCoin, pricingType: "lot" };
+      const coinEach = { ...baseCoin, pricingType: "each" };
+      return {
+        cuLot: await window.computeInventoryHash([cuLot]),
+        cuEach: await window.computeInventoryHash([cuEach]),
+        coinLot: await window.computeInventoryHash([coinLot]),
+        coinEach: await window.computeInventoryHash([coinEach]),
+      };
+    }, CU_DETECT_BASE);
+    expect(result.cuLot).toBeTruthy();
+    expect(result.cuLot).not.toBe(result.cuEach); // C.11 — cu hash includes pricingType
+    expect(result.coinLot).toBe(result.coinEach); // non-cu hash unchanged
+  });
+
+  test("DiffEngine and changeLog register a pricingType-only change (AC-7 durability)", async ({
+    page,
+  }) => {
+    await gotoFresh(page);
+    const result = await page.evaluate((base) => {
+      const each = { ...base, uuid: "d-cu", pricingType: "each" };
+      const lot = { ...base, uuid: "d-cu", pricingType: "lot" };
+      const diff = window.DiffEngine.compareItems([each], [lot]);
+      const modifiedFields = diff.modified.flatMap((m) => m.changes.map((c) => c.field));
+      window.changeLog.splice(0, window.changeLog.length);
+      window.logItemChanges(each, lot);
+      const logged = window.changeLog.filter((e) => e.field === "pricingType").length;
+      return { modifiedFields, logged };
+    }, CU_DETECT_BASE);
+    expect(result.modifiedFields).toContain("pricingType"); // C.12 — DIFF_FIELDS
+    expect(result.logged).toBe(1); // C.13 — logItemChanges tracked fields
+  });
+
+  // ---- B.5: display totals stay price×qty; price-history chart untouched (AC-10) ----
+  test("denom LOT item saved via the modal renders price×qty totals (AC-10)", async ({ page }) => {
+    // Routed through the modal save path (never seeded pre-shaped) so it FAILS before
+    // C.3 (unfixed save stores the lot total as per-unit → table shows 30× too much)
+    // and turns green once C.3 makes item.price per-unit and item.qty = cu.qty. The
+    // view-modal price-history chart is asserted untouched by the no-production-change
+    // invariant for display surfaces (verified in CLOSE-3; the chart code is not edited).
+    const name = "Core CU Denom Display";
+    await saveCuDenomItem(page, { name, count: 30, price: 1700 });
+
+    const saved = await getInventoryItem(page, name);
+    expect(saved.price * saved.qty).toBeCloseTo(1700, 9);
+
+    const row = tableRowByName(page, name);
+    await expect(row.locator('[data-column="purchasePrice"]')).toContainText("$1,700.00");
+    await expect(row.locator('[data-column="purchasePrice"]')).not.toContainText("$51,000.00");
   });
 });

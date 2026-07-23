@@ -150,8 +150,17 @@ async function computeInventoryHash(items) {
         // cu items — inventories with no junk silver keep their existing hash, so
         // this build does not trigger a spurious one-time sync prompt on upgrade.
         // Distinct variants share facePerCoin, so neither uuid nor weight catches a swap.
+        // STRK-242: append pricingType to the cu fingerprint so a remote lot↔each change
+        // is detected by the empty-diff fast-path. Scoped to cu items (same gate as the
+        // STRK-241 variant/mode append) so non-cu inventories keep their existing hash and
+        // do not get a spurious one-time sync prompt on upgrade.
         (item.constitutionalVariant || item.constitutionalEntryMode
-          ? "|" + (item.constitutionalVariant || "") + "|" + (item.constitutionalEntryMode || "")
+          ? "|" +
+            (item.constitutionalVariant || "") +
+            "|" +
+            (item.constitutionalEntryMode || "") +
+            "|" +
+            (item.pricingType || "")
           : "");
       keys.push(itemKey + "::" + contentSample);
     }

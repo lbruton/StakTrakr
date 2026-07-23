@@ -27,6 +27,7 @@
  *         {YYYY}/{MM}.json
  *     goldback/
  *       latest.json
+ *       intraday.json
  *       history-30d.json
  *       {YYYY}/{MM}.json
  *
@@ -34,12 +35,18 @@
  *   DATA_DIR=/path/to/data node api-export-v2.js
  */
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openTursoDb } from "./db.js";
-import { initProviderSchema, getProviders } from "./provider-db.js";
 import { toTimestampPair, computeOhlca, wrapEnvelope } from "./v2-utils.js";
+
+// db.js / provider-db.js statically import the poller-only native dep
+// better-sqlite3, which is not installed where unit tests run. They are
+// lazy-imported inside main() (matching backfill-spot-files.js) so this
+// module can be imported side-effect-free for unit testing.
+let openTursoDb;
+let initProviderSchema;
+let getProviders;
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
@@ -83,7 +90,7 @@ function warn(msg) {
 // File writer
 // ---------------------------------------------------------------------------
 
-function writeV2File(relPath, data, staleAfterSeconds) {
+function writeV2File(relPath, data, staleAfterSeconds, generatedAt) {
   const resolved = resolve(join(DATA_DIR, "v2", relPath));
   if (!resolved.startsWith(resolve(join(DATA_DIR, "v2")))) {
     throw new Error(`Path traversal detected: ${relPath}`);
@@ -94,7 +101,7 @@ function writeV2File(relPath, data, staleAfterSeconds) {
     return;
   }
   mkdirSync(dirname(filePath), { recursive: true });
-  const envelope = wrapEnvelope(data, staleAfterSeconds);
+  const envelope = wrapEnvelope(data, staleAfterSeconds, generatedAt);
   writeFileSync(filePath, JSON.stringify(envelope, null, 2) + "\n");
   log(`Wrote ${filePath}`);
 }
@@ -858,6 +865,57 @@ function buildGoldbackOhlcaBuckets(rows, granularity) {
   return entries;
 }
 
+/**
+ * Build the hourly point series for `goldback/intraday.json`.
+ *
+ * Maps `price_snapshots` rows to raw `{ t, ts, g1_usd }` points with the
+ * timestamp floored to the hour — **one point per hour** (NOT OHLCA-bucketed;
+ * goldback scrapes ~once/hour, so per-hour OHLC would be degenerate). If more
+ * than one scrape lands in the same hour, the last (most recent) wins, so the
+ * series carries exactly one point per hourly bucket and duplicate `t` keys
+ * never reach a chart consumer. Input is assumed ordered by `scraped_at ASC`
+ * (as returned by {@link queryGoldbackRange}); the Map preserves that ascending
+ * insertion order.
+ *
+ * @param {{price: number|string, scraped_at: string}[]} rows - goldback `price_snapshots` rows
+ * @returns {{t: string, ts: number, g1_usd: number}[]} one raw point per hour (empty array for empty input)
+ */
+function buildGoldbackIntradayEntries(rows) {
+  const byHour = new Map();
+  for (const row of rows) {
+    const { t, ts } = toTimestampPair(new Date(String(row.scraped_at)), "hourly");
+    // One point per hour; rows are ascending, so the last scrape in an hour wins.
+    byHour.set(t, { t, ts, g1_usd: Math.round(Number(row.price) * 100) / 100 });
+  }
+  return Array.from(byHour.values());
+}
+
+/**
+ * Resolve the honest `generated_at` timestamp for goldback/latest.json.
+ * Returns the normalised scraped_at ISO when the row is older than the budget,
+ * so envelope-validating consumers correctly detect staleness during an outage.
+ * Returns undefined when the row is fresh (publish-time default applies).
+ *
+ * @param {string|Date|null} scrapedAt - The scraped_at value from the latest row
+ * @param {Date} now - Current time (injected for testability)
+ * @param {number} budgetSeconds - Realtime freshness budget in seconds
+ * @returns {string|undefined}
+ */
+function resolveGoldbackGeneratedAt(scrapedAt, now, budgetSeconds) {
+  if (scrapedAt === null || scrapedAt === undefined) return undefined;
+  const scrapeMs = new Date(scrapedAt).getTime();
+  if (Number.isNaN(scrapeMs)) return undefined;
+  const ageSeconds = (now.getTime() - scrapeMs) / 1000;
+  if (ageSeconds > budgetSeconds) {
+    return new Date(scrapedAt).toISOString().replace(".000Z", "Z");
+  }
+  return undefined;
+}
+
+// Realtime freshness budget for goldback/latest.json — mirrors stale_after and
+// the SW/api.js consumer budgets so the three values stay in sync.
+const GOLDBACK_REALTIME_BUDGET_SECONDS = 7200;
+
 // ---------------------------------------------------------------------------
 // Goldback export
 // ---------------------------------------------------------------------------
@@ -876,8 +934,13 @@ async function exportGoldback(client) {
   }
 
   const g1 = Math.round(Number(latestRow.price) * 100) / 100;
-  const { t, ts } = toTimestampPair(new Date(String(latestRow.scraped_at)), "daily");
+  const { t, ts } = toTimestampPair(new Date(String(latestRow.scraped_at)), "hourly");
 
+  const generatedAt = resolveGoldbackGeneratedAt(
+    latestRow.scraped_at,
+    now,
+    GOLDBACK_REALTIME_BUDGET_SECONDS
+  );
   writeV2File(
     "goldback/latest.json",
     {
@@ -887,8 +950,23 @@ async function exportGoldback(client) {
       denominations: buildGoldbackDenominations(g1),
       source: "goldback.com",
     },
-    90000
+    GOLDBACK_REALTIME_BUDGET_SECONDS,
+    generatedAt
   );
+
+  // --- goldback/intraday.json (raw point series, hourly-floored `t` labels, last 72h) ---
+  // One point per hour (buildGoldbackIntradayEntries dedups, last scrape wins) —
+  // NOT OHLCA-bucketed.
+  try {
+    const intradayStart = new Date(now.getTime() - 72 * MS_PER_HOUR)
+      .toISOString()
+      .replace(".000Z", "Z");
+    const intradayRows = await queryGoldbackRange(client, intradayStart, nowIso);
+    const intradayEntries = buildGoldbackIntradayEntries(intradayRows);
+    writeV2File("goldback/intraday.json", intradayEntries, 7200);
+  } catch (err) {
+    warn(`goldback intraday: ${err.message}`);
+  }
 
   // --- goldback/history-30d.json ---
   try {
@@ -994,6 +1072,7 @@ async function writeManifest(client) {
         retail_vendors: "retail/vendors/index.json",
         retail_vendor: "retail/vendors/{vendor}.json",
         goldback_latest: "goldback/latest.json",
+        goldback_intraday: "goldback/intraday.json",
         goldback_monthly: "goldback/{YYYY}/{MM}.json",
         goldback_history: "goldback/history-30d.json",
         providers: "providers.json",
@@ -1013,6 +1092,9 @@ async function writeManifest(client) {
 async function main() {
   log("v2 publisher starting...");
   log(`DATA_DIR: ${DATA_DIR}`);
+
+  ({ openTursoDb } = await import("./db.js"));
+  ({ initProviderSchema, getProviders } = await import("./provider-db.js"));
 
   const client = await openTursoDb();
   let hadError = false;
@@ -1075,7 +1157,15 @@ async function main() {
   if (hadError) process.exitCode = 1;
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(1);
-});
+export { buildGoldbackIntradayEntries, resolveGoldbackGeneratedAt };
+
+// Normalize argv[1] (resolves relative paths + symlinks) before comparing, so
+// main() still runs when invoked via a relative path or symlink — matches
+// backfill-spot-files.js.
+const isMain = realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((err) => {
+    console.error("Fatal:", err);
+    process.exit(1);
+  });
+}

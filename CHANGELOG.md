@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.64] - 2026-07-01
+
+### Fixed — STRK-251: Summit false OOS from related-products carousel
+
+- **Summit Metals prices restored to the retail matrix**: Summit's product pages embed a related-products carousel between the buy box and the trimmable page tail; when any carousel product sells out, its "Sold out" badge false-flagged every Summit item OOS while prices kept extracting. The Summit vendor module now declares a positive buy-box marker ("In Stock, Ready to Ship") that suppresses the negative OOS patterns; genuinely sold-out pages drop the marker and still detect correctly (STRK-251).
+
+---
+
+## [3.35.63] - 2026-06-30
+
+### Fixed — STRK-250: Goldback honest envelope timestamp
+
+- **Goldback outage indicator now fires correctly**: During a goldback scrape outage (row older than 2 hours), `goldback/latest.json` now carries a `generated_at` reflecting the true scrape time instead of the publish time — so the service worker's age check and `_strictMarketFreshness` correctly surface stale data to the user rather than silently accepting hours-old prices (STRK-250).
+
+---
+
+## [3.35.62] - 2026-06-28
+
+### Changed — STRK-248: Goldback intraday price history
+
+- **New goldback intraday price feed**: A new `goldback/intraday.json` API endpoint publishes the last 72 hours of hourly goldback prices as a raw point series, giving a future intraday goldback chart a real data source at the hourly resolution the database already retains (STRK-248).
+- **Honest goldback timestamp**: The goldback "latest" price now stamps its timestamp at the actual scrape hour instead of a daily-noon placeholder, so the value no longer looks like a once-a-day snapshot (STRK-248).
+- **Goldback realtime freshness budget**: The goldback latest feed's staleness budget and its service-worker cache floor drop from ~25 hours to a 2-hour realtime budget, in lockstep with the STRK-249 realtime caching fix (STRK-248).
+
+---
+
+## [3.35.61] - 2026-06-28
+
+### Changed — STRK-249: Realtime pricing served network-first
+
+- **Service worker realtime families are now network-first**: The spot, goldback, and retail "latest" price endpoints are fetched fresh on every normal page load instead of being served from the service worker's cache (which previously held a copy for up to 25 hours); the cached copy is now used only as an offline fallback. This is the primary fix for the gold-card goldback badge being missing and the market premiums lagging on a normal load (STRK-249).
+- **Goldback badge repaints when fresh data arrives**: The gold spot card's goldback ("GB") chip now repaints as soon as `fetchGoldbackApiPrices()` resolves, so the current rate appears without a hard refresh; a failed or empty fetch leaves the previously-shown chip untouched (STRK-249).
+- **Market goldback premiums render in lockstep with spot premiums**: The market table seeds the goldback premium from the cached rate for an immediate first paint, then refines it once the network fetch resolves — removing the ~1–2 s lag where goldback premium cells were blank (STRK-249).
+- **Goldback and retail-detail price lookups fail over to the backup API**: Both market-data fetches now attempt the primary then the secondary API origin (api1 → api2) with a strict freshness gate, so a stale service-worker copy of the primary origin no longer short-circuits failover to the backup (STRK-249).
+
+---
+
+## [3.35.60] - 2026-06-27
+
+### Added — STRK-242: Constitutional by-denomination lot pricing
+
+- **Lot pricing for junk silver entered by denomination**: The purchase-price Lot/Each toggle is now shown (and defaults to Lot) for constitutional items entered by denomination, dividing the entered lot total by the coin count (`cu.qty`) rather than the hidden `#itemQty` (pinned to 1). By-face-value entries remain a lot of one with no division, and editing an item restores the stored `pricingType` (legacy/absent → each). The lot/each hint is now registered for JSON export/import, ZIP backup, and cloud-sync (cu-scoped hash/diff/change-log) persistence; cost basis and table/view totals stay `price × qty` (STRK-242).
+
+---
+
+## [3.35.59] - 2026-06-25
+
+### Fixed — STRK-247: Centralized custom-purity wrapper visibility
+
+- **Custom purity is no longer silently persisted by a hidden field on a Goldback/Silverback conversion**: Setting a Custom purity, then changing Type to Constitutional (which hides the custom-purity field) and then directly to Goldback or Silverback before saving, used to leave the custom-purity input stuck hidden while still holding — and saving — its stale value. `handleTypeChange` now recomputes the field's visibility once for every Type (shown only when purity is "custom" and the Type is not Constitutional), so the wrapper re-appears and the persisted purity is always a value you can see and correct. This centralizes the per-branch fix STRK-245 added only to the non-special types, removing the recurring source of this class of bug (STRK-247).
+
+---
+
+## [3.35.58] - 2026-06-24
+
+### Fixed — STRK-246: Bulk Type→Goldback metadata bundle
+
+- **Bulk Type → Goldback now produces a valid, denomination-priced Goldback**: Converting a batch of items to Goldback via Bulk Edit now stages the full Goldback metadata — `Gold` metal, the `gb` weight unit, the picked denomination as the stored weight, and the standard `0.999` purity — past the field-checkbox gate, mirroring the constitutional bulk conversion (STRK-238). Previously a bulk Type → Goldback only set the Type, leaving each item at the `oz` weight unit, so it became a malformed Goldback valued as plain bullion instead of at its denomination price, and the item's value chart recorded nothing for the conversion. Resetting purity prevents a converted non-fine item (e.g. a 90% coin) from carrying its stale purity, which would under-value the Goldback melt and pollute the recorded history point. With the bundle injected, the existing STRK-244 bulk-edit guard also records an item-price-history point for the change (STRK-246).
+
+---
+
+## [3.35.57] - 2026-06-24
+
+### Fixed — STRK-244 / STRK-245: Constitutional valuation history + custom-purity reset
+
+- **Value-chart staleness on valuation-only edits**: Editing a constitutional coin's denomination/variant — or converting an item's Type to Constitutional, Goldback, or Silverback — now records an item-price-history point. The single-edit gate and the bulk-edit guard both sample `weightUnit` and the constitutional metadata (`constitutionalVariant`/`constitutionalEntryMode`), so a change that moves the derived melt without touching the legacy weight/price/purity fields no longer leaves the per-item value chart stale until the next price edit. Same systemic root as STRK-241 (STRK-244).
+- **Custom-purity field cleared on Type → Constitutional**: Converting an item that had a custom purity to Constitutional now hides and clears the custom-purity input. Previously the field stayed visible and its stale value was saved onto the junk-silver item (whose purity is derived from the denomination, not entered), so the workaround was to reset purity to a preset first (STRK-245).
+
+---
+
 ## [3.35.56] - 2026-06-24
 
 ### Fixed — STRK-241 / STRK-243: Constitutional silver pre-ship fixes

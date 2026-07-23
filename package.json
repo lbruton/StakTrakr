@@ -1,7 +1,7 @@
 {
   "name": "staktrakr",
   "private": true,
-  "version": "3.35.56",
+  "version": "3.35.64",
   "license": "MIT",
   "type": "module",
   "description": "Precious metals inventory tracker",
@@ -24,9 +24,9 @@
     "*.{js,css,html,json,md}": "prettier --write"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
-    "eslint": "^9.21.0",
-    "lint-staged": "^17.0.7",
-    "prettier": "^3.8.3"
+    "@playwright/test": "^1.61.1",
+    "eslint": "^9.39.5",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.9.5"
   }
 }

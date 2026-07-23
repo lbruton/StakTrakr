@@ -64,34 +64,49 @@ function loadModule(env = {}) {
   };
 }
 
+// Registers beforeEach/afterEach that load a plain module (no env overrides) into
+// `ctx.mod`. Used by AC-1, AC-2, AC-3 which need no clock or collaborator injection.
+function useSimpleMod(ctx) {
+  beforeEach(() => {
+    ctx.mod = loadModule();
+  });
+  afterEach(() => ctx.mod.restore());
+}
+
+// =============================================================================
+// Shared frozen-clock constants used by isGoldbackStale, resolveGoldbackRate,
+// and selectGoldbackG1Seed. All three describe blocks freeze Date.now to
+// FROZEN_NOW so that seconds-based staleness windows are deterministic.
+// =============================================================================
+const FROZEN_NOW = 1_700_000_000_000; // fixed reference instant (ms)
+const FRESH = { ts: Math.floor(FROZEN_NOW / 1000) - 1000, staleAfter: 90000 };
+const STALE = { ts: Math.floor(FROZEN_NOW / 1000) - 90001, staleAfter: 90000 };
+
 // =============================================================================
 // AC-1 — computeRatio = gold ÷ metal
 // =============================================================================
 describe("AC-1 computeRatio = gold ÷ metal", () => {
-  let mod;
-  beforeEach(() => {
-    mod = loadModule();
-  });
-  afterEach(() => mod.restore());
+  const ctx = {};
+  useSimpleMod(ctx);
 
   test("AC-1: Au 4328.97 / Ag 67.84 ≈ 63.8 (issue GSR example)", () => {
-    const ratio = mod.surface.computeRatio(4328.97, 67.84);
+    const ratio = ctx.mod.surface.computeRatio(4328.97, 67.84);
     assert.ok(typeof ratio === "number", "computeRatio must return a number");
     assert.ok(Math.abs(ratio - 63.8) < 0.05, `expected ≈63.8, got ${ratio}`);
   });
 
   test("AC-1: Au/Pt = 4328.97 / 1778.07 ≈ 2.43", () => {
-    const ratio = mod.surface.computeRatio(4328.97, 1778.07);
+    const ratio = ctx.mod.surface.computeRatio(4328.97, 1778.07);
     assert.ok(Math.abs(ratio - 2.43) < 0.01, `expected ≈2.43, got ${ratio}`);
   });
 
   test("AC-1: Au/Pd = 4328.97 / 1225.67 ≈ 3.53", () => {
-    const ratio = mod.surface.computeRatio(4328.97, 1225.67);
+    const ratio = ctx.mod.surface.computeRatio(4328.97, 1225.67);
     assert.ok(Math.abs(ratio - 3.53) < 0.01, `expected ≈3.53, got ${ratio}`);
   });
 
   test("AC-1: exact division (10 ÷ 2 = 5)", () => {
-    assert.equal(mod.surface.computeRatio(10, 2), 5);
+    assert.equal(ctx.mod.surface.computeRatio(10, 2), 5);
   });
 });
 
@@ -99,30 +114,27 @@ describe("AC-1 computeRatio = gold ÷ metal", () => {
 // AC-2 — formatRatio decimals: GSR 1dp, Au:Pt/Au:Pd 2dp, goldback 2dp
 // =============================================================================
 describe("AC-2 formatRatio decimal places", () => {
-  let mod;
-  beforeEach(() => {
-    mod = loadModule();
-  });
-  afterEach(() => mod.restore());
+  const ctx = {};
+  useSimpleMod(ctx);
 
   test("AC-2: GSR formats to 1 decimal place", () => {
-    assert.equal(mod.surface.formatRatio(63.8245, 1), "63.8");
+    assert.equal(ctx.mod.surface.formatRatio(63.8245, 1), "63.8");
   });
 
   test("AC-2: Au:Pt formats to 2 decimal places", () => {
-    assert.equal(mod.surface.formatRatio(2.4346, 2), "2.43");
+    assert.equal(ctx.mod.surface.formatRatio(2.4346, 2), "2.43");
   });
 
   test("AC-2: Au:Pd formats to 2 decimal places", () => {
-    assert.equal(mod.surface.formatRatio(3.5321, 2), "3.53");
+    assert.equal(ctx.mod.surface.formatRatio(3.5321, 2), "3.53");
   });
 
   test("AC-2: goldback rate formats to 2 decimal places (rounds 8.6789 → 8.68)", () => {
-    assert.equal(mod.surface.formatRatio(8.6789, 2), "8.68");
+    assert.equal(ctx.mod.surface.formatRatio(8.6789, 2), "8.68");
   });
 
   test("AC-2: 1dp rounds half up (63.85 → 63.9 or 63.8 — fixed-decimal, never raw)", () => {
-    const out = mod.surface.formatRatio(63.84, 1);
+    const out = ctx.mod.surface.formatRatio(63.84, 1);
     assert.equal(out, "63.8");
   });
 });
@@ -131,42 +143,39 @@ describe("AC-2 formatRatio decimal places", () => {
 // AC-3 — guard: required spot ≤ 0 or non-finite → null, NEVER Infinity/NaN
 // =============================================================================
 describe("AC-3 computeRatio guards against bad inputs (never Infinity/NaN)", () => {
-  let mod;
-  beforeEach(() => {
-    mod = loadModule();
-  });
-  afterEach(() => mod.restore());
+  const ctx = {};
+  useSimpleMod(ctx);
 
   test("AC-3: zero denominator → null (not Infinity)", () => {
-    const r = mod.surface.computeRatio(4328.97, 0);
+    const r = ctx.mod.surface.computeRatio(4328.97, 0);
     assert.equal(r, null, "must return null, never Infinity");
   });
 
   test("AC-3: zero numerator → null", () => {
-    assert.equal(mod.surface.computeRatio(0, 67.84), null);
+    assert.equal(ctx.mod.surface.computeRatio(0, 67.84), null);
   });
 
   test("AC-3: negative denominator → null", () => {
-    assert.equal(mod.surface.computeRatio(4328.97, -67.84), null);
+    assert.equal(ctx.mod.surface.computeRatio(4328.97, -67.84), null);
   });
 
   test("AC-3: negative numerator → null", () => {
-    assert.equal(mod.surface.computeRatio(-1, 67.84), null);
+    assert.equal(ctx.mod.surface.computeRatio(-1, 67.84), null);
   });
 
   test("AC-3: NaN input → null (not NaN)", () => {
-    const r = mod.surface.computeRatio(NaN, 67.84);
+    const r = ctx.mod.surface.computeRatio(NaN, 67.84);
     assert.equal(r, null);
     assert.ok(!Number.isNaN(r), "must never propagate NaN");
   });
 
   test("AC-3: Infinity input → null", () => {
-    assert.equal(mod.surface.computeRatio(Infinity, 67.84), null);
+    assert.equal(ctx.mod.surface.computeRatio(Infinity, 67.84), null);
   });
 
   test("AC-3: undefined / missing spot → null", () => {
-    assert.equal(mod.surface.computeRatio(undefined, 67.84), null);
-    assert.equal(mod.surface.computeRatio(4328.97, undefined), null);
+    assert.equal(ctx.mod.surface.computeRatio(undefined, 67.84), null);
+    assert.equal(ctx.mod.surface.computeRatio(4328.97, undefined), null);
   });
 });
 
@@ -175,7 +184,6 @@ describe("AC-3 computeRatio guards against bad inputs (never Infinity/NaN)", () 
 // "now" controlled deterministically by freezing Date.now (never the real clock).
 // =============================================================================
 describe("isGoldbackStale — deterministic freshness window", () => {
-  const FROZEN_NOW = 1_700_000_000_000; // fixed reference instant (ms)
   let mod;
   let realDateNow;
 
@@ -209,9 +217,6 @@ describe("isGoldbackStale — deterministic freshness window", () => {
 // resolveGoldbackRate — fresh/stale × pricing-mode matrix (AC-4..AC-7)
 // =============================================================================
 describe("resolveGoldbackRate — fresh/stale × mode matrix", () => {
-  const FROZEN_NOW = 1_700_000_000_000;
-  const FRESH = { ts: Math.floor(FROZEN_NOW / 1000) - 1000, staleAfter: 90000 };
-  const STALE = { ts: Math.floor(FROZEN_NOW / 1000) - 90001, staleAfter: 90000 };
   let realDateNow;
 
   function build({ mode, entry, g1, goldSpot, estimate }) {
@@ -287,5 +292,105 @@ describe("resolveGoldbackRate — fresh/stale × mode matrix", () => {
     const res = mod.surface.resolveGoldbackRate();
     mod.restore();
     assert.equal(res, null, "mode=off must always return null");
+  });
+});
+
+// =============================================================================
+// AC-6 — selectGoldbackG1Seed(isOnline): pure premium seed-selection helper
+//
+// C.4 extracts this pure helper INTO js/spot-ratio-math.js, beside
+// readFreshCachedGoldback, reading the same bare goldback globals
+// (goldbackPrices, getGoldbackDenominationPrice, isGoldbackStale). It governs
+// which G1 value seeds the premium chip:
+//   - isOnline === true  → readFreshCachedGoldback() — fresh + positive
+//     goldbackPrices['1'] only; NEVER paint a stale value online (no stale
+//     online paint).
+//   - isOnline === false → the last-known G1 (getGoldbackDenominationPrice(1)
+//     if > 0) EVEN IF stale, returned plain with no marker (US-5 / Non-Goal #1
+//     offline-display preservation).
+//   - absent / non-positive goldbackPrices['1'] → null in BOTH modes.
+//
+// selectGoldbackG1Seed is defined in js/spot-ratio-math.js and exposed on window.
+// "now" is frozen via Date.now so the seconds-based staleness window
+// (isGoldbackStale / readFreshCachedGoldback) is deterministic — NOT the 25h
+// getGoldbackPriceInfo reader.
+// =============================================================================
+describe("AC-6 selectGoldbackG1Seed — premium seed-selection (online vs offline × fresh/stale)", () => {
+  // Difference === staleAfter is the staleness EDGE: strictly-greater means this
+  // is NOT stale, so it must behave exactly like a fresh entry online.
+  const EDGE = { ts: Math.floor(FROZEN_NOW / 1000) - 90000, staleAfter: 90000 };
+  let realDateNow;
+
+  // Mirrors the resolveGoldbackRate build(): the cache entry lives at
+  // goldbackPrices['1'] for the freshness probe, and getGoldbackDenominationPrice(1)
+  // surfaces the last-known G1 value (the same seam readFreshCachedGoldback reads).
+  function build({ entry, g1 }) {
+    return loadModule({
+      Date,
+      goldbackPrices: { 1: entry },
+      getGoldbackDenominationPrice: (w) => (String(w) === "1" ? g1 : null),
+    });
+  }
+
+  beforeEach(() => {
+    realDateNow = Date.now;
+    Date.now = () => FROZEN_NOW;
+  });
+  afterEach(() => {
+    Date.now = realDateNow;
+  });
+
+  test("fresh + positive, online → returns that fresh G1 value", () => {
+    const mod = build({ entry: FRESH, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(true);
+    mod.restore();
+    assert.equal(seed, 8.68, "fresh online must seed the cached G1 value");
+  });
+
+  test("fresh + positive, offline → also returns that G1 value", () => {
+    const mod = build({ entry: FRESH, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(seed, 8.68, "fresh offline must seed the last-known G1 value");
+  });
+
+  test("stale, online → null (declines to seed a stale value, no stale online paint)", () => {
+    const mod = build({ entry: STALE, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(true);
+    mod.restore();
+    assert.equal(seed, null, "online must NEVER paint a stale G1 value");
+  });
+
+  test("stale, offline → returns the last-known value plain (no marker — US-5)", () => {
+    const mod = build({ entry: STALE, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(seed, 8.68, "offline must surface the last-known G1 even when stale");
+    assert.equal(typeof seed, "number", "offline seed is a plain number, never a marker object");
+  });
+
+  test("absent goldbackPrices['1'] → null in both modes", () => {
+    const mod = build({ entry: undefined, g1: 0 });
+    const online = mod.surface.selectGoldbackG1Seed(true);
+    const offline = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(online, null, "absent cache → null online");
+    assert.equal(offline, null, "absent cache → null offline");
+  });
+
+  test("non-positive G1 (0) → null in both modes", () => {
+    const mod = build({ entry: FRESH, g1: 0 });
+    const online = mod.surface.selectGoldbackG1Seed(true);
+    const offline = mod.surface.selectGoldbackG1Seed(false);
+    mod.restore();
+    assert.equal(online, null, "non-positive G1 → null online");
+    assert.equal(offline, null, "non-positive G1 → null offline");
+  });
+
+  test("boundary: entry exactly AT the staleness edge → treated as fresh online", () => {
+    const mod = build({ entry: EDGE, g1: 8.68 });
+    const seed = mod.surface.selectGoldbackG1Seed(true);
+    mod.restore();
+    assert.equal(seed, 8.68, "difference === staleAfter is NOT stale (strictly greater)");
   });
 });

@@ -1725,10 +1725,32 @@ const applyBulkValuesToSelection = (valuesToApply) => {
  * was edited (STACK-43), then persists price history.
  * @returns {void}
  */
-const recordBulkPriceHistory = () => {
+const recordBulkPriceHistory = (valuesToApply = {}) => {
   if (typeof recordItemPrice !== "function") return;
-  const priceFields = ["price", "marketValue", "weight", "weightUnit", "qty", "metal", "purity"];
-  if (![...bulkEnabledFields].some((id) => priceFields.includes(id))) return;
+  // STRK-244: keep this set in sync with valuationFieldChanged (js/events.js) — both
+  // are valuation-change detection sites. constitutionalVariant/entryMode drive the
+  // derived melt for cu items even when the legacy weight/purity are unchanged.
+  const priceFields = [
+    "price",
+    "marketValue",
+    "weight",
+    "weightUnit",
+    "qty",
+    "metal",
+    "purity",
+    "constitutionalVariant",
+    "constitutionalEntryMode",
+  ];
+  // A Type→cu/sb coercion injects its valuation fields into valuesToApply PAST the
+  // checkbox gate (STRK-238), so bulkEnabledFields can be just {type}. Record when
+  // EITHER an enabled checkbox OR an injected applied value is price-relevant.
+  const enabledHasPriceField = [...bulkEnabledFields].some((id) => priceFields.includes(id));
+  const injectedHasPriceField = Object.keys(valuesToApply).some((key) => priceFields.includes(key));
+  // STRK-246: a bulk Type→Goldback now injects its full weightUnit/metal/denomination
+  // bundle (applyBulkGoldbackBundle, mirroring sb's weightUnit and cu's bundle), so the
+  // converted gb item's price-relevant keys land in valuesToApply and recording fires
+  // via injectedHasPriceField above — same path as cu/sb coercions.
+  if (!enabledHasPriceField && !injectedHasPriceField) return;
   inventory.forEach((item) => {
     if (bulkSelection.has(String(item.serial))) recordItemPrice(item, "bulk");
   });
@@ -1765,6 +1787,42 @@ const applyBulkConstitutionalBundle = (valuesToApply) => {
   valuesToApply.weight = variant ? String(variant.facePerCoin) : "0";
 };
 
+/**
+ * Force-stages the full goldback (gb) metadata bundle into the apply set so a bulk
+ * Type→Goldback (or manual gb weight-unit) coercion produces a valid, denomination-
+ * priced item rather than a malformed goldback left at weightUnit="oz" and valued as
+ * plain oz. Mirrors applyBulkConstitutionalBundle (STRK-238): a `gb` item stores
+ * `weight` = the denomination NUMBER, which getGoldbackRetailPrice (js/utils.js) keys
+ * off once weightUnit==="gb". Injected past the checkbox gate the same way the
+ * Silverback weightUnit coercion and the Constitutional bundle are, so only the Type
+ * field need be enabled. The picked denomination drives `weight`; default to the
+ * 1-Goldback option (matches updateBulkDenomLabels' default) rather than a hardcoded
+ * value so a renamed/missing denom can't silently coerce a 0-value goldback. Purity is
+ * also reset to the standard goldback fineness (0.999) so a converted non-fine item's
+ * stale purity can't under-value the gb melt or pollute its recorded price history.
+ * @param {Object<string, string>} valuesToApply - Collected field values (mutated)
+ * @returns {void}
+ */
+const applyBulkGoldbackBundle = (valuesToApply) => {
+  valuesToApply.weightUnit = "gb";
+  valuesToApply.metal = "Gold";
+  // STRK-246 (PR #1337 review): reset the source item's purity to the standard
+  // goldback fineness. Unlike cu (whose melt early-returns before ×purity), the gb
+  // melt branch DOES multiply by item.purity, so a 90%/sterling item converted to
+  // Goldback would otherwise keep its stale purity, under-value the melt, and record
+  // that wrong value into item-price-history. Mirrors the single-item Type→Goldback
+  // default (0.999). Coerced to a number by FIELD_COERCIONS.purity on apply.
+  valuesToApply.purity = "0.999";
+
+  const denoms = typeof GOLDBACK_DENOMINATIONS !== "undefined" ? GOLDBACK_DENOMINATIONS : [];
+  const denomSelectEl = safeGetElement("bulkFieldVal_weightDenom");
+  const denomSelect = denomSelectEl instanceof HTMLSelectElement ? denomSelectEl : null;
+  const defaultDenom = denoms.find((d) => d.weight === 1) || denoms[0] || null;
+  const defaultWeight = defaultDenom ? String(defaultDenom.weight) : "1";
+  const picked = denomSelect && denomSelect.value ? denomSelect.value : defaultWeight;
+  valuesToApply.weight = picked;
+};
+
 const applyBulkEdit = async () => {
   const count = bulkSelection.size;
   const enabledCount = bulkEnabledFields.size;
@@ -1790,6 +1848,17 @@ const applyBulkEdit = async () => {
     applyBulkConstitutionalBundle(valuesToApply);
   }
 
+  // STRK-246: a gb coercion (Type→Goldback, or a manual gb weight-unit) must carry
+  // weightUnit="gb" + metal="Gold" + the picked denomination as `weight`, or it
+  // persists a malformed goldback valued as plain oz. Inject past the checkbox gate
+  // (mirrors Silverback above and the Constitutional bundle).
+  const isGoldbackApply =
+    (bulkEnabledFields.has("type") && valuesToApply.type === "Goldback") ||
+    (bulkEnabledFields.has("weightUnit") && valuesToApply.weightUnit === "gb");
+  if (isGoldbackApply) {
+    applyBulkGoldbackBundle(valuesToApply);
+  }
+
   const fieldNames = getBulkEnabledFieldNames();
   if (
     !(await showBulkConfirm(
@@ -1801,7 +1870,7 @@ const applyBulkEdit = async () => {
 
   const updated = applyBulkValuesToSelection(valuesToApply);
 
-  recordBulkPriceHistory();
+  recordBulkPriceHistory(valuesToApply);
 
   // Persist and re-render
   if (typeof saveInventory === "function") saveInventory();

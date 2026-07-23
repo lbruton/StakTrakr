@@ -357,7 +357,7 @@
     },
     {
       "toolId": "markdownlint",
-      "localConfigurationFile": "/Volumes/DATA/GitHub/StakTrakr/.markdownlint.json",
+      "localConfigurationFile": ".markdownlint.json",
       "useLocalConfigurationFile": true,
       "patterns": []
     },
@@ -434,7 +434,7 @@
     },
     {
       "toolId": "ESLint9",
-      "localConfigurationFile": "/Volumes/DATA/GitHub/StakTrakr/eslint.config.cjs",
+      "localConfigurationFile": "eslint.config.cjs",
       "patterns": [
         {
           "patternId": "ESLint9_@typescript-eslint_related-getter-setter-pairs"
@@ -3858,7 +3858,6 @@
     ".agents/skills/faq/SKILL.md",
     ".agents/skills/finishing-a-development-branch/SKILL.md",
     ".agents/skills/glossary/SKILL.md",
-    ".agents/skills/plane-archive/SKILL.md",
     ".agents/skills/pr-ready/SKILL.md",
     ".agents/skills/release/SKILL.md",
     ".agents/skills/retail-poller/SKILL.md",

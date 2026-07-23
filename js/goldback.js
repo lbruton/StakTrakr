@@ -415,6 +415,21 @@ const onGoldSpotPriceChanged = () => {
 // =============================================================================
 
 /**
+ * Repaints the spot-ratio chips (incl. the gold-card GB badge). Calls
+ * window.renderRatioChips when present so the AC-4 Playwright spy
+ * (which reassigns window.renderRatioChips) observes the call; falls back
+ * to the lexical binding for non-browser (unit) contexts. Both resolve to
+ * the same function in production (script-tag global).
+ */
+const _repaintGoldbackRatioChips = () => {
+  if (typeof window !== "undefined" && typeof window.renderRatioChips === "function") {
+    window.renderRatioChips();
+  } else if (typeof renderRatioChips === "function") {
+    renderRatioChips();
+  }
+};
+
+/**
  * Fetches today's Goldback rate from the StakTrakr API and populates all
  * denomination prices from g1_usd. Saves and records history on success.
  * @returns {Promise<{ok: boolean, g1_usd?: number, error?: string}>}
@@ -479,6 +494,7 @@ const fetchGoldbackApiPrices = async (options = {}) => {
   }
 
   if (typeof saveGoldbackPrices === "function") saveGoldbackPrices();
+  _repaintGoldbackRatioChips();
   if (usedEndpoint) await fetchGoldbackApiHistory(usedEndpoint);
   if (typeof recordGoldbackPrices === "function") recordGoldbackPrices();
   if (typeof syncGoldbackSettingsUI === "function") syncGoldbackSettingsUI();

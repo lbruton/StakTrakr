@@ -21,6 +21,17 @@
  *      short-circuits and the table-first strategy (#2) never runs. Fix: the Summit
  *      module sets untrustedOfferPrice:true so extractJsonLdPrice() skips the
  *      offer.price and the poller falls through to the qty-tier table extraction.
+ *   4. STRK-251: Summit's related-products carousel renders BETWEEN the buy box
+ *      and the cutoff anchors ("What Our Clients" / "Faq's"), so cutoffPatterns
+ *      cannot trim it. When any carousel product sells out, its literal "Sold out"
+ *      badge appears on EVERY Summit product page and trips /sold out/i in
+ *      detectStockStatus — false-flagging the whole vendor OOS while price
+ *      extraction (anchored to the qty-tier table above the carousel) keeps
+ *      working. Fix: the Summit module declares positiveStockPatterns
+ *      (buy-box "In Stock, Ready to Ship"); when a positive marker matches,
+ *      detectStockStatus skips the negative OOS patterns for that page. The
+ *      marker is absent on genuinely sold-out Summit pages (their buy box says
+ *      "Out of Stock"), so real OOS still falls through to negative detection.
  *
  * The shared helpers are importable, so this test exercises the real parser and
  * OOS helpers end-to-end (registry → Summit module → shared toolkit). A
@@ -134,15 +145,120 @@ clearly displayed, indicating whether the item is in stock, showing the exact
 quantity, or marked as "Out of stock." This ensures you're always informed.
 `;
 
+// STRK-251 fixtures — faithful to the live Summit page ordering (2026-07-01):
+// buy box → express-shipping bar → related-products carousel (with a sold-out
+// Platinum Eagle card) → "What Our Clients" → "Faq's". The carousel sits BEFORE
+// every cutoff anchor, so preprocessMarkdown cannot trim its "Sold out" badge.
+
+// Firecrawl path: pipe table preserved.
+const SUMMIT_PIPE_CAROUSEL = `Live Spot Prices:
+Ag $75.46
+
+1 oz American Silver Eagle BU (Random Year)
+===========================================
+
+$65.81
+
+| Quantity | Check / Wire / Zelle | CC / PayPal / Crypto |
+| --- | --- | --- |
+| 1-9 | $65.81 | $68.57 |
+| 10-19 | $65.48 | $68.23 |
+| 100+ | $64.61 | $67.32 |
+
+In Stock, Ready to Ship
+
+$2,000.00 away from Express Shipping
+
+### Top Off to FedEx Shipping
+
+1 oz American Gold Buffalo BU (Random Year)
+27 total reviews
+Regular price $4,256.36
+Sale price $4,256.36
+Add to cart
+
+1 oz American Gold Eagle BU (Random Year)
+32 total reviews
+Regular price $4,121.91
+Sale price $4,121.91
+Add to cart
+
+Sold out
+1 oz American Platinum Eagle BU (Random Year)
+0 total reviews
+Regular price $1,838.49
+
+What Our ClientsSay
+-------------------
+
+Faq's
+-----
+
+The status will be clearly displayed, indicating whether the item is in stock,
+showing the exact quantity, or marked as "Out of stock."
+`;
+
+// phase0 Playwright innerText path: pipe table flattened to prose.
+const SUMMIT_PROSE_CAROUSEL = `Live Spot Prices: Ag $75.46
+
+1 oz American Silver Eagle BU (Random Year)
+
+$65.81
+
+Quantity Check / Wire / Zelle CC / PayPal / Crypto
+1-9 $65.81 $68.57
+10-19 $65.48 $68.23
+100+ $64.61 $67.32
+
+In Stock, Ready to Ship
+
+$2,000.00 away from Express Shipping
+Top Off to FedEx Shipping
+
+1 oz American Gold Eagle BU (Random Year) Regular price $4,121.91 Add to cart
+Sold out 1 oz American Platinum Eagle BU (Random Year) Regular price $1,838.49
+
+What Our ClientsSay
+
+Faq's
+
+The status will be clearly displayed, indicating whether the item is in stock,
+showing the exact quantity, or marked as "Out of stock."
+`;
+
+// Genuinely sold-out Summit page (live APE page, 2026-07-01): the buy box shows
+// "Out of Stock" and the "In Stock, Ready to Ship" marker is entirely absent.
+const SUMMIT_PROSE_REAL_OOS = `Live Spot Prices: Ag $75.46
+
+1 oz American Platinum Eagle BU (Random Year)
+
+Out of Stock
+
+Quantity Check / Wire / Zelle CC / PayPal / Crypto
+1-9 $1,838.49 $1,915.71
+10-19 $1,833.02 $1,910.01
+
+Sold out 1 oz American Platinum Eagle BU (Random Year)
+
+What Our ClientsSay
+
+Faq's
+`;
+
 // --- Tests ------------------------------------------------------------------
 
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-test("BUG REPRO: raw page (FAQ included) false-flags OOS", () => {
-  // Documents the bug: without the cutoff, the FAQ "Out of stock" trips detection.
-  assert.equal(detectStockStatus(SUMMIT_PIPE, 1, "summitmetals").inStock, false);
-  assert.equal(detectStockStatus(SUMMIT_PROSE, 1, "summitmetals").inStock, false);
+test("BUG REPRO: raw page (FAQ included) false-flags OOS without the layered fixes", () => {
+  // Documents the bug mechanism: the FAQ "Out of stock" trips detection for any
+  // vendor without Summit's defenses (cutoffPatterns + positiveStockPatterns).
+  assert.equal(detectStockStatus(SUMMIT_PIPE, 1, "apmex").inStock, false);
+  assert.equal(detectStockStatus(SUMMIT_PROSE, 1, "apmex").inStock, false);
+  // Since STRK-251 the Summit positive buy-box marker rescues even the RAW page
+  // (defense in depth on top of the cutoff trim) — on both extraction paths.
+  assert.equal(detectStockStatus(SUMMIT_PIPE, 1, "summitmetals").inStock, true);
+  assert.equal(detectStockStatus(SUMMIT_PROSE, 1, "summitmetals").inStock, true);
 });
 
 test("cutoff removes the FAQ tail → not OOS (pipe path)", () => {
@@ -237,6 +353,58 @@ test("STRUCTURAL: shared.js no longer owns Summit-specific data (isolation guara
     false,
     "summit price branch must not live in shared.js — it belongs to the Vendor module",
   );
+});
+
+// --- STRK-251: carousel "Sold out" badge must not false-flag the page OOS ----
+
+test("STRK-251 AC1: carousel 'Sold out' + in-stock buy box → inStock true (pipe path)", () => {
+  const cleaned = preprocessMarkdown(SUMMIT_PIPE_CAROUSEL, "summitmetals");
+  // The carousel badge survives the cutoff (it sits before every anchor)...
+  assert.match(cleaned, /Sold out/i);
+  // ...but the buy-box positive marker must win.
+  const status = detectStockStatus(cleaned, 1, "summitmetals");
+  assert.equal(status.inStock, true);
+  assert.equal(status.reason, "positive_stock");
+});
+
+test("STRK-251 AC1: carousel 'Sold out' + in-stock buy box → inStock true (prose path)", () => {
+  const cleaned = preprocessMarkdown(SUMMIT_PROSE_CAROUSEL, "summitmetals");
+  assert.match(cleaned, /Sold out/i);
+  assert.equal(detectStockStatus(cleaned, 1, "summitmetals").inStock, true);
+});
+
+test("STRK-251 AC1: price extraction unaffected by the carousel (pipe path)", () => {
+  const cleaned = preprocessMarkdown(SUMMIT_PIPE_CAROUSEL, "summitmetals");
+  const result = extractMarkdownPrice(cleaned, "silver", 1, "summitmetals");
+  assert.equal(result.price, 65.81);
+});
+
+test("STRK-251 AC2: genuinely OOS page (no positive marker) → inStock false", () => {
+  const cleaned = preprocessMarkdown(SUMMIT_PROSE_REAL_OOS, "summitmetals");
+  const status = detectStockStatus(cleaned, 1, "summitmetals");
+  assert.equal(status.inStock, false);
+  assert.equal(status.reason, "out_of_stock");
+});
+
+test("STRK-251 AC3: vendors without positiveStockPatterns are unchanged", () => {
+  // A page carrying both an in-stock-looking phrase and a "Sold out" badge must
+  // still be OOS for a vendor that declares no positive patterns.
+  const md = "In Stock, Ready to Ship\n\nSold out\n";
+  assert.equal(detectStockStatus(md, 1, "apmex").inStock, false);
+  assert.equal(detectStockStatus(md, 1, "jmbullion").inStock, false);
+});
+
+test("STRK-251 AC4: fractional wrong-product guard still fires with positive marker", () => {
+  const md = `# 1/2 oz American Gold Eagle BU\n\n$2,150.00\n\nIn Stock, Ready to Ship\n`;
+  const status = detectStockStatus(md, 1, "summitmetals");
+  assert.equal(status.inStock, false);
+  assert.equal(status.reason, "fractional_weight");
+});
+
+test("STRK-251 STRUCTURAL: Summit module declares positiveStockPatterns", () => {
+  const moduleSrc = readFileSync(join(__dirname, "price-extract-vendor-summit.js"), "utf8");
+  assert.match(moduleSrc, /positiveStockPatterns:\s*\[/, "summit positiveStockPatterns missing");
+  assert.match(moduleSrc, /In Stock, Ready to Ship/, "summit positive buy-box marker missing");
 });
 
 let passed = 0;

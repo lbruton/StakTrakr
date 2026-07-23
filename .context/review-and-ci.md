@@ -27,24 +27,38 @@ Copilot and Codacy AI post review threads 1–3 min _after_ required checks pass
 
 ## Pre-PR scan — Codacy local analysis (Gen-3)
 
-Run the local scan with the official Codacy analysis CLI (installed machine-wide via
-`npm i -g @codacy/analysis-cli`; no per-project bootstrap):
+Run the local scan with the **`codacy-analysis`** command (npm package `@codacy/analysis-cli`),
+which is **already installed machine-wide** — there is no per-project bootstrap and no
+per-task reinstall. NOTE: `codacy-analysis-cli` is the _skill_ name, **not** a command or npm
+package (it is also the name of the deprecated Gen-1 tool) — never run `codacy-analysis-cli` as
+a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
+`command -v codacy-analysis`; only run `npm i -g @codacy/analysis-cli` if that check fails.
 
 - Scan changed files: `codacy-analysis analyze --diff --output-format sarif --output codacy-findings.sarif`
-- Config: `.codacy/codacy.config.json` — a 1:1 mirror of the Codacy Cloud dashboard,
-  regenerated with `codacy-analysis init --remote gh lbruton StakTrakr`.
+- Config: `.codacy/codacy.config.json` — a near-1:1 mirror of the Codacy Cloud dashboard,
+  regenerated with `codacy-analysis init --remote gh lbruton StakTrakr`. The two
+  `localConfigurationFile` entries (ESLint9, markdownlint) are deliberately kept
+  **repo-relative** (`eslint.config.cjs`, `.markdownlint.json`) — `analyze` resolves them
+  against the project root, so the tracked file is portable across the main checkout and
+  every worktree.
 - `analyze` does **not** mutate the config file (verified), so there is no churn to revert.
-- **Refresh before trusting it:** the tracked copy can lag the cloud "StakTrakr"
-  standard. Run `codacy-analysis init --remote gh lbruton StakTrakr` to pull the
-  latest before relying on local analysis. Git tracking does NOT affect `init`'s
-  output — it overwrites from cloud regardless — so the file is tracked purely so
-  it's present in every worktree, not as a source of truth.
-- **Cloud state is authoritative via the Cloud CLI, not the dashboard UI.** Before
-  claiming a Codacy tool toggle or pattern suppression is done, confirm it with the
-  Codacy Cloud CLI (`/codacy-skills:codacy-cloud-cli`) — the dashboard UI and backend
-  can diverge, and a UI-only check has been wrong repeatedly in a single session. The
-  Codacy MCP server is retired; use the `codacy-skills` plugin CLIs (`codacy-cloud-cli`
-  for cloud state, `codacy-analysis-cli` for local scans).
+- **Do NOT run `init --remote` in a worktree.** The tracked, repo-relative config is the
+  working copy and resolves correctly in any checkout, so re-init buys nothing and actively
+  harms: `init` overwrites from cloud regardless of git tracking and re-bakes absolute
+  `/Volumes/...` paths that then break in worktrees. Refresh **only** when the cloud
+  "StakTrakr" standard actually changes, and do it **in the main checkout** — run
+  `codacy-analysis init --remote gh lbruton StakTrakr`, then re-relativize the two paths and
+  commit (path-agnostic, runs on macOS and Linux):
+  `perl -i -pe 's#("localConfigurationFile":\s*")[^"]*/(\.markdownlint\.json|eslint\.config\.cjs)"#$1$2"#g' .codacy/codacy.config.json`
+- **Cloud state is authoritative via the `codacy` command (the Codacy Cloud CLI), not the
+  dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm
+  it by running the `codacy` command — invoked through the `codacy-cloud-cli` skill (Skill
+  tool) — because the dashboard UI and backend can diverge, and a UI-only check has been wrong
+  repeatedly in a single session. The
+  Codacy MCP server is retired; use the `codacy-skills` plugin **skills** — the
+  `codacy-cloud-cli` skill (which drives the `codacy` command) for cloud state, and the
+  `codacy-analysis-cli` skill (which drives the `codacy-analysis` command) for local scans.
+  These are skill names invoked via the Skill tool, not shell commands.
 
 ## Dual ESLint config — `.eslintrc.json` is read by Codacy and CodeRabbit
 

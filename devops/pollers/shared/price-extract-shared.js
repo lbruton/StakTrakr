@@ -127,6 +127,20 @@ function resolveFractionalExempt(providerId) {
   return fromModule !== undefined ? fromModule : isFractionalExemptProvider(providerId);
 }
 
+/**
+ * Resolve a vendor's positive in-stock marker patterns (STRK-251).
+ * Vendor-module-only (no legacy map fallback): a vendor opts in by declaring
+ * patterns that only ever render inside its own buy box, so a match proves the
+ * MAIN product is purchasable even when unrelated page components (e.g. a
+ * related-products carousel) carry "Sold out" text.
+ * @param {string} providerId - Vendor id (e.g. "summitmetals").
+ * @returns {(RegExp[]|null)} Declared patterns, or null when the vendor has none.
+ */
+function resolvePositiveStockPatterns(providerId) {
+  const v = getVendorModule(providerId);
+  return Array.isArray(v.positiveStockPatterns) ? v.positiveStockPatterns : null;
+}
+
 export function preprocessMarkdown(markdown, providerId) {
   if (!markdown) return "";
   let result = markdown;
@@ -177,16 +191,37 @@ export function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "
     }
   }
 
-  const toleratesPreorder = resolvePreorderTolerant(providerId);
-  for (const pattern of OUT_OF_STOCK_PATTERNS) {
-    if (toleratesPreorder && /pre-?order/i.source === pattern.source) continue;
-    const match = markdown.match(pattern);
-    if (match) {
-      return {
-        inStock: false,
-        reason: "out_of_stock",
-        detectedText: match[0],
-      };
+  // STRK-251: a vendor-declared positive marker (e.g. Summit's buy-box
+  // "In Stock, Ready to Ship") suppresses the negative OOS patterns, which
+  // otherwise match "Sold out" badges on related-product carousel cards that
+  // sit before every cutoff anchor. Genuinely sold-out pages drop the marker,
+  // so they still fall through to negative detection. The fractional
+  // wrong-product guard below runs regardless — the marker proves stock, not
+  // that the page is the right product.
+  let positiveMatch = null;
+  const positivePatterns = resolvePositiveStockPatterns(providerId);
+  if (positivePatterns) {
+    for (const pattern of positivePatterns) {
+      const match = markdown.match(pattern);
+      if (match) {
+        positiveMatch = match[0];
+        break;
+      }
+    }
+  }
+
+  if (!positiveMatch) {
+    const toleratesPreorder = resolvePreorderTolerant(providerId);
+    for (const pattern of OUT_OF_STOCK_PATTERNS) {
+      if (toleratesPreorder && /pre-?order/i.source === pattern.source) continue;
+      const match = markdown.match(pattern);
+      if (match) {
+        return {
+          inStock: false,
+          reason: "out_of_stock",
+          detectedText: match[0],
+        };
+      }
     }
   }
 
@@ -212,6 +247,10 @@ export function detectStockStatus(markdown, expectedWeightOz = 1, providerId = "
         };
       }
     }
+  }
+
+  if (positiveMatch) {
+    return { inStock: true, reason: "positive_stock", detectedText: positiveMatch };
   }
 
   return { inStock: true, reason: "in_stock", detectedText: null };

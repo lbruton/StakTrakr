@@ -59,6 +59,24 @@ const readFreshCachedGoldback = () => {
 };
 
 /**
+ * Selects the G1 rate to seed the market-data premium chip before the network
+ * fetch resolves. Reads the same bare goldback globals as readFreshCachedGoldback.
+ *   - online  → the fresh + positive cached G1 (readFreshCachedGoldback), else
+ *     null; never seed a stale value while online.
+ *   - offline → the last-known G1 (getGoldbackDenominationPrice(1) when > 0) even
+ *     when stale, returned plain (no marker), preserving the offline display.
+ * The > 0 guard is mandatory and independent of staleness: a non-positive G1
+ * offline still returns null.
+ * @param {boolean} isOnline - Whether the app currently has connectivity.
+ * @returns {number|null}
+ */
+const selectGoldbackG1Seed = (isOnline) => {
+  if (isOnline) return readFreshCachedGoldback();
+  const lastKnown = getGoldbackDenominationPrice(1);
+  return typeof lastKnown === "number" && lastKnown > 0 ? lastKnown : null;
+};
+
+/**
  * Returns the spot-derived goldback estimate (> 0), or null. Reads bare globals.
  * @returns {number|null}
  */
@@ -102,5 +120,7 @@ if (typeof window !== "undefined") {
   window.computeRatio = computeRatio;
   window.formatRatio = formatRatio;
   window.isGoldbackStale = isGoldbackStale;
+  window.readFreshCachedGoldback = readFreshCachedGoldback;
+  window.selectGoldbackG1Seed = selectGoldbackG1Seed;
   window.resolveGoldbackRate = resolveGoldbackRate;
 }

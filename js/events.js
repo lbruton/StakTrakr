@@ -65,6 +65,10 @@ const createLotEachToggle = (config) => {
   /** @STRK-88 Cache the exact LOT price the user typed, keyed to qty, so LOT→EACH→LOT
    *  can restore the original value without floating-point round-trip drift. */
   let _lotExactPrice = null; // {price: number, qty: number} | null
+  /** @STRK-242 Optional qty-source override. When installed (cu by-denomination entry),
+   *  qty reads resolve to the coin count instead of #itemQty, which cu forces to 1.
+   *  Default null → readQty() reads the DOM qty input exactly as before (byte-identical). */
+  let _qtyOverride = null;
 
   const getButtons = () => {
     const toggle = safeGetElement(toggleId);
@@ -72,14 +76,16 @@ const createLotEachToggle = (config) => {
     return Array.from(toggle.children).filter((child) => child.dataset?.mode);
   };
 
+  /** @STRK-242 Single qty-source seam — the only place qty is read for conversion/visibility. */
+  const readQty = () => (_qtyOverride ? _qtyOverride() : Number(safeGetElement(qtyInputId)?.value));
+
   const maybeConvert = (nextMode) => {
     const priceEl = safeGetElement(priceInputId);
     if (!priceEl || nextMode === mode) return;
 
     const rawPrice = priceEl.value.trim();
     const price = Number(rawPrice);
-    const qtyEl = safeGetElement(qtyInputId);
-    const qty = parseInt(qtyEl?.value?.trim() ?? "", 10);
+    const qty = readQty();
 
     if (rawPrice === "" || !Number.isFinite(price) || price <= 0) return;
     if (!Number.isFinite(qty) || qty <= 1) return;
@@ -183,6 +189,18 @@ const createLotEachToggle = (config) => {
     // STRK-88: clear exact-lot cache on modal reset/close so stale LOT prices
     // don't bleed across sessions or between add→edit modal openings.
     _lotExactPrice = null;
+    // @STRK-242 Intentionally does NOT clear _qtyOverride. The in-restore resetInteracted()
+    // (restorePurchasePriceToggle) must not wipe an active denom override; clearing it is a
+    // dedicated path (clearQtySource), called explicitly from resetPurchasePriceToggle.
+  };
+
+  /** @STRK-242 Install a qty-source override (cu by-denomination → coin count). */
+  const setQtySource = (fn) => {
+    _qtyOverride = typeof fn === "function" ? fn : null;
+  };
+  /** @STRK-242 Remove the qty-source override → qty reads fall back to the DOM input. */
+  const clearQtySource = () => {
+    _qtyOverride = null;
   };
 
   // Toggle is only meaningful when qty > 1; at qty <= 1 Lot/Each are equivalent
@@ -191,15 +209,19 @@ const createLotEachToggle = (config) => {
     const toggle = safeGetElement(toggleId);
     if (!toggle) return;
 
-    const qtyEl = safeGetElement(qtyInputId);
-    const qtyRaw = qtyEl?.value?.trim() ?? "";
-    const qty = parseInt(qtyRaw, 10);
+    const qty = readQty();
     const showToggle = Number.isFinite(qty) && qty > 1;
 
     toggle.classList.toggle("is-hidden", !showToggle);
 
-    if (!showToggle && mode === "lot") {
-      // STRK-88: changing qty while LOT active invalidates the exact-lot cache
+    if (!showToggle && mode === "lot" && _qtyOverride === null) {
+      // STRK-88: for a normal (non-cu) toggle, qty ≤ 1 makes LOT meaningless — revert to
+      // EACH and invalidate the exact-lot cache.
+      // STRK-242: when a cu qty-override is installed, the by-denomination LOT intent must
+      // SURVIVE a transient count ≤ 1 (e.g. mid-typing or a count cleared then re-entered),
+      // so we skip the self-revert here. The override is cleared explicitly on type exit /
+      // face switch, never via this gate — that keeps a restored EACH item from being
+      // flipped to LOT by a later count edit.
       _lotExactPrice = null;
       setMode("each", { convertInput: false });
     }
@@ -237,6 +259,8 @@ const createLotEachToggle = (config) => {
     wasInteracted,
     markInteracted,
     resetInteracted,
+    setQtySource,
+    clearQtySource,
     seedLotCache,
     getExactLotPrice,
   };
@@ -254,6 +278,9 @@ const purchasePriceToggle = createLotEachToggle({
 
 const resetPurchasePriceToggle = () => {
   purchasePriceToggle.setMode("each", { convertInput: false });
+  // @STRK-242 Clear any cu denom qty override BEFORE recomputing visibility, so the reset
+  // reads #itemQty (forced to 1 for cu) and correctly hides the toggle.
+  purchasePriceToggle.clearQtySource();
   purchasePriceToggle.updateVisibility();
   purchasePriceToggle.resetInteracted();
 };
@@ -1582,6 +1609,35 @@ const parseConstitutionalFields = () => {
 };
 
 /**
+ * STRK-242: resolves the per-unit price string from the entered price for LOT-mode
+ * purchases. Extracted from parseItemFormFields to keep that function under the Codacy
+ * Lizard ccn gate. Behavior:
+ *   - EACH mode or empty input → unchanged.
+ *   - Non-cu LOT → divide the entered lot total by #itemQty (existing STRK-88 behavior).
+ *   - cu by-DENOMINATION LOT → divide by the coin count (cu.qty), keyed to the STRK-88
+ *     exact-lot cache on cu.qty so an uneven division round-trips without drift (AC-3/AC-4).
+ *   - cu by-FACE-value → never divide; a face entry is a lot of one (AC-6, re-scoped
+ *     STRK-235 guard). (Face also forces the toggle to EACH, so this is belt-and-suspenders.)
+ * @param {string} priceInput - raw entered price string
+ * @param {number} parsedQty  - #itemQty (pinned to 1 for cu items)
+ * @param {{mode:string, qty:number}|null} cu - parsed constitutional fields, or null
+ * @returns {string} the per-unit (or unchanged) price string
+ */
+const resolveLotEachPriceInput = (priceInput, parsedQty, cu) => {
+  if (purchasePriceToggle.getMode() !== "lot" || priceInput === "") return priceInput;
+  if (cu && cu.mode === "face") return priceInput; // AC-6: face never divides
+  const divisorQty = cu ? cu.qty : parsedQty; // AC-3: cu divides by coin count, not #itemQty
+  if (!(divisorQty > 0)) return cu ? priceInput : "0";
+  const rawInput = parseFloat(priceInput) || 0;
+  const exactLotPrice =
+    typeof purchasePriceToggle.getExactLotPrice === "function"
+      ? purchasePriceToggle.getExactLotPrice(rawInput, divisorQty)
+      : null;
+  const lotPrice = exactLotPrice ?? rawInput;
+  return String(lotPrice / divisorQty);
+};
+
+/**
  * Reads all form fields and returns a parsed fields object.
  * @param {boolean} isEditing - Whether in edit mode
  * @param {Object} existingItem - Existing item (edit mode)
@@ -1601,31 +1657,20 @@ const parseItemFormFields = (isEditing, existingItem) => {
   const parsedQty = qtyInput === "" ? (isEditing ? existingItem.qty || 1 : 1) : Number(qtyInput);
   let priceInput = elements.itemPrice.value.trim();
 
-  // STRK-235: constitutional items price per-coin in "each" mode (the lot toggle is
-  // hidden because #itemQty stays 1); never run the lot÷qty division with that stale qty.
+  // STRK-235/242: constitutional items derive weight/qty/variant from the dedicated
+  // control card (the raw weight/qty inputs are hidden). Parse cu BEFORE the price
+  // division so a by-denomination lot total divides by the coin count (cu.qty), not the
+  // stale #itemQty (pinned to 1 for cu); face value is a lot of one and never divides.
   const isCuUnit = elements.itemWeightUnit?.value === "cu";
-  if (!isCuUnit && purchasePriceToggle.getMode() === "lot" && priceInput !== "") {
-    const rawInput = parseFloat(priceInput) || 0;
-    if (parsedQty > 0) {
-      const exactLotPrice =
-        typeof window.purchasePriceGetExactLotPrice === "function"
-          ? window.purchasePriceGetExactLotPrice(rawInput, parsedQty)
-          : null;
-      const lotPrice = exactLotPrice ?? rawInput;
-      priceInput = String(lotPrice / parsedQty);
-    } else {
-      priceInput = "0";
-    }
-  }
+  const cu = isCuUnit ? parseConstitutionalFields() : null;
+  priceInput = resolveLotEachPriceInput(priceInput, parsedQty, cu);
 
   const weightUnit = elements.itemWeightUnit.value;
   const weightRaw =
     weightUnit === "gb" && elements.itemGbDenom
       ? elements.itemGbDenom.value
       : elements.itemWeight.value;
-  // STRK-235: constitutional items derive weight/qty/variant from the dedicated
-  // control group rather than the raw weight/qty inputs (which are hidden).
-  const cu = weightUnit === "cu" ? parseConstitutionalFields() : null;
+  // cu (constitutional fields) was parsed above, before the price division (STRK-242).
 
   const marketValueInput = elements.itemMarketValue ? elements.itemMarketValue.value.trim() : "";
   let marketValue;
@@ -1664,14 +1709,19 @@ const parseItemFormFields = (isEditing, existingItem) => {
     date: elements.itemDateNABtn?.classList.contains("active")
       ? ""
       : elements.itemDate.value || (isEditing ? existingItem.date || "" : todayStr()),
-    // AC-3/AC-4: new items always capture toggle state; edited items preserve stored pricingType
-    // unless the user explicitly interacted with the toggle this session.
-    // Legacy items (no stored pricingType) with no toggle interaction keep absence → lot-total chart.
-    pricingType: !isEditing
+    // STRK-242 (D-5/AC-7): cu items derive pricingType from the FINAL toggle/entry-mode
+    // state and persist it UNCONDITIONALLY — a programmatic denom→LOT default (set by the
+    // handler, not a user click) must survive edit-save, so it cannot be gated on
+    // wasInteracted(). Non-cu items keep the existing interaction-gated logic: new items
+    // capture toggle state; edited items preserve stored pricingType unless the user
+    // interacted with the toggle this session (legacy absence → lot-total chart).
+    pricingType: cu
       ? purchasePriceToggle.getMode()
-      : purchasePriceToggle.wasInteracted()
+      : !isEditing
         ? purchasePriceToggle.getMode()
-        : existingItem.pricingType,
+        : purchasePriceToggle.wasInteracted()
+          ? purchasePriceToggle.getMode()
+          : existingItem.pricingType,
     catalog: elements.itemCatalog ? elements.itemCatalog.value.trim() : "",
     year: elements.itemYear?.value?.trim() ?? "",
     grade: elements.itemGrade?.value?.trim() ?? "",
@@ -1679,7 +1729,14 @@ const parseItemFormFields = (isEditing, existingItem) => {
     certNumber: elements.itemCertNumber?.value?.trim() ?? "",
     pcgsNumber: elements.itemPcgsNumber?.value?.trim() ?? "",
     marketValue,
-    purity: parsePurity(isEditing, existingItem),
+    // STRK-245: a cu item derives its valuation from the variant, not purity — never
+    // persist a "custom" form value onto it (meaningless, and it would resurface if the
+    // item is later converted back to a normal type). This is where the constitutional
+    // purity reset actually lands, so backing out before saving keeps the original value.
+    purity:
+      cu && elements.itemPuritySelect?.value === "custom"
+        ? 0.999
+        : parsePurity(isEditing, existingItem),
     currency: displayCurrency,
     obverseImageFrame: _pendingObverseFrame,
     reverseImageFrame: _pendingReverseFrame,
@@ -1836,6 +1893,35 @@ const buildItemFields = (f) => {
   }
 
   return fields;
+};
+
+/**
+ * STRK-244: True if any price/valuation-relevant field differs between two item
+ * snapshots — the gate for recording a single-edit price-history point. Beyond the
+ * legacy marketValue/price/weight/qty/metal/purity set it samples `weightUnit` and
+ * the constitutional metadata (constitutionalVariant/constitutionalEntryMode): a
+ * junk-silver denomination swap (e.g. con-90-half→con-40-half — identical facePerCoin,
+ * so `weight` is unchanged) or a Type→cu/gb/sb coercion changes the derived melt
+ * without touching any legacy field, and would otherwise leave the value chart stale.
+ * Keep this set in sync with recordBulkPriceHistory's priceFields (js/bulkEdit.js) —
+ * both are STRK-244 valuation-change detection sites.
+ * @param {Object} oldItem - Pre-edit item snapshot.
+ * @param {Object} newItem - Post-edit item.
+ * @returns {boolean} True when a valuation-relevant field changed.
+ */
+const valuationFieldChanged = (oldItem, newItem) => {
+  const fields = [
+    "marketValue",
+    "price",
+    "weight",
+    "qty",
+    "metal",
+    "purity",
+    "weightUnit",
+    "constitutionalVariant",
+    "constitutionalEntryMode",
+  ];
+  return fields.some((field) => oldItem?.[field] !== newItem?.[field]);
 };
 
 /**
@@ -1997,14 +2083,10 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     // Record price data point if price-related fields changed (STACK-43)
     if (typeof recordSingleItemPrice === "function") {
       const cur = inventory[editIdx];
-      const priceChanged =
-        oldItem.marketValue !== cur.marketValue ||
-        oldItem.price !== cur.price ||
-        oldItem.weight !== cur.weight ||
-        oldItem.qty !== cur.qty ||
-        oldItem.metal !== cur.metal ||
-        oldItem.purity !== cur.purity;
-      if (priceChanged) recordSingleItemPrice(cur, "edit");
+      // STRK-244: gate on the full valuation field set (incl. weightUnit + the
+      // constitutional metadata) so denomination/variant swaps and Type→cu/gb/sb
+      // coercions — which leave the legacy fields untouched — still record a point.
+      if (valuationFieldChanged(oldItem, cur)) recordSingleItemPrice(cur, "edit");
     }
 
     renderTable();
@@ -2277,6 +2359,29 @@ const constitutionalSetEntryMode = (mode) => {
   const faceFields = document.getElementById("ccg-face-fields");
   if (denomFields) denomFields.style.display = _constitutionalEntryMode === "denom" ? "" : "none";
   if (faceFields) faceFields.style.display = _constitutionalEntryMode === "face" ? "" : "none";
+
+  // STRK-242: recompute the purchase-price lot/each toggle ONCE here — the single
+  // denom↔face chokepoint (STRK-247 compute-once post-dispatch). By-denomination is a
+  // lot of `cu.qty` coins, so install a qty override that reads the coin count and
+  // default the toggle to LOT; by-face-value is a lot of one, so clear the override and
+  // force EACH. Visibility falls out of updateVisibility's qty>1 gate (reads the override).
+  // The LOT default is gated on !wasInteracted() so a user's explicit EACH choice survives
+  // a live re-resolve; the edit-restore path sets the stored mode AFTER this runs.
+  if (typeof purchasePriceToggle !== "undefined") {
+    if (_constitutionalEntryMode === "denom") {
+      purchasePriceToggle.setQtySource(
+        () => Number(safeGetElement("item-constitutional-count")?.value) || 0
+      );
+      if (!purchasePriceToggle.wasInteracted()) {
+        purchasePriceToggle.setMode("lot", { convertInput: false });
+      }
+    } else {
+      purchasePriceToggle.clearQtySource();
+      purchasePriceToggle.setMode("each", { convertInput: false });
+    }
+    purchasePriceToggle.updateVisibility();
+  }
+
   constitutionalUpdatePreview();
 };
 window.constitutionalSetEntryMode = constitutionalSetEntryMode;
@@ -2334,6 +2439,23 @@ const setupConstitutionalControls = () => {
       }
     }
   );
+  // STRK-242: keep ONLY the purchase-toggle's qty>1 visibility gate live as the coin count
+  // changes in denomination mode (the override reads #item-constitutional-count). The mode
+  // is deliberately NOT changed here — the LOT default is set once by constitutionalSetEntryMode
+  // and persists across count edits (updateVisibility skips its self-revert while a cu override
+  // is installed), so tweaking the count never flips a restored EACH item to LOT. Typing the
+  // count does not re-dispatch the entry mode, hence this narrow extra call site.
+  const countEl = document.getElementById("item-constitutional-count");
+  if (countEl) {
+    safeAttachListener(
+      countEl,
+      "input",
+      () => {
+        if (typeof purchasePriceToggle !== "undefined") purchasePriceToggle.updateVisibility();
+      },
+      "Constitutional count → purchase-toggle visibility"
+    );
+  }
   constitutionalSetEntryMode(_constitutionalEntryMode);
 };
 window.setupConstitutionalControls = setupConstitutionalControls;
@@ -2358,6 +2480,15 @@ const handleTypeChange = () => {
   if (metalEl instanceof HTMLElement) metalEl.disabled = false;
   const metalLockPill = document.getElementById("metalLock");
   if (metalLockPill) metalLockPill.style.display = "none";
+
+  // STRK-242: clear any stale cu by-denomination qty override on EVERY type change so it
+  // can't bleed into a non-constitutional item (readQty would otherwise keep reading the
+  // hidden #item-constitutional-count). The Constitutional branch re-installs it via the
+  // constitutionalSetEntryMode chokepoint when the entry mode resolves to denomination;
+  // editItem/duplicateItem likewise re-install it after this runs.
+  if (typeof purchasePriceToggle !== "undefined") {
+    purchasePriceToggle.clearQtySource();
+  }
 
   if (isGoldbackType || isSilverbackType) {
     unitSelect.value = isGoldbackType ? "gb" : "sb";
@@ -2390,31 +2521,52 @@ const handleTypeChange = () => {
       if (hasSilver) metalSelect.value = "Silver";
     }
     if (metalLockPill) metalLockPill.style.display = "";
-    // Default a fresh add to FACE-value mode; editItem restores the stored mode after.
-    if (typeof window.constitutionalSetEntryMode === "function") {
-      window.constitutionalSetEntryMode("face");
-    }
-    // STRK-235: force purchase-price toggle to EACH mode so parseItemFormFields
-    // never divides a lot price by a stale qty when the type changes mid-entry.
-    // Also reset #itemQty to 1 — cu items own their own coin-count field in the
-    // constitutional control card; a stale qty > 1 would make updateVisibility()
-    // keep the toggle visible and allow a spurious lot÷qty division on save.
-    if (typeof purchasePriceToggle !== "undefined") {
-      purchasePriceToggle.setMode("each", { convertInput: false });
-      purchasePriceToggle.resetInteracted();
-    }
+    // STRK-247: #purityCustomWrapper visibility is recomputed once after the branch
+    // dispatch (below) for ALL types — constitutional hides it there since purity is
+    // derived from the variant (90/40/35). The select/input values are left untouched so
+    // backing out of Constitutional before saving never loses a custom (or preset) purity;
+    // the actual cu purity reset lands at save time (parseItemFormFields), only when the
+    // FINAL saved type is Constitutional (STRK-245, Codex review).
+    // STRK-235: cu items own their coin count in the constitutional card; #itemQty stays
+    // pinned to 1 so a stale qty > 1 can't drive a spurious lot÷qty division on save, and
+    // so face mode (override cleared) hides the toggle via the qty>1 gate.
     const qtyEl = document.getElementById("itemQty");
     if (qtyEl instanceof HTMLElement) {
       qtyEl.value = "1";
     }
+    // STRK-242 (D-3): handleTypeChange manages reversible visibility only and routes the
+    // purchase-toggle recompute through the constitutionalSetEntryMode chokepoint
+    // (STRK-244/245: no inline toggle/value mutation here). Reset toggle interaction first
+    // so a subsequent denom switch can apply the LOT default; a fresh add defaults to
+    // FACE-value mode (toggle hidden, EACH), and editItem restores the stored mode after.
     if (typeof purchasePriceToggle !== "undefined") {
-      purchasePriceToggle.updateVisibility();
+      purchasePriceToggle.resetInteracted();
+    }
+    if (typeof window.constitutionalSetEntryMode === "function") {
+      window.constitutionalSetEntryMode("face");
     }
   } else {
     if (unitSelect.value === "gb" || unitSelect.value === "sb" || unitSelect.value === "cu") {
       unitSelect.value = "oz";
     }
     if (unitGroup) unitGroup.classList.remove("hidden");
+  }
+
+  // STRK-247: centralize #purityCustomWrapper visibility across ALL type branches.
+  // The per-branch restores (STRK-245) missed the custom → Constitutional → gb/sb path:
+  // the gb/sb branch preserves a "custom" select but never re-showed the wrapper, leaving
+  // it stuck hidden while parsePurity() silently persisted the stale input value. Recompute
+  // once here — visible only when purity is still "custom" AND the type is not
+  // Constitutional (constitutional derives purity from its variant). This EXTENDS the
+  // init.js purity-select listener's rule (which keys on the select value alone) with the
+  // Constitutional override, and stops the omission from recurring per-branch.
+  // VISIBILITY only: select/input values are left untouched so a round-trip never loses a
+  // custom purity; the cu reset lands at save time (parseItemFormFields).
+  const purityWrapper = safeGetElement("purityCustomWrapper");
+  const puritySelect = safeGetElement("itemPuritySelect");
+  if (purityWrapper instanceof HTMLElement && puritySelect instanceof HTMLSelectElement) {
+    purityWrapper.style.display =
+      puritySelect.value === "custom" && !isConstitutionalType ? "" : "none";
   }
 
   if (typeof toggleGbDenomPicker === "function") {
