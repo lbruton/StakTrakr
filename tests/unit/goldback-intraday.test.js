@@ -1,9 +1,7 @@
 // Unit tests for buildGoldbackIntradayEntries (api-export-v2.js) — STRK-248.
 // Run: npm run test:unit  (node --test tests/unit/goldback-intraday.test.js)
 //
-// RED phase: buildGoldbackIntradayEntries does not exist yet, so the import
-// resolves but the function is undefined and these assertions fail. The import
-// MUST NOT run main() (api-export-v2.js is guarded by an isMain check).
+// The import MUST NOT run main() (api-export-v2.js is guarded by an isMain check).
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
