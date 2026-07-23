@@ -318,3 +318,36 @@ test.describe("DiffModal merge/apply characterization (STRK-170 cohort 2.3)", ()
     expect(rec.value).toContain("headerExtraBtn"); // local-only slug appended via merge
   });
 });
+
+// STRK-258 — "Local Items" in the sync meta row must be qty-summed (physical pieces),
+// matching "Remote Items" (meta.itemCount, populated from cloudSafeItemCount()) rather
+// than a raw inventory.length row count. Regression coverage for a fix that was missed
+// when 424a6b3f moved every other item-count display to qty-summed semantics.
+test.describe("DiffModal sync meta row — Local Items count (STRK-258)", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+  });
+
+  test("Local Items sums qty across rows, not the row count", async ({ page }) => {
+    const localItemsText = await page.evaluate(() => {
+      window.inventory = [
+        { uuid: "strk258-a", serial: 1, name: "Row A", metal: "Silver", qty: 1 },
+        { uuid: "strk258-b", serial: 2, name: "Row B", metal: "Silver", qty: 5 },
+      ];
+      window.DiffModal.show({
+        source: { type: "sync", label: "Dropbox" },
+        meta: { itemCount: 6, deviceId: "test-device", appVersion: "3.35.64" },
+        diff: { added: [], modified: [], deleted: [] },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+      const cells = Array.from(document.querySelectorAll("#diffReviewSource strong"));
+      const labels = Array.from(document.querySelectorAll("#diffReviewSource span"));
+      const idx = labels.findIndex((el) => el.textContent.trim() === "Local Items");
+      return idx === -1 ? null : cells[idx].textContent.trim();
+    });
+    // Two rows, qty 1 + qty 5 = 6 physical pieces. inventory.length (row count) is 2 —
+    // the pre-fix bug would report "2" here instead of "6".
+    expect(localItemsText).toBe("6");
+  });
+});

@@ -1416,7 +1416,9 @@
           meta.itemCount != null ? String(meta.itemCount) : "\u2014"
         );
         if (typeof inventory !== "undefined") {
-          sourceHtml += _metaCell("Local Items", String(inventory.length));
+          var localItemCount =
+            typeof cloudSafeItemCount === "function" ? cloudSafeItemCount() : inventory.length;
+          sourceHtml += _metaCell("Local Items", String(localItemCount));
         }
         sourceHtml += _metaCell(
           "Device",
