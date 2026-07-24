@@ -3,6 +3,8 @@
 // Data sources: normalized 24H, 7D, 30D, 60D, and 90D Retail View range models.
 // NOTE: Uses v4 API (chart.addLineSeries) — NOT v5 (chart.addSeries(LineSeries)).
 
+const _marketChartContainers = new WeakMap();
+
 const getChartThemeColors = () => {
   const get = (token) =>
     typeof getThemeColorRGB === "function" ? getThemeColorRGB(token) : getThemeColor(token);
@@ -139,7 +141,9 @@ const _buildLegacyVendorRangeModel = (rows, intraday) => {
     if (!row || typeof row !== "object" || Array.isArray(row)) continue;
     let timeMs = Number(row.ts) * 1000;
     if (!Number.isFinite(timeMs) || timeMs <= 0) {
-      timeMs = typeof row.t === "string" ? Date.parse(row.t) : Number.NaN;
+      const isoTimeMs =
+        typeof _parseMarketDetailIsoTime === "function" ? _parseMarketDetailIsoTime(row.t) : null;
+      timeMs = isoTimeMs === null ? Number.NaN : isoTimeMs;
     }
     if (!Number.isFinite(timeMs) || timeMs <= 0) continue;
     if (!row.vendors || typeof row.vendors !== "object" || Array.isArray(row.vendors)) continue;
@@ -151,9 +155,7 @@ const _buildLegacyVendorRangeModel = (rows, intraday) => {
       String(date.getUTCDate()).padStart(2, "0"),
     ].join("-");
     const hasPublisherDate =
-      typeof row.t === "string" &&
-      /^\d{4}-\d{2}-\d{2}T/.test(row.t) &&
-      Number.isFinite(Date.parse(row.t));
+      typeof _parseMarketDetailIsoTime === "function" && _parseMarketDetailIsoTime(row.t) !== null;
     const chartTime = intraday
       ? Math.floor(timeMs / 1000)
       : hasPublisherDate
@@ -196,6 +198,16 @@ const _buildLegacyVendorRangeModel = (rows, intraday) => {
 };
 
 /**
+ * Clear a dedicated Market Detail chart container after failed construction or
+ * removal so a partial Lightweight Charts root cannot survive.
+ * @param {HTMLElement} container - Dedicated chart container.
+ * @returns {void}
+ */
+const _clearMarketChartContainer = (container) => {
+  if (container instanceof HTMLElement) container.textContent = "";
+};
+
+/**
  * Create a multi-Vendor line chart from a normalized range model.
  * @param {string} containerId - Target chart container ID.
  * @param {Object} rangeModel - Normalized date-bounded range model.
@@ -232,6 +244,7 @@ const _createVendorRangeChart = (
 
   try {
     chart = LightweightCharts.createChart(container, _chartConfig(colors, timeVisible, context));
+    _marketChartContainers.set(chart, container);
 
     for (const vendorSeries of validSeries) {
       const vendorId = vendorSeries.vendorId;
@@ -255,7 +268,8 @@ const _createVendorRangeChart = (
     _fitAfterLayout(chart);
   } catch (e) {
     debugLog("[market-charts] Vendor range chart error: " + e.message, "warn");
-    destroyCoinChart(chart);
+    if (chart) destroyCoinChart(chart);
+    _clearMarketChartContainer(container);
     return null;
   }
 
@@ -308,12 +322,17 @@ const createVendorHistoryChart = (
  * @returns {void}
  */
 const destroyCoinChart = (chart) => {
-  if (chart) {
-    try {
-      chart.remove();
-    } catch (e) {
-      /* noop */
-    }
+  if (!chart) return;
+  const isChartObject = typeof chart === "object" || typeof chart === "function";
+  const container = isChartObject ? _marketChartContainers.get(chart) : null;
+
+  try {
+    if (typeof chart.remove === "function") chart.remove();
+  } catch (e) {
+    debugLog("[market-charts] Vendor chart removal error: " + e.message, "warn");
+  } finally {
+    _clearMarketChartContainer(container);
+    if (isChartObject) _marketChartContainers.delete(chart);
   }
 };
 

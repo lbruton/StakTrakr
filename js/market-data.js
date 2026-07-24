@@ -678,6 +678,44 @@ const closeMarketDetailModal = () => {
 };
 
 /**
+ * Parse the publisher's UTC ISO timestamp shape with calendar/time round-trip
+ * validation so impossible dates and non-contract strings are rejected.
+ * @param {*} timestamp - Candidate `YYYY-MM-DDTHH:mm:ss(.sss)Z` value.
+ * @returns {(number|null)} Valid UTC timestamp in milliseconds, otherwise null.
+ */
+const _parseMarketDetailIsoTime = (timestamp) => {
+  if (typeof timestamp !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/.exec(timestamp);
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, msText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const millisecond = Number(msText || 0);
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, second, millisecond);
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getUTCHours() !== hour ||
+    date.getUTCMinutes() !== minute ||
+    date.getUTCSeconds() !== second ||
+    date.getUTCMilliseconds() !== millisecond
+  ) {
+    return null;
+  }
+
+  return date.getTime();
+};
+
+/**
  * Return an ISO date-only chart key from a validated publisher timestamp.
  * The publisher's UTC date is preferred; timestamp fallback is explicitly UTC.
  * @param {Object} row - Retail history row.
@@ -685,10 +723,8 @@ const closeMarketDetailModal = () => {
  * @returns {string} UTC `YYYY-MM-DD` chart key.
  */
 const _getMarketDetailDailyChartTime = (row, timeMs) => {
-  if (typeof row.t === "string" && /^\d{4}-\d{2}-\d{2}T/.test(row.t)) {
-    const isoTimeMs = Date.parse(row.t);
-    if (Number.isFinite(isoTimeMs)) return row.t.slice(0, 10);
-  }
+  const isoTimeMs = _parseMarketDetailIsoTime(row.t);
+  if (isoTimeMs !== null) return row.t.slice(0, 10);
 
   const date = new Date(timeMs);
   const year = date.getUTCFullYear();
@@ -707,9 +743,7 @@ const _parseMarketDetailTime = (row) => {
   const unixSeconds = Number(row?.ts);
   if (Number.isFinite(unixSeconds) && unixSeconds > 0) return unixSeconds * 1000;
 
-  if (typeof row?.t !== "string") return null;
-  const isoTimeMs = Date.parse(row.t);
-  return Number.isFinite(isoTimeMs) ? isoTimeMs : null;
+  return _parseMarketDetailIsoTime(row?.t);
 };
 
 /**
