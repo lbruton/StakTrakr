@@ -1,4 +1,4 @@
-// Unit tests for parseDate (js/utils-format.js) — STRK-266.
+// Unit tests for parseDate (js/utils-format.js) — STRK-266 + STRK-267.
 // Run: npm run test:unit  (node --test tests/unit/parse-date-local-frame.test.js)
 //
 // Bug under test: parseDate constructed `new Date(year, month, day)` (LOCAL
@@ -22,8 +22,9 @@ import { sliceArrowConst, sliceFunctionDecl } from "./test-helpers.js";
 
 const src = readFileSync(new URL("../../js/utils-format.js", import.meta.url), "utf8");
 
-// parseDate depends on localIsoDate, which depends on pad2 — slice all three so
-// the eval runs the REAL production chain.
+// parseDate depends on localIsoDate (→ pad2), validatedLocalDate, and
+// warnUnparseableDate — slice the whole chain so the eval runs the REAL
+// production code.
 const pad2Match = src.match(/^const pad2 = .*;$/m);
 assert.ok(pad2Match, "could not locate the pad2 declaration in source");
 
@@ -33,6 +34,8 @@ const parseDate = new Function(
   [
     pad2Match[0],
     sliceArrowConst(src, "const localIsoDate = ("),
+    sliceArrowConst(src, "const validatedLocalDate = ("),
+    sliceArrowConst(src, "const warnUnparseableDate = ("),
     sliceFunctionDecl(src, "function parseDate("),
     "return parseDate;",
   ].join("\n")
@@ -90,14 +93,67 @@ describe("parseDate — local-frame output (STRK-266)", () => {
     assert.equal(parseDate("2026-01-05T23:00:00Z"), "2026-01-06");
   });
 
-  it("day-overflow rolls over in the LOCAL frame (documented Date behavior)", () => {
-    // new Date(2026, 1, 31) rolls Feb 31 → Mar 3; the output must be that
-    // rolled LOCAL date, not its UTC rendering (which was Mar 2 pre-fix).
-    assert.equal(parseDate("2026/02/31"), "2026-03-03");
-  });
-
   it("empty and unparseable inputs still return the em-dash sentinel", () => {
     assert.equal(parseDate(""), "—");
     assert.equal(parseDate("not a date"), "—");
+  });
+});
+
+// STRK-267: the Date constructor silently rolls impossible calendar dates
+// (Feb 31 → Mar 2/3), so every numeric branch must verify the constructed
+// Date's components round-trip before formatting. A matched-but-impossible
+// numeric shape returns the sentinel DIRECTLY — V8's legacy string parser
+// also rolls "2026/02/31" → Mar 3, so falling through to the generic
+// new Date(string) fallback would resurrect the corruption. This supersedes
+// the STRK-266 test that documented the rollover as expected behavior.
+describe("parseDate — impossible calendar dates rejected (STRK-267)", () => {
+  it("strict ISO shape with an impossible day is rejected, not returned verbatim", () => {
+    // V8 rolls new Date("2024-02-31") to Mar 1 (NOT Invalid Date), so the
+    // pre-fix ISO branch handed the impossible string back unchanged.
+    assert.equal(parseDate("2024-02-31"), "—");
+  });
+
+  it("YYYY/MM/DD with an impossible day is rejected, not rolled", () => {
+    assert.equal(parseDate("2026/02/31"), "—");
+  });
+
+  it("YYYY/M/D (non-padded) impossible day does not reach the rolling generic parser", () => {
+    // new Date("2026/2/31") rolls to Mar 3 in the legacy parser — the ymd
+    // branch must short-circuit with the sentinel instead of falling through.
+    assert.equal(parseDate("2026/2/31"), "—");
+  });
+
+  it("unambiguous US MM/DD/YYYY (second > 12) with an impossible day is rejected", () => {
+    assert.equal(parseDate("02/31/2024"), "—");
+  });
+
+  it("unambiguous European DD/MM/YYYY (first > 12) with an impossible day is rejected", () => {
+    assert.equal(parseDate("31/04/2024"), "—");
+  });
+
+  it("both components > 12 matches no numeric format and is rejected", () => {
+    assert.equal(parseDate("13/13/2024"), "—");
+  });
+
+  it("leap day is accepted in a leap year", () => {
+    assert.equal(parseDate("2024-02-29"), "2024-02-29");
+    assert.equal(parseDate("2024/02/29"), "2024-02-29");
+  });
+
+  it("leap day is rejected in a non-leap year", () => {
+    assert.equal(parseDate("2023-02-29"), "—");
+    assert.equal(parseDate("2023/02/29"), "—");
+  });
+
+  it("four-digit years below 0100 survive validation and keep their padding", () => {
+    // The Date constructor maps years 0-99 to 1900-1999; validatedLocalDate
+    // must set components via setFullYear so 0099 round-trips as 0099, and
+    // localIsoDate must zero-pad the year on the formatting side.
+    assert.equal(parseDate("0099-02-28"), "0099-02-28");
+    assert.equal(parseDate("0099/02/28"), "0099-02-28");
+  });
+
+  it("impossible day in a sub-0100 year is still rejected", () => {
+    assert.equal(parseDate("0099-02-30"), "—");
   });
 });
