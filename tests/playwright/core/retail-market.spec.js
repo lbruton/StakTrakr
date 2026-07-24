@@ -1720,6 +1720,44 @@ test.describe("core/retail-market", () => {
       await expectMarketSummary(page, STRK260_PERIOD_EXPECTATIONS["7D"].summary);
     });
 
+    test("duplicate daily Vendor dates keep only the last observation", async ({ page }) => {
+      const duplicateDailyRows = [
+        {
+          t: "2026-05-25T12:00:00.000Z",
+          ts: toUnixSeconds("2026-05-25T12:00:00.000Z"),
+          vendors: { apmex: { avg: 70 } },
+        },
+        {
+          t: "2026-05-25T18:00:00.000Z",
+          ts: toUnixSeconds("2026-05-25T18:00:00.000Z"),
+          vendors: { apmex: { avg: 90 } },
+        },
+      ];
+      await openStrk260MarketDetail(page, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            "history-30d": duplicateDailyRows,
+          },
+        },
+      });
+
+      await expectUsableMarketChart(page, {
+        summary: {
+          Median: "$90.00",
+          Low: "$90.00",
+          High: "$90.00",
+          Spread: "$0.00",
+        },
+        series: [
+          {
+            title: "APMEX",
+            data: [{ time: "2026-05-25", value: 90 }],
+          },
+        ],
+      });
+    });
+
     test("a failed 30-day feed isolates 7D and 30D while 24H, 60D, and 90D remain usable", async ({
       page,
     }) => {

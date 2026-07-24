@@ -819,6 +819,7 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
   const startMs = period ? endMs - period.durationMs : endMs;
   const rows = period && Array.isArray(modalData?.[period.source]) ? modalData[period.source] : [];
   const observations = [];
+  const dailyObservationsByVendorTime = new Map();
 
   for (const row of rows) {
     if (!row || typeof row !== "object" || Array.isArray(row)) continue;
@@ -833,8 +834,17 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
       if (!vendorId) continue;
       const usdPrice = _normalizeMarketDetailPrice(vendorValue, !!period?.intraday);
       if (usdPrice === null) continue;
-      observations.push({ vendorId, timeMs, chartTime, usdPrice });
+      const observation = { vendorId, timeMs, chartTime, usdPrice };
+      if (period?.intraday) {
+        observations.push(observation);
+      } else {
+        dailyObservationsByVendorTime.set(JSON.stringify([vendorId, chartTime]), observation);
+      }
     }
+  }
+
+  if (!period?.intraday) {
+    observations.push(...dailyObservationsByVendorTime.values());
   }
 
   observations.sort(
