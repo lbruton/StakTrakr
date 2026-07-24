@@ -258,6 +258,180 @@ const STRK260_MODAL_FEEDS = {
   },
 };
 
+const STRK260_ALL_INVALID_HISTORY_ROWS = [
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: {
+      herobullion: { avg: 0 },
+      apmex: { avg: -3 },
+      jmbullion: { avg: "not-a-number" },
+      goldback: { avg: null },
+    },
+  },
+  {
+    t: "invalid",
+    ts: "invalid",
+    vendors: { herobullion: { avg: 55 } },
+  },
+  {
+    t: "2026-05-26T18:00:01.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:01.000Z"),
+    vendors: { apmex: { avg: 65 } },
+  },
+];
+
+const STRK260_UNAVAILABLE_SUMMARY = {
+  Median: "—",
+  Low: "—",
+  High: "—",
+  Spread: "—",
+};
+
+const STRK260_PERIOD_EXPECTATIONS = {
+  "24H": {
+    id: "24h",
+    label: "24H",
+    summary: {
+      Median: "$107.00",
+      Low: "$101.00",
+      High: "$111.00",
+      Spread: "$10.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: toUnixSeconds("2026-05-25T18:00:00.000Z"), value: 105 },
+          { time: toUnixSeconds("2026-05-26T18:00:00.000Z"), value: 111 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: toUnixSeconds("2026-05-25T18:00:00.000Z"), value: 101 },
+          { time: toUnixSeconds("2026-05-26T12:00:00.000Z"), value: 109 },
+        ],
+      },
+      {
+        title: "JM",
+        data: [{ time: toUnixSeconds("2026-05-26T12:00:00.000Z"), value: 107 }],
+      },
+    ],
+  },
+  "7D": {
+    id: "7d",
+    label: "7D",
+    summary: {
+      Median: "$77.00",
+      Low: "$71.00",
+      High: "$85.00",
+      Spread: "$14.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: "2026-05-19", value: 75 },
+          { time: "2026-05-26", value: 85 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: "2026-05-19", value: 71 },
+          { time: "2026-05-23", value: 79 },
+        ],
+      },
+    ],
+  },
+  "30D": {
+    id: "30d",
+    label: "30D",
+    summary: {
+      Median: "$71.00",
+      Low: "$31.00",
+      High: "$85.00",
+      Spread: "$54.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: "2026-04-30", value: 35 },
+          { time: "2026-05-19", value: 75 },
+          { time: "2026-05-26", value: 85 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: "2026-04-26", value: 31 },
+          { time: "2026-05-19", value: 71 },
+          { time: "2026-05-23", value: 79 },
+        ],
+      },
+      {
+        title: "JM",
+        data: [{ time: "2026-05-19", value: 61 }],
+      },
+    ],
+  },
+  "60D": {
+    id: "60d",
+    label: "60D",
+    summary: {
+      Median: "$55.00",
+      Low: "$45.00",
+      High: "$65.00",
+      Spread: "$20.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: "2026-03-27", value: 45 },
+          { time: "2026-05-26", value: 65 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [{ time: "2026-04-26", value: 55 }],
+      },
+    ],
+  },
+  "90D": {
+    id: "90d",
+    label: "90D",
+    summary: {
+      Median: "$44.50",
+      Low: "$25.00",
+      High: "$65.00",
+      Spread: "$40.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: "2026-02-25", value: 25 },
+          { time: "2026-03-27", value: 45 },
+          { time: "2026-05-26", value: 65 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: "2026-03-01", value: 35 },
+          { time: "2026-03-27", value: 44 },
+          { time: "2026-04-26", value: 55 },
+        ],
+      },
+    ],
+  },
+};
+
+const STRK260_PERIODS = Object.values(STRK260_PERIOD_EXPECTATIONS);
+
 const lightweightChartsStub = `
   (() => {
     const harness = window.__marketChartHarness || {
@@ -668,6 +842,17 @@ async function clickMarketPeriod(page, label) {
 
 const marketSummaryValues = (page) => page.locator("#marketDetailContent .market-value");
 
+async function expectMarketSummary(page, expectedSummary) {
+  const stats = marketSummaryValues(page).locator("..");
+  const entries = Object.entries(expectedSummary);
+  await expect(stats).toHaveCount(entries.length);
+  for (const [index, [label, value]] of entries.entries()) {
+    const stat = stats.nth(index);
+    await expect(stat.locator(":scope > div").first()).toHaveText(label);
+    await expect(stat.locator(":scope > .market-value")).toHaveText(value);
+  }
+}
+
 async function openStrk260MarketDetail(page, options = {}) {
   await setupRetailFixture(page, {
     ...options,
@@ -723,22 +908,36 @@ const activeMarketChart = (snapshot) =>
     .reverse()
     .find((instance) => instance.containerId === "marketDetailChartArea" && instance.active);
 
-const sortedChartValues = (chart) =>
-  chart.series.flatMap((series) => series.data.map((point) => point.value)).sort((a, b) => a - b);
+const chartSeriesPayload = (chart) =>
+  chart.series
+    .map((series) => ({
+      title: series.title,
+      data: series.data.map((point) => ({ time: point.time, value: point.value })),
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
 
-const sortedChartTimes = (chart) =>
-  chart.series.flatMap((series) => series.data.map((point) => point.time)).sort();
+const convertSeriesPayload = (series, rate) =>
+  series.map((vendorSeries) => ({
+    title: vendorSeries.title,
+    data: vendorSeries.data.map((point) => ({ ...point, value: point.value * rate })),
+  }));
 
-async function expectUsableMarketChart(page, summary, values) {
+async function expectUsableMarketChart(page, period) {
   await expect(page.getByText("Chart unavailable", { exact: true })).toHaveCount(0);
-  await expect(marketSummaryValues(page)).toHaveText(summary);
+  await expectMarketSummary(page, period.summary);
   await expect
     .poll(async () => {
       const chart = activeMarketChart(await getMarketChartHarness(page));
-      return chart ? sortedChartValues(chart) : null;
+      return chart ? chartSeriesPayload(chart) : null;
     })
-    .toEqual(values);
+    .toEqual(period.series);
   await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+}
+
+async function expectUnavailableMarketChart(page) {
+  await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
+  await expectMarketSummary(page, STRK260_UNAVAILABLE_SUMMARY);
+  await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
 }
 
 async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
@@ -763,9 +962,15 @@ async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
         const activeInstance = window.__marketChartHarness?.instances.find(
           (instance) => instance.id === activeId && !instance.removed
         );
-        const values = (activeInstance?.series || [])
-          .flatMap((series) => series.data.map((point) => point.value))
-          .sort((a, b) => a - b);
+        const series = (activeInstance?.series || [])
+          .map((vendorSeries) => ({
+            title: vendorSeries.options?.title || "",
+            data: vendorSeries.data.map((point) => ({
+              time: point.time,
+              value: point.value,
+            })),
+          }))
+          .sort((a, b) => a.title.localeCompare(b.title));
         const selected = buttons.find((button) => button.getAttribute("data-period") === step.id);
         return {
           selectedByClass: selectedByClass.length,
@@ -774,7 +979,7 @@ async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
           selectedAria: selected?.getAttribute("aria-pressed") === "true",
           summary,
           rootCount: roots.length,
-          values,
+          series,
         };
       };
 
@@ -783,9 +988,9 @@ async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
         state.selectedByAria === 1 &&
         state.selectedClass &&
         state.selectedAria &&
-        JSON.stringify(state.summary) === JSON.stringify(step.summary) &&
+        JSON.stringify(state.summary) === JSON.stringify(Object.values(step.summary)) &&
         state.rootCount === 1 &&
-        JSON.stringify(state.values) === JSON.stringify(step.values);
+        JSON.stringify(state.series) === JSON.stringify(step.series);
 
       const results = [];
       for (const step of steps) {
@@ -1445,69 +1650,13 @@ test.describe("core/retail-market", () => {
     }) => {
       await openStrk260MarketDetail(page);
 
-      const cases = [
-        {
-          label: "24H",
-          summary: ["$107.00", "$101.00", "$111.00", "$10.00"],
-          values: [101, 105, 107, 109, 111],
-          times: [
-            toUnixSeconds("2026-05-25T18:00:00.000Z"),
-            toUnixSeconds("2026-05-25T18:00:00.000Z"),
-            toUnixSeconds("2026-05-26T12:00:00.000Z"),
-            toUnixSeconds("2026-05-26T12:00:00.000Z"),
-            toUnixSeconds("2026-05-26T18:00:00.000Z"),
-          ].sort(),
-        },
-        {
-          label: "7D",
-          summary: ["$77.00", "$71.00", "$85.00", "$14.00"],
-          values: [71, 75, 79, 85],
-          times: ["2026-05-19", "2026-05-19", "2026-05-23", "2026-05-26"],
-        },
-        {
-          label: "30D",
-          summary: ["$71.00", "$31.00", "$85.00", "$54.00"],
-          values: [31, 35, 61, 71, 75, 79, 85],
-          times: [
-            "2026-04-26",
-            "2026-04-30",
-            "2026-05-19",
-            "2026-05-19",
-            "2026-05-19",
-            "2026-05-23",
-            "2026-05-26",
-          ],
-        },
-        {
-          label: "60D",
-          summary: ["$55.00", "$45.00", "$65.00", "$20.00"],
-          values: [45, 55, 65],
-          times: ["2026-03-27", "2026-04-26", "2026-05-26"],
-        },
-        {
-          label: "90D",
-          summary: ["$44.50", "$25.00", "$65.00", "$40.00"],
-          values: [25, 35, 44, 45, 55, 65],
-          times: [
-            "2026-02-25",
-            "2026-03-01",
-            "2026-03-27",
-            "2026-03-27",
-            "2026-04-26",
-            "2026-05-26",
-          ],
-        },
-      ];
-
-      for (const period of cases) {
+      for (const period of STRK260_PERIODS) {
         await clickMarketPeriod(page, period.label);
-        await expect(marketSummaryValues(page)).toHaveText(period.summary);
-        await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+        await expectUsableMarketChart(page, period);
         const chart = activeMarketChart(await getMarketChartHarness(page));
         expect(chart, `${period.label} chart instance`).toBeTruthy();
         expect(chart.timeVisible).toBe(period.label === "24H");
-        expect(sortedChartValues(chart)).toEqual(period.values);
-        expect(sortedChartTimes(chart)).toEqual(period.times);
+        expect(chartSeriesPayload(chart)).toEqual(period.series);
       }
     });
 
@@ -1519,26 +1668,8 @@ test.describe("core/retail-market", () => {
 
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
       const chart = activeMarketChart(await getMarketChartHarness(page));
-      expect(chart.series.map((series) => series.title).sort()).toEqual(["APMEX", "Hero"]);
-      expect(chart.series).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            title: "Hero",
-            data: [
-              { time: "2026-05-19", value: 71 },
-              { time: "2026-05-23", value: 79 },
-            ],
-          }),
-          expect.objectContaining({
-            title: "APMEX",
-            data: [
-              { time: "2026-05-19", value: 75 },
-              { time: "2026-05-26", value: 85 },
-            ],
-          }),
-        ])
-      );
-      await expect(marketSummaryValues(page)).toHaveText(["$77.00", "$71.00", "$85.00", "$14.00"]);
+      expect(chartSeriesPayload(chart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
+      await expectMarketSummary(page, STRK260_PERIOD_EXPECTATIONS["7D"].summary);
     });
 
     test("a failed 30-day feed isolates 7D and 30D while 24H, 60D, and 90D remain usable", async ({
@@ -1558,56 +1689,85 @@ test.describe("core/retail-market", () => {
         await expect(marketPeriodButton(page, label)).not.toHaveClass(/\bactive\b/);
         await expect(marketPeriodButton(page, label)).toHaveAttribute("aria-pressed", "false");
       }
-      await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
-      await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
-      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+      await expectUnavailableMarketChart(page);
 
       await clickMarketPeriod(page, "30D");
-      await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
-      await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
-      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+      await expectUnavailableMarketChart(page);
 
       await clickMarketPeriod(page, "24H");
-      await expectUsableMarketChart(
-        page,
-        ["$107.00", "$101.00", "$111.00", "$10.00"],
-        [101, 105, 107, 109, 111]
-      );
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["24H"]);
 
       await clickMarketPeriod(page, "60D");
-      await expectUsableMarketChart(page, ["$55.00", "$45.00", "$65.00", "$20.00"], [45, 55, 65]);
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["60D"]);
       await clickMarketPeriod(page, "90D");
-      await expectUsableMarketChart(
-        page,
-        ["$44.50", "$25.00", "$65.00", "$40.00"],
-        [25, 35, 44, 45, 55, 65]
-      );
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["90D"]);
     });
 
-    test("a failed 90-day feed isolates 60D and 90D without breaking 7D and 30D", async ({
+    test("HTTP failures and successful empty or invalid feeds isolate unavailable ranges", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-90d"] });
 
       await clickMarketPeriod(page, "7D");
-      await expectUsableMarketChart(
-        page,
-        ["$77.00", "$71.00", "$85.00", "$14.00"],
-        [71, 75, 79, 85]
-      );
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["7D"]);
       await clickMarketPeriod(page, "30D");
-      await expectUsableMarketChart(
-        page,
-        ["$71.00", "$31.00", "$85.00", "$54.00"],
-        [31, 35, 61, 71, 75, 79, 85]
-      );
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["30D"]);
 
       for (const label of ["60D", "90D"]) {
         await clickMarketPeriod(page, label);
-        await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
-        await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
-        await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+        await expectUnavailableMarketChart(page);
       }
+
+      const emptyFeedPage = await page.context().newPage();
+      const emptyFeedStatuses = [];
+      emptyFeedPage.on("response", (response) => {
+        if (new URL(response.url()).pathname.endsWith("/history-30d.json")) {
+          emptyFeedStatuses.push(response.status());
+        }
+      });
+      await openStrk260MarketDetail(emptyFeedPage, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            "history-30d": [],
+          },
+        },
+      });
+      await expectUnavailableMarketChart(emptyFeedPage);
+      expect(emptyFeedStatuses).toEqual([200]);
+      await clickMarketPeriod(emptyFeedPage, "30D");
+      await expectUnavailableMarketChart(emptyFeedPage);
+      await clickMarketPeriod(emptyFeedPage, "24H");
+      await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["24H"]);
+      await clickMarketPeriod(emptyFeedPage, "90D");
+      await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["90D"]);
+      await emptyFeedPage.close();
+
+      const invalidFeedPage = await page.context().newPage();
+      const invalidFeedStatuses = [];
+      invalidFeedPage.on("response", (response) => {
+        if (new URL(response.url()).pathname.endsWith("/history-90d.json")) {
+          invalidFeedStatuses.push(response.status());
+        }
+      });
+      await openStrk260MarketDetail(invalidFeedPage, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            "history-90d": STRK260_ALL_INVALID_HISTORY_ROWS,
+          },
+        },
+      });
+      expect(invalidFeedStatuses).toEqual([200]);
+      for (const label of ["60D", "90D"]) {
+        await clickMarketPeriod(invalidFeedPage, label);
+        await expectUnavailableMarketChart(invalidFeedPage);
+      }
+      await clickMarketPeriod(invalidFeedPage, "7D");
+      await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["7D"]);
+      await clickMarketPeriod(invalidFeedPage, "30D");
+      await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["30D"]);
+      await invalidFeedPage.close();
     });
 
     test("period switching never changes the current Vendor comparison table", async ({ page }) => {
@@ -1629,13 +1789,22 @@ test.describe("core/retail-market", () => {
       await page.evaluate(() => window.saveDisplayCurrency("EUR"));
 
       await expect(marketPeriodButton(page, "24H")).toHaveAttribute("aria-pressed", "true");
-      await expect(marketSummaryValues(page)).toHaveText(["€53.50", "€50.50", "€55.50", "€5.00"]);
+      await expectUsableMarketChart(page, {
+        summary: {
+          Median: "€53.50",
+          Low: "€50.50",
+          High: "€55.50",
+          Spread: "€5.00",
+        },
+        series: convertSeriesPayload(STRK260_PERIOD_EXPECTATIONS["24H"].series, 0.5),
+      });
       await expect(page.locator("#marketDetailContent table tbody")).toContainText("€19.00");
       await expect(page.locator("#marketDetailContent")).toContainText(CURRENCY_DISCLAIMER);
 
-      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
       const chart = activeMarketChart(await getMarketChartHarness(page));
-      expect(sortedChartValues(chart)).toEqual([50.5, 52.5, 53.5, 54.5, 55.5]);
+      expect(chartSeriesPayload(chart)).toEqual(
+        convertSeriesPayload(STRK260_PERIOD_EXPECTATIONS["24H"].series, 0.5)
+      );
       expect(chart.hasPriceFormatter).toBe(true);
       expect(chart.formattedHundred).toBe("€100.00");
     });
@@ -1655,6 +1824,7 @@ test.describe("core/retail-market", () => {
           requests.push({
             origin: url.origin,
             filename: url.pathname.split("/").at(-1),
+            pathname: url.pathname,
             query: url.search,
             method: request.method(),
             postData: request.postData(),
@@ -1669,36 +1839,10 @@ test.describe("core/retail-market", () => {
       await expect(page.locator("#marketDetailModal")).toBeVisible();
       await expect(page.locator("#marketDetailContent table tbody")).toContainText("$38.00");
 
-      const periods = [
-        {
-          label: "7D",
-          summary: ["$77.00", "$71.00", "$85.00", "$14.00"],
-          values: [71, 75, 79, 85],
-        },
-        {
-          label: "24H",
-          summary: ["$107.00", "$101.00", "$111.00", "$10.00"],
-          values: [101, 105, 107, 109, 111],
-        },
-        {
-          label: "30D",
-          summary: ["$71.00", "$31.00", "$85.00", "$54.00"],
-          values: [31, 35, 61, 71, 75, 79, 85],
-        },
-        {
-          label: "60D",
-          summary: ["$55.00", "$45.00", "$65.00", "$20.00"],
-          values: [45, 55, 65],
-        },
-        {
-          label: "90D",
-          summary: ["$44.50", "$25.00", "$65.00", "$40.00"],
-          values: [25, 35, 44, 45, 55, 65],
-        },
-      ];
-      for (const period of periods) {
+      for (const label of ["7D", "24H", "30D", "60D", "90D"]) {
+        const period = STRK260_PERIOD_EXPECTATIONS[label];
         await clickMarketPeriod(page, period.label);
-        await expectUsableMarketChart(page, period.summary, period.values);
+        await expectUsableMarketChart(page, period);
       }
 
       for (const filename of [
@@ -1707,11 +1851,15 @@ test.describe("core/retail-market", () => {
         "history-30d.json",
         "history-90d.json",
       ]) {
-        expect(
-          requests
-            .filter((request) => request.filename === filename)
-            .map((request) => request.origin)
-        ).toEqual(["https://api.staktrakr.com", "https://api2.staktrakr.com"]);
+        const attempts = requests.filter((request) => request.filename === filename);
+        expect(attempts.map((request) => request.origin)).toEqual([
+          "https://api.staktrakr.com",
+          "https://api2.staktrakr.com",
+        ]);
+        expect(attempts.map((request) => request.pathname)).toEqual([
+          `/data/v2/retail/${SLUG_SILVER_A}/${filename}`,
+          `/data/v2/retail/${SLUG_SILVER_A}/${filename}`,
+        ]);
       }
 
       expect(requests.every((request) => request.method === "GET")).toBe(true);
@@ -1744,14 +1892,7 @@ test.describe("core/retail-market", () => {
       await clickMarketPeriod(page, "90D");
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
       const chart = activeMarketChart(await getMarketChartHarness(page));
-      expect(sortedChartTimes(chart)).toEqual([
-        "2026-02-25",
-        "2026-03-01",
-        "2026-03-27",
-        "2026-03-27",
-        "2026-04-26",
-        "2026-05-26",
-      ]);
+      expect(chartSeriesPayload(chart)).toEqual(STRK260_PERIOD_EXPECTATIONS["90D"].series);
     });
 
     test("completed switching stays under 100ms and repeated renders retain one final 90D chart", async ({
@@ -1760,35 +1901,8 @@ test.describe("core/retail-market", () => {
       await openStrk260MarketDetail(page);
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
 
-      const periods = [
-        {
-          id: "24h",
-          summary: ["$107.00", "$101.00", "$111.00", "$10.00"],
-          values: [101, 105, 107, 109, 111],
-        },
-        {
-          id: "7d",
-          summary: ["$77.00", "$71.00", "$85.00", "$14.00"],
-          values: [71, 75, 79, 85],
-        },
-        {
-          id: "30d",
-          summary: ["$71.00", "$31.00", "$85.00", "$54.00"],
-          values: [31, 35, 61, 71, 75, 79, 85],
-        },
-        {
-          id: "60d",
-          summary: ["$55.00", "$45.00", "$65.00", "$20.00"],
-          values: [45, 55, 65],
-        },
-        {
-          id: "90d",
-          summary: ["$44.50", "$25.00", "$65.00", "$40.00"],
-          values: [25, 35, 44, 45, 55, 65],
-        },
-      ];
-      const measurements = await measureCompletedMarketSwitches(page, periods);
-      expect(measurements).toHaveLength(periods.length * 3);
+      const measurements = await measureCompletedMarketSwitches(page, STRK260_PERIODS);
+      expect(measurements).toHaveLength(STRK260_PERIODS.length * 3);
       for (const measurement of measurements) {
         expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
         expect(measurement.durationMs, measurement.id).toBeLessThan(100);
@@ -1814,17 +1928,10 @@ test.describe("core/retail-market", () => {
       await expect(marketPeriodButton(page, "90D")).toHaveAttribute("aria-pressed", "true");
       await expect(marketPeriodButton(page, "90D")).toHaveClass(/\bactive\b/);
       const finalChart = activeMarketChart(snapshot);
-      expect(sortedChartValues(finalChart)).toEqual([25, 35, 44, 45, 55, 65]);
-      expect(sortedChartTimes(finalChart)).toEqual([
-        "2026-02-25",
-        "2026-03-01",
-        "2026-03-27",
-        "2026-03-27",
-        "2026-04-26",
-        "2026-05-26",
-      ]);
+      expect(chartSeriesPayload(finalChart)).toEqual(STRK260_PERIOD_EXPECTATIONS["90D"].series);
 
       await page.locator("#marketDetailCloseBtn").click();
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
       const afterClose = await getMarketChartHarness(page);
       expect(
@@ -1832,6 +1939,28 @@ test.describe("core/retail-market", () => {
           (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
         )
       ).toHaveLength(0);
+
+      await page
+        .locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" })
+        .click();
+      await expect(page.locator("#marketDetailModal")).toBeVisible();
+      await expect(page.locator("#marketDetailContent button[data-period].active")).toHaveCount(1);
+      await expect(
+        page.locator('#marketDetailContent button[data-period][aria-pressed="true"]')
+      ).toHaveCount(1);
+      await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      for (const label of ["24H", "30D", "60D", "90D"]) {
+        await expect(marketPeriodButton(page, label)).not.toHaveClass(/\bactive\b/);
+        await expect(marketPeriodButton(page, label)).toHaveAttribute("aria-pressed", "false");
+      }
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["7D"]);
+      const reopenedChart = activeMarketChart(await getMarketChartHarness(page));
+      expect(reopenedChart.id).not.toBe(finalChart.id);
+      expect(chartSeriesPayload(reopenedChart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
+
+      await page.locator("#marketDetailCloseBtn").click();
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
     });
   });
 });
