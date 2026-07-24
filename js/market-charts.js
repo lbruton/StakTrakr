@@ -127,77 +127,6 @@ const _getMarketChartCurrencyContext = () => {
 };
 
 /**
- * Adapt the legacy two-control modal's raw feed rows to the normalized chart
- * shape without inventing points or inferring a range. Task 2 bypasses this
- * compatibility seam when it wires the strict selected-range controller.
- * @param {Array<Object>} rows - Raw intraday or daily feed rows.
- * @param {boolean} intraday - Whether Vendor values are direct intraday prices.
- * @returns {{series:Array<Object>,hasChartData:boolean}} Chart-compatible model.
- */
-const _buildLegacyVendorRangeModel = (rows, intraday) => {
-  const seriesByVendor = new Map();
-
-  for (const row of rows) {
-    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
-    let timeMs = Number(row.ts) * 1000;
-    if (!Number.isFinite(timeMs) || timeMs <= 0) {
-      const isoTimeMs =
-        typeof _parseMarketDetailIsoTime === "function" ? _parseMarketDetailIsoTime(row.t) : null;
-      timeMs = isoTimeMs === null ? Number.NaN : isoTimeMs;
-    }
-    if (!Number.isFinite(timeMs) || timeMs <= 0) continue;
-    if (!row.vendors || typeof row.vendors !== "object" || Array.isArray(row.vendors)) continue;
-
-    const date = new Date(timeMs);
-    const utcDate = [
-      date.getUTCFullYear(),
-      String(date.getUTCMonth() + 1).padStart(2, "0"),
-      String(date.getUTCDate()).padStart(2, "0"),
-    ].join("-");
-    const hasPublisherDate =
-      typeof _parseMarketDetailIsoTime === "function" && _parseMarketDetailIsoTime(row.t) !== null;
-    const chartTime = intraday
-      ? Math.floor(timeMs / 1000)
-      : hasPublisherDate
-        ? row.t.slice(0, 10)
-        : utcDate;
-
-    for (const [vendorId, vendorValue] of Object.entries(row.vendors)) {
-      const rawPrice =
-        intraday || typeof vendorValue === "number" || typeof vendorValue === "string"
-          ? vendorValue
-          : vendorValue?.avg;
-      if (
-        !vendorId ||
-        (typeof rawPrice !== "number" && typeof rawPrice !== "string") ||
-        (typeof rawPrice === "string" && rawPrice.trim() === "")
-      ) {
-        continue;
-      }
-
-      const usdPrice = Number(rawPrice);
-      if (!Number.isFinite(usdPrice) || usdPrice <= 0) continue;
-      if (!seriesByVendor.has(vendorId)) seriesByVendor.set(vendorId, []);
-      seriesByVendor.get(vendorId).push({ time: chartTime, usdPrice });
-    }
-  }
-
-  const series = Array.from(seriesByVendor, ([vendorId, points]) => ({
-    vendorId,
-    points: points.sort((left, right) =>
-      typeof left.time === "number"
-        ? left.time - right.time
-        : String(left.time).localeCompare(String(right.time))
-    ),
-  })).sort((left, right) => left.vendorId.localeCompare(right.vendorId));
-
-  return {
-    series,
-    hasChartData: series.some((vendorSeries) => vendorSeries.points.length > 0),
-  };
-};
-
-/**
  * Clear a dedicated Market Detail chart container after failed construction or
  * removal so a partial Lightweight Charts root cannot survive.
  * @param {HTMLElement} container - Dedicated chart container.
@@ -227,16 +156,38 @@ const _createVendorRangeChart = (
   const container = safeGetElement(containerId);
   if (!(container instanceof HTMLElement)) return null;
 
-  const validSeries = Array.isArray(rangeModel?.series)
-    ? rangeModel.series.filter(
-        (vendorSeries) =>
-          vendorSeries &&
-          typeof vendorSeries.vendorId === "string" &&
-          Array.isArray(vendorSeries.points) &&
-          vendorSeries.points.length > 0
+  const isNormalizedRangeModel =
+    rangeModel &&
+    typeof rangeModel === "object" &&
+    !Array.isArray(rangeModel) &&
+    typeof rangeModel.periodId === "string" &&
+    Number.isFinite(rangeModel.startMs) &&
+    Number.isFinite(rangeModel.endMs) &&
+    rangeModel.startMs <= rangeModel.endMs &&
+    rangeModel.intraday === timeVisible &&
+    Array.isArray(rangeModel.observations) &&
+    Array.isArray(rangeModel.series) &&
+    rangeModel.hasChartData === true;
+  if (!isNormalizedRangeModel || rangeModel.series.length === 0) return null;
+
+  const validSeries = rangeModel.series.filter(
+    (vendorSeries) =>
+      vendorSeries &&
+      typeof vendorSeries.vendorId === "string" &&
+      vendorSeries.vendorId.length > 0 &&
+      Array.isArray(vendorSeries.points) &&
+      vendorSeries.points.length > 0 &&
+      vendorSeries.points.every(
+        (point) =>
+          point &&
+          Number.isFinite(point.usdPrice) &&
+          point.usdPrice > 0 &&
+          (timeVisible
+            ? Number.isFinite(point.time) && point.time > 0
+            : /^\d{4}-\d{2}-\d{2}$/.test(point.time))
       )
-    : [];
-  if (!rangeModel?.hasChartData || validSeries.length === 0) return null;
+  );
+  if (validSeries.length !== rangeModel.series.length) return null;
 
   const colors = getChartThemeColors();
   const context = currencyContext || _getMarketChartCurrencyContext();
@@ -279,42 +230,32 @@ const _createVendorRangeChart = (
 /**
  * Create a multi-Vendor chart for normalized intraday observations.
  * @param {string} containerId - Target chart container ID.
- * @param {(Object|Array<Object>)} rangeModelOrRows - Normalized model or legacy raw rows.
+ * @param {Object} rangeModel - Normalized date-bounded intraday model.
  * @param {Object} vendorMeta - Vendor metadata keyed by ID.
  * @param {Object} [currencyContext] - Active display-currency context.
  * @returns {(Object|null)} Lightweight Charts instance, or null.
  */
 const createVendorIntradayChart = (
   containerId,
-  rangeModelOrRows,
+  rangeModel,
   vendorMeta,
   currencyContext = _getMarketChartCurrencyContext()
-) => {
-  const rangeModel = Array.isArray(rangeModelOrRows)
-    ? _buildLegacyVendorRangeModel(rangeModelOrRows, true)
-    : rangeModelOrRows;
-  return _createVendorRangeChart(containerId, rangeModel, vendorMeta, currencyContext, true);
-};
+) => _createVendorRangeChart(containerId, rangeModel, vendorMeta, currencyContext, true);
 
 /**
  * Create a multi-Vendor chart for normalized daily observations.
  * @param {string} containerId - Target chart container ID.
- * @param {(Object|Array<Object>)} rangeModelOrRows - Normalized model or legacy raw rows.
+ * @param {Object} rangeModel - Normalized date-bounded daily model.
  * @param {Object} vendorMeta - Vendor metadata keyed by ID.
  * @param {Object} [currencyContext] - Active display-currency context.
  * @returns {(Object|null)} Lightweight Charts instance, or null.
  */
 const createVendorHistoryChart = (
   containerId,
-  rangeModelOrRows,
+  rangeModel,
   vendorMeta,
   currencyContext = _getMarketChartCurrencyContext()
-) => {
-  const rangeModel = Array.isArray(rangeModelOrRows)
-    ? _buildLegacyVendorRangeModel(rangeModelOrRows, false)
-    : rangeModelOrRows;
-  return _createVendorRangeChart(containerId, rangeModel, vendorMeta, currencyContext, false);
-};
+) => _createVendorRangeChart(containerId, rangeModel, vendorMeta, currencyContext, false);
 
 /**
  * Remove a Lightweight Charts instance and its DOM root.
