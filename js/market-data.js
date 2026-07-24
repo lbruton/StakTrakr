@@ -658,6 +658,7 @@ const _shortVendor = (vid) => {
 let _activeModalChart = null;
 let _activeModalSlug = null;
 let _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
+let _activeModalRenderGeneration = 0;
 
 const _modalEscHandler = (e) => {
   if (e.key === "Escape") closeMarketDetailModal();
@@ -671,6 +672,7 @@ const _destroyActiveMarketDetailChart = () => {
 };
 
 const closeMarketDetailModal = () => {
+  _activeModalRenderGeneration += 1;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = null;
   _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
@@ -1297,6 +1299,7 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   const content = safeGetElement("marketDetailContent");
   if (!(overlay instanceof HTMLElement) || !(content instanceof HTMLElement)) return;
 
+  const renderGeneration = ++_activeModalRenderGeneration;
   if (!preservePeriod) _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = slug;
@@ -1325,6 +1328,13 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
 
   const modalData = await _fetchModalData(slug);
+  if (
+    renderGeneration !== _activeModalRenderGeneration ||
+    _activeModalSlug !== slug ||
+    overlay.hasAttribute("hidden")
+  ) {
+    return;
+  }
   const { detail } = modalData;
 
   content.textContent = "";

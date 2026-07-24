@@ -629,6 +629,36 @@ function makeV2Handler({
   };
 }
 
+function createDeferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+async function gatePrimaryRetailLatest(page, slug) {
+  const requested = createDeferred();
+  const release = createDeferred();
+  await page.route(
+    `https://api.staktrakr.com/data/v2/retail/${slug}/latest.json`,
+    async (route) => {
+      requested.resolve();
+      await release.promise;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: GENERATED_AT,
+          data: latestForSlug(slug),
+        }),
+      });
+    }
+  );
+  return { requested: requested.promise, release: release.resolve };
+}
+
 /** Stubs the exchange-rate and lightweight-charts CDN routes for a page. */
 async function routeExchangeAndCharts(page, exchangeRates = { EUR: 0.9 }) {
   await page.route("https://open.er-api.com/v6/latest/USD", async (route) => {
@@ -1837,6 +1867,62 @@ test.describe("core/retail-market", () => {
       );
       expect(chart.hasPriceFormatter).toBe(true);
       expect(chart.formattedHundred).toBe("€100.00");
+    });
+
+    test("close during modal loading invalidates the pending render", async ({ page }) => {
+      await setupRetailFixture(page);
+      const gate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+
+      const pendingOpen = page.evaluate(
+        (slug) => window.openMarketDetailModal(slug),
+        SLUG_SILVER_A
+      );
+      await gate.requested;
+      await expect(page.locator("#marketDetailModal")).toBeVisible();
+      await expect(page.locator("#marketDetailContent")).toHaveText("Loading coin details…");
+
+      await page.locator("#marketDetailCloseBtn").click();
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+      await expect(page.locator("#marketDetailContent")).toBeEmpty();
+
+      gate.release();
+      await pendingOpen;
+
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+      await expect(page.locator("#marketDetailContent")).toBeEmpty();
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+    });
+
+    test("an older modal response cannot overwrite a newer open", async ({ page }) => {
+      await setupRetailFixture(page);
+      const olderGate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+
+      const olderOpen = page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+      await olderGate.requested;
+      await expect(page.locator("#marketDetailContent")).toHaveText("Loading coin details…");
+
+      await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_Z);
+      await expect(page.locator("#marketDetailTitle")).toContainText("Zebra Silver Round");
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("$42.00");
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const newerChart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(newerChart)).toEqual([
+        {
+          title: "Hero",
+          data: [{ time: RECENT_DATE, value: priceRows[SLUG_SILVER_Z].price }],
+        },
+      ]);
+
+      olderGate.release();
+      await olderOpen;
+
+      await expect(page.locator("#marketDetailTitle")).toContainText("Zebra Silver Round");
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("$42.00");
+      await expect(page.locator("#marketDetailContent table tbody")).not.toContainText("$38.00");
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const finalChart = activeMarketChart(await getMarketChartHarness(page));
+      expect(finalChart.id).toBe(newerChart.id);
+      expect(chartSeriesPayload(finalChart)).toEqual(chartSeriesPayload(newerChart));
     });
 
     test("api1 failure reaches api2 for all modal feeds including 90-day history", async ({
