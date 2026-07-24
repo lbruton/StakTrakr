@@ -192,14 +192,7 @@ function parseDate(dateStr) {
     }
     // Both numbers <= 12, ambiguous - default to US format (MM/DD/YYYY)
     else if (first <= 12 && second <= 12) {
-      // Try US format first
-      let date = new Date(year, first - 1, second);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return localIsoDate(date);
-      }
-
-      // Fallback to European format
-      date = new Date(year, second - 1, first);
+      const date = new Date(year, first - 1, second);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
         return localIsoDate(date);
       }
