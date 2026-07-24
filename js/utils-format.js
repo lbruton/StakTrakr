@@ -108,6 +108,19 @@ const formatTimeOnly = (date) => {
 };
 
 /**
+ * Formats a Date's LOCAL calendar components as YYYY-MM-DD. Deterministic
+ * replacement for toLocaleDateString("en-CA"), whose output shape is
+ * implementation-defined and can drift under small-icu / limited-locale
+ * environments — formatDisplayDate splits this string on dashes.
+ *
+ * @param {Date} date - Locally-constructed Date
+ * @returns {string} Local calendar date in YYYY-MM-DD format
+ */
+const localIsoDate = (date) => {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+/**
  * Parses various date formats into standard YYYY-MM-DD format
  *
  * Handles:
@@ -119,12 +132,13 @@ const formatTimeOnly = (date) => {
  * Uses intelligent parsing to distinguish between US and European formats
  * based on date values and context clues.
  *
- * All return sites format the parsed Date's LOCAL components via
- * toLocaleDateString("en-CA") — never toISOString, which reads UTC and shifts
- * the calendar day back for positive-UTC-offset users (STRK-266).
+ * Parsed-date return sites format the Date's LOCAL components via
+ * localIsoDate() — never toISOString, which reads UTC and shifts the calendar
+ * day back for positive-UTC-offset users (STRK-266). Strict YYYY-MM-DD input
+ * is returned verbatim after validation.
  *
  * @param {string} dateStr - Date string in any supported format
- * @returns {string} Date in YYYY-MM-DD format, or 'Unknown' if parsing fails
+ * @returns {string} Date in YYYY-MM-DD format, or '—' if parsing fails
  */
 function parseDate(dateStr) {
   if (!dateStr) return "—";
@@ -150,7 +164,7 @@ function parseDate(dateStr) {
     if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
       const date = new Date(year, month, day);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toLocaleDateString("en-CA");
+        return localIsoDate(date);
       }
     }
   }
@@ -166,14 +180,14 @@ function parseDate(dateStr) {
     if (first > 12 && second <= 12) {
       const date = new Date(year, second - 1, first);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toLocaleDateString("en-CA");
+        return localIsoDate(date);
       }
     }
     // If second number > 12, it must be MM/DD/YYYY (US)
     else if (second > 12 && first <= 12) {
       const date = new Date(year, first - 1, second);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toLocaleDateString("en-CA");
+        return localIsoDate(date);
       }
     }
     // Both numbers <= 12, ambiguous - default to US format (MM/DD/YYYY)
@@ -181,13 +195,13 @@ function parseDate(dateStr) {
       // Try US format first
       let date = new Date(year, first - 1, second);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toLocaleDateString("en-CA");
+        return localIsoDate(date);
       }
 
       // Fallback to European format
       date = new Date(year, second - 1, first);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toLocaleDateString("en-CA");
+        return localIsoDate(date);
       }
     }
   }
@@ -196,7 +210,7 @@ function parseDate(dateStr) {
   try {
     const date = new Date(cleanDateStr);
     if (!isNaN(date) && date.toString() !== "Invalid Date") {
-      return date.toLocaleDateString("en-CA");
+      return localIsoDate(date);
     }
   } catch (e) {
     // Continue to fallback

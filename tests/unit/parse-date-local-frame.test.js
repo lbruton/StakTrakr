@@ -18,25 +18,36 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { sliceFunctionDecl } from "./test-helpers.js";
+import { sliceArrowConst, sliceFunctionDecl } from "./test-helpers.js";
 
 const src = readFileSync(new URL("../../js/utils-format.js", import.meta.url), "utf8");
+
+// parseDate depends on localIsoDate, which depends on pad2 — slice all three so
+// the eval runs the REAL production chain.
+const pad2Match = src.match(/^const pad2 = .*;$/m);
+assert.ok(pad2Match, "could not locate the pad2 declaration in source");
 
 // `new Function(...)` here is NOT user input: the source is sliced from the
 // repo's own js/utils-format.js (same pattern as the cloud-sync unit tests).
 const parseDate = new Function(
-  `${sliceFunctionDecl(src, "function parseDate(")}\nreturn parseDate;`
+  [
+    pad2Match[0],
+    sliceArrowConst(src, "const localIsoDate = ("),
+    sliceFunctionDecl(src, "function parseDate("),
+    "return parseDate;",
+  ].join("\n")
 )();
 
 describe("parseDate — local-frame output (STRK-266)", () => {
-  it("sanity: TZ pin took effect (positive UTC offset)", () => {
-    // getTimezoneOffset() is minutes to ADD to local time to reach UTC, so a
-    // positive-offset zone reports a NEGATIVE value. If this fails, the pin
-    // did not apply and every case below could false-pass on UTC-negative
-    // developer machines.
-    assert.ok(
-      new Date(2026, 0, 5).getTimezoneOffset() < 0,
-      "expected a positive-UTC-offset timezone (Pacific/Kiritimati)"
+  it("sanity: TZ pin took effect (exactly UTC+14)", () => {
+    // getTimezoneOffset() is minutes to ADD to local time to reach UTC, so
+    // UTC+14 reports exactly -840. Asserting the exact value (not merely a
+    // negative one) means a failed pin can never false-pass — not even on a
+    // developer machine that already sits in some positive-offset zone.
+    assert.equal(
+      new Date(2026, 0, 5).getTimezoneOffset(),
+      -840,
+      "expected the Pacific/Kiritimati (UTC+14) TZ pin to be in effect"
     );
   });
 
