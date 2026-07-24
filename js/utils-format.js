@@ -183,15 +183,9 @@ function parseDate(dateStr) {
         return localIsoDate(date);
       }
     }
-    // If second number > 12, it must be MM/DD/YYYY (US)
-    else if (second > 12 && first <= 12) {
-      const date = new Date(year, first - 1, second);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return localIsoDate(date);
-      }
-    }
-    // Both numbers <= 12, ambiguous - default to US format (MM/DD/YYYY)
-    else if (first <= 12 && second <= 12) {
+    // Otherwise treat as MM/DD/YYYY (US) — unambiguous when second > 12,
+    // and the default when both numbers are <= 12 (ambiguous)
+    else if (first <= 12) {
       const date = new Date(year, first - 1, second);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
         return localIsoDate(date);
