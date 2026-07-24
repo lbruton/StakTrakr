@@ -678,8 +678,10 @@ const closeMarketDetailModal = () => {
 };
 
 /**
- * Parse the publisher's UTC ISO timestamp shape with calendar/time round-trip
- * validation so impossible dates and non-contract strings are rejected.
+ * Parse the publisher's UTC ISO timestamp shape with shared local-calendar
+ * validity checks and domain-specific UTC time-component checks.
+ * `validatedLocalDate()` is reused only as the shared local-calendar predicate;
+ * this feed parser retains strict UTC `Z` framing and time checks.
  * @param {*} timestamp - Candidate `YYYY-MM-DDTHH:mm:ss(.sss)Z` value.
  * @returns {(number|null)} Valid UTC timestamp in milliseconds, otherwise null.
  */
@@ -696,23 +698,24 @@ const _parseMarketDetailIsoTime = (timestamp) => {
   const minute = Number(minuteText);
   const second = Number(secondText);
   const millisecond = Number(msText || 0);
-  const date = new Date(0);
-  date.setUTCFullYear(year, month - 1, day);
-  date.setUTCHours(hour, minute, second, millisecond);
-
+  const calendarDate =
+    typeof validatedLocalDate === "function" ? validatedLocalDate(year, month - 1, day) : null;
   if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day ||
-    date.getUTCHours() !== hour ||
-    date.getUTCMinutes() !== minute ||
-    date.getUTCSeconds() !== second ||
-    date.getUTCMilliseconds() !== millisecond
+    !calendarDate ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59 ||
+    millisecond < 0 ||
+    millisecond > 999
   ) {
     return null;
   }
 
-  return date.getTime();
+  const utcTimeMs = Date.parse(timestamp);
+  return Number.isFinite(utcTimeMs) ? utcTimeMs : null;
 };
 
 /**
