@@ -265,9 +265,20 @@ const lightweightChartsStub = `
       instances: [],
       removeCount: 0,
       removedIds: [],
+      peakRootCount: 0,
+      rootEvents: [],
     };
+    harness.peakRootCount = harness.peakRootCount || 0;
+    harness.rootEvents = harness.rootEvents || [];
     window.__marketChartHarness = harness;
     const cloneData = (data) => data.map((point) => ({ ...point }));
+    const recordRootEvent = (type, id) => {
+      const rootCount = document.querySelectorAll(
+        "#marketDetailChartArea .tv-lightweight-charts"
+      ).length;
+      harness.peakRootCount = Math.max(harness.peakRootCount, rootCount);
+      harness.rootEvents.push({ type, id, rootCount, at: performance.now() });
+    };
     window.LightweightCharts = {
     CrosshairMode: { Normal: 0 },
     createChart(container, options = {}) {
@@ -284,6 +295,7 @@ const lightweightChartsStub = `
       };
       root.dataset.chartInstanceId = String(instance.id);
       container.appendChild(root);
+      recordRootEvent("create", instance.id);
       harness.instances.push(instance);
       const addSeries = (type, seriesOptions = {}) => {
         const record = { type, options: seriesOptions, data: [] };
@@ -329,6 +341,7 @@ const lightweightChartsStub = `
           harness.removeCount += 1;
           harness.removedIds.push(instance.id);
           root.remove();
+          recordRootEvent("remove", instance.id);
         },
       };
     },
@@ -681,6 +694,8 @@ async function getMarketChartHarness(page) {
     return {
       removeCount: harness.removeCount,
       removedIds: [...harness.removedIds],
+      peakRootCount: harness.peakRootCount || 0,
+      rootEvents: [...(harness.rootEvents || [])],
       rootCount: roots.length,
       instances: harness.instances.map((instance) => ({
         id: instance.id,
@@ -713,6 +728,107 @@ const sortedChartValues = (chart) =>
 
 const sortedChartTimes = (chart) =>
   chart.series.flatMap((series) => series.data.map((point) => point.time)).sort();
+
+async function expectUsableMarketChart(page, summary, values) {
+  await expect(page.getByText("Chart unavailable", { exact: true })).toHaveCount(0);
+  await expect(marketSummaryValues(page)).toHaveText(summary);
+  await expect
+    .poll(async () => {
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      return chart ? sortedChartValues(chart) : null;
+    })
+    .toEqual(values);
+  await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+}
+
+async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
+  const sequence = Array.from({ length: cycles }, () => periods).flat();
+  return page.evaluate(
+    async ({ steps, deadlineMs }) => {
+      const readState = (step) => {
+        const buttons = Array.from(
+          document.querySelectorAll("#marketDetailContent button[data-period]")
+        );
+        const selectedByClass = buttons.filter((button) => button.classList.contains("active"));
+        const selectedByAria = buttons.filter(
+          (button) => button.getAttribute("aria-pressed") === "true"
+        );
+        const summary = Array.from(
+          document.querySelectorAll("#marketDetailContent .market-value")
+        ).map((value) => value.textContent.trim());
+        const roots = Array.from(
+          document.querySelectorAll("#marketDetailChartArea .tv-lightweight-charts")
+        );
+        const activeId = roots.length === 1 ? Number(roots[0].dataset.chartInstanceId) : Number.NaN;
+        const activeInstance = window.__marketChartHarness?.instances.find(
+          (instance) => instance.id === activeId && !instance.removed
+        );
+        const values = (activeInstance?.series || [])
+          .flatMap((series) => series.data.map((point) => point.value))
+          .sort((a, b) => a - b);
+        const selected = buttons.find((button) => button.getAttribute("data-period") === step.id);
+        return {
+          selectedByClass: selectedByClass.length,
+          selectedByAria: selectedByAria.length,
+          selectedClass: !!selected?.classList.contains("active"),
+          selectedAria: selected?.getAttribute("aria-pressed") === "true",
+          summary,
+          rootCount: roots.length,
+          values,
+        };
+      };
+
+      const isComplete = (state, step) =>
+        state.selectedByClass === 1 &&
+        state.selectedByAria === 1 &&
+        state.selectedClass &&
+        state.selectedAria &&
+        JSON.stringify(state.summary) === JSON.stringify(step.summary) &&
+        state.rootCount === 1 &&
+        JSON.stringify(state.values) === JSON.stringify(step.values);
+
+      const results = [];
+      for (const step of steps) {
+        const button = document.querySelector(
+          `#marketDetailContent button[data-period="${step.id}"]`
+        );
+        if (!button) {
+          results.push({ id: step.id, completed: false, reason: "missing-button" });
+          break;
+        }
+
+        const startedAt = performance.now();
+        button.click();
+        const result = await new Promise((resolve) => {
+          const check = () => {
+            const state = readState(step);
+            const durationMs = performance.now() - startedAt;
+            if (isComplete(state, step)) {
+              resolve({ id: step.id, completed: true, durationMs, state });
+              return;
+            }
+            if (durationMs >= deadlineMs) {
+              resolve({
+                id: step.id,
+                completed: false,
+                durationMs,
+                reason: "completion-timeout",
+                state,
+              });
+              return;
+            }
+            requestAnimationFrame(check);
+          };
+          requestAnimationFrame(check);
+        });
+        results.push(result);
+        if (!result.completed) break;
+      }
+      return results;
+    },
+    { steps: sequence, deadlineMs: 1000 }
+  );
+}
 
 test.describe("core/retail-market", () => {
   // STRK-213: the providers.json refresh must not hard-depend on AbortSignal.timeout,
@@ -1305,15 +1421,22 @@ test.describe("core/retail-market", () => {
       await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
       await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
       await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1);
+      await expect(group.locator("button.active")).toHaveCount(1);
 
+      let previousLabel = "7D";
       for (const [index, label] of ["24H", "30D", "60D", "90D", "7D"].entries()) {
+        const previousButton = marketPeriodButton(page, previousLabel);
         const button = marketPeriodButton(page, label);
         await button.focus();
         await button.press(index % 2 === 0 ? "Enter" : "Space");
         await expect(button).toBeFocused();
         await expect(button).toHaveAttribute("aria-pressed", "true");
         await expect(button).toHaveClass(/\bactive\b/);
+        await expect(previousButton).toHaveAttribute("aria-pressed", "false");
+        await expect(previousButton).not.toHaveClass(/\bactive\b/);
         await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1);
+        await expect(group.locator("button.active")).toHaveCount(1);
+        previousLabel = label;
       }
     });
 
@@ -1418,27 +1541,31 @@ test.describe("core/retail-market", () => {
       await expect(marketSummaryValues(page)).toHaveText(["$77.00", "$71.00", "$85.00", "$14.00"]);
     });
 
-    test("a failed 30-day feed keeps unavailable 7D selected while 24H and 90-day ranges work", async ({
+    test("a failed 30-day feed isolates 7D and 30D while 24H, 60D, and 90D remain usable", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-30d"] });
 
-      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      await clickMarketPeriod(page, "30D");
       await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
       await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
 
       await clickMarketPeriod(page, "24H");
-      await expect(marketSummaryValues(page)).toHaveText([
-        "$107.00",
-        "$101.00",
-        "$111.00",
-        "$10.00",
-      ]);
+      await expectUsableMarketChart(
+        page,
+        ["$107.00", "$101.00", "$111.00", "$10.00"],
+        [101, 105, 107, 109, 111]
+      );
 
       await clickMarketPeriod(page, "60D");
-      await expect(marketSummaryValues(page)).toHaveText(["$55.00", "$45.00", "$65.00", "$20.00"]);
+      await expectUsableMarketChart(page, ["$55.00", "$45.00", "$65.00", "$20.00"], [45, 55, 65]);
       await clickMarketPeriod(page, "90D");
-      await expect(marketSummaryValues(page)).toHaveText(["$44.50", "$25.00", "$65.00", "$40.00"]);
+      await expectUsableMarketChart(
+        page,
+        ["$44.50", "$25.00", "$65.00", "$40.00"],
+        [25, 35, 44, 45, 55, 65]
+      );
     });
 
     test("a failed 90-day feed isolates 60D and 90D without breaking 7D and 30D", async ({
@@ -1446,14 +1573,24 @@ test.describe("core/retail-market", () => {
     }) => {
       await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-90d"] });
 
-      await expect(marketSummaryValues(page)).toHaveText(["$77.00", "$71.00", "$85.00", "$14.00"]);
+      await clickMarketPeriod(page, "7D");
+      await expectUsableMarketChart(
+        page,
+        ["$77.00", "$71.00", "$85.00", "$14.00"],
+        [71, 75, 79, 85]
+      );
       await clickMarketPeriod(page, "30D");
-      await expect(marketSummaryValues(page)).toHaveText(["$71.00", "$31.00", "$85.00", "$54.00"]);
+      await expectUsableMarketChart(
+        page,
+        ["$71.00", "$31.00", "$85.00", "$54.00"],
+        [31, 35, 61, 71, 75, 79, 85]
+      );
 
       for (const label of ["60D", "90D"]) {
         await clickMarketPeriod(page, label);
         await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
         await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
+        await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
       }
     });
 
@@ -1494,13 +1631,18 @@ test.describe("core/retail-market", () => {
         failPrimary: true,
         retailFeeds: STRK260_MODAL_FEEDS,
       });
+      const storageKeysBeforeModal = await page.evaluate(() => Object.keys(localStorage).sort());
       const requests = [];
       page.on("request", (request) => {
         if (request.url().includes(`/retail/${SLUG_SILVER_A}/`)) {
+          const url = new URL(request.url());
           requests.push({
-            url: request.url(),
+            origin: url.origin,
+            filename: url.pathname.split("/").at(-1),
+            query: url.search,
             method: request.method(),
             postData: request.postData(),
+            headers: request.headers(),
           });
         }
       });
@@ -1509,23 +1651,72 @@ test.describe("core/retail-market", () => {
         .locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" })
         .click();
       await expect(page.locator("#marketDetailModal")).toBeVisible();
-      await clickMarketPeriod(page, "90D");
-      await expect(marketSummaryValues(page)).toHaveText(["$44.50", "$25.00", "$65.00", "$40.00"]);
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("$38.00");
 
-      const requestedFiles = [
-        ...new Set(requests.map((request) => new URL(request.url).pathname.split("/").at(-1))),
-      ].sort();
-      expect(requestedFiles).toEqual(
-        ["history-30d.json", "history-90d.json", "intraday.json", "latest.json"].sort()
-      );
-      expect(requests.length).toBeGreaterThanOrEqual(8);
+      const periods = [
+        {
+          label: "7D",
+          summary: ["$77.00", "$71.00", "$85.00", "$14.00"],
+          values: [71, 75, 79, 85],
+        },
+        {
+          label: "24H",
+          summary: ["$107.00", "$101.00", "$111.00", "$10.00"],
+          values: [101, 105, 107, 109, 111],
+        },
+        {
+          label: "30D",
+          summary: ["$71.00", "$31.00", "$85.00", "$54.00"],
+          values: [31, 35, 61, 71, 75, 79, 85],
+        },
+        {
+          label: "60D",
+          summary: ["$55.00", "$45.00", "$65.00", "$20.00"],
+          values: [45, 55, 65],
+        },
+        {
+          label: "90D",
+          summary: ["$44.50", "$25.00", "$65.00", "$40.00"],
+          values: [25, 35, 44, 45, 55, 65],
+        },
+      ];
+      for (const period of periods) {
+        await clickMarketPeriod(page, period.label);
+        await expectUsableMarketChart(page, period.summary, period.values);
+      }
+
+      for (const filename of [
+        "latest.json",
+        "intraday.json",
+        "history-30d.json",
+        "history-90d.json",
+      ]) {
+        expect(
+          requests
+            .filter((request) => request.filename === filename)
+            .map((request) => request.origin)
+        ).toEqual(["https://api.staktrakr.com", "https://api2.staktrakr.com"]);
+      }
+
       expect(requests.every((request) => request.method === "GET")).toBe(true);
       expect(requests.every((request) => request.postData === null)).toBe(true);
+      expect(requests.every((request) => request.query === "")).toBe(true);
+      const forbiddenHeaders = new Set([
+        "authorization",
+        "cookie",
+        "proxy-authorization",
+        "x-api-key",
+      ]);
       expect(
-        requests.every((request) =>
-          ["api.staktrakr.com", "api2.staktrakr.com"].includes(new URL(request.url).hostname)
+        requests.flatMap((request) =>
+          Object.keys(request.headers).filter((header) =>
+            forbiddenHeaders.has(header.toLowerCase())
+          )
         )
-      ).toBe(true);
+      ).toEqual([]);
+      expect(await page.evaluate(() => Object.keys(localStorage).sort())).toEqual(
+        storageKeysBeforeModal
+      );
     });
 
     test("daily chart times retain publisher UTC dates in a UTC+12 browser timezone", async ({
@@ -1547,35 +1738,46 @@ test.describe("core/retail-market", () => {
       ]);
     });
 
-    test("already-loaded switching stays under 100ms and tears down to one chart root", async ({
+    test("completed switching stays under 100ms and repeated renders retain one final 90D chart", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page);
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
 
-      const measurement = await page.evaluate(
-        (periods) => {
-          const missing = [];
-          const startedAt = performance.now();
-          for (let cycle = 0; cycle < 3; cycle += 1) {
-            for (const period of periods) {
-              const button = document.querySelector(
-                `#marketDetailContent button[data-period="${period}"]`
-              );
-              if (!button) {
-                missing.push(period);
-                continue;
-              }
-              button.click();
-            }
-          }
-          return { durationMs: performance.now() - startedAt, missing };
+      const periods = [
+        {
+          id: "24h",
+          summary: ["$107.00", "$101.00", "$111.00", "$10.00"],
+          values: [101, 105, 107, 109, 111],
         },
-        ["24h", "7d", "30d", "60d", "90d"]
-      );
+        {
+          id: "7d",
+          summary: ["$77.00", "$71.00", "$85.00", "$14.00"],
+          values: [71, 75, 79, 85],
+        },
+        {
+          id: "30d",
+          summary: ["$71.00", "$31.00", "$85.00", "$54.00"],
+          values: [31, 35, 61, 71, 75, 79, 85],
+        },
+        {
+          id: "60d",
+          summary: ["$55.00", "$45.00", "$65.00", "$20.00"],
+          values: [45, 55, 65],
+        },
+        {
+          id: "90d",
+          summary: ["$44.50", "$25.00", "$65.00", "$40.00"],
+          values: [25, 35, 44, 45, 55, 65],
+        },
+      ];
+      const measurements = await measureCompletedMarketSwitches(page, periods);
+      expect(measurements).toHaveLength(periods.length * 3);
+      for (const measurement of measurements) {
+        expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
+        expect(measurement.durationMs, measurement.id).toBeLessThan(100);
+      }
 
-      expect(measurement.missing).toEqual([]);
-      expect(measurement.durationMs).toBeLessThan(100);
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
 
       const snapshot = await getMarketChartHarness(page);
@@ -1589,6 +1791,22 @@ test.describe("core/retail-market", () => {
       expect(modalInstances.filter((instance) => instance.active)).toHaveLength(1);
       expect(modalInstances.filter((instance) => !instance.removed)).toHaveLength(1);
       expect(snapshot.removeCount).toBeGreaterThanOrEqual(modalInstances.length - 1);
+      expect(snapshot.peakRootCount).toBeLessThanOrEqual(1);
+      expect(snapshot.rootEvents.length).toBeGreaterThan(0);
+      expect(snapshot.rootEvents.every((event) => event.rootCount <= 1)).toBe(true);
+
+      await expect(marketPeriodButton(page, "90D")).toHaveAttribute("aria-pressed", "true");
+      await expect(marketPeriodButton(page, "90D")).toHaveClass(/\bactive\b/);
+      const finalChart = activeMarketChart(snapshot);
+      expect(sortedChartValues(finalChart)).toEqual([25, 35, 44, 45, 55, 65]);
+      expect(sortedChartTimes(finalChart)).toEqual([
+        "2026-02-25",
+        "2026-03-01",
+        "2026-03-27",
+        "2026-03-27",
+        "2026-04-26",
+        "2026-05-26",
+      ]);
 
       await page.locator("#marketDetailCloseBtn").click();
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
