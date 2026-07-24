@@ -173,7 +173,7 @@ Do not fall back to Python/subprocess file writes as a workaround.
 Use `toLocaleDateString('en-CA')` (Canadian English) to produce **local, user-facing** dates in year-month-day format (form defaults, filenames, display).
 Do not use `toISOString().slice(0, 10)` for those; it returns a UTC date and shifts a day for users in negative UTC offsets.
 **Inverse case — UTC-keyed data values** (publisher feed business days, chart time keys): keep the UTC calendar date.
-Derive it from the ISO substring (`t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
+Derive it from the feed row's ISO timestamp field (`row.t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
 Local `en-CA` on a UTC-stamped key shifts a day for users in positive UTC offsets.
 Do not mix frames (local `new Date(y, m, d)` construction followed by `toISOString()` formatting) unless the conversion is deliberate and commented at the call site.
 
