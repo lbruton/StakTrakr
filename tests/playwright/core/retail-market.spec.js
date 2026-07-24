@@ -1739,6 +1739,8 @@ test.describe("core/retail-market", () => {
       await expectUnavailableMarketChart(emptyFeedPage);
       await clickMarketPeriod(emptyFeedPage, "24H");
       await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["24H"]);
+      await clickMarketPeriod(emptyFeedPage, "60D");
+      await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["60D"]);
       await clickMarketPeriod(emptyFeedPage, "90D");
       await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["90D"]);
       await emptyFeedPage.close();
@@ -1763,6 +1765,8 @@ test.describe("core/retail-market", () => {
         await clickMarketPeriod(invalidFeedPage, label);
         await expectUnavailableMarketChart(invalidFeedPage);
       }
+      await clickMarketPeriod(invalidFeedPage, "24H");
+      await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["24H"]);
       await clickMarketPeriod(invalidFeedPage, "7D");
       await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["7D"]);
       await clickMarketPeriod(invalidFeedPage, "30D");
@@ -1960,7 +1964,17 @@ test.describe("core/retail-market", () => {
       expect(chartSeriesPayload(reopenedChart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
 
       await page.locator("#marketDetailCloseBtn").click();
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+      const afterSecondClose = await getMarketChartHarness(page);
+      expect(
+        afterSecondClose.instances.filter(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        )
+      ).toHaveLength(0);
+      expect(
+        afterSecondClose.instances.find((instance) => instance.id === reopenedChart.id)?.removed
+      ).toBe(true);
     });
   });
 });
