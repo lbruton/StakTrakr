@@ -1201,7 +1201,14 @@ test.describe("core/retail-market", () => {
     ]);
     await expect(page.locator(".vendor-prices-table")).not.toContainText("Zulu Gold Coin");
 
-    await page.evaluate(() => window.showSettingsModal("market"));
+    // Settings listeners are intentionally wired on a delayed init callback.
+    // Drive the real sidebar navigation and retry until that observable
+    // listener contract is ready instead of racing the matrix change handler.
+    await page.evaluate(() => window.showSettingsModal("currency"));
+    await expect(async () => {
+      await page.locator('.settings-nav-item[data-section="market"]').click();
+      expect(await page.locator("#settingsPanel_market").isVisible()).toBe(true);
+    }).toPass({ intervals: [50, 100, 200], timeout: 5000 });
     const matrix = page.locator("#marketFilterMatrix");
     await expect(matrix).toBeVisible();
     const toggle = matrix.locator(`input[data-slug="${SLUG_SILVER_A}"][data-vendor="apmex"]`);
