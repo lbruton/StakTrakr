@@ -119,6 +119,10 @@ const formatTimeOnly = (date) => {
  * Uses intelligent parsing to distinguish between US and European formats
  * based on date values and context clues.
  *
+ * All return sites format the parsed Date's LOCAL components via
+ * toLocaleDateString("en-CA") — never toISOString, which reads UTC and shifts
+ * the calendar day back for positive-UTC-offset users (STRK-266).
+ *
  * @param {string} dateStr - Date string in any supported format
  * @returns {string} Date in YYYY-MM-DD format, or 'Unknown' if parsing fails
  */
@@ -146,7 +150,7 @@ function parseDate(dateStr) {
     if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
       const date = new Date(year, month, day);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+        return date.toLocaleDateString("en-CA");
       }
     }
   }
@@ -162,14 +166,14 @@ function parseDate(dateStr) {
     if (first > 12 && second <= 12) {
       const date = new Date(year, second - 1, first);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+        return date.toLocaleDateString("en-CA");
       }
     }
     // If second number > 12, it must be MM/DD/YYYY (US)
     else if (second > 12 && first <= 12) {
       const date = new Date(year, first - 1, second);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+        return date.toLocaleDateString("en-CA");
       }
     }
     // Both numbers <= 12, ambiguous - default to US format (MM/DD/YYYY)
@@ -177,13 +181,13 @@ function parseDate(dateStr) {
       // Try US format first
       let date = new Date(year, first - 1, second);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+        return date.toLocaleDateString("en-CA");
       }
 
       // Fallback to European format
       date = new Date(year, second - 1, first);
       if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+        return date.toLocaleDateString("en-CA");
       }
     }
   }
@@ -192,7 +196,7 @@ function parseDate(dateStr) {
   try {
     const date = new Date(cleanDateStr);
     if (!isNaN(date) && date.toString() !== "Invalid Date") {
-      return date.toISOString().split("T")[0];
+      return date.toLocaleDateString("en-CA");
     }
   } catch (e) {
     // Continue to fallback
