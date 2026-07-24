@@ -1720,17 +1720,19 @@ test.describe("core/retail-market", () => {
       await expectMarketSummary(page, STRK260_PERIOD_EXPECTATIONS["7D"].summary);
     });
 
-    test("duplicate daily Vendor dates keep only the last observation", async ({ page }) => {
+    test("duplicate daily Vendor dates keep the chronologically latest observation", async ({
+      page,
+    }) => {
       const duplicateDailyRows = [
-        {
-          t: "2026-05-25T12:00:00.000Z",
-          ts: toUnixSeconds("2026-05-25T12:00:00.000Z"),
-          vendors: { apmex: { avg: 70 } },
-        },
         {
           t: "2026-05-25T18:00:00.000Z",
           ts: toUnixSeconds("2026-05-25T18:00:00.000Z"),
           vendors: { apmex: { avg: 90 } },
+        },
+        {
+          t: "2026-05-25T12:00:00.000Z",
+          ts: toUnixSeconds("2026-05-25T12:00:00.000Z"),
+          vendors: { apmex: { avg: 70 } },
         },
       ];
       await openStrk260MarketDetail(page, {

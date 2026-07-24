@@ -838,7 +838,11 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
       if (period?.intraday) {
         observations.push(observation);
       } else {
-        dailyObservationsByVendorTime.set(JSON.stringify([vendorId, chartTime]), observation);
+        const observationKey = JSON.stringify([vendorId, chartTime]);
+        const existingObservation = dailyObservationsByVendorTime.get(observationKey);
+        if (!existingObservation || timeMs >= existingObservation.timeMs) {
+          dailyObservationsByVendorTime.set(observationKey, observation);
+        }
       }
     }
   }
