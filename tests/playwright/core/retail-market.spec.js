@@ -1546,6 +1546,22 @@ test.describe("core/retail-market", () => {
     }) => {
       await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-30d"] });
 
+      const periodButtons = page.locator("#marketDetailContent button[data-period]");
+      await expect(periodButtons).toHaveCount(5);
+      await expect(page.locator("#marketDetailContent button[data-period].active")).toHaveCount(1);
+      await expect(
+        page.locator('#marketDetailContent button[data-period][aria-pressed="true"]')
+      ).toHaveCount(1);
+      await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      for (const label of ["24H", "30D", "60D", "90D"]) {
+        await expect(marketPeriodButton(page, label)).not.toHaveClass(/\bactive\b/);
+        await expect(marketPeriodButton(page, label)).toHaveAttribute("aria-pressed", "false");
+      }
+      await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
+      await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+
       await clickMarketPeriod(page, "30D");
       await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
       await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
