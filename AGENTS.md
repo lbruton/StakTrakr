@@ -105,7 +105,8 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 - `showAppConfirm`, `showAppAlert`, and `showAppPrompt` are custom Document Object Model (DOM) modals, not native browser dialogs.
 - `events.js` top-level code cannot call `safeGetElement`; use `document.getElementById` for parse-time event wiring.
 - `state.js` variables declared with `let` need `Object.defineProperty` exposure when tests or modules require `window.X`.
-- Use Canadian English locale formatting with `toLocaleDateString('en-CA')` for local `yyyy-mm-dd` dates; do not use `toISOString().slice(0, 10)`.
+- Use Canadian English locale formatting with `toLocaleDateString('en-CA')` for local user-facing `yyyy-mm-dd` dates; do not use `toISOString().slice(0, 10)` for those.
+- For UTC-keyed data values (publisher feed business days, chart time keys), keep the UTC calendar date via the ISO substring (`t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`; never mix local Date construction with UTC formatting.
 - StakTrakr has four CSS themes: `light`, `dark`, `slate`, and `sepia`.
 
 ## Release And Pre-Commit

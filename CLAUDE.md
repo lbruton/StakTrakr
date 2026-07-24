@@ -170,8 +170,10 @@ Do not fall back to Python/subprocess file writes as a workaround.
 
 ### Date formatting — Canadian English locale
 
-Use `toLocaleDateString('en-CA')` (Canadian English) to produce local dates in year-month-day format.
-Do not use `toISOString().slice(0, 10)`; it returns a UTC date and causes off-by-one errors for users in negative UTC offsets.
+Use `toLocaleDateString('en-CA')` (Canadian English) to produce **local, user-facing** dates in year-month-day format (form defaults, filenames, display).
+Do not use `toISOString().slice(0, 10)` for those; it returns a UTC date and shifts a day for users in negative UTC offsets.
+**Inverse case — UTC-keyed data values** (publisher feed business days, chart time keys): keep the UTC calendar date via the ISO substring (`t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`; local `en-CA` there shifts a day for users in positive UTC offsets.
+Never mix frames (for example, local `new Date(y, m, d)` construction followed by `toISOString()` formatting).
 
 ### Theme count — four themes, not three
 
