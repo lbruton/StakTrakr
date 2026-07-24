@@ -6,6 +6,8 @@ const GOLDBACK_G1_RATE = 4.25;
 const GENERATED_AT = "2026-05-26T12:00:00.000Z";
 const RECENT_DATE = "2026-05-24";
 const RECENT_TS = Math.floor(new Date(`${RECENT_DATE}T18:00:00Z`).getTime() / 1000);
+const RECENT_INTRADAY_ISO = "2026-05-26T12:00:00.000Z";
+const RECENT_INTRADAY_TS = Math.floor(new Date(RECENT_INTRADAY_ISO).getTime() / 1000);
 // Pin the browser clock so wall-clock-relative filters (e.g. the market-history
 // 7-day timeframe window in renderVendorPrices) always include the seeded
 // RECENT_DATE rows. Without this the test rots into a time-bomb: once real
@@ -102,8 +104,8 @@ const intradayRows = Object.fromEntries(
     slug,
     [
       {
-        t: `${RECENT_DATE}T18:00:00Z`,
-        ts: RECENT_TS,
+        t: RECENT_INTRADAY_ISO,
+        ts: RECENT_INTRADAY_TS,
         median: row.price,
         low: row.price,
         vendors: { [row.vendor]: row.price },
@@ -858,9 +860,25 @@ async function openStrk260MarketDetail(page, options = {}) {
     ...options,
     retailFeeds: options.retailFeeds || STRK260_MODAL_FEEDS,
   });
+  await clickStrk260MarketDetail(page);
+}
+
+async function clickStrk260MarketDetail(page) {
   await page.locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" }).click();
   await expect(page.locator("#marketDetailModal")).toBeVisible();
   await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+}
+
+async function waitForRetailBackgroundSync(page) {
+  await page.waitForFunction((expectedLastSync) => {
+    const stored = localStorage.getItem("v2RetailPrices");
+    if (!stored) return false;
+    try {
+      return JSON.parse(stored).lastSync === expectedLastSync;
+    } catch {
+      return false;
+    }
+  }, FIXED_NOW.toISOString());
 }
 
 async function getMarketChartHarness(page) {
@@ -1720,12 +1738,7 @@ test.describe("core/retail-market", () => {
 
       const emptyFeedPage = await page.context().newPage();
       const emptyFeedStatuses = [];
-      emptyFeedPage.on("response", (response) => {
-        if (new URL(response.url()).pathname.endsWith("/history-30d.json")) {
-          emptyFeedStatuses.push(response.status());
-        }
-      });
-      await openStrk260MarketDetail(emptyFeedPage, {
+      await setupRetailFixture(emptyFeedPage, {
         retailFeeds: {
           [SLUG_SILVER_A]: {
             ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
@@ -1733,6 +1746,15 @@ test.describe("core/retail-market", () => {
           },
         },
       });
+      await waitForRetailBackgroundSync(emptyFeedPage);
+      emptyFeedPage.on("response", (response) => {
+        if (
+          new URL(response.url()).pathname.endsWith(`/retail/${SLUG_SILVER_A}/history-30d.json`)
+        ) {
+          emptyFeedStatuses.push(response.status());
+        }
+      });
+      await clickStrk260MarketDetail(emptyFeedPage);
       await expectUnavailableMarketChart(emptyFeedPage);
       expect(emptyFeedStatuses).toEqual([200]);
       await clickMarketPeriod(emptyFeedPage, "30D");
@@ -1747,12 +1769,7 @@ test.describe("core/retail-market", () => {
 
       const invalidFeedPage = await page.context().newPage();
       const invalidFeedStatuses = [];
-      invalidFeedPage.on("response", (response) => {
-        if (new URL(response.url()).pathname.endsWith("/history-90d.json")) {
-          invalidFeedStatuses.push(response.status());
-        }
-      });
-      await openStrk260MarketDetail(invalidFeedPage, {
+      await setupRetailFixture(invalidFeedPage, {
         retailFeeds: {
           [SLUG_SILVER_A]: {
             ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
@@ -1760,6 +1777,15 @@ test.describe("core/retail-market", () => {
           },
         },
       });
+      await waitForRetailBackgroundSync(invalidFeedPage);
+      invalidFeedPage.on("response", (response) => {
+        if (
+          new URL(response.url()).pathname.endsWith(`/retail/${SLUG_SILVER_A}/history-90d.json`)
+        ) {
+          invalidFeedStatuses.push(response.status());
+        }
+      });
+      await clickStrk260MarketDetail(invalidFeedPage);
       expect(invalidFeedStatuses).toEqual([200]);
       for (const label of ["60D", "90D"]) {
         await clickMarketPeriod(invalidFeedPage, label);
@@ -1820,6 +1846,11 @@ test.describe("core/retail-market", () => {
         failPrimary: true,
         retailFeeds: STRK260_MODAL_FEEDS,
       });
+      await page.waitForFunction(
+        () =>
+          localStorage.getItem("appTheme") !== null &&
+          localStorage.getItem("defaultSortDir") !== null
+      );
       const storageKeysBeforeModal = await page.evaluate(() => Object.keys(localStorage).sort());
       const requests = [];
       page.on("request", (request) => {
