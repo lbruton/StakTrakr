@@ -3,6 +3,45 @@
 
 let _marketDataInitialized = false;
 const V2_API = "https://api.staktrakr.com/data/v2";
+const MARKET_DETAIL_HOUR_MS = 60 * 60 * 1000;
+const MARKET_DETAIL_DAY_MS = 24 * MARKET_DETAIL_HOUR_MS;
+const MARKET_DETAIL_PERIODS = Object.freeze([
+  Object.freeze({
+    id: "24h",
+    label: "24H",
+    durationMs: MARKET_DETAIL_DAY_MS,
+    source: "intraday",
+    intraday: true,
+  }),
+  Object.freeze({
+    id: "7d",
+    label: "7D",
+    durationMs: 7 * MARKET_DETAIL_DAY_MS,
+    source: "history30d",
+    intraday: false,
+  }),
+  Object.freeze({
+    id: "30d",
+    label: "30D",
+    durationMs: 30 * MARKET_DETAIL_DAY_MS,
+    source: "history30d",
+    intraday: false,
+  }),
+  Object.freeze({
+    id: "60d",
+    label: "60D",
+    durationMs: 60 * MARKET_DETAIL_DAY_MS,
+    source: "history90d",
+    intraday: false,
+  }),
+  Object.freeze({
+    id: "90d",
+    label: "90D",
+    durationMs: 90 * MARKET_DETAIL_DAY_MS,
+    source: "history90d",
+    intraday: false,
+  }),
+]);
 
 // STRK-188: ordered endpoint failover (api1 → api2), mirroring the spot and
 // goldback fetch paths. _staktrakrFetch is defined in api.js, which executes
@@ -639,10 +678,155 @@ const closeMarketDetailModal = () => {
 };
 
 /**
- * Fetch a slug's retail detail, 30-day history, and intraday series in parallel,
+ * Return an ISO date-only chart key from a validated publisher timestamp.
+ * The publisher's UTC date is preferred; timestamp fallback is explicitly UTC.
+ * @param {Object} row - Retail history row.
+ * @param {number} timeMs - Valid observation time in milliseconds.
+ * @returns {string} UTC `YYYY-MM-DD` chart key.
+ */
+const _getMarketDetailDailyChartTime = (row, timeMs) => {
+  if (typeof row.t === "string" && /^\d{4}-\d{2}-\d{2}T/.test(row.t)) {
+    const isoTimeMs = Date.parse(row.t);
+    if (Number.isFinite(isoTimeMs)) return row.t.slice(0, 10);
+  }
+
+  const date = new Date(timeMs);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Parse a retail feed row timestamp, preferring Unix seconds and falling back
+ * to the publisher ISO timestamp.
+ * @param {Object} row - Retail feed row.
+ * @returns {(number|null)} Parsed timestamp in milliseconds.
+ */
+const _parseMarketDetailTime = (row) => {
+  const unixSeconds = Number(row?.ts);
+  if (Number.isFinite(unixSeconds) && unixSeconds > 0) return unixSeconds * 1000;
+
+  if (typeof row?.t !== "string") return null;
+  const isoTimeMs = Date.parse(row.t);
+  return Number.isFinite(isoTimeMs) ? isoTimeMs : null;
+};
+
+/**
+ * Normalize a raw Vendor value into a finite positive USD price.
+ * @param {*} vendorValue - Intraday price or daily `{avg}`/numeric value.
+ * @param {boolean} intraday - Whether the source uses direct numeric values.
+ * @returns {(number|null)} Valid raw USD price, otherwise null.
+ */
+const _normalizeMarketDetailPrice = (vendorValue, intraday) => {
+  const rawPrice =
+    intraday || typeof vendorValue === "number" || typeof vendorValue === "string"
+      ? vendorValue
+      : vendorValue?.avg;
+  if (
+    (typeof rawPrice !== "number" && typeof rawPrice !== "string") ||
+    (typeof rawPrice === "string" && rawPrice.trim() === "")
+  ) {
+    return null;
+  }
+
+  const usdPrice = Number(rawPrice);
+  return Number.isFinite(usdPrice) && usdPrice > 0 ? usdPrice : null;
+};
+
+/**
+ * Calculate range statistics from accepted raw-USD Vendor observations.
+ * @param {Array<{usdPrice:number}>} observations - Accepted range observations.
+ * @returns {{median:(number|null),low:(number|null),high:(number|null),spread:(number|null),count:number}}
+ */
+const _calculateMarketDetailSummary = (observations) => {
+  const acceptedObservations = Array.isArray(observations) ? observations : [];
+  const prices = acceptedObservations
+    .map((observation) => observation.usdPrice)
+    .filter((price) => Number.isFinite(price) && price > 0)
+    .sort((a, b) => a - b);
+
+  if (prices.length === 0) {
+    return { median: null, low: null, high: null, spread: null, count: 0 };
+  }
+
+  const midpoint = Math.floor(prices.length / 2);
+  const median =
+    prices.length % 2 === 1 ? prices[midpoint] : (prices[midpoint - 1] + prices[midpoint]) / 2;
+  const low = prices[0];
+  const high = prices[prices.length - 1];
+  return { median, low, high, spread: high - low, count: prices.length };
+};
+
+/**
+ * Build the authoritative date-bounded observations, summary, and Vendor
+ * series for a Retail View period.
+ * @param {string} periodId - Allow-listed period identifier.
+ * @param {Object} modalData - Independently fetched Retail View payloads.
+ * @param {number} nowMs - Inclusive range end in milliseconds.
+ * @returns {Object} Normalized market-detail range model.
+ */
+const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
+  const period = MARKET_DETAIL_PERIODS.find((candidate) => candidate.id === periodId);
+  const numericNowMs = Number(nowMs);
+  const endMs = Number.isFinite(numericNowMs) && numericNowMs > 0 ? numericNowMs : Date.now();
+  const startMs = period ? endMs - period.durationMs : endMs;
+  const rows = period && Array.isArray(modalData?.[period.source]) ? modalData[period.source] : [];
+  const observations = [];
+
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const timeMs = _parseMarketDetailTime(row);
+    if (timeMs === null || timeMs < startMs || timeMs > endMs) continue;
+    if (!row.vendors || typeof row.vendors !== "object" || Array.isArray(row.vendors)) continue;
+
+    const chartTime = period?.intraday
+      ? Math.floor(timeMs / 1000)
+      : _getMarketDetailDailyChartTime(row, timeMs);
+    for (const [vendorId, vendorValue] of Object.entries(row.vendors)) {
+      if (!vendorId) continue;
+      const usdPrice = _normalizeMarketDetailPrice(vendorValue, !!period?.intraday);
+      if (usdPrice === null) continue;
+      observations.push({ vendorId, timeMs, chartTime, usdPrice });
+    }
+  }
+
+  observations.sort(
+    (left, right) => left.timeMs - right.timeMs || left.vendorId.localeCompare(right.vendorId)
+  );
+
+  const seriesByVendor = new Map();
+  for (const observation of observations) {
+    if (!seriesByVendor.has(observation.vendorId)) {
+      seriesByVendor.set(observation.vendorId, []);
+    }
+    seriesByVendor.get(observation.vendorId).push({
+      time: observation.chartTime,
+      usdPrice: observation.usdPrice,
+    });
+  }
+
+  const series = Array.from(seriesByVendor, ([vendorId, points]) => ({ vendorId, points })).sort(
+    (left, right) => left.vendorId.localeCompare(right.vendorId)
+  );
+
+  return {
+    periodId: period ? period.id : periodId,
+    startMs,
+    endMs,
+    intraday: !!period?.intraday,
+    observations,
+    series,
+    summary: _calculateMarketDetailSummary(observations),
+    hasChartData: series.some((vendorSeries) => vendorSeries.points.length > 0),
+  };
+};
+
+/**
+ * Fetch a slug's retail detail and three history sources independently,
  * tolerating individual failures (each resolves to null on error).
  * @param {string} slug - Retail coin slug.
- * @returns {Promise<{detail:(Object|null), retailHistory:*, retailIntraday:*}>}
+ * @returns {Promise<{detail:(Object|null),intraday:*,history30d:*,history90d:*}>}
  */
 const _fetchModalData = async (slug) => {
   const detailPromise = _marketV2Fetch("/retail/" + slug + "/latest.json")
@@ -652,24 +836,31 @@ const _fetchModalData = async (slug) => {
       return null;
     });
 
-  // Fetch per-vendor retail history (30d — filter to 7 in chart) and intraday (24h)
-  const historyPromise = _marketV2Fetch("/retail/" + slug + "/history-30d.json")
-    .then((json) => (json && json.data ? json.data : json))
-    .catch(() => null);
-
   const intradayPromise = _marketV2Fetch("/retail/" + slug + "/intraday.json")
     .then((json) => (json && json.data ? json.data : json))
     .catch(() => null);
 
-  const [detailResult, historyResult, intradayResult] = await Promise.allSettled([
-    detailPromise,
-    historyPromise,
-    intradayPromise,
-  ]);
+  const history30dPromise = _marketV2Fetch("/retail/" + slug + "/history-30d.json")
+    .then((json) => (json && json.data ? json.data : json))
+    .catch(() => null);
+
+  const history90dPromise = _marketV2Fetch("/retail/" + slug + "/history-90d.json")
+    .then((json) => (json && json.data ? json.data : json))
+    .catch(() => null);
+
+  const [detailResult, intradayResult, history30dResult, history90dResult] =
+    await Promise.allSettled([
+      detailPromise,
+      intradayPromise,
+      history30dPromise,
+      history90dPromise,
+    ]);
+
   return {
     detail: detailResult.status === "fulfilled" ? detailResult.value : null,
-    retailHistory: historyResult.status === "fulfilled" ? historyResult.value : null,
-    retailIntraday: intradayResult.status === "fulfilled" ? intradayResult.value : null,
+    intraday: intradayResult.status === "fulfilled" ? intradayResult.value : null,
+    history30d: history30dResult.status === "fulfilled" ? history30dResult.value : null,
+    history90d: history90dResult.status === "fulfilled" ? history90dResult.value : null,
   };
 };
 
@@ -752,10 +943,10 @@ const _buildModalPriceSummary = (content, detail, slug) => {
 };
 
 /**
- * Render the detail-modal chart section: period tabs (24H/7D) and a chart area
- * that lazily renders the appropriate vendor history/intraday chart on demand.
+ * Render the legacy 24H/7D chart controls until Task 2 atomically wires the
+ * five-period controller to the shared selected-range model.
  * @param {HTMLElement} content - Modal content container.
- * @param {*} retailHistory - 30-day per-vendor history series (or null).
+ * @param {*} retailHistory - 30-day per-Vendor history series (or null).
  * @param {*} retailIntraday - 24-hour intraday series (or null).
  * @param {Object} vendorMeta - Vendor-meta map (for chart series styling).
  * @returns {void}
@@ -766,15 +957,18 @@ const _buildModalChartSection = (content, retailHistory, retailIntraday, vendorM
 
   const chartTabBar = document.createElement("div");
   chartTabBar.style.cssText = "display:flex;gap:4px;margin-bottom:8px;";
-  const periods = [
-    { id: "24h", label: "24H" },
-    { id: "7d", label: "7D" },
-  ];
+  const periods = MARKET_DETAIL_PERIODS.filter(
+    (period) => period.id === "24h" || period.id === "7d"
+  );
 
   const chartWrap = document.createElement("div");
   chartWrap.className = "market-detail-chart";
   chartWrap.id = "marketDetailChartArea";
 
+  /**
+   * Replace chart content with the established unavailable state.
+   * @returns {void}
+   */
   const _showNoChart = () => {
     chartWrap.textContent = "";
     const msg = document.createElement("div");
@@ -784,6 +978,12 @@ const _buildModalChartSection = (content, retailHistory, retailIntraday, vendorM
     chartWrap.appendChild(msg);
   };
 
+  /**
+   * Replace the active legacy chart while preserving the pre-Task-2 modal
+   * boundary. Task 2 replaces this coordinator with selected-range models.
+   * @param {string} periodId - Legacy 24H/7D period identifier.
+   * @returns {void}
+   */
   const _switchChartPeriod = (periodId) => {
     // Update tab active state
     chartTabBar.querySelectorAll("button").forEach((b) => {
@@ -1041,6 +1241,11 @@ const _appendModalDisclaimer = (content) => {
   }
 };
 
+/**
+ * Open and populate the main-page Retail View for one product slug.
+ * @param {string} slug - Retail product slug.
+ * @returns {Promise<void>}
+ */
 const openMarketDetailModal = async (slug) => {
   const overlay = safeGetElement("marketDetailModal");
   const content = safeGetElement("marketDetailContent");
@@ -1071,7 +1276,8 @@ const openMarketDetailModal = async (slug) => {
   const metalLower = (coinMeta.metal || "").toLowerCase();
   const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
 
-  const { detail, retailHistory, retailIntraday } = await _fetchModalData(slug);
+  const modalData = await _fetchModalData(slug);
+  const { detail } = modalData;
 
   content.textContent = "";
 
@@ -1080,7 +1286,7 @@ const openMarketDetailModal = async (slug) => {
 
   _buildModalPriceSummary(content, detail, slug);
 
-  _buildModalChartSection(content, retailHistory, retailIntraday, vendorMeta);
+  _buildModalChartSection(content, modalData.history30d, modalData.intraday, vendorMeta);
 
   // ── Vendor comparison table ──
   _buildModalVendorTable(content, detail, slug, vendorMeta, metalCode, weightOz);
