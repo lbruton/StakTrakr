@@ -112,31 +112,228 @@ const intradayRows = Object.fromEntries(
   ])
 );
 
+const toUnixSeconds = (iso) => Math.floor(new Date(iso).getTime() / 1000);
+
+const STRK260_INTRADAY_ROWS = [
+  {
+    t: "2026-05-25T17:59:59.000Z",
+    ts: toUnixSeconds("2026-05-25T17:59:59.000Z"),
+    vendors: { herobullion: 999 },
+  },
+  {
+    t: "2026-05-25T18:00:00.000Z",
+    ts: toUnixSeconds("2026-05-25T18:00:00.000Z"),
+    vendors: { herobullion: 101, apmex: 105 },
+  },
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: {
+      herobullion: 109,
+      jmbullion: "107",
+      goldback: 0,
+      bullionexchanges: -5,
+    },
+  },
+  {
+    t: "2026-05-26T18:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:00.000Z"),
+    vendors: { apmex: 111, jmbullion: "not-a-number" },
+  },
+  {
+    t: "invalid",
+    ts: "invalid",
+    vendors: { herobullion: 600 },
+  },
+  {
+    t: "2026-05-26T18:00:01.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:01.000Z"),
+    vendors: { herobullion: 500 },
+  },
+];
+
+const STRK260_HISTORY_30D_ROWS = [
+  {
+    t: "2026-04-26T17:59:59.000Z",
+    ts: toUnixSeconds("2026-04-26T17:59:59.000Z"),
+    vendors: { bullionexchanges: { avg: 999 } },
+  },
+  {
+    t: "2026-04-26T18:00:00.000Z",
+    ts: toUnixSeconds("2026-04-26T18:00:00.000Z"),
+    vendors: { herobullion: { avg: 31 } },
+  },
+  {
+    t: "2026-04-30T12:00:00.000Z",
+    ts: toUnixSeconds("2026-04-30T12:00:00.000Z"),
+    vendors: { apmex: { avg: "35" } },
+  },
+  {
+    t: "2026-05-19T17:59:59.000Z",
+    ts: toUnixSeconds("2026-05-19T17:59:59.000Z"),
+    vendors: { jmbullion: { avg: 61 } },
+  },
+  {
+    t: "2026-05-19T18:00:00.000Z",
+    ts: toUnixSeconds("2026-05-19T18:00:00.000Z"),
+    vendors: { herobullion: { avg: 71 }, apmex: { avg: 75 } },
+  },
+  {
+    t: "2026-05-23T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-23T12:00:00.000Z"),
+    vendors: { herobullion: { avg: 79 } },
+  },
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: {
+      apmex: { avg: 85 },
+      jmbullion: { avg: 0 },
+      goldback: { avg: -4 },
+      bullionexchanges: { avg: "not-a-number" },
+      summitmetals: { avg: "Infinity" },
+      providentmetals: {},
+    },
+  },
+  {
+    t: "invalid",
+    ts: "invalid",
+    vendors: { apmex: { avg: 500 } },
+  },
+  {
+    t: "2026-05-26T18:00:01.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:01.000Z"),
+    vendors: { apmex: { avg: 700 } },
+  },
+];
+
+const STRK260_HISTORY_90D_ROWS = [
+  {
+    t: "2026-02-25T17:59:59.000Z",
+    ts: toUnixSeconds("2026-02-25T17:59:59.000Z"),
+    vendors: { herobullion: { avg: 15 } },
+  },
+  {
+    t: "2026-02-25T18:00:00.000Z",
+    ts: toUnixSeconds("2026-02-25T18:00:00.000Z"),
+    vendors: { apmex: { avg: 25 } },
+  },
+  {
+    t: "2026-03-01T12:00:00.000Z",
+    ts: toUnixSeconds("2026-03-01T12:00:00.000Z"),
+    vendors: { herobullion: { avg: 35 } },
+  },
+  {
+    t: "2026-03-27T17:59:59.000Z",
+    ts: toUnixSeconds("2026-03-27T17:59:59.000Z"),
+    vendors: { herobullion: { avg: 44 } },
+  },
+  {
+    t: "2026-03-27T18:00:00.000Z",
+    ts: toUnixSeconds("2026-03-27T18:00:00.000Z"),
+    vendors: { apmex: { avg: 45 } },
+  },
+  {
+    t: "2026-04-26T18:00:00.000Z",
+    ts: toUnixSeconds("2026-04-26T18:00:00.000Z"),
+    vendors: { herobullion: { avg: 55 } },
+  },
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: { apmex: { avg: 65 }, jmbullion: { avg: null } },
+  },
+  {
+    t: "2026-05-27T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-27T12:00:00.000Z"),
+    vendors: { apmex: { avg: 800 } },
+  },
+];
+
+const STRK260_MODAL_FEEDS = {
+  [SLUG_SILVER_A]: {
+    intraday: STRK260_INTRADAY_ROWS,
+    "history-30d": STRK260_HISTORY_30D_ROWS,
+    "history-90d": STRK260_HISTORY_90D_ROWS,
+  },
+};
+
 const lightweightChartsStub = `
-  window.LightweightCharts = {
+  (() => {
+    const harness = window.__marketChartHarness || {
+      nextId: 1,
+      instances: [],
+      removeCount: 0,
+      removedIds: [],
+    };
+    window.__marketChartHarness = harness;
+    const cloneData = (data) => data.map((point) => ({ ...point }));
+    window.LightweightCharts = {
     CrosshairMode: { Normal: 0 },
-    createChart(container) {
+    createChart(container, options = {}) {
       const root = document.createElement("div");
       root.className = "tv-lightweight-charts";
       root.dataset.testChart = "true";
+      const instance = {
+        id: harness.nextId++,
+        containerId: container.id,
+        options,
+        appliedOptions: [],
+        series: [],
+        removed: false,
+      };
+      root.dataset.chartInstanceId = String(instance.id);
       container.appendChild(root);
+      harness.instances.push(instance);
+      const addSeries = (type, seriesOptions = {}) => {
+        const record = { type, options: seriesOptions, data: [] };
+        instance.series.push(record);
+        return {
+          setData(data) {
+            record.data = cloneData(data);
+            root.dataset.pointCount = String(
+              instance.series.reduce((count, series) => count + series.data.length, 0)
+            );
+            if (type === "histogram") root.dataset.histogramCount = String(data.length);
+            if (type === "area") root.dataset.areaCount = String(data.length);
+          },
+        };
+      };
       return {
-        addLineSeries() {
-          return { setData(data) { root.dataset.pointCount = String(data.length); } };
+        addLineSeries(options) {
+          return addSeries("line", options);
         },
-        addHistogramSeries() {
-          return { setData(data) { root.dataset.histogramCount = String(data.length); } };
+        addHistogramSeries(options) {
+          return addSeries("histogram", options);
         },
-        addAreaSeries() {
-          return { setData(data) { root.dataset.areaCount = String(data.length); } };
+        addAreaSeries(options) {
+          return addSeries("area", options);
         },
-        timeScale() { return { fitContent() {}, applyOptions() {} }; },
-        applyOptions() {},
+        timeScale() {
+          return {
+            fitContent() {
+              instance.fitContentCount = (instance.fitContentCount || 0) + 1;
+            },
+            applyOptions(next) {
+              instance.timeScaleOptions = next;
+            },
+          };
+        },
+        applyOptions(next) {
+          instance.appliedOptions.push(next);
+        },
         resize() {},
-        remove() { root.remove(); },
+        remove() {
+          if (instance.removed) return;
+          instance.removed = true;
+          harness.removeCount += 1;
+          harness.removedIds.push(instance.id);
+          root.remove();
+        },
       };
     },
   };
+  })();
 `;
 
 function latestForSlug(slug) {
@@ -161,7 +358,12 @@ function latestForSlug(slug) {
  *   failGoldback  – return 503 for goldback/latest.json (default: false)
  *   goldbackG1Rate – g1_usd for a successful goldback response (default: GOLDBACK_G1_RATE)
  */
-function makeV2Handler({ failGoldback = false, goldbackG1Rate = GOLDBACK_G1_RATE } = {}) {
+function makeV2Handler({
+  failGoldback = false,
+  goldbackG1Rate = GOLDBACK_G1_RATE,
+  retailFeeds = {},
+  failedRetailFeeds = [],
+} = {}) {
   return async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/data\/v2\//, "");
@@ -215,8 +417,15 @@ function makeV2Handler({ failGoldback = false, goldbackG1Rate = GOLDBACK_G1_RATE
       return;
     }
     const [, slug, file] = match;
-    const data =
-      file === "latest"
+    if (failedRetailFeeds.includes(file)) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      return;
+    }
+    const slugFeeds = retailFeeds[slug] || {};
+    const hasOverride = Object.prototype.hasOwnProperty.call(slugFeeds, file);
+    const data = hasOverride
+      ? slugFeeds[file]
+      : file === "latest"
         ? latestForSlug(slug)
         : file === "intraday"
           ? intradayRows[slug]
@@ -300,10 +509,13 @@ async function setupRetailFixture(page, options = {}) {
     stalePrimaryRate, // g1_usd carried by the api1 STALE 200 envelope
     stalePrimaryAgeMs, // age of the api1 envelope's generated_at vs FIXED_NOW
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
+    retailFeeds = {},
+    failedRetailFeeds = [],
   } = options;
 
   await injectSeedInventory(page);
   await routeExchangeAndCharts(page, exchangeRates);
+  await page.addInitScript({ content: lightweightChartsStub });
 
   await page.addInitScript(
     ({ seeded, meta, vendors, saved, filter, currency, rates }) => {
@@ -325,37 +537,6 @@ async function setupRetailFixture(page, options = {}) {
       localStorage.setItem("spotGold", JSON.stringify(2000));
       if (saved !== undefined) writeJson("vendorPricesActiveTab", saved);
       if (filter) writeJson("staktrakr.market_filter", filter);
-      window.LightweightCharts = {
-        CrosshairMode: { Normal: 0 },
-        createChart(container) {
-          const root = document.createElement("div");
-          root.className = "tv-lightweight-charts";
-          container.appendChild(root);
-          return {
-            addLineSeries() {
-              return {
-                setData(data) {
-                  root.dataset.pointCount = String(data.length);
-                },
-              };
-            },
-            addHistogramSeries() {
-              return { setData() {} };
-            },
-            addAreaSeries() {
-              return { setData() {} };
-            },
-            timeScale() {
-              return { fitContent() {}, applyOptions() {} };
-            },
-            applyOptions() {},
-            resize() {},
-            remove() {
-              root.remove();
-            },
-          };
-        },
-      };
     },
     {
       seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
@@ -368,7 +549,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  const fulfillV2 = makeV2Handler();
+  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds });
   const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
@@ -462,6 +643,76 @@ async function getVendorCellText(page, rowName, vendorHeader) {
     { rowName, vendorHeader }
   );
 }
+
+const marketPeriodButton = (page, label) =>
+  page.locator("#marketDetailContent").getByRole("button", { name: label, exact: true });
+
+async function clickMarketPeriod(page, label) {
+  const button = marketPeriodButton(page, label);
+  await expect(button).toBeVisible();
+  await button.click();
+}
+
+const marketSummaryValues = (page) => page.locator("#marketDetailContent .market-value");
+
+async function openStrk260MarketDetail(page, options = {}) {
+  await setupRetailFixture(page, {
+    ...options,
+    retailFeeds: options.retailFeeds || STRK260_MODAL_FEEDS,
+  });
+  await page.locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" }).click();
+  await expect(page.locator("#marketDetailModal")).toBeVisible();
+  await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+}
+
+async function getMarketChartHarness(page) {
+  return page.evaluate(() => {
+    const harness = window.__marketChartHarness || {
+      instances: [],
+      removeCount: 0,
+      removedIds: [],
+    };
+    const roots = Array.from(
+      document.querySelectorAll("#marketDetailChartArea .tv-lightweight-charts")
+    );
+    const connectedIds = new Set(
+      roots.map((root) => Number(root.dataset.chartInstanceId)).filter(Number.isFinite)
+    );
+    return {
+      removeCount: harness.removeCount,
+      removedIds: [...harness.removedIds],
+      rootCount: roots.length,
+      instances: harness.instances.map((instance) => ({
+        id: instance.id,
+        containerId: instance.containerId,
+        removed: instance.removed,
+        active: connectedIds.has(instance.id),
+        timeVisible: !!instance.options?.timeScale?.timeVisible,
+        hasPriceFormatter: typeof instance.options?.localization?.priceFormatter === "function",
+        formattedHundred:
+          typeof instance.options?.localization?.priceFormatter === "function"
+            ? instance.options.localization.priceFormatter(100)
+            : null,
+        series: instance.series.map((series) => ({
+          type: series.type,
+          title: series.options?.title || "",
+          data: series.data.map((point) => ({ ...point })),
+        })),
+      })),
+    };
+  });
+}
+
+const activeMarketChart = (snapshot) =>
+  [...snapshot.instances]
+    .reverse()
+    .find((instance) => instance.containerId === "marketDetailChartArea" && instance.active);
+
+const sortedChartValues = (chart) =>
+  chart.series.flatMap((series) => series.data.map((point) => point.value)).sort((a, b) => a - b);
+
+const sortedChartTimes = (chart) =>
+  chart.series.flatMap((series) => series.data.map((point) => point.time)).sort();
 
 test.describe("core/retail-market", () => {
   // STRK-213: the providers.json refresh must not hard-depend on AbortSignal.timeout,
@@ -1024,5 +1275,329 @@ test.describe("core/retail-market", () => {
     // _marketV2Fetch, failover reaches api2's latest.json (APMEX vendor price 38)
     // and the matrix consumes the api2 price.
     await expect.poll(apmexCell, { timeout: 8000 }).toContain("$38.00");
+  });
+
+  test.describe("STRK-260 market detail ranges", () => {
+    test.use({ timezoneId: "Pacific/Auckland" });
+
+    test("period controls expose the exact order, default, class, ARIA, and keyboard contract", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+
+      const group = page.getByRole("group", { name: "Vendor history period" });
+      const buttons = group.getByRole("button");
+      expect((await buttons.allTextContents()).map((text) => text.trim())).toEqual([
+        "24H",
+        "7D",
+        "30D",
+        "60D",
+        "90D",
+      ]);
+      await expect(buttons).toHaveCount(5);
+      await expect(group).toHaveClass(/\bchip-sort-toggle\b/);
+
+      for (const button of await buttons.all()) {
+        await expect(button).toHaveAttribute("type", "button");
+        await expect(button).toHaveClass(/\bchip-sort-btn\b/);
+      }
+
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
+      await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1);
+
+      for (const [index, label] of ["24H", "30D", "60D", "90D", "7D"].entries()) {
+        const button = marketPeriodButton(page, label);
+        await button.focus();
+        await button.press(index % 2 === 0 ? "Enter" : "Space");
+        await expect(button).toBeFocused();
+        await expect(button).toHaveAttribute("aria-pressed", "true");
+        await expect(button).toHaveClass(/\bactive\b/);
+        await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1);
+      }
+    });
+
+    test("all five rolling windows use inclusive timestamps and matching odd/even summaries", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+
+      const cases = [
+        {
+          label: "24H",
+          summary: ["$107.00", "$101.00", "$111.00", "$10.00"],
+          values: [101, 105, 107, 109, 111],
+          times: [
+            toUnixSeconds("2026-05-25T18:00:00.000Z"),
+            toUnixSeconds("2026-05-25T18:00:00.000Z"),
+            toUnixSeconds("2026-05-26T12:00:00.000Z"),
+            toUnixSeconds("2026-05-26T12:00:00.000Z"),
+            toUnixSeconds("2026-05-26T18:00:00.000Z"),
+          ].sort(),
+        },
+        {
+          label: "7D",
+          summary: ["$77.00", "$71.00", "$85.00", "$14.00"],
+          values: [71, 75, 79, 85],
+          times: ["2026-05-19", "2026-05-19", "2026-05-23", "2026-05-26"],
+        },
+        {
+          label: "30D",
+          summary: ["$71.00", "$31.00", "$85.00", "$54.00"],
+          values: [31, 35, 61, 71, 75, 79, 85],
+          times: [
+            "2026-04-26",
+            "2026-04-30",
+            "2026-05-19",
+            "2026-05-19",
+            "2026-05-19",
+            "2026-05-23",
+            "2026-05-26",
+          ],
+        },
+        {
+          label: "60D",
+          summary: ["$55.00", "$45.00", "$65.00", "$20.00"],
+          values: [45, 55, 65],
+          times: ["2026-03-27", "2026-04-26", "2026-05-26"],
+        },
+        {
+          label: "90D",
+          summary: ["$44.50", "$25.00", "$65.00", "$40.00"],
+          values: [25, 35, 44, 45, 55, 65],
+          times: [
+            "2026-02-25",
+            "2026-03-01",
+            "2026-03-27",
+            "2026-03-27",
+            "2026-04-26",
+            "2026-05-26",
+          ],
+        },
+      ];
+
+      for (const period of cases) {
+        await clickMarketPeriod(page, period.label);
+        await expect(marketSummaryValues(page)).toHaveText(period.summary);
+        await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+        const chart = activeMarketChart(await getMarketChartHarness(page));
+        expect(chart, `${period.label} chart instance`).toBeTruthy();
+        expect(chart.timeVisible).toBe(period.label === "24H");
+        expect(sortedChartValues(chart)).toEqual(period.values);
+        expect(sortedChartTimes(chart)).toEqual(period.times);
+      }
+    });
+
+    test("invalid and future observations are excluded while partial Vendors remain usable", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      await clickMarketPeriod(page, "7D");
+
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chart.series.map((series) => series.title).sort()).toEqual(["APMEX", "Hero"]);
+      expect(chart.series).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            title: "Hero",
+            data: [
+              { time: "2026-05-19", value: 71 },
+              { time: "2026-05-23", value: 79 },
+            ],
+          }),
+          expect.objectContaining({
+            title: "APMEX",
+            data: [
+              { time: "2026-05-19", value: 75 },
+              { time: "2026-05-26", value: 85 },
+            ],
+          }),
+        ])
+      );
+      await expect(marketSummaryValues(page)).toHaveText(["$77.00", "$71.00", "$85.00", "$14.00"]);
+    });
+
+    test("a failed 30-day feed keeps unavailable 7D selected while 24H and 90-day ranges work", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-30d"] });
+
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
+      await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
+
+      await clickMarketPeriod(page, "24H");
+      await expect(marketSummaryValues(page)).toHaveText([
+        "$107.00",
+        "$101.00",
+        "$111.00",
+        "$10.00",
+      ]);
+
+      await clickMarketPeriod(page, "60D");
+      await expect(marketSummaryValues(page)).toHaveText(["$55.00", "$45.00", "$65.00", "$20.00"]);
+      await clickMarketPeriod(page, "90D");
+      await expect(marketSummaryValues(page)).toHaveText(["$44.50", "$25.00", "$65.00", "$40.00"]);
+    });
+
+    test("a failed 90-day feed isolates 60D and 90D without breaking 7D and 30D", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-90d"] });
+
+      await expect(marketSummaryValues(page)).toHaveText(["$77.00", "$71.00", "$85.00", "$14.00"]);
+      await clickMarketPeriod(page, "30D");
+      await expect(marketSummaryValues(page)).toHaveText(["$71.00", "$31.00", "$85.00", "$54.00"]);
+
+      for (const label of ["60D", "90D"]) {
+        await clickMarketPeriod(page, label);
+        await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
+        await expect(marketSummaryValues(page)).toHaveText(["—", "—", "—", "—"]);
+      }
+    });
+
+    test("period switching never changes the current Vendor comparison table", async ({ page }) => {
+      await openStrk260MarketDetail(page);
+
+      const currentTable = page.locator("#marketDetailContent table tbody");
+      const initialRows = await currentTable.allTextContents();
+      expect(initialRows.join(" ")).toContain("$38.00");
+
+      for (const label of ["24H", "7D", "30D", "60D", "90D", "7D"]) {
+        await clickMarketPeriod(page, label);
+        await expect(currentTable).toHaveText(initialRows[0]);
+      }
+    });
+
+    test("currencychange converts once and preserves the selected period", async ({ page }) => {
+      await openStrk260MarketDetail(page, { exchangeRates: { EUR: 0.5 } });
+      await clickMarketPeriod(page, "24H");
+      await page.evaluate(() => window.saveDisplayCurrency("EUR"));
+
+      await expect(marketPeriodButton(page, "24H")).toHaveAttribute("aria-pressed", "true");
+      await expect(marketSummaryValues(page)).toHaveText(["€53.50", "€50.50", "€55.50", "€5.00"]);
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("€19.00");
+      await expect(page.locator("#marketDetailContent")).toContainText(CURRENCY_DISCLAIMER);
+
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(sortedChartValues(chart)).toEqual([50.5, 52.5, 53.5, 54.5, 55.5]);
+      expect(chart.hasPriceFormatter).toBe(true);
+      expect(chart.formattedHundred).toBe("€100.00");
+    });
+
+    test("api1 failure reaches api2 for all modal feeds including 90-day history", async ({
+      page,
+    }) => {
+      await setupRetailFixture(page, {
+        failPrimary: true,
+        retailFeeds: STRK260_MODAL_FEEDS,
+      });
+      const requests = [];
+      page.on("request", (request) => {
+        if (request.url().includes(`/retail/${SLUG_SILVER_A}/`)) {
+          requests.push({
+            url: request.url(),
+            method: request.method(),
+            postData: request.postData(),
+          });
+        }
+      });
+
+      await page
+        .locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" })
+        .click();
+      await expect(page.locator("#marketDetailModal")).toBeVisible();
+      await clickMarketPeriod(page, "90D");
+      await expect(marketSummaryValues(page)).toHaveText(["$44.50", "$25.00", "$65.00", "$40.00"]);
+
+      const requestedFiles = [
+        ...new Set(requests.map((request) => new URL(request.url).pathname.split("/").at(-1))),
+      ].sort();
+      expect(requestedFiles).toEqual(
+        ["history-30d.json", "history-90d.json", "intraday.json", "latest.json"].sort()
+      );
+      expect(requests.length).toBeGreaterThanOrEqual(8);
+      expect(requests.every((request) => request.method === "GET")).toBe(true);
+      expect(requests.every((request) => request.postData === null)).toBe(true);
+      expect(
+        requests.every((request) =>
+          ["api.staktrakr.com", "api2.staktrakr.com"].includes(new URL(request.url).hostname)
+        )
+      ).toBe(true);
+    });
+
+    test("daily chart times retain publisher UTC dates in a UTC+12 browser timezone", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      expect(await page.evaluate(() => new Date().getTimezoneOffset())).toBe(-720);
+
+      await clickMarketPeriod(page, "90D");
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(sortedChartTimes(chart)).toEqual([
+        "2026-02-25",
+        "2026-03-01",
+        "2026-03-27",
+        "2026-03-27",
+        "2026-04-26",
+        "2026-05-26",
+      ]);
+    });
+
+    test("already-loaded switching stays under 100ms and tears down to one chart root", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+
+      const measurement = await page.evaluate(
+        (periods) => {
+          const missing = [];
+          const startedAt = performance.now();
+          for (let cycle = 0; cycle < 3; cycle += 1) {
+            for (const period of periods) {
+              const button = document.querySelector(
+                `#marketDetailContent button[data-period="${period}"]`
+              );
+              if (!button) {
+                missing.push(period);
+                continue;
+              }
+              button.click();
+            }
+          }
+          return { durationMs: performance.now() - startedAt, missing };
+        },
+        ["24h", "7d", "30d", "60d", "90d"]
+      );
+
+      expect(measurement.missing).toEqual([]);
+      expect(measurement.durationMs).toBeLessThan(100);
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+
+      const snapshot = await getMarketChartHarness(page);
+      const modalInstances = snapshot.instances.filter(
+        (instance) => instance.containerId === "marketDetailChartArea"
+      );
+      expect(modalInstances.length).toBeGreaterThan(5);
+      expect(new Set(modalInstances.map((instance) => instance.id)).size).toBe(
+        modalInstances.length
+      );
+      expect(modalInstances.filter((instance) => instance.active)).toHaveLength(1);
+      expect(modalInstances.filter((instance) => !instance.removed)).toHaveLength(1);
+      expect(snapshot.removeCount).toBeGreaterThanOrEqual(modalInstances.length - 1);
+
+      await page.locator("#marketDetailCloseBtn").click();
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+      const afterClose = await getMarketChartHarness(page);
+      expect(
+        afterClose.instances.filter(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        )
+      ).toHaveLength(0);
+    });
   });
 });
