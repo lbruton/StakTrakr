@@ -117,7 +117,9 @@ const formatTimeOnly = (date) => {
  * @returns {string} Local calendar date in YYYY-MM-DD format
  */
 const localIsoDate = (date) => {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  // padStart keeps four-digit years below 0100 (e.g. 0099) zero-padded.
+  const year = String(date.getFullYear()).padStart(4, "0");
+  return `${year}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 };
 
 /**
@@ -132,7 +134,10 @@ const localIsoDate = (date) => {
  * @returns {Date|null} The validated Date, or null if the components rolled
  */
 const validatedLocalDate = (year, monthIndex, day) => {
-  const date = new Date(year, monthIndex, day);
+  // setFullYear sets all three components atomically — the Date constructor
+  // would map years 0-99 to 1900-1999 and break the round-trip check.
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(year, monthIndex, day);
   const roundTrips =
     date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day;
   return roundTrips ? date : null;

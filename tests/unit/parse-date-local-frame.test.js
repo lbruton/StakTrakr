@@ -144,4 +144,16 @@ describe("parseDate — impossible calendar dates rejected (STRK-267)", () => {
     assert.equal(parseDate("2023-02-29"), "—");
     assert.equal(parseDate("2023/02/29"), "—");
   });
+
+  it("four-digit years below 0100 survive validation and keep their padding", () => {
+    // The Date constructor maps years 0-99 to 1900-1999; validatedLocalDate
+    // must set components via setFullYear so 0099 round-trips as 0099, and
+    // localIsoDate must zero-pad the year on the formatting side.
+    assert.equal(parseDate("0099-02-28"), "0099-02-28");
+    assert.equal(parseDate("0099/02/28"), "0099-02-28");
+  });
+
+  it("impossible day in a sub-0100 year is still rejected", () => {
+    assert.equal(parseDate("0099-02-30"), "—");
+  });
 });
