@@ -159,6 +159,17 @@ const STRK260_INTRADAY_ROWS = [
   },
 ];
 
+// STRK-276: two herobullion rows inside the SAME unix second. `ts` is omitted
+// deliberately so _parseMarketDetailTime falls through to the millisecond-
+// precision `t` field (js/market-data.js:777) — that yields distinct timeMs
+// but an identical intraday chartTime of Math.floor(timeMs / 1000), which is
+// exactly the collision the intraday path had no dedup for.
+const STRK276_SAME_SECOND_INTRADAY_ROWS = [
+  { t: "2026-05-26T17:00:00.000Z", vendors: { herobullion: 100 } },
+  { t: "2026-05-26T17:59:59.200Z", vendors: { herobullion: 120 } },
+  { t: "2026-05-26T17:59:59.800Z", vendors: { herobullion: 130 } },
+];
+
 const STRK260_HISTORY_30D_ROWS = [
   {
     t: "2026-04-26T17:59:59.000Z",
@@ -500,6 +511,23 @@ const lightweightChartsStub = `
         instance.series.push(record);
         return {
           setData(data) {
+            // STRK-276: model the real library's contract. Lightweight Charts
+            // requires series data strictly ascending by time and asserts on
+            // duplicate or out-of-order points, which surfaces in the app as
+            // the whole view degrading to "Chart unavailable". The stub used to
+            // accept anything, so no test could reproduce that failure mode.
+            for (let i = 1; i < data.length; i += 1) {
+              if (data[i].time <= data[i - 1].time) {
+                throw new Error(
+                  "Assertion failed: data must be asc ordered by time, index=" +
+                    i +
+                    ", time=" +
+                    data[i].time +
+                    ", prev time=" +
+                    data[i - 1].time
+                );
+              }
+            }
             record.data = cloneData(data);
             root.dataset.pointCount = String(
               instance.series.reduce((count, series) => count + series.data.length, 0)
@@ -1462,7 +1490,7 @@ test.describe("core/retail-market", () => {
 
     // Each call must actually reach the render path. renderBestPriceTicker
     // early-returns while the container's stored signature still matches
-    // (js/market-data.js `:640`), so calling it repeatedly with unchanged data
+    // (js/market-data.js:640), so calling it repeatedly with unchanged data
     // schedules nothing whatsoever — measured with a MutationObserver: zero
     // tracks created across 12 calls. Clearing the stored signature defeats
     // that memoization guard, which is what the STAK-513 scenario needs: a new
@@ -1991,6 +2019,58 @@ test.describe("core/retail-market", () => {
       const chart = activeMarketChart(await getMarketChartHarness(page));
       expect(chartSeriesPayload(chart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
       await expectMarketSummary(page, STRK260_PERIOD_EXPECTATIONS["7D"].summary);
+    });
+
+    // STRK-276: the intraday path had no (vendorId, chartTime) dedup, unlike
+    // the daily path. Intraday keys chart time as Math.floor(timeMs / 1000), so
+    // two rows for one vendor inside the same second produced two points at an
+    // identical time — which Lightweight Charts rejects, degrading the whole
+    // 24H view to "Chart unavailable" rather than dropping one point.
+    //
+    // Dedup is applied when building seriesByVendor, NOT when collecting
+    // observations. The duplicate is a chart-rendering constraint, so the fix
+    // belongs at the presentation boundary; the summary keeps counting every
+    // real observation. The summary assertion below pins that deliberately.
+    test("STRK-276 — same-second intraday duplicates collapse in the chart but not the summary", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            intraday: STRK276_SAME_SECOND_INTRADAY_ROWS,
+          },
+        },
+      });
+      await clickMarketPeriod(page, "24H");
+
+      // Chart: one point per (vendor, second). Latest same-second value wins,
+      // matching the daily branch's timeMs-descending tie-break.
+      await expect(page.getByText("Chart unavailable", { exact: true })).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const activeChart = activeMarketChart(await getMarketChartHarness(page));
+          return activeChart ? chartSeriesPayload(activeChart) : null;
+        })
+        .toEqual([
+          {
+            title: "Hero",
+            data: [
+              { time: toUnixSeconds("2026-05-26T17:00:00.000Z"), value: 100 },
+              { time: toUnixSeconds("2026-05-26T17:59:59.000Z"), value: 130 },
+            ],
+          },
+        ]);
+
+      // Summary: all three observations still counted (100, 120, 130).
+      // Median 120 proves the 120 row was NOT discarded — deduping here would
+      // have shifted it to 115.
+      await expectMarketSummary(page, {
+        Median: "$120.00",
+        Low: "$100.00",
+        High: "$130.00",
+        Spread: "$30.00",
+      });
     });
 
     // STRK-260 regression coverage: daily aggregates are always

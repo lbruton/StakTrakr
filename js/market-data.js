@@ -895,20 +895,41 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
     (left, right) => left.timeMs - right.timeMs || left.vendorId.localeCompare(right.vendorId)
   );
 
+  // STRK-276: collapse duplicate (vendorId, chartTime) pairs when building the
+  // chart series. Intraday keys chart time as Math.floor(timeMs / 1000), so two
+  // rows for one vendor inside the same second yield two points at an identical
+  // time; Lightweight Charts rejects duplicate/unsorted times in setData(),
+  // which degrades the whole view to "Chart unavailable" instead of dropping a
+  // single point.
+  //
+  // Deliberately done HERE and not where observations are collected. The
+  // duplicate is a chart-rendering constraint, not a data-validity problem —
+  // both rows are real observations — so `observations`, and therefore the
+  // median/low/high/spread/count in the summary, are left untouched. Deduping
+  // upstream instead would let a rendering limitation quietly change
+  // user-visible statistics.
+  //
+  // `observations` is already sorted ascending by timeMs, so the last write per
+  // key wins, matching the daily branch's timeMs tie-break. Map iteration keeps
+  // insertion order, so points stay time-ordered. The daily path is deduped
+  // upstream already, making this a no-op there.
   const seriesByVendor = new Map();
   for (const observation of observations) {
-    if (!seriesByVendor.has(observation.vendorId)) {
-      seriesByVendor.set(observation.vendorId, []);
+    let pointsByChartTime = seriesByVendor.get(observation.vendorId);
+    if (!pointsByChartTime) {
+      pointsByChartTime = new Map();
+      seriesByVendor.set(observation.vendorId, pointsByChartTime);
     }
-    seriesByVendor.get(observation.vendorId).push({
+    pointsByChartTime.set(observation.chartTime, {
       time: observation.chartTime,
       usdPrice: observation.usdPrice,
     });
   }
 
-  const series = Array.from(seriesByVendor, ([vendorId, points]) => ({ vendorId, points })).sort(
-    (left, right) => left.vendorId.localeCompare(right.vendorId)
-  );
+  const series = Array.from(seriesByVendor, ([vendorId, pointsByChartTime]) => ({
+    vendorId,
+    points: Array.from(pointsByChartTime.values()),
+  })).sort((left, right) => left.vendorId.localeCompare(right.vendorId));
 
   return {
     periodId: period ? period.id : periodId,
