@@ -1,20 +1,16 @@
 // Unit tests for sw-router.js using Node built-in test runner.
 // Run: npm run test:unit  (node --test tests/unit/sw-router.test.js)
 //
-// sw-router.js is a plain script file (importScripts-compatible, no ESM syntax).
-// We load it via new Function() with a synthetic CJS module context so the CJS
-// export guard fires and exports FAMILY_TABLE / classifyEndpoint without requiring
-// ESM refactoring of the production script.
+// sw-router.js is a plain script file (importScripts-compatible, no ESM syntax),
+// so it is loaded through the shared synthetic-CJS helper — see
+// ./helpers/load-sw-router.js for why and how.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
 
-const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
-const _module = { exports: {} };
-new Function("module", "exports", routerCode)(_module, _module.exports);
-const { FAMILY_TABLE, classifyEndpoint, parseGeneratedAtSeconds } = _module.exports;
+import { loadSwRouter } from "./helpers/load-sw-router.js";
+
+const { FAMILY_TABLE, classifyEndpoint, parseGeneratedAtSeconds } = loadSwRouter();
 
 const API1 = "https://api.staktrakr.com";
 const API2 = "https://api2.staktrakr.com";

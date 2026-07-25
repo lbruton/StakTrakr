@@ -8,11 +8,16 @@
 // hard refresh does not clear it, only unregistering the SW does.
 //
 // Found 2026-07-24 onboarding STRK-261/262/263: the new coins' prices appeared
-// correctly (served by the networkFirst retail-latest/manifest families) but
-// clicking a price cell opened the vendor's homepage instead of the product
-// page, because window.retailProviders was still built from a 24h-old
-// providers.json. A fresh browser context resolved the links immediately,
-// which localised the fault to the SW cache layer rather than the export.
+// correctly (served by the networkFirst retail-latest family) but clicking a
+// price cell opened the vendor's homepage instead of the product page, because
+// window.retailProviders was still built from a 24h-old providers.json. A fresh
+// browser context resolved the links immediately, which localised the fault to
+// the SW cache layer rather than the export pipeline.
+//
+// Note: `manifest` is NOT network-first (floor 1800, cache-first). The issue
+// description groups it with retail-latest as though it were; only
+// retail-latest carries the flag. Corrected here so this file does not
+// propagate that.
 //
 // The durable case is vendor-URL rollover: when a yearly-dated coin's product
 // page is superseded, the price feed updates at once while the URL behind it
@@ -22,13 +27,10 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
 
-const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
-const _module = { exports: {} };
-new Function("module", "exports", routerCode)(_module, _module.exports);
-const { classifyEndpoint, FAMILY_TABLE } = _module.exports;
+import { loadSwRouter } from "./helpers/load-sw-router.js";
+
+const { classifyEndpoint, FAMILY_TABLE } = loadSwRouter();
 
 const API1 = "https://api.staktrakr.com";
 const API2 = "https://api2.staktrakr.com";
@@ -74,7 +76,7 @@ describe("STRK-264 providers is network-first", () => {
       "/v2/retail/apmex/history-30d.json",
       "/v2/spot/xau/2026/05/15.json",
     ]) {
-      const r = classifyEndpoint(API1 + path, SELF);
+      const r = classifyEndpoint(`${API1}${path}`, SELF);
       assert.equal(
         Object.prototype.hasOwnProperty.call(r, "networkFirst"),
         false,
