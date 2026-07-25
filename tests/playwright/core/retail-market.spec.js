@@ -1437,6 +1437,74 @@ test.describe("core/retail-market", () => {
     await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
   });
 
+  // STRK-275 / STAK-513: rapid re-renders must leave exactly one .ticker-track.
+  //
+  // _finalizeTickerTrack runs inside requestAnimationFrame, so several renders
+  // can be in flight at once. Cleanup relies on the sweep at the end of that
+  // function removing every track except the current one — which is precisely
+  // why the separate `previousTrack` argument it used to receive was redundant
+  // and was dropped. This pins the invariant that makes it redundant; without
+  // it, the removal rests on reading the code rather than on a test.
+  test("STRK-275 — rapid ticker re-renders leave exactly one track (STAK-513)", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+
+    // The sweep only matters on the animated path, which needs >= 4 items;
+    // fewer would take the static branch and the assertion would pass vacuously.
+    const itemCount = await page
+      .locator("#bestPriceTickerEl .ticker-block[data-ticker-block='primary'] .ticker-item")
+      .count();
+    expect(itemCount).toBeGreaterThanOrEqual(4);
+
+    // Each call must actually reach the render path. renderBestPriceTicker
+    // early-returns while the container's stored signature still matches
+    // (js/market-data.js `:640`), so calling it repeatedly with unchanged data
+    // schedules nothing whatsoever — measured with a MutationObserver: zero
+    // tracks created across 12 calls. Clearing the stored signature defeats
+    // that memoization guard, which is what the STAK-513 scenario needs: a new
+    // track built while the previous one is still mounted and its rAF pending.
+    // Done this way rather than by mutating seeded prices so the test does not
+    // depend on the retail cache's shape.
+    const renderStats = await page.evaluate(async () => {
+      const container = document.getElementById("bestPriceTickerEl");
+
+      let tracksCreated = 0;
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (node.nodeType === 1 && node.classList?.contains("ticker-track")) {
+              tracksCreated += 1;
+            }
+          }
+        }
+      });
+      observer.observe(container, { childList: true });
+
+      for (let i = 0; i < 12; i += 1) {
+        container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      }
+
+      // Let every queued rAF callback drain before reporting.
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)));
+      });
+      observer.disconnect();
+
+      return { tracksCreated };
+    });
+
+    // Self-check: if this ever drops to 0/1 the loop has gone inert again and
+    // the single-track assertion below would pass without exercising anything.
+    expect(renderStats.tracksCreated).toBeGreaterThan(1);
+
+    await expect(track).toHaveCount(1);
+  });
+
   // =========================================================================
   // STRK-249 — AC-6 / AC-7: market-table goldback premium cells render in
   // LOCKSTEP with spot-based premiums (same paint when a fresh cached
