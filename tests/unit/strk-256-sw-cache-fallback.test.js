@@ -17,13 +17,10 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
 
-const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
-const _module = { exports: {} };
-new Function("module", "exports", routerCode)(_module, _module.exports);
-const { shouldFallBackToCache } = _module.exports;
+import { loadSwRouter } from "./helpers/load-sw-router.js";
+
+const { shouldFallBackToCache } = loadSwRouter();
 
 /**
  * Build a minimal stand-in for a fetch Response.
