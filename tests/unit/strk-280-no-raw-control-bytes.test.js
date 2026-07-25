@@ -77,6 +77,30 @@ const isDisallowedControlByte = (byte) =>
   (byte < 0x20 && !ALLOWED_CONTROL_BYTES.has(byte)) || byte === 0x7f;
 
 /**
+ * Runs `git ls-files`, failing loudly rather than degrading.
+ *
+ * A filesystem walk is deliberately NOT used as a fallback: it would descend
+ * into node_modules and gitignored build output, where control bytes are common
+ * and expected, turning this guard into either a false alarm or a meaningless
+ * pass. If git is unavailable the correct outcome is a clear error.
+ *
+ * @returns {string} NUL-delimited tracked paths
+ * @throws {Error} When git is missing or this is not a git checkout
+ */
+const gitListFiles = () => {
+  try {
+    return execFileSync("git", ["ls-files", "-z"], {
+      cwd: REPO_ROOT,
+      maxBuffer: 32 * 1024 * 1024,
+    }).toString("utf8");
+  } catch (error) {
+    throw new Error(
+      `STRK-280 guard needs "git ls-files"; run it from a git checkout. Cause: ${error.message}`
+    );
+  }
+};
+
+/**
  * Lists tracked text files, excluding vendored third-party bundles.
  * Uses git rather than a directory walk so untracked scratch files and
  * gitignored build output are never scanned.
@@ -84,8 +108,7 @@ const isDisallowedControlByte = (byte) =>
  * @returns {string[]} Repository-relative paths
  */
 const listTrackedTextFiles = () =>
-  execFileSync("git", ["ls-files", "-z"], { cwd: REPO_ROOT, maxBuffer: 32 * 1024 * 1024 })
-    .toString("utf8")
+  gitListFiles()
     .split("\0")
     .filter(Boolean)
     .filter((rel) => TEXT_EXTENSIONS.has(path.extname(rel).toLowerCase()))
@@ -135,8 +158,7 @@ describe("STRK-280 no raw control bytes in tracked source", () => {
     assert.equal(
       offenders.length,
       0,
-      `Raw control bytes found in tracked source. Replace each with an escape ` +
-        `sequence (${HEX_NUL_ESCAPE} for NUL):\n${report}`
+      `Raw control bytes in tracked source. Use an escape (${HEX_NUL_ESCAPE} for NUL):\n${report}`
     );
   });
 
@@ -155,8 +177,14 @@ describe("STRK-280 no raw control bytes in tracked source", () => {
     // fingerprint collision surface for tag and price-history comparisons.
     for (const rel of ["js/cloud-sync.js", "js/priceHistory.js"]) {
       const source = readFileSync(path.join(REPO_ROOT, rel), "utf8");
+      // Both quote styles are accepted so the assertion pins the contract (the
+      // separator is U+0000) rather than incidental formatting. Prettier settles
+      // on double quotes here, but a single-quoted refactor is equally correct.
+      const joinsOnNul =
+        source.includes(`join("${HEX_NUL_ESCAPE}")`) ||
+        source.includes(`join('${HEX_NUL_ESCAPE}')`);
       assert.ok(
-        source.includes(`join("${HEX_NUL_ESCAPE}")`),
+        joinsOnNul,
         `${rel} must still join on U+0000, written as the ${HEX_NUL_ESCAPE} escape`
       );
     }
