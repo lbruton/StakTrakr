@@ -14,6 +14,12 @@ const SQLD_PROBE_TIMEOUT_MS = 5000;
 
 let sqldClient = null;
 
+// In-flight client construction, shared by concurrent probes. Creating the
+// client spans an `await` (the dynamic import of ./sqld-client.js), so without
+// this latch two overlapping probes would both see a null cache, both build a
+// client, and the second assignment would silently leak the first.
+let sqldClientInit = null;
+
 /**
  * Close a libSQL client without ever throwing.
  *
@@ -47,6 +53,35 @@ export function closeQuietly(client) {
  */
 export function resetSqldClientCache() {
   sqldClient = null;
+  sqldClientInit = null;
+}
+
+/**
+ * Return the cached sqld client, building it at most once across concurrent
+ * callers.
+ *
+ * @param {(() => object)} [clientFactory] - Optional factory; defaults to
+ *   `createSqldClient` from `./sqld-client.js`.
+ * @returns {Promise<object>} The shared client.
+ */
+async function getSqldClient(clientFactory) {
+  if (sqldClient) return sqldClient;
+
+  if (!sqldClientInit) {
+    sqldClientInit = (async () => {
+      const factory = clientFactory || (await import("./sqld-client.js")).createSqldClient;
+      return factory();
+    })();
+  }
+
+  try {
+    sqldClient = await sqldClientInit;
+    return sqldClient;
+  } finally {
+    // Clear the latch either way: on success the client is cached, and on
+    // failure the next probe must be free to retry.
+    sqldClientInit = null;
+  }
 }
 
 /**
@@ -73,24 +108,28 @@ function classifyError(message) {
  *
  * @param {(() => object)} [clientFactory] - Optional client factory; defaults to
  *   lazily importing `createSqldClient` from `./sqld-client.js`. Injectable for tests.
+ * @param {number} [timeoutMs] - Probe timeout; overridable so tests need not wait 5s.
  * @returns {Promise<{ok: boolean, latency_ms: number, checked_at: string, error_class?: string}>}
  */
-export async function probeSqldReachable(clientFactory) {
+export async function probeSqldReachable(clientFactory, timeoutMs = SQLD_PROBE_TIMEOUT_MS) {
   const startedAt = Date.now();
   const checkedAt = new Date().toISOString();
 
   let timeoutId;
   try {
-    if (!sqldClient) {
-      const factory = clientFactory || (await import("./sqld-client.js")).createSqldClient;
-      sqldClient = factory();
-    }
+    const client = await getSqldClient(clientFactory);
 
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("sqld probe timeout")), SQLD_PROBE_TIMEOUT_MS);
+      timeoutId = setTimeout(() => reject(new Error("sqld probe timeout")), timeoutMs);
     });
 
-    await Promise.race([sqldClient.execute("SELECT 1 AS ok"), timeoutPromise]);
+    const executePromise = client.execute("SELECT 1 AS ok");
+    // If the timeout wins the race, this promise is orphaned. A late rejection
+    // on it would otherwise have no handler and take the process down — the
+    // same failure class STRK-277 fixed. Attach a no-op handler up front.
+    executePromise.catch(() => {});
+
+    await Promise.race([executePromise, timeoutPromise]);
     return { ok: true, latency_ms: Date.now() - startedAt, checked_at: checkedAt };
   } catch (err) {
     // Drop the cached client so the next probe attempts a fresh connection,

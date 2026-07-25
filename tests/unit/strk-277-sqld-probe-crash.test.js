@@ -48,6 +48,31 @@ function fakeClient({ execute, close } = {}) {
   return client;
 }
 
+/**
+ * Run `body`, then drain the microtask/timer queue while listening for
+ * unhandled rejections, and return everything that leaked.
+ *
+ * Node's default `unhandledRejection` mode is `throw`, which is precisely what
+ * killed the process in STRK-277 — so "nothing leaked" is the assertion that
+ * actually proves the fix, not merely "it did not throw synchronously".
+ *
+ * @param {() => unknown} body - Code under test.
+ * @param {number} [drainMs] - How long to wait for late rejections.
+ * @returns {Promise<unknown[]>} Reasons of any unhandled rejections observed.
+ */
+async function captureUnhandledRejections(body, drainMs = 30) {
+  const leaked = [];
+  const onUnhandled = (reason) => leaked.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    await body();
+    await new Promise((r) => setTimeout(r, drainMs));
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+  return leaked;
+}
+
 beforeEach(() => {
   resetSqldClientCache();
 });
@@ -70,9 +95,12 @@ describe("closeQuietly", () => {
 
   it("swallows a rejected promise from close() without an unhandled rejection", async () => {
     const client = fakeClient({ close: () => Promise.reject(new Error("close failed")) });
-    assert.doesNotThrow(() => closeQuietly(client));
-    // Give the microtask queue a turn; an unhandled rejection would surface here.
-    await new Promise((resolve) => setImmediate(resolve));
+
+    const leaked = await captureUnhandledRejections(() => {
+      assert.doesNotThrow(() => closeQuietly(client));
+    });
+
+    assert.deepEqual(leaked, [], "closeQuietly must not leak an unhandled rejection");
   });
 
   it("tolerates null and undefined clients", () => {
@@ -139,6 +167,48 @@ describe("probeSqldReachable", () => {
     const result = await probeSqldReachable(() => client);
     assert.equal(result.ok, false);
     assert.equal(result.error_class, "host_unreachable");
+  });
+
+  it("does not leak an unhandled rejection when execute() rejects after the timeout", async () => {
+    // The timeout wins the race, orphaning the execute() promise. When that
+    // promise later rejects it must already carry a handler — otherwise it
+    // takes the process down, which is the STRK-277 failure class all over
+    // again (and serve.js deliberately installs no process-level net).
+    const client = fakeClient({
+      execute: () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("connect ECONNREFUSED 192.168.1.81:8080")), 40);
+        }),
+    });
+
+    let result;
+    const leaked = await captureUnhandledRejections(async () => {
+      result = await probeSqldReachable(() => client, 10);
+    }, 120);
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error_class, "timeout", "the timeout should win the race");
+    assert.deepEqual(leaked, [], "the orphaned execute() promise must not leak");
+  });
+
+  it("builds only one client when concurrent probes race a cold cache", async () => {
+    let built = 0;
+    const factory = () => {
+      built += 1;
+      return fakeClient();
+    };
+
+    const results = await Promise.all([
+      probeSqldReachable(factory),
+      probeSqldReachable(factory),
+      probeSqldReachable(factory),
+    ]);
+
+    assert.deepEqual(
+      results.map((r) => r.ok),
+      [true, true, true]
+    );
+    assert.equal(built, 1, "concurrent probes must share a single client, not leak duplicates");
   });
 
   it("returns ok:false when the client factory itself throws", async () => {

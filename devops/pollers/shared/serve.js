@@ -25,15 +25,13 @@ const MIME_TYPES = {
   ".txt": "text/plain",
 };
 
-// Last-resort guards. This process is the api2 origin and is supervised, but a
-// restart loop still surfaces as 502s at the Fly proxy, so an unexpected async
-// throw must never be allowed to terminate it (STRK-277).
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection (ignored, server stays up):", reason);
-});
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception (ignored, server stays up):", err);
-});
+// Deliberately NO process-level unhandledRejection/uncaughtException handlers.
+// supervisord runs this program with autorestart=true, so a genuinely fatal
+// error should terminate the process and be replaced with a clean one. Trapping
+// those events would leave a corrupted process serving traffic and rob the
+// supervisor of its only recovery mechanism. Containment belongs at the point
+// of failure instead: probeSqldReachable() never rejects, and the
+// /health/sqld-reachable handler below wraps it anyway.
 
 const server = createServer(async (req, res) => {
   // CORS headers for API access
@@ -70,12 +68,20 @@ const server = createServer(async (req, res) => {
     // probeSqldReachable() is contracted never to reject, but this endpoint is
     // the one path that touches the network on every hit — belt-and-braces so a
     // future regression degrades the response instead of the process.
+    const probeStartedAt = Date.now();
     let result;
     try {
       result = await probeSqldReachable();
     } catch (err) {
       console.error("sqld probe threw unexpectedly:", err);
-      result = { ok: false, error_class: "probe_error", checked_at: new Date().toISOString() };
+      // Keep the full response shape: check-flyio.sh reads latency_ms on both
+      // the OK and FAIL branches and emits it as sqld_reachable_latency_ms.
+      result = {
+        ok: false,
+        error_class: "probe_error",
+        latency_ms: Date.now() - probeStartedAt,
+        checked_at: new Date().toISOString(),
+      };
     }
     const body = JSON.stringify(result);
     res.writeHead(200, {
