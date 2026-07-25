@@ -114,10 +114,16 @@ describe("STRK-257 remaining freshness is measured from the scrape", () => {
   });
 
   it("falls back to publish time when the row has no usable timestamp", () => {
-    // Guard path: generated_at must still be present and recent.
+    // Guard path: generated_at must still be present and recent. Bracketed by
+    // timestamps captured immediately either side of the call rather than an
+    // open-ended "now + slack", so a slow CI runner cannot widen the window.
+    // The 1s tolerance only absorbs the envelope's whole-second normalisation.
     const before = Date.now();
     const env = wrapEnvelope({ g1_usd: 4.25 }, BUDGET_SECONDS, resolveGoldbackGeneratedAt(null));
+    const after = Date.now();
+
     const ts = new Date(env.generated_at).getTime();
-    assert.ok(ts >= before - 1000 && ts <= Date.now() + 5000);
+    assert.ok(ts >= before - 1000, `generated_at ${env.generated_at} precedes the call`);
+    assert.ok(ts <= after + 1000, `generated_at ${env.generated_at} postdates the call`);
   });
 });

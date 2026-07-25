@@ -906,7 +906,7 @@ function buildGoldbackIntradayEntries(rows) {
  * Returns undefined only when there is no usable timestamp to be honest with,
  * in which case wrapEnvelope's publish-time default is the remaining option.
  *
- * @param {string|Date|null} scrapedAt - The scraped_at value from the latest row
+ * @param {string|Date|null|undefined} scrapedAt - The scraped_at value from the latest row
  * @returns {string|undefined} Normalised ISO-8601, or undefined if unusable
  */
 function resolveGoldbackGeneratedAt(scrapedAt) {
