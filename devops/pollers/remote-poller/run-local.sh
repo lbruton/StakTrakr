@@ -5,13 +5,23 @@
 
 set -e
 
-# Lockfile guard — skip if previous run is still active
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Lockfile guard with stuck-run watchdog (STRK-255).
+# At a 15-minute cadence a 1500s budget means the first contended tick (age
+# 900s) skips and the second (age 1800s) kills the wedged tree — matching the
+# home poller's "reclaim on the second consecutive contended tick" behaviour
+# while leaving a legitimately slow scrape 25 minutes of headroom.
+#
+# NOTE: this script is currently neither COPYed into the slim Fly.io image nor
+# scheduled by docker-entrypoint-slim.sh — retail scraping runs on the home
+# poller. It is kept in sync so re-enabling it does not reintroduce the wedge.
 LOCKFILE=/tmp/retail-poller.lock
-if [ -f "$LOCKFILE" ]; then
-  echo "[$(date -u +%H:%M:%S)] Previous run still active, skipping"
+RETAIL_RUN_MAX_SECONDS="${RETAIL_RUN_MAX_SECONDS:-1500}"
+. "$SCRIPT_DIR/run-lock.sh"
+if ! acquire_run_lock "$LOCKFILE" "$RETAIL_RUN_MAX_SECONDS"; then
   exit 0
 fi
-touch $LOCKFILE
 
 DATE=$(date -u +%Y-%m-%d)
 echo "[$(date -u +%H:%M:%S)] Starting retail price run for $DATE"
@@ -28,7 +38,9 @@ POLLER_ID="${POLLER_ID:-api}"
 
 # Use the persistent volume clone — no temp dir, no clone overhead
 API_EXPORT_DIR="${API_EXPORT_DIR:-/data/staktrakr-api-export}"
-trap 'rm -f "$LOCKFILE"' EXIT
+# The release trap is armed by acquire_run_lock at acquire time. It used to be
+# registered here, ~17 lines after the lock was taken, so any failure in between
+# leaked the lock permanently.
 
 if [ ! -d "$API_EXPORT_DIR/.git" ]; then
   echo "[$(date -u +%H:%M:%S)] ERROR: $API_EXPORT_DIR is not a git repo. Is volume mounted?"

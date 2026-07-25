@@ -6,16 +6,20 @@
 
 set -e
 
-# Lockfile guard — skip if previous run is still active
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Lockfile guard with stuck-run watchdog (STRK-255).
+# Cron here is hourly (30 * * * *). With a 5400s budget the first contended
+# tick (age 3600s) still skips — a slow run gets 90 minutes of headroom — and
+# the second (age 7200s) kills the wedged process tree and proceeds. Without
+# this a single Playwright stall froze retail data until the container
+# restarted ~3.5h later.
 LOCKFILE=/tmp/retail-poller.lock
-if [ -f "$LOCKFILE" ]; then
-  echo "[$(date -u +%H:%M:%S)] Previous run still active, skipping"
+RETAIL_RUN_MAX_SECONDS="${RETAIL_RUN_MAX_SECONDS:-5400}"
+. "$SCRIPT_DIR/run-lock.sh"
+if ! acquire_run_lock "$LOCKFILE" "$RETAIL_RUN_MAX_SECONDS"; then
   exit 0
 fi
-touch $LOCKFILE
-trap 'rm -f "$LOCKFILE"' EXIT
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load .env if present (home poller stores Turso creds, Firecrawl URL, etc.)
 if [ -f "$SCRIPT_DIR/.env" ]; then
