@@ -3576,8 +3576,8 @@ function _mergeTagData(remoteTagData) {
       var unionedRemoved = _unionTags(localRemoved[uuid], remoteRemoved[uuid]);
       var canonicalLocalTags = _unionTags(localTags[uuid], []);
       var canonicalLocalRemoved = _unionTags(localRemoved[uuid], []);
-      var tagsChanged = unionedTags.join(" ") !== canonicalLocalTags.join(" ");
-      var removedChanged = unionedRemoved.join(" ") !== canonicalLocalRemoved.join(" ");
+      var tagsChanged = unionedTags.join("\x00") !== canonicalLocalTags.join("\x00");
+      var removedChanged = unionedRemoved.join("\x00") !== canonicalLocalRemoved.join("\x00");
 
       if (unionedTags.length > 0) mergedTags[uuid] = unionedTags;
       else delete mergedTags[uuid];
