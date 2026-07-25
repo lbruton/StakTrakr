@@ -915,10 +915,12 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
   // upstream already, making this a no-op there.
   const seriesByVendor = new Map();
   for (const observation of observations) {
-    if (!seriesByVendor.has(observation.vendorId)) {
-      seriesByVendor.set(observation.vendorId, new Map());
+    let pointsByChartTime = seriesByVendor.get(observation.vendorId);
+    if (!pointsByChartTime) {
+      pointsByChartTime = new Map();
+      seriesByVendor.set(observation.vendorId, pointsByChartTime);
     }
-    seriesByVendor.get(observation.vendorId).set(observation.chartTime, {
+    pointsByChartTime.set(observation.chartTime, {
       time: observation.chartTime,
       usdPrice: observation.usdPrice,
     });
