@@ -898,15 +898,24 @@ const _fetchModalData = async (slug) => {
 
   const intradayPromise = _marketV2Fetch("/retail/" + slug + "/intraday.json")
     .then((json) => (json && json.data ? json.data : json))
-    .catch(() => null);
+    .catch((e) => {
+      debugLog("[market-data] Intraday fetch failed: " + e.message, "warn");
+      return null;
+    });
 
   const history30dPromise = _marketV2Fetch("/retail/" + slug + "/history-30d.json")
     .then((json) => (json && json.data ? json.data : json))
-    .catch(() => null);
+    .catch((e) => {
+      debugLog("[market-data] History 30d fetch failed: " + e.message, "warn");
+      return null;
+    });
 
   const history90dPromise = _marketV2Fetch("/retail/" + slug + "/history-90d.json")
     .then((json) => (json && json.data ? json.data : json))
-    .catch(() => null);
+    .catch((e) => {
+      debugLog("[market-data] History 90d fetch failed: " + e.message, "warn");
+      return null;
+    });
 
   const [detailResult, intradayResult, history30dResult, history90dResult] =
     await Promise.allSettled([
