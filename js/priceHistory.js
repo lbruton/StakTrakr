@@ -415,7 +415,7 @@ const _normalizeItemPriceEntry = (entry) => {
  * @returns {string} Deterministic fingerprint string
  */
 const _itemPriceEntryFingerprint = (entry) =>
-  [entry.ts, entry.itemName, entry.retail, entry.spot, entry.melt].join(" ");
+  [entry.ts, entry.itemName, entry.retail, entry.spot, entry.melt].join("\x00");
 
 /**
  * Full-fingerprint comparator: sorts by ts, then itemName, retail, spot, melt.
