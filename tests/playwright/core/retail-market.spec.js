@@ -282,8 +282,12 @@ const STRK260_ALL_INVALID_HISTORY_ROWS = [
     vendors: { herobullion: { avg: 55 } },
   },
   {
-    t: "2026-05-26T18:00:01.000Z",
-    ts: toUnixSeconds("2026-05-26T18:00:01.000Z"),
+    // Non-intraday periods now bound by UTC calendar date (STRK-260
+    // fix), so a same-day-but-later timestamp no longer excludes a row — this
+    // has to be a genuinely future calendar date to stay excluded and keep
+    // this fixture's "every row is invalid or out of window" guarantee.
+    t: "2026-05-27T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-27T12:00:00.000Z"),
     vendors: { apmex: { avg: 65 } },
   },
 ];
@@ -326,29 +330,47 @@ const STRK260_PERIOD_EXPECTATIONS = {
       },
     ],
   },
+  // STRK-260: 7D/30D/60D/90D expectations below bound rows by UTC
+  // calendar date (start exclusive, end inclusive — see market-data.js
+  // _buildMarketDetailRangeModel), not exact milliseconds. Two fixture rows
+  // shift as a direct, verified consequence:
+  //   - STRK260_HISTORY_30D_ROWS' 2026-05-26T18:00:01Z apmex=700 row (one
+  //     second past FIXED_NOW) is on the SAME UTC calendar date as "today"
+  //     (2026-05-26), so it is now correctly retained by the 7D/30D windows
+  //     and, being the chronologically-latest 05-26 observation, wins the
+  //     existing same-day "latest wins" Vendor dedup over the noon row
+  //     (apmex avg 85) — replacing the 05-26 APMEX point's value with 700 in
+  //     both 7D and 30D. This is the intended fix: a real publisher daily
+  //     bucket only ever has ONE row per (vendor, date), stamped at noon UTC,
+  //     so this two-rows-same-day case can't occur outside this synthetic
+  //     boundary fixture.
+  //   - The 2026-04-26T18:00:00Z / 2026-05-19T18:00:00Z / 2026-02-25T18:00:00Z
+  //     rows sit exactly on their period's startDate (the day exactly N
+  //     calendar days before "today"). Under the old millisecond compare they
+  //     happened to be included (timeMs === startMs) only because FIXED_NOW's
+  //     time-of-day (18:00 UTC) is after the rows' noon-UTC stamp; that was
+  //     the reported inconsistency (the same nominal "7D" window silently
+  //     gaining or losing this boundary day depending on what time of day
+  //     "now" fell at). The new exclusive-start rule deterministically drops
+  //     the startDate day so every period spans exactly N calendar dates
+  //     (today plus the N-1 preceding days), regardless of time-of-day.
   "7D": {
     id: "7d",
     label: "7D",
     summary: {
-      Median: "$77.00",
-      Low: "$71.00",
-      High: "$85.00",
-      Spread: "$14.00",
+      Median: "$389.50",
+      Low: "$79.00",
+      High: "$700.00",
+      Spread: "$621.00",
     },
     series: [
       {
         title: "APMEX",
-        data: [
-          { time: "2026-05-19", value: 75 },
-          { time: "2026-05-26", value: 85 },
-        ],
+        data: [{ time: "2026-05-26", value: 700 }],
       },
       {
         title: "Hero",
-        data: [
-          { time: "2026-05-19", value: 71 },
-          { time: "2026-05-23", value: 79 },
-        ],
+        data: [{ time: "2026-05-23", value: 79 }],
       },
     ],
   },
@@ -356,10 +378,10 @@ const STRK260_PERIOD_EXPECTATIONS = {
     id: "30d",
     label: "30D",
     summary: {
-      Median: "$71.00",
-      Low: "$31.00",
-      High: "$85.00",
-      Spread: "$54.00",
+      Median: "$73.00",
+      Low: "$35.00",
+      High: "$700.00",
+      Spread: "$665.00",
     },
     series: [
       {
@@ -367,13 +389,12 @@ const STRK260_PERIOD_EXPECTATIONS = {
         data: [
           { time: "2026-04-30", value: 35 },
           { time: "2026-05-19", value: 75 },
-          { time: "2026-05-26", value: 85 },
+          { time: "2026-05-26", value: 700 },
         ],
       },
       {
         title: "Hero",
         data: [
-          { time: "2026-04-26", value: 31 },
           { time: "2026-05-19", value: 71 },
           { time: "2026-05-23", value: 79 },
         ],
@@ -388,18 +409,15 @@ const STRK260_PERIOD_EXPECTATIONS = {
     id: "60d",
     label: "60D",
     summary: {
-      Median: "$55.00",
-      Low: "$45.00",
+      Median: "$60.00",
+      Low: "$55.00",
       High: "$65.00",
-      Spread: "$20.00",
+      Spread: "$10.00",
     },
     series: [
       {
         title: "APMEX",
-        data: [
-          { time: "2026-03-27", value: 45 },
-          { time: "2026-05-26", value: 65 },
-        ],
+        data: [{ time: "2026-05-26", value: 65 }],
       },
       {
         title: "Hero",
@@ -411,16 +429,15 @@ const STRK260_PERIOD_EXPECTATIONS = {
     id: "90d",
     label: "90D",
     summary: {
-      Median: "$44.50",
-      Low: "$25.00",
+      Median: "$45.00",
+      Low: "$35.00",
       High: "$65.00",
-      Spread: "$40.00",
+      Spread: "$30.00",
     },
     series: [
       {
         title: "APMEX",
         data: [
-          { time: "2026-02-25", value: 25 },
           { time: "2026-03-27", value: 45 },
           { time: "2026-05-26", value: 65 },
         ],
@@ -1854,7 +1871,12 @@ test.describe("core/retail-market", () => {
       }
     });
 
-    test("invalid and future observations are excluded while partial Vendors remain usable", async ({
+    // STRK-260: renamed from "invalid and future observations are
+    // excluded" — non-intraday periods now bound by UTC calendar date, so a
+    // same-day-but-later-than-now observation (the fixture's 05-26T18:00:01Z
+    // apmex row) is correctly retained, not excluded. Out-of-window CALENDAR
+    // DATES (a different day) and invalid values are still excluded.
+    test("invalid observations and out-of-window dates are excluded while partial Vendors remain usable", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page);
@@ -1864,6 +1886,87 @@ test.describe("core/retail-market", () => {
       const chart = activeMarketChart(await getMarketChartHarness(page));
       expect(chartSeriesPayload(chart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
       await expectMarketSummary(page, STRK260_PERIOD_EXPECTATIONS["7D"].summary);
+    });
+
+    // STRK-260 regression coverage: daily aggregates are always
+    // stamped at T12:00:00Z (devops/pollers/shared/api-export-v2.js
+    // buildDailyWithVendors), so comparing that fixed stamp against an
+    // arbitrary wall-clock "now" in milliseconds is time-of-day dependent.
+    // These two tests pin the clock on either side of the noon-UTC stamp to
+    // prove the fix (UTC-calendar-date bounding for non-intraday periods).
+    test("today's own daily aggregate is included in a non-intraday range before 12:00 UTC", async ({
+      page,
+    }) => {
+      const beforeNoonNow = new Date("2026-06-10T06:00:00.000Z");
+      await setupRetailFixture(page, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            "history-30d": [
+              {
+                // Today's daily aggregate, stamped at the publisher's noon-UTC
+                // convention. With "now" at 06:00 UTC the old exact-millisecond
+                // filter rejected this as "future" (timeMs 12:00 > endMs 06:00),
+                // dropping the most current point from every non-intraday chart
+                // until noon UTC passed.
+                t: "2026-06-10T12:00:00.000Z",
+                ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
+                vendors: { apmex: { avg: 99 } },
+              },
+            ],
+          },
+        },
+      });
+      await page.clock.setFixedTime(beforeNoonNow);
+      await clickStrk260MarketDetail(page);
+      await clickMarketPeriod(page, "7D");
+
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(chart)).toEqual([
+        { title: "APMEX", data: [{ time: "2026-06-10", value: 99 }] },
+      ]);
+    });
+
+    test("the oldest calendar day a rolling window is meant to include is retained deterministically after 12:00 UTC", async ({
+      page,
+    }) => {
+      const afterNoonNow = new Date("2026-06-17T18:00:00.000Z");
+      await setupRetailFixture(page, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            "history-30d": [
+              {
+                // Exactly on the 7D window's startDate (7 calendar days before
+                // "today", 2026-06-17): excluded by design — start is
+                // exclusive so the window spans exactly 7 calendar dates
+                // (today plus the 6 preceding), not 8.
+                t: "2026-06-10T12:00:00.000Z",
+                ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
+                vendors: { herobullion: { avg: 10 } },
+              },
+              {
+                // The oldest calendar date the 7D window IS meant to include.
+                // Locks in that the new exclusive-start rule trims exactly one
+                // boundary day, not more, keeping the window deterministic
+                // regardless of what time of day "now" falls at (mirroring the
+                // before-noon test above).
+                t: "2026-06-11T12:00:00.000Z",
+                ts: toUnixSeconds("2026-06-11T12:00:00.000Z"),
+                vendors: { herobullion: { avg: 11 } },
+              },
+            ],
+          },
+        },
+      });
+      await page.clock.setFixedTime(afterNoonNow);
+      await clickStrk260MarketDetail(page);
+      await clickMarketPeriod(page, "7D");
+
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(chart)).toEqual([
+        { title: "Hero", data: [{ time: "2026-06-11", value: 11 }] },
+      ]);
     });
 
     test("duplicate daily Vendor dates keep the chronologically latest observation", async ({

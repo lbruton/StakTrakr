@@ -728,6 +728,19 @@ const _parseMarketDetailIsoTime = (timestamp) => {
 };
 
 /**
+ * Format a millisecond timestamp as its UTC calendar date key.
+ * @param {number} timeMs - Milliseconds since epoch.
+ * @returns {string} UTC `YYYY-MM-DD` date key.
+ */
+const _utcDateKey = (timeMs) => {
+  const date = new Date(timeMs);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Return an ISO date-only chart key from a validated publisher timestamp.
  * The publisher's UTC date is preferred; timestamp fallback is explicitly UTC.
  * @param {Object} row - Retail history row.
@@ -737,12 +750,7 @@ const _parseMarketDetailIsoTime = (timestamp) => {
 const _getMarketDetailDailyChartTime = (row, timeMs) => {
   const isoTimeMs = _parseMarketDetailIsoTime(row.t);
   if (isoTimeMs !== null) return row.t.slice(0, 10);
-
-  const date = new Date(timeMs);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return _utcDateKey(timeMs);
 };
 
 /**
@@ -817,6 +825,16 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
   const numericNowMs = Number(nowMs);
   const endMs = Number.isFinite(numericNowMs) && numericNowMs > 0 ? numericNowMs : Date.now();
   const startMs = period ? endMs - period.durationMs : endMs;
+  // STRK-260: daily aggregates carry a synthetic noon-UTC timestamp
+  // (devops/pollers/shared/api-export-v2.js buildDailyWithVendors stamps every
+  // bucket at T12:00:00Z), so an exact-millisecond compare against startMs/endMs
+  // rejects today's bucket before noon UTC and the oldest boundary day after
+  // noon UTC. Non-intraday periods are bounded by UTC calendar date instead;
+  // intraday (24H) keeps the exact-millisecond compare. Start is exclusive and
+  // end is inclusive so an N-day period spans exactly N calendar dates (today
+  // plus the N-1 preceding days), regardless of what time "now" falls at.
+  const startDateKey = _utcDateKey(startMs);
+  const endDateKey = _utcDateKey(endMs);
   const rows = period && Array.isArray(modalData?.[period.source]) ? modalData[period.source] : [];
   const observations = [];
   const dailyObservationsByVendorTime = new Map();
@@ -824,12 +842,19 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
   for (const row of rows) {
     if (!row || typeof row !== "object" || Array.isArray(row)) continue;
     const timeMs = _parseMarketDetailTime(row);
-    if (timeMs === null || timeMs < startMs || timeMs > endMs) continue;
-    if (!row.vendors || typeof row.vendors !== "object" || Array.isArray(row.vendors)) continue;
+    if (timeMs === null) continue;
 
     const chartTime = period?.intraday
       ? Math.floor(timeMs / 1000)
       : _getMarketDetailDailyChartTime(row, timeMs);
+
+    if (period?.intraday) {
+      if (timeMs < startMs || timeMs > endMs) continue;
+    } else if (chartTime <= startDateKey || chartTime > endDateKey) {
+      continue;
+    }
+    if (!row.vendors || typeof row.vendors !== "object" || Array.isArray(row.vendors)) continue;
+
     for (const [vendorId, vendorValue] of Object.entries(row.vendors)) {
       if (!vendorId) continue;
       const usdPrice = _normalizeMarketDetailPrice(vendorValue, !!period?.intraday);
