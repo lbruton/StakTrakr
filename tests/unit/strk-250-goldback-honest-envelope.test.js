@@ -63,46 +63,58 @@ describe("wrapEnvelope — envelope shape regression (R2.1/R2.2)", () => {
 
 // ---------------------------------------------------------------------------
 // resolveGoldbackGeneratedAt — stale / fresh / NaN-safe branches
+//
+// SUPERSEDED IN PART BY STRK-257. STRK-250 returned the real scrape time only
+// once a row had already gone stale, leaving the publish-time default in place
+// for rows still inside the budget. That reopened the same bug one step
+// earlier (a 1h59m-old row published with a full fresh 2h window), so the
+// budget no longer gates the decision — a usable scraped_at is always returned
+// and the `now` / `budgetSeconds` parameters are gone.
+//
+// The two age-gated expectations below (R3.4, R3.3b) are kept rather than
+// deleted, flipped to the current contract, so the reversal stays visible in
+// history. The stale, guard and envelope-shape cases are unchanged: those were
+// always correct and still pass. New coverage lives in
+// tests/unit/strk-257-goldback-generated-at.test.js.
 // ---------------------------------------------------------------------------
 
-describe("resolveGoldbackGeneratedAt (STRK-250)", () => {
+describe("resolveGoldbackGeneratedAt (STRK-250, amended by STRK-257)", () => {
   it("R3.3 — stale: row > budget old → returns normalised scraped_at ISO", () => {
-    // 3 h ago (10800 s > 7200 s budget) → must return the scrape time string.
+    // 3 h ago. Unchanged by STRK-257 — this case always returned the scrape time.
     const scrapedAt = new Date(NOW_MS - 3 * 60 * 60 * 1000).toISOString();
-    const result = resolveGoldbackGeneratedAt(scrapedAt, NOW, 7200);
-    // Expected: normalised ISO of the scraped_at value (no milliseconds)
+    const result = resolveGoldbackGeneratedAt(scrapedAt);
     const expected = new Date(scrapedAt).toISOString().replace(".000Z", "Z");
     assert.equal(result, expected);
   });
 
-  it("R3.4 — fresh: row ≤ budget old → returns undefined (publish-time default)", () => {
-    // 5 min ago (300 s < 7200 s budget) → must return undefined.
+  it("R3.4 (STRK-257) — fresh: row ≤ budget old → NOW returns scraped_at, not undefined", () => {
+    // Was: `assert.equal(result, undefined)` — the publish-time default.
+    // A fresh row must still be anchored to its own scrape time so the
+    // stale_after window counts down from capture, not from publish.
     const scrapedAt = new Date(NOW_MS - 5 * 60 * 1000).toISOString();
-    const result = resolveGoldbackGeneratedAt(scrapedAt, NOW, 7200);
-    assert.equal(result, undefined);
+    const result = resolveGoldbackGeneratedAt(scrapedAt);
+    assert.equal(result, scrapedAt.replace(".000Z", "Z"));
   });
 
   it("Guard — NaN-safe: unparseable scraped_at → returns undefined", () => {
-    const result = resolveGoldbackGeneratedAt("not-a-date", NOW, 7200);
-    assert.equal(result, undefined);
+    assert.equal(resolveGoldbackGeneratedAt("not-a-date"), undefined);
   });
 
   it("Guard — null scraped_at → returns undefined", () => {
-    const result = resolveGoldbackGeneratedAt(null, NOW, 7200);
-    assert.equal(result, undefined);
+    assert.equal(resolveGoldbackGeneratedAt(null), undefined);
   });
 
-  it("R3.3b — exactly on the budget boundary (== budget) → returns undefined (fresh, strict >)", () => {
-    // Row is exactly budget seconds old: age (7200) > budget (7200) is FALSE → fresh.
+  it("R3.3b (STRK-257) — exactly on the budget boundary → returns scraped_at", () => {
+    // Was: undefined, because the old strict `age > budget` treated the exact
+    // boundary as fresh. With no age gate the boundary is no longer special.
     const scrapedAt = new Date(NOW_MS - 7200 * 1000).toISOString();
-    const result = resolveGoldbackGeneratedAt(scrapedAt, NOW, 7200);
-    // Boundary at exactly budget is fresh (not stale): age === budget → NOT > budget
-    assert.equal(result, undefined);
+    const result = resolveGoldbackGeneratedAt(scrapedAt);
+    assert.equal(result, scrapedAt.replace(".000Z", "Z"));
   });
 
-  it("R3.3c — one second past budget → stale (returns scraped_at)", () => {
+  it("R3.3c — one second past budget → returns scraped_at", () => {
     const scrapedAt = new Date(NOW_MS - 7201 * 1000).toISOString();
-    const result = resolveGoldbackGeneratedAt(scrapedAt, NOW, 7200);
+    const result = resolveGoldbackGeneratedAt(scrapedAt);
     const expected = new Date(scrapedAt).toISOString().replace(".000Z", "Z");
     assert.equal(result, expected);
   });

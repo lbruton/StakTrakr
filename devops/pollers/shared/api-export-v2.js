@@ -892,24 +892,30 @@ function buildGoldbackIntradayEntries(rows) {
 
 /**
  * Resolve the honest `generated_at` timestamp for goldback/latest.json.
- * Returns the normalised scraped_at ISO when the row is older than the budget,
- * so envelope-validating consumers correctly detect staleness during an outage.
- * Returns undefined when the row is fresh (publish-time default applies).
+ *
+ * Always returns the normalised scraped_at ISO when the row carries a usable
+ * timestamp, so freshness is measured against when the price was actually
+ * scraped rather than when we happened to publish it.
+ *
+ * STRK-250 originally applied this only once a row had already gone stale.
+ * That left the publish-time default in place for rows still inside the
+ * budget, which reopened the same bug one step earlier: a row scraped 1h59m
+ * before export was stamped "now" with a 2h stale_after, handing consumers a
+ * full fresh window for data with about a minute of life left (STRK-257).
+ *
+ * Returns undefined only when there is no usable timestamp to be honest with,
+ * in which case wrapEnvelope's publish-time default is the remaining option.
  *
  * @param {string|Date|null} scrapedAt - The scraped_at value from the latest row
- * @param {Date} now - Current time (injected for testability)
- * @param {number} budgetSeconds - Realtime freshness budget in seconds
- * @returns {string|undefined}
+ * @returns {string|undefined} Normalised ISO-8601, or undefined if unusable
  */
-function resolveGoldbackGeneratedAt(scrapedAt, now, budgetSeconds) {
+function resolveGoldbackGeneratedAt(scrapedAt) {
+  // `new Date(null)` is the epoch rather than Invalid Date, so this guard must
+  // run before the NaN check or a null row would be stamped 1970 (STRK-250).
   if (scrapedAt === null || scrapedAt === undefined) return undefined;
   const scrapeMs = new Date(scrapedAt).getTime();
   if (Number.isNaN(scrapeMs)) return undefined;
-  const ageSeconds = (now.getTime() - scrapeMs) / 1000;
-  if (ageSeconds > budgetSeconds) {
-    return new Date(scrapedAt).toISOString().replace(".000Z", "Z");
-  }
-  return undefined;
+  return new Date(scrapeMs).toISOString().replace(".000Z", "Z");
 }
 
 // Realtime freshness budget for goldback/latest.json — mirrors stale_after and
@@ -936,11 +942,9 @@ async function exportGoldback(client) {
   const g1 = Math.round(Number(latestRow.price) * 100) / 100;
   const { t, ts } = toTimestampPair(new Date(String(latestRow.scraped_at)), "hourly");
 
-  const generatedAt = resolveGoldbackGeneratedAt(
-    latestRow.scraped_at,
-    now,
-    GOLDBACK_REALTIME_BUDGET_SECONDS
-  );
+  // Anchored to the scrape, never to publish time, so `stale_after` counts down
+  // from when the price was actually captured (STRK-257).
+  const generatedAt = resolveGoldbackGeneratedAt(latestRow.scraped_at);
   writeV2File(
     "goldback/latest.json",
     {
