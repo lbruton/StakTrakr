@@ -1460,18 +1460,47 @@ test.describe("core/retail-market", () => {
       .count();
     expect(itemCount).toBeGreaterThanOrEqual(4);
 
-    // Fire re-renders back to back so multiple rAF callbacks overlap.
-    await page.evaluate(() => {
-      for (let i = 0; i < 12; i += 1) window.renderBestPriceTicker();
+    // Each call must actually reach the render path. renderBestPriceTicker
+    // early-returns while the container's stored signature still matches
+    // (js/market-data.js `:640`), so calling it repeatedly with unchanged data
+    // schedules nothing whatsoever — measured with a MutationObserver: zero
+    // tracks created across 12 calls. Clearing the stored signature defeats
+    // that memoization guard, which is what the STAK-513 scenario needs: a new
+    // track built while the previous one is still mounted and its rAF pending.
+    // Done this way rather than by mutating seeded prices so the test does not
+    // depend on the retail cache's shape.
+    const renderStats = await page.evaluate(async () => {
+      const container = document.getElementById("bestPriceTickerEl");
+
+      let tracksCreated = 0;
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (node.nodeType === 1 && node.classList?.contains("ticker-track")) {
+              tracksCreated += 1;
+            }
+          }
+        }
+      });
+      observer.observe(container, { childList: true });
+
+      for (let i = 0; i < 12; i += 1) {
+        container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      }
+
+      // Let every queued rAF callback drain before reporting.
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)));
+      });
+      observer.disconnect();
+
+      return { tracksCreated };
     });
 
-    // Let every queued rAF callback drain before asserting.
-    await page.evaluate(
-      () =>
-        new Promise((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)));
-        })
-    );
+    // Self-check: if this ever drops to 0/1 the loop has gone inert again and
+    // the single-track assertion below would pass without exercising anything.
+    expect(renderStats.tracksCreated).toBeGreaterThan(1);
 
     await expect(track).toHaveCount(1);
   });
