@@ -324,7 +324,7 @@ test.describe("SW classified caching", () => {
     expect(cacheName).not.toBeNull();
 
     // Seed a STALE entry so matchWithAgeCheck returns null and the SW goes to
-    // network; the dev server has no 1999 file, so the fetch resolves 404.
+    // network; the dev server has no 1900 file, so the fetch resolves 404.
     await page.evaluate(
       async ({ cn, url, ts }) => {
         const cache = await caches.open(cn);
