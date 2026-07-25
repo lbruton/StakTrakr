@@ -90,12 +90,20 @@ const FAMILY_TABLE = [
     hasEnvelope: true,
   },
   {
+    // Network-first despite the slow-moving data (STRK-264). Cache-first meant
+    // a provider_vendors change — a new coin, or a yearly-dated product URL
+    // rolling over — could take the full 24h floor to reach a browser that
+    // already held a SW-cached copy, and a hard refresh does not clear that.
+    // The price feed is networkFirst, so the UI would show a current price
+    // behind a stale vendor link. floor is retained for the error-fallback
+    // path and to stay consistent with the other realtime families.
     family: "providers",
     test: function (p) {
       return p === "/v2/providers.json";
     },
     floor: 86400,
     hasEnvelope: true,
+    networkFirst: true,
   },
   {
     // Matches /data/spot-history-YYYY.json (local origin) and /spot-history-YYYY.json (API root)

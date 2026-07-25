@@ -319,14 +319,18 @@ describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", ()
     "annual-spot-history": "/spot-history-2025.json",
   };
 
-  const REALTIME_FAMILIES = ["spot-latest", "goldback-latest", "retail-latest"];
+  // `providers` moved from NON_REALTIME to REALTIME in STRK-264. It is not
+  // realtime data, but cache-first let a provider_vendors change sit behind a
+  // 24h SW-cached copy while the price feed updated immediately, so the UI
+  // could show a current price under a stale vendor URL. Dedicated coverage
+  // lives in tests/unit/strk-264-providers-network-first.test.js.
+  const REALTIME_FAMILIES = ["spot-latest", "goldback-latest", "retail-latest", "providers"];
   const NON_REALTIME_FAMILIES = [
     "manifest",
     "spot-history-daily",
     "retail-intraday",
     "retail-history-short",
     "retail-history-long",
-    "providers",
     "annual-spot-history",
   ];
 
