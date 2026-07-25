@@ -1,12 +1,18 @@
 // StakTrakr Service Worker
 // Enables offline support and installable PWA experience
 // Cache version: auto-stamped by devops/hooks/stamp-sw-cache.sh pre-commit hook
+//
+// Service-worker globals plus the symbols sw-router.js publishes via
+// importScripts. Declared here because the repo's legacy .eslintrc.json sets
+// no-undef: off while Codacy's ESLint 9 config enforces it, so these read as
+// undefined there without an explicit declaration.
+/* global caches, clients, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache */
 
 importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.65-b1784952229";
+const CACHE_NAME = "staktrakr-v3.35.65-b1784962182";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -381,16 +387,48 @@ function matchWithAgeCheck(request, family) {
 // Tests must serialize requests (one request → one postMessage read) to avoid race conditions.
 let lastStrategy = null;
 
+/**
+ * Resolve a completed network attempt, preferring a cached copy when the
+ * response is unusable.
+ *
+ * A fetch that rejects (offline, DNS failure) is handled by the .catch() paths
+ * below. This covers the other half: a fetch that *resolves* with a non-OK
+ * status. A transient upstream 500/503 used to be handed straight to the page
+ * even with a good cached copy on disk, so the user saw an error state instead
+ * of last-known-good prices (STRK-256).
+ *
+ * When nothing is cached the original response is returned unchanged, so a
+ * genuine error still reaches the page with its real status rather than being
+ * masked as a generic network failure.
+ *
+ * Sets the lastStrategy test instrumentation as a side effect.
+ *
+ * @param {Request} request - The classified request being served.
+ * @param {Response} response - The response the network attempt resolved with.
+ * @returns {Response|Promise<Response>} The response to serve to the page.
+ */
+function resolveWithCacheFallback(request, response) {
+  if (!shouldFallBackToCache(response)) {
+    lastStrategy = "network";
+    return response;
+  }
+  return caches.match(request).then((stale) => {
+    if (stale) {
+      lastStrategy = "network-fallback";
+      return stale;
+    }
+    lastStrategy = "network";
+    return response;
+  });
+}
+
 // Classified dispatcher: cache-first-with-TTL, network on miss, stale fallback on error.
 // Realtime families (family.networkFirst) skip the TTL check and go straight to network,
-// falling back to the cached copy on a fetch error.
+// falling back to the cached copy on a fetch error or an unusable response.
 function classifiedFetch(request, family) {
   if (family.networkFirst) {
     return fetchAndCacheClassified(request, family)
-      .then((response) => {
-        lastStrategy = "network";
-        return response;
-      })
+      .then((response) => resolveWithCacheFallback(request, response))
       .catch(() => {
         lastStrategy = "network-fallback";
         return caches.match(request).then((stale) => stale || Response.error());
@@ -402,10 +440,7 @@ function classifiedFetch(request, family) {
       return cached;
     }
     return fetchAndCacheClassified(request, family)
-      .then((response) => {
-        lastStrategy = "network";
-        return response;
-      })
+      .then((response) => resolveWithCacheFallback(request, response))
       .catch(() => {
         lastStrategy = "network-fallback";
         return caches.match(request).then((stale) => stale || Response.error());

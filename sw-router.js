@@ -183,11 +183,37 @@ function parseGeneratedAtSeconds(body) {
   return isNaN(ms) ? null : ms / 1000;
 }
 
+/**
+ * Decide whether a network result is unusable and a cached copy should be
+ * served in its place.
+ *
+ * The network-first strategy previously fell back only when the fetch itself
+ * rejected (offline, DNS failure). A transient upstream 500/503 resolves
+ * normally, so the error response was handed straight to the page even with a
+ * good cached copy available — the user saw an error state instead of
+ * last-known-good prices (STRK-256). Any non-OK status is therefore treated the
+ * same as a rejection.
+ *
+ * Opaque responses are the deliberate exception: a no-cors cross-origin
+ * response always reports status 0 / ok false, but it is a legitimate result
+ * that fetchAndCacheClassified caches and returns. Treating it as a failure
+ * would discard a valid response on every no-cors request.
+ *
+ * @param {Response|null|undefined} response - The resolved network response.
+ * @returns {boolean} True when a cached copy should be preferred.
+ */
+function shouldFallBackToCache(response) {
+  if (!response) return true;
+  if (response.type === "opaque") return false;
+  return !response.ok;
+}
+
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
 if (typeof module !== "undefined") {
   module.exports = {
     FAMILY_TABLE: FAMILY_TABLE,
     classifyEndpoint: classifyEndpoint,
     parseGeneratedAtSeconds: parseGeneratedAtSeconds,
+    shouldFallBackToCache: shouldFallBackToCache,
   };
 }
