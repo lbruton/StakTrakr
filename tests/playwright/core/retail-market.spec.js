@@ -1437,6 +1437,45 @@ test.describe("core/retail-market", () => {
     await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
   });
 
+  // STRK-275 / STAK-513: rapid re-renders must leave exactly one .ticker-track.
+  //
+  // _finalizeTickerTrack runs inside requestAnimationFrame, so several renders
+  // can be in flight at once. Cleanup relies on the sweep at the end of that
+  // function removing every track except the current one — which is precisely
+  // why the separate `previousTrack` argument it used to receive was redundant
+  // and was dropped. This pins the invariant that makes it redundant; without
+  // it, the removal rests on reading the code rather than on a test.
+  test("STRK-275 — rapid ticker re-renders leave exactly one track (STAK-513)", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+
+    // The sweep only matters on the animated path, which needs >= 4 items;
+    // fewer would take the static branch and the assertion would pass vacuously.
+    const itemCount = await page
+      .locator("#bestPriceTickerEl .ticker-block[data-ticker-block='primary'] .ticker-item")
+      .count();
+    expect(itemCount).toBeGreaterThanOrEqual(4);
+
+    // Fire re-renders back to back so multiple rAF callbacks overlap.
+    await page.evaluate(() => {
+      for (let i = 0; i < 12; i += 1) window.renderBestPriceTicker();
+    });
+
+    // Let every queued rAF callback drain before asserting.
+    await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)));
+        })
+    );
+
+    await expect(track).toHaveCount(1);
+  });
+
   // =========================================================================
   // STRK-249 — AC-6 / AC-7: market-table goldback premium cells render in
   // LOCKSTEP with spot-based premiums (same paint when a fresh cached

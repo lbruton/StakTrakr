@@ -378,7 +378,22 @@ const _getTickerLoopPhase = (track) => {
   }
 };
 
-const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previousTrack = null) => {
+/**
+ * Size the ticker loop, apply animation timing, and sweep superseded tracks.
+ *
+ * Takes no `previousTrack`: the STAK-513 sweep below removes every
+ * `.ticker-track` except this one, which necessarily includes the prior track,
+ * so targeted removal is redundant here (STRK-275). The caller still needs its
+ * own `previousTrack` for the static (<4 item) path and for positioning the
+ * incoming track while the old one is still on screen.
+ *
+ * @param {HTMLElement} container - The ticker container element.
+ * @param {HTMLElement} track - The track being finalised.
+ * @param {HTMLElement} primaryBlock - The primary content block, for loop width.
+ * @param {number} phase - Prior loop phase (0..1) for animation continuity.
+ * @returns {void}
+ */
+const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0) => {
   const loopWidth = Math.ceil(primaryBlock.getBoundingClientRect().width);
 
   track.style.removeProperty("left");
@@ -582,7 +597,7 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
 
     container.appendChild(track);
     requestAnimationFrame(() => {
-      _finalizeTickerTrack(container, track, block1, previousPhase, previousTrack);
+      _finalizeTickerTrack(container, track, block1, previousPhase);
     });
   } else {
     track.classList.add("static");
