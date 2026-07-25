@@ -11,11 +11,12 @@
 
 import { createServer } from "http";
 import { readFile, stat } from "fs/promises";
-import { join, resolve, extname } from "path";
+import { resolve, extname } from "path";
+
+import { probeSqldReachable } from "./sqld-probe.js";
 
 const PORT = process.env.PORT || 8080;
 const DATA_DIR = resolve(process.env.API_EXPORT_DIR || "/tmp/staktrakr-api-export");
-const SQLD_PROBE_TIMEOUT_MS = 5000;
 
 const MIME_TYPES = {
   ".json": "application/json",
@@ -24,48 +25,15 @@ const MIME_TYPES = {
   ".txt": "text/plain",
 };
 
-let sqldClient = null;
-
-async function probeSqldReachable() {
-  const startedAt = Date.now();
-  const checkedAt = new Date().toISOString();
-
-  let timeoutId;
-  try {
-    if (!sqldClient) {
-      const { createSqldClient } = await import("./sqld-client.js");
-      sqldClient = createSqldClient();
-    }
-
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("sqld probe timeout")), SQLD_PROBE_TIMEOUT_MS);
-    });
-
-    await Promise.race([sqldClient.execute("SELECT 1 AS ok"), timeoutPromise]);
-    return { ok: true, latency_ms: Date.now() - startedAt, checked_at: checkedAt };
-  } catch (err) {
-    // Drop the cached client so the next probe attempts a fresh connection,
-    // recovering from a stuck pool after a Tailscale-route flap.
-    const clientToClose = sqldClient;
-    sqldClient = null;
-    clientToClose?.close().catch(() => {});
-    const msg = String(err?.message || err);
-    let errorClass = "query_error";
-    if (msg.includes("timeout")) errorClass = "timeout";
-    else if (msg.includes("ECONNREFUSED")) errorClass = "connection_refused";
-    else if (msg.includes("EHOSTUNREACH") || msg.includes("ENETUNREACH"))
-      errorClass = "host_unreachable";
-    else if (msg.includes("ENOTFOUND")) errorClass = "dns_error";
-    return {
-      ok: false,
-      error_class: errorClass,
-      latency_ms: Date.now() - startedAt,
-      checked_at: checkedAt,
-    };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
+// Last-resort guards. This process is the api2 origin and is supervised, but a
+// restart loop still surfaces as 502s at the Fly proxy, so an unexpected async
+// throw must never be allowed to terminate it (STRK-277).
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection (ignored, server stays up):", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception (ignored, server stays up):", err);
+});
 
 const server = createServer(async (req, res) => {
   // CORS headers for API access
@@ -99,7 +67,16 @@ const server = createServer(async (req, res) => {
   // client. Always returns 200; the boolean result lives in `ok`. The
   // probe completing at all signals Fly.io itself is up.
   if (url === "/health/sqld-reachable") {
-    const result = await probeSqldReachable();
+    // probeSqldReachable() is contracted never to reject, but this endpoint is
+    // the one path that touches the network on every hit — belt-and-braces so a
+    // future regression degrades the response instead of the process.
+    let result;
+    try {
+      result = await probeSqldReachable();
+    } catch (err) {
+      console.error("sqld probe threw unexpectedly:", err);
+      result = { ok: false, error_class: "probe_error", checked_at: new Date().toISOString() };
+    }
     const body = JSON.stringify(result);
     res.writeHead(200, {
       "Content-Type": "application/json",
