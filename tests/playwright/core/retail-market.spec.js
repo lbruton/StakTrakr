@@ -1005,6 +1005,43 @@ async function clickStrk260MarketDetail(page) {
 }
 
 /**
+ * Seeds SLUG_SILVER_A's 30-day history feed with `rows`, pins the clock at
+ * `now`, opens the STRK-260 market detail modal, switches to the 7D period,
+ * and asserts exactly one active chart renders with a series payload equal
+ * to `expectedSeries`.
+ *
+ * Shared by the STRK-260 noon-UTC boundary regression pair: daily aggregates
+ * are always stamped at T12:00:00Z (devops/pollers/shared/api-export-v2.js
+ * buildDailyWithVendors), so comparing that fixed stamp against an arbitrary
+ * wall-clock "now" in milliseconds is time-of-day dependent. The two callers
+ * pin the clock on either side of the noon-UTC stamp to prove the fix
+ * (UTC-calendar-date bounding for non-intraday periods).
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object} params - Per-test fixture and expectation overrides.
+ * @param {Date} params.now - Wall-clock time to pin via page.clock.setFixedTime.
+ * @param {Array<Object>} params.rows - history-30d rows to seed for SLUG_SILVER_A.
+ * @param {Array<{title: string, data: Array<{time: string, value: number}>}>} params.expectedSeries -
+ *   Expected chartSeriesPayload result for the 7D period after the rows are applied.
+ * @returns {Promise<void>}
+ */
+async function expectSevenDaySeriesForHistoryRows(page, { now, rows, expectedSeries }) {
+  await setupRetailFixture(page, {
+    retailFeeds: {
+      [SLUG_SILVER_A]: {
+        "history-30d": rows,
+      },
+    },
+  });
+  await page.clock.setFixedTime(now);
+  await clickStrk260MarketDetail(page);
+  await clickMarketPeriod(page, "7D");
+
+  await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+  const chart = activeMarketChart(await getMarketChartHarness(page));
+  expect(chartSeriesPayload(chart)).toEqual(expectedSeries);
+}
+
+/**
  * Waits for the v2 retail-prices background sync to complete by polling
  * localStorage for the expected lastSync timestamp.
  * @param {import('@playwright/test').Page} page - Playwright page.
@@ -1897,76 +1934,52 @@ test.describe("core/retail-market", () => {
     test("today's own daily aggregate is included in a non-intraday range before 12:00 UTC", async ({
       page,
     }) => {
-      const beforeNoonNow = new Date("2026-06-10T06:00:00.000Z");
-      await setupRetailFixture(page, {
-        retailFeeds: {
-          [SLUG_SILVER_A]: {
-            "history-30d": [
-              {
-                // Today's daily aggregate, stamped at the publisher's noon-UTC
-                // convention. With "now" at 06:00 UTC the old exact-millisecond
-                // filter rejected this as "future" (timeMs 12:00 > endMs 06:00),
-                // dropping the most current point from every non-intraday chart
-                // until noon UTC passed.
-                t: "2026-06-10T12:00:00.000Z",
-                ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
-                vendors: { apmex: { avg: 99 } },
-              },
-            ],
+      await expectSevenDaySeriesForHistoryRows(page, {
+        now: new Date("2026-06-10T06:00:00.000Z"),
+        rows: [
+          {
+            // Today's daily aggregate, stamped at the publisher's noon-UTC
+            // convention. With "now" at 06:00 UTC the old exact-millisecond
+            // filter rejected this as "future" (timeMs 12:00 > endMs 06:00),
+            // dropping the most current point from every non-intraday chart
+            // until noon UTC passed.
+            t: "2026-06-10T12:00:00.000Z",
+            ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
+            vendors: { apmex: { avg: 99 } },
           },
-        },
+        ],
+        expectedSeries: [{ title: "APMEX", data: [{ time: "2026-06-10", value: 99 }] }],
       });
-      await page.clock.setFixedTime(beforeNoonNow);
-      await clickStrk260MarketDetail(page);
-      await clickMarketPeriod(page, "7D");
-
-      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
-      const chart = activeMarketChart(await getMarketChartHarness(page));
-      expect(chartSeriesPayload(chart)).toEqual([
-        { title: "APMEX", data: [{ time: "2026-06-10", value: 99 }] },
-      ]);
     });
 
     test("the oldest calendar day a rolling window is meant to include is retained deterministically after 12:00 UTC", async ({
       page,
     }) => {
-      const afterNoonNow = new Date("2026-06-17T18:00:00.000Z");
-      await setupRetailFixture(page, {
-        retailFeeds: {
-          [SLUG_SILVER_A]: {
-            "history-30d": [
-              {
-                // Exactly on the 7D window's startDate (7 calendar days before
-                // "today", 2026-06-17): excluded by design — start is
-                // exclusive so the window spans exactly 7 calendar dates
-                // (today plus the 6 preceding), not 8.
-                t: "2026-06-10T12:00:00.000Z",
-                ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
-                vendors: { herobullion: { avg: 10 } },
-              },
-              {
-                // The oldest calendar date the 7D window IS meant to include.
-                // Locks in that the new exclusive-start rule trims exactly one
-                // boundary day, not more, keeping the window deterministic
-                // regardless of what time of day "now" falls at (mirroring the
-                // before-noon test above).
-                t: "2026-06-11T12:00:00.000Z",
-                ts: toUnixSeconds("2026-06-11T12:00:00.000Z"),
-                vendors: { herobullion: { avg: 11 } },
-              },
-            ],
+      await expectSevenDaySeriesForHistoryRows(page, {
+        now: new Date("2026-06-17T18:00:00.000Z"),
+        rows: [
+          {
+            // Exactly on the 7D window's startDate (7 calendar days before
+            // "today", 2026-06-17): excluded by design — start is
+            // exclusive so the window spans exactly 7 calendar dates
+            // (today plus the 6 preceding), not 8.
+            t: "2026-06-10T12:00:00.000Z",
+            ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
+            vendors: { herobullion: { avg: 10 } },
           },
-        },
+          {
+            // The oldest calendar date the 7D window IS meant to include.
+            // Locks in that the new exclusive-start rule trims exactly one
+            // boundary day, not more, keeping the window deterministic
+            // regardless of what time of day "now" falls at (mirroring the
+            // before-noon test above).
+            t: "2026-06-11T12:00:00.000Z",
+            ts: toUnixSeconds("2026-06-11T12:00:00.000Z"),
+            vendors: { herobullion: { avg: 11 } },
+          },
+        ],
+        expectedSeries: [{ title: "Hero", data: [{ time: "2026-06-11", value: 11 }] }],
       });
-      await page.clock.setFixedTime(afterNoonNow);
-      await clickStrk260MarketDetail(page);
-      await clickMarketPeriod(page, "7D");
-
-      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
-      const chart = activeMarketChart(await getMarketChartHarness(page));
-      expect(chartSeriesPayload(chart)).toEqual([
-        { title: "Hero", data: [{ time: "2026-06-11", value: 11 }] },
-      ]);
     });
 
     test("duplicate daily Vendor dates keep the chronologically latest observation", async ({
