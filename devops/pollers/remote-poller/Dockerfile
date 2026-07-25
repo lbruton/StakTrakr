@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Tailscale (kept for diagnostics — free, no harm)
@@ -49,6 +50,10 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install --omit=dev
 
 COPY shared/*.js ./
+# Shared shell helpers (run-lock.sh). run-local.sh is not shipped in this slim
+# image today, but keeping the helper present means re-enabling it cannot
+# silently reintroduce the STRK-255 wedge.
+COPY shared/*.sh ./
 
 # Remote-specific scripts (spot + publish + cleanup)
 COPY remote-poller/run-spot.sh remote-poller/run-publish.sh remote-poller/cleanup-export.sh ./

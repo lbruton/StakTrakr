@@ -27,6 +27,14 @@ import { getCFClearanceCookie } from "./cf-clearance.js";
 import { loadWebscaleCookie, looksLikeWebscaleChallenge } from "./webscale-cookies.js";
 import { shouldBypassFirecrawlPreferredForPhase0 } from "./price-extract-vendor-goldback.js";
 import {
+  DEADLINE_EXCEEDED,
+  closeBrowserSafely,
+  listChildPids,
+  resolveCloseTimeoutMs,
+  resolveVendorBudgetMs,
+  withDeadline,
+} from "./playwright-budget.js";
+import {
   FIRECRAWL_PREFERRED_PROVIDERS,
   FIRECRAWL_TABLE_PARSE_PROVIDERS,
   PLAYWRIGHT_ONLY_PROVIDERS,
@@ -468,11 +476,20 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
   const { chromium } = await import("playwright-core");
   let browser;
 
+  // Playwright's `Browser` (unlike `BrowserServer`) exposes no handle on the
+  // Chromium it spawned, so record the pids that appear across launch. If
+  // teardown later wedges, these are the only way to reap the browser — once
+  // this Node process exits they are reparented to init and the run-lock
+  // watchdog's tree walk can no longer see them (STRK-255).
+  const pidsBeforeLaunch = new Set(listChildPids());
+  let browserPids = [];
+
   try {
     browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     });
+    browserPids = listChildPids().filter((pid) => !pidsBeforeLaunch.has(pid));
 
     // Webscale-protected vendors (jmbullion, providentmetals): if an operator
     // has stashed a solved wspc cookie for this host, inject it with the UA it
@@ -605,13 +622,15 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     log(`  (playwright-direct) ${providerId} failed: ${err.message.slice(0, 100)} — falling back`);
     return null;
   } finally {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch {
-        /* ignore */
-      }
-    }
+    // `browser.close()` has no timeout of its own. On 2026-07-19 it hung here
+    // *after* the navigation error had already been caught and logged, wedging
+    // the run and freezing retail data for ~3.5h (STRK-255). Teardown must
+    // always return, escalating to a process kill if the graceful close stalls.
+    await closeBrowserSafely(browser, {
+      timeoutMs: resolveCloseTimeoutMs(),
+      log,
+      fallbackPids: browserPids,
+    });
   }
 }
 
@@ -689,7 +708,21 @@ async function scrapeGenericTarget(context) {
       tableParseProviderIds: FIRECRAWL_TABLE_PARSE_PROVIDERS,
     });
   if (!PLAYWRIGHT_ONLY_PROVIDERS.has(provider.id) && !fcPreferredForTarget && PLAYWRIGHT_LAUNCH) {
-    const directResult = await scrapeWithPlaywrightDirect(urls[0], provider.id, coin);
+    // Total-attempt ceiling on top of the per-call navigation timeout, so one
+    // hostile vendor cannot hang the whole run in an unbounded launch/evaluate/
+    // teardown step. A blown budget is treated as "no result" and falls through
+    // to Firecrawl rather than aborting the poll (STRK-255).
+    const budgetMs = resolveVendorBudgetMs();
+    const budgeted = await withDeadline(
+      scrapeWithPlaywrightDirect(urls[0], provider.id, coin),
+      budgetMs
+    );
+    if (budgeted === DEADLINE_EXCEEDED) {
+      warn(
+        `  (playwright-direct) ${provider.id} exceeded ${budgetMs}ms vendor budget — abandoning and falling back`
+      );
+    }
+    const directResult = budgeted === DEADLINE_EXCEEDED ? null : budgeted;
     if (directResult !== null) {
       price = directResult.price;
       source = directResult.source;
