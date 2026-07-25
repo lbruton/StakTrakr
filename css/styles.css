@@ -15702,7 +15702,23 @@ input[type="number"] {
 }
 
 /* Market detail: stat values + vendor price cells */
+.market-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.65rem, 3vw, 1.5rem);
+  margin-bottom: 0.9rem;
+}
+
+.market-detail-stat-label {
+  margin-bottom: 0.18rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .market-value {
+  min-height: 1.25rem;
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
@@ -15776,12 +15792,72 @@ input[type="number"] {
   font-weight: 700;
 }
 
+/* ── Modal Period Controls ── */
+.market-detail-chart-section {
+  margin-bottom: 1rem;
+}
+
+.market-detail-periods {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.65rem;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.market-detail-periods .market-detail-period-btn {
+  min-width: 3.15rem;
+  min-height: 44px;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.market-detail-periods .market-detail-period-btn:hover {
+  border-color: var(--primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.market-detail-periods .market-detail-period-btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.market-detail-periods .market-detail-period-btn.active,
+.market-detail-periods .market-detail-period-btn[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
 /* ── Modal Chart Container ── */
 .market-detail-chart {
   height: 250px;
   margin-bottom: 1rem;
   border-radius: var(--radius);
   overflow: hidden;
+}
+
+.market-detail-chart-unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
 }
 
 /* Reset global table/td rules that leak into LightweightCharts' internal table layout */
@@ -15835,6 +15911,22 @@ input[type="number"] {
 
   .ticker-item {
     font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 560px) {
+  .market-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-detail-periods {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .market-detail-periods .market-detail-period-btn {
+    width: 100%;
   }
 }
 

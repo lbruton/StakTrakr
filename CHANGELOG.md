@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.65] - 2026-07-24
+
+### Changed — STRK-260: Period-aware retail history ranges
+
+- **Retail history summaries and longer chart ranges**: The Retail View detail modal now offers 24H, 7D, 30D, 60D, and 90D controls and recalculates Median, Low, High, and Spread from the same valid observations shown in the selected chart window. Longer ranges use the existing 90-day feed with primary-to-backup API failover, while the Vendor comparison table remains tied to the current snapshot (STRK-260).
+
+---
+
 ## [3.35.64] - 2026-07-01
 
 ### Fixed — STRK-251: Summit false OOS from related-products carousel

@@ -1,7 +1,9 @@
 // js/market-charts.js — Lightweight Charts v4 wrapper for Market Detail Modal (STAK-504)
 // Renders per-vendor price comparison lines for a specific coin (slug).
-// Data sources: /v2/retail/{slug}/intraday.json (24H) and /v2/retail/{slug}/history-30d.json (7D).
+// Data sources: normalized 24H, 7D, 30D, 60D, and 90D Retail View range models.
 // NOTE: Uses v4 API (chart.addLineSeries) — NOT v5 (chart.addSeries(LineSeries)).
+
+const _marketChartContainers = new WeakMap();
 
 const getChartThemeColors = () => {
   const get = (token) =>
@@ -22,8 +24,14 @@ const getChartThemeColors = () => {
   };
 };
 
-// Shared chart configuration
-const _chartConfig = (colors, timeVisible) => ({
+/**
+ * Build shared Lightweight Charts options for Vendor range charts.
+ * @param {Object} colors - Active theme colors.
+ * @param {boolean} timeVisible - Whether the intraday time scale shows times.
+ * @param {Object} currencyContext - Active display-currency context.
+ * @returns {Object} Lightweight Charts v4 options.
+ */
+const _chartConfig = (colors, timeVisible, currencyContext) => ({
   autoSize: true,
   layout: {
     background: { type: "solid", color: "transparent" },
@@ -48,6 +56,9 @@ const _chartConfig = (colors, timeVisible) => ({
   rightPriceScale: { borderColor: colors.border },
   crosshair: {
     mode: LightweightCharts.CrosshairMode ? LightweightCharts.CrosshairMode.Normal : 0,
+  },
+  localization: {
+    priceFormatter: currencyContext.formatDisplayValue,
   },
 });
 
@@ -80,120 +91,189 @@ const _shortName = (vid) => {
 };
 
 /**
- * Create a multi-vendor line chart from retail intraday data (24H).
- * Data format: [{ t, ts, median, low, vendors: { vid: price, ... } }, ...]
+ * Build one-time conversion and formatting behavior for the active display
+ * currency. The formatter receives values that have already been converted.
+ * @returns {{code:string,rate:number,formatDisplayValue:function(number):string}}
  */
-const createVendorIntradayChart = (containerId, intradayRows, vendorMeta) => {
+const _getMarketChartCurrencyContext = () => {
+  const code =
+    typeof displayCurrency !== "undefined" && displayCurrency
+      ? String(displayCurrency).toUpperCase()
+      : "USD";
+  const exchangeRate = typeof getExchangeRate === "function" ? Number(getExchangeRate(code)) : 1;
+  const rate = Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : 1;
+  let formatter = null;
+  try {
+    formatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+    });
+  } catch (e) {
+    formatter = null;
+  }
+
+  /**
+   * Format a numeric value that is already in the active display currency.
+   * @param {number} displayValue - Already-converted display value.
+   * @returns {string} Currency label.
+   */
+  const formatDisplayValue = (displayValue) => {
+    const numericValue = Number(displayValue);
+    if (!Number.isFinite(numericValue)) return "";
+    return formatter ? formatter.format(numericValue) : `${code} ${numericValue.toFixed(2)}`;
+  };
+
+  return { code, rate, formatDisplayValue };
+};
+
+/**
+ * Clear a dedicated Market Detail chart container after failed construction or
+ * removal so a partial Lightweight Charts root cannot survive.
+ * @param {HTMLElement} container - Dedicated chart container.
+ * @returns {void}
+ */
+const _clearMarketChartContainer = (container) => {
+  if (container instanceof HTMLElement) container.textContent = "";
+};
+
+/**
+ * Create a multi-Vendor line chart from a normalized range model.
+ * @param {string} containerId - Target chart container ID.
+ * @param {Object} rangeModel - Normalized date-bounded range model.
+ * @param {Object} vendorMeta - Vendor metadata keyed by ID.
+ * @param {Object} currencyContext - Active display-currency context.
+ * @param {boolean} timeVisible - Whether the time scale shows intraday times.
+ * @returns {(Object|null)} Lightweight Charts instance, or null.
+ */
+const _createVendorRangeChart = (
+  containerId,
+  rangeModel,
+  vendorMeta,
+  currencyContext,
+  timeVisible
+) => {
   if (typeof LightweightCharts === "undefined") return null;
-  const container = document.getElementById(containerId);
-  if (!container || !intradayRows || !Array.isArray(intradayRows) || intradayRows.length === 0)
-    return null;
+  const container = safeGetElement(containerId);
+  if (!(container instanceof HTMLElement)) return null;
+
+  const isNormalizedRangeModel =
+    rangeModel &&
+    typeof rangeModel === "object" &&
+    !Array.isArray(rangeModel) &&
+    typeof rangeModel.periodId === "string" &&
+    Number.isFinite(rangeModel.startMs) &&
+    Number.isFinite(rangeModel.endMs) &&
+    rangeModel.startMs <= rangeModel.endMs &&
+    rangeModel.intraday === timeVisible &&
+    Array.isArray(rangeModel.observations) &&
+    Array.isArray(rangeModel.series) &&
+    rangeModel.hasChartData === true;
+  if (!isNormalizedRangeModel || rangeModel.series.length === 0) return null;
+
+  const validSeries = rangeModel.series.filter(
+    (vendorSeries) =>
+      vendorSeries &&
+      typeof vendorSeries.vendorId === "string" &&
+      vendorSeries.vendorId.length > 0 &&
+      Array.isArray(vendorSeries.points) &&
+      vendorSeries.points.length > 0 &&
+      vendorSeries.points.every(
+        (point) =>
+          point &&
+          Number.isFinite(point.usdPrice) &&
+          point.usdPrice > 0 &&
+          (timeVisible
+            ? Number.isFinite(point.time) && point.time > 0
+            : /^\d{4}-\d{2}-\d{2}$/.test(point.time))
+      )
+  );
+  if (validSeries.length !== rangeModel.series.length) return null;
 
   const colors = getChartThemeColors();
-  const chart = LightweightCharts.createChart(container, _chartConfig(colors, true));
+  const context = currencyContext || _getMarketChartCurrencyContext();
+  let chart = null;
 
   try {
-    // Collect all vendor IDs across all windows
-    const vendorIds = new Set();
-    for (const row of intradayRows) {
-      if (row.vendors) {
-        for (const vid in row.vendors) vendorIds.add(vid);
-      }
-    }
+    chart = LightweightCharts.createChart(container, _chartConfig(colors, timeVisible, context));
+    _marketChartContainers.set(chart, container);
 
-    // Create one line series per vendor (v4 API: chart.addLineSeries)
-    for (const vid of vendorIds) {
-      const vMeta = vendorMeta && vendorMeta[vid];
-      const color = (vMeta && vMeta.color) || colors.textMuted;
+    for (const vendorSeries of validSeries) {
+      const vendorId = vendorSeries.vendorId;
+      const vMeta = vendorMeta && vendorMeta[vendorId];
       const series = chart.addLineSeries({
-        color: color,
+        color: (vMeta && vMeta.color) || colors.textMuted,
         lineWidth: 2,
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         lastValueVisible: false,
-        title: _shortName(vid),
+        title: _shortName(vendorId),
       });
-      const data = [];
-      for (const row of intradayRows) {
-        const ts = row.ts || (row.t ? Math.floor(new Date(row.t).getTime() / 1000) : null);
-        const price = row.vendors && row.vendors[vid];
-        if (!ts || price == null || price <= 0) continue;
-        data.push({ time: ts, value: price });
-      }
-      if (data.length > 0) series.setData(data);
+      series.setData(
+        vendorSeries.points.map((point) => ({
+          time: point.time,
+          value: point.usdPrice * context.rate,
+        }))
+      );
     }
 
     _fitAfterLayout(chart);
   } catch (e) {
-    debugLog("[market-charts] Intraday vendor chart error: " + e.message, "warn");
+    debugLog("[market-charts] Vendor range chart error: " + e.message, "warn");
+    if (chart) destroyCoinChart(chart);
+    _clearMarketChartContainer(container);
+    return null;
   }
 
   return chart;
 };
 
 /**
- * Create a multi-vendor line chart from retail 30d history (filtered to last 7 days).
- * Data format: [{ t, ts, ..., vendors: { vid: { avg, in_stock } } }, ...]
+ * Create a multi-Vendor chart for normalized intraday observations.
+ * @param {string} containerId - Target chart container ID.
+ * @param {Object} rangeModel - Normalized date-bounded intraday model.
+ * @param {Object} vendorMeta - Vendor metadata keyed by ID.
+ * @param {Object} [currencyContext] - Active display-currency context.
+ * @returns {(Object|null)} Lightweight Charts instance, or null.
  */
-const createVendorHistoryChart = (containerId, historyRows, vendorMeta) => {
-  if (typeof LightweightCharts === "undefined") return null;
-  const container = document.getElementById(containerId);
-  if (!container || !historyRows || !Array.isArray(historyRows) || historyRows.length === 0)
-    return null;
+const createVendorIntradayChart = (
+  containerId,
+  rangeModel,
+  vendorMeta,
+  currencyContext = _getMarketChartCurrencyContext()
+) => _createVendorRangeChart(containerId, rangeModel, vendorMeta, currencyContext, true);
 
-  const colors = getChartThemeColors();
-  const chart = LightweightCharts.createChart(container, _chartConfig(colors, false));
+/**
+ * Create a multi-Vendor chart for normalized daily observations.
+ * @param {string} containerId - Target chart container ID.
+ * @param {Object} rangeModel - Normalized date-bounded daily model.
+ * @param {Object} vendorMeta - Vendor metadata keyed by ID.
+ * @param {Object} [currencyContext] - Active display-currency context.
+ * @returns {(Object|null)} Lightweight Charts instance, or null.
+ */
+const createVendorHistoryChart = (
+  containerId,
+  rangeModel,
+  vendorMeta,
+  currencyContext = _getMarketChartCurrencyContext()
+) => _createVendorRangeChart(containerId, rangeModel, vendorMeta, currencyContext, false);
+
+/**
+ * Remove a Lightweight Charts instance and its DOM root.
+ * @param {Object|null} chart - Chart instance to remove.
+ * @returns {void}
+ */
+const destroyCoinChart = (chart) => {
+  if (!chart) return;
+  const isChartObject = typeof chart === "object" || typeof chart === "function";
+  const container = isChartObject ? _marketChartContainers.get(chart) : null;
 
   try {
-    const rows = historyRows.slice(-7);
-
-    // Collect all vendor IDs
-    const vendorIds = new Set();
-    for (const row of rows) {
-      if (row.vendors) {
-        for (const vid in row.vendors) vendorIds.add(vid);
-      }
-    }
-
-    // Create one line series per vendor (v4 API: chart.addLineSeries)
-    for (const vid of vendorIds) {
-      const vMeta = vendorMeta && vendorMeta[vid];
-      const color = (vMeta && vMeta.color) || colors.textMuted;
-      const series = chart.addLineSeries({
-        color: color,
-        lineWidth: 2,
-        crosshairMarkerVisible: true,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        title: _shortName(vid),
-      });
-      const data = [];
-      for (const row of rows) {
-        if (!row.t) continue;
-        const day = row.t.split("T")[0];
-        const vData = row.vendors && row.vendors[vid];
-        const price = vData ? (typeof vData === "number" ? vData : vData.avg) : null;
-        if (price == null || price <= 0) continue;
-        data.push({ time: day, value: price });
-      }
-      if (data.length > 0) series.setData(data);
-    }
-
-    _fitAfterLayout(chart);
+    if (typeof chart.remove === "function") chart.remove();
   } catch (e) {
-    debugLog("[market-charts] History vendor chart error: " + e.message, "warn");
-  }
-
-  return chart;
-};
-
-const destroyCoinChart = (chart) => {
-  if (chart) {
-    try {
-      chart.remove();
-    } catch (e) {
-      /* noop */
-    }
+    debugLog("[market-charts] Vendor chart removal error: " + e.message, "warn");
+  } finally {
+    _clearMarketChartContainer(container);
+    if (isChartObject) _marketChartContainers.delete(chart);
   }
 };
 

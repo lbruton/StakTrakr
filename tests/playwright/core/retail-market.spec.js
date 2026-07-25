@@ -6,6 +6,8 @@ const GOLDBACK_G1_RATE = 4.25;
 const GENERATED_AT = "2026-05-26T12:00:00.000Z";
 const RECENT_DATE = "2026-05-24";
 const RECENT_TS = Math.floor(new Date(`${RECENT_DATE}T18:00:00Z`).getTime() / 1000);
+const RECENT_INTRADAY_ISO = "2026-05-26T12:00:00.000Z";
+const RECENT_INTRADAY_TS = Math.floor(new Date(RECENT_INTRADAY_ISO).getTime() / 1000);
 // Pin the browser clock so wall-clock-relative filters (e.g. the market-history
 // 7-day timeframe window in renderVendorPrices) always include the seeded
 // RECENT_DATE rows. Without this the test rots into a time-bomb: once real
@@ -102,8 +104,8 @@ const intradayRows = Object.fromEntries(
     slug,
     [
       {
-        t: `${RECENT_DATE}T18:00:00Z`,
-        ts: RECENT_TS,
+        t: RECENT_INTRADAY_ISO,
+        ts: RECENT_INTRADAY_TS,
         median: row.price,
         low: row.price,
         vendors: { [row.vendor]: row.price },
@@ -112,33 +114,445 @@ const intradayRows = Object.fromEntries(
   ])
 );
 
+/**
+ * Converts an ISO 8601 timestamp to Unix seconds for lightweight-charts time values.
+ * @param {string} iso - ISO 8601 date/time string.
+ * @returns {number} Unix timestamp in seconds.
+ */
+const toUnixSeconds = (iso) => Math.floor(new Date(iso).getTime() / 1000);
+
+const STRK260_INTRADAY_ROWS = [
+  {
+    t: "2026-05-25T17:59:59.000Z",
+    ts: toUnixSeconds("2026-05-25T17:59:59.000Z"),
+    vendors: { herobullion: 999 },
+  },
+  {
+    t: "2026-05-25T18:00:00.000Z",
+    ts: toUnixSeconds("2026-05-25T18:00:00.000Z"),
+    vendors: { herobullion: 101, apmex: 105 },
+  },
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: {
+      herobullion: 109,
+      jmbullion: "107",
+      goldback: 0,
+      bullionexchanges: -5,
+    },
+  },
+  {
+    t: "2026-05-26T18:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:00.000Z"),
+    vendors: { apmex: 111, jmbullion: "not-a-number" },
+  },
+  {
+    t: "invalid",
+    ts: "invalid",
+    vendors: { herobullion: 600 },
+  },
+  {
+    t: "2026-05-26T18:00:01.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:01.000Z"),
+    vendors: { herobullion: 500 },
+  },
+];
+
+const STRK260_HISTORY_30D_ROWS = [
+  {
+    t: "2026-04-26T17:59:59.000Z",
+    ts: toUnixSeconds("2026-04-26T17:59:59.000Z"),
+    vendors: { bullionexchanges: { avg: 999 } },
+  },
+  {
+    t: "2026-04-26T18:00:00.000Z",
+    ts: toUnixSeconds("2026-04-26T18:00:00.000Z"),
+    vendors: { herobullion: { avg: 31 } },
+  },
+  {
+    t: "2026-04-30T12:00:00.000Z",
+    ts: toUnixSeconds("2026-04-30T12:00:00.000Z"),
+    vendors: { apmex: { avg: "35" } },
+  },
+  {
+    t: "2026-05-19T17:59:59.000Z",
+    ts: toUnixSeconds("2026-05-19T17:59:59.000Z"),
+    vendors: { jmbullion: { avg: 61 } },
+  },
+  {
+    t: "2026-05-19T18:00:00.000Z",
+    ts: toUnixSeconds("2026-05-19T18:00:00.000Z"),
+    vendors: { herobullion: { avg: 71 }, apmex: { avg: 75 } },
+  },
+  {
+    t: "2026-05-23T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-23T12:00:00.000Z"),
+    vendors: { herobullion: { avg: 79 } },
+  },
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: {
+      apmex: { avg: 85 },
+      jmbullion: { avg: 0 },
+      goldback: { avg: -4 },
+      bullionexchanges: { avg: "not-a-number" },
+      summitmetals: { avg: "Infinity" },
+      providentmetals: {},
+    },
+  },
+  {
+    t: "invalid",
+    ts: "invalid",
+    vendors: { apmex: { avg: 500 } },
+  },
+  {
+    t: "2026-05-26T18:00:01.000Z",
+    ts: toUnixSeconds("2026-05-26T18:00:01.000Z"),
+    vendors: { apmex: { avg: 700 } },
+  },
+];
+
+const STRK260_HISTORY_90D_ROWS = [
+  {
+    t: "2026-02-25T17:59:59.000Z",
+    ts: toUnixSeconds("2026-02-25T17:59:59.000Z"),
+    vendors: { herobullion: { avg: 15 } },
+  },
+  {
+    t: "2026-02-25T18:00:00.000Z",
+    ts: toUnixSeconds("2026-02-25T18:00:00.000Z"),
+    vendors: { apmex: { avg: 25 } },
+  },
+  {
+    t: "2026-03-01T12:00:00.000Z",
+    ts: toUnixSeconds("2026-03-01T12:00:00.000Z"),
+    vendors: { herobullion: { avg: 35 } },
+  },
+  {
+    t: "2026-03-27T17:59:59.000Z",
+    ts: toUnixSeconds("2026-03-27T17:59:59.000Z"),
+    vendors: { herobullion: { avg: 44 } },
+  },
+  {
+    t: "2026-03-27T18:00:00.000Z",
+    ts: toUnixSeconds("2026-03-27T18:00:00.000Z"),
+    vendors: { apmex: { avg: 45 } },
+  },
+  {
+    t: "2026-04-26T18:00:00.000Z",
+    ts: toUnixSeconds("2026-04-26T18:00:00.000Z"),
+    vendors: { herobullion: { avg: 55 } },
+  },
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: { apmex: { avg: 65 }, jmbullion: { avg: null } },
+  },
+  {
+    t: "2026-05-27T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-27T12:00:00.000Z"),
+    vendors: { apmex: { avg: 800 } },
+  },
+];
+
+const STRK260_MODAL_FEEDS = {
+  [SLUG_SILVER_A]: {
+    intraday: STRK260_INTRADAY_ROWS,
+    "history-30d": STRK260_HISTORY_30D_ROWS,
+    "history-90d": STRK260_HISTORY_90D_ROWS,
+  },
+};
+
+const STRK260_ALL_INVALID_HISTORY_ROWS = [
+  {
+    t: "2026-05-26T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-26T12:00:00.000Z"),
+    vendors: {
+      herobullion: { avg: 0 },
+      apmex: { avg: -3 },
+      jmbullion: { avg: "not-a-number" },
+      goldback: { avg: null },
+    },
+  },
+  {
+    t: "invalid",
+    ts: "invalid",
+    vendors: { herobullion: { avg: 55 } },
+  },
+  {
+    // Non-intraday periods now bound by UTC calendar date (STRK-260
+    // fix), so a same-day-but-later timestamp no longer excludes a row — this
+    // has to be a genuinely future calendar date to stay excluded and keep
+    // this fixture's "every row is invalid or out of window" guarantee.
+    t: "2026-05-27T12:00:00.000Z",
+    ts: toUnixSeconds("2026-05-27T12:00:00.000Z"),
+    vendors: { apmex: { avg: 65 } },
+  },
+];
+
+const STRK260_UNAVAILABLE_SUMMARY = {
+  Median: "—",
+  Low: "—",
+  High: "—",
+  Spread: "—",
+};
+
+const STRK260_PERIOD_EXPECTATIONS = {
+  "24H": {
+    id: "24h",
+    label: "24H",
+    summary: {
+      Median: "$107.00",
+      Low: "$101.00",
+      High: "$111.00",
+      Spread: "$10.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: toUnixSeconds("2026-05-25T18:00:00.000Z"), value: 105 },
+          { time: toUnixSeconds("2026-05-26T18:00:00.000Z"), value: 111 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: toUnixSeconds("2026-05-25T18:00:00.000Z"), value: 101 },
+          { time: toUnixSeconds("2026-05-26T12:00:00.000Z"), value: 109 },
+        ],
+      },
+      {
+        title: "JM",
+        data: [{ time: toUnixSeconds("2026-05-26T12:00:00.000Z"), value: 107 }],
+      },
+    ],
+  },
+  // STRK-260: 7D/30D/60D/90D expectations below bound rows by UTC
+  // calendar date (start exclusive, end inclusive — see market-data.js
+  // _buildMarketDetailRangeModel), not exact milliseconds. Two fixture rows
+  // shift as a direct, verified consequence:
+  //   - STRK260_HISTORY_30D_ROWS' 2026-05-26T18:00:01Z apmex=700 row (one
+  //     second past FIXED_NOW) is on the SAME UTC calendar date as "today"
+  //     (2026-05-26), so it is now correctly retained by the 7D/30D windows
+  //     and, being the chronologically-latest 05-26 observation, wins the
+  //     existing same-day "latest wins" Vendor dedup over the noon row
+  //     (apmex avg 85) — replacing the 05-26 APMEX point's value with 700 in
+  //     both 7D and 30D. This is the intended fix: a real publisher daily
+  //     bucket only ever has ONE row per (vendor, date), stamped at noon UTC,
+  //     so this two-rows-same-day case can't occur outside this synthetic
+  //     boundary fixture.
+  //   - The 2026-04-26T18:00:00Z / 2026-05-19T18:00:00Z / 2026-02-25T18:00:00Z
+  //     rows sit exactly on their period's startDate (the day exactly N
+  //     calendar days before "today"). Under the old millisecond compare they
+  //     happened to be included (timeMs === startMs) only because FIXED_NOW's
+  //     time-of-day (18:00 UTC) is after the rows' noon-UTC stamp; that was
+  //     the reported inconsistency (the same nominal "7D" window silently
+  //     gaining or losing this boundary day depending on what time of day
+  //     "now" fell at). The new exclusive-start rule deterministically drops
+  //     the startDate day so every period spans exactly N calendar dates
+  //     (today plus the N-1 preceding days), regardless of time-of-day.
+  "7D": {
+    id: "7d",
+    label: "7D",
+    summary: {
+      Median: "$389.50",
+      Low: "$79.00",
+      High: "$700.00",
+      Spread: "$621.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [{ time: "2026-05-26", value: 700 }],
+      },
+      {
+        title: "Hero",
+        data: [{ time: "2026-05-23", value: 79 }],
+      },
+    ],
+  },
+  "30D": {
+    id: "30d",
+    label: "30D",
+    summary: {
+      Median: "$73.00",
+      Low: "$35.00",
+      High: "$700.00",
+      Spread: "$665.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: "2026-04-30", value: 35 },
+          { time: "2026-05-19", value: 75 },
+          { time: "2026-05-26", value: 700 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: "2026-05-19", value: 71 },
+          { time: "2026-05-23", value: 79 },
+        ],
+      },
+      {
+        title: "JM",
+        data: [{ time: "2026-05-19", value: 61 }],
+      },
+    ],
+  },
+  "60D": {
+    id: "60d",
+    label: "60D",
+    summary: {
+      Median: "$60.00",
+      Low: "$55.00",
+      High: "$65.00",
+      Spread: "$10.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [{ time: "2026-05-26", value: 65 }],
+      },
+      {
+        title: "Hero",
+        data: [{ time: "2026-04-26", value: 55 }],
+      },
+    ],
+  },
+  "90D": {
+    id: "90d",
+    label: "90D",
+    summary: {
+      Median: "$45.00",
+      Low: "$35.00",
+      High: "$65.00",
+      Spread: "$30.00",
+    },
+    series: [
+      {
+        title: "APMEX",
+        data: [
+          { time: "2026-03-27", value: 45 },
+          { time: "2026-05-26", value: 65 },
+        ],
+      },
+      {
+        title: "Hero",
+        data: [
+          { time: "2026-03-01", value: 35 },
+          { time: "2026-03-27", value: 44 },
+          { time: "2026-04-26", value: 55 },
+        ],
+      },
+    ],
+  },
+};
+
+const STRK260_PERIODS = Object.values(STRK260_PERIOD_EXPECTATIONS);
+
 const lightweightChartsStub = `
-  window.LightweightCharts = {
+  (() => {
+    const harness = window.__marketChartHarness || {
+      nextId: 1,
+      instances: [],
+      removeCount: 0,
+      removedIds: [],
+      peakRootCount: 0,
+      rootEvents: [],
+    };
+    harness.peakRootCount = harness.peakRootCount || 0;
+    harness.rootEvents = harness.rootEvents || [];
+    window.__marketChartHarness = harness;
+    const cloneData = (data) => data.map((point) => ({ ...point }));
+    const recordRootEvent = (type, id) => {
+      const rootCount = document.querySelectorAll(
+        "#marketDetailChartArea .tv-lightweight-charts"
+      ).length;
+      harness.peakRootCount = Math.max(harness.peakRootCount, rootCount);
+      harness.rootEvents.push({ type, id, rootCount, at: performance.now() });
+    };
+    window.LightweightCharts = {
     CrosshairMode: { Normal: 0 },
-    createChart(container) {
+    createChart(container, options = {}) {
       const root = document.createElement("div");
       root.className = "tv-lightweight-charts";
       root.dataset.testChart = "true";
+      const instance = {
+        id: harness.nextId++,
+        containerId: container.id,
+        options,
+        appliedOptions: [],
+        series: [],
+        removed: false,
+      };
+      root.dataset.chartInstanceId = String(instance.id);
       container.appendChild(root);
+      recordRootEvent("create", instance.id);
+      harness.instances.push(instance);
+      const addSeries = (type, seriesOptions = {}) => {
+        const record = { type, options: seriesOptions, data: [] };
+        instance.series.push(record);
+        return {
+          setData(data) {
+            record.data = cloneData(data);
+            root.dataset.pointCount = String(
+              instance.series.reduce((count, series) => count + series.data.length, 0)
+            );
+            if (type === "histogram") root.dataset.histogramCount = String(data.length);
+            if (type === "area") root.dataset.areaCount = String(data.length);
+          },
+        };
+      };
       return {
-        addLineSeries() {
-          return { setData(data) { root.dataset.pointCount = String(data.length); } };
+        addLineSeries(options) {
+          return addSeries("line", options);
         },
-        addHistogramSeries() {
-          return { setData(data) { root.dataset.histogramCount = String(data.length); } };
+        addHistogramSeries(options) {
+          return addSeries("histogram", options);
         },
-        addAreaSeries() {
-          return { setData(data) { root.dataset.areaCount = String(data.length); } };
+        addAreaSeries(options) {
+          return addSeries("area", options);
         },
-        timeScale() { return { fitContent() {}, applyOptions() {} }; },
-        applyOptions() {},
+        timeScale() {
+          return {
+            fitContent() {
+              instance.fitContentCount = (instance.fitContentCount || 0) + 1;
+            },
+            applyOptions(next) {
+              instance.timeScaleOptions = next;
+            },
+          };
+        },
+        applyOptions(next) {
+          instance.appliedOptions.push(next);
+        },
         resize() {},
-        remove() { root.remove(); },
+        remove() {
+          if (instance.removed) return;
+          instance.removed = true;
+          harness.removeCount += 1;
+          harness.removedIds.push(instance.id);
+          root.remove();
+          recordRootEvent("remove", instance.id);
+        },
       };
     },
   };
+  })();
 `;
 
+/**
+ * Builds the v2 latest.json payload for a fixture slug, mapping the seeded
+ * price row to the vendor/median/high/low shape the app expects.
+ * @param {string} slug - Retail coin slug.
+ * @returns {Object|null} v2 latest-price payload, or null if the slug has no seeded price row.
+ */
 function latestForSlug(slug) {
   const row = prices.prices[slug];
   if (!row) return null;
@@ -161,7 +575,12 @@ function latestForSlug(slug) {
  *   failGoldback  – return 503 for goldback/latest.json (default: false)
  *   goldbackG1Rate – g1_usd for a successful goldback response (default: GOLDBACK_G1_RATE)
  */
-function makeV2Handler({ failGoldback = false, goldbackG1Rate = GOLDBACK_G1_RATE } = {}) {
+function makeV2Handler({
+  failGoldback = false,
+  goldbackG1Rate = GOLDBACK_G1_RATE,
+  retailFeeds = {},
+  failedRetailFeeds = [],
+} = {}) {
   return async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/data\/v2\//, "");
@@ -215,8 +634,15 @@ function makeV2Handler({ failGoldback = false, goldbackG1Rate = GOLDBACK_G1_RATE
       return;
     }
     const [, slug, file] = match;
-    const data =
-      file === "latest"
+    if (failedRetailFeeds.includes(file)) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      return;
+    }
+    const slugFeeds = retailFeeds[slug] || {};
+    const hasOverride = Object.prototype.hasOwnProperty.call(slugFeeds, file);
+    const data = hasOverride
+      ? slugFeeds[file]
+      : file === "latest"
         ? latestForSlug(slug)
         : file === "intraday"
           ? intradayRows[slug]
@@ -229,6 +655,48 @@ function makeV2Handler({ failGoldback = false, goldbackG1Rate = GOLDBACK_G1_RATE
       body: JSON.stringify(data ? { v: 2, generated_at: GENERATED_AT, data } : {}),
     });
   };
+}
+
+/**
+ * Creates a deferred promise pair for coordinating route handlers with test assertions.
+ * @returns {{promise: Promise<void>, resolve: Function}} The pending promise and its resolver.
+ */
+function createDeferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+/**
+ * Intercepts the primary-API retail latest.json route for a slug and holds it
+ * open until manually released, letting tests observe in-flight fetch state.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} slug - Retail coin slug whose latest.json request to gate.
+ * @returns {Promise<{requested: Promise<void>, release: Function}>} A promise
+ *   that resolves once the route is hit, and a function to release the held response.
+ */
+async function gatePrimaryRetailLatest(page, slug) {
+  const requested = createDeferred();
+  const release = createDeferred();
+  await page.route(
+    `https://api.staktrakr.com/data/v2/retail/${slug}/latest.json`,
+    async (route) => {
+      requested.resolve();
+      await release.promise;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: GENERATED_AT,
+          data: latestForSlug(slug),
+        }),
+      });
+    }
+  );
+  return { requested: requested.promise, release: release.resolve };
 }
 
 /** Stubs the exchange-rate and lightweight-charts CDN routes for a page. */
@@ -283,6 +751,13 @@ async function bootMarketDataPage(page) {
   await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
 }
 
+/**
+ * Seeds inventory, routes, and localStorage fixtures for a retail-market test,
+ * then boots the market data page.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object} [options] - Fixture overrides (see destructured options below).
+ * @returns {Promise<void>}
+ */
 async function setupRetailFixture(page, options = {}) {
   const {
     savedTab,
@@ -300,10 +775,13 @@ async function setupRetailFixture(page, options = {}) {
     stalePrimaryRate, // g1_usd carried by the api1 STALE 200 envelope
     stalePrimaryAgeMs, // age of the api1 envelope's generated_at vs FIXED_NOW
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
+    retailFeeds = {},
+    failedRetailFeeds = [],
   } = options;
 
   await injectSeedInventory(page);
   await routeExchangeAndCharts(page, exchangeRates);
+  await page.addInitScript({ content: lightweightChartsStub });
 
   await page.addInitScript(
     ({ seeded, meta, vendors, saved, filter, currency, rates }) => {
@@ -325,37 +803,6 @@ async function setupRetailFixture(page, options = {}) {
       localStorage.setItem("spotGold", JSON.stringify(2000));
       if (saved !== undefined) writeJson("vendorPricesActiveTab", saved);
       if (filter) writeJson("staktrakr.market_filter", filter);
-      window.LightweightCharts = {
-        CrosshairMode: { Normal: 0 },
-        createChart(container) {
-          const root = document.createElement("div");
-          root.className = "tv-lightweight-charts";
-          container.appendChild(root);
-          return {
-            addLineSeries() {
-              return {
-                setData(data) {
-                  root.dataset.pointCount = String(data.length);
-                },
-              };
-            },
-            addHistogramSeries() {
-              return { setData() {} };
-            },
-            addAreaSeries() {
-              return { setData() {} };
-            },
-            timeScale() {
-              return { fitContent() {}, applyOptions() {} };
-            },
-            applyOptions() {},
-            resize() {},
-            remove() {
-              root.remove();
-            },
-          };
-        },
-      };
     },
     {
       seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
@@ -368,7 +815,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  const fulfillV2 = makeV2Handler();
+  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds });
   const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
@@ -436,17 +883,39 @@ async function setupRetailFixture(page, options = {}) {
   await bootMarketDataPage(page);
 }
 
+/**
+ * Reads the active vendor-prices tab's metal filter.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<string|null>} The active tab's data-metal value.
+ */
 const getActiveTab = (page) =>
   page.locator(".vendor-prices-tabs button.active").getAttribute("data-metal");
 
+/**
+ * Reads the visible vendor-prices tab labels.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<string[]>} Trimmed tab label text.
+ */
 const getTabLabels = async (page) =>
   (await page.locator(".vendor-prices-tabs button").allTextContents()).map((label) => label.trim());
 
+/**
+ * Reads the vendor-prices table's first-column row labels.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<string[]>} Trimmed, non-empty row labels in table order.
+ */
 const getRows = async (page) =>
   (await page.locator(".vendor-prices-table tbody tr td:first-child").allTextContents())
     .map((row) => row.trim())
     .filter(Boolean);
 
+/**
+ * Reads a single vendor-prices table cell by row label and vendor column header.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} rowName - First-column row label to match.
+ * @param {string} vendorHeader - Header text of the target vendor column.
+ * @returns {Promise<string|null>} Trimmed cell text, or null if the row/column isn't found.
+ */
 async function getVendorCellText(page, rowName, vendorHeader) {
   return page.locator(".vendor-prices-table").evaluate(
     (table, args) => {
@@ -460,6 +929,350 @@ async function getVendorCellText(page, rowName, vendorHeader) {
       return row?.children[columnIndex]?.textContent.trim() || null;
     },
     { rowName, vendorHeader }
+  );
+}
+
+/**
+ * Locates a period button (e.g. "24H", "90D") within the market detail modal.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} label - Exact button label to match.
+ * @returns {import('@playwright/test').Locator} Locator for the matching period button.
+ */
+const marketPeriodButton = (page, label) =>
+  page.locator("#marketDetailContent").getByRole("button", { name: label, exact: true });
+
+/**
+ * Clicks a market-detail period button after asserting it is visible.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} label - Exact period button label to click.
+ * @returns {Promise<void>}
+ */
+async function clickMarketPeriod(page, label) {
+  const button = marketPeriodButton(page, label);
+  await expect(button).toBeVisible();
+  await button.click();
+}
+
+/**
+ * Locates the market-detail summary value elements.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {import('@playwright/test').Locator} Locator for `.market-value` elements in the detail modal.
+ */
+const marketSummaryValues = (page) => page.locator("#marketDetailContent .market-value");
+
+/**
+ * Asserts the market-detail summary stats match expected label/value pairs, in order.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object<string,string>} expectedSummary - Ordered map of stat label to expected display value.
+ * @returns {Promise<void>}
+ */
+async function expectMarketSummary(page, expectedSummary) {
+  const stats = marketSummaryValues(page).locator("..");
+  const entries = Object.entries(expectedSummary);
+  await expect(stats).toHaveCount(entries.length);
+  for (const [index, [label, value]] of entries.entries()) {
+    const stat = stats.nth(index);
+    await expect(stat.locator(":scope > div").first()).toHaveText(label);
+    await expect(stat.locator(":scope > .market-value")).toHaveText(value);
+  }
+}
+
+/**
+ * Boots the retail fixture (defaulting to the STRK-260 modal feeds) and opens
+ * the Alpha Silver Bar market detail modal.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object} [options] - Overrides forwarded to setupRetailFixture.
+ * @returns {Promise<void>}
+ */
+async function openStrk260MarketDetail(page, options = {}) {
+  await setupRetailFixture(page, {
+    ...options,
+    retailFeeds: options.retailFeeds || STRK260_MODAL_FEEDS,
+  });
+  await clickStrk260MarketDetail(page);
+}
+
+/**
+ * Clicks the Alpha Silver Bar coin link and asserts the market detail modal
+ * opens with the expected title.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<void>}
+ */
+async function clickStrk260MarketDetail(page) {
+  await page.locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" }).click();
+  await expect(page.locator("#marketDetailModal")).toBeVisible();
+  await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+}
+
+/**
+ * Seeds SLUG_SILVER_A's 30-day history feed with `rows`, pins the clock at
+ * `now`, opens the STRK-260 market detail modal, switches to the 7D period,
+ * and asserts exactly one active chart renders with a series payload equal
+ * to `expectedSeries`.
+ *
+ * Shared by the STRK-260 noon-UTC boundary regression pair: daily aggregates
+ * are always stamped at T12:00:00Z (devops/pollers/shared/api-export-v2.js
+ * buildDailyWithVendors), so comparing that fixed stamp against an arbitrary
+ * wall-clock "now" in milliseconds is time-of-day dependent. The two callers
+ * pin the clock on either side of the noon-UTC stamp to prove the fix
+ * (UTC-calendar-date bounding for non-intraday periods).
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object} params - Per-test fixture and expectation overrides.
+ * @param {Date} params.now - Wall-clock time to pin via page.clock.setFixedTime.
+ * @param {Array<Object>} params.rows - history-30d rows to seed for SLUG_SILVER_A.
+ * @param {Array<{title: string, data: Array<{time: string, value: number}>}>} params.expectedSeries -
+ *   Expected chartSeriesPayload result for the 7D period after the rows are applied.
+ * @returns {Promise<void>}
+ */
+async function expectSevenDaySeriesForHistoryRows(page, { now, rows, expectedSeries }) {
+  await setupRetailFixture(page, {
+    retailFeeds: {
+      [SLUG_SILVER_A]: {
+        "history-30d": rows,
+      },
+    },
+  });
+  await page.clock.setFixedTime(now);
+  await clickStrk260MarketDetail(page);
+  await clickMarketPeriod(page, "7D");
+
+  await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+  const chart = activeMarketChart(await getMarketChartHarness(page));
+  expect(chartSeriesPayload(chart)).toEqual(expectedSeries);
+}
+
+/**
+ * Waits for the v2 retail-prices background sync to complete by polling
+ * localStorage for the expected lastSync timestamp.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<void>}
+ */
+async function waitForRetailBackgroundSync(page) {
+  await page.waitForFunction((expectedLastSync) => {
+    const stored = localStorage.getItem("v2RetailPrices");
+    if (!stored) return false;
+    try {
+      return JSON.parse(stored).lastSync === expectedLastSync;
+    } catch {
+      return false;
+    }
+  }, FIXED_NOW.toISOString());
+}
+
+/**
+ * Reads the in-page lightweight-charts test harness state (instances, series
+ * data, removal/root-count bookkeeping) for the market detail chart.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<Object>} Snapshot of chart harness instances, series, and root-count bookkeeping.
+ */
+async function getMarketChartHarness(page) {
+  return page.evaluate(() => {
+    const harness = window.__marketChartHarness || {
+      instances: [],
+      removeCount: 0,
+      removedIds: [],
+    };
+    const roots = Array.from(
+      document.querySelectorAll("#marketDetailChartArea .tv-lightweight-charts")
+    );
+    const connectedIds = new Set(
+      roots.map((root) => Number(root.dataset.chartInstanceId)).filter(Number.isFinite)
+    );
+    return {
+      removeCount: harness.removeCount,
+      removedIds: [...harness.removedIds],
+      peakRootCount: harness.peakRootCount || 0,
+      rootEvents: [...(harness.rootEvents || [])],
+      rootCount: roots.length,
+      instances: harness.instances.map((instance) => ({
+        id: instance.id,
+        containerId: instance.containerId,
+        removed: instance.removed,
+        active: connectedIds.has(instance.id),
+        timeVisible: !!instance.options?.timeScale?.timeVisible,
+        hasPriceFormatter: typeof instance.options?.localization?.priceFormatter === "function",
+        formattedHundred:
+          typeof instance.options?.localization?.priceFormatter === "function"
+            ? instance.options.localization.priceFormatter(100)
+            : null,
+        series: instance.series.map((series) => ({
+          type: series.type,
+          title: series.options?.title || "",
+          data: series.data.map((point) => ({ ...point })),
+        })),
+      })),
+    };
+  });
+}
+
+/**
+ * Finds the currently active market-detail chart instance in a harness snapshot.
+ * @param {Object} snapshot - Snapshot returned by getMarketChartHarness.
+ * @returns {Object|undefined} The active chart instance, or undefined if none is active.
+ */
+const activeMarketChart = (snapshot) =>
+  [...snapshot.instances]
+    .reverse()
+    .find((instance) => instance.containerId === "marketDetailChartArea" && instance.active);
+
+/**
+ * Extracts a comparable, title-sorted series payload from a chart instance.
+ * @param {Object} chart - Chart instance from a harness snapshot.
+ * @returns {Array<{title: string, data: Array<{time: number, value: number}>}>} Sorted series payload for assertions.
+ */
+const chartSeriesPayload = (chart) =>
+  chart.series
+    .map((series) => ({
+      title: series.title,
+      data: series.data.map((point) => ({ time: point.time, value: point.value })),
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+/**
+ * Converts a series payload's values by a currency exchange rate.
+ * @param {Array<{title: string, data: Array<{time: number, value: number}>}>} series - Series payload to convert.
+ * @param {number} rate - Multiplier applied to each data point's value.
+ * @returns {Array<{title: string, data: Array<{time: number, value: number}>}>} Converted series payload.
+ */
+const convertSeriesPayload = (series, rate) =>
+  series.map((vendorSeries) => ({
+    title: vendorSeries.title,
+    data: vendorSeries.data.map((point) => ({ ...point, value: point.value * rate })),
+  }));
+
+/**
+ * Asserts a market-detail period renders a usable chart: no "Chart unavailable"
+ * message, matching summary stats, matching series data, and exactly one chart root.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object} period - Period expectation entry with `summary` and `series`.
+ * @returns {Promise<void>}
+ */
+async function expectUsableMarketChart(page, period) {
+  await expect(page.getByText("Chart unavailable", { exact: true })).toHaveCount(0);
+  await expectMarketSummary(page, period.summary);
+  await expect
+    .poll(async () => {
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      return chart ? chartSeriesPayload(chart) : null;
+    })
+    .toEqual(period.series);
+  await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+}
+
+/**
+ * Asserts the market-detail modal shows the "Chart unavailable" state with the
+ * unavailable summary and zero chart roots.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<void>}
+ */
+async function expectUnavailableMarketChart(page) {
+  await expect(page.getByText("Chart unavailable", { exact: true })).toBeVisible();
+  await expectMarketSummary(page, STRK260_UNAVAILABLE_SUMMARY);
+  await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+}
+
+/**
+ * Repeatedly clicks through market-detail period buttons and measures how long
+ * each switch takes to fully complete (button state, summary, chart series,
+ * and root count converge), across the given number of cycles.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Array<Object>} periods - Ordered period expectation entries to cycle through.
+ * @param {number} [cycles=3] - Number of times to repeat the full period sequence.
+ * @returns {Promise<Array<{id: string, completed: boolean, durationMs: number, reason?: string, state?: Object}>>}
+ *   Per-switch measurement results.
+ */
+async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
+  const sequence = Array.from({ length: cycles }, () => periods).flat();
+  return page.evaluate(
+    async ({ steps, deadlineMs }) => {
+      const readState = (step) => {
+        const buttons = Array.from(
+          document.querySelectorAll("#marketDetailContent button[data-period]")
+        );
+        const selectedByClass = buttons.filter((button) => button.classList.contains("active"));
+        const selectedByAria = buttons.filter(
+          (button) => button.getAttribute("aria-pressed") === "true"
+        );
+        const summary = Array.from(
+          document.querySelectorAll("#marketDetailContent .market-value")
+        ).map((value) => value.textContent.trim());
+        const roots = Array.from(
+          document.querySelectorAll("#marketDetailChartArea .tv-lightweight-charts")
+        );
+        const activeId = roots.length === 1 ? Number(roots[0].dataset.chartInstanceId) : Number.NaN;
+        const activeInstance = window.__marketChartHarness?.instances.find(
+          (instance) => instance.id === activeId && !instance.removed
+        );
+        const series = (activeInstance?.series || [])
+          .map((vendorSeries) => ({
+            title: vendorSeries.options?.title || "",
+            data: vendorSeries.data.map((point) => ({
+              time: point.time,
+              value: point.value,
+            })),
+          }))
+          .sort((a, b) => a.title.localeCompare(b.title));
+        const selected = buttons.find((button) => button.getAttribute("data-period") === step.id);
+        return {
+          selectedByClass: selectedByClass.length,
+          selectedByAria: selectedByAria.length,
+          selectedClass: !!selected?.classList.contains("active"),
+          selectedAria: selected?.getAttribute("aria-pressed") === "true",
+          summary,
+          rootCount: roots.length,
+          series,
+        };
+      };
+
+      const isComplete = (state, step) =>
+        state.selectedByClass === 1 &&
+        state.selectedByAria === 1 &&
+        state.selectedClass &&
+        state.selectedAria &&
+        JSON.stringify(state.summary) === JSON.stringify(Object.values(step.summary)) &&
+        state.rootCount === 1 &&
+        JSON.stringify(state.series) === JSON.stringify(step.series);
+
+      const results = [];
+      for (const step of steps) {
+        const button = document.querySelector(
+          `#marketDetailContent button[data-period="${step.id}"]`
+        );
+        if (!button) {
+          results.push({ id: step.id, completed: false, reason: "missing-button" });
+          break;
+        }
+
+        const startedAt = performance.now();
+        button.click();
+        const result = await new Promise((resolve) => {
+          const check = () => {
+            const state = readState(step);
+            const durationMs = performance.now() - startedAt;
+            if (isComplete(state, step)) {
+              resolve({ id: step.id, completed: true, durationMs, state });
+              return;
+            }
+            if (durationMs >= deadlineMs) {
+              resolve({
+                id: step.id,
+                completed: false,
+                durationMs,
+                reason: "completion-timeout",
+                state,
+              });
+              return;
+            }
+            requestAnimationFrame(check);
+          };
+          requestAnimationFrame(check);
+        });
+        results.push(result);
+        if (!result.completed) break;
+      }
+      return results;
+    },
+    { steps: sequence, deadlineMs: 1000 }
   );
 }
 
@@ -581,7 +1394,14 @@ test.describe("core/retail-market", () => {
     ]);
     await expect(page.locator(".vendor-prices-table")).not.toContainText("Zulu Gold Coin");
 
-    await page.evaluate(() => window.showSettingsModal("market"));
+    // Settings listeners are intentionally wired on a delayed init callback.
+    // Drive the real sidebar navigation and retry until that observable
+    // listener contract is ready instead of racing the matrix change handler.
+    await page.evaluate(() => window.showSettingsModal("currency"));
+    await expect(async () => {
+      await page.locator('.settings-nav-item[data-section="market"]').click();
+      expect(await page.locator("#settingsPanel_market").isVisible()).toBe(true);
+    }).toPass({ intervals: [50, 100, 200], timeout: 5000 });
     const matrix = page.locator("#marketFilterMatrix");
     await expect(matrix).toBeVisible();
     const toggle = matrix.locator(`input[data-slug="${SLUG_SILVER_A}"][data-vendor="apmex"]`);
@@ -1024,5 +1844,556 @@ test.describe("core/retail-market", () => {
     // _marketV2Fetch, failover reaches api2's latest.json (APMEX vendor price 38)
     // and the matrix consumes the api2 price.
     await expect.poll(apmexCell, { timeout: 8000 }).toContain("$38.00");
+  });
+
+  test.describe("STRK-260 market detail ranges", () => {
+    test.use({ timezoneId: "Pacific/Auckland" });
+
+    test("period controls expose the exact order, default, class, ARIA, and keyboard contract", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+
+      const group = page.getByRole("group", { name: "Vendor history period" });
+      const buttons = group.getByRole("button");
+      expect((await buttons.allTextContents()).map((text) => text.trim())).toEqual([
+        "24H",
+        "7D",
+        "30D",
+        "60D",
+        "90D",
+      ]);
+      await expect(buttons).toHaveCount(5);
+      await expect(group).toHaveClass(/\bchip-sort-toggle\b/);
+
+      for (const button of await buttons.all()) {
+        await expect(button).toHaveAttribute("type", "button");
+        await expect(button).toHaveClass(/\bchip-sort-btn\b/);
+      }
+
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
+      await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1);
+      await expect(group.locator("button.active")).toHaveCount(1);
+
+      let previousLabel = "7D";
+      for (const [index, label] of ["24H", "30D", "60D", "90D", "7D"].entries()) {
+        const previousButton = marketPeriodButton(page, previousLabel);
+        const button = marketPeriodButton(page, label);
+        await button.focus();
+        await button.press(index % 2 === 0 ? "Enter" : "Space");
+        await expect(button).toBeFocused();
+        await expect(button).toHaveAttribute("aria-pressed", "true");
+        await expect(button).toHaveClass(/\bactive\b/);
+        await expect(previousButton).toHaveAttribute("aria-pressed", "false");
+        await expect(previousButton).not.toHaveClass(/\bactive\b/);
+        await expect(group.locator('button[aria-pressed="true"]')).toHaveCount(1);
+        await expect(group.locator("button.active")).toHaveCount(1);
+        previousLabel = label;
+      }
+    });
+
+    test("all five rolling windows use inclusive timestamps and matching odd/even summaries", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+
+      for (const period of STRK260_PERIODS) {
+        await clickMarketPeriod(page, period.label);
+        await expectUsableMarketChart(page, period);
+        const chart = activeMarketChart(await getMarketChartHarness(page));
+        expect(chart, `${period.label} chart instance`).toBeTruthy();
+        expect(chart.timeVisible).toBe(period.label === "24H");
+        expect(chartSeriesPayload(chart)).toEqual(period.series);
+      }
+    });
+
+    // STRK-260: renamed from "invalid and future observations are
+    // excluded" — non-intraday periods now bound by UTC calendar date, so a
+    // same-day-but-later-than-now observation (the fixture's 05-26T18:00:01Z
+    // apmex row) is correctly retained, not excluded. Out-of-window CALENDAR
+    // DATES (a different day) and invalid values are still excluded.
+    test("invalid observations and out-of-window dates are excluded while partial Vendors remain usable", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      await clickMarketPeriod(page, "7D");
+
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(chart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
+      await expectMarketSummary(page, STRK260_PERIOD_EXPECTATIONS["7D"].summary);
+    });
+
+    // STRK-260 regression coverage: daily aggregates are always
+    // stamped at T12:00:00Z (devops/pollers/shared/api-export-v2.js
+    // buildDailyWithVendors), so comparing that fixed stamp against an
+    // arbitrary wall-clock "now" in milliseconds is time-of-day dependent.
+    // These two tests pin the clock on either side of the noon-UTC stamp to
+    // prove the fix (UTC-calendar-date bounding for non-intraday periods).
+    test("today's own daily aggregate is included in a non-intraday range before 12:00 UTC", async ({
+      page,
+    }) => {
+      await expectSevenDaySeriesForHistoryRows(page, {
+        now: new Date("2026-06-10T06:00:00.000Z"),
+        rows: [
+          {
+            // Today's daily aggregate, stamped at the publisher's noon-UTC
+            // convention. With "now" at 06:00 UTC the old exact-millisecond
+            // filter rejected this as "future" (timeMs 12:00 > endMs 06:00),
+            // dropping the most current point from every non-intraday chart
+            // until noon UTC passed.
+            t: "2026-06-10T12:00:00.000Z",
+            ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
+            vendors: { apmex: { avg: 99 } },
+          },
+        ],
+        expectedSeries: [{ title: "APMEX", data: [{ time: "2026-06-10", value: 99 }] }],
+      });
+    });
+
+    test("the oldest calendar day a rolling window is meant to include is retained deterministically after 12:00 UTC", async ({
+      page,
+    }) => {
+      await expectSevenDaySeriesForHistoryRows(page, {
+        now: new Date("2026-06-17T18:00:00.000Z"),
+        rows: [
+          {
+            // Exactly on the 7D window's startDate (7 calendar days before
+            // "today", 2026-06-17): excluded by design — start is
+            // exclusive so the window spans exactly 7 calendar dates
+            // (today plus the 6 preceding), not 8.
+            t: "2026-06-10T12:00:00.000Z",
+            ts: toUnixSeconds("2026-06-10T12:00:00.000Z"),
+            vendors: { herobullion: { avg: 10 } },
+          },
+          {
+            // The oldest calendar date the 7D window IS meant to include.
+            // Locks in that the new exclusive-start rule trims exactly one
+            // boundary day, not more, keeping the window deterministic
+            // regardless of what time of day "now" falls at (mirroring the
+            // before-noon test above).
+            t: "2026-06-11T12:00:00.000Z",
+            ts: toUnixSeconds("2026-06-11T12:00:00.000Z"),
+            vendors: { herobullion: { avg: 11 } },
+          },
+        ],
+        expectedSeries: [{ title: "Hero", data: [{ time: "2026-06-11", value: 11 }] }],
+      });
+    });
+
+    test("duplicate daily Vendor dates keep the chronologically latest observation", async ({
+      page,
+    }) => {
+      const duplicateDailyRows = [
+        {
+          t: "2026-05-25T18:00:00.000Z",
+          ts: toUnixSeconds("2026-05-25T18:00:00.000Z"),
+          vendors: { apmex: { avg: 90 } },
+        },
+        {
+          t: "2026-05-25T12:00:00.000Z",
+          ts: toUnixSeconds("2026-05-25T12:00:00.000Z"),
+          vendors: { apmex: { avg: 70 } },
+        },
+      ];
+      await openStrk260MarketDetail(page, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            "history-30d": duplicateDailyRows,
+          },
+        },
+      });
+
+      await expectUsableMarketChart(page, {
+        summary: {
+          Median: "$90.00",
+          Low: "$90.00",
+          High: "$90.00",
+          Spread: "$0.00",
+        },
+        series: [
+          {
+            title: "APMEX",
+            data: [{ time: "2026-05-25", value: 90 }],
+          },
+        ],
+      });
+    });
+
+    test("a failed 30-day feed isolates 7D and 30D while 24H, 60D, and 90D remain usable", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-30d"] });
+
+      const periodButtons = page.locator("#marketDetailContent button[data-period]");
+      await expect(periodButtons).toHaveCount(5);
+      await expect(page.locator("#marketDetailContent button[data-period].active")).toHaveCount(1);
+      await expect(
+        page.locator('#marketDetailContent button[data-period][aria-pressed="true"]')
+      ).toHaveCount(1);
+      await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      for (const label of ["24H", "30D", "60D", "90D"]) {
+        await expect(marketPeriodButton(page, label)).not.toHaveClass(/\bactive\b/);
+        await expect(marketPeriodButton(page, label)).toHaveAttribute("aria-pressed", "false");
+      }
+      await expectUnavailableMarketChart(page);
+
+      await clickMarketPeriod(page, "30D");
+      await expectUnavailableMarketChart(page);
+
+      await clickMarketPeriod(page, "24H");
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["24H"]);
+
+      await clickMarketPeriod(page, "60D");
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["60D"]);
+      await clickMarketPeriod(page, "90D");
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["90D"]);
+    });
+
+    test("HTTP failures and successful empty or invalid feeds isolate unavailable ranges", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page, { failedRetailFeeds: ["history-90d"] });
+
+      await clickMarketPeriod(page, "7D");
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["7D"]);
+      await clickMarketPeriod(page, "30D");
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["30D"]);
+
+      for (const label of ["60D", "90D"]) {
+        await clickMarketPeriod(page, label);
+        await expectUnavailableMarketChart(page);
+      }
+
+      const emptyFeedPage = await page.context().newPage();
+      const emptyFeedStatuses = [];
+      await setupRetailFixture(emptyFeedPage, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            "history-30d": [],
+          },
+        },
+      });
+      await waitForRetailBackgroundSync(emptyFeedPage);
+      emptyFeedPage.on("response", (response) => {
+        if (
+          new URL(response.url()).pathname.endsWith(`/retail/${SLUG_SILVER_A}/history-30d.json`)
+        ) {
+          emptyFeedStatuses.push(response.status());
+        }
+      });
+      await clickStrk260MarketDetail(emptyFeedPage);
+      await expectUnavailableMarketChart(emptyFeedPage);
+      expect(emptyFeedStatuses).toEqual([200]);
+      await clickMarketPeriod(emptyFeedPage, "30D");
+      await expectUnavailableMarketChart(emptyFeedPage);
+      await clickMarketPeriod(emptyFeedPage, "24H");
+      await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["24H"]);
+      await clickMarketPeriod(emptyFeedPage, "60D");
+      await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["60D"]);
+      await clickMarketPeriod(emptyFeedPage, "90D");
+      await expectUsableMarketChart(emptyFeedPage, STRK260_PERIOD_EXPECTATIONS["90D"]);
+      await emptyFeedPage.close();
+
+      const invalidFeedPage = await page.context().newPage();
+      const invalidFeedStatuses = [];
+      await setupRetailFixture(invalidFeedPage, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            "history-90d": STRK260_ALL_INVALID_HISTORY_ROWS,
+          },
+        },
+      });
+      await waitForRetailBackgroundSync(invalidFeedPage);
+      invalidFeedPage.on("response", (response) => {
+        if (
+          new URL(response.url()).pathname.endsWith(`/retail/${SLUG_SILVER_A}/history-90d.json`)
+        ) {
+          invalidFeedStatuses.push(response.status());
+        }
+      });
+      await clickStrk260MarketDetail(invalidFeedPage);
+      expect(invalidFeedStatuses).toEqual([200]);
+      for (const label of ["60D", "90D"]) {
+        await clickMarketPeriod(invalidFeedPage, label);
+        await expectUnavailableMarketChart(invalidFeedPage);
+      }
+      await clickMarketPeriod(invalidFeedPage, "24H");
+      await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["24H"]);
+      await clickMarketPeriod(invalidFeedPage, "7D");
+      await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["7D"]);
+      await clickMarketPeriod(invalidFeedPage, "30D");
+      await expectUsableMarketChart(invalidFeedPage, STRK260_PERIOD_EXPECTATIONS["30D"]);
+      await invalidFeedPage.close();
+    });
+
+    test("period switching never changes the current Vendor comparison table", async ({ page }) => {
+      await openStrk260MarketDetail(page);
+
+      const currentTable = page.locator("#marketDetailContent table tbody");
+      const initialRows = await currentTable.allTextContents();
+      expect(initialRows.join(" ")).toContain("$38.00");
+
+      for (const label of ["24H", "7D", "30D", "60D", "90D", "7D"]) {
+        await clickMarketPeriod(page, label);
+        await expect(currentTable).toHaveText(initialRows[0]);
+      }
+    });
+
+    test("currencychange converts once and preserves the selected period", async ({ page }) => {
+      await openStrk260MarketDetail(page, { exchangeRates: { EUR: 0.5 } });
+      await clickMarketPeriod(page, "24H");
+      await page.evaluate(() => window.saveDisplayCurrency("EUR"));
+
+      await expect(marketPeriodButton(page, "24H")).toHaveAttribute("aria-pressed", "true");
+      await expectUsableMarketChart(page, {
+        summary: {
+          Median: "€53.50",
+          Low: "€50.50",
+          High: "€55.50",
+          Spread: "€5.00",
+        },
+        series: convertSeriesPayload(STRK260_PERIOD_EXPECTATIONS["24H"].series, 0.5),
+      });
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("€19.00");
+      await expect(page.locator("#marketDetailContent")).toContainText(CURRENCY_DISCLAIMER);
+
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(chart)).toEqual(
+        convertSeriesPayload(STRK260_PERIOD_EXPECTATIONS["24H"].series, 0.5)
+      );
+      expect(chart.hasPriceFormatter).toBe(true);
+      expect(chart.formattedHundred).toBe("€100.00");
+    });
+
+    test("close during modal loading invalidates the pending render", async ({ page }) => {
+      await setupRetailFixture(page);
+      const gate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+
+      const pendingOpen = page.evaluate(
+        (slug) => window.openMarketDetailModal(slug),
+        SLUG_SILVER_A
+      );
+      await gate.requested;
+      await expect(page.locator("#marketDetailModal")).toBeVisible();
+      await expect(page.locator("#marketDetailContent")).toHaveText("Loading coin details…");
+
+      await page.locator("#marketDetailCloseBtn").click();
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+      await expect(page.locator("#marketDetailContent")).toBeEmpty();
+
+      gate.release();
+      await pendingOpen;
+
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+      await expect(page.locator("#marketDetailContent")).toBeEmpty();
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+    });
+
+    test("an older modal response cannot overwrite a newer open", async ({ page }) => {
+      await setupRetailFixture(page);
+      const olderGate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+
+      const olderOpen = page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+      await olderGate.requested;
+      await expect(page.locator("#marketDetailContent")).toHaveText("Loading coin details…");
+
+      await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_Z);
+      await expect(page.locator("#marketDetailTitle")).toContainText("Zebra Silver Round");
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("$42.00");
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const newerChart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(newerChart)).toEqual([
+        {
+          title: "Hero",
+          data: [{ time: RECENT_DATE, value: priceRows[SLUG_SILVER_Z].price }],
+        },
+      ]);
+
+      olderGate.release();
+      await olderOpen;
+
+      await expect(page.locator("#marketDetailTitle")).toContainText("Zebra Silver Round");
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("$42.00");
+      await expect(page.locator("#marketDetailContent table tbody")).not.toContainText("$38.00");
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const finalChart = activeMarketChart(await getMarketChartHarness(page));
+      expect(finalChart.id).toBe(newerChart.id);
+      expect(chartSeriesPayload(finalChart)).toEqual(chartSeriesPayload(newerChart));
+    });
+
+    test("api1 failure reaches api2 for all modal feeds including 90-day history", async ({
+      page,
+    }) => {
+      await setupRetailFixture(page, {
+        failPrimary: true,
+        retailFeeds: STRK260_MODAL_FEEDS,
+      });
+      await page.waitForFunction(
+        () =>
+          localStorage.getItem("appTheme") !== null &&
+          localStorage.getItem("defaultSortDir") !== null
+      );
+      const storageKeysBeforeModal = await page.evaluate(() => Object.keys(localStorage).sort());
+      const requests = [];
+      page.on("request", (request) => {
+        if (request.url().includes(`/retail/${SLUG_SILVER_A}/`)) {
+          const url = new URL(request.url());
+          requests.push({
+            origin: url.origin,
+            filename: url.pathname.split("/").at(-1),
+            pathname: url.pathname,
+            query: url.search,
+            method: request.method(),
+            postData: request.postData(),
+            headers: request.headers(),
+          });
+        }
+      });
+
+      await page
+        .locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" })
+        .click();
+      await expect(page.locator("#marketDetailModal")).toBeVisible();
+      await expect(page.locator("#marketDetailContent table tbody")).toContainText("$38.00");
+
+      for (const label of ["7D", "24H", "30D", "60D", "90D"]) {
+        const period = STRK260_PERIOD_EXPECTATIONS[label];
+        await clickMarketPeriod(page, period.label);
+        await expectUsableMarketChart(page, period);
+      }
+
+      for (const filename of [
+        "latest.json",
+        "intraday.json",
+        "history-30d.json",
+        "history-90d.json",
+      ]) {
+        const attempts = requests.filter((request) => request.filename === filename);
+        expect(attempts.map((request) => request.origin)).toEqual([
+          "https://api.staktrakr.com",
+          "https://api2.staktrakr.com",
+        ]);
+        expect(attempts.map((request) => request.pathname)).toEqual([
+          `/data/v2/retail/${SLUG_SILVER_A}/${filename}`,
+          `/data/v2/retail/${SLUG_SILVER_A}/${filename}`,
+        ]);
+      }
+
+      expect(requests.every((request) => request.method === "GET")).toBe(true);
+      expect(requests.every((request) => request.postData === null)).toBe(true);
+      expect(requests.every((request) => request.query === "")).toBe(true);
+      const forbiddenHeaders = new Set([
+        "authorization",
+        "cookie",
+        "proxy-authorization",
+        "x-api-key",
+      ]);
+      expect(
+        requests.flatMap((request) =>
+          Object.keys(request.headers).filter((header) =>
+            forbiddenHeaders.has(header.toLowerCase())
+          )
+        )
+      ).toEqual([]);
+      expect(await page.evaluate(() => Object.keys(localStorage).sort())).toEqual(
+        storageKeysBeforeModal
+      );
+    });
+
+    test("daily chart times retain publisher UTC dates in a UTC+12 browser timezone", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      expect(await page.evaluate(() => new Date().getTimezoneOffset())).toBe(-720);
+
+      await clickMarketPeriod(page, "90D");
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      expect(chartSeriesPayload(chart)).toEqual(STRK260_PERIOD_EXPECTATIONS["90D"].series);
+    });
+
+    test("completed switching stays under 400ms and repeated renders retain one final 90D chart", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+
+      const measurements = await measureCompletedMarketSwitches(page, STRK260_PERIODS);
+      expect(measurements).toHaveLength(STRK260_PERIODS.length * 3);
+      for (const measurement of measurements) {
+        expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
+        expect(measurement.durationMs, measurement.id).toBeLessThan(400);
+      }
+
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
+
+      const snapshot = await getMarketChartHarness(page);
+      const modalInstances = snapshot.instances.filter(
+        (instance) => instance.containerId === "marketDetailChartArea"
+      );
+      expect(modalInstances.length).toBeGreaterThan(5);
+      expect(new Set(modalInstances.map((instance) => instance.id)).size).toBe(
+        modalInstances.length
+      );
+      expect(modalInstances.filter((instance) => instance.active)).toHaveLength(1);
+      expect(modalInstances.filter((instance) => !instance.removed)).toHaveLength(1);
+      expect(snapshot.removeCount).toBeGreaterThanOrEqual(modalInstances.length - 1);
+      expect(snapshot.peakRootCount).toBeLessThanOrEqual(1);
+      expect(snapshot.rootEvents.length).toBeGreaterThan(0);
+      expect(snapshot.rootEvents.every((event) => event.rootCount <= 1)).toBe(true);
+
+      await expect(marketPeriodButton(page, "90D")).toHaveAttribute("aria-pressed", "true");
+      await expect(marketPeriodButton(page, "90D")).toHaveClass(/\bactive\b/);
+      const finalChart = activeMarketChart(snapshot);
+      expect(chartSeriesPayload(finalChart)).toEqual(STRK260_PERIOD_EXPECTATIONS["90D"].series);
+
+      await page.locator("#marketDetailCloseBtn").click();
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+      const afterClose = await getMarketChartHarness(page);
+      expect(
+        afterClose.instances.filter(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        )
+      ).toHaveLength(0);
+
+      await page
+        .locator(".vendor-prices-table .vp-coin-link", { hasText: "Alpha Silver Bar" })
+        .click();
+      await expect(page.locator("#marketDetailModal")).toBeVisible();
+      await expect(page.locator("#marketDetailContent button[data-period].active")).toHaveCount(1);
+      await expect(
+        page.locator('#marketDetailContent button[data-period][aria-pressed="true"]')
+      ).toHaveCount(1);
+      await expect(marketPeriodButton(page, "7D")).toHaveClass(/\bactive\b/);
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      for (const label of ["24H", "30D", "60D", "90D"]) {
+        await expect(marketPeriodButton(page, label)).not.toHaveClass(/\bactive\b/);
+        await expect(marketPeriodButton(page, label)).toHaveAttribute("aria-pressed", "false");
+      }
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["7D"]);
+      const reopenedChart = activeMarketChart(await getMarketChartHarness(page));
+      expect(reopenedChart.id).not.toBe(finalChart.id);
+      expect(chartSeriesPayload(reopenedChart)).toEqual(STRK260_PERIOD_EXPECTATIONS["7D"].series);
+
+      await page.locator("#marketDetailCloseBtn").click();
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+      await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(0);
+      const afterSecondClose = await getMarketChartHarness(page);
+      expect(
+        afterSecondClose.instances.filter(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        )
+      ).toHaveLength(0);
+      expect(
+        afterSecondClose.instances.find((instance) => instance.id === reopenedChart.id)?.removed
+      ).toBe(true);
+    });
   });
 });
