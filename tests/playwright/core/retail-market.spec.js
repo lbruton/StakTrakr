@@ -161,7 +161,7 @@ const STRK260_INTRADAY_ROWS = [
 
 // STRK-276: two herobullion rows inside the SAME unix second. `ts` is omitted
 // deliberately so _parseMarketDetailTime falls through to the millisecond-
-// precision `t` field (js/market-data.js `:777`) — that yields distinct timeMs
+// precision `t` field (js/market-data.js:777) — that yields distinct timeMs
 // but an identical intraday chartTime of Math.floor(timeMs / 1000), which is
 // exactly the collision the intraday path had no dedup for.
 const STRK276_SAME_SECOND_INTRADAY_ROWS = [
@@ -1490,7 +1490,7 @@ test.describe("core/retail-market", () => {
 
     // Each call must actually reach the render path. renderBestPriceTicker
     // early-returns while the container's stored signature still matches
-    // (js/market-data.js `:640`), so calling it repeatedly with unchanged data
+    // (js/market-data.js:640), so calling it repeatedly with unchanged data
     // schedules nothing whatsoever — measured with a MutationObserver: zero
     // tracks created across 12 calls. Clearing the stored signature defeats
     // that memoization guard, which is what the STAK-513 scenario needs: a new
