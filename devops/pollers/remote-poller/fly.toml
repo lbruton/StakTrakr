@@ -48,10 +48,13 @@ primary_region = 'dfw'
 [[vm]]
   # Thin publisher mode: spot prices + publish + serve.js.
   # No retail scraping — slim Dockerfile already drops Firecrawl/Playwright.
-  # Profiled 2026-04-11: idle ~250MB, publish cycle peak well under 400MB.
-  # 512MB is the Fly.io tier below 1024 (no 768 option) and leaves ~100MB
-  # headroom over observed peak. Watch for OOM during git gc — rollback
-  # with `fly releases rollback` if publisher misbehaves.
-  memory = '512'
+  # Profiled 2026-04-11 at 512MB: idle ~250MB, publish cycle peak under 400MB.
+  # Raised to 1024 on 2026-07-25 (STRK-277) after the machine wedged: a 28s VM
+  # freeze, HTTP + SSH both unresponsive while flyd still reported `started`,
+  # and the publish cron stalled 00:53–02:15Z. ~100MB of headroom left no room
+  # for git pack spikes in the publisher. The machine was scaled live via
+  # `fly machine update --vm-memory 1024`; this value keeps a future
+  # `fly deploy` from silently reverting it to 512.
+  memory = '1024'
   cpu_kind = 'shared'
   cpus = 1
