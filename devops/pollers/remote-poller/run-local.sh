@@ -16,9 +16,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # NOTE: this script is currently neither COPYed into the slim Fly.io image nor
 # scheduled by docker-entrypoint-slim.sh — retail scraping runs on the home
 # poller. It is kept in sync so re-enabling it does not reintroduce the wedge.
+#
+# The helper sits next to this script inside the image (both land in /app) but
+# lives in ../shared/ in the repo, so resolve both layouts.
 LOCKFILE=/tmp/retail-poller.lock
 RETAIL_RUN_MAX_SECONDS="${RETAIL_RUN_MAX_SECONDS:-1500}"
-. "$SCRIPT_DIR/run-lock.sh"
+if [ -f "$SCRIPT_DIR/run-lock.sh" ]; then
+  . "$SCRIPT_DIR/run-lock.sh"
+else
+  . "$SCRIPT_DIR/../shared/run-lock.sh"
+fi
 if ! acquire_run_lock "$LOCKFILE" "$RETAIL_RUN_MAX_SECONDS"; then
   exit 0
 fi

@@ -11,16 +11,38 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 
 import {
   withDeadline,
   closeBrowserSafely,
+  listChildPids,
   resolveVendorBudgetMs,
   resolveCloseTimeoutMs,
   DEADLINE_EXCEEDED,
   DEFAULT_VENDOR_BUDGET_MS,
   DEFAULT_CLOSE_TIMEOUT_MS,
 } from "../../devops/pollers/shared/playwright-budget.js";
+
+/**
+ * Resolve once a spawned child has exited and been reaped.
+ *
+ * @param {import("node:child_process").ChildProcess} child - Process to await.
+ * @param {number} timeoutMs - Maximum wait in milliseconds.
+ * @returns {Promise<boolean>} True when the child exited before the deadline.
+ */
+function waitForExit(child, timeoutMs = 10000) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    child.once("exit", () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
 
 /**
  * Build a promise that never settles, standing in for a wedged browser call.
@@ -137,10 +159,59 @@ describe("STRK-255 closeBrowserSafely", () => {
     assert.equal(await closeBrowserSafely(browser), "failed");
   });
 
-  it("does not hang when close() wedges and no process handle exists", async () => {
-    // browserless/CDP-connected browsers expose no local process to kill.
+  it("does not hang when close() wedges and nothing can be killed", async () => {
+    // CDP-connected browsers expose neither a local process nor known pids.
     const browser = { close: () => neverSettles() };
     assert.equal(await closeBrowserSafely(browser, { timeoutMs: 20 }), "failed");
+  });
+
+  it("kills recorded pids when close() hangs and no process handle exists", async () => {
+    // This is the poller's real shape. Playwright exposes process() on
+    // BrowserServer and ElectronApplication only — NOT on the Browser that
+    // chromium.launch() returns — so the handle path never fires here and the
+    // recorded pids are the only way to reap a wedged Chromium.
+    const victim = spawn("sleep", ["60"], { stdio: "ignore" });
+    const browser = { close: () => neverSettles() };
+
+    const logs = [];
+    const outcome = await closeBrowserSafely(browser, {
+      timeoutMs: 20,
+      log: (m) => logs.push(m),
+      fallbackPids: [victim.pid],
+    });
+
+    assert.equal(outcome, "killed");
+    assert.match(logs.join("\n"), /orphaned browser process/);
+    assert.equal(await waitForExit(victim), true);
+  });
+
+  it("reports failed when every recorded pid is already gone", async () => {
+    const ghost = spawn("sleep", ["60"], { stdio: "ignore" });
+    const ghostPid = ghost.pid;
+    ghost.kill("SIGKILL");
+    await waitForExit(ghost);
+
+    const outcome = await closeBrowserSafely(
+      { close: () => neverSettles() },
+      { timeoutMs: 20, fallbackPids: [ghostPid] }
+    );
+    assert.equal(outcome, "failed");
+  });
+});
+
+describe("STRK-255 listChildPids", () => {
+  it("finds a spawned child of this process", async () => {
+    const child = spawn("sleep", ["30"], { stdio: "ignore" });
+    const pids = listChildPids();
+    assert.ok(pids.includes(child.pid), `expected ${child.pid} in ${JSON.stringify(pids)}`);
+    child.kill("SIGKILL");
+    await waitForExit(child);
+  });
+
+  it("returns an empty array when there are no children to list", () => {
+    // Must degrade quietly — pgrep exits non-zero when nothing matches, and on
+    // images without procps it is absent entirely.
+    assert.deepEqual(listChildPids(999999), []);
   });
 });
 

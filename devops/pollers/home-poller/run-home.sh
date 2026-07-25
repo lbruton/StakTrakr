@@ -14,9 +14,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # the second (age 7200s) kills the wedged process tree and proceeds. Without
 # this a single Playwright stall froze retail data until the container
 # restarted ~3.5h later.
+#
+# The helper sits next to this script inside the image (both land in /app) but
+# lives in ../shared/ in the repo, so resolve both layouts.
 LOCKFILE=/tmp/retail-poller.lock
 RETAIL_RUN_MAX_SECONDS="${RETAIL_RUN_MAX_SECONDS:-5400}"
-. "$SCRIPT_DIR/run-lock.sh"
+if [ -f "$SCRIPT_DIR/run-lock.sh" ]; then
+  . "$SCRIPT_DIR/run-lock.sh"
+else
+  . "$SCRIPT_DIR/../shared/run-lock.sh"
+fi
 if ! acquire_run_lock "$LOCKFILE" "$RETAIL_RUN_MAX_SECONDS"; then
   exit 0
 fi

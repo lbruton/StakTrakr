@@ -232,10 +232,112 @@ describe("STRK-255 retail poller run lock", () => {
     assert.match(res.stdout, /WATCHDOG:/);
   });
 
-  it("acquires atomically rather than checking then writing", () => {
-    // noclobber makes create-or-fail a single operation; the original
-    // `[ -f ]` then `touch` left a window where two ticks could both proceed.
+  it("SIGKILLs a descendant that ignores SIGTERM after its parent dies", async () => {
+    const lockfile = join(workDir, "poller.lock");
+    const pidFile = join(workDir, "grandchild.pid");
+
+    // Holder shell -> child shell -> grandchild that traps SIGTERM, standing in
+    // for a Chromium that does not die politely. The holder exits on the first
+    // TERM, reparenting the grandchild to init; escalation must still reach it,
+    // which only works if the tree was captured before signalling.
+    const holder = spawn(
+      "bash",
+      ["-c", `bash -c 'trap "" TERM; echo $$ > "${pidFile}"; sleep 120' & sleep 120`],
+      { stdio: "ignore" }
+    );
+    // Give the grandchild time to register its pid.
+    execFileSync("sleep", ["0.5"]);
+    const grandchildPid = Number(readFileSync(pidFile, "utf8").trim());
+    assert.ok(grandchildPid > 0);
+    assert.equal(isAlive(grandchildPid), true);
+
+    const staleEpoch = Math.floor(Date.now() / 1000) - 100;
+    writeFileSync(lockfile, `${holder.pid} ${staleEpoch}\n`);
+
+    const res = runAcquire(lockfile, SHORT_MAX_AGE);
+
+    assert.match(res.stdout, /ACQUIRED/);
+    assert.match(res.stdout, /survived SIGTERM/);
+    assert.equal(isAlive(grandchildPid), false, "TERM-ignoring descendant must be SIGKILLed");
+
+    await waitForExit(holder);
+  });
+
+  it("lets exactly one of many concurrent acquirers win", () => {
+    const lockfile = join(workDir, "poller.lock");
+    const CONTENDERS = 12;
+
+    // Publishing the lock must be atomic *with its contents*. A `noclobber`
+    // redirect creates the file before the PID is written, so a competing tick
+    // could read an empty owner, judge the live lock malformed, delete it, and
+    // run concurrently. Hard-linking a pre-filled temp file closes that window.
+    const script = `
+      for i in $(seq 1 ${CONTENDERS}); do
+        (
+          . "${LOCK_HELPER}"
+          if acquire_run_lock "${lockfile}" 600; then
+            echo WON
+            sleep 0.3
+          fi
+        ) &
+      done
+      wait
+    `;
+    const stdout = execFileSync("bash", ["-c", script], { encoding: "utf8" });
+    const wins = stdout.split("\n").filter((l) => l.trim() === "WON").length;
+
+    assert.equal(wins, 1, `expected exactly one winner, got ${wins}`);
+  });
+
+  it("never exposes a lockfile without an owner record", () => {
+    const lockfile = join(workDir, "poller.lock");
+    // Poll the lock while a run holds it; it must never be observed empty.
+    const script = `
+      . "${LOCK_HELPER}"
+      acquire_run_lock "${lockfile}" 600 >/dev/null
+      for i in $(seq 1 40); do
+        if [ -f "${lockfile}" ] && [ ! -s "${lockfile}" ]; then echo EMPTY_SEEN; fi
+        sleep 0.01
+      done
+      echo DONE
+    `;
+    const stdout = execFileSync("bash", ["-c", script], { encoding: "utf8" });
+
+    assert.doesNotMatch(stdout, /EMPTY_SEEN/);
+    assert.match(stdout, /DONE/);
+  });
+
+  it("falls back to the default budget instead of aborting on a junk budget", () => {
+    const lockfile = join(workDir, "poller.lock");
+    const holder = spawnStandIn(30);
+    writeFileSync(lockfile, `${holder.pid} ${Math.floor(Date.now() / 1000)}\n`);
+
+    // `[ "$age" -lt "abc" ]` emits "integer expression expected" and returns
+    // non-zero, which under `set -e` would kill the whole tick.
+    const res = runAcquire(lockfile, "abc");
+
+    assert.equal(res.status, 0, "a junk budget must not abort the run");
+    assert.match(res.stdout, /non-numeric run budget/);
+    assert.match(res.stdout, /Previous run still active, skipping/);
+
+    holder.kill("SIGKILL");
+  });
+
+  it("can enumerate children without pgrep", () => {
+    // procps is absent from some poller images; the helper must not silently
+    // degrade to a parent-only kill there.
     const helper = readFileSync(LOCK_HELPER, "utf8");
-    assert.match(helper, /noclobber/);
+    assert.match(helper, /command -v pgrep/);
+    assert.match(helper, /ps -eo pid=,ppid=/);
+  });
+
+  it("captures the process tree before signalling, not after", () => {
+    // Once the holding shell dies its children are reparented to init and can
+    // no longer be found by walking down from the holder.
+    const helper = readFileSync(LOCK_HELPER, "utf8");
+    const collectAt = helper.indexOf('_run_lock_collect_tree "$holder_pid"');
+    const signalAt = helper.indexOf("_run_lock_signal_pids TERM");
+    assert.ok(collectAt > 0 && signalAt > 0);
+    assert.ok(collectAt < signalAt, "tree must be captured before the first signal");
   });
 });

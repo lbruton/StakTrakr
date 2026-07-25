@@ -29,6 +29,7 @@ import { shouldBypassFirecrawlPreferredForPhase0 } from "./price-extract-vendor-
 import {
   DEADLINE_EXCEEDED,
   closeBrowserSafely,
+  listChildPids,
   resolveCloseTimeoutMs,
   resolveVendorBudgetMs,
   withDeadline,
@@ -475,11 +476,20 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
   const { chromium } = await import("playwright-core");
   let browser;
 
+  // Playwright's `Browser` (unlike `BrowserServer`) exposes no handle on the
+  // Chromium it spawned, so record the pids that appear across launch. If
+  // teardown later wedges, these are the only way to reap the browser — once
+  // this Node process exits they are reparented to init and the run-lock
+  // watchdog's tree walk can no longer see them (STRK-255).
+  const pidsBeforeLaunch = new Set(listChildPids());
+  let browserPids = [];
+
   try {
     browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     });
+    browserPids = listChildPids().filter((pid) => !pidsBeforeLaunch.has(pid));
 
     // Webscale-protected vendors (jmbullion, providentmetals): if an operator
     // has stashed a solved wspc cookie for this host, inject it with the UA it
@@ -619,6 +629,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     await closeBrowserSafely(browser, {
       timeoutMs: resolveCloseTimeoutMs(),
       log,
+      fallbackPids: browserPids,
     });
   }
 }

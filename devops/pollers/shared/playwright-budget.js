@@ -11,6 +11,8 @@
 // teardown terminates, escalating to a process kill when the graceful close
 // itself hangs.
 
+import { execFileSync } from "node:child_process";
+
 /** Default ceiling for one vendor's Playwright attempt, in milliseconds. */
 export const DEFAULT_VENDOR_BUDGET_MS = 90_000;
 
@@ -48,29 +50,61 @@ export function withDeadline(promise, ms) {
     clearTimeout(timer);
     // The loser may still settle later; a late rejection with no handler would
     // terminate the process under Node's default unhandledRejection policy.
-    Promise.resolve(promise).catch(() => {});
+    // Optional call so a non-promise argument cannot throw here.
+    promise?.catch?.(() => {});
   });
+}
+
+/**
+ * List the direct child pids of a process.
+ *
+ * Used to identify the browser Chromium spawns, because Playwright's `Browser`
+ * gives no handle on it (see {@link closeBrowserSafely}).
+ *
+ * @param {number} [parentPid] - Parent to inspect; defaults to this process.
+ * @returns {number[]} Child pids, or an empty array if they cannot be listed.
+ */
+export function listChildPids(parentPid = process.pid) {
+  try {
+    return execFileSync("pgrep", ["-P", String(parentPid)], { encoding: "utf8" })
+      .split("\n")
+      .map((line) => Number(line.trim()))
+      .filter((pid) => Number.isInteger(pid) && pid > 0);
+  } catch {
+    // No children, or pgrep unavailable. Either way there is nothing to kill.
+    return [];
+  }
 }
 
 /**
  * Close a Playwright browser, guaranteeing the call returns.
  *
  * A graceful `close()` is attempted first. If it does not settle within
- * `timeoutMs` the underlying browser process is killed outright — leaking a
- * Chromium process is strictly better than wedging the poller forever.
+ * `timeoutMs` the browser is killed outright — leaking a Chromium process is
+ * strictly better than wedging the poller forever.
+ *
+ * Killing is deliberately two-pronged. Playwright exposes `process()` on
+ * `BrowserServer` and `ElectronApplication` only — **not** on the `Browser`
+ * returned by `chromium.launch()` — so for the poller's launch-based path that
+ * accessor is always absent and `fallbackPids` is what actually does the work.
+ * The caller records the pids Chromium spawned under, because once this Node
+ * process exits they are reparented to init and no longer reachable from the
+ * run-lock watchdog's process-tree walk.
  *
  * @param {{close: Function, process?: Function}} browser - Playwright browser.
  * @param {object} [opts] - Options.
  * @param {number} [opts.timeoutMs] - Graceful close budget.
  * @param {(msg: string) => void} [opts.log] - Logger for the escalation path.
+ * @param {number[]} [opts.fallbackPids] - Pids to SIGKILL when close() hangs.
  * @returns {Promise<"closed"|"killed"|"failed">} How teardown resolved.
  */
 export async function closeBrowserSafely(browser, opts = {}) {
-  const { timeoutMs = DEFAULT_CLOSE_TIMEOUT_MS, log = () => {} } = opts;
+  const { timeoutMs = DEFAULT_CLOSE_TIMEOUT_MS, log = () => {}, fallbackPids = [] } = opts;
   if (!browser) return "closed";
 
   let closePromise;
   try {
+    // close() may legitimately return undefined, so normalize before chaining.
     closePromise = Promise.resolve(browser.close());
   } catch {
     // A synchronous throw from close() still leaves the process to reap.
@@ -88,6 +122,8 @@ export async function closeBrowserSafely(browser, opts = {}) {
   if (outcome !== DEADLINE_EXCEEDED) return outcome;
 
   log(`  (playwright) browser.close() exceeded ${timeoutMs}ms — killing browser process`);
+
+  // BrowserServer / ElectronApplication path.
   try {
     const proc = typeof browser.process === "function" ? browser.process() : null;
     if (proc && typeof proc.kill === "function") {
@@ -95,7 +131,22 @@ export async function closeBrowserSafely(browser, opts = {}) {
       return "killed";
     }
   } catch {
-    /* fall through — nothing more we can do */
+    /* fall through to the pid path */
+  }
+
+  // chromium.launch() path: no process handle exists, so kill the recorded pids.
+  let killed = 0;
+  for (const pid of fallbackPids) {
+    try {
+      process.kill(pid, "SIGKILL");
+      killed += 1;
+    } catch {
+      // Already gone — nothing to do.
+    }
+  }
+  if (killed > 0) {
+    log(`  (playwright) SIGKILLed ${killed} orphaned browser process(es)`);
+    return "killed";
   }
   return "failed";
 }
