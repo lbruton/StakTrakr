@@ -172,21 +172,10 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // Vault header button — opens Settings → System (backup/restore) (STAK-314).
-  const headerVaultBtn = safeGetElement("headerVaultBtn");
-  if (headerVaultBtn) {
-    headerVaultBtn.addEventListener("click", () => {
-      if (typeof showSettingsModal === "function") showSettingsModal("system");
-    });
-  }
-
-  // Restore header button — opens Settings → System (backup/restore) (STAK-314).
-  const headerRestoreBtn = safeGetElement("headerRestoreBtn");
-  if (headerRestoreBtn) {
-    headerRestoreBtn.addEventListener("click", () => {
-      if (typeof showSettingsModal === "function") showSettingsModal("system");
-    });
-  }
+  // Vault + Restore header buttons retired (STRK-285, STRK-286). Both were the
+  // identical showSettingsModal("system") shortcut — two icons for one
+  // behaviour. Settings › System still holds the import/export controls they
+  // pointed at, so nothing moved.
 
   const ippSelect = getExistingElement("settingsItemsPerPage");
   if (ippSelect) {

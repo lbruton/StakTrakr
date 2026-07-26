@@ -323,3 +323,98 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
     expect(errors).toEqual([]);
   });
 });
+
+// STRK-285 + STRK-286 — Backup and Restore. The purest Tier A retirement in the
+// campaign: neither button ever performed an action. Both listeners were
+// literally `showSettingsModal("system")` — two icons, one behaviour, opening a
+// panel that already holds the whole import/export set. Retiring them removes a
+// duplicated shortcut and nothing else, so the thing worth asserting is that the
+// destination is still reachable.
+//
+// NOTE the panel is `settingsPanel_system`, not `_storage` as both issues
+// originally said — corrected after reading the listeners.
+test.describe("STRK-285/286 — Backup and Restore header buttons retired", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("neither header button exists any more", async ({ page }) => {
+    await gotoApp(page);
+    await expect(page.locator("#headerVaultBtn")).toHaveCount(0);
+    await expect(page.locator("#headerRestoreBtn")).toHaveCount(0);
+  });
+
+  // NAMING TRAP: the nav item is `data-section="system"` but its visible label
+  // reads "Inventory" (index.html ~3479). The internal id and the user-facing
+  // label disagree, which is why the first draft of this release's copy told
+  // users to look for a "System" tab that does not exist. Assert on the
+  // data-section; describe it to users as Inventory.
+  test("backup and restore stay reachable via the visible settings nav control", async ({
+    page,
+  }) => {
+    // The whole point of a Tier A retirement: the shortcut goes, the capability
+    // does not. So the destination is reached by CLICKING the visible
+    // `.settings-nav-item[data-section="system"]` control rather than jumping
+    // straight to the panel — a purely programmatic assertion would keep
+    // passing even if that nav item were broken, which is exactly the kind of
+    // regression a retirement could cause.
+    //
+    // The modal itself is still opened via showSettingsModal(): clicking
+    // #settingsBtn does NOT work under this project's fixture — verified on
+    // unmodified dev, where the same click leaves #settingsModal at
+    // display:none, so the gear's listener is never attached in this
+    // environment. That is a pre-existing testability gap, not something this
+    // PR introduced, and not something this test can paper over.
+    await gotoApp(page);
+    await page.evaluate(() => window.showSettingsModal());
+    await expect(page.locator("#settingsModal")).toBeVisible();
+
+    const systemNav = page.locator('.settings-nav-item[data-section="system"]');
+    await expect(systemNav).toBeVisible();
+    // Pin the visible label too — if it ever changes, the release copy that
+    // points users here goes stale silently.
+    await expect(systemNav).toContainText("Inventory");
+    await systemNav.click();
+
+    const panel = page.locator("#settingsPanel_system");
+    await expect(panel).toBeVisible();
+
+    // Real import AND export controls must be present — without this the test
+    // would only prove a panel opened, not that backing up still works.
+    for (const id of ["exportJsonBtn", "exportCsvBtn", "exportZipBtn", "importZipBtn"]) {
+      await expect(panel.locator(`#${id}`)).toBeAttached();
+    }
+  });
+
+  test("Settings drops the Backup row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["vaultBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Backup",
+      retiredId: "vaultBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+
+  test("Settings drops the Restore row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["restoreBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Restore",
+      retiredId: "restoreBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+});

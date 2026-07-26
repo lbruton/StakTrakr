@@ -81,17 +81,20 @@ test.describe("03-settings/04-market-controls — STAK-545 header Market button 
 
   // ─── EXISTING BEHAVIOR (expected PASS — regression guard) ────────────────
 
-  test("4.4 — Vault header button click opens Settings on the System tab", async ({ page }) => {
-    // #headerVaultBtn is visible by default (null=show in constants.js)
-    const vaultBtn = page.locator("#headerVaultBtn");
-    await expect(vaultBtn).toBeVisible();
-    await vaultBtn.click();
+  // SUPERSEDED by STRK-285 (2026-07-26). The original AC asserted that
+  // #headerVaultBtn opened Settings on the System tab. That button was
+  // deliberately retired — it never performed an action, it was one of two
+  // identical showSettingsModal("system") shortcuts. The AC is rewritten rather
+  // than deleted so the archive records that this behaviour was removed on
+  // purpose, not silently lost. Live coverage: core/header-retirement.spec.js.
+  test("4.4 — Vault header button retired; Settings System tab still reachable", async ({
+    page,
+  }) => {
+    await expect(page.locator("#headerVaultBtn")).toHaveCount(0);
 
-    const settingsModal = page.locator("#settingsModal");
-    await expect(settingsModal).toBeVisible();
-
-    const systemPanel = page.locator("#settingsPanel_system");
-    await expect(systemPanel).toBeVisible();
+    await page.evaluate(() => window.showSettingsModal("system"));
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    await expect(page.locator("#settingsPanel_system")).toBeVisible();
   });
 
   test("4.5 — other settings entry points still open their expected tabs", async ({ page }) => {

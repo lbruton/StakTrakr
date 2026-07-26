@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.74] - 2026-07-26
+
+### Changed — STRK-285/286: Backup and Restore header buttons retired
+
+- **Two duplicate header shortcuts removed**: the Backup and Restore buttons both did exactly the same thing — open the same Settings tab — so the header carried two icons for one action. Both are gone. Backing up and restoring your data is unchanged and still lives in **Settings › Inventory**, which holds the import controls (CSV, JSON, ZIP) and the export controls (CSV, JSON, PDF, ZIP) exactly as before (STRK-285, STRK-286).
+
+---
+
 ## [3.35.73] - 2026-07-26
 
 ### Changed — STRK-284: Spot Sync header button retired to the spot cards

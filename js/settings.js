@@ -2443,8 +2443,6 @@ const applyHeaderToggleVisibility = () => {
     themeBtn: "headerThemeBtn",
     currencyBtn: "headerCurrencyBtn",
     marketBtn: "headerMarketBtn",
-    vaultBtn: "headerVaultBtn",
-    restoreBtn: "headerRestoreBtn",
     cloudSyncBtn: "headerCloudSyncWrapper",
     aboutBtn: "aboutBtn",
     settingsBtn: "settingsBtn",
@@ -2487,11 +2485,6 @@ const getHeaderBtnConfig = () => {
     themeBtn: localStorage.getItem("headerThemeBtnVisible") !== "false",
     currencyBtn: localStorage.getItem("headerCurrencyBtnVisible") !== "false",
     marketBtn: localStorage.getItem(HEADER_MARKET_BTN_KEY) !== "false",
-    vaultBtn: (() => {
-      const v = localStorage.getItem(HEADER_VAULT_BTN_KEY);
-      return v !== null ? v === "true" : true;
-    })(),
-    restoreBtn: localStorage.getItem(HEADER_RESTORE_BTN_KEY) !== "false",
     cloudSyncBtn: (() => {
       const v = localStorage.getItem(HEADER_CLOUD_SYNC_BTN_KEY);
       return v !== null ? v === "true" : true;
@@ -2502,8 +2495,6 @@ const getHeaderBtnConfig = () => {
     themeBtn: "Theme",
     currencyBtn: "Currency",
     marketBtn: "Market",
-    vaultBtn: "Backup",
-    restoreBtn: "Restore",
     cloudSyncBtn: "Cloud Sync",
     aboutBtn: "About",
   };
@@ -2539,8 +2530,6 @@ const saveHeaderBtnConfig = (cfg) => {
     themeBtn: "headerThemeBtnVisible",
     currencyBtn: "headerCurrencyBtnVisible",
     marketBtn: HEADER_MARKET_BTN_KEY,
-    vaultBtn: HEADER_VAULT_BTN_KEY,
-    restoreBtn: HEADER_RESTORE_BTN_KEY,
     cloudSyncBtn: HEADER_CLOUD_SYNC_BTN_KEY,
     aboutBtn: "headerAboutBtnVisible",
   };
