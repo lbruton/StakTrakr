@@ -279,11 +279,8 @@ describe("computeRatioStats", () => {
   });
 
   test("trailing averages are session windows: avg7 over the last 7 sessions", () => {
-    // 10 sessions: [10, 10, 10, then 7×100] → avg7 = 100, histMean = 73.
-    const days = Array.from({ length: 10 }, (_, i) => [
-      `2024-02-${String(i + 1).padStart(2, "0")}`,
-      i < 3 ? 10 : 100,
-    ]);
+    // 10 weekday sessions: [10, 10, 10, then 7×100] → avg7 = 100, histMean = 73.
+    const days = weekdayDates(10).map((iso, i) => [iso, i < 3 ? 10 : 100]);
     const s = mod.computeRatioStats(mod.buildRatioSeries(pairedDays(days), "Gold", "Silver"), null);
     assert.equal(s.avg7, 100);
     assert.equal(s.histMean, 73);
