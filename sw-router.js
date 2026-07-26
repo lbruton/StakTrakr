@@ -216,6 +216,25 @@ function shouldFallBackToCache(response) {
   return !response.ok;
 }
 
+/**
+ * Returns whether a same-origin navigation targets the MAIN APP SHELL — the
+ * only navigation whose response may be cached under (or served from) the
+ * single "./" nav-cache key (STRK-273).
+ *
+ * Before this guard, sw.js cached EVERY same-origin navigation response under
+ * "./": visiting /privacy.html — or the new public /ratios/ page — overwrote
+ * the cached tracker shell, so an offline launch of the main app served
+ * whatever page was navigated to last. Non-shell navigations now bypass the
+ * "./" cache in both directions; proper offline support for /ratios/ (its own
+ * registration + precache) is STRK-274.
+ *
+ * @param {string} pathname - URL pathname of the navigation request.
+ * @returns {boolean} True when the navigation is for the root app shell.
+ */
+function isRootShellNavigation(pathname) {
+  return pathname === "/" || pathname === "/index.html";
+}
+
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
 if (typeof module !== "undefined") {
   module.exports = {
@@ -223,5 +242,6 @@ if (typeof module !== "undefined") {
     classifyEndpoint: classifyEndpoint,
     parseGeneratedAtSeconds: parseGeneratedAtSeconds,
     shouldFallBackToCache: shouldFallBackToCache,
+    isRootShellNavigation: isRootShellNavigation,
   };
 }

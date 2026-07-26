@@ -6,13 +6,13 @@
 // importScripts. Declared here because the repo's legacy .eslintrc.json sets
 // no-undef: off while Codacy's ESLint 9 config enforces it, so these read as
 // undefined there without an explicit declaration.
-/* global caches, clients, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache */
+/* global caches, clients, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, isRootShellNavigation */
 
 importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.69-b1785044285";
+const CACHE_NAME = "staktrakr-v3.35.70-b1785046872";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -196,23 +196,33 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigation requests (PWA launch, page reload) — network-first for fresh HTML
+  // Navigation requests (PWA launch, page reload) — network-first for fresh HTML.
+  // Only ROOT SHELL navigations may touch the single "./" nav-cache key: before
+  // this guard, any same-origin navigation (privacy.html, the public /ratios/
+  // page) overwrote the cached tracker shell (STRK-273). /ratios/ offline
+  // support is STRK-274's deliverable.
   if (event.request.mode === "navigate" && url.origin === self.location.origin) {
+    const isRootShellNav = isRootShellNavigation(url.pathname);
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
-            const clone = response.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put("./", clone))
-              .catch((err) => console.warn("[SW] Nav cache put failed:", err));
+            if (isRootShellNav) {
+              const clone = response.clone();
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put("./", clone))
+                .catch((err) => console.warn("[SW] Nav cache put failed:", err));
+            }
             return response;
           }
-          // Non-OK response (4xx/5xx) — fall back to cache instead of serving error
+          // Non-OK response (4xx/5xx) — the root shell falls back to cache;
+          // other pages get the honest error response.
+          if (!isRootShellNav) return response;
           return caches.match("./").then((cached) => cached || response);
         })
         .catch(() => {
+          if (!isRootShellNav) return offlineResponse();
           return caches
             .match("./")
             .then((cached) => cached || offlineResponse())
