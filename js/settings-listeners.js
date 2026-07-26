@@ -137,13 +137,8 @@ const bindAppearanceAndHeaderListeners = () => {
     window.syncConstitutionalBasis = syncActive;
   })();
 
-  // Trend cycle header button.
-  const headerTrendBtn = safeGetElement("headerTrendBtn");
-  if (headerTrendBtn) {
-    headerTrendBtn.addEventListener("click", () => {
-      if (typeof window.cycleSpotTrend === "function") window.cycleSpotTrend();
-    });
-  }
+  // Trend cycle header button retired (STRK-283) — cycleSpotTrend is now wired
+  // to the per-card .spot-card-period chips in card-view.js `_initSpotControls`.
 
   // Sync all spot prices header button — single call, not per-metal loop (STRK-93).
   const headerSyncBtn = safeGetElement("headerSyncBtn");
