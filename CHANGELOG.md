@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.67] - 2026-07-25
+
+### Added — STRK-270: Shared ratios panel component (Layout C)
+
+- **Metal Ratios panel component**: New `js/ratios-panel.js` renders the shared Layout C ("Signal") panel both upcoming hosts will mount — the in-app modal (STRK-271) and the standalone `/ratios/` page (STRK-273). It carries the in-panel pair selector (Au:Ag, Au:Pt, Au:Pd, Pt:Pd), live/last-close badge, hero readout with delta vs prior close, an explicitly-labeled 52-week position bar with all-time percentile, four signed-magnitude trend tiles, a Chart.js history chart (30D/90D/1Y/5Y/MAX) with a conditional long-run-mean line, and a provenance footer. Styling is tokens-only across all four themes, chart colors re-read from computed tokens on theme change, and the interpretive mean-reversion copy stays Au:Ag-only. Not yet reachable in the UI — hosts arrive in the next patches (STRK-270).
+
+---
+
 ## [3.35.66] - 2026-07-25
 
 ### Added — STRK-269: Ratio statistics engine (all 4 pairs)

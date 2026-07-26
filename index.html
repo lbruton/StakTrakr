@@ -8828,6 +8828,12 @@
     <script defer src="./js/spot-ratio-math.js"></script>
     <script defer src="./js/spot-ratio-chips.js"></script>
 
+    <!-- STRK-270: shared ratios panel component (Layout C). Depends on the
+         spot-ratio-math.js statistics engine above; Chart.js is used at draw
+         time only. Hosts (STRK-271 modal, STRK-273 /ratios/ page) call
+         renderRatiosPanel(). Must precede init.js. -->
+    <script defer src="./js/ratios-panel.js"></script>
+
     <script defer src="./js/init.js"></script>
 
     <!-- Back to top floating button -->

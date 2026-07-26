@@ -12,7 +12,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.66-b1785029793";
+const CACHE_NAME = "staktrakr-v3.35.67-b1785031474";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -78,6 +78,7 @@ const CORE_ASSETS = [
   "./js/spot.js",
   "./js/spot-ratio-math.js",
   "./js/spot-ratio-chips.js",
+  "./js/ratios-panel.js",
   "./js/card-view.js",
   "./js/seed-data.js",
   "./js/priceHistory.js",

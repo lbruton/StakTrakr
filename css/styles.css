@@ -16417,3 +16417,319 @@ input[type="number"] {
     display: inline;
   }
 }
+
+/* =============================================================================
+   RATIOS PANEL (STRK-270) — shared Layout C component, tokens only (D-7).
+   Lifted from playground/ratios-panel-playground.html. Rendered by the
+   in-app modal host (STRK-271) and the standalone /ratios/ page (STRK-273).
+   Accent follows the DENOMINATOR metal — the thing being priced against —
+   matching the per-card accent convention the spot chips already use.
+   ============================================================================= */
+.gsr-panel {
+  --gsr-accent: var(--gold);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--font-sans, inherit);
+}
+.gsr-panel[data-accent="silver"] {
+  --gsr-accent: var(--silver);
+}
+.gsr-panel[data-accent="platinum"] {
+  --gsr-accent: var(--platinum);
+}
+.gsr-panel[data-accent="palladium"] {
+  --gsr-accent: var(--palladium);
+}
+.gsr-panel.gsr-empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm, 12.5px);
+  text-align: center;
+  padding: 28px 16px;
+}
+
+/* Pair selector — lives INSIDE the panel: both hosts need it. */
+.gsr-pairs {
+  display: inline-flex;
+  gap: 3px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill, 999px);
+  padding: 3px;
+  flex-wrap: wrap;
+}
+.gsr-pairs button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill, 999px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gsr-pairs button[aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--gsr-accent);
+  box-shadow: var(--shadow-sm);
+}
+.gsr-pairs button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* Header */
+.gsr-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gsr-head .eyebrow {
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gsr-head .title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+.gsr-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid color-mix(in oklch, var(--success), transparent 55%);
+  background: color-mix(in oklch, var(--success), transparent 88%);
+  color: var(--success);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.gsr-live .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.gsr-live[data-state="stale"] {
+  border-color: color-mix(in oklch, var(--warning), transparent 55%);
+  background: color-mix(in oklch, var(--warning), transparent 88%);
+  color: var(--warning);
+}
+
+/* Hero readout */
+.gsr-hero-num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 800;
+  line-height: 0.95;
+  color: var(--gsr-accent);
+  letter-spacing: -0.02em;
+  font-size: clamp(38px, 11vw, 60px);
+}
+.gsr-hero-num .unit {
+  font-size: 0.44em;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.gsr-hero-sub {
+  font-size: var(--font-size-sm, 12.5px);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.gsr-delta {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+}
+.gsr-delta[data-dir="up"] {
+  color: var(--danger);
+}
+.gsr-delta[data-dir="down"] {
+  color: var(--success);
+}
+
+/* Trend tiles */
+.gsr-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+.gsr-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  padding: 11px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.gsr-tile .k {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.gsr-tile .v {
+  font-family: var(--font-mono, monospace);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.gsr-tile .m {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* 52-week position bar. The bar is a 52-WEEK scale; the .pct figure beside
+   it is an ALL-TIME percentile — both labels name their scale on purpose. */
+.gsr-range {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  padding: 12px 13px 13px;
+}
+.gsr-range .rhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.gsr-range .rhead .k {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gsr-range .rhead .pct {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--gsr-accent);
+}
+.gsr-track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--success), transparent 55%),
+    color-mix(in oklch, var(--warning), transparent 60%),
+    color-mix(in oklch, var(--danger), transparent 55%)
+  );
+}
+.gsr-track .mark {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--text-primary);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.gsr-track .mean-mark {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  background: var(--text-muted);
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+}
+.gsr-range .rfoot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.gsr-range .rlegend {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Chart */
+.gsr-chartwrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  padding: 10px 10px 6px;
+}
+.gsr-chartwrap .cbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.gsr-tf {
+  display: inline-flex;
+  gap: 3px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill, 999px);
+  padding: 3px;
+}
+.gsr-tf button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  cursor: pointer;
+}
+.gsr-tf button[aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--gsr-accent);
+  box-shadow: var(--shadow-sm);
+}
+.gsr-tf button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.gsr-canvas {
+  position: relative;
+  height: 190px;
+}
+@media (max-width: 480px) {
+  .gsr-canvas {
+    height: 158px;
+  }
+}
+
+/* Footer */
+.gsr-foot {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.gsr-foot code {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary);
+}
