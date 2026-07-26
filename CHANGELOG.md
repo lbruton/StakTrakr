@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.66] - 2026-07-25
+
+### Added — STRK-269: Ratio statistics engine (all 4 pairs)
+
+- **Metal-ratio statistics engine**: `js/spot-ratio-math.js` now carries the pure, DOM-free foundation for the upcoming Metal Ratios panel (STRK-268): a 4-pair config (Au:Ag, Au:Pt, Au:Pd, Pt:Pd), a series builder that joins historical closes only on dates where both metals printed (so Pt/Pd's 1990 start needs no special-casing), and a full statistic set — historical mean, median, all-time percentile, session-based trailing averages (7/30/90/261/1,305 sessions), previous close, 52-week and all-time extremes with their dates. Live spot, when present, overrides the last close (STRK-269).
+
+---
+
 ## [3.35.65] - 2026-07-24
 
 ### Changed — STRK-260: Period-aware retail history ranges
