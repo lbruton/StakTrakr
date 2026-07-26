@@ -198,7 +198,10 @@ if (document.readyState === "loading") {
   void ratiosPageBoot();
 }
 
-// Register the ROOT service worker (mirrors js/init.js — HTTP/HTTPS only).
+// Register the ROOT service worker — the guard intentionally matches
+// js/init.js: it only skips file:// (where registration throws). On insecure
+// http origins the browser itself rejects registration (SW requires a secure
+// context — https or localhost) and the catch absorbs that rejection.
 // ../sw.js resolves to /sw.js, whose default scope "/" already controls
 // /ratios/, and a controlling SW with a fetch handler on start_url is what
 // makes Chrome's install prompt fire for the Ratios PWA at all (STRK-274).
