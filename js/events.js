@@ -1376,20 +1376,9 @@ const setupHeaderButtonListeners = () => {
     }
   });
 
-  // About Button — opens Settings modal at the About tab
-  if (elements.aboutBtn) {
-    safeAttachListener(
-      elements.aboutBtn,
-      "click",
-      (e) => {
-        e.preventDefault();
-        if (typeof showSettingsModal === "function") {
-          showSettingsModal("about");
-        }
-      },
-      "About Button"
-    );
-  }
+  // About button retired (STRK-289) — its handler was only
+  // showSettingsModal("about"), and About is the default settings panel, so
+  // opening Settings already lands there.
 
   // Details modal triggers
   if (elements.totalTitles && elements.totalTitles.length) {

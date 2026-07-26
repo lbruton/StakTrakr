@@ -753,29 +753,10 @@
           </svg>
           <span class="header-btn-text">Theme</span>
         </button>
-        <!-- Info button -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="aboutBtn"
-          title="About"
-          aria-label="About"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span class="header-btn-text">Info</span>
-        </button>
+        <!-- Info/About button retired (STRK-289) — its handler was only
+             showSettingsModal("about"), and About is the DEFAULT settings panel,
+             so opening Settings already lands on it. Note the id was `aboutBtn`,
+             not `headerAboutBtn`. -->
         <button
           class="btn theme-btn header-toggle-btn"
           id="settingsBtn"

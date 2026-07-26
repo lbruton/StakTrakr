@@ -2444,7 +2444,6 @@ const applyHeaderToggleVisibility = () => {
     currencyBtn: "headerCurrencyBtn",
     marketBtn: "headerMarketBtn",
     cloudSyncBtn: "headerCloudSyncWrapper",
-    aboutBtn: "aboutBtn",
     settingsBtn: "settingsBtn",
   };
 
@@ -2489,14 +2488,12 @@ const getHeaderBtnConfig = () => {
       const v = localStorage.getItem(HEADER_CLOUD_SYNC_BTN_KEY);
       return v !== null ? v === "true" : true;
     })(),
-    aboutBtn: localStorage.getItem("headerAboutBtnVisible") !== "false",
   };
   const labelMap = {
     themeBtn: "Theme",
     currencyBtn: "Currency",
     marketBtn: "Market",
     cloudSyncBtn: "Cloud Sync",
-    aboutBtn: "About",
   };
   const defaultOrder = Object.keys(vis);
   const savedOrder = (() => {
@@ -2531,7 +2528,6 @@ const saveHeaderBtnConfig = (cfg) => {
     currencyBtn: "headerCurrencyBtnVisible",
     marketBtn: HEADER_MARKET_BTN_KEY,
     cloudSyncBtn: HEADER_CLOUD_SYNC_BTN_KEY,
-    aboutBtn: "headerAboutBtnVisible",
   };
   for (const item of cfg) {
     if (item.locked) continue;

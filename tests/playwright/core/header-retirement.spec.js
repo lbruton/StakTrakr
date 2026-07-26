@@ -418,3 +418,53 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     expect(errors).toEqual([]);
   });
 });
+
+// STRK-289 — About/Info. Another pure Tier A retirement: the handler was only
+// `showSettingsModal("about")`. Reachability is close to free here because
+// About is the DEFAULT settings panel (settingsPanel_about ships
+// style="display: block"), so simply opening Settings lands on it.
+//
+// NAMING TRAP: the element id is `aboutBtn`, NOT `headerAboutBtn` — while the
+// storage key IS `headerAboutBtnVisible` and the config id is `aboutBtn`.
+// Grepping the wrong one returns zero hits and reads like the button does not
+// exist. STRK-288 (Currency) is deliberately NOT in this PR: it is a working
+// currency picker rather than a shortcut, re-tiered to B pending a decision.
+test.describe("STRK-289 — About header button retired", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("the About header button no longer exists", async ({ page }) => {
+    await gotoApp(page);
+    await expect(page.locator("#aboutBtn")).toHaveCount(0);
+  });
+
+  test("About is still reachable — it is the default Settings panel", async ({ page }) => {
+    await gotoApp(page);
+    await page.evaluate(() => window.showSettingsModal());
+    await expect(page.locator("#settingsModal")).toBeVisible();
+
+    // No nav click needed: About is the panel Settings opens on. Assert real
+    // content, not just the container — the What's New list is what the retired
+    // button existed to surface.
+    const panel = page.locator("#settingsPanel_about");
+    await expect(panel).toBeVisible();
+    await expect(panel.locator("li strong").first()).toContainText(/^v\d+\.\d+\.\d+/);
+  });
+
+  test("Settings drops the About row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["aboutBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "About",
+      retiredId: "aboutBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+});

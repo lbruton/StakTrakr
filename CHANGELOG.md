@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.75] - 2026-07-26
+
+### Changed — STRK-289: Info button retired from the header
+
+- **One more duplicate header shortcut removed**: the Info button only opened Settings, and it opened it on the About tab — which is the tab Settings already opens on by default. So it was a shortcut to the place you were going anyway. It's gone; open Settings and you land on About, with the version, What's New, and changelog exactly where they were (STRK-289).
+
+---
+
 ## [3.35.74] - 2026-07-26
 
 ### Changed — STRK-285/286: Backup and Restore header buttons retired

@@ -261,7 +261,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     debugLog("Phase 2: Initializing header buttons...");
     elements.appLogo = safeGetElement("appLogo");
     elements.settingsBtn = safeGetElement("settingsBtn", true);
-    elements.aboutBtn = safeGetElement("aboutBtn");
+    // elements.aboutBtn retired (STRK-289) — the button no longer exists.
 
     // STACK-54 header toggles
     elements.headerThemeBtn = safeGetElement("headerThemeBtn");
