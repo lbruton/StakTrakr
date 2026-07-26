@@ -37,12 +37,25 @@ async function gotoApp(page, { trendPeriod = "90", headerBtnOrder = null } = {})
   await page.waitForFunction(() => typeof window.cycleSpotTrend === "function");
 }
 
+/**
+ * Reads the visible label on each metal's period chip.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string[]} metals - Metal suffixes, e.g. ["Silver", "Gold"]
+ * @returns {Promise<Array<string|undefined>>} Trimmed chip text per metal, in order
+ */
 const readPeriodLabels = (page, metals) =>
   page.evaluate(
     (ms) => ms.map((m) => document.getElementById(`spotPeriod${m}`)?.textContent?.trim()),
     metals
   );
 
+/**
+ * Reads the hidden per-card range <select> values — the sparkline engine that
+ * `_applyTrend` drives, so these moving is what proves the charts followed.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string[]} metals - Metal suffixes, e.g. ["Silver", "Gold"]
+ * @returns {Promise<Array<string|undefined>>} Select value per metal, in order
+ */
 const readSelectValues = (page, metals) =>
   page.evaluate((ms) => ms.map((m) => document.getElementById(`spotRange${m}`)?.value), metals);
 
