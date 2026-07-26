@@ -275,5 +275,36 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
     await expect(table).not.toContainText("Spot Sync");
     await expect(table).toContainText("Theme");
     expect(errors).toEqual([]);
+
+    // Self-healing is read-time filtering, NOT a rewrite: _renderSectionConfigTable
+    // calls saveConfig only from its checkbox/arrow handlers, never on render. So
+    // the retired id is still on disk at this point — asserting otherwise here
+    // would be asserting a contract the code does not have.
+    const stillStored = await page.evaluate(() => localStorage.getItem("headerBtnOrder"));
+    expect(stillStored).toContain("syncBtn");
+  });
+
+  test("the next config write drops the retired id from stored order", async ({ page }) => {
+    // The other half of the contract: getHeaderBtnConfig filters `syncBtn` out at
+    // read time, and saveHeaderBtnConfig persists whatever getHeaderBtnConfig
+    // returned — so the first time the user touches this table, the stale id is
+    // written out of localStorage for good. Nothing covered that repair path.
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn", "marketBtn"]),
+    });
+    await openHeaderBtnConfig(page);
+
+    // Toggling any non-locked row triggers saveConfig(getConfig()).
+    const toggle = page.locator("#headerBtnConfigTable input.inline-chip-toggle:not([disabled])");
+    await toggle.first().click();
+
+    await expect
+      .poll(async () => page.evaluate(() => localStorage.getItem("headerBtnOrder")))
+      .not.toContain("syncBtn");
+    // The surviving ids must still be there — a repair that ate real entries
+    // would also satisfy the assertion above.
+    const repaired = await page.evaluate(() => localStorage.getItem("headerBtnOrder"));
+    expect(repaired).toContain("themeBtn");
+    expect(repaired).toContain("marketBtn");
   });
 });
