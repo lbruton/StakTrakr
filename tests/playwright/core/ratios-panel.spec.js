@@ -219,4 +219,31 @@ test.describe("core/ratios-panel — chip → modal host (STRK-271)", () => {
     await expect(page.locator(MODAL)).toBeHidden();
     await expect(page.locator("#ratiosPanelMount .gsr-panel")).toHaveCount(0);
   });
+
+  test("backdrop click closes with the same teardown as the close button", async ({ page }) => {
+    const chip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
+    await chip.click();
+    await expect(page.locator(MODAL)).toBeVisible();
+    // Click the backdrop itself (top-left corner is outside .modal-content) —
+    // this exercises the host's pre-claimed handler, not openModalById's
+    // generic close, so panel teardown and focus return must both run.
+    await page.locator(MODAL).click({ position: { x: 5, y: 5 } });
+    await expect(page.locator(MODAL)).toBeHidden();
+    await expect(page.locator("#ratiosPanelMount .gsr-panel")).toHaveCount(0);
+    await expect(chip).toBeFocused();
+  });
+
+  test("Space activates a focused chip without scrolling the page", async ({ page }) => {
+    const chip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
+    await chip.focus();
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press(" ");
+    await expect(page.locator(MODAL)).toBeVisible();
+    await expect(page.locator(`${MODAL} [data-pair="au-ag"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    // The preventDefault must have suppressed Space's default page scroll.
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+  });
 });
