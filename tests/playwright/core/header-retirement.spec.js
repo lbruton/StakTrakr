@@ -323,3 +323,72 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
     expect(errors).toEqual([]);
   });
 });
+
+// STRK-285 + STRK-286 — Backup and Restore. The purest Tier A retirement in the
+// campaign: neither button ever performed an action. Both listeners were
+// literally `showSettingsModal("system")` — two icons, one behaviour, opening a
+// panel that already holds the whole import/export set. Retiring them removes a
+// duplicated shortcut and nothing else, so the thing worth asserting is that the
+// destination is still reachable.
+//
+// NOTE the panel is `settingsPanel_system`, not `_storage` as both issues
+// originally said — corrected after reading the listeners.
+test.describe("STRK-285/286 — Backup and Restore header buttons retired", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("neither header button exists any more", async ({ page }) => {
+    await gotoApp(page);
+    await expect(page.locator("#headerVaultBtn")).toHaveCount(0);
+    await expect(page.locator("#headerRestoreBtn")).toHaveCount(0);
+  });
+
+  test("backup and restore are still reachable in Settings › System", async ({ page }) => {
+    // The whole point of a Tier A retirement: the shortcut goes, the capability
+    // does not. Asserting the destination panel still carries real import AND
+    // export controls is what makes the removal safe rather than a data-loss
+    // footgun.
+    await gotoApp(page);
+    await page.evaluate(() => window.showSettingsModal("system"));
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    const panel = page.locator("#settingsPanel_system");
+    await expect(panel).toBeVisible();
+
+    for (const id of ["exportJsonBtn", "exportCsvBtn", "exportZipBtn", "importZipBtn"]) {
+      await expect(panel.locator(`#${id}`)).toBeAttached();
+    }
+  });
+
+  test("Settings drops the Backup row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["vaultBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Backup",
+      retiredId: "vaultBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+
+  test("Settings drops the Restore row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["restoreBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Restore",
+      retiredId: "restoreBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+});

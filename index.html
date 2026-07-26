@@ -719,52 +719,11 @@
             </button>
           </div>
         </div>
-        <!-- Vault backup button (STAK-314) -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerVaultBtn"
-          title="Backup"
-          aria-label="Backup"
-          style="display: none"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <span class="header-btn-text">Backup</span>
-        </button>
-        <!-- Restore button (STAK-314) -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerRestoreBtn"
-          title="Restore"
-          aria-label="Restore"
-          style="display: none"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="1 4 1 10 7 10" />
-            <path d="M3.51 15a9 9 0 1 0 .49-4.51" />
-          </svg>
-          <span class="header-btn-text">Restore</span>
-        </button>
+        <!-- Backup + Restore buttons retired (STRK-285, STRK-286). Neither ever
+             performed an action — both listeners were the same
+             showSettingsModal("system") call, i.e. two icons for one shortcut.
+             Backup and restore live in Settings › System, which holds the full
+             import/export set. -->
         <!-- Theme cycle button (STACK-54) -->
         <button
           class="btn theme-btn header-toggle-btn"

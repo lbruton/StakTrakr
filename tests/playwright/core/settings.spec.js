@@ -149,7 +149,9 @@ test.describe("core/settings", () => {
     await expect(page.locator("#settingsPanel_market")).toBeVisible();
     await page.evaluate(() => window.hideSettingsModal());
 
-    await page.locator("#headerVaultBtn").click();
+    // The #headerVaultBtn shortcut to Settings › System was retired in
+    // STRK-285; the panel itself is unchanged and still reached via Settings.
+    await page.evaluate(() => window.showSettingsModal("system"));
     await expect(page.locator("#settingsPanel_system")).toBeVisible();
   });
 
