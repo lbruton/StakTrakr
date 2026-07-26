@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.73] - 2026-07-26
+
+### Changed — STRK-284: Spot Sync header button retired to the spot cards
+
+- **Refresh spot prices from the cards themselves**: each spot card now shows its own refresh icon, replacing the Spot Sync button in the header. Clicking any card's icon refreshes all four metals — a single provider request returns the whole payload, so there is nothing to gain from refreshing them one at a time. The icon was already built and wired; it had simply been hidden. It stays disabled with a "Configure API first" tooltip when no price provider is set up, and the hidden range dropdown behind it remains hidden so the period chip added in v3.35.72 is still the one place you set the trend range (STRK-284).
+
+---
+
 ## [3.35.72] - 2026-07-26
 
 ### Changed — STRK-283: Trend header button retired to the spot cards

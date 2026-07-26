@@ -267,14 +267,16 @@ test.describe("STRK-89 — Gold API provider", () => {
     expect(await readSpotPricingSource(page)).toBe("GOLD_API");
   });
 
-  test("7. Header Spot sync works with the default StakTrakr provider", async ({ page }) => {
+  // STRK-284 retargeted #headerSyncBtn → the per-card refresh icon; the header
+  // button was retired and the per-card icon is now the manual sync affordance.
+  test("7. Spot sync works with the default StakTrakr provider", async ({ page }) => {
     await seedApiState(page, { spotPricingSource: "STAKTRAKR" });
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => typeof window.syncSpotPricesFromApi === "function");
     await page.waitForTimeout(300);
     await wrapSpotSyncForHeaderAssertions(page);
 
-    await page.locator("#headerSyncBtn").click();
+    await page.locator("#syncIconSilver").click();
 
     await page.waitForFunction(() => window.__headerSpotSyncCalls?.length === 1);
     await expect.poll(() => page.evaluate(() => window.__headerSpotSyncCalls[0])).toEqual([true]);
@@ -283,7 +285,7 @@ test.describe("STRK-89 — Gold API provider", () => {
     );
   });
 
-  test("8. Header Spot sync works with Gold API and no premium key", async ({ page }) => {
+  test("8. Spot sync works with Gold API and no premium key", async ({ page }) => {
     await page.route("https://api.gold-api.com/price/**", async (route) => {
       const symbol = route.request().url().split("/").pop();
       const prices = { XAU: 3333, XAG: 44, XPT: 1111, XPD: 999 };
@@ -299,7 +301,7 @@ test.describe("STRK-89 — Gold API provider", () => {
     await page.waitForTimeout(300);
     await wrapSpotSyncForHeaderAssertions(page);
 
-    await page.locator("#headerSyncBtn").click();
+    await page.locator("#syncIconSilver").click();
 
     await page.waitForFunction(() => window.__headerSpotSyncCalls?.length === 1);
     await expect.poll(() => page.evaluate(() => window.__headerSpotSyncCalls[0])).toEqual([true]);
