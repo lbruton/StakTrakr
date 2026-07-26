@@ -576,28 +576,8 @@
           <span class="cloud-sync-dot header-cloud-dot" id="headerSyncDot"></span>
           <span class="header-btn-text">Spot</span>
         </button>
-        <!-- Trend cycle button — order: 2 -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerTrendBtn"
-          title="Trend period"
-          aria-label="Trend period"
-          style="display: none"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          <span class="header-btn-text">Trend</span>
-        </button>
+        <!-- Trend cycle button retired (STRK-283) — the trend period is now set
+             from the per-card .spot-card-period chip on each spot card. -->
         <!-- Market button — order: 3 -->
         <button
           class="btn theme-btn header-toggle-btn"
@@ -904,7 +884,14 @@
               <canvas class="spot-sparkline" id="sparklineSilver" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Silver Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodSilver">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodSilver"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -955,7 +942,14 @@
               <canvas class="spot-sparkline" id="sparklineGold" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Gold Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodGold">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodGold"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -1006,7 +1000,14 @@
               <canvas class="spot-sparkline" id="sparklinePlatinum" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Platinum Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodPlatinum">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodPlatinum"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -1066,7 +1067,14 @@
               <canvas class="spot-sparkline" id="sparklinePalladium" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Palladium Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodPalladium">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodPalladium"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"

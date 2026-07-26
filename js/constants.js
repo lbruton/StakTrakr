@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.71";
+const APP_VERSION = "3.35.72";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -794,8 +794,9 @@ const METAL_ORDER_KEY = "metalOrderConfig"; // nosemgrep: codacy.javascript.secu
 /** @constant {string} SPOT_TREND_KEY - LocalStorage key for persisted spot trend period */
 const SPOT_TREND_KEY = "spotTrendPeriod"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
-/** @constant {string} HEADER_TREND_BTN_KEY - LocalStorage key for header trend button visibility */
-const HEADER_TREND_BTN_KEY = "headerTrendBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_TREND_BTN_KEY retired (STRK-283) — the Trend header button was removed
+// in favour of the per-card .spot-card-period chip, so it no longer has a
+// visibility preference. SPOT_TREND_KEY (the chosen period) is unaffected.
 
 /** @constant {string} HEADER_SYNC_BTN_KEY - LocalStorage key for header sync button visibility */
 const HEADER_SYNC_BTN_KEY = "headerSyncBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
@@ -957,7 +958,6 @@ const SYNC_SCOPE_KEYS = [
   // ── Header button preferences ──
   "headerThemeBtnVisible", // theme toggle button
   "headerCurrencyBtnVisible", // currency toggle button
-  "headerTrendBtnVisible", // HEADER_TREND_BTN_KEY
   "headerSyncBtnVisible", // HEADER_SYNC_BTN_KEY
   "headerMarketBtnVisible", // HEADER_MARKET_BTN_KEY
   "headerVaultBtnVisible", // HEADER_VAULT_BTN_KEY
@@ -1057,7 +1057,6 @@ const ALLOWED_STORAGE_KEYS = [
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
   "headerCurrencyBtnVisible", // boolean string: "true"/"false" (STACK-54)
   SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
-  HEADER_TREND_BTN_KEY, // boolean string: "true"/"false" — header trend button visibility
   HEADER_SYNC_BTN_KEY, // boolean string: "true"/"false" — header sync button visibility
   HEADER_MARKET_BTN_KEY, // boolean string: "true"/"false" — header market button visibility
   HEADER_VAULT_BTN_KEY, // boolean string: null=show, "false"=hide, "true"=show — vault button visibility

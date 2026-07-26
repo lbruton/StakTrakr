@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.72] - 2026-07-26
+
+### Changed — STRK-283: Trend header button retired to the spot cards
+
+- **Set the trend period from the spot cards themselves**: the small period label in the top-right of each spot card (`90d`, `1Y`, …) is now a button — click it to cycle through the trend periods, and all four metal cards plus their sparklines follow together, exactly as the header Trend button used to do. The header button is gone, freeing space in the header and putting the control next to the chart it changes. The chip is keyboard-operable and its accessible name announces the current period, so screen-reader users get the value and the action rather than a bare "90d". Existing saved header-button layouts that still list Trend keep working untouched (STRK-283).
+
+---
+
 ## [3.35.71] - 2026-07-26
 
 ### Added — STRK-274: Service worker registration + release hygiene for /ratios/

@@ -2020,25 +2020,45 @@ input[type="submit"] {
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* Trend-period chip — a real <button> (STRK-283), so the button UA styles are
+   reset back to the flat label it has always looked like, then given hover and
+   focus affordances so it reads as interactive. */
 .spot-card-period {
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--text-secondary);
   margin-left: auto;
   line-height: 1;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 4px);
+  padding: 0.1rem 0.3rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
-/* Per-card controls hidden — trend period controlled via header trend button */
+.spot-card-period:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--bg-secondary);
+}
+
+.spot-card-period:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  color: var(--text-primary);
+}
+
+/* Per-card <select> stays hidden — it is the sparkline engine driven by
+   _applyTrend, not a user-facing control. The period is chosen via the
+   .spot-card-period chip above (STRK-283). */
 .spot-card-controls {
   display: none;
-}
-
-/* Header trend button label */
-.header-trend-label {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  margin-left: 2px;
-  line-height: 1;
 }
 
 /* Range dropdown */
