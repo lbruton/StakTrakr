@@ -6,13 +6,13 @@
 // importScripts. Declared here because the repo's legacy .eslintrc.json sets
 // no-undef: off while Codacy's ESLint 9 config enforces it, so these read as
 // undefined there without an explicit declaration.
-/* global caches, clients, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, isRootShellNavigation */
+/* global caches, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, isRootShellNavigation, navShellCacheKey */
 
 importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.70-b1785046872";
+const CACHE_NAME = "staktrakr-v3.35.71-b1785049731";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -126,6 +126,17 @@ const CORE_ASSETS = [
   "./images/icon-maskable-192.png",
   "./images/icon-maskable-512.png",
   "./manifest.json",
+  // Ratios PWA shell + assets (STRK-274) — panel/math scripts, styles.css,
+  // chart vendor, and the seed bundle are already precached above.
+  "./ratios/",
+  "./ratios/manifest.json",
+  "./js/ratios-page.js",
+  "./images/ratios-icon.svg",
+  "./images/ratios-icon-192.png",
+  "./images/ratios-icon-512.png",
+  "./images/ratios-icon-maskable-192.png",
+  "./images/ratios-icon-maskable-512.png",
+  "./images/ratios-apple-touch-icon.png",
   "./vendor/papaparse.min.js",
   "./vendor/jspdf.umd.min.js",
   "./vendor/jspdf.plugin.autotable.min.js",
@@ -197,34 +208,34 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Navigation requests (PWA launch, page reload) — network-first for fresh HTML.
-  // Only ROOT SHELL navigations may touch the single "./" nav-cache key: before
-  // this guard, any same-origin navigation (privacy.html, the public /ratios/
-  // page) overwrote the cached tracker shell (STRK-273). /ratios/ offline
-  // support is STRK-274's deliverable.
+  // Each app SHELL (tracker "./", ratios "./ratios/" — STRK-274) reads/writes
+  // ONLY its own nav-cache key: before the STRK-273 guard, any same-origin
+  // navigation (privacy.html, /ratios/) overwrote the cached tracker shell.
+  // Non-shell pages bypass the nav cache and get honest error/offline responses.
   if (event.request.mode === "navigate" && url.origin === self.location.origin) {
-    const isRootShellNav = isRootShellNavigation(url.pathname);
+    const shellKey = navShellCacheKey(url.pathname);
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
-            if (isRootShellNav) {
+            if (shellKey) {
               const clone = response.clone();
               caches
                 .open(CACHE_NAME)
-                .then((cache) => cache.put("./", clone))
+                .then((cache) => cache.put(shellKey, clone))
                 .catch((err) => console.warn("[SW] Nav cache put failed:", err));
             }
             return response;
           }
-          // Non-OK response (4xx/5xx) — the root shell falls back to cache;
+          // Non-OK response (4xx/5xx) — shells fall back to their cached copy;
           // other pages get the honest error response.
-          if (!isRootShellNav) return response;
-          return caches.match("./").then((cached) => cached || response);
+          if (!shellKey) return response;
+          return caches.match(shellKey).then((cached) => cached || response);
         })
         .catch(() => {
-          if (!isRootShellNav) return offlineResponse();
+          if (!shellKey) return offlineResponse();
           return caches
-            .match("./")
+            .match(shellKey)
             .then((cached) => cached || offlineResponse())
             .catch(() => offlineResponse());
         })

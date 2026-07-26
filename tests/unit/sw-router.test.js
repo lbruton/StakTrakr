@@ -397,3 +397,26 @@ describe("isRootShellNavigation — STRK-273 nav-cache guard", () => {
     assert.equal(isRootShellNavigation("/oauth-callback.html"), false);
   });
 });
+
+describe("navShellCacheKey — STRK-274 per-shell nav caching", () => {
+  const { navShellCacheKey } = loadSwRouter();
+
+  it("the tracker shell maps to './'", () => {
+    assert.equal(navShellCacheKey("/"), "./");
+    assert.equal(navShellCacheKey("/index.html"), "./");
+  });
+
+  it("the ratios shell maps to its OWN key — never the tracker's", () => {
+    assert.equal(navShellCacheKey("/ratios/"), "./ratios/");
+    assert.equal(navShellCacheKey("/ratios/index.html"), "./ratios/");
+    // Bare "/ratios": online the server redirects to "/ratios/"; offline the
+    // SW must still serve the cached shell rather than the offline page.
+    assert.equal(navShellCacheKey("/ratios"), "./ratios/");
+  });
+
+  it("non-shell pages map to null and bypass the nav cache", () => {
+    assert.equal(navShellCacheKey("/privacy.html"), null);
+    assert.equal(navShellCacheKey("/oauth-callback.html"), null);
+    assert.equal(navShellCacheKey("/ratios/manifest.json"), null);
+  });
+});

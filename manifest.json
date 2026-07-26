@@ -40,5 +40,20 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Metal Ratios",
+      "short_name": "Ratios",
+      "description": "Gold, silver, platinum & palladium ratios with history back to 1968",
+      "url": "/ratios/",
+      "icons": [
+        {
+          "src": "./images/ratios-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
