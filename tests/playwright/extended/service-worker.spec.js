@@ -368,4 +368,26 @@ test.describe("SW classified caching", () => {
     );
     expect(status).toBe(404);
   });
+
+  test("SC-12 — /ratios/ renders offline from the precached shell (STRK-274)", async ({
+    page,
+    context,
+  }) => {
+    // First online visit: the ratios page itself registers the root SW
+    // (../sw.js → scope "/"), and SW control implies the install-time precache
+    // (which now includes "./ratios/" + its assets) completed successfully.
+    await page.goto("/ratios/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Hard offline reload — the navigation must be served from the ratios
+    // shell's OWN nav-cache key (never the tracker's "./"), history renders
+    // from the precached seed bundle, and the badge is honestly "Last close".
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator("#ratiosPageMount .gsr-panel")).toBeVisible();
+    await expect(page.locator("#ratiosPageMount .gsr-live")).toHaveAttribute("data-state", "stale");
+    await expect(page.locator("#ratiosPageMount .gsr-live")).toContainText("Last close");
+    await context.setOffline(false);
+  });
 });

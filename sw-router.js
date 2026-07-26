@@ -217,22 +217,34 @@ function shouldFallBackToCache(response) {
 }
 
 /**
- * Returns whether a same-origin navigation targets the MAIN APP SHELL — the
- * only navigation whose response may be cached under (or served from) the
- * single "./" nav-cache key (STRK-273).
+ * Maps a same-origin navigation pathname to its shell cache key, or null when
+ * the navigation is not an app shell. Two shells exist: the tracker at "./"
+ * (the STRK-273 guard — before it, ANY same-origin navigation overwrote the
+ * cached tracker shell) and the Ratios PWA at "./ratios/" (STRK-274 —
+ * precached at install so /ratios/ renders offline). Each shell's navigations
+ * read and write ONLY its own key; every other same-origin page (e.g.
+ * privacy.html) bypasses the nav cache in both directions and gets honest
+ * error/offline responses.
  *
- * Before this guard, sw.js cached EVERY same-origin navigation response under
- * "./": visiting /privacy.html — or the new public /ratios/ page — overwrote
- * the cached tracker shell, so an offline launch of the main app served
- * whatever page was navigated to last. Non-shell navigations now bypass the
- * "./" cache in both directions; proper offline support for /ratios/ (its own
- * registration + precache) is STRK-274.
+ * @param {string} pathname - URL pathname of the navigation request.
+ * @returns {?string} Cache key for the shell, or null for non-shell pages.
+ */
+function navShellCacheKey(pathname) {
+  if (pathname === "/" || pathname === "/index.html") return "./";
+  if (pathname === "/ratios/" || pathname === "/ratios/index.html") return "./ratios/";
+  return null;
+}
+
+/**
+ * Returns whether a same-origin navigation targets the MAIN APP SHELL — the
+ * only navigation whose response may use the "./" nav-cache key (STRK-273).
+ * Kept as the named predicate; navShellCacheKey is the general mapping.
  *
  * @param {string} pathname - URL pathname of the navigation request.
  * @returns {boolean} True when the navigation is for the root app shell.
  */
 function isRootShellNavigation(pathname) {
-  return pathname === "/" || pathname === "/index.html";
+  return navShellCacheKey(pathname) === "./";
 }
 
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
@@ -243,5 +255,6 @@ if (typeof module !== "undefined") {
     parseGeneratedAtSeconds: parseGeneratedAtSeconds,
     shouldFallBackToCache: shouldFallBackToCache,
     isRootShellNavigation: isRootShellNavigation,
+    navShellCacheKey: navShellCacheKey,
   };
 }

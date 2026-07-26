@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.71] - 2026-07-26
+
+### Added — STRK-274: Service worker registration + release hygiene for /ratios/
+
+- **The Metal Ratios page now works offline and installs from Chrome**: `/ratios/` registers the root service worker (a controlling worker on the start URL is what makes Chrome's install prompt fire), and the worker precaches the ratios shell, manifest, host script, and full icon set — so an offline reload renders the page with cached history and an honest "Last close" badge. Navigation caching is now per-shell (`navShellCacheKey`): the tracker and the ratios app each keep their own cached shell and can never overwrite each other. The main app manifest also gains an Android `shortcuts` entry — long-press the StakTrakr icon to jump straight to Metal Ratios (STRK-274).
+
+---
+
 ## [3.35.70] - 2026-07-26
 
 ### Added — STRK-273: Standalone /ratios/ page + installable PWA manifest

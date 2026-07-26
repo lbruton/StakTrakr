@@ -197,3 +197,11 @@ if (document.readyState === "loading") {
 } else {
   void ratiosPageBoot();
 }
+
+// Register the ROOT service worker (mirrors js/init.js — HTTP/HTTPS only).
+// ../sw.js resolves to /sw.js, whose default scope "/" already controls
+// /ratios/, and a controlling SW with a fetch handler on start_url is what
+// makes Chrome's install prompt fire for the Ratios PWA at all (STRK-274).
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("../sw.js").catch(() => {});
+}
