@@ -267,6 +267,8 @@ describe("computeRatioStats", () => {
     // 262 sessions: one leading outlier (1000) then 261 × 100.
     const days = Array.from({ length: 262 }, (_, i) => {
       const d = new Date(Date.UTC(2020, 0, 1) + i * 86400000);
+      // UTC in / UTC out: deterministic fixture dates, not local formatting —
+      // toLocaleDateString('en-CA') here would be host-timezone dependent.
       return [d.toISOString().slice(0, 10), i === 0 ? 1000 : 100];
     });
     const s = mod.computeRatioStats(mod.buildRatioSeries(pairedDays(days), "Gold", "Silver"), null);
@@ -287,6 +289,7 @@ describe("computeRatioStats", () => {
     const days = Array.from({ length: 262 }, (_, i) => {
       const d = new Date(Date.UTC(2020, 0, 1) + i * 86400000);
       const px = i === 0 ? 500 : i === 100 ? 300 : i === 200 ? 50 : 100;
+      // UTC in / UTC out: deterministic fixture dates (see avg365 test above).
       return [d.toISOString().slice(0, 10), px];
     });
     const series = mod.buildRatioSeries(pairedDays(days), "Gold", "Silver");
@@ -363,6 +366,10 @@ describe("committed bundle sanity", () => {
         }
       },
     });
+    assert.ok(
+      cache.size > 0,
+      "seed bundle did not call _loadSpotSeedBundle — harness shape drifted"
+    );
   });
 
   test("Au:Ag joins from 1968 with the full session count", () => {
