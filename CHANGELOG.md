@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.70] - 2026-07-26
+
+### Added — STRK-273: Standalone /ratios/ page + installable PWA manifest
+
+- **Public Metal Ratios page at `/ratios/`**: A standalone, bookmarkable page hosting the shared ratios panel — all four pairs with live spot, long-run stats, and history back to 1968. Ships as a directory URL with its own scoped PWA manifest (`id`/`scope`/`start_url` all `/ratios/`) so it installs as a separate app from StakTrakr with the new balance-scale icon; the main app keeps `/`. The page inherits the tracker's saved theme via same-origin localStorage (dark default), carries zero user data (no localStorage writes), fetches live spot from the public feed with an honest "Last close" fallback when unreachable, and merges the daily current-year feed file over the release-time seed bundle so 52-week stats never go a release cycle stale. An "Open full tracker" link deliberately breaks out of the standalone scope (STRK-273).
+
+---
+
 ## [3.35.69] - 2026-07-26
 
 ### Added — STRK-272: Ratios app icon set + maskable manifest fix

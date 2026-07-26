@@ -247,3 +247,79 @@ test.describe("core/ratios-panel — chip → modal host (STRK-271)", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
   });
 });
+
+// =============================================================================
+// STRK-273 — standalone /ratios/ page (second host, installable PWA)
+// =============================================================================
+test.describe("core/ratios-panel — standalone /ratios/ page (STRK-273)", () => {
+  const PAGE_MOUNT = "#ratiosPageMount";
+  const SPOT_FIXTURE = {
+    data: {
+      xau: { price: 4300 },
+      xag: { price: 67 },
+      xpt: { price: 1600 },
+      xpd: { price: 1400 },
+    },
+  };
+
+  test("renders the panel from the seed bundle with a Live badge when spot is up", async ({
+    page,
+  }) => {
+    await page.route("https://api.staktrakr.com/data/v2/spot/latest.json", (route) =>
+      route.fulfill({ json: SPOT_FIXTURE })
+    );
+    await page.goto("/ratios/");
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-panel`)).toBeVisible();
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-pairs button`)).toHaveCount(4);
+    // The live quotes drive the hero: 4300 / 67 ≈ 64.2 at Au:Ag's 1dp.
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-hero-num`)).toContainText("64.2");
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-live`)).toHaveAttribute("data-state", "live");
+  });
+
+  test("falls back to the last close with an honest badge when the spot API is down", async ({
+    page,
+  }) => {
+    await page.route("https://api.staktrakr.com/**", (route) => route.abort());
+    await page.goto("/ratios/");
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-panel`)).toBeVisible();
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-live`)).toHaveAttribute("data-state", "stale");
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-live`)).toContainText("Last close");
+  });
+
+  test("inherits the tracker's saved theme via same-origin localStorage", async ({ page }) => {
+    await page.route("https://api.staktrakr.com/**", (route) => route.abort());
+    await page.addInitScript(() => localStorage.setItem("appTheme", "sepia"));
+    await page.goto("/ratios/");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "sepia");
+  });
+
+  test("first-time visitors get the dark default and the page writes NO storage", async ({
+    page,
+  }) => {
+    await page.route("https://api.staktrakr.com/**", (route) => route.abort());
+    await page.goto("/ratios/");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-panel`)).toBeVisible();
+    // Zero-user-data promise: no localStorage writes, not even the theme.
+    expect(await page.evaluate(() => localStorage.length)).toBe(0);
+  });
+
+  test("PWA identity: own scoped manifest, apple-touch icon, out-of-scope tracker link", async ({
+    page,
+  }) => {
+    await page.route("https://api.staktrakr.com/**", (route) => route.abort());
+    await page.goto("/ratios/");
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "./manifest.json");
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
+      "href",
+      "../images/ratios-apple-touch-icon.png"
+    );
+    // Deliberately outside /ratios/ scope — breaks out of the standalone window.
+    await expect(page.locator(".ratios-open-tracker")).toHaveAttribute("href", "../");
+    const manifest = await page.evaluate(async () => (await fetch("./manifest.json")).json());
+    expect(manifest.id).toBe("/ratios/");
+    expect(manifest.scope).toBe("/ratios/");
+    expect(manifest.start_url).toBe("/ratios/");
+    expect(manifest.icons.some((icon) => icon.purpose === "maskable")).toBe(true);
+  });
+});
