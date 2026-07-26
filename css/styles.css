@@ -16737,3 +16737,33 @@ input[type="number"] {
   font-family: var(--font-mono, monospace);
   color: var(--text-secondary);
 }
+
+/* =============================================================================
+   RATIOS PANEL MODAL HOST + CHIP AFFORDANCE (STRK-271)
+   The three ratio chips become actionable buttons that open the panel modal;
+   the gold card's goldback chip stays passive. Tokens only (D-7).
+   ============================================================================= */
+.spot-ratio-chip.is-actionable {
+  cursor: pointer;
+}
+.spot-ratio-chip.is-actionable:hover {
+  border-color: color-mix(in oklch, var(--metal, var(--border)), transparent 45%);
+}
+.spot-ratio-chip.is-actionable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.spot-ratio-chip .caret {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.ratios-modal-content {
+  max-width: 720px;
+  padding: 0;
+}
+.ratios-modal-content .modal-header {
+  margin: 0;
+  padding: 12px 16px 0;
+}
