@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.69] - 2026-07-26
+
+### Added — STRK-272: Ratios app icon set + maskable manifest fix
+
+- **Distinct icon for the upcoming Metal Ratios app**: New balance-scale icon set (`images/ratios-icon*.{svg,png}` at 192/512, a maskable variant with adaptive-mask safe-area padding, and a 180×180 apple-touch icon) promoting the ratio chips' existing balance-scale glyph — gold pan vs silver pan — so the future installable `/ratios/` PWA is distinguishable from StakTrakr at home-screen size. Verified at 48px, under circle and squircle masks, and on light and dark wallpapers (STRK-272).
+- **Fixed: Android was letterboxing the main app icon**: `manifest.json`'s icons carried no `purpose` field, so Android shrank the rounded icon inside its adaptive mask. The manifest now declares `purpose: "any"` on the existing icons and adds new full-bleed maskable 192/512 variants of the S-stack icon (STRK-272).
+
+---
+
 ## [3.35.68] - 2026-07-26
 
 ### Added — STRK-271: Ratio chips open the Metal Ratios panel
