@@ -117,10 +117,14 @@ const resolveGoldbackRate = () => {
 // =============================================================================
 // RATIO SERIES + STATISTICS ENGINE (STRK-269)
 // =============================================================================
-// Foundation for the STRK-268 ratios panel. In the app host, source the series
-// from `historicalDataCache` (populated by js/spot.js and refreshed by
-// fetchYearFile()), NOT the raw seed bundle — reading the bundle directly would
-// silently pin statistics to the last release.
+// Foundation for the STRK-268 ratios panel. HOST CONTRACT: source the series
+// from `historicalDataCache` (populated by js/spot.js), NOT the raw seed
+// bundle. Note the cache alone pins statistics to the last bundled release —
+// _loadSpotSeedBundle() pre-populates every year and fetchYearFile() returns
+// early for cached years — so the panel host must ALSO overlay the live
+// `spotHistory` rows. buildRatioSeries supports exactly that: pass a flat
+// array of [...cacheEntries, ...spotHistory] — same-date duplicates resolve to
+// the later timestamp, so live observations win over seed rows.
 
 /** @constant {number} Trading sessions per year (~261); 5Y windows use 5×. */
 const RATIO_SESSIONS_PER_YEAR = 261;
@@ -214,12 +218,28 @@ const flattenRatioSource = (source) => {
 const isUsableClose = (spot) => typeof spot === "number" && Number.isFinite(spot) && spot > 0;
 
 /**
+ * Returns whether an ISO "YYYY-MM-DD" date key falls on a trading day
+ * (Mon–Fri, deliberately in the UTC frame — these are UTC-keyed feed dates).
+ * sqld gap-fill rows carry Saturday/Sunday publisher prints; excluding them
+ * keeps the session windows honest (261 sessions ≈ 52 trading weeks) for
+ * every statistic built on the series.
+ * @param {string} isoDate - UTC calendar date key ("YYYY-MM-DD")
+ * @returns {boolean}
+ */
+const isTradingDate = (isoDate) => {
+  const utcDay = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+  return utcDay >= 1 && utcDay <= 5;
+};
+
+/**
  * Builds an ascending [isoDate, ratio] series for a metal pair from cache
  * entries ({ spot, metal, timestamp: "YYYY-MM-DD hh:mm:ss" }). A point is
- * emitted ONLY where BOTH metals printed a usable close, so a pair whose metals
- * start in different years self-truncates correctly (Pt/Pd begin 1990; Au/Ag
- * begin 1968) with no date-range special-casing. When one metal has multiple
- * closes on the same date, the later timestamp wins (live data over seed).
+ * emitted ONLY where BOTH metals printed a usable close on a TRADING date
+ * (Mon–Fri; weekend gap-fill prints are excluded so session windows stay
+ * honest), so a pair whose metals start in different years self-truncates
+ * correctly (Pt/Pd begin 1990; Au/Ag begin 1968) with no date-range
+ * special-casing. When one metal has multiple closes on the same date, the
+ * later timestamp wins (live data over seed).
  * @param {Map<number, Array>|Array} source - historicalDataCache map or flat entries array
  * @param {string} numMetal - Numerator bundle metal key (e.g. "Gold")
  * @param {string} denMetal - Denominator bundle metal key (e.g. "Silver")
@@ -241,6 +261,7 @@ const buildRatioSeries = (source, numMetal, denMetal) => {
       cacheEntry.metal === numMetal ? numCloses : cacheEntry.metal === denMetal ? denCloses : null;
     if (!sideCloses) continue;
     const isoDate = cacheEntry.timestamp.slice(0, 10);
+    if (!isTradingDate(isoDate)) continue;
     const held = sideCloses.get(isoDate);
     if (!held || cacheEntry.timestamp > held.timestamp) sideCloses.set(isoDate, cacheEntry);
   }
@@ -249,7 +270,7 @@ const buildRatioSeries = (source, numMetal, denMetal) => {
     const denEntry = denCloses.get(isoDate);
     if (denEntry) series.push([isoDate, numEntry.spot / denEntry.spot]);
   }
-  series.sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  series.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return series;
 };
 

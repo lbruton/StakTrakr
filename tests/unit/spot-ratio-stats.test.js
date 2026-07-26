@@ -78,6 +78,18 @@ const SIX_DAYS = [
 ];
 const sixSeries = () => mod.buildRatioSeries(pairedDays(SIX_DAYS), "Gold", "Silver");
 
+/** Generates n consecutive WEEKDAY iso dates starting 2020-01-01 (a Wednesday). */
+const weekdayDates = (n) => {
+  const dates = [];
+  for (let i = 0; dates.length < n; i++) {
+    const d = new Date(Date.UTC(2020, 0, 1) + i * 86400000);
+    // UTC in / UTC out: deterministic fixture dates, not local formatting —
+    // toLocaleDateString('en-CA') here would be host-timezone dependent.
+    if (d.getUTCDay() >= 1 && d.getUTCDay() <= 5) dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+};
+
 // =============================================================================
 // RATIO_PAIRS config
 // =============================================================================
@@ -198,6 +210,20 @@ describe("buildRatioSeries", () => {
     assert.deepEqual(series, [["2024-01-02", 80]]);
   });
 
+  test("weekend gap-fill prints are excluded so session windows stay honest", () => {
+    const entries = pairedDays([
+      ["2026-07-24", 80], // Friday
+      ["2026-07-25", 90], // Saturday — excluded
+      ["2026-07-26", 95], // Sunday — excluded
+      ["2026-07-27", 100], // Monday
+    ]);
+    const series = mod.buildRatioSeries(entries, "Gold", "Silver");
+    assert.deepEqual(series, [
+      ["2026-07-24", 80],
+      ["2026-07-27", 100],
+    ]);
+  });
+
   test("duplicate same-date closes: the later timestamp wins", () => {
     const entries = [
       entry("Gold", "2024-01-02", 90, "09:00:00"),
@@ -264,13 +290,8 @@ describe("computeRatioStats", () => {
   });
 
   test("avg365 covers exactly the last 261 sessions", () => {
-    // 262 sessions: one leading outlier (1000) then 261 × 100.
-    const days = Array.from({ length: 262 }, (_, i) => {
-      const d = new Date(Date.UTC(2020, 0, 1) + i * 86400000);
-      // UTC in / UTC out: deterministic fixture dates, not local formatting —
-      // toLocaleDateString('en-CA') here would be host-timezone dependent.
-      return [d.toISOString().slice(0, 10), i === 0 ? 1000 : 100];
-    });
+    // 262 weekday sessions: one leading outlier (1000) then 261 × 100.
+    const days = weekdayDates(262).map((iso, i) => [iso, i === 0 ? 1000 : 100]);
     const s = mod.computeRatioStats(mod.buildRatioSeries(pairedDays(days), "Gold", "Silver"), null);
     assert.equal(s.avg365, 100); // outlier session falls outside the 261 window
     assert.ok(s.histMean > 100); // ...but stays inside the all-time mean
@@ -286,12 +307,10 @@ describe("computeRatioStats", () => {
   test("52-week lens is the last 261 sessions; extremes carry [isoDate, value]", () => {
     // 262 sessions where the all-time high (500) is the first session — outside
     // the 52-week window — and the window high (300) sits at session 100.
-    const days = Array.from({ length: 262 }, (_, i) => {
-      const d = new Date(Date.UTC(2020, 0, 1) + i * 86400000);
-      const px = i === 0 ? 500 : i === 100 ? 300 : i === 200 ? 50 : 100;
-      // UTC in / UTC out: deterministic fixture dates (see avg365 test above).
-      return [d.toISOString().slice(0, 10), px];
-    });
+    const days = weekdayDates(262).map((iso, i) => [
+      iso,
+      i === 0 ? 500 : i === 100 ? 300 : i === 200 ? 50 : 100,
+    ]);
     const series = mod.buildRatioSeries(pairedDays(days), "Gold", "Silver");
     const s = mod.computeRatioStats(series, null);
     assert.deepEqual(s.allHigh, [days[0][0], 500]);
@@ -375,7 +394,9 @@ describe("committed bundle sanity", () => {
   test("Au:Ag joins from 1968 with the full session count", () => {
     const s = mod.computeRatioStats(mod.buildRatioSeries(cache, "Gold", "Silver"), null);
     assert.equal(s.spanStart, "1968-01-02");
-    assert.ok(s.points >= 14819, `expected ≥ 14,819 sessions, got ${s.points}`);
+    // Weekday-only floor (the issue's 14,819 figure predates weekend filtering);
+    // the count only grows as future weekday sessions land in the bundle.
+    assert.ok(s.points >= 14778, `expected ≥ 14,778 sessions, got ${s.points}`);
   });
 
   test("Pt/Pd pairs self-truncate to their 1990 start", () => {
@@ -386,7 +407,8 @@ describe("committed bundle sanity", () => {
     ]) {
       const s = mod.computeRatioStats(mod.buildRatioSeries(cache, num, den), null);
       assert.ok(s.spanStart.startsWith("1990-"), `${num}:${den} spanStart ${s.spanStart}`);
-      assert.ok(s.points >= 9214, `${num}:${den} expected ≥ 9,214 sessions, got ${s.points}`);
+      // Weekday-only floor (the issue's 9,214 figure predates weekend filtering).
+      assert.ok(s.points >= 9173, `${num}:${den} expected ≥ 9,173 sessions, got ${s.points}`);
     }
   });
 
