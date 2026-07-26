@@ -449,7 +449,15 @@ test.describe("STRK-289 — About header button retired", () => {
     // button existed to surface.
     const panel = page.locator("#settingsPanel_about");
     await expect(panel).toBeVisible();
-    await expect(panel.locator("li strong").first()).toContainText(/^v\d+\.\d+\.\d+/);
+
+    // Pin the newest entry to the app's OWN version, read at runtime. A generic
+    // /^v\d+\.\d+\.\d+/ would pass on a stale list; hardcoding this release's
+    // number would instead break on every future patch (this repo ships several
+    // a day, and the list is prepended + trimmed to 5 each time). Comparing
+    // against window.APP_VERSION catches staleness without needing maintenance.
+    const appVersion = await page.evaluate(() => window.APP_VERSION);
+    expect(appVersion).toMatch(/^\d+\.\d+\.\d+$/);
+    await expect(panel.locator("li strong").first()).toContainText(`v${appVersion}`);
   });
 
   test("Settings drops the About row and a legacy order self-heals", async ({ page }) => {
