@@ -116,13 +116,23 @@ test.describe("core/ratios-panel — shared Layout C component (STRK-270)", () =
   });
 
   test("theme switch repaints the chart via the data-theme observer", async ({ page }) => {
-    await page.evaluate(() => {
-      document.documentElement.setAttribute("data-theme", "light");
+    // The redraw destroys and recreates the Chart.js instance, so a changed
+    // instance id is the deterministic signal that the observer actually
+    // repainted — not just that the canvas element survived.
+    const beforeId = await page.evaluate(() => {
+      const canvas = document.querySelector("#ratiosPanelTestMount .gsr-canvas canvas");
+      return window.Chart.getChart(canvas)?.id ?? null;
     });
-    // The observer redraw is synchronous-enough; the canvas must survive and
-    // no page error may fire from the token re-read.
-    await expect(page.locator(`${MOUNT} .gsr-canvas canvas`)).toBeAttached();
-    await page.waitForTimeout(100);
+    expect(beforeId).not.toBeNull();
+    await page.evaluate(() => {
+      const current = document.documentElement.getAttribute("data-theme");
+      document.documentElement.setAttribute("data-theme", current === "light" ? "dark" : "light");
+    });
+    await page.waitForFunction((prev) => {
+      const canvas = document.querySelector("#ratiosPanelTestMount .gsr-canvas canvas");
+      const instance = window.Chart.getChart(canvas);
+      return Boolean(instance) && instance.id !== prev;
+    }, beforeId);
     expect(pageErrors).toEqual([]);
   });
 

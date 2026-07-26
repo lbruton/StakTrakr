@@ -16525,7 +16525,10 @@ input[type="number"] {
 .gsr-live[data-state="stale"] {
   border-color: color-mix(in oklch, var(--warning), transparent 55%);
   background: color-mix(in oklch, var(--warning), transparent 88%);
-  color: var(--warning);
+
+  /* --warning-text keeps this 10.5px label contrast-safe on the light and
+     sepia cards; bare --warning is too light for small text there. */
+  color: var(--warning-text, var(--warning));
 }
 
 /* Hero readout */

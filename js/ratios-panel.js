@@ -103,7 +103,8 @@ const ratioPanelHeaderHtml = (pair, live) => `
   </div>
   <div class="gsr-pairs" role="group" aria-label="Metal pair">
     ${RATIO_PAIRS.map(
-      (p) => `<button data-pair="${p.id}" aria-pressed="${p.id === pair.id}">${p.label}</button>`
+      (p) =>
+        `<button type="button" data-pair="${p.id}" aria-pressed="${p.id === pair.id}">${p.label}</button>`
     ).join("")}
   </div>`;
 
@@ -205,7 +206,7 @@ const ratioPanelTilesHtml = (pair, stats) => {
  */
 const ratioPanelChartHtml = (activeRange = "90") => {
   const rangeButton = (key, label) =>
-    `<button data-r="${key}" aria-pressed="${key === activeRange}">${label}</button>`;
+    `<button type="button" data-r="${key}" aria-pressed="${key === activeRange}">${label}</button>`;
   return `
   <div class="gsr-chartwrap">
     <div class="cbar">
@@ -275,7 +276,10 @@ const ratioPanelSeriesSource = () => {
   const cache = typeof historicalDataCache !== "undefined" ? historicalDataCache : null;
   if (cache instanceof Map) {
     for (const yearEntries of cache.values()) {
-      if (Array.isArray(yearEntries)) flat.push(...yearEntries);
+      if (!Array.isArray(yearEntries)) continue;
+      // Plain loop, not flat.push(...spread) — spreading a large year array
+      // onto the call stack risks an arguments-limit crash as data grows.
+      for (const rowEntry of yearEntries) flat.push(rowEntry);
     }
   }
   const liveRows =
@@ -293,6 +297,43 @@ const ratioPanelLiveRatio = (pair) => {
   const prices = typeof spotPrices !== "undefined" ? spotPrices : null;
   if (!prices) return null;
   return computeRatio(prices[pair.num.toLowerCase()], prices[pair.den.toLowerCase()]);
+};
+
+/**
+ * Returns whether a metal's current quote comes from a real synced feed.
+ * Mirrors getLastUpdateTime()'s source discrimination: the latest spotHistory
+ * entry per metal carries source "manual" / "seed" / "default" for non-feed
+ * values, and only a feed-sourced entry counts. This guards the Live badge
+ * (and the live-ratio override of `current`) against fetchSpotPrice()'s
+ * METALS defaultPrice fallback and manual or seed-derived quotes presenting
+ * as a live feed.
+ * @param {string} metalName - Metal display name ("Gold", "Silver", ...)
+ * @returns {boolean}
+ */
+const ratioPanelMetalIsSynced = (metalName) => {
+  const rows = typeof spotHistory !== "undefined" && Array.isArray(spotHistory) ? spotHistory : [];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row && row.metal === metalName) {
+      return row.source !== "manual" && row.source !== "seed" && row.source !== "default";
+    }
+  }
+  return false;
+};
+
+/**
+ * Thins a series to at most maxPoints rows, anchored from the END so the
+ * newest observation always survives — a forward-anchored `i % step` filter
+ * drops up to step-1 of the latest closes on long ranges, leaving MAX charts
+ * with a stale endpoint while the hero shows the current ratio.
+ * @param {Array<[string, number]>} rows - Ascending series rows
+ * @param {number} maxPoints - Maximum points to keep (≥ 1)
+ * @returns {Array<[string, number]>}
+ */
+const ratioPanelThinSeries = (rows, maxPoints) => {
+  if (!Array.isArray(rows) || rows.length <= maxPoints) return rows || [];
+  const step = Math.ceil(rows.length / maxPoints);
+  return rows.filter((_, i) => (rows.length - 1 - i) % step === 0);
 };
 
 /**
@@ -314,16 +355,42 @@ const renderRatiosPanel = (mountEl, options = {}) => {
   let liveActive = false;
   let activeRange = "90";
   let chart = null;
+  let cachedSource = null;
+  let cachedOverlayLength = -1;
+
+  /**
+   * Flattened series source, built once per mount and reused across the four
+   * pairs (the flatten walks ~48k cache entries — repeating it per pair is
+   * waste). Invalidated whenever spotHistory grows so long-running sessions
+   * never serve statistics from a stale overlay; invalidation also clears the
+   * per-pair series memoization.
+   * @returns {Array} Flat array of { spot, metal, timestamp } entries
+   */
+  const sourceEntries = () => {
+    const overlayLength =
+      typeof spotHistory !== "undefined" && Array.isArray(spotHistory) ? spotHistory.length : 0;
+    if (!cachedSource || overlayLength !== cachedOverlayLength) {
+      cachedSource = ratioPanelSeriesSource();
+      cachedOverlayLength = overlayLength;
+      seriesCache.clear();
+    }
+    return cachedSource;
+  };
 
   /** Builds (memoized) series + stats for a pair and makes it active. */
   const selectPairInternal = (pair) => {
+    const source = sourceEntries();
     if (!seriesCache.has(pair.id)) {
-      seriesCache.set(pair.id, buildRatioSeries(ratioPanelSeriesSource(), pair.num, pair.den));
+      seriesCache.set(pair.id, buildRatioSeries(source, pair.num, pair.den));
     }
     activeSeries = seriesCache.get(pair.id);
     const liveRatio = ratioPanelLiveRatio(pair);
-    liveActive = liveRatio !== null;
-    activeStats = computeRatioStats(activeSeries, liveRatio);
+    // "Live" requires BOTH sides to be feed-sourced quotes — never the METALS
+    // defaults, manual entries, or seed rows — and gates the override of
+    // `current` too, so fabricated prices cannot drive the hero readout.
+    liveActive =
+      liveRatio !== null && ratioPanelMetalIsSynced(pair.num) && ratioPanelMetalIsSynced(pair.den);
+    activeStats = computeRatioStats(activeSeries, liveActive ? liveRatio : null);
     activePair = pair;
   };
 
@@ -355,7 +422,11 @@ const renderRatiosPanel = (mountEl, options = {}) => {
     if (chart) chart.destroy();
     const rows = rangeSlice(range);
     const css = getComputedStyle(document.documentElement);
-    const accent = css.getPropertyValue(`--${activePair.accent}`).trim() || "#fbbf24";
+    // The rendered panel already resolves the accent via its data-accent
+    // attribute — read --gsr-accent from it rather than re-mapping in JS.
+    const panelEl = mountEl.querySelector(".gsr-panel");
+    const accent =
+      (panelEl && getComputedStyle(panelEl).getPropertyValue("--gsr-accent").trim()) || "#fbbf24";
     const gridColor = css.getPropertyValue("--border").trim() || "#333";
     const textColor = css.getPropertyValue("--text-muted").trim() || "#888";
     const fillColor = resolveCssColor(
@@ -363,9 +434,9 @@ const renderRatiosPanel = (mountEl, options = {}) => {
       `color-mix(in oklch, ${accent}, transparent 88%)`,
       accent
     );
-    // Long ranges: thin the points so Chart.js stays smooth.
-    const step = Math.max(1, Math.ceil(rows.length / 420));
-    const pts = rows.filter((_, i) => i % step === 0);
+    // Long ranges: thin the points (end-anchored — the newest close survives)
+    // so Chart.js stays smooth.
+    const pts = ratioPanelThinSeries(rows, 420);
     const showMean = ratioMeanLineVisible(
       pts.map((p) => p[1]),
       activeStats.histMean
@@ -494,5 +565,7 @@ if (typeof window !== "undefined") {
   window.ratioMeanLineVisible = ratioMeanLineVisible;
   window.ratioPanelHtml = ratioPanelHtml;
   window.ratioPanelSeriesSource = ratioPanelSeriesSource;
+  window.ratioPanelMetalIsSynced = ratioPanelMetalIsSynced;
+  window.ratioPanelThinSeries = ratioPanelThinSeries;
   window.renderRatiosPanel = renderRatiosPanel;
 }

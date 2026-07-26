@@ -151,6 +151,78 @@ describe("ratioMeanLineVisible", () => {
 });
 
 // =============================================================================
+// End-anchored chart thinning — the newest close must survive
+// =============================================================================
+describe("ratioPanelThinSeries", () => {
+  const rows = Array.from({ length: 100 }, (_, i) => [`2024-${String(i).padStart(3, "0")}`, i]);
+
+  test("keeps the newest observation on long ranges", () => {
+    const pts = surface.ratioPanelThinSeries(rows, 7);
+    assert.deepEqual(pts[pts.length - 1], rows[rows.length - 1]);
+    assert.ok(pts.length <= 7, `expected ≤ 7 points, got ${pts.length}`);
+  });
+
+  test("preserves ascending order", () => {
+    const vals = surface.ratioPanelThinSeries(rows, 7).map((p) => p[1]);
+    assert.deepEqual(
+      vals,
+      [...vals].sort((a, b) => a - b)
+    );
+  });
+
+  test("short series pass through untouched", () => {
+    assert.equal(surface.ratioPanelThinSeries(rows, 420), rows);
+    assert.deepEqual(surface.ratioPanelThinSeries(null, 420), []);
+  });
+});
+
+// =============================================================================
+// Live-badge gate — only feed-sourced quotes count as synced
+// =============================================================================
+describe("ratioPanelMetalIsSynced", () => {
+  const withHistory = (rows, fn) => {
+    const had = Object.getOwnPropertyDescriptor(globalThis, "spotHistory");
+    globalThis.spotHistory = rows;
+    try {
+      fn();
+    } finally {
+      if (had) Object.defineProperty(globalThis, "spotHistory", had);
+      else delete globalThis.spotHistory;
+    }
+  };
+  const row = (metal, source) => ({ metal, source, spot: 100, timestamp: "2026-07-24 12:00:00" });
+
+  test("a feed-sourced latest entry counts as synced", () => {
+    withHistory([row("Gold", "api")], () => {
+      assert.equal(surface.ratioPanelMetalIsSynced("Gold"), true);
+    });
+  });
+
+  test("default, manual, and seed quotes never count as live", () => {
+    for (const source of ["default", "manual", "seed"]) {
+      withHistory([row("Gold", source)], () => {
+        assert.equal(surface.ratioPanelMetalIsSynced("Gold"), false, source);
+      });
+    }
+  });
+
+  test("the LATEST entry per metal decides — a newer default overrides an old sync", () => {
+    withHistory([row("Gold", "api"), row("Gold", "default")], () => {
+      assert.equal(surface.ratioPanelMetalIsSynced("Gold"), false);
+    });
+  });
+
+  test("empty or missing history is never synced", () => {
+    withHistory([], () => {
+      assert.equal(surface.ratioPanelMetalIsSynced("Gold"), false);
+    });
+    withHistory([row("Silver", "api")], () => {
+      assert.equal(surface.ratioPanelMetalIsSynced("Gold"), false, "other metal only");
+    });
+  });
+});
+
+// =============================================================================
 // Panel HTML — Layout C structure and copy rules
 // =============================================================================
 describe("ratioPanelHtml — structure", () => {
