@@ -344,7 +344,14 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     await expect(page.locator("#headerRestoreBtn")).toHaveCount(0);
   });
 
-  test("backup and restore stay reachable via the visible System nav control", async ({ page }) => {
+  // NAMING TRAP: the nav item is `data-section="system"` but its visible label
+  // reads "Inventory" (index.html ~3479). The internal id and the user-facing
+  // label disagree, which is why the first draft of this release's copy told
+  // users to look for a "System" tab that does not exist. Assert on the
+  // data-section; describe it to users as Inventory.
+  test("backup and restore stay reachable via the visible settings nav control", async ({
+    page,
+  }) => {
     // The whole point of a Tier A retirement: the shortcut goes, the capability
     // does not. So the destination is reached by CLICKING the visible
     // `.settings-nav-item[data-section="system"]` control rather than jumping
@@ -364,6 +371,9 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
 
     const systemNav = page.locator('.settings-nav-item[data-section="system"]');
     await expect(systemNav).toBeVisible();
+    // Pin the visible label too — if it ever changes, the release copy that
+    // points users here goes stale silently.
+    await expect(systemNav).toContainText("Inventory");
     await systemNav.click();
 
     const panel = page.locator("#settingsPanel_system");
