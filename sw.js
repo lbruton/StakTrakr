@@ -6,13 +6,13 @@
 // importScripts. Declared here because the repo's legacy .eslintrc.json sets
 // no-undef: off while Codacy's ESLint 9 config enforces it, so these read as
 // undefined there without an explicit declaration.
-/* global caches, clients, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, isRootShellNavigation, navShellCacheKey */
+/* global caches, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, isRootShellNavigation, navShellCacheKey */
 
 importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.71-b1785049270";
+const CACHE_NAME = "staktrakr-v3.35.71-b1785049665";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =

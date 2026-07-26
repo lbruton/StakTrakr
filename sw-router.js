@@ -231,7 +231,12 @@ function shouldFallBackToCache(response) {
  */
 function navShellCacheKey(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "./";
-  if (pathname === "/ratios/" || pathname === "/ratios/index.html") return "./ratios/";
+  // "/ratios" without the slash: online the server redirects to "/ratios/",
+  // but offline that redirect never happens — map it to the shell key so the
+  // cached PWA shell is served instead of the generic offline page.
+  if (pathname === "/ratios" || pathname === "/ratios/" || pathname === "/ratios/index.html") {
+    return "./ratios/";
+  }
   return null;
 }
 

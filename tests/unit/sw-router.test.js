@@ -409,6 +409,9 @@ describe("navShellCacheKey — STRK-274 per-shell nav caching", () => {
   it("the ratios shell maps to its OWN key — never the tracker's", () => {
     assert.equal(navShellCacheKey("/ratios/"), "./ratios/");
     assert.equal(navShellCacheKey("/ratios/index.html"), "./ratios/");
+    // Bare "/ratios": online the server redirects to "/ratios/"; offline the
+    // SW must still serve the cached shell rather than the offline page.
+    assert.equal(navShellCacheKey("/ratios"), "./ratios/");
   });
 
   it("non-shell pages map to null and bypass the nav cache", () => {
