@@ -59,6 +59,19 @@ const readPeriodLabels = (page, metals) =>
 const readSelectValues = (page, metals) =>
   page.evaluate((ms) => ms.map((m) => document.getElementById(`spotRange${m}`)?.value), metals);
 
+/**
+ * Asserts every metal card sits at one trend period — both the visible chip
+ * label and the hidden range select that actually drives the sparkline.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} label - Expected chip text, e.g. "1Y"
+ * @param {string} value - Expected select value, e.g. "365"
+ * @returns {Promise<void>}
+ */
+async function expectAllMetalsAtPeriod(page, label, value) {
+  expect(await readPeriodLabels(page, METALS)).toEqual(METALS.map(() => label));
+  expect(await readSelectValues(page, METALS)).toEqual(METALS.map(() => value));
+}
+
 /** Opens Settings › Appearance, where the header button config table renders. */
 async function openHeaderBtnConfig(page) {
   await page.evaluate(() => window.showSettingsModal("site"));
@@ -98,15 +111,15 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
 
   test("clicking one card's chip cycles the period on all four cards", async ({ page }) => {
     await gotoApp(page, { trendPeriod: "90" });
-    expect(await readPeriodLabels(page, METALS)).toEqual(["90d", "90d", "90d", "90d"]);
+    await expectAllMetalsAtPeriod(page, "90d", "90");
 
     // TREND_PRESETS order is 1,7,30,90,365,... so 90 advances to 365 ("1Y").
     await page.locator("#spotPeriodGold").click();
 
-    expect(await readPeriodLabels(page, METALS)).toEqual(["1Y", "1Y", "1Y", "1Y"]);
-    // The hidden per-card selects are the sparkline engine — if these did not
-    // move, the labels would be lying and the charts would still show 90d.
-    expect(await readSelectValues(page, METALS)).toEqual(["365", "365", "365", "365"]);
+    // Asserting the hidden selects alongside the labels is the point: the
+    // selects are the sparkline engine, so labels moving without them would
+    // mean the charts silently stopped following.
+    await expectAllMetalsAtPeriod(page, "1Y", "365");
     await expect(page.locator("#spotPeriodGold")).toHaveAttribute("aria-label", /1Y/);
   });
 
@@ -136,8 +149,7 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#spotPriceDisplaySilver", { state: "visible" });
 
-    expect(await readPeriodLabels(page, METALS)).toEqual(["1Y", "1Y", "1Y", "1Y"]);
-    expect(await readSelectValues(page, METALS)).toEqual(["365", "365", "365", "365"]);
+    await expectAllMetalsAtPeriod(page, "1Y", "365");
   });
 
   test("Settings no longer offers a Trend row in the header button config", async ({ page }) => {

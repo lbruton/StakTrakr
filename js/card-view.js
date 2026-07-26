@@ -1306,19 +1306,20 @@ const TREND_METALS = ["Silver", "Gold", "Platinum", "Palladium"];
  * @param {string} val - The trend period value to apply.
  */
 const _applyTrend = (val) => {
-  const label = TREND_LABELS[val] || val + "d";
+  const label = TREND_LABELS[val] || `${val}d`;
   TREND_METALS.forEach((m) => {
+    // Chip first, then the select: dispatching the select's change event runs
+    // the spot.js sparkline listeners synchronously, so updating the chip
+    // beforehand means those listeners never observe a stale label.
+    const period = document.getElementById(`spotPeriod${m}`);
+    if (period) {
+      period.textContent = label;
+      period.setAttribute("aria-label", `Trend period: ${label}. Activate to change.`);
+    }
     const sel = document.getElementById(`spotRange${m}`);
     if (sel && sel.value !== val) {
       sel.value = val;
       sel.dispatchEvent(new Event("change"));
-    }
-  });
-  TREND_METALS.forEach((m) => {
-    const period = document.getElementById("spotPeriod" + m);
-    if (period) {
-      period.textContent = label;
-      period.setAttribute("aria-label", `Trend period: ${label}. Activate to change.`);
     }
   });
 };
@@ -1327,9 +1328,9 @@ const _applyTrend = (val) => {
  * Cycles through trend period presets, persists the selection, and applies it.
  */
 const cycleSpotTrend = () => {
-  const current = localStorage.getItem("spotTrendPeriod") || "90";
+  const current = localStorage.getItem(SPOT_TREND_KEY) || "90";
   const next = TREND_PRESETS[(TREND_PRESETS.indexOf(current) + 1) % TREND_PRESETS.length];
-  localStorage.setItem("spotTrendPeriod", next);
+  localStorage.setItem(SPOT_TREND_KEY, next);
   _applyTrend(next);
 };
 window.cycleSpotTrend = cycleSpotTrend;
@@ -1351,10 +1352,10 @@ window.cycleSpotTrend = cycleSpotTrend;
  */
 const _initSpotControls = () => {
   TREND_METALS.forEach((m) => {
-    const chip = document.getElementById("spotPeriod" + m);
+    const chip = document.getElementById(`spotPeriod${m}`);
     if (chip) chip.addEventListener("click", cycleSpotTrend);
   });
-  _applyTrend(localStorage.getItem("spotTrendPeriod") || "90");
+  _applyTrend(localStorage.getItem(SPOT_TREND_KEY) || "90");
 };
 
 // =============================================================================
