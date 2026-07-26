@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.68] - 2026-07-26
+
+### Added — STRK-271: Ratio chips open the Metal Ratios panel
+
+- **Metal Ratios panel is now reachable in the app**: The Au:Ag, Au:Pt, and Au:Pd chips on the spot cards are now buttons — click or press Enter to open the new Metal Ratios panel in a modal, pre-selected on the clicked pair, with the in-panel selector available to switch pairs (including Pt:Pd) without closing. Chips gained a pointer cursor, caret affordance, focus ring, and a "Click for trends" tooltip hint. Esc, the close button, or a backdrop click closes the modal and returns focus to the originating chip. The gold card's goldback chip is intentionally not wired — it shows a G1 rate, not a ratio (STRK-271).
+
+---
+
 ## [3.35.67] - 2026-07-25
 
 ### Added — STRK-270: Shared ratios panel component (Layout C)

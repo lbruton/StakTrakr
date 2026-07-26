@@ -15,10 +15,26 @@ const RATIO_CHIP_GLYPH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 const GOLDBACK_CHIP_GLYPH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M5 9v6M19 9v6"/></svg>`;
 
 // Ratio-card definitions (gold ÷ <metal>). The gold card is handled separately.
+// pairId maps each chip to its RATIO_PAIRS entry for the panel modal (STRK-271);
+// the gold card's goldback chip has NO pairId — it shows a G1 rate, not a ratio,
+// and must never open the ratios panel. Pt:Pd deliberately has no chip; it is
+// reachable via the in-panel selector.
 const RATIO_CHIP_CARDS = [
-  { metal: "silver", label: "Au:Ag", decimals: 1, accentClass: "metal-silver" },
-  { metal: "platinum", label: "Au:Pt", decimals: 2, accentClass: "metal-platinum" },
-  { metal: "palladium", label: "Au:Pd", decimals: 2, accentClass: "metal-palladium" },
+  { metal: "silver", label: "Au:Ag", decimals: 1, accentClass: "metal-silver", pairId: "au-ag" },
+  {
+    metal: "platinum",
+    label: "Au:Pt",
+    decimals: 2,
+    accentClass: "metal-platinum",
+    pairId: "au-pt",
+  },
+  {
+    metal: "palladium",
+    label: "Au:Pd",
+    decimals: 2,
+    accentClass: "metal-palladium",
+    pairId: "au-pd",
+  },
 ];
 
 // Ratio/goldback math + freshness/estimate resolution moved to js/spot-ratio-math.js
@@ -77,16 +93,18 @@ const upsertRatioChipSpacer = (cardEl) => {
 };
 
 /**
- * Builds a chip's child nodes (glyph + label + value + optional est marker) with
- * safe DOM methods. Label/value are set via textContent (no user-supplied HTML);
- * the glyph is a static SVG literal assigned to its own span's innerHTML.
+ * Builds a chip's child nodes (glyph + label + value + optional est marker +
+ * optional actionable caret) with safe DOM methods. Label/value are set via
+ * textContent (no user-supplied HTML); the glyph is a static SVG literal
+ * assigned to its own span's innerHTML.
  * @param {string} glyph - Inline SVG glyph markup (static literal)
  * @param {string} label - Chip label text
  * @param {string} value - Chip value text
  * @param {boolean} est - Whether to show the ~est estimate marker
+ * @param {boolean} actionable - Whether to append the click-affordance caret
  * @returns {HTMLElement[]} The child elements to mount into the chip
  */
-const buildRatioChipNodes = (glyph, label, value, est) => {
+const buildRatioChipNodes = (glyph, label, value, est, actionable) => {
   const glyphEl = document.createElement("span");
   glyphEl.className = "glyph";
   // Static SVG constant — never user input.
@@ -108,6 +126,14 @@ const buildRatioChipNodes = (glyph, label, value, est) => {
     estEl.className = "est";
     estEl.textContent = "~est";
     nodes.push(estEl);
+  }
+
+  if (actionable) {
+    const caretEl = document.createElement("span");
+    caretEl.className = "caret";
+    caretEl.setAttribute("aria-hidden", "true");
+    caretEl.textContent = "▸";
+    nodes.push(caretEl);
   }
 
   return nodes;
@@ -135,27 +161,27 @@ const ratioChipTipText = (metal) => {
   if (metal === "silver") {
     return {
       heading: "Gold-to-Silver Ratio (GSR)",
-      body: `It takes ${formatRatio(r, 1)} oz of silver to buy 1 oz of gold. Higher = silver relatively cheaper.`,
+      body: `It takes ${formatRatio(r, 1)} oz of silver to buy 1 oz of gold. Higher = silver relatively cheaper. Click for trends.`,
     };
   }
   const cap = metal.charAt(0).toUpperCase() + metal.slice(1);
   return {
     heading: `Gold ÷ ${cap}`,
-    body: `${formatRatio(r, 2)} oz of ${metal} equals 1 oz of gold by spot value.`,
+    body: `${formatRatio(r, 2)} oz of ${metal} equals 1 oz of gold by spot value. Click for trends.`,
   };
 };
 
 /**
  * Creates or updates the ratio chip for a single metal card.
  * Inserts the chip as a sibling BETWEEN .spot-card-change and .spot-card-timestamp.
+ * A chip descriptor carrying a pairId (the three ratio cards) becomes an
+ * actionable button that opens the ratios panel modal (STRK-271); the gold
+ * card's goldback chip carries no pairId and stays a passive display.
  * @param {HTMLElement} cardEl - The .spot-card element
- * @param {string} accentClass - Metal accent class (e.g. "metal-silver")
- * @param {string} glyph - Inline SVG glyph markup
- * @param {string} label - Chip label text
- * @param {string} value - Chip value text
- * @param {boolean} est - Whether to show the ~est estimate marker
+ * @param {{accentClass:string, glyph:string, label:string, value:string,
+ *   est:boolean, pairId:?string}} chip - Resolved chip descriptor
  */
-const upsertRatioChip = (cardEl, accentClass, glyph, label, value, est) => {
+const upsertRatioChip = (cardEl, chip) => {
   let chipEl = cardEl.querySelector(".spot-ratio-chip");
   if (!chipEl) {
     chipEl = document.createElement("div");
@@ -166,10 +192,22 @@ const upsertRatioChip = (cardEl, accentClass, glyph, label, value, est) => {
       cardEl.appendChild(chipEl);
     }
   }
-  chipEl.className = `spot-ratio-chip ${accentClass}`;
+  const actionable = Boolean(chip.pairId);
+  chipEl.className = `spot-ratio-chip ${chip.accentClass}${actionable ? " is-actionable" : ""}`;
   chipEl.setAttribute("tabindex", "0");
   chipEl.setAttribute("aria-describedby", "chipTip");
-  chipEl.replaceChildren(...buildRatioChipNodes(glyph, label, value, est));
+  if (actionable) {
+    chipEl.dataset.pair = chip.pairId;
+    chipEl.setAttribute("role", "button");
+    chipEl.setAttribute("aria-haspopup", "dialog");
+  } else {
+    delete chipEl.dataset.pair;
+    chipEl.removeAttribute("role");
+    chipEl.removeAttribute("aria-haspopup");
+  }
+  chipEl.replaceChildren(
+    ...buildRatioChipNodes(chip.glyph, chip.label, chip.value, chip.est, actionable)
+  );
 };
 
 /**
@@ -188,6 +226,7 @@ const resolveChipContent = (metalKey, spots) => {
       label: "GB",
       value: `$${formatRatio(gb.value, 2)}`,
       est: gb.est,
+      pairId: null,
     };
   }
   const card = RATIO_CHIP_CARDS.find((c) => c.metal === metalKey);
@@ -200,6 +239,7 @@ const resolveChipContent = (metalKey, spots) => {
     label: card.label,
     value: formatRatio(ratio, card.decimals),
     est: false,
+    pairId: card.pairId,
   };
 };
 
@@ -226,7 +266,7 @@ const renderRatioChip = (metalKey) => {
 
   if (chip) {
     removeRatioChipSpacer(cardEl);
-    upsertRatioChip(cardEl, chip.accentClass, chip.glyph, chip.label, chip.value, chip.est);
+    upsertRatioChip(cardEl, chip);
   } else {
     // Master ON but this card has no chip → reserve the row so timestamps stay aligned.
     removeRatioChip(cardEl);
@@ -342,6 +382,96 @@ const wireRatioChipTooltip = () => {
   window.addEventListener("scroll", hideRatioChipTip, true);
 };
 
+// =============================================================================
+// RATIOS PANEL MODAL HOST (STRK-271) — the in-app half of STRK-268
+// =============================================================================
+
+let ratiosPanelHandle = null;
+let ratiosPanelOriginEl = null;
+
+/**
+ * Opens the ratios panel modal on a pair, mounting the STRK-270 shared panel
+ * into #ratiosPanelMount. The clicked chip sets the initial pair; the in-panel
+ * selector lets the user switch without closing. Dismisses the chip tooltip
+ * first — it is position:fixed with z-index 9999 and body-appended, so it
+ * would otherwise float above the dialog.
+ * @param {string} pairId - RATIO_PAIRS id to open on (e.g. "au-pd")
+ * @param {?HTMLElement} originEl - Element to return focus to on close
+ */
+const openRatiosPanelModal = (pairId, originEl) => {
+  const mount = document.getElementById("ratiosPanelMount");
+  const modal = document.getElementById("ratiosPanelModal");
+  if (!mount || !modal || typeof renderRatiosPanel !== "function") return;
+  hideRatioChipTip();
+  ratiosPanelOriginEl = originEl || null;
+  if (ratiosPanelHandle) ratiosPanelHandle.destroy();
+  ratiosPanelHandle = renderRatiosPanel(mount, { initialPairId: pairId });
+  if (window.openModalById) window.openModalById("ratiosPanelModal");
+  // openModalById focuses the first focusable element (the header close
+  // button); move focus into the panel — onto the pressed pair button.
+  const pressed = mount.querySelector('.gsr-pairs button[aria-pressed="true"]');
+  if (pressed) pressed.focus();
+};
+
+/**
+ * Closes the ratios panel modal, tears down the mounted panel (chart +
+ * observers), and returns focus to the originating chip.
+ */
+const closeRatiosPanelModal = () => {
+  const modal = document.getElementById("ratiosPanelModal");
+  if (!modal || modal.style.display === "none") return;
+  if (ratiosPanelHandle) {
+    ratiosPanelHandle.destroy();
+    ratiosPanelHandle = null;
+  }
+  if (window.closeModalById) window.closeModalById("ratiosPanelModal");
+  if (ratiosPanelOriginEl && document.contains(ratiosPanelOriginEl)) {
+    ratiosPanelOriginEl.focus();
+  }
+  ratiosPanelOriginEl = null;
+};
+
+/**
+ * Wires chip activation (click + Enter/Space on .is-actionable chips) and the
+ * modal chrome (close button, Esc, backdrop). The backdrop handler is claimed
+ * HERE, before the first openModalById call, because openModalById's built-in
+ * click-outside handler calls closeModalById directly — bypassing the panel
+ * teardown and focus return this host needs. Idempotent — attaches once.
+ */
+let ratioChipActivationWired = false;
+const wireRatioChipActivation = () => {
+  if (ratioChipActivationWired || typeof document === "undefined") return;
+  ratioChipActivationWired = true;
+
+  const findActionableChip = (target) =>
+    target && target.closest ? target.closest(".spot-ratio-chip.is-actionable") : null;
+
+  document.addEventListener("click", (e) => {
+    const chipEl = findActionableChip(e.target);
+    if (chipEl) openRatiosPanelModal(chipEl.dataset.pair, chipEl);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const chipEl = findActionableChip(e.target);
+    if (!chipEl) return;
+    e.preventDefault(); // Space must not scroll the page
+    openRatiosPanelModal(chipEl.dataset.pair, chipEl);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeRatiosPanelModal();
+  });
+
+  const closeBtn = document.getElementById("ratiosPanelCloseBtn");
+  if (closeBtn) closeBtn.addEventListener("click", closeRatiosPanelModal);
+  const modal = document.getElementById("ratiosPanelModal");
+  if (modal && !modal.dataset.initialized) {
+    modal.dataset.initialized = "true";
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeRatiosPanelModal();
+    });
+  }
+};
+
 /**
  * DOM-ready init: ensure the tooltip singleton exists, wire interaction, and
  * paint the chips once. The script is deferred (loads after init.js), so the
@@ -350,6 +480,7 @@ const wireRatioChipTooltip = () => {
 const initRatioChips = () => {
   getRatioChipTip();
   wireRatioChipTooltip();
+  wireRatioChipActivation();
   renderRatioChips();
 };
 
@@ -367,4 +498,6 @@ if (typeof document !== "undefined" && typeof document.addEventListener === "fun
 if (typeof window !== "undefined") {
   window.renderRatioChips = renderRatioChips;
   window.renderRatioChip = renderRatioChip;
+  window.openRatiosPanelModal = openRatiosPanelModal;
+  window.closeRatiosPanelModal = closeRatiosPanelModal;
 }

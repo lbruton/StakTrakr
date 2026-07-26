@@ -3405,6 +3405,28 @@
     <!-- =============================================================================
        ============================================================================= -->
 
+    <!-- STRK-271: Metal Ratios panel modal — in-app host for the STRK-270 shared
+         panel. Opened by the spot-card ratio chips; the panel itself is rendered
+         into #ratiosPanelMount by renderRatiosPanel(). -->
+    <div
+      class="modal"
+      id="ratiosPanelModal"
+      style="display: none; z-index: 10000"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ratiosPanelModalTitle"
+    >
+      <div class="modal-content ratios-modal-content">
+        <div class="modal-header">
+          <h3 id="ratiosPanelModalTitle">Metal Ratios</h3>
+          <button aria-label="Close modal" class="modal-close" id="ratiosPanelCloseBtn">
+            &times;
+          </button>
+        </div>
+        <div id="ratiosPanelMount"></div>
+      </div>
+    </div>
+
     <!-- =============================================================================
        UNIFIED SETTINGS MODAL
        Consolidates API, Files, and Appearance into a single sidebar-navigated modal.

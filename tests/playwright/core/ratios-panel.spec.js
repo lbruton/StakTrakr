@@ -142,3 +142,108 @@ test.describe("core/ratios-panel — shared Layout C component (STRK-270)", () =
     expect(pageErrors).toEqual([]);
   });
 });
+
+// =============================================================================
+// STRK-271 — spot-card ratio chips open the panel modal (in-app host)
+// =============================================================================
+test.describe("core/ratios-panel — chip → modal host (STRK-271)", () => {
+  const MODAL = "#ratiosPanelModal";
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/index.html");
+    // Chips render from spotPrices (defaults are positive) once the deferred
+    // chip script initializes; the silver chip is the canary.
+    await page.waitForSelector('.spot-card[data-metal="silver"] .spot-ratio-chip.is-actionable');
+  });
+
+  test("exactly the three ratio chips are actionable — never the goldback chip", async ({
+    page,
+  }) => {
+    await expect(page.locator(".spot-ratio-chip.is-actionable")).toHaveCount(3);
+    // The gold card's chip (when present) shows a G1 rate, not a ratio — it
+    // must never carry the actionable affordance or a pair mapping.
+    await expect(
+      page.locator('.spot-card[data-metal="gold"] .spot-ratio-chip.is-actionable')
+    ).toHaveCount(0);
+    // Actionable chips read as buttons with a visible caret.
+    const silverChip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
+    await expect(silverChip).toHaveAttribute("role", "button");
+    await expect(silverChip.locator(".caret")).toBeVisible();
+  });
+
+  test("clicking a chip opens the modal on the matching pair", async ({ page }) => {
+    await page.locator('.spot-card[data-metal="palladium"] .spot-ratio-chip').click();
+    await expect(page.locator(MODAL)).toBeVisible();
+    await expect(page.locator(`${MODAL} .gsr-panel`)).toHaveAttribute("data-accent", "palladium");
+    await expect(page.locator(`${MODAL} [data-pair="au-pd"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    // The in-panel selector still allows switching without closing.
+    await page.locator(`${MODAL} [data-pair="au-ag"]`).click();
+    await expect(page.locator(`${MODAL} .gsr-panel`)).toHaveAttribute("data-accent", "silver");
+    await expect(page.locator(MODAL)).toBeVisible();
+  });
+
+  test("keyboard activation opens the modal; Esc closes and returns focus", async ({ page }) => {
+    const chip = page.locator('.spot-card[data-metal="platinum"] .spot-ratio-chip');
+    await chip.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(MODAL)).toBeVisible();
+    await expect(page.locator(`${MODAL} [data-pair="au-pt"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.locator(MODAL)).toBeHidden();
+    // Focus returns to the originating chip.
+    await expect(chip).toBeFocused();
+  });
+
+  test("opening the modal dismisses the fixed-position chip tooltip", async ({ page }) => {
+    const chip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
+    await chip.hover();
+    await expect(page.locator("#chipTip")).toHaveClass(/show/);
+    // Tooltip copy carries the new activation hint.
+    await expect(page.locator("#chipTip")).toContainText("Click for trends");
+    await chip.click();
+    await expect(page.locator(MODAL)).toBeVisible();
+    // The z-9999 tooltip singleton must not float above the dialog.
+    await expect(page.locator("#chipTip")).not.toHaveClass(/show/);
+  });
+
+  test("close button tears down the mounted panel", async ({ page }) => {
+    await page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip').click();
+    await expect(page.locator(MODAL)).toBeVisible();
+    await page.locator("#ratiosPanelCloseBtn").click();
+    await expect(page.locator(MODAL)).toBeHidden();
+    await expect(page.locator("#ratiosPanelMount .gsr-panel")).toHaveCount(0);
+  });
+
+  test("backdrop click closes with the same teardown as the close button", async ({ page }) => {
+    const chip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
+    await chip.click();
+    await expect(page.locator(MODAL)).toBeVisible();
+    // Click the backdrop itself (top-left corner is outside .modal-content) —
+    // this exercises the host's pre-claimed handler, not openModalById's
+    // generic close, so panel teardown and focus return must both run.
+    await page.locator(MODAL).click({ position: { x: 5, y: 5 } });
+    await expect(page.locator(MODAL)).toBeHidden();
+    await expect(page.locator("#ratiosPanelMount .gsr-panel")).toHaveCount(0);
+    await expect(chip).toBeFocused();
+  });
+
+  test("Space activates a focused chip without scrolling the page", async ({ page }) => {
+    const chip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
+    await chip.focus();
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press(" ");
+    await expect(page.locator(MODAL)).toBeVisible();
+    await expect(page.locator(`${MODAL} [data-pair="au-ag"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    // The preventDefault must have suppressed Space's default page scroll.
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+  });
+});
