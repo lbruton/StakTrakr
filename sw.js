@@ -12,7 +12,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.68-b1785042578";
+const CACHE_NAME = "staktrakr-v3.35.69-b1785044285";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -123,6 +123,8 @@ const CORE_ASSETS = [
   "./images/banner-logo-compact.svg",
   "./images/icon-192.png",
   "./images/icon-512.png",
+  "./images/icon-maskable-192.png",
+  "./images/icon-maskable-512.png",
   "./manifest.json",
   "./vendor/papaparse.min.js",
   "./vendor/jspdf.umd.min.js",

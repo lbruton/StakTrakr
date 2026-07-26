@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- STRK-272: maskable variant of ratios-icon.svg — FULL-BLEED background
+       (the platform applies its own circle/squircle mask) with the mark scaled
+       into the central safe zone (~20% padding each side) so adaptive masks
+       never clip the art. Also used for the apple-touch-icon export. -->
+  <defs>
+    <linearGradient id="bgRatiosM" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="silverRatiosM" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="goldRatiosM" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#92700c"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bgRatiosM)"/>
+  <g transform="translate(256 256) scale(0.68) translate(-256 -260)">
+    <g stroke="#a8b4c4" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M256 132v276"/>
+      <path d="M112 160h288"/>
+      <path d="M176 408h160"/>
+    </g>
+    <circle cx="256" cy="112" r="22" fill="url(#goldRatiosM)"/>
+    <path d="M112 158 L48 282 A64 64 0 0 0 176 282 Z" fill="url(#goldRatiosM)"/>
+    <path d="M400 158 L336 282 A64 64 0 0 0 464 282 Z" fill="url(#silverRatiosM)"/>
+  </g>
+</svg>
