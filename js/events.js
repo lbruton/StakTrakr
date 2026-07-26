@@ -3915,8 +3915,15 @@ const setupSpotPriceListeners = () => {
         "click",
         () => {
           debugLog(`Sync icon clicked for ${metalName}`);
-          if (typeof syncSpotPricesFromApi === "function") {
-            syncSpotPricesFromApi(true);
+          // Call through `window.` (STRK-284), matching what the retired header
+          // Spot Sync button did. The bare identifier resolves to api.js's
+          // top-level `const`, a separate binding from the `window` property —
+          // so the two controls were not actually interchangeable, and anything
+          // that swaps `window.syncSpotPricesFromApi` (test spies, future
+          // instrumentation) silently missed this path. This icon is now the
+          // ONLY manual sync affordance, so it has to carry the same contract.
+          if (typeof window.syncSpotPricesFromApi === "function") {
+            window.syncSpotPricesFromApi(true);
           } else {
             appAlert(
               "API sync functionality requires Metals API configuration. Please configure an API provider first."

@@ -85,6 +85,46 @@ async function openHeaderBtnConfig(page) {
   await expect(page.locator("#headerBtnConfigTable")).toBeVisible();
 }
 
+/**
+ * Shared assertion for a retired button's config row and its legacy stored id.
+ *
+ * Every retirement in this campaign repeats the same shape, so it lives here
+ * once rather than being copy-pasted per button (five more are queued).
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {object} opts - Options
+ * @param {string} opts.retiredLabel - Row label that must be gone, e.g. "Spot Sync"
+ * @param {string} opts.retiredId - Config id that must be gone, e.g. "syncBtn"
+ * @param {string[]} opts.survivingIds - Ids seeded alongside it that must survive
+ * @param {string} opts.survivingLabel - A label that must still render, anchoring
+ *   the negative assertion so it cannot pass on an empty table
+ * @returns {Promise<void>}
+ */
+async function expectRetiredFromConfig(
+  page,
+  { retiredLabel, retiredId, survivingIds, survivingLabel }
+) {
+  await openHeaderBtnConfig(page);
+  const table = page.locator("#headerBtnConfigTable");
+  await expect(table).not.toContainText(retiredLabel);
+  await expect(table).toContainText(survivingLabel);
+
+  // Read-time filtering only — the retired id is still on disk until a write.
+  const stillStored = await page.evaluate(() => localStorage.getItem("headerBtnOrder"));
+  expect(stillStored).toContain(retiredId);
+
+  // The first config write persists the already-filtered order.
+  await page
+    .locator("#headerBtnConfigTable input.inline-chip-toggle:not([disabled])")
+    .first()
+    .click();
+  await expect
+    .poll(async () => page.evaluate(() => localStorage.getItem("headerBtnOrder")))
+    .not.toContain(retiredId);
+
+  const repaired = await page.evaluate(() => localStorage.getItem("headerBtnOrder"));
+  for (const id of survivingIds) expect(repaired).toContain(id);
+}
+
 test.describe("STRK-283 — Trend header button retired to the spot-card period chip", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
@@ -170,10 +210,10 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
     await expect(table).toContainText("Settings");
   });
 
-  test("a legacy saved button order containing trendBtn still loads cleanly", async ({ page }) => {
+  test("a legacy saved button order containing trendBtn self-heals", async ({ page }) => {
     // Existing users have `trendBtn` inside headerBtnOrder. getHeaderBtnConfig
-    // filters saved ids with `k in vis`, so a retired id self-heals with no
-    // migration — this pins that contract rather than assuming it.
+    // filters saved ids with `k in vis`, so a retired id needs no migration —
+    // this pins that contract rather than assuming it.
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
@@ -181,11 +221,12 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
       headerBtnOrder: JSON.stringify(["trendBtn", "themeBtn", "marketBtn", "currencyBtn"]),
     });
 
-    await openHeaderBtnConfig(page);
-
-    const table = page.locator("#headerBtnConfigTable");
-    await expect(table).not.toContainText("Trend");
-    await expect(table).toContainText("Theme");
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Trend",
+      retiredId: "trendBtn",
+      survivingIds: ["themeBtn", "marketBtn", "currencyBtn"],
+      survivingLabel: "Theme",
+    });
     expect(errors).toEqual([]);
   });
 });
@@ -269,42 +310,16 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn", "marketBtn"]),
     });
-    await openHeaderBtnConfig(page);
 
-    const table = page.locator("#headerBtnConfigTable");
-    await expect(table).not.toContainText("Spot Sync");
-    await expect(table).toContainText("Theme");
-    expect(errors).toEqual([]);
-
-    // Self-healing is read-time filtering, NOT a rewrite: _renderSectionConfigTable
-    // calls saveConfig only from its checkbox/arrow handlers, never on render. So
-    // the retired id is still on disk at this point — asserting otherwise here
-    // would be asserting a contract the code does not have.
-    const stillStored = await page.evaluate(() => localStorage.getItem("headerBtnOrder"));
-    expect(stillStored).toContain("syncBtn");
-  });
-
-  test("the next config write drops the retired id from stored order", async ({ page }) => {
-    // The other half of the contract: getHeaderBtnConfig filters `syncBtn` out at
-    // read time, and saveHeaderBtnConfig persists whatever getHeaderBtnConfig
-    // returned — so the first time the user touches this table, the stale id is
-    // written out of localStorage for good. Nothing covered that repair path.
-    await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn", "marketBtn"]),
+    // Both halves of the contract live in the shared helper: read-time filtering
+    // leaves the retired id on disk, and the first config write removes it while
+    // preserving the surviving ids.
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Spot Sync",
+      retiredId: "syncBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
     });
-    await openHeaderBtnConfig(page);
-
-    // Toggling any non-locked row triggers saveConfig(getConfig()).
-    const toggle = page.locator("#headerBtnConfigTable input.inline-chip-toggle:not([disabled])");
-    await toggle.first().click();
-
-    await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem("headerBtnOrder")))
-      .not.toContain("syncBtn");
-    // The surviving ids must still be there — a repair that ate real entries
-    // would also satisfy the assertion above.
-    const repaired = await page.evaluate(() => localStorage.getItem("headerBtnOrder"));
-    expect(repaired).toContain("themeBtn");
-    expect(repaired).toContain("marketBtn");
+    expect(errors).toEqual([]);
   });
 });

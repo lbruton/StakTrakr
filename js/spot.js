@@ -259,8 +259,12 @@ const updateLastTimestamps = (source, provider, timestamp) => {
  * Falls back to cache refresh timestamp before treating the state as no data (orange).
  *
  * INERT since STRK-284: `#headerSyncDot` rode on the retired Spot Sync header
- * button, so there is no longer an element to colour and this is a safe no-op
- * (`safeGetElement` returns a dummy and the `classList` guard bails).
+ * button, so there is no element left to colour and this now returns early.
+ *
+ * The guard is `instanceof HTMLElement`, NOT `!dot.classList`: `safeGetElement`
+ * returns a dummy object that DOES carry a no-op `classList`, so the old check
+ * never bailed and the body kept running two `loadDataSync` reads per call for
+ * nothing.
  *
  * Deliberately NOT deleted. STRK-291 (colour the per-card refresh icon by
  * freshness) needs exactly this age logic and both of its call sites —
@@ -270,7 +274,7 @@ const updateLastTimestamps = (source, provider, timestamp) => {
  */
 const updateSpotSyncHealthDot = () => {
   const dot = safeGetElement("headerSyncDot");
-  if (!dot.classList) return;
+  if (!(dot instanceof HTMLElement)) return;
   dot.className = "cloud-sync-dot header-cloud-dot";
   let entry = null;
   try {

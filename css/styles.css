@@ -2060,6 +2060,9 @@ input[type="submit"] {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  /* Separate the refresh icon from the adjacent .spot-card-period chip. Two
+     unrelated controls flush against each other invite mis-taps (STRK-284). */
+  margin-left: 0.5rem;
 }
 
 /* ...but the range <select> inside it stays hidden. It is the sparkline engine
@@ -2071,13 +2074,25 @@ input[type="submit"] {
   display: none;
 }
 
-/* Sync icon button */
+/* Sync icon button.
+   24x24 minimum per WCAG 2.5.8 target size, matching the precedent set for the
+   bulk-edit checkboxes (STRK-91 C.5). It was 22x22 while it was a hidden
+   secondary control; STRK-284 made it the ONLY manual spot-refresh affordance,
+   so it has to meet the bar on its own.
+   NOT expanded to a 44x44 AAA target: the card header is ~24px tall and sits
+   directly above .spot-card-value, so a 44px hit area (visible or via an
+   overlay pseudo-element) would extend ~10px past the glyph on every side and
+   steal taps from the shift-click-to-edit price. A genuine 44px target needs
+   the card header re-laid out — that belongs to the Phase 4 dashboard redesign,
+   which is already scoped to rebuild these cards. */
 .spot-sync-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 4px);
