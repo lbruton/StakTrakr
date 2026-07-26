@@ -2443,7 +2443,6 @@ const applyHeaderToggleVisibility = () => {
     themeBtn: "headerThemeBtn",
     currencyBtn: "headerCurrencyBtn",
     marketBtn: "headerMarketBtn",
-    syncBtn: "headerSyncBtn",
     vaultBtn: "headerVaultBtn",
     restoreBtn: "headerRestoreBtn",
     cloudSyncBtn: "headerCloudSyncWrapper",
@@ -2488,10 +2487,6 @@ const getHeaderBtnConfig = () => {
     themeBtn: localStorage.getItem("headerThemeBtnVisible") !== "false",
     currencyBtn: localStorage.getItem("headerCurrencyBtnVisible") !== "false",
     marketBtn: localStorage.getItem(HEADER_MARKET_BTN_KEY) !== "false",
-    syncBtn: (() => {
-      const v = localStorage.getItem(HEADER_SYNC_BTN_KEY);
-      return v !== null ? v === "true" : true;
-    })(),
     vaultBtn: (() => {
       const v = localStorage.getItem(HEADER_VAULT_BTN_KEY);
       return v !== null ? v === "true" : true;
@@ -2507,7 +2502,6 @@ const getHeaderBtnConfig = () => {
     themeBtn: "Theme",
     currencyBtn: "Currency",
     marketBtn: "Market",
-    syncBtn: "Spot Sync",
     vaultBtn: "Backup",
     restoreBtn: "Restore",
     cloudSyncBtn: "Cloud Sync",
@@ -2545,7 +2539,6 @@ const saveHeaderBtnConfig = (cfg) => {
     themeBtn: "headerThemeBtnVisible",
     currencyBtn: "headerCurrencyBtnVisible",
     marketBtn: HEADER_MARKET_BTN_KEY,
-    syncBtn: HEADER_SYNC_BTN_KEY,
     vaultBtn: HEADER_VAULT_BTN_KEY,
     restoreBtn: HEADER_RESTORE_BTN_KEY,
     cloudSyncBtn: HEADER_CLOUD_SYNC_BTN_KEY,
@@ -3683,7 +3676,6 @@ const STORAGE_KEY_LABELS = {
   tableImagesEnabled: { label: "Table Images", icon: "🖼", category: "Settings" },
   tableImageSides: { label: "Table Image Sides", icon: "🖼", category: "Settings" },
   featureFlags: { label: "Feature Flags", icon: "🚩", category: "Settings" },
-  headerSyncBtnVisible: { label: "Sync Btn Visible", icon: "⚙️", category: "Settings" },
   headerThemeBtnVisible: { label: "Theme Btn Visible", icon: "⚙️", category: "Settings" },
   headerCurrencyBtnVisible: { label: "Currency Btn Visible", icon: "⚙️", category: "Settings" },
   spotTrendRange: { label: "Spot Trend Range", icon: "📈", category: "Settings" },

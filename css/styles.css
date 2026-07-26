@@ -2054,28 +2054,21 @@ input[type="submit"] {
   color: var(--text-primary);
 }
 
-/* Per-card <select> stays hidden — it is the sparkline engine driven by
-   _applyTrend, not a user-facing control. The period is chosen via the
-   .spot-card-period chip above (STRK-283). */
+/* The controls wrapper is visible again (STRK-284) so the per-card refresh
+   icon can replace the retired header Spot Sync button. */
 .spot-card-controls {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-/* Range dropdown */
+/* ...but the range <select> inside it stays hidden. It is the sparkline engine
+   driven by _applyTrend (a synthetic change event that spot.js listens for),
+   NOT a user-facing control — the period is chosen via the .spot-card-period
+   chip (STRK-283). Hiding the select specifically rather than the whole wrapper
+   is what keeps a second, competing period control off the screen. */
 .spot-range-select {
-  font-size: var(--font-size-xs);
-  padding: 0.1rem 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  line-height: 1.2;
-}
-
-.spot-range-select:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
+  display: none;
 }
 
 /* Sync icon button */
@@ -2097,6 +2090,11 @@ input[type="submit"] {
 .spot-sync-icon:hover:not(:disabled) {
   color: var(--primary);
   border-color: var(--primary);
+}
+
+.spot-sync-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .spot-sync-icon:disabled {

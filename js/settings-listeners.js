@@ -140,19 +140,9 @@ const bindAppearanceAndHeaderListeners = () => {
   // Trend cycle header button retired (STRK-283) — cycleSpotTrend is now wired
   // to the per-card .spot-card-period chips in card-view.js `_initSpotControls`.
 
-  // Sync all spot prices header button — single call, not per-metal loop (STRK-93).
-  const headerSyncBtn = safeGetElement("headerSyncBtn");
-  if (headerSyncBtn) {
-    headerSyncBtn.addEventListener("click", () => {
-      if (typeof window.syncSpotPricesFromApi === "function") {
-        window.syncSpotPricesFromApi(true);
-      } else {
-        appAlert(
-          "API sync functionality requires Metals API configuration. Please configure an API provider first."
-        );
-      }
-    });
-  }
+  // Spot sync header button retired (STRK-284) — the equivalent listener already
+  // exists per-card in events.js `setupSpotPriceListeners`, and its enabled state
+  // and title are owned by api.js `updateSyncButtonStates`.
 
   // Theme cycle header button (STACK-54).
   if (elements.headerThemeBtn) {

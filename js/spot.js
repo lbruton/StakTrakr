@@ -257,6 +257,16 @@ const updateLastTimestamps = (source, provider, timestamp) => {
  * Updates the #headerSyncDot color based on last spot sync age.
  * Green: < 60 min, Orange: 60 min – 24 hr or no data, Red: > 24 hr.
  * Falls back to cache refresh timestamp before treating the state as no data (orange).
+ *
+ * INERT since STRK-284: `#headerSyncDot` rode on the retired Spot Sync header
+ * button, so there is no longer an element to colour and this is a safe no-op
+ * (`safeGetElement` returns a dummy and the `classList` guard bails).
+ *
+ * Deliberately NOT deleted. STRK-291 (colour the per-card refresh icon by
+ * freshness) needs exactly this age logic and both of its call sites —
+ * `init.js` boot and the post-sync hook below — so it only has to retarget the
+ * body at the four `syncIcon{Metal}` elements. Removing it here would mean
+ * re-adding the same two hooks next patch, and the init.js one is easy to miss.
  */
 const updateSpotSyncHealthDot = () => {
   const dot = safeGetElement("headerSyncDot");

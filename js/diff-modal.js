@@ -44,7 +44,6 @@
       keys: [
         "headerThemeBtnVisible",
         "headerCurrencyBtnVisible",
-        "headerSyncBtnVisible",
         "headerMarketBtnVisible",
         "headerVaultBtnVisible",
         "headerRestoreBtnVisible",
@@ -123,7 +122,6 @@
     tagBlacklist: "Hidden Tags",
     headerThemeBtnVisible: "Theme Button",
     headerCurrencyBtnVisible: "Currency Button",
-    headerSyncBtnVisible: "Sync Button",
     headerMarketBtnVisible: "Market Button",
     headerVaultBtnVisible: "Vault Button",
     headerRestoreBtnVisible: "Restore Button",

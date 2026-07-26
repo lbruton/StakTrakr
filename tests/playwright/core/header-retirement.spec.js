@@ -22,15 +22,21 @@ const METALS = ["Silver", "Gold", "Platinum", "Palladium"];
  * navigation including reload(), so an unconditional write would silently
  * restore the default and make the persistence test unable to fail.
  */
-async function gotoApp(page, { trendPeriod = "90", headerBtnOrder = null } = {}) {
+async function gotoApp(
+  page,
+  { trendPeriod = "90", headerBtnOrder = null, spotPricingSource = null } = {}
+) {
   await page.addInitScript(
-    ({ period, order }) => {
+    ({ period, order, source }) => {
       if (localStorage.getItem("spotTrendPeriod") === null) {
         localStorage.setItem("spotTrendPeriod", period);
       }
       if (order) localStorage.setItem("headerBtnOrder", order);
+      // saveData/loadDataSync round-trip through JSON, so the seed must be
+      // JSON-encoded or loadDataSync's parse throws and silently falls back.
+      if (source) localStorage.setItem("spotPricingSource", JSON.stringify(source));
     },
-    { period: trendPeriod, order: headerBtnOrder }
+    { period: trendPeriod, order: headerBtnOrder, source: spotPricingSource }
   );
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#spotPriceDisplaySilver", { state: "visible" });
@@ -179,6 +185,94 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
 
     const table = page.locator("#headerBtnConfigTable");
     await expect(table).not.toContainText("Trend");
+    await expect(table).toContainText("Theme");
+    expect(errors).toEqual([]);
+  });
+});
+
+// STRK-284 — Spot Sync: unlike the Trend retirement, nothing new is built here.
+// The per-card icon was already wired (js/events.js `setupSpotPriceListeners`)
+// and already state-managed (js/api.js `updateSyncButtonStates`); only
+// `.spot-card-controls { display: none }` hid it. So these tests guard the two
+// things this patch can actually break: that the icon becomes visible, and that
+// un-hiding its wrapper does NOT also expose the range <select> that STRK-283
+// deliberately keeps hidden as the sparkline engine.
+//
+// The epic's "click = metal, shift-click = all" was dropped (user-confirmed):
+// _performSingleProviderFetch returns all four metals in one payload, so a
+// per-metal sync would repeat the same request and discard three results.
+test.describe("STRK-284 — Spot Sync header button retired to the per-card refresh icon", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("the header Spot Sync button and its status dot no longer exist", async ({ page }) => {
+    await gotoApp(page);
+    await expect(page.locator("#headerSyncBtn")).toHaveCount(0);
+    await expect(page.locator("#headerSyncDot")).toHaveCount(0);
+  });
+
+  test("every spot card shows an enabled refresh icon", async ({ page }) => {
+    await gotoApp(page);
+    for (const metal of METALS) {
+      const icon = page.locator(`#syncIcon${metal}`);
+      await expect(icon).toBeVisible();
+      await expect(icon).toHaveJSProperty("tagName", "BUTTON");
+      // Default source is STAKTRAKR, a keyless public feed, so hasApi is true.
+      await expect(icon).toBeEnabled();
+      await expect(icon).toHaveAttribute("title", "Sync from API");
+    }
+  });
+
+  test("un-hiding the controls does not expose the range select", async ({ page }) => {
+    await gotoApp(page);
+    // Regression guard for STRK-283: the <select> is the sparkline engine that
+    // _applyTrend drives with a synthetic change event, not a user control. If
+    // this fails, the fix un-hid the whole .spot-card-controls wrapper instead
+    // of the icon alone, and two competing period controls are now on screen.
+    for (const metal of METALS) {
+      await expect(page.locator(`#spotRange${metal}`)).toBeHidden();
+    }
+    // The chip from STRK-283 remains the only visible period control, and it
+    // must still drive the hidden selects.
+    await expectAllMetalsAtPeriod(page, "90d", "90");
+    await page.locator("#spotPeriodSilver").click();
+    await expectAllMetalsAtPeriod(page, "1Y", "365");
+    for (const metal of METALS) {
+      await expect(page.locator(`#spotRange${metal}`)).toBeHidden();
+    }
+  });
+
+  test("the refresh icon is keyboard focusable", async ({ page }) => {
+    await gotoApp(page);
+    await page.locator("#syncIconSilver").focus();
+    await expect(page.locator("#syncIconSilver")).toBeFocused();
+  });
+
+  test("MANUAL pricing source disables the icon with an honest title", async ({ page }) => {
+    // hasApi is false for MANUAL, so updateSyncButtonStates must both disable
+    // the control and say why — an inert enabled-looking button would be a lie.
+    await gotoApp(page, { spotPricingSource: "MANUAL" });
+    for (const metal of METALS) {
+      const icon = page.locator(`#syncIcon${metal}`);
+      await expect(icon).toBeDisabled();
+      await expect(icon).toHaveAttribute("title", "Configure API first");
+    }
+  });
+
+  test("Settings no longer offers a Spot Sync row, and a legacy order self-heals", async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn", "marketBtn"]),
+    });
+    await openHeaderBtnConfig(page);
+
+    const table = page.locator("#headerBtnConfigTable");
+    await expect(table).not.toContainText("Spot Sync");
     await expect(table).toContainText("Theme");
     expect(errors).toEqual([]);
   });
