@@ -40,6 +40,7 @@ window.spotPrices = ratiosPageSpot;
  * cache-entry shape js/spot.js produces, so buildRatioSeries sees identical
  * data in both hosts.
  * @param {Object} bundle - Compact seed bundle payload
+ * @returns {void}
  */
 window._loadSpotSeedBundle = function (bundle) {
   for (const yearStr of Object.keys(bundle)) {
