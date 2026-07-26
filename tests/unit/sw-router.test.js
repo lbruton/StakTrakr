@@ -378,3 +378,22 @@ describe("parseGeneratedAtSeconds — STRK-189", () => {
     assert.equal(parseGeneratedAtSeconds(undefined), null);
   });
 });
+
+describe("isRootShellNavigation — STRK-273 nav-cache guard", () => {
+  const { isRootShellNavigation } = loadSwRouter();
+
+  it("only the root shell may use the './' nav-cache key", () => {
+    assert.equal(isRootShellNavigation("/"), true);
+    assert.equal(isRootShellNavigation("/index.html"), true);
+  });
+
+  it("the public /ratios/ page must never clobber the cached tracker shell", () => {
+    assert.equal(isRootShellNavigation("/ratios/"), false);
+    assert.equal(isRootShellNavigation("/ratios/index.html"), false);
+  });
+
+  it("other same-origin pages bypass the shell cache too", () => {
+    assert.equal(isRootShellNavigation("/privacy.html"), false);
+    assert.equal(isRootShellNavigation("/oauth-callback.html"), false);
+  });
+});
