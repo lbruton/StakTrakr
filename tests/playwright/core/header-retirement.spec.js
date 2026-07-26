@@ -344,17 +344,33 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     await expect(page.locator("#headerRestoreBtn")).toHaveCount(0);
   });
 
-  test("backup and restore are still reachable in Settings › System", async ({ page }) => {
+  test("backup and restore stay reachable via the visible System nav control", async ({ page }) => {
     // The whole point of a Tier A retirement: the shortcut goes, the capability
-    // does not. Asserting the destination panel still carries real import AND
-    // export controls is what makes the removal safe rather than a data-loss
-    // footgun.
+    // does not. So the destination is reached by CLICKING the visible
+    // `.settings-nav-item[data-section="system"]` control rather than jumping
+    // straight to the panel — a purely programmatic assertion would keep
+    // passing even if that nav item were broken, which is exactly the kind of
+    // regression a retirement could cause.
+    //
+    // The modal itself is still opened via showSettingsModal(): clicking
+    // #settingsBtn does NOT work under this project's fixture — verified on
+    // unmodified dev, where the same click leaves #settingsModal at
+    // display:none, so the gear's listener is never attached in this
+    // environment. That is a pre-existing testability gap, not something this
+    // PR introduced, and not something this test can paper over.
     await gotoApp(page);
-    await page.evaluate(() => window.showSettingsModal("system"));
+    await page.evaluate(() => window.showSettingsModal());
     await expect(page.locator("#settingsModal")).toBeVisible();
+
+    const systemNav = page.locator('.settings-nav-item[data-section="system"]');
+    await expect(systemNav).toBeVisible();
+    await systemNav.click();
+
     const panel = page.locator("#settingsPanel_system");
     await expect(panel).toBeVisible();
 
+    // Real import AND export controls must be present — without this the test
+    // would only prove a panel opened, not that backing up still works.
     for (const id of ["exportJsonBtn", "exportCsvBtn", "exportZipBtn", "importZipBtn"]) {
       await expect(panel.locator(`#${id}`)).toBeAttached();
     }
