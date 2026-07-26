@@ -196,23 +196,30 @@ const ratioPanelTilesHtml = (pair, stats) => {
 };
 
 /**
- * Chart block with the 30D/90D/1Y/5Y/MAX range control (90D default). The
- * canvas is class-scoped (no ids) so multiple mounts cannot collide.
+ * Chart block with the 30D/90D/1Y/5Y/MAX range control. The pressed pill
+ * follows the ACTIVE range so a rerender (e.g. a pair switch) after a range
+ * change cannot desync the control from the chart. The canvas is class-scoped
+ * (no ids) so multiple mounts cannot collide.
+ * @param {string} [activeRange] - Active range key ("30"|"90"|"365"|"1305"|"max"), default "90"
  * @returns {string} HTML fragment
  */
-const ratioPanelChartHtml = () => `
+const ratioPanelChartHtml = (activeRange = "90") => {
+  const rangeButton = (key, label) =>
+    `<button data-r="${key}" aria-pressed="${key === activeRange}">${label}</button>`;
+  return `
   <div class="gsr-chartwrap">
     <div class="cbar">
       <div class="gsr-tf" role="group" aria-label="Chart range">
-        <button data-r="30" aria-pressed="false">30D</button>
-        <button data-r="90" aria-pressed="true">90D</button>
-        <button data-r="365" aria-pressed="false">1Y</button>
-        <button data-r="1305" aria-pressed="false">5Y</button>
-        <button data-r="max" aria-pressed="false">MAX</button>
+        ${rangeButton("30", "30D")}
+        ${rangeButton("90", "90D")}
+        ${rangeButton("365", "1Y")}
+        ${rangeButton("1305", "5Y")}
+        ${rangeButton("max", "MAX")}
       </div>
     </div>
     <div class="gsr-canvas"><canvas></canvas></div>
   </div>`;
+};
 
 /**
  * Provenance footer: source, span, session count, session-based averages
@@ -234,9 +241,10 @@ const ratioPanelFootHtml = (pair, stats) => `
  * @param {object} pair - Active RATIO_PAIRS entry
  * @param {?object} stats - computeRatioStats result, or null
  * @param {boolean} live - Whether a live spot ratio is driving `current`
+ * @param {string} [activeRange] - Active chart range key, default "90"
  * @returns {string} HTML for the .gsr-panel root
  */
-const ratioPanelHtml = (pair, stats, live) => {
+const ratioPanelHtml = (pair, stats, live, activeRange = "90") => {
   if (!stats) {
     return (
       `<div class="gsr-panel gsr-empty" data-accent="${pair.accent}">` +
@@ -248,7 +256,7 @@ const ratioPanelHtml = (pair, stats, live) => {
     ${ratioPanelHeroHtml(pair, stats)}
     ${ratioPanelRangeHtml(pair, stats)}
     ${ratioPanelTilesHtml(pair, stats)}
-    ${ratioPanelChartHtml()}
+    ${ratioPanelChartHtml(activeRange)}
     ${ratioPanelFootHtml(pair, stats)}
   </div>`;
 };
@@ -323,6 +331,23 @@ const renderRatiosPanel = (mountEl, options = {}) => {
   const rangeSlice = (range) =>
     range === "max" ? activeSeries : activeSeries.slice(-Number(range));
 
+  /**
+   * Resolves any CSS color expression (including color-mix) to the concrete
+   * color the browser computes for it, via a throwaway style read on the
+   * canvas. Canvas 2D fillStyle does not reliably parse CSS Level 4 color
+   * functions, so Chart.js needs the resolved value, not the expression.
+   * @param {HTMLElement} el - Attached element to resolve the style against
+   * @param {string} cssColor - CSS color expression to resolve
+   * @param {string} fallback - Color returned when resolution fails
+   * @returns {string}
+   */
+  const resolveCssColor = (el, cssColor, fallback) => {
+    el.style.color = cssColor;
+    const resolved = getComputedStyle(el).color;
+    el.style.color = "";
+    return resolved || fallback;
+  };
+
   /** Destroys and redraws the chart from computed tokens (theme-safe). */
   const drawChart = (range) => {
     const canvas = mountEl.querySelector(".gsr-canvas canvas");
@@ -333,6 +358,11 @@ const renderRatiosPanel = (mountEl, options = {}) => {
     const accent = css.getPropertyValue(`--${activePair.accent}`).trim() || "#fbbf24";
     const gridColor = css.getPropertyValue("--border").trim() || "#333";
     const textColor = css.getPropertyValue("--text-muted").trim() || "#888";
+    const fillColor = resolveCssColor(
+      canvas,
+      `color-mix(in oklch, ${accent}, transparent 88%)`,
+      accent
+    );
     // Long ranges: thin the points so Chart.js stays smooth.
     const step = Math.max(1, Math.ceil(rows.length / 420));
     const pts = rows.filter((_, i) => i % step === 0);
@@ -348,7 +378,7 @@ const renderRatiosPanel = (mountEl, options = {}) => {
           {
             data: pts.map((p) => p[1]),
             borderColor: accent,
-            backgroundColor: `color-mix(in oklch, ${accent}, transparent 88%)`,
+            backgroundColor: fillColor,
             borderWidth: 2,
             fill: true,
             pointRadius: 0,
@@ -403,7 +433,7 @@ const renderRatiosPanel = (mountEl, options = {}) => {
   /** Renders the active pair and wires the in-panel controls. */
   const rerender = () => {
     // Internally generated markup only — numeric stats and fixed copy.
-    mountEl.innerHTML = ratioPanelHtml(activePair, activeStats, liveActive);
+    mountEl.innerHTML = ratioPanelHtml(activePair, activeStats, liveActive, activeRange);
     mountEl.querySelectorAll(".gsr-pairs button").forEach((btn) => {
       btn.addEventListener("click", () => {
         const next = RATIO_PAIRS.find((p) => p.id === btn.dataset.pair);

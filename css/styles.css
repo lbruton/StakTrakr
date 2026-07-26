@@ -16427,6 +16427,7 @@ input[type="number"] {
    ============================================================================= */
 .gsr-panel {
   --gsr-accent: var(--gold);
+
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -16519,7 +16520,7 @@ input[type="number"] {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: currentColor;
+  background: currentcolor;
 }
 .gsr-live[data-state="stale"] {
   border-color: color-mix(in oklch, var(--warning), transparent 55%);

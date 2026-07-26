@@ -105,6 +105,13 @@ test.describe("core/ratios-panel — shared Layout C component (STRK-270)", () =
       "aria-pressed",
       "false"
     );
+    // The chosen range must survive a pair-switch rerender — the pill follows
+    // activeRange rather than resetting to a hard-coded 90D.
+    await page.locator(`${MOUNT} [data-pair="au-pd"]`).click();
+    await expect(page.locator(`${MOUNT} .gsr-tf button[data-r="max"]`)).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
     expect(pageErrors).toEqual([]);
   });
 

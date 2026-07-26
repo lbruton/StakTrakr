@@ -211,11 +211,17 @@ describe("ratioPanelHtml — structure", () => {
     assert.ok(h.includes("above trend") || h.includes("below trend"));
   });
 
-  test("chart range control offers 30D/90D/1Y/5Y/MAX with 90D pressed", () => {
+  test("chart range control offers 30D/90D/1Y/5Y/MAX with 90D pressed by default", () => {
     const h = html();
     for (const r of ["30D", "90D", "1Y", "5Y", "MAX"]) assert.ok(h.includes(`>${r}</button>`), r);
     assert.match(h, /data-r="90" aria-pressed="true"/);
     assert.ok(h.includes("gsr-canvas"));
+  });
+
+  test("pressed range pill follows the supplied active range, not a hard-coded 90D", () => {
+    const h = surface.ratioPanelHtml(pairById("au-ag"), STATS, false, "365");
+    assert.match(h, /data-r="365" aria-pressed="true"/);
+    assert.match(h, /data-r="90" aria-pressed="false"/);
   });
 
   test("footer carries provenance, span year, session count, and the disclaimer", () => {
