@@ -164,13 +164,13 @@ const bindAppearanceAndHeaderListeners = () => {
   // (#settingsDisplayCurrency, wired above), which calls the same
   // saveDisplayCurrency() the picker items did.
 
-  // Market button - trigger market refresh (STAK-545).
-  const headerMarketBtn = safeGetElement("headerMarketBtn");
-  if (headerMarketBtn) {
-    headerMarketBtn.addEventListener("click", () => {
-      if (typeof window.syncRetailPrices === "function") window.syncRetailPrices();
-    });
-  }
+  // Market header button retired (STRK-290). Its listener called
+  // window.syncRetailPrices() — the same function the Market block's
+  // #marketRefreshBtn now calls directly (js/market-data.js `_runMarketRefresh`),
+  // and the same one Settings › Market's #retailSyncBtn calls below. All three
+  // paths were verified to reference one object: `syncRetailPrices` is a const in
+  // js/retail.js that is never reassigned, and its window export is the only
+  // other write.
 
   // Vault + Restore header buttons retired (STRK-285, STRK-286). Both were the
   // identical showSettingsModal("system") shortcut — two icons for one

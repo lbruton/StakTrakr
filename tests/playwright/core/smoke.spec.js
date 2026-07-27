@@ -66,7 +66,11 @@ test.describe("core/smoke — app shell boot", () => {
     await dismissWhatsNew(page);
     const headerBtns = page.locator("#headerBtnContainer button.header-toggle-btn:visible");
     const count = await headerBtns.count();
-    expect(count).toBeGreaterThanOrEqual(3);
+    // Was >= 3 until STRK-290 retired the last of the eight campaign buttons.
+    // The header is now Theme + Settings, so 2 is the floor. Kept as a lower
+    // bound rather than an exact count: it still fails if either survivor
+    // disappears, without breaking the day someone adds a button back.
+    expect(count).toBeGreaterThanOrEqual(2);
   });
 
   test("version number in header matches deployed patch version", async ({ page }) => {

@@ -2696,10 +2696,11 @@ input[type="submit"] {
 }
 
 /* Header currency dropdown styles removed with the button (STRK-288). Unlike
-   .header-cloud-dot — which STRK-287 had to KEEP because #headerMarketDot and
-   the spot/retail freshness dots share it — .header-currency-dropdown and
-   .header-currency-item were used by nothing but the retired picker that
-   toggleCurrencyDropdown() built, so they are safe to delete outright. */
+   .cloud-sync-dot and the .header-cloud-dot--* colour modifiers — which the
+   spot/retail freshness dots share, so STRK-287 had to keep them —
+   .header-currency-dropdown and .header-currency-item were used by nothing but
+   the retired picker that toggleCurrencyDropdown() built, so they are safe to
+   delete outright. */
 
 .theme-buttons {
   display: flex;
@@ -4403,10 +4404,21 @@ input[type="submit"] {
   background: var(--info, #0dcaf0);
   animation: cloudSyncPulse 1s ease-in-out infinite;
 }
-/* #headerCloudSyncBtn positioning removed with the button (STRK-287). The
-   .header-cloud-dot / .cloud-sync-dot classes below STAY — they are shared with
-   #headerMarketDot and the spot/retail freshness dots (js/spot.js, js/retail.js),
-   so deleting them as "cloud" styling would break three unrelated indicators. */
+/* #headerCloudSyncBtn positioning removed with the button (STRK-287).
+   .cloud-sync-dot STAYS — it is the inline-flow dot used by the spot and retail
+   freshness indicators, including #marketFreshnessDot (js/retail.js), so deleting
+   it as "cloud" styling would break unrelated indicators.
+
+   The .header-cloud-dot--{green,orange,red} modifiers below also STAY: they are
+   pure colour and js/spot.js + js/retail.js both apply them.
+
+   The .header-cloud-dot BASE rule is a different matter. It is `position:
+   absolute` because it overlaid a header button's corner, and as of STRK-290 it
+   has no live consumer: #headerMarketDot went with the Market button, and the
+   only remaining writer (updateSpotSyncHealthDot, js/spot.js) targets
+   #headerSyncDot, which has been inert since STRK-284. It is left in place only
+   because that function is slated to be retargeted at the per-card
+   syncIcon{Metal} elements; if that lands without needing it, delete this rule. */
 /* Header cloud sync icon dot overlay (STAK-264) */
 .header-cloud-dot {
   position: absolute;

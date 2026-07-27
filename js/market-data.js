@@ -1884,6 +1884,81 @@ const _renderVendorTable = async (metalCode) => {
   // for the stale-reference race that duplicated ticker rows.
 };
 
+/**
+ * True while a user-initiated market refresh is running.
+ *
+ * Module-scoped rather than closed over the button element because a completing
+ * sync calls refreshMarketData() → renderVendorPrices(), which rebuilds the
+ * control. A captured node reference would be detached by the time the refresh
+ * finished, so the in-flight state has to live outside the DOM.
+ */
+let _marketRefreshInProgress = false;
+
+/**
+ * Paints one refresh button to match the current refresh state.
+ * @param {HTMLButtonElement} btn - The control to paint
+ * @returns {void}
+ */
+const _paintMarketRefreshBtn = (btn) => {
+  if (!(btn instanceof HTMLButtonElement)) return;
+  btn.disabled = _marketRefreshInProgress;
+  btn.textContent = _marketRefreshInProgress ? "↻…" : "↻ Refresh";
+};
+
+/**
+ * Repaints the live refresh button, if the market block is currently rendered.
+ *
+ * safeGetElement returns a truthy dummy for a missing id, so the instanceof
+ * check in _paintMarketRefreshBtn is what makes this safe to call when the
+ * Market block has not rendered yet.
+ * @returns {void}
+ */
+const _syncMarketRefreshBtnState = () => {
+  _paintMarketRefreshBtn(safeGetElement("marketRefreshBtn"));
+};
+
+/**
+ * Runs a user-initiated market refresh from the Market block (STRK-290).
+ *
+ * Calls syncRetailPrices(), which pulls unconditionally. The control used to
+ * call startRetailBackgroundSync(), whose body sits behind
+ * `if (isStale || missingProviders || missingSlugs)` with a one-hour staleness
+ * budget and no else branch — so on data younger than an hour the click did
+ * nothing at all, while a hardcoded 5s timeout restored the button and made it
+ * look like a refresh had happened.
+ *
+ * ui:false because the shared progress machinery inside syncRetailPrices
+ * addresses Settings' #retailSyncBtn by id; this control owns its own state and
+ * drives it off the awaited promise instead of a timer.
+ *
+ * Residual edge, considered and accepted: syncRetailPrices has its own
+ * _retailSyncInProgress guard, so a click landing while the 30-minute background
+ * sync happens to be running returns immediately and the button restores fast.
+ * The user's intent is still met — that in-flight sync ends by calling
+ * refreshMarketData() — so unlike the bug this replaces, the data does refresh.
+ * Awaiting the in-flight run instead would mean exposing its promise from
+ * js/retail.js, which is a wider change than this patch warrants.
+ * @returns {Promise<void>}
+ */
+const _runMarketRefresh = async () => {
+  if (_marketRefreshInProgress) return;
+  _marketRefreshInProgress = true;
+  _syncMarketRefreshBtnState();
+  try {
+    if (typeof syncRetailPrices === "function") {
+      await syncRetailPrices({ ui: false });
+    }
+  } catch (e) {
+    debugLog(`[market-data] Manual market refresh failed: ${e.message}`, "warn");
+  } finally {
+    _marketRefreshInProgress = false;
+    // syncRetailPrices' own finally re-renders the block, so this repaints
+    // whichever button is mounted now — the original or its replacement.
+    _syncMarketRefreshBtnState();
+    if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+  }
+};
+
 const renderVendorPrices = () => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
@@ -1921,22 +1996,31 @@ const renderVendorPrices = () => {
   }
   rightGroup.appendChild(tsSpan);
 
+  // STRK-290: market freshness moved here from #headerMarketDot when the Market
+  // header button retired. Same painter (updateMarketHealthDot, js/retail.js) and
+  // a different base class: .cloud-sync-dot is the inline-flow dot, while
+  // .header-cloud-dot is `position: absolute` for a button-corner badge and would
+  // drop straight out of this flex row. The colour modifiers the painter adds
+  // are shared by both.
+  const freshnessDot = document.createElement("span");
+  freshnessDot.id = "marketFreshnessDot";
+  freshnessDot.className = "cloud-sync-dot";
+  freshnessDot.title = "Market data freshness";
+  rightGroup.appendChild(freshnessDot);
+
   const refreshBtn = document.createElement("button");
+  refreshBtn.id = "marketRefreshBtn";
+  refreshBtn.type = "button";
+  refreshBtn.title = "Refresh market prices";
+  refreshBtn.setAttribute("aria-label", "Refresh market prices");
   refreshBtn.style.cssText =
     "background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;";
-  refreshBtn.textContent = "\u21BB Refresh";
+  // Painted from the module flag rather than hardcoded to the idle state: a sync
+  // ends by calling refreshMarketData(), which re-runs this whole function, so a
+  // freshly built button must be able to render mid-flight in the syncing state.
+  _paintMarketRefreshBtn(refreshBtn);
   refreshBtn.addEventListener("click", () => {
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = "\u21BB\u2026";
-    if (typeof startRetailBackgroundSync === "function") {
-      startRetailBackgroundSync();
-    }
-    setTimeout(() => {
-      _marketDataInitialized = false;
-      initMarketData().catch(() => {});
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = "\u21BB Refresh";
-    }, 5000);
+    void _runMarketRefresh();
   });
   rightGroup.appendChild(refreshBtn);
 
@@ -2023,6 +2107,12 @@ const renderVendorPrices = () => {
   if (currencyDisclaimer) footerText += " " + currencyDisclaimer;
   footer.textContent = footerText;
   container.appendChild(footer);
+
+  // STRK-290: paint the relocated freshness dot now that it is mounted. The
+  // painter's other callers (init.js boot, and _syncRetailV2 on success) can
+  // both fire while this block is unrendered, so relying on them alone would
+  // leave the dot unpainted until the next sync.
+  if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
 };
 
 // ---------------------------------------------------------------------------

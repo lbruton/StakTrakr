@@ -260,13 +260,13 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
     // getHeaderBtnConfig filters it out too and the assertion would fail for a
     // reason unrelated to the Trend retirement this test is about.
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["trendBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["trendBtn", "themeBtn"]),
     });
 
     await expectRetiredFromConfig(page, {
       retiredLabel: "Trend",
       retiredId: "trendBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -348,7 +348,7 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
     const errors = watchPageErrors(page);
 
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn"]),
     });
 
     // Both halves of the contract live in the shared helper: read-time filtering
@@ -357,7 +357,7 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
     await expectRetiredFromConfig(page, {
       retiredLabel: "Spot Sync",
       retiredId: "syncBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -431,12 +431,12 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     const errors = watchPageErrors(page);
 
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["vaultBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["vaultBtn", "themeBtn"]),
     });
     await expectRetiredFromConfig(page, {
       retiredLabel: "Backup",
       retiredId: "vaultBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -446,12 +446,12 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     const errors = watchPageErrors(page);
 
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["restoreBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["restoreBtn", "themeBtn"]),
     });
     await expectRetiredFromConfig(page, {
       retiredLabel: "Restore",
       retiredId: "restoreBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -502,12 +502,12 @@ test.describe("STRK-289 — About header button retired", () => {
     const errors = watchPageErrors(page);
 
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["aboutBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["aboutBtn", "themeBtn"]),
     });
     await expectRetiredFromConfig(page, {
       retiredLabel: "About",
       retiredId: "aboutBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -628,12 +628,12 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
     const errors = watchPageErrors(page);
 
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["cloudSyncBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["cloudSyncBtn", "themeBtn"]),
     });
     await expectRetiredFromConfig(page, {
       retiredLabel: "Cloud Sync",
       retiredId: "cloudSyncBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -720,12 +720,78 @@ test.describe("STRK-288 — Currency header button retired", () => {
     const errors = watchPageErrors(page);
 
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["currencyBtn", "themeBtn", "marketBtn"]),
+      headerBtnOrder: JSON.stringify(["currencyBtn", "themeBtn"]),
     });
     await expectRetiredFromConfig(page, {
       retiredLabel: "Currency",
       retiredId: "currencyBtn",
-      survivingIds: ["themeBtn", "marketBtn"],
+      survivingIds: ["themeBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+});
+
+// The last of the eight. Market is the only retirement in this campaign that
+// was NOT a pure shortcut removal: its replacement had to be repaired first.
+// The Market block already rendered a "↻ Refresh" button, but it called
+// startRetailBackgroundSync() behind a 1-hour staleness guard, so on fresh data
+// it did nothing — retiring the header button before fixing that would have left
+// market data with no working manual refresh outside Settings. The behavioural
+// half lives in core/retail-market.spec.js (STRK-290 describe); this block pins
+// the removal half.
+test.describe("STRK-290 — Market header button retired to the in-block refresh control", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("the header Market button and its freshness dot no longer exist", async ({ page }) => {
+    await gotoApp(page);
+    await expectGone(page, "#headerMarketBtn", "#headerMarketDot");
+  });
+
+  // updateMarketHealthDot ran on a timer and after every retail sync. If the
+  // painter kept targeting the deleted #headerMarketDot it would not throw —
+  // safeGetElement returns a truthy dummy — it would silently paint nothing,
+  // and the relocated dot would sit unstyled forever. Asserting no page errors
+  // AND that market sync still completes is what catches the silent variant.
+  test("the market health painter follows the dot instead of painting a dead node", async ({
+    page,
+  }) => {
+    const errors = watchPageErrors(page);
+
+    await gotoApp(page);
+    await page.evaluate(() => window.updateMarketHealthDot?.());
+
+    expect(errors).toEqual([]);
+    // The relocated dot is rendered by the market block; assert the painter
+    // resolved a real element rather than the safeGetElement dummy.
+    expect(await page.evaluate(() => document.getElementById("headerMarketDot") === null)).toBe(
+      true
+    );
+  });
+
+  // The "keep it" half of the STRK-290 decision: Settings › Market keeps its
+  // Sync Now button, because the shared sync state machine at js/retail.js:1231
+  // addresses #retailSyncBtn by id. Deleting it would have forced that function
+  // to be generalised in the same patch.
+  test("Settings › Market keeps its Sync Now button", async ({ page }) => {
+    await gotoApp(page);
+    await page.evaluate(() => window.showSettingsModal("market"));
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    await expect(page.locator("#retailSyncBtn")).toHaveCount(1);
+  });
+
+  test("Settings drops the Market row and a legacy order self-heals", async ({ page }) => {
+    const errors = watchPageErrors(page);
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["marketBtn", "themeBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Market",
+      retiredId: "marketBtn",
+      survivingIds: ["themeBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
