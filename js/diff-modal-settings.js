@@ -57,7 +57,13 @@
     "krugerrand-gold": "Gold Krugerrand",
     ape: "American Platinum Eagle",
     "goldback-oklahoma-g1": "G1 Oklahoma Goldback",
-    // Header button slugs
+    // Header button slugs. RETIRED ids stay listed on purpose — headerBtnOrder is
+    // a synced array, so a vault written before a retirement still carries the old
+    // slug, and this map is what keeps it readable in the diff instead of showing
+    // a raw id. (cloudSyncBtn retired STRK-287; aboutBtn/backupBtn/vaultBtn/
+    // restoreBtn/trendBtn likewise.) Contrast diff-modal.js, where a retired
+    // VISIBILITY key is removed — that key leaves the sync scope entirely, so it
+    // can never appear in a diff again.
     themeBtn: "Theme",
     cloudSyncBtn: "Cloud Sync",
     settingsBtn: "Settings",

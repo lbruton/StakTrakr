@@ -41,9 +41,9 @@ async function configureHeaderCloudState(
         localStorage.setItem("cloud_dropbox_account_id", "acct:test");
       }
 
-      if (typeof window.updateCloudSyncHeaderBtn === "function") {
-        window.updateCloudSyncHeaderBtn();
-      }
+      // The updateCloudSyncHeaderBtn() repaint that used to run here went with
+      // the header button (STRK-287). Nothing needs repainting now — the seeded
+      // state is read directly by the Cloud panel when it opens.
     },
     { connected, hasPassword, hasAccountId, autoSyncEnabled }
   );
@@ -106,49 +106,23 @@ test.describe("STAK-444/STAK-544 — Settings → Cloud tab and header cloud but
     ).toHaveCount(0);
   });
 
-  test("2.6 — Header cloud button opens Cloud settings when sync is not configured", async ({
+  // 2.6 / 2.7 / 2.8 REWRITTEN as one retirement record for STRK-287.
+  //
+  // All three drove #headerCloudSyncBtn and asserted its dual routing: open
+  // Cloud settings when unconfigured (2.6), or run a manual sync when fully
+  // configured, with auto-sync off (2.7) and on (2.8). The button is retired, so
+  // the three cases collapse — there is no longer a state machine choosing
+  // between destinations, just the two destinations themselves.
+  //
+  // They are folded into a single test rather than deleted so the matrix still
+  // shows what happened to these criteria. Live coverage of the surviving
+  // destinations belongs to core/header-retirement.spec.js.
+  test("2.6/2.7/2.8 — header cloud button retired; both destinations live in Settings › Cloud", async ({
     page,
   }) => {
-    await configureHeaderCloudState(page, {
-      connected: false,
-      hasPassword: false,
-      hasAccountId: false,
-      autoSyncEnabled: false,
-    });
-    await closeSettingsModal(page);
-
-    await page.locator("#headerCloudSyncBtn").click();
-
-    await expect(page.locator("#settingsModal")).toBeVisible();
-    await expect(page.locator("#settingsPanel_cloud")).toBeVisible();
-    await expect(page.locator("#settingsPanel_system")).not.toBeVisible();
-  });
-
-  test("2.7 — Header cloud button triggers manual sync when configured and auto-sync is off", async ({
-    page,
-  }) => {
-    await configureHeaderCloudState(page, {
-      connected: true,
-      hasPassword: true,
-      hasAccountId: true,
-      autoSyncEnabled: false,
-    });
-    await closeSettingsModal(page);
-    await page.evaluate(() => {
-      window.__syncNowCalls = 0;
-      window.syncNow = async () => {
-        window.__syncNowCalls += 1;
-      };
-    });
-
-    await page.locator("#headerCloudSyncBtn").click();
-
-    await page.waitForFunction(() => window.__syncNowCalls === 1);
-  });
-
-  test("2.8 — Header cloud button triggers manual sync when configured and auto-sync is on", async ({
-    page,
-  }) => {
+    // The configured state that used to select the "sync-now" branch — kept so
+    // this asserts the button is absent even when it would previously have been
+    // at its most active, not merely when it was gray.
     await configureHeaderCloudState(page, {
       connected: true,
       hasPassword: true,
@@ -156,15 +130,17 @@ test.describe("STAK-444/STAK-544 — Settings → Cloud tab and header cloud but
       autoSyncEnabled: true,
     });
     await closeSettingsModal(page);
-    await page.evaluate(() => {
-      window.__syncNowCalls = 0;
-      window.syncNow = async () => {
-        window.__syncNowCalls += 1;
-      };
-    });
 
-    await page.locator("#headerCloudSyncBtn").click();
+    await expect(page.locator("#headerCloudSyncBtn")).toHaveCount(0);
+    await expect(page.locator("#headerCloudSyncWrapper")).toHaveCount(0);
+    await expect(page.locator("#headerCloudDot")).toHaveCount(0);
 
-    await page.waitForFunction(() => window.__syncNowCalls === 1);
+    // Destination A — the settings panel the unconfigured branch used to open.
+    await page.evaluate(() => window.showSettingsModal("cloud"));
+    await expect(page.locator("#settingsPanel_cloud")).toBeVisible();
+    await expect(page.locator("#settingsPanel_system")).not.toBeVisible();
+
+    // Destination B — the manual sync the configured branch used to trigger.
+    await expect(page.locator("#cloudSyncNowBtn")).toBeAttached();
   });
 });

@@ -1303,78 +1303,16 @@ const setupHeaderButtonListeners = () => {
     );
   }
 
-  // Cloud sync header icon button (STAK-264)
-  const headerCloudSyncBtn = safeGetElement("headerCloudSyncBtn");
-  if (headerCloudSyncBtn) {
-    safeAttachListener(
-      headerCloudSyncBtn,
-      "click",
-      function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const state =
-          typeof resolveHeaderCloudAction === "function"
-            ? resolveHeaderCloudAction()
-            : {
-                action: ["green", "ready"].includes(headerCloudSyncBtn.dataset.syncState)
-                  ? "sync-now"
-                  : "open-settings",
-                buttonState: headerCloudSyncBtn.dataset.syncState,
-              };
-        if (state.action === "sync-now") {
-          // Trigger a sync on tap (STAK-398: header button should do something useful)
-          if (typeof syncNow === "function") {
-            if (typeof showCloudToast === "function") showCloudToast("Syncing…", 1500);
-            syncNow()
-              .then(function (result) {
-                if (!result || !result.synced) return;
-                const lp = typeof syncGetLastPush === "function" ? syncGetLastPush() : null;
-                const msg =
-                  lp && lp.timestamp
-                    ? "Synced " +
-                      (typeof _syncRelativeTime === "function"
-                        ? _syncRelativeTime(lp.timestamp)
-                        : "")
-                    : "Sync complete";
-                if (typeof showCloudToast === "function") showCloudToast(msg, 2500);
-              })
-              .catch(function (err) {
-                if (typeof debugLog === "function") {
-                  debugLog(
-                    "Cloud sync failed: " + (err && err.message ? err.message : String(err)),
-                    "error"
-                  );
-                } else {
-                  console.error("Cloud sync failed:", err);
-                }
-                if (typeof showCloudToast === "function") showCloudToast("Sync failed", 2500);
-              });
-          }
-        } else {
-          if (typeof showSettingsModal === "function") showSettingsModal("cloud");
-        }
-      },
-      "Cloud Sync Header Button"
-    );
-  }
-
-  // Close popover on outside click
-  document.addEventListener("mousedown", function (e) {
-    const wrapper = safeGetElement("headerCloudSyncWrapper");
-    const popover = safeGetElement("cloudSyncHeaderPopover");
-    if (popover && popover.style.display !== "none") {
-      if (wrapper && !wrapper.contains(e.target)) {
-        popover.style.display = "none";
-        // Clear handlers so stale state doesn't persist on next open
-        const inputEl = safeGetElement("cloudSyncPopoverInput");
-        const unlockEl = safeGetElement("cloudSyncPopoverUnlockBtn");
-        const cancelEl = safeGetElement("cloudSyncPopoverCancelBtn");
-        if (inputEl) inputEl.onkeydown = null;
-        if (unlockEl) unlockEl.onclick = null;
-        if (cancelEl) cancelEl.onclick = null;
-      }
-    }
-  });
+  // Cloud Sync header button retired (STRK-287). Unlike the other retirements
+  // this listener was dual-action: syncNow() when resolveHeaderCloudAction()
+  // reported green/ready, else showSettingsModal("cloud"). Both destinations
+  // survive in Settings › Cloud — #cloudSyncNowBtn runs the manual sync, and
+  // the panel itself is the setup entry point — so no capability moved, only
+  // the shortcut went away.
+  //
+  // The "close popover on outside click" mousedown handler went with it. It
+  // only ever guarded #cloudSyncHeaderPopover, which was already unreachable
+  // (see the _openCloudSyncPopover note below).
 
   // About button retired (STRK-289) — its handler was only
   // showSettingsModal("about"), and About is the default settings panel, so
@@ -5110,79 +5048,12 @@ const setupApiEvents = () => {
 
 // =============================================================================
 
-/** Open the inline Secure-mode password popover below the header cloud button. */
-function _openCloudSyncPopover() {
-  const popover = safeGetElement("cloudSyncHeaderPopover");
-  const input = safeGetElement("cloudSyncPopoverInput");
-  const unlockBtn = safeGetElement("cloudSyncPopoverUnlockBtn");
-  const cancelBtn = safeGetElement("cloudSyncPopoverCancelBtn");
-  const errorEl = safeGetElement("cloudSyncPopoverError");
-  if (!popover) return;
-
-  if (input) input.value = "";
-  if (errorEl) {
-    errorEl.style.display = "none";
-    errorEl.textContent = "";
-  }
-  popover.style.display = "";
-  if (input)
-    setTimeout(function () {
-      input.focus();
-    }, 50);
-
-  function cleanup() {
-    popover.style.display = "none";
-    if (unlockBtn) unlockBtn.onclick = null;
-    if (cancelBtn) cancelBtn.onclick = null;
-    if (input) input.onkeydown = null;
-  }
-
-  function onUnlock() {
-    const pw = input ? input.value : "";
-    if (!pw || pw.length < 8) {
-      if (errorEl) {
-        errorEl.textContent = "Password must be at least 8 characters.";
-        errorEl.style.display = "";
-      }
-      return;
-    }
-    cleanup();
-    try {
-      localStorage.setItem("cloud_vault_password", pw);
-    } catch (_) {}
-    if (typeof cloudCachePassword === "function") cloudCachePassword("dropbox", pw);
-    if (typeof updateCloudSyncHeaderBtn === "function") updateCloudSyncHeaderBtn();
-    // STAK-398: poll for remote changes first, then push. Check account_id is present.
-    const hasAccountId = !!localStorage.getItem("cloud_dropbox_account_id");
-    debugWarn("[CloudSync] Popover unlock: password set, accountId:", hasAccountId);
-    if (!hasAccountId) {
-      debugWarn("[CloudSync] Popover unlock: no account_id — sync key incomplete, skipping sync");
-      if (typeof showCloudToast === "function") {
-        showCloudToast("Cloud sync setup incomplete — please reconnect your Dropbox account.");
-      }
-      return;
-    }
-    // Short delay lets popover cleanup / DOM update finish before async sync starts
-    setTimeout(function () {
-      if (typeof pollForRemoteChanges === "function") {
-        pollForRemoteChanges().then(function () {
-          if (typeof pushSyncVault === "function") pushSyncVault();
-        });
-      } else if (typeof pushSyncVault === "function") {
-        pushSyncVault();
-      }
-    }, 100);
-  }
-
-  if (unlockBtn) unlockBtn.onclick = onUnlock;
-  if (cancelBtn) cancelBtn.onclick = cleanup;
-  if (input) {
-    input.onkeydown = function (e) {
-      if (e.key === "Enter") onUnlock();
-      if (e.key === "Escape") cleanup();
-    };
-  }
-}
+// _openCloudSyncPopover() removed (STRK-287). It rendered an inline "Vault
+// Password" popover under the header cloud button, but it had ZERO callers —
+// nothing in the app could ever open it, so the whole flow was unreachable.
+// It went out with the header button rather than being left as an orphan the
+// next retirement would have to re-prove is dead. Passphrase entry lives in
+// #cloudSyncPasswordModal (js/cloud-sync.js), which is unaffected.
 
 function handleAdvancedSavePassword() {
   const input = safeGetElement("cloudAdvancedNewPassword");
