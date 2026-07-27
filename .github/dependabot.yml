@@ -38,3 +38,27 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # better-sqlite3 is pinned to ^11 — the last line publishing prebuilt
+      # binaries usable by our poller images. Verified on linux/amd64 (PR #1377):
+      #
+      #   v13.x — engines >=22 (we run node:20-slim), and its prebuilt binary
+      #           needs glibc 2.38 while Debian bookworm ships 2.36. home-poller
+      #           has no make/g++ so the image build fails outright; remote-poller
+      #           installs cleanly and then SEGFAULTS on first use.
+      #   v12.x — no longer publishes Node 20 prebuilds, so it also fails to
+      #           install on home-poller; with a toolchain it compiles (+47s/build).
+      #
+      # Lifting this pin is infra work, not a dependency bump: it needs a trixie
+      # base image (glibc 2.41) or make/g++ added to home-poller, plus Node 22.
+      # Planned alongside the poller's move to its own repo.
+      #
+      # Scoped to semver-major deliberately. An `ignore` entry suppresses
+      # security-update PRs as well as version-update PRs (it does NOT suppress
+      # the Dependabot *alert* itself), so a blanket ignore would silence CVE
+      # fixes. Limiting it to majors means a security patch within 11.x still
+      # opens a PR automatically; only major bumps are held back — and those we
+      # cannot deploy anyway until the base image moves.
+      - dependency-name: "better-sqlite3"
+        update-types:
+          - "version-update:semver-major"
