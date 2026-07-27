@@ -7,7 +7,6 @@
 # AI / agent configuration
 .agents/              export-ignore
 .claude/              export-ignore
-.cgcignore            export-ignore
 .Codex/               export-ignore
 .impeccable.md        export-ignore
 .jules/               export-ignore

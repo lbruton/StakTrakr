@@ -37,7 +37,6 @@ devops/**/.env
 devops/screenshots/
 devops/node_modules/
 devops/docs/
-devops/cgc/
 devops/claude-backup/
 devops/firecrawl-docker/
 
