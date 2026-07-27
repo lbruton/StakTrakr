@@ -2695,41 +2695,11 @@ input[type="submit"] {
   cursor: pointer;
 }
 
-/* Header currency dropdown (STACK-54) */
-.header-currency-dropdown {
-  position: fixed;
-  z-index: 9999;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  max-height: 320px;
-  overflow-y: auto;
-  min-width: 220px;
-  padding: 0.25rem 0;
-}
-
-.header-currency-item {
-  display: block;
-  width: 100%;
-  padding: 0.45rem 0.75rem;
-  border: none;
-  background: none;
-  color: var(--text);
-  font-size: var(--font-size-md);
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.header-currency-item:hover {
-  background: var(--bg-elev-1);
-}
-
-.header-currency-item.active {
-  color: var(--primary);
-  font-weight: 600;
-}
+/* Header currency dropdown styles removed with the button (STRK-288). Unlike
+   .header-cloud-dot — which STRK-287 had to KEEP because #headerMarketDot and
+   the spot/retail freshness dots share it — .header-currency-dropdown and
+   .header-currency-item were used by nothing but the retired picker that
+   toggleCurrencyDropdown() built, so they are safe to delete outright. */
 
 .theme-buttons {
   display: flex;

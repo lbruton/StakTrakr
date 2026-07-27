@@ -186,7 +186,6 @@ const elements = {
 
   // Header toggle buttons (STACK-54)
   headerThemeBtn: null,
-  headerCurrencyBtn: null,
 
   // Layout section containers (STACK-54)
   spotPricesSection: null,

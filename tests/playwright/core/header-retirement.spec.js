@@ -217,14 +217,18 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
+    // survivingIds dropped currencyBtn when STRK-288 retired it — a retired id
+    // cannot double as the control proving OTHER ids survive, because
+    // getHeaderBtnConfig filters it out too and the assertion would fail for a
+    // reason unrelated to the Trend retirement this test is about.
     await gotoApp(page, {
-      headerBtnOrder: JSON.stringify(["trendBtn", "themeBtn", "marketBtn", "currencyBtn"]),
+      headerBtnOrder: JSON.stringify(["trendBtn", "themeBtn", "marketBtn"]),
     });
 
     await expectRetiredFromConfig(page, {
       retiredLabel: "Trend",
       retiredId: "trendBtn",
-      survivingIds: ["themeBtn", "marketBtn", "currencyBtn"],
+      survivingIds: ["themeBtn", "marketBtn"],
       survivingLabel: "Theme",
     });
     expect(errors).toEqual([]);
@@ -593,6 +597,100 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
     await expectRetiredFromConfig(page, {
       retiredLabel: "Cloud Sync",
       retiredId: "cloudSyncBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+});
+
+// STRK-288 — Currency. The odd one out of this campaign in two ways.
+//
+// FIRST: it was never a navigation shortcut. #headerCurrencyBtn ran a real
+// feature — toggleCurrencyDropdown() lazily builds a floating picker over
+// SUPPORTED_CURRENCIES and calls saveDisplayCurrency() on selection. It was
+// briefly re-tiered to B and deferred for exactly that reason; the defer was
+// reversed once both paths were traced to the SAME terminal function,
+// saveDisplayCurrency() (js/utils-format.js), making the Settings picker a
+// genuine duplicate rather than a lesser substitute.
+//
+// SECOND, and why the absence assertion actually bites here: every other button
+// in this campaign shipped with style="display:none" and was revealed at
+// runtime. This one ships VISIBLE and getHeaderBtnConfig defaults it visible, so
+// it is the first retirement that removes something every existing user can see
+// today. toHaveCount(0) is doubly required — toBeHidden() would have been false
+// before the change, not merely vacuous.
+test.describe("STRK-288 — Currency header button retired", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("the header Currency button no longer exists", async ({ page }) => {
+    await gotoApp(page);
+    await expect(page.locator("#headerCurrencyBtn")).toHaveCount(0);
+  });
+
+  // The floating picker was built on demand rather than living in index.html,
+  // so "the button is gone" does not by itself prove the dropdown machinery
+  // went with it. A leftover document-level click handler
+  // (closeCurrencyDropdownOnOutside) would keep running on every click.
+  test("no currency dropdown is built, and no stray handler survives a click", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page);
+    await expect(page.locator(".header-currency-dropdown")).toHaveCount(0);
+
+    await page.locator("body").click({ position: { x: 5, y: 5 } });
+    await expect(page.locator(".header-currency-dropdown")).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  // The load-bearing test: currency switching must still WORK, not merely be
+  // present. Asserts the persisted value and the live displayCurrency binding,
+  // because a <select> that renders but no longer reaches saveDisplayCurrency
+  // would satisfy a presence-only check while silently breaking the feature the
+  // retirement claims is duplicated.
+  test("currency switching still works from Settings › Currency", async ({ page }) => {
+    await gotoApp(page);
+    await page.evaluate(() => window.showSettingsModal());
+    await expect(page.locator("#settingsModal")).toBeVisible();
+
+    const currencyNav = page.locator('.settings-nav-item[data-section="currency"]');
+    await expect(currencyNav).toBeVisible();
+    await currencyNav.click();
+
+    const select = page.locator("#settingsDisplayCurrency");
+    await expect(select).toBeVisible();
+    // Populated from SUPPORTED_CURRENCIES on first sync — an empty select would
+    // make selectOption throw rather than silently pass.
+    await expect(select.locator("option")).not.toHaveCount(0);
+
+    await select.selectOption("EUR");
+
+    // Persisted value proves saveDisplayCurrency() ran...
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("displayCurrency")))
+      .toContain("EUR");
+
+    // ...and this proves the LIVE binding moved too, not just localStorage.
+    // `displayCurrency` is a module-scope `let` and is NOT on window (only
+    // state.js vars with an explicit Object.defineProperty are), so it cannot be
+    // read directly. window.getCurrencySymbol() is exported and defaults to that
+    // same binding, which makes it the honest observable here.
+    expect(await page.evaluate(() => window.getCurrencySymbol())).toBe("€");
+  });
+
+  test("Settings drops the Currency row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["currencyBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Currency",
+      retiredId: "currencyBtn",
       survivingIds: ["themeBtn", "marketBtn"],
       survivingLabel: "Theme",
     });
