@@ -91,7 +91,7 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
-- When claude-context returns thin results for a global, fall back to Code Graph Context structural query before Grep.
+- When claude-context returns thin results for a global, Grep the identifier directly — script-tag globals have no import graph, so Grep is the authoritative way to find every reference.
 - When calling `mcp__specflow__approvals` with `action: "request"`, set `filePath` relative to the specflow workflow root.
 - Example: `specs/<issue>-foo/requirements.md`.
 - Do not use a project-root path with `../DocVault/...` traversal; the dashboard content endpoint rejects paths containing `..`.
