@@ -161,6 +161,25 @@ test.describe("core/smoke — app shell boot", () => {
     await page.locator("#settingsBtn").click();
     await expect(page.locator("#settingsModal")).toBeVisible();
   });
+
+  // STRK-294 — Phase 17 boot deep-links. These had NO coverage before, which is
+  // why they are added here rather than left implicit: this PR changes Phase 17
+  // from its own setTimeout(…, 250) to waiting on the readiness signal, and
+  // changing untested boot behaviour on a reviewer's suggestion is not
+  // something to do blind. Both assert the hash is cleared as well as the modal
+  // opening — leaving #privacy in the URL would re-trigger on the next reload.
+  test("#privacy boot hash opens the privacy modal and clears the hash", async ({ page }) => {
+    await page.goto("/index.html#privacy", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#privacyModal")).toBeVisible();
+    expect(await page.evaluate(() => window.location.hash)).toBe("");
+  });
+
+  test("#faq boot hash opens Settings on the FAQ panel and clears the hash", async ({ page }) => {
+    await page.goto("/index.html#faq", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    await expect(page.locator("#settingsPanel_faq")).toBeVisible();
+    expect(await page.evaluate(() => window.location.hash)).toBe("");
+  });
 });
 
 // ===========================================================================
