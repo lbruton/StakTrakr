@@ -139,6 +139,28 @@ test.describe("core/smoke — app shell boot", () => {
     const ticker = page.locator("#bestPriceTickerEl");
     await expect(ticker).toBeVisible();
   });
+
+  // STRK-294 — the listener-readiness contract that several spec helpers now
+  // wait on instead of sleeping. Pinned here rather than left implicit: if the
+  // flag is ever removed or renamed, those helpers would hang until timeout and
+  // report "waitForFunction exceeded" from whatever spec happened to run,
+  // instead of one obvious failure pointing at the cause.
+  test("app signals listener readiness, and the header is interactive once it does", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+
+    // Deliberately NOT a fixed wait — the point of the flag is that callers no
+    // longer have to guess how long init.js Phase 14's 200ms timer needs.
+    await page.waitForFunction(() => window.appListenersReady === true);
+
+    // The flag is only meaningful if it actually implies interactivity, so
+    // assert the thing it exists to guarantee: the gear now opens Settings.
+    // Before STRK-294 this same click was a no-op at this point in the boot.
+    await dismissWhatsNew(page);
+    await page.locator("#settingsBtn").click();
+    await expect(page.locator("#settingsModal")).toBeVisible();
+  });
 });
 
 // ===========================================================================

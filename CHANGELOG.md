@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.78] - 2026-07-27
+
+### Fixed — STRK-294: test harness could click header buttons before they were wired
+
+- **Internal reliability fix, no visible change**: the app attaches its header button handlers a fraction of a second after the page draws. The automated test suite did not know to wait for that, so tests that clicked the Settings gear appeared to find a broken button. They were simply clicking too early (STRK-294).
+- **Why it matters to you**: several tests had been papering over this with fixed delays, which can fail on a slow machine for reasons unrelated to what they check. Those now wait for the app to actually signal it is ready, so the suite guarding your data is less prone to false alarms (STRK-294).
+
+---
+
 ## [3.35.77] - 2026-07-26
 
 ### Changed — STRK-288: Currency button retired from the header

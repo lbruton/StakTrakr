@@ -905,6 +905,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Always set up search listeners
       setupSearch();
+
+      // STRK-294: readiness signal for anything that needs to interact with a
+      // header control. Every listener above is attached inside this 200ms
+      // timer, so page-load signals (an element being visible, a global being
+      // defined) all go true well BEFORE the header is actually clickable —
+      // clicking #settingsBtn earlier silently does nothing, which reads as a
+      // broken button rather than a race.
+      //
+      // Set AFTER the try/catch and after setupSearch() deliberately: it must
+      // mean "listener setup is finished", true whether the primary path or the
+      // setupBasicEventListeners() fallback ran. It is a flag rather than an
+      // event so a late observer can still poll it — an event fired at this
+      // moment would be missed by anyone who started listening afterwards.
+      window.appListenersReady = true;
+      document.dispatchEvent(new CustomEvent("app:listeners-ready"));
     }, 200); // Increased delay for better compatibility
 
     // Phase 15: Completion

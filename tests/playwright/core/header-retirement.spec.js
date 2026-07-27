@@ -21,6 +21,13 @@ const METALS = ["Silver", "Gold", "Platinum", "Palladium"];
  * The period seed is applied only when absent. addInitScript re-runs on every
  * navigation including reload(), so an unconditional write would silently
  * restore the default and make the persistence test unable to fail.
+ *
+ * Waits on `window.appListenersReady` (STRK-294) before returning. init.js
+ * Phase 14 attaches every header listener inside a `setTimeout(…, 200)`, so
+ * `#spotPriceDisplaySilver` being visible and `cycleSpotTrend` being defined —
+ * both true long before that timer fires — are NOT sufficient. Without this
+ * wait, clicking #settingsBtn silently does nothing and the failure looks like
+ * a broken button rather than a race.
  */
 async function gotoApp(
   page,
@@ -41,6 +48,7 @@ async function gotoApp(
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#spotPriceDisplaySilver", { state: "visible" });
   await page.waitForFunction(() => typeof window.cycleSpotTrend === "function");
+  await page.waitForFunction(() => window.appListenersReady === true);
 }
 
 /**
@@ -390,14 +398,16 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     // passing even if that nav item were broken, which is exactly the kind of
     // regression a retirement could cause.
     //
-    // The modal itself is still opened via showSettingsModal(): clicking
-    // #settingsBtn does NOT work under this project's fixture — verified on
-    // unmodified dev, where the same click leaves #settingsModal at
-    // display:none, so the gear's listener is never attached in this
-    // environment. That is a pre-existing testability gap, not something this
-    // PR introduced, and not something this test can paper over.
+    // UPGRADED (STRK-294): the modal is now opened by CLICKING the gear rather
+    // than calling showSettingsModal(). This test previously carried a note
+    // saying the gear "does NOT work under this project's fixture" and that the
+    // limitation could not be papered over. That diagnosis was wrong — the gear
+    // works fine; gotoApp() was simply returning before init.js Phase 14's
+    // 200ms setTimeout had attached its listener. gotoApp() now waits on
+    // window.appListenersReady, so the whole user route — gear → nav item →
+    // panel — is exercised end to end.
     await gotoApp(page);
-    await page.evaluate(() => window.showSettingsModal());
+    await page.locator("#settingsBtn").click();
     await expect(page.locator("#settingsModal")).toBeVisible();
 
     const systemNav = page.locator('.settings-nav-item[data-section="system"]');
@@ -552,13 +562,19 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
     await expect(page.locator("#cloudSyncPasswordModal")).toBeAttached();
   });
 
-  // Destination 1 of 2: the open-settings branch. Reached by CLICKING the
-  // visible nav control, not by jumping to the panel — the same reasoning as
-  // STRK-285/286, and the gap CodeRabbit caught on that PR. #settingsBtn itself
-  // still cannot be clicked under this fixture (STRK-294, pre-existing).
-  test("Settings › Cloud is reachable via the visible nav control", async ({ page }) => {
+  // Destination 1 of 2: the open-settings branch. Reached by CLICKING every
+  // control on the real route — gear, then nav item — rather than jumping to the
+  // panel, which is the gap CodeRabbit caught on the STRK-285/286 PR.
+  //
+  // UPGRADED (STRK-294): this comment used to say #settingsBtn "still cannot be
+  // clicked under this fixture". It can — gotoApp() was returning before Phase
+  // 14's 200ms timer attached the listener, and now waits on
+  // window.appListenersReady.
+  test("Settings › Cloud is reachable by clicking the gear and the nav control", async ({
+    page,
+  }) => {
     await gotoApp(page);
-    await page.evaluate(() => window.showSettingsModal());
+    await page.locator("#settingsBtn").click();
     await expect(page.locator("#settingsModal")).toBeVisible();
 
     const cloudNav = page.locator('.settings-nav-item[data-section="cloud"]');
