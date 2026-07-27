@@ -53,12 +53,24 @@ updates:
       # base image (glibc 2.41) or make/g++ added to home-poller, plus Node 22.
       # Planned alongside the poller's move to its own repo.
       #
-      # Scoped to semver-major deliberately. An `ignore` entry suppresses
-      # security-update PRs as well as version-update PRs (it does NOT suppress
-      # the Dependabot *alert* itself), so a blanket ignore would silence CVE
-      # fixes. Limiting it to majors means a security patch within 11.x still
-      # opens a PR automatically; only major bumps are held back — and those we
-      # cannot deploy anyway until the base image moves.
+      # Scoped to semver-major rather than a bare dependency-name ignore. Two
+      # documented facts constrain this, and they cut in opposite directions:
+      #
+      #   - `ignore` "can be configured to prevent Dependabot from opening pull
+      #     requests for version updates AND security updates" — so a bare
+      #     `dependency-name` ignore would silence CVE fix PRs.
+      #   - "`update-types` only affects version updates, not security updates."
+      #
+      # So the update-types filter narrows this to version-update noise, which is
+      # the intent. What the docs do NOT spell out is how the two combine — i.e.
+      # whether a security update needing a major bump is still proposed here.
+      # Do not treat that as settled either way.
+      #
+      # Operationally it does not matter much: we cannot deploy a major bump
+      # until the base image moves regardless. What matters is that dependabot.yml
+      # never suppresses the Dependabot *alert* itself, so a better-sqlite3
+      # advisory will still surface in the Security tab. Watch the alert rather
+      # than waiting on a PR. See STRK-297.
       - dependency-name: "better-sqlite3"
         update-types:
           - "version-update:semver-major"
