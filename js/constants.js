@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.76";
+const APP_VERSION = "3.35.77";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -956,7 +956,7 @@ const SYNC_SCOPE_KEYS = [
 
   // ── Header button preferences ──
   "headerThemeBtnVisible", // theme toggle button
-  "headerCurrencyBtnVisible", // currency toggle button
+  // headerCurrencyBtnVisible retired (STRK-288) — no button, no preference
   "headerMarketBtnVisible", // HEADER_MARKET_BTN_KEY
   "headerBtnShowText", // HEADER_BTN_SHOW_TEXT_KEY
   "headerBtnOrder", // button ordering
@@ -1049,7 +1049,6 @@ const ALLOWED_STORAGE_KEYS = [
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
-  "headerCurrencyBtnVisible", // boolean string: "true"/"false" (STACK-54)
   SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
   HEADER_MARKET_BTN_KEY, // boolean string: "true"/"false" — header market button visibility
   HEADER_BTN_SHOW_TEXT_KEY, // boolean string: "true"/"false" — show text labels under header icons

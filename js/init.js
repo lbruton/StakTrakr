@@ -265,7 +265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // STACK-54 header toggles
     elements.headerThemeBtn = safeGetElement("headerThemeBtn");
-    elements.headerCurrencyBtn = safeGetElement("headerCurrencyBtn");
+    // headerCurrencyBtn registration removed with the button (STRK-288)
 
     // STACK-54 layout sections
     elements.spotPricesSection = safeGetElement("spotPricesSection");

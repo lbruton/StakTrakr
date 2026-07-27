@@ -43,7 +43,6 @@
       icon: "\uD83D\uDD18",
       keys: [
         "headerThemeBtnVisible",
-        "headerCurrencyBtnVisible",
         "headerMarketBtnVisible",
         "headerBtnShowText",
         "headerBtnOrder",
@@ -117,7 +116,6 @@
     tableImageSides: "Table Image Sides",
     tagBlacklist: "Hidden Tags",
     headerThemeBtnVisible: "Theme Button",
-    headerCurrencyBtnVisible: "Currency Button",
     headerMarketBtnVisible: "Market Button",
     headerBtnShowText: "Button Labels",
     headerBtnOrder: "Button Order",

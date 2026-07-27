@@ -73,11 +73,13 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // settingsHeaderCurrencyBtn still exists in the Currency settings panel
-  wireStorageToggle("settingsHeaderCurrencyBtn", "headerCurrencyBtnVisible", {
-    defaultVal: false,
-    onApply: () => applyHeaderToggleVisibility(),
-  });
+  // The wireStorageToggle("settingsHeaderCurrencyBtn", ...) call removed here
+  // (STRK-288) was ALREADY inert: #settingsHeaderCurrencyBtn has not existed in
+  // the DOM since STRK-122 removed it, and that issue's archived AC 0.5.6
+  // asserts its absence deliberately. The comment claiming it "still exists in
+  // the Currency settings panel" was stale. It also defaulted to false while
+  // the button itself defaulted VISIBLE — a contradiction that only never
+  // surfaced because the checkbox was not there to click.
 
   wireStorageToggle("settingsHeaderShowText_hdr", HEADER_BTN_SHOW_TEXT_KEY, {
     defaultVal: true,
@@ -156,13 +158,11 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // Currency picker header button (STACK-54).
-  if (elements.headerCurrencyBtn) {
-    elements.headerCurrencyBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleCurrencyDropdown();
-    });
-  }
+  // Currency header button retired (STRK-288). Its listener opened the floating
+  // picker built by toggleCurrencyDropdown(); that whole dropdown machinery went
+  // with it. Currency selection lives in Settings › Currency
+  // (#settingsDisplayCurrency, wired above), which calls the same
+  // saveDisplayCurrency() the picker items did.
 
   // Market button - trigger market refresh (STAK-545).
   const headerMarketBtn = safeGetElement("headerMarketBtn");

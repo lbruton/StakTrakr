@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.77] - 2026-07-26
+
+### Changed — STRK-288: Currency button retired from the header
+
+- **The currency button has left the header**: unlike the other header buttons retired recently, this one did something real — it opened a small picker for switching your display currency. That exact picker already exists under **Settings › Currency**, and both went through the same code, so nothing about currency switching has changed except where you click to reach it (STRK-288).
+- **You will actually notice this one**: every other button retired in this run was hidden by default, so most people never saw them go. This one was visible for everyone. If you switch currency often, it is now **Settings › Currency › Display currency** instead of one click in the header (STRK-288).
+
+---
+
 ## [3.35.76] - 2026-07-26
 
 ### Changed — STRK-287: Cloud Sync button retired from the header

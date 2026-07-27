@@ -2425,10 +2425,13 @@ if (typeof window !== "undefined") {
  * Re-renders the config table and applies current header state.
  */
 const syncHeaderToggleUI = () => {
-  // settingsHeaderCurrencyBtn still exists in the Currency settings panel
-  const currencyVisible = localStorage.getItem("headerCurrencyBtnVisible") !== "false";
-  syncChipToggle("settingsHeaderCurrencyBtn", currencyVisible);
-
+  // The syncChipToggle("settingsHeaderCurrencyBtn", ...) call that used to sit
+  // here went with the Currency button (STRK-288) — but it was ALREADY inert.
+  // #settingsHeaderCurrencyBtn has not existed in the DOM since STRK-122, whose
+  // archived AC 0.5.6 asserts it is absent from the Currency tab; the comment
+  // claiming it "still exists in the Currency settings panel" was simply stale.
+  // Header button visibility is configured in Settings › Appearance via
+  // renderHeaderBtnConfigTable(), which is the real control.
   renderHeaderBtnConfigTable();
   applyHeaderToggleVisibility();
 };
@@ -2441,7 +2444,6 @@ const applyHeaderToggleVisibility = () => {
   const config = getHeaderBtnConfig();
   const BTN_ID_MAP = {
     themeBtn: "headerThemeBtn",
-    currencyBtn: "headerCurrencyBtn",
     marketBtn: "headerMarketBtn",
     settingsBtn: "settingsBtn",
   };
@@ -2481,12 +2483,10 @@ window.applyHeaderToggleVisibility = applyHeaderToggleVisibility;
 const getHeaderBtnConfig = () => {
   const vis = {
     themeBtn: localStorage.getItem("headerThemeBtnVisible") !== "false",
-    currencyBtn: localStorage.getItem("headerCurrencyBtnVisible") !== "false",
     marketBtn: localStorage.getItem(HEADER_MARKET_BTN_KEY) !== "false",
   };
   const labelMap = {
     themeBtn: "Theme",
-    currencyBtn: "Currency",
     marketBtn: "Market",
   };
   const defaultOrder = Object.keys(vis);
@@ -2519,7 +2519,6 @@ const getHeaderBtnConfig = () => {
 const saveHeaderBtnConfig = (cfg) => {
   const visKeys = {
     themeBtn: "headerThemeBtnVisible",
-    currencyBtn: "headerCurrencyBtnVisible",
     marketBtn: HEADER_MARKET_BTN_KEY,
   };
   for (const item of cfg) {
@@ -2801,75 +2800,13 @@ const applyLayoutVisibility = applyLayoutOrder;
 window.applyLayoutVisibility = applyLayoutVisibility;
 window.applyLayoutOrder = applyLayoutOrder;
 
-/**
- * Toggles the floating currency picker dropdown anchored to the header button.
- * Creates the dropdown lazily on first use; subsequent calls toggle visibility.
- */
-const toggleCurrencyDropdown = () => {
-  const btn = document.getElementById("headerCurrencyBtn");
-  if (!btn) return;
-
-  // If dropdown already open, close it
-  const existing = document.getElementById("headerCurrencyDropdown");
-  if (existing) {
-    closeCurrencyDropdown();
-    return;
-  }
-
-  // Build dropdown
-  const dropdown = document.createElement("div");
-  dropdown.id = "headerCurrencyDropdown";
-  dropdown.className = "header-currency-dropdown";
-
-  const currentCode = displayCurrency || "USD";
-
-  SUPPORTED_CURRENCIES.forEach((c) => {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "header-currency-item";
-    if (c.code === currentCode) item.classList.add("active");
-
-    const symbol = getCurrencySymbol(c.code);
-    item.textContent = `${symbol}  ${c.code} — ${c.name}`;
-
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
-      saveDisplayCurrency(c.code);
-      // Sync settings dropdown if open
-      const sel = document.getElementById("settingsDisplayCurrency");
-      if (sel) sel.value = c.code;
-      closeCurrencyDropdown();
-    });
-
-    dropdown.appendChild(item);
-  });
-
-  // Position below button
-  document.body.appendChild(dropdown);
-  const rect = btn.getBoundingClientRect();
-  dropdown.style.top = rect.bottom + 4 + "px";
-  // Align right edge of dropdown with right edge of button
-  dropdown.style.right = window.innerWidth - rect.right + "px";
-
-  // Close on outside click; header button click already stops propagation
-  document.addEventListener("click", closeCurrencyDropdownOnOutside);
-};
-
-/** Closes the currency dropdown and removes the outside-click listener. */
-const closeCurrencyDropdown = () => {
-  const el = document.getElementById("headerCurrencyDropdown");
-  if (el) el.remove();
-  document.removeEventListener("click", closeCurrencyDropdownOnOutside);
-};
-
-/** Click-outside handler for the currency dropdown. */
-const closeCurrencyDropdownOnOutside = (e) => {
-  const dropdown = document.getElementById("headerCurrencyDropdown");
-  const btn = elements.headerCurrencyBtn;
-  if (dropdown && !dropdown.contains(e.target) && e.target !== btn) {
-    closeCurrencyDropdown();
-  }
-};
+// toggleCurrencyDropdown(), closeCurrencyDropdown() and
+// closeCurrencyDropdownOnOutside() removed (STRK-288). Together they built and
+// tore down the floating #headerCurrencyDropdown picker anchored to the retired
+// header button — including a document-level click listener registered on open.
+// The button was their only entry point, so all three became unreachable with
+// it. Currency selection now runs solely through #settingsDisplayCurrency
+// (js/settings-listeners.js), which reaches the same saveDisplayCurrency().
 
 // =============================================================================
 // IMAGES SETTINGS TAB (STACK-96)
@@ -3655,7 +3592,6 @@ const STORAGE_KEY_LABELS = {
   tableImageSides: { label: "Table Image Sides", icon: "🖼", category: "Settings" },
   featureFlags: { label: "Feature Flags", icon: "🚩", category: "Settings" },
   headerThemeBtnVisible: { label: "Theme Btn Visible", icon: "⚙️", category: "Settings" },
-  headerCurrencyBtnVisible: { label: "Currency Btn Visible", icon: "⚙️", category: "Settings" },
   spotTrendRange: { label: "Spot Trend Range", icon: "📈", category: "Settings" },
   spotCompareMode: { label: "Spot Compare Mode", icon: "📈", category: "Settings" },
   spotTrendPeriod: { label: "Spot Trend Period", icon: "📈", category: "Settings" },
