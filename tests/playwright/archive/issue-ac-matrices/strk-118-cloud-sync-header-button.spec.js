@@ -67,22 +67,43 @@ test.describe("STAK-549 — Header cloud sync button silent failure", () => {
     expect(result).toEqual({ synced: false });
   });
 
-  test("no false success toast when syncNow returns synced:false", async ({ page }) => {
+  // REWRITTEN for STRK-287, not deleted — this is an acceptance record, and it
+  // should show the behaviour was retired deliberately rather than quietly
+  // vanishing from the matrix.
+  //
+  // The original clicked #headerCloudSyncBtn and asserted the handler's
+  // `if (!result || !result.synced) return;` guard suppressed a false "Synced"
+  // toast. That handler is gone with the button. The guard it protected has no
+  // successor because the surviving manual-sync control (#cloudSyncNowBtn, an
+  // inline onclick calling syncNow()) shows no toast at all — so the failure
+  // mode STAK-549 fixed is now structurally impossible rather than guarded.
+  // This test pins both halves of that claim.
+  test("header button is retired, and the surviving sync path emits no false success toast", async ({
+    page,
+  }) => {
     await setupFullyConnected(page);
     await page.goto("/index.html");
-    await page.waitForSelector("#headerCloudSyncBtn", { state: "visible" });
+    await page.waitForFunction(() => typeof window.syncNow === "function");
 
-    // Remove password and stub password functions to return null
+    await expect(page.locator("#headerCloudSyncBtn")).toHaveCount(0);
+
     await page.evaluate(() => {
       localStorage.removeItem("cloud_vault_password");
       window.getSyncPassword = () => Promise.resolve(null);
       window.getSyncPasswordSilent = () => null;
-      window.resolveHeaderCloudAction = () => ({ action: "sync-now", syncCapable: true });
+      window.showSettingsModal("cloud");
     });
 
     const toastPromise = collectToasts(page);
 
-    await page.locator("#headerCloudSyncBtn").click();
+    // Drive syncNow through the Settings control's own handler rather than
+    // calling it directly — a direct call would prove nothing about what the
+    // UI surfaces, which is the entire subject of this acceptance criterion.
+    await page.evaluate(() => {
+      const btn = document.getElementById("cloudSyncNowBtn");
+      btn.disabled = false;
+      btn.click();
+    });
 
     const toasts = await toastPromise;
 

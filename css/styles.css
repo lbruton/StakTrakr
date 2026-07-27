@@ -2658,28 +2658,12 @@ input[type="submit"] {
   flex-shrink: 0;
 }
 
-/* Cloud wrapper must match button dimensions */
-#headerCloudSyncWrapper {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
-}
-#headerCloudSyncWrapper > .btn {
-  width: 100%;
-  height: 100%;
-}
+/* #headerCloudSyncWrapper sizing rules removed with the button (STRK-287). */
 
 .header-buttons--show-text .header-toggle-btn {
   height: auto;
   min-height: 56px;
   padding: 4px 4px;
-}
-.header-buttons--show-text #headerCloudSyncWrapper {
-  height: auto;
-}
-.header-buttons--show-text #headerCloudSyncWrapper > .btn {
-  height: auto;
-  min-height: 56px;
 }
 
 .header-btn-text {
@@ -4449,10 +4433,10 @@ input[type="submit"] {
   background: var(--info, #0dcaf0);
   animation: cloudSyncPulse 1s ease-in-out infinite;
 }
-/* Cloud sync header button needs relative positioning for dot overlay (STAK-264) */
-#headerCloudSyncBtn {
-  position: relative;
-}
+/* #headerCloudSyncBtn positioning removed with the button (STRK-287). The
+   .header-cloud-dot / .cloud-sync-dot classes below STAY — they are shared with
+   #headerMarketDot and the spot/retail freshness dots (js/spot.js, js/retail.js),
+   so deleting them as "cloud" styling would break three unrelated indicators. */
 /* Header cloud sync icon dot overlay (STAK-264) */
 .header-cloud-dot {
   position: absolute;

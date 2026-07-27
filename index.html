@@ -602,123 +602,14 @@
           </svg>
           <span class="header-btn-text">Currency</span>
         </button>
-        <!-- Cloud sync status button + inline popover wrapper (STAK-264) -->
-        <div style="position: relative; display: inline-flex" id="headerCloudSyncWrapper">
-          <button
-            class="btn theme-btn header-toggle-btn"
-            id="headerCloudSyncBtn"
-            title="Cloud sync status"
-            aria-label="Cloud sync status"
-            style="display: none"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
-            </svg>
-            <span class="cloud-sync-dot header-cloud-dot" id="headerCloudDot"></span>
-            <span class="header-btn-text">Cloud</span>
-          </button>
-          <!-- Secure mode: inline password popover (never auto-opens) -->
-          <div
-            id="cloudSyncHeaderPopover"
-            role="dialog"
-            aria-label="Sync password"
-            style="
-              display: none;
-              position: absolute;
-              top: calc(100% + 6px);
-              right: 0;
-              background: var(--bg-card);
-              border: 1px solid var(--border);
-              border-radius: 8px;
-              padding: 0.75rem;
-              box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-              z-index: 999;
-              min-width: 240px;
-            "
-          >
-            <div
-              style="
-                font-size: 0.75rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                margin-bottom: 0.5rem;
-                color: var(--text-muted);
-              "
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                style="vertical-align: -1px; margin-right: 4px"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
-              >Vault Password
-            </div>
-            <div style="display: flex; gap: 0.4rem">
-              <input
-                type="password"
-                id="cloudSyncPopoverInput"
-                placeholder="Enter password"
-                autocomplete="current-password"
-                style="
-                  flex: 1;
-                  font-size: 0.85rem;
-                  padding: 0.3rem 0.5rem;
-                  border: 1px solid var(--border);
-                  border-radius: 4px;
-                  background: var(--bg-tertiary);
-                  color: var(--text-primary);
-                "
-              />
-              <button
-                class="btn success"
-                id="cloudSyncPopoverUnlockBtn"
-                style="font-size: 0.8rem; padding: 0.3rem 0.6rem"
-              >
-                Unlock
-              </button>
-            </div>
-            <div
-              id="cloudSyncPopoverError"
-              style="
-                color: var(--danger, #e74c3c);
-                font-size: 0.75rem;
-                margin-top: 0.3rem;
-                display: none;
-              "
-            ></div>
-            <button
-              id="cloudSyncPopoverCancelBtn"
-              style="
-                background: none;
-                border: none;
-                color: var(--text-secondary);
-                font-size: 0.75rem;
-                margin-top: 0.4rem;
-                cursor: pointer;
-                padding: 0;
-              "
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <!-- Cloud Sync header button retired (STRK-287). It was dual-action —
+             syncNow() when connected, else showSettingsModal("cloud") — and both
+             live on in Settings › Cloud (#cloudSyncNowBtn and the panel itself).
+             The app already syncs on change, so the shortcut was redundant; the
+             #headerCloudDot status signal going with it is an accepted trade.
+             The inline "Vault Password" popover that lived in this wrapper went
+             too: _openCloudSyncPopover() had zero callers, so it was already
+             unreachable. Passphrase entry is #cloudSyncPasswordModal, untouched. -->
         <!-- Backup + Restore buttons retired (STRK-285, STRK-286). Neither ever
              performed an action — both listeners were the same
              showSettingsModal("system") call, i.e. two icons for one shortcut.

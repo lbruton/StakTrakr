@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.76] - 2026-07-26
+
+### Changed — STRK-287: Cloud Sync button retired from the header
+
+- **The cloud button has left the header**: StakTrakr already syncs whenever your data changes, so the header shortcut was doing a job that mostly did itself. Everything it offered lives in **Settings › Cloud** — the same place you go for backup and restore — including the **Sync Now** button for a manual sync whenever you want one (STRK-287).
+- **Heads up — the at-a-glance status dot went with it**: the small coloured dot on that button showed sync state without opening anything. That signal is gone for now; Settings › Cloud still shows connection status and when you last synced (STRK-287).
+- **Dead code cleared out**: an old inline "Vault Password" popup that used to live under the cloud button had become permanently unreachable — nothing in the app could open it. It has been removed. Normal sync password prompts are unaffected (STRK-287).
+
+---
+
 ## [3.35.75] - 2026-07-26
 
 ### Changed — STRK-289: Info button retired from the header

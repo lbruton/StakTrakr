@@ -207,9 +207,15 @@ test.describe("core/attachments-cloud", () => {
     expect(result.after).not.toBe(result.before);
   });
 
-  test("Cloud settings tab and header button route to settings or manual sync based on config", async ({
-    page,
-  }) => {
+  // RETARGETED for STRK-287. This test used to assert that #headerCloudSyncBtn
+  // routed to either Settings or a manual sync depending on config. That button
+  // is retired, and both destinations now live in Settings › Cloud. The routing
+  // half moved to core/header-retirement.spec.js (the STRK-287 describe block),
+  // which owns proving the retirement did not strand either destination —
+  // duplicating those assertions here would be redundant coverage, not extra
+  // safety. What stays is what this spec uniquely covers: the Cloud panel's own
+  // content, reached through the visible nav control.
+  test("Cloud settings tab renders the provider card and beta notice", async ({ page }) => {
     await injectSeedInventory(page);
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => typeof window.showSettingsModal === "function");
@@ -220,37 +226,6 @@ test.describe("core/attachments-cloud", () => {
     await expect(page.locator("#settingsPanel_cloud")).toBeVisible();
     await expect(page.locator("#settingsPanel_cloud #cloudCard_dropbox")).toBeVisible();
     await expect(page.locator("#settingsPanel_cloud")).toContainText("Cloud Sync Beta");
-
-    await page.evaluate(() => {
-      if (typeof window.hideSettingsModal === "function") window.hideSettingsModal();
-      localStorage.removeItem("cloud_token_dropbox");
-      localStorage.removeItem("cloud_vault_password");
-      localStorage.removeItem("cloud_dropbox_account_id");
-      localStorage.setItem("cloud_sync_enabled", "false");
-      window.updateCloudSyncHeaderBtn?.();
-    });
-    await expect(page.locator("#settingsModal")).not.toBeVisible();
-    await page.locator("#headerCloudSyncBtn").click();
-    await expect(page.locator("#settingsPanel_cloud")).toBeVisible();
-
-    await page.evaluate(() => {
-      if (typeof window.hideSettingsModal === "function") window.hideSettingsModal();
-      localStorage.setItem(
-        "cloud_token_dropbox",
-        JSON.stringify({ access_token: "test-token", expires_at: Date.now() + 60_000 })
-      );
-      localStorage.setItem("cloud_vault_password", "test-password");
-      localStorage.setItem("cloud_dropbox_account_id", "acct:test");
-      localStorage.setItem("cloud_sync_enabled", "true");
-      window.__syncNowCalls = 0;
-      window.syncNow = async () => {
-        window.__syncNowCalls += 1;
-        return { synced: true };
-      };
-      window.updateCloudSyncHeaderBtn?.();
-    });
-    await page.locator("#headerCloudSyncBtn").click();
-    await expect.poll(() => page.evaluate(() => window.__syncNowCalls)).toBe(1);
   });
 
   test("sync attachment keys, defaults, and companion vault path remain sync-safe", async ({

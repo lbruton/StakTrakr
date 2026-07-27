@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.75";
+const APP_VERSION = "3.35.76";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -809,8 +809,8 @@ const HEADER_MARKET_BTN_KEY = "headerMarketBtnVisible"; // nosemgrep: codacy.jav
 // — both header buttons were the same showSettingsModal("system") shortcut and
 // no longer exist, so neither has a visibility preference.
 
-/** @constant {string} HEADER_CLOUD_SYNC_BTN_KEY - LocalStorage key for header cloud sync button visibility */
-const HEADER_CLOUD_SYNC_BTN_KEY = "headerCloudSyncBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_CLOUD_SYNC_BTN_KEY retired (STRK-287) — the cloud sync header button
+// no longer exists, so it has no visibility preference to store or sync.
 
 /** @constant {string} HEADER_BTN_SHOW_TEXT_KEY - LocalStorage key for show-text-under-icons toggle */
 const HEADER_BTN_SHOW_TEXT_KEY = "headerBtnShowText"; // nosemgrep: codacy.javascript.security.hard-coded-password
@@ -958,7 +958,6 @@ const SYNC_SCOPE_KEYS = [
   "headerThemeBtnVisible", // theme toggle button
   "headerCurrencyBtnVisible", // currency toggle button
   "headerMarketBtnVisible", // HEADER_MARKET_BTN_KEY
-  "headerCloudSyncBtnVisible", // HEADER_CLOUD_SYNC_BTN_KEY
   "headerBtnShowText", // HEADER_BTN_SHOW_TEXT_KEY
   "headerBtnOrder", // button ordering
 
@@ -1053,7 +1052,6 @@ const ALLOWED_STORAGE_KEYS = [
   "headerCurrencyBtnVisible", // boolean string: "true"/"false" (STACK-54)
   SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
   HEADER_MARKET_BTN_KEY, // boolean string: "true"/"false" — header market button visibility
-  HEADER_CLOUD_SYNC_BTN_KEY, // boolean string: "true"/"false" — cloud sync button visibility
   HEADER_BTN_SHOW_TEXT_KEY, // boolean string: "true"/"false" — show text labels under header icons
   RETAIL_MANIFEST_TS_KEY, // string ISO timestamp — market manifest generated_at cache
   RETAIL_MANIFEST_SLUGS_KEY, // JSON array: cached manifest coin slug list
@@ -2086,7 +2084,6 @@ if (typeof window !== "undefined") {
   window.STORAGE_PERSIST_GRANTED_KEY = STORAGE_PERSIST_GRANTED_KEY;
   window.IMAGE_ZIP_MANIFEST_VERSION = IMAGE_ZIP_MANIFEST_VERSION;
   // Header button visibility keys (STAK-314)
-  window.HEADER_CLOUD_SYNC_BTN_KEY = HEADER_CLOUD_SYNC_BTN_KEY;
   window.HEADER_BTN_SHOW_TEXT_KEY = HEADER_BTN_SHOW_TEXT_KEY;
   window.RETAIL_MANIFEST_TS_KEY = RETAIL_MANIFEST_TS_KEY;
   window.RETAIL_MANIFEST_SLUGS_KEY = RETAIL_MANIFEST_SLUGS_KEY;

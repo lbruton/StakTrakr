@@ -427,8 +427,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
 // NAMING TRAP: the element id is `aboutBtn`, NOT `headerAboutBtn` — while the
 // storage key IS `headerAboutBtnVisible` and the config id is `aboutBtn`.
 // Grepping the wrong one returns zero hits and reads like the button does not
-// exist. STRK-288 (Currency) is deliberately NOT in this PR: it is a working
-// currency picker rather than a shortcut, re-tiered to B pending a decision.
+// exist.
 test.describe("STRK-289 — About header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
@@ -470,6 +469,130 @@ test.describe("STRK-289 — About header button retired", () => {
     await expectRetiredFromConfig(page, {
       retiredLabel: "About",
       retiredId: "aboutBtn",
+      survivingIds: ["themeBtn", "marketBtn"],
+      survivingLabel: "Theme",
+    });
+    expect(errors).toEqual([]);
+  });
+});
+
+// STRK-287 — Cloud Sync. NOT a plain Tier A shortcut like the three above: the
+// retired listener was DUAL-action via resolveHeaderCloudAction() — it called
+// syncNow() directly when the button state was green/ready, and only fell back
+// to showSettingsModal("cloud") otherwise. So this retirement has to prove two
+// separate destinations survive, not one.
+//
+// The accepted trade: #headerCloudDot took at-a-glance sync status with it.
+// That is a deliberate decision (the app already syncs on change), not an
+// oversight — so there is no test asserting a replacement indicator, because
+// there deliberately is none.
+//
+// TARGETING TRAP: BTN_ID_MAP points at the WRAPPER (#headerCloudSyncWrapper),
+// not the button, because the dot lives beside the button inside it. Asserting
+// only #headerCloudSyncBtn is gone would pass while leaving an empty wrapper
+// (and its flex/gap CSS) in the header.
+test.describe("STRK-287 — Cloud Sync header button retired", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("the button, its wrapper, and its status dot are all gone", async ({ page }) => {
+    await gotoApp(page);
+    await expect(page.locator("#headerCloudSyncBtn")).toHaveCount(0);
+    await expect(page.locator("#headerCloudSyncWrapper")).toHaveCount(0);
+    await expect(page.locator("#headerCloudDot")).toHaveCount(0);
+  });
+
+  // The inline Secure-mode passphrase popover was already unreachable before
+  // this PR — _openCloudSyncPopover() had ZERO callers, so the markup could
+  // never be displayed. It is swept here rather than left as an orphan that the
+  // next person has to re-prove is dead. The REAL passphrase path is
+  // #cloudSyncPasswordModal (NOT #syncPasswordModal — that id does not exist;
+  // only its aria-labelledby target #syncPasswordModalTitle resembles it),
+  // asserted below to still exist so this sweep cannot be
+  // confused with removing passphrase entry itself.
+  test("the dead inline passphrase popover is swept, and the real one survives", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    for (const id of [
+      "cloudSyncHeaderPopover",
+      "cloudSyncPopoverInput",
+      "cloudSyncPopoverUnlockBtn",
+      "cloudSyncPopoverCancelBtn",
+      "cloudSyncPopoverError",
+    ]) {
+      await expect(page.locator(`#${id}`)).toHaveCount(0);
+    }
+    await expect(page.locator("#cloudSyncPasswordModal")).toBeAttached();
+  });
+
+  // Destination 1 of 2: the open-settings branch. Reached by CLICKING the
+  // visible nav control, not by jumping to the panel — the same reasoning as
+  // STRK-285/286, and the gap CodeRabbit caught on that PR. #settingsBtn itself
+  // still cannot be clicked under this fixture (STRK-294, pre-existing).
+  test("Settings › Cloud is reachable via the visible nav control", async ({ page }) => {
+    await gotoApp(page);
+    await page.evaluate(() => window.showSettingsModal());
+    await expect(page.locator("#settingsModal")).toBeVisible();
+
+    const cloudNav = page.locator('.settings-nav-item[data-section="cloud"]');
+    await expect(cloudNav).toBeVisible();
+    await expect(cloudNav).toContainText("Cloud");
+    await cloudNav.click();
+
+    await expect(page.locator("#settingsPanel_cloud")).toBeVisible();
+  });
+
+  // Destination 2 of 2: the sync-now branch — the half that would silently
+  // vanish if #cloudSyncNowBtn were merely present but inert. Seeding a
+  // connected+unlocked state is required because the button ships `disabled`
+  // and refreshSyncUI() only enables it when both a token and a sync password
+  // exist; without the seed this test would assert against a dead control and
+  // pass for the wrong reason.
+  //
+  // EXPIRY TRAP: the token must be comfortably in the future, NOT the
+  // `Date.now() + 60_000` used by attachments-cloud.spec.js. cloudGetToken()
+  // treats a token as expired inside a 60s buffer (`Date.now() < expires_at -
+  // 60000`), so +60s sits exactly ON the boundary; with no refresh_token it
+  // then calls cloudClearToken() and the button re-disables itself mid-test.
+  // The other spec survives that seed only because its path checks token
+  // PRESENCE and never calls cloudGetToken.
+  test("manual sync still fires from Settings › Cloud", async ({ page }) => {
+    await gotoApp(page);
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "cloud_token_dropbox",
+        JSON.stringify({ access_token: "test-token", expires_at: Date.now() + 3_600_000 })
+      );
+      localStorage.setItem("cloud_vault_password", "test-password");
+      localStorage.setItem("cloud_dropbox_account_id", "acct:test");
+      localStorage.setItem("cloud_sync_enabled", "true");
+      window.__syncNowCalls = 0;
+      window.syncNow = async () => {
+        window.__syncNowCalls += 1;
+        return { synced: true };
+      };
+      window.showSettingsModal("cloud");
+    });
+
+    const syncNowBtn = page.locator("#cloudSyncNowBtn");
+    await expect(syncNowBtn).toBeVisible();
+    await expect(syncNowBtn).toBeEnabled();
+    await syncNowBtn.click();
+    await expect.poll(() => page.evaluate(() => window.__syncNowCalls)).toBe(1);
+  });
+
+  test("Settings drops the Cloud Sync row and a legacy order self-heals", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await gotoApp(page, {
+      headerBtnOrder: JSON.stringify(["cloudSyncBtn", "themeBtn", "marketBtn"]),
+    });
+    await expectRetiredFromConfig(page, {
+      retiredLabel: "Cloud Sync",
+      retiredId: "cloudSyncBtn",
       survivingIds: ["themeBtn", "marketBtn"],
       survivingLabel: "Theme",
     });
