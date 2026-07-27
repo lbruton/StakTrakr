@@ -125,6 +125,38 @@ async function expectRetiredFromConfig(
   for (const id of survivingIds) expect(repaired).toContain(id);
 }
 
+/**
+ * Asserts every selector is absent from the DOM.
+ *
+ * Always toHaveCount(0), never toBeHidden(): most of these buttons shipped with
+ * style="display:none" and were revealed at runtime, so a visibility assertion
+ * would have passed BEFORE the retirement and proved nothing. (Currency is the
+ * exception that proves it — that one shipped visible.)
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {...string} selectors - CSS selectors that must match zero elements
+ * @returns {Promise<void>}
+ */
+async function expectGone(page, ...selectors) {
+  for (const selector of selectors) {
+    await expect(page.locator(selector)).toHaveCount(0);
+  }
+}
+
+/**
+ * Starts collecting uncaught page errors and returns the live array.
+ *
+ * Retirements delete listeners and config rows, so the realistic failure is a
+ * ReferenceError at boot rather than a wrong assertion — these tests assert the
+ * array is empty at the end.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {string[]} Live array of error messages, populated as they occur
+ */
+function watchPageErrors(page) {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  return errors;
+}
+
 test.describe("STRK-283 — Trend header button retired to the spot-card period chip", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
@@ -135,8 +167,7 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
     // count() not toBeHidden() — the button was previously present-but-hidden
     // (index.html shipped it with style="display:none" and applyHeaderToggleVisibility
     // revealed it), so a visibility assertion would have passed before the change.
-    await expect(page.locator("#headerTrendBtn")).toHaveCount(0);
-    await expect(page.locator("#headerTrendLabel")).toHaveCount(0);
+    await expectGone(page, "#headerTrendBtn", "#headerTrendLabel");
   });
 
   test("every spot card exposes the period chip as a real, named control", async ({ page }) => {
@@ -214,8 +245,7 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
     // Existing users have `trendBtn` inside headerBtnOrder. getHeaderBtnConfig
     // filters saved ids with `k in vis`, so a retired id needs no migration —
     // this pins that contract rather than assuming it.
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     // survivingIds dropped currencyBtn when STRK-288 retired it — a retired id
     // cannot double as the control proving OTHER ids survive, because
@@ -253,8 +283,7 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
 
   test("the header Spot Sync button and its status dot no longer exist", async ({ page }) => {
     await gotoApp(page);
-    await expect(page.locator("#headerSyncBtn")).toHaveCount(0);
-    await expect(page.locator("#headerSyncDot")).toHaveCount(0);
+    await expectGone(page, "#headerSyncBtn", "#headerSyncDot");
   });
 
   test("every spot card shows an enabled refresh icon", async ({ page }) => {
@@ -308,8 +337,7 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
   test("Settings no longer offers a Spot Sync row, and a legacy order self-heals", async ({
     page,
   }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["syncBtn", "themeBtn", "marketBtn"]),
@@ -344,8 +372,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
 
   test("neither header button exists any more", async ({ page }) => {
     await gotoApp(page);
-    await expect(page.locator("#headerVaultBtn")).toHaveCount(0);
-    await expect(page.locator("#headerRestoreBtn")).toHaveCount(0);
+    await expectGone(page, "#headerVaultBtn", "#headerRestoreBtn");
   });
 
   // NAMING TRAP: the nav item is `data-section="system"` but its visible label
@@ -391,8 +418,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
   });
 
   test("Settings drops the Backup row and a legacy order self-heals", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["vaultBtn", "themeBtn", "marketBtn"]),
@@ -407,8 +433,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
   });
 
   test("Settings drops the Restore row and a legacy order self-heals", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["restoreBtn", "themeBtn", "marketBtn"]),
@@ -439,7 +464,7 @@ test.describe("STRK-289 — About header button retired", () => {
 
   test("the About header button no longer exists", async ({ page }) => {
     await gotoApp(page);
-    await expect(page.locator("#aboutBtn")).toHaveCount(0);
+    await expectGone(page, "#aboutBtn");
   });
 
   test("About is still reachable — it is the default Settings panel", async ({ page }) => {
@@ -464,8 +489,7 @@ test.describe("STRK-289 — About header button retired", () => {
   });
 
   test("Settings drops the About row and a legacy order self-heals", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["aboutBtn", "themeBtn", "marketBtn"]),
@@ -502,9 +526,7 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
 
   test("the button, its wrapper, and its status dot are all gone", async ({ page }) => {
     await gotoApp(page);
-    await expect(page.locator("#headerCloudSyncBtn")).toHaveCount(0);
-    await expect(page.locator("#headerCloudSyncWrapper")).toHaveCount(0);
-    await expect(page.locator("#headerCloudDot")).toHaveCount(0);
+    await expectGone(page, "#headerCloudSyncBtn", "#headerCloudSyncWrapper", "#headerCloudDot");
   });
 
   // The inline Secure-mode passphrase popover was already unreachable before
@@ -519,15 +541,14 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
     page,
   }) => {
     await gotoApp(page);
-    for (const id of [
-      "cloudSyncHeaderPopover",
-      "cloudSyncPopoverInput",
-      "cloudSyncPopoverUnlockBtn",
-      "cloudSyncPopoverCancelBtn",
-      "cloudSyncPopoverError",
-    ]) {
-      await expect(page.locator(`#${id}`)).toHaveCount(0);
-    }
+    await expectGone(
+      page,
+      "#cloudSyncHeaderPopover",
+      "#cloudSyncPopoverInput",
+      "#cloudSyncPopoverUnlockBtn",
+      "#cloudSyncPopoverCancelBtn",
+      "#cloudSyncPopoverError"
+    );
     await expect(page.locator("#cloudSyncPasswordModal")).toBeAttached();
   });
 
@@ -588,8 +609,7 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
   });
 
   test("Settings drops the Cloud Sync row and a legacy order self-heals", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["cloudSyncBtn", "themeBtn", "marketBtn"]),
@@ -627,7 +647,7 @@ test.describe("STRK-288 — Currency header button retired", () => {
 
   test("the header Currency button no longer exists", async ({ page }) => {
     await gotoApp(page);
-    await expect(page.locator("#headerCurrencyBtn")).toHaveCount(0);
+    await expectGone(page, "#headerCurrencyBtn");
   });
 
   // The floating picker was built on demand rather than living in index.html,
@@ -635,8 +655,7 @@ test.describe("STRK-288 — Currency header button retired", () => {
   // went with it. A leftover document-level click handler
   // (closeCurrencyDropdownOnOutside) would keep running on every click.
   test("no currency dropdown is built, and no stray handler survives a click", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page);
     await expect(page.locator(".header-currency-dropdown")).toHaveCount(0);
@@ -682,8 +701,7 @@ test.describe("STRK-288 — Currency header button retired", () => {
   });
 
   test("Settings drops the Currency row and a legacy order self-heals", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
+    const errors = watchPageErrors(page);
 
     await gotoApp(page, {
       headerBtnOrder: JSON.stringify(["currencyBtn", "themeBtn", "marketBtn"]),
