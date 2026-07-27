@@ -750,25 +750,53 @@ test.describe("STRK-290 — Market header button retired to the in-block refresh
     await expectGone(page, "#headerMarketBtn", "#headerMarketDot");
   });
 
-  // updateMarketHealthDot ran on a timer and after every retail sync. If the
-  // painter kept targeting the deleted #headerMarketDot it would not throw —
-  // safeGetElement returns a truthy dummy — it would silently paint nothing,
-  // and the relocated dot would sit unstyled forever. Asserting no page errors
-  // AND that market sync still completes is what catches the silent variant.
-  test("the market health painter follows the dot instead of painting a dead node", async ({
-    page,
-  }) => {
+  // updateMarketHealthDot ran on a timer and after every retail sync. Had it
+  // kept targeting the deleted #headerMarketDot it would NOT throw: safeGetElement
+  // answers a missing id with a truthy dummy, and createDummyElement (js/init.js)
+  // provides a no-op classList shim — so .add() succeeds against nothing and the
+  // relocated dot sits unstyled forever. A no-pageerrors check cannot see that,
+  // which is why this asserts the dot itself actually carries a health colour.
+  //
+  // This spec boots with no retail fixture, so it covers the empty-data path
+  // specifically — the Market block renders "Retail data unavailable" and the
+  // header (dot included) still renders above it. core/retail-market.spec.js
+  // covers the seeded path. Asserting unconditionally in both is deliberate: a
+  // count()-guarded assertion would go vacuous the moment the dot stopped
+  // rendering, which is precisely the regression at issue.
+  test("the market health painter paints the relocated dot, not a dead node", async ({ page }) => {
     const errors = watchPageErrors(page);
 
     await gotoApp(page);
     await page.evaluate(() => window.updateMarketHealthDot?.());
 
     expect(errors).toEqual([]);
-    // The relocated dot is rendered by the market block; assert the painter
-    // resolved a real element rather than the safeGetElement dummy.
-    expect(await page.evaluate(() => document.getElementById("headerMarketDot") === null)).toBe(
-      true
-    );
+    const dot = page.locator("#marketFreshnessDot");
+    await expect(dot).toHaveCount(1);
+    await expect(dot).toHaveClass(/header-cloud-dot--(green|orange|red)/);
+  });
+
+  // The retirement removed the only always-available market pull, so the empty
+  // branch of renderVendorPrices — which returned before building the header —
+  // would have become a dead end: "Retail data unavailable" with no way to retry,
+  // and the background poll not due for another 30 minutes. Flagged in review.
+  test("the Refresh control is still reachable when there is no retail data", async ({ page }) => {
+    await gotoApp(page);
+
+    // Force the empty branch rather than assuming it. This spec's fixture DOES
+    // supply retail data (the first draft of this test assumed otherwise and
+    // failed against a fully populated table), so the empty state has to be
+    // induced. _getRetailCoins checks window._v2RetailData.prices before any
+    // storage key, making it the one deterministic lever.
+    await page.evaluate(() => {
+      window._v2RetailData = { prices: {} };
+      window.renderVendorPrices();
+    });
+
+    await expect(page.locator("#vendorPricesContainer")).toContainText("Retail data unavailable");
+    await expect(page.locator("#marketRefreshBtn")).toHaveCount(1);
+    await expect(page.locator("#marketRefreshBtn")).toBeEnabled();
+    // The freshness dot rides in the same header row, so it survives too.
+    await expect(page.locator("#marketFreshnessDot")).toHaveCount(1);
   });
 
   // The "keep it" half of the STRK-290 decision: Settings › Market keeps its

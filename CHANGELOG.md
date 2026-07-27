@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — STRK-290: the Market table's Refresh button now actually refreshes
 
-- **It was quietly doing nothing**: the **↻ Refresh** button above the market price table only fetched new prices if your data was already more than an hour old. Any sooner and the click did nothing at all — the button greyed out, showed a spinner for five seconds, put the same prices back and returned to normal. There was no way to tell it had not worked (STRK-290).
+- **It was quietly doing nothing**: the **↻ Refresh** button above the market price table only fetched new prices if your data was already more than an hour old. Any sooner and the click did nothing at all — the button greyed out, spun for five seconds, put the same prices back and returned to normal. There was no way to tell it had not worked (STRK-290).
 - **What changed**: it now pulls fresh vendor prices every time you click it, and the button stays in its "working" state until the fetch genuinely finishes instead of for a fixed five seconds. If you have been clicking it and wondering why prices never moved, that is why (STRK-290).
 
 ### Changed — STRK-290: Market button retired from the header

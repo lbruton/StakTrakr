@@ -4406,8 +4406,10 @@ input[type="submit"] {
 }
 /* #headerCloudSyncBtn positioning removed with the button (STRK-287).
    .cloud-sync-dot STAYS — it is the inline-flow dot used by the spot and retail
-   freshness indicators, including #marketFreshnessDot (js/retail.js), so deleting
-   it as "cloud" styling would break unrelated indicators.
+   freshness indicators, including #marketFreshnessDot (created in
+   js/market-data.js; its colour is driven by updateMarketHealthDot in
+   js/retail.js), so deleting it as "cloud" styling would break unrelated
+   indicators.
 
    The .header-cloud-dot--{green,orange,red} modifiers below also STAY: they are
    pure colour and js/spot.js + js/retail.js both apply them.

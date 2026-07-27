@@ -2575,15 +2575,21 @@ test.describe("STRK-290 — market block refresh control", () => {
    * ran, and the test passes against the bug. providers.json has exactly one
    * caller in the codebase, _fetchAndApplyV2Providers at js/retail.js:1165,
    * reached only from inside _syncRetailV2. If it is fetched, a real sync ran.
-   * @param {{ providers: number }} counter - Mutable tally, incremented in place
+   * goldback/latest.json is tallied separately because it is NOT part of the
+   * retail sync at all — syncRetailPrices never requests it. It reaches the
+   * network only via _seedAndRefreshGoldbackG1Rate (js/market-data.js), which
+   * the refresh path has to call explicitly. Counting it apart from
+   * providers.json is what keeps "vendor feeds refreshed" and "the Goldback G1
+   * benchmark refreshed" independently observable.
+   * @param {{ providers: number, goldback: number }} counter - Mutable tallies
    * @returns {(route: import('@playwright/test').Route) => Promise<void>} Route handler
    */
   function makeCountingV2Handler(counter) {
     const fulfill = makeV2Handler();
     return async (route) => {
-      if (new URL(route.request().url()).pathname.endsWith("/providers.json")) {
-        counter.providers += 1;
-      }
+      const { pathname } = new URL(route.request().url());
+      if (pathname.endsWith("/providers.json")) counter.providers += 1;
+      if (pathname.endsWith("/goldback/latest.json")) counter.goldback += 1;
       return fulfill(route);
     };
   }
@@ -2660,7 +2666,7 @@ test.describe("STRK-290 — market block refresh control", () => {
   test("clicking Refresh runs a real market sync even when cached data is fresh", async ({
     page,
   }) => {
-    const counter = { providers: 0 };
+    const counter = { providers: 0, goldback: 0 };
     await bootFreshMarketBlock(page, counter);
 
     // Boot legitimately syncs; only post-click traffic is evidence here.
@@ -2680,8 +2686,27 @@ test.describe("STRK-290 — market block refresh control", () => {
     await expect.poll(() => syncLogLength(page), { timeout: 8000 }).toBeGreaterThan(logAfterBoot);
   });
 
+  test("Refresh also re-fetches the Goldback G1 benchmark, not just vendor feeds", async ({
+    page,
+  }) => {
+    const counter = { providers: 0, goldback: 0 };
+    await bootFreshMarketBlock(page, counter);
+
+    const goldbackAfterBoot = counter.goldback;
+
+    await refreshControl(page).click();
+
+    // Raised in review. syncRetailPrices covers vendor/retail feeds but never
+    // requests goldback/latest.json, so a refresh built only on it would update
+    // vendor prices while Goldback premiums kept rendering against a stale
+    // _goldbackG1Rate until reload. The control's previous implementation got
+    // this for free by re-arming initMarketData(); the replacement has to call
+    // _seedAndRefreshGoldbackG1Rate() explicitly, and this is what pins it.
+    await expect.poll(() => counter.goldback, { timeout: 8000 }).toBeGreaterThan(goldbackAfterBoot);
+  });
+
   test("Refresh reports progress and restores itself when the sync settles", async ({ page }) => {
-    const counter = { providers: 0 };
+    const counter = { providers: 0, goldback: 0 };
     await bootFreshMarketBlock(page, counter);
 
     const button = refreshControl(page);
@@ -2703,7 +2728,7 @@ test.describe("STRK-290 — market block refresh control", () => {
   });
 
   test("the refresh control has a stable id so it is greppable and testable", async ({ page }) => {
-    const counter = { providers: 0 };
+    const counter = { providers: 0, goldback: 0 };
     await bootFreshMarketBlock(page, counter);
 
     // RED: the button was built by createElement with no id and inline cssText,
@@ -2715,7 +2740,7 @@ test.describe("STRK-290 — market block refresh control", () => {
   });
 
   test("market freshness is shown in the block the data lives in", async ({ page }) => {
-    const counter = { providers: 0 };
+    const counter = { providers: 0, goldback: 0 };
     await bootFreshMarketBlock(page, counter);
 
     // #headerMarketDot retires with the header button; its freshness signal moves

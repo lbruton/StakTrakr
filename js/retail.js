@@ -1609,10 +1609,16 @@ const startRetailBackgroundSync = () => {
  *
  * STRK-290: the dot moved from the header (#headerMarketDot) into the Market
  * block when the Market header button retired, so the signal now sits beside the
- * data it describes. It is rendered by renderVendorPrices, which means it is
- * legitimately absent whenever that block has not rendered yet — the guard below
- * is load-bearing rather than defensive noise, because safeGetElement answers a
- * missing id with a truthy dummy that has no classList.
+ * data it describes. The element is created in js/market-data.js
+ * (_buildMarketBlockHeader), which means it is legitimately absent whenever that
+ * block has not rendered yet.
+ *
+ * The instanceof guard below is load-bearing rather than defensive noise, and it
+ * replaces a check that never worked: safeGetElement answers a missing id with a
+ * truthy dummy, and createDummyElement (js/init.js) DOES define a classList shim
+ * with no-op add/remove. So the previous `if (!dot.classList) return;` was always
+ * false and the painter went on to call .add() on the dummy — silently painting
+ * nothing. Testing for HTMLElement is what actually distinguishes the two.
  */
 const updateMarketHealthDot = () => {
   const dot = safeGetElement("marketFreshnessDot");

@@ -1948,8 +1948,18 @@ const _runMarketRefresh = async () => {
     if (typeof syncRetailPrices === "function") {
       await syncRetailPrices({ ui: false });
     }
+    // syncRetailPrices covers vendor/retail feeds but never fetches
+    // goldback/latest.json, so the G1 benchmark would stay stale and Goldback
+    // premiums would keep rendering against the old rate until reload. The
+    // control's previous implementation reached this via
+    // `_marketDataInitialized = false; initMarketData()`; calling the seeder
+    // directly gets the same refresh without re-running all of init.
+    await _seedAndRefreshGoldbackG1Rate();
+    // Repaint with the refreshed G1 rate — syncRetailPrices' own
+    // refreshMarketData() already ran, but it did so before this fetch.
+    if (typeof refreshMarketData === "function") refreshMarketData();
   } catch (e) {
-    debugLog(`[market-data] Manual market refresh failed: ${e.message}`, "warn");
+    debugLog(`[market-data] Manual market refresh failed: ${e?.message ?? e}`, "warn");
   } finally {
     _marketRefreshInProgress = false;
     // syncRetailPrices' own finally re-renders the block, so this repaints
@@ -1959,23 +1969,19 @@ const _runMarketRefresh = async () => {
   }
 };
 
-const renderVendorPrices = () => {
-  const container = safeGetElement("vendorPricesContainer");
-  if (!container) return;
-
-  const coins = _getRetailCoins();
-  if (!coins || Object.keys(coins).length === 0) {
-    container.textContent = "";
-    const msg = document.createElement("div");
-    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
-    msg.textContent = "Retail data unavailable";
-    container.appendChild(msg);
-    return;
-  }
-
-  container.textContent = "";
-
-  // ── Header: Timestamp + Refresh (no section title — matches other sections) ──
+/**
+ * Builds the Market block's header row: timestamp, freshness dot, Refresh, gear.
+ *
+ * Extracted from renderVendorPrices (STRK-290) so it can render in BOTH the
+ * populated and the empty-data branches. Previously the empty branch returned
+ * before this markup existed, which was survivable only while the retired
+ * #headerMarketBtn provided an always-available market pull. Without that
+ * button, a fresh install or a failed first sync would show "Retail data
+ * unavailable" with no way to retry — and the background poll does not try
+ * again for 30 minutes.
+ * @returns {HTMLDivElement} The assembled header row, ready to append
+ */
+const _buildMarketBlockHeader = () => {
   const headerRow = document.createElement("div");
   headerRow.style.cssText =
     "display:flex;justify-content:flex-end;align-items:center;margin-bottom:0.75rem;";
@@ -2037,7 +2043,27 @@ const renderVendorPrices = () => {
   rightGroup.appendChild(settingsBtn);
 
   headerRow.appendChild(rightGroup);
-  container.appendChild(headerRow);
+  return headerRow;
+};
+
+const renderVendorPrices = () => {
+  const container = safeGetElement("vendorPricesContainer");
+  if (!container) return;
+
+  container.textContent = "";
+  // Header first, unconditionally — the empty branch below needs the Refresh
+  // control too, otherwise "Retail data unavailable" is a dead end (STRK-290).
+  container.appendChild(_buildMarketBlockHeader());
+
+  const coins = _getRetailCoins();
+  if (!coins || Object.keys(coins).length === 0) {
+    const msg = document.createElement("div");
+    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
+    msg.textContent = "Retail data unavailable";
+    container.appendChild(msg);
+    if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+    return;
+  }
 
   const tabBar = document.createElement("div");
   tabBar.className = "vendor-prices-tabs";
