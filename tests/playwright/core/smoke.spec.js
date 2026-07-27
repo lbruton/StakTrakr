@@ -162,6 +162,34 @@ test.describe("core/smoke — app shell boot", () => {
     await expect(page.locator("#settingsModal")).toBeVisible();
   });
 
+  // STRK-294 review round 1 — the event half of the readiness contract. The
+  // flag is what the helpers poll, but the event is the half that broke: it was
+  // originally dispatched on `document`, and since CustomEvent defaults to
+  // bubbles:false a window listener never fired. Nothing errored — a consumer
+  // following the codebase's own convention (currencychange is dispatched on
+  // window and consumed via window.addEventListener in inventory-table,
+  // market-data and retail) would simply have sat silent forever. This pins the
+  // dispatch target so that cannot regress.
+  //
+  // The listener is installed via addInitScript because the event fires ~200ms
+  // into boot; attaching after page.goto() would miss it and the test would
+  // fail for the wrong reason.
+  test("app:listeners-ready reaches a window listener", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__readyEventOnWindow = false;
+      window.addEventListener(
+        "app:listeners-ready",
+        () => {
+          window.__readyEventOnWindow = true;
+        },
+        { once: true }
+      );
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect.poll(() => page.evaluate(() => window.__readyEventOnWindow)).toBe(true);
+  });
+
   // STRK-294 — Phase 17 boot deep-links. These had NO coverage before, which is
   // why they are added here rather than left implicit: this PR changes Phase 17
   // from its own setTimeout(…, 250) to waiting on the readiness signal, and

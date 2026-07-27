@@ -954,6 +954,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     // helpers used, and wrong in the same way. Waiting on the signal makes
     // "runs after event listeners are wired" a guarantee rather than an
     // assumption.
+    /**
+     * Opens the destination named by a boot hash, then clears the hash.
+     *
+     * Clearing matters: leaving `#privacy` in the URL would re-open the modal on
+     * every subsequent reload. Runs once listeners are ready so the modal
+     * helpers it calls are wired.
+     * @returns {void}
+     */
     const handleBootHash = () => {
       // nosemgrep: javascript.lang.security.detect-eval-with-expression.detect-eval-with-expression
       const hash = window.location.hash;
