@@ -139,6 +139,75 @@ test.describe("core/smoke — app shell boot", () => {
     const ticker = page.locator("#bestPriceTickerEl");
     await expect(ticker).toBeVisible();
   });
+
+  // STRK-294 — the listener-readiness contract that several spec helpers now
+  // wait on instead of sleeping. Pinned here rather than left implicit: if the
+  // flag is ever removed or renamed, those helpers would hang until timeout and
+  // report "waitForFunction exceeded" from whatever spec happened to run,
+  // instead of one obvious failure pointing at the cause.
+  test("app signals listener readiness, and the header is interactive once it does", async ({
+    page,
+  }) => {
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+
+    // Deliberately NOT a fixed wait — the point of the flag is that callers no
+    // longer have to guess how long init.js Phase 14's 200ms timer needs.
+    await page.waitForFunction(() => window.appListenersReady === true);
+
+    // The flag is only meaningful if it actually implies interactivity, so
+    // assert the thing it exists to guarantee: the gear now opens Settings.
+    // Before STRK-294 this same click was a no-op at this point in the boot.
+    await dismissWhatsNew(page);
+    await page.locator("#settingsBtn").click();
+    await expect(page.locator("#settingsModal")).toBeVisible();
+  });
+
+  // STRK-294 review round 1 — the event half of the readiness contract. The
+  // flag is what the helpers poll, but the event is the half that broke: it was
+  // originally dispatched on `document`, and since CustomEvent defaults to
+  // bubbles:false a window listener never fired. Nothing errored — a consumer
+  // following the codebase's own convention (currencychange is dispatched on
+  // window and consumed via window.addEventListener in inventory-table,
+  // market-data and retail) would simply have sat silent forever. This pins the
+  // dispatch target so that cannot regress.
+  //
+  // The listener is installed via addInitScript because the event fires ~200ms
+  // into boot; attaching after page.goto() would miss it and the test would
+  // fail for the wrong reason.
+  test("app:listeners-ready reaches a window listener", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__readyEventOnWindow = false;
+      window.addEventListener(
+        "app:listeners-ready",
+        () => {
+          window.__readyEventOnWindow = true;
+        },
+        { once: true }
+      );
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect.poll(() => page.evaluate(() => window.__readyEventOnWindow)).toBe(true);
+  });
+
+  // STRK-294 — Phase 17 boot deep-links. These had NO coverage before, which is
+  // why they are added here rather than left implicit: this PR changes Phase 17
+  // from its own setTimeout(…, 250) to waiting on the readiness signal, and
+  // changing untested boot behaviour on a reviewer's suggestion is not
+  // something to do blind. Both assert the hash is cleared as well as the modal
+  // opening — leaving #privacy in the URL would re-trigger on the next reload.
+  test("#privacy boot hash opens the privacy modal and clears the hash", async ({ page }) => {
+    await page.goto("/index.html#privacy", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#privacyModal")).toBeVisible();
+    expect(await page.evaluate(() => window.location.hash)).toBe("");
+  });
+
+  test("#faq boot hash opens Settings on the FAQ panel and clears the hash", async ({ page }) => {
+    await page.goto("/index.html#faq", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    await expect(page.locator("#settingsPanel_faq")).toBeVisible();
+    expect(await page.evaluate(() => window.location.hash)).toBe("");
+  });
 });
 
 // ===========================================================================

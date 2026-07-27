@@ -905,6 +905,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Always set up search listeners
       setupSearch();
+
+      // STRK-294: readiness signal for anything that needs to interact with a
+      // header control. Every listener above is attached inside this 200ms
+      // timer, so page-load signals (an element being visible, a global being
+      // defined) all go true well BEFORE the header is actually clickable —
+      // clicking #settingsBtn earlier silently does nothing, which reads as a
+      // broken button rather than a race.
+      //
+      // Set AFTER the try/catch and after setupSearch() deliberately: it must
+      // mean "listener setup is finished", true whether the primary path or the
+      // setupBasicEventListeners() fallback ran. It is a flag rather than an
+      // event so a late observer can still poll it — an event fired at this
+      // moment would be missed by anyone who started listening afterwards.
+      // Dispatched on `window`, not `document`, to match the only other
+      // app-level custom event in the codebase (`currencychange`, fired in
+      // js/utils-format.js and consumed via window.addEventListener in
+      // inventory-table / market-data / retail). CustomEvent defaults to
+      // bubbles:false, so a document-dispatched event would never reach a
+      // window listener — the inconsistency would have been silent.
+      window.appListenersReady = true;
+      window.dispatchEvent(new CustomEvent("app:listeners-ready"));
     }, 200); // Increased delay for better compatibility
 
     // Phase 15: Completion
@@ -924,9 +945,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       optimizeStoragePhase1C();
     }
 
-    // Phase 17: Hash deep-link handling (runs after event listeners are wired)
+    // Phase 17: Hash deep-link handling (runs after event listeners are wired).
     // Supports privacy.html redirect shim and any direct #privacy / #faq links.
-    setTimeout(() => {
+    //
+    // STRK-294: keyed off the listener-readiness signal instead of its own
+    // setTimeout(..., 250). That timer was a SECOND guess at the same Phase 14
+    // 200ms timer, with only 50ms of headroom — thinner than the 100ms the test
+    // helpers used, and wrong in the same way. Waiting on the signal makes
+    // "runs after event listeners are wired" a guarantee rather than an
+    // assumption.
+    /**
+     * Opens the destination named by a boot hash, then clears the hash.
+     *
+     * Clearing matters: leaving `#privacy` in the URL would re-open the modal on
+     * every subsequent reload. Runs once listeners are ready so the modal
+     * helpers it calls are wired.
+     * @returns {void}
+     */
+    const handleBootHash = () => {
       // nosemgrep: javascript.lang.security.detect-eval-with-expression.detect-eval-with-expression
       const hash = window.location.hash;
       if (hash === "#privacy") {
@@ -936,7 +972,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         window.location.hash = "";
         if (typeof showSettingsModal === "function") showSettingsModal("faq");
       }
-    }, 250);
+    };
+    // Both orders handled: Phase 17 registers synchronously so the flag is
+    // normally still false here, but checking it first means a future reorder
+    // cannot leave the deep link waiting for an event that already fired.
+    if (window.appListenersReady) {
+      handleBootHash();
+    } else {
+      window.addEventListener("app:listeners-ready", handleBootHash, { once: true });
+    }
 
     // Clear stale-cache recovery flags on successful init (STAK-485, STRK-56)
     sessionStorage.removeItem("sw-recovery-attempted");
