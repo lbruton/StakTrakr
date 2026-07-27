@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.74";
+const APP_VERSION = "3.35.75";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -961,7 +961,6 @@ const SYNC_SCOPE_KEYS = [
   "headerCloudSyncBtnVisible", // HEADER_CLOUD_SYNC_BTN_KEY
   "headerBtnShowText", // HEADER_BTN_SHOW_TEXT_KEY
   "headerBtnOrder", // button ordering
-  "headerAboutBtnVisible", // about button
 
   // ── Feature toggles ──
   "goldback-pricing-source", // GOLDBACK_PRICING_SOURCE_KEY
@@ -1109,7 +1108,6 @@ const ALLOWED_STORAGE_KEYS = [
   "cloud_vault_password", // string: user vault password stored for persistent unlock
   STORAGE_PERSIST_GRANTED_KEY, // boolean string: "true"/"false" — storage persistence grant flag
   "headerBtnOrder", // JSON array: header button card order (STAK-320)
-  "headerAboutBtnVisible", // boolean string: "true"/"false" — about button visibility (STAK-320)
   "tagBlacklist", // JSON array: tags excluded from auto-tagging
   "numista_tags_auto", // boolean string: "true"/"false" — auto-tag from Numista data
   "cloud_sync_local_modified", // ISO string: timestamp of last local metalInventory save (STAK-414)

@@ -48,7 +48,6 @@
         "headerCloudSyncBtnVisible",
         "headerBtnShowText",
         "headerBtnOrder",
-        "headerAboutBtnVisible",
       ],
     },
     "Filters & Chips": {
@@ -124,7 +123,6 @@
     headerCloudSyncBtnVisible: "Cloud Sync Button",
     headerBtnShowText: "Button Labels",
     headerBtnOrder: "Button Order",
-    headerAboutBtnVisible: "About Button",
     "goldback-enabled": "Goldback Enabled",
     "goldback-estimate-enabled": "Goldback Estimates",
     "goldback-estimate-modifier": "Estimate Modifier",
