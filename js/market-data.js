@@ -2004,10 +2004,11 @@ const _buildMarketBlockHeader = () => {
 
   // STRK-290: market freshness moved here from #headerMarketDot when the Market
   // header button retired. Same painter (updateMarketHealthDot, js/retail.js) and
-  // a different base class: .cloud-sync-dot is the inline-flow dot, while
-  // .header-cloud-dot is `position: absolute` for a button-corner badge and would
-  // drop straight out of this flex row. The colour modifiers the painter adds
-  // are shared by both.
+  // a different base class: .cloud-sync-dot is the inline-flow dot, whereas the
+  // old .header-cloud-dot was `position: absolute` for a button-corner badge and
+  // dropped straight out of this flex row. That base rule is gone as of STRK-298
+  // — this must stay .cloud-sync-dot, which is load-bearing, not incidental. The
+  // colour modifiers the painter adds are separate and still exist.
   const freshnessDot = document.createElement("span");
   freshnessDot.id = "marketFreshnessDot";
   freshnessDot.className = "cloud-sync-dot";

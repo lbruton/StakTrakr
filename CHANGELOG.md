@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.80] - 2026-07-27
+
+### Removed — STRK-298: dead styling left behind by the header cleanup
+
+- **Internal cleanup, no visible change**: the run of header retirements over the last few releases left behind the styling rule for the small coloured dot that used to sit in the corner of a header button. Every button it could attach to is now gone, and the freshness dot beside the market table deliberately uses a different rule because the old one would have pulled it out of that row. The rule itself is now removed (STRK-298).
+- **Why it was still there**: it was held back one release in case an upcoming change — colouring each metal card's refresh icon by how fresh its price is — turned out to need it. It does not: those icons are laid out in a way that cannot host a corner badge, and that change colours the icon itself rather than adding a dot (STRK-298).
+- **The colours themselves stay**: the green, orange and red variants are shared with the market and spot freshness indicators and are untouched, as is the logic that decides which colour to show (STRK-298).
+
+---
+
 ## [3.35.79] - 2026-07-27
 
 ### Fixed — STRK-290: the Market table's Refresh button now actually refreshes

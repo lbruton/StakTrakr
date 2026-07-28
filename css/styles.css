@@ -4411,30 +4411,25 @@ input[type="submit"] {
    js/retail.js), so deleting it as "cloud" styling would break unrelated
    indicators.
 
-   The .header-cloud-dot--{green,orange,red} modifiers below also STAY: they are
-   pure colour and js/spot.js + js/retail.js both apply them.
+   The .header-cloud-dot BASE rule (STAK-264) was deleted by STRK-298. It was
+   `position: absolute` with bottom/right offsets because it overlaid a header
+   button's corner, and every such button is now retired: #headerMarketDot went
+   with the Market button (STRK-290) and #headerSyncDot with the Spot Sync one
+   (STRK-284). Its replacement #marketFreshnessDot deliberately takes
+   .cloud-sync-dot instead, because in a flex row the absolute variant anchors to
+   an unrelated positioned ancestor rather than its own button.
 
-   The .header-cloud-dot BASE rule is a different matter. It is `position:
-   absolute` because it overlaid a header button's corner, and as of STRK-290 it
-   has no live consumer: #headerMarketDot went with the Market button, and the
-   only remaining writer (updateSpotSyncHealthDot, js/spot.js) targets
-   #headerSyncDot, which has been inert since STRK-284. It is left in place only
-   because that function is slated to be retargeted at the per-card
-   syncIcon{Metal} elements; if that lands without needing it, delete this rule. */
-/* Header cloud sync icon dot overlay (STAK-264) */
-.header-cloud-dot {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1.5px solid var(--bg-primary, #fff);
-  background: var(--text-secondary, #94a3b8);
-  transition:
-    background 0.2s,
-    box-shadow 0.2s;
-}
+   Nothing re-adds it. STRK-291 retargets updateSpotSyncHealthDot at the four
+   syncIcon{Metal} buttons, and those cannot host it either: .spot-sync-icon
+   (~line 2088) is inline-flex with no `position: relative`, so it is not a
+   containing block, and STRK-291 colours the icon itself rather than pinning a
+   badge to its corner. Recover from git history if a corner badge is ever
+   wanted.
+
+   The .header-cloud-dot--{green,orange,red} modifiers below DO stay: they are
+   pure colour (background + box-shadow only), they compose with .cloud-sync-dot
+   as well as they did with the deleted base, and js/spot.js + js/retail.js both
+   apply them. */
 .header-cloud-dot--green {
   background: var(--success, #198754);
   box-shadow: 0 0 4px var(--success, #198754);
