@@ -2545,3 +2545,220 @@ test.describe("core/retail-market", () => {
     });
   });
 });
+
+// STRK-290 — the Market block's refresh control.
+//
+// The block has always rendered a "↻ Refresh" button (js/market-data.js
+// renderVendorPrices), but it was wired to startRetailBackgroundSync(), whose
+// body is gated behind `if (isStale || missingProviders || missingSlugs)` with
+// RETAIL_STALE_MS = 1 hour and no else branch. On data under an hour old the
+// click therefore did nothing at all: the button greyed itself out, showed "↻…"
+// for a hard-coded 5s setTimeout, re-rendered the same cached data and
+// re-enabled. It looked like it worked.
+//
+// These tests pin the fix: the control must reach syncRetailPrices(), which
+// syncs unconditionally, and must drive its own disabled/label state off the
+// real promise rather than a timeout that is unrelated to the work.
+//
+// The seed below matters more than usual — every one of the three guard
+// conditions has to be FALSE or the old code path syncs anyway and the test
+// passes against the bug. Mirrors the AC-9 seed above (`:1885`).
+test.describe("STRK-290 — market block refresh control", () => {
+  /**
+   * Counting v2 handler — serves the standard fixtures while tallying
+   * providers.json fetches.
+   *
+   * providers.json is the observable that actually discriminates here, and
+   * picking it took a correction: manifest.json does NOT work. The pre-fix
+   * button's 5s setTimeout re-runs initMarketData(), which calls _ensureManifest()
+   * and re-fetches the manifest — so a manifest tally rises even when no sync
+   * ran, and the test passes against the bug. providers.json has exactly one
+   * caller in the codebase, _fetchAndApplyV2Providers at js/retail.js:1165,
+   * reached only from inside _syncRetailV2. If it is fetched, a real sync ran.
+   * goldback/latest.json is tallied separately because it is NOT part of the
+   * retail sync at all — syncRetailPrices never requests it. It reaches the
+   * network only via _seedAndRefreshGoldbackG1Rate (js/market-data.js), which
+   * the refresh path has to call explicitly. Counting it apart from
+   * providers.json is what keeps "vendor feeds refreshed" and "the Goldback G1
+   * benchmark refreshed" independently observable.
+   * @param {{ providers: number, goldback: number }} counter - Mutable tallies
+   * @returns {(route: import('@playwright/test').Route) => Promise<void>} Route handler
+   */
+  function makeCountingV2Handler(counter) {
+    const fulfill = makeV2Handler();
+    return async (route) => {
+      const { pathname } = new URL(route.request().url());
+      if (pathname.endsWith("/providers.json")) counter.providers += 1;
+      if (pathname.endsWith("/goldback/latest.json")) counter.goldback += 1;
+      return fulfill(route);
+    };
+  }
+
+  /** Reads the retail sync log length — appended to only by the sync path
+   * (_appendSyncLogEntry, js/retail.js:414), so growth proves the sync ran to
+   * completion rather than merely starting. */
+  const syncLogLength = (page) =>
+    page.evaluate(() => {
+      try {
+        return (JSON.parse(localStorage.getItem("retailSyncLog") || "[]") || []).length;
+      } catch {
+        return 0;
+      }
+    });
+
+  /**
+   * Boots the market block with every background-sync guard already satisfied:
+   * lastSync pinned to FIXED_NOW (not stale), a non-empty providers map, and a
+   * populated manifest slug list. Under those conditions the pre-fix Refresh
+   * button is a total no-op, which is exactly the state we need to observe.
+   * @param {import('@playwright/test').Page} page - Page under test
+   * @param {{ manifest: number }} counter - Mutable manifest-fetch tally
+   * @returns {Promise<void>}
+   */
+  async function bootFreshMarketBlock(page, counter) {
+    await routeExchangeAndCharts(page);
+    await injectSeedInventory(page);
+    await page.addInitScript({ content: lightweightChartsStub });
+    await page.addInitScript(
+      ({ seeded, meta, vendors, freshSync }) => {
+        const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+        const summary = JSON.parse(JSON.stringify(seeded.prices));
+        // Guard 1 — isStale: lastSync inside RETAIL_STALE_MS of the pinned clock.
+        summary.lastSync = freshSync;
+        writeJson("v2RetailPrices", summary);
+        writeJson("retailPrices", summary);
+        writeJson("v2RetailHistory", seeded.history);
+        writeJson("retailPriceHistory", seeded.history);
+        writeJson("v2RetailIntraday", seeded.intraday);
+        writeJson("retailIntradayData", seeded.intraday);
+        // Guard 3 — missingSlugs: a populated manifest slug list.
+        writeJson("retailManifestSlugs", Object.keys(meta));
+        writeJson("retailManifestCoinMeta", meta);
+        writeJson("retailManifestVendorMeta", vendors);
+        // Guard 2 — missingProviders: a non-empty providers map.
+        writeJson("retailProviders", { [Object.keys(meta)[0]]: { apmex: "https://apmex.com/x" } });
+        writeJson("displayCurrency", "USD");
+        writeJson("exchangeRates", { EUR: 0.9 });
+        localStorage.setItem("retailManifestGeneratedAt", seeded.generatedAt);
+        localStorage.setItem("spotSilver", JSON.stringify(36));
+        localStorage.setItem("spotGold", JSON.stringify(2000));
+      },
+      {
+        seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
+        meta: coinMeta,
+        vendors: vendorMeta,
+        freshSync: FIXED_NOW.toISOString(),
+      }
+    );
+
+    await page.route("https://api.staktrakr.com/data/v2/**", makeCountingV2Handler(counter));
+    await page.route("https://api2.staktrakr.com/data/v2/**", async (route) =>
+      route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
+    );
+    await bootMarketDataPage(page);
+  }
+
+  /** The in-block refresh control, matched on its visible label so the assertion
+   * survives the id being introduced by this same change. */
+  const refreshControl = (page) =>
+    page.locator("#vendorPricesSectionEl button").filter({ hasText: "Refresh" });
+
+  test("clicking Refresh runs a real market sync even when cached data is fresh", async ({
+    page,
+  }) => {
+    const counter = { providers: 0, goldback: 0 };
+    await bootFreshMarketBlock(page, counter);
+
+    // Boot legitimately syncs; only post-click traffic is evidence here.
+    const providersAfterBoot = counter.providers;
+    const logAfterBoot = await syncLogLength(page);
+
+    await refreshControl(page).click();
+
+    // RED: the click reached startRetailBackgroundSync(), whose guard is false on
+    // all three conditions, so it returned without syncing and providers.json is
+    // never re-fetched. GREEN: syncRetailPrices() syncs unconditionally.
+    await expect
+      .poll(() => counter.providers, { timeout: 8000 })
+      .toBeGreaterThan(providersAfterBoot);
+
+    // And the sync ran to completion, not merely started.
+    await expect.poll(() => syncLogLength(page), { timeout: 8000 }).toBeGreaterThan(logAfterBoot);
+  });
+
+  test("Refresh also re-fetches the Goldback G1 benchmark, not just vendor feeds", async ({
+    page,
+  }) => {
+    const counter = { providers: 0, goldback: 0 };
+    await bootFreshMarketBlock(page, counter);
+
+    const goldbackAfterBoot = counter.goldback;
+
+    await refreshControl(page).click();
+
+    // Raised in review. syncRetailPrices covers vendor/retail feeds but never
+    // requests goldback/latest.json, so a refresh built only on it would update
+    // vendor prices while Goldback premiums kept rendering against a stale
+    // _goldbackG1Rate until reload. The control's previous implementation got
+    // this for free by re-arming initMarketData(); the replacement has to call
+    // _seedAndRefreshGoldbackG1Rate() explicitly, and this is what pins it.
+    await expect.poll(() => counter.goldback, { timeout: 8000 }).toBeGreaterThan(goldbackAfterBoot);
+  });
+
+  test("Refresh reports progress and restores itself when the sync settles", async ({ page }) => {
+    const counter = { providers: 0, goldback: 0 };
+    await bootFreshMarketBlock(page, counter);
+
+    const button = refreshControl(page);
+    await button.click();
+
+    // The pre-fix button ALSO ended up enabled with the idle label, so presence
+    // alone proves nothing — it was restored by a hard-coded `setTimeout(…, 5000)`
+    // that had no relationship to the sync. The discriminator is the deadline:
+    // against mocked routes the awaited sync settles in well under a second, so
+    // a 3s budget passes comfortably on the fix and cannot be met by a 5s timer.
+    // page.clock.setFixedTime freezes Date but does NOT fake timers, so that 5s
+    // is still 5s of real time here.
+    await expect(button).toBeEnabled({ timeout: 3000 });
+    await expect(button).toContainText("Refresh");
+
+    // Pin that the restore followed real work, so the deadline above can never
+    // be satisfied by a control that simply never disabled itself.
+    expect(await syncLogLength(page)).toBeGreaterThan(0);
+  });
+
+  test("the refresh control has a stable id so it is greppable and testable", async ({ page }) => {
+    const counter = { providers: 0, goldback: 0 };
+    await bootFreshMarketBlock(page, counter);
+
+    // RED: the button was built by createElement with no id and inline cssText,
+    // giving it no searchable handle at all. In a codebase of script-tag globals
+    // where grep on identifiers IS the call graph, that is what let a broken
+    // control sit unnoticed and be reported as "there is no market refresh
+    // button on the main page" during the STRK-290 investigation.
+    await expect(page.locator("#marketRefreshBtn")).toHaveCount(1);
+  });
+
+  test("market freshness is shown in the block the data lives in", async ({ page }) => {
+    const counter = { providers: 0, goldback: 0 };
+    await bootFreshMarketBlock(page, counter);
+
+    // #headerMarketDot retires with the header button; its freshness signal moves
+    // here rather than being dropped. Asserting a colour class (not just presence)
+    // proves updateMarketHealthDot actually repainted the relocated node — an
+    // unpainted dot would still satisfy a presence-only check.
+    const dot = page.locator("#marketFreshnessDot");
+    await expect(dot).toHaveCount(1);
+    await expect(dot).toHaveClass(/header-cloud-dot--(green|orange|red)/);
+
+    // The class assertion above is NOT sufficient on its own, which is worth
+    // stating because the first cut of this change shipped past it: the dot
+    // originally carried .header-cloud-dot, which is `position: absolute` with
+    // bottom/right offsets because it used to be a badge on a header button's
+    // corner. It painted the right colour while being yanked out of this flex
+    // row and anchored to an unrelated ancestor. Pinning the computed position
+    // is what makes the assertion about placement rather than colour.
+    await expect(dot).toBeVisible();
+    expect(await dot.evaluate((el) => getComputedStyle(el).position)).not.toBe("absolute");
+  });
+});

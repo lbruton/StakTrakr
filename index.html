@@ -556,30 +556,15 @@
              so a per-metal sync would repeat the same request for no gain. -->
         <!-- Trend cycle button retired (STRK-283) — the trend period is now set
              from the per-card .spot-card-period chip on each spot card. -->
-        <!-- Market button -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerMarketBtn"
-          title="Market prices"
-          aria-label="Market prices"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <path d="M16 10a4 4 0 0 1-8 0" />
-          </svg>
-          <span class="cloud-sync-dot header-cloud-dot" id="headerMarketDot"></span>
-          <span class="header-btn-text">Market</span>
-        </button>
+        <!-- Market button retired (STRK-290) — the last of the eight. Unlike the
+             other retirements this one required a repair first: the Market block
+             already rendered a "↻ Refresh" control, but it called
+             startRetailBackgroundSync(), which is gated behind a one-hour
+             staleness check and so did nothing on fresh data. That control now
+             calls syncRetailPrices() (#marketRefreshBtn, js/market-data.js), which
+             pulls unconditionally. #headerMarketDot went with the button; the
+             freshness signal is now #marketFreshnessDot, rendered beside the
+             market table it describes. -->
         <!-- Currency header button retired (STRK-288). Unlike the other
              retirements this one ran a real feature, not a shortcut: it opened a
              floating picker that called saveDisplayCurrency(). Settings ›

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.79] - 2026-07-27
+
+### Fixed — STRK-290: the Market table's Refresh button now actually refreshes
+
+- **It was quietly doing nothing**: the **↻ Refresh** button above the market price table only fetched new prices if your data was already more than an hour old. Any sooner and the click did nothing at all — the button greyed out, spun for five seconds, put the same prices back and returned to normal. There was no way to tell it had not worked (STRK-290).
+- **What changed**: it now pulls fresh vendor prices every time you click it, and the button stays in its "working" state until the fetch genuinely finishes instead of for a fixed five seconds. If you have been clicking it and wondering why prices never moved, that is why (STRK-290).
+
+### Changed — STRK-290: Market button retired from the header
+
+- **The Market button has left the header**: it pulled fresh market prices, which is exactly what the **↻ Refresh** button above the market table does now that the bug above is fixed. That control sits next to the prices it updates, so the header shortcut was a second way to do the same thing from further away (STRK-290).
+- **The freshness dot came with it**: the small green/orange/red dot that showed how current your market data was now sits beside the market table's timestamp instead of on the header button. Same meaning — green under an hour old, orange up to a day, red beyond that (STRK-290).
+- **Nothing was lost from Settings**: **Settings › Market › Sync Now** is untouched and still works. This also completes the header cleanup started a few releases ago — the header is now just the theme switcher and the settings gear (STRK-290).
+
+---
+
 ## [3.35.78] - 2026-07-27
 
 ### Fixed — STRK-294: test harness could click header buttons before they were wired

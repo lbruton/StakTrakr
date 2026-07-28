@@ -41,12 +41,10 @@
     },
     "Header Buttons": {
       icon: "\uD83D\uDD18",
-      keys: [
-        "headerThemeBtnVisible",
-        "headerMarketBtnVisible",
-        "headerBtnShowText",
-        "headerBtnOrder",
-      ],
+      // headerMarketBtnVisible dropped (STRK-290): it left SYNC_SCOPE_KEYS with
+      // the button, so it can never appear in a diff again. headerBtnOrder stays
+      // — it is a synced array and older vaults still carry retired ids inside it.
+      keys: ["headerThemeBtnVisible", "headerBtnShowText", "headerBtnOrder"],
     },
     "Filters & Chips": {
       icon: "\uD83C\uDFF7\uFE0F",
@@ -116,7 +114,6 @@
     tableImageSides: "Table Image Sides",
     tagBlacklist: "Hidden Tags",
     headerThemeBtnVisible: "Theme Button",
-    headerMarketBtnVisible: "Market Button",
     headerBtnShowText: "Button Labels",
     headerBtnOrder: "Button Order",
     "goldback-enabled": "Goldback Enabled",

@@ -2442,9 +2442,9 @@ const syncHeaderToggleUI = () => {
  */
 const applyHeaderToggleVisibility = () => {
   const config = getHeaderBtnConfig();
+  // marketBtn retired (STRK-290) — the header is down to Theme + Settings.
   const BTN_ID_MAP = {
     themeBtn: "headerThemeBtn",
-    marketBtn: "headerMarketBtn",
     settingsBtn: "settingsBtn",
   };
 
@@ -2481,13 +2481,14 @@ window.applyHeaderToggleVisibility = applyHeaderToggleVisibility;
  * @returns {Array<{id:string, label:string, enabled:boolean}>}
  */
 const getHeaderBtnConfig = () => {
+  // marketBtn retired (STRK-290). No migration is needed: a stored headerBtnOrder
+  // still containing it is filtered by `savedOrder.filter(k => k in vis)` below,
+  // so the id self-heals out on the next config write.
   const vis = {
     themeBtn: localStorage.getItem("headerThemeBtnVisible") !== "false",
-    marketBtn: localStorage.getItem(HEADER_MARKET_BTN_KEY) !== "false",
   };
   const labelMap = {
     themeBtn: "Theme",
-    marketBtn: "Market",
   };
   const defaultOrder = Object.keys(vis);
   const savedOrder = (() => {
@@ -2519,7 +2520,6 @@ const getHeaderBtnConfig = () => {
 const saveHeaderBtnConfig = (cfg) => {
   const visKeys = {
     themeBtn: "headerThemeBtnVisible",
-    marketBtn: HEADER_MARKET_BTN_KEY,
   };
   for (const item of cfg) {
     if (item.locked) continue;

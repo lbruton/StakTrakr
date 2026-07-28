@@ -1604,13 +1604,33 @@ const startRetailBackgroundSync = () => {
 };
 
 /**
- * Updates the #headerMarketDot color based on market manifest generated_at age.
+ * Updates the #marketFreshnessDot color based on market manifest generated_at age.
  * Green: < 60 min, Orange: 60 min – 24 hr, Red: > 24 hr or no data.
+ *
+ * STRK-290: the dot moved from the header (#headerMarketDot) into the Market
+ * block when the Market header button retired, so the signal now sits beside the
+ * data it describes. The element is created in js/market-data.js
+ * (_buildMarketBlockHeader), which means it is legitimately absent whenever that
+ * block has not rendered yet.
+ *
+ * The instanceof guard below is load-bearing rather than defensive noise, and it
+ * replaces a check that never worked: safeGetElement answers a missing id with a
+ * truthy dummy, and createDummyElement (js/init.js) DOES define a classList shim
+ * with no-op add/remove. So the previous `if (!dot.classList) return;` was always
+ * false and the painter went on to call .add() on the dummy — silently painting
+ * nothing. Testing for HTMLElement is what actually distinguishes the two.
  */
 const updateMarketHealthDot = () => {
-  const dot = safeGetElement("headerMarketDot");
-  if (!dot.classList) return;
-  dot.className = "cloud-sync-dot header-cloud-dot";
+  const dot = safeGetElement("marketFreshnessDot");
+  if (!(dot instanceof HTMLElement)) return;
+  // .cloud-sync-dot only — NOT .header-cloud-dot, which is `position: absolute`
+  // with bottom/right offsets because it was a badge overlaid on a header
+  // button's corner. In the Market block's flex row that would take the dot out
+  // of flow and anchor it to some unrelated positioned ancestor. .cloud-sync-dot
+  // is the inline-flow variant (inline-block, flex-shrink: 0); the
+  // header-cloud-dot--{green,orange,red} modifiers added below set only
+  // background and box-shadow, so they compose with either base.
+  dot.className = "cloud-sync-dot";
   let ts = null;
   try {
     ts = localStorage.getItem(RETAIL_MANIFEST_TS_KEY);

@@ -137,20 +137,16 @@ test.describe("core/settings", () => {
     await expect(page.locator('[data-idx="0"] .attach-count-chip')).toBeVisible();
   });
 
-  test("Market, vault, and settings entry points route to the intended panels or sync path", async ({
-    page,
-  }) => {
-    await page.evaluate(() => {
-      window._coreMarketSyncCalled = false;
-      window.syncRetailPrices = async () => {
-        window._coreMarketSyncCalled = true;
-      };
-    });
-
-    await page.locator("#headerMarketBtn").click();
-    await expect(page.locator("#settingsModal")).not.toBeVisible();
-    expect(await page.evaluate(() => window._coreMarketSyncCalled)).toBe(true);
-
+  // Lost its Market-header-button leg in STRK-290 and is renamed accordingly.
+  // That leg clicked #headerMarketBtn and asserted, via a window.syncRetailPrices
+  // stub, that it hit the retail sync rather than opening Settings. The button is
+  // retired and the market pull now lives on #marketRefreshBtn inside the Market
+  // block, which calls the LEXICAL `syncRetailPrices` binding — so the window-level
+  // stub above would no longer intercept it and the assertion could only pass
+  // vacuously. That path is covered properly in core/retail-market.spec.js's
+  // STRK-290 block, which observes the sync's own providers.json fetch. What
+  // remains here is what this test uniquely owns: panel routing.
+  test("Market and settings entry points route to the intended panels", async ({ page }) => {
     await page.locator("#marketSettingsBtn").click();
     await expect(page.locator("#settingsPanel_market")).toBeVisible();
     await page.evaluate(() => window.hideSettingsModal());

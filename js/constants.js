@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.78";
+const APP_VERSION = "3.35.79";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -802,8 +802,9 @@ const SPOT_TREND_KEY = "spotTrendPeriod"; // nosemgrep: codacy.javascript.securi
 // removed in favour of the per-card .spot-sync-icon, so it no longer has a
 // visibility preference.
 
-/** @constant {string} HEADER_MARKET_BTN_KEY - LocalStorage key for header market button visibility */
-const HEADER_MARKET_BTN_KEY = "headerMarketBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_MARKET_BTN_KEY retired (STRK-290) — the Market header button was
+// removed once the Market block's own #marketRefreshBtn was repaired to call
+// syncRetailPrices(), so it no longer has a visibility preference.
 
 // HEADER_VAULT_BTN_KEY and HEADER_RESTORE_BTN_KEY retired (STRK-285, STRK-286)
 // — both header buttons were the same showSettingsModal("system") shortcut and
@@ -957,7 +958,7 @@ const SYNC_SCOPE_KEYS = [
   // ── Header button preferences ──
   "headerThemeBtnVisible", // theme toggle button
   // headerCurrencyBtnVisible retired (STRK-288) — no button, no preference
-  "headerMarketBtnVisible", // HEADER_MARKET_BTN_KEY
+  // headerMarketBtnVisible retired (STRK-290) — no button, no preference
   "headerBtnShowText", // HEADER_BTN_SHOW_TEXT_KEY
   "headerBtnOrder", // button ordering
 
@@ -1050,7 +1051,7 @@ const ALLOWED_STORAGE_KEYS = [
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
   SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
-  HEADER_MARKET_BTN_KEY, // boolean string: "true"/"false" — header market button visibility
+  // HEADER_MARKET_BTN_KEY retired (STRK-290) — no button, no preference
   HEADER_BTN_SHOW_TEXT_KEY, // boolean string: "true"/"false" — show text labels under header icons
   RETAIL_MANIFEST_TS_KEY, // string ISO timestamp — market manifest generated_at cache
   RETAIL_MANIFEST_SLUGS_KEY, // JSON array: cached manifest coin slug list
