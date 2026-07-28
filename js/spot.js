@@ -271,11 +271,24 @@ const updateLastTimestamps = (source, provider, timestamp) => {
  * `init.js` boot and the post-sync hook below — so it only has to retarget the
  * body at the four `syncIcon{Metal}` elements. Removing it here would mean
  * re-adding the same two hooks next patch, and the init.js one is easy to miss.
+ *
+ * STRK-298 dropped `header-cloud-dot` from the className below and deleted that
+ * CSS rule. It was the `position: absolute` corner-badge base, and no button is
+ * left to pin a badge to. This matches `updateMarketHealthDot` (js/retail.js),
+ * which already sets `.cloud-sync-dot` alone. The `header-cloud-dot--*`
+ * modifiers added further down are unaffected — they set only background and
+ * box-shadow, so they compose with `.cloud-sync-dot` just as well.
+ *
+ * Note for STRK-291: the assignment below is `className =`, which REPLACES the
+ * class list. On `#headerSyncDot` — a bare span that existed only to be a dot —
+ * that was harmless. Retargeted at `syncIcon{Metal}` it would wipe
+ * `.spot-sync-icon` and the `.syncing` class that `updateSyncButtonStates`
+ * (js/api.js) owns. Use `classList` add/remove there, not `className`.
  */
 const updateSpotSyncHealthDot = () => {
   const dot = safeGetElement("headerSyncDot");
   if (!(dot instanceof HTMLElement)) return;
-  dot.className = "cloud-sync-dot header-cloud-dot";
+  dot.className = "cloud-sync-dot";
   let entry = null;
   try {
     entry = loadDataSync(LAST_API_SYNC_KEY);

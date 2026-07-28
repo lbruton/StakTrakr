@@ -1623,13 +1623,16 @@ const startRetailBackgroundSync = () => {
 const updateMarketHealthDot = () => {
   const dot = safeGetElement("marketFreshnessDot");
   if (!(dot instanceof HTMLElement)) return;
-  // .cloud-sync-dot only — NOT .header-cloud-dot, which is `position: absolute`
-  // with bottom/right offsets because it was a badge overlaid on a header
-  // button's corner. In the Market block's flex row that would take the dot out
-  // of flow and anchor it to some unrelated positioned ancestor. .cloud-sync-dot
-  // is the inline-flow variant (inline-block, flex-shrink: 0); the
-  // header-cloud-dot--{green,orange,red} modifiers added below set only
-  // background and box-shadow, so they compose with either base.
+  // .cloud-sync-dot is the inline-flow variant (inline-block, flex-shrink: 0),
+  // and it is the deliberate choice here rather than a default. The alternative
+  // was .header-cloud-dot, `position: absolute` with bottom/right offsets
+  // because it was a badge overlaid on a header button's corner; in the Market
+  // block's flex row that took the dot out of flow and anchored it to an
+  // unrelated positioned ancestor. STRK-298 deleted that rule once its last
+  // button retired, so the trap is gone, but the reason this line reads
+  // .cloud-sync-dot is that history. The header-cloud-dot--{green,orange,red}
+  // modifiers added below are a separate, still-live set: they set only
+  // background and box-shadow, so they compose with any base.
   dot.className = "cloud-sync-dot";
   let ts = null;
   try {
