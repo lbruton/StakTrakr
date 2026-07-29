@@ -87,6 +87,9 @@ RUN npm ci --omit=dev
 # Cache-bust: change this value to force rebuild of JS layer
 ARG CACHE_BUST=2026-03-19a
 COPY shared/*.js ./
+# Shared shell helpers (run-lock.sh) are sourced by run-home.sh at runtime.
+# Without this the source fails and `set -e` aborts the whole run (STRK-255).
+COPY shared/*.sh ./
 COPY shared/.env.example ./.env.example
 
 # Spot-poller Python source + deps

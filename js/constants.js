@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.64";
+const APP_VERSION = "3.35.80";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -794,23 +794,24 @@ const METAL_ORDER_KEY = "metalOrderConfig"; // nosemgrep: codacy.javascript.secu
 /** @constant {string} SPOT_TREND_KEY - LocalStorage key for persisted spot trend period */
 const SPOT_TREND_KEY = "spotTrendPeriod"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
-/** @constant {string} HEADER_TREND_BTN_KEY - LocalStorage key for header trend button visibility */
-const HEADER_TREND_BTN_KEY = "headerTrendBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_TREND_BTN_KEY retired (STRK-283) — the Trend header button was removed
+// in favour of the per-card .spot-card-period chip, so it no longer has a
+// visibility preference. SPOT_TREND_KEY (the chosen period) is unaffected.
 
-/** @constant {string} HEADER_SYNC_BTN_KEY - LocalStorage key for header sync button visibility */
-const HEADER_SYNC_BTN_KEY = "headerSyncBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_SYNC_BTN_KEY retired (STRK-284) — the Spot Sync header button was
+// removed in favour of the per-card .spot-sync-icon, so it no longer has a
+// visibility preference.
 
-/** @constant {string} HEADER_MARKET_BTN_KEY - LocalStorage key for header market button visibility */
-const HEADER_MARKET_BTN_KEY = "headerMarketBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_MARKET_BTN_KEY retired (STRK-290) — the Market header button was
+// removed once the Market block's own #marketRefreshBtn was repaired to call
+// syncRetailPrices(), so it no longer has a visibility preference.
 
-/** @constant {string} HEADER_VAULT_BTN_KEY - LocalStorage key for header vault button visibility */
-const HEADER_VAULT_BTN_KEY = "headerVaultBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_VAULT_BTN_KEY and HEADER_RESTORE_BTN_KEY retired (STRK-285, STRK-286)
+// — both header buttons were the same showSettingsModal("system") shortcut and
+// no longer exist, so neither has a visibility preference.
 
-/** @constant {string} HEADER_RESTORE_BTN_KEY - LocalStorage key for header restore button visibility */
-const HEADER_RESTORE_BTN_KEY = "headerRestoreBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
-
-/** @constant {string} HEADER_CLOUD_SYNC_BTN_KEY - LocalStorage key for header cloud sync button visibility */
-const HEADER_CLOUD_SYNC_BTN_KEY = "headerCloudSyncBtnVisible"; // nosemgrep: codacy.javascript.security.hard-coded-password
+// HEADER_CLOUD_SYNC_BTN_KEY retired (STRK-287) — the cloud sync header button
+// no longer exists, so it has no visibility preference to store or sync.
 
 /** @constant {string} HEADER_BTN_SHOW_TEXT_KEY - LocalStorage key for show-text-under-icons toggle */
 const HEADER_BTN_SHOW_TEXT_KEY = "headerBtnShowText"; // nosemgrep: codacy.javascript.security.hard-coded-password
@@ -956,16 +957,10 @@ const SYNC_SCOPE_KEYS = [
 
   // ── Header button preferences ──
   "headerThemeBtnVisible", // theme toggle button
-  "headerCurrencyBtnVisible", // currency toggle button
-  "headerTrendBtnVisible", // HEADER_TREND_BTN_KEY
-  "headerSyncBtnVisible", // HEADER_SYNC_BTN_KEY
-  "headerMarketBtnVisible", // HEADER_MARKET_BTN_KEY
-  "headerVaultBtnVisible", // HEADER_VAULT_BTN_KEY
-  "headerRestoreBtnVisible", // HEADER_RESTORE_BTN_KEY
-  "headerCloudSyncBtnVisible", // HEADER_CLOUD_SYNC_BTN_KEY
+  // headerCurrencyBtnVisible retired (STRK-288) — no button, no preference
+  // headerMarketBtnVisible retired (STRK-290) — no button, no preference
   "headerBtnShowText", // HEADER_BTN_SHOW_TEXT_KEY
   "headerBtnOrder", // button ordering
-  "headerAboutBtnVisible", // about button
 
   // ── Feature toggles ──
   "goldback-pricing-source", // GOLDBACK_PRICING_SOURCE_KEY
@@ -1055,14 +1050,8 @@ const ALLOWED_STORAGE_KEYS = [
   DISPLAY_CURRENCY_KEY,
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
-  "headerCurrencyBtnVisible", // boolean string: "true"/"false" (STACK-54)
   SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
-  HEADER_TREND_BTN_KEY, // boolean string: "true"/"false" — header trend button visibility
-  HEADER_SYNC_BTN_KEY, // boolean string: "true"/"false" — header sync button visibility
-  HEADER_MARKET_BTN_KEY, // boolean string: "true"/"false" — header market button visibility
-  HEADER_VAULT_BTN_KEY, // boolean string: null=show, "false"=hide, "true"=show — vault button visibility
-  HEADER_RESTORE_BTN_KEY, // boolean string: "true"/"false" — restore button visibility
-  HEADER_CLOUD_SYNC_BTN_KEY, // boolean string: "true"/"false" — cloud sync button visibility
+  // HEADER_MARKET_BTN_KEY retired (STRK-290) — no button, no preference
   HEADER_BTN_SHOW_TEXT_KEY, // boolean string: "true"/"false" — show text labels under header icons
   RETAIL_MANIFEST_TS_KEY, // string ISO timestamp — market manifest generated_at cache
   RETAIL_MANIFEST_SLUGS_KEY, // JSON array: cached manifest coin slug list
@@ -1117,7 +1106,6 @@ const ALLOWED_STORAGE_KEYS = [
   "cloud_vault_password", // string: user vault password stored for persistent unlock
   STORAGE_PERSIST_GRANTED_KEY, // boolean string: "true"/"false" — storage persistence grant flag
   "headerBtnOrder", // JSON array: header button card order (STAK-320)
-  "headerAboutBtnVisible", // boolean string: "true"/"false" — about button visibility (STAK-320)
   "tagBlacklist", // JSON array: tags excluded from auto-tagging
   "numista_tags_auto", // boolean string: "true"/"false" — auto-tag from Numista data
   "cloud_sync_local_modified", // ISO string: timestamp of last local metalInventory save (STAK-414)
@@ -2096,9 +2084,6 @@ if (typeof window !== "undefined") {
   window.STORAGE_PERSIST_GRANTED_KEY = STORAGE_PERSIST_GRANTED_KEY;
   window.IMAGE_ZIP_MANIFEST_VERSION = IMAGE_ZIP_MANIFEST_VERSION;
   // Header button visibility keys (STAK-314)
-  window.HEADER_VAULT_BTN_KEY = HEADER_VAULT_BTN_KEY;
-  window.HEADER_RESTORE_BTN_KEY = HEADER_RESTORE_BTN_KEY;
-  window.HEADER_CLOUD_SYNC_BTN_KEY = HEADER_CLOUD_SYNC_BTN_KEY;
   window.HEADER_BTN_SHOW_TEXT_KEY = HEADER_BTN_SHOW_TEXT_KEY;
   window.RETAIL_MANIFEST_TS_KEY = RETAIL_MANIFEST_TS_KEY;
   window.RETAIL_MANIFEST_SLUGS_KEY = RETAIL_MANIFEST_SLUGS_KEY;

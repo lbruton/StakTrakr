@@ -90,12 +90,20 @@ const FAMILY_TABLE = [
     hasEnvelope: true,
   },
   {
+    // Network-first despite the slow-moving data (STRK-264). Cache-first meant
+    // a provider_vendors change — a new coin, or a yearly-dated product URL
+    // rolling over — could take the full 24h floor to reach a browser that
+    // already held a SW-cached copy, and a hard refresh does not clear that.
+    // The price feed is networkFirst, so the UI would show a current price
+    // behind a stale vendor link. floor is retained for the error-fallback
+    // path and to stay consistent with the other realtime families.
     family: "providers",
     test: function (p) {
       return p === "/v2/providers.json";
     },
     floor: 86400,
     hasEnvelope: true,
+    networkFirst: true,
   },
   {
     // Matches /data/spot-history-YYYY.json (local origin) and /spot-history-YYYY.json (API root)
@@ -183,11 +191,75 @@ function parseGeneratedAtSeconds(body) {
   return isNaN(ms) ? null : ms / 1000;
 }
 
+/**
+ * Decide whether a network result is unusable and a cached copy should be
+ * served in its place.
+ *
+ * The network-first strategy previously fell back only when the fetch itself
+ * rejected (offline, DNS failure). A transient upstream 500/503 resolves
+ * normally, so the error response was handed straight to the page even with a
+ * good cached copy available — the user saw an error state instead of
+ * last-known-good prices (STRK-256). Any non-OK status is therefore treated the
+ * same as a rejection.
+ *
+ * Opaque responses are the deliberate exception: a no-cors cross-origin
+ * response always reports status 0 / ok false, but it is a legitimate result
+ * that fetchAndCacheClassified caches and returns. Treating it as a failure
+ * would discard a valid response on every no-cors request.
+ *
+ * @param {Response|null|undefined} response - The resolved network response.
+ * @returns {boolean} True when a cached copy should be preferred.
+ */
+function shouldFallBackToCache(response) {
+  if (!response) return true;
+  if (response.type === "opaque") return false;
+  return !response.ok;
+}
+
+/**
+ * Maps a same-origin navigation pathname to its shell cache key, or null when
+ * the navigation is not an app shell. Two shells exist: the tracker at "./"
+ * (the STRK-273 guard — before it, ANY same-origin navigation overwrote the
+ * cached tracker shell) and the Ratios PWA at "./ratios/" (STRK-274 —
+ * precached at install so /ratios/ renders offline). Each shell's navigations
+ * read and write ONLY its own key; every other same-origin page (e.g.
+ * privacy.html) bypasses the nav cache in both directions and gets honest
+ * error/offline responses.
+ *
+ * @param {string} pathname - URL pathname of the navigation request.
+ * @returns {?string} Cache key for the shell, or null for non-shell pages.
+ */
+function navShellCacheKey(pathname) {
+  if (pathname === "/" || pathname === "/index.html") return "./";
+  // "/ratios" without the slash: online the server redirects to "/ratios/",
+  // but offline that redirect never happens — map it to the shell key so the
+  // cached PWA shell is served instead of the generic offline page.
+  if (pathname === "/ratios" || pathname === "/ratios/" || pathname === "/ratios/index.html") {
+    return "./ratios/";
+  }
+  return null;
+}
+
+/**
+ * Returns whether a same-origin navigation targets the MAIN APP SHELL — the
+ * only navigation whose response may use the "./" nav-cache key (STRK-273).
+ * Kept as the named predicate; navShellCacheKey is the general mapping.
+ *
+ * @param {string} pathname - URL pathname of the navigation request.
+ * @returns {boolean} True when the navigation is for the root app shell.
+ */
+function isRootShellNavigation(pathname) {
+  return navShellCacheKey(pathname) === "./";
+}
+
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
 if (typeof module !== "undefined") {
   module.exports = {
     FAMILY_TABLE: FAMILY_TABLE,
     classifyEndpoint: classifyEndpoint,
     parseGeneratedAtSeconds: parseGeneratedAtSeconds,
+    shouldFallBackToCache: shouldFallBackToCache,
+    isRootShellNavigation: isRootShellNavigation,
+    navShellCacheKey: navShellCacheKey,
   };
 }

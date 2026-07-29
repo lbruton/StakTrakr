@@ -298,4 +298,96 @@ test.describe("SW classified caching", () => {
       await page.context().setOffline(false);
     }
   });
+
+  // SC-10 / SC-11 — STRK-256: a network attempt that RESOLVES with a non-OK status
+  // must be treated like a rejection and fall back to the cached copy.
+  //
+  // Harness constraint: page.route() cannot intercept SW-originated fetches, and every
+  // networkFirst family is API-host only, so a non-OK cannot be induced on the
+  // network-first branch here. These drive the cache-first branch instead, using a
+  // same-origin annual-spot-history URL the dev server genuinely 404s on. Both branches
+  // route through the same resolveWithCacheFallback helper, and the decision itself is
+  // pinned directly in tests/unit/strk-256-sw-cache-fallback.test.js.
+  // Real spot history spans 1968–2026, so these two years are genuinely absent
+  // from the dev server and produce an authentic 404 through the SW's own
+  // network stack — which page.route() could not have faked.
+  const MISSING_ANNUAL = "/data/spot-history-1900.json";
+  const MISSING_ANNUAL_UNSEEDED = "/data/spot-history-1901.json";
+
+  test("SC-10 — non-OK response falls back to the cached copy (STRK-256)", async ({ page }) => {
+    await bootPage(page);
+
+    const cacheName = await page.evaluate(async () => {
+      const keys = await caches.keys();
+      return keys.find((k) => k.startsWith("staktrakr-")) || null;
+    });
+    expect(cacheName).not.toBeNull();
+
+    // Seed a STALE entry so matchWithAgeCheck returns null and the SW goes to
+    // network; the dev server has no 1900 file, so the fetch resolves 404.
+    await page.evaluate(
+      async ({ cn, url, ts }) => {
+        const cache = await caches.open(cn);
+        await cache.put(
+          url,
+          new Response(JSON.stringify({ strk256: "cached" }), {
+            headers: { "Content-Type": "application/json", "x-cached-at": String(ts) },
+          })
+        );
+      },
+      { cn: cacheName, url: MISSING_ANNUAL, ts: Date.now() - 90000 * 1000 }
+    );
+
+    await fetchClassified(page, MISSING_ANNUAL);
+    // Before STRK-256 this was "network" and the 404 reached the page.
+    expect(await readSwStrategy(page)).toBe("network-fallback");
+
+    const body = await page.evaluate(
+      (u) =>
+        fetch(u)
+          .then((r) => r.json())
+          .catch(() => null),
+      MISSING_ANNUAL
+    );
+    expect(body).toEqual({ strk256: "cached" });
+  });
+
+  test("SC-11 — non-OK with no cached copy still surfaces the real status (STRK-256)", async ({
+    page,
+  }) => {
+    await bootPage(page);
+
+    // Nothing seeded for this URL. The fallback must not mask a genuine error as
+    // a generic network failure — the page should still see the 404.
+    const status = await page.evaluate(
+      (u) =>
+        fetch(u)
+          .then((r) => r.status)
+          .catch(() => -1),
+      MISSING_ANNUAL_UNSEEDED
+    );
+    expect(status).toBe(404);
+  });
+
+  test("SC-12 — /ratios/ renders offline from the precached shell (STRK-274)", async ({
+    page,
+    context,
+  }) => {
+    // First online visit: the ratios page itself registers the root SW
+    // (../sw.js → scope "/"), and SW control implies the install-time precache
+    // (which now includes "./ratios/" + its assets) completed successfully.
+    await page.goto("/ratios/");
+    await page.waitForLoadState("networkidle");
+    await waitForSwControl(page);
+
+    // Hard offline reload — the navigation must be served from the ratios
+    // shell's OWN nav-cache key (never the tracker's "./"), history renders
+    // from the precached seed bundle, and the badge is honestly "Last close".
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator("#ratiosPageMount .gsr-panel")).toBeVisible();
+    await expect(page.locator("#ratiosPageMount .gsr-live")).toHaveAttribute("data-state", "stale");
+    await expect(page.locator("#ratiosPageMount .gsr-live")).toContainText("Last close");
+    await context.setOffline(false);
+  });
 });

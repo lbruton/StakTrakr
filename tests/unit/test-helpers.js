@@ -39,3 +39,19 @@ export function sliceConstArray(src, declHead) {
   assert.ok(end > start + 2, `could not locate the end of "${declHead}"`);
   return src.slice(start, end);
 }
+
+/**
+ * Slice a top-level `function NAME(…) { … }` declaration bounded by the first
+ * column-0 "\n}" after its declaration head (every nested brace is indented, so
+ * "\n}" bounds it precisely).
+ * @param {string} src - Source file contents to slice from
+ * @param {string} declHead - The `function NAME(` declaration head to locate
+ * @returns {string} The sliced function source, including the closing `}`
+ */
+export function sliceFunctionDecl(src, declHead) {
+  const start = src.indexOf(declHead);
+  assert.ok(start !== -1, `could not locate "${declHead}" in source`);
+  const end = src.indexOf("\n}", start) + 2;
+  assert.ok(end > start + 1, `could not locate the end of "${declHead}"`);
+  return src.slice(start, end);
+}

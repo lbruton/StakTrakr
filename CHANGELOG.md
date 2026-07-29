@@ -7,6 +7,148 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.80] - 2026-07-27
+
+### Removed — STRK-298: dead styling left behind by the header cleanup
+
+- **Internal cleanup, no visible change**: the run of header retirements over the last few releases left behind the styling rule for the small coloured dot that used to sit in the corner of a header button. Every button it could attach to is now gone, and the freshness dot beside the market table deliberately uses a different rule because the old one would have pulled it out of that row. The rule itself is now removed (STRK-298).
+- **Why it was still there**: it was held back one release in case an upcoming change — colouring each metal card's refresh icon by how fresh its price is — turned out to need it. It does not: those icons are laid out in a way that cannot host a corner badge, and that change colours the icon itself rather than adding a dot (STRK-298).
+- **The colours themselves stay**: the green, orange and red variants are shared with the market and spot freshness indicators and are untouched, as is the logic that decides which colour to show (STRK-298).
+
+---
+
+## [3.35.79] - 2026-07-27
+
+### Fixed — STRK-290: the Market table's Refresh button now actually refreshes
+
+- **It was quietly doing nothing**: the **↻ Refresh** button above the market price table only fetched new prices if your data was already more than an hour old. Any sooner and the click did nothing at all — the button greyed out, spun for five seconds, put the same prices back and returned to normal. There was no way to tell it had not worked (STRK-290).
+- **What changed**: it now pulls fresh vendor prices every time you click it, and the button stays in its "working" state until the fetch genuinely finishes instead of for a fixed five seconds. If you have been clicking it and wondering why prices never moved, that is why (STRK-290).
+
+### Changed — STRK-290: Market button retired from the header
+
+- **The Market button has left the header**: it pulled fresh market prices, which is exactly what the **↻ Refresh** button above the market table does now that the bug above is fixed. That control sits next to the prices it updates, so the header shortcut was a second way to do the same thing from further away (STRK-290).
+- **The freshness dot came with it**: the small green/orange/red dot that showed how current your market data was now sits beside the market table's timestamp instead of on the header button. Same meaning — green under an hour old, orange up to a day, red beyond that (STRK-290).
+- **Nothing was lost from Settings**: **Settings › Market › Sync Now** is untouched and still works. This also completes the header cleanup started a few releases ago — the header is now just the theme switcher and the settings gear (STRK-290).
+
+---
+
+## [3.35.78] - 2026-07-27
+
+### Fixed — STRK-294: test harness could click header buttons before they were wired
+
+- **Internal reliability fix, no visible change**: the app attaches its header button handlers a fraction of a second after the page draws. The automated test suite did not know to wait for that, so tests that clicked the Settings gear appeared to find a broken button. They were simply clicking too early (STRK-294).
+- **Why it matters to you**: several tests had been papering over this with fixed delays, which can fail on a slow machine for reasons unrelated to what they check. Those now wait for the app to actually signal it is ready, so the suite guarding your data is less prone to false alarms (STRK-294).
+
+---
+
+## [3.35.77] - 2026-07-26
+
+### Changed — STRK-288: Currency button retired from the header
+
+- **The currency button has left the header**: unlike the other header buttons retired recently, this one did something real — it opened a small picker for switching your display currency. That exact picker already exists under **Settings › Currency**, and both went through the same code, so nothing about currency switching has changed except where you click to reach it (STRK-288).
+- **You will actually notice this one**: every other button retired in this run was hidden by default, so most people never saw them go. This one was visible for everyone. If you switch currency often, it is now **Settings › Currency › Display currency** instead of one click in the header (STRK-288).
+
+---
+
+## [3.35.76] - 2026-07-26
+
+### Changed — STRK-287: Cloud Sync button retired from the header
+
+- **The cloud button has left the header**: StakTrakr already syncs whenever your data changes, so the header shortcut was doing a job that mostly did itself. Everything it offered lives in **Settings › Cloud** — the same place you go for backup and restore — including the **Sync Now** button for a manual sync whenever you want one (STRK-287).
+- **Heads up — the at-a-glance status dot went with it**: the small coloured dot on that button showed sync state without opening anything. That signal is gone for now; Settings › Cloud still shows connection status and when you last synced (STRK-287).
+- **Dead code cleared out**: an old inline "Vault Password" popup that used to live under the cloud button had become permanently unreachable — nothing in the app could open it. It has been removed. Normal sync password prompts are unaffected (STRK-287).
+
+---
+
+## [3.35.75] - 2026-07-26
+
+### Changed — STRK-289: Info button retired from the header
+
+- **One more duplicate header shortcut removed**: the Info button only opened Settings, and it opened it on the About tab — which is the tab Settings already opens on by default. So it was a shortcut to the place you were going anyway. It's gone; open Settings and you land on About, with the version, What's New, and changelog exactly where they were (STRK-289).
+
+---
+
+## [3.35.74] - 2026-07-26
+
+### Changed — STRK-285/286: Backup and Restore header buttons retired
+
+- **Two duplicate header shortcuts removed**: the Backup and Restore buttons both did exactly the same thing — open the same Settings tab — so the header carried two icons for one action. Both are gone. Backing up and restoring your data is unchanged and still lives in **Settings › Inventory**, which holds the import controls (CSV, JSON, ZIP) and the export controls (CSV, JSON, PDF, ZIP) exactly as before (STRK-285, STRK-286).
+
+---
+
+## [3.35.73] - 2026-07-26
+
+### Changed — STRK-284: Spot Sync header button retired to the spot cards
+
+- **Refresh spot prices from the cards themselves**: each spot card now shows its own refresh icon, replacing the Spot Sync button in the header. Clicking any card's icon refreshes all four metals — a single provider request returns the whole payload, so there is nothing to gain from refreshing them one at a time. The icon was already built and wired; it had simply been hidden. It stays disabled with a "Configure API first" tooltip when no price provider is set up, and the hidden range dropdown behind it remains hidden so the period chip added in v3.35.72 is still the one place you set the trend range (STRK-284).
+
+---
+
+## [3.35.72] - 2026-07-26
+
+### Changed — STRK-283: Trend header button retired to the spot cards
+
+- **Set the trend period from the spot cards themselves**: the small period label in the top-right of each spot card (`90d`, `1Y`, …) is now a button — click it to cycle through the trend periods, and all four metal cards plus their sparklines follow together, exactly as the header Trend button used to do. The header button is gone, freeing space in the header and putting the control next to the chart it changes. The chip is keyboard-operable and its accessible name announces the current period, so screen-reader users get the value and the action rather than a bare "90d". Existing saved header-button layouts that still list Trend keep working untouched (STRK-283).
+
+---
+
+## [3.35.71] - 2026-07-26
+
+### Added — STRK-274: Service worker registration + release hygiene for /ratios/
+
+- **The Metal Ratios page now works offline and installs from Chrome**: `/ratios/` registers the root service worker (a controlling worker on the start URL is what makes Chrome's install prompt fire), and the worker precaches the ratios shell, manifest, host script, and full icon set — so an offline reload renders the page with cached history and an honest "Last close" badge. Navigation caching is now per-shell (`navShellCacheKey`): the tracker and the ratios app each keep their own cached shell and can never overwrite each other. The main app manifest also gains an Android `shortcuts` entry — long-press the StakTrakr icon to jump straight to Metal Ratios (STRK-274).
+
+---
+
+## [3.35.70] - 2026-07-26
+
+### Added — STRK-273: Standalone /ratios/ page + installable PWA manifest
+
+- **Public Metal Ratios page at `/ratios/`**: A standalone, bookmarkable page hosting the shared ratios panel — all four pairs with live spot, long-run stats, and history back to 1968. Ships as a directory URL with its own scoped PWA manifest (`id`/`scope`/`start_url` all `/ratios/`) so it installs as a separate app from StakTrakr with the new balance-scale icon; the main app keeps `/`. The page inherits the tracker's saved theme via same-origin localStorage (dark default), carries zero user data (no localStorage writes), fetches live spot from the public feed with an honest "Last close" fallback when unreachable, and merges the daily current-year feed file over the release-time seed bundle so 52-week stats never go a release cycle stale. An "Open full tracker" link deliberately breaks out of the standalone scope (STRK-273).
+
+---
+
+## [3.35.69] - 2026-07-26
+
+### Added — STRK-272: Ratios app icon set + maskable manifest fix
+
+- **Distinct icon for the upcoming Metal Ratios app**: New balance-scale icon set (`images/ratios-icon*.{svg,png}` at 192/512, a maskable variant with adaptive-mask safe-area padding, and a 180×180 apple-touch icon) promoting the ratio chips' existing balance-scale glyph — gold pan vs silver pan — so the future installable `/ratios/` PWA is distinguishable from StakTrakr at home-screen size. Verified at 48px, under circle and squircle masks, and on light and dark wallpapers (STRK-272).
+- **Fixed: Android was letterboxing the main app icon**: `manifest.json`'s icons carried no `purpose` field, so Android shrank the rounded icon inside its adaptive mask. The manifest now declares `purpose: "any"` on the existing icons and adds new full-bleed maskable 192/512 variants of the S-stack icon (STRK-272).
+
+---
+
+## [3.35.68] - 2026-07-26
+
+### Added — STRK-271: Ratio chips open the Metal Ratios panel
+
+- **Metal Ratios panel is now reachable in the app**: The Au:Ag, Au:Pt, and Au:Pd chips on the spot cards are now buttons — click or press Enter to open the new Metal Ratios panel in a modal, pre-selected on the clicked pair, with the in-panel selector available to switch pairs (including Pt:Pd) without closing. Chips gained a pointer cursor, caret affordance, focus ring, and a "Click for trends" tooltip hint. Esc, the close button, or a backdrop click closes the modal and returns focus to the originating chip. The gold card's goldback chip is intentionally not wired — it shows a G1 rate, not a ratio (STRK-271).
+
+---
+
+## [3.35.67] - 2026-07-25
+
+### Added — STRK-270: Shared ratios panel component (Layout C)
+
+- **Metal Ratios panel component**: New `js/ratios-panel.js` renders the shared Layout C ("Signal") panel both upcoming hosts will mount — the in-app modal (STRK-271) and the standalone `/ratios/` page (STRK-273). It carries the in-panel pair selector (Au:Ag, Au:Pt, Au:Pd, Pt:Pd), live/last-close badge, hero readout with delta vs prior close, an explicitly-labeled 52-week position bar with all-time percentile, four signed-magnitude trend tiles, a Chart.js history chart (30D/90D/1Y/5Y/MAX) with a conditional long-run-mean line, and a provenance footer. Styling is tokens-only across all four themes, chart colors re-read from computed tokens on theme change, and the interpretive mean-reversion copy stays Au:Ag-only. Not yet reachable in the UI — hosts arrive in the next patches (STRK-270).
+
+---
+
+## [3.35.66] - 2026-07-25
+
+### Added — STRK-269: Ratio statistics engine (all 4 pairs)
+
+- **Metal-ratio statistics engine**: `js/spot-ratio-math.js` now carries the pure, DOM-free foundation for the upcoming Metal Ratios panel (STRK-268): a 4-pair config (Au:Ag, Au:Pt, Au:Pd, Pt:Pd), a series builder that joins historical closes only on dates where both metals printed (so Pt/Pd's 1990 start needs no special-casing), and a full statistic set — historical mean, median, all-time percentile, session-based trailing averages (7/30/90/261/1,305 sessions), previous close, 52-week and all-time extremes with their dates. Live spot, when present, overrides the last close (STRK-269).
+
+---
+
+## [3.35.65] - 2026-07-24
+
+### Changed — STRK-260: Period-aware retail history ranges
+
+- **Retail history summaries and longer chart ranges**: The Retail View detail modal now offers 24H, 7D, 30D, 60D, and 90D controls and recalculates Median, Low, High, and Spread from the same valid observations shown in the selected chart window. Longer ranges use the existing 90-day feed with primary-to-backup API failover, while the Vendor comparison table remains tied to the current snapshot (STRK-260).
+
+---
+
 ## [3.35.64] - 2026-07-01
 
 ### Fixed — STRK-251: Summit false OOS from related-products carousel

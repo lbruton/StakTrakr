@@ -181,13 +181,11 @@ const elements = {
   // Date N/A toggle button (STAK-375)
   itemDateNABtn: null,
 
-  // About modal elements
-  aboutBtn: null,
+  // About modal elements (aboutBtn retired — STRK-289)
   aboutModal: null,
 
   // Header toggle buttons (STACK-54)
   headerThemeBtn: null,
-  headerCurrencyBtn: null,
 
   // Layout section containers (STACK-54)
   spotPricesSection: null,

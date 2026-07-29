@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     lsb-release \
+    procps \
     # Chromium dependencies for Playwright service
     libnss3 \
     libnspr4 \
@@ -198,6 +199,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-pip \
     && python3 -m pip install --no-cache-dir --break-system-packages "requests>=2.32.4" python-dotenv
 
 COPY shared/*.js ./
+# Shared shell helpers (run-lock.sh). This image both copies and crons
+# run-local.sh, which sources the helper — without this the source fails and
+# `set -e` aborts every retail run, so a rollback to this image could not
+# scrape at all (STRK-255).
+COPY shared/*.sh ./
 
 # Spot-poller Python source
 COPY shared/spot-poller/ /app/spot-poller/

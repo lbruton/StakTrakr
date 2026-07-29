@@ -207,9 +207,15 @@ After primary scrapes, any coin with failures scrapes `fbp_url` (FindBullionPric
 | `vendor`       | TEXT    | Provider id (e.g. `apmex`)                 |
 | `price`        | REAL    | null if scrape failed                      |
 | `source`       | TEXT    | `firecrawl` \| `playwright` \| `fbp`       |
-| `in_stock`     | INTEGER | 0 if OOS patterns matched                  |
+| `confidence`   | INTEGER | Score from `scoreVendorPrice()`; nullable  |
 | `is_failed`    | INTEGER | 1 if price is null                         |
-| `poller_id`    | TEXT    | `api` (Fly.io) or `home` (home VM)         |
+| `in_stock`     | INTEGER | 0 if OOS patterns matched                  |
+
+> **No `poller_id` column on `price_snapshots`.** `POLLER_ID` is an env var used for
+> run bookkeeping and retry backoff, and it _is_ a real column on `poller_runs` and
+> `spot_prices` — but not here. Schema of record: `initSqldSchema()` in
+> `devops/pollers/shared/sqld-client.js`. Do not write queries that group
+> `price_snapshots` by `poller_id` (STRK-255).
 
 **Window floor:** every scrape is bucketed to the nearest 15-min UTC floor. The 24h history chart uses 96 windows.
 

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr Metal Ratios — GSR &amp; friends, live and back to 1968</title>
+    <meta
+      name="description"
+      content="Live gold-to-silver, gold-to-platinum, gold-to-palladium, and platinum-to-palladium ratios with long-run means, percentiles, and history back to 1968. Free, no signup."
+    />
+    <!-- STRK-273: standalone /ratios/ PWA. Directory URL on purpose — PWA scope
+         is a path prefix, so /ratios/ can own its own scope without colliding
+         with the main app's "/". This URL is public and permanent. -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="../images/ratios-apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="../images/ratios-icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="../images/ratios-icon-192.png" />
+    <link rel="stylesheet" href="../css/styles.css" />
+    <script>
+      // Same-origin theme handoff: reuse the tracker's saved theme so an
+      // installed Ratios app matches it; first-time visitors get dark. Runs
+      // inline pre-paint to avoid a theme flash. Reads only — this page never
+      // writes localStorage.
+      try {
+        var ratiosSavedTheme = localStorage.getItem("appTheme");
+        if (["dark", "light", "sepia", "slate"].indexOf(ratiosSavedTheme) >= 0) {
+          document.documentElement.setAttribute("data-theme", ratiosSavedTheme);
+        }
+      } catch (e) {
+        /* storage blocked — keep the static dark default */
+      }
+    </script>
+    <style>
+      /* Page chrome — tokens only (D-7). The panel styles ship in styles.css. */
+      html,
+      body {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+      }
+      body {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        min-height: 100vh;
+      }
+      .ratios-page {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 20px 14px 48px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .ratios-page-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .ratios-page-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .ratios-page-brand img {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+      }
+      .ratios-page-brand h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--text-primary);
+        letter-spacing: -0.01em;
+      }
+      .ratios-page-brand p {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .ratios-open-tracker {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .ratios-open-tracker:hover {
+        text-decoration: underline;
+      }
+      .ratios-page-shell {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 14px);
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+      }
+      .ratios-page-loading {
+        padding: 40px 16px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      .ratios-page-foot {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-align: center;
+        line-height: 1.6;
+      }
+      .ratios-page-foot a {
+        color: var(--primary);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ratios-page">
+      <header class="ratios-page-head">
+        <div class="ratios-page-brand">
+          <img src="../images/ratios-icon.svg" alt="" />
+          <div>
+            <h1>Metal Ratios</h1>
+            <p>How gold, silver, platinum &amp; palladium price against each other</p>
+          </div>
+        </div>
+        <!-- Deliberately outside the /ratios/ PWA scope — breaks out of the
+             standalone window into the full tracker. -->
+        <a class="ratios-open-tracker" href="../">Open full tracker →</a>
+      </header>
+      <main class="ratios-page-shell" aria-live="polite">
+        <div id="ratiosPageMount">
+          <noscript>
+            <div class="ratios-page-loading">Metal Ratios needs JavaScript to render.</div>
+          </noscript>
+          <div class="ratios-page-loading" id="ratiosPageLoading">Loading ratio history…</div>
+        </div>
+      </main>
+      <footer class="ratios-page-foot">
+        Part of <a href="../">StakTrakr</a> — free, private, in-browser precious-metals tracking.
+        Ratio history from LBMA daily closes. Not investment advice.
+      </footer>
+    </div>
+
+    <!-- Load order matters: the math engine and panel define the globals the
+         host calls; ratios-page.js defines _loadSpotSeedBundle BEFORE the seed
+         bundle (last) invokes it. All deferred — boot runs on DOMContentLoaded. -->
+    <script defer src="../vendor/chart.min.js"></script>
+    <script defer src="../js/spot-ratio-math.js"></script>
+    <script defer src="../js/ratios-panel.js"></script>
+    <script defer src="../js/ratios-page.js"></script>
+    <script defer src="../data/spot-history-bundle.js"></script>
+  </body>
+</html>

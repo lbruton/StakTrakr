@@ -1293,24 +1293,34 @@ const TREND_LABELS = {
   3650: "10Y",
 };
 
+/** @constant {string[]} TREND_METALS - Metal suffixes for the per-card trend controls. */
+const TREND_METALS = ["Silver", "Gold", "Platinum", "Palladium"];
+
 /**
- * Applies a trend period value to all four metal sparkline selects and updates
- * the header trend label.
+ * Applies a trend period value to all four metal sparkline selects and to the
+ * per-card period chips.
+ *
+ * The chips carry an aria-label as well as visible text because the text alone
+ * ("90d") is not a usable accessible name for a control; both are refreshed
+ * here so a screen reader never announces a stale period.
  * @param {string} val - The trend period value to apply.
  */
 const _applyTrend = (val) => {
-  ["Silver", "Gold", "Platinum", "Palladium"].forEach((m) => {
+  const label = TREND_LABELS[val] || `${val}d`;
+  TREND_METALS.forEach((m) => {
+    // Chip first, then the select: dispatching the select's change event runs
+    // the spot.js sparkline listeners synchronously, so updating the chip
+    // beforehand means those listeners never observe a stale label.
+    const period = document.getElementById(`spotPeriod${m}`);
+    if (period) {
+      period.textContent = label;
+      period.setAttribute("aria-label", `Trend period: ${label}. Activate to change.`);
+    }
     const sel = document.getElementById(`spotRange${m}`);
     if (sel && sel.value !== val) {
       sel.value = val;
       sel.dispatchEvent(new Event("change"));
     }
-  });
-  const label = document.getElementById("headerTrendLabel");
-  if (label) label.textContent = TREND_LABELS[val] || val + "d";
-  ["Silver", "Gold", "Platinum", "Palladium"].forEach((m) => {
-    const period = document.getElementById("spotPeriod" + m);
-    if (period) period.textContent = TREND_LABELS[val] || val + "d";
   });
 };
 
@@ -1318,21 +1328,34 @@ const _applyTrend = (val) => {
  * Cycles through trend period presets, persists the selection, and applies it.
  */
 const cycleSpotTrend = () => {
-  const current = localStorage.getItem("spotTrendPeriod") || "90";
+  const current = localStorage.getItem(SPOT_TREND_KEY) || "90";
   const next = TREND_PRESETS[(TREND_PRESETS.indexOf(current) + 1) % TREND_PRESETS.length];
-  localStorage.setItem("spotTrendPeriod", next);
+  localStorage.setItem(SPOT_TREND_KEY, next);
   _applyTrend(next);
 };
 window.cycleSpotTrend = cycleSpotTrend;
 
 /**
- * Initialises spot controls: applies the persisted trend period on load.
+ * Initialises spot controls: wires the per-card period chips and applies the
+ * persisted trend period on load.
  *
  * The per-card <select> elements remain in the DOM (hidden via CSS) so that
- * the existing spot.js sparkline listeners continue to work.
+ * the existing spot.js sparkline listeners continue to work — `_applyTrend`
+ * drives them with a synthetic change event, and they are what actually
+ * repaints the sparklines.
+ *
+ * The chips are native <button> elements, so Enter/Space activation, focus
+ * order, and the "does not scroll on Space" behaviour all come from the
+ * platform; no delegated keydown handler is needed (contrast the ratio chips
+ * in spot-ratio-chips.js, which are built dynamically as role="button" divs
+ * and therefore must handle keys themselves).
  */
 const _initSpotControls = () => {
-  _applyTrend(localStorage.getItem("spotTrendPeriod") || "90");
+  TREND_METALS.forEach((m) => {
+    const chip = document.getElementById(`spotPeriod${m}`);
+    if (chip) chip.addEventListener("click", cycleSpotTrend);
+  });
+  _applyTrend(localStorage.getItem(SPOT_TREND_KEY) || "90");
 };
 
 // =============================================================================

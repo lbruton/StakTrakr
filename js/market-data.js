@@ -3,6 +3,46 @@
 
 let _marketDataInitialized = false;
 const V2_API = "https://api.staktrakr.com/data/v2";
+const MARKET_DETAIL_HOUR_MS = 60 * 60 * 1000;
+const MARKET_DETAIL_DAY_MS = 24 * MARKET_DETAIL_HOUR_MS;
+const MARKET_DETAIL_PERIODS = Object.freeze([
+  Object.freeze({
+    id: "24h",
+    label: "24H",
+    durationMs: MARKET_DETAIL_DAY_MS,
+    source: "intraday",
+    intraday: true,
+  }),
+  Object.freeze({
+    id: "7d",
+    label: "7D",
+    durationMs: 7 * MARKET_DETAIL_DAY_MS,
+    source: "history30d",
+    intraday: false,
+  }),
+  Object.freeze({
+    id: "30d",
+    label: "30D",
+    durationMs: 30 * MARKET_DETAIL_DAY_MS,
+    source: "history30d",
+    intraday: false,
+  }),
+  Object.freeze({
+    id: "60d",
+    label: "60D",
+    durationMs: 60 * MARKET_DETAIL_DAY_MS,
+    source: "history90d",
+    intraday: false,
+  }),
+  Object.freeze({
+    id: "90d",
+    label: "90D",
+    durationMs: 90 * MARKET_DETAIL_DAY_MS,
+    source: "history90d",
+    intraday: false,
+  }),
+]);
+const MARKET_DETAIL_DEFAULT_PERIOD_ID = "7d";
 
 // STRK-188: ordered endpoint failover (api1 → api2), mirroring the spot and
 // goldback fetch paths. _staktrakrFetch is defined in api.js, which executes
@@ -338,7 +378,22 @@ const _getTickerLoopPhase = (track) => {
   }
 };
 
-const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0, previousTrack = null) => {
+/**
+ * Size the ticker loop, apply animation timing, and sweep superseded tracks.
+ *
+ * Takes no `previousTrack`: the STAK-513 sweep below removes every
+ * `.ticker-track` except this one, which necessarily includes the prior track,
+ * so targeted removal is redundant here (STRK-275). The caller still needs its
+ * own `previousTrack` for the static (<4 item) path and for positioning the
+ * incoming track while the old one is still on screen.
+ *
+ * @param {HTMLElement} container - The ticker container element.
+ * @param {HTMLElement} track - The track being finalised.
+ * @param {HTMLElement} primaryBlock - The primary content block, for loop width.
+ * @param {number} phase - Prior loop phase (0..1) for animation continuity.
+ * @returns {void}
+ */
+const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0) => {
   const loopWidth = Math.ceil(primaryBlock.getBoundingClientRect().width);
 
   track.style.removeProperty("left");
@@ -542,7 +597,7 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
 
     container.appendChild(track);
     requestAnimationFrame(() => {
-      _finalizeTickerTrack(container, track, block1, previousPhase, previousTrack);
+      _finalizeTickerTrack(container, track, block1, previousPhase);
     });
   } else {
     track.classList.add("static");
@@ -617,32 +672,282 @@ const _shortVendor = (vid) => {
 
 let _activeModalChart = null;
 let _activeModalSlug = null;
+let _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
+let _activeModalRenderGeneration = 0;
 
 const _modalEscHandler = (e) => {
   if (e.key === "Escape") closeMarketDetailModal();
 };
 
-const closeMarketDetailModal = () => {
+const _destroyActiveMarketDetailChart = () => {
   if (_activeModalChart && typeof destroyCoinChart === "function") {
     destroyCoinChart(_activeModalChart);
   }
   _activeModalChart = null;
+};
+
+const closeMarketDetailModal = () => {
+  _activeModalRenderGeneration += 1;
+  _destroyActiveMarketDetailChart();
   _activeModalSlug = null;
+  _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
 
   const content = safeGetElement("marketDetailContent");
-  if (content) content.textContent = "";
+  if (content instanceof HTMLElement) content.textContent = "";
 
   const overlay = safeGetElement("marketDetailModal");
-  if (overlay) overlay.setAttribute("hidden", "");
+  if (overlay instanceof HTMLElement) overlay.setAttribute("hidden", "");
 
   document.removeEventListener("keydown", _modalEscHandler);
 };
 
 /**
- * Fetch a slug's retail detail, 30-day history, and intraday series in parallel,
+ * Parse the publisher's UTC ISO timestamp shape with shared local-calendar
+ * validity checks and domain-specific UTC time-component checks.
+ * `validatedLocalDate()` is reused only as the shared local-calendar predicate;
+ * this feed parser retains strict UTC `Z` framing and time checks.
+ * @param {*} timestamp - Candidate `YYYY-MM-DDTHH:mm:ss(.sss)Z` value.
+ * @returns {(number|null)} Valid UTC timestamp in milliseconds, otherwise null.
+ */
+const _parseMarketDetailIsoTime = (timestamp) => {
+  if (typeof timestamp !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/.exec(timestamp);
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, msText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const millisecond = Number(msText || 0);
+  const calendarDate =
+    typeof validatedLocalDate === "function" ? validatedLocalDate(year, month - 1, day) : null;
+  if (
+    !calendarDate ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59 ||
+    millisecond < 0 ||
+    millisecond > 999
+  ) {
+    return null;
+  }
+
+  const utcTimeMs = Date.parse(timestamp);
+  return Number.isFinite(utcTimeMs) ? utcTimeMs : null;
+};
+
+/**
+ * Format a millisecond timestamp as its UTC calendar date key.
+ * @param {number} timeMs - Milliseconds since epoch.
+ * @returns {string} UTC `YYYY-MM-DD` date key.
+ */
+const _utcDateKey = (timeMs) => {
+  const date = new Date(timeMs);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Return an ISO date-only chart key from a validated publisher timestamp.
+ * The publisher's UTC date is preferred; timestamp fallback is explicitly UTC.
+ * @param {Object} row - Retail history row.
+ * @param {number} timeMs - Valid observation time in milliseconds.
+ * @returns {string} UTC `YYYY-MM-DD` chart key.
+ */
+const _getMarketDetailDailyChartTime = (row, timeMs) => {
+  const isoTimeMs = _parseMarketDetailIsoTime(row.t);
+  if (isoTimeMs !== null) return row.t.slice(0, 10);
+  return _utcDateKey(timeMs);
+};
+
+/**
+ * Parse a retail feed row timestamp, preferring Unix seconds and falling back
+ * to the publisher ISO timestamp.
+ * @param {Object} row - Retail feed row.
+ * @returns {(number|null)} Parsed timestamp in milliseconds.
+ */
+const _parseMarketDetailTime = (row) => {
+  const unixSeconds = Number(row?.ts);
+  if (Number.isFinite(unixSeconds) && unixSeconds > 0) return unixSeconds * 1000;
+
+  return _parseMarketDetailIsoTime(row?.t);
+};
+
+/**
+ * Normalize a raw Vendor value into a finite positive USD price.
+ * @param {*} vendorValue - Intraday price or daily `{avg}`/numeric value.
+ * @param {boolean} intraday - Whether the source uses direct numeric values.
+ * @returns {(number|null)} Valid raw USD price, otherwise null.
+ */
+const _normalizeMarketDetailPrice = (vendorValue, intraday) => {
+  const rawPrice =
+    intraday || typeof vendorValue === "number" || typeof vendorValue === "string"
+      ? vendorValue
+      : vendorValue?.avg;
+  if (
+    (typeof rawPrice !== "number" && typeof rawPrice !== "string") ||
+    (typeof rawPrice === "string" && rawPrice.trim() === "")
+  ) {
+    return null;
+  }
+
+  const usdPrice = Number(rawPrice);
+  return Number.isFinite(usdPrice) && usdPrice > 0 ? usdPrice : null;
+};
+
+/**
+ * Calculate range statistics from accepted raw-USD Vendor observations.
+ * @param {Array<{usdPrice:number}>} observations - Accepted range observations.
+ * @returns {{median:(number|null),low:(number|null),high:(number|null),spread:(number|null),count:number}}
+ */
+const _calculateMarketDetailSummary = (observations) => {
+  const acceptedObservations = Array.isArray(observations) ? observations : [];
+  const prices = acceptedObservations
+    .map((observation) => observation.usdPrice)
+    .filter((price) => Number.isFinite(price) && price > 0)
+    .sort((a, b) => a - b);
+
+  if (prices.length === 0) {
+    return { median: null, low: null, high: null, spread: null, count: 0 };
+  }
+
+  const midpoint = Math.floor(prices.length / 2);
+  const median =
+    prices.length % 2 === 1 ? prices[midpoint] : (prices[midpoint - 1] + prices[midpoint]) / 2;
+  const low = prices[0];
+  const high = prices[prices.length - 1];
+  return { median, low, high, spread: high - low, count: prices.length };
+};
+
+/**
+ * Build the authoritative date-bounded observations, summary, and Vendor
+ * series for a Retail View period.
+ * @param {string} periodId - Allow-listed period identifier.
+ * @param {Object} modalData - Independently fetched Retail View payloads.
+ * @param {number} nowMs - Inclusive range end in milliseconds.
+ * @returns {Object} Normalized market-detail range model.
+ */
+const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
+  const period = MARKET_DETAIL_PERIODS.find((candidate) => candidate.id === periodId);
+  const numericNowMs = Number(nowMs);
+  const endMs = Number.isFinite(numericNowMs) && numericNowMs > 0 ? numericNowMs : Date.now();
+  const startMs = period ? endMs - period.durationMs : endMs;
+  // STRK-260: daily aggregates carry a synthetic noon-UTC timestamp
+  // (devops/pollers/shared/api-export-v2.js buildDailyWithVendors stamps every
+  // bucket at T12:00:00Z), so an exact-millisecond compare against startMs/endMs
+  // rejects today's bucket before noon UTC and the oldest boundary day after
+  // noon UTC. Non-intraday periods are bounded by UTC calendar date instead;
+  // intraday (24H) keeps the exact-millisecond compare. Start is exclusive and
+  // end is inclusive so an N-day period spans exactly N calendar dates (today
+  // plus the N-1 preceding days), regardless of what time "now" falls at.
+  const startDateKey = _utcDateKey(startMs);
+  const endDateKey = _utcDateKey(endMs);
+  const rows = period && Array.isArray(modalData?.[period.source]) ? modalData[period.source] : [];
+  const observations = [];
+  const dailyObservationsByVendorTime = new Map();
+
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const timeMs = _parseMarketDetailTime(row);
+    if (timeMs === null) continue;
+
+    const chartTime = period?.intraday
+      ? Math.floor(timeMs / 1000)
+      : _getMarketDetailDailyChartTime(row, timeMs);
+
+    if (period?.intraday) {
+      if (timeMs < startMs || timeMs > endMs) continue;
+    } else if (chartTime <= startDateKey || chartTime > endDateKey) {
+      continue;
+    }
+    if (!row.vendors || typeof row.vendors !== "object" || Array.isArray(row.vendors)) continue;
+
+    for (const [vendorId, vendorValue] of Object.entries(row.vendors)) {
+      if (!vendorId) continue;
+      const usdPrice = _normalizeMarketDetailPrice(vendorValue, !!period?.intraday);
+      if (usdPrice === null) continue;
+      const observation = { vendorId, timeMs, chartTime, usdPrice };
+      if (period?.intraday) {
+        observations.push(observation);
+      } else {
+        const observationKey = JSON.stringify([vendorId, chartTime]);
+        const existingObservation = dailyObservationsByVendorTime.get(observationKey);
+        if (!existingObservation || timeMs >= existingObservation.timeMs) {
+          dailyObservationsByVendorTime.set(observationKey, observation);
+        }
+      }
+    }
+  }
+
+  if (!period?.intraday) {
+    observations.push(...dailyObservationsByVendorTime.values());
+  }
+
+  observations.sort(
+    (left, right) => left.timeMs - right.timeMs || left.vendorId.localeCompare(right.vendorId)
+  );
+
+  // STRK-276: collapse duplicate (vendorId, chartTime) pairs when building the
+  // chart series. Intraday keys chart time as Math.floor(timeMs / 1000), so two
+  // rows for one vendor inside the same second yield two points at an identical
+  // time; Lightweight Charts rejects duplicate/unsorted times in setData(),
+  // which degrades the whole view to "Chart unavailable" instead of dropping a
+  // single point.
+  //
+  // Deliberately done HERE and not where observations are collected. The
+  // duplicate is a chart-rendering constraint, not a data-validity problem —
+  // both rows are real observations — so `observations`, and therefore the
+  // median/low/high/spread/count in the summary, are left untouched. Deduping
+  // upstream instead would let a rendering limitation quietly change
+  // user-visible statistics.
+  //
+  // `observations` is already sorted ascending by timeMs, so the last write per
+  // key wins, matching the daily branch's timeMs tie-break. Map iteration keeps
+  // insertion order, so points stay time-ordered. The daily path is deduped
+  // upstream already, making this a no-op there.
+  const seriesByVendor = new Map();
+  for (const observation of observations) {
+    let pointsByChartTime = seriesByVendor.get(observation.vendorId);
+    if (!pointsByChartTime) {
+      pointsByChartTime = new Map();
+      seriesByVendor.set(observation.vendorId, pointsByChartTime);
+    }
+    pointsByChartTime.set(observation.chartTime, {
+      time: observation.chartTime,
+      usdPrice: observation.usdPrice,
+    });
+  }
+
+  const series = Array.from(seriesByVendor, ([vendorId, pointsByChartTime]) => ({
+    vendorId,
+    points: Array.from(pointsByChartTime.values()),
+  })).sort((left, right) => left.vendorId.localeCompare(right.vendorId));
+
+  return {
+    periodId: period ? period.id : periodId,
+    startMs,
+    endMs,
+    intraday: !!period?.intraday,
+    observations,
+    series,
+    summary: _calculateMarketDetailSummary(observations),
+    hasChartData: series.some((vendorSeries) => vendorSeries.points.length > 0),
+  };
+};
+
+/**
+ * Fetch a slug's retail detail and three history sources independently,
  * tolerating individual failures (each resolves to null on error).
  * @param {string} slug - Retail coin slug.
- * @returns {Promise<{detail:(Object|null), retailHistory:*, retailIntraday:*}>}
+ * @returns {Promise<{detail:(Object|null),intraday:*,history30d:*,history90d:*}>}
  */
 const _fetchModalData = async (slug) => {
   const detailPromise = _marketV2Fetch("/retail/" + slug + "/latest.json")
@@ -652,24 +957,40 @@ const _fetchModalData = async (slug) => {
       return null;
     });
 
-  // Fetch per-vendor retail history (30d — filter to 7 in chart) and intraday (24h)
-  const historyPromise = _marketV2Fetch("/retail/" + slug + "/history-30d.json")
-    .then((json) => (json && json.data ? json.data : json))
-    .catch(() => null);
-
   const intradayPromise = _marketV2Fetch("/retail/" + slug + "/intraday.json")
     .then((json) => (json && json.data ? json.data : json))
-    .catch(() => null);
+    .catch((e) => {
+      debugLog("[market-data] Intraday fetch failed: " + e.message, "warn");
+      return null;
+    });
 
-  const [detailResult, historyResult, intradayResult] = await Promise.allSettled([
-    detailPromise,
-    historyPromise,
-    intradayPromise,
-  ]);
+  const history30dPromise = _marketV2Fetch("/retail/" + slug + "/history-30d.json")
+    .then((json) => (json && json.data ? json.data : json))
+    .catch((e) => {
+      debugLog("[market-data] History 30d fetch failed: " + e.message, "warn");
+      return null;
+    });
+
+  const history90dPromise = _marketV2Fetch("/retail/" + slug + "/history-90d.json")
+    .then((json) => (json && json.data ? json.data : json))
+    .catch((e) => {
+      debugLog("[market-data] History 90d fetch failed: " + e.message, "warn");
+      return null;
+    });
+
+  const [detailResult, intradayResult, history30dResult, history90dResult] =
+    await Promise.allSettled([
+      detailPromise,
+      intradayPromise,
+      history30dPromise,
+      history90dPromise,
+    ]);
+
   return {
     detail: detailResult.status === "fulfilled" ? detailResult.value : null,
-    retailHistory: historyResult.status === "fulfilled" ? historyResult.value : null,
-    retailIntraday: intradayResult.status === "fulfilled" ? intradayResult.value : null,
+    intraday: intradayResult.status === "fulfilled" ? intradayResult.value : null,
+    history30d: history30dResult.status === "fulfilled" ? history30dResult.value : null,
+    history90d: history90dResult.status === "fulfilled" ? history90dResult.value : null,
   };
 };
 
@@ -709,154 +1030,163 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
 };
 
 /**
- * Render the detail-modal price summary row (median/low/high/spread stats).
- * No-op when detail is absent.
+ * Render four stable selected-period summary cells.
  * @param {HTMLElement} content - Modal content container.
- * @param {Object|null} detail - Normalized retail detail.
- * @param {string} slug - Retail coin slug (for the coins-summary lookup).
- * @returns {void}
+ * @returns {function(Object):void} Raw-USD summary updater.
  */
-const _buildModalPriceSummary = (content, detail, slug) => {
-  if (!detail) return;
-  const coins = _getRetailCoins();
-  const coinSummary = coins[slug];
-  const median = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
-  const low = detail.lowest_price || (coinSummary && coinSummary.lowest_price) || null;
-  const high = detail.highest_price || (coinSummary && coinSummary.highest_price) || null;
-  const spread = low != null && high != null ? high - low : null;
-
+const _buildModalPriceSummary = (content) => {
   const priceRow = document.createElement("div");
-  priceRow.style.cssText =
-    "display:flex;gap:24px;flex-wrap:wrap;margin-bottom:1rem;font-size:13px;";
+  priceRow.className = "market-detail-summary";
+  priceRow.setAttribute("aria-live", "polite");
+  const valueElements = {};
 
-  const addStat = (label, value) => {
+  for (const [key, label] of [
+    ["median", "Median"],
+    ["low", "Low"],
+    ["high", "High"],
+    ["spread", "Spread"],
+  ]) {
     const stat = document.createElement("div");
     const lbl = document.createElement("div");
-    lbl.style.cssText =
-      "color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;";
+    lbl.className = "market-detail-stat-label";
     lbl.textContent = label;
     stat.appendChild(lbl);
     const val = document.createElement("div");
     val.classList.add("market-value");
-    val.textContent = value;
+    val.textContent = "\u2014";
     stat.appendChild(val);
     priceRow.appendChild(stat);
-  };
-
-  if (median != null) addStat("Median", formatCurrency(median));
-  if (low != null) addStat("Low", formatCurrency(low));
-  if (high != null) addStat("High", formatCurrency(high));
-  if (spread != null) addStat("Spread", formatCurrency(spread));
+    valueElements[key] = val;
+  }
 
   content.appendChild(priceRow);
+
+  return (summary = {}) => {
+    for (const [key, element] of Object.entries(valueElements)) {
+      const value = summary[key];
+      element.textContent = Number.isFinite(value) ? formatCurrency(value) : "\u2014";
+    }
+  };
 };
 
 /**
- * Render the detail-modal chart section: period tabs (24H/7D) and a chart area
- * that lazily renders the appropriate vendor history/intraday chart on demand.
+ * Render the five-period selected-range controller and chart.
  * @param {HTMLElement} content - Modal content container.
- * @param {*} retailHistory - 30-day per-vendor history series (or null).
- * @param {*} retailIntraday - 24-hour intraday series (or null).
+ * @param {Object} modalData - Independently fetched Retail View payloads.
  * @param {Object} vendorMeta - Vendor-meta map (for chart series styling).
+ * @param {function(Object):void} updateSummary - Selected-range summary updater.
+ * @param {string} initialPeriodId - Period selected for this reconstruction.
  * @returns {void}
  */
-const _buildModalChartSection = (content, retailHistory, retailIntraday, vendorMeta) => {
+const _buildModalChartSection = (
+  content,
+  modalData,
+  vendorMeta,
+  updateSummary,
+  initialPeriodId
+) => {
   const chartSection = document.createElement("div");
-  chartSection.style.cssText = "margin-bottom:1rem;";
+  chartSection.className = "market-detail-chart-section";
 
   const chartTabBar = document.createElement("div");
-  chartTabBar.style.cssText = "display:flex;gap:4px;margin-bottom:8px;";
-  const periods = [
-    { id: "24h", label: "24H" },
-    { id: "7d", label: "7D" },
-  ];
+  chartTabBar.className = "chip-sort-toggle market-detail-periods";
+  chartTabBar.setAttribute("role", "group");
+  chartTabBar.setAttribute("aria-label", "Vendor history period");
 
   const chartWrap = document.createElement("div");
   chartWrap.className = "market-detail-chart";
   chartWrap.id = "marketDetailChartArea";
+  const rangeEndMs = Date.now();
+  const rangeModels = new Map(
+    MARKET_DETAIL_PERIODS.map((period) => [
+      period.id,
+      _buildMarketDetailRangeModel(period.id, modalData, rangeEndMs),
+    ])
+  );
+  const periodButtons = new Map();
 
+  /**
+   * Replace chart content with the established unavailable state.
+   * @returns {void}
+   */
   const _showNoChart = () => {
     chartWrap.textContent = "";
     const msg = document.createElement("div");
-    msg.style.cssText =
-      "display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;";
+    msg.className = "market-detail-chart-unavailable";
     msg.textContent = "Chart unavailable";
     chartWrap.appendChild(msg);
   };
 
-  const _switchChartPeriod = (periodId) => {
-    // Update tab active state
-    chartTabBar.querySelectorAll("button").forEach((b) => {
-      b.style.background =
-        b.getAttribute("data-period") === periodId ? "var(--bg-secondary)" : "transparent";
-      b.style.fontWeight = b.getAttribute("data-period") === periodId ? "600" : "400";
-    });
-    // Destroy existing chart
-    if (_activeModalChart && typeof destroyCoinChart === "function") {
-      destroyCoinChart(_activeModalChart);
-    }
-    _activeModalChart = null;
-    chartWrap.textContent = "";
-    chartWrap.id = "marketDetailChartArea";
+  /**
+   * Render one selected range across controls, summary, and chart.
+   * @param {string} periodId - Allow-listed period identifier.
+   * @returns {void}
+   */
+  const _renderSelectedRange = (periodId) => {
+    const period = MARKET_DETAIL_PERIODS.find((candidate) => candidate.id === periodId);
+    const rangeModel = rangeModels.get(periodId);
+    if (!period || !rangeModel) return;
 
-    if (typeof LightweightCharts === "undefined") {
+    _activeModalPeriodId = periodId;
+    for (const [buttonPeriodId, button] of periodButtons) {
+      const isSelected = buttonPeriodId === periodId;
+      button.classList.toggle("active", isSelected);
+      button.setAttribute("aria-pressed", String(isSelected));
+    }
+
+    updateSummary(rangeModel.summary);
+    _destroyActiveMarketDetailChart();
+    chartWrap.textContent = "";
+
+    if (typeof LightweightCharts === "undefined" || !rangeModel.hasChartData) {
       _showNoChart();
       return;
     }
 
-    if (periodId === "7d") {
-      if (
-        typeof createVendorHistoryChart === "function" &&
-        retailHistory &&
-        Array.isArray(retailHistory) &&
-        retailHistory.length > 0
-      ) {
-        _activeModalChart = createVendorHistoryChart(
-          "marketDetailChartArea",
-          retailHistory,
-          vendorMeta
-        );
-        if (!_activeModalChart) _showNoChart();
-      } else {
-        _showNoChart();
-      }
-    } else if (periodId === "24h") {
-      if (
-        typeof createVendorIntradayChart === "function" &&
-        retailIntraday &&
-        Array.isArray(retailIntraday) &&
-        retailIntraday.length > 0
-      ) {
+    try {
+      if (period.intraday && typeof createVendorIntradayChart === "function") {
         _activeModalChart = createVendorIntradayChart(
           "marketDetailChartArea",
-          retailIntraday,
+          rangeModel,
           vendorMeta
         );
-        if (!_activeModalChart) _showNoChart();
-      } else {
-        _showNoChart();
+      } else if (!period.intraday && typeof createVendorHistoryChart === "function") {
+        _activeModalChart = createVendorHistoryChart(
+          "marketDetailChartArea",
+          rangeModel,
+          vendorMeta
+        );
       }
+    } catch (e) {
+      debugLog("[market-data] Detail chart render failed: " + e.message, "warn");
+      _destroyActiveMarketDetailChart();
+    }
+
+    if (!_activeModalChart) {
+      _showNoChart();
     }
   };
 
-  for (const p of periods) {
+  for (const period of MARKET_DETAIL_PERIODS) {
     const btn = document.createElement("button");
-    btn.setAttribute("data-period", p.id);
-    btn.textContent = p.label;
-    btn.style.cssText =
-      "border:1px solid var(--border);border-radius:6px;padding:3px 12px;font-size:11px;cursor:pointer;color:var(--text-secondary);background:transparent;";
-    btn.addEventListener("click", () => _switchChartPeriod(p.id));
+    btn.type = "button";
+    btn.className = "chip-sort-btn market-detail-period-btn";
+    btn.setAttribute("data-period", period.id);
+    btn.setAttribute("aria-pressed", "false");
+    btn.textContent = period.label;
+    btn.addEventListener("click", () => _renderSelectedRange(period.id));
     chartTabBar.appendChild(btn);
+    periodButtons.set(period.id, btn);
   }
 
   chartSection.appendChild(chartTabBar);
   chartSection.appendChild(chartWrap);
   content.appendChild(chartSection);
 
-  // Defer initial chart render until after all modal content is in the DOM
-  const hasIntraday = retailIntraday && Array.isArray(retailIntraday) && retailIntraday.length > 0;
-  const hasHistory = retailHistory && Array.isArray(retailHistory) && retailHistory.length > 0;
-  setTimeout(() => _switchChartPeriod(hasHistory ? "7d" : hasIntraday ? "24h" : "7d"), 0);
+  const selectedPeriodId = rangeModels.has(initialPeriodId)
+    ? initialPeriodId
+    : MARKET_DETAIL_DEFAULT_PERIOD_ID;
+  _renderSelectedRange(selectedPeriodId);
 };
 
 /**
@@ -1041,17 +1371,27 @@ const _appendModalDisclaimer = (content) => {
   }
 };
 
-const openMarketDetailModal = async (slug) => {
+/**
+ * Open and populate the main-page Retail View for one product slug.
+ * @param {string} slug - Retail product slug.
+ * @param {Object} [options] - Modal reconstruction options.
+ * @param {boolean} [options.preservePeriod=false] - Preserve UI-local range selection.
+ * @returns {Promise<void>}
+ */
+const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   const overlay = safeGetElement("marketDetailModal");
   const content = safeGetElement("marketDetailContent");
-  if (!overlay || !content) return;
+  if (!(overlay instanceof HTMLElement) || !(content instanceof HTMLElement)) return;
 
+  const renderGeneration = ++_activeModalRenderGeneration;
+  if (!preservePeriod) _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
+  _destroyActiveMarketDetailChart();
   _activeModalSlug = slug;
   content.textContent = "";
   overlay.removeAttribute("hidden");
 
   const closeBtn = safeGetElement("marketDetailCloseBtn");
-  if (closeBtn) closeBtn.onclick = () => closeMarketDetailModal();
+  if (closeBtn instanceof HTMLElement) closeBtn.onclick = () => closeMarketDetailModal();
   overlay.onclick = (e) => {
     if (e.target === overlay) closeMarketDetailModal();
   };
@@ -1071,16 +1411,24 @@ const openMarketDetailModal = async (slug) => {
   const metalLower = (coinMeta.metal || "").toLowerCase();
   const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
 
-  const { detail, retailHistory, retailIntraday } = await _fetchModalData(slug);
+  const modalData = await _fetchModalData(slug);
+  if (
+    renderGeneration !== _activeModalRenderGeneration ||
+    _activeModalSlug !== slug ||
+    overlay.hasAttribute("hidden")
+  ) {
+    return;
+  }
+  const { detail } = modalData;
 
   content.textContent = "";
 
   const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
   _buildModalHeader(content, coinMeta, slug, metalCode, metalLower, weightOz);
 
-  _buildModalPriceSummary(content, detail, slug);
+  const updateSummary = _buildModalPriceSummary(content);
 
-  _buildModalChartSection(content, retailHistory, retailIntraday, vendorMeta);
+  _buildModalChartSection(content, modalData, vendorMeta, updateSummary, _activeModalPeriodId);
 
   // ── Vendor comparison table ──
   _buildModalVendorTable(content, detail, slug, vendorMeta, metalCode, weightOz);
@@ -1536,23 +1884,104 @@ const _renderVendorTable = async (metalCode) => {
   // for the stale-reference race that duplicated ticker rows.
 };
 
-const renderVendorPrices = () => {
-  const container = safeGetElement("vendorPricesContainer");
-  if (!container) return;
+/**
+ * True while a user-initiated market refresh is running.
+ *
+ * Module-scoped rather than closed over the button element because a completing
+ * sync calls refreshMarketData() → renderVendorPrices(), which rebuilds the
+ * control. A captured node reference would be detached by the time the refresh
+ * finished, so the in-flight state has to live outside the DOM.
+ */
+let _marketRefreshInProgress = false;
 
-  const coins = _getRetailCoins();
-  if (!coins || Object.keys(coins).length === 0) {
-    container.textContent = "";
-    const msg = document.createElement("div");
-    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
-    msg.textContent = "Retail data unavailable";
-    container.appendChild(msg);
-    return;
+/**
+ * Paints one refresh button to match the current refresh state.
+ * @param {HTMLButtonElement} btn - The control to paint
+ * @returns {void}
+ */
+const _paintMarketRefreshBtn = (btn) => {
+  if (!(btn instanceof HTMLButtonElement)) return;
+  btn.disabled = _marketRefreshInProgress;
+  btn.textContent = _marketRefreshInProgress ? "↻…" : "↻ Refresh";
+};
+
+/**
+ * Repaints the live refresh button, if the market block is currently rendered.
+ *
+ * safeGetElement returns a truthy dummy for a missing id, so the instanceof
+ * check in _paintMarketRefreshBtn is what makes this safe to call when the
+ * Market block has not rendered yet.
+ * @returns {void}
+ */
+const _syncMarketRefreshBtnState = () => {
+  _paintMarketRefreshBtn(safeGetElement("marketRefreshBtn"));
+};
+
+/**
+ * Runs a user-initiated market refresh from the Market block (STRK-290).
+ *
+ * Calls syncRetailPrices(), which pulls unconditionally. The control used to
+ * call startRetailBackgroundSync(), whose body sits behind
+ * `if (isStale || missingProviders || missingSlugs)` with a one-hour staleness
+ * budget and no else branch — so on data younger than an hour the click did
+ * nothing at all, while a hardcoded 5s timeout restored the button and made it
+ * look like a refresh had happened.
+ *
+ * ui:false because the shared progress machinery inside syncRetailPrices
+ * addresses Settings' #retailSyncBtn by id; this control owns its own state and
+ * drives it off the awaited promise instead of a timer.
+ *
+ * Residual edge, considered and accepted: syncRetailPrices has its own
+ * _retailSyncInProgress guard, so a click landing while the 30-minute background
+ * sync happens to be running returns immediately and the button restores fast.
+ * The user's intent is still met — that in-flight sync ends by calling
+ * refreshMarketData() — so unlike the bug this replaces, the data does refresh.
+ * Awaiting the in-flight run instead would mean exposing its promise from
+ * js/retail.js, which is a wider change than this patch warrants.
+ * @returns {Promise<void>}
+ */
+const _runMarketRefresh = async () => {
+  if (_marketRefreshInProgress) return;
+  _marketRefreshInProgress = true;
+  _syncMarketRefreshBtnState();
+  try {
+    if (typeof syncRetailPrices === "function") {
+      await syncRetailPrices({ ui: false });
+    }
+    // syncRetailPrices covers vendor/retail feeds but never fetches
+    // goldback/latest.json, so the G1 benchmark would stay stale and Goldback
+    // premiums would keep rendering against the old rate until reload. The
+    // control's previous implementation reached this via
+    // `_marketDataInitialized = false; initMarketData()`; calling the seeder
+    // directly gets the same refresh without re-running all of init.
+    await _seedAndRefreshGoldbackG1Rate();
+    // Repaint with the refreshed G1 rate — syncRetailPrices' own
+    // refreshMarketData() already ran, but it did so before this fetch.
+    if (typeof refreshMarketData === "function") refreshMarketData();
+  } catch (e) {
+    debugLog(`[market-data] Manual market refresh failed: ${e?.message ?? e}`, "warn");
+  } finally {
+    _marketRefreshInProgress = false;
+    // syncRetailPrices' own finally re-renders the block, so this repaints
+    // whichever button is mounted now — the original or its replacement.
+    _syncMarketRefreshBtnState();
+    if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
   }
+};
 
-  container.textContent = "";
-
-  // ── Header: Timestamp + Refresh (no section title — matches other sections) ──
+/**
+ * Builds the Market block's header row: timestamp, freshness dot, Refresh, gear.
+ *
+ * Extracted from renderVendorPrices (STRK-290) so it can render in BOTH the
+ * populated and the empty-data branches. Previously the empty branch returned
+ * before this markup existed, which was survivable only while the retired
+ * #headerMarketBtn provided an always-available market pull. Without that
+ * button, a fresh install or a failed first sync would show "Retail data
+ * unavailable" with no way to retry — and the background poll does not try
+ * again for 30 minutes.
+ * @returns {HTMLDivElement} The assembled header row, ready to append
+ */
+const _buildMarketBlockHeader = () => {
   const headerRow = document.createElement("div");
   headerRow.style.cssText =
     "display:flex;justify-content:flex-end;align-items:center;margin-bottom:0.75rem;";
@@ -1573,22 +2002,32 @@ const renderVendorPrices = () => {
   }
   rightGroup.appendChild(tsSpan);
 
+  // STRK-290: market freshness moved here from #headerMarketDot when the Market
+  // header button retired. Same painter (updateMarketHealthDot, js/retail.js) and
+  // a different base class: .cloud-sync-dot is the inline-flow dot, whereas the
+  // old .header-cloud-dot was `position: absolute` for a button-corner badge and
+  // dropped straight out of this flex row. That base rule is gone as of STRK-298
+  // — this must stay .cloud-sync-dot, which is load-bearing, not incidental. The
+  // colour modifiers the painter adds are separate and still exist.
+  const freshnessDot = document.createElement("span");
+  freshnessDot.id = "marketFreshnessDot";
+  freshnessDot.className = "cloud-sync-dot";
+  freshnessDot.title = "Market data freshness";
+  rightGroup.appendChild(freshnessDot);
+
   const refreshBtn = document.createElement("button");
+  refreshBtn.id = "marketRefreshBtn";
+  refreshBtn.type = "button";
+  refreshBtn.title = "Refresh market prices";
+  refreshBtn.setAttribute("aria-label", "Refresh market prices");
   refreshBtn.style.cssText =
     "background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;";
-  refreshBtn.textContent = "\u21BB Refresh";
+  // Painted from the module flag rather than hardcoded to the idle state: a sync
+  // ends by calling refreshMarketData(), which re-runs this whole function, so a
+  // freshly built button must be able to render mid-flight in the syncing state.
+  _paintMarketRefreshBtn(refreshBtn);
   refreshBtn.addEventListener("click", () => {
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = "\u21BB\u2026";
-    if (typeof startRetailBackgroundSync === "function") {
-      startRetailBackgroundSync();
-    }
-    setTimeout(() => {
-      _marketDataInitialized = false;
-      initMarketData().catch(() => {});
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = "\u21BB Refresh";
-    }, 5000);
+    void _runMarketRefresh();
   });
   rightGroup.appendChild(refreshBtn);
 
@@ -1605,7 +2044,27 @@ const renderVendorPrices = () => {
   rightGroup.appendChild(settingsBtn);
 
   headerRow.appendChild(rightGroup);
-  container.appendChild(headerRow);
+  return headerRow;
+};
+
+const renderVendorPrices = () => {
+  const container = safeGetElement("vendorPricesContainer");
+  if (!container) return;
+
+  container.textContent = "";
+  // Header first, unconditionally — the empty branch below needs the Refresh
+  // control too, otherwise "Retail data unavailable" is a dead end (STRK-290).
+  container.appendChild(_buildMarketBlockHeader());
+
+  const coins = _getRetailCoins();
+  if (!coins || Object.keys(coins).length === 0) {
+    const msg = document.createElement("div");
+    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
+    msg.textContent = "Retail data unavailable";
+    container.appendChild(msg);
+    if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+    return;
+  }
 
   const tabBar = document.createElement("div");
   tabBar.className = "vendor-prices-tabs";
@@ -1675,6 +2134,12 @@ const renderVendorPrices = () => {
   if (currencyDisclaimer) footerText += " " + currencyDisclaimer;
   footer.textContent = footerText;
   container.appendChild(footer);
+
+  // STRK-290: paint the relocated freshness dot now that it is mounted. The
+  // painter's other callers (init.js boot, and _syncRetailV2 on success) can
+  // both fire while this block is unrendered, so relying on them alone would
+  // leave the dot unpainted until the next sync.
+  if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
 };
 
 // ---------------------------------------------------------------------------
@@ -1835,8 +2300,8 @@ if (typeof window !== "undefined") {
       if (typeof renderBestPriceTicker === "function") renderBestPriceTicker();
       if (typeof renderVendorPrices === "function") renderVendorPrices();
       const overlay = safeGetElement("marketDetailModal");
-      if (_activeModalSlug && overlay && !overlay.hasAttribute("hidden")) {
-        void openMarketDetailModal(_activeModalSlug).catch((e) => {
+      if (_activeModalSlug && overlay instanceof HTMLElement && !overlay.hasAttribute("hidden")) {
+        void openMarketDetailModal(_activeModalSlug, { preservePeriod: true }).catch((e) => {
           debugLog("[market-data] Detail modal currency refresh failed: " + e.message, "warn");
         });
       }

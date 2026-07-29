@@ -550,264 +550,42 @@
         <span class="env-badge" id="envBadge" style="display: none"></span>
       </div>
       <div class="app-header-actions" id="headerBtnContainer">
-        <!-- Spot sync button (STAK-314) — order: 1 -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerSyncBtn"
-          title="Sync spot prices"
-          aria-label="Sync spot prices"
-          style="display: none; position: relative"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21.5 2v6h-6" />
-            <path d="M2.5 22v-6h6" />
-            <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-            <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-          </svg>
-          <span class="cloud-sync-dot header-cloud-dot" id="headerSyncDot"></span>
-          <span class="header-btn-text">Spot</span>
-        </button>
-        <!-- Trend cycle button — order: 2 -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerTrendBtn"
-          title="Trend period"
-          aria-label="Trend period"
-          style="display: none"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          <span class="header-btn-text">Trend</span>
-        </button>
-        <!-- Market button — order: 3 -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerMarketBtn"
-          title="Market prices"
-          aria-label="Market prices"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <path d="M16 10a4 4 0 0 1-8 0" />
-          </svg>
-          <span class="cloud-sync-dot header-cloud-dot" id="headerMarketDot"></span>
-          <span class="header-btn-text">Market</span>
-        </button>
-        <!-- Currency toggle button — order: 4 -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerCurrencyBtn"
-          title="Toggle currency"
-          aria-label="Toggle currency"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="12" y1="1" x2="12" y2="23" />
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-          <span class="header-btn-text">Currency</span>
-        </button>
-        <!-- Cloud sync status button + inline popover wrapper — order: 5 (STAK-264) -->
-        <div style="position: relative; display: inline-flex" id="headerCloudSyncWrapper">
-          <button
-            class="btn theme-btn header-toggle-btn"
-            id="headerCloudSyncBtn"
-            title="Cloud sync status"
-            aria-label="Cloud sync status"
-            style="display: none"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
-            </svg>
-            <span class="cloud-sync-dot header-cloud-dot" id="headerCloudDot"></span>
-            <span class="header-btn-text">Cloud</span>
-          </button>
-          <!-- Secure mode: inline password popover (never auto-opens) -->
-          <div
-            id="cloudSyncHeaderPopover"
-            role="dialog"
-            aria-label="Sync password"
-            style="
-              display: none;
-              position: absolute;
-              top: calc(100% + 6px);
-              right: 0;
-              background: var(--bg-card);
-              border: 1px solid var(--border);
-              border-radius: 8px;
-              padding: 0.75rem;
-              box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-              z-index: 999;
-              min-width: 240px;
-            "
-          >
-            <div
-              style="
-                font-size: 0.75rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                margin-bottom: 0.5rem;
-                color: var(--text-muted);
-              "
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                style="vertical-align: -1px; margin-right: 4px"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
-              >Vault Password
-            </div>
-            <div style="display: flex; gap: 0.4rem">
-              <input
-                type="password"
-                id="cloudSyncPopoverInput"
-                placeholder="Enter password"
-                autocomplete="current-password"
-                style="
-                  flex: 1;
-                  font-size: 0.85rem;
-                  padding: 0.3rem 0.5rem;
-                  border: 1px solid var(--border);
-                  border-radius: 4px;
-                  background: var(--bg-tertiary);
-                  color: var(--text-primary);
-                "
-              />
-              <button
-                class="btn success"
-                id="cloudSyncPopoverUnlockBtn"
-                style="font-size: 0.8rem; padding: 0.3rem 0.6rem"
-              >
-                Unlock
-              </button>
-            </div>
-            <div
-              id="cloudSyncPopoverError"
-              style="
-                color: var(--danger, #e74c3c);
-                font-size: 0.75rem;
-                margin-top: 0.3rem;
-                display: none;
-              "
-            ></div>
-            <button
-              id="cloudSyncPopoverCancelBtn"
-              style="
-                background: none;
-                border: none;
-                color: var(--text-secondary);
-                font-size: 0.75rem;
-                margin-top: 0.4rem;
-                cursor: pointer;
-                padding: 0;
-              "
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-        <!-- Vault backup button — order: 6 (STAK-314) -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerVaultBtn"
-          title="Backup"
-          aria-label="Backup"
-          style="display: none"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <span class="header-btn-text">Backup</span>
-        </button>
-        <!-- Restore button — order: 7 (STAK-314) -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="headerRestoreBtn"
-          title="Restore"
-          aria-label="Restore"
-          style="display: none"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="1 4 1 10 7 10" />
-            <path d="M3.51 15a9 9 0 1 0 .49-4.51" />
-          </svg>
-          <span class="header-btn-text">Restore</span>
-        </button>
-        <!-- Theme cycle button — order: 8 (STACK-54) -->
+        <!-- Spot sync button retired (STRK-284) — spot prices are refreshed from
+             the per-card .spot-sync-icon on each spot card. Every card's icon
+             syncs all four metals: one provider fetch returns the whole payload,
+             so a per-metal sync would repeat the same request for no gain. -->
+        <!-- Trend cycle button retired (STRK-283) — the trend period is now set
+             from the per-card .spot-card-period chip on each spot card. -->
+        <!-- Market button retired (STRK-290) — the last of the eight. Unlike the
+             other retirements this one required a repair first: the Market block
+             already rendered a "↻ Refresh" control, but it called
+             startRetailBackgroundSync(), which is gated behind a one-hour
+             staleness check and so did nothing on fresh data. That control now
+             calls syncRetailPrices() (#marketRefreshBtn, js/market-data.js), which
+             pulls unconditionally. #headerMarketDot went with the button; the
+             freshness signal is now #marketFreshnessDot, rendered beside the
+             market table it describes. -->
+        <!-- Currency header button retired (STRK-288). Unlike the other
+             retirements this one ran a real feature, not a shortcut: it opened a
+             floating picker that called saveDisplayCurrency(). Settings ›
+             Currency (#settingsDisplayCurrency) reaches the SAME function, so the
+             capability is duplicated, not lost — only the one-click access went.
+             NOTE this is the first retirement of a button that shipped VISIBLE
+             (no style="display:none"), so existing users will notice it. -->
+        <!-- Cloud Sync header button retired (STRK-287). It was dual-action —
+             syncNow() when connected, else showSettingsModal("cloud") — and both
+             live on in Settings › Cloud (#cloudSyncNowBtn and the panel itself).
+             The app already syncs on change, so the shortcut was redundant; the
+             #headerCloudDot status signal going with it is an accepted trade.
+             The inline "Vault Password" popover that lived in this wrapper went
+             too: _openCloudSyncPopover() had zero callers, so it was already
+             unreachable. Passphrase entry is #cloudSyncPasswordModal, untouched. -->
+        <!-- Backup + Restore buttons retired (STRK-285, STRK-286). Neither ever
+             performed an action — both listeners were the same
+             showSettingsModal("system") call, i.e. two icons for one shortcut.
+             Backup and restore live in Settings › System, which holds the full
+             import/export set. -->
+        <!-- Theme cycle button (STACK-54) -->
         <button
           class="btn theme-btn header-toggle-btn"
           id="headerThemeBtn"
@@ -836,29 +614,10 @@
           </svg>
           <span class="header-btn-text">Theme</span>
         </button>
-        <!-- Info button — order: 9 -->
-        <button
-          class="btn theme-btn header-toggle-btn"
-          id="aboutBtn"
-          title="About"
-          aria-label="About"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span class="header-btn-text">Info</span>
-        </button>
+        <!-- Info/About button retired (STRK-289) — its handler was only
+             showSettingsModal("about"), and About is the DEFAULT settings panel,
+             so opening Settings already lands on it. Note the id was `aboutBtn`,
+             not `headerAboutBtn`. -->
         <button
           class="btn theme-btn header-toggle-btn"
           id="settingsBtn"
@@ -904,7 +663,14 @@
               <canvas class="spot-sparkline" id="sparklineSilver" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Silver Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodSilver">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodSilver"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -955,7 +721,14 @@
               <canvas class="spot-sparkline" id="sparklineGold" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Gold Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodGold">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodGold"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -1006,7 +779,14 @@
               <canvas class="spot-sparkline" id="sparklinePlatinum" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Platinum Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodPlatinum">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodPlatinum"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -1066,7 +846,14 @@
               <canvas class="spot-sparkline" id="sparklinePalladium" aria-hidden="true"></canvas>
               <div class="spot-card-header">
                 <div class="spot-card-label">Palladium Spot Price</div>
-                <span class="spot-card-period" id="spotPeriodPalladium">90d</span>
+                <button
+                  type="button"
+                  class="spot-card-period"
+                  id="spotPeriodPalladium"
+                  aria-label="Trend period: 90d. Activate to change."
+                >
+                  90d
+                </button>
                 <div class="spot-card-controls">
                   <select
                     class="spot-range-select"
@@ -3404,6 +3191,28 @@
     <!-- aboutModal and versionModal removed — content moved to settingsPanel_about; whatsNewPopup replaced by toast card (STAK-547) -->
     <!-- =============================================================================
        ============================================================================= -->
+
+    <!-- STRK-271: Metal Ratios panel modal — in-app host for the STRK-270 shared
+         panel. Opened by the spot-card ratio chips; the panel itself is rendered
+         into #ratiosPanelMount by renderRatiosPanel(). -->
+    <div
+      class="modal"
+      id="ratiosPanelModal"
+      style="display: none; z-index: 10000"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ratiosPanelModalTitle"
+    >
+      <div class="modal-content ratios-modal-content">
+        <div class="modal-header">
+          <h3 id="ratiosPanelModalTitle">Metal Ratios</h3>
+          <button aria-label="Close modal" class="modal-close" id="ratiosPanelCloseBtn">
+            &times;
+          </button>
+        </div>
+        <div id="ratiosPanelMount"></div>
+      </div>
+    </div>
 
     <!-- =============================================================================
        UNIFIED SETTINGS MODAL
@@ -8827,6 +8636,12 @@
          init.js so init.js stays the last bootstrap script. -->
     <script defer src="./js/spot-ratio-math.js"></script>
     <script defer src="./js/spot-ratio-chips.js"></script>
+
+    <!-- STRK-270: shared ratios panel component (Layout C). Depends on the
+         spot-ratio-math.js statistics engine above; Chart.js is used at draw
+         time only. Hosts (STRK-271 modal, STRK-273 /ratios/ page) call
+         renderRatiosPanel(). Must precede init.js. -->
+    <script defer src="./js/ratios-panel.js"></script>
 
     <script defer src="./js/init.js"></script>
 

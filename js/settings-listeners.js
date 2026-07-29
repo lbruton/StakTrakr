@@ -73,11 +73,13 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // settingsHeaderCurrencyBtn still exists in the Currency settings panel
-  wireStorageToggle("settingsHeaderCurrencyBtn", "headerCurrencyBtnVisible", {
-    defaultVal: false,
-    onApply: () => applyHeaderToggleVisibility(),
-  });
+  // The wireStorageToggle("settingsHeaderCurrencyBtn", ...) call removed here
+  // (STRK-288) was ALREADY inert: #settingsHeaderCurrencyBtn has not existed in
+  // the DOM since STRK-122 removed it, and that issue's archived AC 0.5.6
+  // asserts its absence deliberately. The comment claiming it "still exists in
+  // the Currency settings panel" was stale. It also defaulted to false while
+  // the button itself defaulted VISIBLE — a contradiction that only never
+  // surfaced because the checkbox was not there to click.
 
   wireStorageToggle("settingsHeaderShowText_hdr", HEADER_BTN_SHOW_TEXT_KEY, {
     defaultVal: true,
@@ -137,27 +139,12 @@ const bindAppearanceAndHeaderListeners = () => {
     window.syncConstitutionalBasis = syncActive;
   })();
 
-  // Trend cycle header button.
-  const headerTrendBtn = safeGetElement("headerTrendBtn");
-  if (headerTrendBtn) {
-    headerTrendBtn.addEventListener("click", () => {
-      if (typeof window.cycleSpotTrend === "function") window.cycleSpotTrend();
-    });
-  }
+  // Trend cycle header button retired (STRK-283) — cycleSpotTrend is now wired
+  // to the per-card .spot-card-period chips in card-view.js `_initSpotControls`.
 
-  // Sync all spot prices header button — single call, not per-metal loop (STRK-93).
-  const headerSyncBtn = safeGetElement("headerSyncBtn");
-  if (headerSyncBtn) {
-    headerSyncBtn.addEventListener("click", () => {
-      if (typeof window.syncSpotPricesFromApi === "function") {
-        window.syncSpotPricesFromApi(true);
-      } else {
-        appAlert(
-          "API sync functionality requires Metals API configuration. Please configure an API provider first."
-        );
-      }
-    });
-  }
+  // Spot sync header button retired (STRK-284) — the equivalent listener already
+  // exists per-card in events.js `setupSpotPriceListeners`, and its enabled state
+  // and title are owned by api.js `updateSyncButtonStates`.
 
   // Theme cycle header button (STACK-54).
   if (elements.headerThemeBtn) {
@@ -171,37 +158,24 @@ const bindAppearanceAndHeaderListeners = () => {
     });
   }
 
-  // Currency picker header button (STACK-54).
-  if (elements.headerCurrencyBtn) {
-    elements.headerCurrencyBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleCurrencyDropdown();
-    });
-  }
+  // Currency header button retired (STRK-288). Its listener opened the floating
+  // picker built by toggleCurrencyDropdown(); that whole dropdown machinery went
+  // with it. Currency selection lives in Settings › Currency
+  // (#settingsDisplayCurrency, wired above), which calls the same
+  // saveDisplayCurrency() the picker items did.
 
-  // Market button - trigger market refresh (STAK-545).
-  const headerMarketBtn = safeGetElement("headerMarketBtn");
-  if (headerMarketBtn) {
-    headerMarketBtn.addEventListener("click", () => {
-      if (typeof window.syncRetailPrices === "function") window.syncRetailPrices();
-    });
-  }
+  // Market header button retired (STRK-290). Its listener called
+  // window.syncRetailPrices() — the same function the Market block's
+  // #marketRefreshBtn now calls directly (js/market-data.js `_runMarketRefresh`),
+  // and the same one Settings › Market's #retailSyncBtn calls below. All three
+  // paths were verified to reference one object: `syncRetailPrices` is a const in
+  // js/retail.js that is never reassigned, and its window export is the only
+  // other write.
 
-  // Vault header button — opens Settings → System (backup/restore) (STAK-314).
-  const headerVaultBtn = safeGetElement("headerVaultBtn");
-  if (headerVaultBtn) {
-    headerVaultBtn.addEventListener("click", () => {
-      if (typeof showSettingsModal === "function") showSettingsModal("system");
-    });
-  }
-
-  // Restore header button — opens Settings → System (backup/restore) (STAK-314).
-  const headerRestoreBtn = safeGetElement("headerRestoreBtn");
-  if (headerRestoreBtn) {
-    headerRestoreBtn.addEventListener("click", () => {
-      if (typeof showSettingsModal === "function") showSettingsModal("system");
-    });
-  }
+  // Vault + Restore header buttons retired (STRK-285, STRK-286). Both were the
+  // identical showSettingsModal("system") shortcut — two icons for one
+  // behaviour. Settings › System still holds the import/export controls they
+  // pointed at, so nothing moved.
 
   const ippSelect = getExistingElement("settingsItemsPerPage");
   if (ippSelect) {

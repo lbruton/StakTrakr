@@ -108,6 +108,54 @@ const formatTimeOnly = (date) => {
 };
 
 /**
+ * Formats a Date's LOCAL calendar components as YYYY-MM-DD. Deterministic
+ * replacement for toLocaleDateString("en-CA"), whose output shape is
+ * implementation-defined and can drift under small-icu / limited-locale
+ * environments — formatDisplayDate splits this string on dashes.
+ *
+ * @param {Date} date - Locally-constructed Date
+ * @returns {string} Local calendar date in YYYY-MM-DD format
+ */
+const localIsoDate = (date) => {
+  // padStart keeps four-digit years below 0100 (e.g. 0099) zero-padded.
+  const year = String(date.getFullYear()).padStart(4, "0");
+  return `${year}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+/**
+ * Constructs a local-midnight Date from numeric components and verifies they
+ * round-trip unchanged. The Date constructor silently rolls impossible
+ * calendar dates (Feb 31 → Mar 2/3), so a component mismatch means the input
+ * date does not exist on the calendar (STRK-267).
+ *
+ * @param {number} year - Full 4-digit year
+ * @param {number} monthIndex - Zero-based month (0-11)
+ * @param {number} day - Day of month
+ * @returns {Date|null} The validated Date, or null if the components rolled
+ */
+const validatedLocalDate = (year, monthIndex, day) => {
+  // setFullYear sets all three components atomically — the Date constructor
+  // would map years 0-99 to 1900-1999 and break the round-trip check.
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(year, monthIndex, day);
+  const roundTrips =
+    date.getFullYear() === year && date.getMonth() === monthIndex && date.getDate() === day;
+  return roundTrips ? date : null;
+};
+
+/**
+ * Logs a parse-failure warning and returns the em-dash sentinel — the shared
+ * tail for every parseDate rejection path.
+ *
+ * @param {string} dateStr - The original unparseable input
+ * @returns {string} The "—" sentinel
+ */
+const warnUnparseableDate = (dateStr) => {
+  console.warn(`Could not parse date: "${dateStr}", returning '—'`);
+  return "—";
+};
+
+/**
  * Parses various date formats into standard YYYY-MM-DD format
  *
  * Handles:
@@ -119,8 +167,18 @@ const formatTimeOnly = (date) => {
  * Uses intelligent parsing to distinguish between US and European formats
  * based on date values and context clues.
  *
+ * Parsed-date return sites format the Date's LOCAL components via
+ * localIsoDate() — never toISOString, which reads UTC and shifts the calendar
+ * day back for positive-UTC-offset users (STRK-266). Strict YYYY-MM-DD input
+ * is returned verbatim after validation.
+ *
+ * Every numeric branch validates components via validatedLocalDate() and
+ * rejects impossible calendar dates like Feb 31 with "—" (STRK-267) — both
+ * the Date constructor and V8's string parsers would otherwise silently roll
+ * them into the next month.
+ *
  * @param {string} dateStr - Date string in any supported format
- * @returns {string} Date in YYYY-MM-DD format, or 'Unknown' if parsing fails
+ * @returns {string} Date in YYYY-MM-DD format, or '—' if parsing fails
  */
 function parseDate(dateStr) {
   if (!dateStr) return "—";
@@ -128,12 +186,15 @@ function parseDate(dateStr) {
   // Clean the input string
   const cleanDateStr = dateStr.trim();
 
-  // Try ISO format (YYYY-MM-DD) first - most reliable
+  // Try ISO format (YYYY-MM-DD) first - most reliable. Impossible dates are
+  // rejected outright: V8 rolls new Date("2024-02-31") to Mar 1 rather than
+  // producing Invalid Date, so string-construction validity cannot be trusted.
   if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDateStr)) {
-    const date = new Date(cleanDateStr);
-    if (!isNaN(date) && date.toString() !== "Invalid Date") {
+    const [year, month, day] = cleanDateStr.split("-").map(Number);
+    if (validatedLocalDate(year, month - 1, day)) {
       return cleanDateStr;
     }
+    return warnUnparseableDate(dateStr);
   }
 
   // Try YYYY/MM/DD format (unambiguous)
@@ -143,12 +204,12 @@ function parseDate(dateStr) {
     const month = parseInt(ymdMatch[2], 10) - 1;
     const day = parseInt(ymdMatch[3], 10);
 
-    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-      const date = new Date(year, month, day);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
-      }
+    const date = validatedLocalDate(year, month, day);
+    if (date) {
+      return localIsoDate(date);
     }
+    // Reject directly — the generic fallback also rolls "2026/02/31" → Mar 3.
+    return warnUnparseableDate(dateStr);
   }
 
   // Handle ambiguous MM/DD/YYYY vs DD/MM/YYYY formats
@@ -160,47 +221,36 @@ function parseDate(dateStr) {
 
     // If first number > 12, it must be DD/MM/YYYY (European)
     if (first > 12 && second <= 12) {
-      const date = new Date(year, second - 1, first);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+      const date = validatedLocalDate(year, second - 1, first);
+      if (date) {
+        return localIsoDate(date);
       }
     }
-    // If second number > 12, it must be MM/DD/YYYY (US)
-    else if (second > 12 && first <= 12) {
-      const date = new Date(year, first - 1, second);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
+    // Otherwise treat as MM/DD/YYYY (US) — unambiguous when second > 12,
+    // and the default when both numbers are <= 12 (ambiguous)
+    else if (first <= 12) {
+      const date = validatedLocalDate(year, first - 1, second);
+      if (date) {
+        return localIsoDate(date);
       }
     }
-    // Both numbers <= 12, ambiguous - default to US format (MM/DD/YYYY)
-    else if (first <= 12 && second <= 12) {
-      // Try US format first
-      let date = new Date(year, first - 1, second);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
-      }
-
-      // Fallback to European format
-      date = new Date(year, second - 1, first);
-      if (!isNaN(date) && date.toString() !== "Invalid Date") {
-        return date.toISOString().split("T")[0];
-      }
-    }
+    // Matched a numeric shape but no interpretation survived validation —
+    // reject directly so the rolling generic parser never sees the string.
+    return warnUnparseableDate(dateStr);
   }
 
   // Try parsing as a general date string (fallback)
   try {
     const date = new Date(cleanDateStr);
     if (!isNaN(date) && date.toString() !== "Invalid Date") {
-      return date.toISOString().split("T")[0];
+      return localIsoDate(date);
     }
   } catch (e) {
     // Continue to fallback
   }
 
   // If all parsing fails, return '—'
-  console.warn(`Could not parse date: "${dateStr}", returning '—'`);
-  return "—";
+  return warnUnparseableDate(dateStr);
 }
 
 /**

@@ -2020,51 +2020,79 @@ input[type="submit"] {
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* Trend-period chip — a real <button> (STRK-283), so the button UA styles are
+   reset back to the flat label it has always looked like, then given hover and
+   focus affordances so it reads as interactive. */
 .spot-card-period {
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--text-secondary);
   margin-left: auto;
   line-height: 1;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 4px);
+  padding: 0.1rem 0.3rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
-/* Per-card controls hidden — trend period controlled via header trend button */
+.spot-card-period:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--bg-secondary);
+}
+
+.spot-card-period:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  color: var(--text-primary);
+}
+
+/* The controls wrapper is visible again (STRK-284) so the per-card refresh
+   icon can replace the retired header Spot Sync button. */
 .spot-card-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  /* Separate the refresh icon from the adjacent .spot-card-period chip. Two
+     unrelated controls flush against each other invite mis-taps (STRK-284). */
+  margin-left: 0.5rem;
+}
+
+/* ...but the range <select> inside it stays hidden. It is the sparkline engine
+   driven by _applyTrend (a synthetic change event that spot.js listens for),
+   NOT a user-facing control — the period is chosen via the .spot-card-period
+   chip (STRK-283). Hiding the select specifically rather than the whole wrapper
+   is what keeps a second, competing period control off the screen. */
+.spot-range-select {
   display: none;
 }
 
-/* Header trend button label */
-.header-trend-label {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  margin-left: 2px;
-  line-height: 1;
-}
-
-/* Range dropdown */
-.spot-range-select {
-  font-size: var(--font-size-xs);
-  padding: 0.1rem 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  line-height: 1.2;
-}
-
-.spot-range-select:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
-}
-
-/* Sync icon button */
+/* Sync icon button.
+   24x24 minimum per WCAG 2.5.8 target size, matching the precedent set for the
+   bulk-edit checkboxes (STRK-91 C.5). It was 22x22 while it was a hidden
+   secondary control; STRK-284 made it the ONLY manual spot-refresh affordance,
+   so it has to meet the bar on its own.
+   NOT expanded to a 44x44 AAA target: the card header is ~24px tall and sits
+   directly above .spot-card-value, so a 44px hit area (visible or via an
+   overlay pseudo-element) would extend ~10px past the glyph on every side and
+   steal taps from the shift-click-to-edit price. A genuine 44px target needs
+   the card header re-laid out — that belongs to the Phase 4 dashboard redesign,
+   which is already scoped to rebuild these cards. */
 .spot-sync-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 4px);
@@ -2077,6 +2105,11 @@ input[type="submit"] {
 .spot-sync-icon:hover:not(:disabled) {
   color: var(--primary);
   border-color: var(--primary);
+}
+
+.spot-sync-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .spot-sync-icon:disabled {
@@ -2625,28 +2658,12 @@ input[type="submit"] {
   flex-shrink: 0;
 }
 
-/* Cloud wrapper must match button dimensions */
-#headerCloudSyncWrapper {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
-}
-#headerCloudSyncWrapper > .btn {
-  width: 100%;
-  height: 100%;
-}
+/* #headerCloudSyncWrapper sizing rules removed with the button (STRK-287). */
 
 .header-buttons--show-text .header-toggle-btn {
   height: auto;
   min-height: 56px;
   padding: 4px 4px;
-}
-.header-buttons--show-text #headerCloudSyncWrapper {
-  height: auto;
-}
-.header-buttons--show-text #headerCloudSyncWrapper > .btn {
-  height: auto;
-  min-height: 56px;
 }
 
 .header-btn-text {
@@ -2678,41 +2695,12 @@ input[type="submit"] {
   cursor: pointer;
 }
 
-/* Header currency dropdown (STACK-54) */
-.header-currency-dropdown {
-  position: fixed;
-  z-index: 9999;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  max-height: 320px;
-  overflow-y: auto;
-  min-width: 220px;
-  padding: 0.25rem 0;
-}
-
-.header-currency-item {
-  display: block;
-  width: 100%;
-  padding: 0.45rem 0.75rem;
-  border: none;
-  background: none;
-  color: var(--text);
-  font-size: var(--font-size-md);
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.header-currency-item:hover {
-  background: var(--bg-elev-1);
-}
-
-.header-currency-item.active {
-  color: var(--primary);
-  font-weight: 600;
-}
+/* Header currency dropdown styles removed with the button (STRK-288). Unlike
+   .cloud-sync-dot and the .header-cloud-dot--* colour modifiers — which the
+   spot/retail freshness dots share, so STRK-287 had to keep them —
+   .header-currency-dropdown and .header-currency-item were used by nothing but
+   the retired picker that toggleCurrencyDropdown() built, so they are safe to
+   delete outright. */
 
 .theme-buttons {
   display: flex;
@@ -4416,24 +4404,32 @@ input[type="submit"] {
   background: var(--info, #0dcaf0);
   animation: cloudSyncPulse 1s ease-in-out infinite;
 }
-/* Cloud sync header button needs relative positioning for dot overlay (STAK-264) */
-#headerCloudSyncBtn {
-  position: relative;
-}
-/* Header cloud sync icon dot overlay (STAK-264) */
-.header-cloud-dot {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1.5px solid var(--bg-primary, #fff);
-  background: var(--text-secondary, #94a3b8);
-  transition:
-    background 0.2s,
-    box-shadow 0.2s;
-}
+/* #headerCloudSyncBtn positioning removed with the button (STRK-287).
+   .cloud-sync-dot STAYS — it is the inline-flow dot used by the spot and retail
+   freshness indicators, including #marketFreshnessDot (created in
+   js/market-data.js; its colour is driven by updateMarketHealthDot in
+   js/retail.js), so deleting it as "cloud" styling would break unrelated
+   indicators.
+
+   The .header-cloud-dot BASE rule (STAK-264) was deleted by STRK-298. It was
+   `position: absolute` with bottom/right offsets because it overlaid a header
+   button's corner, and every such button is now retired: #headerMarketDot went
+   with the Market button (STRK-290) and #headerSyncDot with the Spot Sync one
+   (STRK-284). Its replacement #marketFreshnessDot deliberately takes
+   .cloud-sync-dot instead, because in a flex row the absolute variant anchors to
+   an unrelated positioned ancestor rather than its own button.
+
+   Nothing re-adds it. STRK-291 retargets updateSpotSyncHealthDot at the four
+   syncIcon{Metal} buttons, and those cannot host it either: .spot-sync-icon
+   (~line 2088) is inline-flex with no `position: relative`, so it is not a
+   containing block, and STRK-291 colours the icon itself rather than pinning a
+   badge to its corner. Recover from git history if a corner badge is ever
+   wanted.
+
+   The .header-cloud-dot--{green,orange,red} modifiers below DO stay: they are
+   pure colour (background + box-shadow only), they compose with .cloud-sync-dot
+   as well as they did with the deleted base, and js/spot.js + js/retail.js both
+   apply them. */
 .header-cloud-dot--green {
   background: var(--success, #198754);
   box-shadow: 0 0 4px var(--success, #198754);
@@ -15702,7 +15698,23 @@ input[type="number"] {
 }
 
 /* Market detail: stat values + vendor price cells */
+.market-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.65rem, 3vw, 1.5rem);
+  margin-bottom: 0.9rem;
+}
+
+.market-detail-stat-label {
+  margin-bottom: 0.18rem;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .market-value {
+  min-height: 1.25rem;
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
@@ -15776,12 +15788,72 @@ input[type="number"] {
   font-weight: 700;
 }
 
+/* ── Modal Period Controls ── */
+.market-detail-chart-section {
+  margin-bottom: 1rem;
+}
+
+.market-detail-periods {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.65rem;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.market-detail-periods .market-detail-period-btn {
+  min-width: 3.15rem;
+  min-height: 44px;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.14s ease;
+}
+
+.market-detail-periods .market-detail-period-btn:hover {
+  border-color: var(--primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.market-detail-periods .market-detail-period-btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.market-detail-periods .market-detail-period-btn.active,
+.market-detail-periods .market-detail-period-btn[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
 /* ── Modal Chart Container ── */
 .market-detail-chart {
   height: 250px;
   margin-bottom: 1rem;
   border-radius: var(--radius);
   overflow: hidden;
+}
+
+.market-detail-chart-unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
 }
 
 /* Reset global table/td rules that leak into LightweightCharts' internal table layout */
@@ -15835,6 +15907,22 @@ input[type="number"] {
 
   .ticker-item {
     font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 560px) {
+  .market-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-detail-periods {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .market-detail-periods .market-detail-period-btn {
+    width: 100%;
   }
 }
 
@@ -16324,4 +16412,354 @@ input[type="number"] {
   .ts-short {
     display: inline;
   }
+}
+
+/* =============================================================================
+   RATIOS PANEL (STRK-270) — shared Layout C component, tokens only (D-7).
+   Lifted from playground/ratios-panel-playground.html. Rendered by the
+   in-app modal host (STRK-271) and the standalone /ratios/ page (STRK-273).
+   Accent follows the DENOMINATOR metal — the thing being priced against —
+   matching the per-card accent convention the spot chips already use.
+   ============================================================================= */
+.gsr-panel {
+  --gsr-accent: var(--gold);
+
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--font-sans, inherit);
+}
+.gsr-panel[data-accent="silver"] {
+  --gsr-accent: var(--silver);
+}
+.gsr-panel[data-accent="platinum"] {
+  --gsr-accent: var(--platinum);
+}
+.gsr-panel[data-accent="palladium"] {
+  --gsr-accent: var(--palladium);
+}
+.gsr-panel.gsr-empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm, 12.5px);
+  text-align: center;
+  padding: 28px 16px;
+}
+
+/* Pair selector — lives INSIDE the panel: both hosts need it. */
+.gsr-pairs {
+  display: inline-flex;
+  gap: 3px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill, 999px);
+  padding: 3px;
+  flex-wrap: wrap;
+}
+.gsr-pairs button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill, 999px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gsr-pairs button[aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--gsr-accent);
+  box-shadow: var(--shadow-sm);
+}
+.gsr-pairs button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* Header */
+.gsr-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gsr-head .eyebrow {
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gsr-head .title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+.gsr-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid color-mix(in oklch, var(--success), transparent 55%);
+  background: color-mix(in oklch, var(--success), transparent 88%);
+  color: var(--success);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.gsr-live .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+.gsr-live[data-state="stale"] {
+  border-color: color-mix(in oklch, var(--warning), transparent 55%);
+  background: color-mix(in oklch, var(--warning), transparent 88%);
+
+  /* --warning-text keeps this 10.5px label contrast-safe on the light and
+     sepia cards; bare --warning is too light for small text there. */
+  color: var(--warning-text, var(--warning));
+}
+
+/* Hero readout */
+.gsr-hero-num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 800;
+  line-height: 0.95;
+  color: var(--gsr-accent);
+  letter-spacing: -0.02em;
+  font-size: clamp(38px, 11vw, 60px);
+}
+.gsr-hero-num .unit {
+  font-size: 0.44em;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.gsr-hero-sub {
+  font-size: var(--font-size-sm, 12.5px);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.gsr-delta {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+}
+.gsr-delta[data-dir="up"] {
+  color: var(--danger);
+}
+.gsr-delta[data-dir="down"] {
+  color: var(--success);
+}
+
+/* Trend tiles */
+.gsr-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+.gsr-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  padding: 11px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.gsr-tile .k {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.gsr-tile .v {
+  font-family: var(--font-mono, monospace);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.gsr-tile .m {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* 52-week position bar. The bar is a 52-WEEK scale; the .pct figure beside
+   it is an ALL-TIME percentile — both labels name their scale on purpose. */
+.gsr-range {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  padding: 12px 13px 13px;
+}
+.gsr-range .rhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.gsr-range .rhead .k {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gsr-range .rhead .pct {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--gsr-accent);
+}
+.gsr-track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--success), transparent 55%),
+    color-mix(in oklch, var(--warning), transparent 60%),
+    color-mix(in oklch, var(--danger), transparent 55%)
+  );
+}
+.gsr-track .mark {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--text-primary);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.gsr-track .mean-mark {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  background: var(--text-muted);
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+}
+.gsr-range .rfoot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.gsr-range .rlegend {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Chart */
+.gsr-chartwrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  padding: 10px 10px 6px;
+}
+.gsr-chartwrap .cbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.gsr-tf {
+  display: inline-flex;
+  gap: 3px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill, 999px);
+  padding: 3px;
+}
+.gsr-tf button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  cursor: pointer;
+}
+.gsr-tf button[aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--gsr-accent);
+  box-shadow: var(--shadow-sm);
+}
+.gsr-tf button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.gsr-canvas {
+  position: relative;
+  height: 190px;
+}
+@media (max-width: 480px) {
+  .gsr-canvas {
+    height: 158px;
+  }
+}
+
+/* Footer */
+.gsr-foot {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.gsr-foot code {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary);
+}
+
+/* =============================================================================
+   RATIOS PANEL MODAL HOST + CHIP AFFORDANCE (STRK-271)
+   The three ratio chips become actionable buttons that open the panel modal;
+   the gold card's goldback chip stays passive. Tokens only (D-7).
+   ============================================================================= */
+.spot-ratio-chip.is-actionable {
+  cursor: pointer;
+}
+.spot-ratio-chip.is-actionable:hover {
+  border-color: color-mix(in oklch, var(--metal, var(--border)), transparent 45%);
+}
+.spot-ratio-chip.is-actionable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.spot-ratio-chip .caret {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.ratios-modal-content {
+  max-width: 720px;
+  padding: 0;
+}
+.ratios-modal-content .modal-header {
+  margin: 0;
+  padding: 12px 16px 0;
 }

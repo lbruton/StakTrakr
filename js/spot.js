@@ -257,11 +257,38 @@ const updateLastTimestamps = (source, provider, timestamp) => {
  * Updates the #headerSyncDot color based on last spot sync age.
  * Green: < 60 min, Orange: 60 min – 24 hr or no data, Red: > 24 hr.
  * Falls back to cache refresh timestamp before treating the state as no data (orange).
+ *
+ * INERT since STRK-284: `#headerSyncDot` rode on the retired Spot Sync header
+ * button, so there is no element left to colour and this now returns early.
+ *
+ * The guard is `instanceof HTMLElement`, NOT `!dot.classList`: `safeGetElement`
+ * returns a dummy object that DOES carry a no-op `classList`, so the old check
+ * never bailed and the body kept running two `loadDataSync` reads per call for
+ * nothing.
+ *
+ * Deliberately NOT deleted. STRK-291 (colour the per-card refresh icon by
+ * freshness) needs exactly this age logic and both of its call sites —
+ * `init.js` boot and the post-sync hook below — so it only has to retarget the
+ * body at the four `syncIcon{Metal}` elements. Removing it here would mean
+ * re-adding the same two hooks next patch, and the init.js one is easy to miss.
+ *
+ * STRK-298 dropped `header-cloud-dot` from the className below and deleted that
+ * CSS rule. It was the `position: absolute` corner-badge base, and no button is
+ * left to pin a badge to. This matches `updateMarketHealthDot` (js/retail.js),
+ * which already sets `.cloud-sync-dot` alone. The `header-cloud-dot--*`
+ * modifiers added further down are unaffected — they set only background and
+ * box-shadow, so they compose with `.cloud-sync-dot` just as well.
+ *
+ * Note for STRK-291: the assignment below is `className =`, which REPLACES the
+ * class list. On `#headerSyncDot` — a bare span that existed only to be a dot —
+ * that was harmless. Retargeted at `syncIcon{Metal}` it would wipe
+ * `.spot-sync-icon` and the `.syncing` class that `updateSyncButtonStates`
+ * (js/api.js) owns. Use `classList` add/remove there, not `className`.
  */
 const updateSpotSyncHealthDot = () => {
   const dot = safeGetElement("headerSyncDot");
-  if (!dot.classList) return;
-  dot.className = "cloud-sync-dot header-cloud-dot";
+  if (!(dot instanceof HTMLElement)) return;
+  dot.className = "cloud-sync-dot";
   let entry = null;
   try {
     entry = loadDataSync(LAST_API_SYNC_KEY);

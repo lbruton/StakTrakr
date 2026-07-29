@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- STRK-272: maskable variant of the MAIN app icon — full-bleed background
+       with the S-stack (icon-bare.svg art) recentred and scaled into the
+       adaptive-mask safe zone. Fixes the manifest's missing "purpose" field:
+       without a maskable entry Android letterboxes the rounded icon. -->
+  <defs>
+    <linearGradient id="bgMainM" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1729"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+    <linearGradient id="silverMainM" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="goldMainM" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#92700c"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d4a017"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bgMainM)"/>
+  <!-- icon-bare.svg art: bbox x 115–397, y 68–344 (center 256, 206) — recentred
+       and scaled 0.9 so the bar tips stay inside the 80% safe-zone circle. -->
+  <g transform="translate(256 256) scale(0.9) translate(-256 -206)">
+    <rect x="170" y="68" width="215" height="38" rx="19" fill="url(#silverMainM)" opacity="0.45"/>
+    <rect x="115" y="124" width="175" height="38" rx="19" fill="url(#silverMainM)" opacity="0.68"/>
+    <rect x="140" y="186" width="240" height="44" rx="22" fill="url(#goldMainM)"/>
+    <rect x="222" y="250" width="175" height="38" rx="19" fill="url(#silverMainM)" opacity="0.68"/>
+    <rect x="127" y="306" width="230" height="38" rx="19" fill="url(#silverMainM)" opacity="0.45"/>
+  </g>
+</svg>

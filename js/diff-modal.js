@@ -41,19 +41,10 @@
     },
     "Header Buttons": {
       icon: "\uD83D\uDD18",
-      keys: [
-        "headerThemeBtnVisible",
-        "headerCurrencyBtnVisible",
-        "headerTrendBtnVisible",
-        "headerSyncBtnVisible",
-        "headerMarketBtnVisible",
-        "headerVaultBtnVisible",
-        "headerRestoreBtnVisible",
-        "headerCloudSyncBtnVisible",
-        "headerBtnShowText",
-        "headerBtnOrder",
-        "headerAboutBtnVisible",
-      ],
+      // headerMarketBtnVisible dropped (STRK-290): it left SYNC_SCOPE_KEYS with
+      // the button, so it can never appear in a diff again. headerBtnOrder stays
+      // — it is a synced array and older vaults still carry retired ids inside it.
+      keys: ["headerThemeBtnVisible", "headerBtnShowText", "headerBtnOrder"],
     },
     "Filters & Chips": {
       icon: "\uD83C\uDFF7\uFE0F",
@@ -123,16 +114,8 @@
     tableImageSides: "Table Image Sides",
     tagBlacklist: "Hidden Tags",
     headerThemeBtnVisible: "Theme Button",
-    headerCurrencyBtnVisible: "Currency Button",
-    headerTrendBtnVisible: "Trend Button",
-    headerSyncBtnVisible: "Sync Button",
-    headerMarketBtnVisible: "Market Button",
-    headerVaultBtnVisible: "Vault Button",
-    headerRestoreBtnVisible: "Restore Button",
-    headerCloudSyncBtnVisible: "Cloud Sync Button",
     headerBtnShowText: "Button Labels",
     headerBtnOrder: "Button Order",
-    headerAboutBtnVisible: "About Button",
     "goldback-enabled": "Goldback Enabled",
     "goldback-estimate-enabled": "Goldback Estimates",
     "goldback-estimate-modifier": "Estimate Modifier",
@@ -1416,7 +1399,16 @@
           meta.itemCount != null ? String(meta.itemCount) : "\u2014"
         );
         if (typeof inventory !== "undefined") {
-          sourceHtml += _metaCell("Local Items", String(inventory.length));
+          const localItemCount =
+            typeof cloudSafeItemCount === "function"
+              ? cloudSafeItemCount()
+              : Array.isArray(inventory)
+                ? inventory.length
+                : 0;
+          sourceHtml += _metaCell(
+            "Local Items",
+            localItemCount != null ? String(localItemCount) : "—"
+          );
         }
         sourceHtml += _metaCell(
           "Device",

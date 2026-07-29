@@ -1,20 +1,16 @@
 // Unit tests for sw-router.js using Node built-in test runner.
 // Run: npm run test:unit  (node --test tests/unit/sw-router.test.js)
 //
-// sw-router.js is a plain script file (importScripts-compatible, no ESM syntax).
-// We load it via new Function() with a synthetic CJS module context so the CJS
-// export guard fires and exports FAMILY_TABLE / classifyEndpoint without requiring
-// ESM refactoring of the production script.
+// sw-router.js is a plain script file (importScripts-compatible, no ESM syntax),
+// so it is loaded through the shared synthetic-CJS helper — see
+// ./helpers/load-sw-router.js for why and how.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
 
-const routerCode = readFileSync(new URL("../../sw-router.js", import.meta.url), "utf-8");
-const _module = { exports: {} };
-new Function("module", "exports", routerCode)(_module, _module.exports);
-const { FAMILY_TABLE, classifyEndpoint, parseGeneratedAtSeconds } = _module.exports;
+import { loadSwRouter } from "./helpers/load-sw-router.js";
+
+const { FAMILY_TABLE, classifyEndpoint, parseGeneratedAtSeconds } = loadSwRouter();
 
 const API1 = "https://api.staktrakr.com";
 const API2 = "https://api2.staktrakr.com";
@@ -319,14 +315,18 @@ describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", ()
     "annual-spot-history": "/spot-history-2025.json",
   };
 
-  const REALTIME_FAMILIES = ["spot-latest", "goldback-latest", "retail-latest"];
+  // `providers` moved from NON_REALTIME to REALTIME in STRK-264. It is not
+  // realtime data, but cache-first let a provider_vendors change sit behind a
+  // 24h SW-cached copy while the price feed updated immediately, so the UI
+  // could show a current price under a stale vendor URL. Dedicated coverage
+  // lives in tests/unit/strk-264-providers-network-first.test.js.
+  const REALTIME_FAMILIES = ["spot-latest", "goldback-latest", "retail-latest", "providers"];
   const NON_REALTIME_FAMILIES = [
     "manifest",
     "spot-history-daily",
     "retail-intraday",
     "retail-history-short",
     "retail-history-long",
-    "providers",
     "annual-spot-history",
   ];
 
@@ -376,5 +376,47 @@ describe("parseGeneratedAtSeconds — STRK-189", () => {
   it("returns null for a null/undefined body", () => {
     assert.equal(parseGeneratedAtSeconds(null), null);
     assert.equal(parseGeneratedAtSeconds(undefined), null);
+  });
+});
+
+describe("isRootShellNavigation — STRK-273 nav-cache guard", () => {
+  const { isRootShellNavigation } = loadSwRouter();
+
+  it("only the root shell may use the './' nav-cache key", () => {
+    assert.equal(isRootShellNavigation("/"), true);
+    assert.equal(isRootShellNavigation("/index.html"), true);
+  });
+
+  it("the public /ratios/ page must never clobber the cached tracker shell", () => {
+    assert.equal(isRootShellNavigation("/ratios/"), false);
+    assert.equal(isRootShellNavigation("/ratios/index.html"), false);
+  });
+
+  it("other same-origin pages bypass the shell cache too", () => {
+    assert.equal(isRootShellNavigation("/privacy.html"), false);
+    assert.equal(isRootShellNavigation("/oauth-callback.html"), false);
+  });
+});
+
+describe("navShellCacheKey — STRK-274 per-shell nav caching", () => {
+  const { navShellCacheKey } = loadSwRouter();
+
+  it("the tracker shell maps to './'", () => {
+    assert.equal(navShellCacheKey("/"), "./");
+    assert.equal(navShellCacheKey("/index.html"), "./");
+  });
+
+  it("the ratios shell maps to its OWN key — never the tracker's", () => {
+    assert.equal(navShellCacheKey("/ratios/"), "./ratios/");
+    assert.equal(navShellCacheKey("/ratios/index.html"), "./ratios/");
+    // Bare "/ratios": online the server redirects to "/ratios/"; offline the
+    // SW must still serve the cached shell rather than the offline page.
+    assert.equal(navShellCacheKey("/ratios"), "./ratios/");
+  });
+
+  it("non-shell pages map to null and bypass the nav cache", () => {
+    assert.equal(navShellCacheKey("/privacy.html"), null);
+    assert.equal(navShellCacheKey("/oauth-callback.html"), null);
+    assert.equal(navShellCacheKey("/ratios/manifest.json"), null);
   });
 });

@@ -1,0 +1,45 @@
+{
+  "id": "/ratios/",
+  "name": "StakTrakr Metal Ratios",
+  "short_name": "Ratios",
+  "description": "Live gold-to-silver, gold-to-platinum, gold-to-palladium, and platinum-to-palladium ratios with history back to 1968.",
+  "start_url": "/ratios/",
+  "scope": "/ratios/",
+  "display": "standalone",
+  "theme_color": "#1a1a2e",
+  "background_color": "#1a1a2e",
+  "orientation": "any",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    {
+      "src": "../images/ratios-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "../images/ratios-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../images/ratios-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../images/ratios-icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "../images/ratios-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -52,7 +52,13 @@ async function gotoApp(page) {
       typeof window.renderTable === "function" &&
       typeof window.catalogConfig !== "undefined"
   );
-  await page.waitForTimeout(300);
+  // STRK-294: wait for the listener-readiness flag instead of sleeping. Phase 14
+  // of init.js attaches every listener inside a `setTimeout(…, 200)`, so the
+  // waitForFunction above goes true well before the UI is actually interactive.
+  // This replaced a bare `waitForTimeout(300)` — a 100ms margin over that timer,
+  // which is thin enough to flake on a loaded CI runner and would fail in a way
+  // that looks unrelated to whatever the spec is testing.
+  await page.waitForFunction(() => window.appListenersReady === true);
 }
 
 async function openSettings(page, tab) {
@@ -131,25 +137,23 @@ test.describe("core/settings", () => {
     await expect(page.locator('[data-idx="0"] .attach-count-chip')).toBeVisible();
   });
 
-  test("Market, vault, and settings entry points route to the intended panels or sync path", async ({
-    page,
-  }) => {
-    await page.evaluate(() => {
-      window._coreMarketSyncCalled = false;
-      window.syncRetailPrices = async () => {
-        window._coreMarketSyncCalled = true;
-      };
-    });
-
-    await page.locator("#headerMarketBtn").click();
-    await expect(page.locator("#settingsModal")).not.toBeVisible();
-    expect(await page.evaluate(() => window._coreMarketSyncCalled)).toBe(true);
-
+  // Lost its Market-header-button leg in STRK-290 and is renamed accordingly.
+  // That leg clicked #headerMarketBtn and asserted, via a window.syncRetailPrices
+  // stub, that it hit the retail sync rather than opening Settings. The button is
+  // retired and the market pull now lives on #marketRefreshBtn inside the Market
+  // block, which calls the LEXICAL `syncRetailPrices` binding — so the window-level
+  // stub above would no longer intercept it and the assertion could only pass
+  // vacuously. That path is covered properly in core/retail-market.spec.js's
+  // STRK-290 block, which observes the sync's own providers.json fetch. What
+  // remains here is what this test uniquely owns: panel routing.
+  test("Market and settings entry points route to the intended panels", async ({ page }) => {
     await page.locator("#marketSettingsBtn").click();
     await expect(page.locator("#settingsPanel_market")).toBeVisible();
     await page.evaluate(() => window.hideSettingsModal());
 
-    await page.locator("#headerVaultBtn").click();
+    // The #headerVaultBtn shortcut to Settings › System was retired in
+    // STRK-285; the panel itself is unchanged and still reached via Settings.
+    await page.evaluate(() => window.showSettingsModal("system"));
     await expect(page.locator("#settingsPanel_system")).toBeVisible();
   });
 

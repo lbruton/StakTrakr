@@ -91,7 +91,7 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
-- When claude-context returns thin results for a global, fall back to Code Graph Context structural query before Grep.
+- When claude-context returns thin results for a global, Grep the identifier directly — script-tag globals have no import graph, so Grep is the authoritative way to find every reference.
 - When calling `mcp__specflow__approvals` with `action: "request"`, set `filePath` relative to the specflow workflow root.
 - Example: `specs/<issue>-foo/requirements.md`.
 - Do not use a project-root path with `../DocVault/...` traversal; the dashboard content endpoint rejects paths containing `..`.
@@ -170,8 +170,12 @@ Do not fall back to Python/subprocess file writes as a workaround.
 
 ### Date formatting — Canadian English locale
 
-Use `toLocaleDateString('en-CA')` (Canadian English) to produce local dates in year-month-day format.
-Do not use `toISOString().slice(0, 10)`; it returns a UTC date and causes off-by-one errors for users in negative UTC offsets.
+Use `toLocaleDateString('en-CA')` (Canadian English) to produce **local, user-facing** dates in year-month-day format (form defaults, filenames, display).
+Do not use `toISOString().slice(0, 10)` for those; it returns a UTC date and shifts a day for users in negative UTC offsets.
+**Inverse case — UTC-keyed data values** (publisher feed business days, chart time keys): keep the UTC calendar date.
+Derive it from the feed row's ISO timestamp field (`row.t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
+Local `en-CA` on a UTC-stamped key shifts a day for users in positive UTC offsets.
+Do not mix frames (local `new Date(y, m, d)` construction followed by `toISOString()` formatting) unless the conversion is deliberate and commented at the call site.
 
 ### Theme count — four themes, not three
 

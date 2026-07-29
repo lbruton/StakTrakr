@@ -665,79 +665,15 @@ function updateSyncStatusIndicator(state, detail) {
     else label = "Auto-sync off";
     text.textContent = label;
   }
-
-  // Keep header icon in sync
-  updateCloudSyncHeaderBtn();
 }
 
-/**
- * Updates the header cloud sync button state (green/orange/gray) based on
- * connection status, vault password, and Dropbox account ID presence.
- * Called on init, password change, and sync enable/disable.
- */
-function _cloudProviderNeedsAccountId(provider) {
-  return provider === "dropbox";
-}
-
-function resolveHeaderCloudAction(provider) {
-  provider = provider || _syncProvider || "dropbox";
-  var connected = typeof cloudIsConnected === "function" ? cloudIsConnected(provider) : false;
-  var hasVaultPassword = !!localStorage.getItem("cloud_vault_password");
-  var hasAccountId =
-    !_cloudProviderNeedsAccountId(provider) || !!localStorage.getItem("cloud_dropbox_account_id");
-  var autoSyncOn = syncIsEnabled();
-  var syncCapable = connected && hasVaultPassword && hasAccountId;
-
-  return {
-    provider: provider,
-    connected: connected,
-    hasVaultPassword: hasVaultPassword,
-    hasAccountId: hasAccountId,
-    autoSyncOn: autoSyncOn,
-    syncCapable: syncCapable,
-    buttonState: syncCapable ? (autoSyncOn ? "green" : "ready") : connected ? "orange" : "gray",
-    action: syncCapable ? "sync-now" : "open-settings",
-  };
-}
-
-function updateCloudSyncHeaderBtn() {
-  var btn = safeGetElement("headerCloudSyncBtn");
-  var dot = safeGetElement("headerCloudDot");
-  if (!btn) return;
-
-  var headerState = resolveHeaderCloudAction();
-
-  // Always show the Cloud button — it is the entry point for cloud setup and status.
-  // The gray dot state handles the "not connected" case visually.
-  btn.style.display = "";
-  if (!dot) return;
-  dot.className = "cloud-sync-dot header-cloud-dot";
-
-  if (headerState.buttonState === "green") {
-    // Green: fully operational — connected, credentials set, auto-sync enabled
-    dot.classList.add("header-cloud-dot--green");
-    btn.title = "Cloud sync active";
-    btn.setAttribute("aria-label", "Cloud sync active");
-    btn.dataset.syncState = "green";
-  } else if (headerState.buttonState === "orange") {
-    // Orange: connected but missing password or account ID
-    dot.classList.add("header-cloud-dot--orange");
-    btn.title = "Cloud sync needs setup — tap to configure";
-    btn.setAttribute("aria-label", "Cloud sync needs setup");
-    btn.dataset.syncState = "orange";
-  } else if (headerState.buttonState === "ready") {
-    // Orange: connected and ready but auto-sync is off (distinct from 'orange' setup-needed)
-    dot.classList.add("header-cloud-dot--orange");
-    btn.title = "Cloud sync ready — tap to sync now";
-    btn.setAttribute("aria-label", "Cloud sync ready to sync now");
-    btn.dataset.syncState = "ready";
-  } else {
-    dot.classList.add("header-cloud-dot--gray");
-    btn.title = "Cloud sync — tap to configure";
-    btn.setAttribute("aria-label", "Cloud sync not configured");
-    btn.dataset.syncState = "gray";
-  }
-}
+// updateCloudSyncHeaderBtn(), resolveHeaderCloudAction() and
+// _cloudProviderNeedsAccountId() removed (STRK-287). All three existed solely to
+// paint #headerCloudSyncBtn / #headerCloudDot and to decide which of the two
+// actions that button should take. With the button retired they had no reachable
+// consumer, so they went rather than being left as a no-op painter for an element
+// that no longer exists. The in-panel status indicator is a separate path
+// (updateSyncStatusIndicator), which is untouched.
 
 /**
  * Refresh the "Last synced" text and toggle state in the cloud card.
@@ -904,7 +840,6 @@ function getSyncPassword(forcePrompt) {
         localStorage.setItem("cloud_vault_password", pw);
       } catch (_) {}
       cleanup();
-      if (typeof updateCloudSyncHeaderBtn === "function") updateCloudSyncHeaderBtn();
       // Do NOT push here — the caller (enableCloudSync / initCloudSync) handles sync after resolving.
       resolve(pw + ":" + freshAccountId);
     };
@@ -1087,7 +1022,6 @@ async function changeVaultPassword(newPassword) {
     // The user vault password is intentionally remembered on the user's own device.
     localStorage.setItem("cloud_vault_password", newPassword);
     logCloudSyncActivity("password_change", "success", "Vault password updated");
-    if (typeof updateCloudSyncHeaderBtn === "function") updateCloudSyncHeaderBtn();
     // STAK-398: Set flag so pushSyncVault skips pre-push metadata decryption.
     // The remote metadata is encrypted with the OLD password — decryption would fail
     // and block the push, creating a deadlock where the password can never be changed.
@@ -3576,8 +3510,8 @@ function _mergeTagData(remoteTagData) {
       var unionedRemoved = _unionTags(localRemoved[uuid], remoteRemoved[uuid]);
       var canonicalLocalTags = _unionTags(localTags[uuid], []);
       var canonicalLocalRemoved = _unionTags(localRemoved[uuid], []);
-      var tagsChanged = unionedTags.join(" ") !== canonicalLocalTags.join(" ");
-      var removedChanged = unionedRemoved.join(" ") !== canonicalLocalRemoved.join(" ");
+      const tagsChanged = unionedTags.join("\x00") !== canonicalLocalTags.join("\x00");
+      const removedChanged = unionedRemoved.join("\x00") !== canonicalLocalRemoved.join("\x00");
 
       if (unionedTags.length > 0) mergedTags[uuid] = unionedTags;
       else delete mergedTags[uuid];
@@ -5818,14 +5752,12 @@ function initCloudSync() {
 
   if (!syncIsEnabled()) {
     debugLog("[CloudSync] Auto-sync is disabled — poller not started");
-    updateCloudSyncHeaderBtn();
     return;
   }
 
   var connected = typeof cloudIsConnected === "function" ? cloudIsConnected(_syncProvider) : false;
   if (!connected) {
     debugLog("[CloudSync] Auto-sync enabled but not connected to", _syncProvider);
-    updateCloudSyncHeaderBtn();
     return;
   }
 
@@ -5838,7 +5770,6 @@ function initCloudSync() {
     "accountId:",
     !!localStorage.getItem("cloud_dropbox_account_id")
   );
-  updateCloudSyncHeaderBtn();
 
   if (!hasPw) {
     // No password available — prompt interactively instead of just showing a toast.
@@ -5847,7 +5778,6 @@ function initCloudSync() {
     getSyncPassword().then(function (pw) {
       if (pw) {
         debugWarn("[CloudSync] Password set via prompt — starting sync");
-        updateCloudSyncHeaderBtn();
         startSyncPoller();
         // Poll + push after a short delay to let UI settle
         setTimeout(function () {
@@ -5857,9 +5787,13 @@ function initCloudSync() {
         }, 1000);
       } else {
         debugWarn("[CloudSync] User cancelled password prompt — sync paused");
-        updateCloudSyncHeaderBtn();
         if (typeof showCloudToast === "function") {
-          showCloudToast("Cloud sync paused — tap the cloud icon to set your vault password", 5000);
+          // Copy updated for STRK-287: the cloud icon this used to point at is
+          // retired, so send users to where the control actually lives now.
+          showCloudToast(
+            "Cloud sync paused — open Settings › Cloud to set your vault password",
+            5000
+          );
         }
       }
     });
@@ -5954,8 +5888,8 @@ window.computeTotalWeight = computeTotalWeight;
 window.computeSettingsHash = computeSettingsHash;
 window.refreshSyncUI = refreshSyncUI;
 window.updateSyncStatusIndicator = updateSyncStatusIndicator;
-window.updateCloudSyncHeaderBtn = updateCloudSyncHeaderBtn;
-window.resolveHeaderCloudAction = resolveHeaderCloudAction;
+// window.updateCloudSyncHeaderBtn / window.resolveHeaderCloudAction exports
+// removed with the header button they served (STRK-287).
 window.getSyncDeviceId = getSyncDeviceId;
 window.getSyncPasswordSilent = getSyncPasswordSilent;
 window.syncIsEnabled = syncIsEnabled;
