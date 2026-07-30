@@ -467,7 +467,7 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null, provide
  * @param {string} url
  * @param {string} providerId
  * @param {Object} coin  Coin metadata (metal, weight_oz)
- * @param {Object|null} [cfg]  Pre-resolved provider config. scrapeGenericTarget
+ * @param {Object|null} [cfg=null]  Pre-resolved provider config. scrapeGenericTarget
  *   passes the migrated vendor module's config (context.vendorModule?.config)
  *   so module-owned overrides like waitUntil/waitAfter survive; when null,
  *   falls back to providerCfg(providerId) (STRK-311).
