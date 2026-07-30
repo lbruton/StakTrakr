@@ -884,22 +884,21 @@ const isDerivedWeightUnit = (item) =>
   item?.weightUnit === "cu" || item?.weightUnit === "gb" || item?.weightUnit === "sb";
 
 /**
- * Matches a gb/sb weight filter key, which is always produced by `toFixed`
- * ({@link WEIGHT_FILTER_OZT_DECIMALS} decimals) and therefore always has exactly that many
- * decimal places. Lets `getWeightFilterLabel` skip its inventory scan for bullion and cu keys,
- * which can never resolve to a gb/sb label anyway (PR #1405 review, Codacy).
- * @constant {RegExp}
+ * Units whose Weight cell text differs from the value stored in `item.weight` (STRK-319).
+ *
+ * `gb`/`sb` store a denomination; `g`/`kg`/`lb`/`mg` store troy ounces and convert outward for
+ * display. Either way the filter key — which is the stored value — does not resemble the cell,
+ * so a chip echoing it verbatim shows something the user never saw on the row. Plain `oz` is
+ * absent because it is stored and displayed in the same unit, and `cu` is absent because its
+ * key is a derived figure with no cell text to borrow (handled separately).
+ *
+ * This replaced two key-shape regexes that let `getWeightFilterLabel` skip its scan for keys
+ * that could not be gb/sb or cu (PR #1405 review, Codacy). A metric key is a raw stored float
+ * with no recognisable shape, so that shortcut could not be extended to cover it; the function
+ * now makes a single pass instead of one per unit family, which is no more work than before.
+ * @constant {string[]}
  */
-const WEIGHT_FILTER_OZT_KEY_RE = new RegExp(`^\\d+\\.\\d{${WEIGHT_FILTER_OZT_DECIMALS}}$`);
-
-/**
- * Matches a constitutional weight filter key, which `getItemFilterWeight` always emits at two
- * decimals. Lets `getWeightFilterLabel` skip its inventory scan for keys that cannot be cu.
- * A two-decimal bullion weight can match this shape too; the scan then simply finds no cu item
- * and the key is returned unchanged.
- * @constant {RegExp}
- */
-const WEIGHT_FILTER_CU_KEY_RE = /^\d+\.\d{2}$/;
+const WEIGHT_DISPLAY_LENS_UNITS = ["gb", "sb", "g", "kg", "lb", "mg"];
 
 /**
  * The human-readable chip label for a weight filter key (STRK-316).
@@ -916,50 +915,46 @@ const WEIGHT_FILTER_CU_KEY_RE = /^\d+\.\d{2}$/;
  * render "1 gb" for a click on a `1 sb` cell. When a key matches more than one unit the label
  * names them all ("1 gb/sb"); units are sorted so the result never depends on inventory order.
  *
- * Deliberately scoped to gb/sb: cu and bullion keys are already legible, and cu display is
- * STRK-300's territory. Any key with no gb/sb match falls through unchanged, so bullion chips
- * and cu chips are byte-identical to before.
+ * STRK-319 extends this to every unit whose cell text differs from its key — `g`/`kg`/`lb`/`mg`
+ * store troy ounces and display converted, so a 31.65 g bar keyed on "1.0175711288970755" put
+ * that raw float in the chip. Plain `oz` already reads as its own key and falls through
+ * unchanged, so bullion chips stay byte-identical.
  *
  * @param {string} value - The weight filter key
  * @param {Array<Object>} [items] - Item source; defaults to the global inventory
- * @returns {string} Display label for the chip (e.g. "5 gb", "1 gb/sb"), or the key unchanged
+ * @returns {string} Display label (e.g. "5 gb", "1 gb/sb", "31.65 g"), or the key unchanged
  */
 const getWeightFilterLabel = (value, items) => {
   const key = String(value ?? "");
-  if (!key) return key;
-  const isOztKey = WEIGHT_FILTER_OZT_KEY_RE.test(key);
-  const isCuKey = WEIGHT_FILTER_CU_KEY_RE.test(key);
-  // Only a gb/sb- or cu-shaped key can resolve to a richer label — skip the scan otherwise.
-  if (!isOztKey && !isCuKey) return key;
+  if (!key || typeof formatWeight !== "function") return key;
   const source = Array.isArray(items)
     ? items
     : typeof inventory !== "undefined" && Array.isArray(inventory)
       ? inventory
       : [];
-  if (isOztKey) {
-    const matches = source.filter(
-      (it) =>
-        (it?.weightUnit === "gb" || it?.weightUnit === "sb") && getItemFilterWeight(it) === key
-    );
-    if (!matches.length || typeof formatWeight !== "function") return key;
-    // Sorted so the label is deterministic regardless of inventory order.
-    const units = [...new Set(matches.map((it) => it.weightUnit))].sort();
-    const primary = matches.find((it) => it.weightUnit === units[0]);
-    const label = formatWeight(primary.weight, units[0], primary);
-    return units.length === 1 ? label : `${label}/${units.slice(1).join("/")}`;
-  }
-  // STRK-300 (PR #1406 review, Codex): after the display flip a cu cell reads "$10.00 fv" while
-  // its filter key stays the ASW ("7.15"), so a bare key resembles nothing on the row it came
-  // from. Name the unit and the chip lines up with the cell tooltip's "7.15 ozt ASW".
-  // Deliberately just "oz", not "ASW": this key is a plain troy-oz figure and by design can
-  // also match a 7.15 oz bullion bar (that shared scale is the point of STRK-240), so an
-  // ASW-specific label would be wrong for the bullion rows the same filter selects.
+  if (!source.length) return key;
+  // One pass, not one per unit family: a metric key is a raw stored float with no recognisable
+  // shape, so it cannot be pre-filtered the way gb/sb and cu keys were. At most one weight chip
+  // is ever active, so this runs once per render.
   const wear =
     typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : undefined;
-  const hasCuMatch = source.some(
-    (it) => it?.weightUnit === "cu" && getItemFilterWeight(it, wear) === key
-  );
-  return hasCuMatch ? `${key} oz` : key;
+  const matches = source.filter((it) => it && getItemFilterWeight(it, wear) === key);
+  if (!matches.length) return key;
+
+  // STRK-300 (PR #1406 review, Codex): a cu key is a DERIVED ASW figure, not the stored weight,
+  // so there is no cell text to borrow — name the unit instead, matching the cell tooltip's
+  // "7.15 ozt ASW". Deliberately "oz" and not "ASW": the key is a plain troy-oz figure that by
+  // design also matches a 7.15 oz bullion bar (that shared scale is the point of STRK-240), so
+  // an ASW-specific label would misdescribe the bullion rows the same filter selects.
+  if (matches.some((it) => it.weightUnit === "cu")) return `${key} oz`;
+
+  const lensMatches = matches.filter((it) => WEIGHT_DISPLAY_LENS_UNITS.includes(it.weightUnit));
+  if (!lensMatches.length) return key;
+  // Sorted so the label is deterministic regardless of inventory order.
+  const units = [...new Set(lensMatches.map((it) => it.weightUnit))].sort();
+  const primary = lensMatches.find((it) => it.weightUnit === units[0]);
+  const label = formatWeight(primary.weight, units[0], primary);
+  return units.length === 1 ? label : `${label}/${units.slice(1).join("/")}`;
 };
 
 /**
