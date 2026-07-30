@@ -630,8 +630,11 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin, cfg = null) {
       return { price, inStock: isInStock, source: `playwright-direct:${extracted.matchedBy}` };
     }
 
-    // OOS with no price — still useful stock status info, but let Firecrawl try for a price
-    if (!stock.inStock) {
+    // OOS with no price — still useful stock status info, but let Firecrawl try
+    // for a price. Use the combined flag so a JSON-LD-only OOS signal (text
+    // patterns silent) logs as OOS here too — both branches fall back to
+    // Firecrawl either way, which recomputes stock from its own fetch.
+    if (!isInStock) {
       log(`  (playwright-direct) ${providerId}: OOS detected but no price — trying Firecrawl`);
       return null;
     }
