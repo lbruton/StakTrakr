@@ -235,16 +235,47 @@ function _stableCanonicalString(val) {
 }
 
 /**
+ * STRK-313: catalog_api_config carries volatile per-device usage counters
+ * (numistaUsage ticks on every Numista request, pcgsUsage on every PCGS
+ * request) alongside the credentials. Strip them before hashing or diffing so
+ * per-device metering never reads as a settings change — only the credential
+ * fields (numista, pcgs, local) count.
+ * @param {string} key settings key the value belongs to
+ * @param {*} parsed JSON-parsed settings value
+ * @returns {*} shallow copy without volatile subfields (input untouched)
+ */
+function _stripVolatileSettingFields(key, parsed) {
+  if (
+    key !== "catalog_api_config" ||
+    parsed === null ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed)
+  ) {
+    return parsed;
+  }
+  var out = {};
+  var fields = Object.keys(parsed);
+  for (var i = 0; i < fields.length; i++) {
+    if (fields[i] === "numistaUsage" || fields[i] === "pcgsUsage") continue;
+    out[fields[i]] = parsed[fields[i]];
+  }
+  return out;
+}
+
+/**
  * STRK-156: Normalize a raw localStorage settings string into canonical logical
  * content for hashing. Decompresses CMP2/CMP1 bodies (so a value compressed on
  * one device hashes the same as its plain twin on another — the STAK-497 hazard
  * resurfaced through lz-string, STRK-140), then JSON-parses — falling back to the
  * raw string for scalar prefs stored without quotes (e.g. appTheme "dark") so
  * they match a JSON-quoted twin — then canonicalizes via _stableCanonicalString.
+ * STRK-313: volatile usage subfields are stripped per-key first so per-device
+ * counters inside catalog_api_config don't churn the hash.
  * @param {string} rawValue
+ * @param {string} [key] settings key, for key-aware volatile-field stripping
  * @returns {string} canonical string of the logical value
  */
-function _canonicalizeSettingValue(rawValue) {
+function _canonicalizeSettingValue(rawValue, key) {
   if (rawValue === null || rawValue === undefined) return "null";
   var decoded =
     typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(rawValue) : rawValue;
@@ -255,7 +286,65 @@ function _canonicalizeSettingValue(rawValue) {
   } catch (_e) {
     parsed = decoded;
   }
+  parsed = _stripVolatileSettingFields(key, parsed);
   return _stableCanonicalString(parsed);
+}
+
+/**
+ * STRK-313: When a pull genuinely replaces catalog_api_config (credential
+ * change), keep the larger same-period usage counter so a remote blob carrying
+ * a stale counter can't under-report per-key quota consumption. A later period
+ * (newer month/date) wins outright. Any parse failure falls back to the remote
+ * value untouched — the merge is strictly best-effort.
+ * @param {string|null} localRaw current local localStorage string
+ * @param {string} remoteVal incoming remote localStorage string
+ * @returns {string} the value to write
+ */
+function _mergeCatalogUsageCounters(localRaw, remoteVal) {
+  try {
+    if (localRaw === null || localRaw === undefined) return remoteVal;
+    var dec =
+      typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(localRaw) : localRaw;
+    var decRemote =
+      typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(remoteVal) : remoteVal;
+    var local = JSON.parse(dec);
+    var remote = JSON.parse(decRemote);
+    if (!local || typeof local !== "object" || !remote || typeof remote !== "object") {
+      return remoteVal;
+    }
+    remote.numistaUsage = _mergeUsagePeriod(local.numistaUsage, remote.numistaUsage, "month");
+    remote.pcgsUsage = _mergeUsagePeriod(local.pcgsUsage, remote.pcgsUsage, "date");
+    return JSON.stringify(remote);
+  } catch (_e) {
+    return remoteVal;
+  }
+}
+
+/**
+ * Merge one usage-counter object ({used, month} or {used, date}) from each
+ * side. Same period → max(used); differing periods → the later one wins
+ * (period strings are YYYY-MM / YYYY-MM-DD, so lexicographic order is
+ * chronological). A side missing the counter loses to the side that has it.
+ * @param {object|undefined} localUsage
+ * @param {object|undefined} remoteUsage
+ * @param {string} periodField "month" or "date"
+ * @returns {object|undefined}
+ */
+function _mergeUsagePeriod(localUsage, remoteUsage, periodField) {
+  var localOk = localUsage && typeof localUsage === "object";
+  var remoteOk = remoteUsage && typeof remoteUsage === "object";
+  if (!localOk) return remoteUsage;
+  if (!remoteOk) return localUsage;
+  var localPeriod = String(localUsage[periodField] || "");
+  var remotePeriod = String(remoteUsage[periodField] || "");
+  if (localPeriod === remotePeriod) {
+    var merged = {};
+    var fields = Object.keys(remoteUsage);
+    for (var i = 0; i < fields.length; i++) merged[fields[i]] = remoteUsage[fields[i]];
+    merged.used = Math.max(Number(localUsage.used) || 0, Number(remoteUsage.used) || 0);
+    return merged;
+  }
+  return localPeriod > remotePeriod ? localUsage : remoteUsage;
 }
 
 /**
@@ -279,7 +368,7 @@ async function computeSettingsHash() {
     for (var i = 0; i < keys.length; i++) {
       if (keys[i] === "metalInventory") continue; // skip inventory — covered by inventoryHash
       var val = localStorage.getItem(keys[i]);
-      if (val !== null) settings[keys[i]] = _canonicalizeSettingValue(val);
+      if (val !== null) settings[keys[i]] = _canonicalizeSettingValue(val, keys[i]);
     }
     var sortedKeys = Object.keys(settings).sort();
     var canonical =
@@ -3744,6 +3833,12 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
           continue;
         }
         _priorValues[sc.key] = localStorage.getItem(sc.key);
+        // STRK-313: a genuine catalog credential change still carries the remote
+        // device's usage counters — merge (max within same period) so applying it
+        // never under-reports local per-key quota consumption.
+        if (sc.key === "catalog_api_config") {
+          writeVal = _mergeCatalogUsageCounters(_priorValues[sc.key], writeVal);
+        }
         try {
           localStorage.setItem(sc.key, writeVal);
           _appliedKeys.push(sc.key);
