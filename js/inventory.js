@@ -1812,6 +1812,15 @@ const _editPopulateWeightFields = (item) => {
     elements.itemWeightUnit.value = "gb";
     if (denomSelect) denomSelect.value = String(parseFloat(item.weight));
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+  } else if (item.weightUnit === "sb") {
+    // STRK-319: sb had NO branch here at all, so a Silverback fell through to the `oz` fallback
+    // and opened reading "1.00 oz". Saving then rewrote weightUnit to "oz" — turning a 1
+    // Silverback (0.001 ozt of silver) into a 1 TROY OUNCE silver item, a 1000x melt error
+    // caused by nothing more than opening a row and clicking save. Like gb, the stored weight
+    // is the denomination and needs no conversion.
+    elements.itemWeight.value = parseFloat(item.weight);
+    elements.itemWeightUnit.value = "sb";
+    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
   } else if (item.weightUnit === "kg") {
     elements.itemWeight.value = parseFloat(oztToKg(item.weight).toFixed(4));
     elements.itemWeightUnit.value = "kg";
@@ -1820,7 +1829,21 @@ const _editPopulateWeightFields = (item) => {
     elements.itemWeight.value = parseFloat(oztToLb(item.weight).toFixed(4));
     elements.itemWeightUnit.value = "lb";
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  } else if (item.weightUnit === "g" || item.weight < 1) {
+  } else if (item.weightUnit === "mg") {
+    // STRK-319: milligram entry/display lens; storage stays troy ounces.
+    elements.itemWeight.value = parseFloat(oztToMg(item.weight).toFixed(3));
+    elements.itemWeightUnit.value = "mg";
+    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+  } else if (item.weightUnit === "g" || (!item.weightUnit && item.weight < 1)) {
+    // STRK-319: this branch used to read `item.weightUnit === "g" || item.weight < 1`, and that
+    // second test applied to EVERY sub-troy-ounce item no matter how it was saved — the modal
+    // opened in grams and the following save wrote weightUnit "g" back, silently discarding the
+    // user's choice. A 1/10 ozt gold coin opened reading 3.1104 g. It would also have destroyed
+    // the new mg unit on first edit, since 25 mg is ~0.0008 ozt and trips the same `< 1` test.
+    //
+    // The heuristic is kept, but only for items with NO stored unit (legacy rows predating the
+    // field), where a small bare number really is friendlier read as grams. An explicit unit now
+    // always wins.
     const grams = oztToGrams(item.weight);
     elements.itemWeight.value = parseFloat(grams.toFixed(4));
     elements.itemWeightUnit.value = "g";

@@ -1942,6 +1942,10 @@
                 <select id="itemWeightUnit">
                   <option value="oz">ounce</option>
                   <option value="g">gram</option>
+                  <!-- STRK-319: Aurum foil notes and similar are sold in milligrams (25 mg,
+                       50 mg); in grams those are all leading zeros. Storage stays troy ounces
+                       like every other metric unit — mg is an entry/display lens only. -->
+                  <option value="mg">milligram</option>
                   <option value="kg">kilogram</option>
                   <option value="lb">pound</option>
                   <option value="gb">goldback</option>

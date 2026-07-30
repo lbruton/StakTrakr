@@ -591,6 +591,23 @@ const gramsToOzt = (grams) => grams / 31.1035;
 const oztToGrams = (ozt) => ozt * 31.1035;
 
 /**
+ * Converts milligrams to troy ounces (STRK-319).
+ * Aurum notes and other foil products are sold in milligrams (25 mg, 50 mg), a scale at which
+ * a gram figure is all leading zeros. Storage stays troy ounces like every other metric unit —
+ * `mg` is an entry and display lens only, so melt, totals, and sort need no special case.
+ * @param {number} mg - Weight in milligrams
+ * @returns {number} Weight in troy ounces
+ */
+const mgToOzt = (mg) => gramsToOzt(mg / 1000);
+
+/**
+ * Converts troy ounces to milligrams (STRK-319).
+ * @param {number} ozt - Weight in troy ounces
+ * @returns {number} Weight in milligrams
+ */
+const oztToMg = (ozt) => oztToGrams(ozt) * 1000;
+
+/**
  * Converts kilograms to troy ounces
  *
  * @param {number} kg - Weight in kilograms
@@ -655,8 +672,89 @@ const getConstitutionalTotalFace = (item) => {
 const formatConstitutionalFace = (item) => `$${getConstitutionalTotalFace(item).toFixed(2)} fv`;
 
 /**
+ * Largest relative error a rendered weight may carry before it earns more decimals (STRK-319).
+ * One percent: tight enough that 25 mg cannot render as "0.03 g" (a 20% overstatement), loose
+ * enough that ordinary float noise never inflates a well-behaved figure.
+ * @constant {number}
+ */
+const WEIGHT_ROUNDING_TOLERANCE = 0.01;
+
+/**
+ * Hard ceiling on decimals, so a float artifact can never produce a seventeen-digit cell.
+ * @constant {number}
+ */
+const WEIGHT_MAX_DECIMALS = 6;
+
+/**
+ * Renders a measured weight at a unit's normal precision, adding decimals only when that
+ * precision would misrepresent the value (STRK-319).
+ *
+ * Fixed decimal places assume a value stays within one band of magnitude, and weights do not:
+ * this inventory spans a 25 mg Aurum note and a 100 ozt bar. At two decimals a 25 mg item
+ * renders "0.03 g" (a 20% overstatement) or, in troy ounces, "0.00 oz" — literally weightless.
+ *
+ * So: render at the unit's base precision and keep it when the result is faithful. Only when
+ * the text would read zero, or drift past {@link WEIGHT_ROUNDING_TOLERANCE}, grow the decimals
+ * until it is faithful, then trim the trailing zeros that growth introduces. Values that were
+ * already rendering correctly are returned byte-identical — "1.00 oz" and "31.65 g" do not
+ * become "1 oz" and "31.65 g" — so this fixes the broken tail without restyling every row.
+ *
+ * @param {number} value - The weight already converted into the display unit
+ * @param {number} baseDecimals - The unit's normal decimal places (oz/g 2, kg/lb 4, mg 0)
+ * @returns {string} The rendered number, without a unit suffix
+ */
+const formatMeasuredWeight = (value, baseDecimals) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return (0).toFixed(baseDecimals);
+  const faithful = (text) =>
+    parseFloat(text) !== 0 &&
+    Math.abs(parseFloat(text) - n) / Math.abs(n) <= WEIGHT_ROUNDING_TOLERANCE;
+  const base = n.toFixed(baseDecimals);
+  if (faithful(base)) return base;
+  // Only reached by values the base precision cannot represent — trimming here cannot alter
+  // any figure that was already rendering correctly.
+  const trim = (text) => (text.includes(".") ? text.replace(/0+$/, "").replace(/\.$/, "") : text);
+  for (let decimals = baseDecimals + 1; decimals <= WEIGHT_MAX_DECIMALS; decimals += 1) {
+    const text = n.toFixed(decimals);
+    if (faithful(text)) return trim(text);
+  }
+  return trim(n.toFixed(WEIGHT_MAX_DECIMALS));
+};
+
+/**
+ * Fraction glyphs for the sub-1 Goldback denominations (STRK-318). Keyed by the stored
+ * denomination value; object keys stringify, so `GB_DENOMINATION_GLYPHS[0.25]` resolves.
+ * Matches the labels `GOLDBACK_DENOMINATIONS` already uses ("¼ Goldback", "½ Goldback").
+ * @constant {Object<string, string>}
+ */
+const GB_DENOMINATION_GLYPHS = { 0.25: "¼", 0.5: "½" };
+
+/**
+ * Renders a Goldback/Silverback denomination for display (STRK-318).
+ *
+ * A denomination is an exact enum value from `GOLDBACK_DENOMINATIONS`, not a measurement, so it
+ * must never be rounded. The previous `toFixed(1)` turned a ¼ Goldback into "0.3 gb" and made
+ * two distinct denominations look like near-neighbours on the same scale — the bug this fixes.
+ *
+ * Sub-1 standard denominations render as fraction glyphs to match the names the app already
+ * uses for them; everything else renders exactly, with no trailing zeros (`String` on a Number
+ * already drops them, so 1 → "1" and 2.5 → "2.5"). An unrecognised or hand-entered value still
+ * renders exactly rather than being rounded into a neighbouring denomination.
+ *
+ * @param {number|string} denomination - The stored denomination (item.weight for gb/sb)
+ * @returns {string} Display text, e.g. "¼", "½", "1", "100"
+ */
+const formatDenomination = (denomination) => {
+  const value = parseFloat(denomination);
+  if (!Number.isFinite(value)) return String(denomination ?? "");
+  return GB_DENOMINATION_GLYPHS[value] ?? String(value);
+};
+
+/**
  * Formats a weight in troy ounces to either grams or ounces.
- * If weightUnit is 'gb' or 'sb', displays as denomination units (no gram auto-conversion).
+ * If weightUnit is 'gb' or 'sb', displays the exact denomination (no rounding, no gram
+ * auto-conversion) — see {@link formatDenomination}. The metal content those notes carry is
+ * surfaced in the Weight cell tooltip instead (STRK-318).
  *
  * For 'cu' (constitutional silver) the stored `weight` is a face value, so a meaningful weight
  * requires the whole item: pass `item` to get the derived pure-silver oz (the ASW). 2-arg
@@ -676,12 +774,10 @@ const formatConstitutionalFace = (item) => `$${getConstitutionalTotalFace(item).
  */
 const formatWeight = (ozt, weightUnit, item) => {
   if (weightUnit === "gb") {
-    const w = parseFloat(ozt);
-    return `${w % 1 === 0 ? w : w.toFixed(1)} gb`;
+    return `${formatDenomination(ozt)} gb`;
   }
   if (weightUnit === "sb") {
-    const w = parseFloat(ozt);
-    return `${w % 1 === 0 ? w : w.toFixed(1)} sb`;
+    return `${formatDenomination(ozt)} sb`;
   }
   if (weightUnit === "cu") {
     // Constitutional items store a face value in `weight`; the derived pure-silver oz (the ASW,
@@ -698,15 +794,20 @@ const formatWeight = (ozt, weightUnit, item) => {
   }
   const weight = parseFloat(ozt);
   if (weightUnit === "kg") {
-    return `${oztToKg(weight).toFixed(4)} kg`;
+    return `${formatMeasuredWeight(oztToKg(weight), 4)} kg`;
   }
   if (weightUnit === "lb") {
-    return `${oztToLb(weight).toFixed(4)} lb`;
+    return `${formatMeasuredWeight(oztToLb(weight), 4)} lb`;
   }
   if (weightUnit === "g") {
-    return `${oztToGrams(weight).toFixed(2)} g`;
+    return `${formatMeasuredWeight(oztToGrams(weight), 2)} g`;
   }
-  return `${weight.toFixed(2)} oz`;
+  if (weightUnit === "mg") {
+    // Milligram products are whole numbers (25, 50, 100), so the base precision is 0 and
+    // formatMeasuredWeight only adds decimals for a genuinely fractional entry.
+    return `${formatMeasuredWeight(oztToMg(weight), 0)} mg`;
+  }
+  return `${formatMeasuredWeight(weight, 2)} oz`;
 };
 
 /**
@@ -764,6 +865,10 @@ if (typeof window !== "undefined") {
   // by sibling scripts but is not a window property, so it is published explicitly here.
   window.getConstitutionalTotalFace = getConstitutionalTotalFace;
   window.formatConstitutionalFace = formatConstitutionalFace;
+  window.formatDenomination = formatDenomination;
+  window.formatMeasuredWeight = formatMeasuredWeight;
+  window.mgToOzt = mgToOzt;
+  window.oztToMg = oztToMg;
   window.formatWeight = formatWeight;
 }
 
