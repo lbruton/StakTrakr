@@ -192,13 +192,51 @@ describe("STRK-313 computeSettingsHash ignores volatile catalog usage counters",
 describe("STRK-313 _mergeCatalogUsageCounters on genuine credential apply", () => {
   const { _mergeCatalogUsageCounters } = buildBlock({});
 
-  test("same period → remote credentials with max(used)", () => {
+  test("same period, changed numista key, unchanged pcgs token → numista kept remote, pcgs max", () => {
     const localRaw = catalogBlob({ apiKey: "FAKE-old-key", nUsed: 41, pUsed: 7 });
     const remoteRaw = catalogBlob({ apiKey: "FAKE-new-key", nUsed: 5, pUsed: 2 });
     const merged = JSON.parse(_mergeCatalogUsageCounters(localRaw, remoteRaw));
     assert.equal(merged.numista.apiKey, "FAKE-new-key", "credentials come from remote");
-    assert.equal(merged.numistaUsage.used, 41, "same-month counter keeps the max");
-    assert.equal(merged.pcgsUsage.used, 7, "same-date counter keeps the max");
+    assert.equal(
+      merged.numistaUsage.used,
+      5,
+      "changed numista key must keep the remote counter, not inherit the old key's usage"
+    );
+    assert.equal(
+      merged.pcgsUsage.used,
+      7,
+      "unchanged pcgs token still merges to the max same-date counter"
+    );
+  });
+
+  test("same numista key, same month, different used → max wins", () => {
+    const localRaw = catalogBlob({ apiKey: "FAKE-shared-key", nUsed: 41 });
+    const remoteRaw = catalogBlob({ apiKey: "FAKE-shared-key", nUsed: 5 });
+    const merged = JSON.parse(_mergeCatalogUsageCounters(localRaw, remoteRaw));
+    assert.equal(merged.numistaUsage.used, 41, "unchanged key merges to the max");
+  });
+
+  test("changed numista key → remote counter kept verbatim (fresh key doesn't inherit old usage)", () => {
+    const localRaw = catalogBlob({ apiKey: "FAKE-old-key", nUsed: 1000, nMonth: "2026-07" });
+    const remoteRaw = catalogBlob({ apiKey: "FAKE-new-key", nUsed: 0, nMonth: "2026-07" });
+    const merged = JSON.parse(_mergeCatalogUsageCounters(localRaw, remoteRaw));
+    assert.equal(
+      merged.numistaUsage.used,
+      0,
+      "a fresh credential must not inherit the old credential's exhausted counter"
+    );
+  });
+
+  test("quota-only change (same key) still merges counters to max", () => {
+    const localRaw = catalogBlob({ apiKey: "FAKE-shared-key", quota: 2000, nUsed: 41 });
+    const remoteRaw = catalogBlob({ apiKey: "FAKE-shared-key", quota: 4000, nUsed: 5 });
+    const merged = JSON.parse(_mergeCatalogUsageCounters(localRaw, remoteRaw));
+    assert.equal(merged.numista.quota, 4000, "quota comes from remote");
+    assert.equal(
+      merged.numistaUsage.used,
+      41,
+      "the counter is tied to the key, not the quota — a quota-only change still merges"
+    );
   });
 
   test("later local period wins outright", () => {

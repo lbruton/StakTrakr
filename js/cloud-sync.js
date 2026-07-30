@@ -291,11 +291,15 @@ function _canonicalizeSettingValue(rawValue, key) {
 }
 
 /**
- * STRK-313: When a pull genuinely replaces catalog_api_config (credential
- * change), keep the larger same-period usage counter so a remote blob carrying
- * a stale counter can't under-report per-key quota consumption. A later period
- * (newer month/date) wins outright. Any parse failure falls back to the remote
- * value untouched — the merge is strictly best-effort.
+ * STRK-313: When a pull replaces catalog_api_config, keep the larger
+ * same-period usage counter — but only per-provider, and only when that
+ * provider's credential is unchanged (a quota-only edit still merges). A
+ * counter tied to a credential that actually changed (e.g. a fresh PCGS
+ * token replacing an exhausted one) must NOT inherit the old credential's
+ * usage — that would make CatalogConfig.canMakePcgsRequest() reject every
+ * request until the next UTC day. A later period (newer month/date) still
+ * wins outright when the credential is unchanged. Any parse failure falls
+ * back to the remote value untouched — the merge is strictly best-effort.
  * @param {string|null} localRaw current local localStorage string
  * @param {string} remoteVal incoming remote localStorage string
  * @returns {string} the value to write
@@ -312,8 +316,16 @@ function _mergeCatalogUsageCounters(localRaw, remoteVal) {
     if (!local || typeof local !== "object" || !remote || typeof remote !== "object") {
       return remoteVal;
     }
-    remote.numistaUsage = _mergeUsagePeriod(local.numistaUsage, remote.numistaUsage, "month");
-    remote.pcgsUsage = _mergeUsagePeriod(local.pcgsUsage, remote.pcgsUsage, "date");
+    var localNumistaKey = String((local.numista && local.numista.apiKey) || "");
+    var remoteNumistaKey = String((remote.numista && remote.numista.apiKey) || "");
+    if (localNumistaKey === remoteNumistaKey) {
+      remote.numistaUsage = _mergeUsagePeriod(local.numistaUsage, remote.numistaUsage, "month");
+    }
+    var localPcgsToken = String((local.pcgs && local.pcgs.bearerToken) || "");
+    var remotePcgsToken = String((remote.pcgs && remote.pcgs.bearerToken) || "");
+    if (localPcgsToken === remotePcgsToken) {
+      remote.pcgsUsage = _mergeUsagePeriod(local.pcgsUsage, remote.pcgsUsage, "date");
+    }
     return JSON.stringify(remote);
   } catch (_e) {
     return remoteVal;
