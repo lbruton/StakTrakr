@@ -2112,6 +2112,108 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
 });
 
 // =============================================================================
+// STRK-299 — the derived pure-silver figure is labelled ASW on every visible surface
+// =============================================================================
+// ASW (Actual Silver Weight) is the standard numismatic term for a coin's pure silver content
+// in troy ounces. Junk-silver dealers quote and price bags in ASW, and the codebase already
+// used the term internally (constants.js, events.js, viewModal.js) — but no user-facing surface
+// said it, and the three that showed the figure each phrased it differently. Display labels
+// only: CSV export headers are the import round-trip contract and must not move.
+
+test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
+  /** A face-mode constitutional lot: $14.75 total face → ~10.5 ozt ASW on the worn basis. */
+  const CU_ASW_LOT = {
+    ...CU_FACE_50,
+    uuid: "core-strk299-asw",
+    name: "Core STRK299 ASW Lot",
+    weight: 14.75,
+    qty: 1,
+    serial: 299,
+  };
+
+  test("the detail modal labels the derived figure ASW, never 'Silver content'", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [CU_ASW_LOT] });
+    await gotoApp(page);
+    await page.evaluate(() => window.showViewModal(0));
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+
+    const labels = page.locator("#viewItemModal .view-detail-label");
+    await expect(labels.filter({ hasText: /^ASW$/ })).toHaveCount(1);
+    // AC3: the old phrasing is gone from the modal entirely.
+    await expect(page.locator("#viewItemModal")).not.toContainText(/silver content/i);
+
+    // The value is still the derived ozt figure, unchanged by the relabel.
+    const aswValue = page
+      .locator("#viewItemModal .view-detail-item")
+      .filter({ has: page.locator(".view-detail-label", { hasText: /^ASW$/ }) })
+      .locator(".view-detail-value");
+    await expect(aswValue).toHaveText(/^\d+\.\d{4} ozt$/);
+  });
+
+  test("the ASW label carries the expanded term as a hover tooltip", async ({ page }) => {
+    // The grid is compact, so the label stays the bare abbreviation and the expansion rides
+    // along as a title — a reader who does not know "ASW" is one hover from the meaning.
+    await seedMoneyData(page, { inventory: [CU_ASW_LOT] });
+    await gotoApp(page);
+    await page.evaluate(() => window.showViewModal(0));
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    const aswLabel = page.locator("#viewItemModal .view-detail-label").filter({ hasText: /^ASW$/ });
+    await expect(aswLabel).toHaveAttribute("title", /ASW \(Actual Silver Weight\)/);
+  });
+
+  test("the constitutional weight cell tooltip names ASW and keeps face value + basis", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    const title = await weightCellFor(page, "Core STRK299 ASW Lot").getAttribute("title");
+    expect(title).toMatch(/ASW \(Actual Silver Weight\)/);
+    // Pre-existing tooltip content is preserved — STRK-299 is additive vocabulary only.
+    expect(title).toMatch(/\$14\.75 face value/);
+    expect(title).toMatch(/worn/i);
+  });
+
+  test("the weight-unit tooltip table names ASW for cu instead of the stale phrasing", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    // This map entry is currently unreachable for cu cells (the cell ternary always routes cu
+    // to cuWeightTooltip), but it must not sit there contradicting the term the app now uses.
+    const src = await page.evaluate(async () => {
+      const res = await fetch("./js/inventory-table.js");
+      return res.text();
+    });
+    const cuEntry = src.match(/cu:\s*"([^"]*)"/);
+    expect(cuEntry).not.toBeNull();
+    expect(cuEntry[1]).toMatch(/ASW \(Actual Silver Weight\)/);
+    expect(cuEntry[1]).not.toMatch(/silver content/i);
+  });
+
+  test("CSV export headers are byte-identical — the relabel never reaches the round trip", async ({
+    page,
+  }) => {
+    // AC4 / explicit out-of-scope: js/csv-export.js defines the import round-trip contract.
+    // Renaming any header would break re-import of previously exported files.
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    const header = await page.evaluate(() => {
+      const csv = window.exportInventoryCSV();
+      if (!csv) return null;
+      // The export opens with "# exportOrigin: ..." provenance comments; the header is the
+      // first non-comment line.
+      return csv.split(/\r?\n/).find((l) => l && !l.startsWith("#")) ?? null;
+    });
+    expect(header).not.toBeNull();
+    expect(header).toContain("Weight(oz)");
+    expect(header).toContain("Constitutional Variant");
+    expect(header).toContain("Constitutional Entry Mode");
+    // No display vocabulary leaked into the machine contract.
+    expect(header).not.toMatch(/ASW/);
+    expect(header).not.toMatch(/silver content/i);
+  });
+});
+
+// =============================================================================
 // STRK-316 — Goldback/Silverback weight sort + filter key use the troy-oz equivalent
 // =============================================================================
 // gb/sb items store the raw DENOMINATION in `item.weight` (a 5 Goldback stores 5, not its

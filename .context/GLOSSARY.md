@@ -75,12 +75,26 @@ _Avoid_: market view, dealer view, price comparison
 ## Goldback
 
 **Goldback**:
-A voluntary local currency note containing a measured amount of gold in a polymer bill. Priced by denomination (1, 5, 10, 25, 50) rather than by troy ounce.
+A voluntary local currency note containing a measured amount of gold in a polymer bill. Priced by denomination (¼, ½, 1, 2, 5, 10, 25, 50, 100 — see `GOLDBACK_DENOMINATIONS`) rather than by troy ounce. One Goldback is 0.001 troy oz of gold, so `item.weight` stores the **denomination**, not a weight; consumers that need a weight convert via `getUnitOztWeight`.
 _Avoid_: gold note, gold bill
 
 **Goldback Estimate**:
 A calculated fair-market value for a Goldback denomination derived from the gold spot price, the Goldback-to-gold-gram rate (G1 rate), and an optional modifier.
 _Avoid_: estimated price, calculated price
+
+## Constitutional Silver
+
+**Constitutional Silver**:
+Pre-1965 US circulating coinage struck in 90%, 40%, or 35% silver, valued for its silver content rather than as bullion. Uses the `cu` weight unit; `item.weight` stores a **face value** in dollars, not a weight.
+_Avoid_: junk silver, 90% silver, coin silver
+
+**ASW** (Actual Silver Weight):
+The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term — junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
+_Avoid_: silver content, pure silver weight, derived oz
+
+**Valuation Basis**:
+The global worn/fresh multiplier applied to every Constitutional Item's mint-spec silver weight. `worn` (default) reflects circulated wear; `fresh` uses uncirculated mint spec.
+_Avoid_: wear factor, condition, grade
 
 ## Catalog & Enrichment
 

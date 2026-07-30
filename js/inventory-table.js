@@ -10,13 +10,18 @@
     lb: "Pounds (lb)",
     gb: "Goldback denomination",
     sb: "Silverback denomination",
-    cu: "Constitutional silver — face value (silver content derived from denomination)",
+    // STRK-299: names ASW, the term junk-silver dealers actually quote in. Note this entry is
+    // currently unreachable for cu cells — the Weight cell's ternary always routes cu to
+    // cuWeightTooltip — but it is kept correct rather than left as stale contradictory text.
+    cu: "Constitutional silver — ASW (Actual Silver Weight) derived from the denomination",
   };
 
-  // STRK-237: tooltip for a constitutional weight cell. The Weight column now shows the
-  // derived silver oz, so the face value moves here — total face = facePerCoin × qty (denom
-  // mode) or the entered face (face mode, qty = 1). The worn/fresh valuation basis is included
-  // because the displayed oz depends on it.
+  // STRK-237: tooltip for a constitutional weight cell. The Weight column shows the derived
+  // silver oz, so the face value moves here — total face = facePerCoin × qty (denom mode) or
+  // the entered face (face mode, qty = 1). The worn/fresh valuation basis is included because
+  // the displayed oz depends on it.
+  // STRK-299: the tooltip now names what the cell figure is. "ASW" is expanded on first use so
+  // a reader who does not know the abbreviation is not stranded.
   const cuWeightTooltip = (item, basis) => {
     // Face mode stores the entered total face in `weight` (qty = 1 by contract); denom mode
     // stores face-per-coin, so total face = weight × coin count. Mirror getConstitutionalSilverOz's
@@ -25,7 +30,9 @@
       item.constitutionalEntryMode === "face"
         ? parseFloat(item.weight) || 0
         : (parseFloat(item.weight) || 0) * (Number(item.qty) || 0);
-    return `$${face.toFixed(2)} face value · ${basis} basis`;
+    const aswTerm =
+      typeof ASW_TERM_EXPANDED !== "undefined" ? ASW_TERM_EXPANDED : "ASW (Actual Silver Weight)";
+    return `Shows ${aswTerm} · $${face.toFixed(2)} face value · ${basis} basis`;
   };
 
   let _thumbBlobUrls = [];
