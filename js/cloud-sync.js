@@ -235,29 +235,81 @@ function _stableCanonicalString(val) {
 }
 
 /**
- * STRK-313: catalog_api_config carries volatile per-device usage counters
- * (numistaUsage ticks on every Numista request, pcgsUsage on every PCGS
- * request) alongside the credentials. Strip them before hashing or diffing so
- * per-device metering never reads as a settings change — only the credential
- * fields (numista, pcgs, local) count.
+ * Top-level fields dropped before hashing, per settings key. These are
+ * per-device bookkeeping stored in the same synced blob as real settings.
+ * STRK-313: catalog_api_config counters. STRK-315: metalApiConfig usageMonth.
+ * Mirrors VOLATILE_SETTING_FIELDS in diff-engine.js — the two must stay in
+ * step or the hash and the diff disagree and the modal opens with zero rows.
+ * NAME NOTE: js/ files are script-tag globals sharing one top-level scope, so
+ * this twin carries a SYNC_ prefix. An identically-named `const` in
+ * diff-engine.js and `var` here is a hard "already been declared" SyntaxError
+ * that kills whichever script loads second. Same reason _stableCanonicalString
+ * here is not named _stableStringify like its diff-engine counterpart.
+ */
+var SYNC_VOLATILE_SETTING_FIELDS = {
+  catalog_api_config: ["numistaUsage", "pcgsUsage"],
+  metalApiConfig: ["usageMonth"],
+};
+
+/**
+ * Shallow copy of `obj` omitting the named fields.
+ * @param {Object} obj source object
+ * @param {string[]} drop field names to omit
+ * @returns {Object} copy without the dropped fields (input untouched)
+ */
+function _syncOmitFields(obj, drop) {
+  var out = {};
+  var fields = Object.keys(obj);
+  for (var i = 0; i < fields.length; i++) {
+    if (drop.indexOf(fields[i]) !== -1) continue;
+    out[fields[i]] = obj[fields[i]];
+  }
+  return out;
+}
+
+/**
+ * STRK-315: Drop the volatile `used` counter from each provider entry of a
+ * metalApiConfig `usage` map while KEEPING `quota`, which is a real
+ * user-editable setting (Settings › API quota modal). Unlike the catalog
+ * counters — whole objects STRK-313 could drop outright — usage[p] mixes
+ * volatile and durable fields, so the strip has to be nested.
+ * @param {*} usage the `usage` map, or any non-object value
+ * @returns {*} copy with per-provider `used` removed (input untouched)
+ */
+function _syncStripSpotUsedCounters(usage) {
+  if (usage === null || typeof usage !== "object" || Array.isArray(usage)) return usage;
+  var out = {};
+  var provs = Object.keys(usage);
+  for (var i = 0; i < provs.length; i++) {
+    var entry = usage[provs[i]];
+    out[provs[i]] =
+      entry !== null && typeof entry === "object" && !Array.isArray(entry)
+        ? _syncOmitFields(entry, ["used"])
+        : entry;
+  }
+  return out;
+}
+
+/**
+ * STRK-313/STRK-315: catalog_api_config and metalApiConfig both carry volatile
+ * per-device usage counters alongside the credentials — numistaUsage/pcgsUsage
+ * tick on every catalog request, and usage[provider].used ticks on every spot
+ * fetch (including the keyless STAKTRAKR feed, which auto-refreshes at boot, so
+ * it churns even with zero API keys saved). Strip them before hashing or
+ * diffing so per-device metering never reads as a settings change.
  * @param {string} key settings key the value belongs to
  * @param {*} parsed JSON-parsed settings value
  * @returns {*} shallow copy without volatile subfields (input untouched)
  */
 function _stripVolatileSettingFields(key, parsed) {
-  if (
-    key !== "catalog_api_config" ||
-    parsed === null ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed)
-  ) {
+  var drop = SYNC_VOLATILE_SETTING_FIELDS[key];
+  if (!drop || parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     return parsed;
   }
-  var out = {};
-  var fields = Object.keys(parsed);
-  for (var i = 0; i < fields.length; i++) {
-    if (fields[i] === "numistaUsage" || fields[i] === "pcgsUsage") continue;
-    out[fields[i]] = parsed[fields[i]];
+  var out = _syncOmitFields(parsed, drop);
+  // Nested strip: only metalApiConfig has volatile fields below the top level.
+  if (key === "metalApiConfig" && "usage" in parsed) {
+    out.usage = _syncStripSpotUsedCounters(parsed.usage);
   }
   return out;
 }
@@ -325,6 +377,95 @@ function _mergeCatalogUsageCounters(localRaw, remoteVal) {
     var remotePcgsToken = String((remote.pcgs && remote.pcgs.bearerToken) || "");
     if (localPcgsToken === remotePcgsToken) {
       remote.pcgsUsage = _mergeUsagePeriod(local.pcgsUsage, remote.pcgsUsage, "date");
+    }
+    return JSON.stringify(remote);
+  } catch (_e) {
+    return remoteVal;
+  }
+}
+
+/**
+ * STRK-315: When a pull genuinely replaces metalApiConfig (provider switch, key
+ * change, cache/quota edit), the incoming blob also carries the remote device's
+ * spot request counters. `quota` is a durable user setting (edited via the
+ * quota modal) and always comes from `remote`, in every branch — only `used`
+ * is volatile and merge-worthy. Differing usageMonth means one side has
+ * already rolled over: whichever side is in the LATER period wins that
+ * period's shape outright (remote untouched if remote is later; local's
+ * usageMonth adopted if local is later, with each provider's `used` reset to
+ * zero unless that provider's credential is unchanged — a fresh credential in
+ * a fresh period must not inherit either side's count, mirroring the
+ * STRK-313 catalog gate). Same month: keep the larger counter per provider,
+ * again gated on credential equality so a fresh key doesn't inherit an
+ * exhausted counter. Keyless providers (STAKTRAKR) compare "" === "" and
+ * always count as credential-unchanged. Any parse failure falls back to the
+ * remote value untouched — the merge is strictly best-effort.
+ * @param {string|null} localRaw current local localStorage string
+ * @param {string} remoteVal incoming remote localStorage string
+ * @returns {string} the value to write
+ */
+function _mergeSpotUsageCounters(localRaw, remoteVal) {
+  try {
+    if (localRaw === null || localRaw === undefined) return remoteVal;
+    var dec =
+      typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(localRaw) : localRaw;
+    var decRemote =
+      typeof __decompressIfNeeded === "function" ? __decompressIfNeeded(remoteVal) : remoteVal;
+    var local = JSON.parse(dec);
+    var remote = JSON.parse(decRemote);
+    if (!local || typeof local !== "object" || !remote || typeof remote !== "object") {
+      return remoteVal;
+    }
+    var localMonth = String(local.usageMonth || "");
+    var remoteMonth = String(remote.usageMonth || "");
+    var localUsage = local.usage;
+    var remoteUsage = remote.usage;
+    var localKeys = local.keys || {};
+    var remoteKeys = remote.keys || {};
+    if (localMonth !== remoteMonth) {
+      // Period strings are YYYY-MM, so lexicographic order is chronological.
+      if (remoteMonth > localMonth) {
+        // Remote already rolled into a period local hasn't seen yet — local's
+        // counters (and any stale quota it remembers) are moot. Return remote
+        // exactly as received.
+        return remoteVal;
+      }
+      // Local rolled over to a newer period than remote knows about. Adopt
+      // local's usageMonth, but quota stays remote's (untouched below). Each
+      // provider's `used` resets to zero for this fresh period UNLESS the
+      // credential is unchanged, in which case local's fresh-period count
+      // carries forward.
+      remote.usageMonth = local.usageMonth;
+      if (remoteUsage && typeof remoteUsage === "object") {
+        var rProvs = Object.keys(remoteUsage);
+        for (var i = 0; i < rProvs.length; i++) {
+          var rp = rProvs[i];
+          var ruEntry = remoteUsage[rp];
+          if (!ruEntry || typeof ruEntry !== "object") continue;
+          var credUnchanged = String(localKeys[rp] || "") === String(remoteKeys[rp] || "");
+          var luEntry = localUsage && typeof localUsage === "object" ? localUsage[rp] : null;
+          ruEntry.used =
+            credUnchanged && luEntry && typeof luEntry === "object" ? Number(luEntry.used) || 0 : 0;
+        }
+      }
+      return JSON.stringify(remote);
+    }
+    if (
+      !localUsage ||
+      typeof localUsage !== "object" ||
+      !remoteUsage ||
+      typeof remoteUsage !== "object"
+    ) {
+      return JSON.stringify(remote);
+    }
+    var provs = Object.keys(remoteUsage);
+    for (var j = 0; j < provs.length; j++) {
+      var p = provs[j];
+      if (String(localKeys[p] || "") !== String(remoteKeys[p] || "")) continue;
+      var lu = localUsage[p];
+      var ru = remoteUsage[p];
+      if (!lu || typeof lu !== "object" || !ru || typeof ru !== "object") continue;
+      ru.used = Math.max(Number(lu.used) || 0, Number(ru.used) || 0);
     }
     return JSON.stringify(remote);
   } catch (_e) {
@@ -3850,6 +3991,11 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         // never under-reports local per-key quota consumption.
         if (sc.key === "catalog_api_config") {
           writeVal = _mergeCatalogUsageCounters(_priorValues[sc.key], writeVal);
+        }
+        // STRK-315: same contract for the spot provider blob — a genuine
+        // provider/key/cache change must not reset local request counters.
+        if (sc.key === "metalApiConfig") {
+          writeVal = _mergeSpotUsageCounters(_priorValues[sc.key], writeVal);
         }
         try {
           localStorage.setItem(sc.key, writeVal);
