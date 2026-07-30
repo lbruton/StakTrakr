@@ -124,7 +124,10 @@
     numista_tags_auto: "Auto-Tag on Lookup",
     numistaLookupRules: "Lookup Rules",
     numistaViewFields: "View Fields",
-    metalApiConfig: "API Keys",
+    // STRK-315: "API Keys" was a misnomer — the blob also holds the selected
+    // provider, cache timeouts, per-metal toggles and history settings, so a
+    // non-credential change read as a key change.
+    metalApiConfig: "Spot API Config",
     catalog_api_config: "Catalog API Keys",
   };
 
