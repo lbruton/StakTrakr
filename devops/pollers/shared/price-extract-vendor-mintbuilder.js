@@ -7,9 +7,10 @@
  * cf_clearance cookie needed). Same "trust JSON-LD, no markdown quirks" shape
  * as Goldback: no cutoff patterns, no OOS text-pattern workaround, no custom
  * price strategy. `availability` (InStock/OutOfStock) is authoritative and
- * populated even when `price` is present on an out-of-stock page, so the
- * shared JSON-LD path's default handling (offer.price trusted, availability
- * read from the same block) is sufficient as-is.
+ * populated even when `price` is present on an out-of-stock page — the
+ * Phase 0 (Playwright-direct) scraper now combines JSON-LD availability with
+ * text-based stock detection (same formula as scrapeViaCFClearance) so this
+ * case reports OOS correctly instead of trusting text detection alone.
  */
 
 import { mergeProviderConfig } from "./price-extract-provider-config.js";
@@ -32,6 +33,14 @@ export const vendor = {
   untrustedOfferPrice: false,
   usesAsLowAs: false,
   // No extractPrice override → shared default strategy (JSON-LD offer.price authoritative).
+  /**
+   * Scrape a MintBuilder product page via the shared generic strategy.
+   * @param {object} context - Scrape context supplied by the vendor registry
+   *   (coinSlug, coin, provider, urls, scrapeGeneric, and optionally a
+   *   caller-provided config).
+   * @returns {Promise<object>} The result from context.scrapeGeneric —
+   *   { price, inStock, source, ok, error, url }.
+   */
   async scrape(context) {
     return context.scrapeGeneric({
       ...context,

@@ -469,8 +469,13 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null, provide
  * @param {Object} coin  Coin metadata (metal, weight_oz)
  * @returns {Promise<{price: number, inStock: boolean, source: string}|null>}
  */
-async function scrapeWithPlaywrightDirect(url, providerId, coin) {
+async function scrapeWithPlaywrightDirect(url, providerId, coin, cfg = null) {
   if (!PLAYWRIGHT_LAUNCH) return null;
+  // Caller may have already resolved the migrated vendor module's config
+  // (scrapeGenericTarget does, via context.vendorModule?.config); recomputing
+  // via providerCfg(providerId) alone would silently drop module-owned
+  // overrides like MintBuilder's waitUntil (STRK-311).
+  const resolvedCfg = cfg || providerCfg(providerId);
 
   const DIRECT_TIMEOUT_MS = 15_000;
   const { chromium } = await import("playwright-core");
@@ -532,7 +537,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     });
 
     await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-    const phase0WaitUntil = providerCfg(providerId).waitUntil;
+    const phase0WaitUntil = resolvedCfg.waitUntil;
     const response = await page.goto(url, {
       waitUntil: phase0WaitUntil,
       timeout: DIRECT_TIMEOUT_MS,
@@ -546,7 +551,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
 
     // Per-provider extra wait for JS rendering (Phase A: herobullion 8s->2s)
     // Phase 0 wait handled by providerCfg().waitAfter
-    const phase0Wait = providerCfg(providerId).waitAfter;
+    const phase0Wait = resolvedCfg.waitAfter;
     if (phase0Wait > 0) {
       await page.waitForTimeout(phase0Wait);
     }
@@ -582,6 +587,17 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     const cleaned = preprocessMarkdown(text, providerId);
     const stock = detectStockStatus(cleaned, coin.weight_oz || 1, providerId);
 
+    // JSON-LD availability — MintBuilder (and BullionExchanges, STRK-30) keep
+    // offer.price populated on OOS pages but set availability=OutOfStock, so
+    // text-only stock detection alone can false-report a sold-out page as
+    // in-stock. Combine both signals the same way scrapeViaCFClearance does.
+    const availability = extractJsonLdAvailability(jsonLdScripts);
+    const jsonLdOos = !!(availability && JSONLD_OOS_VALUES.has(availability));
+    if (jsonLdOos) {
+      log(`  (playwright-direct) ${providerId}: JSON-LD availability=${availability} -> OOS`);
+    }
+    const isInStock = !jsonLdOos && stock.inStock;
+
     // JSON-LD is authoritative — check before regex fallbacks to avoid
     // grabbing spot ticker deltas or related-product prices from innerText.
     const jsonLdPrice = extractJsonLdPrice(
@@ -596,7 +612,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
     }
     if (jsonLdPrice !== null) {
       log(`  extractPrice ${providerId}: matched=jsonLd price=$${jsonLdPrice.toFixed(2)}`);
-      return { price: jsonLdPrice, inStock: stock.inStock, source: "playwright-direct:jsonLd" };
+      return { price: jsonLdPrice, inStock: isInStock, source: "playwright-direct:jsonLd" };
     }
 
     const extracted = extractMarkdownPrice(cleaned, coin.metal, coin.weight_oz || 1, providerId);
@@ -607,7 +623,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin) {
       );
 
     if (price !== null) {
-      return { price, inStock: stock.inStock, source: `playwright-direct:${extracted.matchedBy}` };
+      return { price, inStock: isInStock, source: `playwright-direct:${extracted.matchedBy}` };
     }
 
     // OOS with no price — still useful stock status info, but let Firecrawl try for a price
@@ -714,7 +730,7 @@ async function scrapeGenericTarget(context) {
     // to Firecrawl rather than aborting the poll (STRK-255).
     const budgetMs = resolveVendorBudgetMs();
     const budgeted = await withDeadline(
-      scrapeWithPlaywrightDirect(urls[0], provider.id, coin),
+      scrapeWithPlaywrightDirect(urls[0], provider.id, coin, cfg),
       budgetMs
     );
     if (budgeted === DEADLINE_EXCEEDED) {
