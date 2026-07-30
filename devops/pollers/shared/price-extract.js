@@ -467,6 +467,10 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null, provide
  * @param {string} url
  * @param {string} providerId
  * @param {Object} coin  Coin metadata (metal, weight_oz)
+ * @param {Object|null} [cfg=null]  Pre-resolved provider config. scrapeGenericTarget
+ *   passes the migrated vendor module's config (context.vendorModule?.config)
+ *   so module-owned overrides like waitUntil/waitAfter survive; when null,
+ *   falls back to providerCfg(providerId) (STRK-311).
  * @returns {Promise<{price: number, inStock: boolean, source: string}|null>}
  */
 async function scrapeWithPlaywrightDirect(url, providerId, coin, cfg = null) {
@@ -626,8 +630,11 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin, cfg = null) {
       return { price, inStock: isInStock, source: `playwright-direct:${extracted.matchedBy}` };
     }
 
-    // OOS with no price — still useful stock status info, but let Firecrawl try for a price
-    if (!stock.inStock) {
+    // OOS with no price — still useful stock status info, but let Firecrawl try
+    // for a price. Use the combined flag so a JSON-LD-only OOS signal (text
+    // patterns silent) logs as OOS here too — both branches fall back to
+    // Firecrawl either way, which recomputes stock from its own fetch.
+    if (!isInStock) {
       log(`  (playwright-direct) ${providerId}: OOS detected but no price — trying Firecrawl`);
       return null;
     }

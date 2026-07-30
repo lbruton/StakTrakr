@@ -40,6 +40,11 @@ const end = syncSrc.indexOf("function initSyncTabCoordination");
 assert.ok(start !== -1 && end !== -1 && end > start, "could not locate settings-hash block");
 const block = syncSrc.slice(start, end);
 
+/**
+ * Hex-encode a SHA-256 digest ArrayBuffer (mirrors the cloud-sync helper).
+ * @param {ArrayBuffer} buffer digest bytes
+ * @returns {string} lowercase hex string
+ */
 function sha256BufferToHex(buffer) {
   const a = new Uint8Array(buffer);
   let hex = "";
@@ -49,6 +54,12 @@ function sha256BufferToHex(buffer) {
 
 const SCOPE = ["metalInventory", "appTheme", "catalog_api_config"];
 
+/**
+ * Evaluate the sliced cloud-sync settings-hash block against a mock
+ * localStorage backed by `store`.
+ * @param {Object<string,string>} store key → raw localStorage string
+ * @returns {{computeSettingsHash: Function, _mergeCatalogUsageCounters: Function, _mergeUsagePeriod: Function}}
+ */
 function buildBlock(store) {
   const localStorageMock = { getItem: (k) => (k in store ? store[k] : null) };
   const factory = new Function(
