@@ -2110,3 +2110,302 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     await expect(row.locator('[data-column="purchasePrice"]')).not.toContainText("$51,000.00");
   });
 });
+
+// =============================================================================
+// STRK-316 — Goldback/Silverback weight sort + filter key use the troy-oz equivalent
+// =============================================================================
+// gb/sb items store the raw DENOMINATION in `item.weight` (a 5 Goldback stores 5, not its
+// 0.005 ozt of gold) — the same storage shape constitutional face value uses. Two consumers
+// read that stored number as if it were troy ounces:
+//   * Weight sort — a 5 gb ranked as 5 ozt and outranked a 2.00 oz round.
+//   * Weight filter key — a `2 gb` note and a `2.00 oz` coin shared the key "2", so clicking
+//     Weight on either matched both. Same cross-unit collision class STRK-240 fixed for cu.
+// Both now route through getUnitOztWeight. The gb/sb filter key is a 5-decimal ozt string
+// (2 decimals would collapse ¼/½/1/2 gb into "0.00"; a raw String() emits IEEE-754 artifacts
+// such as 0.009000000000000001), and getWeightFilterLabel maps it back to the "5 gb" text the
+// cell shows so the chip stays readable.
+
+const GB_5_NOTE = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk316-gb5",
+  name: "Core STRK316 Five Goldback",
+  weight: 5,
+  qty: 1,
+  serial: 316,
+};
+
+const GB_2_NOTE = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk316-gb2",
+  name: "Core STRK316 Two Goldback",
+  weight: 2,
+  qty: 1,
+  serial: 317,
+};
+
+const OZ_2_ROUND = {
+  ...MONEY_ITEM,
+  uuid: "core-strk316-oz2",
+  name: "Core STRK316 Two Oz Round",
+  type: "Round",
+  weight: 2,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 318,
+};
+
+const OZ_10_BAR = {
+  ...MONEY_ITEM,
+  uuid: "core-strk316-oz10",
+  name: "Core STRK316 Ten Oz Bar",
+  type: "Bar",
+  weight: 10,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 319,
+};
+
+const OZ_1_COIN = {
+  ...MONEY_ITEM,
+  uuid: "core-strk316-oz1",
+  name: "Core STRK316 One Oz Coin",
+  weight: 1,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 320,
+};
+
+/**
+ * Seeds an inventory with the Weight column (index 6) as the active sort. The second
+ * addInitScript runs after seedMoneyData's and overwrites its column-4 default.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @param {string} [dir] - Sort direction, "desc" or "asc"
+ * @returns {Promise<void>}
+ */
+async function seedWeightSorted(page, inventory, dir = "desc") {
+  await seedMoneyData(page, { inventory });
+  await page.addInitScript((d) => {
+    localStorage.setItem("defaultSortColumn", "6");
+    localStorage.setItem("defaultSortDir", d);
+  }, dir);
+  await gotoApp(page);
+  await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+}
+
+/**
+ * Reads the rendered inventory row names in current sort order.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @returns {Promise<string[]>} Row name cell texts
+ */
+const rowNames = (page) =>
+  page.locator("#inventoryTable tbody tr [data-column='name']").allTextContents();
+
+test.describe("core/inventory-math — STRK-316 goldback weight sort and filter key", () => {
+  test("descending weight sort ranks goldbacks by ozt equivalent, below every bullion row", async ({
+    page,
+  }) => {
+    await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN]);
+    const names = await rowNames(page);
+    // 10 ozt > 2 ozt > 1 ozt > 0.005 ozt (5 gb) > 0.002 ozt (2 gb).
+    // Before the fix the raw denomination put 5 gb between the 10 oz and 2 oz rows.
+    expect(names[0]).toContain("Ten Oz Bar");
+    expect(names[1]).toContain("Two Oz Round");
+    expect(names[2]).toContain("One Oz Coin");
+    expect(names[3]).toContain("Five Goldback");
+    expect(names[4]).toContain("Two Goldback");
+  });
+
+  test("ascending weight sort is the exact reverse", async ({ page }) => {
+    await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN], "asc");
+    const names = await rowNames(page);
+    expect(names[0]).toContain("Two Goldback");
+    expect(names[1]).toContain("Five Goldback");
+    expect(names[2]).toContain("One Oz Coin");
+    expect(names[3]).toContain("Two Oz Round");
+    expect(names[4]).toContain("Ten Oz Bar");
+  });
+
+  test("bullion-only weight sort is unchanged by the gb/sb conversion", async ({ page }) => {
+    // AC2 guard: oz/g/kg/lb rows must be byte-identical to the pre-fix ordering.
+    const GRAM_BAR = {
+      ...MONEY_ITEM,
+      uuid: "core-strk316-gram",
+      name: "Core STRK316 Gram Bar",
+      weight: 31.65 / 31.1034768, // ~1.0176 ozt, displayed as 31.65 g
+      weightUnit: "g",
+      qty: 1,
+      serial: 321,
+    };
+    await seedWeightSorted(page, [OZ_1_COIN, OZ_10_BAR, GRAM_BAR, OZ_2_ROUND]);
+    const names = await rowNames(page);
+    expect(names[0]).toContain("Ten Oz Bar");
+    expect(names[1]).toContain("Two Oz Round");
+    expect(names[2]).toContain("Gram Bar"); // ~1.0176 ozt slots above the 1.00 oz coin
+    expect(names[3]).toContain("One Oz Coin");
+  });
+
+  test("a 2 gb note and a 2.00 oz round no longer share a weight filter bucket", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [GB_2_NOTE, OZ_2_ROUND] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+
+    const gbCell = page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core STRK316 Two Goldback" })
+      .locator("td[data-column='weight'] .filter-text");
+    const ozCell = page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core STRK316 Two Oz Round" })
+      .locator("td[data-column='weight'] .filter-text");
+
+    // The cell TEXT is unchanged — only the filter key moved to the ozt scale.
+    await expect(gbCell).toHaveText("2 gb");
+    await expect(ozCell).toHaveText("2.00 oz");
+    // gb keys on 0.00200 ozt; plain bullion keeps its raw numeric weight.
+    await expect(gbCell).toHaveAttribute("onclick", `applyColumnFilter('weight', "0.00200")`);
+    await expect(ozCell).toHaveAttribute("onclick", `applyColumnFilter('weight', 2)`);
+
+    await gbCell.click();
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    await expect(page.locator("#inventoryTable tbody tr")).toContainText("Two Goldback");
+    await expect(page.locator("#inventoryTable tbody tr")).not.toContainText("Two Oz Round");
+  });
+
+  test("clicking a 2.00 oz weight cell does not pull in a 2 gb note", async ({ page }) => {
+    await seedMoneyData(page, { inventory: [GB_2_NOTE, OZ_2_ROUND] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core STRK316 Two Oz Round" })
+      .locator("td[data-column='weight'] .filter-text")
+      .click();
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    await expect(page.locator("#inventoryTable tbody tr")).toContainText("Two Oz Round");
+    await expect(page.locator("#inventoryTable tbody tr")).not.toContainText("Two Goldback");
+  });
+
+  test("different goldback denominations stay distinct; equal denominations group together", async ({
+    page,
+  }) => {
+    const GB_2_SECOND = {
+      ...GB_2_NOTE,
+      uuid: "core-strk316-gb2b",
+      name: "Core STRK316 Two Goldback Second",
+      serial: 322,
+    };
+    await seedMoneyData(page, { inventory: [GB_5_NOTE, GB_2_NOTE, GB_2_SECOND] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(3);
+
+    await page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core STRK316 Two Goldback Second" })
+      .locator("td[data-column='weight'] .filter-text")
+      .click();
+
+    // Both 2 gb notes match (same key); the 5 gb note does not. Filter to a sub-locator rather
+    // than asserting not.toContainText on the multi-row locator, which trips strict mode.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await expect(
+      page.locator("#inventoryTable tbody tr").filter({ hasText: "Two Goldback" })
+    ).toHaveCount(2);
+    await expect(
+      page.locator("#inventoryTable tbody tr").filter({ hasText: "Five Goldback" })
+    ).toHaveCount(0);
+  });
+
+  test("the active filter chip shows the denomination, not the raw ozt key", async ({ page }) => {
+    // The chip renderer echoes the filter key verbatim, so without getWeightFilterLabel this
+    // chip would read "0.00500" — unreadable for the Goldback users this fix serves.
+    await seedMoneyData(page, { inventory: [GB_5_NOTE, OZ_2_ROUND] });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await page
+      .locator("#inventoryTable tbody tr")
+      .filter({ hasText: "Core STRK316 Five Goldback" })
+      .locator("td[data-column='weight'] .filter-text")
+      .click();
+
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "5 gb" })).toHaveCount(1);
+    await expect(chips.filter({ hasText: "0.00500" })).toHaveCount(0);
+  });
+
+  test("getUnitOztWeight converts gb/sb and passes every other unit through untouched", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [GB_5_NOTE] });
+    await gotoApp(page);
+    const result = await page.evaluate(() => ({
+      gb5: window.getUnitOztWeight({ weight: 5, weightUnit: "gb" }),
+      gbQuarter: window.getUnitOztWeight({ weight: 0.25, weightUnit: "gb" }),
+      sb1: window.getUnitOztWeight({ weight: 1, weightUnit: "sb" }),
+      oz10: window.getUnitOztWeight({ weight: 10, weightUnit: "oz" }),
+      gram: window.getUnitOztWeight({ weight: 1.0175, weightUnit: "g" }),
+      kg: window.getUnitOztWeight({ weight: 2, weightUnit: "kg" }),
+      missing: window.getUnitOztWeight({}),
+      nullish: window.getUnitOztWeight(null),
+    }));
+    expect(result.gb5).toBeCloseTo(0.005, 10);
+    expect(result.gbQuarter).toBeCloseTo(0.00025, 10);
+    expect(result.sb1).toBeCloseTo(0.001, 10);
+    // Non-gb/sb units already store troy oz — identical to the previous parseFloat(item.weight).
+    expect(result.oz10).toBe(10);
+    expect(result.gram).toBe(1.0175);
+    expect(result.kg).toBe(2);
+    expect(result.missing).toBe(0);
+    expect(result.nullish).toBe(0);
+  });
+
+  test("gb/sb filter keys are 5-decimal ozt; bullion keys are unchanged raw weight", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [GB_5_NOTE] });
+    await gotoApp(page);
+    const keys = await page.evaluate(() => ({
+      gbQuarter: window.getItemFilterWeight({ weight: 0.25, weightUnit: "gb" }),
+      gbHalf: window.getItemFilterWeight({ weight: 0.5, weightUnit: "gb" }),
+      gb1: window.getItemFilterWeight({ weight: 1, weightUnit: "gb" }),
+      gb2: window.getItemFilterWeight({ weight: 2, weightUnit: "gb" }),
+      gb5: window.getItemFilterWeight({ weight: 5, weightUnit: "gb" }),
+      gb9: window.getItemFilterWeight({ weight: 9, weightUnit: "gb" }),
+      oz10: window.getItemFilterWeight({ weight: 10, weightUnit: "oz" }),
+      gram: window.getItemFilterWeight({ weight: 1.0175, weightUnit: "g" }),
+    }));
+    // ¼ / ½ / 1 gb all collapse to "0.00" at 2 decimals and ½/1 still collide at 3 — the
+    // 5-decimal width is what keeps every denomination in its own bucket.
+    expect(keys.gbQuarter).toBe("0.00025");
+    expect(keys.gbHalf).toBe("0.00050");
+    expect(keys.gb1).toBe("0.00100");
+    expect(keys.gb2).toBe("0.00200");
+    expect(keys.gb5).toBe("0.00500");
+    // 9 * 0.001 is 0.009000000000000001 in IEEE-754; the fixed width absorbs the artifact.
+    expect(keys.gb9).toBe("0.00900");
+    expect(new Set(Object.values(keys)).size).toBe(Object.keys(keys).length);
+    // Bullion keys byte-identical to the legacy raw-weight string.
+    expect(keys.oz10).toBe("10");
+    expect(keys.gram).toBe("1.0175");
+  });
+
+  test("computeMeltValue is numerically unchanged after routing through the shared helper", async ({
+    page,
+  }) => {
+    // AC5 guard: the gb/sb ternary moved out of computeMeltValue into getUnitOztWeight.
+    await seedMoneyData(page, { inventory: [GB_5_NOTE] });
+    await gotoApp(page);
+    const melt = await page.evaluate(() => ({
+      gb: window.computeMeltValue({ weight: 5, weightUnit: "gb", qty: 3, purity: 1 }, 4000),
+      sb: window.computeMeltValue({ weight: 1, weightUnit: "sb", qty: 10, purity: 1 }, 30),
+      oz: window.computeMeltValue({ weight: 2, weightUnit: "oz", qty: 4, purity: 0.999 }, 30),
+    }));
+    expect(melt.gb).toBeCloseTo(0.005 * 3 * 4000, 9); // $60.00
+    expect(melt.sb).toBeCloseTo(0.001 * 10 * 30, 9); // $0.30
+    expect(melt.oz).toBeCloseTo(2 * 4 * 30 * 0.999, 9); // unchanged bullion path
+  });
+});

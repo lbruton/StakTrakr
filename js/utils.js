@@ -792,20 +792,113 @@ const getConstitutionalSilverOz = (item, wearFactor) => {
 };
 
 /**
+ * The per-unit troy-ounce equivalent of an item's stored weight (STRK-316).
+ *
+ * Goldback ("gb") and Silverback ("sb") items store the raw *denomination* in `item.weight` —
+ * a 5 Goldback stores `5`, not its 0.005 ozt of gold — so any consumer that reads the stored
+ * number as troy ounces ranks and buckets them as if they were bullion ounces. Every other
+ * unit already stores troy oz (`formatWeight` converts outward for display only), so those
+ * pass through unchanged and stay byte-identical to the previous `parseFloat(item.weight)`.
+ *
+ * Deliberately **per-unit**, not qty-folded: the Weight sort key and the weight filter key are
+ * both per-unit for bullion, and this helper has to slot into that existing frame. Callers that
+ * need a lot total multiply by qty themselves (see `computeMeltValue`).
+ *
+ * Constitutional ("cu") is deliberately NOT handled here — its silver weight is variant-derived
+ * *and* qty-folded, so callers route it through `getConstitutionalSilverOz` before reaching this.
+ *
+ * @param {Object} item - Inventory item (needs weight, weightUnit)
+ * @returns {number} Per-unit troy ounces — denomination × conversion for gb/sb, else raw weight
+ */
+const getUnitOztWeight = (item) => {
+  const weight = parseFloat(item?.weight) || 0;
+  const gbFactor = typeof GB_TO_OZT !== "undefined" ? GB_TO_OZT : 0.001;
+  if (item?.weightUnit === "gb") return weight * gbFactor;
+  if (item?.weightUnit === "sb")
+    return weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : gbFactor);
+  return weight;
+};
+
+/**
+ * Decimal places used for the gb/sb weight filter key (STRK-316).
+ *
+ * Five is the smallest width that keeps every Goldback denomination in its own bucket: the
+ * quarter-Goldback is 0.00025 ozt, so 2 decimals (the cu precedent) collapses ¼/½/1/2 gb into
+ * "0.00" and 3 decimals still collides ½ gb with 1 gb. It also has to be a fixed width rather
+ * than a raw `String()` — `9 * 0.001` is `0.009000000000000001` in IEEE-754, and the key is
+ * compared as a string, so float artifacts would be correctness bugs, not cosmetic ones.
+ * @constant {number}
+ */
+const WEIGHT_FILTER_OZT_DECIMALS = 5;
+
+/**
  * The string value used for weight filtering and the inventory-table Weight filter chip
- * (STRK-240). Constitutional ("cu") items resolve to their displayed derived pure-silver oz
- * (2 decimals); every other unit uses the raw stored `item.weight` — byte-identical to the
- * legacy default weight filter, so non-cu filtering is unchanged. `wearFactor` lets a caller
- * hoist the storage-backed wear basis out of a per-item loop (the filter predicate reads it
- * once so a large cu inventory does not re-read storage for every row).
+ * (STRK-240, extended by STRK-316).
+ *
+ * Three key shapes, all on a troy-oz scale so units cannot collide across the column:
+ * - Constitutional ("cu") → derived pure-silver oz at 2 decimals (unchanged).
+ * - Goldback/Silverback ("gb"/"sb") → converted ozt at {@link WEIGHT_FILTER_OZT_DECIMALS}
+ *   decimals. These store the raw denomination, so the legacy raw-weight key put a `2 gb` note
+ *   and a `2.00 oz` round in the same bucket; keying on ozt separates them the same way cu was
+ *   separated from bullion.
+ * - Everything else → the raw stored `item.weight`, byte-identical to the legacy default.
+ *
+ * The gb/sb key is intentionally *not* human-facing — `getWeightFilterLabel` supplies the
+ * chip text so the user still reads "5 gb" while the filter matches on "0.00500".
+ *
+ * Note: gb and sb share a conversion factor (both 0.001 ozt per unit), so a 1 Goldback and a
+ * 1 Silverback resolve to the same key. That is intended — the weight filter is metal-agnostic
+ * by design, and the metal filter is the axis that separates them.
+ *
+ * `wearFactor` lets a caller hoist the storage-backed wear basis out of a per-item loop (the
+ * filter predicate reads it once so a large cu inventory does not re-read storage for every row).
  * @param {Object} item - Inventory item
  * @param {number} [wearFactor] - Pre-loaded constitutional wear factor (optional)
- * @returns {string} Filterable weight string (e.g. "7.15" for cu, "10" otherwise)
+ * @returns {string} Filterable weight string (e.g. "7.15" cu, "0.00500" gb, "10" oz)
  */
-const getItemFilterWeight = (item, wearFactor) =>
-  item && item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
-    ? getConstitutionalSilverOz(item, wearFactor).toFixed(2)
-    : String(item?.weight ?? "");
+const getItemFilterWeight = (item, wearFactor) => {
+  if (item && item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function") {
+    return getConstitutionalSilverOz(item, wearFactor).toFixed(2);
+  }
+  if (item && (item.weightUnit === "gb" || item.weightUnit === "sb")) {
+    return getUnitOztWeight(item).toFixed(WEIGHT_FILTER_OZT_DECIMALS);
+  }
+  return String(item?.weight ?? "");
+};
+
+/**
+ * The human-readable chip label for a weight filter key (STRK-316).
+ *
+ * Goldback/Silverback keys are converted troy-oz strings ("0.00500"), which are correct for
+ * matching but unreadable in a filter chip — the chip renderer echoes the key verbatim, and a
+ * Goldback stacker thinks in denominations, not ten-thousandths of an ounce. This resolves the
+ * key back to the same text the Weight cell shows ("5 gb") by finding the first gb/sb item that
+ * produces it, so the chip and the cell always agree.
+ *
+ * Deliberately scoped to gb/sb: cu and bullion keys are already legible, and cu display is
+ * STRK-300's territory. Any key with no gb/sb match falls through unchanged, so bullion chips
+ * and cu chips are byte-identical to before.
+ *
+ * @param {string} value - The weight filter key
+ * @param {Array<Object>} [items] - Item source; defaults to the global inventory
+ * @returns {string} Display label for the chip (e.g. "5 gb"), or the key unchanged
+ */
+const getWeightFilterLabel = (value, items) => {
+  const key = String(value ?? "");
+  if (!key) return key;
+  const source = Array.isArray(items)
+    ? items
+    : typeof inventory !== "undefined" && Array.isArray(inventory)
+      ? inventory
+      : [];
+  const match = source.find(
+    (it) => (it?.weightUnit === "gb" || it?.weightUnit === "sb") && getItemFilterWeight(it) === key
+  );
+  if (!match) return key;
+  return typeof formatWeight === "function"
+    ? formatWeight(match.weight, match.weightUnit, match)
+    : key;
+};
 
 /**
  * Computes the melt value for an inventory item.
@@ -821,16 +914,11 @@ const computeMeltValue = (item, spot) => {
   if (item.weightUnit === "cu") {
     return getConstitutionalSilverOz(item) * (Number(spot) || 0);
   }
-  const weight = parseFloat(item.weight) || 0;
   const qty = Number(item.qty) || 1;
   const purity = parseFloat(item.purity) || 1.0;
-  const weightOz =
-    item.weightUnit === "gb"
-      ? weight * GB_TO_OZT
-      : item.weightUnit === "sb"
-        ? weight * SB_TO_OZT
-        : weight;
-  return weightOz * qty * spot * purity;
+  // STRK-316: the gb/sb denomination → troy-oz conversion now lives in one place.
+  // Numerically identical to the previous inline ternary.
+  return getUnitOztWeight(item) * qty * spot * purity;
 };
 
 /**
@@ -1357,7 +1445,9 @@ if (typeof window !== "undefined") {
   window.computeMeltValue = computeMeltValue;
   window.getConstitutionalWearFactor = getConstitutionalWearFactor;
   window.getConstitutionalSilverOz = getConstitutionalSilverOz;
+  window.getUnitOztWeight = getUnitOztWeight;
   window.getItemFilterWeight = getItemFilterWeight;
+  window.getWeightFilterLabel = getWeightFilterLabel;
   window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
@@ -1374,7 +1464,9 @@ if (typeof module !== "undefined" && module.exports) {
     sanitizeImportedItem,
     computeMeltValue,
     getConstitutionalSilverOz,
+    getUnitOztWeight,
     getItemFilterWeight,
+    getWeightFilterLabel,
     findItemByUuid: findInventoryItemByUuid,
     computeTradeValue,
     calculateRetailPrice,
