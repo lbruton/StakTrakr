@@ -17,7 +17,7 @@
 // detection, so keeping it trailing preserves correct per-function NLOC counts.
 // =============================================================================
 
-/* global sanitizeHtml, __decompressIfNeeded */
+/* global sanitizeHtml, __decompressIfNeeded, API_PROVIDERS */
 
 (function () {
   "use strict";
@@ -632,10 +632,48 @@
     }
   }
 
+  /**
+   * Resolve a spot provider id (e.g. "METALS_DEV") to its display name,
+   * falling back to the raw id when API_PROVIDERS isn't loaded.
+   * @param {string} prov provider id
+   * @returns {string} human label
+   */
+  function _providerLabel(prov) {
+    if (typeof API_PROVIDERS !== "undefined" && API_PROVIDERS[prov] && API_PROVIDERS[prov].name) {
+      return API_PROVIDERS[prov].name;
+    }
+    return prov;
+  }
+
+  /**
+   * STRK-315: metalApiConfig holds twelve fields — provider, keys, cacheHours,
+   * cacheTimeouts, customConfig, metals, usage, historyDays, historyTimes,
+   * syncMode, autoRefresh, usageMonth — of which only `keys` is credentials.
+   * Masking the whole blob as "configured" made a provider or cache change
+   * render identically to a key change, which is what hid STRK-313/STRK-315.
+   * Summarize the selected provider plus the key COUNT; key material is never
+   * rendered.
+   * @param {*} value raw string or parsed metalApiConfig
+   * @returns {string} compact single-line summary
+   */
+  function _formatSpotApiConfig(value) {
+    var cfg = _parseSetting(value);
+    if (cfg === null || typeof cfg !== "object" || Array.isArray(cfg)) return "not set";
+    var keys = cfg.keys || {};
+    var names = Object.keys(keys);
+    var count = 0;
+    for (var i = 0; i < names.length; i++) {
+      if (keys[names[i]]) count++;
+    }
+    var keyPart = count ? "••• " + count + " key" + (count === 1 ? "" : "s") : "no keys";
+    if (!cfg.provider) return keyPart;
+    return _esc(_providerLabel(cfg.provider)) + " · " + keyPart;
+  }
+
   /** Format a setting value for compact single-line display in the diff modal */
   function _formatSettingValue(key, value) {
-    if (key === "metalApiConfig" || key === "catalog_api_config")
-      return value ? "••• configured" : "not set";
+    if (key === "metalApiConfig") return _formatSpotApiConfig(value);
+    if (key === "catalog_api_config") return value ? "••• configured" : "not set";
     value = _parseSetting(value);
     if (value === null || value === undefined) return "—";
     if (typeof value === "boolean") return value ? "On" : "Off";

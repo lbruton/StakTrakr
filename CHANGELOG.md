@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.82] - 2026-07-30
+
+### Fixed — STRK-315: the sync popup finally stops appearing when nothing changed
+
+- **The real cause of the phantom sync popup**: v3.35.81 fixed this bug family in the catalog API settings, but the setting actually churning was the other one — the spot price API config. It keeps a private tally of how many price requests each device has made, stored right next to the API keys. The free built-in StakTrakr feed refreshes automatically when the app opens, so that tally ticked up on every device at every launch, even for people who have never entered an API key at all. Two devices drifted apart within a session or two and the Review Sync Changes window opened every time. Those tallies and their month stamp are now ignored when deciding whether your settings changed; the quota limits you set yourself still sync normally (STRK-315).
+- **Matched settings were showing blank values**: everything in the "matched" list at the bottom of that window displayed as empty — an API key you definitely had configured read as "not set", and other settings showed only a dash. The window was looking for those values under the wrong name and always came up empty-handed, no matter what was actually stored. Matched settings now show what they really hold. This is also what sent the previous fix after the wrong setting: a configured Numista key appearing as "not set" looked like real evidence (STRK-315).
+- **"API Keys" was never only about keys**: that row also covers which price feed you have selected, how long prices are cached, which metals each provider fetches, and your history preferences — but any change to any of them was displayed as an unreadable "••• configured", identical to a key change. It is now called **Spot API Config** and shows the selected provider and how many keys are set. Key material is still never displayed (STRK-315).
+- **Your request counts survive a settings change**: if a genuine change to the spot API config syncs over from another device, the app now keeps the higher of the two request counts for the current month, per provider — unless that provider's key itself changed, in which case the count starts fresh rather than inheriting a used-up one (STRK-315).
+- **A new guard against a whole class of breakage**: StakTrakr loads every script into one shared space, so two files declaring the same name is not a harmless duplicate — it stops one of them loading entirely and silently removes a feature. A test now checks all 80 app scripts together for that clash. It caught exactly this mistake while this fix was being written (STRK-315).
+
+---
+
 ## [3.35.81] - 2026-07-30
 
 ### Fixed — STRK-313: cloud sync stops flagging your catalog API key as changed

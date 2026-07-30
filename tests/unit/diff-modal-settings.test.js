@@ -119,8 +119,21 @@ describe("renderSettingRow — count-summary", () => {
 
 describe("formatSettingValue", () => {
   it("masks configured API-key settings", () => {
-    assert.equal(DMS.formatSettingValue("metalApiConfig", "secret"), "••• configured");
+    assert.equal(DMS.formatSettingValue("catalog_api_config", "secret"), "••• configured");
     assert.equal(DMS.formatSettingValue("catalog_api_config", ""), "not set");
+  });
+
+  // STRK-315: metalApiConfig no longer masks the whole blob as "configured" —
+  // it holds the provider, cache and metal settings too, so a non-credential
+  // change used to render identically to a key change. It now summarizes the
+  // provider plus a key COUNT; key material is still never rendered. Full
+  // coverage lives in strk-315-spot-api-usage-sync.test.js.
+  it("summarizes metalApiConfig by provider and key count", () => {
+    const cfg = JSON.stringify({ provider: "METALS_DEV", keys: { METALS_DEV: "FAKE-secret" } });
+    const out = DMS.formatSettingValue("metalApiConfig", cfg);
+    assert.match(out, /1 key/);
+    assert.doesNotMatch(out, /FAKE-secret/);
+    assert.equal(DMS.formatSettingValue("metalApiConfig", ""), "not set");
   });
 
   it("renders booleans, nulls, arrays, and objects", () => {

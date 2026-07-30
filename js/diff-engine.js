@@ -183,14 +183,53 @@ function _stableStringify(val) {
 }
 
 /**
- * STRK-313: Key-aware normalization applied before settings equality checks.
- * catalog_api_config carries volatile per-device usage counters (numistaUsage
- * ticks on every Numista request, pcgsUsage on every PCGS request) alongside
- * the credentials — strip them so a counter tick on one device doesn't flag
- * the whole setting as changed in sync/restore previews. Accepts both raw
- * localStorage strings (cloud-sync pull path) and parsed objects (vault
- * restore path); an unparseable string is returned untouched so behavior
- * degrades to the previous raw comparison.
+ * Top-level fields dropped before settings equality checks, per settings key.
+ * These are per-device bookkeeping stored in the same synced blob as real
+ * settings — a tick on one device must not read as a user-visible change.
+ * STRK-313: catalog_api_config counters. STRK-315: metalApiConfig usageMonth
+ * (the period stamp that zeroes the spot counters on month rollover).
+ */
+const VOLATILE_SETTING_FIELDS = {
+  catalog_api_config: ["numistaUsage", "pcgsUsage"],
+  metalApiConfig: ["usageMonth"],
+};
+
+/**
+ * STRK-315: Drop the volatile `used` counter from each provider entry of a
+ * metalApiConfig `usage` map while KEEPING `quota`, which is a real
+ * user-editable setting (Settings › API quota modal). Unlike the catalog
+ * counters — whole objects STRK-313 could drop outright — usage[p] mixes
+ * volatile and durable fields, so the strip has to be nested.
+ * @param {*} usage the `usage` map, or any non-object value
+ * @returns {*} copy with per-provider `used` removed (input untouched)
+ */
+function _stripSpotUsedCounters(usage) {
+  if (usage === null || typeof usage !== "object" || Array.isArray(usage)) return usage;
+  const out = {};
+  for (const prov of Object.keys(usage)) {
+    const entry = usage[prov];
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      out[prov] = entry;
+      continue;
+    }
+    const kept = {};
+    for (const field of Object.keys(entry)) {
+      if (field === "used") continue;
+      kept[field] = entry[field];
+    }
+    out[prov] = kept;
+  }
+  return out;
+}
+
+/**
+ * STRK-313/STRK-315: Key-aware normalization applied before settings equality
+ * checks. Both catalog_api_config and metalApiConfig carry volatile per-device
+ * usage counters alongside the credentials — strip them so a counter tick on
+ * one device doesn't flag the whole setting as changed in sync/restore
+ * previews. Accepts both raw localStorage strings (cloud-sync pull path) and
+ * parsed objects (vault restore path); an unparseable string is returned
+ * untouched so behavior degrades to the previous raw comparison.
  * duplication-ok: diff-engine is dependency-free by design — the cloud-sync
  * twin of this volatile-field strip cannot be shared from here.
  * @param {string} key settings key
@@ -198,7 +237,8 @@ function _stableStringify(val) {
  * @returns {*} normalized value for comparison only
  */
 function _normalizeSettingForCompare(key, val) {
-  if (key !== "catalog_api_config" || val === null || val === undefined) return val;
+  const drop = VOLATILE_SETTING_FIELDS[key];
+  if (!drop || val === null || val === undefined) return val;
   let parsed = val;
   if (typeof parsed === "string") {
     try {
@@ -210,8 +250,12 @@ function _normalizeSettingForCompare(key, val) {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return val;
   const out = {};
   for (const field of Object.keys(parsed)) {
-    if (field === "numistaUsage" || field === "pcgsUsage") continue;
+    if (drop.includes(field)) continue;
     out[field] = parsed[field];
+  }
+  // Nested strip: only metalApiConfig has volatile fields below the top level.
+  if (key === "metalApiConfig" && "usage" in parsed) {
+    out.usage = _stripSpotUsedCounters(parsed.usage);
   }
   return out;
 }
@@ -695,7 +739,12 @@ const DiffEngine = {
       ) {
         changed.push({ key, localVal, remoteVal });
       } else {
-        unchanged.push({ key, val: localVal });
+        // STRK-315: unchanged entries carry localVal/remoteVal in the SAME
+        // shape as changed entries. The renderer reads mEntry.localVal for
+        // both lists, so the old {key, val} shape made every matched row
+        // render as undefined — "not set" for masked keys, "—" for the rest.
+        // `val` is retained for back-compat with any older caller.
+        unchanged.push({ key, val: localVal, localVal, remoteVal });
       }
     }
 
