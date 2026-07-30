@@ -85,8 +85,8 @@ _Avoid_: estimated price, calculated price
 ## Constitutional Silver
 
 **Constitutional Silver**:
-Pre-1965 US circulating coinage struck in 90%, 40%, or 35% silver, valued for its silver content rather than as bullion. Uses the `cu` weight unit; `item.weight` stores a **face value** in dollars, not a weight.
-_Avoid_: junk silver, 90% silver, coin silver
+US circulating coinage valued for its silver content rather than as bullion — 90% issues struck through 1964, 35% war nickels (1942–1945), and 40% Kennedy halves (1965–1970). "Pre-1965" describes only the 90% issues. Uses the `cu` weight unit; `item.weight` stores a **face value** in dollars, not a weight.
+_Avoid_ as the canonical noun: 90% silver, coin silver. ("Junk silver" is the common trade term and is fine as a one-time gloss in user-facing copy and code comments — it is what users search for — but Constitutional Silver is the canonical term for requirements, ACs, and issue text.)
 
 **ASW** (Actual Silver Weight):
 The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term — junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.

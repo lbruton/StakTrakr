@@ -64,7 +64,7 @@ const sortInventory = (data = inventory) => {
         // Weight column must rank on ONE scale shared with bullion ounces, and dollars cannot
         // interleave with ounces. Accepted and documented quirk: across mixed finenesses the
         // displayed face value is not monotonic under this sort — $1.00 fv of war nickels
-        // (~1.125 ozt) correctly outranks $1.25 fv of 90% dimes (~0.894 ozt).
+        // (20 coins, ~1.11 ozt) correctly outranks $1.20 fv of 90% dimes (12 coins, ~0.86 ozt).
         // STRK-316: gb/sb store the raw denomination (a 5 Goldback stores 5), so every non-cu
         // unit routes through getUnitOztWeight to put the whole column on one troy-oz scale.
         // Without it a 5 gb sorted as 5 ozt and outranked a 2 oz round.

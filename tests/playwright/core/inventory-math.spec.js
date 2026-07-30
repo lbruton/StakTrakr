@@ -2431,6 +2431,38 @@ test.describe("core/inventory-math — STRK-300 constitutional face-value displa
     expect(oz).not.toBeCloseTo(10, 1);
   });
 
+  // PR #1406 review (Codex P2): after the flip the cu cell reads "$10.00 fv" while its filter
+  // key stays the ASW ("7.15"), so the chip — which echoes the key verbatim — showed a bare
+  // number matching nothing on the row it came from.
+  test("the cu filter chip names its unit so it is not a bare number after the flip", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_QUARTERS_40]);
+    await weightCellFor(page, "Core 40 Silver Quarters").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: /^\d+\.\d{2} oz/ })).toHaveCount(1);
+  });
+
+  test("the cu chip label is scoped to keys a cu item actually produces", async ({ page }) => {
+    await seedAndLoad(page, [CU_QUARTERS_40]);
+    const labels = await page.evaluate(() => ({
+      cuMatch: window.getWeightFilterLabel("7.15", [
+        { weight: 10, qty: 1, weightUnit: "cu", constitutionalEntryMode: "face" },
+      ]),
+      noCuItems: window.getWeightFilterLabel("7.15", []),
+      bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      gbStillWorks: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
+    }));
+    // A $10-face 90% bag derives ~7.15 ozt, so the key resolves and gains its unit.
+    expect(labels.cuMatch).toBe("7.15 oz");
+    // With no cu item producing that key, the value passes through untouched.
+    expect(labels.noCuItems).toBe("7.15");
+    // Bullion chips are unchanged — they were never ambiguous.
+    expect(labels.bullionKey).toBe("10");
+    // The STRK-316 gb/sb path is unaffected by the new cu branch.
+    expect(labels.gbStillWorks).toBe("5 gb");
+  });
+
   test("the legacy 2-arg formatWeight fallback renders the normalized fv suffix", async ({
     page,
   }) => {
