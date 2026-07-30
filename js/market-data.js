@@ -657,9 +657,9 @@ const renderBestPriceTicker = () => {
 
 /**
  * Resolve a vendor id to its short display label. Vendors missing from the
- * hardcoded map fall back to the manifest vendor-meta display name, then the
- * raw vid — so a newly added vendor never renders as a bare lowercase id
- * (STRK-317: "mintbuilder").
+ * hardcoded map fall back to the manifest vendor-meta display name, so a newly
+ * added vendor renders its feed name instead of a bare lowercase id (STRK-317:
+ * "mintbuilder"). The raw vid remains the last resort when no meta name exists.
  * @param {string} vid - Vendor id from the retail feed (e.g. "apmex").
  * @returns {string} Short display label (e.g. "APMEX", "MintBuilder").
  */
