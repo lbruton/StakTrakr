@@ -838,7 +838,7 @@ test.describe("payment-method", () => {
         reverseImageUrl: "https://example.com/rev.png",
         ignorePatternImages: true,
       }),
-      // 1 — sub-ounce oz item: weight < 1 routes to the grams branch
+      // 1 — sub-ounce item saved explicitly as `oz`; its unit must survive an edit (STRK-319)
       makeItem({
         serial: 2,
         uuid: "strk170-sub",
@@ -927,9 +927,16 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemDateNABtn")).not.toHaveClass(/\bactive\b/);
     await expect(page.locator("#itemDate")).toBeEnabled();
 
-    // ── 1: sub-ounce oz weight routes to the grams branch ──
+    // ── 1: an explicitly-stored unit survives the edit round trip (STRK-319) ──
+    // This asserted "g" until STRK-319. As a STRK-170 characterization test it locked the
+    // behaviour that existed, and the behaviour was a bug: `_editPopulateWeightFields` matched
+    // `item.weightUnit === "g" || item.weight < 1`, so EVERY sub-troy-ounce item was routed to
+    // the grams branch whatever unit it was saved with — and the following save wrote
+    // weightUnit "g" back, silently discarding the user's choice. This fixture is stored as
+    // `oz`, so `oz` is what the modal must show.
     await openEdit(1);
-    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("oz");
+    await expect(page.locator("#itemWeight")).toHaveValue("0.50");
 
     // ── 2: kg branch ──
     await openEdit(2);

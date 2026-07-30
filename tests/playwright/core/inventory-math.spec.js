@@ -2895,3 +2895,501 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
     expect(melt.oz).toBeCloseTo(2 * 4 * 30 * 0.999, 9); // unchanged bullion path
   });
 });
+
+// =============================================================================
+// STRK-318 — gb/sb show the exact denomination; the tooltip carries the metal content
+// =============================================================================
+// A denomination is an exact enum value from GOLDBACK_DENOMINATIONS, not a measurement, but
+// formatWeight rounded it: (0.25).toFixed(1) made a ¼ Goldback read "0.3 gb", and 0.125 read
+// "0.1 gb" — a different denomination entirely. Pre-existing since STACK-45; STRK-316 only made
+// it visible by clustering goldbacks together under a weight sort. Separately the gb/sb tooltip
+// was a static "Goldback denomination" string naming no weight, so a stacker had no way to see
+// that a ¼ Goldback holds 0.00025 ozt of gold. Both are the cell/tooltip split STRK-300
+// established for cu, now applied to the two remaining denomination-style units.
+
+const GB_QUARTER = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk318-gb-quarter",
+  name: "Core STRK318 Quarter Goldback",
+  weight: 0.25,
+  qty: 1,
+  serial: 330,
+};
+
+const GB_HALF = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk318-gb-half",
+  name: "Core STRK318 Half Goldback",
+  weight: 0.5,
+  qty: 1,
+  serial: 331,
+};
+
+test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW tooltip", () => {
+  test("fractional Goldback denominations render exactly, never rounded", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER, GB_HALF]);
+    await expect(weightCellFor(page, "Core STRK318 Quarter Goldback")).toHaveText("¼ gb");
+    await expect(weightCellFor(page, "Core STRK318 Half Goldback")).toHaveText("½ gb");
+    // The bug: 0.25 rendered as "0.3 gb" and read as a neighbour of the ½ note.
+    await expect(weightCellFor(page, "Core STRK318 Quarter Goldback")).not.toContainText("0.3");
+  });
+
+  test("integer denominations are byte-identical to before the fix", async ({ page }) => {
+    await seedAndLoad(page, [GB_5_NOTE, SB_1_NOTE]);
+    await expect(weightCellFor(page, "Core STRK316 Five Goldback")).toHaveText("5 gb");
+    await expect(weightCellFor(page, "Core STRK316 One Silverback")).toHaveText("1 sb");
+  });
+
+  test("formatDenomination never rounds a denomination into a neighbouring one", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const out = await page.evaluate(() => ({
+      quarter: window.formatDenomination(0.25),
+      half: window.formatDenomination(0.5),
+      one: window.formatDenomination(1),
+      hundred: window.formatDenomination(100),
+      // Previously (0.125).toFixed(1) silently displayed "0.1" — a different denomination.
+      eighth: window.formatDenomination(0.125),
+      oddFraction: window.formatDenomination(2.5),
+      stringInput: window.formatDenomination("0.25"),
+      garbage: window.formatDenomination("abc"),
+      nullish: window.formatDenomination(null),
+    }));
+    expect(out.quarter).toBe("¼");
+    expect(out.half).toBe("½");
+    expect(out.one).toBe("1");
+    expect(out.hundred).toBe("100");
+    expect(out.eighth).toBe("0.125");
+    expect(out.oddFraction).toBe("2.5");
+    expect(out.stringInput).toBe("¼");
+    expect(out.garbage).toBe("abc");
+    expect(out.nullish).toBe("");
+  });
+
+  test("a Goldback weight cell tooltip reports its AGW in troy ounces", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const title = await weightCellFor(page, "Core STRK318 Quarter Goldback").getAttribute("title");
+    // ¼ Goldback = 0.00025 ozt of gold — the figure the cell itself cannot show.
+    expect(title).toContain("0.00025 ozt");
+    expect(title).toContain("AGW (Actual Gold Weight)");
+    // The old static string named no weight at all.
+    expect(title).not.toBe("Goldback denomination");
+  });
+
+  test("a Silverback weight cell tooltip reports its ASW, not AGW", async ({ page }) => {
+    await seedAndLoad(page, [SB_1_NOTE]);
+    const title = await weightCellFor(page, "Core STRK316 One Silverback").getAttribute("title");
+    expect(title).toContain("0.001 ozt");
+    expect(title).toContain("ASW (Actual Silver Weight)");
+    expect(title).not.toContain("AGW");
+  });
+
+  test("a multi-note lot shows both the per-note and total metal content", async ({ page }) => {
+    const GB_HALF_X3 = {
+      ...GB_HALF,
+      uuid: "core-strk318-gb-half-x3",
+      name: "Core STRK318 Half Goldback Lot",
+      qty: 3,
+      serial: 332,
+    };
+    await seedAndLoad(page, [GB_HALF_X3]);
+    const title = await weightCellFor(page, "Core STRK318 Half Goldback Lot").getAttribute("title");
+    expect(title).toContain("0.0005 ozt");
+    expect(title).toContain("each");
+    expect(title).toContain("0.0015 ozt total"); // 3 × 0.0005
+    // The cell still shows the per-note denomination; the count lives in its own column.
+    await expect(weightCellFor(page, "Core STRK318 Half Goldback Lot")).toHaveText("½ gb");
+  });
+
+  // The sort key is deliberately NOT changed here — STRK-316 already keys gb/sb on the troy-oz
+  // equivalent. This locks that shortcut (denomination × conversion constant) to the
+  // authoritative per-denomination tables: if a future denomination ever carries non-linear
+  // metal content, this fails and forces a table lookup rather than silently mis-sorting.
+  test("the gb/sb sort key equals the metal content in the denomination tables", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const rows = await page.evaluate(() => ({
+      gb: GOLDBACK_DENOMINATIONS.map((d) => ({
+        denom: d.weight,
+        table: d.goldOz,
+        sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "gb" }),
+      })),
+      sb: SILVERBACK_DENOMINATIONS.map((d) => ({
+        denom: d.weight,
+        table: d.silverOz,
+        sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "sb" }),
+      })),
+    }));
+    expect(rows.gb.length).toBe(9); // ¼, ½, 1, 2, 5, 10, 25, 50, 100
+    expect(rows.sb.length).toBeGreaterThan(0);
+    for (const r of rows.gb) expect(r.sortKey).toBeCloseTo(r.table, 12);
+    for (const r of rows.sb) expect(r.sortKey).toBeCloseTo(r.table, 12);
+  });
+
+  test("fractional denominations sort by gold content, below every larger note", async ({
+    page,
+  }) => {
+    await seedWeightSorted(page, [GB_5_NOTE, GB_QUARTER, GB_HALF, GB_2_NOTE], "asc");
+    const names = await rowNames(page);
+    // 0.00025 < 0.0005 < 0.002 < 0.005 ozt
+    expect(names[0]).toContain("Quarter Goldback");
+    expect(names[1]).toContain("Half Goldback");
+    expect(names[2]).toContain("Two Goldback");
+    expect(names[3]).toContain("Five Goldback");
+  });
+
+  test("the filter chip follows the corrected denomination text", async ({ page }) => {
+    // getWeightFilterLabel builds the chip via formatWeight, so the fix propagates for free —
+    // the chip must not go on saying "0.3 gb" after the cell stopped.
+    await seedAndLoad(page, [GB_QUARTER, GB_5_NOTE]);
+    await weightCellFor(page, "Core STRK318 Quarter Goldback").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "¼ gb" })).toHaveCount(1);
+    await expect(chips.filter({ hasText: "0.3" })).toHaveCount(0);
+    await expect(chips.filter({ hasText: "0.00025" })).toHaveCount(0);
+  });
+});
+
+// =============================================================================
+// STRK-319 — every unit renders correctly: mg unit, adaptive precision, chip parity
+// =============================================================================
+// `weightUnit` is a DISPLAY LENS over a canonical troy-ounce value in `item.weight`; sort and
+// filter key on the canonical value. Three things broke that contract:
+//   * Fixed decimals assume one band of magnitude, but this inventory spans a 25 mg Aurum note
+//     and a 100 ozt bar. At two decimals 25 mg reads "0.03 g" (20% over) or "0.00 oz" — a
+//     weightless item.
+//   * The edit modal force-converted EVERY sub-troy-ounce item to grams regardless of its
+//     stored unit, and the save wrote that unit back — silently discarding the user's choice.
+//   * g/kg/lb chips echoed the stored ozt float ("1.0175711288970755") rather than the cell.
+// Aurum is a Type, not a unit — those rows use `g`, and now have a native `mg` option.
+
+/** ~1 troy ounce expressed the way a 31.1 g bar is stored. */
+const GRAMS_PER_OZT = 31.1035;
+
+const MG_AURUM_25 = {
+  ...MONEY_ITEM,
+  uuid: "core-strk319-aurum-mg",
+  name: "Core STRK319 Aurum 25mg",
+  metal: "Gold",
+  composition: "Gold",
+  weight: 25 / 1000 / GRAMS_PER_OZT,
+  weightUnit: "mg",
+  qty: 1,
+  serial: 340,
+};
+
+const G_AURUM_25 = {
+  ...MG_AURUM_25,
+  uuid: "core-strk319-aurum-g",
+  // Deliberately not a superstring of the mg fixture's name — `filter({ hasText })` is a
+  // substring match, so "…25mg" would also select "…25mg as grams".
+  name: "Core STRK319 Gram-Stored Aurum",
+  weightUnit: "g",
+  serial: 341,
+};
+
+const OZ_TENTH = {
+  ...MONEY_ITEM,
+  uuid: "core-strk319-oz-tenth",
+  name: "Core STRK319 Tenth Oz Gold",
+  metal: "Gold",
+  composition: "Gold",
+  weight: 0.1,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 342,
+};
+
+const G_BAR_3165 = {
+  ...MONEY_ITEM,
+  uuid: "core-strk319-gram-bar",
+  name: "Core STRK319 Gram Bar",
+  weight: 31.65 / GRAMS_PER_OZT,
+  weightUnit: "g",
+  qty: 1,
+  serial: 343,
+};
+
+test.describe("core/inventory-math — STRK-319 unit rendering across every weight unit", () => {
+  test("no weight renders as zero, whatever unit it is stored in", async ({ page }) => {
+    await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
+    // Was "0.03 g" — a 20% overstatement of a 25 mg note.
+    await expect(weightCellFor(page, "Core STRK319 Gram-Stored Aurum")).toHaveText("0.025 g");
+    // The new native unit reads the way the product is sold.
+    await expect(weightCellFor(page, "Core STRK319 Aurum 25mg")).toHaveText("25 mg");
+  });
+
+  test("adaptive precision leaves ordinary weights byte-identical", async ({ page }) => {
+    // The fix must not restyle every row — only values the base precision cannot represent.
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const out = await page.evaluate(() => ({
+      oz1: window.formatWeight(1, "oz"),
+      oz2: window.formatWeight(2, "oz"),
+      oz10: window.formatWeight(10, "oz"),
+      ozTenth: window.formatWeight(0.1, "oz"),
+      ozTwentieth: window.formatWeight(0.05, "oz"),
+      oz100: window.formatWeight(100, "oz"),
+      g1: window.formatWeight(1 / 31.1035, "g"),
+      g3165: window.formatWeight(31.65 / 31.1035, "g"),
+      kg1: window.formatWeight(32.15075, "kg"),
+      lb1: window.formatWeight(14.58333, "lb"),
+    }));
+    expect(out.oz1).toBe("1.00 oz");
+    expect(out.oz2).toBe("2.00 oz");
+    expect(out.oz10).toBe("10.00 oz");
+    expect(out.ozTenth).toBe("0.10 oz");
+    expect(out.ozTwentieth).toBe("0.05 oz");
+    expect(out.oz100).toBe("100.00 oz");
+    expect(out.g1).toBe("1.00 g");
+    expect(out.g3165).toBe("31.65 g");
+    expect(out.kg1).toBe("1.0000 kg");
+    expect(out.lb1).toBe("1.0000 lb");
+  });
+
+  test("adaptive precision grows only for values the base precision cannot represent", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const out = await page.evaluate(() => {
+      const oztFor = (mg) => window.mgToOzt(mg);
+      return {
+        gramsOf25mg: window.formatWeight(oztFor(25), "g"), // was "0.03 g"
+        ozOf25mg: window.formatWeight(oztFor(25), "oz"), // was "0.00 oz"
+        ozOf1mg: window.formatWeight(oztFor(1), "oz"), // was "0.00 oz"
+        kgOf25mg: window.formatWeight(oztFor(25), "kg"), // was "0.0000 kg"
+        zero: window.formatWeight(0, "oz"), // a genuine zero keeps base precision
+      };
+    });
+    expect(out.gramsOf25mg).toBe("0.025 g");
+    // Never zero, and never more decimals than the cap allows.
+    expect(parseFloat(out.ozOf25mg)).toBeGreaterThan(0);
+    expect(parseFloat(out.ozOf1mg)).toBeGreaterThan(0);
+    expect(parseFloat(out.kgOf25mg)).toBeGreaterThan(0);
+    expect(out.zero).toBe("0.00 oz");
+  });
+
+  test("the edit modal preserves the stored unit instead of rewriting it to grams", async ({
+    page,
+  }) => {
+    // The blocker: `|| item.weight < 1` force-converted any sub-ounce item to grams on open,
+    // and the save wrote weightUnit "g" back. A 1/10 ozt gold coin opened reading 3.1104 g.
+    await seedAndLoad(page, [OZ_TENTH]);
+    await openEditModal(page, 0);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("oz");
+    await expect(page.locator("#itemWeight")).toHaveValue("0.10");
+  });
+
+  test("the edit modal preserves the mg unit, which the old fallback would have destroyed", async ({
+    page,
+  }) => {
+    // 25 mg is ~0.0008 ozt — squarely inside the old `< 1` test, so the very first edit would
+    // have converted it to grams and discarded the unit.
+    await seedAndLoad(page, [MG_AURUM_25]);
+    await openEditModal(page, 0);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("mg");
+    const entered = await page.locator("#itemWeight").inputValue();
+    expect(parseFloat(entered)).toBeCloseTo(25, 1);
+  });
+
+  test("every unit survives an edit-modal round trip", async ({ page }) => {
+    await seedAndLoad(page, [OZ_TENTH, G_BAR_3165, MG_AURUM_25, GB_QUARTER, SB_1_NOTE]);
+    const expected = ["oz", "g", "mg", "gb", "sb"];
+    for (let i = 0; i < expected.length; i += 1) {
+      const unit = await page.evaluate(async (idx) => {
+        window.editItem(idx);
+        return document.getElementById("itemWeightUnit").value;
+      }, i);
+      expect(unit).toBe(expected[i]);
+      await page.evaluate(() => document.getElementById("cancelItemBtn")?.click());
+    }
+  });
+
+  test("a legacy item with no stored unit still falls back to grams when small", async ({
+    page,
+  }) => {
+    // The heuristic is kept for rows predating the weightUnit field — an explicit unit now
+    // wins, but a bare small number really is friendlier read as grams.
+    const LEGACY_NO_UNIT = {
+      ...MONEY_ITEM,
+      uuid: "core-strk319-legacy",
+      name: "Core STRK319 Legacy No Unit",
+      weight: 0.1,
+      qty: 1,
+      serial: 344,
+    };
+    delete LEGACY_NO_UNIT.weightUnit;
+    await seedAndLoad(page, [LEGACY_NO_UNIT]);
+    await openEditModal(page, 0);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+  });
+
+  test("mg converts to the canonical troy ounce on save and back on display", async ({ page }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const trip = await page.evaluate(() => {
+      const stored = parseFloat(window.mgToOzt(25).toFixed(6)); // parseWeight stores at 6dp
+      return {
+        stored,
+        backToMg: window.oztToMg(stored),
+        display: window.formatWeight(stored, "mg"),
+      };
+    });
+    // Storage stays troy ounces, so melt/totals/sort need no mg special case.
+    expect(trip.stored).toBeCloseTo(0.000804, 6);
+    expect(trip.backToMg).toBeCloseTo(25, 1);
+    expect(trip.display).toBe("25 mg");
+  });
+
+  test("gram and milligram chips show the cell text, not the stored troy-ounce float", async ({
+    page,
+  }) => {
+    // A 31.65 g bar keys on "1.0175711288970755" — the chip used to print that verbatim.
+    await seedAndLoad(page, [G_BAR_3165, MONEY_ITEM]);
+    await weightCellFor(page, "Core STRK319 Gram Bar").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "31.65 g" })).toHaveCount(1);
+    await expect(chips.filter({ hasText: "1.0175" })).toHaveCount(0);
+  });
+
+  test("plain ounce chips are unchanged — they already read as their own key", async ({ page }) => {
+    await seedAndLoad(page, [OZ_10_BAR, G_BAR_3165]);
+    const labels = await page.evaluate(() => ({
+      oz: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      gram: window.getWeightFilterLabel(String(31.65 / 31.1035), [
+        { weight: 31.65 / 31.1035, weightUnit: "g" },
+      ]),
+      mg: window.getWeightFilterLabel(String(window.mgToOzt(25)), [
+        { weight: window.mgToOzt(25), weightUnit: "mg" },
+      ]),
+      noMatch: window.getWeightFilterLabel("99", [{ weight: 10, weightUnit: "oz" }]),
+      empty: window.getWeightFilterLabel("", []),
+    }));
+    expect(labels.oz).toBe("10"); // bullion byte-identical
+    expect(labels.gram).toBe("31.65 g");
+    expect(labels.mg).toBe("25 mg");
+    expect(labels.noMatch).toBe("99");
+    expect(labels.empty).toBe("");
+  });
+
+  test("a measured weight cell tooltip reports its canonical troy ounces", async ({ page }) => {
+    // Was a static unit name ("Grams (g)") that added nothing the cell did not already say.
+    await seedAndLoad(page, [G_BAR_3165]);
+    const title = await weightCellFor(page, "Core STRK319 Gram Bar").getAttribute("title");
+    expect(title).toContain("ozt");
+    expect(title).toMatch(/1\.0[12]/); // 31.65 g ≈ 1.0176 ozt
+    expect(title).toContain("Grams (g)");
+  });
+
+  // PR #1407 review (Codex P1): the INLINE weight editor is a second, independent edit path
+  // with its own unit if/else chain. It had both of the modal's bugs — no mg branch, and a
+  // `item.weight < 1` catch — so a 25 mg note opened as "0.03", stored dataset.unit "g", and
+  // saving converted it back with gramsToOzt: the item silently became 30 mg while its
+  // weightUnit still said mg. A sub-1 Goldback opened as "7.78" grams for the same reason.
+  /**
+   * Opens the inline Weight cell editor for the row whose name contains `name` and returns what
+   * the editor put in front of the user. Drives `startCellEdit` directly — the same entry point
+   * the table's own handler uses — so the test does not depend on the gesture that reaches it.
+   * @param {import('@playwright/test').Page} page - Playwright page
+   * @param {string} name - Substring of the row name
+   * @returns {Promise<{unit: string, value: string}>} The editor's dataset unit and input value
+   */
+  async function openInlineWeightEditor(page, name) {
+    return page.evaluate((rowName) => {
+      const row = [...document.querySelectorAll("#inventoryTable tbody tr")].find((tr) =>
+        tr.textContent.includes(rowName)
+      );
+      const td = row.querySelector("td[data-column='weight']");
+      window.startCellEdit(Number(row.dataset.idx), "weight", td);
+      const input = td.querySelector("input");
+      return { unit: input.dataset.unit, value: input.value };
+    }, name);
+  }
+
+  test("the inline weight editor preserves mg and does not rewrite the value", async ({ page }) => {
+    await seedAndLoad(page, [MG_AURUM_25]);
+    const editor = await openInlineWeightEditor(page, "Core STRK319 Aurum 25mg");
+    // Was dataset.unit "g" with value "0.03" — and saving converted that back through
+    // gramsToOzt, turning a 25 mg note into 30 mg while weightUnit still claimed mg.
+    expect(editor.unit).toBe("mg");
+    expect(parseFloat(editor.value)).toBeCloseTo(25, 1);
+  });
+
+  test("the inline weight editor shows a Goldback denomination, not grams", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const editor = await openInlineWeightEditor(page, "Core STRK318 Quarter Goldback");
+    expect(editor.unit).toBe("gb");
+    // The denomination itself — a ¼ Goldback previously opened as "7.78" grams of gold.
+    expect(parseFloat(editor.value)).toBeCloseTo(0.25, 6);
+  });
+
+  test("the inline weight editor still converts grams and ounces as before", async ({ page }) => {
+    await seedAndLoad(page, [G_BAR_3165, OZ_TENTH]);
+    const gram = await openInlineWeightEditor(page, "Core STRK319 Gram Bar");
+    expect(gram.unit).toBe("g");
+    expect(parseFloat(gram.value)).toBeCloseTo(31.65, 2);
+    const ounce = await openInlineWeightEditor(page, "Core STRK319 Tenth Oz Gold");
+    // Was forced to grams by the same `< 1` catch the modal had.
+    expect(ounce.unit).toBe("oz");
+    expect(parseFloat(ounce.value)).toBeCloseTo(0.1, 6);
+  });
+
+  test("a chip for colliding metric units spells out each unit's own value", async ({ page }) => {
+    // PR #1407 review (Codex P2 + Copilot): "0.025 g/mg" implies 0.025 applies to both units,
+    // or reads as a ratio. The gb/sb shorthand only works because both render the same numeral.
+    await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
+    const labels = await page.evaluate(() => {
+      const gramItem = { weight: window.mgToOzt(25), weightUnit: "g" };
+      const mgItem = { weight: window.mgToOzt(25), weightUnit: "mg" };
+      const key = window.getItemFilterWeight(gramItem);
+      return {
+        sameKey: key === window.getItemFilterWeight(mgItem),
+        collision: window.getWeightFilterLabel(key, [gramItem, mgItem]),
+        reversed: window.getWeightFilterLabel(key, [mgItem, gramItem]),
+        // gb/sb still compact, because 1 gb and 1 sb genuinely render the same numeral.
+        gbSb: window.getWeightFilterLabel("0.00100", [
+          { weight: 1, weightUnit: "gb" },
+          { weight: 1, weightUnit: "sb" },
+        ]),
+      };
+    });
+    expect(labels.sameKey).toBe(true);
+    expect(labels.collision).toBe("0.025 g / 25 mg");
+    expect(labels.reversed).toBe("0.025 g / 25 mg"); // order-independent
+    expect(labels.collision).not.toContain("g/mg");
+    expect(labels.gbSb).toBe("1 gb/sb");
+  });
+
+  test("bulk edit converts mg through its own conversion path", async ({ page }) => {
+    // The first version of this test only re-checked mgToOzt and queried the SINGLE-item
+    // modal's select — it never touched js/bulkEdit.js, so the bulk conversion path was
+    // untested despite the test's name (PR #1407 review, CodeRabbit).
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const out = await page.evaluate(() => ({
+      mg: convertBulkWeightToOzt("25", "mg"),
+      g: convertBulkWeightToOzt("1", "g"),
+      kg: convertBulkWeightToOzt("1", "kg"),
+      lb: convertBulkWeightToOzt("1", "lb"),
+      oz: convertBulkWeightToOzt("10", "oz"),
+      gb: convertBulkWeightToOzt("5", "gb"),
+    }));
+    expect(parseFloat(out.mg)).toBeCloseTo(0.000803768, 9);
+    expect(parseFloat(out.g)).toBeCloseTo(1 / 31.1035, 9);
+    expect(parseFloat(out.kg)).toBeCloseTo(32.15075, 6);
+    expect(parseFloat(out.lb)).toBeCloseTo(14.58333, 6);
+    // oz needs no conversion, and gb/sb store the denomination itself — both pass through.
+    expect(out.oz).toBe("10");
+    expect(out.gb).toBe("5");
+  });
+
+  test("the bulk edit weight-unit field offers milligram", async ({ page }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const units = await page.evaluate(() => {
+      const field = BULK_EDITABLE_FIELDS.find((f) => f.id === "weightUnit");
+      return field.options.map((o) => o.value);
+    });
+    expect(units).toContain("mg");
+    // The full set stays in sync with the add/edit modal's own dropdown.
+    expect(units).toEqual(expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "gb", "sb", "cu"]));
+  });
+});

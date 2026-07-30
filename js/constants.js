@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.84";
+const APP_VERSION = "3.35.85";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -682,10 +682,20 @@ const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis";
  * in troy ounces — junk-silver dealers quote and price bags in ASW, so it is the native
  * vocabulary of constitutional-silver users, and the codebase already used it internally
  * before any user-facing surface said it (STRK-299). Spelled out here once so every surface
- * expands it identically. Constitutional is silver-only in StakTrakr, so there is no gold
- * counterpart (AGW) to disambiguate against.
+ * expands it identically. Constitutional silver is the only cu path, so ASW never has to be
+ * disambiguated from AGW on a constitutional row — but see {@link AGW_TERM_EXPANDED}, which
+ * STRK-318 introduced for Goldback notes.
  */
 const ASW_TERM_EXPANDED = "ASW (Actual Silver Weight)";
+
+/**
+ * @constant {string} AGW_TERM_EXPANDED - The gold counterpart to {@link ASW_TERM_EXPANDED}.
+ * AGW (Actual Gold Weight) is the standard numismatic term for the pure gold content of a
+ * piece in troy ounces. Goldback notes are bought by denomination, so the gold each note
+ * actually carries is surfaced in the Weight cell tooltip rather than the cell itself
+ * (STRK-318) — the same cell/tooltip split STRK-300 established for constitutional silver.
+ */
+const AGW_TERM_EXPANDED = "AGW (Actual Gold Weight)";
 
 /** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
 const TYPE_METAL_FILTER = {

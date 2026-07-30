@@ -1454,6 +1454,8 @@ const parseWeight = (weightRaw, weightUnit, isEditing, existingItem) => {
   let weight = parseFraction(weightRaw);
   if (weightUnit === "g") {
     weight = gramsToOzt(weight);
+  } else if (weightUnit === "mg") {
+    weight = mgToOzt(weight); // STRK-319
   } else if (weightUnit === "kg") {
     weight = kgToOzt(weight);
   } else if (weightUnit === "lb") {

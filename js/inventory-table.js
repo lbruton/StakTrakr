@@ -8,8 +8,12 @@
     g: "Grams (g)",
     kg: "Kilograms (kg)",
     lb: "Pounds (lb)",
-    gb: "Goldback denomination",
-    sb: "Silverback denomination",
+    // STRK-318: these entries are unreachable for gb/sb cells (the Weight cell's ternary now
+    // routes both to denominationWeightTooltip, which reports the note's actual metal content).
+    // Kept accurate rather than left as stale text.
+    mg: "Milligrams (mg)",
+    gb: "Goldback denomination — AGW (Actual Gold Weight) in the tooltip",
+    sb: "Silverback denomination — ASW (Actual Silver Weight) in the tooltip",
     // STRK-299/300: describes what the cu Weight cell now shows — total face value, with the
     // ASW (Actual Silver Weight) in the cell tooltip. This entry is unreachable for cu cells
     // (the Weight cell's ternary always routes cu to cuWeightTooltip) but is kept accurate
@@ -17,15 +21,81 @@
     cu: "Constitutional silver — total face value; ASW (Actual Silver Weight) in the tooltip",
   };
 
-  // Tooltip for a constitutional weight cell.
-  // STRK-237 put the derived silver oz in the cell and the face value here. STRK-300 reverses
-  // that: the cell leads with total face value (how constitutional silver is actually quoted),
-  // so the derived ASW lives here instead, together with the worn/fresh basis it depends on.
-  // STRK-299 spells the abbreviation out on first use so a reader new to the term is not lost.
-  //
-  // Accepted trade-off: the ASW becomes hover-only in the table and so is invisible on mobile —
-  // the inverse of the complaint STRK-237 addressed. Acceptable because Melt on the same row
-  // already prices the ASW, and the detail modal shows it labelled, one tap away.
+  /**
+   * Tooltip for a Goldback/Silverback weight cell — STRK-318.
+   *
+   * These notes are bought and quoted by denomination, so the cell shows the denomination
+   * ("¼ gb") and the metal each note actually carries lives here — the same cell/tooltip split
+   * STRK-300 established for constitutional silver. Before this the gb/sb tooltip was a static
+   * "Goldback denomination" string that named no weight at all, so a stacker had no way to see
+   * that a ¼ Goldback holds 0.00025 ozt of gold.
+   *
+   * Reported per note, matching both the per-note denomination in the cell and the per-unit
+   * sort key, with the lot total appended only when the row holds more than one note.
+   *
+   * @param {Object} item - Inventory item with weightUnit "gb" or "sb"
+   * @returns {string} e.g. "0.00025 ozt AGW (Actual Gold Weight)"
+   */
+  const denominationWeightTooltip = (item) => {
+    const perNote = typeof getUnitOztWeight === "function" ? getUnitOztWeight(item) : 0;
+    const term =
+      item.weightUnit === "gb"
+        ? typeof AGW_TERM_EXPANDED !== "undefined"
+          ? AGW_TERM_EXPANDED
+          : "AGW (Actual Gold Weight)"
+        : typeof ASW_TERM_EXPANDED !== "undefined"
+          ? ASW_TERM_EXPANDED
+          : "ASW (Actual Silver Weight)";
+    // Fixed width first to absorb IEEE-754 artifacts (5 * 0.001 is exact, but 9 * 0.001 is
+    // 0.009000000000000001), then parseFloat to drop the trailing zeros it introduces.
+    const ozt = (n) => String(parseFloat(n.toFixed(5)));
+    const qty = Number(item.qty) || 0;
+    if (qty > 1) {
+      return `${ozt(perNote)} ozt ${term} each · ${ozt(perNote * qty)} ozt total`;
+    }
+    return `${ozt(perNote)} ozt ${term}`;
+  };
+
+  /**
+   * Tooltip for a plain measured unit (oz/g/mg/kg/lb) — STRK-319.
+   *
+   * These rows are stored in troy ounces and converted outward for display, so a gram row could
+   * not be compared against a bullion row without doing the arithmetic by hand. The old tooltip
+   * was a static unit name ("Grams (g)") that added nothing the cell did not already say.
+   * Reports the canonical troy-ounce value, plus the lot total when the row holds more than one.
+   *
+   * @param {Object} item - Inventory item with a measured weight unit
+   * @returns {string} e.g. "1.02 ozt · Grams (g)" or "1.02 ozt each · 3.05 ozt total · Grams (g)"
+   */
+  const measuredWeightTooltip = (item) => {
+    const perPiece = parseFloat(item.weight) || 0;
+    const unitName = WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)";
+    if (!perPiece) return unitName;
+    const ozt = (n) =>
+      typeof formatMeasuredWeight === "function" ? formatMeasuredWeight(n, 2) : n.toFixed(2);
+    const qty = Number(item.qty) || 0;
+    if (qty > 1) {
+      return `${ozt(perPiece)} ozt each · ${ozt(perPiece * qty)} ozt total · ${unitName}`;
+    }
+    return `${ozt(perPiece)} ozt · ${unitName}`;
+  };
+
+  /**
+   * Tooltip for a constitutional weight cell.
+   *
+   * STRK-237 put the derived silver oz in the cell and the face value here. STRK-300 reverses
+   * that: the cell leads with total face value (how constitutional silver is actually quoted),
+   * so the derived ASW lives here instead, together with the worn/fresh basis it depends on.
+   * STRK-299 spells the abbreviation out on first use so a reader new to the term is not lost.
+   *
+   * Accepted trade-off: the ASW becomes hover-only in the table and so is invisible on mobile —
+   * the inverse of the complaint STRK-237 addressed. Acceptable because Melt on the same row
+   * already prices the ASW, and the detail modal shows it labelled, one tap away.
+   *
+   * @param {Object} item - Constitutional inventory item
+   * @param {string} basis - The active valuation basis ("worn" or "fresh")
+   * @returns {string} e.g. "0.54 ozt ASW (Actual Silver Weight) · worn basis"
+   */
   const cuWeightTooltip = (item, basis) => {
     const asw =
       typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
@@ -842,10 +912,16 @@
       item.weightUnit === "cu" && typeof formatConstitutionalFace === "function"
         ? formatConstitutionalFace(item)
         : formatWeight(item.weight, item.weightUnit, item);
+    // STRK-318: gb/sb join cu on the per-item tooltip path — all three show a denomination in
+    // the cell, so all three need the tooltip to report the metal that denomination represents.
+    // STRK-319: every remaining unit reports the canonical troy-ounce value it is stored as, so
+    // a gram or milligram row can be compared against bullion without doing arithmetic.
     const weightCellTitle =
       item.weightUnit === "cu"
         ? cuWeightTooltip(item, cuBasis)
-        : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)";
+        : item.weightUnit === "gb" || item.weightUnit === "sb"
+          ? denominationWeightTooltip(item)
+          : measuredWeightTooltip(item);
 
     return `
       <tr data-idx="${originalIdx}"${disposedRowClass}>

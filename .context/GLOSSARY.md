@@ -72,6 +72,20 @@ _Avoid_: dealer, retailer, shop, seller
 The modal showing live dealer prices, intraday charts, and 30-day history for a specific bullion product across multiple Vendors.
 _Avoid_: market view, dealer view, price comparison
 
+## Weight Units
+
+**Weight Unit** (`weightUnit`):
+A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text — which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back (STRK-316, STRK-318, STRK-319).
+_Avoid_: weight type, measurement unit
+
+**Milligram** (`mg`):
+Entry and display lens for sub-gram pieces — Aurum foil notes and similar are sold as 25 mg, 50 mg, where a gram figure is all leading zeros. Storage stays troy ounces like every other metric unit, so melt, totals, and sort need no special case (STRK-319).
+_Avoid_: milligrams, mgs
+
+**Adaptive Precision**:
+Rendering a measured weight at its unit's normal decimal places, and adding decimals only when that precision would misrepresent the value. Fixed decimals assume one band of magnitude; this inventory spans a 25 mg note and a 100 ozt bar, so at two decimals 25 mg rendered `0.03 g` or `0.00 oz`. Ordinary weights are unaffected — `1.00 oz` and `31.65 g` are byte-identical (STRK-319).
+_Avoid_: rounding, significant figures
+
 ## Goldback
 
 **Goldback**:
@@ -81,6 +95,14 @@ _Avoid_: gold note, gold bill
 **Goldback Estimate**:
 A calculated fair-market value for a Goldback denomination derived from the gold spot price, the Goldback-to-gold-gram rate (G1 rate), and an optional modifier.
 _Avoid_: estimated price, calculated price
+
+**AGW** (Actual Gold Weight):
+The pure gold content of a piece in troy ounces — the gold counterpart to [ASW](#constitutional-silver). A ¼ Goldback carries 0.00025 ozt AGW, a 1 Goldback 0.001 ozt. Because Goldbacks are bought and quoted by denomination, the Weight cell shows the denomination (`¼ gb`) and the AGW is surfaced in that cell's tooltip; the Weight column still sorts on AGW so notes rank correctly against bullion (STRK-318).
+_Avoid_: gold content, actual weight, derived oz
+
+**Denomination**:
+The face-unit of a Goldback or Silverback note — the value stored in `item.weight` for the `gb`/`sb` units. An exact enum value from `GOLDBACK_DENOMINATIONS` / `SILVERBACK_DENOMINATIONS`, never a measurement, so it must be rendered exactly and never rounded (rounding once turned a ¼ Goldback into `0.3 gb`). Sub-1 denominations display as fraction glyphs: `¼ gb`, `½ gb`.
+_Avoid_: note value, face value (that term is Constitutional Silver's), weight
 
 ## Constitutional Silver
 
