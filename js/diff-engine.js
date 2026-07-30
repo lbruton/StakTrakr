@@ -183,6 +183,40 @@ function _stableStringify(val) {
 }
 
 /**
+ * STRK-313: Key-aware normalization applied before settings equality checks.
+ * catalog_api_config carries volatile per-device usage counters (numistaUsage
+ * ticks on every Numista request, pcgsUsage on every PCGS request) alongside
+ * the credentials — strip them so a counter tick on one device doesn't flag
+ * the whole setting as changed in sync/restore previews. Accepts both raw
+ * localStorage strings (cloud-sync pull path) and parsed objects (vault
+ * restore path); an unparseable string is returned untouched so behavior
+ * degrades to the previous raw comparison.
+ * duplication-ok: diff-engine is dependency-free by design — the cloud-sync
+ * twin of this volatile-field strip cannot be shared from here.
+ * @param {string} key settings key
+ * @param {*} val raw string or parsed value
+ * @returns {*} normalized value for comparison only
+ */
+function _normalizeSettingForCompare(key, val) {
+  if (key !== "catalog_api_config" || val === null || val === undefined) return val;
+  let parsed = val;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch (_e) {
+      return val;
+    }
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return val;
+  const out = {};
+  for (const field of Object.keys(parsed)) {
+    if (field === "numistaUsage" || field === "pcgsUsage") continue;
+    out[field] = parsed[field];
+  }
+  return out;
+}
+
+/**
  * Settings-specific deep equality that handles type mismatches common in
  * localStorage (string "true" vs boolean true, string "3" vs number 3)
  * and parsed vs unparsed JSON objects.
@@ -193,13 +227,15 @@ function _settingsValuesEqual(a, b) {
   b = norm(b);
   if (a === b) return true;
   if (a === null || b === null) return false;
-  // Deep compare for objects/arrays — sorted-key stringify for key-order independence
-  // Arrays are order-sensitive (e.g. headerBtnOrder), so preserve their element order.
-  // Only sort keys for plain objects to normalize key insertion order differences.
+  // Deep compare for objects/arrays — recursive sorted-key stringify for
+  // key-order independence at every depth. Arrays are order-sensitive (e.g.
+  // headerBtnOrder), so element order is preserved.
+  // STRK-313: the previous JSON.stringify(v, Object.keys(v).sort()) form used
+  // the top-level key list as a replacer WHITELIST, which silently dropped any
+  // nested key not also present at the top level — nested-only differences
+  // (e.g. catalog_api_config numista.apiKey) compared as equal.
   if (typeof a === "object" && typeof b === "object") {
-    const sortedStringify = (v) =>
-      Array.isArray(v) ? JSON.stringify(v) : JSON.stringify(v, Object.keys(v).sort());
-    return sortedStringify(a) === sortedStringify(b);
+    return _stableStringify(a) === _stableStringify(b);
   }
   // Type coercion for primitive mismatches only: "true"/true, "3"/3
   if (typeof a !== typeof b) {
@@ -648,7 +684,15 @@ const DiffEngine = {
       const localVal = local[key] !== undefined ? local[key] : null;
       const remoteVal = remote[key] !== undefined ? remote[key] : null;
 
-      if (!_settingsValuesEqual(localVal, remoteVal)) {
+      // STRK-313: equality is checked on key-aware normalized values (volatile
+      // usage counters stripped) — the changed/unchanged entries still carry
+      // the ORIGINAL values so apply paths write the full blob.
+      if (
+        !_settingsValuesEqual(
+          _normalizeSettingForCompare(key, localVal),
+          _normalizeSettingForCompare(key, remoteVal)
+        )
+      ) {
         changed.push({ key, localVal, remoteVal });
       } else {
         unchanged.push({ key, val: localVal });

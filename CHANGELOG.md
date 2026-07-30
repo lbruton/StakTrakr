@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.81] - 2026-07-30
+
+### Fixed — STRK-313: cloud sync stops flagging your catalog API key as changed
+
+- **The phantom "Catalog API Keys" diff is gone**: if you used StakTrakr on two synced devices or sites, the Review Sync Changes window kept claiming your Numista key had changed — showing "••• configured → ••• configured" — even though it was identical on both sides. The real difference was an internal counter of how many catalog lookups each device had made, which is stored alongside the key and ticks up on every lookup. Sync now ignores those counters when deciding whether your settings changed, so the popup only appears for a genuine key, token, or quota change (STRK-313).
+- **Less background sync churn too**: that same counter was quietly convincing the sync engine that settings had changed after almost every session, triggering avoidable pull cycles between your devices. With the counters excluded from change detection, switching between synced sessions is calmer (STRK-313).
+- **Usage counts merge sensibly**: when a real key change does sync across, the app now keeps the higher of the two devices' lookup counts for the current month instead of overwriting one with the other, so your Numista quota meter can't under-count (STRK-313).
+- **A hidden comparison bug fixed along the way**: the settings comparison used by sync previews silently ignored differences buried inside nested settings objects, which could make genuinely different settings look identical. It now compares nested values correctly at every depth (STRK-313).
+
+---
+
 ## [3.35.80] - 2026-07-27
 
 ### Removed — STRK-298: dead styling left behind by the header cleanup
