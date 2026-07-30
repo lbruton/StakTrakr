@@ -952,9 +952,21 @@ const getWeightFilterLabel = (value, items) => {
   if (!lensMatches.length) return key;
   // Sorted so the label is deterministic regardless of inventory order.
   const units = [...new Set(lensMatches.map((it) => it.weightUnit))].sort();
-  const primary = lensMatches.find((it) => it.weightUnit === units[0]);
-  const label = formatWeight(primary.weight, units[0], primary);
-  return units.length === 1 ? label : `${label}/${units.slice(1).join("/")}`;
+  const labels = units.map((unit) => {
+    const match = lensMatches.find((it) => it.weightUnit === unit);
+    return formatWeight(match.weight, unit, match);
+  });
+  if (labels.length === 1) return labels[0];
+  // More than one unit produced this key, so the label must not imply a single one.
+  //
+  // Compact to a shared numeral ONLY when every unit renders the same number — gb and sb have
+  // the same conversion factor, so a 1 Goldback and a 1 Silverback both read "1" and "1 gb/sb"
+  // is accurate. Across metric units the numbers differ (0.025 g is 25 mg), and appending only
+  // the second suffix would read as "0.025 g/mg" — implying 0.025 applies to both, or worse a
+  // ratio (PR #1407 review, Codex + Copilot). Those are spelled out in full instead.
+  const numerals = labels.map((label) => label.slice(0, label.lastIndexOf(" ")));
+  const sharesNumeral = numerals.every((numeral) => numeral === numerals[0]);
+  return sharesNumeral ? `${numerals[0]} ${units.join("/")}` : labels.join(" / ");
 };
 
 /**

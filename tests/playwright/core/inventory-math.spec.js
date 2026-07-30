@@ -3281,13 +3281,115 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
     expect(title).toContain("Grams (g)");
   });
 
-  test("bulk edit can set the mg unit and converts to troy ounces", async ({ page }) => {
+  // PR #1407 review (Codex P1): the INLINE weight editor is a second, independent edit path
+  // with its own unit if/else chain. It had both of the modal's bugs — no mg branch, and a
+  // `item.weight < 1` catch — so a 25 mg note opened as "0.03", stored dataset.unit "g", and
+  // saving converted it back with gramsToOzt: the item silently became 30 mg while its
+  // weightUnit still said mg. A sub-1 Goldback opened as "7.78" grams for the same reason.
+  /**
+   * Opens the inline Weight cell editor for the row whose name contains `name` and returns what
+   * the editor put in front of the user. Drives `startCellEdit` directly — the same entry point
+   * the table's own handler uses — so the test does not depend on the gesture that reaches it.
+   * @param {import('@playwright/test').Page} page - Playwright page
+   * @param {string} name - Substring of the row name
+   * @returns {Promise<{unit: string, value: string}>} The editor's dataset unit and input value
+   */
+  async function openInlineWeightEditor(page, name) {
+    return page.evaluate((rowName) => {
+      const row = [...document.querySelectorAll("#inventoryTable tbody tr")].find((tr) =>
+        tr.textContent.includes(rowName)
+      );
+      const td = row.querySelector("td[data-column='weight']");
+      window.startCellEdit(Number(row.dataset.idx), "weight", td);
+      const input = td.querySelector("input");
+      return { unit: input.dataset.unit, value: input.value };
+    }, name);
+  }
+
+  test("the inline weight editor preserves mg and does not rewrite the value", async ({ page }) => {
+    await seedAndLoad(page, [MG_AURUM_25]);
+    const editor = await openInlineWeightEditor(page, "Core STRK319 Aurum 25mg");
+    // Was dataset.unit "g" with value "0.03" — and saving converted that back through
+    // gramsToOzt, turning a 25 mg note into 30 mg while weightUnit still claimed mg.
+    expect(editor.unit).toBe("mg");
+    expect(parseFloat(editor.value)).toBeCloseTo(25, 1);
+  });
+
+  test("the inline weight editor shows a Goldback denomination, not grams", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const editor = await openInlineWeightEditor(page, "Core STRK318 Quarter Goldback");
+    expect(editor.unit).toBe("gb");
+    // The denomination itself — a ¼ Goldback previously opened as "7.78" grams of gold.
+    expect(parseFloat(editor.value)).toBeCloseTo(0.25, 6);
+  });
+
+  test("the inline weight editor still converts grams and ounces as before", async ({ page }) => {
+    await seedAndLoad(page, [G_BAR_3165, OZ_TENTH]);
+    const gram = await openInlineWeightEditor(page, "Core STRK319 Gram Bar");
+    expect(gram.unit).toBe("g");
+    expect(parseFloat(gram.value)).toBeCloseTo(31.65, 2);
+    const ounce = await openInlineWeightEditor(page, "Core STRK319 Tenth Oz Gold");
+    // Was forced to grams by the same `< 1` catch the modal had.
+    expect(ounce.unit).toBe("oz");
+    expect(parseFloat(ounce.value)).toBeCloseTo(0.1, 6);
+  });
+
+  test("a chip for colliding metric units spells out each unit's own value", async ({ page }) => {
+    // PR #1407 review (Codex P2 + Copilot): "0.025 g/mg" implies 0.025 applies to both units,
+    // or reads as a ratio. The gb/sb shorthand only works because both render the same numeral.
+    await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
+    const labels = await page.evaluate(() => {
+      const gramItem = { weight: window.mgToOzt(25), weightUnit: "g" };
+      const mgItem = { weight: window.mgToOzt(25), weightUnit: "mg" };
+      const key = window.getItemFilterWeight(gramItem);
+      return {
+        sameKey: key === window.getItemFilterWeight(mgItem),
+        collision: window.getWeightFilterLabel(key, [gramItem, mgItem]),
+        reversed: window.getWeightFilterLabel(key, [mgItem, gramItem]),
+        // gb/sb still compact, because 1 gb and 1 sb genuinely render the same numeral.
+        gbSb: window.getWeightFilterLabel("0.00100", [
+          { weight: 1, weightUnit: "gb" },
+          { weight: 1, weightUnit: "sb" },
+        ]),
+      };
+    });
+    expect(labels.sameKey).toBe(true);
+    expect(labels.collision).toBe("0.025 g / 25 mg");
+    expect(labels.reversed).toBe("0.025 g / 25 mg"); // order-independent
+    expect(labels.collision).not.toContain("g/mg");
+    expect(labels.gbSb).toBe("1 gb/sb");
+  });
+
+  test("bulk edit converts mg through its own conversion path", async ({ page }) => {
+    // The first version of this test only re-checked mgToOzt and queried the SINGLE-item
+    // modal's select — it never touched js/bulkEdit.js, so the bulk conversion path was
+    // untested despite the test's name (PR #1407 review, CodeRabbit).
     await seedAndLoad(page, [MONEY_ITEM]);
-    const converted = await page.evaluate(() => ({
-      mg: window.mgToOzt(25),
-      hasOption: Boolean(document.querySelector('#itemWeightUnit option[value="mg"]')),
+    const out = await page.evaluate(() => ({
+      mg: convertBulkWeightToOzt("25", "mg"),
+      g: convertBulkWeightToOzt("1", "g"),
+      kg: convertBulkWeightToOzt("1", "kg"),
+      lb: convertBulkWeightToOzt("1", "lb"),
+      oz: convertBulkWeightToOzt("10", "oz"),
+      gb: convertBulkWeightToOzt("5", "gb"),
     }));
-    expect(converted.mg).toBeCloseTo(0.000804, 6);
-    expect(converted.hasOption).toBe(true);
+    expect(parseFloat(out.mg)).toBeCloseTo(0.000803768, 9);
+    expect(parseFloat(out.g)).toBeCloseTo(1 / 31.1035, 9);
+    expect(parseFloat(out.kg)).toBeCloseTo(32.15075, 6);
+    expect(parseFloat(out.lb)).toBeCloseTo(14.58333, 6);
+    // oz needs no conversion, and gb/sb store the denomination itself — both pass through.
+    expect(out.oz).toBe("10");
+    expect(out.gb).toBe("5");
+  });
+
+  test("the bulk edit weight-unit field offers milligram", async ({ page }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const units = await page.evaluate(() => {
+      const field = BULK_EDITABLE_FIELDS.find((f) => f.id === "weightUnit");
+      return field.options.map((o) => o.value);
+    });
+    expect(units).toContain("mg");
+    // The full set stays in sync with the add/edit modal's own dropdown.
+    expect(units).toEqual(expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "gb", "sb", "cu"]));
   });
 });

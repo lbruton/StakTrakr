@@ -21,23 +21,21 @@
     cu: "Constitutional silver — total face value; ASW (Actual Silver Weight) in the tooltip",
   };
 
-  // Tooltip for a constitutional weight cell.
-  // STRK-237 put the derived silver oz in the cell and the face value here. STRK-300 reverses
-  // that: the cell leads with total face value (how constitutional silver is actually quoted),
-  // so the derived ASW lives here instead, together with the worn/fresh basis it depends on.
-  // STRK-299 spells the abbreviation out on first use so a reader new to the term is not lost.
-  //
-  // Accepted trade-off: the ASW becomes hover-only in the table and so is invisible on mobile —
-  // the inverse of the complaint STRK-237 addressed. Acceptable because Melt on the same row
-  // already prices the ASW, and the detail modal shows it labelled, one tap away.
-  // STRK-318: tooltip for a Goldback/Silverback weight cell. These notes are bought and quoted
-  // by denomination, so the cell shows the denomination ("¼ gb") and the metal each note
-  // actually carries lives here — the same cell/tooltip split STRK-300 established for cu.
-  // Before this, the gb/sb tooltip was a static "Goldback denomination" string that named no
-  // weight at all, so a stacker had no way to see that a ¼ Goldback holds 0.00025 ozt of gold.
-  //
-  // Reported per note (matching the per-note denomination in the cell and the per-unit sort
-  // key), with the lot total appended only when the row holds more than one note.
+  /**
+   * Tooltip for a Goldback/Silverback weight cell — STRK-318.
+   *
+   * These notes are bought and quoted by denomination, so the cell shows the denomination
+   * ("¼ gb") and the metal each note actually carries lives here — the same cell/tooltip split
+   * STRK-300 established for constitutional silver. Before this the gb/sb tooltip was a static
+   * "Goldback denomination" string that named no weight at all, so a stacker had no way to see
+   * that a ¼ Goldback holds 0.00025 ozt of gold.
+   *
+   * Reported per note, matching both the per-note denomination in the cell and the per-unit
+   * sort key, with the lot total appended only when the row holds more than one note.
+   *
+   * @param {Object} item - Inventory item with weightUnit "gb" or "sb"
+   * @returns {string} e.g. "0.00025 ozt AGW (Actual Gold Weight)"
+   */
   const denominationWeightTooltip = (item) => {
     const perNote = typeof getUnitOztWeight === "function" ? getUnitOztWeight(item) : 0;
     const term =
@@ -58,11 +56,17 @@
     return `${ozt(perNote)} ozt ${term}`;
   };
 
-  // STRK-319: tooltip for a plain measured unit (oz/g/mg/kg/lb). These rows are stored in troy
-  // ounces and converted outward for display, so a gram row could not be compared against a
-  // bullion row without doing the arithmetic by hand — the old tooltip was a static unit name
-  // ("Grams (g)") that added nothing the cell did not already say. Reports the canonical ozt,
-  // plus the lot total when the row holds more than one piece.
+  /**
+   * Tooltip for a plain measured unit (oz/g/mg/kg/lb) — STRK-319.
+   *
+   * These rows are stored in troy ounces and converted outward for display, so a gram row could
+   * not be compared against a bullion row without doing the arithmetic by hand. The old tooltip
+   * was a static unit name ("Grams (g)") that added nothing the cell did not already say.
+   * Reports the canonical troy-ounce value, plus the lot total when the row holds more than one.
+   *
+   * @param {Object} item - Inventory item with a measured weight unit
+   * @returns {string} e.g. "1.02 ozt · Grams (g)" or "1.02 ozt each · 3.05 ozt total · Grams (g)"
+   */
   const measuredWeightTooltip = (item) => {
     const perPiece = parseFloat(item.weight) || 0;
     const unitName = WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)";
@@ -76,6 +80,22 @@
     return `${ozt(perPiece)} ozt · ${unitName}`;
   };
 
+  /**
+   * Tooltip for a constitutional weight cell.
+   *
+   * STRK-237 put the derived silver oz in the cell and the face value here. STRK-300 reverses
+   * that: the cell leads with total face value (how constitutional silver is actually quoted),
+   * so the derived ASW lives here instead, together with the worn/fresh basis it depends on.
+   * STRK-299 spells the abbreviation out on first use so a reader new to the term is not lost.
+   *
+   * Accepted trade-off: the ASW becomes hover-only in the table and so is invisible on mobile —
+   * the inverse of the complaint STRK-237 addressed. Acceptable because Melt on the same row
+   * already prices the ASW, and the detail modal shows it labelled, one tap away.
+   *
+   * @param {Object} item - Constitutional inventory item
+   * @param {string} basis - The active valuation basis ("worn" or "fresh")
+   * @returns {string} e.g. "0.54 ozt ASW (Actual Silver Weight) · worn basis"
+   */
   const cuWeightTooltip = (item, basis) => {
     const asw =
       typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
