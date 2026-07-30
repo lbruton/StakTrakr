@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.84] - 2026-07-30
+
+### Changed — STRK-299 / STRK-300: junk silver now leads with face value, and the silver figure is called ASW
+
+- **Your junk silver shows its face value where you look for it**: the Weight column for constitutional (junk) silver rows now reads **$6.00 fv** — the total face value of the lot — instead of the derived silver ounces. Face value is how junk silver is quoted, bought and talked about, and it was the one place the app did not lead with it; the card views and the item detail window already did. The silver content moves to the tooltip when you hover the cell, alongside the worn/fresh basis it depends on (STRK-300).
+- **The derived silver figure is now called ASW everywhere**: **ASW** stands for Actual Silver Weight, the standard term dealers use when quoting junk silver bags. The app already used it internally but never showed it, and the three places that displayed the number each called it something different. It is now labelled ASW on every visible surface, spelled out in full on first hover so it is not just an unexplained abbreviation (STRK-299).
+- **The item detail window says "Face value", not "Weight"**: for constitutional items that row used to label a dollar amount as a weight. It now says what it is, and the ASW keeps its own labelled row directly below (STRK-300).
+- **One consistent suffix**: everywhere a constitutional face value appears — the change log, bulk edit preview, backup printouts, the add-item confirmation and printed rows — it now reads **fv**, so the same figure is named the same way throughout (STRK-300).
+- **Sorting and filtering are unchanged**: sorting by Weight still ranks constitutional rows by their silver content, so they interleave correctly with your bullion, and clicking a Weight cell still filters the same way. One consequence worth knowing: because the ranking is by silver and not by dollars, $1.00 of war nickels (20 coins) sits above $1.20 of 90% dimes (12 coins) — the nickels genuinely hold more silver (STRK-300).
+- **Nothing about your numbers changed**: melt values, the weight total in the summary strip, and CSV exports are all identical. Face value is also never converted to another currency — it stays in US dollars even with the display currency set to euros, because it is a US legal-tender denomination and not a market price (STRK-300).
+
+---
+
 ## [3.35.83] - 2026-07-30
 
 ### Fixed — STRK-316: Goldbacks now sort and filter by the gold they actually contain

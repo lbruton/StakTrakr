@@ -529,13 +529,22 @@ function _buildInventorySection(item, metrics) {
           : String(metrics.purity);
   }
   _addDetail(invGrid, "Purity", purityDisplay);
-  _addDetail(
-    invGrid,
-    "Weight",
-    typeof formatWeight === "function"
-      ? formatWeight(metrics.weight, item.weightUnit)
-      : `${metrics.weight} oz`
-  );
+  // STRK-300: constitutional lots are quoted and bought by face value, so the modal leads with
+  // it under a label that says what it is — the 2-arg formatWeight fallback previously rendered
+  // it as "Weight: $14.75 fv", labelling a dollar figure as a weight. Total face (qty folded
+  // in) keeps it frame-consistent with the qty-folded ASW row below. Bullion and goldback items
+  // are byte-identical.
+  if (item.weightUnit === "cu" && typeof getConstitutionalTotalFace === "function") {
+    _addDetail(invGrid, "Face value", `$${getConstitutionalTotalFace(item).toFixed(2)}`);
+  } else {
+    _addDetail(
+      invGrid,
+      "Weight",
+      typeof formatWeight === "function"
+        ? formatWeight(metrics.weight, item.weightUnit)
+        : `${metrics.weight} oz`
+    );
+  }
   _addDetail(invGrid, "Qty", String(metrics.qty));
   if (item.weightUnit === "cu") {
     const label = cuVariant
@@ -546,7 +555,16 @@ function _buildInventorySection(item, metrics) {
     _addDetail(invGrid, "Denomination", label);
     const silverOz =
       typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
-    _addDetail(invGrid, "Silver content", `${silverOz.toFixed(4)} ozt`);
+    // STRK-299: junk-silver dealers quote and price bags in ASW, so it is the term this row's
+    // readers actually use. The label stays the bare abbreviation to fit the grid; the
+    // expansion rides along as a hover tooltip so non-numismatists are not stranded.
+    _addDetail(
+      invGrid,
+      "ASW",
+      `${silverOz.toFixed(4)} ozt`,
+      undefined,
+      `${typeof ASW_TERM_EXPANDED !== "undefined" ? ASW_TERM_EXPANDED : "ASW (Actual Silver Weight)"} — the pure silver content of this lot in troy ounces, derived from the denomination and the worn/fresh basis`
+    );
   }
   invSection.appendChild(invGrid);
   const invGrid2 = _el("div", "view-detail-grid three-col");
@@ -2939,11 +2957,17 @@ function _section(title) {
   return section;
 }
 
-/** Create a label/value detail item element */
-function _detailItem(label, value, extraClass) {
+/**
+ * Create a label/value detail item element.
+ * `labelTitle` is optional and sets a hover tooltip on the label only — it exists so a compact
+ * abbreviation can carry its expansion without widening the grid (STRK-299: "ASW"). Omitted by
+ * every other caller, which stay byte-identical.
+ */
+function _detailItem(label, value, extraClass, labelTitle) {
   const item = _el("div", "view-detail-item");
   const lbl = _el("span", "view-detail-label");
   lbl.textContent = label;
+  if (labelTitle) lbl.title = labelTitle;
   const val = _el("span", "view-detail-value" + (extraClass ? " " + extraClass : ""));
   val.textContent = value;
   item.appendChild(lbl);
@@ -2952,8 +2976,8 @@ function _detailItem(label, value, extraClass) {
 }
 
 /** Add a detail item to a grid */
-function _addDetail(grid, label, value, extraClass) {
-  grid.appendChild(_detailItem(label, value, extraClass));
+function _addDetail(grid, label, value, extraClass, labelTitle) {
+  grid.appendChild(_detailItem(label, value, extraClass, labelTitle));
 }
 
 /** Create an image slot with placeholder */

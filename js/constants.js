@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.83";
+const APP_VERSION = "3.35.84";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -675,6 +675,17 @@ const CONSTITUTIONAL_WORN_SCALAR = 0.98839;
 
 /** @constant {string} CONSTITUTIONAL_BASIS_KEY - LocalStorage key for the global worn/fresh valuation basis; values "worn" (default) | "fresh" (STRK-235). */
 const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis";
+
+/**
+ * @constant {string} ASW_TERM_EXPANDED - The derived pure-silver figure named on first use.
+ * ASW (Actual Silver Weight) is the standard numismatic term for a coin's pure silver content
+ * in troy ounces — junk-silver dealers quote and price bags in ASW, so it is the native
+ * vocabulary of constitutional-silver users, and the codebase already used it internally
+ * before any user-facing surface said it (STRK-299). Spelled out here once so every surface
+ * expands it identically. Constitutional is silver-only in StakTrakr, so there is no gold
+ * counterpart (AGW) to disambiguate against.
+ */
+const ASW_TERM_EXPANDED = "ASW (Actual Silver Weight)";
 
 /** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
 const TYPE_METAL_FILTER = {

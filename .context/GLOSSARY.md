@@ -75,12 +75,30 @@ _Avoid_: market view, dealer view, price comparison
 ## Goldback
 
 **Goldback**:
-A voluntary local currency note containing a measured amount of gold in a polymer bill. Priced by denomination (1, 5, 10, 25, 50) rather than by troy ounce.
+A voluntary local currency note containing a measured amount of gold in a polymer bill. Priced by denomination (¼, ½, 1, 2, 5, 10, 25, 50, 100 — see `GOLDBACK_DENOMINATIONS`) rather than by troy ounce. One Goldback is 0.001 troy oz of gold, so `item.weight` stores the **denomination**, not a weight; consumers that need a weight convert via `getUnitOztWeight`.
 _Avoid_: gold note, gold bill
 
 **Goldback Estimate**:
 A calculated fair-market value for a Goldback denomination derived from the gold spot price, the Goldback-to-gold-gram rate (G1 rate), and an optional modifier.
 _Avoid_: estimated price, calculated price
+
+## Constitutional Silver
+
+**Constitutional Silver**:
+US circulating coinage valued for its silver content rather than as bullion — 90% issues struck through 1964, 35% war nickels (1942–1945), and 40% Kennedy halves (1965–1970). "Pre-1965" describes only the 90% issues. Uses the `cu` weight unit; `item.weight` stores a **face value** in dollars, not a weight.
+_Avoid_ as the canonical noun: 90% silver, coin silver. ("Junk silver" is the common trade term and is fine as a one-time gloss in user-facing copy and code comments — it is what users search for — but Constitutional Silver is the canonical term for requirements, ACs, and issue text.)
+
+**ASW** (Actual Silver Weight):
+The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term — junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
+_Avoid_: silver content, pure silver weight, derived oz
+
+**Face Value** (suffix `fv`):
+The legal-tender denomination of a Constitutional lot in US dollars — the figure junk silver is quoted and bought in. Stored in `item.weight`: face mode holds the entered **total** (qty is 1 by contract), denomination mode holds face-per-coin (total = weight × coin count). Rendered `$6.00 fv` in the Weight cell and card chips; the `fv` suffix is what stops it reading as another money column beside Purchase, Melt, and Retail. Never currency-converted — it stays in USD even when the display currency is EUR (STRK-300).
+_Avoid_: face, $face, denomination value, legal tender value
+
+**Valuation Basis**:
+The global worn/fresh multiplier applied to every Constitutional Item's mint-spec silver weight. `worn` (default) reflects circulated wear; `fresh` uses uncirculated mint spec.
+_Avoid_: wear factor, condition, grade
 
 ## Catalog & Enrichment
 

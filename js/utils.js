@@ -893,6 +893,15 @@ const isDerivedWeightUnit = (item) =>
 const WEIGHT_FILTER_OZT_KEY_RE = new RegExp(`^\\d+\\.\\d{${WEIGHT_FILTER_OZT_DECIMALS}}$`);
 
 /**
+ * Matches a constitutional weight filter key, which `getItemFilterWeight` always emits at two
+ * decimals. Lets `getWeightFilterLabel` skip its inventory scan for keys that cannot be cu.
+ * A two-decimal bullion weight can match this shape too; the scan then simply finds no cu item
+ * and the key is returned unchanged.
+ * @constant {RegExp}
+ */
+const WEIGHT_FILTER_CU_KEY_RE = /^\d+\.\d{2}$/;
+
+/**
  * The human-readable chip label for a weight filter key (STRK-316).
  *
  * Goldback/Silverback keys are converted troy-oz strings ("0.00500"), which are correct for
@@ -917,22 +926,40 @@ const WEIGHT_FILTER_OZT_KEY_RE = new RegExp(`^\\d+\\.\\d{${WEIGHT_FILTER_OZT_DEC
  */
 const getWeightFilterLabel = (value, items) => {
   const key = String(value ?? "");
-  // Only a gb/sb-shaped key can resolve to a denomination label — skip the scan otherwise.
-  if (!key || !WEIGHT_FILTER_OZT_KEY_RE.test(key)) return key;
+  if (!key) return key;
+  const isOztKey = WEIGHT_FILTER_OZT_KEY_RE.test(key);
+  const isCuKey = WEIGHT_FILTER_CU_KEY_RE.test(key);
+  // Only a gb/sb- or cu-shaped key can resolve to a richer label — skip the scan otherwise.
+  if (!isOztKey && !isCuKey) return key;
   const source = Array.isArray(items)
     ? items
     : typeof inventory !== "undefined" && Array.isArray(inventory)
       ? inventory
       : [];
-  const matches = source.filter(
-    (it) => (it?.weightUnit === "gb" || it?.weightUnit === "sb") && getItemFilterWeight(it) === key
+  if (isOztKey) {
+    const matches = source.filter(
+      (it) =>
+        (it?.weightUnit === "gb" || it?.weightUnit === "sb") && getItemFilterWeight(it) === key
+    );
+    if (!matches.length || typeof formatWeight !== "function") return key;
+    // Sorted so the label is deterministic regardless of inventory order.
+    const units = [...new Set(matches.map((it) => it.weightUnit))].sort();
+    const primary = matches.find((it) => it.weightUnit === units[0]);
+    const label = formatWeight(primary.weight, units[0], primary);
+    return units.length === 1 ? label : `${label}/${units.slice(1).join("/")}`;
+  }
+  // STRK-300 (PR #1406 review, Codex): after the display flip a cu cell reads "$10.00 fv" while
+  // its filter key stays the ASW ("7.15"), so a bare key resembles nothing on the row it came
+  // from. Name the unit and the chip lines up with the cell tooltip's "7.15 ozt ASW".
+  // Deliberately just "oz", not "ASW": this key is a plain troy-oz figure and by design can
+  // also match a 7.15 oz bullion bar (that shared scale is the point of STRK-240), so an
+  // ASW-specific label would be wrong for the bullion rows the same filter selects.
+  const wear =
+    typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : undefined;
+  const hasCuMatch = source.some(
+    (it) => it?.weightUnit === "cu" && getItemFilterWeight(it, wear) === key
   );
-  if (!matches.length || typeof formatWeight !== "function") return key;
-  // Sorted so the label is deterministic regardless of inventory order.
-  const units = [...new Set(matches.map((it) => it.weightUnit))].sort();
-  const primary = matches.find((it) => it.weightUnit === units[0]);
-  const label = formatWeight(primary.weight, units[0], primary);
-  return units.length === 1 ? label : `${label}/${units.slice(1).join("/")}`;
+  return hasCuMatch ? `${key} oz` : key;
 };
 
 /**

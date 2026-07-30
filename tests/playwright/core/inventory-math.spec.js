@@ -1064,10 +1064,13 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await expect(page.locator("#viewItemModal")).toContainText(/90%\s*Quarter/i);
   });
 
-  // STRK-237 — the inventory-table Weight column must render a constitutional row as the
-  // derived pure-silver content (oz), consistent with every other row and the portfolio
-  // totals, with the face value relocated to the cell tooltip (no more in-column "$X.XX face").
-  test("inventory table weight column shows derived silver oz for constitutional rows, face in tooltip", async ({
+  // STRK-237 put the derived pure-silver oz in the Weight cell and the face value in the
+  // tooltip. STRK-300 REVERSES that pairing: constitutional silver is quoted, bought, and
+  // mentally modelled by face value, and the table was the odd surface out (cards and the
+  // detail modal already led with face). The cell now shows total face with an `fv` suffix and
+  // the ASW moves to the tooltip. The sort key and the filter key are deliberately unchanged —
+  // neither ever depended on this cell's text.
+  test("inventory table weight column shows total face value for constitutional rows, ASW in tooltip", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [CU_QUARTERS_40] });
@@ -1077,25 +1080,23 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
       .locator("td[data-column='weight'] .filter-text");
-    // 40 quarters worn ≈ 7.15 ozt silver — shown as a weight, NOT the raw "$10.00 face".
-    await expect(weightCell).toHaveText(/^\d+\.\d+\s*oz$/);
-    await expect(weightCell).not.toContainText("face");
-    const oz = parseFloat((await weightCell.textContent()).replace(/[^0-9.]/g, ""));
-    expect(oz).toBeGreaterThan(6.5);
-    expect(oz).toBeLessThan(8);
-    // Face value (40 × $0.25 = $10.00) + valuation basis move to the cell tooltip.
+    // 40 quarters × $0.25 = $10.00 total face. Value-then-suffix, matching "0.54 oz" / "5 gb".
+    await expect(weightCell).toHaveText("$10.00 fv");
+    // The old in-column ozt figure is gone from the cell.
+    await expect(weightCell).not.toContainText("oz");
+    // ASW (~7.15 ozt worn) + valuation basis move to the tooltip, abbreviation expanded.
     const title = await weightCell.getAttribute("title");
-    expect(title).toMatch(/\$10\.00 face/);
+    expect(title).toMatch(/ASW \(Actual Silver Weight\)/);
     expect(title).toMatch(/worn/i);
-    // STRK-239 (beta feedback): the cu weight cell is click-to-filter like every other weight unit
-    // (oz/g/gb/sb). STRK-240: the filter value is the DISPLAYED derived oz (a quoted string), not
-    // the raw stored face value — so the chip matches what's shown and a $-face value can't collide
-    // with an oz weight. The face value stays in the tooltip (asserted above).
+    const aswOz = parseFloat(title.match(/^([\d.]+) ozt/)[1]);
+    expect(aswOz).toBeGreaterThan(6.5);
+    expect(aswOz).toBeLessThan(8);
+    // STRK-239/240: the cell is still click-to-filter and still keys on the ASW, so the mobile
+    // tap contract and the STRK-240 anti-collision guarantee both survive the display flip.
     await expect(weightCell).toHaveClass(/\bfilter-text\b/);
-    const displayedOz239 = (await weightCell.textContent()).replace(/[^0-9.]/g, "");
     await expect(weightCell).toHaveAttribute(
       "onclick",
-      new RegExp(`^applyColumnFilter\\('weight', "?${displayedOz239.replace(/\./g, "\\.")}"?\\)$`)
+      new RegExp(`^applyColumnFilter\\('weight', "${aswOz.toFixed(2).replace(/\./g, "\\.")}"\\)$`)
     );
     await expect(weightCell).toHaveAttribute("role", "button");
   });
@@ -1122,12 +1123,15 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
       .locator("td[data-column='weight'] .filter-text");
-    // STRK-240: keys on the displayed derived oz (quoted string), not the stored per-coin face. The
+    // STRK-240: keys on the derived ASW (quoted string), not the stored per-coin face. The
     // ~0.76 oz silver dollar derives a different oz, so it is filtered out.
-    const quartersOz = (await weightCell.textContent()).replace(/[^0-9.]/g, "");
+    // STRK-300: the ASW now lives in the tooltip rather than the cell text, so read it there —
+    // which also asserts the tooltip and the filter key agree on the same figure.
+    const quartersTitle = await weightCell.getAttribute("title");
+    const quartersOz = quartersTitle.match(/^([\d.]+) ozt/)[1];
     await expect(weightCell).toHaveAttribute(
       "onclick",
-      new RegExp(`^applyColumnFilter\\('weight', "?${quartersOz.replace(/\./g, "\\.")}"?\\)$`)
+      new RegExp(`^applyColumnFilter\\('weight', "${quartersOz.replace(/\./g, "\\.")}"\\)$`)
     );
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
     await weightCell.click();
@@ -1169,13 +1173,18 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core $10 Face Bag" })
       .locator("td[data-column='weight'] .filter-text");
-    // The chip value is the displayed derived oz (~7.15), decisively != the stored face 10.
-    const cuOz = (await cuWeightCell.textContent()).replace(/[^0-9.]/g, "");
+    // The filter key is the derived ASW (~7.15), decisively != the stored face 10.
+    // STRK-300: the cell text is now "$10.00 fv" and the ASW lives in the tooltip — which makes
+    // this the sharper version of the test, since the cell text is once again the face number
+    // 10 and yet must NOT collide with the 10 oz bar.
+    await expect(cuWeightCell).toHaveText("$10.00 fv");
+    const cuTitle = await cuWeightCell.getAttribute("title");
+    const cuOz = cuTitle.match(/^([\d.]+) ozt/)[1];
     expect(parseFloat(cuOz)).toBeGreaterThan(6.5);
     expect(parseFloat(cuOz)).toBeLessThan(8);
     await expect(cuWeightCell).toHaveAttribute(
       "onclick",
-      new RegExp(`^applyColumnFilter\\('weight', "?${cuOz.replace(/\./g, "\\.")}"?\\)$`)
+      new RegExp(`^applyColumnFilter\\('weight', "${cuOz.replace(/\./g, "\\.")}"\\)$`)
     );
 
     await cuWeightCell.click();
@@ -1217,9 +1226,11 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   });
 
   // STRK-237 follow-up (PR #1328 review, T6/Copilot): in face-entry mode `weight` is already the
-  // TOTAL face (qty is 1 by contract), so the weight-cell tooltip must show the stored face
-  // directly — not weight × qty — even if legacy data carries qty > 1.
-  test("constitutional weight tooltip uses stored total face in face mode (ignores qty)", async ({
+  // TOTAL face (qty is 1 by contract), so the face figure must be the stored value directly —
+  // not weight × qty — even if legacy data carries qty > 1.
+  // STRK-300 moved that figure from the tooltip into the cell, so the invariant is asserted
+  // there now. It is the same guarantee, on the surface that carries the number today.
+  test("constitutional face value uses the stored total in face mode (ignores qty)", async ({
     page,
   }) => {
     const CU_FACE_QTY2 = {
@@ -1233,14 +1244,34 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await seedMoneyData(page, { inventory: [CU_FACE_QTY2] });
     await gotoApp(page);
     await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
-    const title = await page
+    const cell = page
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core Face Mode Qty2" })
-      .locator("td[data-column='weight'] .filter-text")
-      .getAttribute("title");
-    // Stored total face is $50.00; the old weight × qty would have wrongly shown $100.00.
-    expect(title).toMatch(/\$50\.00 face/);
-    expect(title).not.toMatch(/\$100\.00/);
+      .locator("td[data-column='weight'] .filter-text");
+    // Stored total face is $50.00; a weight × qty fold would wrongly show $100.00.
+    await expect(cell).toHaveText("$50.00 fv");
+    await expect(cell).not.toContainText("$100.00");
+    // The shared helper is the one place that decides this, so assert it directly too.
+    const totals = await page.evaluate(() => ({
+      faceMode: window.getConstitutionalTotalFace({
+        weight: 50,
+        qty: 2,
+        constitutionalEntryMode: "face",
+      }),
+      denomMode: window.getConstitutionalTotalFace({
+        weight: 0.25,
+        qty: 24,
+        constitutionalEntryMode: "denomination",
+      }),
+      zeroQty: window.getConstitutionalTotalFace({
+        weight: 0.25,
+        qty: 0,
+        constitutionalEntryMode: "denomination",
+      }),
+    }));
+    expect(totals.faceMode).toBe(50); // stored total, qty ignored by contract
+    expect(totals.denomMode).toBeCloseTo(6, 9); // 24 × $0.25
+    expect(totals.zeroQty).toBe(0); // mirrors getConstitutionalSilverOz's qty handling
   });
 
   test("constitutional rows have a dedicated type-color token defined", async ({ page }) => {
@@ -2108,6 +2139,354 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     const row = tableRowByName(page, name);
     await expect(row.locator('[data-column="purchasePrice"]')).toContainText("$1,700.00");
     await expect(row.locator('[data-column="purchasePrice"]')).not.toContainText("$51,000.00");
+  });
+});
+
+// =============================================================================
+// STRK-299 — the derived pure-silver figure is labelled ASW on every visible surface
+// =============================================================================
+// ASW (Actual Silver Weight) is the standard numismatic term for a coin's pure silver content
+// in troy ounces. Junk-silver dealers quote and price bags in ASW, and the codebase already
+// used the term internally (constants.js, events.js, viewModal.js) — but no user-facing surface
+// said it, and the three that showed the figure each phrased it differently. Display labels
+// only: CSV export headers are the import round-trip contract and must not move.
+
+/**
+ * Seeds a single item, loads the app, and opens its detail modal.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Object} item - The item to seed
+ * @returns {Promise<void>}
+ */
+async function seedAndOpenModal(page, item) {
+  await seedMoneyData(page, { inventory: [item] });
+  await gotoApp(page);
+  await page.evaluate(() => window.showViewModal(0));
+  await expect(page.locator("#viewItemModal")).toBeVisible();
+}
+
+/**
+ * The detail-row label spans in the open view modal.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @returns {import('@playwright/test').Locator} Label spans
+ */
+const modalLabels = (page) => page.locator("#viewItemModal .view-detail-label");
+
+/**
+ * The value span of the detail row whose label matches `label` exactly.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} label - Exact label text
+ * @returns {import('@playwright/test').Locator} The row's value span
+ */
+const modalValueFor = (page, label) =>
+  page
+    .locator("#viewItemModal .view-detail-item")
+    .filter({ has: page.locator(".view-detail-label", { hasText: new RegExp(`^${label}$`) }) })
+    .locator(".view-detail-value");
+
+/**
+ * Seeds an inventory, forces a card view style, and waits for the grid to render.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @param {string} style - Card view style ("A", "B", or "C")
+ * @returns {Promise<void>}
+ */
+async function seedAndLoadCards(page, inventory, style) {
+  await seedMoneyData(page, { inventory });
+  await page.addInitScript((s) => localStorage.setItem("cardViewStyle", s), style);
+  await gotoApp(page);
+  await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
+}
+
+test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
+  /** A face-mode constitutional lot: $14.75 total face → ~10.5 ozt ASW on the worn basis. */
+  const CU_ASW_LOT = {
+    ...CU_FACE_50,
+    uuid: "core-strk299-asw",
+    name: "Core STRK299 ASW Lot",
+    weight: 14.75,
+    qty: 1,
+    serial: 299,
+  };
+
+  test("the detail modal labels the derived figure ASW, never 'Silver content'", async ({
+    page,
+  }) => {
+    await seedAndOpenModal(page, CU_ASW_LOT);
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveCount(1);
+    // AC3: the old phrasing is gone from the modal entirely.
+    await expect(page.locator("#viewItemModal")).not.toContainText(/silver content/i);
+    // The value is still the derived ozt figure, unchanged by the relabel.
+    await expect(modalValueFor(page, "ASW")).toHaveText(/^\d+\.\d{4} ozt$/);
+  });
+
+  test("the ASW label carries the expanded term as a hover tooltip", async ({ page }) => {
+    // The grid is compact, so the label stays the bare abbreviation and the expansion rides
+    // along as a title — a reader who does not know "ASW" is one hover from the meaning.
+    await seedAndOpenModal(page, CU_ASW_LOT);
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveAttribute(
+      "title",
+      /ASW \(Actual Silver Weight\)/
+    );
+  });
+
+  test("the constitutional weight cell tooltip names ASW alongside the valuation basis", async ({
+    page,
+  }) => {
+    // STRK-300 subsequently flipped the cell/tooltip pairing, so the face value now lives in
+    // the cell and this tooltip carries the ASW. The ASW naming this issue introduced is what
+    // survives the flip and is asserted here.
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    const title = await weightCellFor(page, "Core STRK299 ASW Lot").getAttribute("title");
+    expect(title).toMatch(/ASW \(Actual Silver Weight\)/);
+    expect(title).toMatch(/^\d+\.\d{2} ozt /);
+    expect(title).toMatch(/worn/i);
+  });
+
+  test("the weight-unit tooltip table names ASW for cu instead of the stale phrasing", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    // This map entry is currently unreachable for cu cells (the cell ternary always routes cu
+    // to cuWeightTooltip), but it must not sit there contradicting the term the app now uses.
+    // Read the entry with plain string operations, not a regex. A regex LITERAL containing a
+    // double-quote character desyncs Codacy's Lizard tokenizer — it reads the quote as the start
+    // of a string, loses parser state, and reports a phantom ~600-line function for this file.
+    const src = await page.evaluate(async () => {
+      const res = await fetch("./js/inventory-table.js");
+      return res.text();
+    });
+    const cuEntry = src.split("\n").find((line) => line.trim().startsWith("cu:"));
+    expect(cuEntry).toBeTruthy();
+    expect(cuEntry).toContain("ASW (Actual Silver Weight)");
+    expect(cuEntry.toLowerCase()).not.toContain("silver content");
+  });
+
+  test("CSV export headers are byte-identical — the relabel never reaches the round trip", async ({
+    page,
+  }) => {
+    // AC4 / explicit out-of-scope: js/csv-export.js defines the import round-trip contract.
+    // Renaming any header would break re-import of previously exported files.
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    const header = await page.evaluate(() => {
+      const csv = window.exportInventoryCSV();
+      if (!csv) return null;
+      // The export opens with "# exportOrigin: ..." provenance comments; the header is the
+      // first non-comment line.
+      return csv.split(/\r?\n/).find((l) => l && !l.startsWith("#")) ?? null;
+    });
+    expect(header).not.toBeNull();
+    expect(header).toContain("Weight(oz)");
+    expect(header).toContain("Constitutional Variant");
+    expect(header).toContain("Constitutional Entry Mode");
+    // No display vocabulary leaked into the machine contract.
+    expect(header).not.toMatch(/ASW/);
+    expect(header).not.toMatch(/silver content/i);
+  });
+});
+
+// =============================================================================
+// STRK-300 — constitutional rows lead with face value; ASW moves to the tooltip
+// =============================================================================
+// Constitutional silver is quoted, bought, and mentally modelled by FACE VALUE, but the display
+// surfaces disagreed about which figure was primary: the card chip and the detail modal already
+// led with face while the table led with derived ASW. The table is the odd one out, so its
+// Weight cell now shows total face ("$6.00 fv") and the ASW moves to the cell tooltip.
+// Deliberately unchanged: the Weight SORT key and the weight FILTER key both stay ASW-keyed —
+// neither ever depended on the cell's text, and a dollar figure cannot interleave with ounces
+// on one scale.
+
+const CU_DENOM_24Q = {
+  ...CU_QUARTERS_40,
+  uuid: "core-strk300-denom24",
+  name: "Core STRK300 Denom 24 Quarters",
+  weight: 0.25,
+  qty: 24, // 24 × $0.25 = $6.00 total face
+  serial: 300,
+};
+
+const CU_FACE_1475 = {
+  ...CU_FACE_50,
+  uuid: "core-strk300-face1475",
+  name: "Core STRK300 Face Lot",
+  weight: 14.75,
+  qty: 1,
+  serial: 301,
+};
+
+test.describe("core/inventory-math — STRK-300 constitutional face-value display flip", () => {
+  test("denomination mode shows the coin count in Qty and total face in Weight", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_DENOM_24Q]);
+    const row = page.locator("#inventoryTable tbody tr").filter({ hasText: "Denom 24 Quarters" });
+    // Qty stays a real count — nothing is lost by moving face value into the Weight cell.
+    await expect(row.locator("td[data-column='qty']")).toContainText("24");
+    await expect(row.locator("td[data-column='weight'] .filter-text")).toHaveText("$6.00 fv");
+  });
+
+  test("face mode shows its truthful lot qty of 1 and the stored total face", async ({ page }) => {
+    await seedAndLoad(page, [CU_FACE_1475]);
+    const row = page.locator("#inventoryTable tbody tr").filter({ hasText: "Face Lot" });
+    await expect(row.locator("td[data-column='qty']")).toContainText("1");
+    await expect(row.locator("td[data-column='weight'] .filter-text")).toHaveText("$14.75 fv");
+  });
+
+  test("weight sort still ranks cu rows by ASW, so face value is not monotonic", async ({
+    page,
+  }) => {
+    // The documented, accepted quirk: across mixed finenesses the displayed fv does not increase
+    // with the sort. $1.00 fv of 35% war nickels (~1.11 ozt) outranks $1.20 fv of 90% dimes
+    // (~0.86 ozt) because the column ranks on silver content, which is the point.
+    const CU_NICKELS = {
+      ...CU_QUARTERS_40,
+      uuid: "core-strk300-nickels",
+      name: "Core STRK300 War Nickels",
+      constitutionalVariant: "con-35-nickel",
+      weight: 0.05,
+      qty: 20, // $1.00 face, ~1.11 ozt ASW
+      serial: 302,
+    };
+    const CU_DIMES = {
+      ...CU_QUARTERS_40,
+      uuid: "core-strk300-dimes",
+      name: "Core STRK300 Silver Dimes",
+      constitutionalVariant: "con-90-dime",
+      weight: 0.1,
+      qty: 12, // $1.20 face, ~0.86 ozt ASW
+      serial: 303,
+    };
+    await seedWeightSorted(page, [CU_DIMES, CU_NICKELS]);
+    const names = await rowNames(page);
+    expect(names[0]).toContain("War Nickels");
+    expect(names[1]).toContain("Silver Dimes");
+    // ...and the cell text confirms the non-monotonicity is real, not a fixture artefact.
+    const rows = page.locator("#inventoryTable tbody tr");
+    await expect(rows.nth(0).locator("td[data-column='weight'] .filter-text")).toHaveText(
+      "$1.00 fv"
+    );
+    await expect(rows.nth(1).locator("td[data-column='weight'] .filter-text")).toHaveText(
+      "$1.20 fv"
+    );
+  });
+
+  test("the detail modal labels cu items Face value and keeps the ASW row", async ({ page }) => {
+    await seedAndOpenModal(page, CU_FACE_1475);
+    await expect(modalLabels(page).filter({ hasText: /^Face value$/ })).toHaveCount(1);
+    // A cu item no longer labels a dollar figure "Weight".
+    await expect(modalLabels(page).filter({ hasText: /^Weight$/ })).toHaveCount(0);
+    // The ASW row (STRK-299) survives the flip.
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveCount(1);
+    // Total face, no suffix — the label already carries the meaning.
+    await expect(modalValueFor(page, "Face value")).toHaveText("$14.75");
+  });
+
+  test("the detail modal still labels bullion items Weight", async ({ page }) => {
+    await seedAndOpenModal(page, MONEY_ITEM);
+    await expect(modalLabels(page).filter({ hasText: /^Weight$/ })).toHaveCount(1);
+    await expect(modalLabels(page).filter({ hasText: /^Face value$/ })).toHaveCount(0);
+  });
+
+  for (const style of ["A", "B", "C"]) {
+    test(`card view ${style} shows total face with the fv suffix for cu items`, async ({
+      page,
+    }) => {
+      await seedAndLoadCards(page, [CU_DENOM_24Q], style);
+      // Was per-coin "$0.25 face" via the 2-arg formatWeight fallback — right figure, wrong frame.
+      await expect(page.locator("#cardViewGrid .cv-chip-weight").first()).toHaveText("$6.00 fv");
+    });
+  }
+
+  test("card view weight chips are unchanged for non-cu items", async ({ page }) => {
+    await seedAndLoadCards(page, [MONEY_ITEM, GOLDBACK_ITEM], "A");
+    const chips = await page.locator("#cardViewGrid .cv-chip-weight").allTextContents();
+    expect(chips).toContain("1.00 oz");
+    expect(chips).toContain("5 gb");
+    expect(chips.join(" ")).not.toContain("fv");
+  });
+
+  test("face value stays in USD when the display currency is EUR", async ({ page }) => {
+    // Face value is a US legal-tender denomination, not a market price — it is never converted.
+    await seedMoneyData(page, { inventory: [CU_DENOM_24Q], displayCurrency: "EUR" });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await expect(weightCellFor(page, "Denom 24 Quarters")).toHaveText("$6.00 fv");
+    await page.evaluate(() => window.showViewModal(0));
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    await expect(modalValueFor(page, "Face value")).toHaveText("$6.00");
+    await expect(modalValueFor(page, "Face value")).not.toContainText("€");
+  });
+
+  test("summary weight total and melt still use ASW, not the newly displayed face", async ({
+    page,
+  }) => {
+    // AC8: the flip is display-only. The summary strip keeps summing troy ounces.
+    await seedMoneyData(page, { inventory: [CU_QUARTERS_40] });
+    await gotoApp(page);
+    await openConstitutionalSettings(page, "system");
+    const text = await page.locator("#invSummaryWeight").textContent();
+    const oz = parseFloat(String(text).replace(/[^0-9.]/g, ""));
+    // 40 quarters worn ≈ 7.15 ozt — NOT the 10.00 face now shown in the Weight cell.
+    expect(oz).toBeGreaterThan(6.5);
+    expect(oz).toBeLessThan(8);
+    expect(oz).not.toBeCloseTo(10, 1);
+  });
+
+  // PR #1406 review (Codex P2): after the flip the cu cell reads "$10.00 fv" while its filter
+  // key stays the ASW ("7.15"), so the chip — which echoes the key verbatim — showed a bare
+  // number matching nothing on the row it came from.
+  test("the cu filter chip names its unit so it is not a bare number after the flip", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_QUARTERS_40]);
+    await weightCellFor(page, "Core 40 Silver Quarters").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: /^\d+\.\d{2} oz/ })).toHaveCount(1);
+  });
+
+  test("the cu chip label is scoped to keys a cu item actually produces", async ({ page }) => {
+    await seedAndLoad(page, [CU_QUARTERS_40]);
+    const labels = await page.evaluate(() => ({
+      cuMatch: window.getWeightFilterLabel("7.15", [
+        { weight: 10, qty: 1, weightUnit: "cu", constitutionalEntryMode: "face" },
+      ]),
+      noCuItems: window.getWeightFilterLabel("7.15", []),
+      bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      gbStillWorks: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
+    }));
+    // A $10-face 90% bag derives ~7.15 ozt, so the key resolves and gains its unit.
+    expect(labels.cuMatch).toBe("7.15 oz");
+    // With no cu item producing that key, the value passes through untouched.
+    expect(labels.noCuItems).toBe("7.15");
+    // Bullion chips are unchanged — they were never ambiguous.
+    expect(labels.bullionKey).toBe("10");
+    // The STRK-316 gb/sb path is unaffected by the new cu branch.
+    expect(labels.gbStillWorks).toBe("5 gb");
+  });
+
+  test("the legacy 2-arg formatWeight fallback renders the normalized fv suffix", async ({
+    page,
+  }) => {
+    // AC9: change log, bulk edit preview, backup print, add toast, and print/export rows all
+    // reach cu through this fallback. Suffix normalized "face" -> "fv"; frame unchanged.
+    await seedAndLoad(page, [CU_DENOM_24Q]);
+    const out = await page.evaluate(() => ({
+      cuFallback: window.formatWeight(0.25, "cu"),
+      cuWithItem: window.formatWeight(0.25, "cu", {
+        weight: 0.25,
+        qty: 24,
+        constitutionalEntryMode: "denom",
+        constitutionalVariant: "con-90-quarter",
+      }),
+      oz: window.formatWeight(1, "oz"),
+      gb: window.formatWeight(5, "gb"),
+    }));
+    expect(out.cuFallback).toBe("$0.25 fv");
+    expect(out.cuFallback).not.toContain("face");
+    // The 3-arg cu form is deliberately untouched — it still returns the ASW.
+    expect(out.cuWithItem).toMatch(/^\d+\.\d{2} oz$/);
+    // Non-cu units are byte-identical.
+    expect(out.oz).toBe("1.00 oz");
+    expect(out.gb).toBe("5 gb");
   });
 });
 

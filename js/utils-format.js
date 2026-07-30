@@ -623,11 +623,51 @@ const lbToOzt = (lb) => lb * LB_TO_OZT;
 const oztToLb = (ozt) => ozt / LB_TO_OZT;
 
 /**
+ * The total face value of a constitutional ("cu") lot, in US dollars (STRK-300).
+ *
+ * Face mode stores the entered TOTAL face in `item.weight` (qty is 1 by contract); denomination
+ * mode stores face-per-coin, so the total is weight × coin count. Mirrors
+ * `getConstitutionalSilverOz`'s qty handling (invalid or zero qty → 0) so the face value and the
+ * derived ASW can never disagree about how many coins are in the lot.
+ *
+ * @param {Object} item - Constitutional inventory item
+ * @returns {number} Total face value in USD
+ */
+const getConstitutionalTotalFace = (item) => {
+  const face = parseFloat(item?.weight) || 0;
+  return item?.constitutionalEntryMode === "face" ? face : face * (Number(item?.qty) || 0);
+};
+
+/**
+ * The Weight-column and card-chip string for a constitutional lot — total face value with the
+ * `fv` suffix (STRK-300), e.g. `"$6.00 fv"`.
+ *
+ * Value-then-suffix matches the rest of the unit family (`0.54 oz`, `5 gb`), and the suffix is
+ * what stops the figure reading as a fourth money column beside Purchase, Melt, and Retail.
+ *
+ * **Never currency-converted.** Face value is a US legal-tender denomination, not a market
+ * price, so it stays in USD even when the display currency is EUR — hence the literal `$`
+ * rather than `formatCurrency`.
+ *
+ * @param {Object} item - Constitutional inventory item
+ * @returns {string} Total face value, e.g. "$6.00 fv"
+ */
+const formatConstitutionalFace = (item) => `$${getConstitutionalTotalFace(item).toFixed(2)} fv`;
+
+/**
  * Formats a weight in troy ounces to either grams or ounces.
  * If weightUnit is 'gb' or 'sb', displays as denomination units (no gram auto-conversion).
- * For 'cu' (constitutional silver) the stored `weight` is a face value, so a meaningful
- * weight requires the whole item: pass `item` to display the derived pure-silver oz
- * (STRK-237); 2-arg callers fall back to the face-value string.
+ *
+ * For 'cu' (constitutional silver) the stored `weight` is a face value, so a meaningful weight
+ * requires the whole item: pass `item` to get the derived pure-silver oz (the ASW). 2-arg
+ * callers fall back to a per-coin face string.
+ *
+ * **The 3-arg cu semantics are deliberately unchanged by STRK-300.** The Weight cell, the card
+ * chip, and the detail modal now lead with total face value, but they build that text from
+ * `formatConstitutionalFace` rather than by inverting this function — the 2-arg fallback has
+ * six other callers (change log, bulk edit preview, backup print, add toast, print/export rows)
+ * that expect the existing frame. Only the fallback's suffix changed, `face` → `fv`, so every
+ * surface names the figure the same way.
  *
  * @param {number} ozt - Weight in troy ounces (or denomination value if weightUnit='gb'/'sb'/'cu')
  * @param {string} [weightUnit] - Optional weight unit: 'oz', 'g', 'kg', 'lb', 'gb', 'sb', or 'cu'
@@ -644,15 +684,17 @@ const formatWeight = (ozt, weightUnit, item) => {
     return `${w % 1 === 0 ? w : w.toFixed(1)} sb`;
   }
   if (weightUnit === "cu") {
-    // STRK-237: constitutional items store a face value in `weight`; the meaningful weight is
-    // the derived pure-silver oz (qty + worn/fresh basis folded in), matching every other row
-    // and the portfolio totals. Show that when the item is supplied; the face value moves to
-    // the cell tooltip. STRK-235 fallback (legacy 2-arg callers): the face-value string.
+    // Constitutional items store a face value in `weight`; the derived pure-silver oz (the ASW,
+    // with qty + worn/fresh basis folded in) is what shares a scale with every other row and
+    // the portfolio totals, so the 3-arg form returns that. STRK-235 fallback (legacy 2-arg
+    // callers): a per-coin face string, suffix normalised to `fv` by STRK-300 so the change
+    // log, bulk edit preview, backup print, add toast, and print/export rows all name the
+    // figure the same way the Weight cell does.
     if (item && typeof getConstitutionalSilverOz === "function") {
       return `${getConstitutionalSilverOz(item).toFixed(2)} oz`;
     }
     const w = parseFloat(ozt) || 0;
-    return `$${w.toFixed(2)} face`;
+    return `$${w.toFixed(2)} fv`;
   }
   const weight = parseFloat(ozt);
   if (weightUnit === "kg") {
@@ -718,6 +760,11 @@ if (typeof window !== "undefined") {
   window.loadExchangeRates = loadExchangeRates;
   window.saveExchangeRates = saveExchangeRates;
   window.fetchExchangeRates = fetchExchangeRates;
+  // STRK-300: the constitutional face-value display seam. Bare top-level `const` is reachable
+  // by sibling scripts but is not a window property, so it is published explicitly here.
+  window.getConstitutionalTotalFace = getConstitutionalTotalFace;
+  window.formatConstitutionalFace = formatConstitutionalFace;
+  window.formatWeight = formatWeight;
 }
 
 if (typeof module !== "undefined" && module.exports) {
