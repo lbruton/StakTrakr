@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.83] - 2026-07-30
+
+### Fixed — STRK-316: Goldbacks now sort and filter by the gold they actually contain
+
+- **Sorting by Weight put Goldbacks in the wrong place**: a 5 Goldback was ranked as though it weighed 5 troy ounces, so it landed between a 10 oz bar and a 2 oz round instead of near the bottom of the list. A 5 Goldback holds 0.005 ozt of gold. Goldbacks and Silverbacks are now ranked by the metal they actually contain, so they sit below your bullion where they belong. Nothing else about the order changed — ounce, gram, kilogram, pound and constitutional rows sort exactly as they did before (STRK-316).
+- **Clicking Weight on a Goldback pulled in unrelated items**: because the denomination was being read as a weight, a 2 Goldback note and a 2.00 oz round shared one filter, so clicking either showed both. Clicking a Goldback now selects Goldbacks of that denomination only, and clicking a 2.00 oz round no longer drags your Goldbacks in with it. Different denominations stay in separate filters, and two notes of the same denomination still group together (STRK-316).
+- **The filter chip still reads the way you think**: the filter matches on gold content behind the scenes, but the chip above the table still says "5 gb" rather than a string of decimal places (STRK-316).
+- **None of your numbers changed**: melt values, the weight total in the summary strip, and CSV exports are all identical to before. This only affects the order rows appear in and which rows a Weight click selects (STRK-316).
+
+---
+
 ## [3.35.82] - 2026-07-30
 
 ### Fixed — STRK-315: the sync popup finally stops appearing when nothing changed

@@ -813,11 +813,18 @@
     const dispositionBadge = _buildDispositionBadge(item);
     const actionsCellInner = _buildActionsCellInner(item, originalIdx);
     const disposedRowClass = isDisposed(item) ? ' class="disposed-row"' : "";
-    // STRK-240: the cu Weight cell filter chip keys on the displayed derived oz (via the shared
-    // getItemFilterWeight helper) so a $10-face item doesn't collide with a 10 oz item; every
-    // other unit keeps its raw item.weight, so the non-cu onclick value is unchanged.
+    // STRK-240 / STRK-316: the cell's onclick key must be the exact key `_filterByWeight`
+    // recomputes for the same item, or the click filters to nothing. Units whose stored weight
+    // is a derived value route through the shared getItemFilterWeight helper — cu on its derived
+    // silver oz (a $10-face item doesn't collide with a 10 oz item), gb/sb on converted ozt (a
+    // 2 gb note doesn't collide with a 2.00 oz round). The unit list itself lives in
+    // isDerivedWeightUnit so this cell cannot drift out of sync with the predicate. Plain
+    // bullion keeps its raw item.weight, so the onclick value — including its JSON
+    // number-vs-string type — is byte-identical to before.
     const weightFilterValue =
-      item.weightUnit === "cu" && typeof getItemFilterWeight === "function"
+      typeof isDerivedWeightUnit === "function" &&
+      isDerivedWeightUnit(item) &&
+      typeof getItemFilterWeight === "function"
         ? getItemFilterWeight(item)
         : item.weight;
 

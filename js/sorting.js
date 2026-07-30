@@ -60,10 +60,15 @@ const sortInventory = (data = inventory) => {
       case 6:
         // STRK-237: cu rows display derived silver oz (not the stored face value), so sort by
         // the same derived oz to keep the column's sort aligned with what is shown.
+        // STRK-316: gb/sb store the raw denomination (a 5 Goldback stores 5), so every non-cu
+        // unit routes through getUnitOztWeight to put the whole column on one troy-oz scale.
+        // Without it a 5 gb sorted as 5 ozt and outranked a 2 oz round.
         val =
           item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
             ? getConstitutionalSilverOz(item)
-            : parseFloat(item.weight) || 0;
+            : typeof getUnitOztWeight === "function"
+              ? getUnitOztWeight(item)
+              : parseFloat(item.weight) || 0;
         break; // Weight
       case 7:
         val = (parseFloat(item.price) || 0) * (Number(item.qty) || 0);
