@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-const migratedVendorIds = ["goldback", "apmex", "summitmetals"];
+const migratedVendorIds = ["goldback", "apmex", "summitmetals", "mintbuilder"];
 const notYetMigratedVendorIds = ["jmbullion"];
 
 const unwrapVendor = (candidate) => candidate?.vendor ?? candidate?.default ?? candidate;
@@ -21,7 +21,11 @@ const assertStandardVendorModule = (candidate, expectedId) => {
   assert.equal(typeof vendor, "object", `${expectedId} Vendor module should be an object`);
   assert.equal(vendor.id, expectedId, `${expectedId} Vendor id should match registry id`);
   assert.equal(typeof vendor.config, "object", `${expectedId} Vendor should expose config`);
-  assert.equal(typeof vendor.scrape, "function", `${expectedId} Vendor should expose scrape(context)`);
+  assert.equal(
+    typeof vendor.scrape,
+    "function",
+    `${expectedId} Vendor should expose scrape(context)`
+  );
 };
 
 test("registry exports migrated ids and dispatcher functions", async () => {
@@ -40,7 +44,9 @@ test("registry exports migrated ids and dispatcher functions", async () => {
 });
 
 test("Goldback module exists and uses the standard interface", async () => {
-  const goldbackModule = await import(new URL("./price-extract-vendor-goldback.js", import.meta.url));
+  const goldbackModule = await import(
+    new URL("./price-extract-vendor-goldback.js", import.meta.url)
+  );
 
   assertStandardVendorModule(goldbackModule, "goldback");
   assert.equal(goldbackModule.default, goldbackModule.vendor);
@@ -109,7 +115,9 @@ test("APMEX module exists and preserves Firecrawl-preferred config", async () =>
 });
 
 test("Goldback module owns the Goldback table-parse Phase 0 bypass predicate", async () => {
-  const goldbackModule = await import(new URL("./price-extract-vendor-goldback.js", import.meta.url));
+  const goldbackModule = await import(
+    new URL("./price-extract-vendor-goldback.js", import.meta.url)
+  );
   const tableParseProviderIds = new Set(["monumentmetals"]);
 
   assert.equal(typeof goldbackModule.isGoldbackCoinSlug, "function");
@@ -140,6 +148,29 @@ test("Goldback module owns the Goldback table-parse Phase 0 bypass predicate", a
     }),
     false
   );
+});
+
+test("MintBuilder module exists and uses the standard interface (STRK-311)", async () => {
+  const mintbuilderModule = await import(
+    new URL("./price-extract-vendor-mintbuilder.js", import.meta.url)
+  );
+  const mintbuilder = unwrapVendor(mintbuilderModule);
+
+  assertStandardVendorModule(mintbuilderModule, "mintbuilder");
+  assert.equal(mintbuilderModule.default, mintbuilderModule.vendor);
+
+  // MintBuilder serves clean schema.org Product/Offer JSON-LD (price + availability)
+  // on every real product page with no bot-challenge — same "trust JSON-LD, no
+  // markdown quirks" shape as Goldback, so it needs no cutoff/OOS/strategy overrides.
+  assert.deepEqual(mintbuilder.cutoffPatterns, []);
+  assert.equal(mintbuilder.headerSkipPattern, null);
+  assert.equal(mintbuilder.preorderTolerant, false);
+  assert.equal(mintbuilder.untrustedOfferPrice, false);
+  assert.equal(mintbuilder.usesAsLowAs, false);
+
+  // Plain SSR HTML (JSON-LD present in the raw response, no JS render needed) —
+  // domcontentloaded is sufficient, no need to wait for networkidle.
+  assert.equal(mintbuilder.config.waitUntil, "domcontentloaded");
 });
 
 test("registry returns migrated modules for completed Vendor migrations", async () => {
