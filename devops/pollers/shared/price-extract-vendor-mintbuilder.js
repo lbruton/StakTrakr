@@ -44,7 +44,9 @@ export const vendor = {
   async scrape(context) {
     return context.scrapeGeneric({
       ...context,
-      config: context.config || vendor.config,
+      // Merge (not overwrite) so a caller-supplied partial config can't
+      // silently drop this module's own overrides (e.g. waitUntil).
+      config: { ...vendor.config, ...(context.config || {}) },
     });
   },
 };
