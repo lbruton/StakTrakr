@@ -2175,6 +2175,25 @@ const OZ_1_COIN = {
   serial: 320,
 };
 
+const GB_1_NOTE = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk316-gb1",
+  name: "Core STRK316 One Goldback",
+  weight: 1,
+  qty: 1,
+  serial: 323,
+};
+
+const SB_1_NOTE = {
+  ...MIGRATED_SILVERBACK,
+  uuid: "core-strk316-sb1",
+  name: "Core STRK316 One Silverback",
+  weight: 1,
+  weightUnit: "sb",
+  qty: 1,
+  serial: 324,
+};
+
 /**
  * Seeds an inventory with the Weight column (index 6) as the active sort. The second
  * addInitScript runs after seedMoneyData's and overwrites its column-4 default.
@@ -2200,6 +2219,40 @@ async function seedWeightSorted(page, inventory, dir = "desc") {
  */
 const rowNames = (page) =>
   page.locator("#inventoryTable tbody tr [data-column='name']").allTextContents();
+
+/**
+ * Seeds an inventory, loads the app, and waits for the table to render.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @returns {Promise<void>}
+ */
+async function seedAndLoad(page, inventory) {
+  await seedMoneyData(page, { inventory });
+  await gotoApp(page);
+  await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+}
+
+/**
+ * The clickable Weight cell of the row whose name contains `name`.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} name - Substring of the row name
+ * @returns {import('@playwright/test').Locator} The cell's .filter-text span
+ */
+const weightCellFor = (page, name) =>
+  page
+    .locator("#inventoryTable tbody tr")
+    .filter({ hasText: name })
+    .locator("td[data-column='weight'] .filter-text");
+
+/**
+ * Currently rendered rows whose name contains `name`. Counting a sub-locator avoids the strict-
+ * mode violation that `not.toContainText` raises against a multi-row locator.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} name - Substring of the row name
+ * @returns {import('@playwright/test').Locator} Matching rows
+ */
+const rowsNamed = (page, name) =>
+  page.locator("#inventoryTable tbody tr").filter({ hasText: name });
 
 test.describe("core/inventory-math — STRK-316 goldback weight sort and filter key", () => {
   test("descending weight sort ranks goldbacks by ozt equivalent, below every bullion row", async ({
@@ -2248,19 +2301,11 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
   test("a 2 gb note and a 2.00 oz round no longer share a weight filter bucket", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [GB_2_NOTE, OZ_2_ROUND] });
-    await gotoApp(page);
-    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await seedAndLoad(page, [GB_2_NOTE, OZ_2_ROUND]);
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
 
-    const gbCell = page
-      .locator("#inventoryTable tbody tr")
-      .filter({ hasText: "Core STRK316 Two Goldback" })
-      .locator("td[data-column='weight'] .filter-text");
-    const ozCell = page
-      .locator("#inventoryTable tbody tr")
-      .filter({ hasText: "Core STRK316 Two Oz Round" })
-      .locator("td[data-column='weight'] .filter-text");
+    const gbCell = weightCellFor(page, "Core STRK316 Two Goldback");
+    const ozCell = weightCellFor(page, "Core STRK316 Two Oz Round");
 
     // The cell TEXT is unchanged — only the filter key moved to the ozt scale.
     await expect(gbCell).toHaveText("2 gb");
@@ -2271,22 +2316,16 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
 
     await gbCell.click();
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
-    await expect(page.locator("#inventoryTable tbody tr")).toContainText("Two Goldback");
-    await expect(page.locator("#inventoryTable tbody tr")).not.toContainText("Two Oz Round");
+    await expect(rowsNamed(page, "Two Goldback")).toHaveCount(1);
+    await expect(rowsNamed(page, "Two Oz Round")).toHaveCount(0);
   });
 
   test("clicking a 2.00 oz weight cell does not pull in a 2 gb note", async ({ page }) => {
-    await seedMoneyData(page, { inventory: [GB_2_NOTE, OZ_2_ROUND] });
-    await gotoApp(page);
-    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
-    await page
-      .locator("#inventoryTable tbody tr")
-      .filter({ hasText: "Core STRK316 Two Oz Round" })
-      .locator("td[data-column='weight'] .filter-text")
-      .click();
+    await seedAndLoad(page, [GB_2_NOTE, OZ_2_ROUND]);
+    await weightCellFor(page, "Core STRK316 Two Oz Round").click();
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
-    await expect(page.locator("#inventoryTable tbody tr")).toContainText("Two Oz Round");
-    await expect(page.locator("#inventoryTable tbody tr")).not.toContainText("Two Goldback");
+    await expect(rowsNamed(page, "Two Oz Round")).toHaveCount(1);
+    await expect(rowsNamed(page, "Two Goldback")).toHaveCount(0);
   });
 
   test("different goldback denominations stay distinct; equal denominations group together", async ({
@@ -2298,39 +2337,22 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
       name: "Core STRK316 Two Goldback Second",
       serial: 322,
     };
-    await seedMoneyData(page, { inventory: [GB_5_NOTE, GB_2_NOTE, GB_2_SECOND] });
-    await gotoApp(page);
-    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await seedAndLoad(page, [GB_5_NOTE, GB_2_NOTE, GB_2_SECOND]);
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(3);
 
-    await page
-      .locator("#inventoryTable tbody tr")
-      .filter({ hasText: "Core STRK316 Two Goldback Second" })
-      .locator("td[data-column='weight'] .filter-text")
-      .click();
+    await weightCellFor(page, "Core STRK316 Two Goldback Second").click();
 
-    // Both 2 gb notes match (same key); the 5 gb note does not. Filter to a sub-locator rather
-    // than asserting not.toContainText on the multi-row locator, which trips strict mode.
+    // Both 2 gb notes match (same key); the 5 gb note does not.
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
-    await expect(
-      page.locator("#inventoryTable tbody tr").filter({ hasText: "Two Goldback" })
-    ).toHaveCount(2);
-    await expect(
-      page.locator("#inventoryTable tbody tr").filter({ hasText: "Five Goldback" })
-    ).toHaveCount(0);
+    await expect(rowsNamed(page, "Two Goldback")).toHaveCount(2);
+    await expect(rowsNamed(page, "Five Goldback")).toHaveCount(0);
   });
 
   test("the active filter chip shows the denomination, not the raw ozt key", async ({ page }) => {
     // The chip renderer echoes the filter key verbatim, so without getWeightFilterLabel this
     // chip would read "0.00500" — unreadable for the Goldback users this fix serves.
-    await seedMoneyData(page, { inventory: [GB_5_NOTE, OZ_2_ROUND] });
-    await gotoApp(page);
-    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
-    await page
-      .locator("#inventoryTable tbody tr")
-      .filter({ hasText: "Core STRK316 Five Goldback" })
-      .locator("td[data-column='weight'] .filter-text")
-      .click();
+    await seedAndLoad(page, [GB_5_NOTE, OZ_2_ROUND]);
+    await weightCellFor(page, "Core STRK316 Five Goldback").click();
 
     const chips = page.locator("#activeFilters .filter-chip");
     await expect(chips.filter({ hasText: "5 gb" })).toHaveCount(1);
@@ -2340,8 +2362,7 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
   test("getUnitOztWeight converts gb/sb and passes every other unit through untouched", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [GB_5_NOTE] });
-    await gotoApp(page);
+    await seedAndLoad(page, [GB_5_NOTE]);
     const result = await page.evaluate(() => ({
       gb5: window.getUnitOztWeight({ weight: 5, weightUnit: "gb" }),
       gbQuarter: window.getUnitOztWeight({ weight: 0.25, weightUnit: "gb" }),
@@ -2366,8 +2387,7 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
   test("gb/sb filter keys are 5-decimal ozt; bullion keys are unchanged raw weight", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [GB_5_NOTE] });
-    await gotoApp(page);
+    await seedAndLoad(page, [GB_5_NOTE]);
     const keys = await page.evaluate(() => ({
       gbQuarter: window.getItemFilterWeight({ weight: 0.25, weightUnit: "gb" }),
       gbHalf: window.getItemFilterWeight({ weight: 0.5, weightUnit: "gb" }),
@@ -2393,12 +2413,99 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
     expect(keys.gram).toBe("1.0175");
   });
 
+  // PR #1405 review (Codex P2 + Copilot, independently): gb and sb share a 0.001 ozt conversion
+  // factor, so 1 gb and 1 sb produce the SAME key and the filter genuinely selects both — correct
+  // for a metal-agnostic weight column. The original label resolved by inventory order, so a
+  // click on a `1 sb` cell could render a chip reading "1 gb", hiding the Silverbacks entirely.
+  test("a key shared by a Goldback and a Silverback names both units in the chip", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_1_NOTE, SB_1_NOTE]);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+
+    const keys = await page.evaluate(() => ({
+      gb: window.getItemFilterWeight({ weight: 1, weightUnit: "gb" }),
+      sb: window.getItemFilterWeight({ weight: 1, weightUnit: "sb" }),
+    }));
+    expect(keys.gb).toBe("0.00100");
+    expect(keys.sb).toBe(keys.gb); // the shared key is intended, not a bug
+
+    // Click the SILVERBACK cell — the chip must not claim the selection is Goldbacks only.
+    await weightCellFor(page, "Core STRK316 One Silverback").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "1 gb/sb" })).toHaveCount(1);
+    // Both rows really are selected, which is exactly what the label now says.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+  });
+
+  test("the chip label is deterministic regardless of inventory order", async ({ page }) => {
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const labels = await page.evaluate(() => ({
+      bothGbFirst: window.getWeightFilterLabel("0.00100", [
+        { weight: 1, weightUnit: "gb" },
+        { weight: 1, weightUnit: "sb" },
+      ]),
+      bothSbFirst: window.getWeightFilterLabel("0.00100", [
+        { weight: 1, weightUnit: "sb" },
+        { weight: 1, weightUnit: "gb" },
+      ]),
+      gbOnly: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
+      sbOnly: window.getWeightFilterLabel("0.00100", [{ weight: 1, weightUnit: "sb" }]),
+      bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      cuKey: window.getWeightFilterLabel("7.15", []),
+      noMatch: window.getWeightFilterLabel("0.09900", [{ weight: 5, weightUnit: "gb" }]),
+      empty: window.getWeightFilterLabel("", []),
+    }));
+    // Same answer whichever unit happens to come first in the inventory.
+    expect(labels.bothGbFirst).toBe("1 gb/sb");
+    expect(labels.bothSbFirst).toBe("1 gb/sb");
+    // Unambiguous keys keep the plain denomination label.
+    expect(labels.gbOnly).toBe("5 gb");
+    expect(labels.sbOnly).toBe("1 sb");
+    // Non gb/sb keys pass through untouched — bullion and cu chips are unaffected.
+    expect(labels.bullionKey).toBe("10");
+    expect(labels.cuKey).toBe("7.15");
+    expect(labels.noMatch).toBe("0.09900");
+    expect(labels.empty).toBe("");
+  });
+
+  test("isDerivedWeightUnit is the single source for which units get a rewritten key", async ({
+    page,
+  }) => {
+    // The table's Weight cell keys off this predicate rather than its own unit list, so the
+    // cell can no longer drift out of sync with getItemFilterWeight (PR #1405 review, Codacy).
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const derived = await page.evaluate(() =>
+      ["cu", "gb", "sb", "oz", "g", "kg", "lb", undefined].map((u) => [
+        String(u),
+        window.isDerivedWeightUnit({ weightUnit: u }),
+      ])
+    );
+    expect(Object.fromEntries(derived)).toEqual({
+      cu: true,
+      gb: true,
+      sb: true,
+      oz: false,
+      g: false,
+      kg: false,
+      lb: false,
+      undefined: false,
+    });
+    // Every unit the predicate reports as derived must actually get a rewritten key.
+    const rewritten = await page.evaluate(() =>
+      ["gb", "sb", "oz"].map((u) => [
+        u,
+        window.getItemFilterWeight({ weight: 2, weightUnit: u }) !== String(2),
+      ])
+    );
+    expect(Object.fromEntries(rewritten)).toEqual({ gb: true, sb: true, oz: false });
+  });
+
   test("computeMeltValue is numerically unchanged after routing through the shared helper", async ({
     page,
   }) => {
     // AC5 guard: the gb/sb ternary moved out of computeMeltValue into getUnitOztWeight.
-    await seedMoneyData(page, { inventory: [GB_5_NOTE] });
-    await gotoApp(page);
+    await seedAndLoad(page, [GB_5_NOTE]);
     const melt = await page.evaluate(() => ({
       gb: window.computeMeltValue({ weight: 5, weightUnit: "gb", qty: 3, purity: 1 }, 4000),
       sb: window.computeMeltValue({ weight: 1, weightUnit: "sb", qty: 10, purity: 1 }, 30),

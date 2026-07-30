@@ -867,13 +867,45 @@ const getItemFilterWeight = (item, wearFactor) => {
 };
 
 /**
+ * Whether an item's stored weight is a *derived* value that `getItemFilterWeight` rewrites
+ * (cu face value, gb/sb denomination) rather than a troy-oz figure it passes through.
+ *
+ * Exists so the inventory-table Weight cell does not carry its own copy of the unit list: the
+ * cell's onclick key must be the exact key `_filterByWeight` recomputes, and a second literal
+ * list would silently drift the moment a new derived unit is added (PR #1405 review, Codacy).
+ * Plain bullion is excluded so the cell keeps emitting its raw `item.weight` — `filterLink`
+ * JSON-stringifies that value, so routing it through the stringifying helper would change the
+ * emitted onclick from `applyColumnFilter('weight', 10)` to `applyColumnFilter('weight', "10")`.
+ *
+ * @param {Object} item - Inventory item
+ * @returns {boolean} True when the filter key differs from the stored weight
+ */
+const isDerivedWeightUnit = (item) =>
+  item?.weightUnit === "cu" || item?.weightUnit === "gb" || item?.weightUnit === "sb";
+
+/**
+ * Matches a gb/sb weight filter key, which is always produced by `toFixed`
+ * ({@link WEIGHT_FILTER_OZT_DECIMALS} decimals) and therefore always has exactly that many
+ * decimal places. Lets `getWeightFilterLabel` skip its inventory scan for bullion and cu keys,
+ * which can never resolve to a gb/sb label anyway (PR #1405 review, Codacy).
+ * @constant {RegExp}
+ */
+const WEIGHT_FILTER_OZT_KEY_RE = new RegExp(`^\\d+\\.\\d{${WEIGHT_FILTER_OZT_DECIMALS}}$`);
+
+/**
  * The human-readable chip label for a weight filter key (STRK-316).
  *
  * Goldback/Silverback keys are converted troy-oz strings ("0.00500"), which are correct for
  * matching but unreadable in a filter chip — the chip renderer echoes the key verbatim, and a
  * Goldback stacker thinks in denominations, not ten-thousandths of an ounce. This resolves the
- * key back to the same text the Weight cell shows ("5 gb") by finding the first gb/sb item that
- * produces it, so the chip and the cell always agree.
+ * key back to the same text the Weight cell shows ("5 gb") so the chip and the cell agree.
+ *
+ * **Ambiguity is named, not hidden** (PR #1405 review, Codex + Copilot): gb and sb share a
+ * conversion factor, so a 1 Goldback and a 1 Silverback both key to "0.00100" and the filter
+ * genuinely selects both — correct for a metal-agnostic weight column. Labelling that chip
+ * "1 gb" would hide the Silverbacks and, because it resolved by inventory order, could even
+ * render "1 gb" for a click on a `1 sb` cell. When a key matches more than one unit the label
+ * names them all ("1 gb/sb"); units are sorted so the result never depends on inventory order.
  *
  * Deliberately scoped to gb/sb: cu and bullion keys are already legible, and cu display is
  * STRK-300's territory. Any key with no gb/sb match falls through unchanged, so bullion chips
@@ -881,23 +913,26 @@ const getItemFilterWeight = (item, wearFactor) => {
  *
  * @param {string} value - The weight filter key
  * @param {Array<Object>} [items] - Item source; defaults to the global inventory
- * @returns {string} Display label for the chip (e.g. "5 gb"), or the key unchanged
+ * @returns {string} Display label for the chip (e.g. "5 gb", "1 gb/sb"), or the key unchanged
  */
 const getWeightFilterLabel = (value, items) => {
   const key = String(value ?? "");
-  if (!key) return key;
+  // Only a gb/sb-shaped key can resolve to a denomination label — skip the scan otherwise.
+  if (!key || !WEIGHT_FILTER_OZT_KEY_RE.test(key)) return key;
   const source = Array.isArray(items)
     ? items
     : typeof inventory !== "undefined" && Array.isArray(inventory)
       ? inventory
       : [];
-  const match = source.find(
+  const matches = source.filter(
     (it) => (it?.weightUnit === "gb" || it?.weightUnit === "sb") && getItemFilterWeight(it) === key
   );
-  if (!match) return key;
-  return typeof formatWeight === "function"
-    ? formatWeight(match.weight, match.weightUnit, match)
-    : key;
+  if (!matches.length || typeof formatWeight !== "function") return key;
+  // Sorted so the label is deterministic regardless of inventory order.
+  const units = [...new Set(matches.map((it) => it.weightUnit))].sort();
+  const primary = matches.find((it) => it.weightUnit === units[0]);
+  const label = formatWeight(primary.weight, units[0], primary);
+  return units.length === 1 ? label : `${label}/${units.slice(1).join("/")}`;
 };
 
 /**
@@ -1447,6 +1482,7 @@ if (typeof window !== "undefined") {
   window.getConstitutionalSilverOz = getConstitutionalSilverOz;
   window.getUnitOztWeight = getUnitOztWeight;
   window.getItemFilterWeight = getItemFilterWeight;
+  window.isDerivedWeightUnit = isDerivedWeightUnit;
   window.getWeightFilterLabel = getWeightFilterLabel;
   window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
@@ -1466,6 +1502,7 @@ if (typeof module !== "undefined" && module.exports) {
     getConstitutionalSilverOz,
     getUnitOztWeight,
     getItemFilterWeight,
+    isDerivedWeightUnit,
     getWeightFilterLabel,
     findItemByUuid: findInventoryItemByUuid,
     computeTradeValue,
