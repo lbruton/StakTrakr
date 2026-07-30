@@ -970,7 +970,11 @@ const _safeLocalStorageSet = (key, value) => {
 /**
  * Populates the manifest resolver globals (_manifestSlugs, _manifestCoinMeta,
  * _manifestVendorMeta) from a v2 manifest's coin/vendor arrays and caches them to
- * localStorage. Mutates module state in place.
+ * localStorage. Mutates module state in place and mirrors the coin/vendor meta
+ * onto the window properties market-data.js prefers (STRK-317) — the lexical
+ * bindings here are invisible to `window.*` reads, so without the mirror a
+ * mid-session manifest sync leaves ticker/matrix/modal vendor meta (names,
+ * colors, URLs) stale until reload.
  * @param {Array<object>} coins - Manifest coin descriptors.
  * @param {Array<object>} vendors - Manifest vendor descriptors.
  */
@@ -998,6 +1002,9 @@ const _populateManifestState = (coins, vendors) => {
     }
     _safeLocalStorageSet(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta));
   }
+
+  window._manifestCoinMeta = _manifestCoinMeta;
+  if (vendors.length) window._manifestVendorMeta = _manifestVendorMeta;
 };
 
 /**
