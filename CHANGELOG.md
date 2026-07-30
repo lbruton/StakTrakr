@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.85] - 2026-07-30
+
+### Fixed — STRK-318 / STRK-319: every weight unit now displays correctly, and editing no longer changes it
+
+- **Goldbacks show their real denomination**: a ¼ Goldback was displayed as **0.3 gb** and a ½ Goldback as 0.5 gb, because the app was rounding the denomination as though it were a measurement. A denomination is a fixed value, not something to round — an ⅛ note was even being shown as "0.1 gb", a completely different note. They now read **¼ gb** and **½ gb** exactly (STRK-318).
+- **Hovering a Goldback or Silverback shows the metal it holds**: the tooltip used to say only "Goldback denomination". It now gives the actual gold or silver content in troy ounces — a ¼ Goldback holds **0.00025 ozt** — plus the total for the lot when you hold more than one. **AGW** (Actual Gold Weight) is the gold counterpart to the ASW term introduced last release (STRK-318).
+- **Editing an item no longer changes its unit — including a serious one for Silverbacks**: opening any item lighter than one troy ounce and saving it silently converted it to grams, discarding the unit you chose; a 1/10 oz gold coin came back as 3.1104 g. Worse, **Silverbacks had no handling at all**: opening one showed "1.00 oz", and saving turned a 1 Silverback — which holds 0.001 ozt of silver — into a full **one troy ounce** silver item, overstating its melt value roughly a thousandfold. Simply opening a row and clicking save was enough to do it. Every unit now survives an edit untouched (STRK-319).
+- **Nothing weighs zero any more**: a 25 milligram Aurum note displayed as "0.03 g" — a fifth heavier than it is — and in troy ounces it read **0.00 oz**, as if it weighed nothing at all. Small weights now show enough decimal places to be accurate. Ordinary weights are completely unchanged: 1.00 oz, 31.65 g and 1.0000 kg all display exactly as before (STRK-319).
+- **New milligram unit**: you can now enter a weight in **mg**, which suits Aurum notes and other foil products sold at 25 mg or 50 mg. Existing items are unaffected, and everything is still stored internally in troy ounces, so melt values, totals and sorting work exactly as they do for any other unit (STRK-319).
+- **Filter chips say what the row said**: clicking the Weight cell on a gram, kilogram or pound item produced a chip reading something like "1.0175711288970755" instead of "31.65 g". The chip now matches the cell (STRK-319).
+- **Sorting is unchanged, and now guarded**: Goldbacks and Silverbacks already sorted by the gold or silver they contain. A test now checks that ranking against the official denomination table, so a future note with different gold content can't quietly sort into the wrong place (STRK-318).
+
+---
+
 ## [3.35.84] - 2026-07-30
 
 ### Changed — STRK-299 / STRK-300: junk silver now leads with face value, and the silver figure is called ASW
