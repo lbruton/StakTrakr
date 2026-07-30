@@ -387,14 +387,19 @@ function _mergeCatalogUsageCounters(localRaw, remoteVal) {
 /**
  * STRK-315: When a pull genuinely replaces metalApiConfig (provider switch, key
  * change, cache/quota edit), the incoming blob also carries the remote device's
- * spot request counters. Keep the larger same-month counter per provider — but
- * only when that provider's key is unchanged, mirroring the STRK-313 catalog
- * gate: a fresh key must not inherit an exhausted counter, which would make the
- * quota bar read as spent. Keyless providers (STAKTRAKR) compare "" === "" and
- * always merge. Differing usageMonth means one side has already rolled over and
- * zeroed its counters, so the later month wins outright rather than merging
- * last month's totals forward. Any parse failure falls back to the remote value
- * untouched — the merge is strictly best-effort.
+ * spot request counters. `quota` is a durable user setting (edited via the
+ * quota modal) and always comes from `remote`, in every branch — only `used`
+ * is volatile and merge-worthy. Differing usageMonth means one side has
+ * already rolled over: whichever side is in the LATER period wins that
+ * period's shape outright (remote untouched if remote is later; local's
+ * usageMonth adopted if local is later, with each provider's `used` reset to
+ * zero unless that provider's credential is unchanged — a fresh credential in
+ * a fresh period must not inherit either side's count, mirroring the
+ * STRK-313 catalog gate). Same month: keep the larger counter per provider,
+ * again gated on credential equality so a fresh key doesn't inherit an
+ * exhausted counter. Keyless providers (STAKTRAKR) compare "" === "" and
+ * always count as credential-unchanged. Any parse failure falls back to the
+ * remote value untouched — the merge is strictly best-effort.
  * @param {string|null} localRaw current local localStorage string
  * @param {string} remoteVal incoming remote localStorage string
  * @returns {string} the value to write
@@ -413,16 +418,38 @@ function _mergeSpotUsageCounters(localRaw, remoteVal) {
     }
     var localMonth = String(local.usageMonth || "");
     var remoteMonth = String(remote.usageMonth || "");
+    var localUsage = local.usage;
+    var remoteUsage = remote.usage;
+    var localKeys = local.keys || {};
+    var remoteKeys = remote.keys || {};
     if (localMonth !== remoteMonth) {
       // Period strings are YYYY-MM, so lexicographic order is chronological.
-      if (localMonth > remoteMonth) {
-        remote.usage = local.usage;
-        remote.usageMonth = local.usageMonth;
+      if (remoteMonth > localMonth) {
+        // Remote already rolled into a period local hasn't seen yet — local's
+        // counters (and any stale quota it remembers) are moot. Return remote
+        // exactly as received.
+        return remoteVal;
+      }
+      // Local rolled over to a newer period than remote knows about. Adopt
+      // local's usageMonth, but quota stays remote's (untouched below). Each
+      // provider's `used` resets to zero for this fresh period UNLESS the
+      // credential is unchanged, in which case local's fresh-period count
+      // carries forward.
+      remote.usageMonth = local.usageMonth;
+      if (remoteUsage && typeof remoteUsage === "object") {
+        var rProvs = Object.keys(remoteUsage);
+        for (var i = 0; i < rProvs.length; i++) {
+          var rp = rProvs[i];
+          var ruEntry = remoteUsage[rp];
+          if (!ruEntry || typeof ruEntry !== "object") continue;
+          var credUnchanged = String(localKeys[rp] || "") === String(remoteKeys[rp] || "");
+          var luEntry = localUsage && typeof localUsage === "object" ? localUsage[rp] : null;
+          ruEntry.used =
+            credUnchanged && luEntry && typeof luEntry === "object" ? Number(luEntry.used) || 0 : 0;
+        }
       }
       return JSON.stringify(remote);
     }
-    var localUsage = local.usage;
-    var remoteUsage = remote.usage;
     if (
       !localUsage ||
       typeof localUsage !== "object" ||
@@ -431,11 +458,9 @@ function _mergeSpotUsageCounters(localRaw, remoteVal) {
     ) {
       return JSON.stringify(remote);
     }
-    var localKeys = local.keys || {};
-    var remoteKeys = remote.keys || {};
     var provs = Object.keys(remoteUsage);
-    for (var i = 0; i < provs.length; i++) {
-      var p = provs[i];
+    for (var j = 0; j < provs.length; j++) {
+      var p = provs[j];
       if (String(localKeys[p] || "") !== String(remoteKeys[p] || "")) continue;
       var lu = localUsage[p];
       var ru = remoteUsage[p];

@@ -443,6 +443,73 @@ describe("STRK-315 _mergeSpotUsageCounters on genuine config apply", () => {
     assert.doesNotThrow(() => _mergeSpotUsageCounters(bare, spotBlob()));
     assert.doesNotThrow(() => _mergeSpotUsageCounters(spotBlob(), bare));
   });
+
+  // --- Regression: month-rollover branch must not clobber remote quota
+  //     edits or bypass the credential-equality gate (PR #1403 review) -------
+
+  test("rollover (local later) PRESERVES the remote's quota edit for every provider", () => {
+    // Remote edited METALS_DEV's quota 100 -> 250 (e.g. via the quota modal)
+    // while local had already rolled to a newer usageMonth. The rollover
+    // branch must not overwrite remote's whole usage map with local's.
+    const localRaw = spotBlob({ usageMonth: "2026-08", stQuota: 5000, mdQuota: 100 });
+    const remoteRaw = spotBlob({ usageMonth: "2026-07", stQuota: 5000, mdQuota: 250 });
+    const merged = JSON.parse(_mergeSpotUsageCounters(localRaw, remoteRaw));
+    assert.equal(merged.usageMonth, "2026-08");
+    assert.equal(merged.usage.METALS_DEV.quota, 250, "remote's quota edit must survive rollover");
+    assert.equal(merged.usage.STAKTRAKR.quota, 5000);
+  });
+
+  test("rollover (local later) with a CHANGED key resets that provider's used to 0", () => {
+    const localRaw = spotBlob({
+      usageMonth: "2026-08",
+      keys: { METALS_DEV: "FAKE-old" },
+      mdUsed: 99,
+    });
+    const remoteRaw = spotBlob({
+      usageMonth: "2026-07",
+      keys: { METALS_DEV: "FAKE-new" },
+      mdUsed: 0,
+    });
+    const merged = JSON.parse(_mergeSpotUsageCounters(localRaw, remoteRaw));
+    assert.equal(merged.keys.METALS_DEV, "FAKE-new");
+    assert.equal(
+      merged.usage.METALS_DEV.used,
+      0,
+      "a fresh credential in a fresh period must not inherit either side's count"
+    );
+  });
+
+  test("rollover (local later) with an UNCHANGED key carries local's used", () => {
+    const localRaw = spotBlob({
+      usageMonth: "2026-08",
+      keys: { METALS_DEV: "FAKE-shared" },
+      mdUsed: 12,
+    });
+    const remoteRaw = spotBlob({
+      usageMonth: "2026-07",
+      keys: { METALS_DEV: "FAKE-shared" },
+      mdUsed: 900,
+    });
+    const merged = JSON.parse(_mergeSpotUsageCounters(localRaw, remoteRaw));
+    assert.equal(
+      merged.usage.METALS_DEV.used,
+      12,
+      "unchanged credential carries local's fresh-period count forward"
+    );
+  });
+
+  test("rollover where the REMOTE month is later leaves remote untouched (quota AND used)", () => {
+    const localRaw = spotBlob({ usageMonth: "2026-07", mdQuota: 999, mdUsed: 900 });
+    const remoteRaw = spotBlob({ usageMonth: "2026-08", mdQuota: 250, mdUsed: 4 });
+    const merged = JSON.parse(_mergeSpotUsageCounters(localRaw, remoteRaw));
+    assert.equal(merged.usageMonth, "2026-08");
+    assert.equal(merged.usage.METALS_DEV.quota, 250);
+    assert.equal(
+      merged.usage.METALS_DEV.used,
+      4,
+      "remote already in the current period — keep as-is"
+    );
+  });
 });
 
 // --- Defect 3: honest labelling of the spot config blob --------------------
