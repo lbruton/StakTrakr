@@ -2151,6 +2151,52 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
 // said it, and the three that showed the figure each phrased it differently. Display labels
 // only: CSV export headers are the import round-trip contract and must not move.
 
+/**
+ * Seeds a single item, loads the app, and opens its detail modal.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Object} item - The item to seed
+ * @returns {Promise<void>}
+ */
+async function seedAndOpenModal(page, item) {
+  await seedMoneyData(page, { inventory: [item] });
+  await gotoApp(page);
+  await page.evaluate(() => window.showViewModal(0));
+  await expect(page.locator("#viewItemModal")).toBeVisible();
+}
+
+/**
+ * The detail-row label spans in the open view modal.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @returns {import('@playwright/test').Locator} Label spans
+ */
+const modalLabels = (page) => page.locator("#viewItemModal .view-detail-label");
+
+/**
+ * The value span of the detail row whose label matches `label` exactly.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} label - Exact label text
+ * @returns {import('@playwright/test').Locator} The row's value span
+ */
+const modalValueFor = (page, label) =>
+  page
+    .locator("#viewItemModal .view-detail-item")
+    .filter({ has: page.locator(".view-detail-label", { hasText: new RegExp(`^${label}$`) }) })
+    .locator(".view-detail-value");
+
+/**
+ * Seeds an inventory, forces a card view style, and waits for the grid to render.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @param {string} style - Card view style ("A", "B", or "C")
+ * @returns {Promise<void>}
+ */
+async function seedAndLoadCards(page, inventory, style) {
+  await seedMoneyData(page, { inventory });
+  await page.addInitScript((s) => localStorage.setItem("cardViewStyle", s), style);
+  await gotoApp(page);
+  await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
+}
+
 test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
   /** A face-mode constitutional lot: $14.75 total face → ~10.5 ozt ASW on the worn basis. */
   const CU_ASW_LOT = {
@@ -2165,33 +2211,22 @@ test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
   test("the detail modal labels the derived figure ASW, never 'Silver content'", async ({
     page,
   }) => {
-    await seedMoneyData(page, { inventory: [CU_ASW_LOT] });
-    await gotoApp(page);
-    await page.evaluate(() => window.showViewModal(0));
-    await expect(page.locator("#viewItemModal")).toBeVisible();
-
-    const labels = page.locator("#viewItemModal .view-detail-label");
-    await expect(labels.filter({ hasText: /^ASW$/ })).toHaveCount(1);
+    await seedAndOpenModal(page, CU_ASW_LOT);
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveCount(1);
     // AC3: the old phrasing is gone from the modal entirely.
     await expect(page.locator("#viewItemModal")).not.toContainText(/silver content/i);
-
     // The value is still the derived ozt figure, unchanged by the relabel.
-    const aswValue = page
-      .locator("#viewItemModal .view-detail-item")
-      .filter({ has: page.locator(".view-detail-label", { hasText: /^ASW$/ }) })
-      .locator(".view-detail-value");
-    await expect(aswValue).toHaveText(/^\d+\.\d{4} ozt$/);
+    await expect(modalValueFor(page, "ASW")).toHaveText(/^\d+\.\d{4} ozt$/);
   });
 
   test("the ASW label carries the expanded term as a hover tooltip", async ({ page }) => {
     // The grid is compact, so the label stays the bare abbreviation and the expansion rides
     // along as a title — a reader who does not know "ASW" is one hover from the meaning.
-    await seedMoneyData(page, { inventory: [CU_ASW_LOT] });
-    await gotoApp(page);
-    await page.evaluate(() => window.showViewModal(0));
-    await expect(page.locator("#viewItemModal")).toBeVisible();
-    const aswLabel = page.locator("#viewItemModal .view-detail-label").filter({ hasText: /^ASW$/ });
-    await expect(aswLabel).toHaveAttribute("title", /ASW \(Actual Silver Weight\)/);
+    await seedAndOpenModal(page, CU_ASW_LOT);
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveAttribute(
+      "title",
+      /ASW \(Actual Silver Weight\)/
+    );
   });
 
   test("the constitutional weight cell tooltip names ASW alongside the valuation basis", async ({
@@ -2213,14 +2248,17 @@ test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
     await seedAndLoad(page, [CU_ASW_LOT]);
     // This map entry is currently unreachable for cu cells (the cell ternary always routes cu
     // to cuWeightTooltip), but it must not sit there contradicting the term the app now uses.
+    // Read the entry with plain string operations, not a regex. A regex LITERAL containing a
+    // double-quote character desyncs Codacy's Lizard tokenizer — it reads the quote as the start
+    // of a string, loses parser state, and reports a phantom ~600-line function for this file.
     const src = await page.evaluate(async () => {
       const res = await fetch("./js/inventory-table.js");
       return res.text();
     });
-    const cuEntry = src.match(/cu:\s*"([^"]*)"/);
-    expect(cuEntry).not.toBeNull();
-    expect(cuEntry[1]).toMatch(/ASW \(Actual Silver Weight\)/);
-    expect(cuEntry[1]).not.toMatch(/silver content/i);
+    const cuEntry = src.split("\n").find((line) => line.trim().startsWith("cu:"));
+    expect(cuEntry).toBeTruthy();
+    expect(cuEntry).toContain("ASW (Actual Silver Weight)");
+    expect(cuEntry.toLowerCase()).not.toContain("silver content");
   });
 
   test("CSV export headers are byte-identical — the relabel never reaches the round trip", async ({
@@ -2332,52 +2370,34 @@ test.describe("core/inventory-math — STRK-300 constitutional face-value displa
   });
 
   test("the detail modal labels cu items Face value and keeps the ASW row", async ({ page }) => {
-    await seedMoneyData(page, { inventory: [CU_FACE_1475] });
-    await gotoApp(page);
-    await page.evaluate(() => window.showViewModal(0));
-    await expect(page.locator("#viewItemModal")).toBeVisible();
-    const labels = page.locator("#viewItemModal .view-detail-label");
-    await expect(labels.filter({ hasText: /^Face value$/ })).toHaveCount(1);
+    await seedAndOpenModal(page, CU_FACE_1475);
+    await expect(modalLabels(page).filter({ hasText: /^Face value$/ })).toHaveCount(1);
     // A cu item no longer labels a dollar figure "Weight".
-    await expect(labels.filter({ hasText: /^Weight$/ })).toHaveCount(0);
+    await expect(modalLabels(page).filter({ hasText: /^Weight$/ })).toHaveCount(0);
     // The ASW row (STRK-299) survives the flip.
-    await expect(labels.filter({ hasText: /^ASW$/ })).toHaveCount(1);
-    const faceValue = page
-      .locator("#viewItemModal .view-detail-item")
-      .filter({ has: page.locator(".view-detail-label", { hasText: /^Face value$/ }) })
-      .locator(".view-detail-value");
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveCount(1);
     // Total face, no suffix — the label already carries the meaning.
-    await expect(faceValue).toHaveText("$14.75");
+    await expect(modalValueFor(page, "Face value")).toHaveText("$14.75");
   });
 
   test("the detail modal still labels bullion items Weight", async ({ page }) => {
-    await seedMoneyData(page, { inventory: [MONEY_ITEM] });
-    await gotoApp(page);
-    await page.evaluate(() => window.showViewModal(0));
-    await expect(page.locator("#viewItemModal")).toBeVisible();
-    const labels = page.locator("#viewItemModal .view-detail-label");
-    await expect(labels.filter({ hasText: /^Weight$/ })).toHaveCount(1);
-    await expect(labels.filter({ hasText: /^Face value$/ })).toHaveCount(0);
+    await seedAndOpenModal(page, MONEY_ITEM);
+    await expect(modalLabels(page).filter({ hasText: /^Weight$/ })).toHaveCount(1);
+    await expect(modalLabels(page).filter({ hasText: /^Face value$/ })).toHaveCount(0);
   });
 
   for (const style of ["A", "B", "C"]) {
     test(`card view ${style} shows total face with the fv suffix for cu items`, async ({
       page,
     }) => {
-      await seedMoneyData(page, { inventory: [CU_DENOM_24Q] });
-      await page.addInitScript((s) => localStorage.setItem("cardViewStyle", s), style);
-      await gotoApp(page);
-      await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
+      await seedAndLoadCards(page, [CU_DENOM_24Q], style);
       // Was per-coin "$0.25 face" via the 2-arg formatWeight fallback — right figure, wrong frame.
       await expect(page.locator("#cardViewGrid .cv-chip-weight").first()).toHaveText("$6.00 fv");
     });
   }
 
   test("card view weight chips are unchanged for non-cu items", async ({ page }) => {
-    await seedMoneyData(page, { inventory: [MONEY_ITEM, GOLDBACK_ITEM] });
-    await page.addInitScript(() => localStorage.setItem("cardViewStyle", "A"));
-    await gotoApp(page);
-    await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
+    await seedAndLoadCards(page, [MONEY_ITEM, GOLDBACK_ITEM], "A");
     const chips = await page.locator("#cardViewGrid .cv-chip-weight").allTextContents();
     expect(chips).toContain("1.00 oz");
     expect(chips).toContain("5 gb");
@@ -2392,12 +2412,8 @@ test.describe("core/inventory-math — STRK-300 constitutional face-value displa
     await expect(weightCellFor(page, "Denom 24 Quarters")).toHaveText("$6.00 fv");
     await page.evaluate(() => window.showViewModal(0));
     await expect(page.locator("#viewItemModal")).toBeVisible();
-    const faceValue = page
-      .locator("#viewItemModal .view-detail-item")
-      .filter({ has: page.locator(".view-detail-label", { hasText: /^Face value$/ }) })
-      .locator(".view-detail-value");
-    await expect(faceValue).toHaveText("$6.00");
-    await expect(faceValue).not.toContainText("€");
+    await expect(modalValueFor(page, "Face value")).toHaveText("$6.00");
+    await expect(modalValueFor(page, "Face value")).not.toContainText("€");
   });
 
   test("summary weight total and melt still use ASW, not the newly displayed face", async ({
