@@ -528,8 +528,9 @@ const _buildTickerItemEl = (item) => {
 
   const coinSpan = document.createElement("span");
   coinSpan.className = "coin";
-  const displayName = item.name.length > 30 ? item.name.substring(0, 27) + "…" : item.name;
-  coinSpan.textContent = displayName;
+  // Full name, no cap (STRK-317) — the pill sizes to content and
+  // _sizeTickerLoop derives animation duration from measured track width.
+  coinSpan.textContent = item.name;
   el.appendChild(coinSpan);
 
   const vendorSpan = document.createElement("span");
@@ -654,6 +655,14 @@ const renderBestPriceTicker = () => {
 // Vendor Prices
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve a vendor id to its short display label. Vendors missing from the
+ * hardcoded map fall back to the manifest vendor-meta display name, then the
+ * raw vid — so a newly added vendor never renders as a bare lowercase id
+ * (STRK-317: "mintbuilder").
+ * @param {string} vid - Vendor id from the retail feed (e.g. "apmex").
+ * @returns {string} Short display label (e.g. "APMEX", "MintBuilder").
+ */
 const _shortVendor = (vid) => {
   const map = {
     apmex: "APMEX",
@@ -666,8 +675,11 @@ const _shortVendor = (vid) => {
     gainesvillecoins: "Gville",
     providentmetals: "Provident",
     goldback: "Goldback",
+    mintbuilder: "MintBuilder",
   };
-  return map[vid] || vid;
+  if (map[vid]) return map[vid];
+  const meta = _getVendorMeta()[vid];
+  return (meta && meta.name) || vid;
 };
 
 let _activeModalChart = null;

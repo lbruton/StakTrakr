@@ -1465,6 +1465,68 @@ test.describe("core/retail-market", () => {
     await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
   });
 
+  // STRK-317: two ticker display fixes pinned together —
+  // (1) coin names render in full (the old code hard-truncated >30 chars to 27+"…"
+  //     in _buildTickerItemEl; the pill CSS already sizes to content), and
+  // (2) _shortVendor resolves vendors missing from its hardcoded map via the
+  //     manifest vendor-meta display name instead of leaking the raw lowercase
+  //     vid (the "mintbuilder" bug), with mintbuilder now also in the map.
+  test("STRK-317 — ticker renders full long names and resolves vendor labels", async ({ page }) => {
+    await setupRetailFixture(page);
+
+    // 38 chars — the pre-fix cap truncated anything over 30.
+    const LONG_NAME = "Australian Silver Kookaburra 1 oz Coin";
+
+    await page.evaluate(
+      ({ longName, slugLong, slugMeta }) => {
+        // Top-level consts in classic scripts share one global scope, so the
+        // module-scope getters are bare-accessible here. Pin the mutated maps
+        // on the window globals each getter prefers so the re-render sees them
+        // (the loadDataSync fallbacks re-parse localStorage on every call and
+        // would discard in-place mutation).
+        const cm = _getCoinMeta() || loadDataSync("retailManifestCoinMeta", {});
+        cm[slugLong] = { ...cm[slugLong], name: longName };
+        window._manifestCoinMeta = cm;
+
+        const vm = _getVendorMeta();
+        // futurevendor: NOT in _shortVendor's map — must fall back to this name.
+        vm.futurevendor = { name: "Future Vendor", color: "#8b5cf6", url: null };
+        window._manifestVendorMeta = vm;
+
+        const coins = _getRetailCoins();
+        // mintbuilder: resolved by _shortVendor's hardcoded map after STRK-317.
+        coins[slugLong].vendors = {
+          mintbuilder: { price: 42, inStock: true, in_stock: true },
+        };
+        coins[slugMeta].vendors = {
+          futurevendor: { price: 38, inStock: true, in_stock: true },
+        };
+        window._v2RetailData = { prices: coins };
+
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { longName: LONG_NAME, slugLong: SLUG_SILVER_Z, slugMeta: SLUG_SILVER_A }
+    );
+
+    // The re-render briefly mounts a new track alongside the superseded one
+    // (the rAF sweep in _finalizeTickerTrack removes it) — wait for the swap
+    // to settle so the primary-block locators below resolve uniquely.
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+
+    const primaryBlock = page.locator(".ticker-block[data-ticker-block='primary']");
+
+    const longItem = primaryBlock.locator(".ticker-item").filter({ hasText: "Kookaburra" });
+    await expect(longItem.locator(".coin")).toHaveText(LONG_NAME);
+    await expect(longItem.locator(".vendor")).toHaveText("MintBuilder");
+
+    const metaFallbackItem = primaryBlock
+      .locator(".ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(metaFallbackItem.locator(".vendor")).toHaveText("Future Vendor");
+  });
+
   // STRK-275 / STAK-513: rapid re-renders must leave exactly one .ticker-track.
   //
   // _finalizeTickerTrack runs inside requestAnimationFrame, so several renders
