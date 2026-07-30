@@ -625,7 +625,14 @@ const _cardChipsHTML = (item, small = false) => {
   if (item.grade) h += `<span class="cv-chip cv-chip-grade"${s}>${sanitizeHtml(item.grade)}</span>`;
   const qty = Number(item.qty) || 1;
   if (qty > 1) h += `<span class="cv-chip cv-chip-qty"${s}>x${qty}</span>`;
-  h += `<span class="cv-chip cv-chip-weight"${s}>${sanitizeHtml(formatWeight(item.weight, item.weightUnit))}</span>`;
+  // STRK-300: cu chips show the lot's TOTAL face value with the shared `fv` suffix. The 2-arg
+  // formatWeight fallback rendered per-coin face ("$0.25 face") — the right figure in the wrong
+  // frame, since the card already shows the coin count in its own qty chip.
+  const weightChipText =
+    item.weightUnit === "cu" && typeof formatConstitutionalFace === "function"
+      ? formatConstitutionalFace(item)
+      : formatWeight(item.weight, item.weightUnit);
+  h += `<span class="cv-chip cv-chip-weight"${s}>${sanitizeHtml(weightChipText)}</span>`;
 
   const _cardTags = typeof getItemTags === "function" ? getItemTags(item.uuid) : [];
   if (_cardTags.length > 0) {

@@ -92,6 +92,10 @@ _Avoid_: junk silver, 90% silver, coin silver
 The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term — junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
 _Avoid_: silver content, pure silver weight, derived oz
 
+**Face Value** (suffix `fv`):
+The legal-tender denomination of a Constitutional lot in US dollars — the figure junk silver is quoted and bought in. Stored in `item.weight`: face mode holds the entered **total** (qty is 1 by contract), denomination mode holds face-per-coin (total = weight × coin count). Rendered `$6.00 fv` in the Weight cell and card chips; the `fv` suffix is what stops it reading as another money column beside Purchase, Melt, and Retail. Never currency-converted — it stays in USD even when the display currency is EUR (STRK-300).
+_Avoid_: face, $face, denomination value, legal tender value
+
 **Valuation Basis**:
 The global worn/fresh multiplier applied to every Constitutional Item's mint-spec silver weight. `worn` (default) reflects circulated wear; `fresh` uses uncirculated mint spec.
 _Avoid_: wear factor, condition, grade

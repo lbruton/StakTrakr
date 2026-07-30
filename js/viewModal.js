@@ -529,13 +529,22 @@ function _buildInventorySection(item, metrics) {
           : String(metrics.purity);
   }
   _addDetail(invGrid, "Purity", purityDisplay);
-  _addDetail(
-    invGrid,
-    "Weight",
-    typeof formatWeight === "function"
-      ? formatWeight(metrics.weight, item.weightUnit)
-      : `${metrics.weight} oz`
-  );
+  // STRK-300: constitutional lots are quoted and bought by face value, so the modal leads with
+  // it under a label that says what it is — the 2-arg formatWeight fallback previously rendered
+  // it as "Weight: $14.75 fv", labelling a dollar figure as a weight. Total face (qty folded
+  // in) keeps it frame-consistent with the qty-folded ASW row below. Bullion and goldback items
+  // are byte-identical.
+  if (item.weightUnit === "cu" && typeof getConstitutionalTotalFace === "function") {
+    _addDetail(invGrid, "Face value", `$${getConstitutionalTotalFace(item).toFixed(2)}`);
+  } else {
+    _addDetail(
+      invGrid,
+      "Weight",
+      typeof formatWeight === "function"
+        ? formatWeight(metrics.weight, item.weightUnit)
+        : `${metrics.weight} oz`
+    );
+  }
   _addDetail(invGrid, "Qty", String(metrics.qty));
   if (item.weightUnit === "cu") {
     const label = cuVariant
