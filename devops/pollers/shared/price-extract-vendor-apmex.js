@@ -17,11 +17,15 @@ export const vendor = {
   untrustedOfferPrice: false,
   usesAsLowAs: false,
   // No extractPrice override → shared default strategy (Firecrawl pipe table, table-first).
+  /**
+   * Scrape an APMEX product page via the shared generic strategy.
+   * @param {object} context - Scrape context from the vendor registry, carrying
+   *   a config already merged as provider defaults → this module's config →
+   *   caller-explicit overrides (STRK-314).
+   * @returns {Promise<object>} The result from context.scrapeGeneric.
+   */
   async scrape(context) {
-    return context.scrapeGeneric({
-      ...context,
-      config: vendor.config,
-    });
+    return context.scrapeGeneric(context);
   },
 };
 
