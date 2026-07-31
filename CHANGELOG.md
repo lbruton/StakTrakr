@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.87] - 2026-07-30
+
+### Fixed — STRK-314: Vendor-registry config overrides reach the scrape
+
+- **Caller-supplied scrape overrides are no longer discarded**: the retail poller resolved a target's scrape configuration by preferring the vendor module's own config over the caller's, using a `??` fallback. Because every vendor module exposes a config object — including the legacy adapter's empty `{}` — that fallback never triggered, so any per-call override (custom wait, proxy selection) was silently dropped for every vendor routed through the registry, not just migrated ones (STRK-314).
+- **One merge authority replaces four divergent ones**: each vendor module forwarded its config differently (overwrite, `||` fallback, spread-merge) and all four were dead code, since the resolution downstream ignored what they forwarded. Goldback and Summit were doubly affected — their fallback branch was unreachable, and their module config survived only because the downstream step bypassed it. Resolution now happens once, in the vendor dispatcher, layering provider defaults, then module-owned config, then caller-explicit overrides (STRK-314).
+- **No change to polled prices**: with no caller override — which is every path the production poll loop takes — the resolved config is unchanged for all vendors, migrated and legacy. This is a latent API-contract fix, pinned by a parity test (STRK-314).
+
+---
+
 ## [3.35.86] - 2026-07-30
 
 ### Fixed — STRK-317: Market ticker shows full item names and proper vendor labels
