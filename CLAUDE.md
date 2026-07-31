@@ -75,7 +75,8 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 - **Every change to `dev` needs a PR — no exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL checks, signed commits, no bypass actors) blocks direct pushes of any file type, instruction files included.
 - Config/tooling edits (`.claude/`, `.Codex/`, `.opencode/`, `.agents/`, `CLAUDE.md`, `AGENTS.md`, `.geminiignore`, `.gitignore`, skill files, devops config) are still **lightweight** — a small chore PR to `dev`, no Plane issue or version lock required.
 - Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the **full discipline**: Plane issue → worktree → PR to `dev`.
-- **`EnterWorktree` base-ref caveat:** it branches from `origin/main`, but PRs target `dev` — create the worktree on `origin/dev` first. Full caveat (commands + merge-base verification) in `.context/git-topology.md`.
+- **`EnterWorktree` is denied in this repo** (`.claude/settings.json`) — it cannot be based on `dev`. Create worktrees with git: `git fetch origin dev && git worktree add .claude/worktrees/<name> -b <branch> origin/dev`. Rationale + merge-base verification in `.context/git-topology.md`.
+- **Fetch `origin/dev` before searching a worktree.** A stale worktree makes `grep` return empty for code that exists on `dev` — a false negative that reads exactly like "this identifier does not exist."
 - `devops/version.lock` is gitignored — it exists only in the main checkout, never in a worktree. Claim the version lock by writing to `<main-checkout>/devops/version.lock`, not the worktree path.
 - **Full rules:** `.context/git-topology.md` — merge strategy, worktree naming, spot bundle, branch staleness, sketch overrides.
 

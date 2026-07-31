@@ -25,9 +25,16 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 - After creation, run `cp CLAUDE.md .worktrees/<name>/`.
 - Then run `npm install --no-audit --no-fund`.
 - Pushing fixes to an open PR → commit from existing PR worktree, not a new branch.
-- **`EnterWorktree` caveat (harness tool):** its default base-ref `fresh` branches from `origin/main` (the GitHub default branch), **not** `origin/dev`. A `dev`-targeted PR from such a branch inherits an ancient merge-base, so GitHub's three-dot diff balloons into thousands of lines of false "scope creep" (Copilot/Codacy flag it as unrelated tickets).
-  - Preferred: create on the correct base, then enter by path — `git fetch origin dev && git worktree add .claude/worktrees/<branch> -b <branch> origin/dev`, then call `EnterWorktree` with `path: ".claude/worktrees/<branch>"`.
-  - Fallback: right after `EnterWorktree` with `name:` and **before any edits**, run `git fetch origin && git reset --hard origin/dev`.
+- **`EnterWorktree` is denied in this repo.** `.claude/settings.json` carries a bare-name deny rule, which removes the tool from the agent's context entirely. Create worktrees with git, always naming `origin/dev` as the base:
+
+  ```bash
+  git fetch origin dev
+  git worktree add .claude/worktrees/<name> -b <branch> origin/dev
+  ```
+
+  - **Why it is blocked:** `worktree.baseRef` accepts only `"fresh"` (the remote default branch — `main` here) and `"head"` (the main checkout's current `HEAD`). It **cannot** be set to a branch name, so the tool has no setting that expresses a `dev`-based worktree. `"head"` is the worse failure of the two: the base silently depends on wherever the main checkout is parked, so it is right some days and a full release behind on others.
+  - **Symptom when the base is wrong:** a `dev`-targeted PR inherits an ancient merge-base, so GitHub's three-dot diff balloons into thousands of lines of false "scope creep" (Copilot/Codacy flag it as unrelated tickets).
+  - **Fetch before you search.** In a stale worktree, `grep` for code that exists on `dev` returns nothing, which is indistinguishable from "this identifier was never written." Always `git fetch origin dev` before trusting a negative search result.
   - Always verify before opening the PR: `git merge-base origin/dev HEAD` must equal `git rev-parse origin/dev`.
 
 ## Merge Strategy
