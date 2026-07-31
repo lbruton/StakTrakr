@@ -39,7 +39,7 @@ Light `--success` measures 3.35:1 — passing, but with little margin. Dark and 
 Two method notes, both of which cost real debugging time in STRK-291:
 
 - **Judge icon strokes and borders at 3:1, not 4.5:1.** Non-text Contrast (1.4.11) governs icons and graphical objects; the 4.5:1 small-text bar implied by the `--warning` entry above does not apply to them.
-- **Never parse `oklch(...)` numbers as RGB.** `getComputedStyle` returns these tokens verbatim as `oklch(...)` strings, and treating the three components as RGB yields silently wrong ratios — during STRK-291 that mistake reported all four themes as failing, including ones that were fine. Resolve to sRGB by painting the colour into a 1×1 canvas and reading the pixel back; working implementation is `__resolveRgb` in `tests/playwright/core/strk-189-spot-freshness.spec.js`.
+- **Never parse `oklch(...)` numbers as RGB.** `getComputedStyle` returns these tokens verbatim as `oklch(...)` strings, and treating the three components as RGB yields silently wrong ratios — during STRK-291 that mistake reported all four themes as failing, including ones that were fine. Resolve to sRGB by painting the color into a 1×1 canvas and reading the pixel back; working implementation is `__resolveRgb` in `tests/playwright/core/strk-189-spot-freshness.spec.js`.
 
 ## `_isMarketItemEnabled` guard — apply on both tab paths
 
