@@ -2121,6 +2121,56 @@ input[type="submit"] {
   animation: spin 0.8s linear infinite;
 }
 
+/* Spot-data freshness (STRK-291) — written by applySpotFreshnessClasses
+   (js/spot.js). Colours the icon itself rather than pinning a corner badge:
+   .spot-sync-icon is inline-flex with no `position: relative`, so it is not a
+   containing block and an absolutely-positioned dot would anchor to an
+   unrelated ancestor (see the note by .header-cloud-dot--* below).
+
+   `color` drives the SVG because its strokes are `stroke="currentColor"`;
+   `border-color` carries the same state out to the button edge so the signal
+   survives at small sizes. Nothing else is set — these compose with .syncing,
+   :disabled, and :hover rather than replacing them.
+
+   Deliberately lower specificity (0,1,0) than `.spot-sync-icon:hover:not(:disabled)`
+   (0,3,0), so hover still wins and the button keeps its normal affordance. */
+.spot-sync-icon--fresh {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.spot-sync-icon--stale {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.spot-sync-icon--expired {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* `--warning` is ~1.4:1 against --bg-secondary in light and sepia (both use
+   oklch(0.666 0.157 58.3)) — see .context/implementation-gotchas.md. An icon
+   stroke is judged at WCAG 1.4.11 Non-text Contrast (3:1) rather than the 4.5:1
+   small-text bar, but 1.4:1 fails that too, so these two themes get the darker
+   amber the gotchas doc prescribes. Dark and slate already sit at L≈0.72-0.75
+   on a dark surface and are left alone. theme.js always writes an explicit
+   data-theme (including "light"), so the attribute selector is reliable. */
+[data-theme="light"] .spot-sync-icon--stale,
+[data-theme="sepia"] .spot-sync-icon--stale {
+  color: oklch(0.55 0.15 60);
+  border-color: oklch(0.55 0.15 60);
+}
+
+/* Sepia's `--success` (oklch(0.603 0.117 130.4)) measures 2.72:1 against the
+   sepia card surface (oklch(0.892 0.032 89.1)) — under the 3:1 non-text bar.
+   Same hue, lower lightness, measured at 3.83:1. Sepia only: light measures
+   3.35:1 and dark/slate are 5.6-5.8:1, all already passing. */
+[data-theme="sepia"] .spot-sync-icon--fresh {
+  color: oklch(0.52 0.13 130.4);
+  border-color: oklch(0.52 0.13 130.4);
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -4419,12 +4469,12 @@ input[type="submit"] {
    .cloud-sync-dot instead, because in a flex row the absolute variant anchors to
    an unrelated positioned ancestor rather than its own button.
 
-   Nothing re-adds it. STRK-291 retargets updateSpotSyncHealthDot at the four
-   syncIcon{Metal} buttons, and those cannot host it either: .spot-sync-icon
-   (~line 2088) is inline-flex with no `position: relative`, so it is not a
-   containing block, and STRK-291 colours the icon itself rather than pinning a
-   badge to its corner. Recover from git history if a corner badge is ever
-   wanted.
+   Nothing re-adds it. STRK-291 (shipped) retargeted updateSpotSyncHealthDot at
+   the four syncIcon{Metal} buttons, and those could not host it either:
+   .spot-sync-icon (~line 2088) is inline-flex with no `position: relative`, so
+   it is not a containing block. STRK-291 therefore colours the icon itself via
+   the .spot-sync-icon--{fresh,stale,expired} modifiers defined up there.
+   Recover from git history if a corner badge is ever wanted.
 
    The .header-cloud-dot--{green,orange,red} modifiers below DO stay: they are
    pure colour (background + box-shadow only), they compose with .cloud-sync-dot

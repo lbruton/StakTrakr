@@ -2640,6 +2640,13 @@ const _runPostSpotSyncUpdates = async (prov, results, ctx) => {
 
 /**
  * Updates sync button states based on API availability
+ *
+ * Owns `disabled`, `title`, and `.syncing` on the `syncIcon{Metal}` buttons.
+ * The `spot-sync-icon--*` freshness modifiers on those same elements belong to
+ * `applySpotFreshnessClasses` (js/spot.js), called at the end of this function
+ * so every one of this function's call sites repaints the colour too (STRK-291).
+ * Keep the two concerns split — a single writer per class group is what stops
+ * them clobbering each other mid-sync.
  * @param {boolean} syncing - Whether sync is in progress
  */
 const updateSyncButtonStates = (syncing = false) => {
@@ -2671,6 +2678,9 @@ const updateSyncButtonStates = (syncing = false) => {
       }
     }
   });
+
+  // Freshness colour is a separate concern with its own writer — see the JSDoc.
+  if (typeof applySpotFreshnessClasses === "function") applySpotFreshnessClasses();
 };
 
 // STAK-443: populateApiSection relocated to js/settings.js (composer + per-section

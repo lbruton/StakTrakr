@@ -277,3 +277,366 @@ test.describe("STRK-170 — fetchLatestPrices per-provider dispatch (characteriz
     expect(await page.evaluate(() => localStorage.getItem("spotGold"))).toBe(goldBefore);
   });
 });
+
+// STRK-291 — per-card refresh icon coloured by spot-data freshness.
+//
+// Lives in this file rather than a new one because it is the same `spot-sync`
+// coverage domain, and the file already hosts a second unrelated describe
+// (STRK-170) — the precedent for grouping by domain over filename. AGENTS.md
+// also discourages adding new issue-prefixed spec files.
+//
+// SUBJECT OF THE MEASUREMENT (this is the threshold reconciliation STRK-291
+// asked for): these thresholds describe how old THIS BROWSER's spot data is.
+// `API_HEALTH_SPOT_STALE_MIN = 20` in js/api-health.js measures something
+// different — whether the publisher is still writing hourly files. Two numbers,
+// two subjects, deliberately not unified. A user who syncs manually would sit
+// permanently orange under a 20-minute local rule.
+//
+// WHY THESE TESTS SEED AFTER BOOT *AND* WAIT FOR IT TO GO QUIET: init.js runs
+// the indicator at Phase 12 (line ~751) but fires `fetchSpotPrice()` at Phase 13
+// (line ~762). Under the default network mock that fetch SUCCEEDS about 40 ms
+// after DOMContentLoaded and writes a wall-clock `lastApiSync` once per metal —
+// four writes in a ~5 ms burst — then re-runs the indicator. Any seed written
+// before that burst is silently overwritten and every state collapses to
+// "fresh".
+//
+// Waiting on `#spotPriceDisplaySilver` is NOT enough; the element is visible
+// long before the fetch resolves. `waitForTimeout` would be a guess. Instead
+// `installBootSyncProbe` counts writes to the two freshness keys and
+// `gotoAppSettled` waits for quiescence — at least one write, then a clear gap
+// with no further writes. That is deterministic and self-describing.
+//
+// This race is why the "expired" cases failed while "fresh" passed on the first
+// green run: overwriting a fresh seed with a fresh value is invisible. The stale
+// case passed only by luck of timing. Do not remove the settle step because the
+// tests appear to pass without it.
+const SPOT_METALS = ["Silver", "Gold", "Platinum", "Palladium"];
+const FRESHNESS_CLASSES = [
+  "spot-sync-icon--fresh",
+  "spot-sync-icon--stale",
+  "spot-sync-icon--expired",
+];
+
+/**
+ * Returns an ISO 8601 timestamp the given number of minutes in the past.
+ * @param {number} minutes - Minutes to subtract from the current time
+ * @returns {string} ISO 8601 timestamp, e.g. "2026-07-30T21:05:00.000Z"
+ */
+const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60 * 1000).toISOString();
+
+/** Quiet period with no freshness-key writes that counts as "boot has settled". */
+const BOOT_SETTLE_MS = 400;
+
+/**
+ * Instruments `Storage.setItem` to count writes to the two freshness keys.
+ * Must run before `page.goto` — install it in `beforeEach`.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+const installBootSyncProbe = (page) =>
+  page.addInitScript(() => {
+    window.__freshnessWrites = 0;
+    window.__freshnessWriteAt = 0;
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function setItem(key, value) {
+      if (key === "lastApiSync" || key === "lastCacheRefresh") {
+        window.__freshnessWrites += 1;
+        window.__freshnessWriteAt = Date.now();
+      }
+      return original.call(this, key, value);
+    };
+  });
+
+/**
+ * Boots the app and waits until the boot sync has stopped writing timestamps,
+ * so a subsequent seed cannot be overwritten. See the block comment above.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function gotoAppSettled(page) {
+  await gotoApp(page);
+  await page.waitForFunction(
+    (quietMs) => window.__freshnessWrites > 0 && Date.now() - window.__freshnessWriteAt > quietMs,
+    BOOT_SETTLE_MS
+  );
+}
+
+/**
+ * Overwrites the two freshness timestamp keys after boot, then re-runs the
+ * indicator. Passing `null` DELETES a key — required for the no-data case,
+ * because boot populates `lastCacheRefresh` from the bundled history and an
+ * absent seed would otherwise be indistinguishable from a stale one.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {{apiSync?: object|null, cacheRefresh?: object|null}} seed - Entry per key
+ * @returns {Promise<void>}
+ */
+async function seedFreshnessAndRefresh(page, { apiSync = null, cacheRefresh = null } = {}) {
+  await page.evaluate(
+    ({ api, cache }) => {
+      if (api) localStorage.setItem("lastApiSync", JSON.stringify(api));
+      else localStorage.removeItem("lastApiSync");
+      if (cache) localStorage.setItem("lastCacheRefresh", JSON.stringify(cache));
+      else localStorage.removeItem("lastCacheRefresh");
+      window.updateSpotSyncHealthDot();
+    },
+    { api: apiSync, cache: cacheRefresh }
+  );
+}
+
+/**
+ * Returns the freshness modifier on each metal's refresh icon, in METALS order.
+ * Reads the live class list rather than a computed colour so the assertion names
+ * the state contract; the colour tokens themselves are asserted separately.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<Array<string|undefined>>} One modifier class per metal
+ */
+const readIconFreshness = (page) =>
+  page.evaluate(
+    ({ metals, classes }) =>
+      metals.map((m) => {
+        const el = document.getElementById(`syncIcon${m}`);
+        return el ? [...el.classList].find((c) => classes.includes(c)) : undefined;
+      }),
+    { metals: SPOT_METALS, classes: FRESHNESS_CLASSES }
+  );
+
+/**
+ * Asserts all four cards agree on one freshness state.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} expected - Expected modifier, e.g. "spot-sync-icon--fresh"
+ * @returns {Promise<void>}
+ */
+async function expectAllIconsAt(page, expected) {
+  expect(await readIconFreshness(page)).toEqual(SPOT_METALS.map(() => expected));
+}
+
+test.describe("STRK-291 — spot-card refresh icon freshness colour", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+    await installBootSyncProbe(page);
+  });
+
+  test("an API sync inside the hour reads fresh on all four cards", async ({ page }) => {
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(5) },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+  });
+
+  test("a sync between one hour and one day old reads stale", async ({ page }) => {
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(90) },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--stale");
+  });
+
+  test("a sync older than one day reads expired", async ({ page }) => {
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(60 * 30) },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--expired");
+  });
+
+  test("no timestamps at all reads stale, not expired", async ({ page }) => {
+    // Preserves the pre-existing contract: "no data" was orange, never red. Red
+    // is reserved for data known to be old, so an empty install does not open
+    // on an alarm state.
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, { apiSync: null, cacheRefresh: null });
+    await expectAllIconsAt(page, "spot-sync-icon--stale");
+  });
+
+  test("a cached entry inside its provider cache duration reads fresh despite its age", async ({
+    page,
+  }) => {
+    // The load-bearing case for the fallback chain STRK-291 says to preserve.
+    // A 2-hour-old timestamp is "stale" by raw age, but METAL_PRICE_API's cache
+    // duration defaults to 24h, so the entry is still valid and must read fresh.
+    // Asserting --fresh (not --stale) is what discriminates the cache-duration
+    // branch from the plain-age branch; a regression that dropped the fallback
+    // would return --stale here and this is the only test that would catch it.
+    //
+    // The provider must NOT be STAKTRAKR: getCacheDurationMs("STAKTRAKR")
+    // returns 0 by design (js/api.js — static hourly files, no rate limit), so
+    // `age <= duration` is unsatisfiable and this branch is unreachable for the
+    // default source. The " (cached)" suffix mirrors what updateLastTimestamps
+    // actually writes, so this also pins the suffix-stripping.
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: null,
+      cacheRefresh: { provider: "METAL_PRICE_API (cached)", timestamp: minutesAgo(120) },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+  });
+
+  test("the cache window still wins when a real sync also wrote lastApiSync", async ({ page }) => {
+    // THE PRODUCTION SHAPE of the test above, and the one that actually matters.
+    // `updateLastTimestamps` writes BOTH keys on every successful API sync
+    // (js/spot.js — saveDataSync to LAST_API_SYNC_KEY *and* LAST_CACHE_REFRESH_KEY),
+    // so a real user is never in the lastApiSync-absent state the previous test
+    // seeds. The test above deletes lastApiSync, which is exactly what let the
+    // original implementation pass while being wrong in the field.
+    //
+    // Scenario: a keyed provider with a 24 h cache window synced 90 minutes ago.
+    // Raw age says stale, but the app will not refetch until the window closes,
+    // so amber would be telling the user to refresh when refreshing is a no-op.
+    // Before the PR #1410 review fix this returned stale, because the
+    // lastApiSync branch returned before the cache window was ever consulted.
+    await gotoAppSettled(page);
+    const ninetyMinutesAgo = minutesAgo(90);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "METAL_PRICE_API", timestamp: ninetyMinutesAgo },
+      cacheRefresh: { provider: "METAL_PRICE_API", timestamp: ninetyMinutesAgo },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+  });
+
+  test("a cache window that has closed falls back to plain age", async ({ page }) => {
+    // The other side of the precedence change: putting the cache check first
+    // must not make everything permanently fresh. STAKTRAKR's cache duration is
+    // 0, so its window is always closed and the verdict comes from raw age.
+    await gotoAppSettled(page);
+    const ninetyMinutesAgo = minutesAgo(90);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: ninetyMinutesAgo },
+      cacheRefresh: { provider: "STAKTRAKR", timestamp: ninetyMinutesAgo },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--stale");
+  });
+
+  test("a successful sync refreshes the icon from expired to fresh", async ({ page }) => {
+    // AC: "updates after a successful sync". Proves the post-sync hook in
+    // updateLastTimestamps still reaches the icon after the retarget — the
+    // default network mock returns a payload generated now.
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(60 * 48) },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--expired");
+
+    const result = await forceSync(page);
+    expect(result.results.STAKTRAKR).toBe("success");
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+  });
+
+  test("the freshness class survives a syncing state and never replaces the base class", async ({
+    page,
+  }) => {
+    // The documented trap: the pre-retarget body assigned `className =`, which
+    // on a bare dot span was harmless but on these buttons would wipe
+    // `.spot-sync-icon` and the `.syncing` class updateSyncButtonStates owns.
+    // Two owners of one element's appearance must compose, not overwrite.
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(5) },
+    });
+
+    // updateSyncButtonStates is a script-tag global, not a window property —
+    // reach it as a bare identifier inside the page realm.
+    await page.evaluate(() => updateSyncButtonStates(true));
+
+    const classes = await page.evaluate(() => [
+      ...document.getElementById("syncIconSilver").classList,
+    ]);
+    expect(classes).toContain("spot-sync-icon");
+    expect(classes).toContain("syncing");
+    expect(classes).toContain("spot-sync-icon--fresh");
+  });
+
+  test("every freshness state is distinct and meets 3:1 contrast in all four themes", async ({
+    page,
+  }) => {
+    // AC: all four themes render every state legibly. Two independent failures
+    // are possible and this covers both.
+    //
+    // DISTINCTNESS — two states resolving to the same colour makes the indicator
+    // useless without changing any class, so a class-only assertion is blind to
+    // it.
+    //
+    // CONTRAST — an icon stroke is a graphical object, judged at WCAG 1.4.11
+    // Non-text Contrast (3:1), not the 4.5:1 small-text bar. Measuring rather
+    // than eyeballing caught two real failures during STRK-291: `--warning` at
+    // ~1.4:1 in light and sepia (the documented gotcha), and `--success` at
+    // 2.72:1 in sepia (NOT documented anywhere — found only because this test
+    // measures every state in every theme rather than the one it was warned
+    // about). Both now carry theme-specific overrides in css/styles.css.
+    //
+    // Colours MUST be resolved through a canvas: getComputedStyle returns
+    // `oklch(...)` verbatim for these tokens, and parsing those three numbers as
+    // if they were RGB yields silently wrong ratios — during development that
+    // mistake reported every theme as failing, including ones that were fine.
+    await gotoAppSettled(page);
+    await page.evaluate(() => {
+      window.__resolveRgb = (css) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 1, 1);
+        ctx.fillStyle = css;
+        ctx.fillRect(0, 0, 1, 1);
+        return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+      };
+    });
+
+    const contrastRatio = (fg, bg) => {
+      const channel = (v) => {
+        const n = v / 255;
+        return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+      };
+      const luminance = ([r, g, b]) =>
+        0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+      const [lighter, darker] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+
+    const seeds = {
+      fresh: minutesAgo(5),
+      stale: minutesAgo(90),
+      expired: minutesAgo(60 * 30),
+    };
+
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+
+      const measured = {};
+      for (const [state, timestamp] of Object.entries(seeds)) {
+        await seedFreshnessAndRefresh(page, { apiSync: { provider: "STAKTRAKR", timestamp } });
+        measured[state] = await page.evaluate(() => {
+          const el = document.getElementById("syncIconSilver");
+          // Walk up for the first opaque ancestor — the button itself may be
+          // transparent, and contrast against rgba(0,0,0,0) is meaningless.
+          let surface = getComputedStyle(el).backgroundColor;
+          let node = el;
+          while (surface === "rgba(0, 0, 0, 0)" && node.parentElement) {
+            node = node.parentElement;
+            surface = getComputedStyle(node).backgroundColor;
+          }
+          return {
+            token: getComputedStyle(el).color,
+            fg: window.__resolveRgb(getComputedStyle(el).color),
+            bg: window.__resolveRgb(surface),
+          };
+        });
+      }
+
+      const tokens = Object.values(measured).map((m) => m.token);
+      expect(
+        new Set(tokens).size,
+        `theme ${theme} collapsed states into ${tokens.join(", ")}`
+      ).toBe(3);
+
+      for (const [state, m] of Object.entries(measured)) {
+        const ratio = contrastRatio(m.fg, m.bg);
+        expect(
+          ratio,
+          `theme ${theme} state ${state} (${m.token}) is ${ratio.toFixed(2)}:1, under the 3:1 non-text bar`
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+});

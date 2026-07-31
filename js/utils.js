@@ -1464,19 +1464,48 @@ const setButtonLoading = (btn, isLoading, loadingText = "") => {
   }
 };
 
+// Local-data staleness thresholds (STRK-291).
+//
+// SUBJECT: how old the data in THIS BROWSER is — the age of the last successful
+// sync or cache refresh. Drives the spot-card refresh icons and the market
+// freshness dot.
+//
+// NOT the same measurement as `API_HEALTH_SPOT_STALE_MIN = 20` (js/api-health.js),
+// which asks whether the PUBLISHER is still writing hourly files. That is a
+// server-liveness check with a tight bound because the poller runs every ~15 min.
+// This is a client-side "is what I'm looking at current" check, and a user who
+// syncs manually would sit permanently alarmed under a 20-minute rule.
+//
+// Two numbers, two subjects, deliberately not unified. They are not meant to
+// track each other — changing one does not imply changing the other.
+const SPOT_FRESH_MAX_MIN = 60; // under an hour old → fresh
+const SPOT_STALE_MAX_MIN = 1440; // under a day old → stale; beyond that → expired
+
 /**
  * Returns CSS modifier class for a health-status dot based on timestamp age.
  * Handles both ISO and "YYYY-MM-DD HH:MM:SS" (local-stripped) formats.
+ *
+ * A null/absent timestamp returns `--red`. Callers that treat "no data" as a
+ * milder state than "known-old data" must special-case it BEFORE calling —
+ * `getSpotFreshnessStatus` (js/spot.js) does exactly that.
  * @param {string|null} timestamp
  * @returns {'--green'|'--orange'|'--red'}
  */
 function getHealthStatusClass(timestamp) {
   if (!timestamp) return "--red";
-  const normalized =
-    timestamp.replace(" ", "T") + (timestamp.includes("Z") || timestamp.includes("+") ? "" : "Z");
+  // A NEGATIVE offset ("-08:00") carries no "Z" and no "+", so the older
+  // `includes("Z") || includes("+")` test appended a second designator and
+  // produced "…T12:00:00-08:00Z" — an Invalid Date, whose NaN age fell through
+  // both comparisons and reported `--red` for data that might be seconds old.
+  // This mirrors `_normalizeTs` in js/api-health.js; the offset alternative is
+  // anchored so a plain "YYYY-MM-DD HH:MM:SS" still gets its "Z".
+  const trimmed = timestamp.trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(trimmed)
+    ? trimmed.replace(" ", "T")
+    : `${trimmed.replace(" ", "T")}Z`;
   const ageMin = Math.floor((Date.now() - new Date(normalized).getTime()) / 60000);
-  if (ageMin < 60) return "--green";
-  if (ageMin < 1440) return "--orange";
+  if (ageMin < SPOT_FRESH_MAX_MIN) return "--green";
+  if (ageMin < SPOT_STALE_MAX_MIN) return "--orange";
   return "--red";
 }
 window.getHealthStatusClass = getHealthStatusClass;
