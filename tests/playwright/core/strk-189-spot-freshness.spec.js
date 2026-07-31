@@ -472,6 +472,41 @@ test.describe("STRK-291 — spot-card refresh icon freshness colour", () => {
     await expectAllIconsAt(page, "spot-sync-icon--fresh");
   });
 
+  test("the cache window still wins when a real sync also wrote lastApiSync", async ({ page }) => {
+    // THE PRODUCTION SHAPE of the test above, and the one that actually matters.
+    // `updateLastTimestamps` writes BOTH keys on every successful API sync
+    // (js/spot.js — saveDataSync to LAST_API_SYNC_KEY *and* LAST_CACHE_REFRESH_KEY),
+    // so a real user is never in the lastApiSync-absent state the previous test
+    // seeds. The test above deletes lastApiSync, which is exactly what let the
+    // original implementation pass while being wrong in the field.
+    //
+    // Scenario: a keyed provider with a 24 h cache window synced 90 minutes ago.
+    // Raw age says stale, but the app will not refetch until the window closes,
+    // so amber would be telling the user to refresh when refreshing is a no-op.
+    // Before the PR #1410 review fix this returned stale, because the
+    // lastApiSync branch returned before the cache window was ever consulted.
+    await gotoAppSettled(page);
+    const ninetyMinutesAgo = minutesAgo(90);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "METAL_PRICE_API", timestamp: ninetyMinutesAgo },
+      cacheRefresh: { provider: "METAL_PRICE_API", timestamp: ninetyMinutesAgo },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+  });
+
+  test("a cache window that has closed falls back to plain age", async ({ page }) => {
+    // The other side of the precedence change: putting the cache check first
+    // must not make everything permanently fresh. STAKTRAKR's cache duration is
+    // 0, so its window is always closed and the verdict comes from raw age.
+    await gotoAppSettled(page);
+    const ninetyMinutesAgo = minutesAgo(90);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: ninetyMinutesAgo },
+      cacheRefresh: { provider: "STAKTRAKR", timestamp: ninetyMinutesAgo },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--stale");
+  });
+
   test("a successful sync refreshes the icon from expired to fresh", async ({ page }) => {
     // AC: "updates after a successful sync". Proves the post-sync hook in
     // updateLastTimestamps still reaches the icon after the retarget — the

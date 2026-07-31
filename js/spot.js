@@ -265,6 +265,36 @@ const _healthClassToFreshness = (healthClass) => {
 };
 
 /**
+ * Reads a freshness timestamp entry, tolerating unreadable storage.
+ * @param {string} key - LAST_API_SYNC_KEY or LAST_CACHE_REFRESH_KEY
+ * @returns {{provider?: string, timestamp?: string}|null} Entry, or null
+ */
+const _readFreshnessEntry = (key) => {
+  try {
+    return loadDataSync(key);
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
+ * True when a cache entry is still inside its provider's cache window, i.e. the
+ * app considers the data valid and will not refetch it.
+ *
+ * `getCacheDurationMs("STAKTRAKR")` is 0 by design (static hourly files, no rate
+ * limit), so this is only ever true for keyed providers.
+ * @param {{provider?: string, timestamp?: string}|null} cache - Cache entry
+ * @returns {boolean} True if still within the provider's cache duration
+ */
+const _isCacheWithinProviderWindow = (cache) => {
+  if (!cache || !cache.timestamp || typeof getCacheDurationMs !== "function") return false;
+  const cacheMs = new Date(cache.timestamp).getTime();
+  if (isNaN(cacheMs)) return false;
+  const rawProvider = (cache.provider || "").replace(/ \(cached\)$/, "");
+  return Date.now() - cacheMs <= getCacheDurationMs(rawProvider || "STAKTRAKR");
+};
+
+/**
  * Classifies how current this browser's spot data is.
  *
  * `fresh` < 60 min, `stale` 60 min – 24 hr or no data at all, `expired` > 24 hr,
@@ -272,46 +302,34 @@ const _healthClassToFreshness = (healthClass) => {
  * LOCAL data age and are deliberately distinct from `API_HEALTH_SPOT_STALE_MIN`
  * (js/api-health.js), which measures publisher liveness — see either file.
  *
- * Resolution order, all three steps load-bearing:
- *   1. `LAST_API_SYNC_KEY` — a real sync wins outright.
- *   2. `LAST_CACHE_REFRESH_KEY` — a cached entry still inside its provider's
- *      `getCacheDurationMs` reads `fresh` REGARDLESS of raw age, because the app
- *      considers it valid and will not refetch. Outside that window it falls
- *      back to plain age. Caveat: `getCacheDurationMs("STAKTRAKR")` is 0 by
- *      design (static hourly files, no rate limit), so this branch is
- *      unreachable for the default source and only fires for keyed providers.
- *   3. Nothing stored → `stale`, NOT `expired`. "No data" is a milder state than
+ * Resolution order:
+ *   1. A cache entry still inside its provider's window reads `fresh` REGARDLESS
+ *      of raw age. This is checked FIRST, and that ordering is load-bearing.
+ *      `updateLastTimestamps` writes BOTH keys on every successful API sync, so
+ *      checking `LAST_API_SYNC_KEY` first — as this function did until PR #1410
+ *      review — meant a keyed provider with a 24 h cache reported `stale` at the
+ *      90-minute mark while the app still considered the data valid and would
+ *      not refetch it. That made the whole cache branch unreachable in
+ *      production and left the indicator telling users to refresh when
+ *      refreshing would do nothing.
+ *   2. `LAST_API_SYNC_KEY` — plain age of the last real sync.
+ *   3. `LAST_CACHE_REFRESH_KEY` — plain age, for a cache-only history.
+ *   4. Nothing stored → `stale`, NOT `expired`. "No data" is a milder state than
  *      "data known to be a day old"; a fresh install must not open on red.
- *      `getHealthStatusClass(null)` returns `--red`, so this case is handled
- *      here rather than delegated.
+ *      `getHealthStatusClass(null)` returns `--red`, so this is handled here
+ *      rather than delegated.
  * @returns {'fresh'|'stale'|'expired'}
  */
 const getSpotFreshnessStatus = () => {
-  let entry = null;
-  try {
-    entry = loadDataSync(LAST_API_SYNC_KEY);
-  } catch (e) {
-    /* ignore */
-  }
+  const cache = _readFreshnessEntry(LAST_CACHE_REFRESH_KEY);
+  if (_isCacheWithinProviderWindow(cache)) return "fresh";
+
+  const entry = _readFreshnessEntry(LAST_API_SYNC_KEY);
   if (entry && entry.timestamp) {
     return _healthClassToFreshness(getHealthStatusClass(entry.timestamp));
   }
 
-  let cache = null;
-  try {
-    cache = loadDataSync(LAST_CACHE_REFRESH_KEY);
-  } catch (e) {
-    /* ignore */
-  }
   if (cache && cache.timestamp) {
-    if (typeof getCacheDurationMs === "function") {
-      const cacheMs = new Date(cache.timestamp).getTime();
-      if (!isNaN(cacheMs)) {
-        const rawProvider = (cache.provider || "").replace(/ \(cached\)$/, "");
-        const age = Date.now() - cacheMs;
-        if (age <= getCacheDurationMs(rawProvider || "STAKTRAKR")) return "fresh";
-      }
-    }
     return _healthClassToFreshness(getHealthStatusClass(cache.timestamp));
   }
 

@@ -1493,8 +1493,16 @@ const SPOT_STALE_MAX_MIN = 1440; // under a day old → stale; beyond that → e
  */
 function getHealthStatusClass(timestamp) {
   if (!timestamp) return "--red";
-  const normalized =
-    timestamp.replace(" ", "T") + (timestamp.includes("Z") || timestamp.includes("+") ? "" : "Z");
+  // A NEGATIVE offset ("-08:00") carries no "Z" and no "+", so the older
+  // `includes("Z") || includes("+")` test appended a second designator and
+  // produced "…T12:00:00-08:00Z" — an Invalid Date, whose NaN age fell through
+  // both comparisons and reported `--red` for data that might be seconds old.
+  // This mirrors `_normalizeTs` in js/api-health.js; the offset alternative is
+  // anchored so a plain "YYYY-MM-DD HH:MM:SS" still gets its "Z".
+  const trimmed = timestamp.trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(trimmed)
+    ? trimmed.replace(" ", "T")
+    : `${trimmed.replace(" ", "T")}Z`;
   const ageMin = Math.floor((Date.now() - new Date(normalized).getTime()) / 60000);
   if (ageMin < SPOT_FRESH_MAX_MIN) return "--green";
   if (ageMin < SPOT_STALE_MAX_MIN) return "--orange";
