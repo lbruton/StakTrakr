@@ -254,41 +254,39 @@ const updateLastTimestamps = (source, provider, timestamp) => {
 };
 
 /**
- * Updates the #headerSyncDot color based on last spot sync age.
- * Green: < 60 min, Orange: 60 min – 24 hr or no data, Red: > 24 hr.
- * Falls back to cache refresh timestamp before treating the state as no data (orange).
- *
- * INERT since STRK-284: `#headerSyncDot` rode on the retired Spot Sync header
- * button, so there is no element left to colour and this now returns early.
- *
- * The guard is `instanceof HTMLElement`, NOT `!dot.classList`: `safeGetElement`
- * returns a dummy object that DOES carry a no-op `classList`, so the old check
- * never bailed and the body kept running two `loadDataSync` reads per call for
- * nothing.
- *
- * Deliberately NOT deleted. STRK-291 (colour the per-card refresh icon by
- * freshness) needs exactly this age logic and both of its call sites —
- * `init.js` boot and the post-sync hook below — so it only has to retarget the
- * body at the four `syncIcon{Metal}` elements. Removing it here would mean
- * re-adding the same two hooks next patch, and the init.js one is easy to miss.
- *
- * STRK-298 dropped `header-cloud-dot` from the className below and deleted that
- * CSS rule. It was the `position: absolute` corner-badge base, and no button is
- * left to pin a badge to. This matches `updateMarketHealthDot` (js/retail.js),
- * which already sets `.cloud-sync-dot` alone. The `header-cloud-dot--*`
- * modifiers added further down are unaffected — they set only background and
- * box-shadow, so they compose with `.cloud-sync-dot` just as well.
- *
- * Note for STRK-291: the assignment below is `className =`, which REPLACES the
- * class list. On `#headerSyncDot` — a bare span that existed only to be a dot —
- * that was harmless. Retargeted at `syncIcon{Metal}` it would wipe
- * `.spot-sync-icon` and the `.syncing` class that `updateSyncButtonStates`
- * (js/api.js) owns. Use `classList` add/remove there, not `className`.
+ * Maps a `getHealthStatusClass` modifier onto a spot freshness state name.
+ * @param {'--green'|'--orange'|'--red'} healthClass
+ * @returns {'fresh'|'stale'|'expired'}
  */
-const updateSpotSyncHealthDot = () => {
-  const dot = safeGetElement("headerSyncDot");
-  if (!(dot instanceof HTMLElement)) return;
-  dot.className = "cloud-sync-dot";
+const _healthClassToFreshness = (healthClass) => {
+  if (healthClass === "--green") return "fresh";
+  if (healthClass === "--orange") return "stale";
+  return "expired";
+};
+
+/**
+ * Classifies how current this browser's spot data is.
+ *
+ * `fresh` < 60 min, `stale` 60 min – 24 hr or no data at all, `expired` > 24 hr,
+ * per `SPOT_FRESH_MAX_MIN` / `SPOT_STALE_MAX_MIN` (js/utils.js). Those measure
+ * LOCAL data age and are deliberately distinct from `API_HEALTH_SPOT_STALE_MIN`
+ * (js/api-health.js), which measures publisher liveness — see either file.
+ *
+ * Resolution order, all three steps load-bearing:
+ *   1. `LAST_API_SYNC_KEY` — a real sync wins outright.
+ *   2. `LAST_CACHE_REFRESH_KEY` — a cached entry still inside its provider's
+ *      `getCacheDurationMs` reads `fresh` REGARDLESS of raw age, because the app
+ *      considers it valid and will not refetch. Outside that window it falls
+ *      back to plain age. Caveat: `getCacheDurationMs("STAKTRAKR")` is 0 by
+ *      design (static hourly files, no rate limit), so this branch is
+ *      unreachable for the default source and only fires for keyed providers.
+ *   3. Nothing stored → `stale`, NOT `expired`. "No data" is a milder state than
+ *      "data known to be a day old"; a fresh install must not open on red.
+ *      `getHealthStatusClass(null)` returns `--red`, so this case is handled
+ *      here rather than delegated.
+ * @returns {'fresh'|'stale'|'expired'}
+ */
+const getSpotFreshnessStatus = () => {
   let entry = null;
   try {
     entry = loadDataSync(LAST_API_SYNC_KEY);
@@ -296,9 +294,9 @@ const updateSpotSyncHealthDot = () => {
     /* ignore */
   }
   if (entry && entry.timestamp) {
-    dot.classList.add(`header-cloud-dot${getHealthStatusClass(entry.timestamp)}`);
-    return;
+    return _healthClassToFreshness(getHealthStatusClass(entry.timestamp));
   }
+
   let cache = null;
   try {
     cache = loadDataSync(LAST_CACHE_REFRESH_KEY);
@@ -311,16 +309,63 @@ const updateSpotSyncHealthDot = () => {
       if (!isNaN(cacheMs)) {
         const rawProvider = (cache.provider || "").replace(/ \(cached\)$/, "");
         const age = Date.now() - cacheMs;
-        if (age <= getCacheDurationMs(rawProvider || "STAKTRAKR")) {
-          dot.classList.add("header-cloud-dot--green");
-          return;
-        }
+        if (age <= getCacheDurationMs(rawProvider || "STAKTRAKR")) return "fresh";
       }
     }
-    dot.classList.add(`header-cloud-dot${getHealthStatusClass(cache.timestamp)}`);
-    return;
+    return _healthClassToFreshness(getHealthStatusClass(cache.timestamp));
   }
-  dot.classList.add("header-cloud-dot--orange");
+
+  return "stale";
+};
+window.getSpotFreshnessStatus = getSpotFreshnessStatus;
+
+const SPOT_FRESHNESS_CLASSES = [
+  "spot-sync-icon--fresh",
+  "spot-sync-icon--stale",
+  "spot-sync-icon--expired",
+];
+
+/**
+ * Paints the current freshness state onto the four `syncIcon{Metal}` buttons.
+ *
+ * SOLE WRITER of the `spot-sync-icon--*` modifiers. `updateSyncButtonStates`
+ * (js/api.js) owns `disabled` / `title` / `.syncing` on the same elements and
+ * calls this once per run so those two concerns compose instead of racing.
+ *
+ * Uses `classList` add/remove, never `className =`. The pre-STRK-291 body
+ * assigned `className` wholesale, which was harmless on `#headerSyncDot` — a
+ * bare span that existed only to be a dot — but here would wipe
+ * `.spot-sync-icon` itself and the `.syncing` class mid-sync.
+ * @returns {void}
+ */
+const applySpotFreshnessClasses = () => {
+  const next = `spot-sync-icon--${getSpotFreshnessStatus()}`;
+  const stale = SPOT_FRESHNESS_CLASSES.filter((cls) => cls !== next);
+  Object.values(METALS).forEach((metalConfig) => {
+    const icon = document.getElementById(`syncIcon${metalConfig.name}`);
+    if (!icon) return;
+    icon.classList.remove(...stale);
+    icon.classList.add(next);
+  });
+};
+window.applySpotFreshnessClasses = applySpotFreshnessClasses;
+
+/**
+ * Repaints the per-card refresh icons to match current spot-data freshness.
+ *
+ * STRK-291 retargeted this from the retired `#headerSyncDot` (STRK-284) onto the
+ * four `syncIcon{Metal}` buttons. The NAME is kept deliberately: two call sites
+ * depend on it — `init.js` boot and the post-sync hook in `updateLastTimestamps`
+ * above — and renaming risks dropping the init.js one silently.
+ *
+ * Calls `applySpotFreshnessClasses` and nothing else. It must NOT delegate to
+ * `updateSyncButtonStates()`: `updateLastTimestamps` fires this mid-sync, and
+ * that function's `syncing` parameter defaults to false, so delegating would
+ * clear the spinner and re-enable the button while the sync is still running.
+ * @returns {void}
+ */
+const updateSpotSyncHealthDot = () => {
+  applySpotFreshnessClasses();
 };
 window.updateSpotSyncHealthDot = updateSpotSyncHealthDot;
 

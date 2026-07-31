@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.88] - 2026-07-30
+
+### Added — STRK-291: Spot-card refresh icons show at a glance how current your prices are
+
+- **The ↻ button on each spot card is now colour-coded by how old your prices are**: green when the data is under an hour old, amber between an hour and a day, red beyond that. Previously the icon looked identical whether you had synced a minute ago or last month, so there was no way to tell stale prices from fresh ones without reading the timestamp under each card. The colour updates the moment a sync finishes (STRK-291).
+- **A valid cached price still reads as fresh**: if you use an API provider with a cache window, a price that is a few hours old but still inside that window shows green rather than amber. The app is not going to refetch it, so flagging it as stale would be misleading (STRK-291).
+- **"Never synced" reads amber, not red**: a brand-new install shows a neutral warning rather than opening on an alarm colour. Red is reserved for prices that are genuinely known to be over a day old (STRK-291).
+- **Two different questions, two different indicators**: this icon answers "how current is the data in my browser". The API health panel answers a separate question — "is the price feed still publishing" — and keeps its own, much tighter threshold. They are documented as deliberately distinct so a future change to one does not silently drag the other along (STRK-291).
+- **Legible in all four themes**: every colour was measured against its background rather than eyeballed. Two failed the accessibility bar for icons and were darkened — amber in Light and Sepia, and green in Sepia, which turned out to be too pale to read against the sepia card. A test now measures all twelve colour/theme combinations on every run, so a future palette change cannot quietly make an indicator unreadable (STRK-291).
+
+---
+
 ## [3.35.87] - 2026-07-30
 
 ### Fixed — STRK-314: Vendor-registry config overrides reach the scrape

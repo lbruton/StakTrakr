@@ -4,6 +4,14 @@
 //   Market prices  — manifest.json       — stale after 30 min
 //   Spot prices    — hourly/YYYY/MM/DD/HH.json — stale after 20 min
 //   Goldback       — goldback-spot.json  — stale after 25 hr (daily scrape)
+//
+// SUBJECT (STRK-291): these thresholds measure whether the PUBLISHER is still
+// producing data — server liveness, checked against the feed's own timestamps.
+// They are intentionally tighter than `SPOT_FRESH_MAX_MIN` / `SPOT_STALE_MAX_MIN`
+// (js/utils.js), which measure how old the data in THIS BROWSER is. A user who
+// has not synced in two hours is looking at stale local data while the feed is
+// perfectly healthy; both statements are true and each has its own indicator.
+// Do not "reconcile" these into one constant — they answer different questions.
 
 const API_HEALTH_MARKET_STALE_MIN = 30; // poller runs every ~15-20 min; 30 min gives comfortable margin
 const API_HEALTH_SPOT_STALE_MIN = 20; // metalpriceapi.com updated every 10 min; poller runs every 15 min
