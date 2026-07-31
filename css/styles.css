@@ -15428,7 +15428,13 @@ input[type="number"] {
   animation: none;
   width: 100%;
   min-width: 0;
+  /* STRK-317: full-length names can overflow the static (<4 items) track on
+     narrow viewports — plain `center` clips both ends inside the container's
+     overflow:hidden, so allow horizontal scroll and use `safe center` (falls
+     back to `center` where unsupported) to keep the start edge reachable. */
   justify-content: center;
+  justify-content: safe center;
+  overflow-x: auto;
 }
 
 .ticker-block {

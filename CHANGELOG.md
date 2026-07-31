@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.86] - 2026-07-30
+
+### Fixed — STRK-317: Market ticker shows full item names and proper vendor labels
+
+- **Full item names in the ticker**: long names ("Australian Silver Kookaburra 1 oz Coin", fractional Maple Leafs, Goldbacks) were hard-truncated to 27 characters + "…" by a JavaScript cap in the ticker item builder. The cap is removed — pills already size to their content, and the scroll animation derives its duration from the measured track width, so perceived speed is unchanged (STRK-317).
+- **"mintbuilder" now displays as "MintBuilder"**: the vendor short-label map predates the MintBuilder vendor (STRK-311) and leaked the raw lowercase vendor id into the ticker, vendor matrix, and detail modal. MintBuilder is added to the map, and unmapped vendors now fall back to the manifest vendor-meta display name before the raw id, so future vendor additions degrade gracefully (STRK-317).
+
+---
+
 ## [3.35.85] - 2026-07-30
 
 ### Fixed — STRK-318 / STRK-319: every weight unit now displays correctly, and editing no longer changes it

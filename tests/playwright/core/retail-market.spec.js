@@ -1465,6 +1465,163 @@ test.describe("core/retail-market", () => {
     await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
   });
 
+  // STRK-317: two ticker display fixes pinned together —
+  // (1) coin names render in full (the old code hard-truncated >30 chars to 27+"…"
+  //     in _buildTickerItemEl; the pill CSS already sizes to content), and
+  // (2) _shortVendor resolves vendors missing from its hardcoded map via the
+  //     manifest vendor-meta display name instead of leaking the raw lowercase
+  //     vid (the "mintbuilder" bug), with mintbuilder now also in the map.
+  test("STRK-317 — ticker renders full long names and resolves vendor labels", async ({ page }) => {
+    await setupRetailFixture(page);
+
+    // 38 chars — the pre-fix cap truncated anything over 30.
+    const LONG_NAME = "Australian Silver Kookaburra 1 oz Coin";
+
+    await page.evaluate(
+      ({ longName, slugLong, slugMeta }) => {
+        // Top-level consts in classic scripts share one global scope, so the
+        // module-scope getters are bare-accessible here. Pin the mutated maps
+        // on the window globals each getter prefers so the re-render sees them
+        // (the loadDataSync fallbacks re-parse localStorage on every call and
+        // would discard in-place mutation).
+        const cm = _getCoinMeta() || loadDataSync("retailManifestCoinMeta", {});
+        cm[slugLong] = { ...cm[slugLong], name: longName };
+        window._manifestCoinMeta = cm;
+
+        const vm = _getVendorMeta();
+        // futurevendor: NOT in _shortVendor's map — must fall back to this name.
+        vm.futurevendor = { name: "Future Vendor", color: "#8b5cf6", url: null };
+        window._manifestVendorMeta = vm;
+
+        const coins = _getRetailCoins();
+        // mintbuilder: resolved by _shortVendor's hardcoded map after STRK-317.
+        coins[slugLong].vendors = {
+          mintbuilder: { price: 42, inStock: true, in_stock: true },
+        };
+        coins[slugMeta].vendors = {
+          futurevendor: { price: 38, inStock: true, in_stock: true },
+        };
+        window._v2RetailData = { prices: coins };
+
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { longName: LONG_NAME, slugLong: SLUG_SILVER_Z, slugMeta: SLUG_SILVER_A }
+    );
+
+    // The re-render briefly mounts a new track alongside the superseded one
+    // (the rAF sweep in _finalizeTickerTrack removes it) — wait for the swap
+    // to settle so the primary-block locators below resolve uniquely.
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+
+    const primaryBlock = page.locator(".ticker-block[data-ticker-block='primary']");
+
+    const longItem = primaryBlock.locator(".ticker-item").filter({ hasText: "Kookaburra" });
+    await expect(longItem.locator(".coin")).toHaveText(LONG_NAME);
+    await expect(longItem.locator(".vendor")).toHaveText("MintBuilder");
+
+    const metaFallbackItem = primaryBlock
+      .locator(".ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(metaFallbackItem.locator(".vendor")).toHaveText("Future Vendor");
+  });
+
+  // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
+  // which cannot catch the dual-store gap — retail.js's _populateManifestState
+  // (the REAL mid-session manifest sync path) updates its lexical
+  // _manifestVendorMeta + localStorage but historically never the
+  // window._manifestVendorMeta property that market-data.js's _getVendorMeta
+  // prefers, so a vendor added by a sync stayed invisible to the fallback until
+  // reload. This drives the real populate function and pins the mirror.
+  test("STRK-317 — manifest sync refreshes the vendor meta the ticker fallback reads", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    await page.evaluate(
+      ({ slugMeta }) => {
+        const toCode = (m) => (m === "silver" ? "xag" : m === "gold" ? "xau" : m);
+        const coins = Object.entries(_getCoinMeta()).map(([slug, m]) => ({
+          slug,
+          name: m.name,
+          weight_oz: m.weight,
+          metal: toCode(m.metal),
+        }));
+        const vendors = Object.entries(_getVendorMeta()).map(([id, v]) => ({
+          id,
+          name: v.name,
+          color: v.color,
+          url: v.url,
+        }));
+        vendors.push({ id: "syncedvendor", name: "Synced Vendor", color: "#8b5cf6", url: null });
+
+        // Real sync path — must mirror onto window._manifestVendorMeta.
+        _populateManifestState(coins, vendors);
+
+        const priceMap = _getRetailCoins();
+        priceMap[slugMeta].vendors = {
+          syncedvendor: { price: 38, inStock: true, in_stock: true },
+        };
+        window._v2RetailData = { prices: priceMap };
+
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { slugMeta: SLUG_SILVER_A }
+    );
+
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    const item = page
+      .locator(".ticker-block[data-ticker-block='primary'] .ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(item.locator(".vendor")).toHaveText("Synced Vendor");
+  });
+
+  // STRK-317 review round 1 (Codex): with fewer than 4 items the ticker takes
+  // the non-animated static path, and .market-ticker is overflow:hidden — a
+  // full-length name on a narrow viewport used to clip at BOTH edges (the
+  // track was plain justify-content:center). The static track now allows
+  // horizontal scroll with `safe center`, keeping every character reachable.
+  test("STRK-317 — static ticker (<4 items) keeps long names reachable on narrow viewports", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setupRetailFixture(page);
+
+    const LONG_NAME = "Australian Silver Kookaburra 1 oz Coin";
+
+    await page.evaluate(
+      ({ longName, slug }) => {
+        const cm = _getCoinMeta() || loadDataSync("retailManifestCoinMeta", {});
+        cm[slug] = { ...cm[slug], name: longName };
+        window._manifestCoinMeta = cm;
+        // Single item → static (non-animated) track path.
+        const priceMap = _getRetailCoins();
+        window._v2RetailData = { prices: { [slug]: priceMap[slug] } };
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { longName: LONG_NAME, slug: SLUG_SILVER_Z }
+    );
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+    await expect(track).toHaveClass(/\bstatic\b/);
+    await expect(track.locator(".ticker-item .coin")).toHaveText(LONG_NAME);
+
+    const overflow = await track.evaluate((el) => ({
+      overflowX: getComputedStyle(el).overflowX,
+      scrollable: el.scrollWidth > el.clientWidth,
+    }));
+    // The 38-char item overflows a 390px viewport; scrollability is what makes
+    // the restored characters reachable instead of clipped.
+    expect(overflow.overflowX).toBe("auto");
+    expect(overflow.scrollable).toBe(true);
+  });
+
   // STRK-275 / STAK-513: rapid re-renders must leave exactly one .ticker-track.
   //
   // _finalizeTickerTrack runs inside requestAnimationFrame, so several renders
