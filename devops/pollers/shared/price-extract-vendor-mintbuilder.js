@@ -36,18 +36,14 @@ export const vendor = {
   /**
    * Scrape a MintBuilder product page via the shared generic strategy.
    * @param {object} context - Scrape context supplied by the vendor registry
-   *   (coinSlug, coin, provider, urls, scrapeGeneric, and optionally a
-   *   caller-provided config).
+   *   (coinSlug, coin, provider, urls, scrapeGeneric), carrying a config
+   *   already merged as provider defaults → this module's config →
+   *   caller-explicit overrides (STRK-314).
    * @returns {Promise<object>} The result from context.scrapeGeneric —
    *   { price, inStock, source, ok, error, url }.
    */
   async scrape(context) {
-    return context.scrapeGeneric({
-      ...context,
-      // Merge (not overwrite) so a caller-supplied partial config can't
-      // silently drop this module's own overrides (e.g. waitUntil).
-      config: { ...vendor.config, ...(context.config || {}) },
-    });
+    return context.scrapeGeneric(context);
   },
 };
 
