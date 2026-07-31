@@ -317,6 +317,11 @@ const FRESHNESS_CLASSES = [
   "spot-sync-icon--expired",
 ];
 
+/**
+ * Returns an ISO 8601 timestamp the given number of minutes in the past.
+ * @param {number} minutes - Minutes to subtract from the current time
+ * @returns {string} ISO 8601 timestamp, e.g. "2026-07-30T21:05:00.000Z"
+ */
 const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60 * 1000).toISOString();
 
 /** Quiet period with no freshness-key writes that counts as "boot has settled". */
