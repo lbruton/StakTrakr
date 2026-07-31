@@ -411,6 +411,28 @@ test("STRK-314: caller proxy override deep-merges instead of replacing", async (
   assert.equal(resolved.proxy.home, null, "sibling proxy keys must not be dropped by the merge");
 });
 
+test("STRK-314: resolveProxy honours the resolved config, not the legacy map", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { resolveProxy } = await import(
+    new URL("./price-extract-provider-config.js", import.meta.url)
+  );
+  const env = { POLLER_ID: "home", FLY_PROXY_URL: "http://fly.test" };
+  const module = registry.getVendorModule("bullionexchanges");
+  const resolved = registry.resolveVendorConfig("bullionexchanges", module, {
+    proxy: { home: "fly" },
+  });
+
+  // Merging the override into cfg is not enough — the proxy consumer has to be
+  // handed that cfg. Called without it, resolveProxy reloads providerCfg(id)
+  // and the override is discarded one layer below the STRK-314 merge.
+  assert.equal(resolveProxy("bullionexchanges", env), null, "legacy map routes home to no proxy");
+  assert.equal(
+    resolveProxy("bullionexchanges", env, resolved),
+    "http://fly.test",
+    "caller proxy override must reach proxy selection"
+  );
+});
+
 test("STRK-314: scrapeSingleVendor does not fabricate a caller config", async () => {
   const priceExtract = await import(new URL("./price-extract.js", import.meta.url));
   let observed = "UNSET";

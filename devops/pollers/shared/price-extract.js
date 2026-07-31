@@ -782,7 +782,10 @@ async function scrapeGenericTarget(context) {
         // Proxy-first path: if this provider routes through an alternate IP,
         // try the proxied playwright-service first (e.g., Fly.io IP for BEx).
         let markdown;
-        const proxyTarget = resolveProxy(provider.id);
+        // Pass the resolved cfg: without it resolveProxy reloads providerCfg(id)
+        // and ignores both module-owned and caller-explicit proxy settings —
+        // the same discard STRK-314 fixes, one layer down.
+        const proxyTarget = resolveProxy(provider.id, process.env, cfg);
         if (proxyTarget) {
           try {
             const proxyText = await scrapeViaProxy(url, cfg.waitFor, cfg.timeout);
