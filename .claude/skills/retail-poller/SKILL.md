@@ -190,9 +190,9 @@ SDB pages show "As Low As" only in add-on accessories and carousel sections — 
 
 If Firecrawl returns no price, `scrapeWithPlaywright()` tries a browserless remote browser (`BROWSERLESS_URL` env var). `SLOW_PROVIDERS = {jmbullion, herobullion, summitmetals}` get an extra 4s wait.
 
-### FBP Gap-Fill (REMOVED — wrapper is dead code)
+### FBP Gap-Fill (REMOVED)
 
-The FBP fallback no longer exists in `price-extract.js`: nothing reads `PATCH_GAPS`, `extractFbpPrices()` is gone, and no path writes `source: "fbp"`. `home-poller/run-fbp.sh` still sets `PATCH_GAPS=1` but the flag is silently ignored, and no cron invokes it (`docker-entrypoint.sh` is the cron authority). `provider_coins.fbp_url` remains as a vestigial column.
+The FBP fallback no longer exists: nothing reads `PATCH_GAPS`, `extractFbpPrices()` is gone, and no path writes `source: "fbp"`. The dead `home-poller/run-fbp.sh` wrapper was deleted (2026-08-01) along with its Dockerfile `COPY`. `provider_coins.fbp_url` remains as a live schema column.
 
 ---
 
@@ -204,17 +204,17 @@ The FBP fallback no longer exists in `price-extract.js`: nothing reads `PATCH_GA
 
 **Table:** `price_snapshots`
 
-| Column         | Type    | Notes                                      |
-| -------------- | ------- | ------------------------------------------ |
-| `scraped_at`   | TEXT    | ISO8601 UTC timestamp of actual scrape     |
-| `window_start` | TEXT    | 15-min floor (e.g. `2026-02-20T14:15:00Z`) |
-| `coin_slug`    | TEXT    | Matches providers.json key (e.g. `ase`)    |
-| `vendor`       | TEXT    | Provider id (e.g. `apmex`)                 |
-| `price`        | REAL    | null if scrape failed                      |
-| `source`       | TEXT    | `firecrawl` \| `playwright` \| `fbp`       |
-| `confidence`   | INTEGER | Score from `scoreVendorPrice()`; nullable  |
-| `is_failed`    | INTEGER | 1 if price is null                         |
-| `in_stock`     | INTEGER | 0 if OOS patterns matched                  |
+| Column         | Type    | Notes                                                      |
+| -------------- | ------- | ---------------------------------------------------------- |
+| `scraped_at`   | TEXT    | ISO8601 UTC timestamp of actual scrape                     |
+| `window_start` | TEXT    | 15-min floor (e.g. `2026-02-20T14:15:00Z`)                 |
+| `coin_slug`    | TEXT    | Matches providers.json key (e.g. `ase`)                    |
+| `vendor`       | TEXT    | Provider id (e.g. `apmex`)                                 |
+| `price`        | REAL    | null if scrape failed                                      |
+| `source`       | TEXT    | `firecrawl` \| `playwright` (`fbp` = historical rows only) |
+| `confidence`   | INTEGER | Score from `scoreVendorPrice()`; nullable                  |
+| `is_failed`    | INTEGER | 1 if price is null                                         |
+| `in_stock`     | INTEGER | 0 if OOS patterns matched                                  |
 
 > **No `poller_id` column on `price_snapshots`.** `POLLER_ID` is an env var used for
 > run bookkeeping and retry backoff, and it _is_ a real column on `poller_runs` and
@@ -280,7 +280,7 @@ The StakTrakr app fetches `data/api/{slug}/latest.json` in `retail-view-modal.js
 
 | Var                      | Used by                      | Notes                                                                                                                                                                                  |
 | ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATA_REPO_PATH`         | run-local.sh, run-fbp.sh     | Path to git checkout of api branch                                                                                                                                                     |
+| `DATA_REPO_PATH`         | run-local.sh                 | Path to git checkout of api branch                                                                                                                                                     |
 | `DATA_DIR`               | all scripts                  | `$DATA_REPO_PATH/data`                                                                                                                                                                 |
 | `FIRECRAWL_API_KEY`      | price-extract.js             | Cloud Firecrawl; omit for self-hosted                                                                                                                                                  |
 | `FIRECRAWL_BASE_URL`     | price-extract.js             | Self-hosted: `http://localhost:3002`; default: cloud                                                                                                                                   |
@@ -294,7 +294,6 @@ The StakTrakr app fetches `data/api/{slug}/latest.json` in `retail-view-modal.js
 | `COINS`                  | all scripts                  | Comma-separated slug filter (default: all)                                                                                                                                             |
 | `PROVIDERS`              | capture.js                   | Comma-separated provider filter                                                                                                                                                        |
 | `DRY_RUN`                | all scripts                  | `1` = skip writes                                                                                                                                                                      |
-| `PATCH_GAPS`             | price-extract.js             | `1` = gap-fill mode (FBP only for failed vendors)                                                                                                                                      |
 
 ---
 
@@ -313,9 +312,6 @@ COINS=ase DRY_RUN=1 DATA_DIR=/path/to/api-branch/data node price-extract.js
 
 # Export API JSON from existing sqld data
 DATA_DIR=/path/to/api-branch/data node api-export.js
-
-# Gap-fill only (FBP scrape for failed vendors)
-PATCH_GAPS=1 DATA_DIR=/path/to/api-branch/data node price-extract.js
 ```
 
 ---
@@ -417,6 +413,6 @@ db.execute('SELECT COUNT(*) as n FROM price_snapshots').then(r => { console.log(
 
 **price = null:** Firecrawl got a page but no parseable price, AND Playwright fallback also failed. Check if the URL is still valid and page structure changed.
 
-**FBP fallback triggered:** Check `source: "fbp"` in sqld — means primary scrape failed. FBP prices are wire/ACH prices (lowest available).
+**`source: "fbp"` rows in sqld:** historical only — the FBP fallback was removed and no current code path writes them. FBP prices were wire/ACH prices (lowest available).
 
 **Retail prices frozen, spot still updating:** Stuck rebase in the container. See API Branch Git Safety section above.

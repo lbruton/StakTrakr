@@ -143,9 +143,9 @@ Success: `✓ jmbullion: $XXX.XX (cf-clearance)` / `(firecrawl)` / `(playwright)
 - **URL / selector change** — edit in home dashboard provider editor (`:3010`). Writes to sqld. `export-providers-json.js` regenerates `providers.json` within 5 min and publishes on next Fly `run-publish` cycle (`8,23,38,53 * * * *`).
 - **Threshold / cron tweak** — edit `devops/pollers/home-poller/docker-entrypoint.sh` (authoritative) and/or `devops/pollers/remote-poller/docker-entrypoint.sh`.
 
-## Gap-fill / FindBullionPrices (FBP)
+## Gap-fill / FindBullionPrices (FBP) — REMOVED
 
-FBP is now a **gap-fill pass**, not a primary provider. `devops/pollers/home-poller/run-fbp.sh` runs with `PATCH_GAPS=1`, queries sqld for today's failed vendors, scrapes FBP for those specific coins, writes recovered prices. There is no longer a `FBP_DEALER_NAME_MAP` in `price-extract.js` — dealer resolution happens via FBP's own JSON joined against sqld `provider_vendors`.
+The FBP gap-fill pass no longer exists: nothing reads `PATCH_GAPS`, and `extractFbpPrices()` / `FBP_DEALER_NAME_MAP` are gone from `price-extract.js`. The dead `home-poller/run-fbp.sh` wrapper was deleted (2026-08-01). `provider_coins.fbp_url` remains as a live schema column; `source: "fbp"` rows in sqld are historical only.
 
 ## Common provider failure patterns
 

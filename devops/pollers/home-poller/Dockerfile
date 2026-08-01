@@ -101,9 +101,8 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
 COPY home-poller/dashboard.js ./dashboard.js
 COPY home-poller/metrics-exporter.js ./metrics-exporter.js
 COPY home-poller/run-home.sh ./run-home.sh
-COPY home-poller/run-fbp.sh ./run-fbp.sh
 COPY home-poller/check-flyio.sh ./check-flyio.sh
-RUN chmod +x run-home.sh run-fbp.sh check-flyio.sh
+RUN chmod +x run-home.sh check-flyio.sh
 
 # ── Install Playwright Chromium ──────────────────────────
 RUN npx playwright install chromium \
