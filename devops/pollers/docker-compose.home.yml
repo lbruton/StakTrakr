@@ -35,6 +35,13 @@ services:
       - FIRECRAWL_BASE_URL=${FIRECRAWL_BASE_URL:-http://firecrawl-api:3002}
       - VISION_ENABLED=${VISION_ENABLED:-0}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # MintBuilder direct price feed (STRK-321). Key lives ONLY in the stack
+      # env — never in provider URLs or published JSON. Unset = page scraping.
+      # MUST be listed here or compose drops it (the stack env array alone is
+      # not enough). Cron additionally needs the run-home.sh re-export hop;
+      # missing either produces "works from dashboard retry, falls back under
+      # cron" (or the inverse).
+      - MB_API_KEY=${MB_API_KEY:-}
       - FLYIO_TAILSCALE_IP=${FLYIO_TAILSCALE_IP:-100.90.171.110}
       - FLYIO_HTTP_URL=${FLYIO_HTTP_URL:-https://api2.staktrakr.com/data/retail/providers.json}
       - CF_CLEARANCE_SCRAPER_URL=${CF_CLEARANCE_SCRAPER_URL:-http://byparr:8191}
