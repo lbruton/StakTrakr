@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — GSR Panel Playground (3 layouts)</title>
+
+    <!-- Real app stylesheet: gives us every design token + all four themes, and
+         proves the panel drops into production CSS unmodified. -->
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <style>
+      /* ============================================================
+         PLAYGROUND CHROME — overrides styles.css body rules.
+         Chrome uses literals on purpose (it is not shipped); the
+         PANEL below uses tokens only, per D-7.
+         ============================================================ */
+      html,
+      body {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+      }
+      body {
+        font-family: var(--font-sans, system-ui, sans-serif);
+        background: #0b1020;
+        color: #e2e8f0;
+        display: flex;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      .pg-controls {
+        width: 288px;
+        min-width: 288px;
+        background: #131a2e;
+        border-right: 1px solid #28324b;
+        padding: 18px 16px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+      }
+      .pg-controls h1 {
+        font-size: 13px;
+        font-weight: 800;
+        color: #93c5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0;
+      }
+      .pg-controls .sub {
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.55;
+      }
+      .pg-group h2 {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        margin: 0 0 8px;
+      }
+      .pg-seg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .pg-seg button {
+        flex: 1 1 auto;
+        padding: 7px 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        border-radius: 7px;
+        border: 1px solid #28324b;
+        background: #0b1020;
+        color: #94a3b8;
+        cursor: pointer;
+      }
+      .pg-seg button[aria-pressed="true"] {
+        background: #1d4ed8;
+        border-color: #3b82f6;
+        color: #fff;
+      }
+      .pg-note {
+        font-size: 10.5px;
+        line-height: 1.6;
+        color: #64748b;
+        border-top: 1px solid #28324b;
+        padding-top: 12px;
+      }
+      .pg-note b {
+        color: #93c5fd;
+        font-weight: 700;
+      }
+      .pg-stage {
+        flex: 1;
+        padding: 28px 24px 80px;
+        overflow-y: auto;
+        background: #0b1020;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+      }
+      .pg-stage-label {
+        width: 100%;
+        max-width: 900px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 700;
+      }
+
+      /* Host frames — same panel, two shells. */
+      .pg-host {
+        width: 100%;
+        max-width: 900px;
+        transition: max-width 0.2s;
+      }
+      .pg-host[data-viewport="mobile"] {
+        max-width: 392px;
+      }
+      .pg-shell {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 14px);
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+      }
+      .pg-shell-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-secondary);
+      }
+      .pg-shell-bar .t {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .pg-shell-bar .x {
+        color: var(--text-muted);
+        font-size: 17px;
+        line-height: 1;
+      }
+
+      /* ============================================================
+         GSR PANEL — TOKENS ONLY (this is the part that ships)
+         ============================================================ */
+      .gsr-panel {
+        --gsr-accent: var(--gold);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        font-family: var(--font-sans, inherit);
+      }
+      /* Accent follows the DENOMINATOR metal — the thing being priced against
+         gold — matching the per-card accent convention the chips already use. */
+      .gsr-panel[data-accent="silver"] {
+        --gsr-accent: var(--silver);
+      }
+      .gsr-panel[data-accent="platinum"] {
+        --gsr-accent: var(--platinum);
+      }
+      .gsr-panel[data-accent="palladium"] {
+        --gsr-accent: var(--palladium);
+      }
+
+      /* --- pair selector (lives INSIDE the panel: both hosts need it) --- */
+      .gsr-pairs {
+        display: inline-flex;
+        gap: 3px;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-pill, 999px);
+        padding: 3px;
+        flex-wrap: wrap;
+      }
+      .gsr-pairs button {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font-family: var(--font-mono, monospace);
+        font-size: 11.5px;
+        font-weight: 700;
+        padding: 5px 12px;
+        border-radius: var(--radius-pill, 999px);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .gsr-pairs button[aria-pressed="true"] {
+        background: var(--bg-card);
+        color: var(--gsr-accent);
+        box-shadow: var(--shadow-sm);
+      }
+      .gsr-pairs button:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 1px;
+      }
+
+      /* --- shared header (identical across all three layouts) --- */
+      .gsr-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .gsr-head .eyebrow {
+        font-size: var(--font-size-xs, 11px);
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .gsr-head .title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-top: 2px;
+      }
+      .gsr-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: var(--radius-pill, 999px);
+        border: 1px solid color-mix(in oklch, var(--success), transparent 55%);
+        background: color-mix(in oklch, var(--success), transparent 88%);
+        color: var(--success);
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .gsr-live .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .gsr-live[data-state="stale"] {
+        border-color: color-mix(in oklch, var(--warning), transparent 55%);
+        background: color-mix(in oklch, var(--warning), transparent 88%);
+        color: var(--warning);
+      }
+
+      /* --- hero readout --- */
+      .gsr-hero-num {
+        font-family: var(--font-mono, ui-monospace, monospace);
+        font-weight: 800;
+        line-height: 0.95;
+        color: var(--gsr-accent);
+        letter-spacing: -0.02em;
+        font-size: clamp(38px, 11vw, 60px);
+      }
+      .gsr-hero-num .unit {
+        font-size: 0.44em;
+        color: var(--text-muted);
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+      .gsr-hero-sub {
+        font-size: var(--font-size-sm, 12.5px);
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-top: 6px;
+      }
+      .gsr-delta {
+        font-family: var(--font-mono, monospace);
+        font-weight: 700;
+      }
+      .gsr-delta[data-dir="up"] {
+        color: var(--danger);
+      }
+      .gsr-delta[data-dir="down"] {
+        color: var(--success);
+      }
+
+      /* --- stat tiles --- */
+      .gsr-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+      }
+      .gsr-tile {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius, 10px);
+        padding: 11px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+      .gsr-tile.is-hero {
+        grid-column: 1 / -1;
+        border-color: color-mix(in oklch, var(--gsr-accent), transparent 55%);
+        background: color-mix(in oklch, var(--gsr-accent), var(--bg-card) 92%);
+      }
+      .gsr-tile .k {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        line-height: 1.35;
+      }
+      .gsr-tile .v {
+        font-family: var(--font-mono, monospace);
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--text-primary);
+        letter-spacing: -0.01em;
+      }
+      .gsr-tile .v.accent {
+        color: var(--gsr-accent);
+      }
+      .gsr-tile .m {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.45;
+      }
+
+      /* --- dense stat strip (Layout B) ---
+         10 cells: force clean divisors (2-up / 5-up) so no cell is orphaned.
+         auto-fit picks arbitrary column counts and strands the 10th. */
+      .gsr-strip {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        border: 1px solid var(--border);
+        border-radius: var(--radius, 10px);
+        overflow: hidden;
+        background: var(--bg-card);
+      }
+      .gsr-strip > div {
+        padding: 9px 11px;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+      }
+      .gsr-strip > div .k {
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .pg-host[data-viewport="desktop"] .gsr-strip {
+        grid-template-columns: repeat(5, 1fr);
+      }
+      .gsr-strip > div .v {
+        font-family: var(--font-mono, monospace);
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-top: 1px;
+      }
+
+      /* --- range / percentile position bar --- */
+      .gsr-range {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius, 10px);
+        padding: 12px 13px 13px;
+      }
+      .gsr-range .rhead {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+      .gsr-range .rhead .k {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .gsr-range .rhead .pct {
+        font-family: var(--font-mono, monospace);
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--gsr-accent);
+      }
+      .gsr-track {
+        position: relative;
+        height: 8px;
+        border-radius: var(--radius-pill, 999px);
+        background: linear-gradient(
+          90deg,
+          color-mix(in oklch, var(--success), transparent 55%),
+          color-mix(in oklch, var(--warning), transparent 60%),
+          color-mix(in oklch, var(--danger), transparent 55%)
+        );
+      }
+      .gsr-track .mark {
+        position: absolute;
+        top: 50%;
+        width: 3px;
+        height: 18px;
+        border-radius: 2px;
+        background: var(--text-primary);
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 2px var(--bg-card);
+      }
+      .gsr-track .mean-mark {
+        position: absolute;
+        top: 50%;
+        width: 2px;
+        height: 12px;
+        background: var(--text-muted);
+        transform: translate(-50%, -50%);
+        opacity: 0.9;
+      }
+      .gsr-range .rfoot {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 7px;
+        font-family: var(--font-mono, monospace);
+        font-size: 10.5px;
+        color: var(--text-muted);
+      }
+      .gsr-range .rlegend {
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      /* --- chart --- */
+      .gsr-chartwrap {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius, 10px);
+        padding: 10px 10px 6px;
+      }
+      .gsr-chartwrap .cbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .gsr-tf {
+        display: inline-flex;
+        gap: 3px;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-pill, 999px);
+        padding: 3px;
+      }
+      .gsr-tf button {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font-family: var(--font-mono, monospace);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: var(--radius-pill, 999px);
+        cursor: pointer;
+      }
+      .gsr-tf button[aria-pressed="true"] {
+        background: var(--bg-card);
+        color: var(--gsr-accent);
+        box-shadow: var(--shadow-sm);
+      }
+      .gsr-canvas {
+        position: relative;
+        height: 190px;
+      }
+      .gsr-host[data-viewport="mobile"] .gsr-canvas {
+        height: 158px;
+      }
+
+      /* --- footer --- */
+      .gsr-foot {
+        font-size: 10.5px;
+        color: var(--text-muted);
+        line-height: 1.6;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+      }
+      .gsr-foot code {
+        font-family: var(--font-mono, monospace);
+        color: var(--text-secondary);
+      }
+
+      /* --- chip preview (entry point) --- */
+      .pg-chiprow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius, 10px);
+      }
+      .pg-chiprow .lbl {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .gsr-chip-demo {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px 2px 6px;
+        border-radius: var(--radius-pill, 999px);
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--bg-secondary) 80%, transparent);
+        font-size: var(--font-size-xs, 11px);
+        font-weight: 600;
+        font-family: var(--font-mono, monospace);
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .gsr-chip-demo.is-actionable {
+        border-color: color-mix(in oklch, var(--chip-metal, var(--silver)), transparent 55%);
+      }
+      .gsr-chip-demo[data-accent="silver"] {
+        --chip-metal: var(--silver);
+      }
+      .gsr-chip-demo[data-accent="platinum"] {
+        --chip-metal: var(--platinum);
+      }
+      .gsr-chip-demo[data-accent="palladium"] {
+        --chip-metal: var(--palladium);
+      }
+      .gsr-chip-demo .lab {
+        color: var(--chip-metal, var(--silver));
+      }
+      .gsr-chip-demo .val {
+        color: var(--text-primary);
+        font-weight: 700;
+      }
+      .gsr-chip-demo .caret {
+        color: var(--text-muted);
+        font-size: 9px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ============================ CONTROLS ============================ -->
+    <aside class="pg-controls">
+      <h1>Ratios Panel</h1>
+      <p class="sub">
+        Live prototype. Loads the <b>real</b> <code>data/spot-history-bundle.js</code> and computes
+        every statistic in-browser for all four pairs. Live spot from
+        <code>api.staktrakr.com</code> with graceful fallback to the last bundle close.
+      </p>
+
+      <div class="pg-group">
+        <h2>Layout</h2>
+        <div class="pg-seg" id="segLayout">
+          <button data-v="a" aria-pressed="false">A · Grid</button>
+          <button data-v="b" aria-pressed="false">B · Terminal</button>
+          <button data-v="c" aria-pressed="true">C · Signal</button>
+        </div>
+      </div>
+
+      <div class="pg-group">
+        <h2>Host</h2>
+        <div class="pg-seg" id="segHost">
+          <button data-v="modal" aria-pressed="true">Modal</button>
+          <button data-v="page" aria-pressed="false">gsr.html</button>
+        </div>
+      </div>
+
+      <div class="pg-group">
+        <h2>Theme</h2>
+        <div class="pg-seg" id="segTheme">
+          <button data-v="light" aria-pressed="false">Light</button>
+          <button data-v="dark" aria-pressed="true">Dark</button>
+          <button data-v="slate" aria-pressed="false">Slate</button>
+          <button data-v="sepia" aria-pressed="false">Sepia</button>
+        </div>
+      </div>
+
+      <div class="pg-group">
+        <h2>Viewport</h2>
+        <div class="pg-seg" id="segViewport">
+          <button data-v="desktop" aria-pressed="true">Desktop</button>
+          <button data-v="mobile" aria-pressed="false">Mobile</button>
+        </div>
+      </div>
+
+      <p class="pg-note" id="pgStatus"><b>Loading…</b></p>
+    </aside>
+
+    <!-- ============================= STAGE ============================== -->
+    <main class="pg-stage">
+      <div class="pg-stage-label">
+        Entry points — existing spot-card chips (click one to open its pair)
+      </div>
+      <div class="pg-host" data-viewport="desktop">
+        <div class="pg-chiprow" id="chipRow"></div>
+      </div>
+
+      <div class="pg-stage-label" id="stageLabel">Layout C — Signal</div>
+      <div class="pg-host" id="host" data-viewport="desktop">
+        <div class="pg-shell">
+          <div class="pg-shell-bar" id="shellBar">
+            <span class="t">Metal Ratios</span><span class="x">✕</span>
+          </div>
+          <div id="panelMount"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Chart.js is already vendored in-repo -->
+    <script src="../vendor/chart.min.js"></script>
+
+    <!-- Capture the real seed bundle instead of letting spot.js consume it. -->
+    <script>
+      window.__RAW_BUNDLE = null;
+      window._loadSpotSeedBundle = (b) => {
+        window.__RAW_BUNDLE = b;
+      };
+    </script>
+    <script src="../data/spot-history-bundle.js"></script>
+
+    <script>
+      // =====================================================================
+      // GSR MATH — pure, DOM-free. This is the code that would land in
+      // js/spot-ratio-math.js (which is already the DOM-free half of the
+      // existing chip module).
+      // =====================================================================
+
+      // Supported ratio pairs. `interpretive` gates the plain-English "what this
+      // means" line: only Au:Ag carries a century of mean-reversion context worth
+      // narrating. Pt/Pd repriced structurally (autocatalyst demand, substitution,
+      // supply shocks), so a "cheap vs dear" verdict there would be unearned.
+      // Accent always follows the DENOMINATOR metal.
+      const PAIRS = [
+        {
+          id: "au-ag",
+          label: "Au:Ag",
+          num: "Gold",
+          den: "Silver",
+          numSym: "xau",
+          denSym: "xag",
+          accent: "silver",
+          decimals: 1,
+          interpretive: true,
+          title: "How many ounces of silver buy one ounce of gold",
+        },
+        {
+          id: "au-pt",
+          label: "Au:Pt",
+          num: "Gold",
+          den: "Platinum",
+          numSym: "xau",
+          denSym: "xpt",
+          accent: "platinum",
+          decimals: 2,
+          interpretive: false,
+          title: "How many ounces of platinum buy one ounce of gold",
+        },
+        {
+          id: "au-pd",
+          label: "Au:Pd",
+          num: "Gold",
+          den: "Palladium",
+          numSym: "xau",
+          denSym: "xpd",
+          accent: "palladium",
+          decimals: 2,
+          interpretive: false,
+          title: "How many ounces of palladium buy one ounce of gold",
+        },
+        {
+          id: "pt-pd",
+          label: "Pt:Pd",
+          num: "Platinum",
+          den: "Palladium",
+          numSym: "xpt",
+          denSym: "xpd",
+          accent: "palladium",
+          decimals: 2,
+          interpretive: false,
+          title: "How many ounces of palladium buy one ounce of platinum",
+        },
+      ];
+
+      /**
+       * Builds an ascending [isoDate, ratio] series for any metal pair.
+       * Only dates where BOTH metals printed a close produce a point, so a
+       * pair whose metals start in different years self-truncates correctly
+       * (Pt/Pd begin 1990; Au/Ag begin 1968).
+       */
+      const buildRatioSeries = (bundle, numMetal, denMetal) => {
+        const out = [];
+        for (const year of Object.keys(bundle).sort()) {
+          const metals = bundle[year] || {};
+          const numByDay = new Map((metals[numMetal] || []).map((p) => [p[0], p[1]]));
+          for (const [md, den] of metals[denMetal] || []) {
+            const num = numByDay.get(md);
+            if (num > 0 && den > 0) out.push([`${year}-${md}`, num / den]);
+          }
+        }
+        out.sort((a, b) => (a[0] < b[0] ? -1 : 1));
+        return out;
+      };
+
+      const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+
+      /** Full statistic set for the panel. */
+      const computeRatioStats = (series, liveRatio) => {
+        const vals = series.map((r) => r[1]);
+        const sorted = [...vals].sort((a, b) => a - b);
+        const current = liveRatio ?? vals[vals.length - 1];
+        const avgOf = (n) => mean(vals.slice(-n));
+        const extreme = (arr, cmp) => arr.reduce((m, r) => (cmp(r[1], m[1]) ? r : m));
+        const y1 = series.slice(-261);
+        const hist = mean(vals);
+        return {
+          current,
+          spanStart: series[0][0].slice(0, 4),
+          spanEnd: series[series.length - 1][0],
+          points: series.length,
+          histMean: hist,
+          median: sorted[Math.floor(sorted.length / 2)],
+          vsMeanPct: ((current - hist) / hist) * 100,
+          percentile: (sorted.filter((v) => v < current).length / sorted.length) * 100,
+          avg7: avgOf(7),
+          avg30: avgOf(30),
+          avg90: avgOf(90),
+          avg365: avgOf(261),
+          avg5y: avgOf(261 * 5),
+          prevClose: vals[vals.length - 2],
+          high52: extreme(y1, (a, b) => a > b),
+          low52: extreme(y1, (a, b) => a < b),
+          allHigh: extreme(series, (a, b) => a > b),
+          allLow: extreme(series, (a, b) => a < b),
+        };
+      };
+
+      const fmt = (n, d = 1) => (n == null || !isFinite(n) ? "—" : n.toFixed(d));
+      const ratio = (n, d = 1) => `${fmt(n, d)}:1`;
+      const monthLabel = (iso) =>
+        new Date(`${iso.slice(0, 7)}-15T12:00:00Z`).toLocaleDateString("en-US", {
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        });
+      /** Signed magnitude of today vs a trailing average — beats a bare "above/below". */
+      const vsTrend = (current, avg) => {
+        const pct = ((current - avg) / avg) * 100;
+        if (Math.abs(pct) < 0.05) return "At trend";
+        return `${fmt(Math.abs(pct), 1)}% ${pct > 0 ? "above" : "below"} trend`;
+      };
+      const ordinal = (n) => {
+        const r = Math.round(n);
+        const s =
+          ["th", "st", "nd", "rd"][((r % 100) - 20) % 10] ||
+          ["th", "st", "nd", "rd"][r % 100] ||
+          "th";
+        return `${r}${s}`;
+      };
+
+      // =====================================================================
+      // RENDER — three candidate layouts, one shared header + footer.
+      // =====================================================================
+
+      const el = (tag, cls, html) => {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (html != null) n.innerHTML = html;
+        return n;
+      };
+
+      const headerHtml = (s, live, pair) => `
+        <div class="gsr-head">
+          <div>
+            <div class="eyebrow">${pair.num} ÷ ${pair.den}</div>
+            <div class="title">${pair.title}</div>
+          </div>
+          <span class="gsr-live" data-state="${live ? "live" : "stale"}">
+            <span class="dot"></span>${live ? "Live" : "Last close"}
+          </span>
+        </div>
+        <div class="gsr-pairs" role="group" aria-label="Metal pair">
+          ${PAIRS.map(
+            (p) =>
+              `<button data-pair="${p.id}" aria-pressed="${p.id === pair.id}">${p.label}</button>`
+          ).join("")}
+        </div>`;
+
+      const footHtml = (s, pair) => `
+        <div class="gsr-foot">
+          ${pair.num} ÷ ${pair.den} from LBMA daily closes, <code>${s.spanStart}</code> to present
+          (${s.points.toLocaleString()} sessions where both metals printed). Averages are trailing
+          trading days, not calendar days. Not investment advice.
+        </div>`;
+
+      const deltaHtml = (s, pair) => {
+        const delta = s.current - s.prevClose;
+        const dir = delta >= 0 ? "up" : "down";
+        return `<span class="gsr-delta" data-dir="${dir}">${delta >= 0 ? "▲" : "▼"} ${fmt(Math.abs(delta), pair.decimals + 1)}</span>
+                <span style="color:var(--text-muted)">vs prior close</span>`;
+      };
+
+      const rangeBlock = (s, pair) => {
+        const d = pair.decimals;
+        const lo = s.low52[1];
+        const hi = s.high52[1];
+        const pos = Math.max(0, Math.min(100, ((s.current - lo) / (hi - lo)) * 100));
+        const meanPos = Math.max(0, Math.min(100, ((s.histMean - lo) / (hi - lo)) * 100));
+        // Positional facts are safe for every pair. The interpretive clause —
+        // "higher means X is relatively cheaper" — is Au:Ag only, because it
+        // implies mean reversion that Pt/Pd have not historically honored.
+        const legend = pair.interpretive
+          ? `Today sits <b>${fmt(Math.abs(s.vsMeanPct), 0)}% ${s.vsMeanPct >= 0 ? "above" : "below"}</b>
+             the long-run mean of ${ratio(s.histMean, d)} (thin marker). A higher ratio means silver
+             is relatively cheaper against gold.`
+          : `Today sits <b>${fmt(Math.abs(s.vsMeanPct), 0)}% ${s.vsMeanPct >= 0 ? "above" : "below"}</b>
+             the ${s.spanStart}-to-date mean of ${ratio(s.histMean, d)} (thin marker).
+             ${pair.id === "pt-pd" ? "Both metals are" : pair.den + " is"} priced largely by
+             industrial demand and supply shocks, so position here is context — not a signal.`;
+        return `
+          <div class="gsr-range">
+            <div class="rhead">
+              <!-- The bar is a 52-WEEK scale; the figure beside it is an ALL-TIME
+                   percentile. Both labels must say which, or the marker reads as
+                   though it were pointing at the percentile. -->
+              <span class="k">52-week range</span>
+              <span class="pct">${ordinal(s.percentile)} percentile all-time</span>
+            </div>
+            <div class="gsr-track">
+              <span class="mean-mark" style="left:${meanPos}%"></span>
+              <span class="mark" style="left:${pos}%"></span>
+            </div>
+            <div class="rfoot"><span>${ratio(lo, d)}</span><span>${ratio(hi, d)}</span></div>
+            <div class="rlegend">${legend}</div>
+          </div>`;
+      };
+
+      const chartBlock = (id) => `
+        <div class="gsr-chartwrap">
+          <div class="cbar">
+            <div class="gsr-tf" data-chart="${id}">
+              <button data-r="30" aria-pressed="false">30D</button>
+              <button data-r="90" aria-pressed="true">90D</button>
+              <button data-r="365" aria-pressed="false">1Y</button>
+              <button data-r="1825" aria-pressed="false">5Y</button>
+              <button data-r="max" aria-pressed="false">MAX</button>
+            </div>
+          </div>
+          <div class="gsr-canvas"><canvas id="${id}"></canvas></div>
+        </div>`;
+
+      const tile = (k, v, m, accent) =>
+        `<div class="gsr-tile"><span class="k">${k}</span><span class="v${accent ? " accent" : ""}">${v}</span>${m ? `<span class="m">${m}</span>` : ""}</div>`;
+
+      /* ---------- Layout A — Stat Grid (myounces-shaped, mobile-first) ---------- */
+      const layoutA = (s, live, pair) => {
+        const d = pair.decimals;
+        return `
+        <div class="gsr-panel" data-accent="${pair.accent}">
+          ${headerHtml(s, live, pair)}
+          <div class="gsr-grid">
+            <div class="gsr-tile is-hero">
+              <span class="k">Current ratio</span>
+              <span class="gsr-hero-num">${fmt(s.current, d)}<span class="unit">:1</span></span>
+              <span class="gsr-hero-sub">${deltaHtml(s, pair)}</span>
+            </div>
+            ${tile("Long-run mean", ratio(s.histMean, d), `${fmt(Math.abs(s.vsMeanPct), 0)}% ${s.vsMeanPct >= 0 ? "above" : "below"} today`)}
+            ${tile("Historical percentile", ordinal(s.percentile), `Higher than ${fmt(s.percentile, 0)}% of sessions since ${s.spanStart}`, true)}
+            ${tile("7-day average", ratio(s.avg7, d), "Trailing 7 sessions")}
+            ${tile("30-day average", ratio(s.avg30, d), "Trailing 30 sessions")}
+            ${tile("90-day average", ratio(s.avg90, d), "Trailing 90 sessions")}
+            ${tile("1-year average", ratio(s.avg365, d), "Trailing 261 sessions")}
+            ${tile("5-year average", ratio(s.avg5y, d), "Trailing 1,305 sessions")}
+            ${tile("Median (all time)", ratio(s.median, d), `${s.spanStart}–present`)}
+            ${tile("52-week high", ratio(s.high52[1], d), monthLabel(s.high52[0]))}
+            ${tile("52-week low", ratio(s.low52[1], d), monthLabel(s.low52[0]))}
+            ${tile("All-time high", ratio(s.allHigh[1], d), monthLabel(s.allHigh[0]))}
+            ${tile("All-time low", ratio(s.allLow[1], d), monthLabel(s.allLow[0]))}
+          </div>
+          ${footHtml(s, pair)}
+        </div>`;
+      };
+
+      /* ---------- Layout B — Terminal (chart-first, dense strip) ---------- */
+      const layoutB = (s, live, pair) => {
+        const d = pair.decimals;
+        return `
+        <div class="gsr-panel" data-accent="${pair.accent}">
+          ${headerHtml(s, live, pair)}
+          <div>
+            <span class="gsr-hero-num">${fmt(s.current, d + 1)}<span class="unit">:1</span></span>
+            <div class="gsr-hero-sub">${deltaHtml(s, pair)} · ${ordinal(s.percentile)} percentile since ${s.spanStart}</div>
+          </div>
+          ${chartBlock("chartB")}
+          <div class="gsr-strip">
+            <div><div class="k">7D avg</div><div class="v">${fmt(s.avg7, d)}</div></div>
+            <div><div class="k">30D avg</div><div class="v">${fmt(s.avg30, d)}</div></div>
+            <div><div class="k">90D avg</div><div class="v">${fmt(s.avg90, d)}</div></div>
+            <div><div class="k">1Y avg</div><div class="v">${fmt(s.avg365, d)}</div></div>
+            <div><div class="k">5Y avg</div><div class="v">${fmt(s.avg5y, d)}</div></div>
+            <div><div class="k">Mean</div><div class="v">${fmt(s.histMean, d)}</div></div>
+            <div><div class="k">52W high</div><div class="v">${fmt(s.high52[1], d)}</div></div>
+            <div><div class="k">52W low</div><div class="v">${fmt(s.low52[1], d)}</div></div>
+            <div><div class="k">ATH</div><div class="v">${fmt(s.allHigh[1], d)}</div></div>
+            <div><div class="k">ATL</div><div class="v">${fmt(s.allLow[1], d)}</div></div>
+          </div>
+          ${footHtml(s, pair)}
+        </div>`;
+      };
+
+      /* ---------- Layout C — Signal (interpretation-first) ---------- */
+      const layoutC = (s, live, pair) => {
+        const d = pair.decimals;
+        return `
+        <div class="gsr-panel" data-accent="${pair.accent}">
+          ${headerHtml(s, live, pair)}
+          <div>
+            <span class="gsr-hero-num">${fmt(s.current, d)}<span class="unit">:1</span></span>
+            <div class="gsr-hero-sub">${deltaHtml(s, pair)}</div>
+          </div>
+          ${rangeBlock(s, pair)}
+          <div class="gsr-grid">
+            ${tile("7-day", ratio(s.avg7, d), vsTrend(s.current, s.avg7))}
+            ${tile("30-day", ratio(s.avg30, d), vsTrend(s.current, s.avg30))}
+            ${tile("90-day", ratio(s.avg90, d), vsTrend(s.current, s.avg90))}
+            ${tile("1-year", ratio(s.avg365, d), vsTrend(s.current, s.avg365))}
+          </div>
+          ${chartBlock("chartC")}
+          ${footHtml(s, pair)}
+        </div>`;
+      };
+
+      // =====================================================================
+      // WIRING
+      // =====================================================================
+      let SERIES = [];
+      let STATS = null;
+      let LIVE = false;
+      let CHART = null;
+      let LAYOUT = "c"; // C · Signal is the selected direction
+      let PAIR = PAIRS[0];
+      let SPOT = null; // live {xau,xag,xpt,xpd} prices, or null when offline
+      const SERIES_CACHE = new Map(); // pair.id -> series (built once, ~5ms each)
+
+      /** Series + stats for a pair, memoized. Live spot overrides the last close. */
+      const selectPair = (pair) => {
+        if (!SERIES_CACHE.has(pair.id)) {
+          SERIES_CACHE.set(pair.id, buildRatioSeries(window.__RAW_BUNDLE, pair.num, pair.den));
+        }
+        SERIES = SERIES_CACHE.get(pair.id);
+        const n = SPOT?.[pair.numSym]?.price;
+        const d = SPOT?.[pair.denSym]?.price;
+        const liveRatio = n > 0 && d > 0 ? n / d : null;
+        LIVE = liveRatio !== null;
+        STATS = computeRatioStats(SERIES, liveRatio);
+        PAIR = pair;
+      };
+
+      const rangeSlice = (r) => (r === "max" ? SERIES : SERIES.slice(-Number(r)));
+
+      const drawChart = (canvasId, range) => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !window.Chart) return;
+        if (CHART) CHART.destroy();
+        const data = rangeSlice(range);
+        const css = getComputedStyle(document.documentElement);
+        const accent = css.getPropertyValue(`--${PAIR.accent}`).trim() || "#fbbf24";
+        const grid = css.getPropertyValue("--border").trim() || "#333";
+        const text = css.getPropertyValue("--text-muted").trim() || "#888";
+        // Long ranges: thin the points so Chart.js stays smooth.
+        const step = Math.max(1, Math.ceil(data.length / 420));
+        const pts = data.filter((_, i) => i % step === 0);
+
+        // Draw the mean reference only when it is within ~35% of the visible
+        // span — otherwise it hijacks the y-axis (see dataset comment below).
+        const ys = pts.map((p) => p[1]);
+        const lo = Math.min(...ys);
+        const hi = Math.max(...ys);
+        const pad = (hi - lo) * 0.35 || hi * 0.1;
+        const showMean = STATS.histMean >= lo - pad && STATS.histMean <= hi + pad;
+        CHART = new Chart(canvas.getContext("2d"), {
+          type: "line",
+          data: {
+            labels: pts.map((p) => p[0]),
+            datasets: [
+              {
+                data: pts.map((p) => p[1]),
+                borderColor: accent,
+                backgroundColor: `color-mix(in oklch, ${accent}, transparent 88%)`,
+                borderWidth: 2,
+                fill: true,
+                pointRadius: 0,
+                tension: 0.25,
+              },
+              // The long-run mean is a useful reference ONLY when it lands near the
+              // visible window. On Au:Pt the 1990-to-date mean is 1.10 while the last
+              // 90 days sit near 2.5 — including it there rescales the y-axis and
+              // squashes the actual series into the top fifth of the plot.
+              ...(showMean
+                ? [
+                    {
+                      data: pts.map(() => STATS.histMean),
+                      borderColor: text,
+                      borderWidth: 1,
+                      borderDash: [4, 4],
+                      pointRadius: 0,
+                      fill: false,
+                    },
+                  ]
+                : []),
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: (i) => i[0].label,
+                  label: (c) =>
+                    c.datasetIndex === 0
+                      ? `${PAIR.label} ${fmt(c.parsed.y, PAIR.decimals + 1)}:1`
+                      : `Mean ${fmt(c.parsed.y, PAIR.decimals)}:1`,
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: text, maxTicksLimit: 6, font: { size: 10 } },
+              },
+              y: {
+                grid: { color: grid },
+                ticks: { color: text, font: { size: 10 }, callback: (v) => `${v}:1` },
+              },
+            },
+          },
+        });
+      };
+
+      const render = () => {
+        if (!STATS) return;
+        const mount = document.getElementById("panelMount");
+        const fn = { a: layoutA, b: layoutB, c: layoutC }[LAYOUT];
+        mount.innerHTML = fn(STATS, LIVE, PAIR);
+
+        // In-panel pair selector — the component owns it, so both hosts get it.
+        mount.querySelectorAll(".gsr-pairs button").forEach((b) => {
+          b.addEventListener("click", () => {
+            const next = PAIRS.find((p) => p.id === b.dataset.pair);
+            if (!next || next.id === PAIR.id) return;
+            selectPair(next);
+            render();
+          });
+        });
+
+        const canvasId = LAYOUT === "b" ? "chartB" : LAYOUT === "c" ? "chartC" : null;
+        if (canvasId) {
+          drawChart(canvasId, "90");
+          mount.querySelectorAll(".gsr-tf button").forEach((b) => {
+            b.addEventListener("click", () => {
+              mount
+                .querySelectorAll(".gsr-tf button")
+                .forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+              drawChart(canvasId, b.dataset.r);
+            });
+          });
+        } else if (CHART) {
+          CHART.destroy();
+          CHART = null;
+        }
+        updateStatus();
+      };
+
+      const wireSeg = (id, fn) => {
+        document.getElementById(id).addEventListener("click", (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          document
+            .querySelectorAll(`#${id} button`)
+            .forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+          fn(btn.dataset.v);
+        });
+      };
+
+      wireSeg("segLayout", (v) => {
+        LAYOUT = v;
+        document.getElementById("stageLabel").textContent = {
+          a: "Layout A — Stat Grid",
+          b: "Layout B — Terminal",
+          c: "Layout C — Signal",
+        }[v];
+        render();
+      });
+      wireSeg("segHost", (v) => {
+        const bar = document.getElementById("shellBar");
+        bar.style.display = v === "modal" ? "flex" : "none";
+        document.querySelector(".pg-shell").style.borderRadius =
+          v === "modal" ? "var(--radius-lg, 14px)" : "0";
+      });
+      wireSeg("segTheme", (v) => {
+        document.documentElement.setAttribute("data-theme", v);
+        render();
+      });
+      wireSeg("segViewport", (v) => {
+        document.querySelectorAll(".pg-host").forEach((h) => h.setAttribute("data-viewport", v));
+        render();
+      });
+
+      let BUILD_MS = 0;
+      let LIVE_NOTE = "API unreachable — showing last bundle close.";
+
+      const updateStatus = () => {
+        const status = document.getElementById("pgStatus");
+        if (!status || !STATS) return;
+        status.innerHTML =
+          `<b>${PAIR.label}</b> — ${SERIES.length.toLocaleString()} sessions ` +
+          `${STATS.spanStart}–${STATS.spanEnd}.<br />` +
+          `All 4 pairs built in ${BUILD_MS.toFixed(0)}ms.<br />${LIVE_NOTE}`;
+      };
+
+      // ---- boot ----
+      (async () => {
+        const status = document.getElementById("pgStatus");
+        if (!window.__RAW_BUNDLE) {
+          status.innerHTML =
+            "<b>Bundle failed to load.</b> Serve over http (not file://) if blocked.";
+          return;
+        }
+
+        // Live spot — no auth, no user data. Falls back to the last bundle close.
+        try {
+          const r = await fetch("https://api.staktrakr.com/data/v2/spot/latest.json", {
+            cache: "no-store",
+          });
+          const j = await r.json();
+          if (j?.data?.xau?.price > 0) {
+            SPOT = j.data;
+            LIVE_NOTE =
+              `Live spot Au $${j.data.xau.price} · Ag $${j.data.xag.price} · ` +
+              `Pt $${j.data.xpt.price} · Pd $${j.data.xpd.price}.`;
+          }
+        } catch (e) {
+          /* offline-tolerant by design */
+        }
+
+        // Warm every pair up front to measure the true worst case.
+        const t0 = performance.now();
+        PAIRS.forEach((p) => selectPair(p));
+        BUILD_MS = performance.now() - t0;
+        selectPair(PAIRS[0]);
+
+        // Chip demo row — one chip per pair, mirroring the real spot cards.
+        const chipRow = document.getElementById("chipRow");
+        chipRow.replaceChildren(
+          ...PAIRS.map((p) => {
+            const n = SPOT?.[p.numSym]?.price;
+            const dn = SPOT?.[p.denSym]?.price;
+            const cached = computeRatioStats(
+              SERIES_CACHE.get(p.id),
+              n > 0 && dn > 0 ? n / dn : null
+            );
+            const chip = document.createElement("span");
+            chip.className = "gsr-chip-demo is-actionable";
+            chip.dataset.accent = p.accent;
+            chip.innerHTML =
+              `<span class="lab">${p.label}</span>` +
+              `<span class="val">${fmt(cached.current, p.decimals)}</span>` +
+              `<span class="caret">▸</span>`;
+            chip.addEventListener("click", () => {
+              selectPair(p);
+              render();
+            });
+            return chip;
+          })
+        );
+
+        render();
+      })();
+    </script>
+  </body>
+</html>
