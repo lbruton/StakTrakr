@@ -389,6 +389,10 @@ test.describe("capsule-field", () => {
     await page.fill("#itemWeight", "1");
     await page.fill("#itemPrice", "40");
 
+    // STRK-301: Catalog Data is a collapsed <details> by default — open it
+    // the way a user would before touching its fields.
+    await page.locator('details.form-section[data-section="catalog"] > summary').click();
+
     await page.fill("#numistaDiameter", "38");
     await expect(page.locator("#capsuleSuggestion")).toHaveText(/Suggested: X-38-DF \(38mm\)/);
 

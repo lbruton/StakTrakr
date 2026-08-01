@@ -1649,169 +1649,180 @@
             <input type="hidden" id="itemSpotPrice" value="" />
 
             <!-- Images — Unified upload / camera / URL per slot -->
-            <div id="imageUploadGroup" class="image-upload-group" style="display: none">
-              <div class="form-section-label">Images</div>
-              <div class="image-upload-sides">
-                <!-- Obverse -->
-                <div class="image-upload-side">
-                  <span class="image-side-label">Obverse</span>
-                  <div class="image-card">
-                    <div
-                      id="itemImagePreviewObv"
-                      class="image-upload-preview"
-                      style="display: none"
-                    >
-                      <img id="itemImagePreviewImgObv" alt="Obverse preview" />
-                      <button
-                        type="button"
-                        id="frameToggleObv"
-                        class="frame-toggle"
-                        data-frame-state="auto"
-                        aria-pressed="false"
-                        aria-label="Image frame: auto (default)"
+            <details
+              id="imageUploadGroup"
+              class="form-section image-upload-group"
+              data-section="images"
+              open
+              style="display: none"
+            >
+              <summary class="form-section-header">
+                Images
+                <span class="form-section-count" hidden></span>
+              </summary>
+              <div class="form-section-body">
+                <div class="image-upload-sides">
+                  <!-- Obverse -->
+                  <div class="image-upload-side">
+                    <span class="image-side-label">Obverse</span>
+                    <div class="image-card">
+                      <div
+                        id="itemImagePreviewObv"
+                        class="image-upload-preview"
+                        style="display: none"
                       >
-                        <span aria-hidden="true">A</span>
-                      </button>
+                        <img id="itemImagePreviewImgObv" alt="Obverse preview" />
+                        <button
+                          type="button"
+                          id="frameToggleObv"
+                          class="frame-toggle"
+                          data-frame-state="auto"
+                          aria-pressed="false"
+                          aria-label="Image frame: auto (default)"
+                        >
+                          <span aria-hidden="true">A</span>
+                        </button>
+                      </div>
+                      <div class="image-card-actions">
+                        <input
+                          type="file"
+                          id="itemImageFileObv"
+                          accept="image/jpeg,image/png,image/webp"
+                          style="display: none"
+                        />
+                        <button
+                          class="btn img-btn img-btn-upload"
+                          id="itemImageUploadBtnObv"
+                          type="button"
+                        >
+                          Upload
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-url"
+                          id="itemImageUrlBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          URL
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-camera"
+                          id="itemImageCameraBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          Camera
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-remove"
+                          id="itemImageRemoveBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <div class="image-card-actions">
+                    <span id="itemImageSizeInfoObv" class="image-size-info"></span>
+                    <div id="itemImageUrlInputObv" class="image-url-input" style="display: none">
                       <input
-                        type="file"
-                        id="itemImageFileObv"
-                        accept="image/jpeg,image/png,image/webp"
-                        style="display: none"
+                        id="itemObverseImageUrl"
+                        type="url"
+                        class="form-control"
+                        placeholder="https://example.com/obverse.jpg"
                       />
-                      <button
-                        class="btn img-btn img-btn-upload"
-                        id="itemImageUploadBtnObv"
-                        type="button"
-                      >
-                        Upload
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-url"
-                        id="itemImageUrlBtnObv"
-                        type="button"
-                        style="display: none"
-                      >
-                        URL
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-camera"
-                        id="itemImageCameraBtnObv"
-                        type="button"
-                        style="display: none"
-                      >
-                        Camera
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-remove"
-                        id="itemImageRemoveBtnObv"
-                        type="button"
-                        style="display: none"
-                      >
-                        Remove
-                      </button>
                     </div>
                   </div>
-                  <span id="itemImageSizeInfoObv" class="image-size-info"></span>
-                  <div id="itemImageUrlInputObv" class="image-url-input" style="display: none">
-                    <input
-                      id="itemObverseImageUrl"
-                      type="url"
-                      class="form-control"
-                      placeholder="https://example.com/obverse.jpg"
-                    />
+                  <!-- Swap obverse/reverse button (STAK-341) -->
+                  <div class="image-swap-wrapper d-none" id="swapImagesBtnWrapper">
+                    <button
+                      type="button"
+                      class="btn btn-icon"
+                      id="swapImagesBtn"
+                      title="Swap obverse &amp; reverse"
+                      aria-label="Swap obverse and reverse images"
+                    >
+                      ⇄
+                    </button>
+                  </div>
+                  <!-- Reverse -->
+                  <div class="image-upload-side">
+                    <span class="image-side-label">Reverse</span>
+                    <div class="image-card">
+                      <div
+                        id="itemImagePreviewRev"
+                        class="image-upload-preview"
+                        style="display: none"
+                      >
+                        <img id="itemImagePreviewImgRev" alt="Reverse preview" />
+                        <button
+                          type="button"
+                          id="frameToggleRev"
+                          class="frame-toggle"
+                          data-frame-state="auto"
+                          aria-pressed="false"
+                          aria-label="Image frame: auto (default)"
+                        >
+                          <span aria-hidden="true">A</span>
+                        </button>
+                      </div>
+                      <div class="image-card-actions">
+                        <input
+                          type="file"
+                          id="itemImageFileRev"
+                          accept="image/jpeg,image/png,image/webp"
+                          style="display: none"
+                        />
+                        <button
+                          class="btn img-btn img-btn-upload"
+                          id="itemImageUploadBtnRev"
+                          type="button"
+                        >
+                          Upload
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-url"
+                          id="itemImageUrlBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          URL
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-camera"
+                          id="itemImageCameraBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          Camera
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-remove"
+                          id="itemImageRemoveBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <span id="itemImageSizeInfoRev" class="image-size-info"></span>
+                    <div id="itemImageUrlInputRev" class="image-url-input" style="display: none">
+                      <input
+                        id="itemReverseImageUrl"
+                        type="url"
+                        class="form-control"
+                        placeholder="https://example.com/reverse.jpg"
+                      />
+                    </div>
                   </div>
                 </div>
-                <!-- Swap obverse/reverse button (STAK-341) -->
-                <div class="image-swap-wrapper d-none" id="swapImagesBtnWrapper">
-                  <button
-                    type="button"
-                    class="btn btn-icon"
-                    id="swapImagesBtn"
-                    title="Swap obverse &amp; reverse"
-                    aria-label="Swap obverse and reverse images"
-                  >
-                    ⇄
-                  </button>
-                </div>
-                <!-- Reverse -->
-                <div class="image-upload-side">
-                  <span class="image-side-label">Reverse</span>
-                  <div class="image-card">
-                    <div
-                      id="itemImagePreviewRev"
-                      class="image-upload-preview"
-                      style="display: none"
-                    >
-                      <img id="itemImagePreviewImgRev" alt="Reverse preview" />
-                      <button
-                        type="button"
-                        id="frameToggleRev"
-                        class="frame-toggle"
-                        data-frame-state="auto"
-                        aria-pressed="false"
-                        aria-label="Image frame: auto (default)"
-                      >
-                        <span aria-hidden="true">A</span>
-                      </button>
-                    </div>
-                    <div class="image-card-actions">
-                      <input
-                        type="file"
-                        id="itemImageFileRev"
-                        accept="image/jpeg,image/png,image/webp"
-                        style="display: none"
-                      />
-                      <button
-                        class="btn img-btn img-btn-upload"
-                        id="itemImageUploadBtnRev"
-                        type="button"
-                      >
-                        Upload
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-url"
-                        id="itemImageUrlBtnRev"
-                        type="button"
-                        style="display: none"
-                      >
-                        URL
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-camera"
-                        id="itemImageCameraBtnRev"
-                        type="button"
-                        style="display: none"
-                      >
-                        Camera
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-remove"
-                        id="itemImageRemoveBtnRev"
-                        type="button"
-                        style="display: none"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                  <span id="itemImageSizeInfoRev" class="image-size-info"></span>
-                  <div id="itemImageUrlInputRev" class="image-url-input" style="display: none">
-                    <input
-                      id="itemReverseImageUrl"
-                      type="url"
-                      class="form-control"
-                      placeholder="https://example.com/reverse.jpg"
-                    />
-                  </div>
+                <!-- Hidden wrappers preserved for JS compatibility -->
+                <div id="imageUrlGroup" style="display: none">
+                  <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
                 </div>
               </div>
-              <!-- Hidden wrappers preserved for JS compatibility -->
-              <div id="imageUrlGroup" style="display: none">
-                <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
-              </div>
-            </div>
+            </details>
             <!-- ═══════════════════════════════════════════════════════
                  CORE FIELDS — Always visible
                  ═══════════════════════════════════════════════════════ -->
@@ -1974,8 +1985,14 @@
             </div>
             <!-- Constitutional / junk silver controls (STRK-235) — replaces the standard
                  Purity/Qty/Weight/Unit row; uses the shared .form-section chrome -->
-            <div id="item-constitutional-group" class="form-section" style="display: none">
-              <div class="form-section-header">
+            <details
+              id="item-constitutional-group"
+              class="form-section"
+              data-section="constitutional"
+              open
+              style="display: none"
+            >
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1997,6 +2014,7 @@
                   </svg>
                 </span>
                 Constitutional silver
+                <span class="form-section-count" hidden></span>
                 <div
                   class="chip-sort-toggle"
                   id="constitutional-entry-mode-toggle"
@@ -2011,7 +2029,7 @@
                     By face value
                   </button>
                 </div>
-              </div>
+              </summary>
               <div class="form-section-body">
                 <!-- Denomination mode: variant + coin count -->
                 <div id="ccg-denom-fields" class="grid grid-variant-row" style="display: none">
@@ -2056,7 +2074,7 @@
                   <span id="ccg-basis-note" class="ccg-hint"></span>
                 </div>
               </div>
-            </div>
+            </details>
             <!-- Row: Purchase Date, Purchase Price & Payment Method -->
             <div class="grid grid-3">
               <div id="dateField">
@@ -2151,8 +2169,8 @@
             <!-- ═══════════════════════════════════════════════════════
                  COLLAPSIBLE — Grading & Certification
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section">
-              <div class="form-section-header">
+            <details class="form-section" data-section="grading">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2170,7 +2188,8 @@
                   </svg>
                 </span>
                 Grading &amp; Certification
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div class="grid grid-grade">
                   <div>
@@ -2352,13 +2371,13 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Pricing & Details
+                 COLLAPSIBLE — Market Pricing & Details
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section">
-              <div class="form-section-header">
+            <details class="form-section" data-section="marketPricing">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2375,13 +2394,14 @@
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                   </svg>
                 </span>
-                Pricing &amp; Details
-              </div>
+                Market Pricing &amp; Details
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div class="grid grid-2">
                   <div id="marketValueField">
                     <label for="itemMarketValue"
-                      >Retail Price
+                      >Today's Market Price
                       <span style="font-weight: normal; opacity: 0.6">(optional)</span>
                       <span
                         id="retailPriceHistoryLink"
@@ -2435,13 +2455,13 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Catalog Data
+                 COLLAPSIBLE — Catalog Data
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section" id="numistaDataSection">
-              <div class="form-section-header">
+            <details class="form-section" data-section="catalog" id="numistaDataSection">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2460,7 +2480,8 @@
                   </svg>
                 </span>
                 Catalog Data
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body numista-data-fields">
                 <div class="grid grid-2">
                   <div>
@@ -2601,13 +2622,13 @@
                   />
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Notes
+                 COLLAPSIBLE — Notes
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section">
-              <div class="form-section-header">
+            <details class="form-section" data-section="notes">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2627,20 +2648,21 @@
                   </svg>
                 </span>
                 Notes
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div>
                   <label for="itemNotes">Notes</label>
                   <input id="itemNotes" type="text" placeholder="Additional notes or comments..." />
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Attachments (STRK-45)
+                 COLLAPSIBLE — Attachments (STRK-45)
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section" id="attachmentsSection">
-              <div class="form-section-header">
+            <details class="form-section" data-section="attachments" id="attachmentsSection">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2659,7 +2681,8 @@
                   </svg>
                 </span>
                 Attachments
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <!-- Drop zone -->
                 <div id="attachmentDropZone" class="attachment-drop-zone">
@@ -2688,13 +2711,13 @@
                   hidden
                 ></ul>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Tags
+                 COLLAPSIBLE — Tags
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section" id="tagsSection">
-              <div class="form-section-header">
+            <details class="form-section" data-section="tags" id="tagsSection">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2714,7 +2737,8 @@
                   </svg>
                 </span>
                 Tags
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div id="itemModalTagsContainer" class="tags-edit-container">
                   <div class="tags-row">
@@ -2753,7 +2777,7 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- Form action buttons -->
             <div class="item-modal-actions">
@@ -8630,6 +8654,7 @@
     <script defer src="./js/bulkEdit.js"></script>
     <script defer src="./js/bulk-row-images.js"></script>
     <script defer src="./js/clone-picker.js"></script>
+    <script defer src="./js/form-sections.js"></script>
     <script defer src="./js/events.js"></script>
 
     <!-- Test Scripts (Development) -->

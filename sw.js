@@ -12,7 +12,7 @@ importScripts("sw-router.js");
 
 const DEV_MODE = false; // Set to true during development — bypasses all caching
 
-const CACHE_NAME = "staktrakr-v3.35.89-b1785552063";
+const CACHE_NAME = "staktrakr-v3.35.90-b1785555097";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -111,6 +111,7 @@ const CORE_ASSETS = [
   "./js/bulkEdit.js",
   "./js/bulk-row-images.js",
   "./js/clone-picker.js",
+  "./js/form-sections.js",
   "./js/events.js",
   "./js/init.js",
   "./data/spot-history-bundle.js",

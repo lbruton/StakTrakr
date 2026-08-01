@@ -2300,8 +2300,12 @@ const editItem = (idx, logIdx = null) => {
       };
     }
 
-    // Tags section is always visible (non-collapsible)
+    // Tags render into the collapsible Tags section (STRK-301); disclosure
+    // state is applied by prepareFormSections below.
   }
+
+  // STRK-301: apply remembered/data-driven section disclosure after populate
+  if (typeof prepareFormSections === "function") prepareFormSections();
 
   // Open unified modal
   if (window.openModalById) openModalById("itemModal");
@@ -2432,6 +2436,9 @@ const duplicateItem = (idx) => {
   if (typeof updateCapsuleSuggestion === "function") {
     updateCapsuleSuggestion(item.numistaData?.diameter || "");
   }
+
+  // STRK-301: apply remembered/data-driven section disclosure after populate
+  if (typeof prepareFormSections === "function") prepareFormSections();
 
   // Open unified modal
   if (window.openModalById) openModalById("itemModal");
