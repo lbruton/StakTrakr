@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StakTrakr — v2 Layout Shell Playground (2 nav variants)</title>
+
+    <!-- Real app stylesheet: gives us every design token + all four themes, and
+         proves the shell drops into production CSS unmodified. -->
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <style>
+      /* ============================================================
+         PLAYGROUND CHROME — overrides styles.css body rules.
+         Chrome uses literals on purpose (it is not shipped); the
+         SHELL below uses tokens only.
+         ============================================================ */
+      html,
+      body {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+      }
+      body {
+        font-family: var(--font-sans, system-ui, sans-serif);
+        background: #0b1020;
+        color: #e2e8f0;
+        display: flex;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      .pg-controls {
+        width: 288px;
+        min-width: 288px;
+        background: #131a2e;
+        border-right: 1px solid #28324b;
+        padding: 18px 16px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+        z-index: 50;
+      }
+      .pg-controls h1 {
+        font-size: 13px;
+        font-weight: 800;
+        color: #93c5fd;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0;
+      }
+      .pg-controls .sub {
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.55;
+      }
+      .pg-group h2 {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        margin: 0 0 8px;
+      }
+      .pg-seg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .pg-seg button {
+        flex: 1 1 auto;
+        padding: 7px 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        border-radius: 7px;
+        border: 1px solid #28324b;
+        background: #0b1020;
+        color: #94a3b8;
+        cursor: pointer;
+      }
+      .pg-seg button[aria-pressed="true"] {
+        background: #1d4ed8;
+        border-color: #3b82f6;
+        color: #fff;
+      }
+      .pg-note {
+        font-size: 10.5px;
+        line-height: 1.6;
+        color: #64748b;
+        border-top: 1px solid #28324b;
+        padding-top: 12px;
+      }
+      .pg-note b {
+        color: #93c5fd;
+        font-weight: 700;
+      }
+      .pg-stage {
+        flex: 1;
+        padding: 28px 24px 80px;
+        background: #0b1020;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .pg-stage-label {
+        width: 100%;
+        max-width: 1180px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 700;
+      }
+
+      /* Desktop frame vs phone frame */
+      .pg-frame {
+        width: 100%;
+        max-width: 1180px;
+        background: var(--bg-primary, #0f172a);
+        border: 1px solid #28324b;
+        border-radius: 14px;
+        padding: 20px;
+        transition: max-width 0.25s ease;
+        position: relative;
+        overflow: hidden;
+      }
+      body[data-viewport="mobile"] .pg-frame {
+        max-width: 402px; /* 390pt content + padding */
+        padding: 12px;
+        min-height: 780px;
+      }
+
+      /* ============================================================
+         V2 SHELL — tokens only below this line.
+         ============================================================ */
+
+      /* ---------- Header (cleaned: logo + nav + settings) ---------- */
+      .v2-header {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-lg, 16px);
+        padding: var(--spacing, 12px) var(--spacing-lg, 16px);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        box-shadow: var(--shadow-sm, none);
+        margin-bottom: var(--spacing-lg, 16px);
+      }
+      .v2-wordmark {
+        font-weight: 700;
+        font-size: 1.15rem;
+        letter-spacing: 3px;
+        white-space: nowrap;
+        user-select: none;
+      }
+      .v2-wordmark .stak {
+        color: var(--text-primary);
+      }
+      .v2-wordmark .trakr {
+        color: var(--gold, #d4a017);
+      }
+      .v2-beta {
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--text-inverse, #fff);
+        background: var(--gold, #d4a017);
+        border-radius: 4px;
+        padding: 2px 5px;
+        vertical-align: middle;
+        margin-left: 6px;
+      }
+
+      /* Variant A: text nav inside the header */
+      .v2-nav-inline {
+        display: flex;
+        gap: 4px;
+        margin-left: var(--spacing-xl, 24px);
+      }
+      .v2-nav-inline .v2-tab-btn {
+        position: relative;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 8px 14px 10px;
+        cursor: pointer;
+        border-radius: var(--radius, 8px);
+        transition:
+          color 0.15s,
+          background 0.15s;
+      }
+      .v2-nav-inline .v2-tab-btn:hover {
+        color: var(--text-primary);
+        background: var(--bg-tertiary);
+      }
+      .v2-nav-inline .v2-tab-btn[aria-selected="true"] {
+        color: var(--text-primary);
+      }
+      .v2-nav-inline .v2-tab-btn[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 3px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--gold, #d4a017);
+      }
+
+      /* Variant B: segmented tab strip in its own row below the header */
+      .v2-nav-strip {
+        display: none;
+        gap: 6px;
+        padding: 6px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        width: fit-content;
+        margin: 0 auto var(--spacing-lg, 16px);
+      }
+      .v2-nav-strip .v2-tab-btn {
+        border: none;
+        background: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.88rem;
+        padding: 8px 20px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition:
+          color 0.15s,
+          background 0.15s;
+      }
+      .v2-nav-strip .v2-tab-btn:hover {
+        color: var(--text-primary);
+      }
+      .v2-nav-strip .v2-tab-btn[aria-selected="true"] {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        box-shadow: inset 0 0 0 1px var(--border-hover);
+      }
+      .v2-nav-strip .v2-tab-btn[aria-selected="true"] .dot {
+        background: var(--gold, #d4a017);
+      }
+      .v2-nav-strip .dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: transparent;
+        margin-right: 7px;
+        vertical-align: 1px;
+      }
+
+      /* Variant switching */
+      .pg-frame[data-nav="B"] .v2-nav-inline {
+        display: none;
+      }
+      .pg-frame[data-nav="B"] .v2-nav-strip {
+        display: flex;
+      }
+
+      .v2-header-spacer {
+        flex: 1;
+      }
+      .v2-icon-btn {
+        width: 38px;
+        height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius, 8px);
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 1rem;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+      .v2-icon-btn:hover {
+        color: var(--text-primary);
+        border-color: var(--border-hover);
+      }
+
+      /* ---------- Mobile bottom nav ---------- */
+      /* Fixed like a real phone bottom nav; centered over the phone frame
+         (stage is centered in the space right of the 288px control rail). */
+      .v2-bottomnav {
+        display: none;
+        position: fixed;
+        bottom: 18px;
+        left: calc(288px + (100vw - 288px) / 2);
+        transform: translateX(-50%);
+        width: min(378px, calc(100vw - 328px));
+        z-index: 40;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        box-shadow: var(--shadow-lg, 0 8px 24px rgb(0 0 0 / 0.35));
+        padding: 6px;
+        justify-content: space-around;
+      }
+      .v2-bottomnav .v2-tab-btn {
+        flex: 1;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 0.62rem;
+        font-weight: 600;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 7px 2px 6px;
+        border-radius: var(--radius, 8px);
+        cursor: pointer;
+      }
+      .v2-bottomnav .v2-tab-btn .ic {
+        font-size: 1.05rem;
+        line-height: 1;
+      }
+      .v2-bottomnav .v2-tab-btn[aria-selected="true"] {
+        color: var(--gold, #d4a017);
+      }
+      body[data-viewport="mobile"] .v2-bottomnav {
+        display: flex;
+      }
+      body[data-viewport="mobile"] .v2-nav-inline,
+      body[data-viewport="mobile"] .v2-nav-strip {
+        display: none !important;
+      }
+      body[data-viewport="mobile"] .v2-header {
+        padding: 10px 14px;
+      }
+
+      /* ---------- Views ---------- */
+      .v2-view {
+        display: none;
+        animation: v2fade 0.18s ease;
+      }
+      .v2-view.active {
+        display: block;
+      }
+      @keyframes v2fade {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /* ---------- Dashboard: spot cards ---------- */
+      .v2-spot-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--spacing, 12px);
+        margin-bottom: var(--spacing, 12px);
+      }
+      body[data-viewport="mobile"] .v2-spot-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .v2-spot-card {
+        position: relative;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        padding: 14px 14px 30px;
+        overflow: hidden;
+      }
+      .v2-spot-card .metal {
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .v2-spot-card .price {
+        font-size: 1.45rem;
+        font-weight: 700;
+        margin: 4px 0 1px;
+        font-variant-numeric: tabular-nums;
+      }
+      .v2-spot-card .chg {
+        font-size: 0.72rem;
+        font-weight: 600;
+      }
+      .up {
+        color: var(--success, #10b981);
+      }
+      .down {
+        color: var(--danger, #ef4444);
+      }
+      .v2-spot-card svg.spark {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 34px;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      /* Per-card refresh icon: replaces the old header Spot button.
+         Color = freshness (success <15m, warning <60m, danger stale). */
+      .v2-spot-refresh {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: none;
+        background: color-mix(in oklab, var(--bg-tertiary) 70%, transparent);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.72rem;
+        z-index: 2;
+      }
+      .v2-spot-refresh[data-fresh="fresh"] {
+        color: var(--success, #10b981);
+      }
+      .v2-spot-refresh[data-fresh="aging"] {
+        color: var(--warning, #f59e0b);
+      }
+      .v2-spot-refresh[data-fresh="stale"] {
+        color: var(--danger, #ef4444);
+      }
+      .v2-spot-refresh.spin .glyph {
+        display: inline-block;
+        animation: v2spin 0.7s linear infinite;
+      }
+      @keyframes v2spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ---------- Dashboard: ticker ---------- */
+      .v2-ticker {
+        display: flex;
+        gap: 26px;
+        overflow: hidden;
+        white-space: nowrap;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 18px;
+        font-size: 0.74rem;
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing, 12px);
+        mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+      }
+      .v2-ticker b {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      /* ---------- Dashboard: v2 metal summary cards ---------- */
+      .v2-metals {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--spacing, 12px);
+      }
+      body[data-viewport="mobile"] .v2-metals {
+        grid-template-columns: 1fr;
+      }
+      .v2-metal-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        padding: 16px;
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          transform 0.15s;
+      }
+      .v2-metal-card:hover {
+        border-color: var(--border-hover);
+        transform: translateY(-2px);
+      }
+      .v2-metal-card header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .v2-metal-card h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+      .v2-metal-card .accent {
+        width: 34px;
+        height: 3px;
+        border-radius: 2px;
+      }
+      .v2-kv {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78rem;
+        padding: 3.5px 0;
+        color: var(--text-secondary);
+      }
+      .v2-kv b {
+        color: var(--text-primary);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .v2-gain-row {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 0.8rem;
+      }
+      .v2-alloc {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--bg-tertiary);
+        overflow: hidden;
+        margin-top: 10px;
+        display: flex;
+      }
+      .v2-alloc span {
+        height: 100%;
+        display: block;
+      }
+      .v2-chipline {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .v2-chip {
+        font-size: 0.64rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        background: var(--bg-secondary);
+      }
+      .v2-chip.gold {
+        color: var(--gold, #d4a017);
+        border-color: color-mix(in oklab, var(--gold, #d4a017) 45%, transparent);
+      }
+
+      /* ---------- Generic section card (inventory/market stubs) ---------- */
+      .v2-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        padding: 16px;
+        margin-bottom: var(--spacing, 12px);
+      }
+      .v2-card h3 {
+        margin: 0 0 10px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+      .v2-search {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .v2-search input {
+        flex: 1;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-primary);
+        padding: 9px 16px;
+        font-size: 0.85rem;
+      }
+      .v2-search input:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: -1px;
+      }
+      .v2-btn {
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .v2-btn:hover {
+        color: var(--text-primary);
+        border-color: var(--border-hover);
+      }
+      .v2-btn.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--text-inverse, #fff);
+      }
+
+      table.v2-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+      }
+      table.v2-table th {
+        text-align: left;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.64rem;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      table.v2-table td {
+        padding: 8px;
+        border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      table.v2-table td:first-child {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      /* ---------- Collections empty state ---------- */
+      .v2-empty {
+        text-align: center;
+        padding: 56px 20px;
+        border: 1.5px dashed var(--border);
+        border-radius: var(--radius-lg, 12px);
+        color: var(--text-muted);
+      }
+      .v2-empty .big {
+        font-size: 2rem;
+        margin-bottom: 8px;
+      }
+      .v2-empty h4 {
+        color: var(--text-primary);
+        margin: 0 0 6px;
+        font-size: 1rem;
+      }
+      .v2-empty p {
+        font-size: 0.8rem;
+        max-width: 420px;
+        margin: 0 auto 16px;
+        line-height: 1.55;
+      }
+      .v2-slotgrid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        max-width: 560px;
+        margin: 0 auto;
+      }
+      body[data-viewport="mobile"] .v2-slotgrid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .v2-slot {
+        aspect-ratio: 1;
+        border: 1.5px dashed var(--border);
+        border-radius: var(--radius, 8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        color: var(--text-muted);
+        background: var(--bg-secondary);
+      }
+      .v2-slot.filled {
+        border-style: solid;
+        border-color: color-mix(in oklab, var(--gold, #d4a017) 50%, transparent);
+      }
+
+      /* Skeleton loading demo */
+      .v2-skel .price,
+      .v2-skel .chg,
+      .v2-skel .metal {
+        color: transparent !important;
+        background: var(--bg-tertiary);
+        border-radius: 5px;
+        animation: v2pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes v2pulse {
+        50% {
+          opacity: 0.45;
+        }
+      }
+
+      .v2-toast {
+        position: fixed;
+        bottom: 18px;
+        right: 18px;
+        background: #131a2e;
+        border: 1px solid #3b82f6;
+        color: #e2e8f0;
+        font-size: 12px;
+        padding: 10px 16px;
+        border-radius: 9px;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: 0.2s;
+        pointer-events: none;
+        z-index: 90;
+      }
+      .v2-toast.show {
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body data-viewport="desktop">
+    <!-- ============ CONTROLS ============ -->
+    <aside class="pg-controls">
+      <h1>v2 Layout Shell</h1>
+      <div class="sub">
+        Tabbed evolution of the single-page layout. Same DOM for all views — only the navigation
+        chrome differs between variants.
+      </div>
+
+      <div class="pg-group">
+        <h2>Desktop nav variant</h2>
+        <div class="pg-seg" id="segNav">
+          <button data-nav="A" aria-pressed="true">A · Header nav</button>
+          <button data-nav="B" aria-pressed="false">B · Tab strip</button>
+        </div>
+      </div>
+
+      <div class="pg-group">
+        <h2>Viewport</h2>
+        <div class="pg-seg" id="segViewport">
+          <button data-vp="desktop" aria-pressed="true">Desktop</button>
+          <button data-vp="mobile" aria-pressed="false">Mobile 390</button>
+        </div>
+      </div>
+
+      <div class="pg-group">
+        <h2>Theme</h2>
+        <div class="pg-seg" id="segTheme">
+          <button data-th="dark" aria-pressed="true">Dark</button>
+          <button data-th="light" aria-pressed="false">Light</button>
+          <button data-th="slate" aria-pressed="false">Slate</button>
+          <button data-th="sepia" aria-pressed="false">Sepia</button>
+        </div>
+      </div>
+
+      <div class="pg-group">
+        <h2>Data state</h2>
+        <div class="pg-seg" id="segState">
+          <button data-st="populated" aria-pressed="true">Populated</button>
+          <button data-st="loading" aria-pressed="false">Loading</button>
+        </div>
+      </div>
+
+      <div class="pg-note">
+        <b>Variant A</b> — nav lives in the header space freed by retiring the quick-link buttons.
+        Gold underline = active. Trading-terminal idiom.<br /><br />
+        <b>Variant B</b> — pill tab strip in its own row; header stays logo + gear only.<br /><br />
+        <b>Mobile</b> — both variants collapse to the same bottom tab bar (4 tabs + Settings). Try
+        the spot-card refresh icons: click = refresh that metal, shift-click = all metals. Icon
+        color = freshness (green / amber / red).
+      </div>
+    </aside>
+
+    <!-- ============ STAGE ============ -->
+    <main class="pg-stage">
+      <div class="pg-stage-label" id="stageLabel">Variant A — header text nav · desktop</div>
+
+      <div class="pg-frame" id="frame" data-nav="A">
+        <!-- ---------- Cleaned header ---------- -->
+        <header class="v2-header">
+          <div class="v2-wordmark">
+            <span class="stak">STAK</span><span class="trakr">TRAKR</span
+            ><span class="v2-beta">BETA</span>
+          </div>
+
+          <!-- Variant A: inline text nav -->
+          <nav class="v2-nav-inline" role="tablist" aria-label="Primary">
+            <button class="v2-tab-btn" role="tab" data-tab="dashboard" aria-selected="true">
+              Dashboard
+            </button>
+            <button class="v2-tab-btn" role="tab" data-tab="inventory" aria-selected="false">
+              Inventory
+            </button>
+            <button class="v2-tab-btn" role="tab" data-tab="market" aria-selected="false">
+              Market
+            </button>
+            <button class="v2-tab-btn" role="tab" data-tab="collections" aria-selected="false">
+              Collections
+            </button>
+          </nav>
+
+          <div class="v2-header-spacer"></div>
+          <button class="v2-icon-btn" title="Settings" aria-label="Settings">⚙</button>
+        </header>
+
+        <!-- Variant B: pill tab strip -->
+        <nav class="v2-nav-strip" role="tablist" aria-label="Primary">
+          <button class="v2-tab-btn" role="tab" data-tab="dashboard" aria-selected="true">
+            <span class="dot"></span>Dashboard
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="inventory" aria-selected="false">
+            <span class="dot"></span>Inventory
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="market" aria-selected="false">
+            <span class="dot"></span>Market
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="collections" aria-selected="false">
+            <span class="dot"></span>Collections
+          </button>
+        </nav>
+
+        <!-- ================= DASHBOARD ================= -->
+        <section class="v2-view active" data-view="dashboard">
+          <div class="v2-spot-grid" id="spotGrid">
+            <!-- Silver -->
+            <div class="v2-spot-card">
+              <div class="metal">Silver</div>
+              <div class="price">$58.17</div>
+              <div class="chg up">▲ +2.60% · 1Y +52.6%</div>
+              <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <polyline
+                  fill="none"
+                  stroke="var(--text-muted)"
+                  stroke-width="1.4"
+                  points="0,24 10,22 20,25 30,18 40,20 50,14 60,16 70,10 80,12 90,6 100,8"
+                />
+              </svg>
+              <button
+                class="v2-spot-refresh"
+                data-metal="Silver"
+                data-fresh="fresh"
+                title="Refresh Silver (shift-click: all)"
+              >
+                <span class="glyph">⟳</span>
+              </button>
+            </div>
+            <!-- Gold -->
+            <div class="v2-spot-card">
+              <div class="metal">Gold</div>
+              <div class="price">$4,052.89</div>
+              <div class="chg up">▲ +0.07% · 1Y +21.4%</div>
+              <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <polyline
+                  fill="none"
+                  stroke="var(--gold, #d4a017)"
+                  stroke-width="1.4"
+                  points="0,20 10,16 20,18 30,12 40,15 50,10 60,13 70,8 80,11 90,7 100,9"
+                />
+              </svg>
+              <button
+                class="v2-spot-refresh"
+                data-metal="Gold"
+                data-fresh="fresh"
+                title="Refresh Gold (shift-click: all)"
+              >
+                <span class="glyph">⟳</span>
+              </button>
+            </div>
+            <!-- Platinum -->
+            <div class="v2-spot-card">
+              <div class="metal">Platinum</div>
+              <div class="price">$1,594.04</div>
+              <div class="chg up">▲ +0.05% · 1Y +13.3%</div>
+              <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <polyline
+                  fill="none"
+                  stroke="var(--text-muted)"
+                  stroke-width="1.4"
+                  points="0,22 10,20 20,23 30,17 40,19 50,15 60,18 70,13 80,15 90,10 100,12"
+                />
+              </svg>
+              <button
+                class="v2-spot-refresh"
+                data-metal="Platinum"
+                data-fresh="aging"
+                title="Refresh Platinum (shift-click: all)"
+              >
+                <span class="glyph">⟳</span>
+              </button>
+            </div>
+            <!-- Palladium -->
+            <div class="v2-spot-card">
+              <div class="metal">Palladium</div>
+              <div class="price">$1,245.52</div>
+              <div class="chg down">▼ −0.85% · 1Y +0.9%</div>
+              <svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <polyline
+                  fill="none"
+                  stroke="var(--text-muted)"
+                  stroke-width="1.4"
+                  points="0,10 10,14 20,12 30,18 40,15 50,20 60,17 70,22 80,19 90,24 100,21"
+                />
+              </svg>
+              <button
+                class="v2-spot-refresh"
+                data-metal="Palladium"
+                data-fresh="stale"
+                title="Refresh Palladium (shift-click: all)"
+              >
+                <span class="glyph">⟳</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="v2-ticker">
+            <span>Australian Silver Koala 1 oz <b>$66.27</b> <span class="up">+13.9%</span></span>
+            <span
+              >Australian Silver Kookaburra 1 oz <b>$64.57</b> <span class="up">+11.0%</span></span
+            >
+            <span>British Silver Britannia 1 oz <b>$61.49</b> <span class="up">+5.7%</span></span>
+            <span
+              >Canadian Gold Maple Leaf 1/10 oz <b>$434.94</b> <span class="up">+7.3%</span></span
+            >
+          </div>
+
+          <div class="v2-metals">
+            <!-- All metals -->
+            <article class="v2-metal-card" data-metal="all">
+              <header>
+                <h3>All Metals</h3>
+                <span class="accent" style="background: var(--primary)"></span>
+              </header>
+              <div class="v2-kv"><span>Items</span><b>378</b></div>
+              <div class="v2-kv"><span>Weight</span><b>206.34 oz</b></div>
+              <div class="v2-kv"><span>Melt value</span><b>$12,409.89</b></div>
+              <div class="v2-kv"><span>Retail value</span><b>$14,156.65</b></div>
+              <div class="v2-alloc" title="Allocation by melt value">
+                <span style="width: 95%; background: var(--text-muted)"></span>
+                <span style="width: 5%; background: var(--gold, #d4a017)"></span>
+              </div>
+              <div class="v2-gain-row">
+                <span style="color: var(--text-muted)">Unrealized</span>
+                <b class="up">+21.5% · $2,502.54</b>
+              </div>
+              <div class="v2-chipline">
+                <span class="v2-chip gold">Au:Ag 69.7</span>
+                <span class="v2-chip">Au:Pt 2.54</span>
+                <span class="v2-chip">Au:Pd 3.25</span>
+              </div>
+            </article>
+
+            <!-- Silver -->
+            <article class="v2-metal-card" data-metal="silver">
+              <header>
+                <h3>Silver</h3>
+                <span class="accent" style="background: var(--text-muted)"></span>
+              </header>
+              <div class="v2-kv"><span>Items</span><b>354</b></div>
+              <div class="v2-kv"><span>Weight</span><b>206.19 oz</b></div>
+              <div class="v2-kv"><span>Melt value</span><b>$11,796.45</b></div>
+              <div class="v2-kv"><span>Avg cost/oz</span><b>$53.65</b></div>
+              <div class="v2-alloc">
+                <span style="width: 93%; background: var(--text-muted)"></span>
+              </div>
+              <div class="v2-gain-row">
+                <span style="color: var(--text-muted)">Unrealized</span>
+                <b class="up">+21.4% · $2,365.33</b>
+              </div>
+              <div class="v2-chipline">
+                <span class="v2-chip">Realized +$346.76</span>
+              </div>
+            </article>
+
+            <!-- Gold -->
+            <article class="v2-metal-card" data-metal="gold">
+              <header>
+                <h3>Gold</h3>
+                <span class="accent" style="background: var(--gold, #d4a017)"></span>
+              </header>
+              <div class="v2-kv"><span>Items</span><b>24</b></div>
+              <div class="v2-kv"><span>Weight</span><b>0.15 oz</b></div>
+              <div class="v2-kv"><span>Melt value</span><b>$613.44</b></div>
+              <div class="v2-kv"><span>Avg cost/oz</span><b>$3,918.23</b></div>
+              <div class="v2-alloc">
+                <span style="width: 5%; background: var(--gold, #d4a017)"></span>
+              </div>
+              <div class="v2-gain-row">
+                <span style="color: var(--text-muted)">Unrealized</span>
+                <b class="up">+23.1% · $137.21</b>
+              </div>
+              <div class="v2-chipline">
+                <span class="v2-chip gold">GB $8.15</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ================= INVENTORY ================= -->
+        <section class="v2-view" data-view="inventory">
+          <div class="v2-card">
+            <div class="v2-search">
+              <input
+                type="search"
+                id="pgInventorySearch"
+                placeholder="Search inventory by metal, name, type, purchase location…"
+              />
+              <button class="v2-btn primary">＋ Add Item</button>
+              <button class="v2-btn">Filters</button>
+            </div>
+            <div class="v2-chipline" style="margin: 0 0 12px">
+              <span class="v2-chip">Coin</span>
+              <span class="v2-chip">Silver</span>
+              <span class="v2-chip gold">Gold</span>
+              <span class="v2-chip">Round</span>
+              <span class="v2-chip">Goldback</span>
+              <span class="v2-chip">2024</span>
+              <span class="v2-chip">2025</span>
+              <span class="v2-chip">apmex.com</span>
+              <span class="v2-chip">＋ 42 more</span>
+            </div>
+            <table class="v2-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Weight</th>
+                  <th>Paid</th>
+                  <th>Melt</th>
+                  <th>G/L</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1 Dollar "American Silver Eagle" New Reverse</td>
+                  <td>3</td>
+                  <td>1.00 oz</td>
+                  <td>$67.09</td>
+                  <td>$58.16</td>
+                  <td class="down">−$8.93</td>
+                </tr>
+                <tr>
+                  <td>1 Ounce — Asahi Refining (Buffalo Nickel)</td>
+                  <td>1</td>
+                  <td>31.10 g</td>
+                  <td>$60.03</td>
+                  <td>$58.16</td>
+                  <td class="down">−$1.87</td>
+                </tr>
+                <tr>
+                  <td>½ Goldback (Idaho)</td>
+                  <td>3</td>
+                  <td>0.50 gb</td>
+                  <td>$0.00</td>
+                  <td>$12.24</td>
+                  <td class="up">+$12.24</td>
+                </tr>
+                <tr>
+                  <td>1 Dollar — Charles III (1st Portrait, Koala)</td>
+                  <td>1</td>
+                  <td>31.10 g</td>
+                  <td>$72.79</td>
+                  <td>$58.17</td>
+                  <td class="down">−$14.62</td>
+                </tr>
+                <tr>
+                  <td>20 Dollar (Peace and Liberty)</td>
+                  <td>1</td>
+                  <td>31.10 g</td>
+                  <td>$74.79</td>
+                  <td>$58.16</td>
+                  <td class="down">−$16.63</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="margin-top: 10px; font-size: 0.7rem; color: var(--text-muted)">
+              ITEMS 378/379 · WEIGHT 206.3 oz · BUY $11,654.11 · MELT $12,409.89 ·
+              <span class="up">G/L +$2,502.54</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= MARKET ================= -->
+        <section class="v2-view" data-view="market">
+          <div class="v2-card">
+            <h3>
+              Retail Market Matrix
+              <span style="float: right; font-weight: 400; text-transform: none; letter-spacing: 0"
+                >Updated 07:47 PM ·
+                <button
+                  type="button"
+                  class="v2-btn"
+                  style="padding: 3px 12px; font-size: 0.7rem; color: var(--primary)"
+                >
+                  ⟳ Refresh
+                </button></span
+              >
+            </h3>
+            <table class="v2-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>APMEX</th>
+                  <th>BullionX</th>
+                  <th>Hero</th>
+                  <th>JM</th>
+                  <th>SD</th>
+                  <th>Median</th>
+                  <th>Spread</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>American Silver Eagle 1 oz</td>
+                  <td>$74.89</td>
+                  <td>$62.79</td>
+                  <td>$65.20</td>
+                  <td>$74.87</td>
+                  <td>$70.87</td>
+                  <td>$67.58</td>
+                  <td>$12.10</td>
+                </tr>
+                <tr>
+                  <td>Canadian Silver Maple Leaf 1 oz</td>
+                  <td>$69.89</td>
+                  <td>$61.94</td>
+                  <td>$62.85</td>
+                  <td>$70.87</td>
+                  <td>$66.37</td>
+                  <td>$66.06</td>
+                  <td>$10.41</td>
+                </tr>
+                <tr>
+                  <td>American Gold Eagle 1/10 oz</td>
+                  <td>$476.85</td>
+                  <td>$450.98</td>
+                  <td>$475.97</td>
+                  <td>$495.33</td>
+                  <td>$475.47</td>
+                  <td>$475.47</td>
+                  <td>$44.35</td>
+                </tr>
+                <tr>
+                  <td>Generic Silver Round 1 oz .999</td>
+                  <td>$67.89</td>
+                  <td class="down">OOS</td>
+                  <td>$61.78</td>
+                  <td>$67.87</td>
+                  <td>$64.37</td>
+                  <td>$61.78</td>
+                  <td>$9.18</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="v2-card">
+            <h3>Premium Trends (planned)</h3>
+            <div class="v2-empty" style="padding: 30px 20px">
+              <div class="big">📈</div>
+              <h4>Room to grow</h4>
+              <p>
+                Premium-over-spot history, spread trends, and best-value alerts land here — the
+                matrix finally has a home of its own.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= COLLECTIONS ================= -->
+        <section class="v2-view" data-view="collections">
+          <div class="v2-card">
+            <h3>Collections</h3>
+            <div class="v2-empty">
+              <div class="big">🗂️</div>
+              <h4>Start your first collection</h4>
+              <p>
+                Track sets like the American Women Quarters or a Peace Dollar date run — one primary
+                slot per position plus spares, disposed items always excluded.
+              </p>
+              <div class="v2-slotgrid">
+                <div class="v2-slot filled">🪙</div>
+                <div class="v2-slot filled">🪙</div>
+                <div class="v2-slot">?</div>
+                <div class="v2-slot">?</div>
+              </div>
+              <div style="margin-top: 18px">
+                <button class="v2-btn primary">＋ New Collection</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------- Mobile bottom nav (both variants) ---------- -->
+        <nav class="v2-bottomnav" role="tablist" aria-label="Primary">
+          <button class="v2-tab-btn" role="tab" data-tab="dashboard" aria-selected="true">
+            <span class="ic">◧</span>Dashboard
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="inventory" aria-selected="false">
+            <span class="ic">☰</span>Inventory
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="market" aria-selected="false">
+            <span class="ic">⇄</span>Market
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="collections" aria-selected="false">
+            <span class="ic">▦</span>Collections
+          </button>
+          <button class="v2-tab-btn" role="tab" data-tab="settings" aria-selected="false">
+            <span class="ic">⚙</span>Settings
+          </button>
+        </nav>
+      </div>
+    </main>
+
+    <div class="v2-toast" id="toast"></div>
+
+    <script>
+      (() => {
+        "use strict";
+        const frame = document.getElementById("frame");
+        const stageLabel = document.getElementById("stageLabel");
+        const toast = document.getElementById("toast");
+        let toastTimer;
+
+        function showToast(msg) {
+          toast.textContent = msg;
+          toast.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+        }
+
+        function updateLabel() {
+          const nav =
+            frame.dataset.nav === "A"
+              ? "Variant A — header text nav"
+              : "Variant B — pill tab strip";
+          const vp = document.body.dataset.viewport;
+          stageLabel.textContent = `${nav} · ${vp === "mobile" ? "mobile 390 (bottom nav)" : "desktop"}`;
+        }
+
+        // Segmented control helper
+        function wireSeg(id, attr, fn) {
+          const seg = document.getElementById(id);
+          seg.addEventListener("click", (e) => {
+            const btn = e.target.closest("button");
+            if (!btn) return;
+            seg
+              .querySelectorAll("button")
+              .forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+            fn(btn.dataset[attr]);
+          });
+        }
+
+        wireSeg("segNav", "nav", (v) => {
+          frame.dataset.nav = v;
+          updateLabel();
+        });
+        wireSeg("segViewport", "vp", (v) => {
+          document.body.dataset.viewport = v;
+          updateLabel();
+        });
+        wireSeg("segTheme", "th", (v) => {
+          document.documentElement.dataset.theme = v;
+        });
+        wireSeg("segState", "st", (v) => {
+          document
+            .querySelectorAll(".v2-spot-card")
+            .forEach((c) => c.classList.toggle("v2-skel", v === "loading"));
+        });
+
+        // Tab switching — shared across all three navs (A, B, bottom).
+        function activateTab(name) {
+          if (name === "settings") {
+            showToast("Settings opens the existing modal — not a tab view.");
+            return;
+          }
+          document.querySelectorAll(".v2-view").forEach((view) => {
+            view.classList.toggle("active", view.dataset.view === name);
+          });
+          document.querySelectorAll('[role="tab"][data-tab]').forEach((btn) => {
+            if (btn.dataset.tab !== "settings") {
+              btn.setAttribute("aria-selected", String(btn.dataset.tab === name));
+            }
+          });
+        }
+        document.querySelectorAll('[role="tab"][data-tab]').forEach((btn) => {
+          btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+        });
+
+        // Per-card spot refresh: click = one metal, shift-click = all.
+        function spinRefresh(btn) {
+          btn.classList.add("spin");
+          setTimeout(() => {
+            btn.classList.remove("spin");
+            btn.dataset.fresh = "fresh";
+          }, 900);
+        }
+        document.querySelectorAll(".v2-spot-refresh").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            if (e.shiftKey) {
+              document.querySelectorAll(".v2-spot-refresh").forEach(spinRefresh);
+              showToast("Refreshing spot for ALL metals…");
+            } else {
+              spinRefresh(btn);
+              showToast(`Refreshing ${btn.dataset.metal} spot…`);
+            }
+          });
+        });
+
+        // Metal cards → future drill-in modal.
+        document.querySelectorAll(".v2-metal-card").forEach((card) => {
+          card.addEventListener("click", () => {
+            showToast(
+              `Opens the ${card.querySelector("h3").textContent} breakdown modal (v2 redesign target).`
+            );
+          });
+        });
+
+        // Settings gear (desktop header)
+        document.querySelector(".v2-icon-btn").addEventListener("click", () => {
+          showToast("Settings opens the existing modal — unchanged in v2.");
+        });
+      })();
+    </script>
+  </body>
+</html>
