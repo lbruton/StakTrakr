@@ -223,6 +223,7 @@ test("STRK-321: a feed hit returns mintbuilder-api and skips the page scrape", a
         price: 38.42,
         link: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
         title: "1 oz Silver Buffalo Round",
+        stockConfident: true,
       },
     }),
   });
@@ -255,7 +256,7 @@ test("STRK-321: the feed lookup receives the row URL and hints", async () => {
       observed = args;
       return {
         status: "hit",
-        product: { productId: "202", price: 412.77, link: null, title: null },
+        product: { productId: "202", price: 412.77, link: null, title: null, stockConfident: true },
       };
     },
   });
@@ -300,6 +301,41 @@ test("STRK-321: an unavailable feed falls back to the page scrape", async () => 
     assert.equal(calls.generic, 1, `${reason} must fall back to the page scraper`);
     assert.equal(result.source, "playwright-direct:jsonLd", `${reason} fallback result returned`);
   }
+});
+
+test("STRK-325: a hit with unverified stock page-scrapes instead of trusting the feed", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { context, calls } = mintbuilderContext({
+    mbFeedLookup: async () => ({
+      status: "hit",
+      product: {
+        productId: "1105",
+        price: 61.16,
+        link: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+        title: "Sold Out Kangaroo",
+        stockConfident: false,
+      },
+    }),
+  });
+
+  const result = await registry.scrapeVendor(context);
+
+  assert.equal(
+    calls.generic,
+    1,
+    "ambiguous feed stock (max qty_max <= 1) must fall through to the page scrape"
+  );
+  // The page scrape's result is authoritative for BOTH price and availability
+  // here — its JSON-LD availability check is what the feed cannot provide.
+  assert.deepEqual(result, {
+    price: 39.99,
+    inStock: false,
+    source: "playwright-direct:jsonLd",
+    ok: true,
+    error: null,
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+  });
+  assert.equal(calls.genericContext.config.waitUntil, "domcontentloaded");
 });
 
 test("registry returns migrated modules for completed Vendor migrations", async () => {
