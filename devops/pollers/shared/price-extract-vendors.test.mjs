@@ -169,8 +169,137 @@ test("MintBuilder module exists and uses the standard interface (STRK-311)", asy
   assert.equal(mintbuilder.usesAsLowAs, false);
 
   // Plain SSR HTML (JSON-LD present in the raw response, no JS render needed) —
-  // domcontentloaded is sufficient, no need to wait for networkidle.
+  // domcontentloaded is sufficient, no need to wait for networkidle. Since
+  // STRK-321 scrape() is feed-first; these flags still govern the page-scrape
+  // fallback path, so they remain pinned.
   assert.equal(mintbuilder.config.waitUntil, "domcontentloaded");
+});
+
+// ---------------------------------------------------------------------------
+// STRK-321 — MintBuilder feed-first dispatch
+//
+// scrape() consults the direct price feed before scraping. The feed lookup is
+// injectable through the context (scrapeVendor spreads the caller context), so
+// these tests pin the dispatch contract without any network traffic.
+// ---------------------------------------------------------------------------
+
+/** Base MintBuilder dispatch context with silent loggers and a scrapeGeneric probe. */
+const mintbuilderContext = (overrides = {}) => {
+  const calls = { generic: 0, genericContext: null };
+  const context = {
+    provider: {
+      id: "mintbuilder",
+      url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+      hints: null,
+    },
+    coinSlug: "silver-buffalo-1oz",
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+    log: () => {},
+    warn: () => {},
+    scrapeGeneric: async (ctx) => {
+      calls.generic++;
+      calls.genericContext = ctx;
+      return {
+        price: 39.99,
+        inStock: false,
+        source: "playwright-direct:jsonLd",
+        ok: true,
+        error: null,
+        url: ctx.url,
+      };
+    },
+    ...overrides,
+  };
+  return { context, calls };
+};
+
+test("STRK-321: a feed hit returns mintbuilder-api and skips the page scrape", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { context, calls } = mintbuilderContext({
+    mbFeedLookup: async () => ({
+      status: "hit",
+      product: {
+        productId: "101",
+        price: 38.42,
+        link: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+        title: "1 oz Silver Buffalo Round",
+      },
+    }),
+  });
+
+  const result = await registry.scrapeVendor(context);
+
+  assert.deepEqual(result, {
+    price: 38.42,
+    inStock: true,
+    source: "mintbuilder-api",
+    ok: true,
+    error: null,
+    // The row's product-page URL — never the feed link or endpoint.
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+  });
+  assert.equal(calls.generic, 0, "a feed hit must not touch the page scraper");
+});
+
+test("STRK-321: the feed lookup receives the row URL and hints", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  let observed = null;
+  const { context } = mintbuilderContext({
+    provider: {
+      id: "mintbuilder",
+      url: "https://mintbuilder.com/products/tenth-oz-gold-eagle",
+      hints: '{"mbProductId":"202"}',
+    },
+    url: "https://mintbuilder.com/products/tenth-oz-gold-eagle",
+    mbFeedLookup: async (args) => {
+      observed = args;
+      return {
+        status: "hit",
+        product: { productId: "202", price: 412.77, link: null, title: null },
+      };
+    },
+  });
+
+  await registry.scrapeVendor(context);
+
+  assert.equal(observed.url, "https://mintbuilder.com/products/tenth-oz-gold-eagle");
+  assert.equal(observed.hints, '{"mbProductId":"202"}', "the hints pin must reach the lookup");
+});
+
+test("STRK-321: a feed miss falls back to the page scrape with the resolved context", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { context, calls } = mintbuilderContext({
+    mbFeedLookup: async () => ({ status: "miss", reason: "not_in_feed" }),
+  });
+
+  const result = await registry.scrapeVendor(context);
+
+  assert.equal(calls.generic, 1, "a miss must fall back to the page scraper");
+  assert.deepEqual(result, {
+    price: 39.99,
+    inStock: false,
+    source: "playwright-direct:jsonLd",
+    ok: true,
+    error: null,
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+  });
+  // STRK-314: the fallback must reuse the context scrapeVendor resolved —
+  // module-owned config intact, not re-derived inside the module.
+  assert.equal(calls.genericContext.config.waitUntil, "domcontentloaded");
+});
+
+test("STRK-321: an unavailable feed falls back to the page scrape", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  for (const reason of ["no_key", "bad_key", "fetch_failed", "bad_payload"]) {
+    const { context, calls } = mintbuilderContext({
+      mbFeedLookup: async () => ({ status: "unavailable", reason }),
+    });
+
+    const result = await registry.scrapeVendor(context);
+
+    assert.equal(calls.generic, 1, `${reason} must fall back to the page scraper`);
+    assert.equal(result.source, "playwright-direct:jsonLd", `${reason} fallback result returned`);
+  }
 });
 
 test("registry returns migrated modules for completed Vendor migrations", async () => {
