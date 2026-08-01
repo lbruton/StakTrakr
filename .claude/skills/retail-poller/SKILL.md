@@ -57,7 +57,7 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 | `devops/pollers/shared/price-extract-vendors.js`            | Vendor module registry + `scrapeVendor()` dispatch (STRK-32/314)               |
 | `devops/pollers/shared/price-extract-vendor-mintbuilder.js` | MintBuilder feed-first `scrape()` with page-scrape fallback (STRK-321/325)     |
 | `devops/pollers/shared/price-extract-mintbuilder-feed.js`   | MintBuilder feed client — memoized index, URL matching, hybrid stock predicate |
-| `devops/pollers/remote-poller/run-local.sh`                 | Full Fly.io run: extract → capture → vision → export → push                    |
+| `devops/pollers/remote-poller/run-local.sh`                 | Fly.io run wrapper — retail scraping disabled in production (STAK-478)         |
 | `devops/pollers/remote-poller/run-publish.sh`               | API export + git push to api branch                                            |
 | `devops/pollers/remote-poller/docker-entrypoint.sh`         | Container startup (creates `/data/retail/`, writes crontab, exports env)       |
 | `devops/pollers/remote-poller/Dockerfile`                   | Fly.io all-in-one container image                                              |
@@ -190,11 +190,9 @@ SDB pages show "As Low As" only in add-on accessories and carousel sections — 
 
 If Firecrawl returns no price, `scrapeWithPlaywright()` tries a browserless remote browser (`BROWSERLESS_URL` env var). `SLOW_PROVIDERS = {jmbullion, herobullion, summitmetals}` get an extra 4s wait.
 
-### FBP Gap-Fill
+### FBP Gap-Fill (REMOVED — wrapper is dead code)
 
-After primary scrapes, any coin with failures scrapes `fbp_url` (FindBullionPrices comparison table). `extractFbpPrices()` parses FBP table rows, maps FBP dealer names to vendor ids, writes as `source: "fbp"` to sqld.
-
-`run-fbp.sh` (the PM cron at 3pm ET) runs `PATCH_GAPS=1 node price-extract.js` to fill only today's gaps.
+The FBP fallback no longer exists in `price-extract.js`: nothing reads `PATCH_GAPS`, `extractFbpPrices()` is gone, and no path writes `source: "fbp"`. `home-poller/run-fbp.sh` still sets `PATCH_GAPS=1` but the flag is silently ignored, and no cron invokes it (`docker-entrypoint.sh` is the cron authority). `provider_coins.fbp_url` remains as a vestigial column.
 
 ---
 
