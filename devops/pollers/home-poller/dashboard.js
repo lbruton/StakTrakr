@@ -1313,6 +1313,12 @@ if (log) log.scrollTop = log.scrollHeight;
 // Provider editor page (GET /providers)
 // ---------------------------------------------------------------------------
 
+// Vendors fed by a first-party price API instead of page scraping (STRK-321).
+// Presentation-only: drives the "Direct API" badge in the By Vendor view. Row
+// URLs stay the human product pages (they feed matching + published Buy
+// links); the API key lives only in the container env, never in row data.
+const API_FED_VENDOR_IDS = new Set(["mintbuilder"]);
+
 function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups) {
   const coins = providers.coins || {};
   const coinEntries = Object.entries(coins);
@@ -1363,7 +1369,11 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
 
       return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:4px;" class="vendor-section-header">
-        <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}</span>
+        <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}${
+          API_FED_VENDOR_IDS.has(vg.vendorId)
+            ? ' <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--muted);vertical-align:middle;" title="Prices come from this vendor&#39;s direct API feed (one call per run). Product URLs below still drive feed matching and Buy links — add/remove items exactly like scraped vendors.">Direct API</span>'
+            : ""
+        }</span>
         <span style="font-size:11px;color:var(--muted);">${statsText}</span>
       </div>
       <div class="vendor-section-body" style="display:none;">${itemRows}</div>
