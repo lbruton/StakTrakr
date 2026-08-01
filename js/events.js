@@ -4637,6 +4637,8 @@ const setupSearch = () => {
             elements.itemDateNABtn.setAttribute("aria-pressed", "false");
           }
           if (elements.itemDate) elements.itemDate.disabled = false;
+          // STRK-301: apply remembered/default section disclosure to the reset form
+          if (typeof prepareFormSections === "function") prepareFormSections();
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");

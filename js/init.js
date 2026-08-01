@@ -762,6 +762,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof applyLayoutOrder === "function") applyLayoutOrder();
     if (typeof applyMetalOrder === "function") applyMetalOrder();
 
+    // STRK-301: persist user toggles of the add/edit form's collapsible sections
+    if (typeof initFormSections === "function") initFormSections();
+
     // Phase 13: Initial Rendering
     debugLog("Phase 13: Rendering initial display...");
     renderTable();

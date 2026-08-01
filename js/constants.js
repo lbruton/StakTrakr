@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.89";
+const APP_VERSION = "3.35.90";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -713,6 +713,9 @@ const ITEM_REMOVED_TAGS_KEY = "itemRemovedTags"; // nosemgrep: codacy.javascript
 /** @constant {string} ITEM_TAGS_LAST_MODIFIED_KEY - LocalStorage key for per-item tag timestamps (STRK-108) */
 const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/** @constant {string} FORM_SECTION_STATE_KEY - LocalStorage key for the add/edit form per-section open/collapsed map (STRK-301) */
+const FORM_SECTION_STATE_KEY = "formSectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {number} MAX_TAGS_PER_ITEM - Maximum number of tags allowed per item (STAK-126) */
 const MAX_TAGS_PER_ITEM = 20;
 
@@ -1104,6 +1107,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
+  FORM_SECTION_STATE_KEY, // JSON object: add/edit form section open/collapsed map (STRK-301, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
   "cloud_token_pcloud", // JSON: pCloud OAuth token data
@@ -2090,6 +2094,8 @@ if (typeof window !== "undefined") {
   window.ITEM_TAGS_LAST_MODIFIED_KEY = ITEM_TAGS_LAST_MODIFIED_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;
+  // Form section disclosure state (STRK-301)
+  window.FORM_SECTION_STATE_KEY = FORM_SECTION_STATE_KEY;
   // Multi-currency support (STACK-50)
   window.SUPPORTED_CURRENCIES = SUPPORTED_CURRENCIES;
   window.CLOUD_VAULT_IDLE_TIMEOUT_KEY = CLOUD_VAULT_IDLE_TIMEOUT_KEY;

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.90] - 2026-07-31
+
+### Changed — STRK-301: Collapsible add/edit form sections, restored and remembered
+
+- **The add/edit item form folds away what you aren't using**: Grading & Certification, Market Pricing & Details, Catalog Data, Notes, Attachments, and Tags are now collapsible sections, collapsed by default on a fresh form. The Images block gets the same treatment and starts open. This is the top request from mobile users — the form is dramatically shorter to scroll. The collapse mechanism is the browser's own disclosure element, so it works with keyboard, screen readers, and zero JavaScript (STRK-301).
+- **Your layout is remembered**: open or close any section and the form comes back that way next time, per device. When you edit an item, any section that actually holds data — tags, notes, a certification — opens automatically unless you've explicitly told it to stay closed (STRK-301).
+- **Nothing hides silently**: a collapsed section with content shows a count pill on its header — 3 tags, 1 note, 2 attachments — so data is always advertised even when folded away (STRK-301).
+- **Clearer names**: the section formerly titled "Pricing & Details" is now **Market Pricing & Details**, and its price field reads **Today's Market Price** instead of "Retail Price" (STRK-301).
+- **Catalog lookups open their section**: applying a Numista result auto-opens Catalog Data so the filled fields are visible immediately (STRK-301).
+
+---
+
 ## [3.35.89] - 2026-07-31
 
 ### Fixed — STRK-320: Spot-card freshness colour catches up when you return to the tab

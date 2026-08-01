@@ -242,6 +242,7 @@ async function renderAttachmentSection(item) {
   const attachments = item?.attachments;
   if (!attachments || attachments.length === 0) {
     list.hidden = true;
+    _notifyFormSection();
     return;
   }
   const existingUuids = await _getExistingAttachmentUuids(attachments);
@@ -251,6 +252,18 @@ async function renderAttachmentSection(item) {
     list.appendChild(_buildSavedRow(rec, item, /* editable */ true, onUpdate, isMissing));
   }
   list.hidden = false;
+  _notifyFormSection();
+}
+
+/**
+ * Tells the collapsible-section layer the attachment list just changed.
+ * This renderer resolves an IndexedDB existence check before appending rows,
+ * so it finishes AFTER the modal-open prepare pass — without this signal an
+ * edited item's attachments neither auto-open their section nor badge
+ * (STRK-301).
+ */
+function _notifyFormSection() {
+  if (typeof refreshFormSectionData === "function") refreshFormSectionData("attachments");
 }
 
 /**

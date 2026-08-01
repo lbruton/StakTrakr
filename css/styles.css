@@ -1721,7 +1721,9 @@ select:focus {
 }
 
 /* =============================================================================
-   COLLAPSIBLE FORM SECTIONS — <details>/<summary> based, zero JS
+   COLLAPSIBLE FORM SECTIONS — <details>/<summary> based, zero JS to toggle
+   (restored by STRK-301; js/form-sections.js layers remembered state and
+   count badges on top). Each section is details.form-section[data-section].
    ============================================================================= */
 
 .form-section {
@@ -1754,6 +1756,12 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* The explicit display beats the UA's [hidden] rule, so restate it — the
+   badge must truly vanish at count 0, not render as an empty pill. */
+.form-section-count[hidden] {
+  display: none;
+}
+
 .form-section-count {
   display: inline-flex;
   align-items: center;
@@ -1774,6 +1782,39 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+/* Native disclosure chrome (STRK-301): suppress the UA marker, make the
+   summary read as clickable, and draw our own chevron — right-pointing when
+   collapsed, down when open. */
+details.form-section > summary.form-section-header {
+  cursor: pointer;
+  list-style: none;
+}
+
+details.form-section > summary.form-section-header::-webkit-details-marker {
+  display: none;
+}
+
+details.form-section > summary.form-section-header::after {
+  content: "";
+  width: 0.45em;
+  height: 0.45em;
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(-45deg);
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform var(--transition);
+}
+
+details.form-section[open] > summary.form-section-header::after {
+  transform: rotate(45deg);
+}
+
+details.form-section > summary.form-section-header:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 /* Inline URL input below upload row */

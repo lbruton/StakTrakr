@@ -389,6 +389,9 @@ test.describe("capsule-field", () => {
     await page.fill("#itemWeight", "1");
     await page.fill("#itemPrice", "40");
 
+    // STRK-301: Catalog Data ships collapsed; expand before filling its fields.
+    await page.click('details[data-section="catalog"] > summary.form-section-header');
+
     await page.fill("#numistaDiameter", "38");
     await expect(page.locator("#capsuleSuggestion")).toHaveText(/Suggested: X-38-DF \(38mm\)/);
 

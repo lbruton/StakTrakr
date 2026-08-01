@@ -1305,6 +1305,10 @@ const fillFormFromNumistaResult = () => {
       if (gbDenomEl instanceof HTMLElement) gbDenomEl.value = String(weight);
     }
   }
+
+  // STRK-301: the fill wrote into the (possibly collapsed) Catalog Data
+  // section — surface the result. Programmatic, never persisted as a choice.
+  if (typeof openFormSection === "function") openFormSection("catalog");
 };
 
 /**
