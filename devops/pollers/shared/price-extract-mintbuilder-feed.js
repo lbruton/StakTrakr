@@ -109,8 +109,12 @@ async function buildFeedState({ apiKey, fetchImpl, log, warn, retryDelayMs }) {
     return { ok: false, reason: "no_key" };
   }
 
-  // The key travels only in the request itself — never log this URL.
+  // The key travels only in the request itself — never log this URL. Error
+  // messages are redacted too: some fetch implementations echo the full
+  // request URL (key included) into err.message.
   const requestUrl = `${MINTBUILDER_FEED_URL}?key=${encodeURIComponent(apiKey)}&mintbuilder=all`;
+  const redactKey = (text) =>
+    String(text).replaceAll(apiKey, "***").replaceAll(encodeURIComponent(apiKey), "***");
   let response = null;
 
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -123,7 +127,9 @@ async function buildFeedState({ apiKey, fetchImpl, log, warn, retryDelayMs }) {
         signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
       });
     } catch (err) {
-      warn(`[mintbuilder-feed] feed request failed (attempt ${attempt}/2): ${err.message}`);
+      warn(
+        `[mintbuilder-feed] feed request failed (attempt ${attempt}/2): ${redactKey(err.message)}`
+      );
       response = null;
     }
 
@@ -133,7 +139,14 @@ async function buildFeedState({ apiKey, fetchImpl, log, warn, retryDelayMs }) {
     }
     if (response && response.ok) break;
     if (response) {
-      warn(`[mintbuilder-feed] feed HTTP ${response.status} (attempt ${attempt}/2)`);
+      // Only 5xx is treated as transient; other non-OK statuses (403, 404,
+      // 429, …) are terminal for this run — retrying them wastes a request.
+      const transient = response.status >= 500;
+      warn(
+        `[mintbuilder-feed] feed HTTP ${response.status}` +
+          (transient ? ` (attempt ${attempt}/2)` : " — not retrying")
+      );
+      if (!transient) return { ok: false, reason: "fetch_failed" };
       response = null;
     }
     if (attempt === 1 && retryDelayMs > 0) await sleep(retryDelayMs);

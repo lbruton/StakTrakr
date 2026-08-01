@@ -364,6 +364,24 @@ test("network errors retry once then report fetch_failed", async () => {
   assert.equal(fetchImpl.calls.length, 2);
 });
 
+test("non-transient 4xx statuses (403/404) report fetch_failed without retrying", async () => {
+  for (const status of [403, 404]) {
+    const feed = await loadFeed();
+    const fetchImpl = makeFetch(errResponse(status));
+
+    const result = await feed.lookupMintbuilderProduct({
+      url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+      apiKey: "test-key",
+      fetchImpl,
+      warn: makeSpy(),
+      retryDelayMs: 0,
+    });
+
+    assert.deepEqual(result, { status: "unavailable", reason: "fetch_failed" });
+    assert.equal(fetchImpl.calls.length, 1, `HTTP ${status} is not transient — never retry it`);
+  }
+});
+
 test("a payload without data.products reports bad_payload without retrying", async () => {
   const feed = await loadFeed();
   const fetchImpl = makeFetch(okResponse({ hello: "world" }));
@@ -473,6 +491,21 @@ test("the API key never appears in log or warn output", async () => {
     fetchImpl: makeFetch(errResponse(401)),
     log,
     warn,
+  });
+
+  // Network-error path: some fetch implementations embed the full request URL
+  // (key included) in the error message — the client must redact it.
+  feed._resetFeedCacheForTests();
+  const urlLeakingError = new Error(
+    `fetch failed for https://mintbuilder.com/feed/api/prices?key=${secret}&mintbuilder=all`
+  );
+  await feed.lookupMintbuilderProduct({
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+    apiKey: secret,
+    fetchImpl: makeFetch(urlLeakingError, urlLeakingError),
+    log,
+    warn,
+    retryDelayMs: 0,
   });
 
   for (const line of [...log.lines, ...warn.lines]) {
