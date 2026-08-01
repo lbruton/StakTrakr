@@ -74,6 +74,18 @@ export const vendor = {
     });
 
     if (resolved.status === "hit") {
+      // STRK-325 hybrid stock rule: the feed's tier data proves availability
+      // only when some tier shows inventory headroom (max qty_max > 1 —
+      // validated against 119 product pages). A degenerate cap of 1 cannot
+      // distinguish sold-out from last-unit, so those items fall through to
+      // the page scrape, whose JSON-LD availability is authoritative.
+      if (!resolved.product.stockConfident) {
+        log(
+          `[mintbuilder] feed stock unverified (max qty_max <= 1) for ${context.coinSlug} — ` +
+            "page-scrape fallback for authoritative availability"
+        );
+        return context.scrapeGeneric(context);
+      }
       return {
         price: resolved.product.price,
         inStock: true,

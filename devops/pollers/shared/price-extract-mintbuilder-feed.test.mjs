@@ -47,6 +47,8 @@ const feedPayload = (products) => ({
   },
 });
 
+// Tier shapes mirror the live feed (verified 2026-08-01): qty_range/qty_min/
+// qty_max plus per-payment-method prices. qty_max tracks live inventory.
 const PRODUCTS = {
   101: {
     title: "1 oz Silver Buffalo Round",
@@ -54,7 +56,10 @@ const PRODUCTS = {
     image: "https://mintbuilder.com/img/101.jpg",
     price: "38.42",
     retail: "44.99",
-    tiers: [{ qty: 1, check_wire: "38.42" }],
+    tiers: [
+      { qty_range: "1 - 20", qty_min: 1, qty_max: 20, check_wire: 38.42, bitcoin: 39.79, card: 40.79 },
+      { qty_range: "21+", qty_min: 21, qty_max: 5179, check_wire: 38.12, bitcoin: 38.49, card: 40.48 },
+    ],
     premium: "Over Spot",
   },
   202: {
@@ -63,7 +68,7 @@ const PRODUCTS = {
     image: "https://mintbuilder.com/img/202.jpg",
     price: 412.77,
     retail: 449.0,
-    tiers: [{ qty: 1, check_wire: 412.77 }],
+    tiers: [{ qty_range: "1+", qty_min: 1, qty_max: 9604, check_wire: 412.77, bitcoin: 415.79, card: 429.79 }],
     premium: null,
   },
   303: {
@@ -73,6 +78,15 @@ const PRODUCTS = {
     retail: null,
     tiers: [],
     premium: null,
+  },
+  // The observed OOS signature: an unbounded "1+" label capped at qty_max 1.
+  505: {
+    title: "Sold Out Kangaroo",
+    link: "https://mintbuilder.com/products/sold-out-kangaroo",
+    price: 61.16,
+    retail: 61.16,
+    tiers: [{ qty_range: "1+", qty_min: 1, qty_max: 1, check_wire: 61.16, bitcoin: 61.79, card: 63.79 }],
+    premium: "Over Spot",
   },
 };
 
@@ -200,6 +214,44 @@ test("selectFeedPrice accepts finite positive prices only", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// feedStockIsConfident (STRK-325)
+//
+// Validated 2026-08-01 against 119 product pages: every product with
+// max(qty_max) > 1 across tiers was InStock on-page (25/25 control); products
+// capped at 1 split 80 OOS / 14 true single-unit inventory — inherently
+// ambiguous, so the vendor module page-scrapes those instead of trusting the
+// feed for stock.
+// ---------------------------------------------------------------------------
+
+test("feedStockIsConfident trusts stock only when some tier shows real inventory headroom", async () => {
+  const { feedStockIsConfident } = await import(feedModuleUrl);
+
+  assert.equal(feedStockIsConfident(PRODUCTS[101]), true, "multi-tier with thousands available");
+  assert.equal(feedStockIsConfident(PRODUCTS[202]), true, "single healthy tier");
+  // The 1 oz Gold Eagle shape: a qty-1 discount tier first, real headroom after —
+  // the max must be taken across ALL tiers, not the first.
+  assert.equal(
+    feedStockIsConfident({
+      tiers: [
+        { qty_range: "1 - 1", qty_min: 1, qty_max: 1, check_wire: 4080.46 },
+        { qty_range: "2+", qty_min: 2, qty_max: 912, check_wire: 4090.46 },
+      ],
+    }),
+    true,
+    "a qty-1 first tier with headroom behind it is in stock"
+  );
+
+  assert.equal(feedStockIsConfident(PRODUCTS[505]), false, "degenerate 1+/max-1 is ambiguous");
+  assert.equal(feedStockIsConfident(PRODUCTS[303]), false, "no tiers → no stock signal");
+  assert.equal(feedStockIsConfident({}), false, "missing tiers → no stock signal");
+  assert.equal(
+    feedStockIsConfident({ tiers: [{ qty_range: "1+", qty_min: 1, check_wire: 5 }] }),
+    false,
+    "tiers without usable qty_max → no stock signal"
+  );
+});
+
+// ---------------------------------------------------------------------------
 // lookupMintbuilderProduct — matching
 // ---------------------------------------------------------------------------
 
@@ -222,12 +274,32 @@ test("lookup matches a stored URL to a feed product across normalization drift",
       price: 38.42,
       link: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
       title: "1 oz Silver Buffalo Round",
+      stockConfident: true,
     },
   });
   assert.equal(fetchImpl.calls.length, 1);
   assert.ok(
     fetchImpl.calls[0].url.includes("mintbuilder=all"),
     "feed request should ask for the full catalog"
+  );
+});
+
+test("a hit on a degenerate-tier product carries stockConfident=false (STRK-325)", async () => {
+  const feed = await loadFeed();
+  const fetchImpl = makeFetch(okResponse(feedPayload(PRODUCTS)));
+
+  const result = await feed.lookupMintbuilderProduct({
+    url: "https://mintbuilder.com/products/sold-out-kangaroo",
+    apiKey: "test-key",
+    fetchImpl,
+  });
+
+  assert.equal(result.status, "hit", "ambiguous stock is still a price hit");
+  assert.equal(result.product.price, 61.16, "the feed price is still selected");
+  assert.equal(
+    result.product.stockConfident,
+    false,
+    "max(qty_max) <= 1 must flag the stock as unverified"
   );
 });
 

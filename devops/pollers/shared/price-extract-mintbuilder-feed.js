@@ -95,6 +95,26 @@ export function selectFeedPrice(product) {
 }
 
 /**
+ * Decide whether the feed's tier data is a trustworthy in-stock signal
+ * (STRK-325). `tiers[].qty_max` tracks live sellable inventory — validated
+ * 2026-08-01 against 119 product pages: every product with max(qty_max) > 1
+ * across its tiers was InStock on-page (25/25 control, zero inverse
+ * anomalies), while products capped at 1 split 80 OOS / 14 genuine
+ * single-unit listings. A cap of 1 is therefore inherently ambiguous
+ * (zero-floored vs last unit) and callers must verify stock another way —
+ * the vendor module page-scrapes those items. Max is taken across ALL tiers:
+ * some in-stock products lead with a qty-1 discount tier (e.g. the 1 oz Gold
+ * Eagle's "1 - 1" first-coin tier ahead of a "2+" tier with real headroom).
+ *
+ * @param {{tiers?: Array<{qty_max?: unknown}>}} product - Feed product entry.
+ * @returns {boolean} True when the tiers show inventory headroom (> 1).
+ */
+export function feedStockIsConfident(product) {
+  const maxQty = Math.max(0, ...(product?.tiers ?? []).map((t) => Number(t?.qty_max) || 0));
+  return maxQty > 1;
+}
+
+/**
  * Fetch and index the full MintBuilder feed. Always resolves to a FeedState —
  * never throws — so a cached failure cannot fan out unhandled rejections:
  *   { ok: true, byId: Map, byUrl: Map, fetchedAt }
@@ -213,8 +233,11 @@ export function getFeedIndex({
  * the feed links. Callers treat "unavailable"/"miss" as fall-back-to-scrape.
  *
  * @param {object} opts - { url, hints, apiKey?, fetchImpl?, log?, warn?, retryDelayMs? }.
- * @returns {Promise<object>} {status:"hit", product:{productId, price, link, title}}
- *   | {status:"miss", reason} | {status:"unavailable", reason}.
+ * @returns {Promise<object>} {status:"hit", product:{productId, price, link,
+ *   title, stockConfident}} | {status:"miss", reason} |
+ *   {status:"unavailable", reason}. `stockConfident: false` means the tier
+ *   data cannot distinguish sold-out from last-unit (STRK-325) — the caller
+ *   should verify availability via the page scrape.
  */
 export async function lookupMintbuilderProduct({
   url,
@@ -253,6 +276,7 @@ export async function lookupMintbuilderProduct({
       price,
       link: product.link ?? null,
       title: product.title ?? null,
+      stockConfident: feedStockIsConfident(product),
     },
   };
 }
