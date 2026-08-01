@@ -640,3 +640,68 @@ test.describe("STRK-291 — spot-card refresh icon freshness colour", () => {
     }
   });
 });
+
+// STRK-320 — repaint on tab re-focus. Follow-up to STRK-291: the freshness
+// classes are recomputed only when something calls applySpotFreshnessClasses
+// (boot, the ten updateSyncButtonStates call sites, the post-sync hook).
+// Nothing is driven by the passage of time, so a tab left open across the
+// 60-minute or 24-hour boundary kept saying fresh about data it knew was old.
+// The fix is a visibilitychange listener in init.js gated on the tab becoming
+// visible — deliberately NOT a polling timer (the acceptance criteria forbid
+// one, and page.clock.setFixedTime freezes Date without faking timers, so a
+// timer-based fix would also be untestable this way).
+test.describe("STRK-320 — freshness repaint when the tab becomes visible", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+    await installBootSyncProbe(page);
+  });
+
+  test("a fresh icon repaints to stale on re-focus after crossing the hour, with no sync", async ({
+    page,
+  }) => {
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(5) },
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+
+    // Pin the page clock 90 minutes ahead: the 5-minute-old seed is now 95
+    // minutes old. No sync runs and no key is rewritten — only time moved.
+    await page.clock.setFixedTime(new Date(Date.now() + 90 * 60 * 1000));
+
+    // Still fresh — this is the bug under test. If this assertion ever fails,
+    // something started recomputing on the passage of time alone, and the
+    // visibilitychange test below has stopped discriminating anything.
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+
+    // Simulate the tab coming back into focus. The page under test is already
+    // visible, so document.visibilityState === "visible" and the listener's
+    // gate passes; dispatchEvent runs the handler synchronously.
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expectAllIconsAt(page, "spot-sync-icon--stale");
+  });
+
+  test("a visibilitychange to hidden does not repaint", async ({ page }) => {
+    // Pins the gate direction: the listener acts when the tab BECOMES visible,
+    // not on every visibility flip. Repainting a hidden tab would be harmless
+    // but pointless work; asserting fresh-after-hidden-dispatch is what proves
+    // the gate exists at all.
+    await gotoAppSettled(page);
+    await seedFreshnessAndRefresh(page, {
+      apiSync: { provider: "STAKTRAKR", timestamp: minutesAgo(5) },
+    });
+    await page.clock.setFixedTime(new Date(Date.now() + 90 * 60 * 1000));
+
+    await page.evaluate(() => {
+      // Shadow the prototype getter on the instance for one dispatch, then
+      // remove the shadow so the real getter is back for later assertions.
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+      delete document.visibilityState;
+    });
+    await expectAllIconsAt(page, "spot-sync-icon--fresh");
+  });
+});

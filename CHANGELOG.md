@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.89] - 2026-07-31
+
+### Fixed — STRK-320: Spot-card freshness colour catches up when you return to the tab
+
+- **The ↻ icon's colour no longer freezes while the tab sits idle**: the freshness colour was only recomputed when something happened — boot, a sync, a button-state refresh — so a tab left open overnight with no sync kept showing green about prices the app knew were a day old. The icon now repaints the moment the tab becomes visible again, so the colour you see on returning always reflects the real age of the data (STRK-320).
+- **No background polling**: the repaint rides the browser's own tab-visibility signal instead of a timer, so a hidden tab does zero work and there is no refresh interval to tune or drain your battery (STRK-320).
+
+---
+
 ## [3.35.88] - 2026-07-30
 
 ### Added — STRK-291: Spot-card refresh icons show at a glance how current your prices are

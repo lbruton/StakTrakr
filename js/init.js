@@ -750,6 +750,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof applyHeaderToggleVisibility === "function") applyHeaderToggleVisibility();
     if (typeof updateSpotSyncHealthDot === "function") updateSpotSyncHealthDot();
     if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
+
+    // STRK-320: freshness classes are recomputed only on demand (boot, sync,
+    // updateSyncButtonStates) — nothing tracks the passage of time, so a tab
+    // left open across the 60-minute or 24-hour boundary keeps its old colour.
+    // Repaint when the tab becomes visible again; deliberately no polling timer.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      if (typeof applySpotFreshnessClasses === "function") applySpotFreshnessClasses();
+    });
     if (typeof applyLayoutOrder === "function") applyLayoutOrder();
     if (typeof applyMetalOrder === "function") applyMetalOrder();
 
