@@ -72,6 +72,7 @@ const VENDOR_META = {
     color: "#fb923c",
     url: "https://www.gainesvillecoins.com",
   },
+  mintbuilder: { name: "MintBuilder", color: "#818cf8", url: "https://mintbuilder.com" },
 };
 
 // ---------------------------------------------------------------------------
@@ -1161,7 +1162,7 @@ async function main() {
   if (hadError) process.exitCode = 1;
 }
 
-export { buildGoldbackIntradayEntries, resolveGoldbackGeneratedAt };
+export { buildGoldbackIntradayEntries, resolveGoldbackGeneratedAt, VENDOR_META };
 
 // Normalize argv[1] (resolves relative paths + symlinks) before comparing, so
 // main() still runs when invoked via a relative path or symlink — matches

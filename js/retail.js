@@ -79,6 +79,7 @@ const RETAIL_VENDOR_NAMES = {
   goldback: "Goldback",
   providentmetals: "Provident",
   gainesvillecoins: "Gainesville",
+  mintbuilder: "MintBuilder",
 };
 
 /** Vendor homepage URLs for popup links */
@@ -93,6 +94,7 @@ const RETAIL_VENDOR_URLS = {
   goldback: "https://www.goldback.com",
   providentmetals: "https://www.providentmetals.com",
   gainesvillecoins: "https://www.gainesvillecoins.com",
+  mintbuilder: "https://mintbuilder.com", // no www — matches the canonical host in feed/product URLs
 };
 
 /** Per-vendor brand colors — shared with retail-view-modal.js for chart lines and vendor labels */
@@ -107,6 +109,7 @@ const RETAIL_VENDOR_COLORS = {
   goldback: "#d4a017", // deep gold — goldback branding
   providentmetals: "#a3e635", // lime green — distinct from emerald (SDB)
   gainesvillecoins: "#fb923c", // orange — distinct from amber (JM)
+  mintbuilder: "#818cf8", // indigo — distinct from blue (APMEX) and violet (Monument)
 };
 
 // ---------------------------------------------------------------------------

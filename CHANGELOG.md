@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.91] - 2026-08-01
+
+### Changed — STRK-322: MintBuilder becomes a first-class frontend vendor
+
+- **MintBuilder registered in the frontend vendor registries**: `RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_URLS`, and `RETAIL_VENDOR_COLORS` now carry mintbuilder ("MintBuilder", `https://mintbuilder.com`, indigo `#818cf8`), so the price detail modal's vendor legend, forward-fill, anomaly consensus, and intraday table columns all treat it exactly like the other ten vendors instead of relying on the STRK-317 short-label patch (STRK-322).
+- **Published manifest drops the placeholder**: the v2 API publisher's `VENDOR_META` gains the same entry, so `manifest.json` stops emitting `{name: "mintbuilder", color: "#94a3b8", url: null}` and ships real display metadata; `VENDOR_META` is now exported and pinned by a unit test (STRK-322).
+- **Registry parity is now test-enforced**: a Playwright test asserts the three frontend registries (`RETAIL_VENDOR_NAMES`/`URLS`/`COLORS`) describe the same vendor set with unique colors, and a unit test pins the shape of every `VENDOR_META` entry — so a vendor can no longer land in one of these registries but not the others. Paths outside these registries (e.g. a vendor never registered at all) are out of scope here (STRK-322).
+
+---
+
 ## [3.35.90] - 2026-07-31
 
 ### Changed — STRK-301: Collapsible add/edit form sections, restored and remembered
