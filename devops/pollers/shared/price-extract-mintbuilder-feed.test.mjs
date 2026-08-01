@@ -249,6 +249,48 @@ test("feedStockIsConfident trusts stock only when some tier shows real inventory
     false,
     "tiers without usable qty_max → no stock signal"
   );
+
+  // External JSON can be malformed — the predicate must never throw and must
+  // never let non-finite values fake inventory headroom (PR #1416 review).
+  for (const malformed of [{ tiers: {} }, { tiers: "1+" }, { tiers: 7 }, { tiers: null }]) {
+    assert.equal(
+      feedStockIsConfident(malformed),
+      false,
+      `non-array tiers must mean no stock signal: ${JSON.stringify(malformed)}`
+    );
+  }
+  for (const bogus of ["Infinity", Infinity, -5, "9e999"]) {
+    assert.equal(
+      feedStockIsConfident({ tiers: [{ qty_max: bogus }] }),
+      false,
+      `non-finite/negative qty_max must not count as headroom: ${String(bogus)}`
+    );
+  }
+});
+
+test("a hit on a product with malformed tiers resolves stockConfident=false without throwing", async () => {
+  const feed = await loadFeed();
+  const fetchImpl = makeFetch(
+    okResponse(
+      feedPayload({
+        707: {
+          title: "Malformed tiers product",
+          link: "https://mintbuilder.com/products/malformed-tiers",
+          price: 25.5,
+          tiers: {},
+        },
+      })
+    )
+  );
+
+  const result = await feed.lookupMintbuilderProduct({
+    url: "https://mintbuilder.com/products/malformed-tiers",
+    apiKey: "test-key",
+    fetchImpl,
+  });
+
+  assert.equal(result.status, "hit", "malformed tiers must not crash the lookup");
+  assert.equal(result.product.stockConfident, false, "malformed tiers → unverified stock");
 });
 
 // ---------------------------------------------------------------------------

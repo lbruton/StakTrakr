@@ -81,7 +81,7 @@ export const vendor = {
       // the page scrape, whose JSON-LD availability is authoritative.
       if (!resolved.product.stockConfident) {
         log(
-          `[mintbuilder] feed stock unverified (max qty_max <= 1) for ${context.coinSlug} — ` +
+          `[mintbuilder] feed shows no tier inventory headroom for ${context.coinSlug} — ` +
             "page-scrape fallback for authoritative availability"
         );
         return context.scrapeGeneric(context);

@@ -106,11 +106,20 @@ export function selectFeedPrice(product) {
  * some in-stock products lead with a qty-1 discount tier (e.g. the 1 oz Gold
  * Eagle's "1 - 1" first-coin tier ahead of a "2+" tier with real headroom).
  *
+ * Defensive against malformed external JSON: a non-array `tiers` value or
+ * non-finite `qty_max` entries (NaN, Infinity, "9e999") count as no signal —
+ * never throw, never fake headroom.
+ *
  * @param {{tiers?: Array<{qty_max?: unknown}>}} product - Feed product entry.
  * @returns {boolean} True when the tiers show inventory headroom (> 1).
  */
 export function feedStockIsConfident(product) {
-  const maxQty = Math.max(0, ...(product?.tiers ?? []).map((t) => Number(t?.qty_max) || 0));
+  const tiers = Array.isArray(product?.tiers) ? product.tiers : [];
+  let maxQty = 0;
+  for (const tier of tiers) {
+    const qty = Number(tier?.qty_max);
+    if (Number.isFinite(qty) && qty > maxQty) maxQty = qty;
+  }
   return maxQty > 1;
 }
 
