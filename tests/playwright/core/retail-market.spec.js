@@ -1527,6 +1527,84 @@ test.describe("core/retail-market", () => {
     await expect(metaFallbackItem.locator(".vendor")).toHaveText("Future Vendor");
   });
 
+  // STRK-322: MintBuilder promoted to a first-class frontend vendor. The scrape
+  // rollout (STRK-307/311) registered mintbuilder in none of the three
+  // js/retail.js registries, leaving the detail-modal legend and every
+  // Object.keys(RETAIL_VENDOR_NAMES)-gated path blind to it — only the
+  // _shortVendor map (STRK-317) papered over the label. Pins the registration,
+  // the NAMES/URLS/COLORS parity invariant, and the user-visible legend item.
+  test("STRK-322 — MintBuilder is registered in all vendor registries and renders in the detail-modal legend", async ({
+    page,
+  }) => {
+    // Serve a latest.json where mintbuilder is the vendor for one slug — the
+    // detail modal's background refresh (openRetailViewModal) refetches this
+    // feed and REBUILDS the legend from it, so seeding window state directly
+    // gets overwritten ~instantly. Overriding the mocked feed exercises the
+    // real fetch → retailPrices → _buildVendorLegend path instead.
+    await setupRetailFixture(page, {
+      retailFeeds: {
+        [SLUG_SILVER_A]: {
+          latest: {
+            weight_oz: 1,
+            median_price: 42.5,
+            lowest_price: 42.5,
+            window_start: GENERATED_AT,
+            vendors: { mintbuilder: { price: 42.5, in_stock: true } },
+          },
+        },
+      },
+    });
+
+    const registries = await page.evaluate(() => ({
+      name: window.RETAIL_VENDOR_NAMES.mintbuilder ?? null,
+      url: window.RETAIL_VENDOR_URLS.mintbuilder ?? null,
+      color: window.RETAIL_VENDOR_COLORS.mintbuilder ?? null,
+      nameKeys: Object.keys(window.RETAIL_VENDOR_NAMES).sort(),
+      urlKeys: Object.keys(window.RETAIL_VENDOR_URLS).sort(),
+      colorKeys: Object.keys(window.RETAIL_VENDOR_COLORS).sort(),
+      colors: Object.values(window.RETAIL_VENDOR_COLORS),
+    }));
+    expect(registries.name).toBe("MintBuilder");
+    expect(registries.url).toBe("https://mintbuilder.com");
+    expect(registries.color).toMatch(/^#[0-9a-f]{6}$/i);
+    // Parity invariant: the three registries must describe the same vendor set,
+    // so a future vendor can never land half-registered again.
+    expect(registries.urlKeys).toEqual(registries.nameKeys);
+    expect(registries.colorKeys).toEqual(registries.nameKeys);
+    // Chart lines must stay distinguishable — no two vendors share a color.
+    expect(new Set(registries.colors).size).toBe(registries.colors.length);
+
+    // User-visible contract: a mintbuilder price renders a labelled legend item
+    // linking to the vendor homepage (RETAIL_VENDOR_URLS fallback — no per-slug
+    // provider URL is seeded here on purpose). The fixture slug needs a
+    // RETAIL_COIN_META entry for the modal to open at all.
+    await page.evaluate((slug) => {
+      window.RETAIL_COIN_META[slug] = { name: "Legend Probe Silver", weight: 1, metal: "silver" };
+      window.openRetailViewModal(slug);
+    }, SLUG_SILVER_A);
+
+    const legendItem = page
+      .locator("#retailViewVendorLegend .retail-legend-item")
+      .filter({ hasText: "MintBuilder" });
+    await expect(legendItem).toHaveCount(1);
+
+    // The legend renders an <a href="#"> whose click handler window.open()s the
+    // resolved vendor URL (popup pattern — the real URL never lands in href).
+    // No per-slug provider URL is seeded, so the only way this item is a link
+    // at all is the new RETAIL_VENDOR_URLS.mintbuilder homepage fallback —
+    // stub window.open and click to pin the resolved URL.
+    await page.evaluate(() => {
+      window.__openedUrls = [];
+      window.open = (url) => {
+        window.__openedUrls.push(url);
+        return null;
+      };
+    });
+    await legendItem.click();
+    const openedUrls = await page.evaluate(() => window.__openedUrls);
+    expect(openedUrls[0]).toBe("https://mintbuilder.com");
+  });
+
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
   // which cannot catch the dual-store gap — retail.js's _populateManifestState
   // (the REAL mid-session manifest sync path) updates its lexical
