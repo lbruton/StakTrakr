@@ -28,6 +28,7 @@
 // WOULD toggle the section) gets caught.
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { suppressWhatsNewPopup } from "../helpers/seed.js";
 
 const SECTION_KEYS = [
   "images",
@@ -44,6 +45,9 @@ const SECTION_KEYS = [
 // its VISIBILITY is owned by the weight-unit toggle, its disclosure is open.
 const DEFAULT_COLLAPSED = ["grading", "marketPricing", "catalog", "notes", "attachments", "tags"];
 
+// Deliberately minimal — only the fields these tests exercise. editItem's
+// populate path defaults every absent field, and a full-item literal here
+// would just clone inventory-crud's seed.
 const SEED_ITEM = {
   uuid: "strk301-seed-item",
   metal: "Silver",
@@ -54,23 +58,8 @@ const SEED_ITEM = {
   weight: 1,
   weightUnit: "oz",
   price: 30,
-  marketValue: 0,
-  date: "2026-01-01",
-  purchaseLocation: "staktrakr.com",
-  storageLocation: "Safe",
-  serialNumber: "",
   notes: "Bought at the local shop",
-  year: "2026",
-  grade: "",
-  gradingAuthority: "",
-  certNumber: "",
-  pcgsNumber: "",
-  pcgsVerified: false,
-  spotPriceAtPurchase: 0,
-  premiumPerOz: 0,
-  totalPremium: 0,
   purity: 0.999,
-  numistaId: "",
   serial: 1,
 };
 
@@ -89,18 +78,10 @@ async function seedAndGoto(page, sectionState = null) {
       localStorage.setItem("metalInventory", JSON.stringify([item]));
       localStorage.setItem("itemTags", JSON.stringify({ [item.uuid]: tags }));
       if (state) localStorage.setItem("formSectionState", JSON.stringify(state));
-      document.addEventListener(
-        "DOMContentLoaded",
-        () => {
-          if (typeof APP_VERSION !== "undefined") {
-            localStorage.setItem("ackVersion", APP_VERSION);
-          }
-        },
-        { once: true }
-      );
     },
     { item: SEED_ITEM, tags: SEED_TAGS, state: sectionState }
   );
+  await suppressWhatsNewPopup(page);
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
   await page.waitForFunction(
