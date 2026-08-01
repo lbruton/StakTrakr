@@ -67,9 +67,27 @@ const _setSectionOpen = (el, open) => {
 };
 
 /**
- * Counts non-empty user-facing controls inside a section body. A number
+ * True when a control sits inside a display-gated subtree of its section
+ * body — e.g. the denomination-mode fields hidden while face-value mode is
+ * active, or the legacy imageUrlGroup wrapper. Walks inline display/hidden
+ * only (never computed style), so a collapsed <details> ancestor does NOT
+ * read as concealed and badge counts survive disclosure state.
+ * @param {Element} el - The control to test
+ * @param {Element} body - The .form-section-body boundary
+ * @returns {boolean} Whether the control is concealed within the body
+ */
+const _isConcealedWithin = (el, body) => {
+  for (let node = el; node && node !== body; node = node.parentElement) {
+    if (node.hidden || (node.style && node.style.display === "none")) return true;
+  }
+  return false;
+};
+
+/**
+ * Counts user-facing controls holding data inside a section body. A number
  * input holding "0" counts as empty — 0 is the shipped placeholder value for
- * price fields, not user data.
+ * price fields, not user data. Checkboxes count when checked; radios never
+ * count (a group always has a selection, so it is not a data signal).
  * @param {Element} body - The .form-section-body element
  * @returns {number} Filled-control count
  */
@@ -77,7 +95,12 @@ const _countFilledControls = (body) => {
   let filled = 0;
   body.querySelectorAll("input, select, textarea").forEach((el) => {
     const type = (el.type || "").toLowerCase();
-    if (["hidden", "file", "checkbox", "radio", "button", "submit"].includes(type)) return;
+    if (["hidden", "file", "radio", "button", "submit"].includes(type)) return;
+    if (_isConcealedWithin(el, body)) return;
+    if (type === "checkbox") {
+      if (el.checked) filled += 1;
+      return;
+    }
     const value = (el.value || "").trim();
     if (!value) return;
     if (type === "number" && Number(value) === 0) return;
@@ -181,6 +204,27 @@ const openFormSection = (key) => {
 };
 
 /**
+ * Re-evaluates one section after an ASYNCHRONOUS renderer finishes
+ * populating it. The modal-open prepare pass is synchronous, so content that
+ * lands later (the attachment list awaits an IndexedDB existence check
+ * before appending rows) is invisible to it — without this hook an edited
+ * item's attachments would neither auto-open their section nor show a badge
+ * (PR #1414 review). Applies the same precedence as prepare: a remembered
+ * explicit choice still wins; the late open is programmatic, never persisted.
+ * @param {string} key - data-section key
+ * @returns {void}
+ */
+const refreshFormSectionData = (key) => {
+  const el = _formSectionEl(key);
+  if (!el) return;
+  const remembered = _loadFormSectionState();
+  if (typeof remembered[key] !== "boolean" && _formSectionContentCount(key) > 0) {
+    _setSectionOpen(el, true);
+  }
+  updateFormSectionBadges();
+};
+
+/**
  * Wires the capture-phase toggle listener that persists USER toggles and
  * keeps badges current. Capture because `toggle` does not bubble. Called
  * once from init.js after DOM ready.
@@ -221,6 +265,7 @@ const initFormSections = () => {
 if (typeof window !== "undefined") {
   window.prepareFormSections = prepareFormSections;
   window.openFormSection = openFormSection;
+  window.refreshFormSectionData = refreshFormSectionData;
   window.updateFormSectionBadges = updateFormSectionBadges;
   window.initFormSections = initFormSections;
 }
