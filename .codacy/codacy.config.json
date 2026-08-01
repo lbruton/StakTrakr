@@ -3906,7 +3906,6 @@
     "devops/pollers/home-poller/docker-entrypoint.sh",
     "devops/pollers/home-poller/Dockerfile",
     "devops/pollers/home-poller/metrics-exporter.js",
-    "devops/pollers/home-poller/run-fbp.sh",
     "devops/pollers/home-poller/run-home.sh",
     "devops/pollers/home-poller/setup-lxc.sh",
     "devops/pollers/remote-poller/docker-entrypoint.sh",
