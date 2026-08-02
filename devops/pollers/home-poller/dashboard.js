@@ -2074,7 +2074,12 @@ document.querySelectorAll('[data-provider-tab]').forEach(function(btn) {
 // ── Vendor section expand/collapse ───────────────────────────────────────
 document.querySelectorAll('.vendor-section-header').forEach(function(header) {
   header.addEventListener('click', function() {
-    var body = this.nextElementSibling;
+    // Look the body up by class rather than nextElementSibling: API-fed
+    // vendors render a feed health line between the header and the rows, and
+    // a positional lookup silently toggles whatever happens to sit next.
+    var section = this.closest('.vendor-section');
+    var body = section && section.querySelector('.vendor-section-body');
+    if (!body) return;
     body.style.display = body.style.display === 'none' ? '' : 'none';
   });
 });

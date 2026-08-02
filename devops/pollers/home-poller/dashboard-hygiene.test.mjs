@@ -130,6 +130,32 @@ test("the product-id endpoint writes hints only, never updateVendorFields (STRK-
   );
 });
 
+test("vendor section expand/collapse resolves the body by class, not position (STRK-324)", () => {
+  const raw = DASHBOARD_SRC.slice(
+    DASHBOARD_SRC.indexOf("document.querySelectorAll('.vendor-section-header')"),
+    DASHBOARD_SRC.indexOf("document.querySelectorAll('.vendor-url-byvendor')")
+  );
+  assert.ok(raw.length > 0, "expected a .vendor-section-header click handler");
+  // Assert on code, not prose — the comment explaining the fix names the very
+  // API the guard forbids.
+  const handler = raw.replace(/\/\/[^\n]*/g, "");
+
+  // API-fed vendors render a feed health line between the header and the rows.
+  // A nextElementSibling lookup then toggles the health line and the item rows
+  // never expand — for exactly the vendor the feed controls exist to operate.
+  assert.doesNotMatch(
+    handler,
+    /nextElementSibling/,
+    "positional lookup breaks whenever anything is rendered between the header " +
+      "and .vendor-section-body"
+  );
+  assert.match(
+    handler,
+    /querySelector\(['"]\.vendor-section-body['"]\)/,
+    "the collapse target must be resolved by class"
+  );
+});
+
 test("the feed health probe is bounded so a long-running dashboard refreshes (STRK-324)", () => {
   assert.match(
     DASHBOARD_SRC,
