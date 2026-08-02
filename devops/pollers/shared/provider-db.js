@@ -354,16 +354,26 @@ export async function getVendorHints(client, coinSlug, vendorId) {
  * calling that one with just hints resolves selector to null and silently wipes
  * it. The dashboard's API Product ID input edits hints alone (STRK-324).
  *
+ * Throws when the UPDATE matches no row. This is a read-modify-write partner
+ * to getVendorHints, so a row deleted between the two calls would otherwise
+ * make the write vanish while the caller reports success.
+ *
  * @param {import("@libsql/client").Client} client
  * @param {string} coinSlug
  * @param {string} vendorId
  * @param {string|null} hints
+ * @returns {Promise<{rowsAffected: number}>}
+ * @throws {Error} When no provider row matched.
  */
 export async function updateVendorHints(client, coinSlug, vendorId, hints) {
-  await client.execute({
+  const result = await client.execute({
     sql: "UPDATE provider_vendors SET hints = ?, updated_at = datetime('now') WHERE coin_slug = ? AND vendor_id = ?",
     args: [hints ?? null, coinSlug, vendorId],
   });
+  if (result.rowsAffected === 0) {
+    throw new Error(`No provider row for ${vendorId}/${coinSlug} — it may have just been deleted`);
+  }
+  return { rowsAffected: result.rowsAffected };
 }
 
 /**

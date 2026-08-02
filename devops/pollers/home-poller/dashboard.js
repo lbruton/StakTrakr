@@ -1384,14 +1384,7 @@ async function probeFeedHealth() {
   }
 }
 
-function renderProvidersPage(
-  providers,
-  scrapeStatus,
-  failureCount,
-  readOnly,
-  vendorGroups,
-  feedHealth
-) {
+function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups) {
   const coins = providers.coins || {};
   const coinEntries = Object.entries(coins);
   const totalCoins = coinEntries.length;
@@ -1459,10 +1452,14 @@ function renderProvidersPage(
         })
         .join("");
 
-      const feedHealthHtml =
-        isApiFed && feedHealth
-          ? `<div class="vendor-feed-health" style="padding:4px 12px 6px;font-size:11px;color:${feedHealth.ok ? "var(--green)" : "var(--red)"};" title="${escAttr(feedHealth.detail)}">${escHtml(feedHealth.label)}</div>`
-          : "";
+      // Placeholder only — the probe is fetched client-side after render. It
+      // must never sit on the HTML response path: a hanging feed endpoint
+      // costs two 15s attempts plus a 2s retry delay, which would stall the
+      // whole provider editor for ~32s on the first load after each cache
+      // expiry (STRK-324).
+      const feedHealthHtml = isApiFed
+        ? `<div class="vendor-feed-health" data-vendor="${escAttr(vg.vendorId)}" style="padding:4px 12px 6px;font-size:11px;color:var(--muted);">checking feed…</div>`
+        : "";
 
       return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:4px;" class="vendor-section-header">
@@ -2111,16 +2108,38 @@ document.querySelectorAll('.vendor-productid-byvendor').forEach(function(input) 
   var orig = input.value;
   input.addEventListener('blur', async function() {
     if (input.value === orig) return;
-    const r = await fetch('/providers/vendor-product-id', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, productId: input.value })
-    });
-    const j = await r.json();
-    showToast(j.message, r.ok);
-    if (r.ok) orig = input.value;
-    else input.value = orig;
+    try {
+      const r = await fetch('/providers/vendor-product-id', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, productId: input.value })
+      });
+      const j = await r.json();
+      showToast(j.message, r.ok);
+      if (r.ok) orig = input.value;
+      else input.value = orig;
+    } catch {
+      // Without this the rejection is unhandled: no toast, and the field keeps
+      // an edit the server never received — which reads as saved on next blur.
+      showToast('Request failed — product ID not saved', false);
+      input.value = orig;
+    }
   });
+});
+
+// ── By Vendor tab: feed health, fetched after render ─────────────────────
+// Deliberately not part of the page HTML — see GET /providers/feed-health.
+document.querySelectorAll('.vendor-feed-health').forEach(async function(el) {
+  try {
+    const r = await fetch('/providers/feed-health');
+    const j = await r.json();
+    el.textContent = j.label;
+    el.style.color = j.ok ? 'var(--green)' : 'var(--red)';
+    if (j.detail) el.title = j.detail;
+  } catch {
+    el.textContent = 'feed status unavailable';
+    el.style.color = 'var(--muted)';
+  }
 });
 
 // ── By Vendor tab: toggle enabled/disabled ───────────────────────────────
@@ -2870,18 +2889,18 @@ async function handleRequest(req, res) {
   if (req.method === "GET" && url === "/providers") {
     let client = null;
     let readOnly = false;
-    let providers, scrapeStatus, failureCount, vendorGroups, feedHealth;
+    let providers, scrapeStatus, failureCount, vendorGroups;
     try {
       client = getSqldClient();
       await initProviderSchema(client);
-      // probeFeedHealth never rejects, so it cannot drag the page into the
-      // read-only fallback; it resolves to null when the probe itself errored.
-      [providers, scrapeStatus, failureCount, vendorGroups, feedHealth] = await Promise.all([
+      // The feed probe is deliberately absent here — see GET
+      // /providers/feed-health. Awaiting it would put an external vendor
+      // endpoint on this page's critical path.
+      [providers, scrapeStatus, failureCount, vendorGroups] = await Promise.all([
         getProviders(client),
         getVendorScrapeStatus(client).catch(() => null),
         getFailureCount(client),
         getProvidersByVendor(client).catch(() => []),
-        probeFeedHealth(),
       ]);
     } catch {
       readOnly = true;
@@ -2893,7 +2912,6 @@ async function handleRequest(req, res) {
       scrapeStatus = null;
       failureCount = 0;
       vendorGroups = [];
-      feedHealth = null;
     } finally {
       if (client)
         try {
@@ -2903,9 +2921,7 @@ async function handleRequest(req, res) {
         }
     }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(
-      renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups, feedHealth)
-    );
+    res.end(renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups));
     return;
   }
 
@@ -3082,6 +3098,18 @@ async function handleRequest(req, res) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
     }
+    return;
+  }
+
+  // ── GET /providers/feed-health ─────────────────────────────────────────
+  // Served separately from the provider page on purpose: this calls an
+  // external vendor endpoint, and buildFeedState allows two 15s attempts plus
+  // a 2s retry delay. On the page's critical path a hanging feed would stall
+  // the whole provider editor for ~32s after each cache expiry (STRK-324).
+  if (req.method === "GET" && url === "/providers/feed-health") {
+    const health = await probeFeedHealth();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(health || { ok: false, label: "feed status unavailable", detail: "" }));
     return;
   }
 

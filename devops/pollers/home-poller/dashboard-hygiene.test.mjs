@@ -165,6 +165,29 @@ test("the feed health probe is bounded so a long-running dashboard refreshes (ST
   );
 });
 
+test("the feed probe stays off the /providers response path (STRK-324)", () => {
+  const handler = DASHBOARD_SRC.slice(
+    DASHBOARD_SRC.indexOf('url === "/providers"'),
+    DASHBOARD_SRC.indexOf('url === "/providers/coin-data"')
+  );
+  assert.ok(handler.length > 0, "expected a GET /providers handler");
+
+  // buildFeedState allows two 15s attempts plus a 2s retry delay. Awaiting it
+  // while rendering would stall the entire provider editor for ~32s on the
+  // first load after each cache expiry whenever the vendor endpoint hangs.
+  assert.doesNotMatch(
+    handler,
+    /probeFeedHealth\(/,
+    "the provider page must not await an external vendor endpoint; the health " +
+      "line is fetched client-side from GET /providers/feed-health"
+  );
+  assert.match(
+    DASHBOARD_SRC,
+    /url === "\/providers\/feed-health"/,
+    "expected a separate feed-health endpoint"
+  );
+});
+
 test("By Vendor URL input honors the readOnly flag (STRK-323)", () => {
   assert.match(
     renderLineFor("vendor-url-byvendor"),
