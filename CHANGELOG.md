@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.94] - 2026-08-02
+
+### Fixed — STRK-327: Best Price ticker froze when built on a hidden tab
+
+- **Ticker animation**: the Best Price ticker no longer reveals frozen with a horizontal
+  scrollbar after the page is reloaded on Inventory or Market, or after a Market setting
+  re-renders it while Dashboard is hidden. It sizes its scroll loop from a measured width,
+  which reads zero inside a `display:none` panel, so it fell back to the static layout and
+  nothing re-measured on reveal; `activateTab` now repairs it (STRK-327)
+- **Short tickers unaffected**: a genuinely static track — fewer than four items, where the
+  centring and scrollbar are intentional (STRK-317) — is left alone. The repair keys on the
+  duplicate content block that only looping tracks carry, not on the overloaded `static`
+  class, so a short track is never animated against a gap (STRK-327)
+- **Test coverage**: both directions are pinned and mutation-verified. Also de-flaked the
+  goldback ticker-consistency test, whose locator spanned every mounted track and could
+  resolve to two nodes while a superseded track awaited its sweep (STRK-327)
+
+---
+
 ## [3.35.93] - 2026-08-02
 
 ### Changed — STRK-326: Settings › Layout reworked for the tab shell

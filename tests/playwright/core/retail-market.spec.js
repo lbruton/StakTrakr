@@ -1449,6 +1449,15 @@ test.describe("core/retail-market", () => {
   }) => {
     await setupRetailFixture(page);
 
+    // DE-FLAKE (STRK-327). The locator spans every track in the container, and
+    // the superseded track lingers until the rAF sweep in _finalizeTickerTrack —
+    // the trap already recorded for STRK-317. The fixture's boot renders twice
+    // (app boot, then refreshMarketData), so under full-suite load both tracks
+    // can still be mounted here, and the single "Goldback" fixture slug then
+    // resolves to two .premium nodes and a strict-mode violation. Observed
+    // failing once in a 572-test run; passes in isolation and in-file.
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+
     const tickerPremium = page
       .locator(".ticker-block[data-ticker-block='primary'] .ticker-item")
       .filter({ hasText: "Goldback" })
@@ -1781,6 +1790,93 @@ test.describe("core/retail-market", () => {
     expect(renderStats.tracksCreated).toBeGreaterThan(1);
 
     await expect(track).toHaveCount(1);
+  });
+
+  // STRK-327: the ticker sizes its scroll loop from a measured block width, so a
+  // rebuild that lands while #tabViewDashboard is display:none measures 0, takes
+  // the static branch, and reveals frozen — with the STRK-317 scrollbar showing
+  // for the wrong reason. activateTab re-measures on reveal.
+  //
+  // Lives here rather than in tab-shell.spec.js (where the sibling
+  // updatePortalHeight guard sits) because it needs the seeded retail fixture to
+  // reach a >=4-item animated track at all.
+  test("STRK-327 — a ticker rendered while Dashboard is hidden animates on reveal", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+
+    // Only the animated path is repaired. A <4-item track is legitimately static
+    // and must stay so, and this assertion would pass vacuously against one.
+    const itemCount = await page
+      .locator("#bestPriceTickerEl .ticker-block[data-ticker-block='primary'] .ticker-item")
+      .count();
+    expect(itemCount).toBeGreaterThanOrEqual(4);
+
+    const readTrack = () =>
+      page.evaluate(() => {
+        const el = document.querySelector("#bestPriceTickerEl .ticker-track");
+        if (!el) return null;
+        return {
+          isStatic: el.classList.contains("static"),
+          loopWidth: Number(el.dataset.loopWidth || 0),
+        };
+      });
+
+    // SELF-CHECK, and the reason this test needs no setup of its own: the shared
+    // fixture boots at #/market (vendor prices live in that panel), so
+    // refreshMarketData renders the ticker into a display:none Dashboard. That
+    // is the reported "reload on another tab" repro, reproduced for free — and
+    // it means the whole retail-market suite has been running against a frozen
+    // ticker, unnoticed, because every other assertion here checks structure and
+    // content rather than whether the thing actually moves.
+    //
+    // If this ever stops arriving broken, the reveal assertions below go vacuous.
+    const beforeReveal = await readTrack();
+    expect(beforeReveal.isStatic).toBe(true);
+    expect(beforeReveal.loopWidth).toBe(0);
+
+    await page.locator("#tabBtnDashboard").click();
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+
+    // The repair: animating again, and no scrollbar, because `static` is gone.
+    const repaired = await readTrack();
+    expect(repaired.isStatic).toBe(false);
+    expect(repaired.loopWidth).toBeGreaterThan(0);
+    expect(await track.evaluate((el) => getComputedStyle(el).overflowX)).not.toBe("auto");
+  });
+
+  // STRK-327: the mirror case — a genuinely short track must survive the reveal
+  // repair untouched. The `static` class is overloaded (it marks both a <4-item
+  // track and a failed measurement), so a repair keyed on the class rather than
+  // on the duplicate block would strip it here and animate a single-block track
+  // against nothing, exposing a gap at the wrap point and losing STRK-317's
+  // centering and scrollbar.
+  test("STRK-327 — a legitimately static track stays static across tab switches", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    await page.evaluate((slug) => {
+      const priceMap = _getRetailCoins();
+      window._v2RetailData = { prices: { [slug]: priceMap[slug] } };
+      document.getElementById("bestPriceTickerEl").dataset.tickerSignature = "";
+      window.renderBestPriceTicker();
+    }, SLUG_SILVER_Z);
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+    await expect(track).toHaveClass(/\bstatic\b/);
+
+    await page.locator("#tabBtnMarket").click();
+    await expect(page.locator("#tabViewDashboard")).toBeHidden();
+    await page.locator("#tabBtnDashboard").click();
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+
+    await expect(track).toHaveClass(/\bstatic\b/);
+    expect(await track.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
   });
 
   // =========================================================================
