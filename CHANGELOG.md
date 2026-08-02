@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.95] - 2026-08-02
+
+### Changed — STRK-328: Inventory is now always visible
+
+- **Inventory tab locked**: Inventory joins Dashboard as an always-visible tab and its
+  Settings › Appearance › Layout checkbox is disabled. It is not a peer of Market and
+  Collections — it holds the only control that can add or edit an item, and the Dashboard is
+  derived entirely from that data, so hiding it left a new user with empty totals and no way
+  to fill them (STRK-328)
+- **Stored hidden state healed**: anyone whose saved config already had the search bar and
+  table turned off is restored on load. Locking alone would only have stopped writing those
+  values, leaving a permanently visible tab opening an empty panel with the checkbox now
+  disabled — no way back from inside the app (STRK-328)
+- **Dashboard sections unaffected**: the healing is scoped to locked tabs that have no other
+  control for their sections, so Dashboard's three modules stay independently hideable. A
+  minimal Dashboard remains a legitimate end state (STRK-328)
+
+---
+
 ## [3.35.94] - 2026-08-02
 
 ### Fixed — STRK-327: Best Price ticker froze when built on a hidden tab
