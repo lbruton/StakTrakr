@@ -752,7 +752,10 @@ async function routeExchangeAndCharts(page, exchangeRates = { EUR: 0.9 }) {
  */
 async function bootMarketDataPage(page) {
   await page.clock.setFixedTime(FIXED_NOW);
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Market tab (STRK-282): vendor prices live in that panel
+  // and the v2 shell boots on Dashboard, so a bare /index.html renders them
+  // display:none.
+  await page.goto("/index.html#/market", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     () =>
       typeof window.renderVendorPrices === "function" &&
@@ -1317,7 +1320,8 @@ test.describe("core/retail-market", () => {
   test("refreshes retail providers when AbortSignal.timeout is unavailable (STRK-213)", async ({
     page,
   }) => {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    // Deep-link into the Market tab (STRK-282) — see bootMarketDataPage.
+    await page.goto("/index.html#/market", { waitUntil: "domcontentloaded" });
 
     // Boot's background sync populates providers from the default mock. Wait for it so the
     // harness is proven working and the in-progress guard has cleared before our probe.
@@ -1667,6 +1671,17 @@ test.describe("core/retail-market", () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await setupRetailFixture(page);
+    // The ticker is a DASHBOARD section, unlike the vendor-price tables this
+    // fixture otherwise serves — and setupRetailFixture boots into Market. This
+    // assertion measures real layout (overflowX / scrollWidth), which only has
+    // meaning while the element is actually rendered (STRK-282).
+    //
+    // Switch via window.activateTab, not by clicking the header nav: this test
+    // runs at 390px, where .app-tab-nav is display:none in favour of the mobile
+    // bottom bar, so the header button is not clickable. tabs.js exposes
+    // activateTab for exactly this.
+    await page.evaluate(() => window.activateTab("dashboard"));
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
 
     const LONG_NAME = "Australian Silver Kookaburra 1 oz Coin";
 

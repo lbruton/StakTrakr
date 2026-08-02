@@ -16860,3 +16860,209 @@ input[type="number"] {
   margin: 0;
   padding: 12px 16px 0;
 }
+
+/* =============================================================================
+   V2 TAB SHELL (STRK-282)
+
+   Header text nav (desktop) + fixed bottom tab bar (mobile) driving
+   visibility wrappers around the existing page sections.
+
+   Ported from the STRK-282 prototype branch. The prototype's stand-in rule
+   hiding the header quick-links (#headerSyncBtn, #headerTrendBtn, …) is
+   deliberately NOT carried over: the header-retirement campaign
+   (STRK-283..290) removed that markup outright, so the rule would target
+   eight ids that no longer exist.
+   ============================================================================= */
+
+/* Desktop header nav — Variant A: text labels, gold underline on active.
+   Anchored right so the tabs end at the settings cluster instead of
+   floating mid-header. */
+.app-tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: var(--spacing-md);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* With the quick-links retired only Theme + Settings remain, so the 2-col
+   grid fallback below 580px just reserves an empty column — flex always. */
+.app-header .app-header-actions {
+  display: flex;
+  align-items: center;
+  margin-left: 0;
+}
+
+.app-tab-btn {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  padding: 8px 14px 10px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.app-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.app-tab-btn[aria-selected="true"] {
+  color: var(--text-primary);
+}
+
+.app-tab-btn[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gold);
+}
+
+/* Tab views — visibility wrappers around the existing page sections.
+   min-width: 0 is load-bearing: main.container is display:grid, and a grid
+   item's default min-width:auto lets the chart canvases inflate the track
+   into a resize feedback loop (same scar the sections carry). */
+.tab-view {
+  display: none;
+  min-width: 0;
+}
+
+/* The active view has to REPLICATE .container's grid, not just become visible.
+   Section spacing was never a section margin — it came entirely from
+   .container's `gap`. Once the sections moved inside these wrappers that gap
+   started applying BETWEEN the tab views (of which one is ever visible, so it
+   renders nowhere) and the sections inside stacked flush against each other.
+   Same gap token, so the tabs are indistinguishable from the old flat layout.
+   minmax(0, 1fr) keeps the min-width:0 guarantee for the grid track itself. */
+.tab-view.active {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-xl);
+  align-content: start;
+}
+
+/* Inventory reads as ONE surface: the search/chips card and the table card are
+   a single control-plus-results unit, so they butt together and the seam
+   between them is dissolved rather than sitting in a gap. */
+#tabViewInventory.active {
+  gap: 0;
+}
+
+#tabViewInventory > #searchSectionEl {
+  /* .search-section carries its own margin-bottom (a legacy of the pre-grid
+     layout), so the old spacing here was the container gap PLUS this margin
+     stacked. Collapsing the gap alone leaves the margin holding the two cards
+     apart. */
+  margin-bottom: 0;
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+#tabViewInventory > #tableSectionEl {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* Collections placeholder */
+.collections-empty {
+  text-align: center;
+  padding: 56px 20px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  color: var(--text-muted);
+}
+
+.collections-empty h2 {
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.collections-empty p {
+  max-width: 460px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Mobile bottom tab bar — fixed, thumb-reachable; replaces header nav <768px */
+.app-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 900;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  justify-content: space-around;
+}
+
+/* 0.7rem (~11.2px) rather than the prototype's 0.62rem (~9.9px), and
+   --text-secondary rather than --text-muted: this is primary navigation, and
+   muted at sub-10px was hard to read across the four themes. */
+.bottom-nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 2px 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* Keyboard users move through the tablist with the arrow keys, so the focused
+   tab has to be visible — the roving tabindex means only one is ever in the
+   page tab order. */
+.bottom-nav-btn:focus-visible,
+.app-tab-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.bottom-nav-btn .bottom-nav-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.bottom-nav-btn[aria-selected="true"] {
+  color: var(--gold);
+}
+
+@media (max-width: 768px) {
+  .app-tab-nav {
+    display: none;
+  }
+
+  .app-bottom-nav {
+    display: flex;
+  }
+
+  /* Keep scrollable content clear of the fixed bottom nav */
+  main.container {
+    padding-bottom: 72px;
+  }
+}

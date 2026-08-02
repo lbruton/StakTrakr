@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.92] - 2026-08-02
+
+### Changed — STRK-282: v2 tab shell
+
+- **Tabbed layout**: the page is now organised into Dashboard, Inventory, Market, and Collections
+  views, driven by a text nav in the header and a fixed bottom bar on mobile. Section contents and
+  behaviour are unchanged — the tabs only control which group is on screen (STRK-282)
+- **Deep links**: each view has its own route (`#/dashboard`, `#/inventory`, `#/market`,
+  `#/collections`), so a tab can be bookmarked or linked directly (STRK-282)
+- **Merged inventory surface**: the search/filter bar and the inventory table now render as one
+  continuous card instead of two separated panels (STRK-282)
+- **Fixed**: the inventory recovery banner is no longer hidden when it appears while another tab is
+  active — it warns that inventory could not be loaded, so it now sits above the tabs and stays
+  visible wherever you are (STRK-282)
+- **Collections**: placeholder view, built out under STRK-254 (STRK-282)
+
+---
+
 ## [3.35.91] - 2026-08-01
 
 ### Changed — STRK-322: MintBuilder becomes a first-class frontend vendor

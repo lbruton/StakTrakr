@@ -110,7 +110,16 @@ const showInventoryRecoveryBanner = ({ cloudConnected } = {}) => {
   banner.appendChild(copy);
   banner.appendChild(actions);
 
-  tableSection.parentNode.insertBefore(banner, tableSection);
+  // Mount above the tab views, not next to the table (STRK-282). This banner
+  // warns that inventory could not be loaded — a data-integrity alert that has
+  // to be seen on load. Inserting it beside #tableSectionEl used to put it in
+  // <main>, but that section now lives inside the Inventory tab view, which is
+  // display:none whenever another tab is active. The user would land on
+  // Dashboard and never see the warning. Falls back to the old placement if
+  // the shell is absent.
+  const shellRoot = tableSection.closest("main.container");
+  if (shellRoot) shellRoot.insertBefore(banner, shellRoot.firstChild);
+  else tableSection.parentNode.insertBefore(banner, tableSection);
 };
 
 const dismissInventoryRecoveryBanner = () => {
