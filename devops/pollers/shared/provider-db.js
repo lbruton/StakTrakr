@@ -330,17 +330,60 @@ export async function updateVendorFields(client, coinSlug, vendorId, { selector,
 }
 
 /**
- * Get the latest scrape status for every vendor.
- * Returns a Map keyed by "coinSlug:vendorId" with { price, isFailed, scrapedAt }.
+ * Read one vendor row's raw hints JSON.
  *
  * @param {import("@libsql/client").Client} client
- * @returns {Promise<Map<string, {price: number|null, isFailed: boolean, scrapedAt: string}>>}
+ * @param {string} coinSlug
+ * @param {string} vendorId
+ * @returns {Promise<string|null>} The stored hints text, or null when unset.
+ * @throws {Error} When no such provider row exists.
+ */
+export async function getVendorHints(client, coinSlug, vendorId) {
+  const result = await client.execute({
+    sql: "SELECT hints FROM provider_vendors WHERE coin_slug = ? AND vendor_id = ?",
+    args: [coinSlug, vendorId],
+  });
+  if (result.rows.length === 0) throw new Error(`No provider row for ${vendorId}/${coinSlug}`);
+  return result.rows[0].hints ?? null;
+}
+
+/**
+ * Update only a vendor's hints, leaving selector untouched.
+ *
+ * Deliberately separate from updateVendorFields, which writes both columns:
+ * calling that one with just hints resolves selector to null and silently wipes
+ * it. The dashboard's API Product ID input edits hints alone (STRK-324).
+ *
+ * @param {import("@libsql/client").Client} client
+ * @param {string} coinSlug
+ * @param {string} vendorId
+ * @param {string|null} hints
+ */
+export async function updateVendorHints(client, coinSlug, vendorId, hints) {
+  await client.execute({
+    sql: "UPDATE provider_vendors SET hints = ?, updated_at = datetime('now') WHERE coin_slug = ? AND vendor_id = ?",
+    args: [hints ?? null, coinSlug, vendorId],
+  });
+}
+
+/**
+ * Get the latest scrape status for every vendor.
+ * Returns a Map keyed by "coinSlug:vendorId" with
+ * { price, isFailed, scrapedAt, source }.
+ *
+ * `source` records how the row was obtained ("mintbuilder-api" for a direct
+ * feed hit, "firecrawl"/"playwright"/… for a page scrape). The dashboard uses
+ * it to show, per row, whether an API-fed vendor actually matched the feed or
+ * quietly fell back to scraping (STRK-324).
+ *
+ * @param {import("@libsql/client").Client} client
+ * @returns {Promise<Map<string, {price: number|null, isFailed: boolean, scrapedAt: string, source: string|null}>>}
  */
 export async function getVendorScrapeStatus(client) {
   const result = await client.execute(`
-    SELECT coin_slug, vendor, price, is_failed, scraped_at
+    SELECT coin_slug, vendor, price, is_failed, scraped_at, source
     FROM (
-      SELECT coin_slug, vendor, price, is_failed, scraped_at,
+      SELECT coin_slug, vendor, price, is_failed, scraped_at, source,
              ROW_NUMBER() OVER (PARTITION BY coin_slug, vendor ORDER BY scraped_at DESC) AS rn
       FROM price_snapshots
     ) sub
@@ -352,6 +395,7 @@ export async function getVendorScrapeStatus(client) {
       price: row.price,
       isFailed: row.is_failed === 1,
       scrapedAt: row.scraped_at,
+      source: row.source ?? null,
     });
   }
   return map;

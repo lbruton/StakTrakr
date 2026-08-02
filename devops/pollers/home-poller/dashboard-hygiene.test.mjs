@@ -98,6 +98,47 @@ test("PROVIDERS_FILE resolves under DATA_DIR, not the script directory (STRK-323
   );
 });
 
+test("By Vendor API product ID input honors the readOnly flag (STRK-324)", () => {
+  assert.match(
+    renderLineFor("vendor-productid-byvendor"),
+    /readOnly \? "disabled" : ""/,
+    "the feed product ID pin is a write control and must be disabled when sqld is down"
+  );
+});
+
+test("the product-id endpoint writes hints only, never updateVendorFields (STRK-324)", () => {
+  const handler = DASHBOARD_SRC.slice(
+    DASHBOARD_SRC.indexOf('url === "/providers/vendor-product-id"'),
+    DASHBOARD_SRC.indexOf('url === "/providers/bulk-toggle"')
+  );
+  assert.ok(handler.length > 0, "expected a /providers/vendor-product-id handler");
+  assert.match(
+    handler,
+    /updateVendorHints\(/,
+    "must use the hints-only writer so the selector column survives"
+  );
+  assert.doesNotMatch(
+    handler,
+    /updateVendorFields\(/,
+    "updateVendorFields writes selector AND hints — calling it here resolves " +
+      "selector to null and silently wipes it"
+  );
+  assert.match(
+    handler,
+    /mergeHintsProductId\(/,
+    "must merge into the existing hints JSON rather than overwrite the column"
+  );
+});
+
+test("the feed health probe is bounded so a long-running dashboard refreshes (STRK-324)", () => {
+  assert.match(
+    DASHBOARD_SRC,
+    /getFeedIndex\(\{\s*maxAgeMs:/,
+    "getFeedIndex memoizes forever by default; the dashboard is a long-running " +
+      "process, so an unbounded call would freeze the health line at first page load"
+  );
+});
+
 test("By Vendor URL input honors the readOnly flag (STRK-323)", () => {
   assert.match(
     renderLineFor("vendor-url-byvendor"),
