@@ -272,6 +272,33 @@ test.describe("core/STRK-326 tab visibility", () => {
     await expect(page.locator("#tabViewDashboard")).toBeVisible();
     await expect(page.locator("#tabViewMarket")).toBeHidden();
     await expect(page.locator("#tabBtnDashboard")).toHaveAttribute("aria-selected", "true");
+    // The URL must follow the fallback. Leaving "#/market" in the address bar
+    // while Dashboard renders makes the visible panel and any re-shared link
+    // disagree indefinitely.
+    await expect(page).toHaveURL(/#\/dashboard$/);
+  });
+
+  test("a hashchange onto a hidden tab corrects the URL without adding history", async ({
+    page,
+  }) => {
+    // The hashchange handler passes updateHash=false, so the fallback has to
+    // rewrite the hash itself — and via replaceState, so Back still leaves by
+    // the door the user came in through rather than bouncing on a rewritten entry.
+    await gotoWithLayout(page, { vendorPrices: false });
+    await page.locator("#tabBtnInventory").click();
+    await expect(page).toHaveURL(/#\/inventory$/);
+
+    await page.evaluate(() => {
+      window.location.hash = "#/market";
+    });
+
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+    await expect(page).toHaveURL(/#\/dashboard$/);
+
+    // One Back step returns to Inventory: the correction replaced the #/market
+    // entry instead of stacking a #/dashboard one on top of it.
+    await page.goBack();
+    await expect(page.locator("#tabViewInventory")).toBeVisible();
   });
 
   test("Dashboard cannot be hidden, so a fallback target always exists", async ({ page }) => {

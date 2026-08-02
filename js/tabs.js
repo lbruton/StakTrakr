@@ -110,6 +110,16 @@
 
     if (updateHash && window.location.hash !== `#/${tab}`) {
       window.location.hash = `#/${tab}`;
+    } else if (!updateHash && tab !== requested && tabFromHash()) {
+      // Fell back off a hidden route on a path that does not own the hash — the
+      // boot deep link and the hashchange handler both pass updateHash=false.
+      // Without this the address bar keeps "#/market" while Dashboard renders,
+      // so the panel and any bookmarked or shared URL disagree indefinitely.
+      // replaceState rather than assignment: it corrects the URL without
+      // pushing a history entry (and without re-firing hashchange), so Back
+      // still leaves by the door the user came in through. Guarded on
+      // tabFromHash() so a hashless index.html stays hashless.
+      history.replaceState(null, "", `#/${tab}`);
     }
 
     // Recompute any geometry that was measured while this panel was hidden.
