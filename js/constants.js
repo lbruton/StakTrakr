@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.92";
+const APP_VERSION = "3.35.93";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1340,6 +1340,13 @@ const saveFilterChipCategoryConfig = (config) => {
 
 /**
  * Default layout section configuration. Order determines display order.
+ *
+ * `collections` has no DOM section of its own — the Collections tab is still a
+ * placeholder panel (STRK-254). It is carried here anyway so the STRK-326 tab
+ * visibility control has somewhere to persist, which avoids a second
+ * localStorage key and the dual registration it would require. Existing users
+ * pick it up for free: _loadSectionConfig appends defaults the saved config
+ * does not know about.
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
@@ -1349,6 +1356,7 @@ const LAYOUT_SECTION_DEFAULTS = [
   { id: "search", label: "Search & filter bar", enabled: true },
   { id: "table", label: "Inventory table", enabled: true },
   { id: "vendorPrices", label: "Vendor Prices", enabled: true },
+  { id: "collections", label: "Collections", enabled: true },
 ];
 
 /**

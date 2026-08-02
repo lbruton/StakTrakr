@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.93] - 2026-08-02
+
+### Changed — STRK-326: Settings › Layout reworked for the tab shell
+
+- **Tabs**: a new group in Settings › Appearance › Layout shows or hides whole tabs. A hidden tab
+  is removed from both the header nav and the mobile bottom bar, so unticking Vendor Prices no
+  longer leaves a live Market link that opens an empty panel (STRK-326)
+- **Dashboard sections**: the old flat "Visible sections" list is now scoped to the Dashboard tab.
+  Its cross-tab reorder arrows moved entries between panels a user could never see side by side,
+  which made the control look broken; Inventory, Market, and Collections hold a single module each
+  and are managed by the Tabs group instead (STRK-326)
+- **Dashboard is always visible**: locked on, guaranteeing a fallback target — a bookmarked
+  `#/market` link to a tab you have since hidden now lands on Dashboard rather than a blank
+  shell, as does hiding the tab you are currently viewing (STRK-326)
+- **Show Realized G/L** is unchanged and stays in the Layout header (STRK-326)
+
+---
+
 ## [3.35.92] - 2026-08-02
 
 ### Changed — STRK-282: v2 tab shell

@@ -17043,6 +17043,16 @@ input[type="number"] {
   outline-offset: -2px;
 }
 
+/* STRK-326: hiding a tab in Settings sets [hidden] on its nav buttons. Both
+   classes declare their own `display`, which outranks the user-agent
+   `[hidden] { display: none }` rule — without this the attribute would be set
+   correctly and change nothing on screen. !important is the escape hatch for
+   exactly that specificity fight, not a shortcut. */
+.app-tab-btn[hidden],
+.bottom-nav-btn[hidden] {
+  display: none !important;
+}
+
 .bottom-nav-btn .bottom-nav-icon {
   font-size: 1.05rem;
   line-height: 1;
