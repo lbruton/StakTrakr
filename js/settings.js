@@ -2814,8 +2814,15 @@ const applyLayoutOrder = () => {
     el.style.display = section.enabled ? "" : "none";
     // Fall back to the container when the shell is absent, so this keeps
     // working if the tab views are ever removed.
-    const view = document.getElementById(LAYOUT_SECTION_TAB_VIEW[section.id] || "");
-    (view || container).append(el);
+    //
+    // The `instanceof HTMLElement` test is load-bearing, not defensive noise:
+    // safeGetElement returns a TRUTHY dummy on a miss whose methods no-op
+    // silently, so a plain `view || container` would always take the dummy
+    // branch and append() would quietly do nothing — every section would stay
+    // where it was with no error to show for it.
+    const view = safeGetElement(LAYOUT_SECTION_TAB_VIEW[section.id] || "");
+    const target = view instanceof HTMLElement ? view : container;
+    target.append(el);
   }
 };
 const applyLayoutVisibility = applyLayoutOrder;

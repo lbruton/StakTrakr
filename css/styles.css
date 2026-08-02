@@ -17014,13 +17014,16 @@ input[type="number"] {
   justify-content: space-around;
 }
 
+/* 0.7rem (~11.2px) rather than the prototype's 0.62rem (~9.9px), and
+   --text-secondary rather than --text-muted: this is primary navigation, and
+   muted at sub-10px was hard to read across the four themes. */
 .bottom-nav-btn {
   flex: 1;
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 600;
   display: flex;
   flex-direction: column;
@@ -17029,6 +17032,15 @@ input[type="number"] {
   padding: 7px 2px 6px;
   border-radius: var(--radius);
   cursor: pointer;
+}
+
+/* Keyboard users move through the tablist with the arrow keys, so the focused
+   tab has to be visible — the roving tabindex means only one is ever in the
+   page tab order. */
+.bottom-nav-btn:focus-visible,
+.app-tab-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
 }
 
 .bottom-nav-btn .bottom-nav-icon {
