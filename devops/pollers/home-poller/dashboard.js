@@ -16,6 +16,8 @@ import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync, spawn } from "node:child_process";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
 import {
   initProviderSchema,
@@ -46,14 +48,15 @@ import {
   getProvidersByVendor,
 } from "./provider-db.js";
 
-const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
-const LOG_FILE = process.env.POLLER_LOG || "/data/logs/retail-poller.log";
-const LOG_LINES = 300;
-const IFACE = process.env.NET_IFACE || "eth0";
-const PROVIDERS_FILE = new URL("data/retail/providers.json", import.meta.url).pathname;
-const DATA_DIR = new URL("data/", import.meta.url).pathname;
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-// Load .env if not already in environment
+// Load .env if not already in environment.
+//
+// MUST run before any const below reads process.env. The container exports its
+// config directly, but the LXC/bare-metal install (setup-lxc.sh) ships a .env
+// beside the script instead — and every env-derived constant here is evaluated
+// at module load. Declaring them above this call silently ignores the .env
+// value and falls back to the default (STRK-323).
 (function loadEnv() {
   const envFile = new URL(".env", import.meta.url).pathname;
   if (!existsSync(envFile)) return;
@@ -63,6 +66,19 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^[\x27\x22]|[\x27\x22]$/g, "");
   }
 })();
+
+const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
+const LOG_FILE = process.env.POLLER_LOG || "/data/logs/retail-poller.log";
+const LOG_LINES = 300;
+const IFACE = process.env.NET_IFACE || "eth0";
+// Resolve the data root the same way every other poller script does, so the
+// dashboard reads and writes the file export-providers-json.js actually
+// produces (DATA_DIR/retail/providers.json). Deriving this from
+// import.meta.url pointed at /app/data — the image layer — instead of the
+// /data volume the compose file mounts, which silently broke both the
+// sqld-down read fallback and POST /providers/export (STRK-323).
+const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
+const PROVIDERS_FILE = join(DATA_DIR, "retail", "providers.json");
 
 // ---------------------------------------------------------------------------
 // sqld client
@@ -1360,9 +1376,9 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
           return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
         ${dot}
         <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
-        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://...">
+        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://..." ${readOnly ? "disabled" : ""}>
         ${priceText}
-        <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;">${item.enabled !== false ? "On" : "Off"}</button>
+        <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;" ${readOnly ? "disabled" : ""}>${item.enabled !== false ? "On" : "Off"}</button>
       </div>`;
         })
         .join("");
