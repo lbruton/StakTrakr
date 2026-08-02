@@ -464,9 +464,12 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0) => {
  * re-measures, so it stays that way until the next rebuild that happens to run
  * with Dashboard on screen. activateTab (js/tabs.js) calls this on reveal.
  *
- * Repair-only by design — it never marks a track static. activateTab also fires
- * when switching *away* from Dashboard, where a healthy track would measure 0
- * and get broken by an unconditional recompute.
+ * Repair-only by construction: it returns on a zero measurement rather than
+ * delegating, so it can only ever move a track from static to animated, never
+ * the reverse. That matters because activateTab also fires when switching
+ * *away* from Dashboard, where a perfectly healthy track measures 0 — and
+ * because a switch can land between a track's append and its pending rAF
+ * finalize, when the track is neither static nor yet sized.
  *
  * The discriminator for "safe to animate" is the duplicate block, not the
  * `static` class: that class is overloaded, marking both a genuinely short
@@ -477,11 +480,11 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0) => {
  * @returns {void}
  */
 const refreshTickerGeometry = () => {
-  // getElementById, not safeGetElement: this is existence-sensitive, and the
-  // safeGetElement dummy is truthy with silently no-op members, so a missing
-  // container would sail past the guard and querySelector against a shim.
-  const container = document.getElementById("bestPriceTickerEl");
-  if (!container) return;
+  const container = safeGetElement("bestPriceTickerEl");
+  // instanceof rather than a truthiness check: safeGetElement returns a truthy
+  // dummy whose members silently no-op, so `if (!container)` would sail past it
+  // and then querySelector against a shim.
+  if (!(container instanceof HTMLElement)) return;
 
   const track = container.querySelector(".ticker-track");
   if (!track) return;
@@ -494,6 +497,11 @@ const refreshTickerGeometry = () => {
   const primaryBlock = track.querySelector('[data-ticker-block="primary"]');
   const duplicateBlock = track.querySelector('[data-ticker-block="duplicate"]');
   if (!primaryBlock || !duplicateBlock) return;
+
+  // Still unmeasurable — the panel is hidden, so leave the track exactly as it
+  // is and wait for a later reveal. Delegating here would let the shared sizing
+  // helper apply `static`, which is the one thing this function must not do.
+  if (!(primaryBlock.getBoundingClientRect().width > 0)) return;
 
   // Phase is 0 for the case being repaired (_getTickerLoopPhase returns 0 for a
   // static track), so this restarts the loop from the top rather than jumping.

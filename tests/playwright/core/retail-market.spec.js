@@ -1815,6 +1815,13 @@ test.describe("core/retail-market", () => {
       .count();
     expect(itemCount).toBeGreaterThanOrEqual(4);
 
+    /**
+     * Read the ticker track's animation state straight from the DOM.
+     *
+     * Deliberately reports the two fields that discriminate a running loop from
+     * the STRK-327 failure: a visibility-only assertion passes either way.
+     * @returns {Promise<{isStatic: boolean, loopWidth: number}|null>} Track state, or null when absent.
+     */
     const readTrack = () =>
       page.evaluate(() => {
         const el = document.querySelector("#bestPriceTickerEl .ticker-track");
