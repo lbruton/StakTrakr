@@ -212,3 +212,220 @@ test.describe("core/STRK-282 tab shell", () => {
     await expect(banner).toBeVisible();
   });
 });
+
+/**
+ * STRK-326 — whole-tab visibility.
+ *
+ * Under the flat "Visible sections" list, unticking the one section a tab owned
+ * emptied that tab but left its nav entry in place, so the user got a live link
+ * to a blank panel. Tab visibility is now derived from the sections a tab owns
+ * and hides the nav entry on both surfaces.
+ */
+test.describe("core/STRK-326 tab visibility", () => {
+  /**
+   * Boot with a layout config that has already disabled some sections.
+   *
+   * Seeded through addInitScript rather than by driving Settings: tabs.js reads
+   * the config at parse time, and the boot path is exactly what a returning user
+   * with saved preferences hits.
+   *
+   * @param {import('@playwright/test').Page} page - Page under test
+   * @param {Record<string, boolean>} disabled - Section id -> enabled flag to override
+   * @param {string} [hash] - Optional route hash to deep-link into
+   * @returns {Promise<void>}
+   */
+  const gotoWithLayout = async (page, disabled, hash = "") => {
+    await suppressWhatsNewPopup(page);
+    await page.addInitScript((off) => {
+      const defaults = [
+        { id: "spotPrices", label: "Spot price cards", enabled: true },
+        { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+        { id: "totals", label: "Summary totals", enabled: true },
+        { id: "search", label: "Search & filter bar", enabled: true },
+        { id: "table", label: "Inventory table", enabled: true },
+        { id: "vendorPrices", label: "Vendor Prices", enabled: true },
+        { id: "collections", label: "Collections", enabled: true },
+      ].map((d) => ({ ...d, enabled: off[d.id] ?? d.enabled }));
+      localStorage.setItem("layoutSectionConfig", JSON.stringify(defaults));
+    }, disabled);
+    await page.goto(`/index.html${hash}`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+  };
+
+  test("a disabled tab is dropped from both nav surfaces", async ({ page }) => {
+    await gotoWithLayout(page, { vendorPrices: false });
+
+    await expect(page.locator("#tabBtnMarket")).toBeHidden();
+    // The mobile bar declares display:flex, which outranks the user-agent
+    // [hidden] rule — without the CSS override the attribute sets and nothing
+    // moves on screen.
+    await expect(page.locator("#appBottomNav [data-tab='market']")).toBeHidden();
+    // Its neighbours are untouched.
+    await expect(page.locator("#tabBtnInventory")).toBeVisible();
+    await expect(page.locator("#tabBtnCollections")).toBeVisible();
+  });
+
+  test("a deep link to a hidden tab falls back to Dashboard", async ({ page }) => {
+    // A bookmark or shared "#/market" URL outlives the setting that hid it.
+    await gotoWithLayout(page, { vendorPrices: false }, "#/market");
+
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+    await expect(page.locator("#tabViewMarket")).toBeHidden();
+    await expect(page.locator("#tabBtnDashboard")).toHaveAttribute("aria-selected", "true");
+    // The URL must follow the fallback. Leaving "#/market" in the address bar
+    // while Dashboard renders makes the visible panel and any re-shared link
+    // disagree indefinitely.
+    await expect(page).toHaveURL(/#\/dashboard$/);
+  });
+
+  test("a hashchange onto a hidden tab corrects the URL without adding history", async ({
+    page,
+  }) => {
+    // The hashchange handler passes updateHash=false, so the fallback has to
+    // rewrite the hash itself — and via replaceState, so Back still leaves by
+    // the door the user came in through rather than bouncing on a rewritten entry.
+    await gotoWithLayout(page, { vendorPrices: false });
+    await page.locator("#tabBtnInventory").click();
+    await expect(page).toHaveURL(/#\/inventory$/);
+
+    await page.evaluate(() => {
+      window.location.hash = "#/market";
+    });
+
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+    await expect(page).toHaveURL(/#\/dashboard$/);
+
+    // One Back step returns to Inventory: the correction replaced the #/market
+    // entry instead of stacking a #/dashboard one on top of it.
+    await page.goBack();
+    await expect(page.locator("#tabViewInventory")).toBeVisible();
+  });
+
+  test("Dashboard cannot be hidden, so a fallback target always exists", async ({ page }) => {
+    // Every section off. Dashboard's own modules go dark, but the tab itself
+    // stays reachable — otherwise there is nowhere to land.
+    await gotoWithLayout(page, {
+      spotPrices: false,
+      bestPriceTicker: false,
+      totals: false,
+      search: false,
+      table: false,
+      vendorPrices: false,
+      collections: false,
+    });
+
+    await expect(page.locator("#tabBtnDashboard")).toBeVisible();
+    // The panel stays ACTIVE, not visible: with every section display:none it
+    // collapses to a zero-size box. Reachability is the property that matters —
+    // an empty Dashboard is a legitimate end state, a dead shell is not.
+    await expect(page.locator("#tabViewDashboard")).toHaveClass(/\bactive\b/);
+    await expect(page.locator("#tabBtnDashboard")).toHaveAttribute("aria-selected", "true");
+    for (const id of ["#tabBtnInventory", "#tabBtnMarket", "#tabBtnCollections"]) {
+      await expect(page.locator(id)).toBeHidden();
+    }
+    const tabCfg = await page.evaluate(() => window.getLayoutTabConfig());
+    expect(tabCfg.find((t) => t.id === "dashboard")).toMatchObject({ enabled: true, locked: true });
+  });
+
+  test("hiding the active tab re-homes the user instead of blanking the shell", async ({
+    page,
+  }) => {
+    await gotoWithLayout(page, {});
+    await page.locator("#tabBtnMarket").click();
+    await expect(page.locator("#tabViewMarket")).toBeVisible();
+
+    await page.evaluate(() => {
+      const cfg = window.getLayoutTabConfig();
+      cfg.find((t) => t.id === "market").enabled = false;
+      window.saveLayoutTabConfig(cfg);
+      window.applyTabVisibility();
+    });
+
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+    await expect(page.locator("#tabBtnMarket")).toBeHidden();
+    await expect(page).toHaveURL(/#\/dashboard$/);
+  });
+
+  test("the Inventory tab toggle drives both sections it owns", async ({ page }) => {
+    // Search bar and table render as one surface, so a half-hidden Inventory tab
+    // is not a state the UI can express any more — one checkbox writes both.
+    await gotoWithLayout(page, {});
+
+    const sections = await page.evaluate(() => {
+      const cfg = window.getLayoutTabConfig();
+      cfg.find((t) => t.id === "inventory").enabled = false;
+      window.saveLayoutTabConfig(cfg);
+      return window
+        .getLayoutSectionConfig()
+        .filter((s) => ["search", "table"].includes(s.id))
+        .map((s) => s.enabled);
+    });
+
+    expect(sections).toEqual([false, false]);
+  });
+
+  test("arrow keys skip a hidden tab", async ({ page }) => {
+    await gotoWithLayout(page, { search: false, table: false });
+
+    await page.locator("#tabBtnDashboard").focus();
+    await page.keyboard.press("ArrowRight");
+    // Inventory sits between Dashboard and Market in the nav; with it hidden the
+    // cycle must land on Market rather than focus an invisible button.
+    await expect(page.locator("#tabBtnMarket")).toBeFocused();
+    await expect(page.locator("#tabViewMarket")).toBeVisible();
+  });
+
+  test("the Layout settings tables split tabs from Dashboard sections", async ({ page }) => {
+    await gotoWithLayout(page, {});
+    await page.evaluate(() => window.showSettingsModal("site"));
+    await expect(page.locator("#settingsPanel_site")).toBeVisible();
+
+    // Tab rows: all four tabs, no reorder arrows.
+    const tabRows = page.locator("#layoutTabConfigContainer tbody tr");
+    await expect(tabRows).toHaveCount(4);
+    await expect(page.locator("#layoutTabConfigContainer .inline-chip-move")).toHaveCount(0);
+    // Dashboard is locked, so its checkbox is disabled.
+    await expect(
+      page.locator("#layoutTabConfigContainer tr[data-section-id='dashboard'] input")
+    ).toBeDisabled();
+
+    // Section rows: Dashboard-owned modules only. Cross-tab ordering was a
+    // control that changed nothing a user could see.
+    const sectionIds = await page.evaluate(() =>
+      [...document.querySelectorAll("#layoutSectionConfigContainer tbody tr")].map(
+        (tr) => tr.dataset.sectionId
+      )
+    );
+    expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "totals"]);
+  });
+
+  test("reordering a Dashboard section leaves other tabs' sections in place", async ({ page }) => {
+    // The arrows are an adjacent swap between visible rows, so entries the
+    // filter excludes must keep their index in the stored array.
+    await gotoWithLayout(page, {});
+    await page.evaluate(() => window.showSettingsModal("site"));
+    await expect(page.locator("#settingsPanel_site")).toBeVisible();
+
+    await page
+      .locator("#layoutSectionConfigContainer tr[data-section-id='totals'] .inline-chip-move")
+      .first()
+      .click();
+
+    const ids = await page.evaluate(() => window.getLayoutSectionConfig().map((s) => s.id));
+    expect(ids).toEqual([
+      "spotPrices",
+      "totals",
+      "bestPriceTicker",
+      "search",
+      "table",
+      "vendorPrices",
+      "collections",
+    ]);
+
+    // And the DOM followed.
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
+    );
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerEl"));
+  });
+});

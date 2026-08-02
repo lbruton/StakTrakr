@@ -23,6 +23,10 @@
   // the portal itself afterwards, so the boot pass has nothing to recompute.
   let booted = false;
 
+  // Which tab is showing right now, so applyTabVisibility can tell "the user's
+  // tab just got hidden" from "some other tab got hidden".
+  let currentTab = DEFAULT_TAB;
+
   /**
    * Parse the current location hash into a known tab name.
    * @returns {string|null} Tab name, or null when the hash is not a tab route.
@@ -33,15 +37,62 @@
   };
 
   /**
+   * Tabs the user has left enabled in Settings > Appearance > Layout (STRK-326).
+   *
+   * Falls back to every tab when the config layer is missing or throws: a broken
+   * settings read must not be able to hide the entire application.
+   * @returns {string[]} Visible tab names, never empty.
+   */
+  const visibleTabs = () => {
+    try {
+      const cfg =
+        typeof window.getLayoutTabConfig === "function" ? window.getLayoutTabConfig() : null;
+      if (!Array.isArray(cfg)) return TAB_NAMES.slice();
+      const names = cfg
+        .filter((t) => t && t.enabled)
+        .map((t) => t.id)
+        .filter((name) => TAB_NAMES.includes(name));
+      return names.length ? names : [DEFAULT_TAB];
+    } catch {
+      return TAB_NAMES.slice();
+    }
+  };
+
+  /**
+   * Hide the nav entries of disabled tabs across both nav surfaces.
+   *
+   * The `hidden` attribute alone is not enough on the bottom bar: .bottom-nav-btn
+   * sets display:flex, which outranks the user-agent [hidden] rule. css/styles.css
+   * carries the matching `[hidden] { display: none !important }` override.
+   */
+  const syncTabNavVisibility = () => {
+    const visible = visibleTabs();
+    document.querySelectorAll('[role="tab"][data-tab]').forEach((btn) => {
+      btn.hidden = !visible.includes(btn.dataset.tab);
+    });
+  };
+
+  /**
    * Show one tab view and sync aria-selected across both nav surfaces.
    * Uses document.getElementById (not safeGetElement) intentionally: tabs.js
    * executes before init.js defines safeGetElement, and existence-sensitive
    * toggling must not run against the truthy dummy element.
-   * @param {string} name - Tab to activate; falls back to DEFAULT_TAB.
+   * Resolution order: an unknown name falls back to DEFAULT_TAB, and a name the
+   * user has hidden in Settings falls back again to the first visible tab
+   * (STRK-326) — so a stale "#/market" bookmark lands somewhere real instead of
+   * on a blank shell.
+   * @param {string} name - Tab to activate; falls back to the first visible tab.
    * @param {boolean} [updateHash=true] - Write the "#/name" route to the URL.
    */
   const activateTab = (name, updateHash = true) => {
-    const tab = TAB_NAMES.includes(name) ? name : DEFAULT_TAB;
+    const requested = TAB_NAMES.includes(name) ? name : DEFAULT_TAB;
+    const visible = visibleTabs();
+    const tab = visible.includes(requested)
+      ? requested
+      : visible.includes(DEFAULT_TAB)
+        ? DEFAULT_TAB
+        : visible.at(0);
+    currentTab = tab;
 
     TAB_NAMES.forEach((candidate) => {
       const viewId = `tabView${candidate.charAt(0).toUpperCase()}${candidate.slice(1)}`;
@@ -59,6 +110,16 @@
 
     if (updateHash && window.location.hash !== `#/${tab}`) {
       window.location.hash = `#/${tab}`;
+    } else if (!updateHash && tab !== requested && tabFromHash()) {
+      // Fell back off a hidden route on a path that does not own the hash — the
+      // boot deep link and the hashchange handler both pass updateHash=false.
+      // Without this the address bar keeps "#/market" while Dashboard renders,
+      // so the panel and any bookmarked or shared URL disagree indefinitely.
+      // replaceState rather than assignment: it corrects the URL without
+      // pushing a history entry (and without re-firing hashchange), so Back
+      // still leaves by the door the user came in through. Guarded on
+      // tabFromHash() so a hashless index.html stays hashless.
+      history.replaceState(null, "", `#/${tab}`);
     }
 
     // Recompute any geometry that was measured while this panel was hidden.
@@ -96,7 +157,11 @@
    */
   const handleNavKeydown = (event) => {
     const STEP = { ArrowLeft: -1, ArrowRight: 1 };
-    const buttons = Array.from(event.currentTarget.querySelectorAll('[role="tab"][data-tab]'));
+    // :not([hidden]) keeps tabs the user disabled out of the arrow cycle —
+    // arrowing onto one would focus an invisible button (STRK-326).
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll('[role="tab"][data-tab]:not([hidden])')
+    );
     const current = buttons.indexOf(document.activeElement);
     if (current === -1 || buttons.length === 0) return;
 
@@ -141,11 +206,25 @@
     if (!window.location.hash) activateTab(DEFAULT_TAB, false);
   });
 
-  // Boot: honor a "#/name" deep link; otherwise show the default tab without
-  // writing a hash (keeps plain index.html URLs clean).
+  /**
+   * Re-apply tab visibility after a Settings change, re-homing the user when the
+   * tab they are on has just been hidden.
+   */
+  const applyTabVisibility = () => {
+    syncTabNavVisibility();
+    // Rewrite the hash only when the current tab actually became unreachable.
+    // Otherwise toggling an unrelated tab would dirty a clean index.html URL.
+    activateTab(currentTab, !visibleTabs().includes(currentTab));
+  };
+
+  // Boot: hide disabled tabs before the first activation, then honor a "#/name"
+  // deep link; otherwise show the default tab without writing a hash (keeps
+  // plain index.html URLs clean). activateTab resolves a hidden target itself.
+  syncTabNavVisibility();
   activateTab(tabFromHash() || DEFAULT_TAB, false);
   booted = true;
 
   // Exposed for Playwright helpers and cross-module use (script-tag globals).
   window.activateTab = activateTab;
+  window.applyTabVisibility = applyTabVisibility;
 })();
