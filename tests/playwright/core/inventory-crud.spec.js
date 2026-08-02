@@ -47,7 +47,10 @@ const seedAndGoto = async (page) => {
       { once: true }
     );
   }, SEED_ITEM);
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+  // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+  // this control display:none.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
   await page.waitForFunction(
     () => typeof window.editItem === "function" && Array.isArray(window.inventory)
@@ -155,7 +158,7 @@ test.describe("seed-guard", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => Array.isArray(window.inventory));
     await page.waitForLoadState("networkidle");
   }
@@ -353,7 +356,7 @@ test.describe("capsule-field", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(
       () =>
         Array.isArray(window.inventory) &&
@@ -541,7 +544,10 @@ test.describe("payment-method", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+    // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+    // this control display:none.
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#newItemBtn", { state: "visible" });
     await page.waitForFunction(
       () =>
@@ -1045,7 +1051,7 @@ test.describe("virtual-sort-options", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
     await page.waitForFunction(() => Array.isArray(window.inventory));
   }
@@ -1189,7 +1195,7 @@ test.describe.serial("crud-journey", () => {
     await sharedPage.addInitScript(() => {
       localStorage.setItem("cardViewStyle", "A");
     });
-    await sharedPage.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await sharedPage.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await sharedPage.waitForSelector("#newItemBtn", { state: "visible" });
     await sharedPage.waitForSelector("#cardViewGrid article", {
       state: "attached",
@@ -1809,7 +1815,7 @@ test.describe("filter-chip-and-logic — AND semantics", () => {
       );
     });
 
-    await page.goto("/index.html");
+    await page.goto("/index.html#/inventory");
     await page.waitForFunction(
       () =>
         typeof window.filterInventoryAdvanced === "function" &&
@@ -2409,7 +2415,7 @@ test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", ()
         { once: true }
       );
     });
-    await page.goto("/index.html");
+    await page.goto("/index.html#/inventory");
     await page.waitForFunction(
       () =>
         typeof window.filterInventory === "function" &&
@@ -2494,7 +2500,7 @@ async function seedInventoryTableAndGoto(page, { items, chipConfig, flags } = {}
     },
     { seededInventory: items, chips: chipConfig, featureFlagOverride: flags || null }
   );
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
   await page.waitForFunction(() => Array.isArray(window.inventory));
 }

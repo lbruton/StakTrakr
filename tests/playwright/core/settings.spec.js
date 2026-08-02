@@ -45,7 +45,9 @@ async function seedSettingsInventory(page, items = [ATTACH_ITEM]) {
 }
 
 async function gotoApp(page) {
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): these tests assert against the
+  // inventory table's chips, which live in that panel.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     () =>
       typeof window.showSettingsModal === "function" &&
@@ -147,6 +149,13 @@ test.describe("core/settings", () => {
   // STRK-290 block, which observes the sync's own providers.json fetch. What
   // remains here is what this test uniquely owns: panel routing.
   test("Market and settings entry points route to the intended panels", async ({ page }) => {
+    // #marketSettingsBtn is rendered by market-data.js INSIDE the vendor-prices
+    // section, which the v2 shell puts in the Market tab (STRK-282). The shared
+    // gotoApp boots into Inventory for the table-chip tests in this file, so
+    // this one has to switch tabs before the button is clickable.
+    await page.locator("#tabBtnMarket").click();
+    await expect(page.locator("#tabViewMarket")).toBeVisible();
+
     await page.locator("#marketSettingsBtn").click();
     await expect(page.locator("#settingsPanel_market")).toBeVisible();
     await page.evaluate(() => window.hideSettingsModal());

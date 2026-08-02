@@ -149,7 +149,9 @@ async function seedData(page, opts = {}) {
 }
 
 async function gotoApp(page) {
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): these tests drive the add/edit
+  // item form, reached via #newItemBtn, which lives in that panel.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     () =>
       typeof window.editItem === "function" &&

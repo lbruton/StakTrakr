@@ -74,7 +74,10 @@ async function seedAndGoto(page, items) {
       { once: true }
     );
   }, items);
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+  // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+  // this control display:none.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
   // Confirm fuzzy is disabled and every seeded item has rendered into the table
   // before any search runs.

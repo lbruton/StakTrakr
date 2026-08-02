@@ -2773,6 +2773,25 @@ const renderMetalOrderConfigTable = () =>
 window.renderMetalOrderConfigTable = renderMetalOrderConfigTable;
 
 /**
+ * Which v2 tab view owns each layout section (STRK-282).
+ *
+ * Load-bearing: applyLayoutOrder re-appends every section to reassert DOM
+ * order, and appending to `.container` would EJECT the section from its tab
+ * view — the wrappers end up empty (zero height) and every section renders on
+ * every tab. Reordering is therefore scoped within the owning view, which is
+ * also the only ordering that still means anything once the sections are split
+ * across tabs.
+ */
+const LAYOUT_SECTION_TAB_VIEW = {
+  spotPrices: "tabViewDashboard",
+  bestPriceTicker: "tabViewDashboard",
+  totals: "tabViewDashboard",
+  search: "tabViewInventory",
+  table: "tabViewInventory",
+  vendorPrices: "tabViewMarket",
+};
+
+/**
  * Shows/hides and reorders major page sections based on layout section config.
  * Reads from localStorage and applies both visibility and DOM order.
  */
@@ -2793,7 +2812,10 @@ const applyLayoutOrder = () => {
     const el = sectionMap[section.id];
     if (!el) continue;
     el.style.display = section.enabled ? "" : "none";
-    container.append(el);
+    // Fall back to the container when the shell is absent, so this keeps
+    // working if the tab views are ever removed.
+    const view = document.getElementById(LAYOUT_SECTION_TAB_VIEW[section.id] || "");
+    (view || container).append(el);
   }
 };
 const applyLayoutVisibility = applyLayoutOrder;
