@@ -27,6 +27,10 @@ const FEED_RETRY_DELAY_MS = 2_000;
 // in-flight request; fingerprinted by key so a rotated key refetches.
 let _feedState = null;
 let _feedFingerprint = null;
+// Wall-clock stamp of when the current memo was started, for the optional
+// maxAgeMs bound. Set at build time rather than on resolve so concurrent
+// callers during an in-flight fetch share one request.
+let _feedBuiltAt = null;
 
 /** Sleep helper for the single transient-failure retry. */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -79,6 +83,45 @@ export function parseHintsProductId(hintsText, warn = console.warn) {
   if (typeof id === "number" && Number.isFinite(id)) return String(id);
   if (typeof id === "string" && id.trim() !== "") return id.trim();
   return null;
+}
+
+/**
+ * Write (or clear) the {"mbProductId"} pin inside a provider row's free-form
+ * hints JSON — the inverse of parseHintsProductId, used by the dashboard's
+ * dedicated API Product ID input (STRK-324).
+ *
+ * The hints column is shared with other free-form uses, so the merge preserves
+ * every other key. Unlike the reader, this one is strict: a hints value that
+ * cannot be parsed as a JSON object throws rather than being overwritten,
+ * because silently replacing an operator's hand-written hints during an
+ * unrelated product-id edit would be data loss. They can repair the raw JSON in
+ * the gear row first.
+ *
+ * @param {unknown} hintsText - Existing provider_vendors.hints value.
+ * @param {string|number|null|undefined} productId - Pin to set; empty clears it.
+ * @returns {string|null} Hints JSON to store, or null when nothing is left.
+ * @throws {Error} When hintsText is present but is not a JSON object.
+ */
+export function mergeHintsProductId(hintsText, productId) {
+  let parsed = {};
+  if (typeof hintsText === "string" && hintsText.trim() !== "") {
+    try {
+      parsed = JSON.parse(hintsText);
+    } catch {
+      throw new Error("Existing hints are not valid JSON — fix them before setting a product ID");
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error(
+        "Existing hints are not a JSON object — fix them before setting a product ID"
+      );
+    }
+  }
+
+  const id = productId === null || productId === undefined ? "" : String(productId).trim();
+  if (id === "") delete parsed.mbProductId;
+  else parsed.mbProductId = id;
+
+  return Object.keys(parsed).length === 0 ? null : JSON.stringify(parsed);
 }
 
 /**
@@ -215,8 +258,18 @@ async function buildFeedState({ apiKey, fetchImpl, log, warn, retryDelayMs }) {
  * target at a time) shares the same resolved state. The memo is fingerprinted
  * by API key so a rotated key builds a fresh index.
  *
+ * `maxAgeMs` bounds how long a memoized state (success *or* failure) is reused.
+ * It defaults to Infinity, which is right for the poller: one process per cron
+ * run, so the memo dies with the run and a TTL would only add requests. A
+ * long-running consumer — the home-poller dashboard, which renders a feed
+ * health line — must pass a finite value, otherwise its first render pins the
+ * feed state for the life of the server and the health line reports a frozen
+ * snapshot forever (STRK-324). Bounding failures too means a rejected key or a
+ * transient outage recovers on its own once the operator fixes it.
+ *
  * @param {object} [opts] - apiKey (default: process.env.MB_API_KEY read at
- *   call time), fetchImpl (default: global fetch), log/warn sinks, retryDelayMs.
+ *   call time), fetchImpl (default: global fetch), log/warn sinks, retryDelayMs,
+ *   maxAgeMs (default: Infinity — never expire).
  * @returns {Promise<object>} The (possibly cached) FeedState.
  */
 export function getFeedIndex({
@@ -225,11 +278,14 @@ export function getFeedIndex({
   log = console.log,
   warn = console.warn,
   retryDelayMs = FEED_RETRY_DELAY_MS,
+  maxAgeMs = Infinity,
 } = {}) {
   const key = apiKey !== undefined ? apiKey : process.env.MB_API_KEY;
   const fingerprint = key || "";
-  if (_feedState && _feedFingerprint === fingerprint) return _feedState;
+  const fresh = _feedBuiltAt !== null && Date.now() - _feedBuiltAt < maxAgeMs;
+  if (_feedState && _feedFingerprint === fingerprint && fresh) return _feedState;
   _feedFingerprint = fingerprint;
+  _feedBuiltAt = Date.now();
   _feedState = buildFeedState({ apiKey: key, fetchImpl, log, warn, retryDelayMs });
   return _feedState;
 }
@@ -294,4 +350,5 @@ export async function lookupMintbuilderProduct({
 export function _resetFeedCacheForTests() {
   _feedState = null;
   _feedFingerprint = null;
+  _feedBuiltAt = null;
 }

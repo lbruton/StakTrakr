@@ -627,6 +627,138 @@ test("the API key never appears in log or warn output", async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// maxAgeMs — bounded memo for long-running consumers (STRK-324)
+//
+// The poller is a process per cron run, so an unbounded memo is exactly right
+// there and stays the default. The dashboard is a long-running server: without
+// a TTL its first /providers load would pin the feed state for the life of the
+// process and the health line would report a frozen snapshot forever.
+// ---------------------------------------------------------------------------
+
+test("without maxAgeMs the memo never expires (poller behaviour is unchanged)", async () => {
+  const feed = await loadFeed();
+  const fetchImpl = makeFetch(okResponse(feedPayload(PRODUCTS)));
+
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl });
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl });
+
+  assert.equal(fetchImpl.calls.length, 1, "the unbounded memo must still fetch exactly once");
+});
+
+test("maxAgeMs=0 forces a refetch on every call", async () => {
+  const feed = await loadFeed();
+  const fetchImpl = makeFetch(okResponse(feedPayload(PRODUCTS)));
+
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl, maxAgeMs: 0 });
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl, maxAgeMs: 0 });
+
+  assert.equal(fetchImpl.calls.length, 2, "a zero max age means every call is stale");
+});
+
+test("a memo younger than maxAgeMs is reused", async () => {
+  const feed = await loadFeed();
+  const fetchImpl = makeFetch(okResponse(feedPayload(PRODUCTS)));
+
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl, maxAgeMs: 60_000 });
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl, maxAgeMs: 60_000 });
+
+  assert.equal(fetchImpl.calls.length, 1, "a fresh memo must not refetch");
+});
+
+test("a memo older than maxAgeMs refetches", async () => {
+  const feed = await loadFeed();
+  const fetchImpl = makeFetch(okResponse(feedPayload(PRODUCTS)));
+
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl, maxAgeMs: 1 });
+  await new Promise((r) => setTimeout(r, 10));
+  await feed.getFeedIndex({ apiKey: "test-key", fetchImpl, maxAgeMs: 1 });
+
+  assert.equal(fetchImpl.calls.length, 2, "an expired memo must refetch");
+});
+
+test("a cached failure is not sticky once maxAgeMs elapses", async () => {
+  const feed = await loadFeed();
+  // Same key throughout: a key rotation would refetch via the fingerprint, so
+  // this proves the TTL alone lets a transient outage recover. Two 500s
+  // exhaust the single retry and resolve to a failure state.
+  const fetchImpl = makeFetch(errResponse(500), errResponse(500), okResponse(feedPayload(PRODUCTS)));
+
+  const first = await feed.getFeedIndex({
+    apiKey: "test-key",
+    fetchImpl,
+    maxAgeMs: 0,
+    warn: makeSpy(),
+    retryDelayMs: 0,
+  });
+  assert.equal(first.ok, false, "two 500s should resolve to a failure state");
+
+  const second = await feed.getFeedIndex({
+    apiKey: "test-key",
+    fetchImpl,
+    maxAgeMs: 0,
+    warn: makeSpy(),
+    retryDelayMs: 0,
+  });
+  assert.equal(second.ok, true, "the recovered feed must replace the cached failure");
+});
+
+// ---------------------------------------------------------------------------
+// mergeHintsProductId — the write side of the {"mbProductId"} pin (STRK-324)
+//
+// The dashboard exposes the pin as a dedicated per-row input, but hints is a
+// shared free-form JSON column. Writing it must preserve every other key, and
+// must refuse rather than clobber when the existing value cannot be parsed.
+// ---------------------------------------------------------------------------
+
+test("merge writes the pin into empty hints", async () => {
+  const feed = await import(feedModuleUrl);
+  assert.equal(feed.mergeHintsProductId(null, "101"), '{"mbProductId":"101"}');
+  assert.equal(feed.mergeHintsProductId("", "101"), '{"mbProductId":"101"}');
+  assert.equal(feed.mergeHintsProductId("   ", "101"), '{"mbProductId":"101"}');
+});
+
+test("merge preserves unrelated hint keys", async () => {
+  const feed = await import(feedModuleUrl);
+  const merged = feed.mergeHintsProductId('{"asLowAs":true,"waitMs":500}', "101");
+  assert.deepEqual(JSON.parse(merged), { asLowAs: true, waitMs: 500, mbProductId: "101" });
+});
+
+test("merge overwrites an existing pin and trims/coerces the id", async () => {
+  const feed = await import(feedModuleUrl);
+  assert.deepEqual(JSON.parse(feed.mergeHintsProductId('{"mbProductId":"1"}', "  202 ")), {
+    mbProductId: "202",
+  });
+  assert.deepEqual(JSON.parse(feed.mergeHintsProductId(null, 303)), { mbProductId: "303" });
+});
+
+test("an empty id clears the pin but keeps the other keys", async () => {
+  const feed = await import(feedModuleUrl);
+  const merged = feed.mergeHintsProductId('{"asLowAs":true,"mbProductId":"101"}', "");
+  assert.deepEqual(JSON.parse(merged), { asLowAs: true });
+});
+
+test("clearing the only key yields null so the column is emptied, not left as {}", async () => {
+  const feed = await import(feedModuleUrl);
+  assert.equal(feed.mergeHintsProductId('{"mbProductId":"101"}', ""), null);
+  assert.equal(feed.mergeHintsProductId(null, ""), null);
+});
+
+test("merge refuses to clobber hints it cannot parse", async () => {
+  const feed = await import(feedModuleUrl);
+  // Losing an operator's hand-written hints to a product-id edit would be a
+  // silent data loss; surfacing the error lets them fix the raw JSON first.
+  assert.throws(() => feed.mergeHintsProductId("{not json", "101"), /valid JSON/i);
+  assert.throws(() => feed.mergeHintsProductId("[1,2,3]", "101"), /JSON object/i);
+  assert.throws(() => feed.mergeHintsProductId('"a string"', "101"), /JSON object/i);
+});
+
+test("the merge round-trips through parseHintsProductId", async () => {
+  const feed = await import(feedModuleUrl);
+  const merged = feed.mergeHintsProductId('{"asLowAs":true}', "404");
+  assert.equal(feed.parseHintsProductId(merged), "404");
+});
+
 let passed = 0;
 let failed = 0;
 for (const [name, fn] of tests) {
