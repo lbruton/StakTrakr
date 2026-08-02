@@ -221,37 +221,40 @@ test.describe("core/STRK-282 tab shell", () => {
  * to a blank panel. Tab visibility is now derived from the sections a tab owns
  * and hides the nav entry on both surfaces.
  */
-test.describe("core/STRK-326 tab visibility", () => {
-  /**
-   * Boot with a layout config that has already disabled some sections.
-   *
-   * Seeded through addInitScript rather than by driving Settings: tabs.js reads
-   * the config at parse time, and the boot path is exactly what a returning user
-   * with saved preferences hits.
-   *
-   * @param {import('@playwright/test').Page} page - Page under test
-   * @param {Record<string, boolean>} disabled - Section id -> enabled flag to override
-   * @param {string} [hash] - Optional route hash to deep-link into
-   * @returns {Promise<void>}
-   */
-  const gotoWithLayout = async (page, disabled, hash = "") => {
-    await suppressWhatsNewPopup(page);
-    await page.addInitScript((off) => {
-      const defaults = [
-        { id: "spotPrices", label: "Spot price cards", enabled: true },
-        { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
-        { id: "totals", label: "Summary totals", enabled: true },
-        { id: "search", label: "Search & filter bar", enabled: true },
-        { id: "table", label: "Inventory table", enabled: true },
-        { id: "vendorPrices", label: "Vendor Prices", enabled: true },
-        { id: "collections", label: "Collections", enabled: true },
-      ].map((d) => ({ ...d, enabled: off[d.id] ?? d.enabled }));
-      localStorage.setItem("layoutSectionConfig", JSON.stringify(defaults));
-    }, disabled);
-    await page.goto(`/index.html${hash}`, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => window.appListenersReady === true);
-  };
+/**
+ * Boot with a layout config that has already disabled some sections.
+ *
+ * Seeded through addInitScript rather than by driving Settings: tabs.js reads
+ * the config at parse time, and the boot path is exactly what a returning user
+ * with saved preferences hits.
+ *
+ * Module scope because both the STRK-326 and STRK-328 blocks need it — they seed
+ * the same key, differing only in which stored state they are characterising.
+ *
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {Record<string, boolean>} disabled - Section id -> enabled flag to override
+ * @param {string} [hash] - Optional route hash to deep-link into
+ * @returns {Promise<void>}
+ */
+const gotoWithLayout = async (page, disabled, hash = "") => {
+  await suppressWhatsNewPopup(page);
+  await page.addInitScript((off) => {
+    const defaults = [
+      { id: "spotPrices", label: "Spot price cards", enabled: true },
+      { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+      { id: "totals", label: "Summary totals", enabled: true },
+      { id: "search", label: "Search & filter bar", enabled: true },
+      { id: "table", label: "Inventory table", enabled: true },
+      { id: "vendorPrices", label: "Vendor Prices", enabled: true },
+      { id: "collections", label: "Collections", enabled: true },
+    ].map((d) => ({ ...d, enabled: off[d.id] ?? d.enabled }));
+    localStorage.setItem("layoutSectionConfig", JSON.stringify(defaults));
+  }, disabled);
+  await page.goto(`/index.html${hash}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.appListenersReady === true);
+};
 
+test.describe("core/STRK-326 tab visibility", () => {
   test("a disabled tab is dropped from both nav surfaces", async ({ page }) => {
     await gotoWithLayout(page, { vendorPrices: false });
 
@@ -434,40 +437,11 @@ test.describe("core/STRK-326 tab visibility", () => {
 });
 
 test.describe("core/STRK-328 Inventory tab is locked", () => {
-  /**
-   * Boot with specific layout sections already disabled in storage.
-   *
-   * Duplicated from the STRK-326 block rather than shared: that block's helper is
-   * scoped to its own describe, and these cases seed the same key for a different
-   * purpose — the pre-lock states a returning user can arrive carrying.
-   *
-   * @param {import('@playwright/test').Page} page - Page under test
-   * @param {Record<string, boolean>} disabled - Section id -> enabled flag to override
-   * @returns {Promise<void>}
-   */
-  const gotoWithSections = async (page, disabled) => {
-    await suppressWhatsNewPopup(page);
-    await page.addInitScript((off) => {
-      const defaults = [
-        { id: "spotPrices", label: "Spot price cards", enabled: true },
-        { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
-        { id: "totals", label: "Summary totals", enabled: true },
-        { id: "search", label: "Search & filter bar", enabled: true },
-        { id: "table", label: "Inventory table", enabled: true },
-        { id: "vendorPrices", label: "Vendor Prices", enabled: true },
-        { id: "collections", label: "Collections", enabled: true },
-      ].map((d) => ({ ...d, enabled: off[d.id] ?? d.enabled }));
-      localStorage.setItem("layoutSectionConfig", JSON.stringify(defaults));
-    }, disabled);
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => window.appListenersReady === true);
-  };
-
   test("Inventory reports locked and its checkbox is disabled", async ({ page }) => {
     // Inventory is the only surface that can add or edit an item (#newItemBtn
     // lives in its panel) and the Dashboard is derived from that data, so hiding
     // it strands a new user with empty totals and no way to fill them.
-    await gotoWithSections(page, {});
+    await gotoWithLayout(page, {});
 
     const tabCfg = await page.evaluate(() => window.getLayoutTabConfig());
     expect(tabCfg.find((t) => t.id === "inventory")).toMatchObject({
@@ -494,7 +468,7 @@ test.describe("core/STRK-328 Inventory tab is locked", () => {
     // locked while applyLayoutOrder keeps both sections display:none. That is
     // the STRK-326 bug inverted — a permanent nav entry onto an EMPTY panel,
     // with the checkbox now disabled so the UI offers no way back.
-    await gotoWithSections(page, { search: false, table: false });
+    await gotoWithLayout(page, { search: false, table: false });
 
     await page.locator("#tabBtnInventory").click();
     await expect(page.locator("#tabViewInventory")).toBeVisible();
@@ -521,7 +495,7 @@ test.describe("core/STRK-328 Inventory tab is locked", () => {
     // The normalisation is keyed on hasOwnSectionControls precisely to exempt
     // it: a minimal Dashboard is a legitimate end state, an empty Inventory is
     // not. Seeded alongside a hidden Inventory so both rules apply at once.
-    await gotoWithSections(page, {
+    await gotoWithLayout(page, {
       spotPrices: false,
       bestPriceTicker: false,
       totals: false,
