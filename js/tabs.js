@@ -133,6 +133,16 @@
     if (booted && typeof window.updatePortalHeight === "function") {
       window.updatePortalHeight();
     }
+
+    // Same failure mode, second instance (STRK-327): the Best Price ticker sizes
+    // its scroll loop from a measured block width, so a rebuild that lands while
+    // Dashboard is hidden — an ordinary reload on #/inventory, or a Market
+    // setting change — reveals a frozen track with a scrollbar. The repair is
+    // one-way and self-skipping once the track is running, so it is safe on
+    // every switch, including the ones that hide Dashboard rather than show it.
+    if (booted && typeof window.refreshTickerGeometry === "function") {
+      window.refreshTickerGeometry();
+    }
   };
 
   /**
