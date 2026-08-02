@@ -46,6 +46,26 @@ function renderLineFor(className) {
   return line;
 }
 
+test("loadEnv() runs before every env-derived constant (STRK-323)", () => {
+  const lines = DASHBOARD_SRC.split("\n");
+  const loadEnvAt = lines.findIndex((l) => l.includes("function loadEnv()"));
+  assert.ok(loadEnvAt >= 0, "expected a loadEnv() bootstrap in dashboard.js");
+
+  // The container exports env directly, but the LXC/bare-metal install
+  // (setup-lxc.sh) ships a .env beside the script. A const declared above
+  // loadEnv() reads process.env too early and silently takes its default.
+  const offenders = lines
+    .map((line, i) => ({ line, i }))
+    .filter(({ line, i }) => i < loadEnvAt && /^const \w+ = .*process\.env\./.test(line))
+    .map(({ line, i }) => `  line ${i + 1}: ${line.trim()}`);
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `these constants read process.env before loadEnv() runs, so a .env value is ignored:\n${offenders.join("\n")}`
+  );
+});
+
 test("DATA_DIR honors the container's $DATA_DIR env var (STRK-323)", () => {
   const line = constLine("DATA_DIR");
   assert.match(

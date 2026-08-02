@@ -50,6 +50,23 @@ import {
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
+// Load .env if not already in environment.
+//
+// MUST run before any const below reads process.env. The container exports its
+// config directly, but the LXC/bare-metal install (setup-lxc.sh) ships a .env
+// beside the script instead — and every env-derived constant here is evaluated
+// at module load. Declaring them above this call silently ignores the .env
+// value and falls back to the default (STRK-323).
+(function loadEnv() {
+  const envFile = new URL(".env", import.meta.url).pathname;
+  if (!existsSync(envFile)) return;
+  const lines = readFileSync(envFile, "utf8").split("\n");
+  for (const line of lines) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^[\x27\x22]|[\x27\x22]$/g, "");
+  }
+})();
+
 const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
 const LOG_FILE = process.env.POLLER_LOG || "/data/logs/retail-poller.log";
 const LOG_LINES = 300;
@@ -62,17 +79,6 @@ const IFACE = process.env.NET_IFACE || "eth0";
 // sqld-down read fallback and POST /providers/export (STRK-323).
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
 const PROVIDERS_FILE = join(DATA_DIR, "retail", "providers.json");
-
-// Load .env if not already in environment
-(function loadEnv() {
-  const envFile = new URL(".env", import.meta.url).pathname;
-  if (!existsSync(envFile)) return;
-  const lines = readFileSync(envFile, "utf8").split("\n");
-  for (const line of lines) {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^[\x27\x22]|[\x27\x22]$/g, "");
-  }
-})();
 
 // ---------------------------------------------------------------------------
 // sqld client
