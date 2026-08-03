@@ -2691,14 +2691,74 @@ const _renderSectionConfigTable = (opts) => {
  * Dashboard is locked: guaranteeing one always-visible tab means activateTab
  * always has a fallback target, so hiding the active tab or deep-linking to a
  * hidden one can never strand the user on an empty shell.
- * @constant {Array<{id: string, label: string, view: string, locked?: boolean}>}
+ *
+ * Inventory is locked too (STRK-328), for a different reason: it is not a peer
+ * of Market and Collections. It is the only place items can be added or edited
+ * — #newItemBtn lives inside its panel — and the Dashboard is entirely derived
+ * from that data. Hiding it strands a new user with empty totals and no way to
+ * add anything, recoverable only by finding a setting they cannot guess at.
+ *
+ * `hasOwnSectionControls` marks a tab whose sections are ALSO individually
+ * toggleable elsewhere in Settings (the Dashboard sections table). It decides
+ * whether locking may force those sections back on — see
+ * _normalizeLockedTabSections.
+ * @constant {Array<{id: string, label: string, view: string, locked?: boolean, hasOwnSectionControls?: boolean}>}
  */
 const LAYOUT_TABS = [
-  { id: "dashboard", label: "Dashboard", view: "tabViewDashboard", locked: true },
-  { id: "inventory", label: "Inventory", view: "tabViewInventory" },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    view: "tabViewDashboard",
+    locked: true,
+    hasOwnSectionControls: true,
+  },
+  { id: "inventory", label: "Inventory", view: "tabViewInventory", locked: true },
   { id: "market", label: "Market", view: "tabViewMarket" },
   { id: "collections", label: "Collections", view: "tabViewCollections" },
 ];
+
+/**
+ * Force-enable sections belonging to a locked tab that has no other control
+ * for them (STRK-328).
+ *
+ * saveLayoutTabConfig stops writing a tab's sections once it is locked, so a
+ * stored `enabled: false` from before the lock — or set through the checkbox in
+ * the window between STRK-326 and STRK-328 — would survive forever. The result
+ * inverts the bug STRK-326 removed: a permanently visible nav entry opening an
+ * EMPTY panel, with the checkbox now disabled so nothing in the UI can fix it.
+ *
+ * Scoped by `hasOwnSectionControls`, NOT by `locked` alone. Dashboard is locked
+ * but its three sections have their own table in Settings, and a user who turns
+ * them all off wants a minimal Dashboard — a legitimate end state. Forcing
+ * those back on would make that table a control that silently undoes itself.
+ *
+ * Read-time rather than a versioned migration: idempotent, self-healing on
+ * whatever the next save writes, and it cannot leave storage half-migrated.
+ * @param {Array<{id:string, enabled:boolean}>} sections - Layout section config.
+ * @returns {Array<{id:string, enabled:boolean}>} The same array, normalized in place.
+ */
+const _normalizeLockedTabSections = (sections) => {
+  const forcedViews = new Set(
+    LAYOUT_TABS.filter((t) => t.locked && !t.hasOwnSectionControls).map((t) => t.view)
+  );
+  if (!forcedViews.size) return sections;
+  for (const section of sections) {
+    if (forcedViews.has(LAYOUT_SECTION_TAB_VIEW[section.id])) section.enabled = true;
+  }
+  return sections;
+};
+
+/**
+ * Layout section config with locked-tab sections normalized (STRK-328).
+ *
+ * Every consumer of the section config goes through this rather than the raw
+ * loader, so the tab table, the Dashboard table, the save path, and
+ * applyLayoutOrder can never disagree about whether Inventory is showing.
+ * @returns {Array<{id:string, label:string, enabled:boolean}>} Normalized config.
+ */
+const getNormalizedLayoutSectionConfig = () =>
+  _normalizeLockedTabSections(getLayoutSectionConfig());
+window.getNormalizedLayoutSectionConfig = getNormalizedLayoutSectionConfig;
 
 /**
  * Derives per-tab visibility from the flat layout section config.
@@ -2709,7 +2769,7 @@ const LAYOUT_TABS = [
  * @returns {Array<{id:string, label:string, enabled:boolean, locked?:boolean}>}
  */
 const getLayoutTabConfig = () => {
-  const sections = getLayoutSectionConfig();
+  const sections = getNormalizedLayoutSectionConfig();
   return LAYOUT_TABS.map((tab) => {
     if (tab.locked) return { id: tab.id, label: tab.label, enabled: true, locked: true };
     const owned = sections.filter((s) => LAYOUT_SECTION_TAB_VIEW[s.id] === tab.view);
@@ -2728,7 +2788,7 @@ window.getLayoutTabConfig = getLayoutTabConfig;
  */
 const saveLayoutTabConfig = (cfg) => {
   const enabledByTab = new Map(cfg.map((t) => [t.id, t.enabled]));
-  const sections = getLayoutSectionConfig();
+  const sections = getNormalizedLayoutSectionConfig();
   for (const section of sections) {
     const tab = LAYOUT_TABS.find((t) => t.view === LAYOUT_SECTION_TAB_VIEW[section.id]);
     if (!tab || tab.locked || !enabledByTab.has(tab.id)) continue;
@@ -2762,7 +2822,7 @@ const renderLayoutTabConfigTable = () =>
 const renderLayoutSectionConfigTable = () =>
   _renderSectionConfigTable({
     containerId: "layoutSectionConfigContainer",
-    getConfig: getLayoutSectionConfig,
+    getConfig: getNormalizedLayoutSectionConfig,
     saveConfig: saveLayoutSectionConfig,
     filter: (s) => LAYOUT_SECTION_TAB_VIEW[s.id] === "tabViewDashboard",
     onApply: typeof applyLayoutOrder === "function" ? applyLayoutOrder : null,
@@ -2894,7 +2954,7 @@ window.LAYOUT_SECTION_TAB_VIEW = LAYOUT_SECTION_TAB_VIEW;
  * Reads from localStorage and applies both visibility and DOM order.
  */
 const applyLayoutOrder = () => {
-  const config = getLayoutSectionConfig();
+  const config = getNormalizedLayoutSectionConfig();
   const sectionMap = {
     spotPrices: elements.spotPricesSection,
     totals: elements.totalsSectionEl,
