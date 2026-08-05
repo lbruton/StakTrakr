@@ -41,7 +41,7 @@ import {
   providerCfg,
   resolveProxy,
 } from "./price-extract-provider-config.js";
-import { scrapeVendor } from "./price-extract-vendors.js";
+import { getVendorModule, resolveVendorConfig, scrapeVendor } from "./price-extract-vendors.js";
 import {
   JSONLD_OOS_VALUES,
   JSONLD_ZERO_PRICE,
@@ -467,19 +467,16 @@ async function scrapeUrl(url, providerId = "", attempt = 1, coin = null, provide
  * @param {string} url
  * @param {string} providerId
  * @param {Object} coin  Coin metadata (metal, weight_oz)
- * @param {Object|null} [cfg=null]  Pre-resolved provider config. scrapeGenericTarget
- *   passes the migrated vendor module's config (context.vendorModule?.config)
- *   so module-owned overrides like waitUntil/waitAfter survive; when null,
- *   falls back to providerCfg(providerId) (STRK-311).
+ * @param {Object|null} [cfg=null]  Fully resolved provider config, as produced by
+ *   resolveVendorConfig() on the registry path (provider defaults → module-owned
+ *   → caller-explicit). When null, falls back to the same resolution without a
+ *   caller override; recomputing via providerCfg(providerId) alone would drop
+ *   module-owned settings like MintBuilder's waitUntil (STRK-311 / STRK-314).
  * @returns {Promise<{price: number, inStock: boolean, source: string}|null>}
  */
 async function scrapeWithPlaywrightDirect(url, providerId, coin, cfg = null) {
   if (!PLAYWRIGHT_LAUNCH) return null;
-  // Caller may have already resolved the migrated vendor module's config
-  // (scrapeGenericTarget does, via context.vendorModule?.config); recomputing
-  // via providerCfg(providerId) alone would silently drop module-owned
-  // overrides like MintBuilder's waitUntil (STRK-311).
-  const resolvedCfg = cfg || providerCfg(providerId);
+  const resolvedCfg = cfg || resolveVendorConfig(providerId, getVendorModule(providerId));
 
   const DIRECT_TIMEOUT_MS = 15_000;
   const { chromium } = await import("playwright-core");
@@ -665,7 +662,17 @@ async function scrapeGenericTarget(context) {
   let inStock = true;
   let finalUrl = urls[0];
   const retriedUrls = new Set();
-  const cfg = providerCfg(provider.id, context.vendorModule?.config ?? context.config);
+  // scrapeVendor resolves the whole chain before dispatch (provider defaults →
+  // module-owned → caller-explicit), so the context config is authoritative
+  // here. The fallback covers direct calls that bypass the vendor registry.
+  // Do NOT reintroduce a `vendorModule?.config ?? context.config` preference:
+  // every module's config is a truthy object (the legacy adapter's is `{}`), so
+  // the `??` never fell through and discarded every caller override (STRK-314).
+  const cfg = resolveVendorConfig(
+    provider.id,
+    context.vendorModule ?? getVendorModule(provider.id),
+    context.config
+  );
 
   const buildResult = () => {
     const ok = price !== null || !inStock;
@@ -775,7 +782,10 @@ async function scrapeGenericTarget(context) {
         // Proxy-first path: if this provider routes through an alternate IP,
         // try the proxied playwright-service first (e.g., Fly.io IP for BEx).
         let markdown;
-        const proxyTarget = resolveProxy(provider.id);
+        // Pass the resolved cfg: without it resolveProxy reloads providerCfg(id)
+        // and ignores both module-owned and caller-explicit proxy settings —
+        // the same discard STRK-314 fixes, one layer down.
+        const proxyTarget = resolveProxy(provider.id, process.env, cfg);
         if (proxyTarget) {
           try {
             const proxyText = await scrapeViaProxy(url, cfg.waitFor, cfg.timeout);
@@ -1091,7 +1101,11 @@ export async function scrapeSingleVendor({
     provider: providerForRun,
     urls: singleUrls,
     url: singleUrls[0],
-    config: config || providerCfg(providerForRun.id),
+    // Forward the caller's config verbatim — including `undefined`. Defaulting
+    // it to providerCfg(id) here made an absent override indistinguishable from
+    // a deliberate one, so the bare provider default outranked module-owned
+    // config downstream (STRK-314). scrapeVendor supplies the defaults.
+    config,
     scrapeGeneric,
     log: logFn,
     warn: warnFn,
@@ -1290,7 +1304,9 @@ export async function runFullPoller(options = {}) {
             provider,
             urls,
             url: urls[0],
-            config: providerCfg(provider.id),
+            // No caller override in the poll loop — omitted so scrapeVendor's
+            // module-owned config is not outranked by a bare provider default
+            // (STRK-314).
             scrapeGeneric: scrapeGenericTarget,
             log,
             warn,

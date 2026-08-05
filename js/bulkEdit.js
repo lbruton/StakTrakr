@@ -279,6 +279,7 @@ const BULK_EDITABLE_FIELDS = [
     options: [
       { value: "oz", label: "ounce" },
       { value: "g", label: "gram" },
+      { value: "mg", label: "milligram" }, // STRK-319
       { value: "kg", label: "kilogram" },
       { value: "lb", label: "pound" },
       { value: "gb", label: "goldback" },
@@ -1556,6 +1557,7 @@ const convertBulkWeightToOzt = (rawWeight, effectiveUnit) => {
   const numeric = parseFloat(rawWeight);
   if (isNaN(numeric)) return rawWeight;
   if (effectiveUnit === "g") return String(gramsToOzt(numeric));
+  if (effectiveUnit === "mg") return String(mgToOzt(numeric)); // STRK-319
   if (effectiveUnit === "kg") return String(kgToOzt(numeric));
   if (effectiveUnit === "lb") return String(lbToOzt(numeric));
   return rawWeight;

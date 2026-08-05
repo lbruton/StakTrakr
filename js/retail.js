@@ -79,6 +79,7 @@ const RETAIL_VENDOR_NAMES = {
   goldback: "Goldback",
   providentmetals: "Provident",
   gainesvillecoins: "Gainesville",
+  mintbuilder: "MintBuilder",
 };
 
 /** Vendor homepage URLs for popup links */
@@ -93,6 +94,7 @@ const RETAIL_VENDOR_URLS = {
   goldback: "https://www.goldback.com",
   providentmetals: "https://www.providentmetals.com",
   gainesvillecoins: "https://www.gainesvillecoins.com",
+  mintbuilder: "https://mintbuilder.com", // no www — matches the canonical host in feed/product URLs
 };
 
 /** Per-vendor brand colors — shared with retail-view-modal.js for chart lines and vendor labels */
@@ -107,6 +109,7 @@ const RETAIL_VENDOR_COLORS = {
   goldback: "#d4a017", // deep gold — goldback branding
   providentmetals: "#a3e635", // lime green — distinct from emerald (SDB)
   gainesvillecoins: "#fb923c", // orange — distinct from amber (JM)
+  mintbuilder: "#818cf8", // indigo — distinct from blue (APMEX) and violet (Monument)
 };
 
 // ---------------------------------------------------------------------------
@@ -970,7 +973,11 @@ const _safeLocalStorageSet = (key, value) => {
 /**
  * Populates the manifest resolver globals (_manifestSlugs, _manifestCoinMeta,
  * _manifestVendorMeta) from a v2 manifest's coin/vendor arrays and caches them to
- * localStorage. Mutates module state in place.
+ * localStorage. Mutates module state in place and mirrors the coin/vendor meta
+ * onto the window properties market-data.js prefers (STRK-317) — the lexical
+ * bindings here are invisible to `window.*` reads, so without the mirror a
+ * mid-session manifest sync leaves ticker/matrix/modal vendor meta (names,
+ * colors, URLs) stale until reload.
  * @param {Array<object>} coins - Manifest coin descriptors.
  * @param {Array<object>} vendors - Manifest vendor descriptors.
  */
@@ -998,6 +1005,9 @@ const _populateManifestState = (coins, vendors) => {
     }
     _safeLocalStorageSet(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta));
   }
+
+  window._manifestCoinMeta = _manifestCoinMeta;
+  if (vendors.length) window._manifestVendorMeta = _manifestVendorMeta;
 };
 
 /**

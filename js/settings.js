@@ -2558,11 +2558,13 @@ window.renderHeaderBtnConfigTable = renderHeaderBtnConfigTable;
  * Syncs layout section config table in Settings and applies layout order.
  */
 const syncLayoutVisibilityUI = () => {
+  renderLayoutTabConfigTable();
   renderLayoutSectionConfigTable();
   renderViewModalSectionConfigTable();
   renderMetalOrderConfigTable();
   renderInlineChipConfigTable();
   applyLayoutOrder();
+  if (typeof window.applyTabVisibility === "function") window.applyTabVisibility();
 };
 
 /**
@@ -2576,6 +2578,10 @@ const syncLayoutVisibilityUI = () => {
  * @param {string} [opts.emptyText] - Text shown when config is empty (default: 'No sections available')
  * @param {function} [opts.onApply] - Called after every change (e.g. applyLayoutOrder)
  * @param {function} [opts.onRender] - Called to re-render after reorder (defaults to self)
+ * @param {function} [opts.filter] - Predicate selecting which entries to render.
+ *   Rows keep their index into the FULL config, so entries the filter excludes
+ *   are neither shown nor disturbed by a reorder (STRK-326).
+ * @param {boolean} [opts.noReorder] - Render checkboxes only, no arrow cell.
  */
 const _renderSectionConfigTable = (opts) => {
   const container = document.getElementById(opts.containerId);
@@ -2596,10 +2602,18 @@ const _renderSectionConfigTable = (opts) => {
   table.className = "chip-grouping-table";
   const tbody = document.createElement("tbody");
 
-  // Count sortable (non-locked) items to bound arrow movement
-  const sortableCount = config.filter((c) => !c.locked).length;
+  // Rows carry their index into the FULL config so a filtered view can still
+  // write back to the right entry. Movement is an adjacent swap between two
+  // *visible* rows, which leaves filtered-out entries exactly where they are \u2014
+  // the old splice-by-one was already an adjacent swap, so unfiltered callers
+  // behave identically.
+  const rows = config
+    .map((section, index) => ({ section, index }))
+    .filter(({ section }) => (opts.filter ? opts.filter(section) : true));
+  const sortable = rows.filter(({ section }) => !section.locked);
 
-  config.forEach((section, idx) => {
+  rows.forEach((row) => {
+    const { section, index } = row;
     const tr = document.createElement("tr");
     tr.dataset.sectionId = section.id;
 
@@ -2615,7 +2629,7 @@ const _renderSectionConfigTable = (opts) => {
     if (!section.locked) {
       cb.addEventListener("change", () => {
         const cfg = opts.getConfig();
-        const item = cfg.at(idx);
+        const item = cfg.at(index);
         if (item) {
           item.enabled = cb.checked;
           opts.saveConfig(cfg);
@@ -2633,7 +2647,8 @@ const _renderSectionConfigTable = (opts) => {
     const tdMove = document.createElement("td");
     tdMove.style.cssText = "width:3.5rem;text-align:right;white-space:nowrap";
 
-    if (!section.locked) {
+    const pos = sortable.indexOf(row);
+    if (!section.locked && !opts.noReorder) {
       const makeBtn = (dir, disabled) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -2642,20 +2657,24 @@ const _renderSectionConfigTable = (opts) => {
         btn.title = "Move " + dir;
         btn.disabled = disabled;
         btn.addEventListener("click", () => {
+          const target = sortable.at(dir === "up" ? pos - 1 : pos + 1);
+          // `.at(-1)` wraps to the last element, so guard the top row explicitly
+          // rather than trusting a falsy check.
+          if (!target || (dir === "up" && pos <= 0)) return;
           const cfg = opts.getConfig();
-          const maxSortable = cfg.filter((c) => !c.locked).length;
-          const j = dir === "up" ? idx - 1 : idx + 1;
-          if (j < 0 || j >= maxSortable) return;
-          const moved = cfg.splice(idx, 1).at(0);
-          cfg.splice(j, 0, moved);
+          const a = cfg.at(index);
+          const b = cfg.at(target.index);
+          if (!a || !b) return;
+          cfg[index] = b;
+          cfg[target.index] = a;
           opts.saveConfig(cfg);
           (opts.onRender || (() => _renderSectionConfigTable(opts)))();
           if (opts.onApply) opts.onApply();
         });
         return btn;
       };
-      tdMove.appendChild(makeBtn("up", idx === 0));
-      tdMove.appendChild(makeBtn("down", idx >= sortableCount - 1));
+      tdMove.appendChild(makeBtn("up", pos <= 0));
+      tdMove.appendChild(makeBtn("down", pos < 0 || pos >= sortable.length - 1));
     }
 
     tr.append(tdCheck, tdLabel, tdMove);
@@ -2666,12 +2685,146 @@ const _renderSectionConfigTable = (opts) => {
   container.appendChild(table);
 };
 
-/** Renders the main page layout section config table in Settings > Layout. */
+/**
+ * The v2 tabs, in nav order (STRK-326).
+ *
+ * Dashboard is locked: guaranteeing one always-visible tab means activateTab
+ * always has a fallback target, so hiding the active tab or deep-linking to a
+ * hidden one can never strand the user on an empty shell.
+ *
+ * Inventory is locked too (STRK-328), for a different reason: it is not a peer
+ * of Market and Collections. It is the only place items can be added or edited
+ * — #newItemBtn lives inside its panel — and the Dashboard is entirely derived
+ * from that data. Hiding it strands a new user with empty totals and no way to
+ * add anything, recoverable only by finding a setting they cannot guess at.
+ *
+ * `hasOwnSectionControls` marks a tab whose sections are ALSO individually
+ * toggleable elsewhere in Settings (the Dashboard sections table). It decides
+ * whether locking may force those sections back on — see
+ * _normalizeLockedTabSections.
+ * @constant {Array<{id: string, label: string, view: string, locked?: boolean, hasOwnSectionControls?: boolean}>}
+ */
+const LAYOUT_TABS = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    view: "tabViewDashboard",
+    locked: true,
+    hasOwnSectionControls: true,
+  },
+  { id: "inventory", label: "Inventory", view: "tabViewInventory", locked: true },
+  { id: "market", label: "Market", view: "tabViewMarket" },
+  { id: "collections", label: "Collections", view: "tabViewCollections" },
+];
+
+/**
+ * Force-enable sections belonging to a locked tab that has no other control
+ * for them (STRK-328).
+ *
+ * saveLayoutTabConfig stops writing a tab's sections once it is locked, so a
+ * stored `enabled: false` from before the lock — or set through the checkbox in
+ * the window between STRK-326 and STRK-328 — would survive forever. The result
+ * inverts the bug STRK-326 removed: a permanently visible nav entry opening an
+ * EMPTY panel, with the checkbox now disabled so nothing in the UI can fix it.
+ *
+ * Scoped by `hasOwnSectionControls`, NOT by `locked` alone. Dashboard is locked
+ * but its three sections have their own table in Settings, and a user who turns
+ * them all off wants a minimal Dashboard — a legitimate end state. Forcing
+ * those back on would make that table a control that silently undoes itself.
+ *
+ * Read-time rather than a versioned migration: idempotent, self-healing on
+ * whatever the next save writes, and it cannot leave storage half-migrated.
+ * @param {Array<{id:string, enabled:boolean}>} sections - Layout section config.
+ * @returns {Array<{id:string, enabled:boolean}>} The same array, normalized in place.
+ */
+const _normalizeLockedTabSections = (sections) => {
+  const forcedViews = new Set(
+    LAYOUT_TABS.filter((t) => t.locked && !t.hasOwnSectionControls).map((t) => t.view)
+  );
+  if (!forcedViews.size) return sections;
+  for (const section of sections) {
+    if (forcedViews.has(LAYOUT_SECTION_TAB_VIEW[section.id])) section.enabled = true;
+  }
+  return sections;
+};
+
+/**
+ * Layout section config with locked-tab sections normalized (STRK-328).
+ *
+ * Every consumer of the section config goes through this rather than the raw
+ * loader, so the tab table, the Dashboard table, the save path, and
+ * applyLayoutOrder can never disagree about whether Inventory is showing.
+ * @returns {Array<{id:string, label:string, enabled:boolean}>} Normalized config.
+ */
+const getNormalizedLayoutSectionConfig = () =>
+  _normalizeLockedTabSections(getLayoutSectionConfig());
+window.getNormalizedLayoutSectionConfig = getNormalizedLayoutSectionConfig;
+
+/**
+ * Derives per-tab visibility from the flat layout section config.
+ *
+ * A tab is visible when any section it owns is enabled, so this needs no
+ * storage of its own — the section-to-tab ownership in LAYOUT_SECTION_TAB_VIEW
+ * is the single source of truth for both this and applyLayoutOrder.
+ * @returns {Array<{id:string, label:string, enabled:boolean, locked?:boolean}>}
+ */
+const getLayoutTabConfig = () => {
+  const sections = getNormalizedLayoutSectionConfig();
+  return LAYOUT_TABS.map((tab) => {
+    if (tab.locked) return { id: tab.id, label: tab.label, enabled: true, locked: true };
+    const owned = sections.filter((s) => LAYOUT_SECTION_TAB_VIEW[s.id] === tab.view);
+    return { id: tab.id, label: tab.label, enabled: owned.some((s) => s.enabled) };
+  });
+};
+window.getLayoutTabConfig = getLayoutTabConfig;
+
+/**
+ * Writes per-tab visibility back onto every section the tab owns.
+ *
+ * Inventory owns two sections (search bar + table) that render as one visual
+ * surface, so its single checkbox drives both — a half-hidden Inventory tab is
+ * not a state the UI can express any more.
+ * @param {Array<{id:string, enabled:boolean}>} cfg - Tab rows from getLayoutTabConfig.
+ */
+const saveLayoutTabConfig = (cfg) => {
+  const enabledByTab = new Map(cfg.map((t) => [t.id, t.enabled]));
+  const sections = getNormalizedLayoutSectionConfig();
+  for (const section of sections) {
+    const tab = LAYOUT_TABS.find((t) => t.view === LAYOUT_SECTION_TAB_VIEW[section.id]);
+    if (!tab || tab.locked || !enabledByTab.has(tab.id)) continue;
+    section.enabled = enabledByTab.get(tab.id);
+  }
+  saveLayoutSectionConfig(sections);
+};
+
+/** Renders the whole-tab visibility table in Settings > Layout (STRK-326). */
+const renderLayoutTabConfigTable = () =>
+  _renderSectionConfigTable({
+    containerId: "layoutTabConfigContainer",
+    getConfig: getLayoutTabConfig,
+    saveConfig: saveLayoutTabConfig,
+    noReorder: true,
+    emptyText: "No tabs available",
+    onApply: () => {
+      if (typeof applyLayoutOrder === "function") applyLayoutOrder();
+      if (typeof window.applyTabVisibility === "function") window.applyTabVisibility();
+    },
+    onRender: () => renderLayoutTabConfigTable(),
+  });
+
+/**
+ * Renders the Dashboard section config table in Settings > Layout.
+ *
+ * Scoped to Dashboard-owned sections: the other tabs hold a single module each,
+ * so ordering there would be a no-op control, and their visibility is a whole-tab
+ * decision handled by renderLayoutTabConfigTable (STRK-326).
+ */
 const renderLayoutSectionConfigTable = () =>
   _renderSectionConfigTable({
     containerId: "layoutSectionConfigContainer",
-    getConfig: getLayoutSectionConfig,
+    getConfig: getNormalizedLayoutSectionConfig,
     saveConfig: saveLayoutSectionConfig,
+    filter: (s) => LAYOUT_SECTION_TAB_VIEW[s.id] === "tabViewDashboard",
     onApply: typeof applyLayoutOrder === "function" ? applyLayoutOrder : null,
     onRender: () => renderLayoutSectionConfigTable(),
   });
@@ -2773,11 +2926,35 @@ const renderMetalOrderConfigTable = () =>
 window.renderMetalOrderConfigTable = renderMetalOrderConfigTable;
 
 /**
+ * Which v2 tab view owns each layout section (STRK-282).
+ *
+ * Load-bearing: applyLayoutOrder re-appends every section to reassert DOM
+ * order, and appending to `.container` would EJECT the section from its tab
+ * view — the wrappers end up empty (zero height) and every section renders on
+ * every tab. Reordering is therefore scoped within the owning view, which is
+ * also the only ordering that still means anything once the sections are split
+ * across tabs.
+ */
+const LAYOUT_SECTION_TAB_VIEW = {
+  spotPrices: "tabViewDashboard",
+  bestPriceTicker: "tabViewDashboard",
+  totals: "tabViewDashboard",
+  search: "tabViewInventory",
+  table: "tabViewInventory",
+  vendorPrices: "tabViewMarket",
+  // No DOM section answers to `collections` yet — the entry exists so the tab
+  // ownership lookup covers all four tabs (STRK-326). applyLayoutOrder skips it
+  // because sectionMap has nothing under that id.
+  collections: "tabViewCollections",
+};
+window.LAYOUT_SECTION_TAB_VIEW = LAYOUT_SECTION_TAB_VIEW;
+
+/**
  * Shows/hides and reorders major page sections based on layout section config.
  * Reads from localStorage and applies both visibility and DOM order.
  */
 const applyLayoutOrder = () => {
-  const config = getLayoutSectionConfig();
+  const config = getNormalizedLayoutSectionConfig();
   const sectionMap = {
     spotPrices: elements.spotPricesSection,
     totals: elements.totalsSectionEl,
@@ -2793,7 +2970,17 @@ const applyLayoutOrder = () => {
     const el = sectionMap[section.id];
     if (!el) continue;
     el.style.display = section.enabled ? "" : "none";
-    container.append(el);
+    // Fall back to the container when the shell is absent, so this keeps
+    // working if the tab views are ever removed.
+    //
+    // The `instanceof HTMLElement` test is load-bearing, not defensive noise:
+    // safeGetElement returns a TRUTHY dummy on a miss whose methods no-op
+    // silently, so a plain `view || container` would always take the dummy
+    // branch and append() would quietly do nothing — every section would stay
+    // where it was with no error to show for it.
+    const view = safeGetElement(LAYOUT_SECTION_TAB_VIEW[section.id] || "");
+    const target = view instanceof HTMLElement ? view : container;
+    target.append(el);
   }
 };
 const applyLayoutVisibility = applyLayoutOrder;
@@ -4381,6 +4568,8 @@ if (typeof window !== "undefined") {
   window.renderInlineChipConfigTable = renderInlineChipConfigTable;
   window.renderFilterChipCategoryTable = renderFilterChipCategoryTable;
   window.renderLayoutSectionConfigTable = renderLayoutSectionConfigTable;
+  window.renderLayoutTabConfigTable = renderLayoutTabConfigTable;
+  window.saveLayoutTabConfig = saveLayoutTabConfig;
   window.syncGoldbackSettingsUI = syncGoldbackSettingsUI;
   window.syncCurrencySettingsUI = syncCurrencySettingsUI;
   window.syncHeaderToggleUI = syncHeaderToggleUI;

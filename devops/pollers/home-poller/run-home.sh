@@ -37,13 +37,16 @@ fi
 
 # STRK-230: cron runs `. /etc/environment` before this script, but plain
 # assignments sourced that way are NOT exported, so this child script (→ node)
-# never sees them. Re-export ONLY the WEBSCALE_* cookie vars from the container
-# env so price-extract.js can inject the wspc cookie for JM/Provident. Scoped to
-# WEBSCALE_* deliberately, to leave every other var's behavior untouched.
+# never sees them. Re-export ONLY the WEBSCALE_* cookie vars (wspc cookie for
+# JM/Provident) plus MB_API_KEY (STRK-321 MintBuilder direct feed) from the
+# container env. Scoped deliberately, to leave every other var's behavior
+# untouched. Without the MB_API_KEY hop the feed silently falls back to page
+# scraping under cron while the dashboard retry (which inherits the Docker
+# env) still uses the feed — a confusing half-state.
 if [ -f /etc/environment ]; then
   while IFS= read -r _line; do
     case "$_line" in
-      WEBSCALE_*=*) export "${_line}" ;;
+      WEBSCALE_*=* | MB_API_KEY=*) export "${_line}" ;;
     esac
   done < /etc/environment
 fi
@@ -59,7 +62,9 @@ fi
 # Providers loaded from Turso at runtime (STAK-348)
 POLLER_ID="${POLLER_ID:-home}"
 
-# Run Firecrawl extraction (with Playwright fallback) — writes results to Turso
+# Run Firecrawl extraction (with Playwright fallback) — writes results to Turso.
+# MB_API_KEY passed inline as belt-and-braces alongside the re-export above
+# (STRK-321): either hop alone suffices, both make the cron path robust.
 echo "[$(date -u +%H:%M:%S)] Running price extraction..."
 DATA_DIR="${DATA_DIR:-$SCRIPT_DIR/data}" \
 FIRECRAWL_BASE_URL="${FIRECRAWL_BASE_URL:-http://localhost:3002}" \
@@ -67,6 +72,7 @@ BROWSER_MODE=local \
 PLAYWRIGHT_LAUNCH=1 \
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/usr/local/share/playwright}" \
 POLLER_ID="$POLLER_ID" \
+MB_API_KEY="${MB_API_KEY:-}" \
 node "$SCRIPT_DIR/price-extract.js"
 
 # T3 queue status — log failure count, warn if rate looks systemic

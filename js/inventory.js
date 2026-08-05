@@ -110,7 +110,16 @@ const showInventoryRecoveryBanner = ({ cloudConnected } = {}) => {
   banner.appendChild(copy);
   banner.appendChild(actions);
 
-  tableSection.parentNode.insertBefore(banner, tableSection);
+  // Mount above the tab views, not next to the table (STRK-282). This banner
+  // warns that inventory could not be loaded — a data-integrity alert that has
+  // to be seen on load. Inserting it beside #tableSectionEl used to put it in
+  // <main>, but that section now lives inside the Inventory tab view, which is
+  // display:none whenever another tab is active. The user would land on
+  // Dashboard and never see the warning. Falls back to the old placement if
+  // the shell is absent.
+  const shellRoot = tableSection.closest("main.container");
+  if (shellRoot) shellRoot.insertBefore(banner, shellRoot.firstChild);
+  else tableSection.parentNode.insertBefore(banner, tableSection);
 };
 
 const dismissInventoryRecoveryBanner = () => {
@@ -518,13 +527,29 @@ const startCellEdit = (idx, field, element) => {
     }
 
     // Set input value based on field type
-    if (field === "weight" && item.weightUnit === "kg") {
+    if (field === "weight" && (item.weightUnit === "gb" || item.weightUnit === "sb")) {
+      // STRK-319: gb/sb store a denomination, not a weight — echo it back untouched. Previously
+      // a sub-1 denomination (¼ gb) tripped the `< 1` test below and was edited as "7.78" grams.
+      input.value = parseFloat(current);
+      input.dataset.unit = item.weightUnit;
+    } else if (field === "weight" && item.weightUnit === "kg") {
       input.value = oztToKg(current).toFixed(4);
       input.dataset.unit = "kg";
     } else if (field === "weight" && item.weightUnit === "lb") {
       input.value = oztToLb(current).toFixed(4);
       input.dataset.unit = "lb";
-    } else if (field === "weight" && (item.weightUnit === "g" || item.weight < 1)) {
+    } else if (field === "weight" && item.weightUnit === "mg") {
+      input.value = parseFloat(oztToMg(current).toFixed(1));
+      input.dataset.unit = "mg";
+    } else if (
+      field === "weight" &&
+      (item.weightUnit === "g" || (!item.weightUnit && item.weight < 1))
+    ) {
+      // STRK-319: the second test was `item.weight < 1` and applied to EVERY sub-troy-ounce
+      // item whatever unit it was saved with — this editor stored dataset.unit "g" and
+      // converted back with gramsToOzt on save while leaving weightUnit untouched, so a 25 mg
+      // note displayed "0.03" and saving wrote 30 mg back. Now scoped to legacy rows that carry
+      // no stored unit, matching _editPopulateWeightFields.
       input.value = oztToGrams(current).toFixed(2);
       input.dataset.unit = "g";
     } else if (["weight", "price", "marketValue"].includes(field)) {
@@ -559,11 +584,14 @@ const startCellEdit = (idx, field, element) => {
       finalValue = parseFloat(value);
       if (field === "weight" && input.dataset.unit === "g") {
         finalValue = gramsToOzt(finalValue);
+      } else if (field === "weight" && input.dataset.unit === "mg") {
+        finalValue = mgToOzt(finalValue); // STRK-319
       } else if (field === "weight" && input.dataset.unit === "kg") {
         finalValue = kgToOzt(finalValue);
       } else if (field === "weight" && input.dataset.unit === "lb") {
         finalValue = lbToOzt(finalValue);
       }
+      // gb/sb store the denomination itself, so they need no conversion on the way back in.
     } else {
       finalValue = value.trim();
     }
@@ -1812,6 +1840,15 @@ const _editPopulateWeightFields = (item) => {
     elements.itemWeightUnit.value = "gb";
     if (denomSelect) denomSelect.value = String(parseFloat(item.weight));
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+  } else if (item.weightUnit === "sb") {
+    // STRK-319: sb had NO branch here at all, so a Silverback fell through to the `oz` fallback
+    // and opened reading "1.00 oz". Saving then rewrote weightUnit to "oz" — turning a 1
+    // Silverback (0.001 ozt of silver) into a 1 TROY OUNCE silver item, a 1000x melt error
+    // caused by nothing more than opening a row and clicking save. Like gb, the stored weight
+    // is the denomination and needs no conversion.
+    elements.itemWeight.value = parseFloat(item.weight);
+    elements.itemWeightUnit.value = "sb";
+    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
   } else if (item.weightUnit === "kg") {
     elements.itemWeight.value = parseFloat(oztToKg(item.weight).toFixed(4));
     elements.itemWeightUnit.value = "kg";
@@ -1820,7 +1857,26 @@ const _editPopulateWeightFields = (item) => {
     elements.itemWeight.value = parseFloat(oztToLb(item.weight).toFixed(4));
     elements.itemWeightUnit.value = "lb";
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
-  } else if (item.weightUnit === "g" || item.weight < 1) {
+  } else if (item.weightUnit === "mg") {
+    // STRK-319: milligram entry/display lens; storage stays troy ounces.
+    // One decimal, not three: parseWeight stores ozt at 6dp, which is ~0.03 mg of resolution,
+    // so a 25 mg note round-trips to 25.0072 and three decimals would surface that storage
+    // noise as "25.007" in the input — then save it back and let the drift compound on every
+    // edit (PR #1407 review, CodeRabbit). One decimal is inside the storage resolution and
+    // redisplays the whole numbers these products actually come in.
+    elements.itemWeight.value = parseFloat(oztToMg(item.weight).toFixed(1));
+    elements.itemWeightUnit.value = "mg";
+    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+  } else if (item.weightUnit === "g" || (!item.weightUnit && item.weight < 1)) {
+    // STRK-319: this branch used to read `item.weightUnit === "g" || item.weight < 1`, and that
+    // second test applied to EVERY sub-troy-ounce item no matter how it was saved — the modal
+    // opened in grams and the following save wrote weightUnit "g" back, silently discarding the
+    // user's choice. A 1/10 ozt gold coin opened reading 3.1104 g. It would also have destroyed
+    // the new mg unit on first edit, since 25 mg is ~0.0008 ozt and trips the same `< 1` test.
+    //
+    // The heuristic is kept, but only for items with NO stored unit (legacy rows predating the
+    // field), where a small bare number really is friendlier read as grams. An explicit unit now
+    // always wins.
     const grams = oztToGrams(item.weight);
     elements.itemWeight.value = parseFloat(grams.toFixed(4));
     elements.itemWeightUnit.value = "g";
@@ -2253,8 +2309,12 @@ const editItem = (idx, logIdx = null) => {
       };
     }
 
-    // Tags section is always visible (non-collapsible)
+    // Tags render into the collapsible Tags section (STRK-301); disclosure
+    // state is applied by prepareFormSections below.
   }
+
+  // STRK-301: apply remembered/data-driven section disclosure after populate
+  if (typeof prepareFormSections === "function") prepareFormSections();
 
   // Open unified modal
   if (window.openModalById) openModalById("itemModal");
@@ -2385,6 +2445,9 @@ const duplicateItem = (idx) => {
   if (typeof updateCapsuleSuggestion === "function") {
     updateCapsuleSuggestion(item.numistaData?.diameter || "");
   }
+
+  // STRK-301: apply remembered/data-driven section disclosure after populate
+  if (typeof prepareFormSections === "function") prepareFormSections();
 
   // Open unified modal
   if (window.openModalById) openModalById("itemModal");

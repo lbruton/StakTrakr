@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.82";
+const APP_VERSION = "3.35.95";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -676,6 +676,27 @@ const CONSTITUTIONAL_WORN_SCALAR = 0.98839;
 /** @constant {string} CONSTITUTIONAL_BASIS_KEY - LocalStorage key for the global worn/fresh valuation basis; values "worn" (default) | "fresh" (STRK-235). */
 const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis";
 
+/**
+ * @constant {string} ASW_TERM_EXPANDED - The derived pure-silver figure named on first use.
+ * ASW (Actual Silver Weight) is the standard numismatic term for a coin's pure silver content
+ * in troy ounces — junk-silver dealers quote and price bags in ASW, so it is the native
+ * vocabulary of constitutional-silver users, and the codebase already used it internally
+ * before any user-facing surface said it (STRK-299). Spelled out here once so every surface
+ * expands it identically. Constitutional silver is the only cu path, so ASW never has to be
+ * disambiguated from AGW on a constitutional row — but see {@link AGW_TERM_EXPANDED}, which
+ * STRK-318 introduced for Goldback notes.
+ */
+const ASW_TERM_EXPANDED = "ASW (Actual Silver Weight)";
+
+/**
+ * @constant {string} AGW_TERM_EXPANDED - The gold counterpart to {@link ASW_TERM_EXPANDED}.
+ * AGW (Actual Gold Weight) is the standard numismatic term for the pure gold content of a
+ * piece in troy ounces. Goldback notes are bought by denomination, so the gold each note
+ * actually carries is surfaced in the Weight cell tooltip rather than the cell itself
+ * (STRK-318) — the same cell/tooltip split STRK-300 established for constitutional silver.
+ */
+const AGW_TERM_EXPANDED = "AGW (Actual Gold Weight)";
+
 /** @constant {Object<string, string[]>} TYPE_METAL_FILTER - Type visibility constraints by selected metal */
 const TYPE_METAL_FILTER = {
   Goldback: ["Gold"],
@@ -691,6 +712,9 @@ const ITEM_REMOVED_TAGS_KEY = "itemRemovedTags"; // nosemgrep: codacy.javascript
 
 /** @constant {string} ITEM_TAGS_LAST_MODIFIED_KEY - LocalStorage key for per-item tag timestamps (STRK-108) */
 const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
+/** @constant {string} FORM_SECTION_STATE_KEY - LocalStorage key for the add/edit form per-section open/collapsed map (STRK-301) */
+const FORM_SECTION_STATE_KEY = "formSectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /** @constant {number} MAX_TAGS_PER_ITEM - Maximum number of tags allowed per item (STAK-126) */
 const MAX_TAGS_PER_ITEM = 20;
@@ -1083,6 +1107,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
+  FORM_SECTION_STATE_KEY, // JSON object: add/edit form section open/collapsed map (STRK-301, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
   "cloud_token_pcloud", // JSON: pCloud OAuth token data
@@ -1315,6 +1340,13 @@ const saveFilterChipCategoryConfig = (config) => {
 
 /**
  * Default layout section configuration. Order determines display order.
+ *
+ * `collections` has no DOM section of its own — the Collections tab is still a
+ * placeholder panel (STRK-254). It is carried here anyway so the STRK-326 tab
+ * visibility control has somewhere to persist, which avoids a second
+ * localStorage key and the dual registration it would require. Existing users
+ * pick it up for free: _loadSectionConfig appends defaults the saved config
+ * does not know about.
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
@@ -1324,6 +1356,7 @@ const LAYOUT_SECTION_DEFAULTS = [
   { id: "search", label: "Search & filter bar", enabled: true },
   { id: "table", label: "Inventory table", enabled: true },
   { id: "vendorPrices", label: "Vendor Prices", enabled: true },
+  { id: "collections", label: "Collections", enabled: true },
 ];
 
 /**
@@ -2069,6 +2102,8 @@ if (typeof window !== "undefined") {
   window.ITEM_TAGS_LAST_MODIFIED_KEY = ITEM_TAGS_LAST_MODIFIED_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;
+  // Form section disclosure state (STRK-301)
+  window.FORM_SECTION_STATE_KEY = FORM_SECTION_STATE_KEY;
   // Multi-currency support (STACK-50)
   window.SUPPORTED_CURRENCIES = SUPPORTED_CURRENCIES;
   window.CLOUD_VAULT_IDLE_TIMEOUT_KEY = CLOUD_VAULT_IDLE_TIMEOUT_KEY;

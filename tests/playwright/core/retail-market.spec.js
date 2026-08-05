@@ -752,7 +752,10 @@ async function routeExchangeAndCharts(page, exchangeRates = { EUR: 0.9 }) {
  */
 async function bootMarketDataPage(page) {
   await page.clock.setFixedTime(FIXED_NOW);
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Market tab (STRK-282): vendor prices live in that panel
+  // and the v2 shell boots on Dashboard, so a bare /index.html renders them
+  // display:none.
+  await page.goto("/index.html#/market", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     () =>
       typeof window.renderVendorPrices === "function" &&
@@ -1317,7 +1320,8 @@ test.describe("core/retail-market", () => {
   test("refreshes retail providers when AbortSignal.timeout is unavailable (STRK-213)", async ({
     page,
   }) => {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    // Deep-link into the Market tab (STRK-282) — see bootMarketDataPage.
+    await page.goto("/index.html#/market", { waitUntil: "domcontentloaded" });
 
     // Boot's background sync populates providers from the default mock. Wait for it so the
     // harness is proven working and the in-progress guard has cleared before our probe.
@@ -1445,6 +1449,15 @@ test.describe("core/retail-market", () => {
   }) => {
     await setupRetailFixture(page);
 
+    // DE-FLAKE (STRK-327). The locator spans every track in the container, and
+    // the superseded track lingers until the rAF sweep in _finalizeTickerTrack —
+    // the trap already recorded for STRK-317. The fixture's boot renders twice
+    // (app boot, then refreshMarketData), so under full-suite load both tracks
+    // can still be mounted here, and the single "Goldback" fixture slug then
+    // resolves to two .premium nodes and a strict-mode violation. Observed
+    // failing once in a 572-test run; passes in isolation and in-file.
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+
     const tickerPremium = page
       .locator(".ticker-block[data-ticker-block='primary'] .ticker-item")
       .filter({ hasText: "Goldback" })
@@ -1463,6 +1476,252 @@ test.describe("core/retail-market", () => {
     const detailBadge = page.locator("#marketDetailContent .vp-premium");
     await expect(detailBadge.first()).toHaveText("+20.0%");
     await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
+  });
+
+  // STRK-317: two ticker display fixes pinned together —
+  // (1) coin names render in full (the old code hard-truncated >30 chars to 27+"…"
+  //     in _buildTickerItemEl; the pill CSS already sizes to content), and
+  // (2) _shortVendor resolves vendors missing from its hardcoded map via the
+  //     manifest vendor-meta display name instead of leaking the raw lowercase
+  //     vid (the "mintbuilder" bug), with mintbuilder now also in the map.
+  test("STRK-317 — ticker renders full long names and resolves vendor labels", async ({ page }) => {
+    await setupRetailFixture(page);
+
+    // 38 chars — the pre-fix cap truncated anything over 30.
+    const LONG_NAME = "Australian Silver Kookaburra 1 oz Coin";
+
+    await page.evaluate(
+      ({ longName, slugLong, slugMeta }) => {
+        // Top-level consts in classic scripts share one global scope, so the
+        // module-scope getters are bare-accessible here. Pin the mutated maps
+        // on the window globals each getter prefers so the re-render sees them
+        // (the loadDataSync fallbacks re-parse localStorage on every call and
+        // would discard in-place mutation).
+        const cm = _getCoinMeta() || loadDataSync("retailManifestCoinMeta", {});
+        cm[slugLong] = { ...cm[slugLong], name: longName };
+        window._manifestCoinMeta = cm;
+
+        const vm = _getVendorMeta();
+        // futurevendor: NOT in _shortVendor's map — must fall back to this name.
+        vm.futurevendor = { name: "Future Vendor", color: "#8b5cf6", url: null };
+        window._manifestVendorMeta = vm;
+
+        const coins = _getRetailCoins();
+        // mintbuilder: resolved by _shortVendor's hardcoded map after STRK-317.
+        coins[slugLong].vendors = {
+          mintbuilder: { price: 42, inStock: true, in_stock: true },
+        };
+        coins[slugMeta].vendors = {
+          futurevendor: { price: 38, inStock: true, in_stock: true },
+        };
+        window._v2RetailData = { prices: coins };
+
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { longName: LONG_NAME, slugLong: SLUG_SILVER_Z, slugMeta: SLUG_SILVER_A }
+    );
+
+    // The re-render briefly mounts a new track alongside the superseded one
+    // (the rAF sweep in _finalizeTickerTrack removes it) — wait for the swap
+    // to settle so the primary-block locators below resolve uniquely.
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+
+    const primaryBlock = page.locator(".ticker-block[data-ticker-block='primary']");
+
+    const longItem = primaryBlock.locator(".ticker-item").filter({ hasText: "Kookaburra" });
+    await expect(longItem.locator(".coin")).toHaveText(LONG_NAME);
+    await expect(longItem.locator(".vendor")).toHaveText("MintBuilder");
+
+    const metaFallbackItem = primaryBlock
+      .locator(".ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(metaFallbackItem.locator(".vendor")).toHaveText("Future Vendor");
+  });
+
+  // STRK-322: MintBuilder promoted to a first-class frontend vendor. The scrape
+  // rollout (STRK-307/311) registered mintbuilder in none of the three
+  // js/retail.js registries, leaving the detail-modal legend and every
+  // Object.keys(RETAIL_VENDOR_NAMES)-gated path blind to it — only the
+  // _shortVendor map (STRK-317) papered over the label. Pins the registration,
+  // the NAMES/URLS/COLORS parity invariant, and the user-visible legend item.
+  test("STRK-322 — MintBuilder is registered in all vendor registries and renders in the detail-modal legend", async ({
+    page,
+  }) => {
+    // Serve a latest.json where mintbuilder is the vendor for one slug — the
+    // detail modal's background refresh (openRetailViewModal) refetches this
+    // feed and REBUILDS the legend from it, so seeding window state directly
+    // gets overwritten ~instantly. Overriding the mocked feed exercises the
+    // real fetch → retailPrices → _buildVendorLegend path instead.
+    await setupRetailFixture(page, {
+      retailFeeds: {
+        [SLUG_SILVER_A]: {
+          latest: {
+            weight_oz: 1,
+            median_price: 42.5,
+            lowest_price: 42.5,
+            window_start: GENERATED_AT,
+            vendors: { mintbuilder: { price: 42.5, in_stock: true } },
+          },
+        },
+      },
+    });
+
+    const registries = await page.evaluate(() => ({
+      name: window.RETAIL_VENDOR_NAMES.mintbuilder ?? null,
+      url: window.RETAIL_VENDOR_URLS.mintbuilder ?? null,
+      color: window.RETAIL_VENDOR_COLORS.mintbuilder ?? null,
+      nameKeys: Object.keys(window.RETAIL_VENDOR_NAMES).sort(),
+      urlKeys: Object.keys(window.RETAIL_VENDOR_URLS).sort(),
+      colorKeys: Object.keys(window.RETAIL_VENDOR_COLORS).sort(),
+      colors: Object.values(window.RETAIL_VENDOR_COLORS),
+    }));
+    expect(registries.name).toBe("MintBuilder");
+    expect(registries.url).toBe("https://mintbuilder.com");
+    expect(registries.color).toMatch(/^#[0-9a-f]{6}$/i);
+    // Parity invariant: the three registries must describe the same vendor set,
+    // so a future vendor can never land half-registered again.
+    expect(registries.urlKeys).toEqual(registries.nameKeys);
+    expect(registries.colorKeys).toEqual(registries.nameKeys);
+    // Chart lines must stay distinguishable — no two vendors share a color.
+    expect(new Set(registries.colors).size).toBe(registries.colors.length);
+
+    // User-visible contract: a mintbuilder price renders a labelled legend item
+    // linking to the vendor homepage (RETAIL_VENDOR_URLS fallback — no per-slug
+    // provider URL is seeded here on purpose). The fixture slug needs a
+    // RETAIL_COIN_META entry for the modal to open at all.
+    await page.evaluate((slug) => {
+      window.RETAIL_COIN_META[slug] = { name: "Legend Probe Silver", weight: 1, metal: "silver" };
+      window.openRetailViewModal(slug);
+    }, SLUG_SILVER_A);
+
+    const legendItem = page
+      .locator("#retailViewVendorLegend .retail-legend-item")
+      .filter({ hasText: "MintBuilder" });
+    await expect(legendItem).toHaveCount(1);
+
+    // The legend renders an <a href="#"> whose click handler window.open()s the
+    // resolved vendor URL (popup pattern — the real URL never lands in href).
+    // No per-slug provider URL is seeded, so the only way this item is a link
+    // at all is the new RETAIL_VENDOR_URLS.mintbuilder homepage fallback —
+    // stub window.open and click to pin the resolved URL.
+    await page.evaluate(() => {
+      window.__openedUrls = [];
+      window.open = (url) => {
+        window.__openedUrls.push(url);
+        return null;
+      };
+    });
+    await legendItem.click();
+    const openedUrls = await page.evaluate(() => window.__openedUrls);
+    expect(openedUrls[0]).toBe("https://mintbuilder.com");
+  });
+
+  // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
+  // which cannot catch the dual-store gap — retail.js's _populateManifestState
+  // (the REAL mid-session manifest sync path) updates its lexical
+  // _manifestVendorMeta + localStorage but historically never the
+  // window._manifestVendorMeta property that market-data.js's _getVendorMeta
+  // prefers, so a vendor added by a sync stayed invisible to the fallback until
+  // reload. This drives the real populate function and pins the mirror.
+  test("STRK-317 — manifest sync refreshes the vendor meta the ticker fallback reads", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    await page.evaluate(
+      ({ slugMeta }) => {
+        const toCode = (m) => (m === "silver" ? "xag" : m === "gold" ? "xau" : m);
+        const coins = Object.entries(_getCoinMeta()).map(([slug, m]) => ({
+          slug,
+          name: m.name,
+          weight_oz: m.weight,
+          metal: toCode(m.metal),
+        }));
+        const vendors = Object.entries(_getVendorMeta()).map(([id, v]) => ({
+          id,
+          name: v.name,
+          color: v.color,
+          url: v.url,
+        }));
+        vendors.push({ id: "syncedvendor", name: "Synced Vendor", color: "#8b5cf6", url: null });
+
+        // Real sync path — must mirror onto window._manifestVendorMeta.
+        _populateManifestState(coins, vendors);
+
+        const priceMap = _getRetailCoins();
+        priceMap[slugMeta].vendors = {
+          syncedvendor: { price: 38, inStock: true, in_stock: true },
+        };
+        window._v2RetailData = { prices: priceMap };
+
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { slugMeta: SLUG_SILVER_A }
+    );
+
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    const item = page
+      .locator(".ticker-block[data-ticker-block='primary'] .ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(item.locator(".vendor")).toHaveText("Synced Vendor");
+  });
+
+  // STRK-317 review round 1 (Codex): with fewer than 4 items the ticker takes
+  // the non-animated static path, and .market-ticker is overflow:hidden — a
+  // full-length name on a narrow viewport used to clip at BOTH edges (the
+  // track was plain justify-content:center). The static track now allows
+  // horizontal scroll with `safe center`, keeping every character reachable.
+  test("STRK-317 — static ticker (<4 items) keeps long names reachable on narrow viewports", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setupRetailFixture(page);
+    // The ticker is a DASHBOARD section, unlike the vendor-price tables this
+    // fixture otherwise serves — and setupRetailFixture boots into Market. This
+    // assertion measures real layout (overflowX / scrollWidth), which only has
+    // meaning while the element is actually rendered (STRK-282).
+    //
+    // Switch via window.activateTab, not by clicking the header nav: this test
+    // runs at 390px, where .app-tab-nav is display:none in favour of the mobile
+    // bottom bar, so the header button is not clickable. tabs.js exposes
+    // activateTab for exactly this.
+    await page.evaluate(() => window.activateTab("dashboard"));
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+
+    const LONG_NAME = "Australian Silver Kookaburra 1 oz Coin";
+
+    await page.evaluate(
+      ({ longName, slug }) => {
+        const cm = _getCoinMeta() || loadDataSync("retailManifestCoinMeta", {});
+        cm[slug] = { ...cm[slug], name: longName };
+        window._manifestCoinMeta = cm;
+        // Single item → static (non-animated) track path.
+        const priceMap = _getRetailCoins();
+        window._v2RetailData = { prices: { [slug]: priceMap[slug] } };
+        const container = document.getElementById("bestPriceTickerEl");
+        if (container) container.dataset.tickerSignature = "";
+        window.renderBestPriceTicker();
+      },
+      { longName: LONG_NAME, slug: SLUG_SILVER_Z }
+    );
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+    await expect(track).toHaveClass(/\bstatic\b/);
+    await expect(track.locator(".ticker-item .coin")).toHaveText(LONG_NAME);
+
+    const overflow = await track.evaluate((el) => ({
+      overflowX: getComputedStyle(el).overflowX,
+      scrollable: el.scrollWidth > el.clientWidth,
+    }));
+    // The 38-char item overflows a 390px viewport; scrollability is what makes
+    // the restored characters reachable instead of clipped.
+    expect(overflow.overflowX).toBe("auto");
+    expect(overflow.scrollable).toBe(true);
   });
 
   // STRK-275 / STAK-513: rapid re-renders must leave exactly one .ticker-track.
@@ -1531,6 +1790,100 @@ test.describe("core/retail-market", () => {
     expect(renderStats.tracksCreated).toBeGreaterThan(1);
 
     await expect(track).toHaveCount(1);
+  });
+
+  // STRK-327: the ticker sizes its scroll loop from a measured block width, so a
+  // rebuild that lands while #tabViewDashboard is display:none measures 0, takes
+  // the static branch, and reveals frozen — with the STRK-317 scrollbar showing
+  // for the wrong reason. activateTab re-measures on reveal.
+  //
+  // Lives here rather than in tab-shell.spec.js (where the sibling
+  // updatePortalHeight guard sits) because it needs the seeded retail fixture to
+  // reach a >=4-item animated track at all.
+  test("STRK-327 — a ticker rendered while Dashboard is hidden animates on reveal", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+
+    // Only the animated path is repaired. A <4-item track is legitimately static
+    // and must stay so, and this assertion would pass vacuously against one.
+    const itemCount = await page
+      .locator("#bestPriceTickerEl .ticker-block[data-ticker-block='primary'] .ticker-item")
+      .count();
+    expect(itemCount).toBeGreaterThanOrEqual(4);
+
+    /**
+     * Read the ticker track's animation state straight from the DOM.
+     *
+     * Deliberately reports the two fields that discriminate a running loop from
+     * the STRK-327 failure: a visibility-only assertion passes either way.
+     * @returns {Promise<{isStatic: boolean, loopWidth: number}|null>} Track state, or null when absent.
+     */
+    const readTrack = () =>
+      page.evaluate(() => {
+        const el = document.querySelector("#bestPriceTickerEl .ticker-track");
+        if (!el) return null;
+        return {
+          isStatic: el.classList.contains("static"),
+          loopWidth: Number(el.dataset.loopWidth || 0),
+        };
+      });
+
+    // SELF-CHECK, and the reason this test needs no setup of its own: the shared
+    // fixture boots at #/market (vendor prices live in that panel), so
+    // refreshMarketData renders the ticker into a display:none Dashboard. That
+    // is the reported "reload on another tab" repro, reproduced for free — and
+    // it means the whole retail-market suite has been running against a frozen
+    // ticker, unnoticed, because every other assertion here checks structure and
+    // content rather than whether the thing actually moves.
+    //
+    // If this ever stops arriving broken, the reveal assertions below go vacuous.
+    const beforeReveal = await readTrack();
+    expect(beforeReveal.isStatic).toBe(true);
+    expect(beforeReveal.loopWidth).toBe(0);
+
+    await page.locator("#tabBtnDashboard").click();
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+
+    // The repair: animating again, and no scrollbar, because `static` is gone.
+    const repaired = await readTrack();
+    expect(repaired.isStatic).toBe(false);
+    expect(repaired.loopWidth).toBeGreaterThan(0);
+    expect(await track.evaluate((el) => getComputedStyle(el).overflowX)).not.toBe("auto");
+  });
+
+  // STRK-327: the mirror case — a genuinely short track must survive the reveal
+  // repair untouched. The `static` class is overloaded (it marks both a <4-item
+  // track and a failed measurement), so a repair keyed on the class rather than
+  // on the duplicate block would strip it here and animate a single-block track
+  // against nothing, exposing a gap at the wrap point and losing STRK-317's
+  // centering and scrollbar.
+  test("STRK-327 — a legitimately static track stays static across tab switches", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+
+    await page.evaluate((slug) => {
+      const priceMap = _getRetailCoins();
+      window._v2RetailData = { prices: { [slug]: priceMap[slug] } };
+      document.getElementById("bestPriceTickerEl").dataset.tickerSignature = "";
+      window.renderBestPriceTicker();
+    }, SLUG_SILVER_Z);
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    await expect(track).toHaveCount(1);
+    await expect(track).toHaveClass(/\bstatic\b/);
+
+    await page.locator("#tabBtnMarket").click();
+    await expect(page.locator("#tabViewDashboard")).toBeHidden();
+    await page.locator("#tabBtnDashboard").click();
+    await expect(page.locator("#tabViewDashboard")).toBeVisible();
+
+    await expect(track).toHaveClass(/\bstatic\b/);
+    expect(await track.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
   });
 
   // =========================================================================

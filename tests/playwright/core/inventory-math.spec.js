@@ -129,7 +129,10 @@ async function seedMoneyData(page, options = {}) {
 }
 
 async function gotoApp(page) {
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+  // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+  // this control display:none.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
   await page.waitForFunction(
     () =>
@@ -1064,10 +1067,13 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await expect(page.locator("#viewItemModal")).toContainText(/90%\s*Quarter/i);
   });
 
-  // STRK-237 — the inventory-table Weight column must render a constitutional row as the
-  // derived pure-silver content (oz), consistent with every other row and the portfolio
-  // totals, with the face value relocated to the cell tooltip (no more in-column "$X.XX face").
-  test("inventory table weight column shows derived silver oz for constitutional rows, face in tooltip", async ({
+  // STRK-237 put the derived pure-silver oz in the Weight cell and the face value in the
+  // tooltip. STRK-300 REVERSES that pairing: constitutional silver is quoted, bought, and
+  // mentally modelled by face value, and the table was the odd surface out (cards and the
+  // detail modal already led with face). The cell now shows total face with an `fv` suffix and
+  // the ASW moves to the tooltip. The sort key and the filter key are deliberately unchanged —
+  // neither ever depended on this cell's text.
+  test("inventory table weight column shows total face value for constitutional rows, ASW in tooltip", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [CU_QUARTERS_40] });
@@ -1077,25 +1083,23 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
       .locator("td[data-column='weight'] .filter-text");
-    // 40 quarters worn ≈ 7.15 ozt silver — shown as a weight, NOT the raw "$10.00 face".
-    await expect(weightCell).toHaveText(/^\d+\.\d+\s*oz$/);
-    await expect(weightCell).not.toContainText("face");
-    const oz = parseFloat((await weightCell.textContent()).replace(/[^0-9.]/g, ""));
-    expect(oz).toBeGreaterThan(6.5);
-    expect(oz).toBeLessThan(8);
-    // Face value (40 × $0.25 = $10.00) + valuation basis move to the cell tooltip.
+    // 40 quarters × $0.25 = $10.00 total face. Value-then-suffix, matching "0.54 oz" / "5 gb".
+    await expect(weightCell).toHaveText("$10.00 fv");
+    // The old in-column ozt figure is gone from the cell.
+    await expect(weightCell).not.toContainText("oz");
+    // ASW (~7.15 ozt worn) + valuation basis move to the tooltip, abbreviation expanded.
     const title = await weightCell.getAttribute("title");
-    expect(title).toMatch(/\$10\.00 face/);
+    expect(title).toMatch(/ASW \(Actual Silver Weight\)/);
     expect(title).toMatch(/worn/i);
-    // STRK-239 (beta feedback): the cu weight cell is click-to-filter like every other weight unit
-    // (oz/g/gb/sb). STRK-240: the filter value is the DISPLAYED derived oz (a quoted string), not
-    // the raw stored face value — so the chip matches what's shown and a $-face value can't collide
-    // with an oz weight. The face value stays in the tooltip (asserted above).
+    const aswOz = parseFloat(title.match(/^([\d.]+) ozt/)[1]);
+    expect(aswOz).toBeGreaterThan(6.5);
+    expect(aswOz).toBeLessThan(8);
+    // STRK-239/240: the cell is still click-to-filter and still keys on the ASW, so the mobile
+    // tap contract and the STRK-240 anti-collision guarantee both survive the display flip.
     await expect(weightCell).toHaveClass(/\bfilter-text\b/);
-    const displayedOz239 = (await weightCell.textContent()).replace(/[^0-9.]/g, "");
     await expect(weightCell).toHaveAttribute(
       "onclick",
-      new RegExp(`^applyColumnFilter\\('weight', "?${displayedOz239.replace(/\./g, "\\.")}"?\\)$`)
+      new RegExp(`^applyColumnFilter\\('weight', "${aswOz.toFixed(2).replace(/\./g, "\\.")}"\\)$`)
     );
     await expect(weightCell).toHaveAttribute("role", "button");
   });
@@ -1122,12 +1126,15 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core 40 Silver Quarters" })
       .locator("td[data-column='weight'] .filter-text");
-    // STRK-240: keys on the displayed derived oz (quoted string), not the stored per-coin face. The
+    // STRK-240: keys on the derived ASW (quoted string), not the stored per-coin face. The
     // ~0.76 oz silver dollar derives a different oz, so it is filtered out.
-    const quartersOz = (await weightCell.textContent()).replace(/[^0-9.]/g, "");
+    // STRK-300: the ASW now lives in the tooltip rather than the cell text, so read it there —
+    // which also asserts the tooltip and the filter key agree on the same figure.
+    const quartersTitle = await weightCell.getAttribute("title");
+    const quartersOz = quartersTitle.match(/^([\d.]+) ozt/)[1];
     await expect(weightCell).toHaveAttribute(
       "onclick",
-      new RegExp(`^applyColumnFilter\\('weight', "?${quartersOz.replace(/\./g, "\\.")}"?\\)$`)
+      new RegExp(`^applyColumnFilter\\('weight', "${quartersOz.replace(/\./g, "\\.")}"\\)$`)
     );
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
     await weightCell.click();
@@ -1169,13 +1176,18 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core $10 Face Bag" })
       .locator("td[data-column='weight'] .filter-text");
-    // The chip value is the displayed derived oz (~7.15), decisively != the stored face 10.
-    const cuOz = (await cuWeightCell.textContent()).replace(/[^0-9.]/g, "");
+    // The filter key is the derived ASW (~7.15), decisively != the stored face 10.
+    // STRK-300: the cell text is now "$10.00 fv" and the ASW lives in the tooltip — which makes
+    // this the sharper version of the test, since the cell text is once again the face number
+    // 10 and yet must NOT collide with the 10 oz bar.
+    await expect(cuWeightCell).toHaveText("$10.00 fv");
+    const cuTitle = await cuWeightCell.getAttribute("title");
+    const cuOz = cuTitle.match(/^([\d.]+) ozt/)[1];
     expect(parseFloat(cuOz)).toBeGreaterThan(6.5);
     expect(parseFloat(cuOz)).toBeLessThan(8);
     await expect(cuWeightCell).toHaveAttribute(
       "onclick",
-      new RegExp(`^applyColumnFilter\\('weight', "?${cuOz.replace(/\./g, "\\.")}"?\\)$`)
+      new RegExp(`^applyColumnFilter\\('weight', "${cuOz.replace(/\./g, "\\.")}"\\)$`)
     );
 
     await cuWeightCell.click();
@@ -1217,9 +1229,11 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   });
 
   // STRK-237 follow-up (PR #1328 review, T6/Copilot): in face-entry mode `weight` is already the
-  // TOTAL face (qty is 1 by contract), so the weight-cell tooltip must show the stored face
-  // directly — not weight × qty — even if legacy data carries qty > 1.
-  test("constitutional weight tooltip uses stored total face in face mode (ignores qty)", async ({
+  // TOTAL face (qty is 1 by contract), so the face figure must be the stored value directly —
+  // not weight × qty — even if legacy data carries qty > 1.
+  // STRK-300 moved that figure from the tooltip into the cell, so the invariant is asserted
+  // there now. It is the same guarantee, on the surface that carries the number today.
+  test("constitutional face value uses the stored total in face mode (ignores qty)", async ({
     page,
   }) => {
     const CU_FACE_QTY2 = {
@@ -1233,14 +1247,34 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     await seedMoneyData(page, { inventory: [CU_FACE_QTY2] });
     await gotoApp(page);
     await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
-    const title = await page
+    const cell = page
       .locator("#inventoryTable tbody tr")
       .filter({ hasText: "Core Face Mode Qty2" })
-      .locator("td[data-column='weight'] .filter-text")
-      .getAttribute("title");
-    // Stored total face is $50.00; the old weight × qty would have wrongly shown $100.00.
-    expect(title).toMatch(/\$50\.00 face/);
-    expect(title).not.toMatch(/\$100\.00/);
+      .locator("td[data-column='weight'] .filter-text");
+    // Stored total face is $50.00; a weight × qty fold would wrongly show $100.00.
+    await expect(cell).toHaveText("$50.00 fv");
+    await expect(cell).not.toContainText("$100.00");
+    // The shared helper is the one place that decides this, so assert it directly too.
+    const totals = await page.evaluate(() => ({
+      faceMode: window.getConstitutionalTotalFace({
+        weight: 50,
+        qty: 2,
+        constitutionalEntryMode: "face",
+      }),
+      denomMode: window.getConstitutionalTotalFace({
+        weight: 0.25,
+        qty: 24,
+        constitutionalEntryMode: "denomination",
+      }),
+      zeroQty: window.getConstitutionalTotalFace({
+        weight: 0.25,
+        qty: 0,
+        constitutionalEntryMode: "denomination",
+      }),
+    }));
+    expect(totals.faceMode).toBe(50); // stored total, qty ignored by contract
+    expect(totals.denomMode).toBeCloseTo(6, 9); // 24 × $0.25
+    expect(totals.zeroQty).toBe(0); // mirrors getConstitutionalSilverOz's qty handling
   });
 
   test("constitutional rows have a dedicated type-color token defined", async ({ page }) => {
@@ -2108,5 +2142,1257 @@ test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () 
     const row = tableRowByName(page, name);
     await expect(row.locator('[data-column="purchasePrice"]')).toContainText("$1,700.00");
     await expect(row.locator('[data-column="purchasePrice"]')).not.toContainText("$51,000.00");
+  });
+});
+
+// =============================================================================
+// STRK-299 — the derived pure-silver figure is labelled ASW on every visible surface
+// =============================================================================
+// ASW (Actual Silver Weight) is the standard numismatic term for a coin's pure silver content
+// in troy ounces. Junk-silver dealers quote and price bags in ASW, and the codebase already
+// used the term internally (constants.js, events.js, viewModal.js) — but no user-facing surface
+// said it, and the three that showed the figure each phrased it differently. Display labels
+// only: CSV export headers are the import round-trip contract and must not move.
+
+/**
+ * Seeds a single item, loads the app, and opens its detail modal.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Object} item - The item to seed
+ * @returns {Promise<void>}
+ */
+async function seedAndOpenModal(page, item) {
+  await seedMoneyData(page, { inventory: [item] });
+  await gotoApp(page);
+  await page.evaluate(() => window.showViewModal(0));
+  await expect(page.locator("#viewItemModal")).toBeVisible();
+}
+
+/**
+ * The detail-row label spans in the open view modal.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @returns {import('@playwright/test').Locator} Label spans
+ */
+const modalLabels = (page) => page.locator("#viewItemModal .view-detail-label");
+
+/**
+ * The value span of the detail row whose label matches `label` exactly.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} label - Exact label text
+ * @returns {import('@playwright/test').Locator} The row's value span
+ */
+const modalValueFor = (page, label) =>
+  page
+    .locator("#viewItemModal .view-detail-item")
+    .filter({ has: page.locator(".view-detail-label", { hasText: new RegExp(`^${label}$`) }) })
+    .locator(".view-detail-value");
+
+/**
+ * Seeds an inventory, forces a card view style, and waits for the grid to render.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @param {string} style - Card view style ("A", "B", or "C")
+ * @returns {Promise<void>}
+ */
+async function seedAndLoadCards(page, inventory, style) {
+  await seedMoneyData(page, { inventory });
+  await page.addInitScript((s) => localStorage.setItem("cardViewStyle", s), style);
+  await gotoApp(page);
+  await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
+}
+
+test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
+  /** A face-mode constitutional lot: $14.75 total face → ~10.5 ozt ASW on the worn basis. */
+  const CU_ASW_LOT = {
+    ...CU_FACE_50,
+    uuid: "core-strk299-asw",
+    name: "Core STRK299 ASW Lot",
+    weight: 14.75,
+    qty: 1,
+    serial: 299,
+  };
+
+  test("the detail modal labels the derived figure ASW, never 'Silver content'", async ({
+    page,
+  }) => {
+    await seedAndOpenModal(page, CU_ASW_LOT);
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveCount(1);
+    // AC3: the old phrasing is gone from the modal entirely.
+    await expect(page.locator("#viewItemModal")).not.toContainText(/silver content/i);
+    // The value is still the derived ozt figure, unchanged by the relabel.
+    await expect(modalValueFor(page, "ASW")).toHaveText(/^\d+\.\d{4} ozt$/);
+  });
+
+  test("the ASW label carries the expanded term as a hover tooltip", async ({ page }) => {
+    // The grid is compact, so the label stays the bare abbreviation and the expansion rides
+    // along as a title — a reader who does not know "ASW" is one hover from the meaning.
+    await seedAndOpenModal(page, CU_ASW_LOT);
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveAttribute(
+      "title",
+      /ASW \(Actual Silver Weight\)/
+    );
+  });
+
+  test("the constitutional weight cell tooltip names ASW alongside the valuation basis", async ({
+    page,
+  }) => {
+    // STRK-300 subsequently flipped the cell/tooltip pairing, so the face value now lives in
+    // the cell and this tooltip carries the ASW. The ASW naming this issue introduced is what
+    // survives the flip and is asserted here.
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    const title = await weightCellFor(page, "Core STRK299 ASW Lot").getAttribute("title");
+    expect(title).toMatch(/ASW \(Actual Silver Weight\)/);
+    expect(title).toMatch(/^\d+\.\d{2} ozt /);
+    expect(title).toMatch(/worn/i);
+  });
+
+  test("the weight-unit tooltip table names ASW for cu instead of the stale phrasing", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    // This map entry is currently unreachable for cu cells (the cell ternary always routes cu
+    // to cuWeightTooltip), but it must not sit there contradicting the term the app now uses.
+    // Read the entry with plain string operations, not a regex. A regex LITERAL containing a
+    // double-quote character desyncs Codacy's Lizard tokenizer — it reads the quote as the start
+    // of a string, loses parser state, and reports a phantom ~600-line function for this file.
+    const src = await page.evaluate(async () => {
+      const res = await fetch("./js/inventory-table.js");
+      return res.text();
+    });
+    const cuEntry = src.split("\n").find((line) => line.trim().startsWith("cu:"));
+    expect(cuEntry).toBeTruthy();
+    expect(cuEntry).toContain("ASW (Actual Silver Weight)");
+    expect(cuEntry.toLowerCase()).not.toContain("silver content");
+  });
+
+  test("CSV export headers are byte-identical — the relabel never reaches the round trip", async ({
+    page,
+  }) => {
+    // AC4 / explicit out-of-scope: js/csv-export.js defines the import round-trip contract.
+    // Renaming any header would break re-import of previously exported files.
+    await seedAndLoad(page, [CU_ASW_LOT]);
+    const header = await page.evaluate(() => {
+      const csv = window.exportInventoryCSV();
+      if (!csv) return null;
+      // The export opens with "# exportOrigin: ..." provenance comments; the header is the
+      // first non-comment line.
+      return csv.split(/\r?\n/).find((l) => l && !l.startsWith("#")) ?? null;
+    });
+    expect(header).not.toBeNull();
+    expect(header).toContain("Weight(oz)");
+    expect(header).toContain("Constitutional Variant");
+    expect(header).toContain("Constitutional Entry Mode");
+    // No display vocabulary leaked into the machine contract.
+    expect(header).not.toMatch(/ASW/);
+    expect(header).not.toMatch(/silver content/i);
+  });
+});
+
+// =============================================================================
+// STRK-300 — constitutional rows lead with face value; ASW moves to the tooltip
+// =============================================================================
+// Constitutional silver is quoted, bought, and mentally modelled by FACE VALUE, but the display
+// surfaces disagreed about which figure was primary: the card chip and the detail modal already
+// led with face while the table led with derived ASW. The table is the odd one out, so its
+// Weight cell now shows total face ("$6.00 fv") and the ASW moves to the cell tooltip.
+// Deliberately unchanged: the Weight SORT key and the weight FILTER key both stay ASW-keyed —
+// neither ever depended on the cell's text, and a dollar figure cannot interleave with ounces
+// on one scale.
+
+const CU_DENOM_24Q = {
+  ...CU_QUARTERS_40,
+  uuid: "core-strk300-denom24",
+  name: "Core STRK300 Denom 24 Quarters",
+  weight: 0.25,
+  qty: 24, // 24 × $0.25 = $6.00 total face
+  serial: 300,
+};
+
+const CU_FACE_1475 = {
+  ...CU_FACE_50,
+  uuid: "core-strk300-face1475",
+  name: "Core STRK300 Face Lot",
+  weight: 14.75,
+  qty: 1,
+  serial: 301,
+};
+
+test.describe("core/inventory-math — STRK-300 constitutional face-value display flip", () => {
+  test("denomination mode shows the coin count in Qty and total face in Weight", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_DENOM_24Q]);
+    const row = page.locator("#inventoryTable tbody tr").filter({ hasText: "Denom 24 Quarters" });
+    // Qty stays a real count — nothing is lost by moving face value into the Weight cell.
+    await expect(row.locator("td[data-column='qty']")).toContainText("24");
+    await expect(row.locator("td[data-column='weight'] .filter-text")).toHaveText("$6.00 fv");
+  });
+
+  test("face mode shows its truthful lot qty of 1 and the stored total face", async ({ page }) => {
+    await seedAndLoad(page, [CU_FACE_1475]);
+    const row = page.locator("#inventoryTable tbody tr").filter({ hasText: "Face Lot" });
+    await expect(row.locator("td[data-column='qty']")).toContainText("1");
+    await expect(row.locator("td[data-column='weight'] .filter-text")).toHaveText("$14.75 fv");
+  });
+
+  test("weight sort still ranks cu rows by ASW, so face value is not monotonic", async ({
+    page,
+  }) => {
+    // The documented, accepted quirk: across mixed finenesses the displayed fv does not increase
+    // with the sort. $1.00 fv of 35% war nickels (~1.11 ozt) outranks $1.20 fv of 90% dimes
+    // (~0.86 ozt) because the column ranks on silver content, which is the point.
+    const CU_NICKELS = {
+      ...CU_QUARTERS_40,
+      uuid: "core-strk300-nickels",
+      name: "Core STRK300 War Nickels",
+      constitutionalVariant: "con-35-nickel",
+      weight: 0.05,
+      qty: 20, // $1.00 face, ~1.11 ozt ASW
+      serial: 302,
+    };
+    const CU_DIMES = {
+      ...CU_QUARTERS_40,
+      uuid: "core-strk300-dimes",
+      name: "Core STRK300 Silver Dimes",
+      constitutionalVariant: "con-90-dime",
+      weight: 0.1,
+      qty: 12, // $1.20 face, ~0.86 ozt ASW
+      serial: 303,
+    };
+    await seedWeightSorted(page, [CU_DIMES, CU_NICKELS]);
+    const names = await rowNames(page);
+    expect(names[0]).toContain("War Nickels");
+    expect(names[1]).toContain("Silver Dimes");
+    // ...and the cell text confirms the non-monotonicity is real, not a fixture artefact.
+    const rows = page.locator("#inventoryTable tbody tr");
+    await expect(rows.nth(0).locator("td[data-column='weight'] .filter-text")).toHaveText(
+      "$1.00 fv"
+    );
+    await expect(rows.nth(1).locator("td[data-column='weight'] .filter-text")).toHaveText(
+      "$1.20 fv"
+    );
+  });
+
+  test("the detail modal labels cu items Face value and keeps the ASW row", async ({ page }) => {
+    await seedAndOpenModal(page, CU_FACE_1475);
+    await expect(modalLabels(page).filter({ hasText: /^Face value$/ })).toHaveCount(1);
+    // A cu item no longer labels a dollar figure "Weight".
+    await expect(modalLabels(page).filter({ hasText: /^Weight$/ })).toHaveCount(0);
+    // The ASW row (STRK-299) survives the flip.
+    await expect(modalLabels(page).filter({ hasText: /^ASW$/ })).toHaveCount(1);
+    // Total face, no suffix — the label already carries the meaning.
+    await expect(modalValueFor(page, "Face value")).toHaveText("$14.75");
+  });
+
+  test("the detail modal still labels bullion items Weight", async ({ page }) => {
+    await seedAndOpenModal(page, MONEY_ITEM);
+    await expect(modalLabels(page).filter({ hasText: /^Weight$/ })).toHaveCount(1);
+    await expect(modalLabels(page).filter({ hasText: /^Face value$/ })).toHaveCount(0);
+  });
+
+  for (const style of ["A", "B", "C"]) {
+    test(`card view ${style} shows total face with the fv suffix for cu items`, async ({
+      page,
+    }) => {
+      await seedAndLoadCards(page, [CU_DENOM_24Q], style);
+      // Was per-coin "$0.25 face" via the 2-arg formatWeight fallback — right figure, wrong frame.
+      await expect(page.locator("#cardViewGrid .cv-chip-weight").first()).toHaveText("$6.00 fv");
+    });
+  }
+
+  test("card view weight chips are unchanged for non-cu items", async ({ page }) => {
+    await seedAndLoadCards(page, [MONEY_ITEM, GOLDBACK_ITEM], "A");
+    const chips = await page.locator("#cardViewGrid .cv-chip-weight").allTextContents();
+    expect(chips).toContain("1.00 oz");
+    expect(chips).toContain("5 gb");
+    expect(chips.join(" ")).not.toContain("fv");
+  });
+
+  test("face value stays in USD when the display currency is EUR", async ({ page }) => {
+    // Face value is a US legal-tender denomination, not a market price — it is never converted.
+    await seedMoneyData(page, { inventory: [CU_DENOM_24Q], displayCurrency: "EUR" });
+    await gotoApp(page);
+    await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+    await expect(weightCellFor(page, "Denom 24 Quarters")).toHaveText("$6.00 fv");
+    await page.evaluate(() => window.showViewModal(0));
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    await expect(modalValueFor(page, "Face value")).toHaveText("$6.00");
+    await expect(modalValueFor(page, "Face value")).not.toContainText("€");
+  });
+
+  test("summary weight total and melt still use ASW, not the newly displayed face", async ({
+    page,
+  }) => {
+    // AC8: the flip is display-only. The summary strip keeps summing troy ounces.
+    await seedMoneyData(page, { inventory: [CU_QUARTERS_40] });
+    await gotoApp(page);
+    await openConstitutionalSettings(page, "system");
+    const text = await page.locator("#invSummaryWeight").textContent();
+    const oz = parseFloat(String(text).replace(/[^0-9.]/g, ""));
+    // 40 quarters worn ≈ 7.15 ozt — NOT the 10.00 face now shown in the Weight cell.
+    expect(oz).toBeGreaterThan(6.5);
+    expect(oz).toBeLessThan(8);
+    expect(oz).not.toBeCloseTo(10, 1);
+  });
+
+  // PR #1406 review (Codex P2): after the flip the cu cell reads "$10.00 fv" while its filter
+  // key stays the ASW ("7.15"), so the chip — which echoes the key verbatim — showed a bare
+  // number matching nothing on the row it came from.
+  test("the cu filter chip names its unit so it is not a bare number after the flip", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [CU_QUARTERS_40]);
+    await weightCellFor(page, "Core 40 Silver Quarters").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: /^\d+\.\d{2} oz/ })).toHaveCount(1);
+  });
+
+  test("the cu chip label is scoped to keys a cu item actually produces", async ({ page }) => {
+    await seedAndLoad(page, [CU_QUARTERS_40]);
+    const labels = await page.evaluate(() => ({
+      cuMatch: window.getWeightFilterLabel("7.15", [
+        { weight: 10, qty: 1, weightUnit: "cu", constitutionalEntryMode: "face" },
+      ]),
+      noCuItems: window.getWeightFilterLabel("7.15", []),
+      bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      gbStillWorks: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
+    }));
+    // A $10-face 90% bag derives ~7.15 ozt, so the key resolves and gains its unit.
+    expect(labels.cuMatch).toBe("7.15 oz");
+    // With no cu item producing that key, the value passes through untouched.
+    expect(labels.noCuItems).toBe("7.15");
+    // Bullion chips are unchanged — they were never ambiguous.
+    expect(labels.bullionKey).toBe("10");
+    // The STRK-316 gb/sb path is unaffected by the new cu branch.
+    expect(labels.gbStillWorks).toBe("5 gb");
+  });
+
+  test("the legacy 2-arg formatWeight fallback renders the normalized fv suffix", async ({
+    page,
+  }) => {
+    // AC9: change log, bulk edit preview, backup print, add toast, and print/export rows all
+    // reach cu through this fallback. Suffix normalized "face" -> "fv"; frame unchanged.
+    await seedAndLoad(page, [CU_DENOM_24Q]);
+    const out = await page.evaluate(() => ({
+      cuFallback: window.formatWeight(0.25, "cu"),
+      cuWithItem: window.formatWeight(0.25, "cu", {
+        weight: 0.25,
+        qty: 24,
+        constitutionalEntryMode: "denom",
+        constitutionalVariant: "con-90-quarter",
+      }),
+      oz: window.formatWeight(1, "oz"),
+      gb: window.formatWeight(5, "gb"),
+    }));
+    expect(out.cuFallback).toBe("$0.25 fv");
+    expect(out.cuFallback).not.toContain("face");
+    // The 3-arg cu form is deliberately untouched — it still returns the ASW.
+    expect(out.cuWithItem).toMatch(/^\d+\.\d{2} oz$/);
+    // Non-cu units are byte-identical.
+    expect(out.oz).toBe("1.00 oz");
+    expect(out.gb).toBe("5 gb");
+  });
+});
+
+// =============================================================================
+// STRK-316 — Goldback/Silverback weight sort + filter key use the troy-oz equivalent
+// =============================================================================
+// gb/sb items store the raw DENOMINATION in `item.weight` (a 5 Goldback stores 5, not its
+// 0.005 ozt of gold) — the same storage shape constitutional face value uses. Two consumers
+// read that stored number as if it were troy ounces:
+//   * Weight sort — a 5 gb ranked as 5 ozt and outranked a 2.00 oz round.
+//   * Weight filter key — a `2 gb` note and a `2.00 oz` coin shared the key "2", so clicking
+//     Weight on either matched both. Same cross-unit collision class STRK-240 fixed for cu.
+// Both now route through getUnitOztWeight. The gb/sb filter key is a 5-decimal ozt string
+// (2 decimals would collapse ¼/½/1/2 gb into "0.00"; a raw String() emits IEEE-754 artifacts
+// such as 0.009000000000000001), and getWeightFilterLabel maps it back to the "5 gb" text the
+// cell shows so the chip stays readable.
+
+const GB_5_NOTE = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk316-gb5",
+  name: "Core STRK316 Five Goldback",
+  weight: 5,
+  qty: 1,
+  serial: 316,
+};
+
+const GB_2_NOTE = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk316-gb2",
+  name: "Core STRK316 Two Goldback",
+  weight: 2,
+  qty: 1,
+  serial: 317,
+};
+
+const OZ_2_ROUND = {
+  ...MONEY_ITEM,
+  uuid: "core-strk316-oz2",
+  name: "Core STRK316 Two Oz Round",
+  type: "Round",
+  weight: 2,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 318,
+};
+
+const OZ_10_BAR = {
+  ...MONEY_ITEM,
+  uuid: "core-strk316-oz10",
+  name: "Core STRK316 Ten Oz Bar",
+  type: "Bar",
+  weight: 10,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 319,
+};
+
+const OZ_1_COIN = {
+  ...MONEY_ITEM,
+  uuid: "core-strk316-oz1",
+  name: "Core STRK316 One Oz Coin",
+  weight: 1,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 320,
+};
+
+const GB_1_NOTE = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk316-gb1",
+  name: "Core STRK316 One Goldback",
+  weight: 1,
+  qty: 1,
+  serial: 323,
+};
+
+const SB_1_NOTE = {
+  ...MIGRATED_SILVERBACK,
+  uuid: "core-strk316-sb1",
+  name: "Core STRK316 One Silverback",
+  weight: 1,
+  weightUnit: "sb",
+  qty: 1,
+  serial: 324,
+};
+
+/**
+ * Seeds an inventory with the Weight column (index 6) as the active sort. The second
+ * addInitScript runs after seedMoneyData's and overwrites its column-4 default.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @param {string} [dir] - Sort direction, "desc" or "asc"
+ * @returns {Promise<void>}
+ */
+async function seedWeightSorted(page, inventory, dir = "desc") {
+  await seedMoneyData(page, { inventory });
+  await page.addInitScript((d) => {
+    localStorage.setItem("defaultSortColumn", "6");
+    localStorage.setItem("defaultSortDir", d);
+  }, dir);
+  await gotoApp(page);
+  await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+}
+
+/**
+ * Reads the rendered inventory row names in current sort order.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @returns {Promise<string[]>} Row name cell texts
+ */
+const rowNames = (page) =>
+  page.locator("#inventoryTable tbody tr [data-column='name']").allTextContents();
+
+/**
+ * Seeds an inventory, loads the app, and waits for the table to render.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {Array<Object>} inventory - Items to seed
+ * @returns {Promise<void>}
+ */
+async function seedAndLoad(page, inventory) {
+  await seedMoneyData(page, { inventory });
+  await gotoApp(page);
+  await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+}
+
+/**
+ * The clickable Weight cell of the row whose name contains `name`.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} name - Substring of the row name
+ * @returns {import('@playwright/test').Locator} The cell's .filter-text span
+ */
+const weightCellFor = (page, name) =>
+  page
+    .locator("#inventoryTable tbody tr")
+    .filter({ hasText: name })
+    .locator("td[data-column='weight'] .filter-text");
+
+/**
+ * Currently rendered rows whose name contains `name`. Counting a sub-locator avoids the strict-
+ * mode violation that `not.toContainText` raises against a multi-row locator.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @param {string} name - Substring of the row name
+ * @returns {import('@playwright/test').Locator} Matching rows
+ */
+const rowsNamed = (page, name) =>
+  page.locator("#inventoryTable tbody tr").filter({ hasText: name });
+
+test.describe("core/inventory-math — STRK-316 goldback weight sort and filter key", () => {
+  test("descending weight sort ranks goldbacks by ozt equivalent, below every bullion row", async ({
+    page,
+  }) => {
+    await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN]);
+    const names = await rowNames(page);
+    // 10 ozt > 2 ozt > 1 ozt > 0.005 ozt (5 gb) > 0.002 ozt (2 gb).
+    // Before the fix the raw denomination put 5 gb between the 10 oz and 2 oz rows.
+    expect(names[0]).toContain("Ten Oz Bar");
+    expect(names[1]).toContain("Two Oz Round");
+    expect(names[2]).toContain("One Oz Coin");
+    expect(names[3]).toContain("Five Goldback");
+    expect(names[4]).toContain("Two Goldback");
+  });
+
+  test("ascending weight sort is the exact reverse", async ({ page }) => {
+    await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN], "asc");
+    const names = await rowNames(page);
+    expect(names[0]).toContain("Two Goldback");
+    expect(names[1]).toContain("Five Goldback");
+    expect(names[2]).toContain("One Oz Coin");
+    expect(names[3]).toContain("Two Oz Round");
+    expect(names[4]).toContain("Ten Oz Bar");
+  });
+
+  test("bullion-only weight sort is unchanged by the gb/sb conversion", async ({ page }) => {
+    // AC2 guard: oz/g/kg/lb rows must be byte-identical to the pre-fix ordering.
+    const GRAM_BAR = {
+      ...MONEY_ITEM,
+      uuid: "core-strk316-gram",
+      name: "Core STRK316 Gram Bar",
+      weight: 31.65 / 31.1034768, // ~1.0176 ozt, displayed as 31.65 g
+      weightUnit: "g",
+      qty: 1,
+      serial: 321,
+    };
+    await seedWeightSorted(page, [OZ_1_COIN, OZ_10_BAR, GRAM_BAR, OZ_2_ROUND]);
+    const names = await rowNames(page);
+    expect(names[0]).toContain("Ten Oz Bar");
+    expect(names[1]).toContain("Two Oz Round");
+    expect(names[2]).toContain("Gram Bar"); // ~1.0176 ozt slots above the 1.00 oz coin
+    expect(names[3]).toContain("One Oz Coin");
+  });
+
+  test("a 2 gb note and a 2.00 oz round no longer share a weight filter bucket", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_2_NOTE, OZ_2_ROUND]);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+
+    const gbCell = weightCellFor(page, "Core STRK316 Two Goldback");
+    const ozCell = weightCellFor(page, "Core STRK316 Two Oz Round");
+
+    // The cell TEXT is unchanged — only the filter key moved to the ozt scale.
+    await expect(gbCell).toHaveText("2 gb");
+    await expect(ozCell).toHaveText("2.00 oz");
+    // gb keys on 0.00200 ozt; plain bullion keeps its raw numeric weight.
+    await expect(gbCell).toHaveAttribute("onclick", `applyColumnFilter('weight', "0.00200")`);
+    await expect(ozCell).toHaveAttribute("onclick", `applyColumnFilter('weight', 2)`);
+
+    await gbCell.click();
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    await expect(rowsNamed(page, "Two Goldback")).toHaveCount(1);
+    await expect(rowsNamed(page, "Two Oz Round")).toHaveCount(0);
+  });
+
+  test("clicking a 2.00 oz weight cell does not pull in a 2 gb note", async ({ page }) => {
+    await seedAndLoad(page, [GB_2_NOTE, OZ_2_ROUND]);
+    await weightCellFor(page, "Core STRK316 Two Oz Round").click();
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(1);
+    await expect(rowsNamed(page, "Two Oz Round")).toHaveCount(1);
+    await expect(rowsNamed(page, "Two Goldback")).toHaveCount(0);
+  });
+
+  test("different goldback denominations stay distinct; equal denominations group together", async ({
+    page,
+  }) => {
+    const GB_2_SECOND = {
+      ...GB_2_NOTE,
+      uuid: "core-strk316-gb2b",
+      name: "Core STRK316 Two Goldback Second",
+      serial: 322,
+    };
+    await seedAndLoad(page, [GB_5_NOTE, GB_2_NOTE, GB_2_SECOND]);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(3);
+
+    await weightCellFor(page, "Core STRK316 Two Goldback Second").click();
+
+    // Both 2 gb notes match (same key); the 5 gb note does not.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+    await expect(rowsNamed(page, "Two Goldback")).toHaveCount(2);
+    await expect(rowsNamed(page, "Five Goldback")).toHaveCount(0);
+  });
+
+  test("the active filter chip shows the denomination, not the raw ozt key", async ({ page }) => {
+    // The chip renderer echoes the filter key verbatim, so without getWeightFilterLabel this
+    // chip would read "0.00500" — unreadable for the Goldback users this fix serves.
+    await seedAndLoad(page, [GB_5_NOTE, OZ_2_ROUND]);
+    await weightCellFor(page, "Core STRK316 Five Goldback").click();
+
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "5 gb" })).toHaveCount(1);
+    await expect(chips.filter({ hasText: "0.00500" })).toHaveCount(0);
+  });
+
+  test("getUnitOztWeight converts gb/sb and passes every other unit through untouched", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const result = await page.evaluate(() => ({
+      gb5: window.getUnitOztWeight({ weight: 5, weightUnit: "gb" }),
+      gbQuarter: window.getUnitOztWeight({ weight: 0.25, weightUnit: "gb" }),
+      sb1: window.getUnitOztWeight({ weight: 1, weightUnit: "sb" }),
+      oz10: window.getUnitOztWeight({ weight: 10, weightUnit: "oz" }),
+      gram: window.getUnitOztWeight({ weight: 1.0175, weightUnit: "g" }),
+      kg: window.getUnitOztWeight({ weight: 2, weightUnit: "kg" }),
+      missing: window.getUnitOztWeight({}),
+      nullish: window.getUnitOztWeight(null),
+    }));
+    expect(result.gb5).toBeCloseTo(0.005, 10);
+    expect(result.gbQuarter).toBeCloseTo(0.00025, 10);
+    expect(result.sb1).toBeCloseTo(0.001, 10);
+    // Non-gb/sb units already store troy oz — identical to the previous parseFloat(item.weight).
+    expect(result.oz10).toBe(10);
+    expect(result.gram).toBe(1.0175);
+    expect(result.kg).toBe(2);
+    expect(result.missing).toBe(0);
+    expect(result.nullish).toBe(0);
+  });
+
+  test("gb/sb filter keys are 5-decimal ozt; bullion keys are unchanged raw weight", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const keys = await page.evaluate(() => ({
+      gbQuarter: window.getItemFilterWeight({ weight: 0.25, weightUnit: "gb" }),
+      gbHalf: window.getItemFilterWeight({ weight: 0.5, weightUnit: "gb" }),
+      gb1: window.getItemFilterWeight({ weight: 1, weightUnit: "gb" }),
+      gb2: window.getItemFilterWeight({ weight: 2, weightUnit: "gb" }),
+      gb5: window.getItemFilterWeight({ weight: 5, weightUnit: "gb" }),
+      gb9: window.getItemFilterWeight({ weight: 9, weightUnit: "gb" }),
+      oz10: window.getItemFilterWeight({ weight: 10, weightUnit: "oz" }),
+      gram: window.getItemFilterWeight({ weight: 1.0175, weightUnit: "g" }),
+    }));
+    // ¼ / ½ / 1 gb all collapse to "0.00" at 2 decimals and ½/1 still collide at 3 — the
+    // 5-decimal width is what keeps every denomination in its own bucket.
+    expect(keys.gbQuarter).toBe("0.00025");
+    expect(keys.gbHalf).toBe("0.00050");
+    expect(keys.gb1).toBe("0.00100");
+    expect(keys.gb2).toBe("0.00200");
+    expect(keys.gb5).toBe("0.00500");
+    // 9 * 0.001 is 0.009000000000000001 in IEEE-754; the fixed width absorbs the artifact.
+    expect(keys.gb9).toBe("0.00900");
+    expect(new Set(Object.values(keys)).size).toBe(Object.keys(keys).length);
+    // Bullion keys byte-identical to the legacy raw-weight string.
+    expect(keys.oz10).toBe("10");
+    expect(keys.gram).toBe("1.0175");
+  });
+
+  // PR #1405 review (Codex P2 + Copilot, independently): gb and sb share a 0.001 ozt conversion
+  // factor, so 1 gb and 1 sb produce the SAME key and the filter genuinely selects both — correct
+  // for a metal-agnostic weight column. The original label resolved by inventory order, so a
+  // click on a `1 sb` cell could render a chip reading "1 gb", hiding the Silverbacks entirely.
+  test("a key shared by a Goldback and a Silverback names both units in the chip", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_1_NOTE, SB_1_NOTE]);
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+
+    const keys = await page.evaluate(() => ({
+      gb: window.getItemFilterWeight({ weight: 1, weightUnit: "gb" }),
+      sb: window.getItemFilterWeight({ weight: 1, weightUnit: "sb" }),
+    }));
+    expect(keys.gb).toBe("0.00100");
+    expect(keys.sb).toBe(keys.gb); // the shared key is intended, not a bug
+
+    // Click the SILVERBACK cell — the chip must not claim the selection is Goldbacks only.
+    await weightCellFor(page, "Core STRK316 One Silverback").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "1 gb/sb" })).toHaveCount(1);
+    // Both rows really are selected, which is exactly what the label now says.
+    await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
+  });
+
+  test("the chip label is deterministic regardless of inventory order", async ({ page }) => {
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const labels = await page.evaluate(() => ({
+      bothGbFirst: window.getWeightFilterLabel("0.00100", [
+        { weight: 1, weightUnit: "gb" },
+        { weight: 1, weightUnit: "sb" },
+      ]),
+      bothSbFirst: window.getWeightFilterLabel("0.00100", [
+        { weight: 1, weightUnit: "sb" },
+        { weight: 1, weightUnit: "gb" },
+      ]),
+      gbOnly: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
+      sbOnly: window.getWeightFilterLabel("0.00100", [{ weight: 1, weightUnit: "sb" }]),
+      bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      cuKey: window.getWeightFilterLabel("7.15", []),
+      noMatch: window.getWeightFilterLabel("0.09900", [{ weight: 5, weightUnit: "gb" }]),
+      empty: window.getWeightFilterLabel("", []),
+    }));
+    // Same answer whichever unit happens to come first in the inventory.
+    expect(labels.bothGbFirst).toBe("1 gb/sb");
+    expect(labels.bothSbFirst).toBe("1 gb/sb");
+    // Unambiguous keys keep the plain denomination label.
+    expect(labels.gbOnly).toBe("5 gb");
+    expect(labels.sbOnly).toBe("1 sb");
+    // Non gb/sb keys pass through untouched — bullion and cu chips are unaffected.
+    expect(labels.bullionKey).toBe("10");
+    expect(labels.cuKey).toBe("7.15");
+    expect(labels.noMatch).toBe("0.09900");
+    expect(labels.empty).toBe("");
+  });
+
+  test("isDerivedWeightUnit is the single source for which units get a rewritten key", async ({
+    page,
+  }) => {
+    // The table's Weight cell keys off this predicate rather than its own unit list, so the
+    // cell can no longer drift out of sync with getItemFilterWeight (PR #1405 review, Codacy).
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const derived = await page.evaluate(() =>
+      ["cu", "gb", "sb", "oz", "g", "kg", "lb", undefined].map((u) => [
+        String(u),
+        window.isDerivedWeightUnit({ weightUnit: u }),
+      ])
+    );
+    expect(Object.fromEntries(derived)).toEqual({
+      cu: true,
+      gb: true,
+      sb: true,
+      oz: false,
+      g: false,
+      kg: false,
+      lb: false,
+      undefined: false,
+    });
+    // Every unit the predicate reports as derived must actually get a rewritten key.
+    const rewritten = await page.evaluate(() =>
+      ["gb", "sb", "oz"].map((u) => [
+        u,
+        window.getItemFilterWeight({ weight: 2, weightUnit: u }) !== String(2),
+      ])
+    );
+    expect(Object.fromEntries(rewritten)).toEqual({ gb: true, sb: true, oz: false });
+  });
+
+  test("computeMeltValue is numerically unchanged after routing through the shared helper", async ({
+    page,
+  }) => {
+    // AC5 guard: the gb/sb ternary moved out of computeMeltValue into getUnitOztWeight.
+    await seedAndLoad(page, [GB_5_NOTE]);
+    const melt = await page.evaluate(() => ({
+      gb: window.computeMeltValue({ weight: 5, weightUnit: "gb", qty: 3, purity: 1 }, 4000),
+      sb: window.computeMeltValue({ weight: 1, weightUnit: "sb", qty: 10, purity: 1 }, 30),
+      oz: window.computeMeltValue({ weight: 2, weightUnit: "oz", qty: 4, purity: 0.999 }, 30),
+    }));
+    expect(melt.gb).toBeCloseTo(0.005 * 3 * 4000, 9); // $60.00
+    expect(melt.sb).toBeCloseTo(0.001 * 10 * 30, 9); // $0.30
+    expect(melt.oz).toBeCloseTo(2 * 4 * 30 * 0.999, 9); // unchanged bullion path
+  });
+});
+
+// =============================================================================
+// STRK-318 — gb/sb show the exact denomination; the tooltip carries the metal content
+// =============================================================================
+// A denomination is an exact enum value from GOLDBACK_DENOMINATIONS, not a measurement, but
+// formatWeight rounded it: (0.25).toFixed(1) made a ¼ Goldback read "0.3 gb", and 0.125 read
+// "0.1 gb" — a different denomination entirely. Pre-existing since STACK-45; STRK-316 only made
+// it visible by clustering goldbacks together under a weight sort. Separately the gb/sb tooltip
+// was a static "Goldback denomination" string naming no weight, so a stacker had no way to see
+// that a ¼ Goldback holds 0.00025 ozt of gold. Both are the cell/tooltip split STRK-300
+// established for cu, now applied to the two remaining denomination-style units.
+
+const GB_QUARTER = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk318-gb-quarter",
+  name: "Core STRK318 Quarter Goldback",
+  weight: 0.25,
+  qty: 1,
+  serial: 330,
+};
+
+const GB_HALF = {
+  ...GOLDBACK_ITEM,
+  uuid: "core-strk318-gb-half",
+  name: "Core STRK318 Half Goldback",
+  weight: 0.5,
+  qty: 1,
+  serial: 331,
+};
+
+test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW tooltip", () => {
+  test("fractional Goldback denominations render exactly, never rounded", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER, GB_HALF]);
+    await expect(weightCellFor(page, "Core STRK318 Quarter Goldback")).toHaveText("¼ gb");
+    await expect(weightCellFor(page, "Core STRK318 Half Goldback")).toHaveText("½ gb");
+    // The bug: 0.25 rendered as "0.3 gb" and read as a neighbour of the ½ note.
+    await expect(weightCellFor(page, "Core STRK318 Quarter Goldback")).not.toContainText("0.3");
+  });
+
+  test("integer denominations are byte-identical to before the fix", async ({ page }) => {
+    await seedAndLoad(page, [GB_5_NOTE, SB_1_NOTE]);
+    await expect(weightCellFor(page, "Core STRK316 Five Goldback")).toHaveText("5 gb");
+    await expect(weightCellFor(page, "Core STRK316 One Silverback")).toHaveText("1 sb");
+  });
+
+  test("formatDenomination never rounds a denomination into a neighbouring one", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const out = await page.evaluate(() => ({
+      quarter: window.formatDenomination(0.25),
+      half: window.formatDenomination(0.5),
+      one: window.formatDenomination(1),
+      hundred: window.formatDenomination(100),
+      // Previously (0.125).toFixed(1) silently displayed "0.1" — a different denomination.
+      eighth: window.formatDenomination(0.125),
+      oddFraction: window.formatDenomination(2.5),
+      stringInput: window.formatDenomination("0.25"),
+      garbage: window.formatDenomination("abc"),
+      nullish: window.formatDenomination(null),
+    }));
+    expect(out.quarter).toBe("¼");
+    expect(out.half).toBe("½");
+    expect(out.one).toBe("1");
+    expect(out.hundred).toBe("100");
+    expect(out.eighth).toBe("0.125");
+    expect(out.oddFraction).toBe("2.5");
+    expect(out.stringInput).toBe("¼");
+    expect(out.garbage).toBe("abc");
+    expect(out.nullish).toBe("");
+  });
+
+  test("a Goldback weight cell tooltip reports its AGW in troy ounces", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const title = await weightCellFor(page, "Core STRK318 Quarter Goldback").getAttribute("title");
+    // ¼ Goldback = 0.00025 ozt of gold — the figure the cell itself cannot show.
+    expect(title).toContain("0.00025 ozt");
+    expect(title).toContain("AGW (Actual Gold Weight)");
+    // The old static string named no weight at all.
+    expect(title).not.toBe("Goldback denomination");
+  });
+
+  test("a Silverback weight cell tooltip reports its ASW, not AGW", async ({ page }) => {
+    await seedAndLoad(page, [SB_1_NOTE]);
+    const title = await weightCellFor(page, "Core STRK316 One Silverback").getAttribute("title");
+    expect(title).toContain("0.001 ozt");
+    expect(title).toContain("ASW (Actual Silver Weight)");
+    expect(title).not.toContain("AGW");
+  });
+
+  test("a multi-note lot shows both the per-note and total metal content", async ({ page }) => {
+    const GB_HALF_X3 = {
+      ...GB_HALF,
+      uuid: "core-strk318-gb-half-x3",
+      name: "Core STRK318 Half Goldback Lot",
+      qty: 3,
+      serial: 332,
+    };
+    await seedAndLoad(page, [GB_HALF_X3]);
+    const title = await weightCellFor(page, "Core STRK318 Half Goldback Lot").getAttribute("title");
+    expect(title).toContain("0.0005 ozt");
+    expect(title).toContain("each");
+    expect(title).toContain("0.0015 ozt total"); // 3 × 0.0005
+    // The cell still shows the per-note denomination; the count lives in its own column.
+    await expect(weightCellFor(page, "Core STRK318 Half Goldback Lot")).toHaveText("½ gb");
+  });
+
+  // The sort key is deliberately NOT changed here — STRK-316 already keys gb/sb on the troy-oz
+  // equivalent. This locks that shortcut (denomination × conversion constant) to the
+  // authoritative per-denomination tables: if a future denomination ever carries non-linear
+  // metal content, this fails and forces a table lookup rather than silently mis-sorting.
+  test("the gb/sb sort key equals the metal content in the denomination tables", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const rows = await page.evaluate(() => ({
+      gb: GOLDBACK_DENOMINATIONS.map((d) => ({
+        denom: d.weight,
+        table: d.goldOz,
+        sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "gb" }),
+      })),
+      sb: SILVERBACK_DENOMINATIONS.map((d) => ({
+        denom: d.weight,
+        table: d.silverOz,
+        sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "sb" }),
+      })),
+    }));
+    expect(rows.gb.length).toBe(9); // ¼, ½, 1, 2, 5, 10, 25, 50, 100
+    expect(rows.sb.length).toBeGreaterThan(0);
+    for (const r of rows.gb) expect(r.sortKey).toBeCloseTo(r.table, 12);
+    for (const r of rows.sb) expect(r.sortKey).toBeCloseTo(r.table, 12);
+  });
+
+  test("fractional denominations sort by gold content, below every larger note", async ({
+    page,
+  }) => {
+    await seedWeightSorted(page, [GB_5_NOTE, GB_QUARTER, GB_HALF, GB_2_NOTE], "asc");
+    const names = await rowNames(page);
+    // 0.00025 < 0.0005 < 0.002 < 0.005 ozt
+    expect(names[0]).toContain("Quarter Goldback");
+    expect(names[1]).toContain("Half Goldback");
+    expect(names[2]).toContain("Two Goldback");
+    expect(names[3]).toContain("Five Goldback");
+  });
+
+  test("the filter chip follows the corrected denomination text", async ({ page }) => {
+    // getWeightFilterLabel builds the chip via formatWeight, so the fix propagates for free —
+    // the chip must not go on saying "0.3 gb" after the cell stopped.
+    await seedAndLoad(page, [GB_QUARTER, GB_5_NOTE]);
+    await weightCellFor(page, "Core STRK318 Quarter Goldback").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "¼ gb" })).toHaveCount(1);
+    await expect(chips.filter({ hasText: "0.3" })).toHaveCount(0);
+    await expect(chips.filter({ hasText: "0.00025" })).toHaveCount(0);
+  });
+});
+
+// =============================================================================
+// STRK-319 — every unit renders correctly: mg unit, adaptive precision, chip parity
+// =============================================================================
+// `weightUnit` is a DISPLAY LENS over a canonical troy-ounce value in `item.weight`; sort and
+// filter key on the canonical value. Three things broke that contract:
+//   * Fixed decimals assume one band of magnitude, but this inventory spans a 25 mg Aurum note
+//     and a 100 ozt bar. At two decimals 25 mg reads "0.03 g" (20% over) or "0.00 oz" — a
+//     weightless item.
+//   * The edit modal force-converted EVERY sub-troy-ounce item to grams regardless of its
+//     stored unit, and the save wrote that unit back — silently discarding the user's choice.
+//   * g/kg/lb chips echoed the stored ozt float ("1.0175711288970755") rather than the cell.
+// Aurum is a Type, not a unit — those rows use `g`, and now have a native `mg` option.
+
+/** ~1 troy ounce expressed the way a 31.1 g bar is stored. */
+const GRAMS_PER_OZT = 31.1035;
+
+const MG_AURUM_25 = {
+  ...MONEY_ITEM,
+  uuid: "core-strk319-aurum-mg",
+  name: "Core STRK319 Aurum 25mg",
+  metal: "Gold",
+  composition: "Gold",
+  weight: 25 / 1000 / GRAMS_PER_OZT,
+  weightUnit: "mg",
+  qty: 1,
+  serial: 340,
+};
+
+const G_AURUM_25 = {
+  ...MG_AURUM_25,
+  uuid: "core-strk319-aurum-g",
+  // Deliberately not a superstring of the mg fixture's name — `filter({ hasText })` is a
+  // substring match, so "…25mg" would also select "…25mg as grams".
+  name: "Core STRK319 Gram-Stored Aurum",
+  weightUnit: "g",
+  serial: 341,
+};
+
+const OZ_TENTH = {
+  ...MONEY_ITEM,
+  uuid: "core-strk319-oz-tenth",
+  name: "Core STRK319 Tenth Oz Gold",
+  metal: "Gold",
+  composition: "Gold",
+  weight: 0.1,
+  weightUnit: "oz",
+  qty: 1,
+  serial: 342,
+};
+
+const G_BAR_3165 = {
+  ...MONEY_ITEM,
+  uuid: "core-strk319-gram-bar",
+  name: "Core STRK319 Gram Bar",
+  weight: 31.65 / GRAMS_PER_OZT,
+  weightUnit: "g",
+  qty: 1,
+  serial: 343,
+};
+
+test.describe("core/inventory-math — STRK-319 unit rendering across every weight unit", () => {
+  test("no weight renders as zero, whatever unit it is stored in", async ({ page }) => {
+    await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
+    // Was "0.03 g" — a 20% overstatement of a 25 mg note.
+    await expect(weightCellFor(page, "Core STRK319 Gram-Stored Aurum")).toHaveText("0.025 g");
+    // The new native unit reads the way the product is sold.
+    await expect(weightCellFor(page, "Core STRK319 Aurum 25mg")).toHaveText("25 mg");
+  });
+
+  test("adaptive precision leaves ordinary weights byte-identical", async ({ page }) => {
+    // The fix must not restyle every row — only values the base precision cannot represent.
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const out = await page.evaluate(() => ({
+      oz1: window.formatWeight(1, "oz"),
+      oz2: window.formatWeight(2, "oz"),
+      oz10: window.formatWeight(10, "oz"),
+      ozTenth: window.formatWeight(0.1, "oz"),
+      ozTwentieth: window.formatWeight(0.05, "oz"),
+      oz100: window.formatWeight(100, "oz"),
+      g1: window.formatWeight(1 / 31.1035, "g"),
+      g3165: window.formatWeight(31.65 / 31.1035, "g"),
+      kg1: window.formatWeight(32.15075, "kg"),
+      lb1: window.formatWeight(14.58333, "lb"),
+    }));
+    expect(out.oz1).toBe("1.00 oz");
+    expect(out.oz2).toBe("2.00 oz");
+    expect(out.oz10).toBe("10.00 oz");
+    expect(out.ozTenth).toBe("0.10 oz");
+    expect(out.ozTwentieth).toBe("0.05 oz");
+    expect(out.oz100).toBe("100.00 oz");
+    expect(out.g1).toBe("1.00 g");
+    expect(out.g3165).toBe("31.65 g");
+    expect(out.kg1).toBe("1.0000 kg");
+    expect(out.lb1).toBe("1.0000 lb");
+  });
+
+  test("adaptive precision grows only for values the base precision cannot represent", async ({
+    page,
+  }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const out = await page.evaluate(() => {
+      const oztFor = (mg) => window.mgToOzt(mg);
+      return {
+        gramsOf25mg: window.formatWeight(oztFor(25), "g"), // was "0.03 g"
+        ozOf25mg: window.formatWeight(oztFor(25), "oz"), // was "0.00 oz"
+        ozOf1mg: window.formatWeight(oztFor(1), "oz"), // was "0.00 oz"
+        kgOf25mg: window.formatWeight(oztFor(25), "kg"), // was "0.0000 kg"
+        zero: window.formatWeight(0, "oz"), // a genuine zero keeps base precision
+      };
+    });
+    expect(out.gramsOf25mg).toBe("0.025 g");
+    // Never zero, and never more decimals than the cap allows.
+    expect(parseFloat(out.ozOf25mg)).toBeGreaterThan(0);
+    expect(parseFloat(out.ozOf1mg)).toBeGreaterThan(0);
+    expect(parseFloat(out.kgOf25mg)).toBeGreaterThan(0);
+    expect(out.zero).toBe("0.00 oz");
+  });
+
+  test("the edit modal preserves the stored unit instead of rewriting it to grams", async ({
+    page,
+  }) => {
+    // The blocker: `|| item.weight < 1` force-converted any sub-ounce item to grams on open,
+    // and the save wrote weightUnit "g" back. A 1/10 ozt gold coin opened reading 3.1104 g.
+    await seedAndLoad(page, [OZ_TENTH]);
+    await openEditModal(page, 0);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("oz");
+    await expect(page.locator("#itemWeight")).toHaveValue("0.10");
+  });
+
+  test("the edit modal preserves the mg unit, which the old fallback would have destroyed", async ({
+    page,
+  }) => {
+    // 25 mg is ~0.0008 ozt — squarely inside the old `< 1` test, so the very first edit would
+    // have converted it to grams and discarded the unit.
+    await seedAndLoad(page, [MG_AURUM_25]);
+    await openEditModal(page, 0);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("mg");
+    const entered = await page.locator("#itemWeight").inputValue();
+    expect(parseFloat(entered)).toBeCloseTo(25, 1);
+  });
+
+  test("every unit survives an edit-modal round trip", async ({ page }) => {
+    await seedAndLoad(page, [OZ_TENTH, G_BAR_3165, MG_AURUM_25, GB_QUARTER, SB_1_NOTE]);
+    const expected = ["oz", "g", "mg", "gb", "sb"];
+    for (let i = 0; i < expected.length; i += 1) {
+      const unit = await page.evaluate(async (idx) => {
+        window.editItem(idx);
+        return document.getElementById("itemWeightUnit").value;
+      }, i);
+      expect(unit).toBe(expected[i]);
+      await page.evaluate(() => document.getElementById("cancelItemBtn")?.click());
+    }
+  });
+
+  test("a legacy item with no stored unit still falls back to grams when small", async ({
+    page,
+  }) => {
+    // The heuristic is kept for rows predating the weightUnit field — an explicit unit now
+    // wins, but a bare small number really is friendlier read as grams.
+    const LEGACY_NO_UNIT = {
+      ...MONEY_ITEM,
+      uuid: "core-strk319-legacy",
+      name: "Core STRK319 Legacy No Unit",
+      weight: 0.1,
+      qty: 1,
+      serial: 344,
+    };
+    delete LEGACY_NO_UNIT.weightUnit;
+    await seedAndLoad(page, [LEGACY_NO_UNIT]);
+    await openEditModal(page, 0);
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+  });
+
+  test("mg converts to the canonical troy ounce on save and back on display", async ({ page }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const trip = await page.evaluate(() => {
+      const stored = parseFloat(window.mgToOzt(25).toFixed(6)); // parseWeight stores at 6dp
+      return {
+        stored,
+        backToMg: window.oztToMg(stored),
+        display: window.formatWeight(stored, "mg"),
+      };
+    });
+    // Storage stays troy ounces, so melt/totals/sort need no mg special case.
+    expect(trip.stored).toBeCloseTo(0.000804, 6);
+    expect(trip.backToMg).toBeCloseTo(25, 1);
+    expect(trip.display).toBe("25 mg");
+  });
+
+  test("gram and milligram chips show the cell text, not the stored troy-ounce float", async ({
+    page,
+  }) => {
+    // A 31.65 g bar keys on "1.0175711288970755" — the chip used to print that verbatim.
+    await seedAndLoad(page, [G_BAR_3165, MONEY_ITEM]);
+    await weightCellFor(page, "Core STRK319 Gram Bar").click();
+    const chips = page.locator("#activeFilters .filter-chip");
+    await expect(chips.filter({ hasText: "31.65 g" })).toHaveCount(1);
+    await expect(chips.filter({ hasText: "1.0175" })).toHaveCount(0);
+  });
+
+  test("plain ounce chips are unchanged — they already read as their own key", async ({ page }) => {
+    await seedAndLoad(page, [OZ_10_BAR, G_BAR_3165]);
+    const labels = await page.evaluate(() => ({
+      oz: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+      gram: window.getWeightFilterLabel(String(31.65 / 31.1035), [
+        { weight: 31.65 / 31.1035, weightUnit: "g" },
+      ]),
+      mg: window.getWeightFilterLabel(String(window.mgToOzt(25)), [
+        { weight: window.mgToOzt(25), weightUnit: "mg" },
+      ]),
+      noMatch: window.getWeightFilterLabel("99", [{ weight: 10, weightUnit: "oz" }]),
+      empty: window.getWeightFilterLabel("", []),
+    }));
+    expect(labels.oz).toBe("10"); // bullion byte-identical
+    expect(labels.gram).toBe("31.65 g");
+    expect(labels.mg).toBe("25 mg");
+    expect(labels.noMatch).toBe("99");
+    expect(labels.empty).toBe("");
+  });
+
+  test("a measured weight cell tooltip reports its canonical troy ounces", async ({ page }) => {
+    // Was a static unit name ("Grams (g)") that added nothing the cell did not already say.
+    await seedAndLoad(page, [G_BAR_3165]);
+    const title = await weightCellFor(page, "Core STRK319 Gram Bar").getAttribute("title");
+    expect(title).toContain("ozt");
+    expect(title).toMatch(/1\.0[12]/); // 31.65 g ≈ 1.0176 ozt
+    expect(title).toContain("Grams (g)");
+  });
+
+  // PR #1407 review (Codex P1): the INLINE weight editor is a second, independent edit path
+  // with its own unit if/else chain. It had both of the modal's bugs — no mg branch, and a
+  // `item.weight < 1` catch — so a 25 mg note opened as "0.03", stored dataset.unit "g", and
+  // saving converted it back with gramsToOzt: the item silently became 30 mg while its
+  // weightUnit still said mg. A sub-1 Goldback opened as "7.78" grams for the same reason.
+  /**
+   * Opens the inline Weight cell editor for the row whose name contains `name` and returns what
+   * the editor put in front of the user. Drives `startCellEdit` directly — the same entry point
+   * the table's own handler uses — so the test does not depend on the gesture that reaches it.
+   * @param {import('@playwright/test').Page} page - Playwright page
+   * @param {string} name - Substring of the row name
+   * @returns {Promise<{unit: string, value: string}>} The editor's dataset unit and input value
+   */
+  async function openInlineWeightEditor(page, name) {
+    return page.evaluate((rowName) => {
+      const row = [...document.querySelectorAll("#inventoryTable tbody tr")].find((tr) =>
+        tr.textContent.includes(rowName)
+      );
+      const td = row.querySelector("td[data-column='weight']");
+      window.startCellEdit(Number(row.dataset.idx), "weight", td);
+      const input = td.querySelector("input");
+      return { unit: input.dataset.unit, value: input.value };
+    }, name);
+  }
+
+  test("the inline weight editor preserves mg and does not rewrite the value", async ({ page }) => {
+    await seedAndLoad(page, [MG_AURUM_25]);
+    const editor = await openInlineWeightEditor(page, "Core STRK319 Aurum 25mg");
+    // Was dataset.unit "g" with value "0.03" — and saving converted that back through
+    // gramsToOzt, turning a 25 mg note into 30 mg while weightUnit still claimed mg.
+    expect(editor.unit).toBe("mg");
+    expect(parseFloat(editor.value)).toBeCloseTo(25, 1);
+  });
+
+  test("the inline weight editor shows a Goldback denomination, not grams", async ({ page }) => {
+    await seedAndLoad(page, [GB_QUARTER]);
+    const editor = await openInlineWeightEditor(page, "Core STRK318 Quarter Goldback");
+    expect(editor.unit).toBe("gb");
+    // The denomination itself — a ¼ Goldback previously opened as "7.78" grams of gold.
+    expect(parseFloat(editor.value)).toBeCloseTo(0.25, 6);
+  });
+
+  test("the inline weight editor still converts grams and ounces as before", async ({ page }) => {
+    await seedAndLoad(page, [G_BAR_3165, OZ_TENTH]);
+    const gram = await openInlineWeightEditor(page, "Core STRK319 Gram Bar");
+    expect(gram.unit).toBe("g");
+    expect(parseFloat(gram.value)).toBeCloseTo(31.65, 2);
+    const ounce = await openInlineWeightEditor(page, "Core STRK319 Tenth Oz Gold");
+    // Was forced to grams by the same `< 1` catch the modal had.
+    expect(ounce.unit).toBe("oz");
+    expect(parseFloat(ounce.value)).toBeCloseTo(0.1, 6);
+  });
+
+  test("a chip for colliding metric units spells out each unit's own value", async ({ page }) => {
+    // PR #1407 review (Codex P2 + Copilot): "0.025 g/mg" implies 0.025 applies to both units,
+    // or reads as a ratio. The gb/sb shorthand only works because both render the same numeral.
+    await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
+    const labels = await page.evaluate(() => {
+      const gramItem = { weight: window.mgToOzt(25), weightUnit: "g" };
+      const mgItem = { weight: window.mgToOzt(25), weightUnit: "mg" };
+      const key = window.getItemFilterWeight(gramItem);
+      return {
+        sameKey: key === window.getItemFilterWeight(mgItem),
+        collision: window.getWeightFilterLabel(key, [gramItem, mgItem]),
+        reversed: window.getWeightFilterLabel(key, [mgItem, gramItem]),
+        // gb/sb still compact, because 1 gb and 1 sb genuinely render the same numeral.
+        gbSb: window.getWeightFilterLabel("0.00100", [
+          { weight: 1, weightUnit: "gb" },
+          { weight: 1, weightUnit: "sb" },
+        ]),
+      };
+    });
+    expect(labels.sameKey).toBe(true);
+    expect(labels.collision).toBe("0.025 g / 25 mg");
+    expect(labels.reversed).toBe("0.025 g / 25 mg"); // order-independent
+    expect(labels.collision).not.toContain("g/mg");
+    expect(labels.gbSb).toBe("1 gb/sb");
+  });
+
+  test("bulk edit converts mg through its own conversion path", async ({ page }) => {
+    // The first version of this test only re-checked mgToOzt and queried the SINGLE-item
+    // modal's select — it never touched js/bulkEdit.js, so the bulk conversion path was
+    // untested despite the test's name (PR #1407 review, CodeRabbit).
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const out = await page.evaluate(() => ({
+      mg: convertBulkWeightToOzt("25", "mg"),
+      g: convertBulkWeightToOzt("1", "g"),
+      kg: convertBulkWeightToOzt("1", "kg"),
+      lb: convertBulkWeightToOzt("1", "lb"),
+      oz: convertBulkWeightToOzt("10", "oz"),
+      gb: convertBulkWeightToOzt("5", "gb"),
+    }));
+    expect(parseFloat(out.mg)).toBeCloseTo(0.000803768, 9);
+    expect(parseFloat(out.g)).toBeCloseTo(1 / 31.1035, 9);
+    expect(parseFloat(out.kg)).toBeCloseTo(32.15075, 6);
+    expect(parseFloat(out.lb)).toBeCloseTo(14.58333, 6);
+    // oz needs no conversion, and gb/sb store the denomination itself — both pass through.
+    expect(out.oz).toBe("10");
+    expect(out.gb).toBe("5");
+  });
+
+  test("the bulk edit weight-unit field offers milligram", async ({ page }) => {
+    await seedAndLoad(page, [MONEY_ITEM]);
+    const units = await page.evaluate(() => {
+      const field = BULK_EDITABLE_FIELDS.find((f) => f.id === "weightUnit");
+      return field.options.map((o) => o.value);
+    });
+    expect(units).toContain("mg");
+    // The full set stays in sync with the add/edit modal's own dropdown.
+    expect(units).toEqual(expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "gb", "sb", "cu"]));
   });
 });

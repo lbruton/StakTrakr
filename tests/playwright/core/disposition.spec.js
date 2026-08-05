@@ -148,7 +148,10 @@ async function seedDispositionData(page, options = {}) {
 }
 
 async function gotoApp(page) {
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+  // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+  // this control display:none.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
   await page.waitForFunction(
     () =>

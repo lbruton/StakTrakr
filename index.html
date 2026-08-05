@@ -549,6 +549,46 @@
         </h1>
         <span class="env-badge" id="envBadge" style="display: none"></span>
       </div>
+      <!-- v2 tab navigation (STRK-282) — text nav in the header, gold underline = active.
+           Anchored right so the tabs end at the Theme/Settings cluster. -->
+      <nav class="app-tab-nav" id="appTabNav" role="tablist" aria-label="Primary">
+        <button
+          class="app-tab-btn"
+          id="tabBtnDashboard"
+          role="tab"
+          data-tab="dashboard"
+          aria-selected="true"
+        >
+          Dashboard
+        </button>
+        <button
+          class="app-tab-btn"
+          id="tabBtnInventory"
+          role="tab"
+          data-tab="inventory"
+          aria-selected="false"
+        >
+          Inventory
+        </button>
+        <button
+          class="app-tab-btn"
+          id="tabBtnMarket"
+          role="tab"
+          data-tab="market"
+          aria-selected="false"
+        >
+          Market
+        </button>
+        <button
+          class="app-tab-btn"
+          id="tabBtnCollections"
+          role="tab"
+          data-tab="collections"
+          aria-selected="false"
+        >
+          Collections
+        </button>
+      </nav>
       <div class="app-header-actions" id="headerBtnContainer">
         <!-- Spot sync button retired (STRK-284) — spot prices are refreshed from
              the per-card .spot-sync-icon on each spot card. Every card's icon
@@ -644,7 +684,17 @@
       </div>
     </header>
     <main class="container">
-      <!-- =============================================================================
+      <!-- v2 tab views (STRK-282). These wrappers only gate visibility around the
+           existing page sections — section IDs and all module behavior inside
+           them are unchanged, so every existing selector keeps working. -->
+      <!-- v2 tab view: Dashboard (STRK-282) -->
+      <div
+        class="tab-view active"
+        id="tabViewDashboard"
+        role="tabpanel"
+        aria-labelledby="tabBtnDashboard"
+      >
+        <!-- =============================================================================
          SPOT PRICES SECTION
          
          Displays current spot prices for all four supported metals and provides
@@ -655,263 +705,272 @@
          
          Spot prices are used for premium calculations and profit/loss analysis
          ============================================================================= -->
-      <section class="spot-prices" id="spotPricesSection">
-        <div class="spot-cards-grid">
-          <!-- Silver spot price card -->
-          <div class="spot-input silver">
-            <div class="spot-card" data-metal="silver">
-              <canvas class="spot-sparkline" id="sparklineSilver" aria-hidden="true"></canvas>
-              <div class="spot-card-header">
-                <div class="spot-card-label">Silver Spot Price</div>
-                <button
-                  type="button"
-                  class="spot-card-period"
-                  id="spotPeriodSilver"
-                  aria-label="Trend period: 90d. Activate to change."
-                >
-                  90d
-                </button>
-                <div class="spot-card-controls">
-                  <select
-                    class="spot-range-select"
-                    id="spotRangeSilver"
-                    title="Trend period"
-                    aria-label="Silver trend period"
-                  >
-                    <option value="1">1d</option>
-                    <option value="7">7d</option>
-                    <option value="14">14d</option>
-                    <option value="30">30d</option>
-                    <option value="60">60d</option>
-                    <option value="90" selected>90d</option>
-                    <option value="365">1Y</option>
-                    <option value="1095">3Y</option>
-                    <option value="1825">5Y</option>
-                    <option value="3650">10Y</option>
-                  </select>
-                  <button class="spot-sync-icon" id="syncIconSilver" title="Sync from API" disabled>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M21.5 2v6h-6" />
-                      <path d="M2.5 22v-6h6" />
-                      <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-                      <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div class="spot-card-value" id="spotPriceDisplaySilver" title="Shift+click to edit">
-                —
-              </div>
-              <div class="spot-card-change" id="spotChangeSilver"></div>
-              <div class="spot-card-timestamp" id="spotTimestampSilver">No data</div>
-            </div>
-          </div>
-          <!-- Gold spot price card -->
-          <div class="spot-input gold">
-            <div class="spot-card" data-metal="gold">
-              <canvas class="spot-sparkline" id="sparklineGold" aria-hidden="true"></canvas>
-              <div class="spot-card-header">
-                <div class="spot-card-label">Gold Spot Price</div>
-                <button
-                  type="button"
-                  class="spot-card-period"
-                  id="spotPeriodGold"
-                  aria-label="Trend period: 90d. Activate to change."
-                >
-                  90d
-                </button>
-                <div class="spot-card-controls">
-                  <select
-                    class="spot-range-select"
-                    id="spotRangeGold"
-                    title="Trend period"
-                    aria-label="Gold trend period"
-                  >
-                    <option value="1">1d</option>
-                    <option value="7">7d</option>
-                    <option value="14">14d</option>
-                    <option value="30">30d</option>
-                    <option value="60">60d</option>
-                    <option value="90" selected>90d</option>
-                    <option value="365">1Y</option>
-                    <option value="1095">3Y</option>
-                    <option value="1825">5Y</option>
-                    <option value="3650">10Y</option>
-                  </select>
-                  <button class="spot-sync-icon" id="syncIconGold" title="Sync from API" disabled>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M21.5 2v6h-6" />
-                      <path d="M2.5 22v-6h6" />
-                      <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-                      <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div class="spot-card-value" id="spotPriceDisplayGold" title="Shift+click to edit">
-                —
-              </div>
-              <div class="spot-card-change" id="spotChangeGold"></div>
-              <div class="spot-card-timestamp" id="spotTimestampGold">No data</div>
-            </div>
-          </div>
-          <!-- Platinum spot price card -->
-          <div class="spot-input platinum">
-            <div class="spot-card" data-metal="platinum">
-              <canvas class="spot-sparkline" id="sparklinePlatinum" aria-hidden="true"></canvas>
-              <div class="spot-card-header">
-                <div class="spot-card-label">Platinum Spot Price</div>
-                <button
-                  type="button"
-                  class="spot-card-period"
-                  id="spotPeriodPlatinum"
-                  aria-label="Trend period: 90d. Activate to change."
-                >
-                  90d
-                </button>
-                <div class="spot-card-controls">
-                  <select
-                    class="spot-range-select"
-                    id="spotRangePlatinum"
-                    title="Trend period"
-                    aria-label="Platinum trend period"
-                  >
-                    <option value="1">1d</option>
-                    <option value="7">7d</option>
-                    <option value="14">14d</option>
-                    <option value="30">30d</option>
-                    <option value="60">60d</option>
-                    <option value="90" selected>90d</option>
-                    <option value="365">1Y</option>
-                    <option value="1095">3Y</option>
-                    <option value="1825">5Y</option>
-                    <option value="3650">10Y</option>
-                  </select>
+        <section class="spot-prices" id="spotPricesSection">
+          <div class="spot-cards-grid">
+            <!-- Silver spot price card -->
+            <div class="spot-input silver">
+              <div class="spot-card" data-metal="silver">
+                <canvas class="spot-sparkline" id="sparklineSilver" aria-hidden="true"></canvas>
+                <div class="spot-card-header">
+                  <div class="spot-card-label">Silver Spot Price</div>
                   <button
-                    class="spot-sync-icon"
-                    id="syncIconPlatinum"
-                    title="Sync from API"
-                    disabled
+                    type="button"
+                    class="spot-card-period"
+                    id="spotPeriodSilver"
+                    aria-label="Trend period: 90d. Activate to change."
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M21.5 2v6h-6" />
-                      <path d="M2.5 22v-6h6" />
-                      <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-                      <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-                    </svg>
+                    90d
                   </button>
+                  <div class="spot-card-controls">
+                    <select
+                      class="spot-range-select"
+                      id="spotRangeSilver"
+                      title="Trend period"
+                      aria-label="Silver trend period"
+                    >
+                      <option value="1">1d</option>
+                      <option value="7">7d</option>
+                      <option value="14">14d</option>
+                      <option value="30">30d</option>
+                      <option value="60">60d</option>
+                      <option value="90" selected>90d</option>
+                      <option value="365">1Y</option>
+                      <option value="1095">3Y</option>
+                      <option value="1825">5Y</option>
+                      <option value="3650">10Y</option>
+                    </select>
+                    <button
+                      class="spot-sync-icon"
+                      id="syncIconSilver"
+                      title="Sync from API"
+                      disabled
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6" />
+                        <path d="M2.5 22v-6h6" />
+                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div
-                class="spot-card-value"
-                id="spotPriceDisplayPlatinum"
-                title="Shift+click to edit"
-              >
-                —
-              </div>
-              <div class="spot-card-change" id="spotChangePlatinum"></div>
-              <div class="spot-card-timestamp" id="spotTimestampPlatinum">No data</div>
-            </div>
-          </div>
-          <!-- Palladium spot price card -->
-          <div class="spot-input palladium">
-            <div class="spot-card" data-metal="palladium">
-              <canvas class="spot-sparkline" id="sparklinePalladium" aria-hidden="true"></canvas>
-              <div class="spot-card-header">
-                <div class="spot-card-label">Palladium Spot Price</div>
-                <button
-                  type="button"
-                  class="spot-card-period"
-                  id="spotPeriodPalladium"
-                  aria-label="Trend period: 90d. Activate to change."
+                <div
+                  class="spot-card-value"
+                  id="spotPriceDisplaySilver"
+                  title="Shift+click to edit"
                 >
-                  90d
-                </button>
-                <div class="spot-card-controls">
-                  <select
-                    class="spot-range-select"
-                    id="spotRangePalladium"
-                    title="Trend period"
-                    aria-label="Palladium trend period"
-                  >
-                    <option value="1">1d</option>
-                    <option value="7">7d</option>
-                    <option value="14">14d</option>
-                    <option value="30">30d</option>
-                    <option value="60">60d</option>
-                    <option value="90" selected>90d</option>
-                    <option value="365">1Y</option>
-                    <option value="1095">3Y</option>
-                    <option value="1825">5Y</option>
-                    <option value="3650">10Y</option>
-                  </select>
-                  <button
-                    class="spot-sync-icon"
-                    id="syncIconPalladium"
-                    title="Sync from API"
-                    disabled
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M21.5 2v6h-6" />
-                      <path d="M2.5 22v-6h6" />
-                      <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
-                      <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
-                    </svg>
-                  </button>
+                  —
                 </div>
+                <div class="spot-card-change" id="spotChangeSilver"></div>
+                <div class="spot-card-timestamp" id="spotTimestampSilver">No data</div>
               </div>
-              <div
-                class="spot-card-value"
-                id="spotPriceDisplayPalladium"
-                title="Shift+click to edit"
-              >
-                —
+            </div>
+            <!-- Gold spot price card -->
+            <div class="spot-input gold">
+              <div class="spot-card" data-metal="gold">
+                <canvas class="spot-sparkline" id="sparklineGold" aria-hidden="true"></canvas>
+                <div class="spot-card-header">
+                  <div class="spot-card-label">Gold Spot Price</div>
+                  <button
+                    type="button"
+                    class="spot-card-period"
+                    id="spotPeriodGold"
+                    aria-label="Trend period: 90d. Activate to change."
+                  >
+                    90d
+                  </button>
+                  <div class="spot-card-controls">
+                    <select
+                      class="spot-range-select"
+                      id="spotRangeGold"
+                      title="Trend period"
+                      aria-label="Gold trend period"
+                    >
+                      <option value="1">1d</option>
+                      <option value="7">7d</option>
+                      <option value="14">14d</option>
+                      <option value="30">30d</option>
+                      <option value="60">60d</option>
+                      <option value="90" selected>90d</option>
+                      <option value="365">1Y</option>
+                      <option value="1095">3Y</option>
+                      <option value="1825">5Y</option>
+                      <option value="3650">10Y</option>
+                    </select>
+                    <button class="spot-sync-icon" id="syncIconGold" title="Sync from API" disabled>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6" />
+                        <path d="M2.5 22v-6h6" />
+                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="spot-card-value" id="spotPriceDisplayGold" title="Shift+click to edit">
+                  —
+                </div>
+                <div class="spot-card-change" id="spotChangeGold"></div>
+                <div class="spot-card-timestamp" id="spotTimestampGold">No data</div>
               </div>
-              <div class="spot-card-change" id="spotChangePalladium"></div>
-              <div class="spot-card-timestamp" id="spotTimestampPalladium">No data</div>
+            </div>
+            <!-- Platinum spot price card -->
+            <div class="spot-input platinum">
+              <div class="spot-card" data-metal="platinum">
+                <canvas class="spot-sparkline" id="sparklinePlatinum" aria-hidden="true"></canvas>
+                <div class="spot-card-header">
+                  <div class="spot-card-label">Platinum Spot Price</div>
+                  <button
+                    type="button"
+                    class="spot-card-period"
+                    id="spotPeriodPlatinum"
+                    aria-label="Trend period: 90d. Activate to change."
+                  >
+                    90d
+                  </button>
+                  <div class="spot-card-controls">
+                    <select
+                      class="spot-range-select"
+                      id="spotRangePlatinum"
+                      title="Trend period"
+                      aria-label="Platinum trend period"
+                    >
+                      <option value="1">1d</option>
+                      <option value="7">7d</option>
+                      <option value="14">14d</option>
+                      <option value="30">30d</option>
+                      <option value="60">60d</option>
+                      <option value="90" selected>90d</option>
+                      <option value="365">1Y</option>
+                      <option value="1095">3Y</option>
+                      <option value="1825">5Y</option>
+                      <option value="3650">10Y</option>
+                    </select>
+                    <button
+                      class="spot-sync-icon"
+                      id="syncIconPlatinum"
+                      title="Sync from API"
+                      disabled
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6" />
+                        <path d="M2.5 22v-6h6" />
+                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="spot-card-value"
+                  id="spotPriceDisplayPlatinum"
+                  title="Shift+click to edit"
+                >
+                  —
+                </div>
+                <div class="spot-card-change" id="spotChangePlatinum"></div>
+                <div class="spot-card-timestamp" id="spotTimestampPlatinum">No data</div>
+              </div>
+            </div>
+            <!-- Palladium spot price card -->
+            <div class="spot-input palladium">
+              <div class="spot-card" data-metal="palladium">
+                <canvas class="spot-sparkline" id="sparklinePalladium" aria-hidden="true"></canvas>
+                <div class="spot-card-header">
+                  <div class="spot-card-label">Palladium Spot Price</div>
+                  <button
+                    type="button"
+                    class="spot-card-period"
+                    id="spotPeriodPalladium"
+                    aria-label="Trend period: 90d. Activate to change."
+                  >
+                    90d
+                  </button>
+                  <div class="spot-card-controls">
+                    <select
+                      class="spot-range-select"
+                      id="spotRangePalladium"
+                      title="Trend period"
+                      aria-label="Palladium trend period"
+                    >
+                      <option value="1">1d</option>
+                      <option value="7">7d</option>
+                      <option value="14">14d</option>
+                      <option value="30">30d</option>
+                      <option value="60">60d</option>
+                      <option value="90" selected>90d</option>
+                      <option value="365">1Y</option>
+                      <option value="1095">3Y</option>
+                      <option value="1825">5Y</option>
+                      <option value="3650">10Y</option>
+                    </select>
+                    <button
+                      class="spot-sync-icon"
+                      id="syncIconPalladium"
+                      title="Sync from API"
+                      disabled
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6" />
+                        <path d="M2.5 22v-6h6" />
+                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="spot-card-value"
+                  id="spotPriceDisplayPalladium"
+                  title="Shift+click to edit"
+                >
+                  —
+                </div>
+                <div class="spot-card-change" id="spotChangePalladium"></div>
+                <div class="spot-card-timestamp" id="spotTimestampPalladium">No data</div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-      <!-- ── Best Price Ticker (STAK-504) ── -->
-      <div id="bestPriceTickerEl" class="market-ticker" hidden></div>
-      <!-- =============================================================================
+        </section>
+        <!-- ── Best Price Ticker (STAK-504) ── -->
+        <div id="bestPriceTickerEl" class="market-ticker" hidden></div>
+        <!-- =============================================================================
          TOTALS SECTION
 
          Comprehensive financial summary cards for each metal type showing:
@@ -924,222 +983,225 @@
          All calculations are performed by updateSummary() in inventory.js
          Values are updated automatically when inventory changes
          ============================================================================= -->
-      <section class="totals-section" id="totalsSectionEl">
-        <div class="totals-wrapper">
-          <button class="totals-nav-btn totals-prev" id="totalsPrev" aria-label="Previous card">
-            &#8249;
-          </button>
-          <div class="totals" id="totalsCarousel">
-            <!-- Silver totals card -->
-            <div class="total-card silver">
-              <div class="total-title" data-metal="Silver">Silver</div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Items:</span>
-                  <span class="total-value" id="totalItemsSilver">0</span>
+        <section class="totals-section" id="totalsSectionEl">
+          <div class="totals-wrapper">
+            <button class="totals-nav-btn totals-prev" id="totalsPrev" aria-label="Previous card">
+              &#8249;
+            </button>
+            <div class="totals" id="totalsCarousel">
+              <!-- Silver totals card -->
+              <div class="total-card silver">
+                <div class="total-title" data-metal="Silver">Silver</div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Items:</span>
+                    <span class="total-value" id="totalItemsSilver">0</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Weight (oz):</span>
+                    <span class="total-value" id="totalWeightSilver">0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Avg Cost/oz:</span>
+                    <span class="total-value" id="avgCostPerOzSilver">$0.00</span>
+                  </div>
                 </div>
-                <div class="total-item">
-                  <span class="total-label">Weight (oz):</span>
-                  <span class="total-value" id="totalWeightSilver">0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Avg Cost/oz:</span>
-                  <span class="total-value" id="avgCostPerOzSilver">$0.00</span>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Purchase Price:</span>
+                    <span class="total-value" id="totalPurchasedSilver">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Melt Value:</span>
+                    <span class="total-value" id="currentValueSilver">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Retail Value:</span>
+                    <span class="total-value" id="retailValueSilver">$0.00</span>
+                  </div>
+                  <div class="total-item total-item-bottom-line">
+                    <span class="total-label">Gain:</span>
+                    <span class="total-value" id="lossProfitSilver">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Realized:</span>
+                    <span class="total-value" id="realizedGainLossSilver">$0.00</span>
+                  </div>
                 </div>
               </div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Purchase Price:</span>
-                  <span class="total-value" id="totalPurchasedSilver">$0.00</span>
+              <!-- Gold totals card -->
+              <div class="total-card gold">
+                <div class="total-title" data-metal="Gold">Gold</div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Items:</span>
+                    <span class="total-value" id="totalItemsGold">0</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Weight (oz):</span>
+                    <span class="total-value" id="totalWeightGold">0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Avg Cost/oz:</span>
+                    <span class="total-value" id="avgCostPerOzGold">$0.00</span>
+                  </div>
                 </div>
-                <div class="total-item">
-                  <span class="total-label">Melt Value:</span>
-                  <span class="total-value" id="currentValueSilver">$0.00</span>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Purchase Price:</span>
+                    <span class="total-value" id="totalPurchasedGold">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Melt Value:</span>
+                    <span class="total-value" id="currentValueGold">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Retail Value:</span>
+                    <span class="total-value" id="retailValueGold">$0.00</span>
+                  </div>
+                  <div class="total-item total-item-bottom-line">
+                    <span class="total-label">Gain:</span>
+                    <span class="total-value" id="lossProfitGold">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Realized:</span>
+                    <span class="total-value" id="realizedGainLossGold">$0.00</span>
+                  </div>
                 </div>
-                <div class="total-item">
-                  <span class="total-label">Retail Value:</span>
-                  <span class="total-value" id="retailValueSilver">$0.00</span>
+              </div>
+              <!-- Platinum totals card -->
+              <div class="total-card platinum">
+                <div class="total-title" data-metal="Platinum">Platinum</div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Items:</span>
+                    <span class="total-value" id="totalItemsPlatinum">0</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Weight (oz):</span>
+                    <span class="total-value" id="totalWeightPlatinum">0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Avg Cost/oz:</span>
+                    <span class="total-value" id="avgCostPerOzPlatinum">$0.00</span>
+                  </div>
                 </div>
-                <div class="total-item total-item-bottom-line">
-                  <span class="total-label">Gain:</span>
-                  <span class="total-value" id="lossProfitSilver">$0.00</span>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Purchase Price:</span>
+                    <span class="total-value" id="totalPurchasedPlatinum">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Melt Value:</span>
+                    <span class="total-value" id="currentValuePlatinum">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Retail Value:</span>
+                    <span class="total-value" id="retailValuePlatinum">$0.00</span>
+                  </div>
+                  <div class="total-item total-item-bottom-line">
+                    <span class="total-label">Gain:</span>
+                    <span class="total-value" id="lossProfitPlatinum">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Realized:</span>
+                    <span class="total-value" id="realizedGainLossPlatinum">$0.00</span>
+                  </div>
                 </div>
-                <div class="total-item">
-                  <span class="total-label">Realized:</span>
-                  <span class="total-value" id="realizedGainLossSilver">$0.00</span>
+              </div>
+              <!-- Palladium totals card -->
+              <div class="total-card palladium">
+                <div class="total-title" data-metal="Palladium">Palladium</div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Items:</span>
+                    <span class="total-value" id="totalItemsPalladium">0</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Weight (oz):</span>
+                    <span class="total-value" id="totalWeightPalladium">0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Avg Cost/oz:</span>
+                    <span class="total-value" id="avgCostPerOzPalladium">$0.00</span>
+                  </div>
+                </div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Purchase Price:</span>
+                    <span class="total-value" id="totalPurchasedPalladium">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Melt Value:</span>
+                    <span class="total-value" id="currentValuePalladium">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Retail Value:</span>
+                    <span class="total-value" id="retailValuePalladium">$0.00</span>
+                  </div>
+                  <div class="total-item total-item-bottom-line">
+                    <span class="total-label">Gain:</span>
+                    <span class="total-value" id="lossProfitPalladium">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Realized:</span>
+                    <span class="total-value" id="realizedGainLossPalladium">$0.00</span>
+                  </div>
+                </div>
+              </div>
+              <!-- All metals combined totals card -->
+              <div class="total-card total-card-all">
+                <div class="total-title" data-metal="All">All Metals</div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Items:</span>
+                    <span class="total-value" id="totalItemsAll">0</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Weight (oz):</span>
+                    <span class="total-value" id="totalWeightAll">0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Avg Cost/oz:</span>
+                    <span class="total-value" id="avgCostPerOzAll">$0.00</span>
+                  </div>
+                </div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Purchase Price:</span>
+                    <span class="total-value" id="totalPurchasedAll">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Melt Value:</span>
+                    <span class="total-value" id="currentValueAll">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Retail Value:</span>
+                    <span class="total-value" id="retailValueAll">$0.00</span>
+                  </div>
+                  <div class="total-item total-item-bottom-line">
+                    <span class="total-label">Gain:</span>
+                    <span class="total-value" id="lossProfitAll">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Realized:</span>
+                    <span class="total-value" id="realizedGainLossAll">$0.00</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <!-- Gold totals card -->
-            <div class="total-card gold">
-              <div class="total-title" data-metal="Gold">Gold</div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Items:</span>
-                  <span class="total-value" id="totalItemsGold">0</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Weight (oz):</span>
-                  <span class="total-value" id="totalWeightGold">0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Avg Cost/oz:</span>
-                  <span class="total-value" id="avgCostPerOzGold">$0.00</span>
-                </div>
-              </div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Purchase Price:</span>
-                  <span class="total-value" id="totalPurchasedGold">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Melt Value:</span>
-                  <span class="total-value" id="currentValueGold">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Retail Value:</span>
-                  <span class="total-value" id="retailValueGold">$0.00</span>
-                </div>
-                <div class="total-item total-item-bottom-line">
-                  <span class="total-label">Gain:</span>
-                  <span class="total-value" id="lossProfitGold">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Realized:</span>
-                  <span class="total-value" id="realizedGainLossGold">$0.00</span>
-                </div>
-              </div>
-            </div>
-            <!-- Platinum totals card -->
-            <div class="total-card platinum">
-              <div class="total-title" data-metal="Platinum">Platinum</div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Items:</span>
-                  <span class="total-value" id="totalItemsPlatinum">0</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Weight (oz):</span>
-                  <span class="total-value" id="totalWeightPlatinum">0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Avg Cost/oz:</span>
-                  <span class="total-value" id="avgCostPerOzPlatinum">$0.00</span>
-                </div>
-              </div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Purchase Price:</span>
-                  <span class="total-value" id="totalPurchasedPlatinum">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Melt Value:</span>
-                  <span class="total-value" id="currentValuePlatinum">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Retail Value:</span>
-                  <span class="total-value" id="retailValuePlatinum">$0.00</span>
-                </div>
-                <div class="total-item total-item-bottom-line">
-                  <span class="total-label">Gain:</span>
-                  <span class="total-value" id="lossProfitPlatinum">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Realized:</span>
-                  <span class="total-value" id="realizedGainLossPlatinum">$0.00</span>
-                </div>
-              </div>
-            </div>
-            <!-- Palladium totals card -->
-            <div class="total-card palladium">
-              <div class="total-title" data-metal="Palladium">Palladium</div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Items:</span>
-                  <span class="total-value" id="totalItemsPalladium">0</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Weight (oz):</span>
-                  <span class="total-value" id="totalWeightPalladium">0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Avg Cost/oz:</span>
-                  <span class="total-value" id="avgCostPerOzPalladium">$0.00</span>
-                </div>
-              </div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Purchase Price:</span>
-                  <span class="total-value" id="totalPurchasedPalladium">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Melt Value:</span>
-                  <span class="total-value" id="currentValuePalladium">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Retail Value:</span>
-                  <span class="total-value" id="retailValuePalladium">$0.00</span>
-                </div>
-                <div class="total-item total-item-bottom-line">
-                  <span class="total-label">Gain:</span>
-                  <span class="total-value" id="lossProfitPalladium">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Realized:</span>
-                  <span class="total-value" id="realizedGainLossPalladium">$0.00</span>
-                </div>
-              </div>
-            </div>
-            <!-- All metals combined totals card -->
-            <div class="total-card total-card-all">
-              <div class="total-title" data-metal="All">All Metals</div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Items:</span>
-                  <span class="total-value" id="totalItemsAll">0</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Weight (oz):</span>
-                  <span class="total-value" id="totalWeightAll">0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Avg Cost/oz:</span>
-                  <span class="total-value" id="avgCostPerOzAll">$0.00</span>
-                </div>
-              </div>
-              <div class="total-group">
-                <div class="total-item">
-                  <span class="total-label">Purchase Price:</span>
-                  <span class="total-value" id="totalPurchasedAll">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Melt Value:</span>
-                  <span class="total-value" id="currentValueAll">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Retail Value:</span>
-                  <span class="total-value" id="retailValueAll">$0.00</span>
-                </div>
-                <div class="total-item total-item-bottom-line">
-                  <span class="total-label">Gain:</span>
-                  <span class="total-value" id="lossProfitAll">$0.00</span>
-                </div>
-                <div class="total-item">
-                  <span class="total-label">Realized:</span>
-                  <span class="total-value" id="realizedGainLossAll">$0.00</span>
-                </div>
-              </div>
-            </div>
+            <!-- /.totals -->
+            <button class="totals-nav-btn totals-next" id="totalsNext" aria-label="Next card">
+              &#8250;
+            </button>
+            <div class="totals-dots" id="totalsDots"></div>
           </div>
-          <!-- /.totals -->
-          <button class="totals-nav-btn totals-next" id="totalsNext" aria-label="Next card">
-            &#8250;
-          </button>
-          <div class="totals-dots" id="totalsDots"></div>
-        </div>
-        <!-- /.totals-wrapper -->
-      </section>
-      <!-- =============================================================================
+          <!-- /.totals-wrapper -->
+        </section>
+      </div>
+      <!-- v2 tab view: Inventory (STRK-282) -->
+      <div class="tab-view" id="tabViewInventory" role="tabpanel" aria-labelledby="tabBtnInventory">
+        <!-- =============================================================================
          INVENTORY FORM SECTION
          
          Primary data entry form for adding new inventory items. Includes fields for:
@@ -1150,19 +1212,19 @@
          Form submission is handled by events.js with validation and automatic
          premium calculation based on current spot prices
          ============================================================================= -->
-      <!--
+        <!--
         Legacy add item form - commented out pending removal after
         verifying new modal workflow.
       <section class="form-section">
         ...
       </section>
       -->
-      <!-- =============================================================================
+        <!-- =============================================================================
          INVENTORY
 
          Wrapper containing search and inventory table
          ============================================================================= -->
-      <!-- =============================================================================
+        <!-- =============================================================================
            SEARCH FUNCTIONALITY
 
            Live search interface that filters inventory table in real-time.
@@ -1173,166 +1235,170 @@
            Search is case-insensitive and supports partial matches
            Implementation in search.js with filterInventory() function
            ============================================================================= -->
-      <section class="search-section" id="searchSectionEl">
-        <div class="search-container">
-          <button
-            class="btn search-action-btn add-btn"
-            id="newItemBtn"
-            title="Add new item"
-            aria-label="Add new item"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        <section class="search-section" id="searchSectionEl">
+          <div class="search-container">
+            <button
+              class="btn search-action-btn add-btn"
+              id="newItemBtn"
+              title="Add new item"
+              aria-label="Add new item"
             >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="16" />
-              <line x1="8" y1="12" x2="16" y2="12" />
-            </svg>
-            <span>Add Item</span>
-          </button>
-          <input
-            id="searchInput"
-            placeholder="Search inventory by metal, name, type, purchase location, storage location, notes, date..."
-            type="text"
-          />
-          <button
-            class="btn search-action-btn clear-btn"
-            id="clearBtn"
-            title="Clear search"
-            aria-label="Clear search"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+              <span>Add Item</span>
+            </button>
+            <input
+              id="searchInput"
+              placeholder="Search inventory by metal, name, type, purchase location, storage location, notes, date..."
+              type="text"
+            />
+            <button
+              class="btn search-action-btn clear-btn"
+              id="clearBtn"
+              title="Clear search"
+              aria-label="Clear search"
             >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-            <span>Clear</span>
-          </button>
-          <button
-            class="btn search-action-btn log-btn"
-            id="changeLogBtn"
-            title="Change log"
-            aria-label="Change log"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              <span>Clear</span>
+            </button>
+            <button
+              class="btn search-action-btn log-btn"
+              id="changeLogBtn"
+              title="Change log"
+              aria-label="Change log"
             >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14,2 14,8 20,8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10,9 9,9 8,9" />
-            </svg>
-            <span>Log</span>
-          </button>
-        </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14,2 14,8 20,8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10,9 9,9 8,9" />
+              </svg>
+              <span>Log</span>
+            </button>
+          </div>
 
-        <!-- Integrated Filters -->
-        <div class="search-filters">
-          <div class="filter-controls">
-            <div class="control-group">
-              <label for="chipMinCount" class="control-label">Filter Chips:</label>
-              <select
-                id="chipMinCount"
-                class="control-select"
-                title="Minimum number of items before showing a filter chip"
-              >
-                <option value="2">2+</option>
-                <option value="3" selected>3+</option>
-                <option value="5">5+</option>
-                <option value="10">10+</option>
-                <option value="100">100+</option>
-              </select>
-            </div>
-            <div class="control-group">
-              <label for="chipMaxCount" class="control-label">Max chips:</label>
-              <select
-                id="chipMaxCount"
-                class="control-select"
-                title="Maximum number of filter chips to display"
-              >
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="500">500</option>
-                <option value="0" selected>All</option>
-              </select>
-            </div>
-            <div class="control-group">
-              <span class="control-label">Smart Grouping:</span>
-              <div
-                class="chip-sort-toggle"
-                id="groupNameChips"
-                title="Group similar item names (e.g., 'American Silver Eagle (3)' instead of separate year chips)"
-              >
-                <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
-                <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+          <!-- Integrated Filters -->
+          <div class="search-filters">
+            <div class="filter-controls">
+              <div class="control-group">
+                <label for="chipMinCount" class="control-label">Filter Chips:</label>
+                <select
+                  id="chipMinCount"
+                  class="control-select"
+                  title="Minimum number of items before showing a filter chip"
+                >
+                  <option value="2">2+</option>
+                  <option value="3" selected>3+</option>
+                  <option value="5">5+</option>
+                  <option value="10">10+</option>
+                  <option value="100">100+</option>
+                </select>
               </div>
-            </div>
-            <div class="control-group">
-              <span class="control-label">Chip Sort:</span>
-              <div
-                class="chip-sort-toggle"
-                id="chipSortOrder"
-                title="Sort chips within each category"
-              >
-                <button type="button" class="chip-sort-btn active" data-sort="alpha">A-Z</button>
-                <button type="button" class="chip-sort-btn" data-sort="count">Qty</button>
+              <div class="control-group">
+                <label for="chipMaxCount" class="control-label">Max chips:</label>
+                <select
+                  id="chipMaxCount"
+                  class="control-select"
+                  title="Maximum number of filter chips to display"
+                >
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="500">500</option>
+                  <option value="0" selected>All</option>
+                </select>
               </div>
-            </div>
-            <div class="control-group" id="saveSearchPatternGroup" style="display: none">
-              <button
-                type="button"
-                class="chip-sort-btn save-filter-btn"
-                id="saveSearchPatternBtn"
-                title="Save current search as a custom filter chip"
-              >
-                Save Filter
-              </button>
-            </div>
-            <div class="control-group">
-              <span class="control-label">Disposed:</span>
-              <div class="chip-sort-toggle" id="disposedFilterGroup" title="Filter disposed items">
-                <button type="button" class="chip-sort-btn active" data-disposed-mode="hide">
-                  Hide
-                </button>
-                <button type="button" class="chip-sort-btn" data-disposed-mode="show-all">
-                  Show All
-                </button>
-                <button type="button" class="chip-sort-btn" data-disposed-mode="show-only">
-                  Disposed Only
+              <div class="control-group">
+                <span class="control-label">Smart Grouping:</span>
+                <div
+                  class="chip-sort-toggle"
+                  id="groupNameChips"
+                  title="Group similar item names (e.g., 'American Silver Eagle (3)' instead of separate year chips)"
+                >
+                  <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                  <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                </div>
+              </div>
+              <div class="control-group">
+                <span class="control-label">Chip Sort:</span>
+                <div
+                  class="chip-sort-toggle"
+                  id="chipSortOrder"
+                  title="Sort chips within each category"
+                >
+                  <button type="button" class="chip-sort-btn active" data-sort="alpha">A-Z</button>
+                  <button type="button" class="chip-sort-btn" data-sort="count">Qty</button>
+                </div>
+              </div>
+              <div class="control-group" id="saveSearchPatternGroup" style="display: none">
+                <button
+                  type="button"
+                  class="chip-sort-btn save-filter-btn"
+                  id="saveSearchPatternBtn"
+                  title="Save current search as a custom filter chip"
+                >
+                  Save Filter
                 </button>
               </div>
+              <div class="control-group">
+                <span class="control-label">Disposed:</span>
+                <div
+                  class="chip-sort-toggle"
+                  id="disposedFilterGroup"
+                  title="Filter disposed items"
+                >
+                  <button type="button" class="chip-sort-btn active" data-disposed-mode="hide">
+                    Hide
+                  </button>
+                  <button type="button" class="chip-sort-btn" data-disposed-mode="show-all">
+                    Show All
+                  </button>
+                  <button type="button" class="chip-sort-btn" data-disposed-mode="show-only">
+                    Disposed Only
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="active-filters" id="activeFilters"></div>
+              <div class="search-results-info" id="searchResultsInfo"></div>
             </div>
           </div>
-          <div class="filter-row">
-            <div class="active-filters" id="activeFilters"></div>
-            <div class="search-results-info" id="searchResultsInfo"></div>
-          </div>
-        </div>
-        <!-- Portfolio summary: Buy / Melt / Market / G/L — full-width bottom row -->
-        <div class="card-sort-summary" id="cardSortSummary"></div>
-      </section>
-      <!-- =============================================================================
+          <!-- Portfolio summary: Buy / Melt / Market / G/L — full-width bottom row -->
+          <div class="card-sort-summary" id="cardSortSummary"></div>
+        </section>
+        <!-- =============================================================================
            INVENTORY TABLE SECTION
 
            Main data display table showing all inventory items with:
@@ -1344,271 +1410,292 @@
         Table rendering handled by renderTable() in inventory.js
          Portal view shows all items in a scrollable table with sticky headers
          ============================================================================= -->
-      <section class="table-section" id="tableSectionEl">
-        <!-- PROTOTYPE: Sort bar always visible. Style D = table view. -->
-        <div class="card-sort-bar" id="cardSortBar">
-          <div class="card-sort-left">
-            <span class="control-label">Sort:</span>
-            <select
-              id="cardSortColumn"
-              class="control-select"
-              title="Sort cards by column"
-              aria-label="Sort by column"
-            >
-              <option value="0">Date</option>
-              <option value="1">Metal</option>
-              <option value="2">Type</option>
-              <option value="4">Name</option>
-              <option value="5">Qty</option>
-              <option value="6">Weight</option>
-              <option value="7">Purchase</option>
-              <option value="8">Melt Value</option>
-              <option value="9">Retail</option>
-              <option value="10">Gain/Loss</option>
-              <option value="11">Source</option>
-              <option value="102">Storage</option>
-              <option value="103">Year</option>
-              <option value="99">Last Modified</option>
-              <option value="100">Mintage</option>
-              <option value="101">Rarity</option>
-            </select>
-            <button
-              type="button"
-              class="card-sort-dir-btn"
-              id="cardSortDirBtn"
-              title="Toggle sort direction"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+        <section class="table-section" id="tableSectionEl">
+          <!-- PROTOTYPE: Sort bar always visible. Style D = table view. -->
+          <div class="card-sort-bar" id="cardSortBar">
+            <div class="card-sort-left">
+              <span class="control-label">Sort:</span>
+              <select
+                id="cardSortColumn"
+                class="control-select"
+                title="Sort cards by column"
+                aria-label="Sort by column"
               >
-                <polyline class="sort-arrow-up" points="18 15 12 9 6 15" />
-                <polyline class="sort-arrow-down" points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          </div>
-          <div class="card-sort-right">
-            <span class="control-label">View:</span>
-            <div class="chip-sort-toggle" id="cardStyleToggle">
+                <option value="0">Date</option>
+                <option value="1">Metal</option>
+                <option value="2">Type</option>
+                <option value="4">Name</option>
+                <option value="5">Qty</option>
+                <option value="6">Weight</option>
+                <option value="7">Purchase</option>
+                <option value="8">Melt Value</option>
+                <option value="9">Retail</option>
+                <option value="10">Gain/Loss</option>
+                <option value="11">Source</option>
+                <option value="102">Storage</option>
+                <option value="103">Year</option>
+                <option value="99">Last Modified</option>
+                <option value="100">Mintage</option>
+                <option value="101">Rarity</option>
+              </select>
               <button
                 type="button"
-                class="chip-sort-btn active"
-                data-style="A"
-                title="Sparkline cards"
+                class="card-sort-dir-btn"
+                id="cardSortDirBtn"
+                title="Toggle sort direction"
               >
-                A
-              </button>
-              <button type="button" class="chip-sort-btn" data-style="B" title="Hero cards">
-                B
-              </button>
-              <button type="button" class="chip-sort-btn" data-style="C" title="Split cards">
-                C
-              </button>
-              <button type="button" class="chip-sort-btn" data-style="D" title="Table view">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="13"
-                  height="13"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  aria-hidden="true"
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <line x1="3" y1="9" x2="21" y2="9" />
-                  <line x1="3" y1="15" x2="21" y2="15" />
-                  <line x1="9" y1="9" x2="9" y2="21" />
-                  <line x1="15" y1="9" x2="15" y2="21" />
+                  <polyline class="sort-arrow-up" points="18 15 12 9 6 15" />
+                  <polyline class="sort-arrow-down" points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            </div>
+            <div class="card-sort-right">
+              <span class="control-label">View:</span>
+              <div class="chip-sort-toggle" id="cardStyleToggle">
+                <button
+                  type="button"
+                  class="chip-sort-btn active"
+                  data-style="A"
+                  title="Sparkline cards"
+                >
+                  A
+                </button>
+                <button type="button" class="chip-sort-btn" data-style="B" title="Hero cards">
+                  B
+                </button>
+                <button type="button" class="chip-sort-btn" data-style="C" title="Split cards">
+                  C
+                </button>
+                <button type="button" class="chip-sort-btn" data-style="D" title="Table view">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="3" y1="9" x2="21" y2="9" />
+                    <line x1="3" y1="15" x2="21" y2="15" />
+                    <line x1="9" y1="9" x2="9" y2="21" />
+                    <line x1="15" y1="9" x2="15" y2="21" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card-view-grid" id="cardViewGrid"></div>
+          <div class="portal-scroll">
+            <table id="inventoryTable">
+              <thead>
+                <tr>
+                  <th class="shrink" data-column="date">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <span class="header-text">Date</span>
+                  </th>
+                  <th class="shrink" data-column="metal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <circle cx="12" cy="12" r="10" />
+                      <circle cx="12" cy="12" r="6" />
+                      <circle cx="12" cy="12" r="2" />
+                    </svg>
+                    <span class="header-text">Metal</span>
+                  </th>
+                  <th class="shrink" data-column="type">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5" />
+                    </svg>
+                    <span class="header-text">Type</span>
+                  </th>
+                  <th class="shrink" data-column="image">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                    <span class="header-text">Image</span>
+                  </th>
+                  <th class="expand" data-column="name">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span class="header-text">Name</span>
+                  </th>
+                  <th class="shrink center-align" data-column="qty">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <line x1="8" y1="6" x2="21" y2="6" />
+                      <line x1="8" y1="12" x2="21" y2="12" />
+                      <line x1="8" y1="18" x2="21" y2="18" />
+                      <line x1="3" y1="6" x2="3.01" y2="6" />
+                      <line x1="3" y1="12" x2="3.01" y2="12" />
+                      <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
+                    <span class="header-text">Qty</span>
+                  </th>
+                  <th class="shrink" data-column="weight">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                      />
+                    </svg>
+                    <span class="header-text">Weight</span>
+                  </th>
+                  <th
+                    class="shrink"
+                    data-column="purchasePrice"
+                    title="Total purchase value (qty × per-unit) · Click to sort"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <line x1="12" y1="1" x2="12" y2="23" />
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                    <span class="header-text">Purchase</span>
+                  </th>
+                  <th class="shrink" data-column="meltValue" title="USD">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                    <span class="header-text">Melt</span>
+                  </th>
+                  <th class="shrink" data-column="retailPrice" title="USD">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                    <span class="header-text">Retail</span>
+                  </th>
+                  <th class="shrink" data-column="gainLoss" title="USD">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                      <polyline points="17 6 23 6 23 12" />
+                    </svg>
+                    <span class="header-text">Gain/Loss</span>
+                  </th>
+                  <th class="shrink" data-column="purchaseLocation">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <path d="M3 9l1.5-5h15L21 9" />
+                      <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9" />
+                      <path d="M9 21V13h6v8" />
+                    </svg>
+                    <span class="header-text">Source</span>
+                  </th>
+                  <th
+                    class="icon-col actions-col"
+                    data-column="actions"
+                    aria-label="Actions"
+                    title="Actions"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
+                      <circle cx="12" cy="5" r="1.5" />
+                      <circle cx="12" cy="12" r="1.5" />
+                      <circle cx="12" cy="19" r="1.5" />
+                    </svg>
+                    <span class="header-text">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="table-footer-controls">
+            <select
+              id="itemsPerPage"
+              class="control-select"
+              title="Visible rows"
+              aria-label="Items per page"
+            >
+              <option value="3">3</option>
+              <option value="6">6</option>
+              <option value="12" selected>12</option>
+              <option value="24">24</option>
+              <option value="48">48</option>
+              <option value="96">96</option>
+              <option value="128">128</option>
+              <option value="512">512</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+
+          <!-- Bulk Edit Control Panel -->
+          <div class="bulk-edit-panel" id="bulkEditPanel" style="display: none">
+            <div class="bulk-edit-controls">
+              <button
+                class="bulk-edit-btn toggle-all-btn"
+                id="bulkToggleAll"
+                title="Toggle all items edit mode"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="bulk-edit-icon">
+                  <path
+                    d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z"
+                  />
+                </svg>
+              </button>
+              <button class="bulk-edit-btn save-all-btn" id="bulkSaveAll" title="Save all changes">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="bulk-edit-icon">
+                  <path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z" />
+                </svg>
+              </button>
+              <button
+                class="bulk-edit-btn cancel-all-btn"
+                id="bulkCancelAll"
+                title="Cancel all changes"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="bulk-edit-icon">
+                  <path
+                    d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
+                  />
                 </svg>
               </button>
             </div>
           </div>
-        </div>
-        <div class="card-view-grid" id="cardViewGrid"></div>
-        <div class="portal-scroll">
-          <table id="inventoryTable">
-            <thead>
-              <tr>
-                <th class="shrink" data-column="date">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  <span class="header-text">Date</span>
-                </th>
-                <th class="shrink" data-column="metal">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="6" />
-                    <circle cx="12" cy="12" r="2" />
-                  </svg>
-                  <span class="header-text">Metal</span>
-                </th>
-                <th class="shrink" data-column="type">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5" />
-                  </svg>
-                  <span class="header-text">Type</span>
-                </th>
-                <th class="shrink" data-column="image">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <polyline points="21 15 16 10 5 21" />
-                  </svg>
-                  <span class="header-text">Image</span>
-                </th>
-                <th class="expand" data-column="name">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                  <span class="header-text">Name</span>
-                </th>
-                <th class="shrink center-align" data-column="qty">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                  </svg>
-                  <span class="header-text">Qty</span>
-                </th>
-                <th class="shrink" data-column="weight">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <path
-                      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                    />
-                  </svg>
-                  <span class="header-text">Weight</span>
-                </th>
-                <th
-                  class="shrink"
-                  data-column="purchasePrice"
-                  title="Total purchase value (qty × per-unit) · Click to sort"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <line x1="12" y1="1" x2="12" y2="23" />
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                  </svg>
-                  <span class="header-text">Purchase</span>
-                </th>
-                <th class="shrink" data-column="meltValue" title="USD">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
-                  <span class="header-text">Melt</span>
-                </th>
-                <th class="shrink" data-column="retailPrice" title="USD">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                  </svg>
-                  <span class="header-text">Retail</span>
-                </th>
-                <th class="shrink" data-column="gainLoss" title="USD">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                    <polyline points="17 6 23 6 23 12" />
-                  </svg>
-                  <span class="header-text">Gain/Loss</span>
-                </th>
-                <th class="shrink" data-column="purchaseLocation">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <path d="M3 9l1.5-5h15L21 9" />
-                    <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9" />
-                    <path d="M9 21V13h6v8" />
-                  </svg>
-                  <span class="header-text">Source</span>
-                </th>
-                <th
-                  class="icon-col actions-col"
-                  data-column="actions"
-                  aria-label="Actions"
-                  title="Actions"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="header-icon">
-                    <circle cx="12" cy="5" r="1.5" />
-                    <circle cx="12" cy="12" r="1.5" />
-                    <circle cx="12" cy="19" r="1.5" />
-                  </svg>
-                  <span class="header-text">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="table-footer-controls">
-          <select
-            id="itemsPerPage"
-            class="control-select"
-            title="Visible rows"
-            aria-label="Items per page"
-          >
-            <option value="3">3</option>
-            <option value="6">6</option>
-            <option value="12" selected>12</option>
-            <option value="24">24</option>
-            <option value="48">48</option>
-            <option value="96">96</option>
-            <option value="128">128</option>
-            <option value="512">512</option>
-            <option value="all">All</option>
-          </select>
-        </div>
-
-        <!-- Bulk Edit Control Panel -->
-        <div class="bulk-edit-panel" id="bulkEditPanel" style="display: none">
-          <div class="bulk-edit-controls">
-            <button
-              class="bulk-edit-btn toggle-all-btn"
-              id="bulkToggleAll"
-              title="Toggle all items edit mode"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="bulk-edit-icon">
-                <path
-                  d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z"
-                />
-              </svg>
-            </button>
-            <button class="bulk-edit-btn save-all-btn" id="bulkSaveAll" title="Save all changes">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="bulk-edit-icon">
-                <path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z" />
-              </svg>
-            </button>
-            <button
-              class="bulk-edit-btn cancel-all-btn"
-              id="bulkCancelAll"
-              title="Cancel all changes"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="bulk-edit-icon">
-                <path
-                  d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
-                />
-              </svg>
-            </button>
+        </section>
+      </div>
+      <!-- v2 tab view: Market (STRK-282) -->
+      <div class="tab-view" id="tabViewMarket" role="tabpanel" aria-labelledby="tabBtnMarket">
+        <!-- ── Vendor Prices (STAK-504) ── -->
+        <section class="vendor-prices-section" id="vendorPricesSectionEl">
+          <div id="vendorPricesContainer"></div>
+        </section>
+      </div>
+      <!-- v2 tab view: Collections placeholder (STRK-282; built out under STRK-254) -->
+      <div
+        class="tab-view"
+        id="tabViewCollections"
+        role="tabpanel"
+        aria-labelledby="tabBtnCollections"
+      >
+        <section class="collections-section" id="collectionsSectionEl">
+          <div class="collections-empty">
+            <h2>Collections</h2>
+            <p>
+              Prebuilt date runs and custom checklists are on the way. This tab is the shell they
+              will render into.
+            </p>
           </div>
-        </div>
-      </section>
-      <!-- ── Vendor Prices (STAK-504) ── -->
-      <section class="vendor-prices-section" id="vendorPricesSectionEl">
-        <div id="vendorPricesContainer"></div>
-      </section>
+        </section>
+      </div>
       <!-- =============================================================================
          IMPORT/EXPORT SECTION
          
@@ -1628,6 +1715,24 @@
          Implementation in inventory.js with format-specific parsing
       ============================================================================= -->
     </main>
+    <!-- v2 mobile bottom tab nav (STRK-282) — replaces the header nav below 768px -->
+    <nav class="app-bottom-nav" id="appBottomNav" role="tablist" aria-label="Primary">
+      <button class="bottom-nav-btn" role="tab" data-tab="dashboard" aria-selected="true">
+        <span class="bottom-nav-icon" aria-hidden="true">&#9704;</span>Dashboard
+      </button>
+      <button class="bottom-nav-btn" role="tab" data-tab="inventory" aria-selected="false">
+        <span class="bottom-nav-icon" aria-hidden="true">&#9776;</span>Inventory
+      </button>
+      <button class="bottom-nav-btn" role="tab" data-tab="market" aria-selected="false">
+        <span class="bottom-nav-icon" aria-hidden="true">&#8644;</span>Market
+      </button>
+      <button class="bottom-nav-btn" role="tab" data-tab="collections" aria-selected="false">
+        <span class="bottom-nav-icon" aria-hidden="true">&#9638;</span>Collections
+      </button>
+      <button class="bottom-nav-btn" id="bottomNavSettingsBtn" type="button">
+        <span class="bottom-nav-icon" aria-hidden="true">&#9881;</span>Settings
+      </button>
+    </nav>
     <!-- UNIFIED ITEM MODAL (Add / Edit) -->
     <div
       class="modal"
@@ -1649,169 +1754,180 @@
             <input type="hidden" id="itemSpotPrice" value="" />
 
             <!-- Images — Unified upload / camera / URL per slot -->
-            <div id="imageUploadGroup" class="image-upload-group" style="display: none">
-              <div class="form-section-label">Images</div>
-              <div class="image-upload-sides">
-                <!-- Obverse -->
-                <div class="image-upload-side">
-                  <span class="image-side-label">Obverse</span>
-                  <div class="image-card">
-                    <div
-                      id="itemImagePreviewObv"
-                      class="image-upload-preview"
-                      style="display: none"
-                    >
-                      <img id="itemImagePreviewImgObv" alt="Obverse preview" />
-                      <button
-                        type="button"
-                        id="frameToggleObv"
-                        class="frame-toggle"
-                        data-frame-state="auto"
-                        aria-pressed="false"
-                        aria-label="Image frame: auto (default)"
+            <details
+              id="imageUploadGroup"
+              class="form-section image-upload-group"
+              data-section="images"
+              open
+              style="display: none"
+            >
+              <summary class="form-section-header">
+                Images
+                <span class="form-section-count" hidden></span>
+              </summary>
+              <div class="form-section-body">
+                <div class="image-upload-sides">
+                  <!-- Obverse -->
+                  <div class="image-upload-side">
+                    <span class="image-side-label">Obverse</span>
+                    <div class="image-card">
+                      <div
+                        id="itemImagePreviewObv"
+                        class="image-upload-preview"
+                        style="display: none"
                       >
-                        <span aria-hidden="true">A</span>
-                      </button>
+                        <img id="itemImagePreviewImgObv" alt="Obverse preview" />
+                        <button
+                          type="button"
+                          id="frameToggleObv"
+                          class="frame-toggle"
+                          data-frame-state="auto"
+                          aria-pressed="false"
+                          aria-label="Image frame: auto (default)"
+                        >
+                          <span aria-hidden="true">A</span>
+                        </button>
+                      </div>
+                      <div class="image-card-actions">
+                        <input
+                          type="file"
+                          id="itemImageFileObv"
+                          accept="image/jpeg,image/png,image/webp"
+                          style="display: none"
+                        />
+                        <button
+                          class="btn img-btn img-btn-upload"
+                          id="itemImageUploadBtnObv"
+                          type="button"
+                        >
+                          Upload
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-url"
+                          id="itemImageUrlBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          URL
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-camera"
+                          id="itemImageCameraBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          Camera
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-remove"
+                          id="itemImageRemoveBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <div class="image-card-actions">
+                    <span id="itemImageSizeInfoObv" class="image-size-info"></span>
+                    <div id="itemImageUrlInputObv" class="image-url-input" style="display: none">
                       <input
-                        type="file"
-                        id="itemImageFileObv"
-                        accept="image/jpeg,image/png,image/webp"
-                        style="display: none"
+                        id="itemObverseImageUrl"
+                        type="url"
+                        class="form-control"
+                        placeholder="https://example.com/obverse.jpg"
                       />
-                      <button
-                        class="btn img-btn img-btn-upload"
-                        id="itemImageUploadBtnObv"
-                        type="button"
-                      >
-                        Upload
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-url"
-                        id="itemImageUrlBtnObv"
-                        type="button"
-                        style="display: none"
-                      >
-                        URL
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-camera"
-                        id="itemImageCameraBtnObv"
-                        type="button"
-                        style="display: none"
-                      >
-                        Camera
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-remove"
-                        id="itemImageRemoveBtnObv"
-                        type="button"
-                        style="display: none"
-                      >
-                        Remove
-                      </button>
                     </div>
                   </div>
-                  <span id="itemImageSizeInfoObv" class="image-size-info"></span>
-                  <div id="itemImageUrlInputObv" class="image-url-input" style="display: none">
-                    <input
-                      id="itemObverseImageUrl"
-                      type="url"
-                      class="form-control"
-                      placeholder="https://example.com/obverse.jpg"
-                    />
+                  <!-- Swap obverse/reverse button (STAK-341) -->
+                  <div class="image-swap-wrapper d-none" id="swapImagesBtnWrapper">
+                    <button
+                      type="button"
+                      class="btn btn-icon"
+                      id="swapImagesBtn"
+                      title="Swap obverse &amp; reverse"
+                      aria-label="Swap obverse and reverse images"
+                    >
+                      ⇄
+                    </button>
+                  </div>
+                  <!-- Reverse -->
+                  <div class="image-upload-side">
+                    <span class="image-side-label">Reverse</span>
+                    <div class="image-card">
+                      <div
+                        id="itemImagePreviewRev"
+                        class="image-upload-preview"
+                        style="display: none"
+                      >
+                        <img id="itemImagePreviewImgRev" alt="Reverse preview" />
+                        <button
+                          type="button"
+                          id="frameToggleRev"
+                          class="frame-toggle"
+                          data-frame-state="auto"
+                          aria-pressed="false"
+                          aria-label="Image frame: auto (default)"
+                        >
+                          <span aria-hidden="true">A</span>
+                        </button>
+                      </div>
+                      <div class="image-card-actions">
+                        <input
+                          type="file"
+                          id="itemImageFileRev"
+                          accept="image/jpeg,image/png,image/webp"
+                          style="display: none"
+                        />
+                        <button
+                          class="btn img-btn img-btn-upload"
+                          id="itemImageUploadBtnRev"
+                          type="button"
+                        >
+                          Upload
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-url"
+                          id="itemImageUrlBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          URL
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-camera"
+                          id="itemImageCameraBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          Camera
+                        </button>
+                        <button
+                          class="btn img-btn img-btn-remove"
+                          id="itemImageRemoveBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <span id="itemImageSizeInfoRev" class="image-size-info"></span>
+                    <div id="itemImageUrlInputRev" class="image-url-input" style="display: none">
+                      <input
+                        id="itemReverseImageUrl"
+                        type="url"
+                        class="form-control"
+                        placeholder="https://example.com/reverse.jpg"
+                      />
+                    </div>
                   </div>
                 </div>
-                <!-- Swap obverse/reverse button (STAK-341) -->
-                <div class="image-swap-wrapper d-none" id="swapImagesBtnWrapper">
-                  <button
-                    type="button"
-                    class="btn btn-icon"
-                    id="swapImagesBtn"
-                    title="Swap obverse &amp; reverse"
-                    aria-label="Swap obverse and reverse images"
-                  >
-                    ⇄
-                  </button>
-                </div>
-                <!-- Reverse -->
-                <div class="image-upload-side">
-                  <span class="image-side-label">Reverse</span>
-                  <div class="image-card">
-                    <div
-                      id="itemImagePreviewRev"
-                      class="image-upload-preview"
-                      style="display: none"
-                    >
-                      <img id="itemImagePreviewImgRev" alt="Reverse preview" />
-                      <button
-                        type="button"
-                        id="frameToggleRev"
-                        class="frame-toggle"
-                        data-frame-state="auto"
-                        aria-pressed="false"
-                        aria-label="Image frame: auto (default)"
-                      >
-                        <span aria-hidden="true">A</span>
-                      </button>
-                    </div>
-                    <div class="image-card-actions">
-                      <input
-                        type="file"
-                        id="itemImageFileRev"
-                        accept="image/jpeg,image/png,image/webp"
-                        style="display: none"
-                      />
-                      <button
-                        class="btn img-btn img-btn-upload"
-                        id="itemImageUploadBtnRev"
-                        type="button"
-                      >
-                        Upload
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-url"
-                        id="itemImageUrlBtnRev"
-                        type="button"
-                        style="display: none"
-                      >
-                        URL
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-camera"
-                        id="itemImageCameraBtnRev"
-                        type="button"
-                        style="display: none"
-                      >
-                        Camera
-                      </button>
-                      <button
-                        class="btn img-btn img-btn-remove"
-                        id="itemImageRemoveBtnRev"
-                        type="button"
-                        style="display: none"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                  <span id="itemImageSizeInfoRev" class="image-size-info"></span>
-                  <div id="itemImageUrlInputRev" class="image-url-input" style="display: none">
-                    <input
-                      id="itemReverseImageUrl"
-                      type="url"
-                      class="form-control"
-                      placeholder="https://example.com/reverse.jpg"
-                    />
-                  </div>
+                <!-- Hidden wrappers preserved for JS compatibility -->
+                <div id="imageUrlGroup" style="display: none">
+                  <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
                 </div>
               </div>
-              <!-- Hidden wrappers preserved for JS compatibility -->
-              <div id="imageUrlGroup" style="display: none">
-                <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
-              </div>
-            </div>
+            </details>
             <!-- ═══════════════════════════════════════════════════════
                  CORE FIELDS — Always visible
                  ═══════════════════════════════════════════════════════ -->
@@ -1942,6 +2058,10 @@
                 <select id="itemWeightUnit">
                   <option value="oz">ounce</option>
                   <option value="g">gram</option>
+                  <!-- STRK-319: Aurum foil notes and similar are sold in milligrams (25 mg,
+                       50 mg); in grams those are all leading zeros. Storage stays troy ounces
+                       like every other metric unit — mg is an entry/display lens only. -->
+                  <option value="mg">milligram</option>
                   <option value="kg">kilogram</option>
                   <option value="lb">pound</option>
                   <option value="gb">goldback</option>
@@ -1970,8 +2090,14 @@
             </div>
             <!-- Constitutional / junk silver controls (STRK-235) — replaces the standard
                  Purity/Qty/Weight/Unit row; uses the shared .form-section chrome -->
-            <div id="item-constitutional-group" class="form-section" style="display: none">
-              <div class="form-section-header">
+            <details
+              id="item-constitutional-group"
+              class="form-section"
+              data-section="constitutional"
+              open
+              style="display: none"
+            >
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1993,6 +2119,7 @@
                   </svg>
                 </span>
                 Constitutional silver
+                <span class="form-section-count" hidden></span>
                 <div
                   class="chip-sort-toggle"
                   id="constitutional-entry-mode-toggle"
@@ -2007,7 +2134,7 @@
                     By face value
                   </button>
                 </div>
-              </div>
+              </summary>
               <div class="form-section-body">
                 <!-- Denomination mode: variant + coin count -->
                 <div id="ccg-denom-fields" class="grid grid-variant-row" style="display: none">
@@ -2052,7 +2179,7 @@
                   <span id="ccg-basis-note" class="ccg-hint"></span>
                 </div>
               </div>
-            </div>
+            </details>
             <!-- Row: Purchase Date, Purchase Price & Payment Method -->
             <div class="grid grid-3">
               <div id="dateField">
@@ -2147,8 +2274,8 @@
             <!-- ═══════════════════════════════════════════════════════
                  COLLAPSIBLE — Grading & Certification
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section">
-              <div class="form-section-header">
+            <details class="form-section" data-section="grading">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2166,7 +2293,8 @@
                   </svg>
                 </span>
                 Grading &amp; Certification
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div class="grid grid-grade">
                   <div>
@@ -2348,13 +2476,13 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Pricing & Details
+                 COLLAPSIBLE — Market Pricing & Details
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section">
-              <div class="form-section-header">
+            <details class="form-section" data-section="marketPricing">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2371,13 +2499,14 @@
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                   </svg>
                 </span>
-                Pricing &amp; Details
-              </div>
+                Market Pricing &amp; Details
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div class="grid grid-2">
                   <div id="marketValueField">
                     <label for="itemMarketValue"
-                      >Retail Price
+                      >Today's Market Price
                       <span style="font-weight: normal; opacity: 0.6">(optional)</span>
                       <span
                         id="retailPriceHistoryLink"
@@ -2431,13 +2560,13 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Catalog Data
+                 COLLAPSIBLE — Catalog Data
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section" id="numistaDataSection">
-              <div class="form-section-header">
+            <details class="form-section" data-section="catalog" id="numistaDataSection">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2456,7 +2585,8 @@
                   </svg>
                 </span>
                 Catalog Data
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body numista-data-fields">
                 <div class="grid grid-2">
                   <div>
@@ -2597,13 +2727,13 @@
                   />
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Notes
+                 COLLAPSIBLE — Notes
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section">
-              <div class="form-section-header">
+            <details class="form-section" data-section="notes">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2623,20 +2753,21 @@
                   </svg>
                 </span>
                 Notes
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div>
                   <label for="itemNotes">Notes</label>
                   <input id="itemNotes" type="text" placeholder="Additional notes or comments..." />
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Attachments (STRK-45)
+                 COLLAPSIBLE — Attachments (STRK-45)
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section" id="attachmentsSection">
-              <div class="form-section-header">
+            <details class="form-section" data-section="attachments" id="attachmentsSection">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2655,7 +2786,8 @@
                   </svg>
                 </span>
                 Attachments
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <!-- Drop zone -->
                 <div id="attachmentDropZone" class="attachment-drop-zone">
@@ -2684,13 +2816,13 @@
                   hidden
                 ></ul>
               </div>
-            </div>
+            </details>
 
             <!-- ═══════════════════════════════════════════════════════
-                 Tags
+                 COLLAPSIBLE — Tags
                  ═══════════════════════════════════════════════════════ -->
-            <div class="form-section" id="tagsSection">
-              <div class="form-section-header">
+            <details class="form-section" data-section="tags" id="tagsSection">
+              <summary class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2710,7 +2842,8 @@
                   </svg>
                 </span>
                 Tags
-              </div>
+                <span class="form-section-count" hidden></span>
+              </summary>
               <div class="form-section-body">
                 <div id="itemModalTagsContainer" class="tags-edit-container">
                   <div class="tags-row">
@@ -2749,7 +2882,7 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- Form action buttons -->
             <div class="item-modal-actions">
@@ -4075,8 +4208,20 @@
                   </div>
                 </div>
                 <div class="settings-group">
-                  <div class="settings-group-label">Visible sections</div>
-                  <p class="settings-subtext">Toggle visibility and reorder major page sections.</p>
+                  <div class="settings-group-label">Tabs</div>
+                  <p class="settings-subtext">
+                    Show or hide whole tabs. A hidden tab is removed from the navigation. Dashboard
+                    is always visible.
+                  </p>
+                  <div class="chip-grouping-table-container" id="layoutTabConfigContainer">
+                    <div class="chip-grouping-empty">Loading...</div>
+                  </div>
+                </div>
+                <div class="settings-group">
+                  <div class="settings-group-label">Dashboard sections</div>
+                  <p class="settings-subtext">
+                    Toggle visibility and reorder the modules on the Dashboard tab.
+                  </p>
                   <div class="chip-grouping-table-container" id="layoutSectionConfigContainer">
                     <div class="chip-grouping-empty">Loading...</div>
                   </div>
@@ -8626,6 +8771,7 @@
     <script defer src="./js/bulkEdit.js"></script>
     <script defer src="./js/bulk-row-images.js"></script>
     <script defer src="./js/clone-picker.js"></script>
+    <script defer src="./js/form-sections.js"></script>
     <script defer src="./js/events.js"></script>
 
     <!-- Test Scripts (Development) -->
@@ -8643,6 +8789,8 @@
          renderRatiosPanel(). Must precede init.js. -->
     <script defer src="./js/ratios-panel.js"></script>
 
+    <!-- STRK-282: tab shell view switching. Must precede init.js. -->
+    <script defer src="./js/tabs.js"></script>
     <script defer src="./js/init.js"></script>
 
     <!-- Back to top floating button -->

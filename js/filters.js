@@ -616,6 +616,12 @@ const _resolveChipDisplayValue = (f) => {
   if (f.isDynamic) return f.value;
   if (f.field === "name") return f.value;
   if (f.field === "numistaId") return `N#${f.value}`;
+  // STRK-316: gb/sb weight keys are converted ozt strings ("0.00500") so a Goldback note no
+  // longer shares a bucket with a same-numbered bullion round. The key is not readable, so
+  // resolve it back to the text the Weight cell shows ("5 gb"); non-gb/sb keys pass through.
+  if (f.field === "weight" && typeof getWeightFilterLabel === "function") {
+    return getWeightFilterLabel(f.value);
+  }
   return simplifyChipValue(f.value, f.field);
 };
 

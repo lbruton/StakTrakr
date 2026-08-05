@@ -169,8 +169,173 @@ test("MintBuilder module exists and uses the standard interface (STRK-311)", asy
   assert.equal(mintbuilder.usesAsLowAs, false);
 
   // Plain SSR HTML (JSON-LD present in the raw response, no JS render needed) —
-  // domcontentloaded is sufficient, no need to wait for networkidle.
+  // domcontentloaded is sufficient, no need to wait for networkidle. Since
+  // STRK-321 scrape() is feed-first; these flags still govern the page-scrape
+  // fallback path, so they remain pinned.
   assert.equal(mintbuilder.config.waitUntil, "domcontentloaded");
+});
+
+// ---------------------------------------------------------------------------
+// STRK-321 — MintBuilder feed-first dispatch
+//
+// scrape() consults the direct price feed before scraping. The feed lookup is
+// injectable through the context (scrapeVendor spreads the caller context), so
+// these tests pin the dispatch contract without any network traffic.
+// ---------------------------------------------------------------------------
+
+/** Base MintBuilder dispatch context with silent loggers and a scrapeGeneric probe. */
+const mintbuilderContext = (overrides = {}) => {
+  const calls = { generic: 0, genericContext: null };
+  const context = {
+    provider: {
+      id: "mintbuilder",
+      url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+      hints: null,
+    },
+    coinSlug: "silver-buffalo-1oz",
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+    log: () => {},
+    warn: () => {},
+    scrapeGeneric: async (ctx) => {
+      calls.generic++;
+      calls.genericContext = ctx;
+      return {
+        price: 39.99,
+        inStock: false,
+        source: "playwright-direct:jsonLd",
+        ok: true,
+        error: null,
+        url: ctx.url,
+      };
+    },
+    ...overrides,
+  };
+  return { context, calls };
+};
+
+test("STRK-321: a feed hit returns mintbuilder-api and skips the page scrape", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { context, calls } = mintbuilderContext({
+    mbFeedLookup: async () => ({
+      status: "hit",
+      product: {
+        productId: "101",
+        price: 38.42,
+        link: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+        title: "1 oz Silver Buffalo Round",
+        stockConfident: true,
+      },
+    }),
+  });
+
+  const result = await registry.scrapeVendor(context);
+
+  assert.deepEqual(result, {
+    price: 38.42,
+    inStock: true,
+    source: "mintbuilder-api",
+    ok: true,
+    error: null,
+    // The row's product-page URL — never the feed link or endpoint.
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+  });
+  assert.equal(calls.generic, 0, "a feed hit must not touch the page scraper");
+});
+
+test("STRK-321: the feed lookup receives the row URL and hints", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  let observed = null;
+  const { context } = mintbuilderContext({
+    provider: {
+      id: "mintbuilder",
+      url: "https://mintbuilder.com/products/tenth-oz-gold-eagle",
+      hints: '{"mbProductId":"202"}',
+    },
+    url: "https://mintbuilder.com/products/tenth-oz-gold-eagle",
+    mbFeedLookup: async (args) => {
+      observed = args;
+      return {
+        status: "hit",
+        product: { productId: "202", price: 412.77, link: null, title: null, stockConfident: true },
+      };
+    },
+  });
+
+  await registry.scrapeVendor(context);
+
+  assert.equal(observed.url, "https://mintbuilder.com/products/tenth-oz-gold-eagle");
+  assert.equal(observed.hints, '{"mbProductId":"202"}', "the hints pin must reach the lookup");
+});
+
+test("STRK-321: a feed miss falls back to the page scrape with the resolved context", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { context, calls } = mintbuilderContext({
+    mbFeedLookup: async () => ({ status: "miss", reason: "not_in_feed" }),
+  });
+
+  const result = await registry.scrapeVendor(context);
+
+  assert.equal(calls.generic, 1, "a miss must fall back to the page scraper");
+  assert.deepEqual(result, {
+    price: 39.99,
+    inStock: false,
+    source: "playwright-direct:jsonLd",
+    ok: true,
+    error: null,
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+  });
+  // STRK-314: the fallback must reuse the context scrapeVendor resolved —
+  // module-owned config intact, not re-derived inside the module.
+  assert.equal(calls.genericContext.config.waitUntil, "domcontentloaded");
+});
+
+test("STRK-321: an unavailable feed falls back to the page scrape", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  for (const reason of ["no_key", "bad_key", "fetch_failed", "bad_payload"]) {
+    const { context, calls } = mintbuilderContext({
+      mbFeedLookup: async () => ({ status: "unavailable", reason }),
+    });
+
+    const result = await registry.scrapeVendor(context);
+
+    assert.equal(calls.generic, 1, `${reason} must fall back to the page scraper`);
+    assert.equal(result.source, "playwright-direct:jsonLd", `${reason} fallback result returned`);
+  }
+});
+
+test("STRK-325: a hit with unverified stock page-scrapes instead of trusting the feed", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { context, calls } = mintbuilderContext({
+    mbFeedLookup: async () => ({
+      status: "hit",
+      product: {
+        productId: "1105",
+        price: 61.16,
+        link: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+        title: "Sold Out Kangaroo",
+        stockConfident: false,
+      },
+    }),
+  });
+
+  const result = await registry.scrapeVendor(context);
+
+  assert.equal(
+    calls.generic,
+    1,
+    "ambiguous feed stock (max qty_max <= 1) must fall through to the page scrape"
+  );
+  // The page scrape's result is authoritative for BOTH price and availability
+  // here — its JSON-LD availability check is what the feed cannot provide.
+  assert.deepEqual(result, {
+    price: 39.99,
+    inStock: false,
+    source: "playwright-direct:jsonLd",
+    ok: true,
+    error: null,
+    url: "https://mintbuilder.com/products/1oz-silver-buffalo-round",
+  });
+  assert.equal(calls.genericContext.config.waitUntil, "domcontentloaded");
 });
 
 test("registry returns migrated modules for completed Vendor migrations", async () => {
@@ -269,6 +434,206 @@ test("APMEX config preserves Firecrawl-preferred retry eligibility after migrati
     "APMEX should not rely on legacy preferred-provider membership after migration"
   );
   assert.equal(retryEligible, true);
+});
+
+// ---------------------------------------------------------------------------
+// STRK-314 — config resolution on the vendor-registry path
+//
+// Before STRK-314, scrapeGenericTarget resolved
+//   providerCfg(id, context.vendorModule?.config ?? context.config)
+// and every vendor module's `config` is a truthy object (including the legacy
+// adapter's `{}`), so `??` never fell through and context.config was discarded
+// on every registry-routed scrape. scrapeVendor now owns a single merge —
+// provider defaults + legacy overrides, then module-owned config, then
+// caller-EXPLICIT overrides last.
+// ---------------------------------------------------------------------------
+
+/** Dispatch through scrapeVendor and capture the config scrapeGeneric receives. */
+const resolveConfigVia = async (registry, providerId, callerConfig) => {
+  let observed = null;
+  const context = {
+    provider: { id: providerId },
+    coinSlug: "american-eagle-silver-1oz",
+    url: "https://example.test/target",
+    scrapeGeneric: async (ctx) => {
+      observed = ctx.config;
+      return { price: 1, inStock: true, source: "test-double", ok: true, error: null, url: "" };
+    },
+  };
+  if (callerConfig !== undefined) context.config = callerConfig;
+  await registry.scrapeVendor(context);
+  return observed;
+};
+
+test("STRK-314: resolveVendorConfig layers defaults, module config, then caller config", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { PROVIDER_DEFAULTS } = await import(
+    new URL("./price-extract-provider-config.js", import.meta.url)
+  );
+
+  assert.equal(typeof registry.resolveVendorConfig, "function");
+
+  // Tested directly rather than only through a scrapeGeneric double: the
+  // pre-STRK-314 test doubles intercepted at the vendor-module boundary, which
+  // sits UPSTREAM of the discard, so the defect was invisible to them.
+  const module = { config: { waitFor: 111, waitUntil: "domcontentloaded" } };
+  const resolved = registry.resolveVendorConfig("not-a-real-vendor", module, { waitFor: 222 });
+
+  assert.equal(resolved.waitFor, 222, "caller-explicit config must win");
+  assert.equal(resolved.waitUntil, "domcontentloaded", "module config must survive");
+  assert.equal(resolved.phase, PROVIDER_DEFAULTS.phase, "provider defaults must fill the rest");
+
+  // An absent caller config must not blank out the module layer.
+  assert.equal(registry.resolveVendorConfig("not-a-real-vendor", module).waitFor, 111);
+  assert.equal(registry.resolveVendorConfig("not-a-real-vendor", null).waitFor, 0);
+});
+
+test("STRK-314: resolveVendorConfig is idempotent on an already-resolved config", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+
+  // scrapeGenericTarget re-runs the resolution on a context config that
+  // scrapeVendor already merged. That second pass must be a no-op, or the
+  // registry and the scrape would disagree about the effective config.
+  for (const providerId of [...migratedVendorIds, "bullionexchanges", "jmbullion"]) {
+    const module = registry.getVendorModule(providerId);
+    const once = registry.resolveVendorConfig(providerId, module, { waitAfter: 31 });
+    const twice = registry.resolveVendorConfig(providerId, module, once);
+    assert.deepEqual(twice, once, `${providerId} resolution is not idempotent`);
+  }
+});
+
+test("STRK-314: caller-explicit override reaches the resolved config on the registry path", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const resolved = await resolveConfigVia(registry, "mintbuilder", { waitAfter: 4321 });
+
+  assert.equal(resolved.waitAfter, 4321, "caller-explicit waitAfter must reach the scrape");
+  assert.equal(
+    resolved.waitUntil,
+    "domcontentloaded",
+    "MintBuilder's module-owned waitUntil must survive a partial caller override"
+  );
+});
+
+test("STRK-314: caller override wins over a colliding module-owned key", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const resolved = await resolveConfigVia(registry, "apmex", { waitFor: 999 });
+
+  assert.equal(resolved.waitFor, 999, "caller-explicit value must beat the module value");
+  assert.equal(resolved.phase, "firecrawl", "untouched module keys must still survive");
+});
+
+test("STRK-314: module-owned config survives when the caller supplies none", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+
+  const apmex = await resolveConfigVia(registry, "apmex", undefined);
+  assert.equal(apmex.phase, "firecrawl", "APMEX phase must not regress to the phase0 default");
+  assert.equal(apmex.waitFor, 8000);
+  assert.equal(apmex.timeout, 55_000);
+
+  const mintbuilder = await resolveConfigVia(registry, "mintbuilder", undefined);
+  assert.equal(
+    mintbuilder.waitUntil,
+    "domcontentloaded",
+    "MintBuilder waitUntil must not regress to the networkidle default (STRK-311 phase0 fix)"
+  );
+});
+
+test("STRK-314: no-caller-config resolution is unchanged from the pre-fix chain", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { providerCfg } = await import(
+    new URL("./price-extract-provider-config.js", import.meta.url)
+  );
+
+  // The production poll loop passes no explicit override, so every vendor —
+  // migrated or legacy — must resolve exactly as it did before STRK-314.
+  for (const providerId of [...migratedVendorIds, "jmbullion", "sdbullion", "monumentmetals"]) {
+    const vendor = registry.getVendorModule(providerId);
+    const resolved = await resolveConfigVia(registry, providerId, undefined);
+    assert.deepEqual(
+      resolved,
+      providerCfg(providerId, vendor.config),
+      `${providerId} config resolution changed with no caller override`
+    );
+  }
+});
+
+test("STRK-314: legacy vendors accept caller overrides without losing legacy config", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const resolved = await resolveConfigVia(registry, "gainesvillecoins", { waitAfter: 250 });
+
+  assert.equal(resolved.waitAfter, 250, "caller override must reach a legacy-adapter vendor too");
+  assert.equal(resolved.phase, "firecrawl", "legacy override map value must survive");
+  assert.equal(resolved.waitFor, 3000);
+});
+
+test("STRK-314: caller proxy override deep-merges instead of replacing", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const resolved = await resolveConfigVia(registry, "bullionexchanges", {
+    proxy: { fly: "socks5://example.test" },
+  });
+
+  assert.equal(resolved.proxy.fly, "socks5://example.test", "caller proxy key must apply");
+  assert.equal(resolved.proxy.home, null, "sibling proxy keys must not be dropped by the merge");
+});
+
+test("STRK-314: resolveProxy honours the resolved config, not the legacy map", async () => {
+  const registry = await import(new URL("./price-extract-vendors.js", import.meta.url));
+  const { resolveProxy } = await import(
+    new URL("./price-extract-provider-config.js", import.meta.url)
+  );
+  const env = { POLLER_ID: "home", FLY_PROXY_URL: "http://fly.test" };
+  const module = registry.getVendorModule("bullionexchanges");
+  const resolved = registry.resolveVendorConfig("bullionexchanges", module, {
+    proxy: { home: "fly" },
+  });
+
+  // Merging the override into cfg is not enough — the proxy consumer has to be
+  // handed that cfg. Called without it, resolveProxy reloads providerCfg(id)
+  // and the override is discarded one layer below the STRK-314 merge.
+  assert.equal(resolveProxy("bullionexchanges", env), null, "legacy map routes home to no proxy");
+  assert.equal(
+    resolveProxy("bullionexchanges", env, resolved),
+    "http://fly.test",
+    "caller proxy override must reach proxy selection"
+  );
+});
+
+test("STRK-314: scrapeSingleVendor does not fabricate a caller config", async () => {
+  const priceExtract = await import(new URL("./price-extract.js", import.meta.url));
+  let observed = "UNSET";
+
+  await priceExtract.scrapeSingleVendor({
+    coinSlug: "american-eagle-silver-1oz",
+    coin: { metal: "silver", weight_oz: 1 },
+    provider: { id: "mintbuilder", url: "https://example.test/target" },
+    scrapeVendor: async (ctx) => {
+      observed = ctx.config;
+      return { price: 1, inStock: true, source: "test-double", ok: true, error: null, url: "" };
+    },
+  });
+
+  // A defaulted providerCfg(id) here is indistinguishable from an explicit
+  // caller config downstream, which is what let the bare provider default
+  // outrank module-owned config (STRK-311 phase0 regression shape).
+  assert.equal(observed, undefined, "an absent caller config must stay absent");
+});
+
+test("STRK-314: scrapeSingleVendor forwards an explicit caller config verbatim", async () => {
+  const priceExtract = await import(new URL("./price-extract.js", import.meta.url));
+  let observed = null;
+
+  await priceExtract.scrapeSingleVendor({
+    coinSlug: "american-eagle-silver-1oz",
+    coin: { metal: "silver", weight_oz: 1 },
+    provider: { id: "mintbuilder", url: "https://example.test/target" },
+    config: { waitAfter: 77 },
+    scrapeVendor: async (ctx) => {
+      observed = ctx.config;
+      return { price: 1, inStock: true, source: "test-double", ok: true, error: null, url: "" };
+    },
+  });
+
+  assert.deepEqual(observed, { waitAfter: 77 });
 });
 
 let passed = 0;

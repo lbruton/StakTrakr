@@ -25,13 +25,16 @@ api-export.js  (sqld + vision JSON → data/api/ REST endpoints → api branch)
 
 > **Repo:** All poller scripts now live in `StakTrakr/devops/pollers/` — shared core in `shared/`, Fly.io config in `remote-poller/`, home VM config in `home-poller/`. Deploy: `cd devops/pollers && fly deploy --config remote-poller/fly.toml`. The old `StakTrakrApi/devops/fly-poller/` location is deprecated.
 
-**Fly.io container is the sole scraping pipeline — no GHA cloud fallback:**
+**Home poller is the sole retail scraper (STAK-478) — Fly.io only publishes:**
 
-| Pipeline                    | Browser                                    | Role               | Trigger                         |
-| --------------------------- | ------------------------------------------ | ------------------ | ------------------------------- |
-| **Fly.io** (`run-local.sh`) | Playwright (self-hosted, `localhost:3002`) | **Primary + only** | Every 15 min via container cron |
+| Pipeline                      | Browser                               | Role                          | Trigger                            |
+| ----------------------------- | ------------------------------------- | ----------------------------- | ---------------------------------- |
+| **Home VM** (`run-home.sh`)   | Playwright local + Firecrawl + Byparr | **Sole retail scraper**       | Hourly at `:30` via container cron |
+| **Fly.io** (`run-publish.sh`) | —                                     | Publisher (sqld → api branch) | `8,23,38,53 * * * *`               |
 
-**No GHA cloud failsafe for retail.** `retail-price-poller.yml` was deleted 2026-02-22 (was sending requests to public Firecrawl cloud API, burning paid credits — STAK-268). All retail scraping now runs exclusively in the Fly.io container via self-hosted Firecrawl + the Portainer VM secondary poller. Manage containers via Portainer REST API — see `home-infrastructure` skill.
+**Exception — MintBuilder is feed-first (STRK-321/325):** resolved against the direct vendor API (one memoized GET per run) with page-scrape fallback; see the Direct API Access table below.
+
+**No GHA cloud failsafe for retail.** `retail-price-poller.yml` was deleted 2026-02-22 (was sending requests to public Firecrawl cloud API, burning paid credits — STAK-268). Manage containers via Portainer REST API — see `home-infrastructure` skill.
 
 **Key constraint:** `providers.json` lives on the **`api` branch**, not `main` or `dev`.
 Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
@@ -42,21 +45,24 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
 ## File Map
 
-| File                                                | Purpose                                                                        |
-| --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `devops/pollers/shared/price-extract.js`            | Primary scraper — Firecrawl + Playwright fallback → sqld                       |
-| `devops/pollers/shared/capture.js`                  | Screenshot capture — `BROWSER_MODE=browserless` / `browserbase` / `local`      |
-| `devops/pollers/shared/extract-vision.js`           | Gemini Vision price extraction from screenshots → per-coin JSON files          |
-| `devops/pollers/shared/api-export.js`               | sqld + vision JSON → `data/api/` static JSON endpoints with confidence scoring |
-| `devops/pollers/shared/export-providers-json.js`    | sqld → `/data/retail/providers.json` (runs every 5 min via cron)               |
-| `devops/pollers/shared/turso-client.js`             | sqld/libSQL client factory                                                     |
-| `devops/pollers/shared/provider-db.js`              | Provider CRUD + export from sqld                                               |
-| `devops/pollers/remote-poller/run-local.sh`         | Full Fly.io run: extract → capture → vision → export → push                    |
-| `devops/pollers/remote-poller/run-publish.sh`       | API export + git push to api branch                                            |
-| `devops/pollers/remote-poller/docker-entrypoint.sh` | Container startup (creates `/data/retail/`, writes crontab, exports env)       |
-| `devops/pollers/remote-poller/Dockerfile`           | Fly.io all-in-one container image                                              |
-| `devops/pollers/home-poller/run-home.sh`            | Home VM retail scrape run                                                      |
-| `devops/pollers/home-poller/docker-entrypoint.sh`   | Home container startup                                                         |
+| File                                                        | Purpose                                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `devops/pollers/shared/price-extract.js`                    | Primary scraper — Firecrawl + Playwright fallback → sqld                       |
+| `devops/pollers/shared/capture.js`                          | Screenshot capture — `BROWSER_MODE=browserless` / `browserbase` / `local`      |
+| `devops/pollers/shared/extract-vision.js`                   | Gemini Vision price extraction from screenshots → per-coin JSON files          |
+| `devops/pollers/shared/api-export.js`                       | sqld + vision JSON → `data/api/` static JSON endpoints with confidence scoring |
+| `devops/pollers/shared/export-providers-json.js`            | sqld → `/data/retail/providers.json` (runs every 5 min via cron)               |
+| `devops/pollers/shared/turso-client.js`                     | sqld/libSQL client factory                                                     |
+| `devops/pollers/shared/provider-db.js`                      | Provider CRUD + export from sqld                                               |
+| `devops/pollers/shared/price-extract-vendors.js`            | Vendor module registry + `scrapeVendor()` dispatch (STRK-32/314)               |
+| `devops/pollers/shared/price-extract-vendor-mintbuilder.js` | MintBuilder feed-first `scrape()` with page-scrape fallback (STRK-321/325)     |
+| `devops/pollers/shared/price-extract-mintbuilder-feed.js`   | MintBuilder feed client — memoized index, URL matching, hybrid stock predicate |
+| `devops/pollers/remote-poller/run-local.sh`                 | Fly.io run wrapper — retail scraping disabled in production (STAK-478)         |
+| `devops/pollers/remote-poller/run-publish.sh`               | API export + git push to api branch                                            |
+| `devops/pollers/remote-poller/docker-entrypoint.sh`         | Container startup (creates `/data/retail/`, writes crontab, exports env)       |
+| `devops/pollers/remote-poller/Dockerfile`                   | Fly.io all-in-one container image                                              |
+| `devops/pollers/home-poller/run-home.sh`                    | Home VM retail scrape run                                                      |
+| `devops/pollers/home-poller/docker-entrypoint.sh`           | Home container startup                                                         |
 
 ---
 
@@ -64,10 +70,11 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
 ### Direct API Access (No Scraping Needed)
 
-| Vendor         | Platform        | API                                    | Auth | Notes                                                  |
-| -------------- | --------------- | -------------------------------------- | ---- | ------------------------------------------------------ |
-| **SD Bullion** | Magento 2       | REST `/rest/V1/nfusions/cache/pricing` | None | Full catalog (6,003 SKUs), tiered pricing, cash/BTC/CC |
-| **APMEX**      | Traditional SSR | JSON-LD in HTML                        | None | `schema.org/Product` with price + availability         |
+| Vendor          | Platform        | API                                          | Auth         | Notes                                                                                                                                                                              |
+| --------------- | --------------- | -------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MintBuilder** | Custom          | `GET /feed/api/prices?key=…&mintbuilder=all` | `MB_API_KEY` | **LIVE (STRK-321/325)** — feed-first vendor module, ~314 products; `tiers[].qty_max` = live inventory; hybrid stock rule: `max(qty_max) ≤ 1` is ambiguous → that item page-scrapes |
+| **SD Bullion**  | Magento 2       | REST `/rest/V1/nfusions/cache/pricing`       | None         | Full catalog (6,003 SKUs), tiered pricing, cash/BTC/CC — documented, not wired                                                                                                     |
+| **APMEX**       | Traditional SSR | JSON-LD in HTML                              | None         | `schema.org/Product` with price + availability                                                                                                                                     |
 
 ### Cloudflare-Gated APIs (Need CF Cookie)
 
@@ -136,9 +143,9 @@ Located at `$DATA_REPO_PATH/data/retail/providers.json` on the **api branch**.
 
 **Coin fields:** `name`, `metal` (`silver`/`gold`/`platinum`/`palladium`), `weight_oz`, `fbp_url` (FindBullionPrices fallback URL)
 
-**Provider fields:** `id` (matches `FBP_DEALER_NAME_MAP` key in price-extract.js), `enabled`, `url`
+**Provider fields:** `id` (the vendor id dispatched through the `price-extract-vendors.js` registry — migrated modules or the legacy adapter), `enabled`, `url`, plus optional `selector`, `hints` (free-form JSON; carries `{"mbProductId"}` for MintBuilder feed pinning), `skipPriceBounds`
 
-To add a new vendor: add to `FBP_DEALER_NAME_MAP` in `price-extract.js` AND add to each coin's `providers[]` in `providers.json`.
+To add a new vendor: add its rows via the dashboard (`/providers`, writes sqld `provider_vendors`); write a vendor module + register it in `price-extract-vendors.js` only when it needs custom behavior. (`FBP_DEALER_NAME_MAP` no longer exists.)
 
 ---
 
@@ -183,11 +190,9 @@ SDB pages show "As Low As" only in add-on accessories and carousel sections — 
 
 If Firecrawl returns no price, `scrapeWithPlaywright()` tries a browserless remote browser (`BROWSERLESS_URL` env var). `SLOW_PROVIDERS = {jmbullion, herobullion, summitmetals}` get an extra 4s wait.
 
-### FBP Gap-Fill
+### FBP Gap-Fill (REMOVED)
 
-After primary scrapes, any coin with failures scrapes `fbp_url` (FindBullionPrices comparison table). `extractFbpPrices()` parses FBP table rows, maps dealer names via `FBP_DEALER_NAME_MAP`, writes as `source: "fbp"` to sqld.
-
-`run-fbp.sh` (the PM cron at 3pm ET) runs `PATCH_GAPS=1 node price-extract.js` to fill only today's gaps.
+The FBP fallback no longer exists: nothing reads `PATCH_GAPS`, `extractFbpPrices()` is gone, and no path writes `source: "fbp"`. The dead `home-poller/run-fbp.sh` wrapper was deleted (2026-08-01) along with its Dockerfile `COPY`. `provider_coins.fbp_url` remains as a live schema column.
 
 ---
 
@@ -199,17 +204,17 @@ After primary scrapes, any coin with failures scrapes `fbp_url` (FindBullionPric
 
 **Table:** `price_snapshots`
 
-| Column         | Type    | Notes                                      |
-| -------------- | ------- | ------------------------------------------ |
-| `scraped_at`   | TEXT    | ISO8601 UTC timestamp of actual scrape     |
-| `window_start` | TEXT    | 15-min floor (e.g. `2026-02-20T14:15:00Z`) |
-| `coin_slug`    | TEXT    | Matches providers.json key (e.g. `ase`)    |
-| `vendor`       | TEXT    | Provider id (e.g. `apmex`)                 |
-| `price`        | REAL    | null if scrape failed                      |
-| `source`       | TEXT    | `firecrawl` \| `playwright` \| `fbp`       |
-| `confidence`   | INTEGER | Score from `scoreVendorPrice()`; nullable  |
-| `is_failed`    | INTEGER | 1 if price is null                         |
-| `in_stock`     | INTEGER | 0 if OOS patterns matched                  |
+| Column         | Type    | Notes                                                      |
+| -------------- | ------- | ---------------------------------------------------------- |
+| `scraped_at`   | TEXT    | ISO8601 UTC timestamp of actual scrape                     |
+| `window_start` | TEXT    | 15-min floor (e.g. `2026-02-20T14:15:00Z`)                 |
+| `coin_slug`    | TEXT    | Matches providers.json key (e.g. `ase`)                    |
+| `vendor`       | TEXT    | Provider id (e.g. `apmex`)                                 |
+| `price`        | REAL    | null if scrape failed                                      |
+| `source`       | TEXT    | `firecrawl` \| `playwright` (`fbp` = historical rows only) |
+| `confidence`   | INTEGER | Score from `scoreVendorPrice()`; nullable                  |
+| `is_failed`    | INTEGER | 1 if price is null                                         |
+| `in_stock`     | INTEGER | 0 if OOS patterns matched                                  |
 
 > **No `poller_id` column on `price_snapshots`.** `POLLER_ID` is an env var used for
 > run bookkeeping and retry backoff, and it _is_ a real column on `poller_runs` and
@@ -275,7 +280,7 @@ The StakTrakr app fetches `data/api/{slug}/latest.json` in `retail-view-modal.js
 
 | Var                      | Used by                      | Notes                                                                                                                                                                                  |
 | ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATA_REPO_PATH`         | run-local.sh, run-fbp.sh     | Path to git checkout of api branch                                                                                                                                                     |
+| `DATA_REPO_PATH`         | run-local.sh                 | Path to git checkout of api branch                                                                                                                                                     |
 | `DATA_DIR`               | all scripts                  | `$DATA_REPO_PATH/data`                                                                                                                                                                 |
 | `FIRECRAWL_API_KEY`      | price-extract.js             | Cloud Firecrawl; omit for self-hosted                                                                                                                                                  |
 | `FIRECRAWL_BASE_URL`     | price-extract.js             | Self-hosted: `http://localhost:3002`; default: cloud                                                                                                                                   |
@@ -289,7 +294,6 @@ The StakTrakr app fetches `data/api/{slug}/latest.json` in `retail-view-modal.js
 | `COINS`                  | all scripts                  | Comma-separated slug filter (default: all)                                                                                                                                             |
 | `PROVIDERS`              | capture.js                   | Comma-separated provider filter                                                                                                                                                        |
 | `DRY_RUN`                | all scripts                  | `1` = skip writes                                                                                                                                                                      |
-| `PATCH_GAPS`             | price-extract.js             | `1` = gap-fill mode (FBP only for failed vendors)                                                                                                                                      |
 
 ---
 
@@ -308,9 +312,6 @@ COINS=ase DRY_RUN=1 DATA_DIR=/path/to/api-branch/data node price-extract.js
 
 # Export API JSON from existing sqld data
 DATA_DIR=/path/to/api-branch/data node api-export.js
-
-# Gap-fill only (FBP scrape for failed vendors)
-PATCH_GAPS=1 DATA_DIR=/path/to/api-branch/data node price-extract.js
 ```
 
 ---
@@ -412,6 +413,6 @@ db.execute('SELECT COUNT(*) as n FROM price_snapshots').then(r => { console.log(
 
 **price = null:** Firecrawl got a page but no parseable price, AND Playwright fallback also failed. Check if the URL is still valid and page structure changed.
 
-**FBP fallback triggered:** Check `source: "fbp"` in sqld — means primary scrape failed. FBP prices are wire/ACH prices (lowest available).
+**`source: "fbp"` rows in sqld:** historical only — the FBP fallback was removed and no current code path writes them. FBP prices were wire/ACH prices (lowest available).
 
 **Retail prices frozen, spot still updating:** Stuck rebase in the container. See API Branch Git Safety section above.

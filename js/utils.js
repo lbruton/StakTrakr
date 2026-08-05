@@ -792,20 +792,182 @@ const getConstitutionalSilverOz = (item, wearFactor) => {
 };
 
 /**
+ * The per-unit troy-ounce equivalent of an item's stored weight (STRK-316).
+ *
+ * Goldback ("gb") and Silverback ("sb") items store the raw *denomination* in `item.weight` —
+ * a 5 Goldback stores `5`, not its 0.005 ozt of gold — so any consumer that reads the stored
+ * number as troy ounces ranks and buckets them as if they were bullion ounces. Every other
+ * unit already stores troy oz (`formatWeight` converts outward for display only), so those
+ * pass through unchanged and stay byte-identical to the previous `parseFloat(item.weight)`.
+ *
+ * Deliberately **per-unit**, not qty-folded: the Weight sort key and the weight filter key are
+ * both per-unit for bullion, and this helper has to slot into that existing frame. Callers that
+ * need a lot total multiply by qty themselves (see `computeMeltValue`).
+ *
+ * Constitutional ("cu") is deliberately NOT handled here — its silver weight is variant-derived
+ * *and* qty-folded, so callers route it through `getConstitutionalSilverOz` before reaching this.
+ *
+ * @param {Object} item - Inventory item (needs weight, weightUnit)
+ * @returns {number} Per-unit troy ounces — denomination × conversion for gb/sb, else raw weight
+ */
+const getUnitOztWeight = (item) => {
+  const weight = parseFloat(item?.weight) || 0;
+  const gbFactor = typeof GB_TO_OZT !== "undefined" ? GB_TO_OZT : 0.001;
+  if (item?.weightUnit === "gb") return weight * gbFactor;
+  if (item?.weightUnit === "sb")
+    return weight * (typeof SB_TO_OZT !== "undefined" ? SB_TO_OZT : gbFactor);
+  return weight;
+};
+
+/**
+ * Decimal places used for the gb/sb weight filter key (STRK-316).
+ *
+ * Five is the smallest width that keeps every Goldback denomination in its own bucket: the
+ * quarter-Goldback is 0.00025 ozt, so 2 decimals (the cu precedent) collapses ¼/½/1/2 gb into
+ * "0.00" and 3 decimals still collides ½ gb with 1 gb. It also has to be a fixed width rather
+ * than a raw `String()` — `9 * 0.001` is `0.009000000000000001` in IEEE-754, and the key is
+ * compared as a string, so float artifacts would be correctness bugs, not cosmetic ones.
+ * @constant {number}
+ */
+const WEIGHT_FILTER_OZT_DECIMALS = 5;
+
+/**
  * The string value used for weight filtering and the inventory-table Weight filter chip
- * (STRK-240). Constitutional ("cu") items resolve to their displayed derived pure-silver oz
- * (2 decimals); every other unit uses the raw stored `item.weight` — byte-identical to the
- * legacy default weight filter, so non-cu filtering is unchanged. `wearFactor` lets a caller
- * hoist the storage-backed wear basis out of a per-item loop (the filter predicate reads it
- * once so a large cu inventory does not re-read storage for every row).
+ * (STRK-240, extended by STRK-316).
+ *
+ * Three key shapes, all on a troy-oz scale so units cannot collide across the column:
+ * - Constitutional ("cu") → derived pure-silver oz at 2 decimals (unchanged).
+ * - Goldback/Silverback ("gb"/"sb") → converted ozt at {@link WEIGHT_FILTER_OZT_DECIMALS}
+ *   decimals. These store the raw denomination, so the legacy raw-weight key put a `2 gb` note
+ *   and a `2.00 oz` round in the same bucket; keying on ozt separates them the same way cu was
+ *   separated from bullion.
+ * - Everything else → the raw stored `item.weight`, byte-identical to the legacy default.
+ *
+ * The gb/sb key is intentionally *not* human-facing — `getWeightFilterLabel` supplies the
+ * chip text so the user still reads "5 gb" while the filter matches on "0.00500".
+ *
+ * Note: gb and sb share a conversion factor (both 0.001 ozt per unit), so a 1 Goldback and a
+ * 1 Silverback resolve to the same key. That is intended — the weight filter is metal-agnostic
+ * by design, and the metal filter is the axis that separates them.
+ *
+ * `wearFactor` lets a caller hoist the storage-backed wear basis out of a per-item loop (the
+ * filter predicate reads it once so a large cu inventory does not re-read storage for every row).
  * @param {Object} item - Inventory item
  * @param {number} [wearFactor] - Pre-loaded constitutional wear factor (optional)
- * @returns {string} Filterable weight string (e.g. "7.15" for cu, "10" otherwise)
+ * @returns {string} Filterable weight string (e.g. "7.15" cu, "0.00500" gb, "10" oz)
  */
-const getItemFilterWeight = (item, wearFactor) =>
-  item && item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function"
-    ? getConstitutionalSilverOz(item, wearFactor).toFixed(2)
-    : String(item?.weight ?? "");
+const getItemFilterWeight = (item, wearFactor) => {
+  if (item && item.weightUnit === "cu" && typeof getConstitutionalSilverOz === "function") {
+    return getConstitutionalSilverOz(item, wearFactor).toFixed(2);
+  }
+  if (item && (item.weightUnit === "gb" || item.weightUnit === "sb")) {
+    return getUnitOztWeight(item).toFixed(WEIGHT_FILTER_OZT_DECIMALS);
+  }
+  return String(item?.weight ?? "");
+};
+
+/**
+ * Whether an item's stored weight is a *derived* value that `getItemFilterWeight` rewrites
+ * (cu face value, gb/sb denomination) rather than a troy-oz figure it passes through.
+ *
+ * Exists so the inventory-table Weight cell does not carry its own copy of the unit list: the
+ * cell's onclick key must be the exact key `_filterByWeight` recomputes, and a second literal
+ * list would silently drift the moment a new derived unit is added (PR #1405 review, Codacy).
+ * Plain bullion is excluded so the cell keeps emitting its raw `item.weight` — `filterLink`
+ * JSON-stringifies that value, so routing it through the stringifying helper would change the
+ * emitted onclick from `applyColumnFilter('weight', 10)` to `applyColumnFilter('weight', "10")`.
+ *
+ * @param {Object} item - Inventory item
+ * @returns {boolean} True when the filter key differs from the stored weight
+ */
+const isDerivedWeightUnit = (item) =>
+  item?.weightUnit === "cu" || item?.weightUnit === "gb" || item?.weightUnit === "sb";
+
+/**
+ * Units whose Weight cell text differs from the value stored in `item.weight` (STRK-319).
+ *
+ * `gb`/`sb` store a denomination; `g`/`kg`/`lb`/`mg` store troy ounces and convert outward for
+ * display. Either way the filter key — which is the stored value — does not resemble the cell,
+ * so a chip echoing it verbatim shows something the user never saw on the row. Plain `oz` is
+ * absent because it is stored and displayed in the same unit, and `cu` is absent because its
+ * key is a derived figure with no cell text to borrow (handled separately).
+ *
+ * This replaced two key-shape regexes that let `getWeightFilterLabel` skip its scan for keys
+ * that could not be gb/sb or cu (PR #1405 review, Codacy). A metric key is a raw stored float
+ * with no recognisable shape, so that shortcut could not be extended to cover it; the function
+ * now makes a single pass instead of one per unit family, which is no more work than before.
+ * @constant {string[]}
+ */
+const WEIGHT_DISPLAY_LENS_UNITS = ["gb", "sb", "g", "kg", "lb", "mg"];
+
+/**
+ * The human-readable chip label for a weight filter key (STRK-316).
+ *
+ * Goldback/Silverback keys are converted troy-oz strings ("0.00500"), which are correct for
+ * matching but unreadable in a filter chip — the chip renderer echoes the key verbatim, and a
+ * Goldback stacker thinks in denominations, not ten-thousandths of an ounce. This resolves the
+ * key back to the same text the Weight cell shows ("5 gb") so the chip and the cell agree.
+ *
+ * **Ambiguity is named, not hidden** (PR #1405 review, Codex + Copilot): gb and sb share a
+ * conversion factor, so a 1 Goldback and a 1 Silverback both key to "0.00100" and the filter
+ * genuinely selects both — correct for a metal-agnostic weight column. Labelling that chip
+ * "1 gb" would hide the Silverbacks and, because it resolved by inventory order, could even
+ * render "1 gb" for a click on a `1 sb` cell. When a key matches more than one unit the label
+ * names them all ("1 gb/sb"); units are sorted so the result never depends on inventory order.
+ *
+ * STRK-319 extends this to every unit whose cell text differs from its key — `g`/`kg`/`lb`/`mg`
+ * store troy ounces and display converted, so a 31.65 g bar keyed on "1.0175711288970755" put
+ * that raw float in the chip. Plain `oz` already reads as its own key and falls through
+ * unchanged, so bullion chips stay byte-identical.
+ *
+ * @param {string} value - The weight filter key
+ * @param {Array<Object>} [items] - Item source; defaults to the global inventory
+ * @returns {string} Display label (e.g. "5 gb", "1 gb/sb", "31.65 g"), or the key unchanged
+ */
+const getWeightFilterLabel = (value, items) => {
+  const key = String(value ?? "");
+  if (!key || typeof formatWeight !== "function") return key;
+  const source = Array.isArray(items)
+    ? items
+    : typeof inventory !== "undefined" && Array.isArray(inventory)
+      ? inventory
+      : [];
+  if (!source.length) return key;
+  // One pass, not one per unit family: a metric key is a raw stored float with no recognisable
+  // shape, so it cannot be pre-filtered the way gb/sb and cu keys were. At most one weight chip
+  // is ever active, so this runs once per render.
+  const wear =
+    typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : undefined;
+  const matches = source.filter((it) => it && getItemFilterWeight(it, wear) === key);
+  if (!matches.length) return key;
+
+  // STRK-300 (PR #1406 review, Codex): a cu key is a DERIVED ASW figure, not the stored weight,
+  // so there is no cell text to borrow — name the unit instead, matching the cell tooltip's
+  // "7.15 ozt ASW". Deliberately "oz" and not "ASW": the key is a plain troy-oz figure that by
+  // design also matches a 7.15 oz bullion bar (that shared scale is the point of STRK-240), so
+  // an ASW-specific label would misdescribe the bullion rows the same filter selects.
+  if (matches.some((it) => it.weightUnit === "cu")) return `${key} oz`;
+
+  const lensMatches = matches.filter((it) => WEIGHT_DISPLAY_LENS_UNITS.includes(it.weightUnit));
+  if (!lensMatches.length) return key;
+  // Sorted so the label is deterministic regardless of inventory order.
+  const units = [...new Set(lensMatches.map((it) => it.weightUnit))].sort();
+  const labels = units.map((unit) => {
+    const match = lensMatches.find((it) => it.weightUnit === unit);
+    return formatWeight(match.weight, unit, match);
+  });
+  if (labels.length === 1) return labels[0];
+  // More than one unit produced this key, so the label must not imply a single one.
+  //
+  // Compact to a shared numeral ONLY when every unit renders the same number — gb and sb have
+  // the same conversion factor, so a 1 Goldback and a 1 Silverback both read "1" and "1 gb/sb"
+  // is accurate. Across metric units the numbers differ (0.025 g is 25 mg), and appending only
+  // the second suffix would read as "0.025 g/mg" — implying 0.025 applies to both, or worse a
+  // ratio (PR #1407 review, Codex + Copilot). Those are spelled out in full instead.
+  const numerals = labels.map((label) => label.slice(0, label.lastIndexOf(" ")));
+  const sharesNumeral = numerals.every((numeral) => numeral === numerals[0]);
+  return sharesNumeral ? `${numerals[0]} ${units.join("/")}` : labels.join(" / ");
+};
 
 /**
  * Computes the melt value for an inventory item.
@@ -821,16 +983,11 @@ const computeMeltValue = (item, spot) => {
   if (item.weightUnit === "cu") {
     return getConstitutionalSilverOz(item) * (Number(spot) || 0);
   }
-  const weight = parseFloat(item.weight) || 0;
   const qty = Number(item.qty) || 1;
   const purity = parseFloat(item.purity) || 1.0;
-  const weightOz =
-    item.weightUnit === "gb"
-      ? weight * GB_TO_OZT
-      : item.weightUnit === "sb"
-        ? weight * SB_TO_OZT
-        : weight;
-  return weightOz * qty * spot * purity;
+  // STRK-316: the gb/sb denomination → troy-oz conversion now lives in one place.
+  // Numerically identical to the previous inline ternary.
+  return getUnitOztWeight(item) * qty * spot * purity;
 };
 
 /**
@@ -1307,19 +1464,48 @@ const setButtonLoading = (btn, isLoading, loadingText = "") => {
   }
 };
 
+// Local-data staleness thresholds (STRK-291).
+//
+// SUBJECT: how old the data in THIS BROWSER is — the age of the last successful
+// sync or cache refresh. Drives the spot-card refresh icons and the market
+// freshness dot.
+//
+// NOT the same measurement as `API_HEALTH_SPOT_STALE_MIN = 20` (js/api-health.js),
+// which asks whether the PUBLISHER is still writing hourly files. That is a
+// server-liveness check with a tight bound because the poller runs every ~15 min.
+// This is a client-side "is what I'm looking at current" check, and a user who
+// syncs manually would sit permanently alarmed under a 20-minute rule.
+//
+// Two numbers, two subjects, deliberately not unified. They are not meant to
+// track each other — changing one does not imply changing the other.
+const SPOT_FRESH_MAX_MIN = 60; // under an hour old → fresh
+const SPOT_STALE_MAX_MIN = 1440; // under a day old → stale; beyond that → expired
+
 /**
  * Returns CSS modifier class for a health-status dot based on timestamp age.
  * Handles both ISO and "YYYY-MM-DD HH:MM:SS" (local-stripped) formats.
+ *
+ * A null/absent timestamp returns `--red`. Callers that treat "no data" as a
+ * milder state than "known-old data" must special-case it BEFORE calling —
+ * `getSpotFreshnessStatus` (js/spot.js) does exactly that.
  * @param {string|null} timestamp
  * @returns {'--green'|'--orange'|'--red'}
  */
 function getHealthStatusClass(timestamp) {
   if (!timestamp) return "--red";
-  const normalized =
-    timestamp.replace(" ", "T") + (timestamp.includes("Z") || timestamp.includes("+") ? "" : "Z");
+  // A NEGATIVE offset ("-08:00") carries no "Z" and no "+", so the older
+  // `includes("Z") || includes("+")` test appended a second designator and
+  // produced "…T12:00:00-08:00Z" — an Invalid Date, whose NaN age fell through
+  // both comparisons and reported `--red` for data that might be seconds old.
+  // This mirrors `_normalizeTs` in js/api-health.js; the offset alternative is
+  // anchored so a plain "YYYY-MM-DD HH:MM:SS" still gets its "Z".
+  const trimmed = timestamp.trim();
+  const normalized = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(trimmed)
+    ? trimmed.replace(" ", "T")
+    : `${trimmed.replace(" ", "T")}Z`;
   const ageMin = Math.floor((Date.now() - new Date(normalized).getTime()) / 60000);
-  if (ageMin < 60) return "--green";
-  if (ageMin < 1440) return "--orange";
+  if (ageMin < SPOT_FRESH_MAX_MIN) return "--green";
+  if (ageMin < SPOT_STALE_MAX_MIN) return "--orange";
   return "--red";
 }
 window.getHealthStatusClass = getHealthStatusClass;
@@ -1357,7 +1543,10 @@ if (typeof window !== "undefined") {
   window.computeMeltValue = computeMeltValue;
   window.getConstitutionalWearFactor = getConstitutionalWearFactor;
   window.getConstitutionalSilverOz = getConstitutionalSilverOz;
+  window.getUnitOztWeight = getUnitOztWeight;
   window.getItemFilterWeight = getItemFilterWeight;
+  window.isDerivedWeightUnit = isDerivedWeightUnit;
+  window.getWeightFilterLabel = getWeightFilterLabel;
   window.findItemByUuid = findInventoryItemByUuid;
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
@@ -1374,7 +1563,10 @@ if (typeof module !== "undefined" && module.exports) {
     sanitizeImportedItem,
     computeMeltValue,
     getConstitutionalSilverOz,
+    getUnitOztWeight,
     getItemFilterWeight,
+    isDerivedWeightUnit,
+    getWeightFilterLabel,
     findItemByUuid: findInventoryItemByUuid,
     computeTradeValue,
     calculateRetailPrice,

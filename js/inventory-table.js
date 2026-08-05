@@ -8,24 +8,100 @@
     g: "Grams (g)",
     kg: "Kilograms (kg)",
     lb: "Pounds (lb)",
-    gb: "Goldback denomination",
-    sb: "Silverback denomination",
-    cu: "Constitutional silver — face value (silver content derived from denomination)",
+    // STRK-318: these entries are unreachable for gb/sb cells (the Weight cell's ternary now
+    // routes both to denominationWeightTooltip, which reports the note's actual metal content).
+    // Kept accurate rather than left as stale text.
+    mg: "Milligrams (mg)",
+    gb: "Goldback denomination — AGW (Actual Gold Weight) in the tooltip",
+    sb: "Silverback denomination — ASW (Actual Silver Weight) in the tooltip",
+    // STRK-299/300: describes what the cu Weight cell now shows — total face value, with the
+    // ASW (Actual Silver Weight) in the cell tooltip. This entry is unreachable for cu cells
+    // (the Weight cell's ternary always routes cu to cuWeightTooltip) but is kept accurate
+    // rather than left as stale text contradicting every other surface.
+    cu: "Constitutional silver — total face value; ASW (Actual Silver Weight) in the tooltip",
   };
 
-  // STRK-237: tooltip for a constitutional weight cell. The Weight column now shows the
-  // derived silver oz, so the face value moves here — total face = facePerCoin × qty (denom
-  // mode) or the entered face (face mode, qty = 1). The worn/fresh valuation basis is included
-  // because the displayed oz depends on it.
+  /**
+   * Tooltip for a Goldback/Silverback weight cell — STRK-318.
+   *
+   * These notes are bought and quoted by denomination, so the cell shows the denomination
+   * ("¼ gb") and the metal each note actually carries lives here — the same cell/tooltip split
+   * STRK-300 established for constitutional silver. Before this the gb/sb tooltip was a static
+   * "Goldback denomination" string that named no weight at all, so a stacker had no way to see
+   * that a ¼ Goldback holds 0.00025 ozt of gold.
+   *
+   * Reported per note, matching both the per-note denomination in the cell and the per-unit
+   * sort key, with the lot total appended only when the row holds more than one note.
+   *
+   * @param {Object} item - Inventory item with weightUnit "gb" or "sb"
+   * @returns {string} e.g. "0.00025 ozt AGW (Actual Gold Weight)"
+   */
+  const denominationWeightTooltip = (item) => {
+    const perNote = typeof getUnitOztWeight === "function" ? getUnitOztWeight(item) : 0;
+    const term =
+      item.weightUnit === "gb"
+        ? typeof AGW_TERM_EXPANDED !== "undefined"
+          ? AGW_TERM_EXPANDED
+          : "AGW (Actual Gold Weight)"
+        : typeof ASW_TERM_EXPANDED !== "undefined"
+          ? ASW_TERM_EXPANDED
+          : "ASW (Actual Silver Weight)";
+    // Fixed width first to absorb IEEE-754 artifacts (5 * 0.001 is exact, but 9 * 0.001 is
+    // 0.009000000000000001), then parseFloat to drop the trailing zeros it introduces.
+    const ozt = (n) => String(parseFloat(n.toFixed(5)));
+    const qty = Number(item.qty) || 0;
+    if (qty > 1) {
+      return `${ozt(perNote)} ozt ${term} each · ${ozt(perNote * qty)} ozt total`;
+    }
+    return `${ozt(perNote)} ozt ${term}`;
+  };
+
+  /**
+   * Tooltip for a plain measured unit (oz/g/mg/kg/lb) — STRK-319.
+   *
+   * These rows are stored in troy ounces and converted outward for display, so a gram row could
+   * not be compared against a bullion row without doing the arithmetic by hand. The old tooltip
+   * was a static unit name ("Grams (g)") that added nothing the cell did not already say.
+   * Reports the canonical troy-ounce value, plus the lot total when the row holds more than one.
+   *
+   * @param {Object} item - Inventory item with a measured weight unit
+   * @returns {string} e.g. "1.02 ozt · Grams (g)" or "1.02 ozt each · 3.05 ozt total · Grams (g)"
+   */
+  const measuredWeightTooltip = (item) => {
+    const perPiece = parseFloat(item.weight) || 0;
+    const unitName = WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)";
+    if (!perPiece) return unitName;
+    const ozt = (n) =>
+      typeof formatMeasuredWeight === "function" ? formatMeasuredWeight(n, 2) : n.toFixed(2);
+    const qty = Number(item.qty) || 0;
+    if (qty > 1) {
+      return `${ozt(perPiece)} ozt each · ${ozt(perPiece * qty)} ozt total · ${unitName}`;
+    }
+    return `${ozt(perPiece)} ozt · ${unitName}`;
+  };
+
+  /**
+   * Tooltip for a constitutional weight cell.
+   *
+   * STRK-237 put the derived silver oz in the cell and the face value here. STRK-300 reverses
+   * that: the cell leads with total face value (how constitutional silver is actually quoted),
+   * so the derived ASW lives here instead, together with the worn/fresh basis it depends on.
+   * STRK-299 spells the abbreviation out on first use so a reader new to the term is not lost.
+   *
+   * Accepted trade-off: the ASW becomes hover-only in the table and so is invisible on mobile —
+   * the inverse of the complaint STRK-237 addressed. Acceptable because Melt on the same row
+   * already prices the ASW, and the detail modal shows it labelled, one tap away.
+   *
+   * @param {Object} item - Constitutional inventory item
+   * @param {string} basis - The active valuation basis ("worn" or "fresh")
+   * @returns {string} e.g. "0.54 ozt ASW (Actual Silver Weight) · worn basis"
+   */
   const cuWeightTooltip = (item, basis) => {
-    // Face mode stores the entered total face in `weight` (qty = 1 by contract); denom mode
-    // stores face-per-coin, so total face = weight × coin count. Mirror getConstitutionalSilverOz's
-    // qty handling (invalid/zero qty → 0) so the tooltip face and the cell oz stay consistent.
-    const face =
-      item.constitutionalEntryMode === "face"
-        ? parseFloat(item.weight) || 0
-        : (parseFloat(item.weight) || 0) * (Number(item.qty) || 0);
-    return `$${face.toFixed(2)} face value · ${basis} basis`;
+    const asw =
+      typeof getConstitutionalSilverOz === "function" ? getConstitutionalSilverOz(item) : 0;
+    const aswTerm =
+      typeof ASW_TERM_EXPANDED !== "undefined" ? ASW_TERM_EXPANDED : "ASW (Actual Silver Weight)";
+    return `${asw.toFixed(2)} ozt ${aswTerm} · ${basis} basis`;
   };
 
   let _thumbBlobUrls = [];
@@ -813,13 +889,39 @@
     const dispositionBadge = _buildDispositionBadge(item);
     const actionsCellInner = _buildActionsCellInner(item, originalIdx);
     const disposedRowClass = isDisposed(item) ? ' class="disposed-row"' : "";
-    // STRK-240: the cu Weight cell filter chip keys on the displayed derived oz (via the shared
-    // getItemFilterWeight helper) so a $10-face item doesn't collide with a 10 oz item; every
-    // other unit keeps its raw item.weight, so the non-cu onclick value is unchanged.
+    // STRK-240 / STRK-316: the cell's onclick key must be the exact key `_filterByWeight`
+    // recomputes for the same item, or the click filters to nothing. Units whose stored weight
+    // is a derived value route through the shared getItemFilterWeight helper — cu on its derived
+    // silver oz (a $10-face item doesn't collide with a 10 oz item), gb/sb on converted ozt (a
+    // 2 gb note doesn't collide with a 2.00 oz round). The unit list itself lives in
+    // isDerivedWeightUnit so this cell cannot drift out of sync with the predicate. Plain
+    // bullion keeps its raw item.weight, so the onclick value — including its JSON
+    // number-vs-string type — is byte-identical to before.
     const weightFilterValue =
-      item.weightUnit === "cu" && typeof getItemFilterWeight === "function"
+      typeof isDerivedWeightUnit === "function" &&
+      isDerivedWeightUnit(item) &&
+      typeof getItemFilterWeight === "function"
         ? getItemFilterWeight(item)
         : item.weight;
+
+    // STRK-300: cu rows lead with TOTAL FACE VALUE, the figure constitutional silver is quoted,
+    // bought, and mentally modelled in. The derived ASW moves to the tooltip. Note the sort key
+    // and the filter key above both still use the ASW and are untouched — neither ever depended
+    // on this cell's text, so the column keeps ranking on a scale it shares with bullion oz.
+    const weightCellText =
+      item.weightUnit === "cu" && typeof formatConstitutionalFace === "function"
+        ? formatConstitutionalFace(item)
+        : formatWeight(item.weight, item.weightUnit, item);
+    // STRK-318: gb/sb join cu on the per-item tooltip path — all three show a denomination in
+    // the cell, so all three need the tooltip to report the metal that denomination represents.
+    // STRK-319: every remaining unit reports the canonical troy-ounce value it is stored as, so
+    // a gram or milligram row can be compared against bullion without doing arithmetic.
+    const weightCellTitle =
+      item.weightUnit === "cu"
+        ? cuWeightTooltip(item, cuBasis)
+        : item.weightUnit === "gb" || item.weightUnit === "sb"
+          ? denominationWeightTooltip(item)
+          : measuredWeightTooltip(item);
 
     return `
       <tr data-idx="${originalIdx}"${disposedRowClass}>
@@ -833,7 +935,7 @@
         </div>
       </td>
       <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", weightFilterValue, "var(--text-primary)", formatWeight(item.weight, item.weightUnit, item), item.weightUnit === "cu" ? cuWeightTooltip(item, cuBasis) : WEIGHT_UNIT_TOOLTIPS[item.weightUnit] || "Troy ounces (ozt)")}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", weightFilterValue, "var(--text-primary)", weightCellText, weightCellTitle)}</td>
       <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>

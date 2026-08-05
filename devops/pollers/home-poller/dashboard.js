@@ -16,6 +16,8 @@ import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync, spawn } from "node:child_process";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
 import {
   initProviderSchema,
@@ -28,6 +30,8 @@ import {
   deleteCoin,
   deleteVendor,
   updateVendorFields,
+  getVendorHints,
+  updateVendorHints,
   getVendorScrapeStatus,
   getFailureStats,
   getFailureTrend,
@@ -45,15 +49,21 @@ import {
   clearAllChronicFailures,
   getProvidersByVendor,
 } from "./provider-db.js";
+import {
+  getFeedIndex,
+  parseHintsProductId,
+  mergeHintsProductId,
+} from "./price-extract-mintbuilder-feed.js";
 
-const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
-const LOG_FILE = process.env.POLLER_LOG || "/data/logs/retail-poller.log";
-const LOG_LINES = 300;
-const IFACE = process.env.NET_IFACE || "eth0";
-const PROVIDERS_FILE = new URL("data/retail/providers.json", import.meta.url).pathname;
-const DATA_DIR = new URL("data/", import.meta.url).pathname;
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
-// Load .env if not already in environment
+// Load .env if not already in environment.
+//
+// MUST run before any const below reads process.env. The container exports its
+// config directly, but the LXC/bare-metal install (setup-lxc.sh) ships a .env
+// beside the script instead — and every env-derived constant here is evaluated
+// at module load. Declaring them above this call silently ignores the .env
+// value and falls back to the default (STRK-323).
 (function loadEnv() {
   const envFile = new URL(".env", import.meta.url).pathname;
   if (!existsSync(envFile)) return;
@@ -63,6 +73,19 @@ const DATA_DIR = new URL("data/", import.meta.url).pathname;
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^[\x27\x22]|[\x27\x22]$/g, "");
   }
 })();
+
+const PORT = parseInt(process.env.DASHBOARD_PORT || "3010", 10);
+const LOG_FILE = process.env.POLLER_LOG || "/data/logs/retail-poller.log";
+const LOG_LINES = 300;
+const IFACE = process.env.NET_IFACE || "eth0";
+// Resolve the data root the same way every other poller script does, so the
+// dashboard reads and writes the file export-providers-json.js actually
+// produces (DATA_DIR/retail/providers.json). Deriving this from
+// import.meta.url pointed at /app/data — the image layer — instead of the
+// /data volume the compose file mounts, which silently broke both the
+// sqld-down read fallback and POST /providers/export (STRK-323).
+const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
+const PROVIDERS_FILE = join(DATA_DIR, "retail", "providers.json");
 
 // ---------------------------------------------------------------------------
 // sqld client
@@ -1313,6 +1336,54 @@ if (log) log.scrollTop = log.scrollHeight;
 // Provider editor page (GET /providers)
 // ---------------------------------------------------------------------------
 
+// Vendors fed by a first-party price API instead of page scraping (STRK-321).
+// Presentation-only: drives the "Direct API" badge in the By Vendor view. Row
+// URLs stay the human product pages (they feed matching + published Buy
+// links); the API key lives only in the container env, never in row data.
+const API_FED_VENDOR_IDS = new Set(["mintbuilder"]);
+
+// The source value price-extract writes for a direct feed hit (STRK-321). Any
+// other value on an API-fed row means that item fell back to page scraping.
+const FEED_SOURCE = "mintbuilder-api";
+
+// How long a feed probe is reused before /providers re-checks. The dashboard is
+// a long-running process, so getFeedIndex must be bounded or the health line
+// would freeze at whatever the first page load saw (STRK-324).
+const FEED_HEALTH_MAX_AGE_MS = 60_000;
+
+/**
+ * Summarize feed reachability for the By Vendor header. Never throws — a feed
+ * problem must not take the provider editor down with it.
+ *
+ * @returns {Promise<{ok: boolean, label: string, detail: string}|null>}
+ */
+async function probeFeedHealth() {
+  try {
+    const state = await getFeedIndex({ maxAgeMs: FEED_HEALTH_MAX_AGE_MS });
+    if (state.ok) {
+      return {
+        ok: true,
+        label: `feed OK — ${state.byId.size} products`,
+        detail: `Checked ${new Date(state.fetchedAt).toLocaleTimeString()}. Live probe from the dashboard, not the last poller run.`,
+      };
+    }
+    const reasons = {
+      no_key: "MB_API_KEY not set — every item page-scrapes",
+      bad_key: "API key rejected (HTTP 401) — every item page-scrapes",
+      fetch_failed: "feed unreachable — every item page-scrapes",
+      bad_payload: "feed returned an unexpected payload — every item page-scrapes",
+    };
+    return {
+      ok: false,
+      label: reasons[state.reason] || `feed unavailable (${state.reason})`,
+      detail: "Live probe from the dashboard. The poller falls back to page scraping.",
+    };
+  } catch (err) {
+    console.error("[dashboard] feed health probe failed:", err?.message || err);
+    return null;
+  }
+}
+
 function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, vendorGroups) {
   const coins = providers.coins || {};
   const coinEntries = Object.entries(coins);
@@ -1321,6 +1392,7 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
   // Build vendor-centric view HTML
   const vendorViewHtml = (vendorGroups || [])
     .map((vg) => {
+      const isApiFed = API_FED_VENDOR_IDS.has(vg.vendorId);
       const okCount = vg.items.filter((i) => {
         const key = `${i.coinSlug}:${vg.vendorId}`;
         const st = scrapeStatus?.get(key);
@@ -1351,21 +1423,54 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
               priceText = `<span style="color:var(--green);font-size:11px;">$${st.price}</span>`;
             }
           }
-          return `<div style="display:grid;grid-template-columns:auto 1fr 2fr 1fr auto;gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
+          // API-fed rows get a pin input and a per-row match indicator so an
+          // operator can see, without reading logs, whether this item actually
+          // came from the feed or quietly fell back to page scraping.
+          let apiCells = "";
+          if (isApiFed) {
+            const pinnedId = parseHintsProductId(item.hints, () => {}) || "";
+            let matchBadge =
+              '<span style="font-size:10px;color:var(--muted);" title="No price recorded for this item yet.">—</span>';
+            if (st && st.source) {
+              matchBadge =
+                st.source === FEED_SOURCE
+                  ? '<span style="font-size:10px;color:var(--green);" title="Last price came from the direct API feed.">feed</span>'
+                  : `<span style="font-size:10px;color:var(--muted);" title="Last price came from a page scrape (source: ${escAttr(st.source)}). Expected for items the feed cannot confirm in stock, or when the key is unset.">scrape</span>`;
+            }
+            apiCells = `
+        <input type="text" class="vendor-productid-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(pinnedId)}" style="width:100%;font-size:11px;" placeholder="feed id (optional)" title="Pin this row to an exact feed product ID. Leave blank to match by URL. Saved into the hints JSON without touching its other keys." ${readOnly ? "disabled" : ""}>
+        ${matchBadge}`;
+          }
+          const gridCols = isApiFed ? "auto 1fr 2fr 90px auto 1fr auto" : "auto 1fr 2fr 1fr auto";
+          return `<div style="display:grid;grid-template-columns:${gridCols};gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
         ${dot}
         <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
-        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://...">
+        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://..." ${readOnly ? "disabled" : ""}>${apiCells}
         ${priceText}
-        <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;">${item.enabled !== false ? "On" : "Off"}</button>
+        <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;" ${readOnly ? "disabled" : ""}>${item.enabled !== false ? "On" : "Off"}</button>
       </div>`;
         })
         .join("");
 
+      // Placeholder only — the probe is fetched client-side after render. It
+      // must never sit on the HTML response path: a hanging feed endpoint
+      // costs two 15s attempts plus a 2s retry delay, which would stall the
+      // whole provider editor for ~32s on the first load after each cache
+      // expiry (STRK-324).
+      const feedHealthHtml = isApiFed
+        ? `<div class="vendor-feed-health" data-vendor="${escAttr(vg.vendorId)}" style="padding:4px 12px 6px;font-size:11px;color:var(--muted);">checking feed…</div>`
+        : "";
+
       return `<div style="margin-bottom:12px;" class="vendor-section" data-vendor="${escAttr(vg.vendorId)}">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:4px;" class="vendor-section-header">
-        <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}</span>
+        <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}${
+          isApiFed
+            ? ' <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--muted);vertical-align:middle;" title="Prices come from this vendor&#39;s direct API feed (one call per run). Product URLs below still drive feed matching and Buy links — add/remove items exactly like scraped vendors.">Direct API</span>'
+            : ""
+        }</span>
         <span style="font-size:11px;color:var(--muted);">${statsText}</span>
       </div>
+      ${feedHealthHtml}
       <div class="vendor-section-body" style="display:none;">${itemRows}</div>
     </div>`;
     })
@@ -1966,7 +2071,12 @@ document.querySelectorAll('[data-provider-tab]').forEach(function(btn) {
 // ── Vendor section expand/collapse ───────────────────────────────────────
 document.querySelectorAll('.vendor-section-header').forEach(function(header) {
   header.addEventListener('click', function() {
-    var body = this.nextElementSibling;
+    // Look the body up by class rather than nextElementSibling: API-fed
+    // vendors render a feed health line between the header and the rows, and
+    // a positional lookup silently toggles whatever happens to sit next.
+    var section = this.closest('.vendor-section');
+    var body = section && section.querySelector('.vendor-section-body');
+    if (!body) return;
     body.style.display = body.style.display === 'none' ? '' : 'none';
   });
 });
@@ -1989,6 +2099,47 @@ document.querySelectorAll('.vendor-url-byvendor').forEach(function(input) {
     showToast(j.message, r.ok);
     if (r.ok) orig = input.value;
   });
+});
+
+// ── By Vendor tab: API feed product ID pin ───────────────────────────────
+// Blank clears the pin and falls back to URL matching. Saves on blur, matching
+// the URL input beside it. The server merges into the hints JSON.
+document.querySelectorAll('.vendor-productid-byvendor').forEach(function(input) {
+  var orig = input.value;
+  input.addEventListener('blur', async function() {
+    if (input.value === orig) return;
+    try {
+      const r = await fetch('/providers/vendor-product-id', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, productId: input.value })
+      });
+      const j = await r.json();
+      showToast(j.message, r.ok);
+      if (r.ok) orig = input.value;
+      else input.value = orig;
+    } catch {
+      // Without this the rejection is unhandled: no toast, and the field keeps
+      // an edit the server never received — which reads as saved on next blur.
+      showToast('Request failed — product ID not saved', false);
+      input.value = orig;
+    }
+  });
+});
+
+// ── By Vendor tab: feed health, fetched after render ─────────────────────
+// Deliberately not part of the page HTML — see GET /providers/feed-health.
+document.querySelectorAll('.vendor-feed-health').forEach(async function(el) {
+  try {
+    const r = await fetch('/providers/feed-health');
+    const j = await r.json();
+    el.textContent = j.label;
+    el.style.color = j.ok ? 'var(--green)' : 'var(--red)';
+    if (j.detail) el.title = j.detail;
+  } catch {
+    el.textContent = 'feed status unavailable';
+    el.style.color = 'var(--muted)';
+  }
 });
 
 // ── By Vendor tab: toggle enabled/disabled ───────────────────────────────
@@ -2742,6 +2893,9 @@ async function handleRequest(req, res) {
     try {
       client = getSqldClient();
       await initProviderSchema(client);
+      // The feed probe is deliberately absent here — see GET
+      // /providers/feed-health. Awaiting it would put an external vendor
+      // endpoint on this page's critical path.
       [providers, scrapeStatus, failureCount, vendorGroups] = await Promise.all([
         getProviders(client),
         getVendorScrapeStatus(client).catch(() => null),
@@ -2943,6 +3097,55 @@ async function handleRequest(req, res) {
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
+  // ── GET /providers/feed-health ─────────────────────────────────────────
+  // Served separately from the provider page on purpose: this calls an
+  // external vendor endpoint, and buildFeedState allows two 15s attempts plus
+  // a 2s retry delay. On the page's critical path a hanging feed would stall
+  // the whole provider editor for ~32s after each cache expiry (STRK-324).
+  if (req.method === "GET" && url === "/providers/feed-health") {
+    const health = await probeFeedHealth();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(health || { ok: false, label: "feed status unavailable", detail: "" }));
+    return;
+  }
+
+  // ── POST /providers/vendor-product-id ──────────────────────────────────
+  // Sets or clears the {"mbProductId"} feed pin for one row. Read-modify-write
+  // on hints so unrelated keys survive, and hints-only so the selector is not
+  // collaterally nulled the way updateVendorFields would (STRK-324).
+  if (req.method === "POST" && url === "/providers/vendor-product-id") {
+    let client = null;
+    try {
+      const { coinSlug, vendorId, productId } = JSON.parse(await readBody(req));
+      if (!coinSlug || !vendorId) throw new Error("coinSlug and vendorId required");
+      client = getSqldClient();
+      const currentHints = await getVendorHints(client, coinSlug, vendorId);
+      const nextHints = mergeHintsProductId(currentHints, productId);
+      await updateVendorHints(client, coinSlug, vendorId, nextHints);
+      const cleared = !nextHints || !parseHintsProductId(nextHints, () => {});
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          message: cleared
+            ? `Cleared the feed product ID for ${vendorId}/${coinSlug}.`
+            : `Pinned ${vendorId}/${coinSlug} to feed product ${parseHintsProductId(nextHints, () => {})}.`,
+        })
+      );
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    } finally {
+      if (client)
+        try {
+          await client.close();
+        } catch {
+          /* ignore */
+        }
     }
     return;
   }

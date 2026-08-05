@@ -7,6 +7,180 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.95] - 2026-08-02
+
+### Changed — STRK-328: Inventory is now always visible
+
+- **Inventory tab locked**: Inventory joins Dashboard as an always-visible tab and its
+  Settings › Appearance › Layout checkbox is disabled. It is not a peer of Market and
+  Collections — it holds the only control that can add or edit an item, and the Dashboard is
+  derived entirely from that data, so hiding it left a new user with empty totals and no way
+  to fill them (STRK-328)
+- **Stored hidden state healed**: anyone whose saved config already had the search bar and
+  table turned off is restored on load. Locking alone would only have stopped writing those
+  values, leaving a permanently visible tab opening an empty panel with the checkbox now
+  disabled — no way back from inside the app (STRK-328)
+- **Dashboard sections unaffected**: the healing is scoped to locked tabs that have no other
+  control for their sections, so Dashboard's three modules stay independently hideable. A
+  minimal Dashboard remains a legitimate end state (STRK-328)
+
+---
+
+## [3.35.94] - 2026-08-02
+
+### Fixed — STRK-327: Best Price ticker froze when built on a hidden tab
+
+- **Ticker animation**: the Best Price ticker no longer reveals frozen with a horizontal
+  scrollbar after the page is reloaded on Inventory or Market, or after a Market setting
+  re-renders it while Dashboard is hidden. It sizes its scroll loop from a measured width,
+  which reads zero inside a `display:none` panel, so it fell back to the static layout and
+  nothing re-measured on reveal; `activateTab` now repairs it (STRK-327)
+- **Short tickers unaffected**: a genuinely static track — fewer than four items, where the
+  centring and scrollbar are intentional (STRK-317) — is left alone. The repair keys on the
+  duplicate content block that only looping tracks carry, not on the overloaded `static`
+  class, so a short track is never animated against a gap (STRK-327)
+- **Test coverage**: both directions are pinned and mutation-verified. Also de-flaked the
+  goldback ticker-consistency test, whose locator spanned every mounted track and could
+  resolve to two nodes while a superseded track awaited its sweep (STRK-327)
+
+---
+
+## [3.35.93] - 2026-08-02
+
+### Changed — STRK-326: Settings › Layout reworked for the tab shell
+
+- **Tabs**: a new group in Settings › Appearance › Layout shows or hides whole tabs. A hidden tab
+  is removed from both the header nav and the mobile bottom bar, so unticking Vendor Prices no
+  longer leaves a live Market link that opens an empty panel (STRK-326)
+- **Dashboard sections**: the old flat "Visible sections" list is now scoped to the Dashboard tab.
+  Its cross-tab reorder arrows moved entries between panels a user could never see side by side,
+  which made the control look broken; Inventory, Market, and Collections hold a single module each
+  and are managed by the Tabs group instead (STRK-326)
+- **Dashboard is always visible**: locked on, guaranteeing a fallback target — a bookmarked
+  `#/market` link to a tab you have since hidden now lands on Dashboard rather than a blank
+  shell, as does hiding the tab you are currently viewing (STRK-326)
+- **Show Realized G/L** is unchanged and stays in the Layout header (STRK-326)
+
+---
+
+## [3.35.92] - 2026-08-02
+
+### Changed — STRK-282: v2 tab shell
+
+- **Tabbed layout**: the page is now organised into Dashboard, Inventory, Market, and Collections
+  views, driven by a text nav in the header and a fixed bottom bar on mobile. Section contents and
+  behaviour are unchanged — the tabs only control which group is on screen (STRK-282)
+- **Deep links**: each view has its own route (`#/dashboard`, `#/inventory`, `#/market`,
+  `#/collections`), so a tab can be bookmarked or linked directly (STRK-282)
+- **Merged inventory surface**: the search/filter bar and the inventory table now render as one
+  continuous card instead of two separated panels (STRK-282)
+- **Fixed**: the inventory recovery banner is no longer hidden when it appears while another tab is
+  active — it warns that inventory could not be loaded, so it now sits above the tabs and stays
+  visible wherever you are (STRK-282)
+- **Collections**: placeholder view, built out under STRK-254 (STRK-282)
+
+---
+
+## [3.35.91] - 2026-08-01
+
+### Changed — STRK-322: MintBuilder becomes a first-class frontend vendor
+
+- **MintBuilder registered in the frontend vendor registries**: `RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_URLS`, and `RETAIL_VENDOR_COLORS` now carry mintbuilder ("MintBuilder", `https://mintbuilder.com`, indigo `#818cf8`), so the price detail modal's vendor legend, forward-fill, anomaly consensus, and intraday table columns all treat it exactly like the other ten vendors instead of relying on the STRK-317 short-label patch (STRK-322).
+- **Published manifest drops the placeholder**: the v2 API publisher's `VENDOR_META` gains the same entry, so `manifest.json` stops emitting `{name: "mintbuilder", color: "#94a3b8", url: null}` and ships real display metadata; `VENDOR_META` is now exported and pinned by a unit test (STRK-322).
+- **Registry parity is now test-enforced**: a Playwright test asserts the three frontend registries (`RETAIL_VENDOR_NAMES`/`URLS`/`COLORS`) describe the same vendor set with unique colors, and a unit test pins the shape of every `VENDOR_META` entry — so a vendor can no longer land in one of these registries but not the others. Paths outside these registries (e.g. a vendor never registered at all) are out of scope here (STRK-322).
+
+---
+
+## [3.35.90] - 2026-07-31
+
+### Changed — STRK-301: Collapsible add/edit form sections, restored and remembered
+
+- **The add/edit item form folds away what you aren't using**: Grading & Certification, Market Pricing & Details, Catalog Data, Notes, Attachments, and Tags are now collapsible sections, collapsed by default on a fresh form. The Images block gets the same treatment and starts open. This is the top request from mobile users — the form is dramatically shorter to scroll. The collapse mechanism is the browser's own disclosure element, so it works with keyboard, screen readers, and zero JavaScript (STRK-301).
+- **Your layout is remembered**: open or close any section and the form comes back that way next time, per device. When you edit an item, any section that actually holds data — tags, notes, a certification — opens automatically unless you've explicitly told it to stay closed (STRK-301).
+- **Nothing hides silently**: a collapsed section with content shows a count pill on its header — 3 tags, 1 note, 2 attachments — so data is always advertised even when folded away (STRK-301).
+- **Clearer names**: the section formerly titled "Pricing & Details" is now **Market Pricing & Details**, and its price field reads **Today's Market Price** instead of "Retail Price" (STRK-301).
+- **Catalog lookups open their section**: applying a Numista result auto-opens Catalog Data so the filled fields are visible immediately (STRK-301).
+
+---
+
+## [3.35.89] - 2026-07-31
+
+### Fixed — STRK-320: Spot-card freshness colour catches up when you return to the tab
+
+- **The ↻ icon's colour no longer freezes while the tab sits idle**: the freshness colour was only recomputed when something happened — boot, a sync, a button-state refresh — so a tab left open overnight with no sync kept showing green about prices the app knew were a day old. The icon now repaints the moment the tab becomes visible again, so the colour you see on returning always reflects the real age of the data (STRK-320).
+- **No background polling**: the repaint rides the browser's own tab-visibility signal instead of a timer, so a hidden tab does zero work and there is no refresh interval to tune or drain your battery (STRK-320).
+
+---
+
+## [3.35.88] - 2026-07-30
+
+### Added — STRK-291: Spot-card refresh icons show at a glance how current your prices are
+
+- **The ↻ button on each spot card is now colour-coded by how old your prices are**: green when the data is under an hour old, amber between an hour and a day, red beyond that. Previously the icon looked identical whether you had synced a minute ago or last month, so there was no way to tell stale prices from fresh ones without reading the timestamp under each card. The colour updates the moment a sync finishes (STRK-291).
+- **A valid cached price still reads as fresh**: if you use an API provider with a cache window, a price that is a few hours old but still inside that window shows green rather than amber. The app is not going to refetch it, so flagging it as stale would be misleading (STRK-291).
+- **"Never synced" reads amber, not red**: a brand-new install shows a neutral warning rather than opening on an alarm colour. Red is reserved for prices that are genuinely known to be over a day old (STRK-291).
+- **Two different questions, two different indicators**: this icon answers "how current is the data in my browser". The API health panel answers a separate question — "is the price feed still publishing" — and keeps its own, much tighter threshold. They are documented as deliberately distinct so a future change to one does not silently drag the other along (STRK-291).
+- **Legible in all four themes**: every colour was measured against its background rather than eyeballed. Two failed the accessibility bar for icons and were darkened — amber in Light and Sepia, and green in Sepia, which turned out to be too pale to read against the sepia card. A test now measures all twelve colour/theme combinations on every run, so a future palette change cannot quietly make an indicator unreadable (STRK-291).
+
+---
+
+## [3.35.87] - 2026-07-30
+
+### Fixed — STRK-314: Vendor-registry config overrides reach the scrape
+
+- **Caller-supplied scrape overrides are no longer discarded**: the retail poller resolved a target's scrape configuration by preferring the vendor module's own config over the caller's, using a `??` fallback. Because every vendor module exposes a config object — including the legacy adapter's empty `{}` — that fallback never triggered, so any per-call override (custom wait, proxy selection) was silently dropped for every vendor routed through the registry, not just migrated ones (STRK-314).
+- **One merge authority replaces four divergent ones**: each vendor module forwarded its config differently (overwrite, `||` fallback, spread-merge) and all four were dead code, since the resolution downstream ignored what they forwarded. Goldback and Summit were doubly affected — their fallback branch was unreachable, and their module config survived only because the downstream step bypassed it. Resolution now happens once, in the vendor dispatcher, layering provider defaults, then module-owned config, then caller-explicit overrides (STRK-314).
+- **No change to polled prices**: with no caller override — which is every path the production poll loop takes — the resolved config is unchanged for all vendors, migrated and legacy. This is a latent API-contract fix, pinned by a parity test (STRK-314).
+
+---
+
+## [3.35.86] - 2026-07-30
+
+### Fixed — STRK-317: Market ticker shows full item names and proper vendor labels
+
+- **Full item names in the ticker**: long names ("Australian Silver Kookaburra 1 oz Coin", fractional Maple Leafs, Goldbacks) were hard-truncated to 27 characters + "…" by a JavaScript cap in the ticker item builder. The cap is removed — pills already size to their content, and the scroll animation derives its duration from the measured track width, so perceived speed is unchanged (STRK-317).
+- **"mintbuilder" now displays as "MintBuilder"**: the vendor short-label map predates the MintBuilder vendor (STRK-311) and leaked the raw lowercase vendor id into the ticker, vendor matrix, and detail modal. MintBuilder is added to the map, and unmapped vendors now fall back to the manifest vendor-meta display name before the raw id, so future vendor additions degrade gracefully (STRK-317).
+
+---
+
+## [3.35.85] - 2026-07-30
+
+### Fixed — STRK-318 / STRK-319: every weight unit now displays correctly, and editing no longer changes it
+
+- **Goldbacks show their real denomination**: a ¼ Goldback was displayed as **0.3 gb** and a ½ Goldback as 0.5 gb, because the app was rounding the denomination as though it were a measurement. A denomination is a fixed value, not something to round — an ⅛ note was even being shown as "0.1 gb", a completely different note. They now read **¼ gb** and **½ gb** exactly (STRK-318).
+- **Hovering a Goldback or Silverback shows the metal it holds**: the tooltip used to say only "Goldback denomination". It now gives the actual gold or silver content in troy ounces — a ¼ Goldback holds **0.00025 ozt** — plus the total for the lot when you hold more than one. **AGW** (Actual Gold Weight) is the gold counterpart to the ASW term introduced last release (STRK-318).
+- **Editing an item no longer changes its unit — including a serious one for Silverbacks**: opening any item lighter than one troy ounce and saving it silently converted it to grams, discarding the unit you chose; a 1/10 oz gold coin came back as 3.1104 g. Worse, **Silverbacks had no handling at all**: opening one showed "1.00 oz", and saving turned a 1 Silverback — which holds 0.001 ozt of silver — into a full **one troy ounce** silver item, overstating its melt value roughly a thousandfold. Simply opening a row and clicking save was enough to do it. Every unit now survives an edit untouched (STRK-319).
+- **Nothing weighs zero any more**: a 25 milligram Aurum note displayed as "0.03 g" — a fifth heavier than it is — and in troy ounces it read **0.00 oz**, as if it weighed nothing at all. Small weights now show enough decimal places to be accurate. Ordinary weights are completely unchanged: 1.00 oz, 31.65 g and 1.0000 kg all display exactly as before (STRK-319).
+- **New milligram unit**: you can now enter a weight in **mg**, which suits Aurum notes and other foil products sold at 25 mg or 50 mg. Existing items are unaffected, and everything is still stored internally in troy ounces, so melt values, totals and sorting work exactly as they do for any other unit (STRK-319).
+- **Filter chips say what the row said**: clicking the Weight cell on a gram, kilogram or pound item produced a chip reading something like "1.0175711288970755" instead of "31.65 g". The chip now matches the cell (STRK-319).
+- **Sorting is unchanged, and now guarded**: Goldbacks and Silverbacks already sorted by the gold or silver they contain. A test now checks that ranking against the official denomination table, so a future note with different gold content can't quietly sort into the wrong place (STRK-318).
+
+---
+
+## [3.35.84] - 2026-07-30
+
+### Changed — STRK-299 / STRK-300: junk silver now leads with face value, and the silver figure is called ASW
+
+- **Your junk silver shows its face value where you look for it**: the Weight column for constitutional (junk) silver rows now reads **$6.00 fv** — the total face value of the lot — instead of the derived silver ounces. Face value is how junk silver is quoted, bought and talked about, and it was the one place the app did not lead with it; the card views and the item detail window already did. The silver content moves to the tooltip when you hover the cell, alongside the worn/fresh basis it depends on (STRK-300).
+- **The derived silver figure is now called ASW everywhere**: **ASW** stands for Actual Silver Weight, the standard term dealers use when quoting junk silver bags. The app already used it internally but never showed it, and the three places that displayed the number each called it something different. It is now labelled ASW on every visible surface, spelled out in full on first hover so it is not just an unexplained abbreviation (STRK-299).
+- **The item detail window says "Face value", not "Weight"**: for constitutional items that row used to label a dollar amount as a weight. It now says what it is, and the ASW keeps its own labelled row directly below (STRK-300).
+- **One consistent suffix**: everywhere a constitutional face value appears — the change log, bulk edit preview, backup printouts, the add-item confirmation and printed rows — it now reads **fv**, so the same figure is named the same way throughout (STRK-300).
+- **Sorting and filtering are unchanged**: sorting by Weight still ranks constitutional rows by their silver content, so they interleave correctly with your bullion, and clicking a Weight cell still filters the same way. One consequence worth knowing: because the ranking is by silver and not by dollars, $1.00 of war nickels (20 coins) sits above $1.20 of 90% dimes (12 coins) — the nickels genuinely hold more silver (STRK-300).
+- **Nothing about your numbers changed**: melt values, the weight total in the summary strip, and CSV exports are all identical. Face value is also never converted to another currency — it stays in US dollars even with the display currency set to euros, because it is a US legal-tender denomination and not a market price (STRK-300).
+
+---
+
+## [3.35.83] - 2026-07-30
+
+### Fixed — STRK-316: Goldbacks now sort and filter by the gold they actually contain
+
+- **Sorting by Weight put Goldbacks in the wrong place**: a 5 Goldback was ranked as though it weighed 5 troy ounces, so it landed between a 10 oz bar and a 2 oz round instead of near the bottom of the list. A 5 Goldback holds 0.005 ozt of gold. Goldbacks and Silverbacks are now ranked by the metal they actually contain, so they sit below your bullion where they belong. Nothing else about the order changed — ounce, gram, kilogram, pound and constitutional rows sort exactly as they did before (STRK-316).
+- **Clicking Weight on a Goldback pulled in unrelated items**: because the denomination was being read as a weight, a 2 Goldback note and a 2.00 oz round shared one filter, so clicking either showed both. Clicking a Goldback now selects Goldbacks of that denomination only, and clicking a 2.00 oz round no longer drags your Goldbacks in with it. Different denominations stay in separate filters, and two notes of the same denomination still group together (STRK-316).
+- **The filter chip still reads the way you think**: the filter matches on gold content behind the scenes, but the chip above the table still says "5 gb" rather than a string of decimal places (STRK-316).
+- **None of your numbers changed**: melt values, the weight total in the summary strip, and CSV exports are all identical to before. This only affects the order rows appear in and which rows a Weight click selects (STRK-316).
+
+---
+
 ## [3.35.82] - 2026-07-30
 
 ### Fixed — STRK-315: the sync popup finally stops appearing when nothing changed

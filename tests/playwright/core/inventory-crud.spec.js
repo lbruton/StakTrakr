@@ -47,7 +47,10 @@ const seedAndGoto = async (page) => {
       { once: true }
     );
   }, SEED_ITEM);
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+  // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+  // this control display:none.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#newItemBtn", { state: "visible" });
   await page.waitForFunction(
     () => typeof window.editItem === "function" && Array.isArray(window.inventory)
@@ -155,7 +158,7 @@ test.describe("seed-guard", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => Array.isArray(window.inventory));
     await page.waitForLoadState("networkidle");
   }
@@ -353,7 +356,7 @@ test.describe("capsule-field", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(
       () =>
         Array.isArray(window.inventory) &&
@@ -388,6 +391,9 @@ test.describe("capsule-field", () => {
     await page.fill("#itemName", "STRK-46 Saved Capsule");
     await page.fill("#itemWeight", "1");
     await page.fill("#itemPrice", "40");
+
+    // STRK-301: Catalog Data ships collapsed; expand before filling its fields.
+    await page.click('details[data-section="catalog"] > summary.form-section-header');
 
     await page.fill("#numistaDiameter", "38");
     await expect(page.locator("#capsuleSuggestion")).toHaveText(/Suggested: X-38-DF \(38mm\)/);
@@ -538,7 +544,10 @@ test.describe("payment-method", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    // Deep-link into the Inventory tab (STRK-282): #newItemBtn lives in that
+    // panel, and the v2 shell boots on Dashboard, so a bare /index.html leaves
+    // this control display:none.
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#newItemBtn", { state: "visible" });
     await page.waitForFunction(
       () =>
@@ -838,7 +847,7 @@ test.describe("payment-method", () => {
         reverseImageUrl: "https://example.com/rev.png",
         ignorePatternImages: true,
       }),
-      // 1 — sub-ounce oz item: weight < 1 routes to the grams branch
+      // 1 — sub-ounce item saved explicitly as `oz`; its unit must survive an edit (STRK-319)
       makeItem({
         serial: 2,
         uuid: "strk170-sub",
@@ -927,9 +936,16 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemDateNABtn")).not.toHaveClass(/\bactive\b/);
     await expect(page.locator("#itemDate")).toBeEnabled();
 
-    // ── 1: sub-ounce oz weight routes to the grams branch ──
+    // ── 1: an explicitly-stored unit survives the edit round trip (STRK-319) ──
+    // This asserted "g" until STRK-319. As a STRK-170 characterization test it locked the
+    // behaviour that existed, and the behaviour was a bug: `_editPopulateWeightFields` matched
+    // `item.weightUnit === "g" || item.weight < 1`, so EVERY sub-troy-ounce item was routed to
+    // the grams branch whatever unit it was saved with — and the following save wrote
+    // weightUnit "g" back, silently discarding the user's choice. This fixture is stored as
+    // `oz`, so `oz` is what the modal must show.
     await openEdit(1);
-    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("oz");
+    await expect(page.locator("#itemWeight")).toHaveValue("0.50");
 
     // ── 2: kg branch ──
     await openEdit(2);
@@ -1035,7 +1051,7 @@ test.describe("virtual-sort-options", () => {
   }
 
   async function gotoApp(page) {
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
     await page.waitForFunction(() => Array.isArray(window.inventory));
   }
@@ -1179,7 +1195,7 @@ test.describe.serial("crud-journey", () => {
     await sharedPage.addInitScript(() => {
       localStorage.setItem("cardViewStyle", "A");
     });
-    await sharedPage.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await sharedPage.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
     await sharedPage.waitForSelector("#newItemBtn", { state: "visible" });
     await sharedPage.waitForSelector("#cardViewGrid article", {
       state: "attached",
@@ -1799,7 +1815,7 @@ test.describe("filter-chip-and-logic — AND semantics", () => {
       );
     });
 
-    await page.goto("/index.html");
+    await page.goto("/index.html#/inventory");
     await page.waitForFunction(
       () =>
         typeof window.filterInventoryAdvanced === "function" &&
@@ -2399,7 +2415,7 @@ test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", ()
         { once: true }
       );
     });
-    await page.goto("/index.html");
+    await page.goto("/index.html#/inventory");
     await page.waitForFunction(
       () =>
         typeof window.filterInventory === "function" &&
@@ -2484,7 +2500,7 @@ async function seedInventoryTableAndGoto(page, { items, chipConfig, flags } = {}
     },
     { seededInventory: items, chips: chipConfig, featureFlagOverride: flags || null }
   );
-  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
   await page.waitForFunction(() => Array.isArray(window.inventory));
 }

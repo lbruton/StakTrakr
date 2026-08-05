@@ -6,9 +6,18 @@ export async function injectSeedInventory(page) {
     });
   }, seed);
 
-  // Suppress What's New popup: set ackVersion = APP_VERSION at runtime.
-  // This DOMContentLoaded listener is registered before versionCheck.js loads,
-  // so it fires before checkVersionChange() reads the key.
+  await suppressWhatsNewPopup(page);
+}
+
+/**
+ * Suppresses the What's New popup: sets ackVersion = APP_VERSION at runtime.
+ * The DOMContentLoaded listener is registered before versionCheck.js loads,
+ * so it fires before checkVersionChange() reads the key. Exported for specs
+ * that seed their own data but still need the popup out of the way.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+export async function suppressWhatsNewPopup(page) {
   await page.addInitScript(() => {
     document.addEventListener(
       "DOMContentLoaded",

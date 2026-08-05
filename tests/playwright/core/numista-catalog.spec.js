@@ -260,6 +260,10 @@ test.describe("core/numista-catalog", () => {
     await gotoApp(page);
     await openEditForm(page);
 
+    // STRK-301: Tags is a collapsed <details> when the item has none — open
+    // it the way a user would before typing into the tag input.
+    await page.locator('details.form-section[data-section="tags"] > summary').click();
+
     await page.fill("#newTagInput", "Bullion, Eagle; Proof,,");
     await page.click("#addTagBtn");
     const editTags = await page.evaluate((uuid) => window.getItemTags(uuid), ITEM_UUID);

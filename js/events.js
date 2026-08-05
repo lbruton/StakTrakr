@@ -1454,6 +1454,8 @@ const parseWeight = (weightRaw, weightUnit, isEditing, existingItem) => {
   let weight = parseFraction(weightRaw);
   if (weightUnit === "g") {
     weight = gramsToOzt(weight);
+  } else if (weightUnit === "mg") {
+    weight = mgToOzt(weight); // STRK-319
   } else if (weightUnit === "kg") {
     weight = kgToOzt(weight);
   } else if (weightUnit === "lb") {
@@ -4635,6 +4637,8 @@ const setupSearch = () => {
             elements.itemDateNABtn.setAttribute("aria-pressed", "false");
           }
           if (elements.itemDate) elements.itemDate.disabled = false;
+          // STRK-301: apply remembered/default section disclosure to the reset form
+          if (typeof prepareFormSections === "function") prepareFormSections();
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");

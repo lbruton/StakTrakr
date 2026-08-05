@@ -379,6 +379,49 @@ const _getTickerLoopPhase = (track) => {
 };
 
 /**
+ * Measure the primary block and apply (or clear) the loop animation variables.
+ *
+ * Split out of _finalizeTickerTrack (STRK-327) so the tab-reveal repair path can
+ * re-measure without also inheriting that function's stale-render sweep, which
+ * deletes any track whose signature no longer matches the container.
+ *
+ * A zero measurement is not always a failure — it is also what a legitimately
+ * empty block reports — so this stays a pure "size it from what you can see"
+ * helper. Deciding whether a zero is worth acting on belongs to the caller.
+ *
+ * @param {HTMLElement} track - The track to size.
+ * @param {HTMLElement} primaryBlock - The primary content block, for loop width.
+ * @param {number} phase - Prior loop phase (0..1) for animation continuity.
+ * @returns {number} Measured loop width in pixels, or 0 when unmeasurable.
+ */
+const _applyTickerLoopSizing = (track, primaryBlock, phase = 0) => {
+  const loopWidth = Math.ceil(primaryBlock.getBoundingClientRect().width);
+
+  if (!(loopWidth > 0)) {
+    track.classList.add("static");
+    track.dataset.loopWidth = "0";
+    track.style.removeProperty("--ticker-loop-distance");
+    track.style.removeProperty("--ticker-duration");
+    track.style.removeProperty("animation-delay");
+    return 0;
+  }
+
+  const durationSeconds = Math.max(
+    MIN_TICKER_DURATION_SECONDS,
+    loopWidth / TICKER_SPEED_PIXELS_PER_SECOND
+  );
+  // Dropping `static` is what actually makes the STRK-327 repair visible: the
+  // class carries `animation: none`, so restoring the custom properties alone
+  // would leave the track frozen with the STRK-317 scrollbar still showing.
+  track.classList.remove("static");
+  track.dataset.loopWidth = String(loopWidth);
+  track.style.setProperty("--ticker-loop-distance", `${loopWidth}px`);
+  track.style.setProperty("--ticker-duration", `${durationSeconds.toFixed(3)}s`);
+  track.style.animationDelay = phase > 0 ? `-${(phase * durationSeconds).toFixed(3)}s` : "0s";
+  return loopWidth;
+};
+
+/**
  * Size the ticker loop, apply animation timing, and sweep superseded tracks.
  *
  * Takes no `previousTrack`: the STAK-513 sweep below removes every
@@ -394,30 +437,13 @@ const _getTickerLoopPhase = (track) => {
  * @returns {void}
  */
 const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0) => {
-  const loopWidth = Math.ceil(primaryBlock.getBoundingClientRect().width);
-
   track.style.removeProperty("left");
   track.style.removeProperty("top");
   track.style.removeProperty("position");
   track.style.removeProperty("pointer-events");
   track.style.removeProperty("visibility");
 
-  if (!(loopWidth > 0)) {
-    track.classList.add("static");
-    track.dataset.loopWidth = "0";
-    track.style.removeProperty("--ticker-loop-distance");
-    track.style.removeProperty("--ticker-duration");
-    track.style.removeProperty("animation-delay");
-  } else {
-    const durationSeconds = Math.max(
-      MIN_TICKER_DURATION_SECONDS,
-      loopWidth / TICKER_SPEED_PIXELS_PER_SECOND
-    );
-    track.dataset.loopWidth = String(loopWidth);
-    track.style.setProperty("--ticker-loop-distance", `${loopWidth}px`);
-    track.style.setProperty("--ticker-duration", `${durationSeconds.toFixed(3)}s`);
-    track.style.animationDelay = phase > 0 ? `-${(phase * durationSeconds).toFixed(3)}s` : "0s";
-  }
+  _applyTickerLoopSizing(track, primaryBlock, phase);
 
   // STAK-513: Guard against stale rAF callbacks — only the latest track sweeps.
   if (!container.contains(track) || track.dataset.signature !== container.dataset.tickerSignature) {
@@ -428,6 +454,58 @@ const _finalizeTickerTrack = (container, track, primaryBlock, phase = 0) => {
   container.querySelectorAll(".ticker-track").forEach((t) => {
     if (t !== track) t.remove();
   });
+};
+
+/**
+ * Re-measure the ticker loop after its tab panel becomes visible (STRK-327).
+ *
+ * A track built while #tabViewDashboard is hidden measures 0 and falls into the
+ * static branch, so the ticker reveals frozen with a scrollbar. Nothing else
+ * re-measures, so it stays that way until the next rebuild that happens to run
+ * with Dashboard on screen. activateTab (js/tabs.js) calls this on reveal.
+ *
+ * Repair-only by construction: it returns on a zero measurement rather than
+ * delegating, so it can only ever move a track from static to animated, never
+ * the reverse. That matters because activateTab also fires when switching
+ * *away* from Dashboard, where a perfectly healthy track measures 0 — and
+ * because a switch can land between a track's append and its pending rAF
+ * finalize, when the track is neither static nor yet sized.
+ *
+ * The discriminator for "safe to animate" is the duplicate block, not the
+ * `static` class: that class is overloaded, marking both a genuinely short
+ * track (<4 items, where STRK-317's centering and scrollbar are correct) and a
+ * failed measurement. Only tracks built to loop carry a second block, and
+ * animating a single-block track would expose a gap at the wrap point.
+ *
+ * @returns {void}
+ */
+const refreshTickerGeometry = () => {
+  const container = safeGetElement("bestPriceTickerEl");
+  // instanceof rather than a truthiness check: safeGetElement returns a truthy
+  // dummy whose members silently no-op, so `if (!container)` would sail past it
+  // and then querySelector against a shim.
+  if (!(container instanceof HTMLElement)) return;
+
+  const track = container.querySelector(".ticker-track");
+  if (!track) return;
+
+  // Already sized and running — skip before touching geometry. The early exit
+  // is the point: getBoundingClientRect forces a synchronous layout, and
+  // activateTab runs on every single tab switch.
+  if (!track.classList.contains("static") && Number(track.dataset.loopWidth) > 0) return;
+
+  const primaryBlock = track.querySelector('[data-ticker-block="primary"]');
+  const duplicateBlock = track.querySelector('[data-ticker-block="duplicate"]');
+  if (!primaryBlock || !duplicateBlock) return;
+
+  // Still unmeasurable — the panel is hidden, so leave the track exactly as it
+  // is and wait for a later reveal. Delegating here would let the shared sizing
+  // helper apply `static`, which is the one thing this function must not do.
+  if (!(primaryBlock.getBoundingClientRect().width > 0)) return;
+
+  // Phase is 0 for the case being repaired (_getTickerLoopPhase returns 0 for a
+  // static track), so this restarts the loop from the top rather than jumping.
+  _applyTickerLoopSizing(track, primaryBlock, _getTickerLoopPhase(track));
 };
 
 /**
@@ -528,8 +606,9 @@ const _buildTickerItemEl = (item) => {
 
   const coinSpan = document.createElement("span");
   coinSpan.className = "coin";
-  const displayName = item.name.length > 30 ? item.name.substring(0, 27) + "…" : item.name;
-  coinSpan.textContent = displayName;
+  // Full name, no cap (STRK-317) — the pill sizes to content and
+  // _sizeTickerLoop derives animation duration from measured track width.
+  coinSpan.textContent = item.name;
   el.appendChild(coinSpan);
 
   const vendorSpan = document.createElement("span");
@@ -654,6 +733,14 @@ const renderBestPriceTicker = () => {
 // Vendor Prices
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve a vendor id to its short display label. Vendors missing from the
+ * hardcoded map fall back to the manifest vendor-meta display name, so a newly
+ * added vendor renders its feed name instead of a bare lowercase id (STRK-317:
+ * "mintbuilder"). The raw vid remains the last resort when no meta name exists.
+ * @param {string} vid - Vendor id from the retail feed (e.g. "apmex").
+ * @returns {string} Short display label (e.g. "APMEX", "MintBuilder").
+ */
 const _shortVendor = (vid) => {
   const map = {
     apmex: "APMEX",
@@ -666,8 +753,11 @@ const _shortVendor = (vid) => {
     gainesvillecoins: "Gville",
     providentmetals: "Provident",
     goldback: "Goldback",
+    mintbuilder: "MintBuilder",
   };
-  return map[vid] || vid;
+  if (map[vid]) return map[vid];
+  const meta = _getVendorMeta()[vid];
+  return (meta && meta.name) || vid;
 };
 
 let _activeModalChart = null;
@@ -2319,6 +2409,7 @@ if (typeof window !== "undefined") {
   window.initMarketData = initMarketData;
   window.refreshMarketData = refreshMarketData;
   window.renderBestPriceTicker = renderBestPriceTicker;
+  window.refreshTickerGeometry = refreshTickerGeometry;
   window.renderVendorPrices = renderVendorPrices;
   window.openMarketDetailModal = openMarketDetailModal;
   window.closeMarketDetailModal = closeMarketDetailModal;
