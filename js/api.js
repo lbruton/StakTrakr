@@ -48,8 +48,12 @@ const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
     const abortCurrentFetch = () => ctrl.abort();
     if (signal) signal.addEventListener("abort", abortCurrentFetch, { once: true });
     try {
+      // Timeout stays armed through the body read (STRK-331): with the spot
+      // sync awaiting every endpoint via Promise.allSettled, an endpoint that
+      // returns headers then stalls mid-body would otherwise hang the whole
+      // sync unbounded — clearing the timer only after resp.json() bounds
+      // headers AND body inside the same 5 s budget.
       const resp = await fetch(`${base}${path}`, { mode: "cors", signal: ctrl.signal });
-      clearTimeout(tid);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
       if (validate) {
@@ -58,11 +62,10 @@ const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
       }
       return json;
     } catch (err) {
-      clearTimeout(tid);
-      if (signal) signal.removeEventListener("abort", abortCurrentFetch);
       if (signal?.aborted) throw err;
       lastErr = err;
     } finally {
+      clearTimeout(tid);
       if (signal) signal.removeEventListener("abort", abortCurrentFetch);
     }
   }

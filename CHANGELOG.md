@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.98] - 2026-08-06
+
+### Fixed — STRK-331: Spot sync can no longer hang on a stalled endpoint
+
+- **Timeout covers the body read**: `_staktrakrFetch` cleared its 5-second timer as soon as
+  response headers arrived, leaving the JSON body read unbounded. Harmless when endpoints
+  were tried one at a time, but v3.35.97's parallel freshest-endpoint fetch waits for every
+  endpoint to settle — so one endpoint stalling mid-body would have hung the entire spot
+  sync. The timer now stays armed until the payload is fully parsed, bounding headers and
+  body inside the same 5-second budget (STRK-331)
+
+---
+
 ## [3.35.97] - 2026-08-06
 
 ### Fixed — STRK-331: Freshest endpoint wins — data paths and badge
