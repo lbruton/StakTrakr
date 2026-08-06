@@ -63,7 +63,7 @@ const _timeAgo = (timestamp) => {
  */
 const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
   // --- Market prices (v2/manifest.json) ---
-  let market = { ok: false, ageMin: null, ago: null, coins: [], error: null };
+  let market = { ok: false, ageMin: null, ago: null, coins: [], error: null, staleAfterMin: null };
   if (manifestResult.status === "fulfilled") {
     const envelope = manifestResult.value;
     const generatedAt = new Date(envelope.generated_at);
@@ -71,6 +71,7 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
       typeof envelope.stale_after === "number"
         ? Math.ceil(envelope.stale_after / 60)
         : API_HEALTH_MARKET_STALE_MIN;
+    market.staleAfterMin = staleAfterMin;
     if (!isNaN(generatedAt.getTime())) {
       market.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
       market.ago = _timeAgo(envelope.generated_at);
@@ -84,7 +85,7 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
   }
 
   // --- Spot prices (v2/spot/latest.json) ---
-  let spot = { ok: false, ageMin: null, ago: null, error: null };
+  let spot = { ok: false, ageMin: null, ago: null, error: null, staleAfterMin: null };
   if (spotResult.status === "fulfilled") {
     const envelope = spotResult.value;
     const generatedAt = new Date(envelope.generated_at);
@@ -92,6 +93,7 @@ const _parseV2EndpointHealth = (manifestResult, spotResult, goldbackResult) => {
       typeof envelope.stale_after === "number"
         ? Math.ceil(envelope.stale_after / 60)
         : API_HEALTH_SPOT_STALE_MIN;
+    spot.staleAfterMin = staleAfterMin;
     if (!isNaN(generatedAt.getTime())) {
       spot.ageMin = Math.max(0, Math.floor((Date.now() - generatedAt.getTime()) / 60000));
       spot.ago = _timeAgo(envelope.generated_at);
@@ -167,14 +169,40 @@ const fetchApiHealth = async () => {
 };
 
 /**
+ * Picks the freshest successfully-fetched entry for one feed across the two
+ * endpoints (STRK-331). The data paths serve the freshest acceptable payload
+ * (_fetchFreshestSpotEnvelope in api.js, _pickFreshestV2Endpoint in retail.js),
+ * so the badge reports the smallest age. Falls back to primary when neither
+ * endpoint produced a usable age, keeping error states attributed to api1.
+ * @param {object} primaryFeed - One feed's parsed health from the primary endpoint
+ * @param {object|null|undefined} backupFeed - Same feed from the backup endpoint
+ * @returns {object} The freshest feed health entry
+ */
+const _freshestFeed = (primaryFeed, backupFeed) => {
+  const usable = (f) => f && !f.error && f.ageMin !== null;
+  if (!usable(primaryFeed)) return usable(backupFeed) ? backupFeed : primaryFeed;
+  if (!usable(backupFeed)) return primaryFeed;
+  return backupFeed.ageMin < primaryFeed.ageMin ? backupFeed : primaryFeed;
+};
+
+/**
  * Updates both health badge elements with a compact per-feed summary.
- * Badge reflects the primary endpoint only (goldback is informational).
+ * Two independent signals (STRK-331):
+ *   - time + color describe the DATA ON SCREEN — age of whichever endpoint the
+ *     fetch path is actually serving (green fresh / orange stale);
+ *   - the leading icon describes the INFRASTRUCTURE — ✅ all endpoints healthy,
+ *     ⚠️ any endpoint stale or unreachable (details live in the health modal).
+ * Goldback is informational and excluded from both signals.
  * @param {{primary: object, backup: object|null}} health
  */
-const updateHealthBadges = ({ primary }) => {
-  const { market, spot } = primary;
-  const allOk = market.ok && spot.ok;
-  const icon = allOk ? "✅" : "⚠️";
+const updateHealthBadges = ({ primary, backup }) => {
+  const market = _freshestFeed(primary.market, backup?.market);
+  const spot = _freshestFeed(primary.spot, backup?.spot);
+  const dataOk = market.ok && spot.ok;
+
+  const primaryOk = primary.market.ok && primary.spot.ok;
+  const backupOk = !backup || (backup.market.ok && backup.spot.ok);
+  const icon = primaryOk && backupOk ? "✅" : "⚠️";
 
   const marketPart = market.error ? "Market ❌" : `Market ${market.ago ?? "?"}`;
   const spotPart = spot.error ? "Spot ❌" : `Spot ${spot.ago ?? "?"}`;
@@ -183,9 +211,9 @@ const updateHealthBadges = ({ primary }) => {
   // Footer badge uses shield-badge structure (label + value spans)
   const footerVal = safeGetElement("apiHealthValue");
   if (footerVal) {
-    footerVal.textContent = `${marketPart} · ${spotPart}`;
+    footerVal.textContent = label;
     footerVal.className =
-      "shield-badge-value " + (allOk ? "shield-badge-value--green" : "shield-badge-value--orange");
+      "shield-badge-value " + (dataOk ? "shield-badge-value--green" : "shield-badge-value--orange");
   }
   // About tab badge uses legacy single-element structure
   const aboutBadge = safeGetElement("apiHealthBadgeAbout");
@@ -428,6 +456,8 @@ if (typeof window !== "undefined") {
   window.showApiHealthModal = showApiHealthModal;
   window.hideApiHealthModal = hideApiHealthModal;
   window.initApiHealth = initApiHealth;
+  // STRK-331 selection helper — exposed for the no-bundler test runtime
+  window._freshestFeed = _freshestFeed;
 }
 
 // initApiHealth() is called by init.js after safeGetElement and all DOM setup

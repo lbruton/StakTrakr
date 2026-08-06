@@ -659,22 +659,43 @@ const _processSlugResult = (slug, latest, hist30) => {
 
 async function _pickFreshestV2Endpoint() {
   const endpoints = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS : [];
-  for (const base of endpoints) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    try {
-      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() =>
-        clearTimeout(timeoutId)
-      );
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const envelope = await resp.json();
-      const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
-      return { base, manifest, generatedAt: envelope.generated_at || "" };
-    } catch {
-      // try next endpoint
+  // STRK-331: the name is finally literal — fetch every endpoint's manifest in
+  // parallel and sync from the one with the newest generated_at. Both
+  // endpoints publish the same feed on different cadences, so freshest is
+  // strictly better; endpoint ORDER no longer decides, which is what let a
+  // 23-minute-old primary win over an 8-minute-old backup. A candidate
+  // without a parseable generated_at only wins when no timestamped candidate
+  // exists, and an unreachable endpoint simply drops out. The footer health
+  // badge reports the same freshest-per-feed choice.
+  const settled = await Promise.allSettled(
+    endpoints.map(async (base) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        // Timeout stays armed through the body read so a stalled transmission
+        // aborts too, not just slow headers.
+        const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const envelope = await resp.json();
+        const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
+        return { base, manifest, generatedAt: envelope?.generated_at || "" };
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    })
+  );
+  const reachable = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+  if (!reachable.length) return null;
+  let best = reachable[0];
+  let bestTs = Date.parse(best.generatedAt);
+  for (const candidate of reachable.slice(1)) {
+    const ts = Date.parse(candidate.generatedAt);
+    if (!isNaN(ts) && (isNaN(bestTs) || ts > bestTs)) {
+      best = candidate;
+      bestTs = ts;
     }
   }
-  return null;
+  return best;
 }
 
 async function _fetchV2Json(base, path) {

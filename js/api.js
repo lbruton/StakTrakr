@@ -48,8 +48,12 @@ const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
     const abortCurrentFetch = () => ctrl.abort();
     if (signal) signal.addEventListener("abort", abortCurrentFetch, { once: true });
     try {
+      // Timeout stays armed through the body read (STRK-331): with the spot
+      // sync awaiting every endpoint via Promise.allSettled, an endpoint that
+      // returns headers then stalls mid-body would otherwise hang the whole
+      // sync unbounded — clearing the timer only after resp.json() bounds
+      // headers AND body inside the same 5 s budget.
       const resp = await fetch(`${base}${path}`, { mode: "cors", signal: ctrl.signal });
-      clearTimeout(tid);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
       if (validate) {
@@ -58,11 +62,10 @@ const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
       }
       return json;
     } catch (err) {
-      clearTimeout(tid);
-      if (signal) signal.removeEventListener("abort", abortCurrentFetch);
       if (signal?.aborted) throw err;
       lastErr = err;
     } finally {
+      clearTimeout(tid);
       if (signal) signal.removeEventListener("abort", abortCurrentFetch);
     }
   }
@@ -133,11 +136,48 @@ const _checkEnvelopeFreshness = (envelope, { multiplier, floorMs, maxAgeCapMs })
 const _checkSpotEnvelopeFreshness = (envelope) =>
   _checkEnvelopeFreshness(envelope, { multiplier: 6, floorMs: SPOT_MAX_PAYLOAD_AGE_MS });
 
+/**
+ * Fetch /spot/latest.json from EVERY configured endpoint in parallel and
+ * return the freshest acceptable envelope (STRK-331). Endpoint ORDER no longer
+ * decides — both endpoints publish the same feed on different cadences, so the
+ * one with the newest generated_at is strictly better and the app should never
+ * display a 23-minute-old primary while an 8-minute-old backup sits unread.
+ * Each candidate must still pass the lenient STRK-189 gate, which keeps the
+ * existing guarantees: days-old SW/CDN copies are rejected, and when every
+ * endpoint is stale the sync fails rather than resurrecting one of them.
+ * A candidate without a parseable generated_at (legacy envelope) is kept only
+ * when no timestamped candidate exists.
+ * @param {AbortSignal} [signal] - Abort signal forwarded to every endpoint fetch
+ * @returns {Promise<any>} The freshest parsed envelope
+ */
+const _fetchFreshestSpotEnvelope = async (signal) => {
+  const settled = await Promise.allSettled(
+    V2_API_ENDPOINTS.map((base) =>
+      _staktrakrFetch([base], "/spot/latest.json", {
+        signal,
+        validate: _checkSpotEnvelopeFreshness,
+      })
+    )
+  );
+  const passers = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+  if (!passers.length) {
+    const firstRejection = settled.find((s) => s.status === "rejected");
+    throw firstRejection?.reason || new Error("All StakTrakr endpoints failed");
+  }
+  let best = passers[0];
+  let bestTs = Date.parse(best?.generated_at);
+  for (const candidate of passers.slice(1)) {
+    const ts = Date.parse(candidate?.generated_at);
+    if (!isNaN(ts) && (isNaN(bestTs) || ts > bestTs)) {
+      best = candidate;
+      bestTs = ts;
+    }
+  }
+  return best;
+};
+
 const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
-  const data = await _staktrakrFetch(V2_API_ENDPOINTS, "/spot/latest.json", {
-    signal,
-    validate: _checkSpotEnvelopeFreshness,
-  });
+  const data = await _fetchFreshestSpotEnvelope(signal);
   const generatedAtMs = Date.parse(data?.generated_at);
   const generatedAt = isNaN(generatedAtMs) ? null : generatedAtMs;
   const spotData = data.data || data;

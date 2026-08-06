@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.98] - 2026-08-06
+
+### Fixed — STRK-331: Spot sync can no longer hang on a stalled endpoint
+
+- **Timeout covers the body read**: `_staktrakrFetch` cleared its 5-second timer as soon as
+  response headers arrived, leaving the JSON body read unbounded. Harmless when endpoints
+  were tried one at a time, but v3.35.97's parallel freshest-endpoint fetch waits for every
+  endpoint to settle — so one endpoint stalling mid-body would have hung the entire spot
+  sync. The timer now stays armed until the payload is fully parsed, bounding headers and
+  body inside the same 5-second budget (STRK-331)
+
+---
+
+## [3.35.97] - 2026-08-06
+
+### Fixed — STRK-331: Freshest endpoint wins — data paths and badge
+
+- **Freshest data always serves**: the spot sync and the retail market sync now fetch every
+  API endpoint in parallel and use the one with the newest publication timestamp, instead of
+  the first acceptable responder. Verified live after v3.35.96: api1 at 23 minutes old was
+  still being served — and honestly reported orange — while api2 sat 8 minutes fresh and
+  unread (STRK-331)
+- **Badge reports the freshest feed**: the footer badge now shows the smallest age per feed,
+  matching what the data paths serve. In the observed state it reads a green
+  "⚠️ Market 8m ago · Spot 8m ago" — fresh data, warning icon flagging the lagging
+  endpoint, full breakdown in the health modal (STRK-331)
+- **Safety rails unchanged**: every candidate still passes the STRK-189 freshness gate, so
+  days-old service-worker or CDN copies are rejected, an all-stale fleet still fails the
+  sync rather than resurrecting old data, and the monotonic overwrite guard is untouched
+  (STRK-331)
+
+---
+
+## [3.35.96] - 2026-08-06
+
+### Fixed — STRK-331: Footer API health badge reports the serving endpoint
+
+- **Badge follows the failover**: the footer health badge now reports the age of whichever
+  API endpoint is actually serving data, instead of always describing the primary. During
+  the 2026-08-06 GitHub Pages incident it showed "2h ago" in orange while the backup was
+  serving fresh prices — the app looked broken while working exactly as designed (STRK-331)
+- **Two independent signals**: time and color describe the data on screen (green fresh,
+  orange stale); a new leading status icon describes the infrastructure — ✅ when both
+  endpoints are healthy, ⚠️ when either is stale or unreachable. Clicking the badge still
+  opens the health modal with the full per-endpoint breakdown (STRK-331)
+- **No more false alarms**: the badge previously judged the primary by its envelope's raw
+  20-minute budget while the data path tolerated up to 2 hours before failing over, so it
+  cried wolf across that whole window. Badge selection now mirrors the data path's own
+  failover rules per feed (STRK-331)
+
+---
+
 ## [3.35.95] - 2026-08-02
 
 ### Changed — STRK-328: Inventory is now always visible
