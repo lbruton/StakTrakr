@@ -671,13 +671,17 @@ async function _pickFreshestV2Endpoint() {
     endpoints.map(async (base) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() =>
-        clearTimeout(timeoutId)
-      );
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const envelope = await resp.json();
-      const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
-      return { base, manifest, generatedAt: envelope.generated_at || "" };
+      try {
+        // Timeout stays armed through the body read so a stalled transmission
+        // aborts too, not just slow headers.
+        const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const envelope = await resp.json();
+        const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
+        return { base, manifest, generatedAt: envelope?.generated_at || "" };
+      } finally {
+        clearTimeout(timeoutId);
+      }
     })
   );
   const reachable = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
