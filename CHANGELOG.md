@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.96] - 2026-08-06
+
+### Fixed — STRK-331: Footer API health badge reports the serving endpoint
+
+- **Badge follows the failover**: the footer health badge now reports the age of whichever
+  API endpoint is actually serving data, instead of always describing the primary. During
+  the 2026-08-06 GitHub Pages incident it showed "2h ago" in orange while the backup was
+  serving fresh prices — the app looked broken while working exactly as designed (STRK-331)
+- **Two independent signals**: time and color describe the data on screen (green fresh,
+  orange stale); a new leading status icon describes the infrastructure — ✅ when both
+  endpoints are healthy, ⚠️ when either is stale or unreachable. Clicking the badge still
+  opens the health modal with the full per-endpoint breakdown (STRK-331)
+- **No more false alarms**: the badge previously judged the primary by its envelope's raw
+  20-minute budget while the data path tolerated up to 2 hours before failing over, so it
+  cried wolf across that whole window. Badge selection now mirrors the data path's own
+  failover rules per feed (STRK-331)
+
+---
+
 ## [3.35.95] - 2026-08-02
 
 ### Changed — STRK-328: Inventory is now always visible
