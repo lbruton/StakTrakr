@@ -7,10 +7,10 @@
 //     the fetch path is actually serving (green fresh / orange stale);
 //   - the leading icon describes the INFRASTRUCTURE — ✅ all endpoints healthy,
 //     ⚠️ any endpoint stale or unreachable.
-// Endpoint selection mirrors the data path (js/api.js _staktrakrFetch): spot
-// uses the lenient gate max(stale_after × 6, 2h); market mirrors the strict
-// retail regime (reject past the envelope's own stale_after). The badge must
-// never claim the data is fresher than what the renderer selected.
+// Selection is freshest-per-feed (STRK-331 follow-up): the data paths serve
+// the freshest acceptable payload (_fetchFreshestSpotEnvelope in js/api.js,
+// _pickFreshestV2Endpoint in js/retail.js), and the badge reports the same
+// smallest age, so it never claims freshness the renderer doesn't have.
 //
 // Route precedence: per-test page.route registrations are LIFO — they win over
 // the extended-test fixture's defaults (api1 all-fresh, api2 always 503). The
@@ -110,6 +110,23 @@ test.describe("STRK-331 — footer health badge two-signal model", () => {
     await expect(badge).toHaveClass(/shield-badge-value--green/);
     // Infra signal flags the degradation the modal explains
     await expect(badge).toContainText("⚠️");
+  });
+
+  test("api1 in the 20m–2h window, api2 fresh: both feeds report api2, green, ⚠️ icon", async ({
+    page,
+  }) => {
+    // The live regression seen after v3.35.96 shipped: api1 25m old passes the
+    // LENIENT spot gate, so serve-the-first-acceptable selection kept serving
+    // it and the badge honestly read orange "25m ago" — the cry-wolf window.
+    // v3.35.97 switches selection to freshest-per-feed (data paths AND badge):
+    // api2's 10m envelope wins for both feeds, so the badge reads green fresh
+    // ages while the icon still flags that api1 is lagging its spot budget.
+    await routeHealthEndpoints(page, API1, minutesAgoIso(25));
+    await routeHealthEndpoints(page, API2, minutesAgoIso(10));
+
+    const badge = await gotoAppAndReadBadge(page);
+    await expect(badge).toHaveText(/^⚠️ Market 1[012]m ago · Spot 1[012]m ago$/);
+    await expect(badge).toHaveClass(/shield-badge-value--green/);
   });
 
   test("both endpoints stale: orange, ⚠️ icon, honest stale age", async ({ page }) => {

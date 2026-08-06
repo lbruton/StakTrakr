@@ -169,51 +169,20 @@ const fetchApiHealth = async () => {
 };
 
 /**
- * Lenient spot accept-window in minutes, mirroring the data path's selection
- * gate (_checkSpotEnvelopeFreshness in api.js): max(stale_after × 6,
- * SPOT_MAX_PAYLOAD_AGE_MS). The badge must use the same window the fetch path
- * uses to pick an endpoint — not the strict display threshold — so it never
- * reports an endpoint the renderer would have skipped (STRK-331).
- * @param {{staleAfterMin: number|null}} spot - Parsed spot health for one endpoint
- * @returns {number} Accept window in minutes
+ * Picks the freshest successfully-fetched entry for one feed across the two
+ * endpoints (STRK-331). The data paths serve the freshest acceptable payload
+ * (_fetchFreshestSpotEnvelope in api.js, _pickFreshestV2Endpoint in retail.js),
+ * so the badge reports the smallest age. Falls back to primary when neither
+ * endpoint produced a usable age, keeping error states attributed to api1.
+ * @param {object} primaryFeed - One feed's parsed health from the primary endpoint
+ * @param {object|null|undefined} backupFeed - Same feed from the backup endpoint
+ * @returns {object} The freshest feed health entry
  */
-const _spotLenientGateMin = (spot) => {
-  const floorMin =
-    typeof SPOT_MAX_PAYLOAD_AGE_MS === "number" ? Math.ceil(SPOT_MAX_PAYLOAD_AGE_MS / 60000) : 120;
-  return Math.max((spot.staleAfterMin ?? API_HEALTH_SPOT_STALE_MIN) * 6, floorMin);
-};
-
-/**
- * Selects the spot health entry for the endpoint the data path is serving.
- * Mirrors _staktrakrFetch + the lenient spot gate: first endpoint whose payload
- * fetched successfully AND passes max(stale_after × 6, 2h). Falls back to
- * primary when neither qualifies so error states stay attributed to api1.
- * @param {object} primary - Parsed primary-endpoint health
- * @param {object|null} backup - Parsed backup-endpoint health
- * @returns {object} The serving endpoint's spot feed health
- */
-const _servingSpot = (primary, backup) => {
-  const passes = (s) => s && !s.error && s.ageMin !== null && s.ageMin <= _spotLenientGateMin(s);
-  if (passes(primary.spot) || !backup || !passes(backup.spot)) return primary.spot;
-  return backup.spot;
-};
-
-/**
- * Selects the market health entry for the endpoint the data path is serving.
- * Mirrors the strict regime the retail price fetches use for endpoint selection
- * (_strictMarketFreshness in market-data.js: reject when older than the
- * envelope's own stale_after) — those per-slug fetches are what deliver the
- * market prices on screen, so the badge follows their failover rule.
- * Falls back to primary when neither endpoint qualifies so genuinely-stale
- * states stay attributed to api1 and render its age honestly.
- * @param {object} primary - Parsed primary-endpoint health
- * @param {object|null} backup - Parsed backup-endpoint health
- * @returns {object} The serving endpoint's market feed health
- */
-const _servingMarket = (primary, backup) => {
-  const passes = (m) => m && !m.error && m.ok;
-  if (passes(primary.market) || !backup || !passes(backup.market)) return primary.market;
-  return backup.market;
+const _freshestFeed = (primaryFeed, backupFeed) => {
+  const usable = (f) => f && !f.error && f.ageMin !== null;
+  if (!usable(primaryFeed)) return usable(backupFeed) ? backupFeed : primaryFeed;
+  if (!usable(backupFeed)) return primaryFeed;
+  return backupFeed.ageMin < primaryFeed.ageMin ? backupFeed : primaryFeed;
 };
 
 /**
@@ -227,8 +196,8 @@ const _servingMarket = (primary, backup) => {
  * @param {{primary: object, backup: object|null}} health
  */
 const updateHealthBadges = ({ primary, backup }) => {
-  const market = _servingMarket(primary, backup);
-  const spot = _servingSpot(primary, backup);
+  const market = _freshestFeed(primary.market, backup?.market);
+  const spot = _freshestFeed(primary.spot, backup?.spot);
   const dataOk = market.ok && spot.ok;
 
   const primaryOk = primary.market.ok && primary.spot.ok;
@@ -487,10 +456,8 @@ if (typeof window !== "undefined") {
   window.showApiHealthModal = showApiHealthModal;
   window.hideApiHealthModal = hideApiHealthModal;
   window.initApiHealth = initApiHealth;
-  // STRK-331 selection helpers — exposed for the no-bundler test runtime
-  window._spotLenientGateMin = _spotLenientGateMin;
-  window._servingSpot = _servingSpot;
-  window._servingMarket = _servingMarket;
+  // STRK-331 selection helper — exposed for the no-bundler test runtime
+  window._freshestFeed = _freshestFeed;
 }
 
 // initApiHealth() is called by init.js after safeGetElement and all DOM setup

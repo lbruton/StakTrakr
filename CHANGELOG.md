@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.97] - 2026-08-06
+
+### Fixed — STRK-331: Freshest endpoint wins — data paths and badge
+
+- **Freshest data always serves**: the spot sync and the retail market sync now fetch every
+  API endpoint in parallel and use the one with the newest publication timestamp, instead of
+  the first acceptable responder. Verified live after v3.35.96: api1 at 23 minutes old was
+  still being served — and honestly reported orange — while api2 sat 8 minutes fresh and
+  unread (STRK-331)
+- **Badge reports the freshest feed**: the footer badge now shows the smallest age per feed,
+  matching what the data paths serve. In the observed state it reads a green
+  "⚠️ Market 8m ago · Spot 8m ago" — fresh data, warning icon flagging the lagging
+  endpoint, full breakdown in the health modal (STRK-331)
+- **Safety rails unchanged**: every candidate still passes the STRK-189 freshness gate, so
+  days-old service-worker or CDN copies are rejected, an all-stale fleet still fails the
+  sync rather than resurrecting old data, and the monotonic overwrite guard is untouched
+  (STRK-331)
+
+---
+
 ## [3.35.96] - 2026-08-06
 
 ### Fixed — STRK-331: Footer API health badge reports the serving endpoint

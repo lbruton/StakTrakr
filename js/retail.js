@@ -659,40 +659,39 @@ const _processSlugResult = (slug, latest, hist30) => {
 
 async function _pickFreshestV2Endpoint() {
   const endpoints = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS : [];
-  // STRK-331: a stale-but-200 manifest no longer wins over a fresh backup.
-  // Each candidate is gated with the strict regime (_strictMarketFreshness,
-  // market-data.js — the envelope's own stale_after); a stale endpoint is
-  // skipped in favour of the next one. If EVERY endpoint is stale, fall back
-  // to the first reachable one — rejecting the last copy would convert "old
-  // data" into "no data", which is strictly worse (see STRK-330 analysis).
-  // The footer health badge's _servingMarket mirrors this same rule.
-  let firstReachable = null;
-  for (const base of endpoints) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    try {
+  // STRK-331: the name is finally literal — fetch every endpoint's manifest in
+  // parallel and sync from the one with the newest generated_at. Both
+  // endpoints publish the same feed on different cadences, so freshest is
+  // strictly better; endpoint ORDER no longer decides, which is what let a
+  // 23-minute-old primary win over an 8-minute-old backup. A candidate
+  // without a parseable generated_at only wins when no timestamped candidate
+  // exists, and an unreachable endpoint simply drops out. The footer health
+  // badge reports the same freshest-per-feed choice.
+  const settled = await Promise.allSettled(
+    endpoints.map(async (base) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const resp = await fetch(`${base}/manifest.json`, { signal: controller.signal }).finally(() =>
         clearTimeout(timeoutId)
       );
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const envelope = await resp.json();
       const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
-      const candidate = { base, manifest, generatedAt: envelope.generated_at || "" };
-      if (!firstReachable) firstReachable = candidate;
-      const verdict =
-        typeof _strictMarketFreshness === "function"
-          ? _strictMarketFreshness(envelope)
-          : { ok: true };
-      if (verdict.ok) return candidate;
-      debugLog(
-        `[retail-v2] ${base} manifest stale (${candidate.generatedAt}) — trying next`,
-        "warn"
-      );
-    } catch {
-      // try next endpoint
+      return { base, manifest, generatedAt: envelope.generated_at || "" };
+    })
+  );
+  const reachable = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+  if (!reachable.length) return null;
+  let best = reachable[0];
+  let bestTs = Date.parse(best.generatedAt);
+  for (const candidate of reachable.slice(1)) {
+    const ts = Date.parse(candidate.generatedAt);
+    if (!isNaN(ts) && (isNaN(bestTs) || ts > bestTs)) {
+      best = candidate;
+      bestTs = ts;
     }
   }
-  return firstReachable;
+  return best;
 }
 
 async function _fetchV2Json(base, path) {
