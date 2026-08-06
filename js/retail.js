@@ -659,6 +659,14 @@ const _processSlugResult = (slug, latest, hist30) => {
 
 async function _pickFreshestV2Endpoint() {
   const endpoints = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS : [];
+  // STRK-331: a stale-but-200 manifest no longer wins over a fresh backup.
+  // Each candidate is gated with the strict regime (_strictMarketFreshness,
+  // market-data.js — the envelope's own stale_after); a stale endpoint is
+  // skipped in favour of the next one. If EVERY endpoint is stale, fall back
+  // to the first reachable one — rejecting the last copy would convert "old
+  // data" into "no data", which is strictly worse (see STRK-330 analysis).
+  // The footer health badge's _servingMarket mirrors this same rule.
+  let firstReachable = null;
   for (const base of endpoints) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -669,12 +677,22 @@ async function _pickFreshestV2Endpoint() {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const envelope = await resp.json();
       const manifest = envelope && envelope.v === 2 && envelope.data ? envelope.data : envelope;
-      return { base, manifest, generatedAt: envelope.generated_at || "" };
+      const candidate = { base, manifest, generatedAt: envelope.generated_at || "" };
+      if (!firstReachable) firstReachable = candidate;
+      const verdict =
+        typeof _strictMarketFreshness === "function"
+          ? _strictMarketFreshness(envelope)
+          : { ok: true };
+      if (verdict.ok) return candidate;
+      debugLog(
+        `[retail-v2] ${base} manifest stale (${candidate.generatedAt}) — trying next`,
+        "warn"
+      );
     } catch {
       // try next endpoint
     }
   }
-  return null;
+  return firstReachable;
 }
 
 async function _fetchV2Json(base, path) {

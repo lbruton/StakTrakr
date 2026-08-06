@@ -487,6 +487,10 @@ if (typeof window !== "undefined") {
   window.showApiHealthModal = showApiHealthModal;
   window.hideApiHealthModal = hideApiHealthModal;
   window.initApiHealth = initApiHealth;
+  // STRK-331 selection helpers — exposed for the no-bundler test runtime
+  window._spotLenientGateMin = _spotLenientGateMin;
+  window._servingSpot = _servingSpot;
+  window._servingMarket = _servingMarket;
 }
 
 // initApiHealth() is called by init.js after safeGetElement and all DOM setup
