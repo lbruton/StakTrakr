@@ -81,6 +81,40 @@ test.describe("STRK-189 — spot payload freshness gate", () => {
     expect(history.some((row) => row.spot === 11.11)).toBe(false);
   });
 
+  test("STRK-331 strict-first: api1 in the 20m–2h window loses to a fresh api2", async ({
+    page,
+  }) => {
+    // The gap v3.35.96 left open: 25m passes the LENIENT gate (max(20m × 6, 2h)),
+    // so first-acceptable selection served api1's stale payload for up to 2h
+    // while api2 sat fresh — the badge's cry-wolf window was really a
+    // data-path bug. _fetchFreshestSpotEnvelope now fetches every endpoint and
+    // takes the newest generated_at among lenient-gate passers, so api2 wins
+    // here while the all-stale test below still pins "everything stale → fail".
+    const windowIso = minutesAgoIso(25);
+    const freshIso = minutesAgoIso(5);
+    await routeSpotLatest(
+      page,
+      SPOT_LATEST_API1,
+      makeSpotLatest({ xag: { price: 22.22 } }, windowIso)
+    );
+    await routeSpotLatest(
+      page,
+      SPOT_LATEST_API2,
+      makeSpotLatest({ xag: { price: 44.44 } }, freshIso)
+    );
+
+    await gotoApp(page);
+    const result = await forceSync(page);
+    expect(result.results.STAKTRAKR).toBe("success");
+
+    // api2's fresher price is what lands — api1's window-stale price never does
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("44.44");
+    expect(await page.evaluate(() => localStorage.getItem("spotSilver"))).toBe("44.44");
+    const history = await readSpotHistory(page);
+    expect(history.some((row) => row.spot === 44.44 && row.metal === "Silver")).toBe(true);
+    expect(history.some((row) => row.spot === 22.22)).toBe(false);
+  });
+
   test("all-stale endpoints: sync fails, nothing displayed, written, or recorded", async ({
     page,
   }) => {
