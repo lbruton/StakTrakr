@@ -24,7 +24,18 @@ import { makeManifest, makeSpotLatest, makeGoldbackLatest } from "../helpers/moc
 const API1 = "https://api.staktrakr.com/data/v2";
 const API2 = "https://api2.staktrakr.com/data/v2";
 
+/**
+ * Returns an ISO 8601 timestamp the given number of hours in the past.
+ * @param {number} hours - Hours to subtract from the current time
+ * @returns {string} ISO 8601 timestamp
+ */
 const hoursAgoIso = (hours) => new Date(Date.now() - hours * 3600 * 1000).toISOString();
+
+/**
+ * Returns an ISO 8601 timestamp the given number of minutes in the past.
+ * @param {number} minutes - Minutes to subtract from the current time
+ * @returns {string} ISO 8601 timestamp
+ */
 const minutesAgoIso = (minutes) => new Date(Date.now() - minutes * 60 * 1000).toISOString();
 
 /**
@@ -37,6 +48,11 @@ const minutesAgoIso = (minutes) => new Date(Date.now() - minutes * 60 * 1000).to
  * @returns {Promise<void>}
  */
 async function routeHealthEndpoints(page, base, generatedAt) {
+  /**
+   * Builds a Playwright route handler that fulfills with a JSON payload.
+   * @param {object} payload - Response body to serialize
+   * @returns {(route: import('@playwright/test').Route) => Promise<void>} Route handler
+   */
   const fulfillJson = (payload) => (route) =>
     route.fulfill({
       status: 200,
