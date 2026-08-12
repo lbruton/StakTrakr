@@ -755,6 +755,25 @@ test.describe("STRK-320 — freshness repaint when the tab becomes visible", () 
 // it, at no extra network cost, and only from candidates that already cleared
 // the same lenient STRK-189 gate.
 test.describe("STRK-333 — spot metal coverage across endpoints", () => {
+  // Every case in this block is "serve these two envelopes, sync once, inspect
+  // what landed", so the scaffolding is shared rather than repeated four times.
+  const FRESH_MINUTES = 5;
+  const OLDER_MINUTES = 25;
+
+  /**
+   * Serve one envelope per endpoint, boot the app, and run a single forced sync.
+   * @param {import('@playwright/test').Page} page - The page under test
+   * @param {any} api1Payload - Envelope served by the api1 origin
+   * @param {any} api2Payload - Envelope served by the api2 origin
+   * @returns {Promise<any>} The syncSpotProvider result
+   */
+  const syncEndpoints = async (page, api1Payload, api2Payload) => {
+    await routeSpotLatest(page, SPOT_LATEST_API1, api1Payload);
+    await routeSpotLatest(page, SPOT_LATEST_API2, api2Payload);
+    await gotoApp(page);
+    return forceSync(page);
+  };
+
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -762,22 +781,18 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
   test("a metal missing from the freshest envelope is backfilled from the older passer", async ({
     page,
   }) => {
-    const freshIso = minutesAgoIso(5);
-    const olderIso = minutesAgoIso(25);
+    const freshIso = minutesAgoIso(FRESH_MINUTES);
+    const olderIso = minutesAgoIso(OLDER_MINUTES);
 
-    // Freshest endpoint published without a silver row.
+    // Freshest endpoint published without a silver row; the older one is still
+    // well inside the lenient gate and carries silver.
     const partial = makeSpotLatest({}, freshIso);
     delete partial.data.xag;
-    await routeSpotLatest(page, SPOT_LATEST_API1, partial);
-    // Older endpoint is still well inside the lenient gate and carries silver.
-    await routeSpotLatest(
+    const result = await syncEndpoints(
       page,
-      SPOT_LATEST_API2,
+      partial,
       makeSpotLatest({ xag: { price: 44.44 } }, olderIso)
     );
-
-    await gotoApp(page);
-    const result = await forceSync(page);
     // Before STRK-333 the winner's missing silver was simply absent from the
     // result map; here it must arrive from the runner-up.
     expect(result.results.STAKTRAKR).toBe("success");
@@ -797,21 +812,11 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
   test("the freshest envelope still wins for a metal both endpoints carry", async ({ page }) => {
     // Guards the backfill against becoming a downgrade: the fill must only ever
     // reach metals the winner OMITS, never overwrite one it already supplied.
-    const freshIso = minutesAgoIso(5);
-    const olderIso = minutesAgoIso(25);
-    await routeSpotLatest(
+    const result = await syncEndpoints(
       page,
-      SPOT_LATEST_API1,
-      makeSpotLatest({ xag: { price: 55.55 } }, freshIso)
+      makeSpotLatest({ xag: { price: 55.55 } }, minutesAgoIso(FRESH_MINUTES)),
+      makeSpotLatest({ xag: { price: 11.11 } }, minutesAgoIso(OLDER_MINUTES))
     );
-    await routeSpotLatest(
-      page,
-      SPOT_LATEST_API2,
-      makeSpotLatest({ xag: { price: 11.11 } }, olderIso)
-    );
-
-    await gotoApp(page);
-    const result = await forceSync(page);
     expect(result.results.STAKTRAKR).toBe("success");
 
     await expect(page.locator("#spotPriceDisplaySilver")).toContainText("55.55");
@@ -828,17 +833,12 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
     // winner's override-free path and be stamped with the winner's FRESH time —
     // the exact overstatement priceTimestamps exists to prevent, and a worse
     // outcome than simply leaving the metal alone.
-    const freshIso = minutesAgoIso(5);
     const undated = makeSpotLatest({ xag: { price: 77.77 } }, undefined);
     delete undated.generated_at;
 
-    const winner = makeSpotLatest({}, freshIso);
+    const winner = makeSpotLatest({}, minutesAgoIso(FRESH_MINUTES));
     delete winner.data.xag;
-    await routeSpotLatest(page, SPOT_LATEST_API1, winner);
-    await routeSpotLatest(page, SPOT_LATEST_API2, undated);
-
-    await gotoApp(page);
-    await forceSync(page);
+    await syncEndpoints(page, winner, undated);
 
     // The invariant holds regardless of whether the sync as a whole succeeds:
     // the unvouched price must not reach the display or the history series.
@@ -861,11 +861,7 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
     const publishIso = minutesAgoIso(2);
     const rowIso = minutesAgoIso(40);
     const payload = makeSpotLatest({ xag: { price: 66.66, t: rowIso } }, publishIso);
-    await routeSpotLatest(page, SPOT_LATEST_API1, payload);
-    await routeSpotLatest(page, SPOT_LATEST_API2, payload);
-
-    await gotoApp(page);
-    const result = await forceSync(page);
+    const result = await syncEndpoints(page, payload, payload);
     expect(result.results.STAKTRAKR).toBe("success");
 
     const history = await readSpotHistory(page);

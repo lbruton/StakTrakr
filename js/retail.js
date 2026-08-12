@@ -695,14 +695,9 @@ async function _pickFreshestV2Endpoint() {
   if (!reachable.length) return null;
   // Order newest-first; a candidate without a parseable generated_at sinks to
   // the end so it wins only when no timestamped candidate exists.
-  const ranked = reachable.slice().sort((a, b) => {
-    const aTs = Date.parse(a.generatedAt);
-    const bTs = Date.parse(b.generatedAt);
-    if (isNaN(aTs) && isNaN(bTs)) return 0;
-    if (isNaN(aTs)) return 1;
-    if (isNaN(bTs)) return -1;
-    return bTs - aTs;
-  });
+  const ranked = reachable
+    .slice()
+    .sort((a, b) => compareIsoFreshnessDesc(a.generatedAt, b.generatedAt));
   // STRK-332: the runners-up are retained as per-file fallbacks. exportRetail()
   // catches and skips individual slug failures yet main() still writes a fresh
   // manifest, so the newest-manifest endpoint can be missing some slug files.

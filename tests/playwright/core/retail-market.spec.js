@@ -3158,51 +3158,61 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
       },
     });
 
-  test("a slug missing from the freshest endpoint is retried against the other endpoint", async ({
-    page,
-  }) => {
+  /**
+   * Boot the app against a two-endpoint fixture and run one retail sync.
+   *
+   * api1 always publishes the NEWER manifest, so it wins the freshest-wins race
+   * and becomes the primary; api2 is a full export behind an older manifest.
+   * The only thing the cases differ on is how api1 answers for the gap slug's
+   * latest.json, which the caller supplies.
+   * @param {import('@playwright/test').Page} page - The page under test
+   * @param {Function} gapResponder - Route handler for api1's gap-slug latest.json
+   * @returns {Promise<Function>} Reader returning the captured v2 request URLs
+   */
+  const runFallbackSync = async (page, gapResponder) => {
     const requested = [];
     page.on("request", (req) => requested.push(req.url()));
-
     const base = makeV2Handler();
 
-    // api1 publishes the NEWER manifest — it wins the freshest-wins race — but
-    // its export is missing this one slug's latest.json (the exportRetail skip).
-    await page.route("https://api.staktrakr.com/data/v2/**", async (route) => {
+    const withManifest = (generatedAt, special) => async (route) => {
       const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
       if (path === "manifest.json") {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: manifestBody(FRESH_MANIFEST_AT),
+          body: manifestBody(generatedAt),
         });
       }
-      if (path === `retail/${GAP_SLUG}/latest.json`) {
-        return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
-      }
+      if (special && path === `retail/${GAP_SLUG}/latest.json`) return special(route);
       return base(route);
-    });
+    };
 
-    // api2 is a full export behind an older manifest — it loses the race but
-    // still holds the missing file.
-    await page.route("https://api2.staktrakr.com/data/v2/**", async (route) => {
-      const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
-      if (path === "manifest.json") {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: manifestBody(OLDER_MANIFEST_AT),
-        });
-      }
-      return base(route);
-    });
+    await page.route(
+      "https://api.staktrakr.com/data/v2/**",
+      withManifest(FRESH_MANIFEST_AT, gapResponder)
+    );
+    await page.route(
+      "https://api2.staktrakr.com/data/v2/**",
+      withManifest(OLDER_MANIFEST_AT, null)
+    );
 
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => typeof window.syncRetailPrices === "function");
     await page.evaluate(() => window.syncRetailPrices({ ui: false }));
 
-    const gapPath = `retail/${GAP_SLUG}/latest.json`;
-    const v2Urls = () => requested.filter((url) => url.includes("staktrakr.com/data/v2"));
+    return () => requested.filter((url) => url.includes("staktrakr.com/data/v2"));
+  };
+
+  const GAP_PATH = `retail/${GAP_SLUG}/latest.json`;
+
+  test("a slug missing from the freshest endpoint is retried against the other endpoint", async ({
+    page,
+  }) => {
+    // api1's export is missing this one slug's latest.json — the exportRetail skip.
+    const v2Urls = await runFallbackSync(page, (route) =>
+      route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
+    );
+    const gapPath = GAP_PATH;
 
     // POLL, do not snapshot. syncRetailPrices has an in-progress guard, so the
     // explicit call above can no-op against the boot sync and return before any
@@ -3239,59 +3249,25 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
     // describing something other than the data on screen.
     //
     // A stale 200 is the shape that matters. A 503 was already handled by the
-    // fallback; a stale 200 is indistinguishable from a good response without a
-    // gate, which is exactly why the strict stale_after check has to exist.
-    const requested = [];
-    page.on("request", (req) => requested.push(req.url()));
-
-    const base = makeV2Handler();
+    // test above; a stale 200 is indistinguishable from a good response without
+    // a gate, which is exactly why the strict stale_after check has to exist.
     const staleIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-
-    await page.route("https://api.staktrakr.com/data/v2/**", async (route) => {
-      const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
-      if (path === "manifest.json") {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: manifestBody(FRESH_MANIFEST_AT),
-        });
-      }
-      if (path === `retail/${GAP_SLUG}/latest.json`) {
-        // HTTP 200, well-formed, two hours past a 30-minute budget.
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            v: 2,
-            generated_at: staleIso,
-            stale_after: 1800,
-            data: latestForSlug(GAP_SLUG),
-          }),
-        });
-      }
-      return base(route);
-    });
-
-    await page.route("https://api2.staktrakr.com/data/v2/**", async (route) => {
-      const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
-      if (path === "manifest.json") {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: manifestBody(OLDER_MANIFEST_AT),
-        });
-      }
-      return base(route);
-    });
-
-    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => typeof window.syncRetailPrices === "function");
-    await page.evaluate(() => window.syncRetailPrices({ ui: false }));
+    const v2Urls = await runFallbackSync(page, (route) =>
+      // HTTP 200, well-formed, two hours past a 30-minute budget.
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: staleIso,
+          stale_after: 1800,
+          data: latestForSlug(GAP_SLUG),
+        }),
+      })
+    );
 
     // Same polling rationale as the test above.
-    const gapPath = `retail/${GAP_SLUG}/latest.json`;
-    const v2Urls = () => requested.filter((url) => url.includes("staktrakr.com/data/v2"));
-    await expect.poll(v2Urls, { timeout: 15000 }).toContain(`${API2}/${gapPath}`);
-    expect(v2Urls()).toContain(`${API1}/${gapPath}`);
+    await expect.poll(v2Urls, { timeout: 15000 }).toContain(`${API2}/${GAP_PATH}`);
+    expect(v2Urls()).toContain(`${API1}/${GAP_PATH}`);
   });
 });

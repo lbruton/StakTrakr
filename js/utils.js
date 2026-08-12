@@ -1510,6 +1510,30 @@ function getHealthStatusClass(timestamp) {
 }
 window.getHealthStatusClass = getHealthStatusClass;
 
+/**
+ * Comparator ordering two ISO publication timestamps newest-first, with
+ * unparseable values sinking to the end.
+ *
+ * Shared by the spot envelope race (js/api.js) and the retail manifest race
+ * (js/retail.js), which pick the freshest of several endpoints publishing the
+ * same feed. Both encode the same precedence rule — a timestamped candidate
+ * always outranks an undated one, and an undated one wins only when it is all
+ * that is left — so the rule lives in one place rather than being restated per
+ * feed, where the two copies could drift apart silently.
+ * @param {string|undefined} aIso - First publication timestamp
+ * @param {string|undefined} bIso - Second publication timestamp
+ * @returns {number} Negative when a is fresher, positive when b is
+ */
+function compareIsoFreshnessDesc(aIso, bIso) {
+  const aTs = Date.parse(aIso);
+  const bTs = Date.parse(bIso);
+  if (isNaN(aTs) && isNaN(bTs)) return 0;
+  if (isNaN(aTs)) return 1;
+  if (isNaN(bTs)) return -1;
+  return bTs - aTs;
+}
+window.compareIsoFreshnessDesc = compareIsoFreshnessDesc;
+
 if (typeof window !== "undefined") {
   window.getContrastColor = getContrastColor;
   window.generateUUID = generateUUID;

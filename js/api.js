@@ -146,14 +146,7 @@ const _checkSpotEnvelopeFreshness = (envelope) =>
  * @returns {any[]} A new array ordered freshest-first
  */
 const _sortEnvelopesByFreshness = (envelopes) =>
-  envelopes.slice().sort((a, b) => {
-    const aTs = Date.parse(a?.generated_at);
-    const bTs = Date.parse(b?.generated_at);
-    if (isNaN(aTs) && isNaN(bTs)) return 0;
-    if (isNaN(aTs)) return 1;
-    if (isNaN(bTs)) return -1;
-    return bTs - aTs;
-  });
+  envelopes.slice().sort((a, b) => compareIsoFreshnessDesc(a?.generated_at, b?.generated_at));
 
 /**
  * Fetch /spot/latest.json from EVERY configured endpoint in parallel and
