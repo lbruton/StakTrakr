@@ -4,52 +4,50 @@ project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/health-checks.md
 source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Health Checks.md" # migrated 2026-08-12
-updated: "2026-06-28"
+updated: "2026-08-12"
 ---
 
 # Health & Diagnostics
 
-> **Last verified:** 2026-03-22
+> **Last verified:** 2026-08-12 — v2 endpoints, envelope-driven staleness (STAK-509: v1 no longer consumed)
 
 ---
 
 ## Quick Health Check
 
+v2 envelopes carry their own `stale_after`, so the script needs no hardcoded thresholds
+(goldback resolves to 7200 s = 120 min):
+
 ```python
 python3 << 'EOF'
-import urllib.request, json, re
-from datetime import datetime, timezone, timedelta
+import urllib.request, json
+from datetime import datetime, timezone
 
-def age_min(ts):
-    ts = ts.strip()
-    if not re.search(r'[zZ]$|[+-]\d{2}:?\d{2}$', ts):
-        ts = ts.replace(' ', 'T') + 'Z'
-    return (datetime.now(timezone.utc) - datetime.fromisoformat(ts.replace('Z','+00:00'))).total_seconds()/60
+BASE = 'https://api.staktrakr.com/data/v2'
 
-def fetch(url):
-    with urllib.request.urlopen(url, timeout=10) as r: return json.load(r)
+def fetch(path):
+    with urllib.request.urlopen(f"{BASE}/{path}", timeout=10) as r: return json.load(r)
 
-print(f"API Health — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n")
-try:
-    d = fetch('https://api.staktrakr.com/data/api/manifest.json')
-    age = age_min(d['generated_at'])
-    print(f"Market   {'OK' if age<=30 else 'WARN'}  {age:.0f}m ago  ({len(d.get('coins',[]))} coins)")
-except Exception as e: print(f"Market   FAIL  {e}")
-try:
-    now = datetime.now(timezone.utc)
-    def url(dt): return f"https://api.staktrakr.com/data/hourly/{dt.year}/{dt.month:02d}/{dt.day:02d}/{dt.hour:02d}.json"
-    try: d = fetch(url(now))
-    except: d = fetch(url(now - timedelta(hours=1)))
-    age = age_min(d[-1]['timestamp'])
-    print(f"Spot     {'OK' if age<=75 else 'WARN'}  {age:.0f}m ago")
-except Exception as e: print(f"Spot     FAIL  {e}")
-try:
-    d = fetch('https://api.staktrakr.com/data/api/goldback-spot.json')
-    age = age_min(d['scraped_at'])
-    print(f"Goldback {'OK' if age<=1500 else 'WARN'}  {age/60:.1f}h ago  (${d.get('g1_usd')} G1)")
-except Exception as e: print(f"Goldback FAIL  {e}")
+def check(name, path, detail=lambda d: ''):
+    try:
+        env = fetch(path)
+        gen = datetime.fromisoformat(env['generated_at'].replace('Z', '+00:00'))
+        age = (datetime.now(timezone.utc) - gen).total_seconds()
+        limit = env.get('stale_after', 1800)
+        state = 'OK' if age <= limit else 'STALE'
+        print(f"{name:9s}{state:6s}{age/60:5.0f}m ago  (stale_after {limit//60}m){detail(env['data'])}")
+    except Exception as e:
+        print(f"{name:9s}FAIL  {e}")
+
+print(f"API Health (v2) — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n")
+check('Manifest', 'manifest.json', lambda d: f"  ({d.get('coin_count', '?')} coins)")
+check('Spot', 'spot/latest.json')
+check('Goldback', 'goldback/latest.json', lambda d: f"  (${d.get('g1_usd')} G1)")
 EOF
 ```
+
+> Raw pipeline paths (`data/hourly/`, `data/15min/`) are still written 4×/hr and can be
+> spot-checked directly when diagnosing the writers rather than the serving layer.
 
 ---
 
@@ -116,8 +114,8 @@ Expected: rows from `home` (retail), `home-spot` (spot from home poller), and `f
 
 | Symptom                               | Likely cause                                                                  | Action                                                                                                            |
 | ------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `manifest.json` > 30 min stale        | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                        |
-| `manifest.json` > 4h stale            | Home poller or Fly.io container down                                          | Check home poller container in Portainer; `fly status --app staktrakr`                                            |
+| `v2/manifest.json` > 30 min stale     | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                        |
+| `v2/manifest.json` > 4h stale         | Home poller or Fly.io container down                                          | Check home poller container in Portainer; `fly status --app staktrakr`                                            |
 | Spot hourly > 75 min stale            | `METAL_PRICE_API_KEY` expired or quota exceeded                               | Check MetalPriceAPI dashboard                                                                                     |
 | Goldback > 2h stale (STRK-248)        | Home poller `goldback-scraper.js` failed                                      | Check home poller logs via Portainer dashboard (goldback runs on home only, not Fly.io)                           |
 | Only 1-2 vendors per coin             | Home poller down or OOS                                                       | Check home poller container; verify sqld has recent rows (home is sole retail scraper)                            |
@@ -205,7 +203,7 @@ Each endpoint type declares its own `stale_after` value (in seconds):
 | Goldback | 7200          | 2 h (was 90000 / 25 h before STRK-248) |
 | Manifest | 1800          | 30 min                                 |
 
-The v2 manifest also publishes these thresholds in `data.stale_thresholds`, so the frontend can use a single source of truth for both v1 and v2 health badge logic. When `USE_V2_API` is enabled, `api-health.js` reads `stale_after` from the v2 envelope rather than using the hardcoded `API_HEALTH_*_STALE_MIN` constants.
+The v2 manifest also publishes these thresholds in `data.stale_thresholds`. Since STAK-506/509 (`USE_V2_API` flag shipped as default, then removed — v2 is the sole consumed layer), `api-health.js` always reads `stale_after` from the v2 envelope; the hardcoded `API_HEALTH_*_STALE_MIN` era is over. Per STRK-331, both the data paths and the badge resolve freshness from the **freshest `generated_at` per feed** across serving endpoints.
 
 ---
 
