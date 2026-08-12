@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.99] - 2026-08-11
+
+### Fixed — STRK-333 / STRK-332: The freshest endpoint is not always the complete one
+
+- **Spot: per-metal backfill from the runner-up** (STRK-333): `_fetchFreshestSpotEnvelope`
+  ranked endpoints purely by `generated_at` and returned a single winner. The publisher
+  builds `spot/latest.json` from whichever current rows exist and skips absent metals
+  (`devops/pollers/shared/api-export-v2.js`), bailing only when every row is missing — so a
+  fresh, valid, partial envelope is reachable. A metal the winner omitted was left on its
+  previous value, and a sole missing selection failed the sync outright, while a slightly
+  older endpoint carried the price. Both endpoints are already fetched in parallel, so the
+  runners-up are now retained and any metal missing from the winner is filled from the
+  next-freshest envelope that has it, at no extra network cost and only from candidates
+  that already cleared the same lenient STRK-189 gate.
+- **Backfilled metals keep their own timestamp** (STRK-333): a metal sourced from a
+  runner-up is recorded with that envelope's publication time rather than the fresher
+  winner's, so a 25-minute-old price is never stamped as 5 minutes old. The returned
+  `generatedAt` remains the winner's, which keeps the `_lastAcceptedSpotGeneratedAtMs`
+  monotonic guard's meaning intact — reporting the oldest contributing envelope instead
+  would let a backfill trip that guard and discard the whole sync, fresh metals included.
+- **Retail: per-file fallback across endpoints** (STRK-332): `exportRetail()` catches and
+  skips individual slug failures yet `main()` still writes a fresh manifest, so the
+  newest-manifest endpoint can be missing slug files. `_syncRetailV2` fetched every slug
+  exclusively from that one base and a gap degraded straight to the stored price. The
+  runners-up from the manifest race are now retained and a slug file missing from the
+  chosen endpoint is retried against the others before being given up on. This exposure
+  pre-dates the freshest-wins change — the previous first-HTTP-OK selection was equally
+  single-base.
+
+---
+
 ## [3.35.98] - 2026-08-06
 
 ### Fixed — STRK-331: Spot sync can no longer hang on a stalled endpoint
