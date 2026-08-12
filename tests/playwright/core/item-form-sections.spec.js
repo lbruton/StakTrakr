@@ -20,7 +20,7 @@
 //     closed <details> throws Chrome's "not focusable" error and the form
 //     silently no-ops, so no [required] may ever live inside a section.
 //
-// SUMMARY-EMBEDDED CONTROLS: the Constitutional summary hosts the
+// SUMMARY-EMBEDDED CONTROLS: the Constitutional header hosts the
 // denomination/face chip toggle, and clone mode injects checkboxes into
 // section headers. Clicking a nested interactive element activates THAT
 // element, not the <summary> (HTML activation-behaviour rules) — one test
@@ -100,6 +100,21 @@ async function openAddModal(page) {
   await page.waitForFunction(() => window.appListenersReady === true);
   await page.evaluate(() => document.getElementById("newItemBtn").click());
   await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+}
+
+/**
+ * Seeds, opens the add modal, and switches to constitutional mode.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {object|null} sectionState - Pre-seeded formSectionState map, or null
+ * @returns {Promise<void>}
+ */
+async function showConstitutionalCard(page, sectionState = null) {
+  await seedAndGoto(page, sectionState);
+  await openAddModal(page);
+  await page.evaluate(() => {
+    document.getElementById("itemWeightUnit").value = "cu";
+    window.toggleConstitutionalGroup();
+  });
 }
 
 /**
@@ -270,13 +285,7 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
   });
 
   test("constitutional card chip toggle activates without hiding the body", async ({ page }) => {
-    await seedAndGoto(page);
-    await openAddModal(page);
-
-    await page.evaluate(() => {
-      document.getElementById("itemWeightUnit").value = "cu";
-      window.toggleConstitutionalGroup();
-    });
+    await showConstitutionalCard(page);
     const card = page.locator("#item-constitutional-group");
     await expect(card).toBeVisible();
     const body = card.locator(".form-section-body");
@@ -316,18 +325,12 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
   test("constitutional card is not a <details> and has no disclosure affordance (STRK-329)", async ({
     page,
   }) => {
-    await seedAndGoto(page);
-    await openAddModal(page);
-
-    await page.evaluate(() => {
-      document.getElementById("itemWeightUnit").value = "cu";
-      window.toggleConstitutionalGroup();
-    });
+    await showConstitutionalCard(page);
     const card = page.locator("#item-constitutional-group");
     await expect(card).toBeVisible();
 
     const tagName = await card.evaluate((el) => el.tagName);
-    expect(tagName, "constitutional must not be a <details>").not.toBe("DETAILS");
+    expect(tagName, "constitutional must be a <div>").toBe("DIV");
 
     const chevron = await card.locator(".form-section-header").evaluate((el) => {
       const after = getComputedStyle(el, "::after");
@@ -343,13 +346,7 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
   test("stale remembered {constitutional: false} does not hide the card (STRK-329)", async ({
     page,
   }) => {
-    await seedAndGoto(page, { constitutional: false });
-    await openAddModal(page);
-
-    await page.evaluate(() => {
-      document.getElementById("itemWeightUnit").value = "cu";
-      window.toggleConstitutionalGroup();
-    });
+    await showConstitutionalCard(page, { constitutional: false });
     const body = page.locator("#item-constitutional-group .form-section-body");
     await expect(body, "stale remembered-closed must not hide constitutional").toBeVisible();
   });
