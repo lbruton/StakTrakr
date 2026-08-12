@@ -2089,15 +2089,16 @@
               </div>
             </div>
             <!-- Constitutional / junk silver controls (STRK-235) — replaces the standard
-                 Purity/Qty/Weight/Unit row; uses the shared .form-section chrome -->
-            <details
+                 Purity/Qty/Weight/Unit row; uses the shared .form-section chrome.
+                 NOT collapsible (STRK-329): this is a type-driven field swap, not
+                 an optional section. -->
+            <div
               id="item-constitutional-group"
               class="form-section"
               data-section="constitutional"
-              open
               style="display: none"
             >
-              <summary class="form-section-header">
+              <div class="form-section-header">
                 <span class="form-section-icon">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -2119,7 +2120,6 @@
                   </svg>
                 </span>
                 Constitutional silver
-                <span class="form-section-count" hidden></span>
                 <div
                   class="chip-sort-toggle"
                   id="constitutional-entry-mode-toggle"
@@ -2134,7 +2134,7 @@
                     By face value
                   </button>
                 </div>
-              </summary>
+              </div>
               <div class="form-section-body">
                 <!-- Denomination mode: variant + coin count -->
                 <div id="ccg-denom-fields" class="grid grid-variant-row" style="display: none">
@@ -2179,7 +2179,7 @@
                   <span id="ccg-basis-note" class="ccg-hint"></span>
                 </div>
               </div>
-            </details>
+            </div>
             <!-- Row: Purchase Date, Purchase Price & Payment Method -->
             <div class="grid grid-3">
               <div id="dateField">
