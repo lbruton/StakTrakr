@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.100] - 2026-08-12
+
+### Fixed — STRK-329: Constitutional silver card should not be collapsible
+
+- **Constitutional card is no longer collapsible** (STRK-329): The constitutional silver
+  card — the denomination / face-value entry that replaces the standard weight row when
+  Type = Constitutional — was accidentally included in the STRK-301 collapsible form
+  sections sweep. Unlike the seven optional sections (Grading, Market Pricing, etc.), this
+  card is a type-driven field swap: when it is visible it holds the only inputs that can
+  value the item, so there is nothing to disclose. Worse, the collapsed state was
+  remembered — a user who collapsed it once got a card with no visible inputs on every
+  subsequent add, which read as the form being broken. The card now uses the same visual
+  chrome (icon, header, chip toggle) but is a plain div, not a disclosure element, so it
+  cannot be collapsed. Any stale `{constitutional: false}` in localStorage is harmlessly
+  ignored.
+
+---
+
 ## [3.35.99] - 2026-08-11
 
 ### Fixed — STRK-333 / STRK-332: The freshest endpoint is not always the complete one
