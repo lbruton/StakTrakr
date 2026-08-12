@@ -137,20 +137,42 @@ const _checkSpotEnvelopeFreshness = (envelope) =>
   _checkEnvelopeFreshness(envelope, { multiplier: 6, floorMs: SPOT_MAX_PAYLOAD_AGE_MS });
 
 /**
+ * Order accepted spot envelopes newest-first. Candidates without a parseable
+ * generated_at (legacy envelopes) sink to the end, so a timestamped candidate
+ * always outranks an undated one and an undated one wins only when it is all
+ * that is left — the same precedence the single-winner scan used before
+ * STRK-333 turned it into a full ordering.
+ * @param {any[]} envelopes - Parsed envelopes that already cleared the freshness gate
+ * @returns {any[]} A new array ordered freshest-first
+ */
+const _sortEnvelopesByFreshness = (envelopes) =>
+  envelopes.slice().sort((a, b) => {
+    const aTs = Date.parse(a?.generated_at);
+    const bTs = Date.parse(b?.generated_at);
+    if (isNaN(aTs) && isNaN(bTs)) return 0;
+    if (isNaN(aTs)) return 1;
+    if (isNaN(bTs)) return -1;
+    return bTs - aTs;
+  });
+
+/**
  * Fetch /spot/latest.json from EVERY configured endpoint in parallel and
- * return the freshest acceptable envelope (STRK-331). Endpoint ORDER no longer
- * decides — both endpoints publish the same feed on different cadences, so the
- * one with the newest generated_at is strictly better and the app should never
- * display a 23-minute-old primary while an 8-minute-old backup sits unread.
+ * return every acceptable envelope ordered freshest-first (STRK-331/STRK-333).
+ * Endpoint ORDER no longer decides — both endpoints publish the same feed on
+ * different cadences, so the one with the newest generated_at is strictly
+ * better and the app should never display a 23-minute-old primary while an
+ * 8-minute-old backup sits unread.
  * Each candidate must still pass the lenient STRK-189 gate, which keeps the
  * existing guarantees: days-old SW/CDN copies are rejected, and when every
  * endpoint is stale the sync fails rather than resurrecting one of them.
- * A candidate without a parseable generated_at (legacy envelope) is kept only
- * when no timestamped candidate exists.
+ * The runners-up are RETAINED rather than discarded (STRK-333): the publisher
+ * skips metals with no current row (devops/pollers/shared/api-export-v2.js),
+ * so the freshest envelope can be legitimately partial, and the losing
+ * candidates are already in memory to fill the gap at no extra network cost.
  * @param {AbortSignal} [signal] - Abort signal forwarded to every endpoint fetch
- * @returns {Promise<any>} The freshest parsed envelope
+ * @returns {Promise<any[]>} Accepted envelopes, freshest first (never empty)
  */
-const _fetchFreshestSpotEnvelope = async (signal) => {
+const _fetchFreshestSpotEnvelopes = async (signal) => {
   const settled = await Promise.allSettled(
     V2_API_ENDPOINTS.map((base) =>
       _staktrakrFetch([base], "/spot/latest.json", {
@@ -164,39 +186,79 @@ const _fetchFreshestSpotEnvelope = async (signal) => {
     const firstRejection = settled.find((s) => s.status === "rejected");
     throw firstRejection?.reason || new Error("All StakTrakr endpoints failed");
   }
-  let best = passers[0];
-  let bestTs = Date.parse(best?.generated_at);
-  for (const candidate of passers.slice(1)) {
-    const ts = Date.parse(candidate?.generated_at);
-    if (!isNaN(ts) && (isNaN(bestTs) || ts > bestTs)) {
-      best = candidate;
-      bestTs = ts;
-    }
-  }
-  return best;
+  return _sortEnvelopesByFreshness(passers);
 };
 
-const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
-  const data = await _fetchFreshestSpotEnvelope(signal);
-  const generatedAtMs = Date.parse(data?.generated_at);
-  const generatedAt = isNaN(generatedAtMs) ? null : generatedAtMs;
-  const spotData = data.data || data;
-  const results = {};
+/**
+ * Read the selected metals out of one v2 spot envelope.
+ * @param {any} envelope - A parsed /spot/latest.json envelope
+ * @param {string[]} selectedMetals - Metal keys the user has enabled
+ * @returns {Object<string, number>} Metal key to positive price
+ */
+const _extractSpotPrices = (envelope, selectedMetals) => {
+  const spotData = envelope?.data || envelope || {};
+  const found = {};
   Object.entries(spotData).forEach(([isoKey, entry]) => {
     const metalName = _V2_METAL_MAP[isoKey];
     if (!metalName) return;
     const price = entry?.price ?? entry;
     if (selectedMetals.includes(metalName) && price > 0) {
-      results[metalName] = price;
+      found[metalName] = price;
     }
   });
+  return found;
+};
+
+/**
+ * Fetch spot prices from the StakTrakr v2 API, taking the freshest available
+ * copy of EACH selected metal (STRK-333).
+ *
+ * The freshest envelope wins outright for every metal it carries. Any metal it
+ * omits is filled from the next-freshest envelope that has it — the publisher
+ * skips metals with no current row, so a fresh envelope can be partial, and
+ * without this a sole missing selection failed the whole sync while a slightly
+ * older endpoint carried the price. Every donor already cleared the same
+ * lenient STRK-189 gate, so a backfill can never smuggle in stale data.
+ *
+ * `generatedAt` stays the WINNER's publication time so the caller's monotonic
+ * freshness guard keeps its exact meaning. Backfilled metals report their own
+ * (older) mint time via `priceTimestamps` so their recorded history rows are
+ * never stamped fresher than the data actually is.
+ *
+ * @param {string[]} selectedMetals - Metal keys the user has enabled
+ * @param {Object} [options] - Fetch options
+ * @param {AbortSignal} [options.signal] - Abort signal forwarded to every endpoint
+ * @returns {Promise<{prices: Object<string, number>, generatedAt: number|null,
+ *   priceTimestamps: Object<string, number>}>} Prices, the winning envelope's
+ *   publication time (epoch ms), and per-metal overrides for backfilled metals
+ */
+const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
+  const envelopes = await _fetchFreshestSpotEnvelopes(signal);
+  const winnerTs = Date.parse(envelopes[0]?.generated_at);
+  const generatedAt = isNaN(winnerTs) ? null : winnerTs;
+
+  const results = {};
+  const priceTimestamps = {};
+  envelopes.forEach((envelope, index) => {
+    const envelopeTs = Date.parse(envelope?.generated_at);
+    Object.entries(_extractSpotPrices(envelope, selectedMetals)).forEach(([metal, price]) => {
+      if (results[metal] !== undefined) return;
+      results[metal] = price;
+      // Only a metal sourced from a runner-up needs its own timestamp; the
+      // winner's metals already match the returned generatedAt.
+      if (index > 0 && !isNaN(envelopeTs)) {
+        priceTimestamps[metal] = envelopeTs;
+      }
+    });
+  });
+
   if (Object.keys(results).length > 0) {
     const cfg = loadApiConfig();
     if (cfg.usage?.STAKTRAKR) {
       cfg.usage.STAKTRAKR.used++;
       saveApiConfig(cfg);
     }
-    return { prices: results, generatedAt };
+    return { prices: results, generatedAt, priceTimestamps };
   }
   throw new Error("No spot data available from StakTrakr v2 API");
 };
@@ -1831,9 +1893,11 @@ const fetchBatchSpotPrices = async (
  *
  * @param {string} provider - The unique key of the API provider
  * @param {string} apiKey - The API key for the provider
- * @returns {Promise<{prices: Object<string, number>, generatedAt: number|null}>} Metal
- *   prices plus the payload's publication timestamp (epoch ms; null for providers
- *   without an envelope)
+ * @returns {Promise<{prices: Object<string, number>, generatedAt: number|null,
+ *   priceTimestamps: Object<string, number>}>} Metal prices, the payload's
+ *   publication timestamp (epoch ms; null for providers without an envelope),
+ *   and per-metal publication overrides for metals backfilled from a runner-up
+ *   endpoint (STRK-333; empty for every non-StakTrakr provider)
  */
 const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   const providerConfig = API_PROVIDERS[provider];
@@ -1857,7 +1921,11 @@ const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   }
 
   // Latest-only: no history backfill on regular sync
-  return { prices: await fetchLatestPrices(provider, apiKey, selectedMetals), generatedAt: null };
+  return {
+    prices: await fetchLatestPrices(provider, apiKey, selectedMetals),
+    generatedAt: null,
+    priceTimestamps: {},
+  };
 };
 
 // =============================================================================
@@ -2337,7 +2405,11 @@ const handleProviderSync = async (provider) => {
   }
 
   try {
-    const { prices, generatedAt } = await fetchSpotPricesFromApi(provider, apiKey);
+    const {
+      prices,
+      generatedAt,
+      priceTimestamps = {},
+    } = await fetchSpotPricesFromApi(provider, apiKey);
     if (
       generatedAt !== null &&
       _lastAcceptedSpotGeneratedAtMs !== null &&
@@ -2356,12 +2428,14 @@ const handleProviderSync = async (provider) => {
         spotPrices[metal] = price;
         elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
         updateSpotCardColor(metal, price);
+        // STRK-333: backfilled metals carry their own (older) publication time.
+        const metalTs = priceTimestamps[metal] ?? generatedAt;
         recordSpot(
           price,
           "api",
           metalConfig.name,
           API_PROVIDERS[provider].name,
-          generatedAt !== null ? new Date(generatedAt).toISOString() : null
+          metalTs !== null && metalTs !== undefined ? new Date(metalTs).toISOString() : null
         );
         const ts = document.getElementById(`spotTimestamp${metalConfig.name}`);
         if (ts) {
@@ -2545,9 +2619,11 @@ const _evaluateSpotSyncGuards = (prov, apiKey, forceSync, results) => {
  * @param {Object<string, number>} prices - Map of metal key to price
  * @param {string} prov - The provider key (for history attribution)
  * @param {number|null} generatedAt - Payload publication epoch ms (or null)
+ * @param {Object<string, number>} [priceTimestamps] - Per-metal publication epoch ms
+ *   overrides for metals backfilled from a runner-up endpoint (STRK-333)
  * @returns {number} Count of metals actually updated
  */
-const _applyFetchedSpotPrices = (prices, prov, generatedAt) => {
+const _applyFetchedSpotPrices = (prices, prov, generatedAt, priceTimestamps = {}) => {
   let provUpdated = 0;
   Object.entries(prices).forEach(([metal, price]) => {
     const metalConfig = Object.values(METALS).find((m) => m.key === metal);
@@ -2556,12 +2632,17 @@ const _applyFetchedSpotPrices = (prices, prov, generatedAt) => {
       spotPrices[metal] = price;
       elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
       updateSpotCardColor(metal, price);
+      // STRK-333: a metal backfilled from a runner-up endpoint carries its own
+      // (older) publication time so its history row is never stamped fresher
+      // than the price actually is. Metals from the winning envelope fall
+      // through to the shared generatedAt.
+      const metalTs = priceTimestamps[metal] ?? generatedAt;
       recordSpot(
         price,
         "api",
         metalConfig.name,
         API_PROVIDERS[prov].name,
-        generatedAt !== null ? new Date(generatedAt).toISOString() : null
+        metalTs !== null && metalTs !== undefined ? new Date(metalTs).toISOString() : null
       );
       const ts = safeGetElement(`spotTimestamp${metalConfig.name}`);
       if (ts) updateSpotTimestamp(metalConfig.name);
@@ -2588,7 +2669,11 @@ const _applyFetchedSpotPrices = (prices, prov, generatedAt) => {
 const _performSingleProviderFetch = async (prov, apiKey, results, ctx) => {
   const { source, syncGeneration, syncAbortController } = ctx;
   try {
-    const { prices, generatedAt } = await fetchSpotPricesFromApi(prov, apiKey, {
+    const {
+      prices,
+      generatedAt,
+      priceTimestamps = {},
+    } = await fetchSpotPricesFromApi(prov, apiKey, {
       signal: syncAbortController.signal,
     });
     const currentSource = (await loadData("spotPricingSource", "STAKTRAKR")) || "STAKTRAKR";
@@ -2610,7 +2695,7 @@ const _performSingleProviderFetch = async (prov, apiKey, results, ctx) => {
       return { updatedCount: 0, anySucceeded: false };
     }
 
-    const provUpdated = _applyFetchedSpotPrices(prices, prov, generatedAt);
+    const provUpdated = _applyFetchedSpotPrices(prices, prov, generatedAt, priceTimestamps);
 
     if (provUpdated > 0) {
       if (generatedAt !== null) _lastAcceptedSpotGeneratedAtMs = generatedAt;

@@ -657,6 +657,13 @@ const _processSlugResult = (slug, latest, hist30) => {
 // v2 Sync Helpers (STAK-503)
 // ---------------------------------------------------------------------------
 
+/**
+ * Fetch every v2 endpoint's manifest in parallel and return the freshest one,
+ * with the remaining reachable bases retained as per-file fallbacks.
+ * @returns {Promise<{base: string, manifest: any, generatedAt: string,
+ *   fallbackBases: string[]}|null>} The winning endpoint plus its runners-up,
+ *   or null when no endpoint is reachable
+ */
 async function _pickFreshestV2Endpoint() {
   const endpoints = typeof V2_API_ENDPOINTS !== "undefined" ? V2_API_ENDPOINTS : [];
   // STRK-331: the name is finally literal — fetch every endpoint's manifest in
@@ -686,16 +693,36 @@ async function _pickFreshestV2Endpoint() {
   );
   const reachable = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
   if (!reachable.length) return null;
-  let best = reachable[0];
-  let bestTs = Date.parse(best.generatedAt);
-  for (const candidate of reachable.slice(1)) {
-    const ts = Date.parse(candidate.generatedAt);
-    if (!isNaN(ts) && (isNaN(bestTs) || ts > bestTs)) {
-      best = candidate;
-      bestTs = ts;
-    }
+  // Order newest-first; a candidate without a parseable generated_at sinks to
+  // the end so it wins only when no timestamped candidate exists.
+  const ranked = reachable.slice().sort((a, b) => {
+    const aTs = Date.parse(a.generatedAt);
+    const bTs = Date.parse(b.generatedAt);
+    if (isNaN(aTs) && isNaN(bTs)) return 0;
+    if (isNaN(aTs)) return 1;
+    if (isNaN(bTs)) return -1;
+    return bTs - aTs;
+  });
+  // STRK-332: the runners-up are retained as per-file fallbacks. exportRetail()
+  // catches and skips individual slug failures yet main() still writes a fresh
+  // manifest, so the newest-manifest endpoint can be missing some slug files.
+  return { ...ranked[0], fallbackBases: ranked.slice(1).map((c) => c.base) };
+}
+
+/**
+ * Fetch a v2 JSON path, trying each base in order until one yields a body.
+ * Used for the per-slug retail files, where the endpoint with the newest
+ * manifest can still be missing individual exports (STRK-332).
+ * @param {string[]} bases - API bases to try, most-preferred first
+ * @param {string} path - Path below the base (no leading slash)
+ * @returns {Promise<any|null>} The unwrapped payload, or null if every base failed
+ */
+async function _fetchV2JsonWithFallback(bases, path) {
+  for (const base of bases) {
+    const data = await _fetchV2Json(base, path);
+    if (data !== null) return data;
   }
-  return best;
+  return null;
 }
 
 async function _fetchV2Json(base, path) {
@@ -1174,7 +1201,10 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
     return;
   }
 
-  const { base: apiBase, manifest, generatedAt } = result;
+  const { base: apiBase, manifest, generatedAt, fallbackBases = [] } = result;
+  // Winner first, runners-up behind it — a slug missing from the winner's
+  // export is retried against the other endpoints before it is given up on.
+  const slugBases = [apiBase, ...fallbackBases];
   _lastSuccessfulApiBase = apiBase + "/retail";
   window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
 
@@ -1201,11 +1231,11 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
   const results = await Promise.allSettled(
     slugs.map(async (slug) => {
       const [latest, intraday, hist7, hist30, hist90] = await Promise.all([
-        _fetchV2Json(apiBase, `retail/${slug}/latest.json`),
-        _fetchV2Json(apiBase, `retail/${slug}/intraday.json`),
-        _fetchV2Json(apiBase, `retail/${slug}/history-7d.json`),
-        _fetchV2Json(apiBase, `retail/${slug}/history-30d.json`),
-        _fetchV2Json(apiBase, `retail/${slug}/history-90d.json`),
+        _fetchV2JsonWithFallback(slugBases, `retail/${slug}/latest.json`),
+        _fetchV2JsonWithFallback(slugBases, `retail/${slug}/intraday.json`),
+        _fetchV2JsonWithFallback(slugBases, `retail/${slug}/history-7d.json`),
+        _fetchV2JsonWithFallback(slugBases, `retail/${slug}/history-30d.json`),
+        _fetchV2JsonWithFallback(slugBases, `retail/${slug}/history-90d.json`),
       ]);
       return { slug, latest, intraday, hist7, hist30, hist90 };
     })

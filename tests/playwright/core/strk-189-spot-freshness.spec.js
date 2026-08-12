@@ -739,3 +739,83 @@ test.describe("STRK-320 — freshness repaint when the tab becomes visible", () 
     await expectAllIconsAt(page, "spot-sync-icon--fresh");
   });
 });
+
+// STRK-333 — freshest-wins must not cost metal coverage.
+//
+// The publisher builds spot/latest.json from whichever current rows exist and
+// skips absent metals (devops/pollers/shared/api-export-v2.js), and exportSpot
+// bails only when EVERY row is missing — so a fresh, valid, PARTIAL envelope is
+// reachable in production. Ranking purely by generated_at then meant the winner
+// could be missing a metal that a slightly older endpoint carried, which either
+// failed the whole sync (sole missing selection) or silently left that metal on
+// its previous value.
+//
+// Both endpoints are fetched in parallel anyway, so the runners-up are already
+// in memory: a missing metal is filled from the next-freshest envelope that has
+// it, at no extra network cost, and only from candidates that already cleared
+// the same lenient STRK-189 gate.
+test.describe("STRK-333 — spot metal coverage across endpoints", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("a metal missing from the freshest envelope is backfilled from the older passer", async ({
+    page,
+  }) => {
+    const freshIso = minutesAgoIso(5);
+    const olderIso = minutesAgoIso(25);
+
+    // Freshest endpoint published without a silver row.
+    const partial = makeSpotLatest({}, freshIso);
+    delete partial.data.xag;
+    await routeSpotLatest(page, SPOT_LATEST_API1, partial);
+    // Older endpoint is still well inside the lenient gate and carries silver.
+    await routeSpotLatest(
+      page,
+      SPOT_LATEST_API2,
+      makeSpotLatest({ xag: { price: 44.44 } }, olderIso)
+    );
+
+    await gotoApp(page);
+    const result = await forceSync(page);
+    // Before STRK-333 the winner's missing silver was simply absent from the
+    // result map; here it must arrive from the runner-up.
+    expect(result.results.STAKTRAKR).toBe("success");
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("44.44");
+
+    // THE HONESTY ASSERTION. A backfilled metal is recorded with ITS OWN
+    // envelope's publication time, never the fresher winner's — stamping a
+    // 25-minute-old silver price as 5 minutes old is exactly the
+    // badge-disagrees-with-data failure STRK-331 was opened to kill.
+    const history = await readSpotHistory(page);
+    const rows = history.filter((row) => row.spot === 44.44 && row.metal === "Silver");
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(olderIso))).toBe(true);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(freshIso))).toBe(false);
+  });
+
+  test("the freshest envelope still wins for a metal both endpoints carry", async ({ page }) => {
+    // Guards the backfill against becoming a downgrade: the fill must only ever
+    // reach metals the winner OMITS, never overwrite one it already supplied.
+    const freshIso = minutesAgoIso(5);
+    const olderIso = minutesAgoIso(25);
+    await routeSpotLatest(
+      page,
+      SPOT_LATEST_API1,
+      makeSpotLatest({ xag: { price: 55.55 } }, freshIso)
+    );
+    await routeSpotLatest(
+      page,
+      SPOT_LATEST_API2,
+      makeSpotLatest({ xag: { price: 11.11 } }, olderIso)
+    );
+
+    await gotoApp(page);
+    const result = await forceSync(page);
+    expect(result.results.STAKTRAKR).toBe("success");
+
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("55.55");
+    const history = await readSpotHistory(page);
+    expect(history.some((row) => row.spot === 11.11 && row.metal === "Silver")).toBe(false);
+  });
+});
