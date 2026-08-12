@@ -4,12 +4,25 @@ StakTrakr (**STRK**, StakTrakr Plane prefix) is a zero-build, vanilla JavaScript
 
 ## Required Context Files
 
-Read these extracted context files instead of duplicating their rules here:
+Canonical agent-facing docs live in-repo at `.context/`. Read the matching file instead of
+duplicating its rules here; on any conflict with source code, code wins.
 
+- `.context/architecture.md` — system design, frontend/API/data model, sqld schema.
+- `.context/infrastructure.md` — deploy topology, Fly.io, home poller, secrets, CI/CD.
+- `.context/coding-standards.md` — JS style, module boundaries, DOM/storage patterns. **Read before writing JavaScript.**
+- `.context/design-philosophy.md` — brand, tokens, four-theme rules, anti-references.
+- `.context/reusable-patterns.md` — vendor normalization, providers.json, retail modal, chart abstractions.
+- `.context/data-pipelines.md` — spot/retail/goldback/image pipelines, cron, failure modes.
+- `.context/cloud-sync.md` — Dropbox OAuth, AES-GCM encryption, rollback, backup/restore.
+- `.context/cloud-sync-convergence.md` — STRK-154 sync compare/merge/hash invariant.
+- `.context/testing.md` — test tiers, TDD rules, coverage-map requirement. **Read before editing or running tests.**
+- `.context/issue-tracking.md` — Plane state UUIDs, epic conventions.
 - `.context/git-topology.md` — branch model, worktrees, version locks, release flow, spot bundle, merge strategy, stale branch checks.
-- `.context/implementation-gotchas.md` — module-specific foot-guns, storage behavior, sticky columns, goldback predicates, sketch closing order.
+- `.context/implementation-gotchas.md` — runtime and module foot-guns (dual config store, script load order, date frames, storage behavior, sticky columns, goldback predicates, sketch closing order).
 - `.context/review-and-ci.md` — Codacy CLI behavior, agentlint requirements, reviewer false positives, CI/review triage.
+- `.context/sketch-conventions.md` — per-project `/sketch-*` overrides, branch naming, closing tasks.
 - `.context/GLOSSARY.md` — canonical StakTrakr domain terms, avoided aliases, relationships, and naming ambiguities.
+- `.context/deep-dives/` — 13 deep-dive docs (data model, DOM patterns, pollers, API reference, health checks, vendor quirks, …) for subsystem-deep work.
 
 Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, Model Context Protocol (MCP), and protected-branch policy.
 
@@ -28,6 +41,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - `python3 -m http.server 8000` — run locally at `http://localhost:8000`
 - `npm run lint` — ESLint on `js/*.js` and `sw.js`
 - `npm run lint:md:all` — lint Markdown
+- `npm run format` / `npm run format:check` — Prettier (`js/` + `css/` only — not `data/`, `vendor/`)
 - `npm test` — core Playwright PR gate
 - `npm run test:core` — core Playwright suite
 - `npm run test:extended` — slower extended coverage
@@ -42,43 +56,30 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - Keep modules focused by feature and follow existing `js/` patterns.
 - Name `js/` files in kebab-case, for example `market-data.js`.
 - Prefer descriptive function names such as `loadInventory` and `renderMarketCards`.
-- Before writing JavaScript, read `../DocVault/Projects/StakTrakr/Foundation/coding-standards.md`.
+- Before writing JavaScript, read `.context/coding-standards.md`.
 
 ## Testing Rules
 
-- Never modify a TDD test to make it pass.
-- A failing test means the implementation is wrong — fix the implementation.
-- If the test itself is flawed, the spec was wrong — stop and restart the spec from Phase 1.
-- Framework: Playwright (`@playwright/test`), configured in `playwright.config.js`.
-- Default PR gate: `npm test`, which runs only `tests/playwright/core/`.
-- Core browser coverage belongs under `tests/playwright/core/<domain>.spec.js`.
-- Slower or edge coverage belongs under `tests/playwright/extended/`.
-- Archived issue matrices belong under `tests/playwright/archive/issue-ac-matrices/`.
-- Before adding a Playwright file, check `tests/playwright/coverage-map.csv`.
-- Add a new file only when assertions do not fit an existing domain suite.
-- Do not add new issue-prefixed specs at the Playwright root.
-- Reconcile temporary issue acceptance-criteria (AC) matrices into core/extended coverage before merge, or archive them.
-- Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test inventory; a missing or stale row is caught only by review.
-- Exception: non-functional edits (comments, formatting, refactors) that leave the inventory unchanged do not require a coverage-map entry.
-- Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
-- Use stable, user-visible assertions. Keep data fixtures in `tests/fixtures/` and shared binary/image fixtures (e.g. `test-obverse.png`) in `tests/playwright/helpers/`.
-- For quick checks, run `npx playwright test tests/playwright/core/inventory-crud.spec.js`.
-- If Chromium fails with the macOS Mach port sandbox error, rerun the same Playwright command with escalation.
+Full policy in `.context/testing.md` — read it before editing or running any test.
+Non-negotiables:
+
+- Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
+- Update `tests/playwright/coverage-map.csv` whenever a PR changes the Playwright test inventory, and include a test inventory delta in the PR body.
 
 ## Issue, Worktree, And PR Gates
 
-- Runtime code changes require a StakTrakr Plane issue, a worktree, and a PR to `dev`.
-- Config/tooling edits (instruction files, `.claude/`, `.gitignore`, skill files, devops config) still require a PR to `dev` — the `Protect Dev` ruleset blocks all direct pushes.
-- Config/tooling PRs ship as lightweight chores: no Plane issue, no version lock.
-- Runtime paths still require worktree discipline: `js/`, `css/`, `index.html`, `data/`, `pollers/`, tests.
+Full rules in `.context/git-topology.md`. Non-negotiables:
+
+- Runtime code changes (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) require a StakTrakr Plane issue, a worktree, and a PR to `dev`.
+- Config/tooling edits still require a PR to `dev` (the `Protect Dev` ruleset blocks all direct pushes) but ship as lightweight chores: no Plane issue, no version lock.
+- Create worktrees with `git fetch origin dev && git worktree add .worktrees/<name> -b <branch> origin/dev` (the `EnterWorktree` tool is denied in this repo).
 - Put the STRK issue ID in the commit message, PR body, and version lock claim.
-- Open PRs against `dev`; never push directly to `dev` or `main` (both are ruleset-protected with no bypass actors).
+- Never push directly to `dev` or `main`; use normal merge paths only and decline `--admin` or merge-bypass requests.
 - Do not merge `dev` to `main` unless the user explicitly says "release" or "ready to ship".
-- Use normal merge paths only; decline requests for `--admin` or merge bypasses.
 
 ## Sketch And Spec Work
 
-- Before applying a `/sketch`, read all cumulative sketch docs in `DocVault/specflow/StakTrakr/specs/<spec>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`.
+- Before applying a `/sketch`, read all cumulative sketch docs in `DocVault/specflow/StakTrakr/specs/<spec>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/sketch-conventions.md`.
 - Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code/artifact inventory, `approach.md` as implementation authority, and `tasks.md` as execution order.
 - Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
 - Do not mark a task or acceptance criterion complete if implementation contradicts requirements, discovery, approach, approved mockups, or project design guidance.
@@ -89,7 +90,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
-- Read `../DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
+- Read `.context/design-philosophy.md`.
 - Check `ui-standards/style.html` for live component and token patterns.
 - Search the issue/sketch and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
@@ -98,17 +99,12 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 - For UI-heavy Playwright coverage, exercise the user-visible workflow and assert the interaction contract.
 - Storage-only assertions are insufficient for layout, labels, visual sections, inline editing, or modal behavior acceptance criteria.
 
-## StakTrakr-Specific Runtime Facts
+## Runtime Gotchas
 
-- Dual config stores: spot providers use `metalApiConfig` via `loadApiConfig()` / `saveApiConfig()`; catalog providers use `catalog_api_config` via `catalogConfig`.
-- After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
-- `showAppConfirm`, `showAppAlert`, and `showAppPrompt` are custom Document Object Model (DOM) modals, not native browser dialogs.
-- `events.js` top-level code cannot call `safeGetElement`; use `document.getElementById` for parse-time event wiring.
-- `state.js` variables declared with `let` need `Object.defineProperty` exposure when tests or modules require `window.X`.
-- Use Canadian English locale formatting with `toLocaleDateString('en-CA')` for local user-facing `yyyy-mm-dd` dates; do not use `toISOString().slice(0, 10)` for those.
-- For UTC-keyed data values (publisher feed business days, chart time keys), keep the UTC calendar date via the feed row's ISO timestamp field (`row.t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
-- Do not mix local Date construction with UTC formatting unless the conversion is deliberate and commented at the call site.
-- StakTrakr has four CSS themes: `light`, `dark`, `slate`, and `sepia`.
+All runtime and module foot-guns live in `.context/implementation-gotchas.md` — dual
+config stores, `showAppConfirm` DOM modals, `events.js` script load order, `state.js`
+window exposure, `en-CA`/UTC date frames, and the four-theme rule (`light`, `dark`,
+`slate`, `sepia`). Read it before touching the code it names; do not restate its rules here.
 
 ## Release And Pre-Commit
 
@@ -136,7 +132,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Version-bump PRs: run `/update-spot-bundle`.
 - Version-bump PRs: ensure Tailscale is active.
 - `dev → main` shipping: invoke `/ship` only on explicit user approval.
-- Cloud or infrastructure claims: read the matching Foundation doc before speculating.
+- Cloud or infrastructure claims: read the matching `.context/` doc before speculating.
 - Fly.io or home poller secret claims: verify through Infisical with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken.
 - Cron schedule claims: grep `devops/pollers/home-poller/docker-entrypoint.sh`.
 

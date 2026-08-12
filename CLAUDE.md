@@ -9,6 +9,7 @@ Senior engineering partner for a solo-dev precious metals tracker. Direct, opini
 ## Commands
 
 ```bash
+python3 -m http.server 8000   # Run locally at http://localhost:8000
 npm test              # Core Playwright PR gate
 npm run test:core     # Core Playwright suite
 npm run test:extended # Slower/edge Playwright suite
@@ -17,68 +18,72 @@ npm run test:all      # Unit + core + extended
 npm run test:unit     # Node/unit tests
 npm run test:offline  # Legacy full-suite command excluding @network-tagged tests
 npm run lint          # ESLint
+npm run lint:md:all   # Markdown lint
 npm run format        # Prettier (js/ + css/ only — not data/, vendor/)
 npm run format:check
 ```
 
-## Playwright Test Tier Rules
+## Foundation Context
 
-- Before editing or running Playwright tests, read the Playwright policy reference in `AGENTS.md`.
-- Archived issue acceptance-criteria (AC) matrices are located in
-  `tests/playwright/archive/issue-ac-matrices/`.
-- Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test inventory.
-  - This is an `AGENTS.md` requirement; a missing or stale row is caught only by review, not by any local gate.
-  - Exception: non-functional edits (comments, formatting, refactors) that leave the inventory unchanged do not require a coverage-map entry.
+Canonical agent-facing docs live in-repo at `.context/` — they travel with the code and
+every worktree. Three tiers of truth:
 
-## Documentation
+- **Tier 1 — `.context/*.md`**: canonical foundation + policy docs. Read the matching doc
+  before working in its area (table below).
+- **Tier 2 — `.context/deep-dives/`**: 13 deep-dive docs (data model, DOM patterns,
+  pollers, API reference, health checks, vendor quirks, …). Read when Tier 1 points there
+  or the task is deep in that subsystem.
+- **Tier 3 — source code wins.** On any conflict, code is truth; fix the doc.
+  Authoritative cron/config: `devops/pollers/home-poller/docker-entrypoint.sh`,
+  `devops/pollers/remote-poller/fly.toml`.
 
-Foundation docs at `DocVault/Projects/StakTrakr/Foundation/`. Run `/vault-drift` after architectural/infra work.
+Run `/context-drift` after architectural/infra work (replaces `/vault-drift` for this
+project). DocVault Foundation originals remain as human-dev guides only — never cite them
+as authority.
 
-| Doc                    | What's there                                                                                                     |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `infrastructure.md`    | Deploy topology, Fly.io, home poller, secrets, CI/CD, health thresholds                                          |
-| `architecture.md`      | System design, frontend/API/data model, sqld schema                                                              |
-| `coding-standards.md`  | JS style, module boundaries, DOM/storage patterns, CSS/design tokens, service worker, release, testing           |
-| `design-philosophy.md` | Brand, colors, typography, component patterns, themes, anti-references                                           |
-| `reusable-patterns.md` | Vendor normalization, providers.json, retail modal, chart abstractions                                           |
-| `data-pipelines.md`    | Spot / retail / goldback / image pipelines — cron, thresholds, failure modes                                     |
-| `cloud-sync.md`        | Dropbox OAuth, Advanced Encryption Standard with Galois/Counter Mode encryption, atomic rollback, backup/restore |
+| Doc                                  | Read before                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `.context/architecture.md`           | System-design questions — frontend/API/data model, sqld schema         |
+| `.context/infrastructure.md`         | Deploy/infra claims — Fly.io, home poller, secrets, CI/CD, thresholds  |
+| `.context/coding-standards.md`       | **Writing any JavaScript** — style, module boundaries, DOM/storage     |
+| `.context/design-philosophy.md`      | UI work — brand, tokens, four themes, anti-references                  |
+| `.context/reusable-patterns.md`      | Vendor normalization, providers.json, retail modal, chart abstractions |
+| `.context/data-pipelines.md`         | Spot/retail/goldback/image pipeline work — cron, thresholds, failures  |
+| `.context/cloud-sync.md`             | Dropbox sync — OAuth, AES-GCM encryption, rollback, backup/restore     |
+| `.context/cloud-sync-convergence.md` | Any sync compare/merge/hash change — STRK-154 invariant                |
+| `.context/testing.md`                | **Editing or running any test** — tiers, TDD rules, coverage-map       |
+| `.context/issue-tracking.md`         | Plane issue work — state UUIDs, epic conventions                       |
+| `.context/git-topology.md`           | Worktrees, merges, releases, version lock, spot bundle                 |
+| `.context/implementation-gotchas.md` | The modules/patterns in the gotcha index below                         |
+| `.context/review-and-ci.md`          | Codacy scans, agentlint, pre-PR checks, reviewer false positives       |
+| `.context/sketch-conventions.md`     | Any `/sketch-*` phase work — branch naming, closing tasks              |
+| `.context/GLOSSARY.md`               | Writing requirements, ACs, issue descriptions, commit messages         |
 
-Tier 2: 11 deep-dive docs at `Foundation/Deep Dives/`. Authoritative cron/config: `devops/pollers/home-poller/docker-entrypoint.sh`, `devops/pollers/remote-poller/fly.toml`.
+## Testing
+
+Read `.context/testing.md` before editing or running any test — it is the single authority
+for test tiers, TDD rules, file placement, and the coverage-map requirement.
+Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
 
 ## Issue Tracking
 
 Plane project: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`.
-Pre-migration issues archived at `DocVault/Archive/Issues-Pre-Plane/StakTrakr/`. Create new issues via `/issue` or `mcp__plane__create_issue`.
-
-**Plane state conventions:**
-
-| State       | UUID (re-fetch if stale)                         | Use for                                               |
-| ----------- | ------------------------------------------------ | ----------------------------------------------------- |
-| Epic        | `0d1317b4-883f-44f0-b277-8f1f7f0388c0`           | Parent epic issues — appears in its own Kanban column |
-| Todo        | `6f8780df-5ca8-4dc1-9951-fd96e9886647` (default) | Normal child issues not yet started                   |
-| In Progress | `36cd8909-caa7-48ca-aeab-9f6cd4913740`           | Actively being worked                                 |
-| In Review   | `1a90f64f-be80-42ae-aa82-dd8d3f28db88`           | Complete, awaiting review                             |
-| Done        | `b6039898-c1c1-46ea-8396-1ae8b52f0692`           | Merged / closed                                       |
-| Backlog     | `fc9a6f2f-7152-43ee-8f8d-95a05d9b2480`           | Parked, not yet scheduled                             |
-| Cancelled   | `7645f387-5f01-4395-9f40-03d75fda6fda`           | Won't fix                                             |
-
-When creating an epic, set state to **Epic**.
-Child issues inherit the standard states: Todo → In Progress → In Review → Done.
-UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a session boundary or compaction may have introduced drift.
+Create issues via `/issue` or `mcp__plane__create_issue`. State UUIDs, epic conventions,
+and the pre-Plane archive path: `.context/issue-tracking.md`.
 
 ## Git Topology
 
-- Branch model: `feature/* → dev → main`.
-- Runtime code changes require worktree → PR → dev.
-- `main` is fully protected and requires PR review.
-- **Every change to `dev` needs a PR — no exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL checks, signed commits, no bypass actors) blocks direct pushes of any file type, instruction files included.
-- Config/tooling edits (`.claude/`, `.Codex/`, `.opencode/`, `.agents/`, `CLAUDE.md`, `AGENTS.md`, `.geminiignore`, `.gitignore`, skill files, devops config) are still **lightweight** — a small chore PR to `dev`, no Plane issue or version lock required.
-- Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the **full discipline**: Plane issue → worktree → PR to `dev`.
-- **`EnterWorktree` is denied in this repo** (`.claude/settings.json`) — it cannot be based on `dev`. Create worktrees with git: `git fetch origin dev && git worktree add .claude/worktrees/<name> -b <branch> origin/dev`. Rationale + merge-base verification in `.context/git-topology.md`.
-- **Fetch `origin/dev` before searching a worktree.** A stale worktree makes `grep` return empty for code that exists on `dev` — a false negative that reads exactly like "this identifier does not exist."
-- `devops/version.lock` is gitignored — it exists only in the main checkout, never in a worktree. Claim the version lock by writing to `<main-checkout>/devops/version.lock`, not the worktree path.
-- **Full rules:** `.context/git-topology.md` — merge strategy, worktree naming, spot bundle, branch staleness, sketch overrides.
+- Branch model: `feature/* → dev → main`. **Every change to `dev` needs a PR — no
+  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL
+  checks, signed commits, no bypass actors) blocks direct pushes of any file type.
+- Config/tooling edits (`.claude/`, `.agents/`, instruction files, skill files, devops
+  config) are **lightweight** — a small chore PR to `dev`, no Plane issue or version lock.
+- Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the
+  **full discipline**: Plane issue → worktree → PR to `dev`.
+- `EnterWorktree` is denied in this repo — it cannot express a `dev` base. Create worktrees
+  with git: `git fetch origin dev && git worktree add .worktrees/<name> -b <branch> origin/dev`.
+- **Full rules:** `.context/git-topology.md` — merge strategy, version lock high-water
+  mark, spot bundle, stale-branch detection, sketch overrides, EnterWorktree rationale.
 
 ## Model Context Protocol Notes
 
@@ -112,96 +117,46 @@ UUIDs are convenience references. Re-fetch via `mcp__plane__list_states` if a se
 | `/pr-ready`                       | Pre-PR checklist                                                    |
 | `/release`                        | Version bump (project override of global `/release`)                |
 | `/start-patch`                    | Pick Plane issue, claim version lock, create worktree               |
-| `/ui-mockup`                      | New multi-element UI — Playground prototype first                   |
+| `/glossary`                       | Harvest/list/search domain terms in `.context/GLOSSARY.md`          |
+| `/ui-mockup` (global)             | New multi-element UI — Playground prototype first                   |
+| `/context-drift` (global)         | Audit `.context/` docs against source truth after infra work        |
 
 **Skill authoring:** filename must be `SKILL.md` (`.gitignore` silently excludes other `.md` names).
 
 **Skill copies:** every `.claude/skills/<name>/SKILL.md` has a tracked twin under `.agents/skills/<name>/SKILL.md`. When fixing a skill doc, `git grep` the sibling and apply the identical fix to both — Copilot flags stale twins.
 
-## Required Context
+## Gotcha Index
 
-### Dual Config Store — CRITICAL
+Detail lives in `.context/implementation-gotchas.md` — read it before touching anything
+listed here. One hook line each:
 
-Two separate localStorage stores. Confusing them = silent data loss.
+- **Dual config store (CRITICAL)** — spot (`metalApiConfig`) and catalog
+  (`catalog_api_config`) are separate localStorage stores; confusing them = silent data
+  loss (STRK-573 root cause).
+- **`check-release-sync` hook is a subset** — hook green ≠ release complete; only
+  `/release` touches all release-bearing files.
+- **Script load order** — `events.js` top-level cannot call `safeGetElement`; use
+  `document.getElementById` for parse-time wiring.
+- **`showAppConfirm`/`showAppAlert`/`showAppPrompt`** — custom DOM modals, not native
+  dialogs; `page.on("dialog")` never fires.
+- **`state.js` `let` variables** — not on `window` without `Object.defineProperty`.
+- **Date frames** — `en-CA` local for user-facing dates; UTC frame for feed-keyed values;
+  never mix frames silently.
+- **Four themes** — `light`, `dark`, `slate`, `sepia`. No `contrast` theme; reviewers
+  hallucinate it.
+- **Module foot-guns** — `applyBulkEdit`, `loadDataSync`, CSS sticky columns,
+  `--warning`/`--success` contrast, `_isMarketItemEnabled`, goldback predicates,
+  `// duplication-ok`, closing-task ordering.
 
-| Store             | Key                  | Manages                                                       | Read                                                   | Write                                                  |
-| ----------------- | -------------------- | ------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
-| Spot providers    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM               | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
-| Catalog providers | `catalog_api_config` | Numista apiKey, Professional Coin Grading Service bearerToken | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
-
-Reading catalog keys via `loadApiConfig().keys["numista"]` returns `undefined`; that is the wrong store and the root cause of STRK-573.
-`saveData()` wraps in `JSON.stringify`.
-Read saved data via `loadData()` / `loadDataSync()`.
-After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale provider instances.
-
-### `check-release-sync` hook is a SUBSET
-
-Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the `js/about.js` What's New block — it asserts the current-version `<li>` entry is present **and** enforces the 5-entry cap (STRK-194, #1262).
-Does not check `manifest.json`, README badges, or `sw.js` cache.
-**Hook green ≠ release complete.**
-`/release` is the only path that touches all release-bearing files.
-
-### Script load order — `safeGetElement` unavailable in `events.js` top-level
-
-`init.js` defines `safeGetElement` and loads after `events.js`; both scripts use `defer`.
-Top-level code in `events.js` that calls `safeGetElement` throws a silent ReferenceError.
-Use `document.getElementById` for event wiring that runs at parse time.
-Factory closures such as `createLotEachToggle` are fine because they call `safeGetElement` at runtime.
-
-### Playwright dialog testing — `showAppConfirm` is not `window.confirm`
-
-`showAppConfirm` (`js/dialogs.js`) is a custom Document Object Model modal (`#appDialogModal`), not native `window.confirm`.
-`page.on("dialog", ...)` does not intercept it.
-Tests start the async function via `page.evaluate` without awaiting it first.
-Then call `waitForSelector("#appDialogModal", {state:"visible"})`.
-Then click `#appDialogOk` or `#appDialogCancel`.
-Use the same pattern for `showAppAlert` and `showAppPrompt`.
-
-### `state.js` variable exposure — `let` needs `Object.defineProperty`
-
-Variables declared with `let` in `state.js` are not on `window`.
-`inventory` and `changeLog` have explicit `Object.defineProperty` getter/setters.
-Any new state variable that tests or other modules need via `window.X` should follow the same pattern.
-
-### Worktree Edit discipline
-
-Before calling `Edit`/`Write` inside a worktree session, verify `EnterWorktree` has been invoked for that path.
-If the Edit tool is blocked, the root cause is missing `EnterWorktree` registration; call it first.
-Do not fall back to Python/subprocess file writes as a workaround.
-
-### Date formatting — Canadian English locale
-
-Use `toLocaleDateString('en-CA')` (Canadian English) to produce **local, user-facing** dates in year-month-day format (form defaults, filenames, display).
-Do not use `toISOString().slice(0, 10)` for those; it returns a UTC date and shifts a day for users in negative UTC offsets.
-**Inverse case — UTC-keyed data values** (publisher feed business days, chart time keys): keep the UTC calendar date.
-Derive it from the feed row's ISO timestamp field (`row.t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
-Local `en-CA` on a UTC-stamped key shifts a day for users in positive UTC offsets.
-Do not mix frames (local `new Date(y, m, d)` construction followed by `toISOString()` formatting) unless the conversion is deliberate and commented at the call site.
-
-### Theme count — four themes, not three
-
-StakTrakr has **four** CSS themes: `light`, `dark`, `slate`, `sepia`. There is no `contrast` theme. AI reviewers frequently hallucinate "three themes" or a "contrast" theme — both are wrong.
-
-### Extended gotchas
-
-Read the file `.context/implementation-gotchas.md` before touching: `applyBulkEdit`, `loadDataSync`, CSS sticky columns, `--warning` color, `_isMarketItemEnabled`, goldback predicates, closing task ordering, or `// duplication-ok`.
-
-### Review & CI
-
-Read `.context/review-and-ci.md` before Codacy CLI scans, agentlint runs, pre-PR quality checks, or triaging reviewer false positives. Key rules it covers:
-
-- **Review is label-gated** (2026-06-14): apply the `coderabbit-review` + `codacy-review` labels at PR creation for review-worthy PRs; skip on trivial chores.
-- Required checks (`Codacy Static Code Analysis`, CodeQL) run regardless of labels.
-- **75% docstring-coverage gate** blocks merge invisibly — `CHANGES_REQUESTED` with green checks and 0 threads. Write JSDoc / shell docstrings pre-emptively.
-- **Async bot reviewers** (Copilot, Codacy AI) post threads 1–3 min after checks go green. Re-query threads before merging.
-- **Codacy state** is authoritative via the Cloud CLI, not the dashboard UI.
-- **Dual ESLint config:** `no-restricted-globals` (native `alert`/`confirm`/`prompt` ban) lives only in legacy `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
+**Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
+pre-PR checks, or triaging reviewer feedback — label-gated review, the invisible 75%
+docstring gate, async bot reviewers, and the dual ESLint config all live there.
 
 ## Pre-flight (StakTrakr-specific)
 
-- **Before writing any JavaScript** → read `Foundation/coding-standards.md` (DocVault).
+- **Before writing any JavaScript** → read `.context/coding-standards.md`.
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` and `/retail-poller` first.
-- **Before speculating on infra failure mode** → read matching Foundation doc.
+- **Before speculating on infra failure mode** → read the matching `.context/` doc.
 - **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken, so discovery is unavailable.
 - **Before any version-bump PR**:
   - Run `/update-spot-bundle`.
@@ -214,5 +169,5 @@ Read `.context/review-and-ci.md` before Codacy CLI scans, agentlint runs, pre-PR
 
 Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters.
 Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy.
-Full design system, four-theme rules (light, dark, slate, sepia), and anti-references in `DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`.
+Full design system, four-theme rules (light, dark, slate, sepia), and anti-references in `.context/design-philosophy.md`.
 Anti-references: not generic fintech, not crypto/Web3, not spreadsheet clone.

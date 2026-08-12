@@ -29,7 +29,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 
   ```bash
   git fetch origin dev
-  git worktree add .claude/worktrees/<name> -b <branch> origin/dev
+  git worktree add .worktrees/<name> -b <branch> origin/dev
   ```
 
   - **Why it is blocked:** `worktree.baseRef` accepts only `"fresh"` (the remote default branch — `main` here) and `"head"` (the main checkout's current `HEAD`). It **cannot** be set to a branch name, so the tool has no setting that expresses a `dev`-based worktree. `"head"` is the worse failure of the two: the base silently depends on wherever the main checkout is parked, so it is right some days and a full release behind on others.

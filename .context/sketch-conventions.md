@@ -40,6 +40,6 @@ None of these are optional drops. If one genuinely doesn't apply, mark it `N/A �
 
 ## Project doc pointers
 
-- `AGENTS.md` — Playwright tier policy, repo-wide agent rules.
-- `DocVault/Projects/StakTrakr/Foundation/coding-standards.md` — JS style, module boundaries, DOM/storage patterns.
+- `.context/testing.md` — Playwright tier policy; `AGENTS.md` — repo-wide agent rules.
+- `.context/coding-standards.md` — JS style, module boundaries, DOM/storage patterns.
 - `.context/implementation-gotchas.md`, `.context/review-and-ci.md`, `.context/GLOSSARY.md` — read before touching the areas they name.
