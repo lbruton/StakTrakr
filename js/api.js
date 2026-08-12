@@ -241,6 +241,15 @@ const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
   const priceTimestamps = {};
   envelopes.forEach((envelope, index) => {
     const envelopeTs = Date.parse(envelope?.generated_at);
+    // An UNDATED runner-up may not donate. _checkEnvelopeFreshness returns ok
+    // for any envelope it cannot date, so a legacy or corrupted payload passes
+    // the STRK-189 check without ever being vouched for, and it carries no
+    // timestamp of its own to record — a metal taken from it would fall through
+    // to the override-free path and be stamped with the winner's FRESH time,
+    // the exact overstatement priceTimestamps exists to prevent. The exception
+    // is an all-legacy response: if the winner is undated too then generatedAt
+    // is null, no freshness claim is made for anything, and the fill is safe.
+    if (index > 0 && isNaN(envelopeTs) && generatedAt !== null) return;
     Object.entries(_extractSpotPrices(envelope, selectedMetals)).forEach(([metal, price]) => {
       if (results[metal] !== undefined) return;
       results[metal] = price;

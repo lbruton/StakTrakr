@@ -818,4 +818,32 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
     const history = await readSpotHistory(page);
     expect(history.some((row) => row.spot === 11.11 && row.metal === "Silver")).toBe(false);
   });
+
+  test("an undated runner-up is never used to backfill a dated winner", async ({ page }) => {
+    // Review finding (CodeRabbit + Copilot, independently). An envelope with no
+    // parseable generated_at is UNGATED, not merely undated: _checkEnvelopeFreshness
+    // returns ok for anything it cannot date, so a legacy or corrupted payload
+    // passes the STRK-189 check without being vouched for. It also has no
+    // timestamp to record, so a metal taken from it would fall through to the
+    // winner's override-free path and be stamped with the winner's FRESH time —
+    // the exact overstatement priceTimestamps exists to prevent, and a worse
+    // outcome than simply leaving the metal alone.
+    const freshIso = minutesAgoIso(5);
+    const undated = makeSpotLatest({ xag: { price: 77.77 } }, undefined);
+    delete undated.generated_at;
+
+    const winner = makeSpotLatest({}, freshIso);
+    delete winner.data.xag;
+    await routeSpotLatest(page, SPOT_LATEST_API1, winner);
+    await routeSpotLatest(page, SPOT_LATEST_API2, undated);
+
+    await gotoApp(page);
+    await forceSync(page);
+
+    // The invariant holds regardless of whether the sync as a whole succeeds:
+    // the unvouched price must not reach the display or the history series.
+    await expect(page.locator("#spotPriceDisplaySilver")).not.toContainText("77.77");
+    const history = await readSpotHistory(page);
+    expect(history.some((row) => row.spot === 77.77)).toBe(false);
+  });
 });

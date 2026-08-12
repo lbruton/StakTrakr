@@ -3135,6 +3135,14 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
   const API1 = "https://api.staktrakr.com/data/v2";
   const API2 = "https://api2.staktrakr.com/data/v2";
 
+  /**
+   * Build a v2 manifest envelope carrying the fixture's full coin and vendor
+   * set at a caller-chosen publication time, so the two endpoints can be given
+   * deliberately different generated_at values and the freshest-wins race has a
+   * defined winner instead of a stable-sort tie.
+   * @param {string} generatedAt - ISO publication timestamp for the envelope
+   * @returns {string} The serialized manifest envelope
+   */
   const manifestBody = (generatedAt) =>
     JSON.stringify({
       v: 2,
