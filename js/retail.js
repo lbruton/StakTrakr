@@ -725,6 +725,45 @@ async function _fetchV2JsonWithFallback(bases, path) {
   return null;
 }
 
+/**
+ * Strict per-file freshness gate for retail slug envelopes (STRK-332 review).
+ *
+ * Reachability only proves an endpoint served an HTTP-successful manifest, and
+ * no per-file check existed for EITHER endpoint — so an arbitrarily old file
+ * could supply the displayed price while `_syncRetailV2` stored the winner's
+ * fresh manifest timestamp and painted the market freshness indicator green.
+ * That is the STRK-331 defect class: a freshness signal describing something
+ * other than the data on screen. The fallback introduced by STRK-332 made it
+ * likelier by adding a deliberately older second source, so the gate is applied
+ * to the primary and the fallback alike rather than only to the new path.
+ *
+ * Strict regime, matching how the market feed is judged elsewhere: the
+ * envelope's own declared `stale_after`, no multiplier and no slack. Measured
+ * against production on 2026-08-11 the worst observed age was 40% of budget
+ * (intraday, 1200 s) with every file rewritten each publish cycle, so this has
+ * roughly 2.5x headroom before it would reject anything real.
+ *
+ * Two deliberate escapes: an envelope with no parseable `generated_at` and one
+ * declaring no positive `stale_after` both pass. Neither states a budget to
+ * judge, and failing them closed would reject legacy payloads the app has
+ * always accepted.
+ * @param {any} envelope - A parsed v2 envelope
+ * @returns {boolean} True when the payload is inside its declared budget
+ */
+function _isV2SlugEnvelopeFresh(envelope) {
+  const generatedAt = Date.parse(envelope?.generated_at);
+  if (isNaN(generatedAt)) return true;
+  const staleAfter = typeof envelope?.stale_after === "number" ? envelope.stale_after : 0;
+  if (staleAfter <= 0) return true;
+  return Date.now() - generatedAt <= staleAfter * 1000;
+}
+
+/**
+ * Fetch and unwrap one v2 JSON file from a single base.
+ * @param {string} base - API base URL
+ * @param {string} path - Path below the base (no leading slash)
+ * @returns {Promise<any|null>} The unwrapped payload, or null on failure or staleness
+ */
 async function _fetchV2Json(base, path) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -734,6 +773,13 @@ async function _fetchV2Json(base, path) {
     );
     if (!resp.ok) return null;
     const envelope = await resp.json();
+    // Returning null on a stale payload deliberately reuses the missing-file
+    // path: the caller tries the next base, and a slug stale everywhere keeps
+    // its previously stored price rather than showing an unvouched one.
+    if (!_isV2SlugEnvelopeFresh(envelope)) {
+      debugLog(`[retail-v2] Rejected stale ${path} from ${base}`, "warn");
+      return null;
+    }
     return envelope && envelope.v === 2 && envelope.data !== undefined ? envelope.data : envelope;
   } catch {
     return null;

@@ -846,4 +846,32 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
     const history = await readSpotHistory(page);
     expect(history.some((row) => row.spot === 77.77)).toBe(false);
   });
+
+  test("a price is recorded at its own observation time, not the envelope's publish time", async ({
+    page,
+  }) => {
+    // Review finding (Codex, P1). exportSpot() selects the latest sqld row with
+    // NO age cutoff and emits that row's `t` alongside the price, so clearing the
+    // envelope's freshness gate does not prove the PRICE is equally fresh — a
+    // just-published envelope can carry a much older reading. Recording it at
+    // publish time would let a stale price enter the history series as newly
+    // minted, which is the same overstatement the backfill guard prevents, just
+    // reached by a different route. Live production shape confirms the fields:
+    // generated_at 00:38:05 with the xag entry at t=00:30:00Z.
+    const publishIso = minutesAgoIso(2);
+    const rowIso = minutesAgoIso(40);
+    const payload = makeSpotLatest({ xag: { price: 66.66, t: rowIso } }, publishIso);
+    await routeSpotLatest(page, SPOT_LATEST_API1, payload);
+    await routeSpotLatest(page, SPOT_LATEST_API2, payload);
+
+    await gotoApp(page);
+    const result = await forceSync(page);
+    expect(result.results.STAKTRAKR).toBe("success");
+
+    const history = await readSpotHistory(page);
+    const rows = history.filter((row) => row.spot === 66.66 && row.metal === "Silver");
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(rowIso))).toBe(true);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(publishIso))).toBe(false);
+  });
 });

@@ -3226,4 +3226,72 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
     expect(urls).toContain(`${API1}/retail/${SLUG_GOLD_A}/latest.json`);
     expect(urls).not.toContain(`${API2}/retail/${SLUG_GOLD_A}/latest.json`);
   });
+
+  test("a stale-but-200 slug file is rejected and escalates to the other endpoint", async ({
+    page,
+  }) => {
+    // Review finding (Codex, P1). Endpoint reachability only proves an
+    // HTTP-successful MANIFEST, and no per-file freshness check existed for
+    // either endpoint — so an arbitrarily old slug file could supply the
+    // displayed price while _syncRetailV2 stored the winner's fresh manifest
+    // timestamp and painted the market freshness dot green. That is the
+    // STRK-331 defect class reached by a different route: a freshness signal
+    // describing something other than the data on screen.
+    //
+    // A stale 200 is the shape that matters. A 503 was already handled by the
+    // fallback; a stale 200 is indistinguishable from a good response without a
+    // gate, which is exactly why the strict stale_after check has to exist.
+    const requested = [];
+    page.on("request", (req) => requested.push(req.url()));
+
+    const base = makeV2Handler();
+    const staleIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    await page.route("https://api.staktrakr.com/data/v2/**", async (route) => {
+      const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
+      if (path === "manifest.json") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: manifestBody(FRESH_MANIFEST_AT),
+        });
+      }
+      if (path === `retail/${GAP_SLUG}/latest.json`) {
+        // HTTP 200, well-formed, two hours past a 30-minute budget.
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            v: 2,
+            generated_at: staleIso,
+            stale_after: 1800,
+            data: latestForSlug(GAP_SLUG),
+          }),
+        });
+      }
+      return base(route);
+    });
+
+    await page.route("https://api2.staktrakr.com/data/v2/**", async (route) => {
+      const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
+      if (path === "manifest.json") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: manifestBody(OLDER_MANIFEST_AT),
+        });
+      }
+      return base(route);
+    });
+
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.syncRetailPrices === "function");
+    await page.evaluate(() => window.syncRetailPrices({ ui: false }));
+
+    // Same polling rationale as the test above.
+    const gapPath = `retail/${GAP_SLUG}/latest.json`;
+    const v2Urls = () => requested.filter((url) => url.includes("staktrakr.com/data/v2"));
+    await expect.poll(v2Urls, { timeout: 15000 }).toContain(`${API2}/${gapPath}`);
+    expect(v2Urls()).toContain(`${API1}/${gapPath}`);
+  });
 });

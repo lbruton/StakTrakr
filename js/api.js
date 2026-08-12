@@ -191,9 +191,18 @@ const _fetchFreshestSpotEnvelopes = async (signal) => {
 
 /**
  * Read the selected metals out of one v2 spot envelope.
+ *
+ * Each entry also carries its own observation time `t` — the 15-minute floor of
+ * the underlying sqld row — which `exportSpot()` selects with NO age cutoff. The
+ * envelope's `generated_at` is only the publish instant, so clearing the envelope
+ * freshness gate does not prove any individual price is equally fresh; `rowTs` is
+ * therefore reported alongside the price and preferred when recording history.
+ * A legacy entry without a parseable `t` reports null and falls back to the
+ * envelope time at the call site.
  * @param {any} envelope - A parsed /spot/latest.json envelope
  * @param {string[]} selectedMetals - Metal keys the user has enabled
- * @returns {Object<string, number>} Metal key to positive price
+ * @returns {Object<string, {price: number, rowTs: number|null}>} Metal key to
+ *   positive price and its observation time (epoch ms, or null when undated)
  */
 const _extractSpotPrices = (envelope, selectedMetals) => {
   const spotData = envelope?.data || envelope || {};
@@ -203,7 +212,8 @@ const _extractSpotPrices = (envelope, selectedMetals) => {
     if (!metalName) return;
     const price = entry?.price ?? entry;
     if (selectedMetals.includes(metalName) && price > 0) {
-      found[metalName] = price;
+      const parsedRowTs = Date.parse(entry?.t);
+      found[metalName] = { price, rowTs: isNaN(parsedRowTs) ? null : parsedRowTs };
     }
   });
   return found;
@@ -219,6 +229,11 @@ const _extractSpotPrices = (envelope, selectedMetals) => {
  * without this a sole missing selection failed the whole sync while a slightly
  * older endpoint carried the price. Every donor already cleared the same
  * lenient STRK-189 gate, so a backfill can never smuggle in stale data.
+ *
+ * Every price is recorded at its own observation time (`entry.t`, the 15-minute
+ * floor of the underlying row) rather than the envelope's publish instant, since
+ * `exportSpot()` selects the latest row with no age cutoff and a fresh envelope
+ * can carry an old reading.
  *
  * `generatedAt` stays the WINNER's publication time so the caller's monotonic
  * freshness guard keeps its exact meaning. Backfilled metals report their own
@@ -250,15 +265,28 @@ const fetchStaktrakrPrices = async (selectedMetals, { signal } = {}) => {
     // is an all-legacy response: if the winner is undated too then generatedAt
     // is null, no freshness claim is made for anything, and the fill is safe.
     if (index > 0 && isNaN(envelopeTs) && generatedAt !== null) return;
-    Object.entries(_extractSpotPrices(envelope, selectedMetals)).forEach(([metal, price]) => {
-      if (results[metal] !== undefined) return;
-      results[metal] = price;
-      // Only a metal sourced from a runner-up needs its own timestamp; the
-      // winner's metals already match the returned generatedAt.
-      if (index > 0 && !isNaN(envelopeTs)) {
-        priceTimestamps[metal] = envelopeTs;
+    Object.entries(_extractSpotPrices(envelope, selectedMetals)).forEach(
+      ([metal, { price, rowTs }]) => {
+        if (results[metal] !== undefined) return;
+        results[metal] = price;
+        // Prefer the entry's own observation time over the envelope's publish
+        // instant, for EVERY metal rather than only backfilled ones. exportSpot()
+        // takes the latest sqld row with no age cutoff, so a recently published
+        // envelope can carry an old reading, and recording it at publish time
+        // would let a stale price enter history as newly minted. Applying this
+        // uniformly also keeps the winner and a runner-up on the same footing —
+        // stamping only backfilled metals by row time would be harder to reason
+        // about than either rule applied consistently.
+        // Side effect, and a desirable one: recordSpot dedups on timestamp+metal
+        // when given an explicit timestamp, so repeated syncs inside one 15-minute
+        // window now collapse onto a single row instead of appending a new one per
+        // publish cycle for a reading that never changed.
+        const stamp = rowTs ?? (isNaN(envelopeTs) ? null : envelopeTs);
+        if (stamp !== null) {
+          priceTimestamps[metal] = stamp;
+        }
       }
-    });
+    );
   });
 
   if (Object.keys(results).length > 0) {
