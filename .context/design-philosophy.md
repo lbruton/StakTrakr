@@ -273,8 +273,8 @@ All action buttons use pill shape (`.btn` + `border-radius: 999px`); History but
 
 ## Related
 
-- ../Depreciated/Style Guide — living source file (this doc was derived from it)
-- ../Depreciated/Frontend Overview
-- Deep Dives/DOM Patterns
+- Style Guide (deprecated DocVault page) — living source file (this doc was derived from it)
+- Frontend Overview (deprecated DocVault page)
+- .context/deep-dives/dom-patterns.md
 - Brand assets: `/Users/lbruton/CoWork/StakTrakr-Branding/final/`
 - Demo: `ui-standards/style.html`

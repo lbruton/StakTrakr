@@ -41,7 +41,8 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - `python3 -m http.server 8000` — run locally at `http://localhost:8000`
 - `npm run lint` — ESLint on `js/*.js` and `sw.js`
 - `npm run lint:md:all` — lint Markdown
-- `npm run format` / `npm run format:check` — Prettier (`js/` + `css/` only — not `data/`, `vendor/`)
+- `npm run format` / `npm run format:check` — Prettier, repo-wide.
+- Prettier scope is governed by `.prettierignore` (excludes `data/`, `vendor/`, minified assets).
 - `npm test` — core Playwright PR gate
 - `npm run test:core` — core Playwright suite
 - `npm run test:extended` — slower extended coverage
@@ -64,7 +65,8 @@ Full policy in `.context/testing.md` — read it before editing or running any t
 Non-negotiables:
 
 - Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
-- Update `tests/playwright/coverage-map.csv` whenever a PR changes the Playwright test inventory, and include a test inventory delta in the PR body.
+- Update `tests/playwright/coverage-map.csv` whenever a PR changes the Playwright test inventory.
+- Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 
 ## Issue, Worktree, And PR Gates
 

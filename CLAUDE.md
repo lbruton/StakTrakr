@@ -19,7 +19,7 @@ npm run test:unit     # Node/unit tests
 npm run test:offline  # Legacy full-suite command excluding @network-tagged tests
 npm run lint          # ESLint
 npm run lint:md:all   # Markdown lint
-npm run format        # Prettier (js/ + css/ only — not data/, vendor/)
+npm run format        # Prettier, repo-wide; scope governed by .prettierignore (excludes data/, vendor/, minified)
 npm run format:check
 ```
 
@@ -64,6 +64,7 @@ as authority.
 Read `.context/testing.md` before editing or running any test — it is the single authority
 for test tiers, TDD rules, file placement, and the coverage-map requirement.
 Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
+If the test itself is flawed, the spec was wrong — stop and restart the spec (see `.context/testing.md`).
 
 ## Issue Tracking
 
@@ -94,7 +95,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
     2. Explicit user request ("use perplexity", "research this deeply")
   - Use Brave for routine lookups that Brave can handle. Tool ladder by cost: `perplexity_search` (ranked results) → `perplexity_ask` (quick AI answer) → `perplexity_reason` (chain-of-thought) → `perplexity_research` (deep multi-source, 30s+).
   - Pass `strip_thinking: true` on `perplexity_research`/`perplexity_reason` to save context tokens.
-- StakTrakrApi config (Fly.io `fly.toml`) lives in the StakTrakrApi repo — use `mcp__github__*` to access it.
+- The StakTrakrApi repo owns `api` branch data publishing and GHA workflows — use `mcp__github__*` to access it. Fly.io config is in-repo at `devops/pollers/remote-poller/fly.toml`.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
 - When claude-context returns thin results for a global, Grep the identifier directly — script-tag globals have no import graph, so Grep is the authoritative way to find every reference.

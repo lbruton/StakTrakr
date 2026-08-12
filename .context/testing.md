@@ -38,8 +38,9 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Reconcile temporary issue AC matrices into core/extended coverage before merge, or
   archive them.
 - **Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test
-  inventory** — even a new test case in an existing file needs a row. A missing or stale
-  row is caught only by review, not by any local gate.
+  inventory.** The CSV is keyed by file (one row per spec): a new spec file adds a row;
+  adding or removing cases in an existing spec updates that file's row (`test_count`).
+  A missing or stale row is caught only by review, not by any local gate.
   - Exception: non-functional edits (comments, formatting, refactors) that leave the
     inventory unchanged do not require a coverage-map entry.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).

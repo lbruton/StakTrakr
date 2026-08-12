@@ -78,7 +78,7 @@ TURSO_BACKUP_URL=libsql://staktrakrapi-lbruton.aws-us-east-2.turso.io
 TURSO_BACKUP_TOKEN=<turso-cloud-token>
 ```
 
-Environment variables are configured via `docker-compose.home.yml` and managed through ../../../KnowledgeBase/Infrastructure/Portainer.
+Environment variables are configured via `docker-compose.home.yml` and managed through Portainer.
 
 ---
 
@@ -135,5 +135,5 @@ fly ssh console --app staktrakr -C "printenv TURSO_DATABASE_URL"
 
 - Remote Poller — environment variables and their purposes
 - Cloud - Fly.io — Fly.io secret management commands
-- ../../../KnowledgeBase/Infrastructure/Portainer — home VM where LXC `.env` is configured
+- Portainer — home VM where LXC `.env` is configured
 - Architecture — which components use which secrets

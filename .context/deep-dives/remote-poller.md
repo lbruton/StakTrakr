@@ -94,7 +94,7 @@ This is the Fly.io container's primary job. Runs 4x/hour, ~3 min after spot poll
 
 > **Archival context:** The scrape pipeline described below ran on Fly.io before STAK-478. It is now the Home Poller's responsibility. Kept here for historical reference since the shared code (`price-extract.js`) is identical. None of this runs on the current slim image.
 
-See Depreciated/Poller Parity for the current comparison between pollers.
+See Poller Parity (deprecated DocVault page) for the current comparison between pollers.
 
 ### Phase 0: Playwright direct (tried first)
 
@@ -211,10 +211,10 @@ Tailscale state lives at `/data/tailscale/tailscaled.state` — also on the pers
 ## Related
 
 - Home Poller — retail + goldback scraping, dashboard, metrics
-- Depreciated/Poller Parity -- scrape pipeline comparison between pollers
+- Poller Parity (deprecated DocVault page) -- scrape pipeline comparison between pollers
 - Cloud - Fly.io -- Fly.io platform reference, deploy workflow
 - Architecture -- system diagram, repo boundaries, data feeds
 - API Reference -- REST endpoint documentation
 - Secret Keys -- environment variables and rotation procedures
 - Health Checks -- diagnosing cron and poller issues
-- ../../../KnowledgeBase/Infrastructure/Portainer -- home VM container management
+- Portainer -- home VM container management

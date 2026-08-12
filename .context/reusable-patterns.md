@@ -388,9 +388,9 @@ This list aggregates pitfalls documented across Vendor Quirks, Providers Config,
 
 ## Related
 
-- Deep Dives/Vendor Quirks — source for vendor normalization patterns
-- ../Depreciated/Providers Config — source for providers.json patterns
-- Deep Dives/Retail Modal — source for modal lifecycle and data flow
-- ../Depreciated/Retail Pipeline — end-to-end pipeline from poller to frontend
-- Deep Dives/DOM Patterns — general DOM utility patterns
+- .context/deep-dives/vendor-quirks.md— source for vendor normalization patterns
+- Providers Config (deprecated DocVault page) — source for providers.json patterns
+- .context/deep-dives/retail-modal.md— source for modal lifecycle and data flow
+- Retail Pipeline (deprecated DocVault page) — end-to-end pipeline from poller to frontend
+- .context/deep-dives/dom-patterns.md— general DOM utility patterns
 - design-philosophy — design system and color tokens

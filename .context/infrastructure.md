@@ -63,7 +63,7 @@ Authoritative reference for all infrastructure components. For deep dives, follo
 
 ## Fly.io Remote Poller (Thin Publisher)
 
-Source: Deep Dives/Remote Poller
+Source: .context/deep-dives/remote-poller.md
 
 ### Machine Configuration
 
@@ -164,7 +164,7 @@ Rollback to full image: `cp Dockerfile.full Dockerfile && fly deploy` (same flag
 
 ## Home Poller (Docker / Portainer)
 
-Source: Deep Dives/Home Poller
+Source: .context/deep-dives/home-poller.md
 
 ### Docker Stacks
 
@@ -228,24 +228,24 @@ Phase 2 uses Byparr's already-fetched HTML (avoids TLS fingerprint mismatch from
 
 Injected via Portainer stack env (must be passed on every git-based redeploy):
 
-| Variable                                  | Required       | Value / Notes                                                                                                                                        |
-| ----------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SQLD_URL`                                | Yes            | `http://staktrakr-sqld:8080` (Docker DNS) — primary DB                                                                                               |
-| `SQLD_AUTH_TOKEN`                         | No             | Empty                                                                                                                                                |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | No             | _Unset in our deploy._ Self-hosters running against Turso Cloud primary set these instead of `SQLD_URL`.                                             |
-| `TURSO_BACKUP_URL`                        | Yes            | Turso Cloud DR target URL                                                                                                                            |
-| `TURSO_BACKUP_TOKEN`                      | Yes            | Turso Cloud auth token (DR sync only)                                                                                                                |
-| `METAL_PRICE_API_KEY`                     | Yes            | MetalPriceAPI                                                                                                                                        |
-| `POLLER_ID`                               | Set in compose | `home`                                                                                                                                               |
-| `DATA_DIR`                                | Set in compose | `/data`                                                                                                                                              |
-| `FIRECRAWL_BASE_URL`                      | Yes            | `http://firecrawl-api:3002`                                                                                                                          |
-| `FLYIO_TAILSCALE_IP`                      | Yes            | `100.90.171.110`                                                                                                                                     |
-| `FLYIO_HTTP_URL`                          | Yes            | `https://api2.staktrakr.com/data/retail/providers.json`                                                                                              |
-| `CF_CLEARANCE_SCRAPER_URL`                | No             | Defaults to `http://staktrakr-byparr:8191`                                                                                                           |
-| `CF_CLEARANCE_ENABLED`                    | No             | `1` to enable Phase 2 (default), `0` to disable                                                                                                      |
-| `GEMINI_API_KEY`                          | No             | Enables vision pipeline                                                                                                                              |
-| `VISION_ENABLED`                          | No             | `1` to enable                                                                                                                                        |
-| `MB_API_KEY`                              | No             | MintBuilder direct price feed key (STRK-321) — unset = page-scrape fallback. Compose-declared + cron re-export required (see Deep Dives/Home Poller) |
+| Variable                                  | Required       | Value / Notes                                                                                                                                                    |
+| ----------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SQLD_URL`                                | Yes            | `http://staktrakr-sqld:8080` (Docker DNS) — primary DB                                                                                                           |
+| `SQLD_AUTH_TOKEN`                         | No             | Empty                                                                                                                                                            |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | No             | _Unset in our deploy._ Self-hosters running against Turso Cloud primary set these instead of `SQLD_URL`.                                                         |
+| `TURSO_BACKUP_URL`                        | Yes            | Turso Cloud DR target URL                                                                                                                                        |
+| `TURSO_BACKUP_TOKEN`                      | Yes            | Turso Cloud auth token (DR sync only)                                                                                                                            |
+| `METAL_PRICE_API_KEY`                     | Yes            | MetalPriceAPI                                                                                                                                                    |
+| `POLLER_ID`                               | Set in compose | `home`                                                                                                                                                           |
+| `DATA_DIR`                                | Set in compose | `/data`                                                                                                                                                          |
+| `FIRECRAWL_BASE_URL`                      | Yes            | `http://firecrawl-api:3002`                                                                                                                                      |
+| `FLYIO_TAILSCALE_IP`                      | Yes            | `100.90.171.110`                                                                                                                                                 |
+| `FLYIO_HTTP_URL`                          | Yes            | `https://api2.staktrakr.com/data/retail/providers.json`                                                                                                          |
+| `CF_CLEARANCE_SCRAPER_URL`                | No             | Defaults to `http://staktrakr-byparr:8191`                                                                                                                       |
+| `CF_CLEARANCE_ENABLED`                    | No             | `1` to enable Phase 2 (default), `0` to disable                                                                                                                  |
+| `GEMINI_API_KEY`                          | No             | Enables vision pipeline                                                                                                                                          |
+| `VISION_ENABLED`                          | No             | `1` to enable                                                                                                                                                    |
+| `MB_API_KEY`                              | No             | MintBuilder direct price feed key (STRK-321) — unset = page-scrape fallback. Compose-declared + cron re-export required (see .context/deep-dives/home-poller.md) |
 
 ### Home Poller Deployment
 
@@ -312,7 +312,7 @@ The `api` branch is force-pushed exclusively by `run-publish.sh` on Fly.io. The 
 
 ## Health Check Thresholds
 
-Source: Deep Dives/Health Checks
+Source: .context/deep-dives/health-checks.md
 
 ### Stale Thresholds (Operational)
 
@@ -399,7 +399,7 @@ Expected: rows from `home` (retail), `home-spot` (home spot), `fly-spot` (Fly.io
 
 ## Secret Keys Inventory
 
-Source: Deep Dives/Secret Keys
+Source: .context/deep-dives/secret-keys.md
 
 Three secret stores:
 
@@ -492,7 +492,7 @@ Related: **provider enable/disable** (`provider_vendors.enabled` in sqld) only t
 
 ### Webscale-Protected Vendors (JM Bullion, Provident)
 
-JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages — NOT Cloudflare; Byparr/Firecrawl can't solve it). Bypass = an operator-solved `wspc` cookie injected into the phase-0 Playwright path (STRK-230). Needs a **~weekly manual re-solve**. Procedure: Deep Dives/Webscale Cookie Re-Solve. Automation follow-up: STRK-231.
+JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages — NOT Cloudflare; Byparr/Firecrawl can't solve it). Bypass = an operator-solved `wspc` cookie injected into the phase-0 Playwright path (STRK-230). Needs a **~weekly manual re-solve**. Procedure: .context/deep-dives/webscale-cookie-re-solve.md. Automation follow-up: STRK-231.
 
 ---
 
@@ -557,10 +557,10 @@ All poller code was consolidated into `StakTrakr/devops/pollers/` as of 2026-03-
 
 ## Related Pages
 
-- Deep Dives/Remote Poller — Fly.io container in depth: supervisord, publish pipeline, tiered recovery
-- Deep Dives/Home Poller — Docker stacks, dashboard, CF bypass sidecar, Portainer API commands
-- Deep Dives/Health Checks — diagnostic scripts, incident log, manual trigger commands
-- Deep Dives/Secret Keys — rotation procedures for each secret
-- ../Depreciated/Poller Parity — Fly.io vs home poller capability and code drift comparison
+- .context/deep-dives/remote-poller.md— Fly.io container in depth: supervisord, publish pipeline, tiered recovery
+- .context/deep-dives/home-poller.md— Docker stacks, dashboard, CF bypass sidecar, Portainer API commands
+- .context/deep-dives/health-checks.md— diagnostic scripts, incident log, manual trigger commands
+- .context/deep-dives/secret-keys.md— rotation procedures for each secret
+- Poller Parity (deprecated DocVault page) — Fly.io vs home poller capability and code drift comparison
 - architecture — system diagram, data feed summary, branch strategy
-- ../../MyMelo/API Reference — REST endpoint documentation
+- .context/deep-dives/api-reference.md — REST endpoint documentation

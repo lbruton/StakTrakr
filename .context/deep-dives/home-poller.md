@@ -9,7 +9,7 @@ updated: "2026-04-11"
 
 # Home Poller (Docker/Portainer)
 
-> **Last verified:** 2026-03-22 — Docker containers on Ubuntu 24.04 LXC at 192.168.1.81, managed by ../../../KnowledgeBase/Infrastructure/Portainer. Five stacks on `staktrakr-net` bridge network.
+> **Last verified:** 2026-03-22 — Docker containers on Ubuntu 24.04 LXC at 192.168.1.81, managed by Portainer. Five stacks on `staktrakr-net` bridge network.
 
 ---
 
@@ -19,7 +19,7 @@ A secondary poller host running as Docker containers on an Ubuntu Server LXC. Th
 
 Both pollers write to the **same sqld database** (`staktrakr-sqld` on the Home VM, port 8080). The home-poller connects via Docker DNS (`http://staktrakr-sqld:8080`). `run-publish.sh` on Fly.io merges their data using `readLatestPerVendor()`. The home poller never touches Git. A nightly DR sync job (`turso-backup-sync.js`) replicates data from sqld to Turso Cloud (free tier).
 
-Code lives in `StakTrakr/devops/pollers/` and deploys via ../../../KnowledgeBase/Infrastructure/Portainer API from git.
+Code lives in `StakTrakr/devops/pollers/` and deploys via Portainer API from git.
 
 ---
 
@@ -47,15 +47,15 @@ See `portainer` skill for full API reference.
 
 ## Docker Stacks
 
-Five ../../../KnowledgeBase/Infrastructure/Portainer-managed stacks on the `staktrakr-net` bridge network:
+Five Portainer-managed stacks on the `staktrakr-net` bridge network:
 
-| Stack       | Container                 | Purpose                                                                                                           | Ports                                                                              | Stack ID |
-| ----------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
-| home-poller | `staktrakr-home-poller`   | Retail/spot/goldback pollers + dashboard + metrics                                                                | 3010, 3011, 9100                                                                   | 7        |
-| byparr      | `staktrakr-byparr`        | ../../../KnowledgeBase/Infrastructure/Cloudflare bypass sidecar (Camoufox Firefox, returns `cf_clearance` cookie) | 8191 (host-exposed for debugging and Fly.io → Tailscale → Byparr CF bypass access) | —        |
-| firecrawl   | `firecrawl-api` + workers | Web scraping engine (Firecrawl self-hosted)                                                                       | 3002                                                                               | 4        |
-| tinyproxy   | `tinyproxy-staktrakr`     | HTTP proxy for Cloud - Fly.io residential IP routing                                                              | 8888                                                                               | 5        |
-| tailscale   | `tailscale-staktrakr`     | Tailscale sidecar — exit node + **subnet router** for `192.168.1.0/24` (tinyproxy shares its network namespace)   | —                                                                                  | 8        |
+| Stack       | Container                 | Purpose                                                                                                         | Ports                                                                              | Stack ID |
+| ----------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| home-poller | `staktrakr-home-poller`   | Retail/spot/goldback pollers + dashboard + metrics                                                              | 3010, 3011, 9100                                                                   | 7        |
+| byparr      | `staktrakr-byparr`        | Cloudflare bypass sidecar (Camoufox Firefox, returns `cf_clearance` cookie)                                     | 8191 (host-exposed for debugging and Fly.io → Tailscale → Byparr CF bypass access) | —        |
+| firecrawl   | `firecrawl-api` + workers | Web scraping engine (Firecrawl self-hosted)                                                                     | 3002                                                                               | 4        |
+| tinyproxy   | `tinyproxy-staktrakr`     | HTTP proxy for Cloud - Fly.io residential IP routing                                                            | 8888                                                                               | 5        |
+| tailscale   | `tailscale-staktrakr`     | Tailscale sidecar — exit node + **subnet router** for `192.168.1.0/24` (tinyproxy shares its network namespace) | —                                                                                  | 8        |
 
 **Portainer UI:** `https://192.168.1.81:9443` (HTTPS only, self-signed cert)
 
@@ -132,7 +132,7 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 
 ## CF-Clearance-Scraper Sidecar
 
-`staktrakr-byparr` runs `ghcr.io/thephaseless/byparr:latest` — a Camoufox (hardened Firefox) sidecar that solves ../../../KnowledgeBase/Infrastructure/Cloudflare challenges and returns a valid `cf_clearance` cookie.
+`staktrakr-byparr` runs `ghcr.io/thephaseless/byparr:latest` — a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
 
 | Property      | Value                                                                                                                 |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -225,17 +225,17 @@ Playwright version is locked to whatever is in `shared/package.json` at build ti
 
 ### Source Code (Repo)
 
-| Repo Path                                | Maps To                                                          |
-| ---------------------------------------- | ---------------------------------------------------------------- |
-| `devops/pollers/shared/`                 | `/app/` (shared scraper core)                                    |
-| `devops/pollers/home-poller/`            | `/app/` (home-specific files)                                    |
-| `devops/pollers/docker-compose.home.yml` | ../../../KnowledgeBase/Infrastructure/Portainer stack definition |
+| Repo Path                                | Maps To                       |
+| ---------------------------------------- | ----------------------------- |
+| `devops/pollers/shared/`                 | `/app/` (shared scraper core) |
+| `devops/pollers/home-poller/`            | `/app/` (home-specific files) |
+| `devops/pollers/docker-compose.home.yml` | Portainer stack definition    |
 
 ---
 
 ## Environment Variables
 
-Injected via ../../../KnowledgeBase/Infrastructure/Portainer stack env vars (must be passed on every redeploy):
+Injected via Portainer stack env vars (must be passed on every redeploy):
 
 | Variable                   | Required       | Notes                                                                                                                                                                                                                                                                                  |
 | -------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -276,7 +276,7 @@ Injected via ../../../KnowledgeBase/Infrastructure/Portainer stack env vars (mus
 
 ## Deploying Code Changes
 
-Code deploys via ../../../KnowledgeBase/Infrastructure/Portainer's git-based stack redeploy. See `sync-poller` skill for the full workflow.
+Code deploys via Portainer's git-based stack redeploy. See `sync-poller` skill for the full workflow.
 
 ```bash
 # 1. Push code changes to git
@@ -297,7 +297,7 @@ for c in json.load(sys.stdin):
   if 'home-poller' in c['Names'][0]: print(c['Names'][0], c['State'])"
 ```
 
-**Critical:** Always pass env vars on redeploy. ../../../KnowledgeBase/Infrastructure/Portainer does not persist them across git-based redeployments.
+**Critical:** Always pass env vars on redeploy. Portainer does not persist them across git-based redeployments.
 
 ---
 
@@ -312,11 +312,11 @@ curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
   python3 -c "import sys,json; [print(c['Names'][0], c['State'], c['Status']) for c in json.load(sys.stdin)]"
 ```
 
-For `supervisorctl status` and other interactive commands, use the ../../../KnowledgeBase/Infrastructure/Portainer web UI Console.
+For `supervisorctl status` and other interactive commands, use the Portainer web UI Console.
 
 ### Test a single coin
 
-Use the ../../../KnowledgeBase/Infrastructure/Portainer web UI Console on the `staktrakr-home-poller` container:
+Use the Portainer web UI Console on the `staktrakr-home-poller` container:
 
 ```bash
 COINS=ase bash /app/run-home.sh
@@ -330,7 +330,7 @@ curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
   "https://192.168.1.81:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=100"
 ```
 
-Or use the ../../../KnowledgeBase/Infrastructure/Portainer web UI: Containers > staktrakr-home-poller > Logs.
+Or use the Portainer web UI: Containers > staktrakr-home-poller > Logs.
 
 ### Restart container
 
@@ -342,7 +342,7 @@ curl -sk -X POST -H "X-API-Key: $PORTAINER_TOKEN" \
 
 ### Clear stuck lockfile
 
-Use the ../../../KnowledgeBase/Infrastructure/Portainer web UI Console on the `staktrakr-home-poller` container:
+Use the Portainer web UI Console on the `staktrakr-home-poller` container:
 
 ```bash
 rm -f /tmp/retail-poller.lock
@@ -371,7 +371,7 @@ rm -f /tmp/retail-poller.lock
 
 ## Related
 
-- Depreciated/Poller Parity — Fly.io vs Home Poller comparison
+- Poller Parity (deprecated DocVault page) — Fly.io vs Home Poller comparison
 - Cloud - Fly.io — cron schedule and deployment
 - Provider Database — Turso provider CRUD and dashboard
 - Turso Schema — database tables

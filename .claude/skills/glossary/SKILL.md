@@ -84,8 +84,8 @@ Also read high-value project docs when they exist:
 
 - `README.md`
 - `.context/GLOSSARY.md`
-- `../DocVault/Projects/StakTrakr/Foundation/coding-standards.md`
-- `../DocVault/Projects/StakTrakr/Foundation/design-philosophy.md`
+- `.context/coding-standards.md`
+- `.context/design-philosophy.md`
 
 Group proposals by natural clusters such as Inventory & Items, Disposition &
 Lifecycle, Market Data & Pricing, Catalog & Enrichment, Cloud & Storage, UI, or

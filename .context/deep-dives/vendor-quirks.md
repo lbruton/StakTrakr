@@ -185,7 +185,7 @@ If a goldback slug appears in the manifest that does not match this pattern, `ge
 
 **Editing `RETAIL_VENDOR_NAMES` without checking `RETAIL_VENDOR_COLORS` and `RETAIL_VENDOR_URLS`.** All three maps are keyed by the same vendor ID strings and must stay in sync. Adding a new vendor key to one but not the others results in undefined color (gray fallback) or missing homepage link.
 
-**Expecting `retailers.js` functions in `retail-view-modal.js`.** The modal file references `RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_COLORS`, `RETAIL_VENDOR_URLS`, `retailPrices`, `retailAvailability`, `retailLastKnownPrices`, `retailLastAvailableDates`, `retailIntradayData`, `retailPriceHistory`, and `retailProviders` as globals from `retail.js`. Script load order in `index.html` must place `retail.js` before `retail-view-modal.js`.
+**Expecting `retail.js` functions in `retail-view-modal.js`.** The modal file references `RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_COLORS`, `RETAIL_VENDOR_URLS`, `retailPrices`, `retailAvailability`, `retailLastKnownPrices`, `retailLastAvailableDates`, `retailIntradayData`, `retailPriceHistory`, and `retailProviders` as globals from `retail.js`. Script load order in `index.html` must place `retail.js` before `retail-view-modal.js`.
 
 **Forgetting intraday cap.** `saveRetailIntradayData()` caps `windows_24h` to the last 96 entries per slug (24h of hourly data) before saving to `localStorage`. Any code that reads `retailIntradayData[slug].windows_24h` and expects more than 96 entries will be disappointed.
 
@@ -208,7 +208,7 @@ This section documents how each vendor's website is structured for scraping purp
 - **Pricing API:** Full GraphQL API at `/graphql` with tiered wire/crypto/PayPal price breakdowns.
   - `route(url: "slug")` → returns product ID
   - `LivePrices(ids: [ID])` → returns tier pricing
-- **Bot detection:** ../../../KnowledgeBase/Infrastructure/Cloudflare-gated. CF challenge blocks Docker headless Chromium. The block is **fingerprinting-based, not IP-based** — the same residential IP works from a Mac browser but fails from Docker. FlareSolverr or `curl_cffi` with exported `cf_clearance` cookies is required (see CF Bypass section below).
+- **Bot detection:** Cloudflare-gated. CF challenge blocks Docker headless Chromium. The block is **fingerprinting-based, not IP-based** — the same residential IP works from a Mac browser but fails from Docker. FlareSolverr or `curl_cffi` with exported `cf_clearance` cookies is required (see CF Bypass section below).
 
 ### Monument Metals
 
@@ -239,9 +239,9 @@ This section documents how each vendor's website is structured for scraping purp
 
 ---
 
-## ../../../KnowledgeBase/Infrastructure/Cloudflare Bypass Strategy
+## Cloudflare Bypass Strategy
 
-Several vendors (primarily Bullion Exchanges, potentially others) sit behind ../../../KnowledgeBase/Infrastructure/Cloudflare's bot management. The following strategy applies when direct HTTP or headless Chrome is blocked.
+Several vendors (primarily Bullion Exchanges, potentially others) sit behind Cloudflare's bot management. The following strategy applies when direct HTTP or headless Chrome is blocked.
 
 ### Current Tool: Byparr
 

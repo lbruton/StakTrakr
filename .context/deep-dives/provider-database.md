@@ -125,7 +125,7 @@ Shared module at `StakTrakr/devops/pollers/shared/provider-db.js`. Most function
 
 **Sync procedure:**
 
-Code deploys via ../../../KnowledgeBase/Infrastructure/Portainer's GitOps stack redeploy — push to the tracked git branch and ../../../KnowledgeBase/Infrastructure/Portainer auto-deploys within 5 minutes. For immediate deploys, use the ../../../KnowledgeBase/Infrastructure/Portainer REST API:
+Code deploys via Portainer's GitOps stack redeploy — push to the tracked git branch and Portainer auto-deploys within 5 minutes. For immediate deploys, use the Portainer REST API:
 
 ```bash
 curl -sk -X PUT \

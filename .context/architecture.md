@@ -9,7 +9,7 @@ updated: "2026-07-24"
 
 # StakTrakr — Architecture
 
-Authoritative foundation reference. Synthesized from architecture, ../Depreciated/Frontend Overview, ../../MyMelo/API Reference, ../Depreciated/API Consumption, ../../HexTrackr/Data Model, ../Depreciated/Turso Schema, and Deep Dives/Provider Database. Read this before making architectural decisions; read the linked deep-dives for implementation detail.
+Authoritative foundation reference. Synthesized from architecture, Frontend Overview (deprecated DocVault page), .context/deep-dives/api-reference.md, API Consumption (deprecated DocVault page), .context/deep-dives/data-model.md, Turso Schema (deprecated DocVault page), and .context/deep-dives/provider-database.md. Read this before making architectural decisions; read the linked deep-dives for implementation detail.
 
 ---
 
@@ -33,7 +33,7 @@ api.staktrakr.com  (GitHub Pages — StakTrakrApi `api` branch)
     │
     ▲ force-push HEAD:api
     │
-Fly.io thin publisher (staktrakr, dfw, 512 MB)
+Fly.io thin publisher (staktrakr, dfw, 1024 MB)
   ├── run-spot.sh      (cron 0,30 * * * *)  →  spot-extract.js  →  MetalPriceAPI
   └── run-publish.sh   (cron 8,23,38,53)   →  api-export.js  ←──── sqld
                                                                        ▲
@@ -53,10 +53,10 @@ DR backup:  sqld (Home VM)  ──nightly──►  Turso Cloud (libSQL, free ti
 
 ## Repo Boundaries
 
-| Repo                   | Owns                                                                                                | PR Target |
-| ---------------------- | --------------------------------------------------------------------------------------------------- | --------- |
-| `lbruton/StakTrakr`    | Frontend app code, all poller code (`devops/pollers/`), Docker configs, Cloudflare Pages deployment | `dev`     |
-| `lbruton/StakTrakrApi` | `api` branch data publishing, GHA workflows, Fly.io `fly.toml`                                      | `main`    |
+| Repo                   | Owns                                                                                                                                                         | PR Target |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| `lbruton/StakTrakr`    | Frontend app code, all poller code (`devops/pollers/`), Fly.io config (`devops/pollers/remote-poller/fly.toml`), Docker configs, Cloudflare Pages deployment | `dev`     |
+| `lbruton/StakTrakrApi` | `api` branch data publishing, GHA workflows                                                                                                                  | `main`    |
 
 The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages. It is force-pushed by the Fly.io publisher on every publish cycle — never edited manually.
 
@@ -103,7 +103,7 @@ StakTrakr is a **single-page application** — one `index.html` containing all p
 - Works on `file://` and HTTP equally — `js/file-protocol-fix.js` patches `localStorage` for `file://` origins
 - 93 `<script>` tags in `index.html` (88 with `defer`) — load order is strict and intentional; `init.js` stays **last** (any feature script, e.g. `spot-ratio-math.js`/`spot-ratio-chips.js`, loads before it)
 - New JS files must be registered in **both** `index.html` (as `<script defer>`) and `sw.js` `CORE_ASSETS`
-- All DOM access outside `about.js`/`init.js` must use `safeGetElement(id)`, not `document.getElementById()` — narrow exception: a **create-if-missing singleton** (e.g. `getRatioChipTip()` in `spot-ratio-chips.js`) uses `document.getElementById` on purpose, since `safeGetElement` returns a truthy dummy on a miss and would make the "not found → create it" branch unreachable
+- All DOM access outside `about.js`/`init.js` must use `safeGetElement(id)`, not `document.getElementById()` — narrow exception: a **create-if-missing singleton** (e.g. `getRatioChipTip()` in `spot-ratio-chips.js`) uses `document.getElementById` on purpose, since `safeGetElement` returns a truthy dummy on a miss and would make the "not found → create it" branch unreachable; second exception: **`events.js` top-level parse-time wiring** must use `document.getElementById` — `safeGetElement` is defined in `init.js`, which loads last, so calling it at parse time throws a silent ReferenceError (see `.context/implementation-gotchas.md`)
 - All localStorage writes must use `saveData()`/`saveDataSync()` from `js/utils.js` — never raw `setItem`
 - All localStorage keys must be declared in `ALLOWED_STORAGE_KEYS` in `js/constants.js`
 - API settings panel uses a single-select `spotPricingSource` (6 options: STAKTRAKR, METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM, MANUAL) instead of fallback-chain provider priority — see API Settings Tab for detail
@@ -676,19 +676,19 @@ After a vault restore or cloud sync pull that writes `staktrakr.market_filter`, 
 
 ## Deep Dive References
 
-| Topic                                            | Source Doc                       |
-| ------------------------------------------------ | -------------------------------- |
-| System diagram + deployment paths                | architecture                     |
-| Frontend module detail + common mistakes         | ../Depreciated/Frontend Overview |
-| All API endpoint schemas                         | ../../MyMelo/API Reference       |
-| Frontend fetch functions + health badge logic    | ../Depreciated/API Consumption   |
-| Inventory item schema + storage keys             | ../../HexTrackr/Data Model       |
-| Full sqld schema + query patterns + data volumes | ../Depreciated/Turso Schema      |
-| Provider CRUD API + dashboard                    | Deep Dives/Provider Database     |
-| Retail scrape pipeline                           | ../Depreciated/Retail Pipeline   |
-| Spot price pipeline                              | ../Depreciated/Spot Pipeline     |
-| Goldback pipeline                                | ../Depreciated/Goldback Pipeline |
-| Home poller containers + crons                   | Deep Dives/Home Poller           |
-| Fly.io publisher + tiered recovery               | Deep Dives/Remote Poller         |
-| Service worker detail                            | ../Depreciated/Service Worker    |
-| Health checks + runbook                          | Deep Dives/Health Checks         |
+| Topic                                            | Source Doc                                   |
+| ------------------------------------------------ | -------------------------------------------- |
+| System diagram + deployment paths                | architecture                                 |
+| Frontend module detail + common mistakes         | Frontend Overview (deprecated DocVault page) |
+| All API endpoint schemas                         | .context/deep-dives/api-reference.md         |
+| Frontend fetch functions + health badge logic    | API Consumption (deprecated DocVault page)   |
+| Inventory item schema + storage keys             | .context/deep-dives/data-model.md            |
+| Full sqld schema + query patterns + data volumes | Turso Schema (deprecated DocVault page)      |
+| Provider CRUD API + dashboard                    | .context/deep-dives/provider-database.md     |
+| Retail scrape pipeline                           | Retail Pipeline (deprecated DocVault page)   |
+| Spot price pipeline                              | Spot Pipeline (deprecated DocVault page)     |
+| Goldback pipeline                                | Goldback Pipeline (deprecated DocVault page) |
+| Home poller containers + crons                   | .context/deep-dives/home-poller.md           |
+| Fly.io publisher + tiered recovery               | .context/deep-dives/remote-poller.md         |
+| Service worker detail                            | Service Worker (deprecated DocVault page)    |
+| Health checks + runbook                          | .context/deep-dives/health-checks.md         |

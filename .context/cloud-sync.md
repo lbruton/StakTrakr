@@ -9,7 +9,7 @@ updated: "2026-06-21"
 
 # StakTrakr — Cloud Sync
 
-Foundation reference for the cloud sync subsystem. This document synthesizes ../Depreciated/Cloud Sync and ../Depreciated/Backup & Restore into a single authoritative source for agents working on `js/cloud-sync.js` and `js/cloud-storage.js`.
+Foundation reference for the cloud sync subsystem. This document synthesizes Cloud Sync (deprecated DocVault page) and Backup & Restore (deprecated DocVault page) into a single authoritative source for agents working on `js/cloud-sync.js` and `js/cloud-storage.js`.
 
 > **Codex review gate:** All `cloud-sync.js` patches require Codex peer review before merge (per CLAUDE.md). The atomic rollback pattern (snapshot → apply → compensate on failure) must be preserved in any sync loop modification.
 
@@ -649,7 +649,7 @@ scheduleSyncPush(); // for inventory changes; includes _syncIsLeader check
 
 ## Related
 
-- ../Depreciated/Cloud Sync — full source doc (auto-sync subsystem detail)
-- ../Depreciated/Backup & Restore — full source doc (all four backup mechanisms)
-- ../Depreciated/Storage Patterns
-- Deep Dives/DOM Patterns
+- Cloud Sync (deprecated DocVault page) — full source doc (auto-sync subsystem detail)
+- Backup & Restore (deprecated DocVault page) — full source doc (all four backup mechanisms)
+- Storage Patterns (deprecated DocVault page)
+- .context/deep-dives/dom-patterns.md

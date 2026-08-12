@@ -218,7 +218,7 @@ Provider configuration lives in **sqld** (`provider_coins` + `provider_vendors` 
 
 **URL strategy:** Prefer random-year SKUs when in stock. At year-start, Monument Metals random-year SKUs go pre-order — switch to year-specific (e.g., `2026-american-silver-eagle.html`) until bulk stock arrives.
 
-See ../Depreciated/Providers Config and Deep Dives/Vendor Quirks for per-vendor details.
+See Providers Config (deprecated DocVault page) and .context/deep-dives/vendor-quirks.md for per-vendor details.
 
 ### Transform — 3-Phase Scrape Pipeline (`price-extract.js`)
 
@@ -654,14 +654,14 @@ There is no server-side image storage, upload endpoint, or CDN. All images are l
 
 ## Related Pages
 
-- ../Depreciated/Spot Pipeline — full spot price architecture
-- ../Depreciated/Retail Pipeline — full retail scrape architecture
-- ../Depreciated/Goldback Pipeline — denomination generation and per-state slugs
-- Deep Dives/Image Pipeline — full client-side image system
-- Deep Dives/Health Checks — stale thresholds and quick health script
-- ../Depreciated/Turso Schema — sqld table definitions
-- Deep Dives/Home Poller — home VM container and dashboard
-- Deep Dives/Remote Poller — Fly.io container deployment
-- ../../MyMelo/API Reference — full endpoint schemas
-- ../Depreciated/Providers Config — vendor URL configuration
-- Deep Dives/Vendor Quirks — per-vendor scraping notes
+- Spot Pipeline (deprecated DocVault page) — full spot price architecture
+- Retail Pipeline (deprecated DocVault page) — full retail scrape architecture
+- Goldback Pipeline (deprecated DocVault page) — denomination generation and per-state slugs
+- .context/deep-dives/image-pipeline.md— full client-side image system
+- .context/deep-dives/health-checks.md— stale thresholds and quick health script
+- Turso Schema (deprecated DocVault page) — sqld table definitions
+- .context/deep-dives/home-poller.md— home VM container and dashboard
+- .context/deep-dives/remote-poller.md— Fly.io container deployment
+- .context/deep-dives/api-reference.md — full endpoint schemas
+- Providers Config (deprecated DocVault page) — vendor URL configuration
+- .context/deep-dives/vendor-quirks.md— per-vendor scraping notes

@@ -509,7 +509,7 @@ StakTrakr has no bundler. Script tags in `index.html` define execution order, an
 
 Current version is always authoritative in `js/constants.js`. Check `devops/version.lock` for any in-flight claims before starting new work.
 
-### 7 files touched by every version bump
+### 8 files touched by every version bump
 
 | #   | File                       | What changes                                     | How                                         |
 | --- | -------------------------- | ------------------------------------------------ | ------------------------------------------- |
@@ -519,7 +519,8 @@ Current version is always authoritative in `js/constants.js`. Check `devops/vers
 | 4   | `js/about.js`              | `getEmbeddedWhatsNew()` + `getEmbeddedRoadmap()` | Manual                                      |
 | 5   | `version.json`             | `version` + `releaseDate`                        | Manual                                      |
 | 6   | `package.json`             | `version` field                                  | Manual                                      |
-| 7   | `data/spot-history-*.json` | New seed entries                                 | Staged conditionally if poller has new data |
+| 7   | `package-lock.json`        | `version` + `packages[""].version`               | With `package.json` (not hook-validated)    |
+| 8   | `data/spot-history-*.json` | New seed entries                                 | Staged conditionally if poller has new data |
 
 **Pre-commit enforcement:** `devops/hooks/check-release-sync.sh` fails the commit if `APP_VERSION` disagrees across files 1, 3, 5, 6, and 4 (`getEmbeddedWhatsNew` version entry).
 
@@ -595,7 +596,7 @@ A worktree created from a stale HEAD silently drops remote commits.
 
 ## Testing
 
-StakTrakr uses a four-tier test architecture. Each tier has a budget, a purpose, and a maintenance policy. **The default PR gate is `npm run test:core` — not the full suite.** See Deep Dives/Playwright Suite Rationalization for the full rationale.
+StakTrakr uses a four-tier test architecture. Each tier has a budget, a purpose, and a maintenance policy. **The default PR gate is `npm run test:core` — not the full suite.** See .context/deep-dives/playwright-suite-rationalization.md for the full rationale.
 
 ### Tier model
 
@@ -1048,8 +1049,8 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 
 ## Related
 
-- Deep Dives/DOM Patterns — full API reference with all edge cases
-- ../Depreciated/Storage Patterns — full key registry and migration patterns
-- ../Depreciated/Service Worker — CORE_ASSETS list, cache strategy table, hook internals
-- ../Depreciated/Release Workflow — full `/release patch` and `/ship` procedures
-- ../Depreciated/Frontend Overview — overall JS architecture and file load order
+- .context/deep-dives/dom-patterns.md— full API reference with all edge cases
+- Storage Patterns (deprecated DocVault page) — full key registry and migration patterns
+- Service Worker (deprecated DocVault page) — CORE_ASSETS list, cache strategy table, hook internals
+- Release Workflow (deprecated DocVault page) — full `/release patch` and `/ship` procedures
+- Frontend Overview (deprecated DocVault page) — overall JS architecture and file load order
