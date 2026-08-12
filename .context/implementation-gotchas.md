@@ -1,6 +1,80 @@
 # Implementation Gotchas — StakTrakr
 
-Situational foot-guns in specific modules. Read when touching the named file or feature.
+Situational foot-guns in specific modules and runtime patterns. Read when touching the
+named file or feature. CLAUDE.md carries a one-line index of these; this file is the
+authority — do not duplicate the detail back into CLAUDE.md or AGENTS.md.
+
+## Dual Config Store — CRITICAL
+
+Two separate localStorage stores. Confusing them = silent data loss.
+
+| Store             | Key                  | Manages                                                       | Read                                                   | Write                                                  |
+| ----------------- | -------------------- | ------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| Spot providers    | `metalApiConfig`     | METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM               | `loadApiConfig()`                                      | `saveApiConfig()`                                      |
+| Catalog providers | `catalog_api_config` | Numista apiKey, Professional Coin Grading Service bearerToken | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
+
+Reading catalog keys via `loadApiConfig().keys["numista"]` returns `undefined`; that is the
+wrong store and the root cause of STRK-573.
+`saveData()` wraps in `JSON.stringify`. Read saved data via `loadData()` / `loadDataSync()`.
+After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale
+provider instances.
+
+## `check-release-sync` hook is a SUBSET
+
+Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the
+`js/about.js` What's New block — it asserts the current-version `<li>` entry is present
+**and** enforces the 5-entry cap (STRK-194, #1262).
+Does not check `manifest.json`, README badges, or `sw.js` cache.
+**Hook green ≠ release complete.** `/release` is the only path that touches all
+release-bearing files.
+
+## Script load order — `safeGetElement` unavailable in `events.js` top-level
+
+`init.js` defines `safeGetElement` and loads after `events.js`; both scripts use `defer`.
+Top-level code in `events.js` that calls `safeGetElement` throws a silent ReferenceError.
+Use `document.getElementById` for event wiring that runs at parse time.
+Factory closures such as `createLotEachToggle` are fine because they call `safeGetElement`
+at runtime.
+Related: `safeGetElement` returns a partial dummy when the element is missing — shimmed
+members no-op silently; only `instanceof HTMLElement` discriminates a real element.
+
+## Playwright dialog testing — `showAppConfirm` is not `window.confirm`
+
+`showAppConfirm` (`js/dialogs.js`) is a custom Document Object Model modal
+(`#appDialogModal`), not native `window.confirm`. `page.on("dialog", ...)` does not
+intercept it.
+Tests start the async function via `page.evaluate` without awaiting it first, then call
+`waitForSelector("#appDialogModal", {state:"visible"})`, then click `#appDialogOk` or
+`#appDialogCancel`. Use the same pattern for `showAppAlert` and `showAppPrompt`.
+
+## `state.js` variable exposure — `let` needs `Object.defineProperty`
+
+Variables declared with `let` in `state.js` are not on `window`.
+`inventory` and `changeLog` have explicit `Object.defineProperty` getter/setters.
+Any new state variable that tests or other modules need via `window.X` should follow the
+same pattern.
+Related: all `js/` files share ONE global scope — duplicate top-level `const`/`var` across
+two files is a hard SyntaxError that silently kills the second script; use the
+`SYNC_`/`_sync` prefix convention.
+
+## Date formatting — Canadian English locale
+
+Use `toLocaleDateString('en-CA')` (Canadian English) to produce **local, user-facing**
+dates in year-month-day format (form defaults, filenames, display).
+Do not use `toISOString().slice(0, 10)` for those; it returns a UTC date and shifts a day
+for users in negative UTC offsets.
+**Inverse case — UTC-keyed data values** (publisher feed business days, chart time keys):
+keep the UTC calendar date. Derive it from the feed row's ISO timestamp field
+(`row.t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
+Local `en-CA` on a UTC-stamped key shifts a day for users in positive UTC offsets.
+Do not mix frames (local `new Date(y, m, d)` construction followed by `toISOString()`
+formatting) unless the conversion is deliberate and commented at the call site.
+
+## Theme count — four themes, not three
+
+StakTrakr has **four** CSS themes: `light`, `dark`, `slate`, `sepia`. There is no
+`contrast` theme. AI reviewers frequently hallucinate "three themes" or a "contrast"
+theme — both are wrong.
 
 ## `applyBulkEdit()` — nested field paths and shallow copy
 

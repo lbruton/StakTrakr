@@ -5,11 +5,11 @@
 // of the markup to plain divs; this issue restores the markup and layers a
 // remembered-state system on top. These tests pin the restored contract:
 //
-//   - every section is a real <details data-section="…"> — the collapse
-//     mechanism is native, not JS;
-//   - first-visit defaults: Images open, everything else collapsed
-//     (Constitutional is open-when-shown — it is display-gated by weight
-//     unit "cu", not by disclosure state);
+//   - every collapsible section is a real <details data-section="…"> — the
+//     collapse mechanism is native, not JS;
+//   - the Constitutional card is NOT collapsible (STRK-329) — it uses the
+//     shared .form-section chrome but is a plain div, not <details>;
+//   - first-visit defaults: Images open, everything else collapsed;
 //   - per-section state persists in localStorage ("formSectionState") on
 //     USER toggles only. The key is registered in ALLOWED_STORAGE_KEYS and
 //     deliberately NOT in SYNC_SCOPE_KEYS — a device-local UI preference;
@@ -20,7 +20,7 @@
 //     closed <details> throws Chrome's "not focusable" error and the form
 //     silently no-ops, so no [required] may ever live inside a section.
 //
-// SUMMARY-EMBEDDED CONTROLS: the Constitutional summary hosts the
+// SUMMARY-EMBEDDED CONTROLS: the Constitutional header hosts the
 // denomination/face chip toggle, and clone mode injects checkboxes into
 // section headers. Clicking a nested interactive element activates THAT
 // element, not the <summary> (HTML activation-behaviour rules) — one test
@@ -32,7 +32,6 @@ import { suppressWhatsNewPopup } from "../helpers/seed.js";
 
 const SECTION_KEYS = [
   "images",
-  "constitutional",
   "grading",
   "marketPricing",
   "catalog",
@@ -104,6 +103,21 @@ async function openAddModal(page) {
 }
 
 /**
+ * Seeds, opens the add modal, and switches to constitutional mode.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {object|null} sectionState - Pre-seeded formSectionState map, or null
+ * @returns {Promise<void>}
+ */
+async function showConstitutionalCard(page, sectionState = null) {
+  await seedAndGoto(page, sectionState);
+  await openAddModal(page);
+  await page.evaluate(() => {
+    document.getElementById("itemWeightUnit").value = "cu";
+    window.toggleConstitutionalGroup();
+  });
+}
+
+/**
  * Returns the details element for a section key.
  * @param {import('@playwright/test').Page} page - Page under test
  * @param {string} key - data-section key
@@ -127,7 +141,9 @@ const readOpenStates = (page) =>
   }, SECTION_KEYS);
 
 test.describe("STRK-301 — collapsible add/edit form sections", () => {
-  test("all eight sections are native <details> with first-visit defaults", async ({ page }) => {
+  test("all seven collapsible sections are native <details> with first-visit defaults", async ({
+    page,
+  }) => {
     await seedAndGoto(page);
     await openAddModal(page);
 
@@ -149,7 +165,6 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
 
     const open = await readOpenStates(page);
     expect(open.images, "Images defaults open").toBe(true);
-    expect(open.constitutional, "Constitutional is open-when-shown").toBe(true);
     for (const key of DEFAULT_COLLAPSED) {
       expect(open[key], `${key} defaults collapsed`).toBe(false);
     }
@@ -269,27 +284,16 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
     }
   });
 
-  test("controls embedded in a summary activate without toggling the section", async ({ page }) => {
-    await seedAndGoto(page);
-    await openAddModal(page);
+  test("constitutional card chip toggle activates without hiding the body", async ({ page }) => {
+    await showConstitutionalCard(page);
+    const card = page.locator("#item-constitutional-group");
+    await expect(card).toBeVisible();
+    const body = card.locator(".form-section-body");
+    await expect(body).toBeVisible();
 
-    // Constitutional is display-gated on weight unit "cu"; switch to it the
-    // way handleTypeChange does so the section (and its summary-embedded
-    // entry-mode chip toggle) is actually visible and clickable.
-    await page.evaluate(() => {
-      document.getElementById("itemWeightUnit").value = "cu";
-      window.toggleConstitutionalGroup();
-    });
-    const constitutional = section(page, "constitutional");
-    await expect(constitutional).toBeVisible();
-    expect((await readOpenStates(page)).constitutional).toBe(true);
-
-    await constitutional.locator('.chip-sort-btn[data-mode="denom"]').click();
-    await expect(constitutional.locator('.chip-sort-btn[data-mode="denom"]')).toHaveClass(/active/);
-    expect(
-      (await readOpenStates(page)).constitutional,
-      "chip click must not collapse the section"
-    ).toBe(true);
+    await card.locator('.chip-sort-btn[data-mode="denom"]').click();
+    await expect(card.locator('.chip-sort-btn[data-mode="denom"]')).toHaveClass(/active/);
+    await expect(body, "chip click must not hide the body").toBeVisible();
   });
 
   test("programmatic writes land in collapsed sections; openFormSection opens without persisting", async ({
@@ -316,6 +320,35 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
     expect(persisted.catalog, "programmatic opens must never persist as a user choice").toBe(
       undefined
     );
+  });
+
+  test("constitutional card is not a <details> and has no disclosure affordance (STRK-329)", async ({
+    page,
+  }) => {
+    await showConstitutionalCard(page);
+    const card = page.locator("#item-constitutional-group");
+    await expect(card).toBeVisible();
+
+    const tagName = await card.evaluate((el) => el.tagName);
+    expect(tagName, "constitutional must be a <div>").toBe("DIV");
+
+    const chevron = await card.locator(".form-section-header").evaluate((el) => {
+      const after = getComputedStyle(el, "::after");
+      return after.content;
+    });
+    expect(chevron, "no chevron pseudo-element on a non-details header").toBe("none");
+
+    const body = card.locator(".form-section-body");
+    await card.locator(".form-section-header").click();
+    await expect(body, "header click must not hide the body").toBeVisible();
+  });
+
+  test("stale remembered {constitutional: false} does not hide the card (STRK-329)", async ({
+    page,
+  }) => {
+    await showConstitutionalCard(page, { constitutional: false });
+    const body = page.locator("#item-constitutional-group .form-section-body");
+    await expect(body, "stale remembered-closed must not hide constitutional").toBeVisible();
   });
 
   test("collapsed defaults shorten the form on a phone viewport", async ({ page }) => {

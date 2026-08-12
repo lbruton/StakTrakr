@@ -9,8 +9,10 @@
 //      preferences are a per-device ergonomic, not inventory data.
 //   2. Precedence on modal open — a remembered explicit user choice wins;
 //      otherwise a section already holding data opens (edit/clone); otherwise
-//      the static markup default stands (Images and Constitutional ship with
-//      the `open` attribute, everything else collapsed).
+//      the static markup default stands (Images ships with the `open`
+//      attribute, everything else collapsed). Constitutional is NOT managed
+//      here — it is a type-driven field swap, not a collapsible section
+//      (STRK-329).
 //   3. Count badges — a collapsed section with content shows how much it
 //      holds in its .form-section-count pill, so remembered-closed can never
 //      silently hide data.
@@ -22,7 +24,6 @@
 
 const FORM_SECTION_KEYS = [
   "images",
-  "constitutional",
   "grading",
   "marketPricing",
   "catalog",
@@ -34,8 +35,8 @@ const FORM_SECTION_KEYS = [
 let _formSectionPersistReady = false;
 
 /**
- * Returns the <details> element for a form section key.
- * @param {string} key - data-section key
+ * Returns the collapsible <details> element for a form section key.
+ * @param {string} key - data-section key (only keys in FORM_SECTION_KEYS)
  * @returns {HTMLElement|null} The section element, or null before DOM ready
  */
 const _formSectionEl = (key) =>
@@ -174,7 +175,7 @@ const updateFormSectionBadges = () => {
  */
 const prepareFormSections = () => {
   const remembered = _loadFormSectionState();
-  const staticDefaults = { images: true, constitutional: true };
+  const staticDefaults = { images: true };
   FORM_SECTION_KEYS.forEach((key) => {
     const el = _formSectionEl(key);
     if (!el) return;

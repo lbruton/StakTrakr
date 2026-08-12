@@ -3115,3 +3115,159 @@ test.describe("STRK-290 — market block refresh control", () => {
     expect(await dot.evaluate((el) => getComputedStyle(el).position)).not.toBe("absolute");
   });
 });
+
+// STRK-332 — a fresh manifest does not promise a complete export.
+//
+// exportRetail() catches and skips individual slug failures, yet main() still
+// writes a fresh manifest afterward — so the endpoint with the newest
+// generated_at can legitimately be missing some slug files. The sync used to
+// fetch every slug exclusively from that one base, and a per-slug gap degraded
+// straight to the previously stored price with no attempt at the other
+// endpoint. NOTE this exposure PRE-DATES the freshest-wins change: the old
+// first-HTTP-OK selection was equally single-base. STRK-331 only changed which
+// endpoint can be chosen.
+//
+// The runners-up from the manifest race are now retained and retried per file.
+test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
+  const FRESH_MANIFEST_AT = "2026-05-26T12:00:00.000Z";
+  const OLDER_MANIFEST_AT = "2026-05-26T11:00:00.000Z";
+  const GAP_SLUG = SLUG_SILVER_A;
+  const API1 = "https://api.staktrakr.com/data/v2";
+  const API2 = "https://api2.staktrakr.com/data/v2";
+
+  /**
+   * Build a v2 manifest envelope carrying the fixture's full coin and vendor
+   * set at a caller-chosen publication time, so the two endpoints can be given
+   * deliberately different generated_at values and the freshest-wins race has a
+   * defined winner instead of a stable-sort tie.
+   * @param {string} generatedAt - ISO publication timestamp for the envelope
+   * @returns {string} The serialized manifest envelope
+   */
+  const manifestBody = (generatedAt) =>
+    JSON.stringify({
+      v: 2,
+      generated_at: generatedAt,
+      data: {
+        coins: Object.entries(coinMeta).map(([slug, meta]) => ({
+          slug,
+          name: meta.name,
+          weight_oz: meta.weight,
+          metal: meta.metal === "silver" ? "xag" : meta.metal === "gold" ? "xau" : meta.metal,
+        })),
+        vendors: VENDORS,
+      },
+    });
+
+  /**
+   * Boot the app against a two-endpoint fixture and run one retail sync.
+   *
+   * api1 always publishes the NEWER manifest, so it wins the freshest-wins race
+   * and becomes the primary; api2 is a full export behind an older manifest.
+   * The only thing the cases differ on is how api1 answers for the gap slug's
+   * latest.json, which the caller supplies.
+   * @param {import('@playwright/test').Page} page - The page under test
+   * @param {Function} gapResponder - Route handler for api1's gap-slug latest.json
+   * @returns {Promise<Function>} Reader returning the captured v2 request URLs
+   */
+  const runFallbackSync = async (page, gapResponder) => {
+    const requested = [];
+    page.on("request", (req) => requested.push(req.url()));
+    const base = makeV2Handler();
+
+    const withManifest = (generatedAt, special) => async (route) => {
+      const path = new URL(route.request().url()).pathname.replace(/^\/data\/v2\//, "");
+      if (path === "manifest.json") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: manifestBody(generatedAt),
+        });
+      }
+      if (special && path === `retail/${GAP_SLUG}/latest.json`) return special(route);
+      return base(route);
+    };
+
+    await page.route(
+      "https://api.staktrakr.com/data/v2/**",
+      withManifest(FRESH_MANIFEST_AT, gapResponder)
+    );
+    await page.route(
+      "https://api2.staktrakr.com/data/v2/**",
+      withManifest(OLDER_MANIFEST_AT, null)
+    );
+
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.syncRetailPrices === "function");
+    await page.evaluate(() => window.syncRetailPrices({ ui: false }));
+
+    return () => requested.filter((url) => url.includes("staktrakr.com/data/v2"));
+  };
+
+  const GAP_PATH = `retail/${GAP_SLUG}/latest.json`;
+
+  test("a slug missing from the freshest endpoint is retried against the other endpoint", async ({
+    page,
+  }) => {
+    // api1's export is missing this one slug's latest.json — the exportRetail skip.
+    const v2Urls = await runFallbackSync(page, (route) =>
+      route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
+    );
+    const gapPath = GAP_PATH;
+
+    // POLL, do not snapshot. syncRetailPrices has an in-progress guard, so the
+    // explicit call above can no-op against the boot sync and return before any
+    // slug is fetched — asserting on a snapshot here fails ~5 runs in 5.
+    // The api2 gap request is the right thing to wait for: it is issued only
+    // after api1's 503 for that same file resolves, and every api1 slug request
+    // was already issued up-front by the Promise.all, so once this URL appears
+    // the api1 side of the picture is complete and the assertions below are
+    // reading a settled request log rather than a partial one.
+    await expect.poll(v2Urls, { timeout: 15000 }).toContain(`${API2}/${gapPath}`);
+
+    const urls = v2Urls();
+    // The freshest endpoint is still the primary and was asked first.
+    expect(urls).toContain(`${API1}/${gapPath}`);
+
+    // The fallback is SCOPED to actual gaps: a file api1 served successfully is
+    // never re-fetched from api2, or every sync would double its request count.
+    // (Files missing from BOTH endpoints — this fixture's deliberately
+    // unresolvable synthetic slugs — are legitimately retried on api2 and then
+    // give up, which is the cost a fallback is supposed to pay.)
+    expect(urls).toContain(`${API1}/retail/${SLUG_GOLD_A}/latest.json`);
+    expect(urls).not.toContain(`${API2}/retail/${SLUG_GOLD_A}/latest.json`);
+  });
+
+  test("a stale-but-200 slug file is rejected and escalates to the other endpoint", async ({
+    page,
+  }) => {
+    // Review finding (Codex, P1). Endpoint reachability only proves an
+    // HTTP-successful MANIFEST, and no per-file freshness check existed for
+    // either endpoint — so an arbitrarily old slug file could supply the
+    // displayed price while _syncRetailV2 stored the winner's fresh manifest
+    // timestamp and painted the market freshness dot green. That is the
+    // STRK-331 defect class reached by a different route: a freshness signal
+    // describing something other than the data on screen.
+    //
+    // A stale 200 is the shape that matters. A 503 was already handled by the
+    // test above; a stale 200 is indistinguishable from a good response without
+    // a gate, which is exactly why the strict stale_after check has to exist.
+    const staleIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const v2Urls = await runFallbackSync(page, (route) =>
+      // HTTP 200, well-formed, two hours past a 30-minute budget.
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          v: 2,
+          generated_at: staleIso,
+          stale_after: 1800,
+          data: latestForSlug(GAP_SLUG),
+        }),
+      })
+    );
+
+    // Same polling rationale as the test above.
+    await expect.poll(v2Urls, { timeout: 15000 }).toContain(`${API2}/${GAP_PATH}`);
+    expect(v2Urls()).toContain(`${API1}/${GAP_PATH}`);
+  });
+});

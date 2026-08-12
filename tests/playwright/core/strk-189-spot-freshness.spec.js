@@ -739,3 +739,135 @@ test.describe("STRK-320 — freshness repaint when the tab becomes visible", () 
     await expectAllIconsAt(page, "spot-sync-icon--fresh");
   });
 });
+
+// STRK-333 — freshest-wins must not cost metal coverage.
+//
+// The publisher builds spot/latest.json from whichever current rows exist and
+// skips absent metals (devops/pollers/shared/api-export-v2.js), and exportSpot
+// bails only when EVERY row is missing — so a fresh, valid, PARTIAL envelope is
+// reachable in production. Ranking purely by generated_at then meant the winner
+// could be missing a metal that a slightly older endpoint carried, which either
+// failed the whole sync (sole missing selection) or silently left that metal on
+// its previous value.
+//
+// Both endpoints are fetched in parallel anyway, so the runners-up are already
+// in memory: a missing metal is filled from the next-freshest envelope that has
+// it, at no extra network cost, and only from candidates that already cleared
+// the same lenient STRK-189 gate.
+test.describe("STRK-333 — spot metal coverage across endpoints", () => {
+  // Every case in this block is "serve these two envelopes, sync once, inspect
+  // what landed", so the scaffolding is shared rather than repeated four times.
+  const FRESH_MINUTES = 5;
+  const OLDER_MINUTES = 25;
+
+  /**
+   * Serve one envelope per endpoint, boot the app, and run a single forced sync.
+   * @param {import('@playwright/test').Page} page - The page under test
+   * @param {any} api1Payload - Envelope served by the api1 origin
+   * @param {any} api2Payload - Envelope served by the api2 origin
+   * @returns {Promise<any>} The syncSpotProvider result
+   */
+  const syncEndpoints = async (page, api1Payload, api2Payload) => {
+    await routeSpotLatest(page, SPOT_LATEST_API1, api1Payload);
+    await routeSpotLatest(page, SPOT_LATEST_API2, api2Payload);
+    await gotoApp(page);
+    return forceSync(page);
+  };
+
+  test.beforeEach(async ({ page }) => {
+    await injectSeedInventory(page);
+  });
+
+  test("a metal missing from the freshest envelope is backfilled from the older passer", async ({
+    page,
+  }) => {
+    const freshIso = minutesAgoIso(FRESH_MINUTES);
+    const olderIso = minutesAgoIso(OLDER_MINUTES);
+
+    // Freshest endpoint published without a silver row; the older one is still
+    // well inside the lenient gate and carries silver.
+    const partial = makeSpotLatest({}, freshIso);
+    delete partial.data.xag;
+    const result = await syncEndpoints(
+      page,
+      partial,
+      makeSpotLatest({ xag: { price: 44.44 } }, olderIso)
+    );
+    // Before STRK-333 the winner's missing silver was simply absent from the
+    // result map; here it must arrive from the runner-up.
+    expect(result.results.STAKTRAKR).toBe("success");
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("44.44");
+
+    // THE HONESTY ASSERTION. A backfilled metal is recorded with ITS OWN
+    // envelope's publication time, never the fresher winner's — stamping a
+    // 25-minute-old silver price as 5 minutes old is exactly the
+    // badge-disagrees-with-data failure STRK-331 was opened to kill.
+    const history = await readSpotHistory(page);
+    const rows = history.filter((row) => row.spot === 44.44 && row.metal === "Silver");
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(olderIso))).toBe(true);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(freshIso))).toBe(false);
+  });
+
+  test("the freshest envelope still wins for a metal both endpoints carry", async ({ page }) => {
+    // Guards the backfill against becoming a downgrade: the fill must only ever
+    // reach metals the winner OMITS, never overwrite one it already supplied.
+    const result = await syncEndpoints(
+      page,
+      makeSpotLatest({ xag: { price: 55.55 } }, minutesAgoIso(FRESH_MINUTES)),
+      makeSpotLatest({ xag: { price: 11.11 } }, minutesAgoIso(OLDER_MINUTES))
+    );
+    expect(result.results.STAKTRAKR).toBe("success");
+
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("55.55");
+    const history = await readSpotHistory(page);
+    expect(history.some((row) => row.spot === 11.11 && row.metal === "Silver")).toBe(false);
+  });
+
+  test("an undated runner-up is never used to backfill a dated winner", async ({ page }) => {
+    // Review finding (CodeRabbit + Copilot, independently). An envelope with no
+    // parseable generated_at is UNGATED, not merely undated: _checkEnvelopeFreshness
+    // returns ok for anything it cannot date, so a legacy or corrupted payload
+    // passes the STRK-189 check without being vouched for. It also has no
+    // timestamp to record, so a metal taken from it would fall through to the
+    // winner's override-free path and be stamped with the winner's FRESH time —
+    // the exact overstatement priceTimestamps exists to prevent, and a worse
+    // outcome than simply leaving the metal alone.
+    const undated = makeSpotLatest({ xag: { price: 77.77 } }, undefined);
+    delete undated.generated_at;
+
+    const winner = makeSpotLatest({}, minutesAgoIso(FRESH_MINUTES));
+    delete winner.data.xag;
+    await syncEndpoints(page, winner, undated);
+
+    // The invariant holds regardless of whether the sync as a whole succeeds:
+    // the unvouched price must not reach the display or the history series.
+    await expect(page.locator("#spotPriceDisplaySilver")).not.toContainText("77.77");
+    const history = await readSpotHistory(page);
+    expect(history.some((row) => row.spot === 77.77)).toBe(false);
+  });
+
+  test("a price is recorded at its own observation time, not the envelope's publish time", async ({
+    page,
+  }) => {
+    // Review finding (Codex, P1). exportSpot() selects the latest sqld row with
+    // NO age cutoff and emits that row's `t` alongside the price, so clearing the
+    // envelope's freshness gate does not prove the PRICE is equally fresh — a
+    // just-published envelope can carry a much older reading. Recording it at
+    // publish time would let a stale price enter the history series as newly
+    // minted, which is the same overstatement the backfill guard prevents, just
+    // reached by a different route. Live production shape confirms the fields:
+    // generated_at 00:38:05 with the xag entry at t=00:30:00Z.
+    const publishIso = minutesAgoIso(2);
+    const rowIso = minutesAgoIso(40);
+    const payload = makeSpotLatest({ xag: { price: 66.66, t: rowIso } }, publishIso);
+    const result = await syncEndpoints(page, payload, payload);
+    expect(result.results.STAKTRAKR).toBe("success");
+
+    const history = await readSpotHistory(page);
+    const rows = history.filter((row) => row.spot === 66.66 && row.metal === "Silver");
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(rowIso))).toBe(true);
+    expect(rows.some((row) => row.timestamp === toHistoryTimestamp(publishIso))).toBe(false);
+  });
+});
