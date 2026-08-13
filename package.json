@@ -10,7 +10,7 @@
     "test:unit": "node --test tests/unit/*.test.js",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
-    "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\" \".context/**/*.md\" \".agents/**/*.md\"",
+    "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\" \".context/**/*.md\" \".agents/**/*.md\" \".claude/**/*.md\"",
     "test": "npm run test:core",
     "test:core": "npx playwright test tests/playwright/core",
     "test:extended": "npx playwright test tests/playwright/extended --pass-with-no-tests",
