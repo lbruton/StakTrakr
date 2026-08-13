@@ -5,8 +5,8 @@ playwright-report
 test-results
 .git
 
-# Machine-local files, mirroring .gitignore:73 (.claude/**/*.local.*). These are hook
-# message templates and personal overrides — not repo content, so the repo lint gate
-# should not judge them. markdownlint globs the filesystem rather than git, so without
-# this it would lint files git deliberately ignores.
+# Machine-local files, mirroring the matching rule in .gitignore. These are hook message
+# templates and personal overrides — not repo content, so the repo lint gate should not
+# judge them. markdownlint globs the filesystem rather than git, so without this it would
+# lint files git deliberately ignores.
 .claude/**/*.local.*
