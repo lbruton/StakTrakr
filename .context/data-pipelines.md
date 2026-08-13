@@ -282,7 +282,7 @@ Deploy packaging must keep all shared modules together. The poller Dockerfiles u
 `COPY shared/*.js ./`, and the home sync manifest explicitly lists the new
 `price-extract-*` shared modules.
 
-**OOS detection (`detectStockStatus()`):** Checks scraped text for patterns (`out of stock`, `sold out`, `pre-order`, etc.) before price extraction. Exception: `jmbullion` is in `PREORDER_TOLERANT_PROVIDERS` — the `pre-?order` pattern is skipped because JMBullion marks presale coins (buffalo, maple-silver, etc.) as Pre-Order while still showing live prices.
+**OOS detection (`detectStockStatus()`):** Checks scraped text for patterns (`out of stock`, `sold out`, `pre-order`, etc.) before price extraction. Exception: `jmbullion` is preorder-tolerant — resolved per vendor by `resolvePreorderTolerant()` (`price-extract-shared.js:106-110`), with `LEGACY_PREORDER_TOLERANT_PROVIDERS` (`:72`, holding `jmbullion` and `monumentmetals`) as the fallback. For those, the `pre-?order` pattern is skipped because JMBullion marks presale coins (buffalo, maple-silver, etc.) as Pre-Order while still showing live prices.
 
 **Price bounds guard (`writeSnapshot()` in `shared/db.js`):** Applied before every database write.
 
@@ -363,14 +363,14 @@ Expected run timing:
 
 ### Failure Modes
 
-| Symptom                               | Likely cause                                     | Fix                                                                    |
-| ------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| Vendor missing prices multiple cycles | URL changed, OOS, or bot-blocked                 | Add backup URLs via `urls` array — auto-synced next cycle, no redeploy |
-| Only 1–2 vendors per coin             | Home poller down or sqld connectivity            | Check Portainer dashboard; verify sqld has recent rows                 |
-| JMBullion presale coins show OOS      | Pre-order pattern matching before provider check | Verify `PREORDER_TOLERANT_PROVIDERS` includes `jmbullion`              |
-| OOM on Fly.io                         | Concurrent `api-export.js` invocations           | Verify `run-publish.sh` lockfile; `fly scale show`                     |
-| Monument Metals missing at year-start | Random-year SKU on pre-order                     | Switch to year-specific SKU in providers dashboard                     |
-| Vendor price marked `stale: true`     | All scrape phases failed; last-known-good in use | Check home poller logs; verify Byparr sidecar running                  |
+| Symptom                               | Likely cause                                     | Fix                                                                                         |
+| ------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Vendor missing prices multiple cycles | URL changed, OOS, or bot-blocked                 | Add backup URLs via `urls` array — auto-synced next cycle, no redeploy                      |
+| Only 1–2 vendors per coin             | Home poller down or sqld connectivity            | Check Portainer dashboard; verify sqld has recent rows                                      |
+| JMBullion presale coins show OOS      | Pre-order pattern matching before provider check | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS` |
+| OOM on Fly.io                         | Concurrent `api-export.js` invocations           | Verify `run-publish.sh` lockfile; `fly scale show`                                          |
+| Monument Metals missing at year-start | Random-year SKU on pre-order                     | Switch to year-specific SKU in providers dashboard                                          |
+| Vendor price marked `stale: true`     | All scrape phases failed; last-known-good in use | Check home poller logs; verify Byparr sidecar running                                       |
 
 ---
 
@@ -465,9 +465,19 @@ Full slug format: `goldback-{state}-g{denom}` — e.g., `goldback-oklahoma-g1`, 
 
 **No in-script skip guard.** Each hourly run writes the current goldback.com G1 rate to sqld; if the upstream rate (`data.t`) hasn't moved, it simply overwrites the row with the same `g1_usd` (fresh `scraped_at`, unchanged value). STRK-58 moved this from a daily to an hourly cron because the CurrencyLayer-backed rate can shift intraday — hourly scraping catches those mid-day moves rather than locking in a single snapshot.
 
-### Why the Health Badge Shows "~2m ago" for a Slow-Moving Feed
+### Goldback badge freshness — `generated_at` is the scrape time (STRK-257)
 
-`api-health.js` reads `generated_at` from the v2 envelope — not `scraped_at`. Scrapes run hourly, but because goldback.com's upstream rate (`data.t`) can lag, `g1_usd` may repeat across publishes (and across hourly scrapes). As of v3.35.63 (STRK-250), `generated_at` is **honest**: when the freshest DB row is older than the 7200 s realtime budget (outage path), `exportGoldback` writes the row's `scraped_at` as `generated_at` instead of publish time — so the health badge and `_strictMarketFreshness` correctly detect staleness within one publish cycle. During normal operation (fresh row ≤ 7200 s), `generated_at` remains publish time (unchanged behavior).
+`api-health.js` reads `generated_at` from the v2 envelope. Since **STRK-257** that value is
+**always** the normalized `scraped_at`, not publish time: `resolveGoldbackGeneratedAt()`
+(`devops/pollers/shared/api-export-v2.js:894-920`, used at `:948-960`) uses publish time
+only as a last resort when no usable scrape timestamp exists.
+
+This supersedes the earlier STRK-250 behavior, where the scrape timestamp was written only
+on the outage path (freshest row older than the 7200 s realtime budget) and normal operation
+kept publish time. The badge therefore reflects scrape age at all times, and a slow-moving
+feed reads as its true age rather than "~2m ago". `g1_usd` repeating across publishes is
+still expected — goldback.com's upstream rate (`data.t`) can lag — but the timestamp no
+longer refreshes independently of the scrape.
 
 ### Storage
 
@@ -512,12 +522,12 @@ Changes auto-sync next cycle — no redeploy needed.
 
 ### Failure Modes
 
-| Symptom                                                  | Likely cause                                                   | Fix                                                                                               |
-| -------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `goldback/latest.json` > 2h stale (STRK-248)             | Home poller `goldback-scraper.js` failing or goldback.com down | Check home poller logs via Portainer (goldback runs on home only)                                 |
-| G1 price null in manifest                                | Firecrawl timeout on JS-rendered page                          | goldback.com is in `SLOW_PROVIDERS` — verify `waitFor` is sufficient                              |
-| Denomination prices wrong                                | G1 base rate incorrect                                         | Check `goldback-spot.json` G1 value; compare to goldback.com/exchange-rates/                      |
-| Per-denomination retail prices differ from computed spot | Normal — retail vendor prices ≠ official exchange rate         | Expected: `goldback-spot.json` uses official G1 rate; retail endpoints track actual vendor prices |
+| Symptom                                                  | Likely cause                                                   | Fix                                                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `goldback/latest.json` > 2h stale (STRK-248)             | Home poller `goldback-scraper.js` failing or goldback.com down | Check home poller logs via Portainer (goldback runs on home only)                                      |
+| G1 price null in manifest                                | Firecrawl timeout on JS-rendered page                          | timing comes from `price-extract-provider-config.js` (`SLOW_PROVIDERS` was retired) — verify `waitFor` |
+| Denomination prices wrong                                | G1 base rate incorrect                                         | Check `goldback-spot.json` G1 value; compare to goldback.com/exchange-rates/                           |
+| Per-denomination retail prices differ from computed spot | Normal — retail vendor prices ≠ official exchange rate         | Expected: `goldback-spot.json` uses official G1 rate; retail endpoints track actual vendor prices      |
 
 ---
 

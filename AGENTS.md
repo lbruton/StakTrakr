@@ -121,8 +121,8 @@ window exposure, `en-CA`/UTC date frames, and the four-theme rule (`light`, `dar
 Full detail (routing table, throttle, false positives) in `.context/review-and-ci.md`.
 
 - After modifying instruction files, run `npx agentlinter --local`.
-- Review is label-gated (2026-06-14): apply the `coderabbit-review` + `codacy-review` labels at PR creation for review-worthy PRs; skip on trivial chores.
-- Required checks (Codacy Static, CodeQL) run regardless of labels.
+- Review is **automatic, not label-gated** (verified 2026-08-13): CodeRabbit, Codacy AI, Copilot, and Codex auto-review every `dev` PR regardless of labels. A missing bot review is a real gap, not expected behavior.
+- Required status checks differ by branch: `dev` requires **only** `Codacy Static Code Analysis`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
 - CodeRabbit's 75% docstring-coverage pre-merge check blocks merge invisibly (green checks + 0 threads but `CHANGES_REQUESTED`). Write JSDoc / shell docstrings pre-emptively.
 
 ## Pre-Flight Triggers

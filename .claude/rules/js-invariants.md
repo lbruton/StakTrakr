@@ -103,7 +103,9 @@ Both historical hazards are already solved in `js/bulkEdit.js`. Do not regress t
 - Grep `BULK_COLUMN_PRIORITY` for its length rather than trusting docs — reviewers have
   guessed wrong in three separate sessions.
 
-## `_isMarketItemEnabled` — apply on both tab paths
+## `_isMarketItemEnabled` — RESOLVED, do not re-add the guard
 
-In `_renderVendorTable()`, apply the filter on **both** the All-tab path and the per-metal
-`else` branch, or disabled vendors surface as column headers.
+This was historically a both-branches hazard in `_renderVendorTable()`. It no longer is:
+the guard sits in `_collectVendorTableRows` (`js/market-data.js:1622-1628`), **hoisted above**
+the `isAllScope` branch at `:1630-1636`, so it cannot be missed. Adding a second guard in a
+branch is a redundant duplicate, not a fix.

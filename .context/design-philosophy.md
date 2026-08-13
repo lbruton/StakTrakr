@@ -217,8 +217,7 @@ Market list cards expand/collapse per coin. Cards always stack vertically on mob
 
 ### Modals
 
-- Use Bootstrap modal pattern with `.modal-close` or `[data-bs-dismiss='modal']`
-- Close selector is `.modal-close` — **not** `.close-btn` (incorrect, do not use)
+- Close selector is `.modal-close` — **not** `.close-btn`, and **not** `[data-bs-dismiss]`. The Bootstrap JS library is not loaded in this project (verified 2026-08-13: zero `data-bs-*` attributes in `index.html` and `js/`), so a `data-bs-dismiss` handle is inert.
 - FIFO dialog queue managed via `showDialog()` / `presentDialog()` in `js/dialogs.js`
 - All modal open/close goes through `openModalById()` / `closeModalById()`
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`

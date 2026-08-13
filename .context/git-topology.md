@@ -39,7 +39,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 
 ## Merge Strategy
 
-- **feature→dev:** squash merge (one commit per feature, clean dev history).
+- **feature→dev:** merge commit via `gh pr merge --merge`. Squash was the original model but is **disabled repo-wide** and the `dev` ruleset pins `allowed_merge_methods: ["merge"]` — see Enforcement below. A squash to `dev` is not possible.
 - **dev→main (ship):** merge commit via `gh pr merge --merge`. Preserves common ancestry so the next ship finds a clean merge base.
 - Decline requests to squash to `main`; squash severs ancestry and causes full-tree conflicts on the next ship.
 - **Squash-slip recovery** — if a past `dev→main` squash froze the merge base (symptom: a `dev→main` PR conflicts on `sw.js` or balloons to a whole-tree diff): heal with a **zero-content** `git merge -s ours origin/dev` onto `main`, landed via a chore PR merged with `--merge`. It records the shared ancestry without changing `main`'s tree. Verify that `git merge-base origin/main origin/dev` equals `git rev-parse origin/dev`. `/ship` Steps 1.5 (pre-flight) and 6.6 (post-merge) automate this detect-and-heal.
@@ -65,7 +65,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 ## Stale Branch Detection
 
 - **Stale dev-targeting branches** → `/pr-cleanup` only detects `[gone]` refs, which requires the upstream branch to have been deleted.
-- Squash-merged branches targeting `dev` do not appear as `[gone]` because the local branch tracks `origin/dev`, not its merged ref.
+- A local branch that tracks `origin/dev` rather than its own pushed ref never shows as `[gone]`, whatever the merge method. (This previously described squash-merged branches; squash is now disabled, but the tracking-ref case still occurs.)
 - `git branch -vv | grep ': gone]'` will not find those branches.
 - Cross-check by branch name instead.
 - List merged PR heads with `gh pr list --state merged --base dev --json headRefName --jq '.[].headRefName' | grep '^patch/'`.
