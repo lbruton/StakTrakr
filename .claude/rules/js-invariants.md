@@ -5,9 +5,10 @@ paths:
 
 # JavaScript Invariants — StakTrakr
 
-Silent-failure foot-guns in `js/`. Every entry here fails **quietly** — no exception, no
-red test — which is why they are injected at the point of edit rather than left to review.
-Full detail: `.context/coding-standards.md`, `.context/implementation-gotchas.md`.
+Foot-guns in `js/`. Most fail **silently** — no exception, no red test — which is why they
+are injected at the point of edit rather than left to review. Two throw loudly and are
+marked as such. Full detail: `.context/coding-standards.md`,
+`.context/implementation-gotchas.md`.
 
 ## Dual config store — CRITICAL, silent data loss
 
@@ -24,9 +25,16 @@ stay stale.
 
 ## All `js/` files share ONE global scope
 
-Script-tag globals — no modules, no imports. A duplicate top-level `const`/`var` across two
-files is a **SyntaxError that silently kills the second script**. Prefix new sync-related
-globals `SYNC_` / `_sync`.
+Script-tag globals — no modules, no imports. Redeclaring a top-level binding across two
+files behaves differently by keyword, and both outcomes are bad:
+
+- `const` / `let` / `class` — **SyntaxError at parse time that silently kills the second
+  script.** Nothing else on the page reports it.
+- `var` — legal. The later script silently overwrites the earlier value, so there is no
+  error at all and the symptom surfaces far from the cause.
+
+Prefix new sync-related globals `SYNC_` (precedent: `SYNC_SCOPE_KEYS`,
+`SYNC_BACKUP_PREFIX` in `js/constants.js`).
 
 Corollary: to find every reference to a global, Grep the identifier. There is no import
 graph, so semantic search under-reports call sites.
@@ -34,12 +42,13 @@ graph, so semantic search under-reports call sites.
 ## `safeGetElement` returns a partial dummy, not null
 
 A missing element yields a shim whose members no-op silently, so `if (!el)` never fires.
-Only `instanceof HTMLElement` discriminates a real element.
+Discriminate a real element with `instanceof HTMLElement` or `nodeType === 1` — the
+codebase uses both (`js/spotLookup.js:26`).
 
 `init.js` defines it and loads **after** `events.js` (both `defer`). Top-level code in
-`events.js` calling `safeGetElement` throws a silent ReferenceError — use
-`document.getElementById` for parse-time wiring. Factory closures are fine; they resolve at
-runtime.
+`events.js` calling `safeGetElement` **throws a ReferenceError** — loud, but it kills the
+rest of the script. Use `document.getElementById` for parse-time wiring. Factory closures
+are fine; they resolve at runtime.
 
 ## `loadDataSync` — swallowed errors, truthy defaults
 
@@ -50,17 +59,26 @@ runtime.
 - `saveDataSync` **re-throws** on quota errors, unlike raw `localStorage.setItem`.
   Fire-and-forget callers migrating from raw storage need a `try/catch`.
 
-## A new persisted key registers in TWO places
+## Persisted keys: `ALLOWED_STORAGE_KEYS` always, `SYNC_SCOPE_KEYS` conditionally
 
-`ALLOWED_STORAGE_KEYS` **and** `SYNC_SCOPE_KEYS` (`js/constants.js`). Registering one
-without the other yields a key that either fails restore or never syncs — both silent.
-Device-local keys are deliberately excluded from `SYNC_SCOPE_KEYS`; note that in a comment
-at the declaration (precedent: `FORM_SECTION_STATE_KEY`, STRK-301).
+Any new persisted key must be added to `ALLOWED_STORAGE_KEYS`.
+
+`SYNC_SCOPE_KEYS` (`js/constants.js`) is **not** automatic — it covers inventory data plus
+preferences meaningful _across devices_. Its contract explicitly excludes OAuth tokens,
+transient caches, server-sourced data, and device-local state. Adding a cache or a
+server-sourced value there is a bug, not an omission.
+
+When a key is deliberately device-local, say so in a comment at the declaration
+(precedent: `FORM_SECTION_STATE_KEY`, STRK-301).
 
 ## A new `js/` file registers in TWO places
 
 `index.html` **and** `CORE_ASSETS` in `sw.js`. Missing the `sw.js` half fails only offline,
-only after a cache cycle — invisible in every local test run.
+only after a cache cycle — invisible in every local test run. Keep `CORE_ASSETS` in the
+same order as the `<script>` tags for auditability.
+
+**Intentional exception:** `js/test-loader.js` is never added to `CORE_ASSETS` — it is a
+dev-only harness, gated on `hostname === "localhost"`. Do not precache dev-only scripts.
 
 ## Date frames — never mix silently
 
@@ -72,19 +90,20 @@ only after a cache cycle — invisible in every local test run.
 
 Crossing frames is allowed only when deliberate and commented at the call site.
 
-## `applyBulkEdit()` — flat assignment, shallow copy
+## `applyBulkEdit()` — preserve the current contracts
 
-- Assignment is flat (`item[fieldId] = value`). A nested path such as
-  `item.numistaData.shape` silently writes a bogus top-level key unless it has a
-  `BULK_FIELD_STORAGE_MAP` entry (precedent: STRK-91).
-- `Object.assign({}, item)` is shallow, so mutating a nested object mutates `oldItem` too
-  and change-log before/after diffs come out empty. Deep-copy before mutating.
+Both historical hazards are already solved in `js/bulkEdit.js`. Do not regress them:
+
+- **Nested paths** route through `BULK_FIELD_STORAGE_MAP` via `applyBulkFieldToItem()`.
+  A new bulk-editable field at a nested path (e.g. `item.numistaData.shape`) needs its own
+  map entry; without one, a flat write lands on a bogus top-level key (precedent: STRK-91).
+- **Change-log snapshots** use `structuredClone` for `oldItem.numistaData` and
+  `oldItem.fieldMeta`. A plain `Object.assign({}, item)` is shallow — mutating a nested
+  object would also mutate `oldItem` and the before/after diff would come out empty.
 - Grep `BULK_COLUMN_PRIORITY` for its length rather than trusting docs — reviewers have
   guessed wrong in three separate sessions.
 
-## Two smaller ones
+## `_isMarketItemEnabled` — apply on both tab paths
 
-- `_isMarketItemEnabled` must be applied on **both** the All-tab path and the per-metal
-  `else` branch of `_renderVendorTable()`, or disabled vendors surface as column headers.
-- `isGoldbackLookup` (target + unit) and `isGoldbackRetailLookup` (unit only) are different
-  predicates. Retail lookup uses unit-only.
+In `_renderVendorTable()`, apply the filter on **both** the All-tab path and the per-metal
+`else` branch, or disabled vendors surface as column headers.
