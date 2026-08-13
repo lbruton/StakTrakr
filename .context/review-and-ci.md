@@ -100,8 +100,23 @@ are easy to hit unexpectedly:
 | `stamp-sw-cache`     | stamps the service-worker cache on staged asset changes                  |
 | `check-release-sync` | release-artifact version sync (a **subset** — see `git-topology.md`)     |
 | `check-claude-md`    | verifies CLAUDE.md exists (it is tracked; restore with `git restore`)    |
-| `lint-markdown`      | markdownlint on staged Markdown                                          |
 | `lint-staged`        | prettier on staged files                                                 |
+| `lint-markdown`      | markdownlint on staged Markdown                                          |
+
+**Order matters: prettier runs before markdownlint.** Reversed (as it was until
+2026-08-13), markdownlint validated the pre-prettier content while prettier's rewrites
+landed unlinted — so a commit could pass and still leave the file failing the _next_ lint.
+The concrete symptom was emphasis style: prettier normalizes `*text*` to `_text_`, MD049
+defaulted to "consistent" and resolved to asterisk in some files, and the two ping-ponged
+across commits. `MD049` is now pinned to `underscore` (matching prettier's output) and
+`MD050` to `asterisk`, so the two tools agree by construction rather than by ordering luck.
+
+**Markdown lint coverage:** `npm run lint:md:all` globs `**/*.md`, which **does not traverse
+dot-directories** — so `.context/` and `.agents/` were historically unlinted by the repo
+gate and only caught by the staged pre-commit hook. Both are now globbed explicitly.
+`.claude/` and `.github/` are deliberately excluded: agent prompts and issue templates
+legitimately don't start with an H1, so including them would need MD041/MD032 exceptions
+rather than fixes.
 
 ### 75% docstring-coverage pre-merge gate (the invisible blocker)
 
