@@ -101,7 +101,7 @@ Check for recent rows from both pollers:
 
 ```bash
 # Query sqld via HTTP API
-curl -s http://192.168.1.81:8090/v2/pipeline -H 'Content-Type: application/json' -d '{
+curl -s http://192.168.1.81:8080/v2/pipeline -H 'Content-Type: application/json' -d '{
   "requests": [{"type":"execute","stmt":{"sql":"SELECT poller_id, COUNT(*) as rows, MAX(scraped_at) as latest FROM price_snapshots WHERE scraped_at > datetime('"'"'now'"'"', '"'"'-2 hours'"'"') GROUP BY poller_id"}}]
 }' | jq '.results[0].response.result.rows'
 ```
@@ -122,7 +122,7 @@ Expected: rows from `home` (retail), `home-spot` (spot from home poller), and `f
 | Vendor missing multiple cycles        | URL changed or bot-blocked                                                    | Update vendor URL via [dashboard](http://192.168.1.81:3010/providers) or `provider-db.js` — see Provider Database |
 | OOM on Fly.io                         | Concurrent api-export.js invocations                                          | Verify publish lockfile; `fly scale show` — expect 1 shared CPU / 1024 MB (STAK-478 slim image)                   |
 | Monument Metals missing at year-start | Random-year SKU on pre-order                                                  | Switch to year-specific SKU in providers.json                                                                     |
-| JMBullion presale coins show OOS      | Pre-order pattern matching                                                    | Verify `PREORDER_TOLERANT_PROVIDERS` includes `jmbullion`                                                         |
+| JMBullion presale coins show OOS      | Pre-order pattern matching                                                    | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS`                       |
 | Merge workflow failing                | Branch conflict or jq parse error                                             | Retired/manual-only — `api` branch is now served directly by GitHub Pages                                         |
 | ~~Both pollers firing at same time~~  | Historical (pre-STAK-478) — Fly.io no longer runs retail scraping             | N/A — only home poller scrapes retail                                                                             |
 | `api-export.js` import crash          | `db.js` missing export after refactor                                         | `fly ssh console -C "sh -c 'tail -5 /var/log/publish.log'"` — look for `SyntaxError`                              |

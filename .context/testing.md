@@ -26,7 +26,15 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Archived issue acceptance-criteria (AC) matrices belong under
   `tests/playwright/archive/issue-ac-matrices/`.
 - Unit tests run via `npm run test:unit`; `npm run test:all` = unit + core + extended.
-- `npm run test:offline` is the legacy full suite excluding `@network`-tagged scenarios.
+- `npm run test:offline` runs the legacy full suite with `--grep-invert @network`. **No spec
+  currently carries an `@network` tag**, so the filter is a no-op and this is equivalent to a
+  full run. Tag a spec `@network` if it genuinely needs live network, or the command has no
+  purpose.
+- **Playwright route mocks for api-health need a trailing `*`.** `fetchApiHealth` appends a
+  `_t=` cache-buster query param (joined with `?` or `&` depending on the URL), so a
+  `page.route` pattern without the wildcard silently never matches and the test exercises the
+  real endpoint instead of the mock. Grep `fetchApiHealth` in `js/api-health.js` for the
+  current form.
 - CI runs no Playwright gate — `npm test` is local-only. Re-run the covering spec after a
   force-push.
 

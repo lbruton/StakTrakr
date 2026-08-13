@@ -70,7 +70,13 @@ The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages
 | Spot prices          | `data/hourly/YYYY/MM/DD/HH.json` and `data/15min/...` | Fly.io `run-spot.sh` at `:00/:30` + Home `spot-extract.js` at `:15/:45`                                                                  | 4×/hr (two writers, staggered) |
 | Goldback spot        | `data/v2/goldback/latest.json`                        | Home `goldback-scraper.js` hourly at **:05** (`5 * * * *`, STRK-58) → sqld → Fly.io `api-export.js` reads cached row every publish cycle | Hourly scrape, 4×/hr republish |
 
-> **Goldback "~2m ago" badge** reads envelope `generated_at` (refreshed every publish cycle), not `scraped_at`. Scrapes run hourly, but goldback.com's upstream rate (`data.t`) can lag — so an unchanged `g1_usd` across multiple publishes (and even across hourly scrapes) is correct behavior.
+> **Goldback badge freshness (STRK-257).** Envelope `generated_at` is **always** the
+> normalized `scraped_at` — `resolveGoldbackGeneratedAt()`
+> (`devops/pollers/shared/api-export-v2.js:894-920`, used at `:948-960`) falls back to
+> publish time only when no usable scrape timestamp exists. So the badge tracks the scrape,
+> not the publish cycle, and it reads roughly the scrape age rather than "~2m". An unchanged
+> `g1_usd` across publishes is still normal — goldback.com's upstream rate (`data.t`) can lag
+> — but the timestamp no longer refreshes with it.
 
 ---
 
