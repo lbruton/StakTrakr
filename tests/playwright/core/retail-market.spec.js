@@ -2831,9 +2831,15 @@ test.describe("core/retail-market", () => {
         expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
         // Bound matches measureCompletedMarketSwitches' own 1000ms deadline rather
         // than the old 400ms wall-clock figure (STRK-310). `completed === true` is
-        // what pins the contract — it can only be true if every surface converged
-        // inside the deadline — so the tighter bound added no coverage and only
-        // measured runner speed, making it a flake source on a loaded CI box.
+        // what pins the contract — it can only be true if button state, summary,
+        // chart series and root count all converged inside the deadline.
+        //
+        // The 400ms bound did uniquely cover the 400-999ms band, so this is a
+        // deliberate narrowing, not a free win. It was dropped because that band
+        // is also where shared-runner noise lives: a red there could not
+        // distinguish an app regression from a loaded CI box, so it failed
+        // intermittently on timing rather than on behaviour. The coverage-map
+        // row for this file records the revised contract.
         expect(measurement.durationMs, measurement.id).toBeLessThan(1000);
       }
 

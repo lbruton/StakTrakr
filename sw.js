@@ -6,7 +6,12 @@
 // importScripts. Declared here because the repo's legacy .eslintrc.json sets
 // no-undef: off while Codacy's ESLint 9 config enforces it, so these read as
 // undefined there without an explicit declaration.
-/* global self, caches, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, isRootShellNavigation, navShellCacheKey */
+//
+// List only what sw.js actually calls — a name declared here but never used is
+// itself a lint finding. isRootShellNavigation is deliberately absent: it is
+// exported by sw-router.js and covered by tests/unit/sw-router.test.js, but
+// sw.js calls navShellCacheKey directly (STRK-310).
+/* global self, caches, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, navShellCacheKey */
 
 importScripts("sw-router.js");
 
@@ -20,7 +25,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 // base the relative "./" cache keys resolve against.
 const SW_SCOPE_PATH = new URL("./", self.location.href).pathname;
 
-const CACHE_NAME = "staktrakr-v3.35.100-b1786664254";
+const CACHE_NAME = "staktrakr-v3.35.100-b1786664418";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
