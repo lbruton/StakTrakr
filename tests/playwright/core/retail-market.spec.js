@@ -2828,19 +2828,23 @@ test.describe("core/retail-market", () => {
       const measurements = await measureCompletedMarketSwitches(page, STRK260_PERIODS);
       expect(measurements).toHaveLength(STRK260_PERIODS.length * 3);
       for (const measurement of measurements) {
-        expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
-        // Bound matches measureCompletedMarketSwitches' own 1000ms deadline rather
-        // than the old 400ms wall-clock figure (STRK-310). `completed === true` is
-        // what pins the contract — it can only be true if button state, summary,
-        // chart series and root count all converged inside the deadline.
+        // `completed === true` IS the timing contract (STRK-310). The switch is
+        // driven by measureCompletedMarketSwitches, which polls on rAF and
+        // resolves completed:false the moment durationMs >= its deadlineMs
+        // (1000ms) — so a converged result means button state, summary, chart
+        // series and root count all landed inside that budget.
         //
-        // The 400ms bound did uniquely cover the 400-999ms band, so this is a
-        // deliberate narrowing, not a free win. It was dropped because that band
-        // is also where shared-runner noise lives: a red there could not
-        // distinguish an app regression from a loaded CI box, so it failed
-        // intermittently on timing rather than on behaviour. The coverage-map
-        // row for this file records the revised contract.
-        expect(measurement.durationMs, measurement.id).toBeLessThan(1000);
+        // No separate durationMs bound. The old `< 400` one uniquely covered the
+        // 400-999ms band, but that band is also where shared-runner noise lives,
+        // so a red there could not separate an app regression from a loaded CI
+        // box. Re-pointing it at 1000 would not have been correct either: the
+        // helper checks isComplete BEFORE the deadline, so a rAF tick arriving a
+        // frame late can legitimately resolve completed:true with durationMs
+        // slightly over 1000 — an assertion the helper's own semantics permit but
+        // `toBeLessThan(1000)` would fail. Enforcing the deadline in one place
+        // (the helper) is what makes this deterministic. Raise deadlineMs there
+        // to change the contract, and update this file's coverage-map row.
+        expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
       }
 
       await expect.poll(async () => (await getMarketChartHarness(page)).rootCount).toBe(1);
