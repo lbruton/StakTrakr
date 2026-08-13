@@ -98,14 +98,14 @@ theme — both are wrong.
 Both historical hazards below are **already solved** in `js/bulkEdit.js`. They are recorded
 as contracts to avoid regressing, not as live bugs to fix.
 
-- **Nested paths** route through `BULK_FIELD_STORAGE_MAP` via `applyBulkFieldToItem()`
-  (`js/bulkEdit.js:104-110`). A new bulk-editable field at a nested path (e.g.
+- **Nested paths** route through `BULK_FIELD_STORAGE_MAP` via `applyBulkFieldToItem()` (grep
+  either name in `js/bulkEdit.js`). A new bulk-editable field at a nested path (e.g.
   `item.numistaData.shape`) still needs its own map entry — without one, a flat
   `item[fieldId] = value` write lands on a bogus top-level key (precedent: STRK-91).
 - **Change-log snapshots** use `structuredClone` for `oldItem.numistaData` and
-  `oldItem.fieldMeta` (`js/bulkEdit.js:1620-1623`). A plain `Object.assign({}, item)` is
-  shallow — mutating a nested object would also mutate `oldItem`, making before/after diffs
-  come out empty.
+  `oldItem.fieldMeta` (grep `structuredClone` in `js/bulkEdit.js`). A plain
+  `Object.assign({}, item)` is shallow — mutating a nested object would also mutate
+  `oldItem`, making before/after diffs come out empty.
 - **`BULK_COLUMN_PRIORITY` length: grep it, never quote it.** This entry previously
   hard-coded "30 entries" while listing 32 among its examples of wrong guesses — and 32 was
   the correct answer. Counts in docs invert into misinformation.
@@ -149,10 +149,10 @@ Historically the filter had to be applied on both the All-tab path and the per-m
 branch of `_renderVendorTable()`, and missing the `else` branch surfaced disabled vendors as
 column headers.
 
-**This is no longer a hazard.** `_renderVendorTable` (`js/market-data.js:1918`) delegates to
-`_collectVendorTableRows` (`:1606`), where the guard sits at `:1622-1628` — **hoisted above**
-the `isAllScope` branch at `:1630-1636`, so it cannot be missed. Adding a second guard in a
-branch is a redundant duplicate, not a fix.
+**This is no longer a hazard.** `_renderVendorTable` now delegates to
+`_collectVendorTableRows` (grep both in `js/market-data.js`), where the `_isMarketItemEnabled`
+guard sits **above** the `isAllScope` branch rather than inside either arm of it — so it
+cannot be missed. Adding a second guard in a branch is a redundant duplicate, not a fix.
 
 ## `// duplication-ok` hook escape hatch
 

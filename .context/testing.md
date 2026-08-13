@@ -31,8 +31,10 @@ these rules elsewhere. Read before editing or running any Playwright test.
   full run. Tag a spec `@network` if it genuinely needs live network, or the command has no
   purpose.
 - **Playwright route mocks for api-health need a trailing `*`.** `fetchApiHealth` appends a
-  `?_t=` cache buster (`js/api-health.js:136`), so a `page.route` pattern without the wildcard
-  silently never matches and the test exercises the real endpoint.
+  `_t=` cache-buster query param (joined with `?` or `&` depending on the URL), so a
+  `page.route` pattern without the wildcard silently never matches and the test exercises the
+  real endpoint instead of the mock. Grep `fetchApiHealth` in `js/api-health.js` for the
+  current form.
 - CI runs no Playwright gate — `npm test` is local-only. Re-run the covering spec after a
   force-push.
 

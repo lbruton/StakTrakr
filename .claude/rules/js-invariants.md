@@ -106,6 +106,6 @@ Both historical hazards are already solved in `js/bulkEdit.js`. Do not regress t
 ## `_isMarketItemEnabled` — RESOLVED, do not re-add the guard
 
 This was historically a both-branches hazard in `_renderVendorTable()`. It no longer is:
-the guard sits in `_collectVendorTableRows` (`js/market-data.js:1622-1628`), **hoisted above**
-the `isAllScope` branch at `:1630-1636`, so it cannot be missed. Adding a second guard in a
+the guard sits in `_collectVendorTableRows` (grep both in `js/market-data.js`), **hoisted
+above** the `isAllScope` branch rather than inside it, so it cannot be missed. Adding a second guard in a
 branch is a redundant duplicate, not a fix.
