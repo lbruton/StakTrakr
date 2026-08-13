@@ -3,7 +3,7 @@ title: "Health Checks"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/health-checks.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Health Checks.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Health Checks.md" # historical provenance; migrated 2026-08-12
 updated: "2026-08-12"
 ---
 
@@ -53,12 +53,12 @@ EOF
 
 ## Stale Thresholds
 
-| Feed                             | Stale at | Critical at | Notes                                                                         |
-| -------------------------------- | -------- | ----------- | ----------------------------------------------------------------------------- |
-| Market prices (`manifest.json`)  | 30 min   | 4 hours     |                                                                               |
-| Spot prices — UI freshness badge | 20 min   | —           | Threshold in `api-health.js`                                                  |
-| Spot prices — operational stale  | 75 min   | 3 hours     | Used by health-check scripts and diagnostics                                  |
-| Goldback                         | 2 hours  | 48 hours    | v2 envelope `stale_after` 7200 s when `USE_V2_API` (was 25 h before STRK-248) |
+| Feed                             | Stale at | Critical at | Notes                                                     |
+| -------------------------------- | -------- | ----------- | --------------------------------------------------------- |
+| Market prices (`manifest.json`)  | 30 min   | 4 hours     |                                                           |
+| Spot prices — UI freshness badge | 20 min   | —           | Threshold in `api-health.js`                              |
+| Spot prices — operational stale  | 75 min   | 3 hours     | Used by health-check scripts and diagnostics              |
+| Goldback                         | 2 hours  | 48 hours    | v2 envelope `stale_after` 7200 s; the frontend is v2-only |
 
 ---
 
@@ -85,13 +85,9 @@ fly ssh console --app staktrakr -C "tail -50 /var/log/provider-export.log"
 
 ## GitHub Actions Status
 
-```bash
-# Merge Poller Branches (retired/manual-only)
-gh run list --repo lbruton/StakTrakrApi --workflow "Merge Poller Branches" --limit 5
-
-# Spot poller (retired — manual trigger only)
-gh run list --repo lbruton/StakTrakrApi --workflow "spot-poller.yml" --limit 5
-```
+The retired poller workflows are not a current diagnostic surface. Inspect the active
+StakTrakr repository checks for a code PR; diagnose poller health through the container,
+cron, and sqld checks in this document.
 
 ---
 
@@ -116,7 +112,7 @@ Expected: rows from `home` (retail), `home-spot` (spot from home poller), and `f
 | ------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `v2/manifest.json` > 30 min stale     | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                        |
 | `v2/manifest.json` > 4h stale         | Home poller or Fly.io container down                                          | Check home poller container in Portainer; `fly status --app staktrakr`                                            |
-| Spot hourly > 75 min stale            | `METAL_PRICE_API_KEY` expired or quota exceeded                               | Check MetalPriceAPI dashboard                                                                                     |
+| Spot hourly > 75 min stale            | External price-feed credential expired or quota exceeded                      | Check the provider dashboard and operator-managed secret store                                                    |
 | Goldback > 2h stale (STRK-248)        | Home poller `goldback-scraper.js` failed                                      | Check home poller logs via Portainer dashboard (goldback runs on home only, not Fly.io)                           |
 | Only 1-2 vendors per coin             | Home poller down or OOS                                                       | Check home poller container; verify sqld has recent rows (home is sole retail scraper)                            |
 | Vendor missing multiple cycles        | URL changed or bot-blocked                                                    | Update vendor URL via [dashboard](http://192.168.1.81:3010/providers) or `provider-db.js` — see Provider Database |
@@ -203,7 +199,7 @@ Each endpoint type declares its own `stale_after` value (in seconds):
 | Goldback | 7200          | 2 h (was 90000 / 25 h before STRK-248) |
 | Manifest | 1800          | 30 min                                 |
 
-The v2 manifest also publishes these thresholds in `data.stale_thresholds`. Since STAK-506/509 (`USE_V2_API` flag shipped as default, then removed — v2 is the sole consumed layer), `api-health.js` always reads `stale_after` from the v2 envelope; the hardcoded `API_HEALTH_*_STALE_MIN` era is over. Per STRK-331, both the data paths and the badge resolve freshness from the **freshest `generated_at` per feed** across serving endpoints.
+The v2 manifest also publishes these thresholds in `data.stale_thresholds`. The frontend is v2-only; `api-health.js` uses the envelope's `stale_after` when supplied and retains defensive constants for malformed data. Per STRK-331, both the data paths and the badge resolve freshness from the **freshest `generated_at` per feed** across serving endpoints.
 
 ---
 

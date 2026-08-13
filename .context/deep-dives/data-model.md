@@ -3,7 +3,7 @@ title: "Data Model"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/data-model.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Data Model.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Data Model.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-27"
 ---
 

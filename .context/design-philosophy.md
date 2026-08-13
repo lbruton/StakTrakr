@@ -3,7 +3,7 @@ title: "StakTrakr — Design Philosophy"
 project: StakTrakr
 audience: agent
 canonical: .context/design-philosophy.md
-source: "DocVault/Projects/StakTrakr/Foundation/design-philosophy.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/design-philosophy.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-16"
 ---
 

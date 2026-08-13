@@ -3,7 +3,7 @@ title: "StakTrakr — Reusable Patterns"
 project: StakTrakr
 audience: agent
 canonical: .context/reusable-patterns.md
-source: "DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md" # historical provenance; migrated 2026-08-12
 updated: "2026-07-24"
 ---
 
@@ -69,15 +69,13 @@ Retail source data remains USD, but active retail and market-price surfaces form
 
 ### OOS State
 
-OOS detection happens in the poller (StakTrakrApi). The frontend reads and persists it.
+OOS detection happens in the poller. The frontend reads and persists it.
 
 **OOS check pattern:** `retailAvailability[slug][vendorId] === false` means OOS. A missing key is treated as in-stock: `isAvailable = availability[key] !== false`. Never use `=== true` to check in-stock status.
 
 **Persistence caveat:** `retailAvailability` is merged with `Object.assign` on each sync. Once a vendor is marked OOS in localStorage, it stays OOS until the next sync where `availability_by_site` explicitly sets it back to `true`. If the poller omits a vendor entirely, the prior stored state persists.
 
-**Sort order:** OOS vendors always render last. Within a card: high-confidence in-stock (score ≥ 60) sorted by price ascending → low-confidence in-stock → OOS vendors.
-
-**Medal rules:** Top-3 medals (gold/silver/bronze in grid view; 1st/2nd/3rd in list view) are awarded only to vendors with confidence score ≥ 60. Lowest price with confidence < 60 does not win a medal.
+The active market surface is the vendor comparison matrix in `market-data.js`. Its OOS cells render an `OOS` marker; the former card/list sort and medal rules were removed with the card-list view.
 
 ### OOS Rendering by Context
 
@@ -88,9 +86,9 @@ OOS detection happens in the poller (StakTrakrApi). The frontend reads and persi
 
 ### Goldback — Special Vendor
 
-Goldback has a separate pipeline. Its price comes from `getGoldbackVendorPrice(slug)`, not from the standard `priceData.vendors` map. It is injected at the top of the vendor list before the sorted main-vendor block and is never medal-ranked.
+Goldback has a separate pipeline. Its price comes from `getGoldbackVendorPrice(slug)`, not from the standard `priceData.vendors` map. The former card-list injection and medal behavior were removed with that view.
 
-Goldback staleness: if `goldback-spot.json` is older than ~25 hours, `isStale: true` is returned. The frontend appends `(stale)` to the price text and reduces opacity to 0.6 on the card row.
+Goldback staleness: `getGoldbackVendorPrice()` applies its 25-hour threshold to the local `goldbackPrices` cache. This is a separate legacy display path; API-envelope consumers use their v2 `stale_after` values.
 
 Goldback slug parsing: `_parseGoldbackSlug(slug)` parses the pattern `goldback-{state}-{denomination}`. Supported denominations: `g0.25`, `g0.5`/`ghalf`, `g1`, `g2`, `g5`, `g10`, `g25`, `g50`. Unrecognized slugs return `{ weight: 0, metal: "unknown" }`.
 
@@ -190,9 +188,16 @@ Every selected-range render destroys the prior Lightweight Charts instance befor
 
 ## Retail Modal
 
-### Architecture — `retail.js` vs `retail-view-modal.js`
+### Legacy compatibility modal — `retail.js` vs `retail-view-modal.js`
 
-Script load order in `index.html` places `retail.js` before `retail-view-modal.js`. `retail-view-modal.js` reads globals defined in `retail.js` through `window` — never use imports.
+The active per-coin product-detail experience is the **Market Detail Modal** in
+`js/market-data.js`; its matrix click handler calls `openMarketDetailModal(slug)`.
+`retail-view-modal.js` remains loaded, exported, and test-covered as a legacy compatibility
+surface. Do not use it for new product-detail work. Its maintenance notes are retained below
+only for fixes to that legacy surface.
+
+Script load order in `index.html` places `retail.js` before `retail-view-modal.js`.
+`retail-view-modal.js` reads globals defined in `retail.js` through `window` — never use imports.
 
 **`retail.js` owns:**
 
@@ -200,8 +205,7 @@ Script load order in `index.html` places `retail.js` before `retail-view-modal.j
 - All module-level state (`retailPrices`, `retailPriceHistory`, `retailIntradayData`, `retailProviders`, `retailAvailability`, etc.)
 - All localStorage persistence helpers (`saveRetailPrices`, `saveRetailIntradayData`, etc.)
 - Full sync pipeline (`syncRetailPrices`)
-- Market list view rendering, metal filter pills, card expand/collapse, trend indicators
-- Market filter matrix persistence (STAK-515)
+- Retail data cache and market-filter persistence; `market-data.js` renders the vendor comparison matrix from that persisted filter state (STAK-515)
 
 **`retail-view-modal.js` owns:**
 
@@ -210,7 +214,7 @@ Script load order in `index.html` places `retail.js` before `retail-view-modal.j
 - Both Chart.js instances: `_retailViewModalChart` (daily history), `_retailViewIntradayChart` (24h intraday)
 - Background refresh on modal open (per-coin only)
 
-### Modal Open Sequence
+### Legacy Modal Open Sequence
 
 `openRetailViewModal(slug)`:
 

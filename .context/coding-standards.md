@@ -3,7 +3,7 @@ title: "StakTrakr — Coding Standards"
 project: StakTrakr
 audience: agent
 canonical: .context/coding-standards.md
-source: "DocVault/Projects/StakTrakr/Foundation/coding-standards.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/coding-standards.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-28"
 ---
 
@@ -246,9 +246,9 @@ const theme = await loadData(THEME_KEY, "light");
 
 ### ALLOWED_STORAGE_KEYS guard
 
-`cleanupStorage()` runs at `DOMContentLoaded` and deletes every `localStorage` key not listed in `ALLOWED_STORAGE_KEYS` (defined in `js/constants.js` at line 949). A key written before it is added to the allowlist survives the current session but is wiped on the next startup.
+`cleanupStorage()` runs at `DOMContentLoaded` and deletes every `localStorage` key not listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`. A key written before it is added to the allowlist survives the current session but is wiped on the next startup.
 
-The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding — the constant IS defined at `constants.js:949`. Automated reviewer flags on this pattern are false positives.
+The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding. Automated reviewer flags on this pattern are false positives.
 
 **STAK-443 additions:** `spotPricingSource` (single-select spot price source) and `metalSpotPrices` (manual-mode unified spot object) are registered in ALLOWED_STORAGE_KEYS as of v3.34.24.
 
@@ -874,21 +874,10 @@ chartInstances.typeChart = new Chart(canvas, config);
 
 ### Bootstrap 5
 
-> **Current state (verified 2026-08-13).** StakTrakr was built on this foundation and has
-> since evolved off it. The **Bootstrap JS library is not loaded** — no `vendor/bootstrap*`,
-> no CDN tag in `index.html`, zero `data-bs-*` attributes, and no `bootstrap` global. What
-> survives is a handful of vestigial class names (`form-control` ×5, `input-group` ×3,
-> `btn-primary` ×2, `form-select` ×2), now styled by `css/styles.css`.
->
-> The guidance below is therefore **historical**: the JS API calls cannot run today. For
-> modals, use `openModalById()` / `closeModalById()` and the `.modal-close` selector — see
-> §Modal System in `.context/reusable-patterns.md`. This section is retained deliberately
-> rather than deleted, because the CSS lineage still explains much of the markup.
-
-- **`getOrCreateInstance()`** instead of `new bootstrap.Modal()` — prevents duplicate instance errors
-- **Dispose after `hidden.bs.*` event** when modals are dynamically created
-- **Never mix jQuery and Bootstrap 5** — the app uses vanilla Bootstrap only
-- **Use `data-bs-*` attributes** for declarative behavior, JavaScript API for programmatic control
+Bootstrap's JavaScript library is not loaded: there is no `bootstrap` global, CDN tag, or
+`data-bs-*` behavior in the app. Do not introduce Bootstrap APIs or attributes. A few
+historical CSS class names remain, but current modal behavior uses `openModalById()`,
+`closeModalById()`, and `.modal-close`; see `.context/reusable-patterns.md`.
 
 ### PapaParse (CSV)
 
@@ -983,18 +972,16 @@ Related settings wrap in a `.settings-fieldset` card with a `.settings-fieldset-
 Standard modal pattern — glass-morphism shell with gradient top accent:
 
 ```html
-<div class="modal-overlay" id="myModal">
+<div class="modal" id="myModal">
   <div class="modal-content">
     <div
-      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border);"
-    >
+      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing); padding-bottom:var(--spacing-sm); border-bottom:1px solid var(--border);"
       <h2>Title</h2>
-      <button class="btn btn-sm secondary" id="myCloseBtn">&times;</button>
+      <button class="modal-close" id="myCloseBtn" type="button">&times;</button>
     </div>
     <div>...</div>
     <div
-      style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:0.75rem; border-top:1px solid var(--border);"
-    >
+      style="display:flex; justify-content:flex-end; gap:var(--spacing-sm); padding-top:var(--spacing-sm); border-top:1px solid var(--border);"
       <button class="btn secondary btn-sm">Cancel</button>
       <button class="btn btn-sm">Save</button>
     </div>

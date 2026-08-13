@@ -3,7 +3,7 @@ title: "StakTrakr — Data Pipelines"
 project: StakTrakr
 audience: agent
 canonical: .context/data-pipelines.md
-source: "DocVault/Projects/StakTrakr/Foundation/data-pipelines.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/data-pipelines.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-28"
 ---
 
@@ -52,7 +52,7 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 ### v2 `stale_after` values (STAK-503)
 
-v2 endpoints embed their freshness threshold in the envelope. `api-health.js` reads `stale_after` directly when `USE_V2_API` is enabled — no hardcoded constants needed.
+v2 endpoints embed their freshness threshold in the envelope. The frontend always consumes v2; `api-health.js` uses an envelope's `stale_after` when it is present and retains hardcoded constants only as a defensive fallback for a malformed envelope.
 
 | Endpoint type            | `stale_after` | Equivalent                          |
 | ------------------------ | ------------- | ----------------------------------- |
@@ -97,7 +97,7 @@ MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD)
 
 ### Data Source
 
-**MetalPriceAPI** (`metalpriceapi.com`) — requires `METAL_PRICE_API_KEY` Fly secret.
+**MetalPriceAPI** (`metalpriceapi.com`) — requires a managed external-feed credential in the deployment's secret store.
 
 | Symbol | Metal     |
 | ------ | --------- |
@@ -147,11 +147,11 @@ Frontend fetches `data/hourly/YYYY/MM/DD/HH.json` for live spot prices. `api-hea
 
 ### Failure Modes
 
-| Symptom                      | Likely cause                                    | Fix                                                      |
-| ---------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| Hourly file > 75 min stale   | `METAL_PRICE_API_KEY` expired or quota exceeded | Check MetalPriceAPI dashboard; rotate key in Fly secrets |
-| Hourly file missing entirely | `run-spot.sh` not running                       | `fly logs --app staktrakr \| grep spot`                  |
-| Stale data after deploy      | Cron schedule wiped by deploy                   | `fly ssh console -C "crontab -l"` to verify              |
+| Symptom                      | Likely cause                                       | Fix                                                            |
+| ---------------------------- | -------------------------------------------------- | -------------------------------------------------------------- |
+| Hourly file > 75 min stale   | External-feed credential expired or quota exceeded | Check the provider dashboard and operator-managed secret store |
+| Hourly file missing entirely | `run-spot.sh` not running                          | `fly logs --app staktrakr \| grep spot`                        |
+| Stale data after deploy      | Cron schedule wiped by deploy                      | `fly ssh console -C "crontab -l"` to verify                    |
 
 ### Frontend Spot Source Selection (STAK-443)
 
@@ -232,7 +232,7 @@ Each provider entry supports a `urls` array (tried in sequence). Single `url` en
 | 1     | Firecrawl           | Fallback; residential IP, no proxy needed   |
 | 2     | CF-clearance bypass | Byparr sidecar for Cloudflare-gated vendors |
 
-Provider-level `PROVIDER_CONFIG.phase` overrides control which phase a vendor enters.
+`providerCfg()` composes `PROVIDER_DEFAULTS`, the transitional `LEGACY_PROVIDER_CONFIG`, and any vendor-module configuration to control which phase a vendor enters. New vendor-specific behavior belongs with that vendor module.
 
 ### MintBuilder Direct API Feed (STRK-321 / STRK-325)
 
@@ -345,7 +345,7 @@ Frontend retail cards display live per-item prices sourced from `data/api/manife
 
 ### Vision Pipeline (optional, soft-disabled by default)
 
-Requires `GEMINI_API_KEY` AND `VISION_ENABLED=1`. Non-fatal — failure is logged and scrape continues.
+Requires the operator to configure the vision integration and enable it for the deployment. Non-fatal — failure is logged and scrape continues.
 
 | Scenario                            | Confidence score                                  |
 | ----------------------------------- | ------------------------------------------------- |
@@ -442,22 +442,18 @@ Fly.io run-publish.sh (8,23,38,53 * * * *)
 | Washington DC | `goldback-dc-`            |
 | Idaho         | `goldback-idaho-`         |
 
-**7 denominations** per state (8 for Idaho, which also publishes g0.25):
+The current v2 Goldback rate envelope publishes six denomination prices. The retail slug parser accepts additional historical denominations when they occur in catalog data; do not infer the v2 API shape from that compatibility surface.
 
 | Slug suffix | Denomination | Gold content |
 | ----------- | ------------ | ------------ |
 | `g0.25`     | 1/4 Goldback | 1/4000 oz    |
-| `ghalf`     | 1/2 Goldback | 1/2000 oz    |
 | `g1`        | 1 Goldback   | 1/1000 oz    |
-| `g2`        | 2 Goldback   | 1/500 oz     |
 | `g5`        | 5 Goldback   | 1/200 oz     |
 | `g10`       | 10 Goldback  | 1/100 oz     |
 | `g25`       | 25 Goldback  | 1/40 oz      |
 | `g50`       | 50 Goldback  | 1/20 oz      |
 
-Full slug format: `goldback-{state}-g{denom}` — e.g., `goldback-oklahoma-g1`, `goldback-utah-ghalf`.
-
-**Total:** 64 per-state slugs (8 existing states × 7 denominations = 56) + (Idaho: 7 standard + 1 `g0.25` = 8) — all start with `url: null` / `enabled: false`. `g0.25` is only published for Idaho at launch. 6 deprecated legacy slugs (`goldback-g{N}`) retained for backward compatibility; exchange rate scraping still runs on the `goldback-g1` legacy slug.
+The v2 rate payload uses `g0.25`, `g1`, `g5`, `g10`, `g25`, and `g50`; `buildGoldbackDenominations()` is authoritative. Per-state catalog slugs are driven by `providers.json`, not a hardcoded total in this document.
 
 ### Cron Detail
 
@@ -508,9 +504,9 @@ longer refreshes independently of the scrape.
 
 All denomination prices: `G1 × multiplier`, rounded to 2 decimal places.
 
-**v2 envelope (STAK-503):** `data/v2/goldback/latest.json` includes OHLCA aggregates and all 7 denomination multipliers (ghalf=0.5 through g50=50). `stale_after: 7200` (2 h) as of STRK-248 (was 90000 / 25 h), and `data.t` is stamped at the actual scrape hour rather than a daily-noon timestamp. As of STRK-250 (v3.35.63) `generated_at` is also honest: stale fallback rows (scraped_at > 7200 s) carry `generated_at == scraped_at` so consumers trip the freshness budget during outages instead of re-accepting the same stale row hourly.
+**v2 envelope (STAK-503):** `data/v2/goldback/latest.json` includes OHLCA aggregates and six denomination prices (`g0.25`, `g1`, `g5`, `g10`, `g25`, `g50`). `stale_after: 7200` (2 h) as of STRK-248, and `data.t` is stamped at the actual scrape hour rather than a daily-noon timestamp. `resolveGoldbackGeneratedAt()` uses normalized `scraped_at` whenever available, so the envelope freshness reflects the scrape rather than a publish loop.
 
-**Raw intraday endpoint (STRK-248, v3.35.62):** `data/v2/goldback/intraday.json` is a **raw hourly point series** — `data: [{ t, ts, g1_usd }]` for the last 72 h — built by `buildGoldbackIntradayEntries()` in `api-export-v2.js` (reuses `queryGoldbackRange`; points are hourly-floored, **not** OHLCA-bucketed). Envelope `stale_after: 7200` (2 h). Intended as the source for a future intraday goldback chart. The daily-OHLCA `goldback/history-30d.json` + monthly archives are **unchanged**, and `price_snapshots` retention stays at 31 days.
+**Raw intraday endpoint (STRK-248, v3.35.62):** `data/v2/goldback/intraday.json` is a **raw hourly point series** — `data: [{ t, ts, g1_usd }]` for the last 72 h — built by `buildGoldbackIntradayEntries()` in `api-export-v2.js` (reuses `queryGoldbackRange`; points are hourly-floored, **not** OHLCA-bucketed). Envelope `stale_after: 7200` (2 h). The legacy v1 exporter prunes `price_snapshots` older than 31 days; treat that as implementation behavior, not a blanket retention guarantee for every output.
 
 ### Enabling a State/Vendor
 

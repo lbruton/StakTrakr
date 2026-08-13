@@ -3,7 +3,7 @@ title: "StakTrakr — Cloud Sync"
 project: StakTrakr
 audience: agent
 canonical: .context/cloud-sync.md
-source: "DocVault/Projects/StakTrakr/Foundation/cloud-sync.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/cloud-sync.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-21"
 ---
 
@@ -80,9 +80,9 @@ key = STAKTRAKR_SIMPLE_SALT + ':' + accountId
 ```
 
 - Only applies when `cloud_sync_mode === 'simple'` is present in localStorage.
-- `STAKTRAKR_SIMPLE_SALT` is a fixed hex string baked into `js/cloud-sync.js`.
+- `STAKTRAKR_SIMPLE_SALT` is a fixed hex string defined in `js/constants.js`.
 - Any device with the same Dropbox OAuth token can derive the key — weaker security.
-- `cloud_sync_mode === 'simple'` will be removed after v3.33. Devices on this mode silently re-encrypt to Unified mode on the next push once a password is set.
+- This compatibility mode remains load-bearing. Do not remove it without a migration for existing simple-mode vaults.
 
 ### Key Derivation Flow
 
@@ -554,7 +554,7 @@ Choosing to overwrite the remote vault triggered `pushSyncVault()`, which re-det
 
 Items enriched with Numista image URLs on one device lost those URLs after syncing. `DIFF_FIELDS` only covered 16 of 30+ item fields; unlisted-field changes were invisible to `DiffEngine`.
 
-**Fix:** `DIFF_FIELDS` expanded to cover the full `InventoryItem` schema (since grown to 45 fields). `logItemChanges()` field list matched to `DIFF_FIELDS` for manifest parity.
+**Fix:** `DIFF_FIELDS` was expanded to cover the then-current `InventoryItem` schema. Keep its current field set aligned with `logItemChanges()`; do not preserve a hard-coded count in this historical note.
 
 ### API Key Destruction + storageLocation Sync Loop (fixed v3.33.91, STAK-519)
 

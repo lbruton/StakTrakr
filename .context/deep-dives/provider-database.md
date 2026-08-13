@@ -3,7 +3,7 @@ title: "Provider Database"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/provider-database.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Provider Database.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Provider Database.md" # historical provenance; migrated 2026-08-12
 updated: "2026-03-22"
 ---
 
@@ -234,14 +234,15 @@ The local `providers.json` files are kept on both pollers as a safety net but ar
 
 **One-time migration script:** `migrate-providers.js`
 
+Run the script in an environment where the target deployment's database configuration has been
+provided through its secret store:
+
 ```bash
 # Dry run (safe)
-TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... DATA_DIR=data \
-  node devops/pollers/shared/migrate-providers.js --dry-run --production
+node devops/pollers/shared/migrate-providers.js --dry-run --production
 
 # Execute
-TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... DATA_DIR=data \
-  node devops/pollers/shared/migrate-providers.js --production
+node devops/pollers/shared/migrate-providers.js --production
 ```
 
 - `--production` required when the database URL is not localhost

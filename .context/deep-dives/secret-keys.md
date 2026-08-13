@@ -3,137 +3,47 @@ title: "Secret Keys"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/secret-keys.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Secret Keys.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Secret Keys.md" # historical provenance; migrated 2026-08-12
 updated: "2026-03-22"
 ---
 
-# Secret Keys
+# Secret Configuration Boundary
 
-> This page lists WHERE secrets live, not their values. Never commit secret values.
-
----
-
-## Secret Stores
-
-| Store                                                              | Used by                                                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| **Fly.io secrets** (`fly secrets`)                                 | Fly.io container — all runtime secrets                                         |
-| **Infisical** (`stak-trakr-94m4`, env: `dev`)                      | Local development, agent contexts                                              |
-| **Home Docker `.env`** (via `docker-compose.home.yml` / Portainer) | Home poller — Docker/Portainer-based deployment, env vars injected via compose |
+This public context corpus documents **where** secret-backed configuration is managed and how
+to troubleshoot a self-hosted deployment. It intentionally does **not** publish a secret-name
+inventory, values, deployment identifiers, internal addresses, rotation steps, or commands that
+could reveal a configured value. Never commit a secret value or copy it into agent context.
 
 ---
 
-## Fly.io Secrets
+## Authorities
 
-Set with `fly secrets set KEY=VALUE --app staktrakr`.
+| Deployment surface                                  | Authoritative configuration store                                    | Use in troubleshooting                                                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Managed cloud runtime                               | Fly.io secrets                                                       | Confirm that the deployment has the credentials needed for its enabled services.                                         |
+| Local development and managed-secret administration | Infisical                                                            | Consult the project/environment selected by the operator; do not infer an environment or inventory from this repository. |
+| Home poller                                         | Portainer stack environment, wired through `docker-compose.home.yml` | Confirm that the stack supplies the values named by its compose allow-list, then redeploy to apply a change.             |
 
-| Secret                | Purpose                                           | Notes                                                  |
-| --------------------- | ------------------------------------------------- | ------------------------------------------------------ |
-| `GITHUB_TOKEN`        | Push to `api` branch from `run-publish.sh`        | Needs `contents: write` on `StakTrakrApi`              |
-| `TURSO_DATABASE_URL`  | sqld (self-hosted libSQL)                         | `http://192.168.1.81:8080` (via Tailscale from Fly.io) |
-| `TURSO_AUTH_TOKEN`    | sqld auth (unused — kept for client compat)       | Can be empty or any value                              |
-| `GEMINI_API_KEY`      | Vision pipeline (Gemini API)                      | Google AI Studio                                       |
-| `VISION_ENABLED`      | Vision pipeline gate (`1` = on, absent/`0` = off) | `fly secrets set VISION_ENABLED=1` to enable           |
-| `METAL_PRICE_API_KEY` | Spot price API                                    | MetalPriceAPI dashboard                                |
-
-### Historical / Full-Image Secrets
-
-These secrets were used by the full retail-scraping Fly.io image and are no longer part of the active slim remote runtime:
-
-| Secret                | Purpose                                                            | Notes                                        |
-| --------------------- | ------------------------------------------------------------------ | -------------------------------------------- |
-| `WEBSHARE_PROXY_USER` | Webshare credentials for Playwright fallback / `run-retry.sh`      | Webshare dashboard                           |
-| `WEBSHARE_PROXY_PASS` | Webshare credentials for Playwright fallback / `run-retry.sh`      | Webshare dashboard                           |
-| `HOME_PROXY_URL_2`    | Playwright service proxy input (home residential IP via Tailscale) | Was set in `fly.toml` env or as Fly secret   |
-| `CRON_SCHEDULE`       | Override retail poller cron frequency                              | Was used by `run-local.sh` in the full image |
-
-> **Note:** `run-local.sh` is not part of the active slim remote runtime. `VISION_ENABLED` defaulting off in `run-local.sh` only applied to the full-image deployment.
+For a self-hosted installation, create equivalent credentials in the store used by that
+installation. The authoritative required-variable names and consumers are the enabled service
+configuration and source code in `devops/pollers/`, not this document.
 
 ---
 
-## Infisical (Local Dev)
+## Safe troubleshooting sequence
 
-- **Project:** StakTrakr
-- **Project ID:** `319a1db5-207d-49d0-a61d-3f3e6b440ded`
-- **Slug:** `stak-trakr-94m4`
-- **Environment:** `dev` (production env is empty — all secrets in `dev`)
-
-Contains all secrets mirrored from Cloud - Fly.io plus additional dev-only keys. Access via MCP (`mcp__infisical__*`) or `infisical` CLI.
-
----
-
-## Home Docker Environment
-
-The home poller runs as a Docker container managed via Portainer, with environment variables defined in `docker-compose.home.yml`. The previous `/opt/poller/.env` path is no longer the active deployment method. Key variables:
-
-```text
-TURSO_DATABASE_URL=http://staktrakr-sqld:8080
-TURSO_AUTH_TOKEN=
-POLLER_ID=home
-DATA_DIR=/opt/poller/data
-
-# Nightly DR sync to Turso Cloud free tier
-SQLD_URL=http://staktrakr-sqld:8080
-TURSO_BACKUP_URL=libsql://staktrakrapi-lbruton.aws-us-east-2.turso.io
-TURSO_BACKUP_TOKEN=<turso-cloud-token>
-```
-
-Environment variables are configured via `docker-compose.home.yml` and managed through Portainer.
-
----
-
-## Rotating Secrets
-
-### GitHub Token
-
-1. Generate new PAT at github.com → Settings → Developer settings
-2. Required scope: `contents: write` on `lbruton/StakTrakrApi`
-3. `fly secrets set GITHUB_TOKEN=<new-token> --app staktrakr`
-4. Update Infisical dev env
-
-### Turso Auth Token (DR backup only)
-
-Turso Cloud is now a DR backup target only. The `TURSO_BACKUP_TOKEN` is used by the nightly `turso-backup-sync.js` job on the home poller.
-
-1. Turso dashboard → Database → `staktrakrapi` → Create token
-2. Update home LXC `.env` (`TURSO_BACKUP_TOKEN`)
-3. Update Infisical dev env
-
-### MetalPriceAPI Key
-
-1. MetalPriceAPI dashboard → API Keys
-2. `fly secrets set METAL_PRICE_API_KEY=<new-key> --app staktrakr`
-3. Update Infisical dev env
-
-### Webshare Proxy (historical — not used by slim image)
-
-1. Webshare dashboard → Proxy users
-2. `fly secrets set WEBSHARE_PROXY_USER=<user> WEBSHARE_PROXY_PASS=<pass> --app staktrakr`
-3. Update Infisical dev env
-
-### Gemini API Key
-
-1. Google AI Studio → API Keys
-2. `fly secrets set GEMINI_API_KEY=<new-key> --app staktrakr`
-3. Update Infisical dev env
-
----
-
-## Verifying Secrets Are Set
-
-```bash
-# List Fly secrets (names only, not values)
-fly secrets list --app staktrakr
-
-# Verify a specific secret is accessible inside container
-fly ssh console --app staktrakr -C "printenv TURSO_DATABASE_URL"
-```
-
----
+1. Identify the affected service and its deployment surface.
+2. Inspect the service's source/configuration to determine which configuration category it uses
+   (database access, publishing, external feed, optional integration, or network identity).
+3. Check the operator's applicable secret store for the presence and access policy of the
+   required configuration. Do not print or paste values into terminals, logs, issues, or chat.
+4. For the home poller, confirm the compose allow-list includes the required variable and
+   recreate the stack after changing its environment; a restart alone does not apply new values.
+5. Verify recovery with service logs and public health endpoints, not by displaying environment
+   values.
 
 ## Related
 
-- Remote Poller — environment variables and their purposes
-- Cloud - Fly.io — Fly.io secret management commands
-- Portainer — home VM where LXC `.env` is configured
-- Architecture — which components use which secrets
+- `.context/infrastructure.md` — deployment topology and configuration propagation
+- `.context/deep-dives/remote-poller.md` — cloud poller responsibilities and safe diagnostics
+- `.context/deep-dives/home-poller.md` — home-poller deployment and troubleshooting
