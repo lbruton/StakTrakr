@@ -150,9 +150,10 @@ listed here. One hook line each:
   `// duplication-ok`, closing-task ordering.
 
 **Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
-pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit is
-label-gated, the other three are automatic), per-branch required checks, the invisible 75%
-docstring gate, and the dual ESLint config all live there.
+pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-gated,
+Codacy AI bundled with its check, Copilot on lite, Codex dynamic), where each gate is
+configured, per-branch required checks, the invisible 75% docstring gate, and the dual
+ESLint config all live there.
 
 ## Pre-flight (StakTrakr-specific)
 
