@@ -420,3 +420,48 @@ describe("navShellCacheKey — STRK-274 per-shell nav caching", () => {
     assert.equal(navShellCacheKey("/ratios/manifest.json"), null);
   });
 });
+
+describe("navShellCacheKey — STRK-310 subpath-deployment scope", () => {
+  const { navShellCacheKey, isRootShellNavigation } = loadSwRouter();
+  const SCOPE = "/StakTrakr/";
+
+  it("resolves both shells when the app is deployed under a subpath", () => {
+    assert.equal(navShellCacheKey("/StakTrakr/", SCOPE), "./");
+    assert.equal(navShellCacheKey("/StakTrakr/index.html", SCOPE), "./");
+    assert.equal(navShellCacheKey("/StakTrakr/ratios/", SCOPE), "./ratios/");
+    assert.equal(navShellCacheKey("/StakTrakr/ratios/index.html", SCOPE), "./ratios/");
+    assert.equal(navShellCacheKey("/StakTrakr/ratios", SCOPE), "./ratios/");
+  });
+
+  it("treats the scope root without its trailing slash as the tracker shell", () => {
+    assert.equal(navShellCacheKey("/StakTrakr", SCOPE), "./");
+  });
+
+  it("still returns null for non-shell pages inside the subpath", () => {
+    assert.equal(navShellCacheKey("/StakTrakr/privacy.html", SCOPE), null);
+    assert.equal(navShellCacheKey("/StakTrakr/ratios/manifest.json", SCOPE), null);
+  });
+
+  it("does not match paths outside the deployment scope", () => {
+    // A root-level "/" navigation is NOT this deployment's shell when the SW is
+    // scoped to /StakTrakr/ — it belongs to whatever else is hosted at the root.
+    assert.equal(navShellCacheKey("/", SCOPE), null);
+    assert.equal(navShellCacheKey("/ratios/", SCOPE), null);
+    assert.equal(navShellCacheKey("/OtherApp/index.html", SCOPE), null);
+  });
+
+  it("keeps the root-shell predicate scope-aware", () => {
+    assert.equal(isRootShellNavigation("/StakTrakr/", SCOPE), true);
+    assert.equal(isRootShellNavigation("/StakTrakr/ratios/", SCOPE), false);
+    assert.equal(isRootShellNavigation("/", SCOPE), false);
+  });
+
+  it("tolerates a scope passed without a trailing slash", () => {
+    assert.equal(navShellCacheKey("/StakTrakr/index.html", "/StakTrakr"), "./");
+  });
+
+  it("defaults to root scope when no scope is supplied (back-compat)", () => {
+    assert.equal(navShellCacheKey("/"), "./");
+    assert.equal(navShellCacheKey("/ratios/"), "./ratios/");
+  });
+});
