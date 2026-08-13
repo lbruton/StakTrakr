@@ -112,11 +112,19 @@ across commits. `MD049` is now pinned to `underscore` (matching prettier's outpu
 `MD050` to `asterisk`, so the two tools agree by construction rather than by ordering luck.
 
 **Markdown lint coverage:** `npm run lint:md:all` globs `**/*.md`, which **does not traverse
-dot-directories** — so `.context/` and `.agents/` were historically unlinted by the repo
-gate and only caught by the staged pre-commit hook. Both are now globbed explicitly.
-`.claude/` and `.github/` are deliberately excluded: agent prompts and issue templates
-legitimately don't start with an H1, so including them would need MD041/MD032 exceptions
-rather than fixes.
+dot-directories** — so `.context/`, `.agents/`, and `.claude/` were historically unlinted by
+the repo gate and only caught by the staged pre-commit hook. All three are now globbed
+explicitly. Machine-local files (`.claude/**/*.local.*`) are excluded via
+`.markdownlintignore`, mirroring the matching `.gitignore` rule, because markdownlint globs
+the filesystem rather than git and would otherwise judge files the repo deliberately ignores.
+
+`.github/` stays excluded: issue templates render **into** an issue body rather than standing
+as documents, so MD041 does not apply to them.
+
+> When adding a directory to this gate, check `git ls-files` first. Lint findings on
+> untracked or ignored files are noise by construction — filtering by tracked-ness before
+> judging the findings is what turned an apparent "needs MD041/MD032 exceptions" verdict on
+> `.claude/` into two one-line heading fixes and zero exceptions.
 
 ### 75% docstring-coverage pre-merge gate (the invisible blocker)
 
