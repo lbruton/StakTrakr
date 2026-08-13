@@ -98,9 +98,7 @@ test("availability missing — returns null", () => {
 });
 
 test("non-Product JSON-LD — returns null", () => {
-  const av = extractJsonLdAvailability([
-    JSON.stringify({ "@type": "Organization", name: "Hero" }),
-  ]);
+  const av = extractJsonLdAvailability([JSON.stringify({ "@type": "Organization", name: "Hero" })]);
   assert.equal(av, null);
 });
 

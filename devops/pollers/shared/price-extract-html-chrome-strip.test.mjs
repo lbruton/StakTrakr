@@ -20,8 +20,7 @@
 
 const CHROME_OR_RAWTEXT_TAGS = new Set(["script", "style", "nav", "header", "footer"]);
 
-const isHtmlWhitespace = (c) =>
-  c === " " || c === "\t" || c === "\n" || c === "\r" || c === "\f";
+const isHtmlWhitespace = (c) => c === " " || c === "\t" || c === "\n" || c === "\r" || c === "\f";
 const collapseWhitespace = (s) => s.replace(/\s+/g, " ");
 
 function findHtmlTagEnd(html, from) {
@@ -141,25 +140,19 @@ assert(
 
 assert(
   "3. <header> content dropped (spot ticker scenario)",
-  htmlToPlainText(
-    "<header>Gold $4,520.00 Silver $75.92</header><main>1 oz Maple $77.82</main>"
-  ),
+  htmlToPlainText("<header>Gold $4,520.00 Silver $75.92</header><main>1 oz Maple $77.82</main>"),
   "1 oz Maple $77.82"
 );
 
 assert(
   "4. <nav> content dropped (mega-menu links)",
-  htmlToPlainText(
-    "<nav>Gold Silver Platinum 1/2 oz 1/4 oz</nav><main>1 oz Maple $77.82</main>"
-  ),
+  htmlToPlainText("<nav>Gold Silver Platinum 1/2 oz 1/4 oz</nav><main>1 oz Maple $77.82</main>"),
   "1 oz Maple $77.82"
 );
 
 assert(
   "5. <footer> content dropped (legal/ads area)",
-  htmlToPlainText(
-    "<main>1 oz Maple $77.82</main><footer>Spot Gold $4,520.00</footer>"
-  ),
+  htmlToPlainText("<main>1 oz Maple $77.82</main><footer>Spot Gold $4,520.00</footer>"),
   "1 oz Maple $77.82"
 );
 
@@ -271,11 +264,7 @@ assert(
   "price $77.82"
 );
 
-assert(
-  "11. <article> content preserved",
-  htmlToPlainText("<article>$77.82</article>"),
-  "$77.82"
-);
+assert("11. <article> content preserved", htmlToPlainText("<article>$77.82</article>"), "$77.82");
 
 assert(
   "12. <aside> content preserved",
