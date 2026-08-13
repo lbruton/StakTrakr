@@ -101,7 +101,7 @@ Check for recent rows from both pollers:
 
 ```bash
 # Query sqld via HTTP API
-curl -s http://192.168.1.81:8090/v2/pipeline -H 'Content-Type: application/json' -d '{
+curl -s http://192.168.1.81:8080/v2/pipeline -H 'Content-Type: application/json' -d '{
   "requests": [{"type":"execute","stmt":{"sql":"SELECT poller_id, COUNT(*) as rows, MAX(scraped_at) as latest FROM price_snapshots WHERE scraped_at > datetime('"'"'now'"'"', '"'"'-2 hours'"'"') GROUP BY poller_id"}}]
 }' | jq '.results[0].response.result.rows'
 ```
