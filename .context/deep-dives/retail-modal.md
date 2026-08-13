@@ -7,11 +7,18 @@ migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Retail Moda
 updated: "2026-04-11"
 ---
 
-# Retail Modal
+# Retail Modal (Legacy Compatibility Surface)
 
 ## Overview
 
-The **Retail View Modal** is a per-coin detail panel that opens when a user clicks a coin in the market view. It surfaces live and historical retail pricing data for a single coin slug (e.g. `ase`, `age`, `maple-silver`) sourced from the StakTrakrApi REST endpoints.
+> **Legacy compatibility surface:** the active per-coin product-detail experience is the
+> **Market Detail Modal** in `js/market-data.js`; the vendor comparison matrix opens it through
+> `openMarketDetailModal(slug)`. `retail-view-modal.js` remains loaded, exported, and
+> test-covered for compatibility. Do not use it for new product-detail work.
+
+The **Retail View Modal** is the retained legacy per-coin detail panel. It surfaces live and
+historical retail pricing data for a single coin slug (for example, `ase`, `age`, or
+`maple-silver`) when explicitly invoked.
 
 The modal contains two tabs:
 

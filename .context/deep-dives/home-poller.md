@@ -233,29 +233,18 @@ Playwright version is locked to whatever is in `shared/package.json` at build ti
 
 ---
 
-## Environment Variables
+## Configuration Boundary
 
-Injected via Portainer stack env vars (must be passed on every redeploy):
+Portainer stack environment is the authority for the home poller's secret-backed configuration.
+This public context intentionally does not inventory deployed variable names, values, endpoint
+addresses, or operator identifiers. For self-hosting, identify required configuration from the
+enabled compose and poller scripts, then provide equivalent database, backup, external-feed,
+optional-integration, and service-discovery settings in the operator's stack environment.
 
-| Variable                   | Required       | Notes                                                                                                                                                                                                                                                                                  |
-| -------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TURSO_DATABASE_URL`       | Yes            | sqld connection string (`http://staktrakr-sqld:8080` via Docker DNS)                                                                                                                                                                                                                   |
-| `TURSO_AUTH_TOKEN`         | No             | Empty — sqld has no auth by default                                                                                                                                                                                                                                                    |
-| `SQLD_URL`                 | Yes            | `http://staktrakr-sqld:8080` — used by DR sync job                                                                                                                                                                                                                                     |
-| `TURSO_BACKUP_URL`         | Yes            | Turso Cloud DR target URL                                                                                                                                                                                                                                                              |
-| `TURSO_BACKUP_TOKEN`       | Yes            | Turso Cloud auth token (DR sync only)                                                                                                                                                                                                                                                  |
-| `METAL_PRICE_API_KEY`      | Yes            | For spot-extract.js                                                                                                                                                                                                                                                                    |
-| `POLLER_ID`                | Set in compose | `home`                                                                                                                                                                                                                                                                                 |
-| `DATA_DIR`                 | Set in compose | `/data`                                                                                                                                                                                                                                                                                |
-| `FIRECRAWL_BASE_URL`       | Yes            | `http://firecrawl-api:3002` (Docker DNS)                                                                                                                                                                                                                                               |
-| `FLYIO_TAILSCALE_IP`       | Yes            | `100.90.171.110` — used by check-flyio.sh                                                                                                                                                                                                                                              |
-| `FLYIO_HTTP_URL`           | Yes            | `https://api2.staktrakr.com/data/retail/providers.json`                                                                                                                                                                                                                                |
-| `GEMINI_API_KEY`           | No             | Enables vision pipeline                                                                                                                                                                                                                                                                |
-| `VISION_ENABLED`           | No             | Set to `1` to enable vision pipeline                                                                                                                                                                                                                                                   |
-| `CF_CLEARANCE_SCRAPER_URL` | No             | Defaults to `http://staktrakr-byparr:8191` (Docker DNS via container name). `CF_CLEARANCE_SIDECAR_URL` is accepted as a legacy alias in `cf-clearance.js`.                                                                                                                             |
-| `CF_CLEARANCE_ENABLED`     | No             | Set to `1` (default) to enable Phase 2; `0` to disable                                                                                                                                                                                                                                 |
-| `CF_CLEARANCE_TIMEOUT_MS`  | No             | Sidecar request timeout; defaults to `30000` (30 s)                                                                                                                                                                                                                                    |
-| `MB_API_KEY`               | No             | MintBuilder direct price feed (STRK-321) — unset falls back to page scraping. Must stay declared in `docker-compose.home.yml` AND covered by the `run-home.sh` cron re-export (STRK-230 pattern); missing either hop = "works from dashboard retry, falls back under cron" half-state. |
+`docker-compose.home.yml` is an explicit allow-list: a value configured in Portainer reaches the
+container only when compose passes it through. Recreate the stack after a configuration change so
+cron receives the new environment; a restart does not apply it. Do not print environment values
+while diagnosing a deployment.
 
 ---
 

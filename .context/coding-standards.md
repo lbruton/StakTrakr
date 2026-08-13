@@ -975,15 +975,13 @@ Standard modal pattern — glass-morphism shell with gradient top accent:
 <div class="modal" id="myModal">
   <div class="modal-content">
     <div
-      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border);"
-    >
+      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing); padding-bottom:var(--spacing-sm); border-bottom:1px solid var(--border);"
       <h2>Title</h2>
       <button class="modal-close" id="myCloseBtn" type="button">&times;</button>
     </div>
     <div>...</div>
     <div
-      style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:0.75rem; border-top:1px solid var(--border);"
-    >
+      style="display:flex; justify-content:flex-end; gap:var(--spacing-sm); padding-top:var(--spacing-sm); border-top:1px solid var(--border);"
       <button class="btn secondary btn-sm">Cancel</button>
       <button class="btn btn-sm">Save</button>
     </div>

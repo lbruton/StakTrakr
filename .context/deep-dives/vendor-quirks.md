@@ -9,13 +9,13 @@ updated: "2026-04-25"
 
 # Vendor Quirks
 
-Frontend-specific behaviors, display adaptations, and data normalization rules for each retail price vendor. This page documents how `js/retail.js`, `js/market-data.js`, and `js/retail-view-modal.js` handle the output produced by the StakTrakr pollers — it is **not** a scraping runbook. For scraping-side quirks, inspect `devops/pollers/` in this repository.
+Frontend-specific behaviors, display adaptations, and data normalization rules for each retail price vendor. Active user-facing behavior is implemented in `js/retail.js` and `js/market-data.js`; this page is **not** a scraping runbook. For scraping-side quirks, inspect `devops/pollers/` in this repository. `js/retail-view-modal.js` is a legacy compatibility surface retained for maintenance and tests, not the active product-detail flow.
 
 ---
 
 ## Overview
 
-Retail price data flows from `api.staktrakr.com/data/v2/` to the frontend through the v2 manifest and per-slug `latest.json` / `history-30d.json` envelopes. `js/market-data.js` renders the vendor comparison matrix; `retail-view-modal.js` renders the per-coin detail modal. Each vendor has a fixed display name, brand color, and homepage URL hardcoded in `js/retail.js`. Per-slug product page URLs are loaded from `providers.json` and overlay the homepage fallbacks.
+Retail price data flows from `api.staktrakr.com/data/v2/` to the frontend through the v2 manifest and per-slug `latest.json` / `history-30d.json` envelopes. `js/market-data.js` renders both the vendor comparison matrix and the active per-coin **Market Detail Modal** through `openMarketDetailModal(slug)`. Each vendor has a fixed display name, brand color, and homepage URL hardcoded in `js/retail.js`. Per-slug product page URLs are loaded from `providers.json` and overlay the homepage fallbacks.
 
 Vendor identity in the frontend is always a short string key: `apmex`, `monumentmetals`, `sdbullion`, `jmbullion`, `herobullion`, `bullionexchanges`, `summitmetals`, `goldback`.
 
@@ -29,7 +29,7 @@ Vendor identity in the frontend is always a short string key: `apmex`, `monument
 
 3. **Product page URLs prefer `providers.json` over vendor homepages.** Matrix cells and retail-modal legend links use this resolution: `retailProviders[slug][vendorId]` → `RETAIL_VENDOR_URLS[vendorId]`. The `providers.json` file is fetched once per sync and cached in `localStorage` under `RETAIL_PROVIDERS_KEY`.
 
-4. **OOS is a matrix and modal state, not a card-list sort rule.** `market-data.js` renders an `OOS` marker in the vendor comparison cell; `retail-view-modal.js` preserves OOS vendors in the legend when they have last-known data.
+4. **OOS is a matrix and Market Detail Modal state, not a card-list sort rule.** `market-data.js` renders an `OOS` marker in the vendor comparison cell and presents the active detail flow. The legacy retail-view modal preserves OOS vendors in its compatibility legend when it is explicitly invoked.
 
 5. **Goldback has a separate local price cache.** `getGoldbackVendorPrice(slug)` reads `goldbackPrices`, not the retail vendor map.
 
@@ -63,8 +63,8 @@ OOS detection happens in the poller. The frontend reads and persists the OOS sta
 **Frontend OOS rendering:**
 
 - In the **vendor comparison matrix** (`_buildVendorPriceCell` in `market-data.js`): an OOS vendor renders an `OOS` marker rather than a live price.
-- In **retail view modal** (`_buildVendorLegend`): OOS vendors are rendered at 50% opacity. The price element uses `<del>` for the last known price plus a red `OOS` badge. The item title attribute carries the last available date.
-- In the **daily history chart** (`openRetailViewModal`): when a history entry has `vendors[vendorId].inStock === false`, `null` is returned for that day's data point. `spanGaps: false` is set, so Chart.js renders a gap in the line (not an interpolated bridge).
+- The active **Market Detail Modal** is owned by `market-data.js`; troubleshoot it through `openMarketDetailModal(slug)`, not `openRetailViewModal(slug)`.
+- **Legacy compatibility modal:** `_buildVendorLegend` renders OOS vendors at 50% opacity. The price element uses `<del>` for the last known price plus a red `OOS` badge. The item title attribute carries the last available date. Its daily history chart returns `null` for `vendors[vendorId].inStock === false` with `spanGaps: false`, so Chart.js renders a gap rather than an interpolated bridge.
 
 **Persistence caveat:** `retailAvailability` is merged with `Object.assign` on each sync. Once a vendor is marked OOS in `localStorage`, it stays OOS until the next sync where `availability_by_site` explicitly sets it back to `true`. If the poller omits a vendor from `availability_by_site` entirely, the prior stored state persists.
 

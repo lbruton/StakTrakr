@@ -13,7 +13,7 @@ updated: "2026-04-11"
 
 Single Cloud - Fly.io app (`staktrakr`) that runs **spot price polling** and **data publishing** to the `api` branch on GitHub Pages. Managed by **supervisord** inside one container.
 
-**Database connectivity (STAK-486):** The Fly.io container connects to **sqld** on the Home VM (`http://192.168.1.81:8080`) via **Tailscale subnet routing**. The Home VM's Tailscale sidecar advertises `192.168.1.0/24` as a subnet route (`TS_ROUTES` in `docker-compose.tinyproxy.yml`), and the Fly.io container accepts those routes (`--accept-routes` in `supervisord.conf`). The `TURSO_DATABASE_URL` Fly secret points to the Home VM IP. Tailscale must be connected and the subnet route approved in the Tailscale admin console for DB reads to succeed.
+**Database connectivity (STAK-486):** The Fly.io container reaches the home sqld service through Tailscale subnet routing. The home side advertises the required subnet route and the Fly.io container accepts it. Database connection configuration belongs in the operator's Fly.io secret store. Tailscale must be connected and the subnet route approved for DB reads to succeed.
 
 **Goldback data flow (STAK-491):** The Home Poller scrapes goldback.com and writes the G1 rate to sqld as `coin_slug=goldback-g1`. The Fly.io publisher's `api-export.js` reads this from sqld and generates `goldback-spot.json` + `goldback-{YYYY}.json` as part of its normal publish cycle. The old `run-goldback.sh` (git-commit-and-push) path is disabled via `GOLDBACK_ENABLED=0`.
 
@@ -123,36 +123,19 @@ Calls a Byparr sidecar (`http://staktrakr-byparr:8191`) to solve Cloudflare chal
 
 ---
 
-## Environment Variables
+## Configuration Boundary
 
-### Active (Slim Image)
+The active slim image has non-secret operational settings in `fly.toml` and secret-backed
+configuration in the operator's Fly.io secret store. This document deliberately does not list
+deployed secret names, values, or network endpoints. For a self-hosted deployment, consult the
+enabled scripts and container configuration to identify the required categories: database access,
+publisher access, external price-feed access, and network identity.
 
-| Variable                            | Source                                    | Purpose                                                                              |
-| ----------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------ |
-| `POLLER_ID`                         | `fly.toml` (hardcoded `api`)              | Written to sqld rows to identify this poller                                         |
-| `API_EXPORT_DIR` / `DATA_REPO_PATH` | `fly.toml` (`/data/staktrakr-api-export`) | Working copy of StakTrakrApi repo                                                    |
-| `GITHUB_TOKEN`                      | Fly secret                                | Push to `api` branch via `run-publish.sh`                                            |
-| `TURSO_DATABASE_URL`                | Fly secret                                | sqld on Home VM (`http://192.168.1.81:8080` via Tailscale subnet route)              |
-| `TURSO_AUTH_TOKEN`                  | Fly secret                                | Empty — sqld has no auth by default                                                  |
-| `METAL_PRICE_API_KEY`               | Fly secret                                | Spot price API (MetalPriceAPI)                                                       |
-| `TS_AUTHKEY`                        | Fly secret                                | Tailscale reusable ephemeral auth key (also in Infisical as `FLY_TAILSCALE_AUTHKEY`) |
+The former full retail-and-goldback image is historical. The slim image schedules only spot and
+publishing work; retail and Goldback scraping run on the home poller. Do not restore retired
+browser, proxy, or retail configuration merely because it appears in historical source.
 
-### Legacy / Full-Image Environment
-
-These variables were used by the full retail+goldback image before STAK-478. They are not scheduled or used in slim mode — the slim Dockerfile copies only `run-spot.sh` and `run-publish.sh`.
-
-| Variable             | Source                               | Notes                                                                                                                                                 |
-| -------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RETAIL_ENABLED`     | Fly secret                           | Set to `0` — retail + retry crons not scheduled in slim mode                                                                                          |
-| `GOLDBACK_ENABLED`   | Fly secret                           | Not scheduled in slim mode — slim Dockerfile copies only `run-spot.sh` and `run-publish.sh`. Goldback data comes via sqld from Home Poller (STAK-491) |
-| `VISION_ENABLED`     | Fly secret                           | `0` — vision pipeline not available in slim image                                                                                                     |
-| `GEMINI_API_KEY`     | Fly secret                           | Not used in slim image (vision pipeline removed)                                                                                                      |
-| `FIRECRAWL_BASE_URL` | `fly.toml` (`http://localhost:3002`) | Not used — no Firecrawl in slim image                                                                                                                 |
-| `BROWSER_MODE`       | `fly.toml` (`local`)                 | Not used — no Playwright in slim image                                                                                                                |
-| `PLAYWRIGHT_LAUNCH`  | `fly.toml` (`1`)                     | Not used — no Playwright in slim image                                                                                                                |
-| `HOME_PROXY_URL`     | `fly.toml` (empty)                   | Not needed — no retail scraping                                                                                                                       |
-
-See Secret Keys for rotation procedures and secret stores.
+See `.context/deep-dives/secret-keys.md` for store ownership and safe troubleshooting.
 
 ---
 
@@ -197,10 +180,10 @@ Tailscale state lives at `/data/tailscale/tailscaled.state` — also on the pers
 | Symptom                      | Check                                                                                                                          |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Services not running         | `fly ssh console --app staktrakr -C "supervisorctl status"`                                                                    |
-| Spot prices stale            | Check `run-spot.sh` cron in logs; verify `METAL_PRICE_API_KEY` is set                                                          |
-| Publish not pushing          | Check `run-publish.sh` logs; verify `GITHUB_TOKEN` is set; check git repo at `/data/staktrakr-api-export`                      |
+| Spot prices stale            | Check `run-spot.sh` cron and the operator-managed external-feed configuration.                                                 |
+| Publish not pushing          | Check `run-publish.sh` logs, publisher authorization, and the repository working copy.                                         |
 | Goldback stale               | Verify Home Poller goldback cron is running and writing to sqld; check `api-export.js` logs for `goldback-g1`                  |
-| Tailscale not connecting     | `tailscale status` in container; check `TS_AUTHKEY` is valid; verify subnet route approved in admin console                    |
+| Tailscale not connecting     | Check container status, the operator-managed network identity, and the approved subnet route.                                  |
 | Volume not mounted           | `fly volumes list --app staktrakr`; verify `staktrakr_data` exists                                                             |
 | Git push rejected in publish | Run `git fetch origin api && git rebase origin/api` inside the volume                                                          |
 | OOM despite 1GB              | Concurrent processes — check if idle services (Firecrawl, Postgres) are consuming memory; future slim Dockerfile will fix this |
@@ -215,6 +198,6 @@ Tailscale state lives at `/data/tailscale/tailscaled.state` — also on the pers
 - Cloud - Fly.io -- Fly.io platform reference, deploy workflow
 - Architecture -- system diagram, repo boundaries, data feeds
 - API Reference -- REST endpoint documentation
-- Secret Keys -- environment variables and rotation procedures
+- Secret Configuration Boundary -- store ownership and safe troubleshooting
 - Health Checks -- diagnosing cron and poller issues
 - Portainer -- home VM container management

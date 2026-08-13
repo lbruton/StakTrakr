@@ -70,12 +70,12 @@ WEBSCALE_UA_WWW_PROVIDENTMETALS_COM=<base64 UA>
 
 ---
 
-## Step 2 — Update Portainer env (stack 7, `home-poller`)
+## Step 2 — Update the operator-managed Portainer environment
 
-`https://192.168.1.81:9443` → Stacks → home-poller → Environment variables.
-
-- **Advanced mode:** the textarea must already list the existing **15** vars. **Append** the 4 new lines → **19 total**. Do NOT replace (env is _replaced, not merged_ on save — a partial paste wipes `SQLD_URL`, `METAL_PRICE_API_KEY`, etc.).
-- If the textarea is empty, use simple mode and add the 4 one at a time.
+In the home-poller stack's Environment variables view, add the newly solved values without
+discarding the existing stack environment. Portainer replaces rather than merges the submitted
+environment, so use the operator's saved configuration as the authority. Do not record its
+variable inventory, values, or endpoint identifiers in this document.
 
 ---
 
@@ -85,18 +85,10 @@ Updating the stack env alone does **not** change the running container. You must
 
 > **Stack 7 has `AutoUpdate: None`** (confirmed 2026-07-30) — there is **no GitOps auto-poll**, so an env-only change will _never_ self-apply. Use the **Web UI Pull-and-redeploy**. Do not use the API `/git/redeploy`: it _replaces_ the env array and would drop the other 15 vars.
 
-**Verify via read-only inspect** — prefer this over `exec`, which the Claude Code permission classifier blocks:
-
-```bash
-# from a shell with PORTAINER_TOKEN (Infisical project lbruton.cc, dev)
-CID=$(curl -sk -H "X-API-Key: $PORTAINER_TOKEN" "https://192.168.1.81:9443/api/endpoints/3/docker/containers/json" | jq -r '.[]|select(.Names[]|test("home-poller")).Id')
-curl -sk -H "X-API-Key: $PORTAINER_TOKEN" "https://192.168.1.81:9443/api/endpoints/3/docker/containers/$CID/json" \
-  | jq -r '.Config.Env[]|select(startswith("WEBSCALE_"))'
-```
-
-`.Config.Env` is exactly what the entrypoint dumps into `/etc/environment`.
-
-> ⚠️ **The silent failure mode is an EMPTY value, not a missing key.** After an IP rotation the `WEBSCALE_*` vars are typically blanked, so all four still _appear_ — as empty strings. `loadWebscaleCookie` gates on `envWspc.length > 0` and treats empty as absent **with no error**. Check values, not just names. Likewise, container `StartedAt` advancing is **not** proof the vars landed (the PR #1304 trap).
+Verify that the recreated stack is healthy and that the affected vendor recovers through the
+public feed. Do not inspect, print, or paste the container environment; it can expose solver
+credentials. A changed container start time alone is not evidence that the intended configuration
+was applied.
 
 ---
 

@@ -188,9 +188,16 @@ Every selected-range render destroys the prior Lightweight Charts instance befor
 
 ## Retail Modal
 
-### Architecture — `retail.js` vs `retail-view-modal.js`
+### Legacy compatibility modal — `retail.js` vs `retail-view-modal.js`
 
-Script load order in `index.html` places `retail.js` before `retail-view-modal.js`. `retail-view-modal.js` reads globals defined in `retail.js` through `window` — never use imports.
+The active per-coin product-detail experience is the **Market Detail Modal** in
+`js/market-data.js`; its matrix click handler calls `openMarketDetailModal(slug)`.
+`retail-view-modal.js` remains loaded, exported, and test-covered as a legacy compatibility
+surface. Do not use it for new product-detail work. Its maintenance notes are retained below
+only for fixes to that legacy surface.
+
+Script load order in `index.html` places `retail.js` before `retail-view-modal.js`.
+`retail-view-modal.js` reads globals defined in `retail.js` through `window` — never use imports.
 
 **`retail.js` owns:**
 
@@ -198,8 +205,7 @@ Script load order in `index.html` places `retail.js` before `retail-view-modal.j
 - All module-level state (`retailPrices`, `retailPriceHistory`, `retailIntradayData`, `retailProviders`, `retailAvailability`, etc.)
 - All localStorage persistence helpers (`saveRetailPrices`, `saveRetailIntradayData`, etc.)
 - Full sync pipeline (`syncRetailPrices`)
-- Retail data cache and market-filter persistence; the vendor comparison matrix itself is rendered by `market-data.js`
-- Market filter matrix persistence (STAK-515)
+- Retail data cache and market-filter persistence; `market-data.js` renders the vendor comparison matrix from that persisted filter state (STAK-515)
 
 **`retail-view-modal.js` owns:**
 
@@ -208,7 +214,7 @@ Script load order in `index.html` places `retail.js` before `retail-view-modal.j
 - Both Chart.js instances: `_retailViewModalChart` (daily history), `_retailViewIntradayChart` (24h intraday)
 - Background refresh on modal open (per-coin only)
 
-### Modal Open Sequence
+### Legacy Modal Open Sequence
 
 `openRetailViewModal(slug)`:
 

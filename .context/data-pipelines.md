@@ -97,7 +97,7 @@ MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD)
 
 ### Data Source
 
-**MetalPriceAPI** (`metalpriceapi.com`) — requires `METAL_PRICE_API_KEY` Fly secret.
+**MetalPriceAPI** (`metalpriceapi.com`) — requires a managed external-feed credential in the deployment's secret store.
 
 | Symbol | Metal     |
 | ------ | --------- |
@@ -147,11 +147,11 @@ Frontend fetches `data/hourly/YYYY/MM/DD/HH.json` for live spot prices. `api-hea
 
 ### Failure Modes
 
-| Symptom                      | Likely cause                                    | Fix                                                      |
-| ---------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| Hourly file > 75 min stale   | `METAL_PRICE_API_KEY` expired or quota exceeded | Check MetalPriceAPI dashboard; rotate key in Fly secrets |
-| Hourly file missing entirely | `run-spot.sh` not running                       | `fly logs --app staktrakr \| grep spot`                  |
-| Stale data after deploy      | Cron schedule wiped by deploy                   | `fly ssh console -C "crontab -l"` to verify              |
+| Symptom                      | Likely cause                                       | Fix                                                            |
+| ---------------------------- | -------------------------------------------------- | -------------------------------------------------------------- |
+| Hourly file > 75 min stale   | External-feed credential expired or quota exceeded | Check the provider dashboard and operator-managed secret store |
+| Hourly file missing entirely | `run-spot.sh` not running                          | `fly logs --app staktrakr \| grep spot`                        |
+| Stale data after deploy      | Cron schedule wiped by deploy                      | `fly ssh console -C "crontab -l"` to verify                    |
 
 ### Frontend Spot Source Selection (STAK-443)
 
@@ -345,7 +345,7 @@ Frontend retail cards display live per-item prices sourced from `data/api/manife
 
 ### Vision Pipeline (optional, soft-disabled by default)
 
-Requires `GEMINI_API_KEY` AND `VISION_ENABLED=1`. Non-fatal — failure is logged and scrape continues.
+Requires the operator to configure the vision integration and enable it for the deployment. Non-fatal — failure is logged and scrape continues.
 
 | Scenario                            | Confidence score                                  |
 | ----------------------------------- | ------------------------------------------------- |
