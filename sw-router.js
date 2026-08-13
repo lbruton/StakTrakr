@@ -226,15 +226,33 @@ function shouldFallBackToCache(response) {
  * privacy.html) bypasses the nav cache in both directions and gets honest
  * error/offline responses.
  *
+ * Paths are resolved RELATIVE TO scopePath (STRK-310). The shell keys written to
+ * the cache have always been relative ("./", "./ratios/"), so they already
+ * resolve against the worker's base URL — but the matching side hard-coded
+ * absolute paths, so under a subpath deployment (host/StakTrakr/) no navigation
+ * ever resolved a shell key and offline reloads silently bypassed the precached
+ * shells. StakTrakr deploys at origin root today, so this was latent, not live.
+ *
  * @param {string} pathname - URL pathname of the navigation request.
+ * @param {string} [scopePath="/"] - Deployment scope path; sw.js passes the
+ *   worker's own directory so the mapping follows wherever the app is hosted.
  * @returns {?string} Cache key for the shell, or null for non-shell pages.
  */
-function navShellCacheKey(pathname) {
-  if (pathname === "/" || pathname === "/index.html") return "./";
-  // "/ratios" without the slash: online the server redirects to "/ratios/",
+function navShellCacheKey(pathname, scopePath) {
+  const rawScope = typeof scopePath === "string" && scopePath !== "" ? scopePath : "/";
+  const base = rawScope.endsWith("/") ? rawScope : `${rawScope}/`;
+
+  // The scope root without its trailing slash ("/StakTrakr") is the tracker
+  // shell too — the server would redirect it, but offline nothing does.
+  if (`${pathname}/` === base) return "./";
+  if (!pathname.startsWith(base)) return null;
+
+  const relative = pathname.slice(base.length);
+  if (relative === "" || relative === "index.html") return "./";
+  // "ratios" without the slash: online the server redirects to "ratios/",
   // but offline that redirect never happens — map it to the shell key so the
   // cached PWA shell is served instead of the generic offline page.
-  if (pathname === "/ratios" || pathname === "/ratios/" || pathname === "/ratios/index.html") {
+  if (relative === "ratios" || relative === "ratios/" || relative === "ratios/index.html") {
     return "./ratios/";
   }
   return null;
@@ -246,10 +264,11 @@ function navShellCacheKey(pathname) {
  * Kept as the named predicate; navShellCacheKey is the general mapping.
  *
  * @param {string} pathname - URL pathname of the navigation request.
+ * @param {string} [scopePath="/"] - Deployment scope path (see navShellCacheKey).
  * @returns {boolean} True when the navigation is for the root app shell.
  */
-function isRootShellNavigation(pathname) {
-  return navShellCacheKey(pathname) === "./";
+function isRootShellNavigation(pathname, scopePath) {
+  return navShellCacheKey(pathname, scopePath) === "./";
 }
 
 // CJS export guard — allows require() in Node unit tests without breaking importScripts in SW
