@@ -3,7 +3,7 @@ title: "StakTrakr — Architecture"
 project: StakTrakr
 audience: agent
 canonical: .context/architecture.md
-source: "DocVault/Projects/StakTrakr/Foundation/architecture.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/architecture.md" # historical provenance; migrated 2026-08-12
 updated: "2026-07-24"
 ---
 
@@ -53,10 +53,10 @@ DR backup:  sqld (Home VM)  ──nightly──►  Turso Cloud (libSQL, free ti
 
 ## Repo Boundaries
 
-| Repo                   | Owns                                                                                                                                                         | PR Target |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `lbruton/StakTrakr`    | Frontend app code, all poller code (`devops/pollers/`), Fly.io config (`devops/pollers/remote-poller/fly.toml`), Docker configs, Cloudflare Pages deployment | `dev`     |
-| `lbruton/StakTrakrApi` | `api` branch data publishing, GHA workflows                                                                                                                  | `main`    |
+| Repo                   | Owns                                                                                                                                                         | PR Target               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `lbruton/StakTrakr`    | Frontend app code, all poller code (`devops/pollers/`), Fly.io config (`devops/pollers/remote-poller/fly.toml`), Docker configs, Cloudflare Pages deployment | `dev`                   |
+| `lbruton/StakTrakrApi` | `api` branch data publishing for GitHub Pages                                                                                                                | Publisher-managed `api` |
 
 The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages. It is force-pushed by the Fly.io publisher on every publish cycle — never edited manually.
 

@@ -3,7 +3,7 @@ title: "Provider Database"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/provider-database.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Provider Database.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Provider Database.md" # historical provenance; migrated 2026-08-12
 updated: "2026-03-22"
 ---
 

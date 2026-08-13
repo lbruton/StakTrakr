@@ -3,19 +3,19 @@ title: "Vendor Quirks"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/vendor-quirks.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Vendor Quirks.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Vendor Quirks.md" # historical provenance; migrated 2026-08-12
 updated: "2026-04-25"
 ---
 
 # Vendor Quirks
 
-Frontend-specific behaviors, display adaptations, and data normalization rules for each retail price vendor. This page documents how `js/retail.js` and `js/retail-view-modal.js` handle the output produced by the StakTrakrApi retail poller — it is **not** a scraping runbook. For scraping-side quirks (Firecrawl waitFor, bot detection, OOS pattern matching), see the `StakTrakrApi` repo's `vendor-quirks.md`.
+Frontend-specific behaviors, display adaptations, and data normalization rules for each retail price vendor. This page documents how `js/retail.js`, `js/market-data.js`, and `js/retail-view-modal.js` handle the output produced by the StakTrakr pollers — it is **not** a scraping runbook. For scraping-side quirks, inspect `devops/pollers/` in this repository.
 
 ---
 
 ## Overview
 
-Retail price data flows from `api.staktrakr.com/data/api` to the frontend via `manifest.json` and per-slug `latest.json` / `history-30d.json` files. The frontend reads this data and renders it as market list view cards. Each vendor has a fixed display name, brand color, and homepage URL hardcoded in `js/retail.js`. Per-slug product page URLs are loaded from `providers.json` and overlay the homepage fallbacks.
+Retail price data flows from `api.staktrakr.com/data/v2/` to the frontend through the v2 manifest and per-slug `latest.json` / `history-30d.json` envelopes. `js/market-data.js` renders the vendor comparison matrix; `retail-view-modal.js` renders the per-coin detail modal. Each vendor has a fixed display name, brand color, and homepage URL hardcoded in `js/retail.js`. Per-slug product page URLs are loaded from `providers.json` and overlay the homepage fallbacks.
 
 Vendor identity in the frontend is always a short string key: `apmex`, `monumentmetals`, `sdbullion`, `jmbullion`, `herobullion`, `bullionexchanges`, `summitmetals`, `goldback`.
 
@@ -27,13 +27,11 @@ Vendor identity in the frontend is always a short string key: `apmex`, `monument
 
 2. **Vendor display info resolves in priority order: manifest `_vendor_meta` → hardcoded `RETAIL_VENDOR_NAMES`/`RETAIL_VENDOR_COLORS`/`RETAIL_VENDOR_URLS`.** `getVendorDisplay(vendorId)` uses this chain. If a vendor appears in the poller output but not in the hardcoded maps, the vendor key is used as the label and the color falls back to `#6c757d` (gray).
 
-3. **Product page URLs prefer `providers.json` over vendor homepages.** All vendor links (grid card rows, list view vendor chips, retail view modal legend items) use this resolution: `retailProviders[slug][vendorId]` → `RETAIL_VENDOR_URLS[vendorId]`. The `providers.json` file is fetched once per sync and cached in `localStorage` under `RETAIL_PROVIDERS_KEY`.
+3. **Product page URLs prefer `providers.json` over vendor homepages.** Matrix cells and retail-modal legend links use this resolution: `retailProviders[slug][vendorId]` → `RETAIL_VENDOR_URLS[vendorId]`. The `providers.json` file is fetched once per sync and cached in `localStorage` under `RETAIL_PROVIDERS_KEY`.
 
-4. **OOS vendors are always rendered last in the sort.** The frontend sort order within a card/chip is: high-confidence in-stock (>=60% score) sorted by price ascending → low-confidence in-stock → OOS vendors. This is applied in the list view (`_buildMarketListCard`).
+4. **OOS is a matrix and modal state, not a card-list sort rule.** `market-data.js` renders an `OOS` marker in the vendor comparison cell; `retail-view-modal.js` preserves OOS vendors in the legend when they have last-known data.
 
-5. **Confidence score drives medal awarding, not price alone.** Top-3 medals (gold/silver/bronze in grid view, "1st"/"2nd"/"3rd" in list view) are awarded only to vendors with confidence score >= 60. A vendor with the lowest price but confidence < 60 does not receive a medal.
-
-6. **Goldback is a special vendor with a separate pipeline.** Its price comes from `getGoldbackVendorPrice(slug)`, not from the standard `priceData.vendors` map. It is injected at the top of the vendor list before the sorted main-vendor block and is never medal-ranked.
+5. **Goldback has a separate local price cache.** `getGoldbackVendorPrice(slug)` reads `goldbackPrices`, not the retail vendor map.
 
 ---
 
@@ -54,7 +52,7 @@ Vendor identity in the frontend is always a short string key: `apmex`, `monument
 
 ## OOS (Out-of-Stock) Detection — Frontend Side
 
-OOS detection happens in the **poller** (StakTrakrApi). The frontend reads and persists the OOS state.
+OOS detection happens in the poller. The frontend reads and persists the OOS state.
 
 **Data flow:**
 
@@ -64,8 +62,7 @@ OOS detection happens in the **poller** (StakTrakrApi). The frontend reads and p
 
 **Frontend OOS rendering:**
 
-- In **grid view** (`_buildOOSVendorRow`): the vendor name link is grayed out, the price is shown with a strikethrough `<del>` element, and a red `OOS` badge is appended. The row tooltip shows the last known price and last available date if present.
-- In **list view** (`_buildMarketListCard`): vendor chips with OOS status get the `.oos` CSS class. The price text reads "OOS" with no dollar amount.
+- In the **vendor comparison matrix** (`_buildVendorPriceCell` in `market-data.js`): an OOS vendor renders an `OOS` marker rather than a live price.
 - In **retail view modal** (`_buildVendorLegend`): OOS vendors are rendered at 50% opacity. The price element uses `<del>` for the last known price plus a red `OOS` badge. The item title attribute carries the last available date.
 - In the **daily history chart** (`openRetailViewModal`): when a history entry has `vendors[vendorId].inStock === false`, `null` is returned for that day's data point. `spanGaps: false` is set, so Chart.js renders a gap in the line (not an interpolated bridge).
 
@@ -95,7 +92,7 @@ The frontend applies a two-pass spike filter to intraday (15-min) data before ch
 
 **Pass 2 — Cross-vendor median consensus:** For each window with 3+ vendors, any vendor deviating more than 40% from the median across that window is nulled. Catches multi-window vendor drift and extreme outliers.
 
-The same two-pass logic is applied to **daily history** via `_filterHistorySpikes()`, followed by `_interpolateGaps()` which linearly interpolates null gaps for smooth chart lines. Interpolated segments render as dashed lines in a dimmed color.
+Daily history is rendered from API aggregates. The retired card-list trend pipeline did not survive the card-list removal; do not add client-side interpolation to recreate it.
 
 Threshold constants:
 
@@ -108,21 +105,17 @@ In the daily history chart (`openRetailViewModal`), when a vendor entry has `inS
 
 The intraday chart uses `spanGaps: true` because short polling gaps are expected and bridging is preferred visually.
 
-### Retail Trend Direction
-
-`_computeRetailTrend(slug)` in `retail.js` computes the trend arrow shown on retail cards. It sorts the history array by date descending before comparing the two most recent entries, ensuring correct trend direction regardless of how `retailPriceHistory[slug]` is ordered in memory. Prior to v3.33.50, the function assumed `history[0]` was always the latest entry, which produced incorrect trend arrows when the array arrived in ascending order.
-
 ### Sync Log Time Formatting
 
 The retail sync log table's Time column uses timezone-aware formatting via `TIMEZONE_KEY` from `localStorage`, matching the `_fmtIntradayTime` pattern used in `retail-view-modal.js`. If the stored timezone is invalid, it falls back to the browser's default locale formatting. This ensures consistent time display across the sync log and the retail view modal's intraday table.
 
 ### Price Field Shape Differences by Context
 
-| Context               | Field                         | Source                                                     |
-| --------------------- | ----------------------------- | ---------------------------------------------------------- |
-| Live price (card row) | `vendorData.price`            | `latest.json` → `priceData.vendors[id].price`              |
-| History chart (daily) | `vendorData.avg`              | `history-30d.json` → `entry.vendors[id].avg`               |
-| Market list stats     | `.avg` (with `inStock` check) | Computed from in-stock vendors only via `_calcVendorAvg()` |
+| Context                  | Field              | Source                                               |
+| ------------------------ | ------------------ | ---------------------------------------------------- |
+| Live price (card row)    | `vendorData.price` | `latest.json` → `priceData.vendors[id].price`        |
+| History chart (daily)    | `vendorData.avg`   | `history-30d.json` → `entry.vendors[id].avg`         |
+| Vendor comparison matrix | `vendorData.price` | Latest per-vendor value rendered by `market-data.js` |
 
 Do not mix `.price` and `.avg` — they represent different aggregation windows.
 

@@ -3,7 +3,7 @@ title: "Secret Keys"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/secret-keys.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Secret Keys.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Secret Keys.md" # historical provenance; migrated 2026-08-12
 updated: "2026-03-22"
 ---
 

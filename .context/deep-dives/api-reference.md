@@ -3,7 +3,7 @@ title: "API Reference"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/api-reference.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/API Reference.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/API Reference.md" # historical provenance; migrated 2026-08-12
 updated: "2026-08-12"
 ---
 
@@ -149,12 +149,12 @@ database. Representative slugs include:
 **Platinum (1 oz):** `ape`
 **Goldback:** `goldback-oklahoma-g1`, `goldback-utah-g50`, `goldback-wyoming-g5`, `goldback-wyoming-g50`, and others as enabled
 
-#### Planned/Future: Goldback Per-State Matrix
+#### Goldback Per-State Catalog Endpoints
 
-**Goldback (per-state — STAK-335):** `goldback-{state}-g{denom}` where state is one of
-`utah`, `nevada`, `wyoming`, `new-hampshire`, `south-dakota`, `arizona`, `oklahoma`, `dc`
-and denom is `ghalf`, `g1`, `g2`, `g5`, `g10`, `g25`, `g50` (56 slugs total, 8 states ×
-7 denominations). These endpoints populate as vendors are enabled in the database.
+Per-state retail endpoints use `goldback-{state}-{denomination}` slugs and appear only when
+enabled by the provider catalog. Do not hard-code a state list, denomination count, or slug
+total here. The rate envelope's generated denomination keys are authoritative for the v2
+Goldback price API; catalog slugs can include compatibility forms accepted by `retail.js`.
 
 ### Vendor Source Values (retail `latest.json`)
 

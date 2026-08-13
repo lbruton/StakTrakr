@@ -3,11 +3,15 @@ title: "Playwright Suite Rationalization"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/playwright-suite-rationalization.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Playwright Suite Rationalization.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Playwright Suite Rationalization.md" # historical provenance; migrated 2026-08-12
 updated: "2026-05-21"
 ---
 
 # Playwright Suite Rationalization
+
+> **Historical planning artifact.** This document records a rationalization proposal, not the
+> live test inventory. Before acting on a file path, test count, or suite grouping here, check
+> `tests/playwright/coverage-map.csv` and the current `tests/playwright/` tree.
 
 ## Executive Summary
 

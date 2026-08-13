@@ -3,7 +3,7 @@ title: "Remote Poller"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/remote-poller.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Remote Poller.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Remote Poller.md" # historical provenance; migrated 2026-08-12
 updated: "2026-04-11"
 ---
 

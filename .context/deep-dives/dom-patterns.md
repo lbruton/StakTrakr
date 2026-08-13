@@ -3,7 +3,7 @@ title: "DOM Patterns"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/dom-patterns.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/DOM Patterns.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/DOM Patterns.md" # historical provenance; migrated 2026-08-12
 updated: "2026-05-08"
 ---
 

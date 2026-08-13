@@ -3,7 +3,7 @@ title: "StakTrakr — Webscale Cookie Re-Solve Runbook"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/webscale-cookie-re-solve.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Webscale Cookie Re-Solve.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Webscale Cookie Re-Solve.md" # historical provenance; migrated 2026-08-12
 updated: "2026-07-30"
 ---
 

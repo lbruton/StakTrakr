@@ -3,7 +3,7 @@ title: "StakTrakr — Infrastructure"
 project: StakTrakr
 audience: agent
 canonical: .context/infrastructure.md
-source: "DocVault/Projects/StakTrakr/Foundation/infrastructure.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/infrastructure.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-28"
 ---
 
@@ -205,7 +205,7 @@ Retail runs at `:30` (staggered from Fly.io spot at `:00/:30`). Spot runs at `:1
 
 ### Scraping Pipeline (3-Phase Cascade)
 
-`shared/price-extract.js` — for vendors with `cf_clearance_fallback: true` in `PROVIDER_CONFIG`:
+`shared/price-extract.js` — for vendors whose resolved `providerCfg()` configuration enables `cf_clearance_fallback`:
 
 | Phase | Method                                               | Triggers When                    |
 | ----- | ---------------------------------------------------- | -------------------------------- |
@@ -334,7 +334,7 @@ v2 endpoints embed their freshness threshold in the response envelope:
 | Goldback | 7200                    | 2 h (was 90000 / 25 h before STRK-248) |
 | Manifest | 1800                    | 30 min                                 |
 
-When `USE_V2_API` is enabled, `api-health.js` reads `stale_after` from the v2 envelope instead of hardcoded constants.
+The frontend always consumes v2. `api-health.js` reads `stale_after` from a valid v2 envelope and falls back to its per-feed constants only when that field is unavailable.
 
 ### Publish-Freshness Watchdog (STRK-187)
 
@@ -454,14 +454,11 @@ DATA_DIR=/opt/poller/data
 
 ## CI/CD
 
-### GitHub Actions (StakTrakrApi)
+### API data publishing
 
-| Workflow                | Status                | Purpose                                |
-| ----------------------- | --------------------- | -------------------------------------- |
-| `Merge Poller Branches` | Retired / manual-only | Previously merged poller data branches |
-| `spot-poller.yml`       | Retired / manual-only | Previously ran spot polling via GHA    |
-
-The `api` branch is now written directly by `run-publish.sh` on Fly.io. No GHA workflows are in the active publish path.
+`run-publish.sh` on Fly.io writes the `api` branch directly. The API repository currently
+exposes only that publisher-managed branch; do not use retired poller workflow names or a
+nonexistent `main` branch as an operational control surface.
 
 ### Pre-commit Hooks (StakTrakr)
 
@@ -477,7 +474,6 @@ The `api` branch is now written directly by `run-publish.sh` on Fly.io. No GHA w
 | Provider URL fix                 | Dashboard at `http://192.168.1.81:3010/providers` — no redeploy needed                                  |
 | New Fly.io secret                | `fly secrets set KEY=value --app staktrakr`                                                             |
 | Home poller env var              | Pass updated `env` array on next Portainer redeploy                                                     |
-| GHA workflow                     | Push to `main` on `StakTrakrApi`                                                                        |
 | Fly.io deploy during active cron | Kills in-progress spot poll or publish cycle silently                                                   |
 
 ### Home Poller Env Var Propagation (gotchas, verified 2026-06-20)
