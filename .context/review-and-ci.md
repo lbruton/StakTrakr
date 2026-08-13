@@ -57,7 +57,7 @@ is what produced the false correction described below.
 | **CodeRabbit** | **Label-gated** — requires `coderabbit-review`  | Gate is set in the CodeRabbit UI/org config, not `.coderabbit.yaml`. Add the label at PR creation for review-worthy PRs. Auto re-review is **paused after the first review** (incremental disabled) — follow-up commits don't trigger a fresh review; re-trigger manually. `request_changes_workflow: true` → a `CHANGES_REQUESTED` clears only on a clean re-review (a `COMMENTED` re-review does not flip it). ~4–8 reviews/hr throttle → 5–10 min lag. |
 | **Codacy AI**  | Automatic — runs with the static-analysis stage | Security layer, now bundled into the Codacy check rather than opt-in (Codacy-side change, observed 2026-08-13). Posts on untagged PRs (#1436, #1437, #1440, #1445). No reply-learning system, so recurring false positives must be re-triaged each time — see "Known Reviewer False Positives" below.                                                                                                                                                     |
 | **Copilot**    | Automatic — mode: **lite**                      | `copilot-pull-request-reviewer` posts on every recent PR, including unlabeled #1440/#1444/#1445. "Lite" is a GitHub-side structure change; cadence looks unchanged but depth is bounded by the mode. Its check run can sit `in_progress` for minutes and will hold `mergeStateStatus` at `BLOCKED` until it completes.                                                                                                                                    |
-| **Codex**      | **Dynamic** — may or may not run                | `chatgpt-codex-connector`. Configured on a dynamic policy, so participation is not guaranteed on any given PR — **its absence is not a signal.** When it does run it tends to catch nonexistent-identifier and stale-contract claims the others miss (it caught both the `isGoldbackRetailLookup` and TURSO-environment errors).                                                                                                                          |
+| **Codex**      | **Dynamic** — may or may not run                | `chatgpt-codex-connector`. Configured on a dynamic policy, so participation is not guaranteed on any given PR — **its absence is not a signal.** When it does run it tends to catch nonexistent-identifier and stale-contract claims the others miss (it caught both the `isGoldbackRetailLookup` and `TURSO_*`-environment errors).                                                                                                                      |
 
 ### Required checks differ by branch
 
@@ -178,7 +178,7 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - When they conflict, project instructions win; note the tension.
 - Do not reflexively dismiss every finding as a false positive.
 - If a policy catches a genuine gap, fix it.
-- Add `coderabbit-review` at PR creation when you want CodeRabbit — it is the one label-gated reviewer. Codacy AI, Copilot, and Codex run automatically, so budget for their threads on every PR including docs-only chores. (See "Review routing" above.)
+- Add `coderabbit-review` at PR creation when you want a full CodeRabbit review — it is the one label-gated reviewer. Codacy AI and Copilot run automatically, so budget for their threads on every PR including docs-only chores. Codex is **dynamic** and may not run at all; do not wait on it. (See "Review routing" above.)
 
 ## Known Reviewer False Positives
 
@@ -188,8 +188,9 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - **CodeRabbit StakTrakr issue prefix** — see global CLAUDE.md "Conventions" rule on post-migration prefix flags; pre-classify as false positive.
 - **Copilot `no-undef` on browser globals** — project uses script-tag globals across vanilla JS files with no bundler. The phrasing "vanilla JS global scope, no module bundler" is sufficient context in PR replies; do not include a file count (it changes).
 - **`gb-*` CSS classes** — goldback-scoped. Do not copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
-- **CodeRabbit is label-gated, not automatic** — CodeRabbit reviews only a PR carrying the `coderabbit-review` label; an untagged PR gets **no** CodeRabbit review, and that is expected, not a misconfiguration. Add `coderabbit-review` when you want the AI pass. Note that a skipped run still posts an empty `APPROVED` review, so the reviewers list is not a reliable signal — check the review body. (See "Review routing" above.)
-- **Codacy AI / Copilot / Codex threads on an untagged PR are expected** — those three are automatic, unlike CodeRabbit. Budget for their threads on every PR, including docs-only chores.
+- **CodeRabbit is label-gated, not automatic** — an untagged PR gets **no full CodeRabbit review**, and that is expected, not a misconfiguration. It may still emit flags and an empty `APPROVED` review, so the reviewers list is not a reliable signal — check the review body. Add `coderabbit-review` when you want the full pass. (See "Review routing" above.)
+- **Codacy AI / Copilot threads on an untagged PR are expected** — both are automatic, unlike CodeRabbit. Budget for their threads on every PR, including docs-only chores.
+- **A missing Codex review is expected too** — Codex is on a dynamic policy, so its silence carries no information. Do not investigate it and do not wait on it before merging.
 - **Retail out-of-stock detection is content-driven** — `detectStockStatus` in `firecrawl-extract.js` regex-matches rendered markdown.
   - Rendered markdown **includes ShopperApproved review blocks**.
   - Customer-review text containing "out of stock", "unavailable", or "page not found" produces systematic false out-of-stock results for entire vendors.

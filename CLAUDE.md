@@ -151,7 +151,7 @@ listed here. One hook line each:
 
 **Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
 pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-gated,
-Codacy AI bundled with its check, Copilot on lite, Codex dynamic), where each gate is
+Codacy AI bundled with the static-analysis stage, Copilot on lite, Codex dynamic), where each gate is
 configured, per-branch required checks, the invisible 75% docstring gate, and the dual
 ESLint config all live there.
 
