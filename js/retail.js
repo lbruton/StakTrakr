@@ -227,6 +227,19 @@ const _restoreManifestCacheKey = (key, isValidShape) => {
   return null;
 };
 
+/**
+ * Rehydrates the manifest resolver globals (_manifestSlugs, _manifestCoinMeta,
+ * _manifestVendorMeta) from the localStorage cache, so the Market block can label rows
+ * with canonical names on first paint instead of falling back to the 12-item hardcoded
+ * RETAIL_SLUGS while the first sync is still in flight.
+ *
+ * Two properties callers rely on: it runs its body at most once per page load
+ * (_manifestCacheRestored), and it only fills a global still sitting at null — a manifest
+ * sync that already populated one in memory is never clobbered by the older stored copy.
+ * Both make it safe to call from every resolver entry point, which is why the duplicate
+ * restore block in initRetailPrices could be collapsed into a call here (STRK-338).
+ * @returns {void}
+ */
 const _restoreRetailManifestCacheFromStorage = () => {
   if (_manifestCacheRestored) return;
   _manifestCacheRestored = true;
