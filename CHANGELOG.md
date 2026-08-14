@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.35.100] - 2026-08-12
+
 ### Fixed — STRK-329: Constitutional silver card should not be collapsible
 
 - **Constitutional card is no longer collapsible** (STRK-329): The constitutional silver
