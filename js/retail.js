@@ -194,64 +194,57 @@ const _isSlugResolved = (slug) => {
   return meta.name !== slug && meta.metal !== "unknown";
 };
 
+/** Shape guard for the manifest meta caches — a non-null, non-array object. */
+const _isManifestMetaObject = (value) =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Restores one manifest cache key, evicting the stored value when it is missing,
+ * unreadable, or the wrong shape so a bad entry cannot re-fail on every load.
+ *
+ * STRK-338: reads go through `loadDataSync`, not a bare `localStorage.getItem` +
+ * `JSON.parse`. js/market-data.js writes retailManifestCoinMeta and
+ * retailManifestVendorMeta via `saveDataSync` (:294, :306), which wraps anything over
+ * 4096 chars in a `CMP2:` envelope — a raw `JSON.parse` threw on those, the cache was
+ * cleared, and market-data simply re-fetched and re-compressed it on the next load.
+ *
+ * Two `loadDataSync` contracts drive the shape of this helper: it returns the default
+ * instead of throwing on a parse failure (so eviction keys off the shape check rather
+ * than a `catch`), and its own default is `[]`, which is truthy — hence the explicit
+ * `null`.
+ * @param {string} key - LocalStorage key to restore.
+ * @param {(value: any) => boolean} isValidShape - Predicate the parsed value must satisfy.
+ * @returns {any|null} The cached value, or null when absent/unreadable/wrong-shaped.
+ */
+const _restoreManifestCacheKey = (key, isValidShape) => {
+  const parsed = loadDataSync(key, null);
+  if (isValidShape(parsed)) return parsed;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+  return null;
+};
+
 const _restoreRetailManifestCacheFromStorage = () => {
   if (_manifestCacheRestored) return;
   _manifestCacheRestored = true;
 
   if (_manifestSlugs === null) {
-    try {
-      const cached = localStorage.getItem(RETAIL_MANIFEST_SLUGS_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        _manifestSlugs = Array.isArray(parsed) ? parsed : null;
-        if (!_manifestSlugs) localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
-      }
-    } catch {
-      _manifestSlugs = null;
-      try {
-        localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
-      } catch {
-        /* ignore */
-      }
-    }
+    _manifestSlugs = _restoreManifestCacheKey(RETAIL_MANIFEST_SLUGS_KEY, Array.isArray);
   }
-
   if (_manifestCoinMeta === null) {
-    try {
-      const cachedMeta = localStorage.getItem(RETAIL_MANIFEST_COIN_META_KEY);
-      if (cachedMeta) {
-        const parsed = JSON.parse(cachedMeta);
-        _manifestCoinMeta =
-          parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-        if (!_manifestCoinMeta) localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
-      }
-    } catch {
-      _manifestCoinMeta = null;
-      try {
-        localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
-      } catch {
-        /* ignore */
-      }
-    }
+    _manifestCoinMeta = _restoreManifestCacheKey(
+      RETAIL_MANIFEST_COIN_META_KEY,
+      _isManifestMetaObject
+    );
   }
-
   if (_manifestVendorMeta === null) {
-    try {
-      const cachedVendor = localStorage.getItem(RETAIL_MANIFEST_VENDOR_META_KEY);
-      if (cachedVendor) {
-        const parsed = JSON.parse(cachedVendor);
-        _manifestVendorMeta =
-          parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-        if (!_manifestVendorMeta) localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
-      }
-    } catch {
-      _manifestVendorMeta = null;
-      try {
-        localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
-      } catch {
-        /* ignore */
-      }
-    }
+    _manifestVendorMeta = _restoreManifestCacheKey(
+      RETAIL_MANIFEST_VENDOR_META_KEY,
+      _isManifestMetaObject
+    );
   }
 };
 
@@ -1048,6 +1041,13 @@ const _v2MetalFromCode = (code) => {
 
 /**
  * Persists a string to localStorage, ignoring quota/availability errors.
+ *
+ * STRK-338: the JSON manifest caches moved to `saveDataSync`; this remains for
+ * RETAIL_MANIFEST_TS_KEY only, which is deliberately stored as a BARE ISO string rather
+ * than JSON. `saveDataSync` would stringify it to a quoted `"2026-…"`, and its reader
+ * (`updateMarketHealthDot`) does a bare `getItem` and hands the value straight to
+ * `getHealthStatusClass` — so routing it through the helpers would break a timestamp
+ * that, at ~24 chars, can never reach the 4096-char compression threshold anyway.
  * @param {string} key
  * @param {string} value
  */
@@ -1080,11 +1080,23 @@ const _populateManifestState = (coins, vendors) => {
       metal: _v2MetalFromCode(c.metal),
     };
   }
+  // STRK-338: saveDataSync (not raw setItem) so these agree with js/market-data.js, which
+  // already writes the same two meta keys through it. It stringifies internally and
+  // re-throws on quota, hence no JSON.stringify and the per-call catch — the same idiom
+  // market-data.js:293-297 uses for these keys.
   if (_manifestSlugs.length) {
-    _safeLocalStorageSet(RETAIL_MANIFEST_SLUGS_KEY, JSON.stringify(_manifestSlugs));
+    try {
+      saveDataSync(RETAIL_MANIFEST_SLUGS_KEY, _manifestSlugs);
+    } catch (e) {
+      /* quota */
+    }
   }
   if (_manifestCoinMeta) {
-    _safeLocalStorageSet(RETAIL_MANIFEST_COIN_META_KEY, JSON.stringify(_manifestCoinMeta));
+    try {
+      saveDataSync(RETAIL_MANIFEST_COIN_META_KEY, _manifestCoinMeta);
+    } catch (e) {
+      /* quota */
+    }
   }
 
   if (vendors.length) {
@@ -1092,7 +1104,11 @@ const _populateManifestState = (coins, vendors) => {
     for (const v of vendors) {
       _manifestVendorMeta[v.id] = { name: v.name, color: v.color, url: v.url || null };
     }
-    _safeLocalStorageSet(RETAIL_MANIFEST_VENDOR_META_KEY, JSON.stringify(_manifestVendorMeta));
+    try {
+      saveDataSync(RETAIL_MANIFEST_VENDOR_META_KEY, _manifestVendorMeta);
+    } catch (e) {
+      /* quota */
+    }
   }
 
   window._manifestCoinMeta = _manifestCoinMeta;
@@ -1597,56 +1613,15 @@ const renderRetailHistoryTable = () => {
 // ---------------------------------------------------------------------------
 
 const initRetailPrices = async () => {
-  // Restore manifest slug list from localStorage (so we don't fall back to 12-item RETAIL_SLUGS)
-  try {
-    const cached = localStorage.getItem(RETAIL_MANIFEST_SLUGS_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      _manifestSlugs = Array.isArray(parsed) ? parsed : null;
-      if (!_manifestSlugs) localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
-    }
-  } catch {
-    _manifestSlugs = null;
-    try {
-      localStorage.removeItem(RETAIL_MANIFEST_SLUGS_KEY);
-    } catch {
-      /* ignore */
-    }
-  }
-  // Restore manifest coin metadata (canonical names, weights, metals)
-  try {
-    const cachedMeta = localStorage.getItem(RETAIL_MANIFEST_COIN_META_KEY);
-    if (cachedMeta) {
-      const parsed = JSON.parse(cachedMeta);
-      _manifestCoinMeta =
-        parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-      if (!_manifestCoinMeta) localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
-    }
-  } catch {
-    _manifestCoinMeta = null;
-    try {
-      localStorage.removeItem(RETAIL_MANIFEST_COIN_META_KEY);
-    } catch {
-      /* ignore */
-    }
-  }
-  // Restore vendor display metadata
-  try {
-    const cachedVendor = localStorage.getItem(RETAIL_MANIFEST_VENDOR_META_KEY);
-    if (cachedVendor) {
-      const parsed = JSON.parse(cachedVendor);
-      _manifestVendorMeta =
-        parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-      if (!_manifestVendorMeta) localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
-    }
-  } catch {
-    _manifestVendorMeta = null;
-    try {
-      localStorage.removeItem(RETAIL_MANIFEST_VENDOR_META_KEY);
-    } catch {
-      /* ignore */
-    }
-  }
+  // Restore the manifest slug list, coin meta, and vendor meta from localStorage, so we
+  // don't fall back to the 12-item hardcoded RETAIL_SLUGS.
+  //
+  // STRK-338: this was a verbatim copy of _restoreRetailManifestCacheFromStorage's body.
+  // The two halves drifted — that duplication is how the raw-read bug survived — so the
+  // restore logic now lives in exactly one place. The callee is idempotent (guarded on
+  // _manifestCacheRestored) and only fills globals still at null, so it will not clobber
+  // fresher in-memory state written by a manifest sync.
+  _restoreRetailManifestCacheFromStorage();
   _loadV2RetailPrices();
   // STRK-141: history load is async (IndexedDB-backed) — await so the global is
   // hydrated before first render. init.js (task 7) awaits initRetailPrices().

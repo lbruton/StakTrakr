@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.35.100] - 2026-08-12
+## [3.35.101] - 2026-08-13
+
+### Fixed — STRK-338: Market coin names could silently stop caching
+
+- **Market manifest cache now survives compression** (STRK-338): The cached list of coins
+  the Market block tracks — the canonical names, weights, and metals behind every row —
+  was written by one module through the app's compressing storage helpers but read back by
+  another with those helpers bypassed. Values under 4,096 characters are stored verbatim,
+  so the two halves agreed and nothing broke; past that size the reader could no longer
+  parse what the writer had stored, silently discarded the cache, and fell back to a short
+  built-in coin list until the next successful sync. The cached roster measured about
+  57% of that limit and grows with every coin added, so this was on track to start
+  happening on its own. Both sides now use the same helpers, and the duplicated restore
+  logic that let them drift apart has been collapsed into one place (STRK-338).
+
+---
 
 ### Fixed — STRK-329: Constitutional silver card should not be collapsible
 
