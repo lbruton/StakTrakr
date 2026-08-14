@@ -3286,3 +3286,90 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
     expect(v2Urls()).toContain(`${API1}/${GAP_PATH}`);
   });
 });
+
+test.describe("STRK-338 — manifest cache survives a compressed stored value", () => {
+  // js/market-data.js writes retailManifestCoinMeta and retailManifestSlugs through
+  // saveDataSync, which wraps anything over 4096 chars in a "CMP2:" envelope. js/retail.js
+  // read them back with a bare localStorage.getItem + JSON.parse, so a compressed value
+  // threw, the catch evicted the key, and the cache silently never restored.
+  //
+  // The two tests below are integration coverage the unit suite structurally cannot give:
+  // they prove the real writer and the real reader agree when BOTH modules are loaded in
+  // one page. Verified to fail against pre-fix js/retail.js (the key is gone after reload).
+  //
+  // Every external request is aborted on purpose. With the network live, a background
+  // manifest sync overwrites the fixture with the real roster and the assertions end up
+  // measuring the feed instead of the cache — the first draft of this test did exactly
+  // that and "passed" while reporting 26 coins for a 60-coin fixture.
+  const COIN_COUNT = 60;
+
+  /**
+   * Builds a manifest coin-meta map large enough to cross the 4096-char compression
+   * threshold. The live manifest sits at ~2327 chars for 26 coins.
+   * @returns {Object.<string, {name: string, weight: number, metal: string}>} Coin meta.
+   */
+  function oversizeCoinMeta() {
+    const meta = {};
+    for (let i = 0; i < COIN_COUNT; i++) {
+      meta[`strk338-synthetic-coin-${i}`] = {
+        name: `STRK-338 Synthetic Commemorative Bullion Coin Number ${i} 1 oz`,
+        weight: 1,
+        metal: i % 2 === 0 ? "silver" : "gold",
+      };
+    }
+    return meta;
+  }
+
+  /**
+   * Boots the app offline, writes an oversize manifest cache exactly the way
+   * js/market-data.js does, asserts it really was compressed, then reloads.
+   * @param {import('@playwright/test').Page} page - Page under test.
+   * @returns {Promise<object>} The coin meta that was written.
+   */
+  async function seedCompressedManifestCache(page) {
+    await page.route(/^https?:\/\/(?!localhost)/, (route) => route.abort());
+    await page.goto("/");
+    await page.waitForFunction(() => typeof window.saveDataSync === "function");
+
+    const meta = oversizeCoinMeta();
+    const prefix = await page.evaluate((coinMeta) => {
+      window.saveDataSync("retailManifestCoinMeta", coinMeta);
+      window.saveDataSync("retailManifestSlugs", Object.keys(coinMeta));
+      return localStorage.getItem("retailManifestCoinMeta").slice(0, 5);
+    }, meta);
+    // Guard against a vacuous test: if the fixture ever drops under the threshold this
+    // asserts nothing about compression at all.
+    expect(prefix).toBe("CMP2:");
+
+    await page.reload();
+    await page.waitForFunction(() => typeof window.getRetailCoinMeta === "function");
+    return meta;
+  }
+
+  test("a compressed coin-meta cache still resolves canonical names after reload", async ({
+    page,
+  }) => {
+    await seedCompressedManifestCache(page);
+
+    const resolved = await page.evaluate(() => ({
+      present: localStorage.getItem("retailManifestCoinMeta") !== null,
+      name: window.getRetailCoinMeta("strk338-synthetic-coin-7").name,
+    }));
+
+    expect(resolved.present).toBe(true);
+    // The user-visible consequence: the canonical name, not the bare slug echoed back.
+    expect(resolved.name).toBe("STRK-338 Synthetic Commemorative Bullion Coin Number 7 1 oz");
+  });
+
+  test("a compressed slug cache still drives the active slug list after reload", async ({
+    page,
+  }) => {
+    await seedCompressedManifestCache(page);
+
+    const active = await page.evaluate(() => window.getActiveRetailSlugs());
+
+    // Pre-fix this fell back to the 12-item hardcoded RETAIL_SLUGS.
+    expect(active).toHaveLength(COIN_COUNT);
+    expect(active).toContain("strk338-synthetic-coin-42");
+  });
+});
