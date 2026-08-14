@@ -57,8 +57,22 @@ const PRODUCTS = {
     price: "38.42",
     retail: "44.99",
     tiers: [
-      { qty_range: "1 - 20", qty_min: 1, qty_max: 20, check_wire: 38.42, bitcoin: 39.79, card: 40.79 },
-      { qty_range: "21+", qty_min: 21, qty_max: 5179, check_wire: 38.12, bitcoin: 38.49, card: 40.48 },
+      {
+        qty_range: "1 - 20",
+        qty_min: 1,
+        qty_max: 20,
+        check_wire: 38.42,
+        bitcoin: 39.79,
+        card: 40.79,
+      },
+      {
+        qty_range: "21+",
+        qty_min: 21,
+        qty_max: 5179,
+        check_wire: 38.12,
+        bitcoin: 38.49,
+        card: 40.48,
+      },
     ],
     premium: "Over Spot",
   },
@@ -68,7 +82,16 @@ const PRODUCTS = {
     image: "https://mintbuilder.com/img/202.jpg",
     price: 412.77,
     retail: 449.0,
-    tiers: [{ qty_range: "1+", qty_min: 1, qty_max: 9604, check_wire: 412.77, bitcoin: 415.79, card: 429.79 }],
+    tiers: [
+      {
+        qty_range: "1+",
+        qty_min: 1,
+        qty_max: 9604,
+        check_wire: 412.77,
+        bitcoin: 415.79,
+        card: 429.79,
+      },
+    ],
     premium: null,
   },
   303: {
@@ -85,7 +108,9 @@ const PRODUCTS = {
     link: "https://mintbuilder.com/products/sold-out-kangaroo",
     price: 61.16,
     retail: 61.16,
-    tiers: [{ qty_range: "1+", qty_min: 1, qty_max: 1, check_wire: 61.16, bitcoin: 61.79, card: 63.79 }],
+    tiers: [
+      { qty_range: "1+", qty_min: 1, qty_max: 1, check_wire: 61.16, bitcoin: 61.79, card: 63.79 },
+    ],
     premium: "Over Spot",
   },
 };
@@ -158,11 +183,19 @@ test("normalizeProductUrl canonicalizes equivalent product URLs", async () => {
 
   // https/http, www, trailing slash, query, fragment, and case all collapse.
   assert.equal(
-    normalizeProductUrl("https://www.MintBuilder.com/Products/1oz-Silver-Buffalo-Round/?aff=reddit#top"),
+    normalizeProductUrl(
+      "https://www.MintBuilder.com/Products/1oz-Silver-Buffalo-Round/?aff=reddit#top"
+    ),
     canonical
   );
-  assert.equal(normalizeProductUrl("http://mintbuilder.com/products/1oz-silver-buffalo-round"), canonical);
-  assert.equal(normalizeProductUrl("https://mintbuilder.com/products/1oz-silver-buffalo-round/"), canonical);
+  assert.equal(
+    normalizeProductUrl("http://mintbuilder.com/products/1oz-silver-buffalo-round"),
+    canonical
+  );
+  assert.equal(
+    normalizeProductUrl("https://mintbuilder.com/products/1oz-silver-buffalo-round/"),
+    canonical
+  );
 
   // Root URLs normalize to the bare host.
   assert.equal(normalizeProductUrl("https://mintbuilder.com/"), "mintbuilder.com");
@@ -682,7 +715,11 @@ test("a cached failure is not sticky once maxAgeMs elapses", async () => {
   // Same key throughout: a key rotation would refetch via the fingerprint, so
   // this proves the TTL alone lets a transient outage recover. Two 500s
   // exhaust the single retry and resolve to a failure state.
-  const fetchImpl = makeFetch(errResponse(500), errResponse(500), okResponse(feedPayload(PRODUCTS)));
+  const fetchImpl = makeFetch(
+    errResponse(500),
+    errResponse(500),
+    okResponse(feedPayload(PRODUCTS))
+  );
 
   const first = await feed.getFeedIndex({
     apiKey: "test-key",

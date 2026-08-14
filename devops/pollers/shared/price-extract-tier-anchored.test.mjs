@@ -98,11 +98,7 @@ assert(
 // ---------------------------------------------------------------------------
 
 const sdbSingleTier = "1+ $89.23";
-assert(
-  "2. single-tier '1+' form → wire price ($89.23)",
-  tierSilver(sdbSingleTier),
-  89.23
-);
+assert("2. single-tier '1+' form → wire price ($89.23)", tierSilver(sdbSingleTier), 89.23);
 
 const sdbSingleTierBigger = "Some prose 1+ $4,580.63 more prose";
 assert(
@@ -116,16 +112,8 @@ assert(
 // ---------------------------------------------------------------------------
 
 const onlySpotTicker = "Gold $4,520.00 Silver $75.92 Platinum $1,933.40";
-assert(
-  "4. spot ticker only → null (no qty-tier prefix)",
-  tierSilver(onlySpotTicker),
-  null
-);
-assert(
-  "5. spot ticker only (gold range) → null",
-  tierGold(onlySpotTicker),
-  null
-);
+assert("4. spot ticker only → null (no qty-tier prefix)", tierSilver(onlySpotTicker), null);
+assert("5. spot ticker only (gold range) → null", tierGold(onlySpotTicker), null);
 
 // ---------------------------------------------------------------------------
 // Related-product sidebar ("As low as: $X") MUST be ignored
@@ -134,16 +122,8 @@ assert(
 const sidebarOnly =
   "American Eagle $50 Coin BU (Random Year) As low as: $4,566.00 Buy Now " +
   "1 oz Generic Silver Bar .999 Fine As low as: $76.72 Buy Now";
-assert(
-  "6. related-product sidebar only → null (no qty-tier marker)",
-  tierGold(sidebarOnly),
-  null
-);
-assert(
-  "7. silver sidebar variant → null",
-  tierSilver(sidebarOnly),
-  null
-);
+assert("6. related-product sidebar only → null (no qty-tier marker)", tierGold(sidebarOnly), null);
+assert("7. silver sidebar variant → null", tierSilver(sidebarOnly), null);
 
 // ---------------------------------------------------------------------------
 // Realistic combined: spot ticker survived chrome strip + then real grid
@@ -155,11 +135,7 @@ const combined =
   "1-24 $77.82 $78.61 $80.93 " +
   "500+ $77.22 $78.00 $80.31";
 
-assert(
-  "8. spot ticker + real grid → real grid wins ($77.82)",
-  tierSilver(combined),
-  77.82
-);
+assert("8. spot ticker + real grid → real grid wins ($77.82)", tierSilver(combined), 77.82);
 
 // ---------------------------------------------------------------------------
 // OOS page (sidebar exists but no tier table) — must return null
@@ -170,11 +146,7 @@ const oosPage =
   "Notify Me When Available " +
   "Related: 1 oz Silver Eagle As low as: $92.25 Buy Now";
 
-assert(
-  "9. OOS page with sidebar prices but no tier table → null",
-  tierSilver(oosPage),
-  null
-);
+assert("9. OOS page with sidebar prices but no tier table → null", tierSilver(oosPage), null);
 
 // ---------------------------------------------------------------------------
 // Defensive: qty-tier matches must respect the metal range
@@ -220,11 +192,7 @@ assert(
   null
 );
 
-assert(
-  "14. '$77.82 1-24' → null (price BEFORE tier, not after)",
-  tierSilver("$77.82 1-24"),
-  null
-);
+assert("14. '$77.82 1-24' → null (price BEFORE tier, not after)", tierSilver("$77.82 1-24"), null);
 
 // ---------------------------------------------------------------------------
 // Multi-row table preserves first-row wire (the 1-unit price)

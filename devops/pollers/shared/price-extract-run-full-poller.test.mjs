@@ -108,7 +108,11 @@ test("runFullPoller records a thrown Vendor scrape as one failed target and cont
     ["passing-vendor", "throwing-vendor"],
     "full poller should continue to the passing target after one Vendor throws"
   );
-  assert.equal(summary.exitCode, null, "full poller should not call process.exit when at least one target succeeds");
+  assert.equal(
+    summary.exitCode,
+    null,
+    "full poller should not call process.exit when at least one target succeeds"
+  );
   assert.ok(
     summary.warnings.some((line) => line.includes("synthetic vendor failure")),
     "full poller should warn with the Vendor failure reason"

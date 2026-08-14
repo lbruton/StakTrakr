@@ -44,7 +44,10 @@ function tmpEnv() {
 
 console.log("--- webscaleCookieFilePath ---");
 test("honors WEBSCALE_COOKIE_FILE env override", () => {
-  eq(webscaleCookieFilePath({ WEBSCALE_COOKIE_FILE: "/data/webscale-cookies.json" }), "/data/webscale-cookies.json");
+  eq(
+    webscaleCookieFilePath({ WEBSCALE_COOKIE_FILE: "/data/webscale-cookies.json" }),
+    "/data/webscale-cookies.json"
+  );
 });
 test("falls back to a module-local default when unset", () => {
   const p = webscaleCookieFilePath({});
@@ -97,17 +100,29 @@ test("malformed JSON → null (no throw)", () => {
 });
 test("entry missing wspc → null", () => {
   const { env } = tmpEnv();
-  writeFileSync(env.WEBSCALE_COOKIE_FILE, JSON.stringify({ "www.jmbullion.com": { userAgent: "UA" } }), "utf8");
+  writeFileSync(
+    env.WEBSCALE_COOKIE_FILE,
+    JSON.stringify({ "www.jmbullion.com": { userAgent: "UA" } }),
+    "utf8"
+  );
   eq(loadWebscaleCookie("www.jmbullion.com", env), null);
 });
 test("empty wspc string → null", () => {
   const { env } = tmpEnv();
-  writeFileSync(env.WEBSCALE_COOKIE_FILE, JSON.stringify({ "www.jmbullion.com": { wspc: "", userAgent: "UA" } }), "utf8");
+  writeFileSync(
+    env.WEBSCALE_COOKIE_FILE,
+    JSON.stringify({ "www.jmbullion.com": { wspc: "", userAgent: "UA" } }),
+    "utf8"
+  );
   eq(loadWebscaleCookie("www.jmbullion.com", env), null);
 });
 test("missing userAgent → wspc still returned, userAgent null", () => {
   const { env } = tmpEnv();
-  writeFileSync(env.WEBSCALE_COOKIE_FILE, JSON.stringify({ "www.jmbullion.com": { wspc: "X" } }), "utf8");
+  writeFileSync(
+    env.WEBSCALE_COOKIE_FILE,
+    JSON.stringify({ "www.jmbullion.com": { wspc: "X" } }),
+    "utf8"
+  );
   const got = loadWebscaleCookie("www.jmbullion.com", env);
   eq(got.wspc, "X");
   eq(got.userAgent, null);
@@ -120,8 +135,16 @@ test("set writes the cookie file with 0600 perms (credentials)", () => {
 test("set requires hostname and wspc", () => {
   const { env } = tmpEnv();
   let threw = 0;
-  try { setWebscaleCookie("", "x", "UA", env); } catch { threw++; }
-  try { setWebscaleCookie("h", "", "UA", env); } catch { threw++; }
+  try {
+    setWebscaleCookie("", "x", "UA", env);
+  } catch {
+    threw++;
+  }
+  try {
+    setWebscaleCookie("h", "", "UA", env);
+  } catch {
+    threw++;
+  }
   eq(threw, 2);
 });
 
@@ -194,13 +217,21 @@ test("null / empty → false", () => {
   eq(looksLikeWebscaleChallenge(""), false);
 });
 test("'confirm your humanity' innerText → true", () => {
-  eq(looksLikeWebscaleChallenge("Please confirm your humanity. We are temporarily requesting additional verification"), true);
+  eq(
+    looksLikeWebscaleChallenge(
+      "Please confirm your humanity. We are temporarily requesting additional verification"
+    ),
+    true
+  );
 });
 test("/.webscale/i-am-a-human marker → true", () => {
   eq(looksLikeWebscaleChallenge('xhr.open("POST", "/.webscale/i-am-a-human")'), true);
 });
 test("resources.webscale.com errorpage marker → true", () => {
-  eq(looksLikeWebscaleChallenge('<link href="https://resources.webscale.com/css/errorpage.css">'), true);
+  eq(
+    looksLikeWebscaleChallenge('<link href="https://resources.webscale.com/css/errorpage.css">'),
+    true
+  );
 });
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);
