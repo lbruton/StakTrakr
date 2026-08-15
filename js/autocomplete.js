@@ -503,6 +503,9 @@ const METAL_ABBREVIATIONS = {
   au: "gold",
   pt: "platinum",
   pd: "palladium",
+  // STRK-305: search-abbreviation namespace only — the weightUnit code "cu"
+  // means constitutional silver and is unrelated to this table.
+  cu: "copper",
 
   // Common terms
   oz: "ounce",
@@ -667,7 +670,7 @@ const normalizeItemName = (fullName) => {
     .replace(/\b(?:Colorized|Colored|Antiqued|Abrasions)\b.*/i, "")
     .replace(/\b(?:with\s+TEP|TEP)\b.*/i, "")
     .replace(/\b(?:FS|FR|DCAM|First Strike|First Release|Deep Cameo)\b.*/i, "")
-    .replace(/\s+(?:Silver|Gold|Platinum|Palladium)\s+(?:Coin|Bar|Round)\s*$/i, "")
+    .replace(/\s+(?:Silver|Gold|Platinum|Palladium|Copper)\s+(?:Coin|Bar|Round)\s*$/i, "")
     .trim();
 
   // Clean up any leading punctuation/dashes left after stripping

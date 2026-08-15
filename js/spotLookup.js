@@ -9,6 +9,7 @@ const METAL_SYMBOLS = {
   Gold: "XAU",
   Platinum: "XPT",
   Palladium: "XPD",
+  Copper: "XCU", // STRK-305
 };
 
 let _spotLookupTargetField = "purchase";
@@ -396,7 +397,7 @@ const openSpotLookupModal = async (targetField = "purchase") => {
     typeof parseNumistaMetal === "function" ? parseNumistaMetal(composition) : composition;
 
   if (!isGb && (!metalName || metalName === "Alloy")) {
-    appAlert("Please select a supported metal (Silver, Gold, Platinum, or Palladium).");
+    appAlert("Please select a supported metal (Silver, Gold, Platinum, Palladium, or Copper).");
     return;
   }
 

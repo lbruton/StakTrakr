@@ -4,7 +4,7 @@
 // Legacy fallback search-term matching helpers (cohort 2.5). filterInventory()
 // below delegates to filterInventoryAdvanced() when filters.js is loaded; these
 // power its standalone fallback path.
-const _METAL_NAMES = ["gold", "silver", "platinum", "palladium"];
+const _METAL_NAMES = ["gold", "silver", "platinum", "palladium", "copper"];
 
 /**
  * Escapes regex metacharacters so a search word can be matched literally.

@@ -442,7 +442,7 @@ const validateFieldValue = (field, value) => {
       return VALID_TYPES.includes(trimmedValue);
 
     case "metal":
-      const validMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+      const validMetals = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
       return validMetals.includes(trimmedValue);
 
     default:
@@ -499,7 +499,7 @@ const startCellEdit = (idx, field, element) => {
         });
       }
     } else if (field === "metal") {
-      const metals = ["Silver", "Gold", "Platinum", "Palladium", "Alloy/Other"];
+      const metals = ["Silver", "Gold", "Platinum", "Palladium", "Copper", "Alloy/Other"];
       metals.forEach((metal) => {
         const option = document.createElement("option");
         option.value = metal;
@@ -541,6 +541,9 @@ const startCellEdit = (idx, field, element) => {
     } else if (field === "weight" && item.weightUnit === "mg") {
       input.value = parseFloat(oztToMg(current).toFixed(1));
       input.dataset.unit = "mg";
+    } else if (field === "weight" && item.weightUnit === "avdp") {
+      input.value = oztToAvdp(current).toFixed(4); // STRK-305
+      input.dataset.unit = "avdp";
     } else if (
       field === "weight" &&
       (item.weightUnit === "g" || (!item.weightUnit && item.weight < 1))
@@ -590,6 +593,8 @@ const startCellEdit = (idx, field, element) => {
         finalValue = kgToOzt(finalValue);
       } else if (field === "weight" && input.dataset.unit === "lb") {
         finalValue = lbToOzt(finalValue);
+      } else if (field === "weight" && input.dataset.unit === "avdp") {
+        finalValue = avdpToOzt(finalValue); // STRK-305
       }
       // gb/sb store the denomination itself, so they need no conversion on the way back in.
     } else {
@@ -1866,6 +1871,13 @@ const _editPopulateWeightFields = (item) => {
     // redisplays the whole numbers these products actually come in.
     elements.itemWeight.value = parseFloat(oztToMg(item.weight).toFixed(1));
     elements.itemWeightUnit.value = "mg";
+    if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
+  } else if (item.weightUnit === "avdp") {
+    // STRK-305: avoirdupois entry/display lens; storage stays troy ounces. Without this
+    // branch an avdp item would fall to the oz fallback and re-save corrupted — the exact
+    // STRK-319 silverback bug class.
+    elements.itemWeight.value = parseFloat(oztToAvdp(item.weight).toFixed(4));
+    elements.itemWeightUnit.value = "avdp";
     if (typeof toggleGbDenomPicker === "function") toggleGbDenomPicker();
   } else if (item.weightUnit === "g" || (!item.weightUnit && item.weight < 1)) {
     // STRK-319: this branch used to read `item.weightUnit === "g" || item.weight < 1`, and that

@@ -130,6 +130,7 @@
     Gold: "var(--gold)",
     Platinum: "var(--platinum)",
     Palladium: "var(--palladium)",
+    Copper: "var(--copper)",
   };
 
   const METAL_TEXT_COLORS = {
@@ -148,6 +149,10 @@
     Palladium: () =>
       getContrastColor(
         getComputedStyle(document.documentElement).getPropertyValue("--palladium").trim()
+      ),
+    Copper: () =>
+      getContrastColor(
+        getComputedStyle(document.documentElement).getPropertyValue("--copper").trim()
       ),
   };
 
@@ -351,11 +356,13 @@
     const gold = getThemeColor("gold");
     const platinum = getThemeColor("platinum");
     const palladium = getThemeColor("palladium");
+    const copper = getThemeColor("copper");
     const colors = {
       Silver: { fill: silver, stroke: silver, text: silver },
       Gold: { fill: gold, stroke: gold, text: gold },
       Platinum: { fill: platinum, stroke: platinum, text: platinum },
       Palladium: { fill: palladium, stroke: palladium, text: palladium },
+      Copper: { fill: copper, stroke: copper, text: copper },
     };
     const c = colors[metal] || colors.Silver;
 

@@ -91,12 +91,14 @@
     silver: "192,192,192",
     platinum: "229,228,226",
     palladium: "206,208,206",
+    copper: "184,115,51",
   };
   var _metalCssVar = {
     gold: "var(--gold)",
     silver: "var(--silver)",
     platinum: "var(--platinum)",
     palladium: "var(--palladium)",
+    copper: "var(--copper)",
   };
 
   // ── JSON parse helper — cloud-sync vault passes settings as raw JSON strings ──

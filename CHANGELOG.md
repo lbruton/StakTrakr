@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.36.1] - 2026-08-15
+## [3.36.2] - 2026-08-15
+
+### Added — STRK-305: Copper as a first-class inventory metal — Phase 2
+
+- **Copper is selectable in the add/edit form** (STRK-305): items save, reload, edit,
+  bulk-edit, import, export, filter, search, and autocomplete like any other metal.
+  Copper's spot resolution works end to end — the v2 feed's copper price is now ingested
+  (`xcu` joined the frontend metal map), historical lookups reach the 59 years of seeded
+  copper history, and melt/premium values compute from real copper spot. The dashboard
+  spot card, summary card, and Metal Order entry are deliberately **not** added — that is
+  Phase 3 (STRK-306) — and copper items total correctly with the cards absent.
+- **New avoirdupois-ounce weight unit (`avdp`)** (STRK-305): copper bullion is sold in
+  avoirdupois ounces, and entering a "1 oz copper round" as troy ounces would overstate
+  its metal content — and melt value — by ~9.7%. The new unit converts on entry
+  (1 avdp oz = 0.9114583 ozt) and displays back in avdp, while storage stays troy ounces
+  like every other metric lens. Picking Copper auto-defaults the unit to avdp (only from
+  plain "oz" — an explicit unit choice is never overridden). The unit code is `avdp`,
+  **not** `cu` — `cu` is the constitutional-silver unit, and a collision would have
+  silently corrupted junk-silver valuations.
+- **Copper theming** (STRK-305): a `--copper` token in all four themes (tuned per
+  background like its metal siblings), metal-accent card class, chip, and thumb
+  placeholder colors.
 
 ### Added — STRK-304: Copper history backfill — Phase 1b
 

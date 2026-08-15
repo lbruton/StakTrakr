@@ -1460,6 +1460,8 @@ const parseWeight = (weightRaw, weightUnit, isEditing, existingItem) => {
     weight = kgToOzt(weight);
   } else if (weightUnit === "lb") {
     weight = lbToOzt(weight);
+  } else if (weightUnit === "avdp") {
+    weight = avdpToOzt(weight); // STRK-305
   }
   // gb/sb: weight stays as raw denomination value (conversion happens in computeMeltValue)
   return isNaN(weight) ? 0 : parseFloat(weight.toFixed(6));
@@ -3432,6 +3434,19 @@ const setupItemFormListeners = () => {
       () => {
         if (elements.itemSpotPrice) elements.itemSpotPrice.value = "";
         filterTypesByMetal(elements.itemMetal.value);
+        // STRK-305: copper bullion is sold in avoirdupois ounces, so default the
+        // unit when the user picks Copper — but only from another plain unit, so
+        // an explicit gb/sb/cu (constitutional) or metric choice is never clobbered,
+        // and only toward avdp (switching away from Copper leaves the unit alone;
+        // there is no "right" unit to guess back to).
+        const unitSel = elements.itemWeightUnit;
+        if (
+          elements.itemMetal.value === "Copper" &&
+          unitSel instanceof HTMLElement &&
+          unitSel.value === "oz"
+        ) {
+          unitSel.value = "avdp";
+        }
       },
       "Metal change clears spot lookup and filters type options"
     );
