@@ -525,6 +525,7 @@ One row per metal per 15-min floor.
 | `poller_id`       | TEXT       | `"fly-spot"` or `"home-spot"`                                                    |
 | `timestamp`       | TEXT       | ISO 8601 UTC                                                                     |
 | `timestamp_floor` | TEXT       | 15-min floor                                                                     |
+| `scraped_at`      | TEXT       | Ingestion timestamp, `DEFAULT (datetime('now'))`                                 |
 | UNIQUE            |            | `(metal, timestamp_floor)`                                                       |
 
 Indexes: `(metal, timestamp_floor DESC)`, `(timestamp_floor DESC)`.
