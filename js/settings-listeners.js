@@ -1796,6 +1796,40 @@ const wireSpotProviderActions = () => {
 };
 
 /**
+ * Delegated change handler on `#apiSection_spot` for the per-provider
+ * "Metals to track" checkboxes (`.metal-checkboxes input[data-metal]`).
+ * Persists the selection to `metalApiConfig.metals[provider][metal]`, where
+ * provider comes from the enclosing `.spot-accordion-panel`'s data-val.
+ * The manual panel's `.js-manual-spot` number inputs also carry data-metal,
+ * so the checkbox type gate is load-bearing. STRK-342.
+ */
+const wireSpotMetalSelection = () => {
+  const host = safeGetElement("apiSection_spot");
+  if (!host || host.__stakSpotMetalsBound) return;
+  host.__stakSpotMetalsBound = true;
+
+  host.addEventListener("change", (e) => {
+    const cb = e.target;
+    if (!(cb instanceof HTMLInputElement) || cb.type !== "checkbox") return;
+    const metal = cb.dataset.metal;
+    if (!metal || !cb.closest(".metal-checkboxes")) return;
+    const panel = cb.closest(".spot-accordion-panel");
+    const provider = panel?.dataset.val;
+    if (!provider) return;
+    if (typeof loadApiConfig !== "function" || typeof saveApiConfig !== "function") return;
+    try {
+      const config = loadApiConfig();
+      if (!config.metals) config.metals = {};
+      if (!config.metals[provider]) config.metals[provider] = {};
+      config.metals[provider][metal] = cb.checked;
+      saveApiConfig(config);
+    } catch (_err) {
+      debugLog("Failed to persist metals-to-track selection");
+    }
+  });
+};
+
+/**
  * Delegated click handler on `#apiSection_catalog` for `.catalog-expand-btn` /
  * `.js-catalog-configure` clicks. Toggles the sibling `.catalog-row-expand`
  * display, flips `aria-expanded`, and toggles the row's `.open` class so the
@@ -2107,6 +2141,7 @@ const setupSettingsEventListeners = () => {
   bindSettingsModalShellListeners();
   wireSpotPillRadio();
   wireSpotProviderActions();
+  wireSpotMetalSelection();
   wireCatalogConfigureChevrons();
   wireCatalogActions();
   wireBulkSyncModal();

@@ -134,6 +134,49 @@ test.describe("core/settings-api", () => {
     expect(await readSpotPricingSource(page)).toBe("GOLD_API");
   });
 
+  // STRK-342 — the pre-fix listener targeted `.provider-metal[data-provider]`
+  // markup that no longer exists, so "Metals to track" checkboxes neither
+  // hydrated from nor persisted to metalApiConfig.metals.
+  test("Metals to track hydrates checkbox state from metalApiConfig", async ({ page }) => {
+    await seedApiState(page, {
+      spotPricingSource: "METALS_API",
+      metalApiConfig: { metals: { METALS_API: { platinum: false } } },
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page.locator('#apiSection_spot .spot-accordion-panel[data-val="METALS_API"]');
+    await expect(panel.locator('.metal-checkboxes input[data-metal="platinum"]')).not.toBeChecked();
+    await expect(panel.locator('.metal-checkboxes input[data-metal="gold"]')).toBeChecked();
+  });
+
+  test("Metals to track persists per-provider selection changes", async ({ page }) => {
+    await seedApiState(page, { spotPricingSource: "METALS_API" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page.locator('#apiSection_spot .spot-accordion-panel[data-val="METALS_API"]');
+    const goldCheckbox = panel.locator('.metal-checkboxes input[data-metal="gold"]');
+    await expect(goldCheckbox).toBeChecked();
+    await goldCheckbox.uncheck();
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem("metalApiConfig");
+          return raw ? JSON.parse(raw).metals?.METALS_API?.gold : undefined;
+        })
+      )
+      .toBe(false);
+
+    // Other providers' selections are untouched by a per-provider change.
+    const goldApiGold = await page.evaluate(() => {
+      const raw = localStorage.getItem("metalApiConfig");
+      return raw ? JSON.parse(raw).metals?.GOLD_API?.gold : undefined;
+    });
+    expect(goldApiGold).not.toBe(false);
+  });
+
   test("Catalog API key state remains sync-scoped and round-trips through storage helpers", async ({
     page,
   }) => {
