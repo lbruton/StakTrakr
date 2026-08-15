@@ -871,11 +871,12 @@ const updateHistoryPullCost = (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  // Wired-metal restriction keeps the cost preview aligned with what the pull
-  // will actually request — only canonically-mapped metals count (STRK-342;
-  // copper joined the map in STRK-303 Part 2).
+  // History-capable restriction keeps the cost preview aligned with what the
+  // pull will actually deliver — canonically-mapped metals minus per-provider
+  // history exclusions (metals.dev cannot serve copper history; STRK-342,
+  // STRK-303 Part 2).
   const selectedMetals = Object.keys(selected).filter(
-    (metal) => selected[metal] !== false && SPOT_PROVIDER_METAL_SYMBOLS[metal]
+    (metal) => selected[metal] !== false && isProviderHistoryMetal(provider, metal)
   );
 
   // Check for hourly toggle (MetalPriceAPI)
@@ -2151,11 +2152,12 @@ const handleHistoryPull = async (provider) => {
 
   const selected = config.metals?.[provider] || {};
   // History pulls hit third-party batch endpoints only, so restrict to
-  // canonically-wired metals — a selection of only unmapped metals must
-  // surface as "no metals selected", not as a malformed empty-symbols
-  // request (STRK-342).
+  // history-capable metals — canonically-wired minus per-provider exclusions
+  // (metals.dev discards copper timeseries rows; a copper-only pull there
+  // must surface as "no metals selected", not burn a call to pull zero
+  // points) (STRK-342, STRK-303 Part 2).
   const selectedMetals = Object.keys(selected).filter(
-    (m) => selected[m] !== false && SPOT_PROVIDER_METAL_SYMBOLS[m]
+    (m) => selected[m] !== false && isProviderHistoryMetal(provider, m)
   );
   if (selectedMetals.length === 0) {
     appAlert("No metals selected. Please select at least one metal to track.");

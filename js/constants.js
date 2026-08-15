@@ -32,6 +32,30 @@ const SPOT_PROVIDER_METAL_SYMBOLS = Object.assign(Object.create(null), {
  */
 const TROY_OUNCES_PER_POUND = 7000 / 480;
 
+/**
+ * Per-provider history exclusions: metals a provider serves on its latest
+ * path but cannot serve safely on its history/timeseries path. metals.dev's
+ * /timeseries documents no unit parameter, so its parseBatchResponse
+ * discards copper rows — without this exclusion a copper-only history pull
+ * would burn an API call to "successfully" pull zero points, and the cost
+ * preview would count a metal the pull cannot deliver (STRK-303 Part 2).
+ */
+const SPOT_PROVIDER_HISTORY_EXCLUSIONS = Object.assign(Object.create(null), {
+  METALS_DEV: ["copper"],
+});
+
+/**
+ * True when a metal is canonically wired AND the provider can serve it on
+ * the history/timeseries path. Use for history pulls and their cost
+ * previews; latest-sync paths gate on SPOT_PROVIDER_METAL_SYMBOLS alone.
+ * @param {string} provider - Provider key (e.g. "METALS_DEV")
+ * @param {string} metal - Metal key (e.g. "copper")
+ * @returns {boolean}
+ */
+const isProviderHistoryMetal = (provider, metal) =>
+  Boolean(SPOT_PROVIDER_METAL_SYMBOLS[metal]) &&
+  !(SPOT_PROVIDER_HISTORY_EXCLUSIONS[provider] || []).includes(metal);
+
 /** Derived inverse: provider symbol → metal key (e.g. "XAG" → "silver"). */
 const SPOT_PROVIDER_SYMBOL_TO_METAL = Object.assign(
   Object.create(null),
@@ -2102,6 +2126,8 @@ if (typeof window !== "undefined") {
   window.SPOT_PROVIDER_METAL_SYMBOLS = SPOT_PROVIDER_METAL_SYMBOLS;
   window.SPOT_PROVIDER_SYMBOL_TO_METAL = SPOT_PROVIDER_SYMBOL_TO_METAL;
   window.TROY_OUNCES_PER_POUND = TROY_OUNCES_PER_POUND;
+  window.SPOT_PROVIDER_HISTORY_EXCLUSIONS = SPOT_PROVIDER_HISTORY_EXCLUSIONS;
+  window.isProviderHistoryMetal = isProviderHistoryMetal;
   window.getSpotProviderMetalCode = getSpotProviderMetalCode;
   window.METALS = METALS;
   window.DEBUG = DEBUG;

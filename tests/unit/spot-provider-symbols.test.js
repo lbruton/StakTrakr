@@ -48,6 +48,7 @@ const {
   SPOT_PROVIDER_SYMBOL_TO_METAL,
   TROY_OUNCES_PER_POUND,
   getSpotProviderMetalCode,
+  isProviderHistoryMetal,
 } = win;
 
 assert.ok(API_PROVIDERS, "API_PROVIDERS must load from constants.js");
@@ -285,6 +286,18 @@ describe("METALS_DEV copper unit safety", () => {
     });
     assert.equal(parsed.gold, 4376.56);
     assert.equal(parsed.copper, undefined);
+  });
+
+  test("history capability excludes copper for METALS_DEV only", () => {
+    // The history-pull gate and cost preview must not admit a metal the
+    // provider's timeseries parser will discard — a copper-only metals.dev
+    // pull would burn an API call to pull zero points (Codex P2, PR #1462).
+    assert.equal(isProviderHistoryMetal("METALS_DEV", "copper"), false);
+    assert.equal(isProviderHistoryMetal("METALS_DEV", "gold"), true);
+    assert.equal(isProviderHistoryMetal("METALS_API", "copper"), true);
+    assert.equal(isProviderHistoryMetal("METAL_PRICE_API", "copper"), true);
+    // Unmapped metals stay excluded everywhere.
+    assert.equal(isProviderHistoryMetal("METALS_API", "unobtainium"), false);
   });
 
   test("timeseries parser skips copper (no unit parameter on /timeseries)", () => {
