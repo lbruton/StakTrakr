@@ -1,6 +1,6 @@
 ---
 name: pr-ready
-description: Pre-PR checklist — version bump, sw.js registration, DocVault status, Codacy findings.
+description: Pre-PR checklist — version bump, sw.js registration, .context sweep, Codacy findings.
 allowed-tools: Bash, Read, Grep, Glob, mcp__codacy__codacy_get_repository_with_analysis, mcp__codacy__codacy_list_repository_issues
 ---
 
@@ -65,24 +65,36 @@ grep -o 'function [a-zA-Z_][a-zA-Z0-9_]*' /Volumes/DATA/GitHub/StakTrakr/js/api.
 
 ---
 
-## Check 4: DocVault Status
+## Check 4: .context Sweep (diff-scoped)
 
-Check whether any changed source files have a corresponding DocVault page with a stale `updated` timestamp. Look for pages whose `sourceFiles` frontmatter lists a file modified since the last tag.
+`.context/*.md` is canonical and rides the same repo as the code — stale claims must be
+fixed **in this PR**, not in a follow-up chore (drift compounds; the wrap's docs-sync step
+is the safety net, not the plan). DocVault Foundation copies are human archive — never
+check or update them here.
 
-```bash
-# Files changed since last tag (all types)
-git -C /Volumes/DATA/GitHub/StakTrakr diff --name-only $(git -C /Volumes/DATA/GitHub/StakTrakr describe --tags --abbrev=0) HEAD
-```
+Scope the sweep to the diff, not a full audit:
 
-Then grep DocVault pages for any of these file names in their `sourceFiles` frontmatter:
+1. List the identifiers this branch changed — enum members, unit codes, storage keys,
+   constants, CSS tokens, cron values, endpoint shapes:
 
-```bash
-grep -rl "CHANGED_FILENAME" /Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/ 2>/dev/null
-```
+   ```bash
+   git diff $(git describe --tags --abbrev=0) HEAD --stat
+   ```
 
-- **PASS**: No DocVault pages reference changed files, or all referencing pages have been updated (run `/vault-update` if unsure)
-- **WARN**: Matching DocVault pages found — remind user to run `/vault-update` before pushing
-- **SKIP**: If DocVault is not accessible, note it and move on
+2. Grep `.context/` (including `deep-dives/`) for each changed identifier AND for the
+   old value it replaced or extended (e.g. adding a fifth metal → grep the fourth's name;
+   the same fact is usually restated in several docs plus CLAUDE.md/AGENTS.md):
+
+   ```bash
+   grep -rn -i "IDENTIFIER_OR_OLD_VALUE" .context/ CLAUDE.md AGENTS.md
+   ```
+
+3. Verify each hit against the code — update stale claims **in this branch** so the doc
+   change is reviewed against the code change.
+
+- **PASS**: No `.context` claims reference changed behavior, or all were updated in this branch
+- **FAIL**: A stale `.context` claim exists and is not updated in this branch — name doc + line
+- **SKIP**: Only for projects with no `.context/` directory (un-migrated)
 
 ---
 
@@ -103,13 +115,13 @@ Use `mcp__codacy__codacy_list_repository_issues` with provider `gh`, remoteOrgan
 Output this table, filling in each row:
 
 ```markdown
-| Check                           | Status         | Detail                                                                 |
-| ------------------------------- | -------------- | ---------------------------------------------------------------------- |
-| 1. Version bump                 | PASS/FAIL/WARN | e.g. "3.33.93 → 3.33.94" or "still at v3.33.94 — bump needed"          |
-| 2. SW + index.html registration | PASS/FAIL      | e.g. "js/new-feature.js missing from sw.js"                            |
-| 3. Duplicate functions          | PASS/FAIL/WARN | e.g. "No duplicates" or "loadMarketData in both events.js and api.js"  |
-| 4. DocVault                     | PASS/WARN/SKIP | e.g. "market-data.md references js/market-data.js — run /vault-update" |
-| 5. Codacy                       | PASS/WARN/FAIL | e.g. "2 critical issues in js/api.js:L45"                              |
+| Check                           | Status         | Detail                                                                      |
+| ------------------------------- | -------------- | --------------------------------------------------------------------------- |
+| 1. Version bump                 | PASS/FAIL/WARN | e.g. "3.33.93 → 3.33.94" or "still at v3.33.94 — bump needed"               |
+| 2. SW + index.html registration | PASS/FAIL      | e.g. "js/new-feature.js missing from sw.js"                                 |
+| 3. Duplicate functions          | PASS/FAIL/WARN | e.g. "No duplicates" or "loadMarketData in both events.js and api.js"       |
+| 4. .context sweep               | PASS/FAIL/SKIP | e.g. "data-model.md:75 weightUnit list missing new unit — update in branch" |
+| 5. Codacy                       | PASS/WARN/FAIL | e.g. "2 critical issues in js/api.js:L45"                                   |
 ```
 
 If any check is FAIL: output **"NOT READY TO PUSH — fix blockers above."**
