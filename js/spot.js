@@ -784,7 +784,7 @@ const getRequiredYears = (days) => {
 /** @constant {string} Remote base URL for historical data (file:// fallback) */
 const HISTORICAL_DATA_REMOTE = "https://staktrakr.com/data/";
 
-const SUPPORTED_SPOT_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium"]);
+const SUPPORTED_SPOT_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium", "Copper"]);
 
 /**
  * Synchronous historical spot lookup from the in-memory cache only.

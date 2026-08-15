@@ -102,6 +102,7 @@
   --gold: oklch(0.507 0.134 48.2);
   --platinum: oklch(0.446 0.026 256.8);
   --palladium: oklch(0.495 0.22 293);
+  --copper: oklch(0.52 0.115 50); /* STRK-305 — copper brown, AA on light bg */
 
   /* Inventory Type Colors (darkened for text readability on light backgrounds) */
   --type-coin-bg: oklch(0.58 0.143 55.6);
@@ -240,6 +241,7 @@
   --gold: oklch(0.811 0.157 79); /* #fbbf24 equivalent */
   --platinum: oklch(0.961 0.003 264.5); /* #f3f4f6 equivalent */
   --palladium: oklch(0.794 0.119 305.9); /* #d8b4fe equivalent */
+  --copper: oklch(0.75 0.11 55); /* STRK-305 — lightened copper for dark bg */
 
   /* Inventory Type Colors */
   --type-coin-bg: oklch(0.52 0.14 60);
@@ -367,6 +369,7 @@
   --gold: #fbbf24;
   --platinum: #f3f4f6;
   --palladium: #d8b4fe;
+  --copper: #d99668; /* STRK-305 — lightened copper for slate bg */
 
   /* Inventory Type Colors */
   --type-coin-bg: #b45309;
@@ -489,6 +492,7 @@
   --gold: oklch(0.513 0.102 86.8);
   --platinum: oklch(0.468 0 0);
   --palladium: oklch(0.468 0.043 67.7);
+  --copper: oklch(0.48 0.085 50); /* STRK-305 — muted copper, AA on warm bg */
 
   /* Inventory Type Colors (darkened for text readability on sepia backgrounds) */
   --type-coin-bg: oklch(0.525 0.131 52.3);
@@ -14348,6 +14352,10 @@ th {
   background: color-mix(in oklch, var(--palladium) 18%, var(--bg-tertiary));
   color: var(--palladium);
 }
+.cv-chip-metal.copper {
+  background: color-mix(in oklch, var(--copper) 18%, var(--bg-tertiary));
+  color: var(--copper);
+}
 .cv-chip-attach {
   background: color-mix(in oklch, var(--primary) 14%, var(--bg-tertiary));
   color: var(--primary);
@@ -14413,6 +14421,9 @@ th {
 .metal-palladium {
   --metal-color: var(--palladium);
 }
+.metal-copper {
+  --metal-color: var(--copper);
+}
 
 /* Coin image in cards */
 .card-view-grid .coin-img {
@@ -14460,6 +14471,9 @@ th {
 }
 .metal-palladium .cv-no-image {
   --metal-color: #ced0dd;
+}
+.metal-copper .cv-no-image {
+  --metal-color: #b87333;
 }
 
 /* Table thumbnails — rect items use contain */

@@ -1961,6 +1961,7 @@
                   <option value="Gold">Gold</option>
                   <option value="Platinum">Platinum</option>
                   <option value="Palladium">Palladium</option>
+                  <option value="Copper">Copper</option>
                 </select>
               </div>
             </div>
@@ -2064,6 +2065,11 @@
                   <option value="mg">milligram</option>
                   <option value="kg">kilogram</option>
                   <option value="lb">pound</option>
+                  <!-- STRK-305: copper bullion is sold in avoirdupois ounces (1 avdp oz =
+                       0.9114583 ozt). Entry/display lens like g/kg/lb — storage stays troy.
+                       Auto-selected when Metal = Copper; usable manually for any metal.
+                       NOT "cu" — that code is constitutional silver (above). -->
+                  <option value="avdp">avoirdupois oz</option>
                   <option value="gb">goldback</option>
                   <option value="sb">silverback</option>
                   <!-- STRK-243: cu is Type-driven only — Type=Constitutional sets this

@@ -508,6 +508,58 @@ test.describe("core/import-export", () => {
     expect(result.backupReceived.tradedFromUuid).toBe("strk123-trade-source");
   });
 
+  test("copper item with avdp weightUnit survives the CSV export→import round trip (STRK-305)", async ({
+    page,
+  }) => {
+    const copperItem = {
+      uuid: "strk305-copper-roundtrip",
+      serial: 3051,
+      metal: "Copper",
+      composition: "Copper",
+      name: "STRK-305 Copper Round",
+      qty: 3,
+      type: "Round",
+      weight: 0.9114583, // stored troy oz for 1 avdp oz
+      weightUnit: "avdp",
+      purity: 0.999,
+      price: 2,
+      date: "2026-08-15",
+    };
+    await page.addInitScript((item) => {
+      localStorage.setItem("metalInventory", JSON.stringify([item]));
+      localStorage.setItem("itemTags", JSON.stringify({}));
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+        },
+        { once: true }
+      );
+    }, copperItem);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.exportInventoryCSV === "function" &&
+        typeof window.importCsvFromText === "function"
+    );
+
+    const result = await page.evaluate(() => {
+      const csv = window.exportInventoryCSV();
+      const imported = window.importCsvFromText(csv);
+      return imported.find((item) => item.uuid === "strk305-copper-roundtrip") || null;
+    });
+
+    // Copper must clear the supportedMetals import gate, and the avdp unit must
+    // persist so the item does not reopen (and re-save) in the wrong unit.
+    expect(result).not.toBeNull();
+    expect(result.metal).toBe("Copper");
+    expect(result.weightUnit).toBe("avdp");
+    expect(result.qty).toBe(3);
+    // The CSV Weight(oz) column rounds to 4 decimals on export (pre-existing
+    // contract for every metal) — 0.9114583 round-trips as 0.9115.
+    expect(parseFloat(result.weight)).toBeCloseTo(0.9114583, 3);
+  });
+
   test("same-device vault restore shows no duplicate differences", async ({ page }) => {
     await injectSeedInventory(page);
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });

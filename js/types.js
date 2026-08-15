@@ -6,13 +6,13 @@
 
 /**
  * @typedef {Object} InventoryItem
- * @property {string} metal - Metal type (Silver, Gold, Platinum, Palladium)
- * @property {string} [composition] - Composition (Gold, Silver, Platinum, Palladium, Alloy)
+ * @property {string} metal - Metal type (Silver, Gold, Platinum, Palladium, Copper)
+ * @property {string} [composition] - Composition (Gold, Silver, Platinum, Palladium, Copper, Alloy)
  * @property {string} name - Display name of the item
  * @property {number} qty - Quantity of items
  * @property {string} type - Item type (Coin, Round, Bar, etc.)
  * @property {number} weight - Weight per item
- * @property {string} [weightUnit] - Weight unit (oz, g, kg, etc.)
+ * @property {string} [weightUnit] - Weight unit (oz, g, kg, avdp, etc.)
  * @property {number} [purity] - Purity (0.0 to 1.0)
  * @property {number} price - Purchase price per item
  * @property {string} date - Purchase date (YYYY-MM-DD)

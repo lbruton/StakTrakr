@@ -77,7 +77,13 @@ const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
  * Walks back up to 24 hours from the current UTC hour to find data.
  * Tries the primary endpoint first; falls back to backup after 5 s timeout or error.
  */
-const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
+const _V2_METAL_MAP = {
+  xau: "gold",
+  xag: "silver",
+  xpt: "platinum",
+  xpd: "palladium",
+  xcu: "copper",
+};
 
 // Publication timestamp (epoch ms) of the last accepted /spot/latest.json payload.
 // In-memory only: guards against an older payload overwriting a fresher one within
@@ -618,9 +624,11 @@ const loadApiConfig = () => {
             gold: true,
             platinum: true,
             palladium: true,
+            copper: true,
           };
         else {
-          ["silver", "gold", "platinum", "palladium"].forEach((m) => {
+          // The forEach also backfills copper into configs saved before STRK-305.
+          ["silver", "gold", "platinum", "palladium", "copper"].forEach((m) => {
             if (typeof metals[p][m] === "undefined") metals[p][m] = true;
           });
         }
@@ -686,7 +694,7 @@ const loadApiConfig = () => {
       quota: providerRequiresKey(p) ? DEFAULT_API_QUOTA : 5000,
       used: 0,
     };
-    metals[p] = { silver: true, gold: true, platinum: true, palladium: true };
+    metals[p] = { silver: true, gold: true, platinum: true, palladium: true, copper: true };
     historyDays[p] = p === "METALS_DEV" ? 29 : 30;
     historyTimes[p] = [];
     defaultCacheTimeouts[p] = 24;

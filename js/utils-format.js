@@ -640,6 +640,22 @@ const lbToOzt = (lb) => lb * LB_TO_OZT;
 const oztToLb = (ozt) => ozt / LB_TO_OZT;
 
 /**
+ * Converts avoirdupois ounces to troy ounces (STRK-305 — copper bullion unit)
+ *
+ * @param {number} avdp - Weight in avoirdupois ounces
+ * @returns {number} Weight in troy ounces
+ */
+const avdpToOzt = (avdp) => avdp * AVDP_TO_OZT;
+
+/**
+ * Converts troy ounces to avoirdupois ounces (STRK-305)
+ *
+ * @param {number} ozt - Weight in troy ounces
+ * @returns {number} Weight in avoirdupois ounces
+ */
+const oztToAvdp = (ozt) => ozt / AVDP_TO_OZT;
+
+/**
  * The total face value of a constitutional ("cu") lot, in US dollars (STRK-300).
  *
  * Face mode stores the entered TOTAL face in `item.weight` (qty is 1 by contract); denomination
@@ -798,6 +814,10 @@ const formatWeight = (ozt, weightUnit, item) => {
   }
   if (weightUnit === "lb") {
     return `${formatMeasuredWeight(oztToLb(weight), 4)} lb`;
+  }
+  if (weightUnit === "avdp") {
+    // STRK-305: display back in the entry unit — 0.9114583 ozt renders "1 oz avdp"
+    return `${formatMeasuredWeight(oztToAvdp(weight), 2)} oz avdp`;
   }
   if (weightUnit === "g") {
     return `${formatMeasuredWeight(oztToGrams(weight), 2)} g`;

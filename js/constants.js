@@ -305,7 +305,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.1";
+const APP_VERSION = "3.36.2";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -617,6 +617,15 @@ const KG_TO_OZT = 32.15075;
 
 /** @constant {number} LB_TO_OZT - Conversion factor: 1 avoirdupois pound = 14.58333 troy ounces */
 const LB_TO_OZT = 14.58333;
+
+/**
+ * @constant {number} AVDP_TO_OZT - Conversion factor: 1 avoirdupois ounce = 0.9114583 troy ounces.
+ * STRK-305: copper bullion is sold in avoirdupois ounces; entering a "1 oz copper
+ * round" as troy would overstate metal content ~9.7%. Input-lens only — storage
+ * stays troy ounces, exactly like g/kg/lb. Do NOT use "cu" as this unit's code:
+ * "cu" is the constitutional-silver weightUnit.
+ */
+const AVDP_TO_OZT = 0.9114583;
 
 /**
  * Standard Goldback denominations with gold content.
@@ -1032,6 +1041,7 @@ const ALLOWED_STORAGE_KEYS = [
   "spotGold",
   "spotPlatinum",
   "spotPalladium",
+  "spotCopper", // STRK-305 — written via METALS[].localStorageKey like the other four
   "chipMinCount",
   "chipMaxCount",
   "changeLog",
@@ -1191,6 +1201,7 @@ const VAULT_SETTINGS_DIFF_SKIP = [
   "spotSilver",
   "spotPlatinum",
   "spotPalladium",
+  "spotCopper", // STRK-305
   SPOT_HISTORY_KEY,
   ITEM_PRICE_HISTORY_KEY,
   EXCHANGE_RATES_KEY,
@@ -1994,7 +2005,26 @@ const METALS = {
     color: "palladium",
     defaultPrice: 1000.0,
   },
+  // STRK-305: copper is a first-class inventory metal, but its dashboard spot
+  // card, summary card, and Metal Order entry are Phase 3 (STRK-306). The
+  // spot/totals iteration over METALS no-ops safely on the missing DOM nodes.
+  COPPER: {
+    name: "Copper",
+    key: "copper",
+    spotKey: "spotCopper",
+    localStorageKey: "spotCopper",
+    color: "copper",
+    defaultPrice: 0.45,
+  },
 };
+
+/**
+ * Metal names accepted by the CSV/JSON import gates (STRK-305).
+ * Derived from METALS so the four import-path copies in inventory-import.js
+ * can never drift from the app's first-class metal set again.
+ * @constant {string[]}
+ */
+const SUPPORTED_INVENTORY_METALS = Object.values(METALS).map((m) => m.name);
 
 // =============================================================================
 
@@ -2078,6 +2108,8 @@ if (typeof window !== "undefined") {
   window.GOLDBACK_ENABLED_KEY = GOLDBACK_ENABLED_KEY;
   window.GB_TO_OZT = GB_TO_OZT;
   window.SB_TO_OZT = SB_TO_OZT;
+  window.AVDP_TO_OZT = AVDP_TO_OZT;
+  window.SUPPORTED_INVENTORY_METALS = SUPPORTED_INVENTORY_METALS;
   window.GOLDBACK_DENOMINATIONS = GOLDBACK_DENOMINATIONS;
   // STRK-235: constitutional / junk silver
   window.CONSTITUTIONAL_VARIANTS = CONSTITUTIONAL_VARIANTS;
