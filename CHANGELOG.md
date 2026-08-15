@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.1] - 2026-08-15
+
+### Added — STRK-304: Copper history backfill — Phase 1b
+
+- **Copper now has a full price history back to 1968** (STRK-304): the offline seed
+  bundle and year history files carry copper from January 1968 to today — 546 monthly
+  points (1968–mid-2013) sourced from the World Bank Pink Sheet's LME grade-A cathode
+  series, then 3,602 daily points from the price API's copper feed, which begins
+  2013-07-23. Pre-2013 points are deliberately stored monthly-sparse rather than
+  forward-filled — the source is a monthly average, and inventing daily points would
+  fabricate precision it never had. Provenance is recorded per row (`LME-WB` vs
+  `StakTrakr`) so the two eras stay distinguishable.
+- **The two eras are calibrated onto one quote basis** (STRK-304): across the 157
+  months where both sources overlap, the World Bank series runs a systematic ~9%
+  above the API's copper quote (median ratio 1.0944, stdev 0.026) — a benchmark
+  difference, not noise. Pre-2013 values are scaled by 0.9138 onto the API basis,
+  which closes the seam at the 2013 splice to 0.5% and prevents a permanent false
+  step in any long-range chart.
+- **The bundle's copper hold-back gate is open** (STRK-304): v3.36.0 deliberately kept
+  copper out of the shipped bundle until history existed. The bundle now includes all
+  five metals, and sub-dollar prices keep four decimal places in the bundle as well,
+  matching the poller's precision rules. Existing metals' bundle series are
+  byte-identical to the previous release.
+
+### Fixed — STRK-304: Seed tooling path resolution and writer parity
+
+- **The seed updater resolves the repo data directory correctly again** (STRK-304): the
+  script computed the data path relative to its own location with a depth that predates
+  the shared-poller migration, silently pointing at a nonexistent directory. It now
+  resolves four levels up and refuses to run if the target does not exist.
+- **Both year-file writers now emit the same compact format** (STRK-304): the seed
+  updater wrote year files single-line while the bundle gap-fill pretty-printed them, so
+  whichever tool ran last reformatted the whole file. Both now write the compact format
+  the repo predominantly uses; the four recent year files collapse to single-line in
+  this release as the one-time migration (content verified unchanged row for row).
+
+---
+
 ## [3.36.0] - 2026-08-14
 
 ### Added — STRK-303: Copper (Cu) spot feed — Phase 1a

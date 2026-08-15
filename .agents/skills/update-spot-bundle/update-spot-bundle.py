@@ -39,25 +39,30 @@ METAL_DISPLAY = {
     "silver": "Silver",
     "platinum": "Platinum",
     "palladium": "Palladium",
+    "copper": "Copper",
 }
 METAL_LOWER = {v: k for k, v in METAL_DISPLAY.items()}
 
 # Metals allowed into the shipped bundle.
 #
-# STRK-303: this is NOT the same set the poller tracks. Copper rows now land in
-# sqld, but the bundle is precached by the service worker and loaded straight
-# into the frontend's historical cache — and the frontend ingest path has no
-# metal whitelist of its own. Without this gate the first version-bump PR after
-# copper started polling would have shipped copper history to every user with
-# no UI to show it and nobody intending it.
-#
-# METAL_DISPLAY alone was never a gate: the sqld query below has no metal
-# filter, and both call sites fall back to passing unknown metals through
-# (one raw, one .capitalize()'d).
-#
-# REMOVE THIS GATE IN STRK-304 (Phase 1b), whose job is to seed copper history
-# into the bundle. Until then it is deliberate, not a bug.
+# STRK-303 held copper OUT of the bundle until its history was seeded; STRK-304
+# seeded 1968→present copper history into the year files, so copper now ships.
+# The gate itself stays: the sqld query below has no metal filter and both call
+# sites pass unknown metals through, so an unexpected sixth metal appearing in
+# sqld would otherwise reach every user's cache unreviewed.
 BUNDLE_METALS = frozenset(METAL_DISPLAY.values())
+
+# Sub-dollar prices keep 4 decimals so copper (~$0.41/ozt) doesn't lose ~1% to
+# 2dp quantization — mirrors roundPrice() in shared/spot-metals.js (STRK-303).
+SUB_DOLLAR_THRESHOLD = 1
+DECIMALS_STANDARD = 2
+DECIMALS_SUB_DOLLAR = 4
+
+
+def round_price(price):
+    """Round a $/oz price for storage — 4dp below $1 (copper), 2dp otherwise."""
+    decimals = DECIMALS_SUB_DOLLAR if price < SUB_DOLLAR_THRESHOLD else DECIMALS_STANDARD
+    return round(price, decimals)
 
 
 # ── sqld helpers ──────────────────────────────────────────────────────────────
@@ -125,11 +130,18 @@ def load_year_file(year):
 
 
 def save_year_file(year, entries):
-    """Write a year JSON file, pretty-printed for readable diffs."""
+    """
+    Write a year JSON file in the compact single-line format.
+
+    Matches save_year_file() in shared/spot-poller/update-seed-data.py — the two
+    writers touched the same files with different formats until STRK-304, which
+    made every append rewrite the whole file as a giant diff. Compact is the
+    repo-dominant format (55/59 files pre-unification); these files are
+    machine-verified, not review-read.
+    """
     path = os.path.join(DATA_DIR, f"spot-history-{year}.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2)
-        f.write("\n")
+        json.dump(entries, f, separators=(", ", ": "))
 
 
 def find_latest_json_date():
@@ -173,9 +185,9 @@ def build_bundle_from_json_files():
             if not (metal and ts and spot is not None):
                 continue
             if metal not in BUNDLE_METALS:
-                continue  # STRK-303 copper hold-back — see BUNDLE_METALS
+                continue  # unexpected-metal gate — see BUNDLE_METALS
             mm_dd = ts[5:10]  # "MM-DD" from "YYYY-MM-DD HH:MM:SS"
-            year_data[metal].append([mm_dd, round(float(spot), 2)])
+            year_data[metal].append([mm_dd, round_price(float(spot))])
             total += 1
 
         if year_data:
@@ -208,7 +220,7 @@ def main():
         SELECT
             metal,
             DATE(timestamp_floor) AS day,
-            ROUND(AVG(spot), 2)   AS spot
+            AVG(spot)             AS spot
         FROM spot_prices
         WHERE DATE(timestamp_floor) > ?
         GROUP BY metal, day
@@ -228,10 +240,10 @@ def main():
             metal_raw = str(row["metal"])   # "gold" etc.
             metal = METAL_DISPLAY.get(metal_raw.lower(), metal_raw.capitalize())
             if metal not in BUNDLE_METALS:
-                continue  # STRK-303 copper hold-back — see BUNDLE_METALS
+                continue  # unexpected-metal gate — see BUNDLE_METALS
             spot = row["spot"]
             try:
-                price = round(float(spot), 2)
+                price = round_price(float(spot))
             except (TypeError, ValueError):
                 continue
             year = day[:4]
