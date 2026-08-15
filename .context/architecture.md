@@ -516,16 +516,17 @@ Window floor: `Math.floor(minutes / 15) * 15` — e.g. 14:22 → `14:15:00Z`.
 
 One row per metal per 15-min floor.
 
-| Column            | Type       | Description                                             |
-| ----------------- | ---------- | ------------------------------------------------------- |
-| `id`              | INTEGER PK | Auto-increment                                          |
-| `metal`           | TEXT       | `"gold"` \| `"silver"` \| `"platinum"` \| `"palladium"` |
-| `spot`            | REAL       | USD price per troy oz                                   |
-| `source`          | TEXT       | `"metalprice-api"`                                      |
-| `poller_id`       | TEXT       | `"fly-spot"` or `"home-spot"`                           |
-| `timestamp`       | TEXT       | ISO 8601 UTC                                            |
-| `timestamp_floor` | TEXT       | 15-min floor                                            |
-| UNIQUE            |            | `(metal, timestamp_floor)`                              |
+| Column            | Type       | Description                                                                      |
+| ----------------- | ---------- | -------------------------------------------------------------------------------- |
+| `id`              | INTEGER PK | Auto-increment                                                                   |
+| `metal`           | TEXT       | `"gold"` \| `"silver"` \| `"platinum"` \| `"palladium"` \| `"copper"` (STRK-303) |
+| `spot`            | REAL       | USD price per troy oz                                                            |
+| `source`          | TEXT       | `"metalprice-api"`                                                               |
+| `poller_id`       | TEXT       | `"fly-spot"` or `"home-spot"`                                                    |
+| `timestamp`       | TEXT       | ISO 8601 UTC                                                                     |
+| `timestamp_floor` | TEXT       | 15-min floor                                                                     |
+| `scraped_at`      | TEXT       | Ingestion timestamp, `DEFAULT (datetime('now'))`                                 |
+| UNIQUE            |            | `(metal, timestamp_floor)`                                                       |
 
 Indexes: `(metal, timestamp_floor DESC)`, `(timestamp_floor DESC)`.
 
