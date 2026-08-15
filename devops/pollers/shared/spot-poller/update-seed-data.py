@@ -78,10 +78,11 @@ def resolve_data_dir():
     env_dir = os.getenv("DATA_DIR")
     if env_dir:
         return Path(env_dir)
-    # __file__ is devops/pollers/shared/spot-poller/update-seed-data.py, so the
-    # repo root is four levels up. parents[2] survived the pre-shared layout and
-    # silently pointed at devops/pollers/data/ (nonexistent) after the move.
-    data_dir = Path(__file__).resolve().parents[3] / "data"
+    # __file__ is devops/pollers/shared/spot-poller/update-seed-data.py;
+    # parents[0] is spot-poller/, so the repo root is parents[4]. The old
+    # .parent.parent.parent survived the pre-shared layout and silently
+    # pointed at devops/pollers/data/ (nonexistent) after the move.
+    data_dir = Path(__file__).resolve().parents[4] / "data"
     if not data_dir.is_dir():
         print(f"Error: resolved data dir {data_dir} does not exist. Set DATA_DIR.")
         sys.exit(1)

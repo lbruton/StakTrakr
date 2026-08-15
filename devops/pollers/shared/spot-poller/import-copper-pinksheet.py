@@ -35,7 +35,14 @@ import importlib.util
 import sys
 from pathlib import Path
 
-import openpyxl
+try:
+    import openpyxl
+except ImportError:
+    sys.exit(
+        "Error: openpyxl is required to parse the Pink Sheet xlsx but is not "
+        "installed (it is deliberately not a poller runtime dependency). "
+        "Install it ad hoc: pip install openpyxl"
+    )
 
 # Reuse the year-file merge + rounding contract from the seed updater so the
 # two writers can never drift apart on shape, dedup, or precision rules.
@@ -99,37 +106,40 @@ def find_copper_column(ws):
 def extract_entries(xlsx_path, start_month, end_month):
     """Read monthly copper prices and return seed-format entries in $/ozt."""
     wb = openpyxl.load_workbook(xlsx_path, read_only=True)
-    if SHEET_NAME not in wb.sheetnames:
-        raise RuntimeError(f"Sheet {SHEET_NAME!r} not found in {xlsx_path}.")
-    ws = wb[SHEET_NAME]
-    copper_col = find_copper_column(ws)
+    try:
+        if SHEET_NAME not in wb.sheetnames:
+            raise RuntimeError(f"Sheet {SHEET_NAME!r} not found in {xlsx_path}.")
+        ws = wb[SHEET_NAME]
+        copper_col = find_copper_column(ws)
 
-    entries = []
-    skipped = 0
-    for row in ws.iter_rows(min_row=DATA_START_ROW, values_only=True):
-        parsed = parse_month_token(row[0])
-        if not parsed:
-            continue
-        year, month = parsed
-        ym = f"{year}-{month}"
-        if ym < start_month or ym > end_month:
-            continue
-        raw = row[copper_col - 1]
-        try:
-            per_tonne = float(raw)
-        except (TypeError, ValueError):
-            skipped += 1  # "…" placeholder or blank — no observation that month
-            continue
-        entries.append(
-            {
-                "spot": round_price(per_tonne / TROY_OZ_PER_TONNE * CALIBRATION_TO_API),
-                "metal": "Copper",
-                "source": "seed",
-                "provider": "LME-WB",
-                "timestamp": f"{ym}-01 12:00:00",
-            }
-        )
-    return entries, skipped
+        entries = []
+        skipped = 0
+        for row in ws.iter_rows(min_row=DATA_START_ROW, values_only=True):
+            parsed = parse_month_token(row[0])
+            if not parsed:
+                continue
+            year, month = parsed
+            ym = f"{year}-{month}"
+            if ym < start_month or ym > end_month:
+                continue
+            raw = row[copper_col - 1]
+            try:
+                per_tonne = float(raw)
+            except (TypeError, ValueError):
+                skipped += 1  # "…" placeholder or blank — no observation that month
+                continue
+            entries.append(
+                {
+                    "spot": round_price(per_tonne / TROY_OZ_PER_TONNE * CALIBRATION_TO_API),
+                    "metal": "Copper",
+                    "source": "seed",
+                    "provider": "LME-WB",
+                    "timestamp": f"{ym}-01 12:00:00",
+                }
+            )
+        return entries, skipped
+    finally:
+        wb.close()
 
 
 def parse_args():
