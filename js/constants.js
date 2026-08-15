@@ -11,16 +11,21 @@
  * fall through to another metal's symbol. The StakTrakr v2 feed's own
  * five-metal map (_V2_METAL_MAP in api.js) is a separate domain.
  */
-const SPOT_PROVIDER_METAL_SYMBOLS = {
+// Null prototype so inherited names ("toString", "constructor") can never
+// resolve as mapped metals through any lookup site.
+const SPOT_PROVIDER_METAL_SYMBOLS = Object.assign(Object.create(null), {
   silver: "XAG",
   gold: "XAU",
   platinum: "XPT",
   palladium: "XPD",
-};
+});
 
 /** Derived inverse: provider symbol → metal key (e.g. "XAG" → "silver"). */
-const SPOT_PROVIDER_SYMBOL_TO_METAL = Object.fromEntries(
-  Object.entries(SPOT_PROVIDER_METAL_SYMBOLS).map(([metal, symbol]) => [symbol, metal])
+const SPOT_PROVIDER_SYMBOL_TO_METAL = Object.assign(
+  Object.create(null),
+  Object.fromEntries(
+    Object.entries(SPOT_PROVIDER_METAL_SYMBOLS).map(([metal, symbol]) => [symbol, metal])
+  )
 );
 
 /**

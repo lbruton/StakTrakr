@@ -61,12 +61,17 @@ const extractObjectLiteral = (src, name) => {
 
 describe("canonical provider symbol map (STRK-342)", () => {
   test("maps exactly the four wired metals, palladium explicitly", () => {
-    assert.deepEqual(SPOT_PROVIDER_METAL_SYMBOLS, {
-      silver: "XAG",
-      gold: "XAU",
-      platinum: "XPT",
-      palladium: "XPD",
-    });
+    // Spread copies onto a plain object — the canonical maps carry a null
+    // prototype so inherited names can never resolve as mapped metals.
+    assert.deepEqual(
+      { ...SPOT_PROVIDER_METAL_SYMBOLS },
+      {
+        silver: "XAG",
+        gold: "XAU",
+        platinum: "XPT",
+        palladium: "XPD",
+      }
+    );
   });
 
   test("copper stays unmapped until STRK-303 Part 2", () => {
@@ -78,8 +83,17 @@ describe("canonical provider symbol map (STRK-342)", () => {
       Object.fromEntries(
         Object.entries(SPOT_PROVIDER_SYMBOL_TO_METAL).map(([symbol, metal]) => [metal, symbol])
       ),
-      SPOT_PROVIDER_METAL_SYMBOLS
+      { ...SPOT_PROVIDER_METAL_SYMBOLS }
     );
+  });
+
+  test("inherited property names never resolve as mapped metals", () => {
+    for (const name of ["toString", "constructor", "hasOwnProperty", "__proto__"]) {
+      assert.equal(SPOT_PROVIDER_METAL_SYMBOLS[name], undefined);
+      assert.equal(SPOT_PROVIDER_SYMBOL_TO_METAL[name], undefined);
+      assert.equal(getSpotProviderMetalCode(name, "symbol"), null);
+      assert.equal(getSpotProviderMetalCode(name, "word"), null);
+    }
   });
 });
 

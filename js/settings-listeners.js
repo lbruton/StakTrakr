@@ -1802,10 +1802,13 @@ const wireSpotProviderActions = () => {
  * provider comes from the enclosing `.spot-accordion-panel`'s data-val.
  * The manual panel's `.js-manual-spot` number inputs also carry data-metal,
  * so the checkbox type gate is load-bearing. STRK-342.
+ * @returns {void}
  */
 const wireSpotMetalSelection = () => {
   const host = safeGetElement("apiSection_spot");
-  if (!host || host.__stakSpotMetalsBound) return;
+  // safeGetElement returns a truthy dummy for missing elements — only an
+  // instanceof check exits when the host is absent.
+  if (!(host instanceof HTMLElement) || host.__stakSpotMetalsBound) return;
   host.__stakSpotMetalsBound = true;
 
   host.addEventListener("change", (e) => {
