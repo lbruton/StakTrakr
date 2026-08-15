@@ -871,7 +871,11 @@ const updateHistoryPullCost = (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter((metal) => selected[metal] !== false);
+  // Wired-metal restriction keeps the cost preview aligned with what the pull
+  // will actually request (copper is config-truthy but unmapped, STRK-342).
+  const selectedMetals = Object.keys(selected).filter(
+    (metal) => selected[metal] !== false && SPOT_PROVIDER_METAL_SYMBOLS[metal]
+  );
 
   // Check for hourly toggle (MetalPriceAPI)
   const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
@@ -1762,12 +1766,14 @@ const fetchBatchSpotPrices = async (
         .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
         .filter(Boolean)
         .join(",");
+      if (!symbols) return {};
       url = url.replace("{API_KEY}", apiKey).replace("{SYMBOLS}", symbols);
     } else if (provider === "METAL_PRICE_API") {
       const currencies = selectedMetals
         .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
         .filter(Boolean)
         .join(",");
+      if (!currencies) return {};
       url = url.replace("{API_KEY}", apiKey).replace("{CURRENCIES}", currencies);
     }
 
@@ -1884,9 +1890,18 @@ const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
     return await fetchStaktrakrPrices(selectedMetals, { signal });
   }
 
+  // Third-party providers serve only canonically-wired metals, but config can
+  // carry additional truthy entries (copper since STRK-305). Without this
+  // restriction a copper-only selection skips the empty-selection error above
+  // and fails later with a misleading "No valid prices retrieved" (STRK-342).
+  const supportedMetals = selectedMetals.filter((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal]);
+  if (supportedMetals.length === 0) {
+    throw new Error("No metals selected for sync");
+  }
+
   // Latest-only: no history backfill on regular sync
   return {
-    prices: await fetchLatestPrices(provider, apiKey, selectedMetals),
+    prices: await fetchLatestPrices(provider, apiKey, supportedMetals),
     generatedAt: null,
     priceTimestamps: {},
   };
@@ -1972,12 +1987,14 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
           .map((m) => SPOT_PROVIDER_METAL_SYMBOLS[m])
           .filter(Boolean)
           .join(",");
+        if (!symbols) continue;
         url = url.replace("{SYMBOLS}", symbols);
       } else if (provider === "METAL_PRICE_API") {
         const currencies = metals
           .map((m) => SPOT_PROVIDER_METAL_SYMBOLS[m])
           .filter(Boolean)
           .join(",");
+        if (!currencies) continue;
         url = url.replace("{CURRENCIES}", currencies);
       }
 
@@ -2130,7 +2147,12 @@ const handleHistoryPull = async (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter((m) => selected[m] !== false);
+  // History pulls hit third-party batch endpoints only, so restrict to
+  // canonically-wired metals — a copper-only selection must surface as "no
+  // metals selected", not as a malformed empty-symbols request (STRK-342).
+  const selectedMetals = Object.keys(selected).filter(
+    (m) => selected[m] !== false && SPOT_PROVIDER_METAL_SYMBOLS[m]
+  );
   if (selectedMetals.length === 0) {
     appAlert("No metals selected. Please select at least one metal to track.");
     return;

@@ -1823,8 +1823,8 @@ const wireSpotMetalSelection = () => {
       if (!config.metals[provider]) config.metals[provider] = {};
       config.metals[provider][metal] = cb.checked;
       saveApiConfig(config);
-    } catch (_err) {
-      debugLog("Failed to persist metals-to-track selection");
+    } catch (err) {
+      debugLog(`Failed to persist metals-to-track selection: ${err?.message}`);
     }
   });
 };
