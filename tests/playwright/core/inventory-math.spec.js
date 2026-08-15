@@ -3440,6 +3440,41 @@ test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () =
     expect(item.weight).toBeCloseTo(AVDP_OZT, 6);
   });
 
+  test("copper-alloy compositions stay Alloy — only pure copper imports as Copper", async ({
+    page,
+  }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    const r = await page.evaluate(() => {
+      // normalizeMetal lives on NumistaProvider and reads no instance state.
+      const norm = NumistaProvider.prototype.normalizeMetal;
+      return {
+        pure: parseNumistaMetal("Copper"),
+        fineness: parseNumistaMetal("Copper (.999)"),
+        cuNi: parseNumistaMetal("Copper-nickel"),
+        plated: parseNumistaMetal("Copper plated steel"),
+        exactStored: parseWeight("1", "avdp", false, {}),
+        catalogPure: norm.call(null, "Copper"),
+        catalogCuNi: norm.call(null, "Copper-nickel"),
+        catalogBronze: norm.call(null, "Bronze"),
+      };
+    });
+    // Pure copper is first-class; every copper alloy keeps its pre-STRK-305
+    // classification so it cannot slip through the import gate at purity 1.0
+    // (PR #1457 review — Codacy + Codex).
+    expect(r.pure).toBe("Copper");
+    expect(r.fineness).toBe("Copper");
+    expect(r.cuNi).toBe("Alloy");
+    expect(r.plated).toBe("Alloy");
+    // parseWeight keeps 7dp for avdp so the conversion constant is stored exactly.
+    expect(r.exactStored).toBe(0.9114583);
+    if (r.catalogPure !== null) {
+      expect(r.catalogPure).toBe("Copper");
+      expect(r.catalogCuNi).toBe("Alloy/Other");
+      expect(r.catalogBronze).toBe("Alloy/Other");
+    }
+  });
+
   test("copper melt value matches the hand calculation on the stored troy weight", async ({
     page,
   }) => {

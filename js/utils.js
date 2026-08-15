@@ -549,8 +549,11 @@ const parseNumistaMetal = (composition = "") => {
   if (c.startsWith("gold")) return "Gold";
   if (c.startsWith("platinum")) return "Platinum";
   if (c.startsWith("palladium")) return "Palladium";
-  // STRK-305: only pure copper; bronze/brass compositions stay Alloy
-  if (c.startsWith("copper")) return "Copper";
+  // STRK-305: pure copper only — "copper" or "copper (.999)". Numista alloy
+  // strings like "copper-nickel" or "copper plated steel" must stay Alloy, or
+  // the import gate would accept them with a defaulted purity of 1.0 and
+  // produce materially wrong copper melt values.
+  if (/^copper(\s*\(|$)/.test(c)) return "Copper";
   if (c.startsWith("paper")) return "Paper";
   return "Alloy";
 };

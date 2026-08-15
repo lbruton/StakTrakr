@@ -1464,7 +1464,10 @@ const parseWeight = (weightRaw, weightUnit, isEditing, existingItem) => {
     weight = avdpToOzt(weight); // STRK-305
   }
   // gb/sb: weight stays as raw denomination value (conversion happens in computeMeltValue)
-  return isNaN(weight) ? 0 : parseFloat(weight.toFixed(6));
+  // avdp keeps 7dp so 1 avdp oz stores the exact factor 0.9114583 — 6dp would
+  // truncate the conversion constant itself (PR #1457 review).
+  const decimals = weightUnit === "avdp" ? 7 : 6;
+  return isNaN(weight) ? 0 : parseFloat(weight.toFixed(decimals));
 };
 
 /**

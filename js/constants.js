@@ -1041,6 +1041,7 @@ const ALLOWED_STORAGE_KEYS = [
   "spotGold",
   "spotPlatinum",
   "spotPalladium",
+  "spotCopper", // STRK-305 — written via METALS[].localStorageKey like the other four
   "chipMinCount",
   "chipMaxCount",
   "changeLog",
@@ -1200,6 +1201,7 @@ const VAULT_SETTINGS_DIFF_SKIP = [
   "spotSilver",
   "spotPlatinum",
   "spotPalladium",
+  "spotCopper", // STRK-305
   SPOT_HISTORY_KEY,
   ITEM_PRICE_HISTORY_KEY,
   EXCHANGE_RATES_KEY,
@@ -2016,6 +2018,14 @@ const METALS = {
   },
 };
 
+/**
+ * Metal names accepted by the CSV/JSON import gates (STRK-305).
+ * Derived from METALS so the four import-path copies in inventory-import.js
+ * can never drift from the app's first-class metal set again.
+ * @constant {string[]}
+ */
+const SUPPORTED_INVENTORY_METALS = Object.values(METALS).map((m) => m.name);
+
 // =============================================================================
 
 // Expose globals
@@ -2099,6 +2109,7 @@ if (typeof window !== "undefined") {
   window.GB_TO_OZT = GB_TO_OZT;
   window.SB_TO_OZT = SB_TO_OZT;
   window.AVDP_TO_OZT = AVDP_TO_OZT;
+  window.SUPPORTED_INVENTORY_METALS = SUPPORTED_INVENTORY_METALS;
   window.GOLDBACK_DENOMINATIONS = GOLDBACK_DENOMINATIONS;
   // STRK-235: constitutional / junk silver
   window.CONSTITUTIONAL_VARIANTS = CONSTITUTIONAL_VARIANTS;
