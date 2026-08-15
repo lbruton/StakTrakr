@@ -1,4 +1,48 @@
 // CONFIGURATION & GLOBAL CONSTANTS
+
+/**
+ * Canonical metal → provider symbol map for the third-party spot providers
+ * (STRK-342). Single source of truth — api.js and the provider parseResponse /
+ * parseBatchResponse blocks below all reference it; do not redeclare inline
+ * copies (tests/unit/spot-provider-symbols.test.js scans for drift).
+ *
+ * Copper is deliberately ABSENT until STRK-303 Part 2 wires the third-party
+ * providers: an unmapped metal must resolve to null (a provider miss), never
+ * fall through to another metal's symbol. The StakTrakr v2 feed's own
+ * five-metal map (_V2_METAL_MAP in api.js) is a separate domain.
+ */
+// Null prototype so inherited names ("toString", "constructor") can never
+// resolve as mapped metals through any lookup site.
+const SPOT_PROVIDER_METAL_SYMBOLS = Object.assign(Object.create(null), {
+  silver: "XAG",
+  gold: "XAU",
+  platinum: "XPT",
+  palladium: "XPD",
+});
+
+/** Derived inverse: provider symbol → metal key (e.g. "XAG" → "silver"). */
+const SPOT_PROVIDER_SYMBOL_TO_METAL = Object.assign(
+  Object.create(null),
+  Object.fromEntries(
+    Object.entries(SPOT_PROVIDER_METAL_SYMBOLS).map(([metal, symbol]) => [symbol, metal])
+  )
+);
+
+/**
+ * Resolves the metal code the CUSTOM provider substitutes for {METAL} in a
+ * user-configured endpoint. Returns null for any metal outside the canonical
+ * map so callers skip the request instead of substituting "undefined" into
+ * the URL (STRK-342 defect 2).
+ * @param {string} metal - Metal key ("silver", "gold", ...)
+ * @param {string} format - "symbol" for XAG-style codes, anything else for the metal word
+ * @returns {string|null} Code for URL substitution, or null when unmapped
+ */
+const getSpotProviderMetalCode = (metal, format) => {
+  const symbol = SPOT_PROVIDER_METAL_SYMBOLS[metal];
+  if (!symbol) return null;
+  return format === "symbol" ? symbol : metal;
+};
+
 /**
  * API Provider configurations for metals pricing services
  *
@@ -101,14 +145,10 @@ const API_PROVIDERS = {
     },
     parseResponse: (data, metal) => {
       // Expected format: { "success": true, "rates": { "XAG": 0.04 } }
-      const metalCode =
-        metal === "silver"
-          ? "XAG"
-          : metal === "gold"
-            ? "XAU"
-            : metal === "platinum"
-              ? "XPT"
-              : "XPD";
+      // Unmapped metals resolve to null — never fall through to another
+      // metal's symbol (STRK-342 defect 1).
+      const metalCode = SPOT_PROVIDER_METAL_SYMBOLS[metal];
+      if (!metalCode) return null;
       const rate = data.rates?.[metalCode];
       return rate ? 1 / rate : null; // Convert from metal per USD to USD per ounce
     },
@@ -122,12 +162,7 @@ const API_PROVIDERS = {
     parseBatchResponse: (data) => {
       const current = {};
       const history = {};
-      const symbolMap = {
-        XAG: "silver",
-        XAU: "gold",
-        XPT: "platinum",
-        XPD: "palladium",
-      };
+      const symbolMap = SPOT_PROVIDER_SYMBOL_TO_METAL;
       if (data.rates) {
         const firstKey = Object.keys(data.rates)[0];
         if (
@@ -172,14 +207,10 @@ const API_PROVIDERS = {
     },
     parseResponse: (data, metal) => {
       // Expected format: { "success": true, "rates": { "XAG": 0.04 } }
-      const metalCode =
-        metal === "silver"
-          ? "XAG"
-          : metal === "gold"
-            ? "XAU"
-            : metal === "platinum"
-              ? "XPT"
-              : "XPD";
+      // Unmapped metals resolve to null — never fall through to another
+      // metal's symbol (STRK-342 defect 1).
+      const metalCode = SPOT_PROVIDER_METAL_SYMBOLS[metal];
+      if (!metalCode) return null;
       const rate = data.rates?.[metalCode];
       return rate ? 1 / rate : null; // Convert from metal per USD to USD per ounce
     },
@@ -196,12 +227,7 @@ const API_PROVIDERS = {
     parseBatchResponse: (data) => {
       const current = {};
       const history = {};
-      const symbolMap = {
-        XAG: "silver",
-        XAU: "gold",
-        XPT: "platinum",
-        XPD: "palladium",
-      };
+      const symbolMap = SPOT_PROVIDER_SYMBOL_TO_METAL;
       if (data.rates) {
         const firstKey = Object.keys(data.rates)[0];
         if (
@@ -305,7 +331,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.2";
+const APP_VERSION = "3.36.3";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -2031,6 +2057,9 @@ const SUPPORTED_INVENTORY_METALS = Object.values(METALS).map((m) => m.name);
 // Expose globals
 if (typeof window !== "undefined") {
   window.API_PROVIDERS = API_PROVIDERS;
+  window.SPOT_PROVIDER_METAL_SYMBOLS = SPOT_PROVIDER_METAL_SYMBOLS;
+  window.SPOT_PROVIDER_SYMBOL_TO_METAL = SPOT_PROVIDER_SYMBOL_TO_METAL;
+  window.getSpotProviderMetalCode = getSpotProviderMetalCode;
   window.METALS = METALS;
   window.DEBUG = DEBUG;
   window.DEFAULT_CURRENCY = DEFAULT_CURRENCY;

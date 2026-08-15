@@ -491,11 +491,14 @@ const _buildApiKeyField = (opts) => {
 };
 
 /**
- * Builds the four-metal checkbox grid used by every provider panel. All
- * checkboxes are rendered checked — Task 11 syncs them to stored state.
+ * Builds the four-metal checkbox grid used by every provider panel, hydrated
+ * from `metalApiConfig.metals[provider]` (unset metals default to checked).
+ * Persistence is the delegated change handler in settings-listeners.js
+ * (`wireSpotMetalSelection`, STRK-342).
+ * @param {string} provider - Provider key matching the panel's data-val
  * @returns {HTMLElement}
  */
-const _buildMetalsCheckboxes = () => {
+const _buildMetalsCheckboxes = (provider) => {
   const wrap = document.createElement("div");
   wrap.className = "metal-selection";
 
@@ -507,6 +510,9 @@ const _buildMetalsCheckboxes = () => {
   const grid = document.createElement("div");
   grid.className = "metal-checkboxes";
 
+  const config = typeof loadApiConfig === "function" ? loadApiConfig() : null;
+  const selected = config?.metals?.[provider] || {};
+
   [
     { metal: "gold", display: "Gold" },
     { metal: "silver", display: "Silver" },
@@ -517,7 +523,7 @@ const _buildMetalsCheckboxes = () => {
     wrapLabel.className = "metal-checkbox";
     const cb = document.createElement("input");
     cb.type = "checkbox";
-    cb.checked = true;
+    cb.checked = selected[metal] !== false;
     cb.dataset.metal = metal;
     wrapLabel.appendChild(cb);
     const span = document.createElement("span");
@@ -774,7 +780,7 @@ const renderSpotPanelMetalsDev = () => {
     })
   );
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by metals.dev"));
 
@@ -817,7 +823,7 @@ const renderSpotPanelMetalsApi = () => {
     })
   );
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by metals-api.com"));
 
@@ -860,7 +866,7 @@ const renderSpotPanelMetalPriceApi = () => {
     })
   );
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by metalpriceapi.com"));
 
@@ -897,7 +903,7 @@ const renderSpotPanelGoldApi = () => {
   );
   panel.appendChild(details);
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by gold-api.com"));
 
@@ -1041,7 +1047,7 @@ const renderSpotPanelCustom = () => {
   grid.appendChild(keyShell);
 
   panel.appendChild(grid);
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow("History pull not supported for custom endpoints."));
 
   return panel;

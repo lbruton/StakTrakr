@@ -871,7 +871,11 @@ const updateHistoryPullCost = (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter((metal) => selected[metal] !== false);
+  // Wired-metal restriction keeps the cost preview aligned with what the pull
+  // will actually request (copper is config-truthy but unmapped, STRK-342).
+  const selectedMetals = Object.keys(selected).filter(
+    (metal) => selected[metal] !== false && SPOT_PROVIDER_METAL_SYMBOLS[metal]
+  );
 
   // Check for hourly toggle (MetalPriceAPI)
   const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
@@ -941,84 +945,6 @@ const updateProviderSettings = (provider) => {
   }
 
   saveApiConfig(config);
-};
-
-/**
- * Attaches DOM event listeners to the settings controls for a specific provider.
- * Handles cache changes, history pull parameters, and metal selection checkboxes.
- *
- * @param {string} provider - The unique key of the API provider
- */
-const setupProviderSettingsListeners = (provider) => {
-  // STAKTRAKR: wire enabled toggle + auto-refresh (no cache dropdown)
-  if (provider === "STAKTRAKR") {
-    const enabledEl = document.getElementById("enabled_STAKTRAKR");
-    if (enabledEl) {
-      enabledEl.addEventListener("change", () => updateProviderSettings(provider));
-    }
-    const autoEl = document.getElementById("autoRefresh_STAKTRAKR");
-    if (autoEl) {
-      autoEl.addEventListener("change", () => updateProviderSettings(provider));
-    }
-    return;
-  }
-
-  // Cache timeout change
-  const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
-  if (cacheSelect) {
-    cacheSelect.addEventListener("change", () => updateProviderSettings(provider));
-  }
-
-  // History pull days dropdown — update cost indicator
-  const pullDaysSelect = document.getElementById(`historyPullDays_${provider}`);
-  if (pullDaysSelect) {
-    pullDaysSelect.addEventListener("change", () => updateHistoryPullCost(provider));
-  }
-
-  // History pull button
-  const pullBtn = document.querySelector(`.api-history-btn[data-provider="${provider}"]`);
-  if (pullBtn) {
-    pullBtn.addEventListener("click", () => handleHistoryPull(provider));
-  }
-
-  // Hourly toggle — cap days dropdown and update cost
-  const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
-  if (hourlyToggle) {
-    hourlyToggle.addEventListener("change", () => {
-      const daysEl = document.getElementById(`historyPullDays_${provider}`);
-      if (daysEl && hourlyToggle.checked) {
-        const maxDays = API_PROVIDERS[provider]?.maxHourlyDays || 7;
-        if (parseInt(daysEl.value, 10) > maxDays) {
-          daysEl.value = String(maxDays);
-        }
-      }
-      updateHistoryPullCost(provider);
-    });
-  }
-
-  // Metal selection changes
-  document.querySelectorAll(`.provider-metal[data-provider="${provider}"]`).forEach((checkbox) => {
-    checkbox.addEventListener("change", (e) => {
-      const config = loadApiConfig();
-      const metalKey = e.target.dataset.metal;
-      if (!config.metals[provider]) config.metals[provider] = {};
-      config.metals[provider][metalKey] = e.target.checked;
-      saveApiConfig(config);
-      updateHistoryPullCost(provider);
-    });
-  });
-
-  // Auto-refresh toggle (STAK-222)
-  const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
-  if (autoRefreshToggle) {
-    autoRefreshToggle.addEventListener("change", () => {
-      const config = loadApiConfig();
-      if (!config.autoRefresh) config.autoRefresh = {};
-      config.autoRefresh[provider] = autoRefreshToggle.checked;
-      saveApiConfig(config);
-      if (typeof startSpotBackgroundSync === "function") startSpotBackgroundSync();
-    });
-  }
 };
 
 /**
@@ -1731,15 +1657,13 @@ const _fetchCustomLatest = async (config, providerConfig, apiKey, remaining, res
     console.warn("Invalid custom API base URL:", base, urlErr.message);
     return true;
   }
-  const metalCodes = {
-    silver: format === "symbol" ? "XAG" : "silver",
-    gold: format === "symbol" ? "XAU" : "gold",
-    platinum: format === "symbol" ? "XPT" : "platinum",
-    palladium: format === "symbol" ? "XPD" : "palladium",
-  };
   for (const metal of remaining) {
+    // Unmapped metals (e.g. copper until STRK-303 Part 2) are skipped — a null
+    // code must never reach the user's endpoint URL as the string "undefined".
+    const metalCode = getSpotProviderMetalCode(metal, format);
+    if (!metalCode) continue;
     try {
-      const endpoint = pattern.replace("{API_KEY}", apiKey).replace("{METAL}", metalCodes[metal]);
+      const endpoint = pattern.replace("{API_KEY}", apiKey).replace("{METAL}", metalCode);
       const url = `${base}${endpoint}`;
       const response = await fetch(url, {
         method: "GET",
@@ -1836,12 +1760,20 @@ const fetchBatchSpotPrices = async (
     if (provider === "METALS_DEV") {
       url = url.replace("{API_KEY}", apiKey);
     } else if (provider === "METALS_API") {
-      const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-      const symbols = selectedMetals.map((metal) => symbolMap[metal]).join(",");
+      // filter(Boolean) drops unmapped metals (e.g. copper until STRK-303
+      // Part 2) so the URL never carries the string "undefined".
+      const symbols = selectedMetals
+        .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
+        .filter(Boolean)
+        .join(",");
+      if (!symbols) return {};
       url = url.replace("{API_KEY}", apiKey).replace("{SYMBOLS}", symbols);
     } else if (provider === "METAL_PRICE_API") {
-      const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-      const currencies = selectedMetals.map((metal) => symbolMap[metal]).join(",");
+      const currencies = selectedMetals
+        .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
+        .filter(Boolean)
+        .join(",");
+      if (!currencies) return {};
       url = url.replace("{API_KEY}", apiKey).replace("{CURRENCIES}", currencies);
     }
 
@@ -1958,9 +1890,18 @@ const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
     return await fetchStaktrakrPrices(selectedMetals, { signal });
   }
 
+  // Third-party providers serve only canonically-wired metals, but config can
+  // carry additional truthy entries (copper since STRK-305). Without this
+  // restriction a copper-only selection skips the empty-selection error above
+  // and fails later with a misleading "No valid prices retrieved" (STRK-342).
+  const supportedMetals = selectedMetals.filter((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal]);
+  if (supportedMetals.length === 0) {
+    throw new Error("No metals selected for sync");
+  }
+
   // Latest-only: no history backfill on regular sync
   return {
-    prices: await fetchLatestPrices(provider, apiKey, selectedMetals),
+    prices: await fetchLatestPrices(provider, apiKey, supportedMetals),
     generatedAt: null,
     priceTimestamps: {},
   };
@@ -2042,12 +1983,18 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
 
       // Replace symbol/currency placeholders
       if (provider === "METALS_API") {
-        const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-        const symbols = metals.map((m) => symbolMap[m]).join(",");
+        const symbols = metals
+          .map((m) => SPOT_PROVIDER_METAL_SYMBOLS[m])
+          .filter(Boolean)
+          .join(",");
+        if (!symbols) continue;
         url = url.replace("{SYMBOLS}", symbols);
       } else if (provider === "METAL_PRICE_API") {
-        const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-        const currencies = metals.map((m) => symbolMap[m]).join(",");
+        const currencies = metals
+          .map((m) => SPOT_PROVIDER_METAL_SYMBOLS[m])
+          .filter(Boolean)
+          .join(",");
+        if (!currencies) continue;
         url = url.replace("{CURRENCIES}", currencies);
       }
 
@@ -2103,7 +2050,7 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
  */
 const fetchMetalPriceApiHourly = async (apiKey, selectedMetals, totalDays) => {
   const baseUrl = API_PROVIDERS.METAL_PRICE_API.baseUrl;
-  const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
+  const symbolMap = SPOT_PROVIDER_METAL_SYMBOLS;
   const config = loadApiConfig();
   const usage = config.usage?.METAL_PRICE_API || { quota: DEFAULT_API_QUOTA, used: 0 };
   const providerName = API_PROVIDERS.METAL_PRICE_API.name;
@@ -2200,7 +2147,12 @@ const handleHistoryPull = async (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter((m) => selected[m] !== false);
+  // History pulls hit third-party batch endpoints only, so restrict to
+  // canonically-wired metals — a copper-only selection must surface as "no
+  // metals selected", not as a malformed empty-symbols request (STRK-342).
+  const selectedMetals = Object.keys(selected).filter(
+    (m) => selected[m] !== false && SPOT_PROVIDER_METAL_SYMBOLS[m]
+  );
   if (selectedMetals.length === 0) {
     appAlert("No metals selected. Please select at least one metal to track.");
     return;

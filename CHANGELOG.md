@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.3] - 2026-08-15
+
+### Fixed — STRK-342: Spot provider registry hygiene
+
+- **Unknown metals no longer resolve to palladium** (STRK-342): the METALS_API and
+  METAL_PRICE_API symbol resolvers used a ternary chain whose else-branch was XPD, so any
+  metal outside the four wired ones was silently priced as palladium (~$1,316/ozt for
+  copper's true ~$0.41). Palladium is now matched explicitly and unmapped metals return
+  `null` — a provider miss, never a wrong price. This unblocks STRK-303 Part 2.
+- **CUSTOM provider no longer substitutes `undefined` into user endpoints** (STRK-342):
+  with copper defaulted into `config.metals` since v3.36.2, the CUSTOM fetch loop and the
+  Metals-API/MetalPriceAPI batch-history URL builders interpolated `undefined` into live
+  request URLs. Unmapped metals are now skipped before URL construction.
+- **One canonical symbol map** (STRK-342): the four-metal metal↔symbol map was redeclared
+  eight times across `constants.js`, `api.js`, and `spotLookup.js` (and had already
+  drifted — spotLookup gained copper in v3.36.2 while the rest did not). A single
+  `SPOT_PROVIDER_METAL_SYMBOLS` map in `constants.js` now feeds every provider path, with
+  unit tests scanning for inline-copy drift.
+- **"Metals to track" checkboxes actually work now** (STRK-342): the per-provider metal
+  selection in Settings → Spot Price rendered every box checked and persisted nothing —
+  the listener targeted markup retired with the v2 settings shell, and was itself never
+  invoked. Checkboxes now hydrate from the stored selection and persist changes
+  per provider via a delegated handler.
+
+---
+
 ## [3.36.2] - 2026-08-15
 
 ### Added — STRK-305: Copper as a first-class inventory metal — Phase 2
