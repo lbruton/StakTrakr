@@ -220,7 +220,7 @@ def main():
         SELECT
             metal,
             DATE(timestamp_floor) AS day,
-            ROUND(AVG(spot), 2)   AS spot
+            AVG(spot)             AS spot
         FROM spot_prices
         WHERE DATE(timestamp_floor) > ?
         GROUP BY metal, day
