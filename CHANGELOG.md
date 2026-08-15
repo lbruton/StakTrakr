@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.0] - 2026-08-14
+
+### Added — STRK-303: Copper (Cu) spot feed — Phase 1a
+
+- **Copper now flows through the spot pipeline end to end** (STRK-303): the poller fetches
+  copper (XCU) alongside gold, silver, platinum and palladium, writes it to the database,
+  and publishes it through the v2 API. **Nothing changes in the app yet** — copper has no
+  spot card, no summary card, and cannot be selected on an item. This release only starts
+  collecting the data so a chart has history to draw when the interface work lands
+  (STRK-305, STRK-306).
+- **The tracked metal set is now defined in one place** (STRK-303): new
+  `devops/pollers/shared/spot-metals.js` owns the metal list, and the API query string,
+  database key set, JSON entry order, exporter ISO map and manifest array are all derived
+  from it. The set had been duplicated across five files in two different casings with no
+  link between the copies.
+
+### Fixed — STRK-303: Spot price derivation and sanity bounds
+
+- **Spot prices are no longer inferred from their own magnitude** (STRK-303): the poller
+  guessed whether the feed had returned a price or its reciprocal by testing whether the
+  value was above 1. That only ever worked because every tracked metal was worth far more
+  than $1 per ounce, which put the two candidates orders of magnitude apart. The response
+  carries the direct price in a separate field all along — the code's own comment said so —
+  so the guess has been replaced with reading that field.
+- **Sanity bounds are now per metal** (STRK-303): a single $5–$50,000 range cannot cover
+  metals four orders of magnitude apart. Because a rejected price throws and the poller
+  treats that as a fatal error, an out-of-range value would have ended the entire run
+  rather than dropping one metal.
+- **Sub-dollar metals keep more precision** (STRK-303): prices below $1 are now stored to
+  four decimal places instead of two. Two decimals is ample at $4,000 an ounce but
+  quantises a 40-cent metal by roughly 0.6% on every reading, and that error is permanent
+  once written to history.
+- **Historical backfill understands that copper starts partway through** (STRK-303):
+  archived files written before copper was tracked are complete with four metals, so the
+  completeness check only requires copper from a configured cutover onward. The all-or-
+  nothing gate is retained after that point — it is what makes a missed poll visible.
+
+---
+
 ## [3.35.101] - 2026-08-13
 
 ### Fixed — STRK-338: Market coin names could silently stop caching

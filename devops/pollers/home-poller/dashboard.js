@@ -400,12 +400,63 @@ function escAttr(s) {
   return escHtml(s);
 }
 
+// RETAIL catalog metals — the provider_coins.metal vocabulary. Palladium is
+// absent here on purpose (no palladium retail coins), and copper is absent for
+// the same reason: Phase 1a is spot-only. Do not "complete" this list from the
+// spot set — they are different vocabularies (STRK-303).
 const METAL_COLORS = {
   silver: "#94a3b8",
   gold: "#fbbf24",
   goldback: "#a3e635",
   platinum: "#e2e8f0",
 };
+
+/**
+ * SPOT metals, keyed by the lowercase ISO code the v2 API publishes.
+ * Separate from METAL_COLORS above, which is the retail catalog vocabulary.
+ * @constant {string[]}
+ */
+const SPOT_ISO_ORDER = ["xau", "xag", "xpt", "xpd", "xcu"];
+
+/** Display names for the spot ISO codes. @constant {Record<string,string>} */
+const SPOT_ISO_NAMES = {
+  xau: "Gold",
+  xag: "Silver",
+  xpt: "Platinum",
+  xpd: "Palladium",
+  xcu: "Copper",
+};
+
+/** Chart colours for the spot ISO codes. @constant {Record<string,string>} */
+const SPOT_ISO_COLORS = {
+  xau: "#fbbf24",
+  xag: "#c0c0c0",
+  xpt: "#a78bfa",
+  xpd: "#f97316",
+  xcu: "#b87333",
+};
+
+/** Number of tracked spot metals — the run-log denominator. @constant {number} */
+const SPOT_METAL_COUNT = SPOT_ISO_ORDER.length;
+
+/**
+ * Format a spot price for display, magnitude-aware.
+ *
+ * Sub-dollar metals keep four decimals. The default `toLocaleString` cap of
+ * three would render copper's stored 0.4126 as "0.413", and an explicit
+ * two-digit cap renders it "0.41" — both quietly disagreeing with the value in
+ * the database (STRK-303).
+ * @param {number|string} value - Price in USD per troy ounce.
+ * @returns {string} Formatted number, no currency symbol.
+ */
+function fmtSpotPrice(value) {
+  const n = Number(value);
+  const digits = Number.isFinite(n) && Math.abs(n) < 1 ? 4 : 2;
+  return n.toLocaleString("en", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
 
 function metalBadge(metal) {
   const color = METAL_COLORS[metal] || "#94a3b8";
@@ -538,7 +589,7 @@ function renderCompactRunsTable(runs) {
       const dur = fmtDuration(r.started_at, r.finished_at);
       const isSpot = r.poller_id?.includes("spot");
       const resultCell = isSpot
-        ? `<small>${captured || 4}/4</small>`
+        ? `<small>${captured}/${total || SPOT_METAL_COUNT}</small>`
         : total > 0
           ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
           : `${captured}/${total}`;
@@ -2295,8 +2346,8 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   let spotHtml = '<p class="no-data">Spot data unavailable</p>';
   if (v2.spot_latest?.ok) {
     const spot = v2.spot_latest.data.data;
-    const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
-    const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
+    const metalNames = SPOT_ISO_NAMES;
+    const metalColors = SPOT_ISO_COLORS;
     const spotRows = Object.entries(spot)
       .map(([metal, d]) => {
         const change = d.change_24h_pct;
@@ -2305,7 +2356,7 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
         const changeStr = change != null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
         return `<tr>
         <td><span style="color:${metalColors[metal] || "var(--text)"};font-weight:600;">${metalNames[metal] || metal.toUpperCase()}</span> <span style="color:var(--muted);font-size:10px;">${metal.toUpperCase()}</span></td>
-        <td style="font-weight:700;font-family:monospace;">$${Number(d.price).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="font-weight:700;font-family:monospace;">$${fmtSpotPrice(d.price)}</td>
         <td style="color:${changeColor}">${changeStr}</td>
       </tr>`;
       })
@@ -2506,12 +2557,11 @@ ${renderNav("api-health", failureCount)}
   <!-- 7-Day Spot History — All Metals -->
   ${
     v2.spot_7d?.ok
-      ? [
-          { key: "xau", name: "Gold", color: "#fbbf24" },
-          { key: "xag", name: "Silver", color: "#c0c0c0" },
-          { key: "xpt", name: "Platinum", color: "#a78bfa" },
-          { key: "xpd", name: "Palladium", color: "#f97316" },
-        ]
+      ? SPOT_ISO_ORDER.map((key) => ({
+          key,
+          name: SPOT_ISO_NAMES[key],
+          color: SPOT_ISO_COLORS[key],
+        }))
           .map((m) => {
             const rows = v2.spot_7d.data.data[m.key] || [];
             if (!rows.length) return "";
@@ -2524,11 +2574,11 @@ ${renderNav("api-health", failureCount)}
           .map(
             (d) => `<tr>
           <td>${escHtml((d.t || "").slice(0, 10))}</td>
-          <td style="font-family:monospace;">$${Number(d.open).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
-          <td style="font-family:monospace;color:var(--green);">$${Number(d.high).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
-          <td style="font-family:monospace;color:var(--red);">$${Number(d.low).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
-          <td style="font-family:monospace;font-weight:600;">$${Number(d.close).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
-          <td style="font-family:monospace;">$${Number(d.avg).toLocaleString("en", { minimumFractionDigits: 2 })}</td>
+          <td style="font-family:monospace;">$${fmtSpotPrice(d.open)}</td>
+          <td style="font-family:monospace;color:var(--green);">$${fmtSpotPrice(d.high)}</td>
+          <td style="font-family:monospace;color:var(--red);">$${fmtSpotPrice(d.low)}</td>
+          <td style="font-family:monospace;font-weight:600;">$${fmtSpotPrice(d.close)}</td>
+          <td style="font-family:monospace;">$${fmtSpotPrice(d.avg)}</td>
           <td style="text-align:center;">${d.n}</td>
         </tr>`
           )

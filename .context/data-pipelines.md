@@ -68,12 +68,12 @@ v2 endpoints embed their freshness threshold in the envelope. The frontend alway
 
 ### Overview
 
-Spot prices (gold, silver, platinum, palladium in USD/oz) are polled **4× per hour** (every 15 minutes) by **two independent writers**: the Fly.io container and the home poller. Both write to the sqld `spot_prices` table and JSON files on the Fly.io persistent volume. Published to GitHub Pages via `run-publish.sh`.
+Spot prices (gold, silver, platinum, palladium, copper in USD per troy oz) are polled **4× per hour** (every 15 minutes) by **two independent writers**: the Fly.io container and the home poller. Both write to the sqld `spot_prices` table and JSON files on the Fly.io persistent volume. Published to GitHub Pages via `run-publish.sh`.
 
 ### Flow
 
 ```text
-MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD)
+MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD,XCU)
         │
         ├──► Fly.io run-spot.sh  (0,30 * * * *)   POLLER_ID=fly-spot
         │         spot-extract.js
@@ -105,21 +105,32 @@ MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD)
 | `XAG`  | Silver    |
 | `XPT`  | Platinum  |
 | `XPD`  | Palladium |
+| `XCU`  | Copper    |
+
+The tracked set is defined once, in `devops/pollers/shared/spot-metals.js`. Every other list — the API query string, the database key set, the JSON entry order, the exporter's ISO map, the manifest `metals` array — is derived from it. Do not add a metal by editing those directly.
 
 **Rate conversion logic in `spot-extract.js`:**
 
-| Condition   | Calculation                          |
-| ----------- | ------------------------------------ |
-| `rate >= 1` | Use directly (already USD/oz)        |
-| `rate < 1`  | Invert: `1 / rate` = USD per troy oz |
+A `/v1/latest?base=USD` response carries every figure twice:
 
-After conversion, a sanity bounds check rejects prices outside reasonable ranges (e.g., `$5 < price < $50,000`).
+| Key      | Meaning                                                    |
+| -------- | ---------------------------------------------------------- |
+| `USDXAU` | Direct USD price per troy ounce — **this is what we read** |
+| `XAU`    | Its reciprocal: troy ounces per USD                        |
+
+`derivePrice()` reads the `USD`-prefixed key and falls back to inverting the bare one. Both paths are deterministic.
+
+> **Corrected 2026-08-15 (STRK-303).** This section previously documented a magnitude heuristic — `rate >= 1 ? rate : 1 / rate` — that guessed which of the two forms it had been handed. The guess was only ever right because every tracked metal was worth far more than $1/ozt, which put the two candidates orders of magnitude apart. Copper trades near $0.41/ozt, so its reciprocal (~2.42) sits above the threshold and the heuristic silently returned $2.42. It existed only because the code read the bare key while its own comment claimed to read the `USD`-prefixed one. It has been deleted.
+
+Sanity bounds are **per metal** (`METAL_PRICE_BOUNDS` in `spot-metals.js`), not one global range. A single `$5 < price < $50,000` window cannot span metals four orders of magnitude apart: it rejected every correct copper quote, and because that rejection throws and is caught upstream into `process.exit(1)`, it killed the whole poll run rather than dropping one metal.
+
+Prices are rounded by magnitude — two decimals at or above $1, four below. Two decimals quantises copper by roughly 0.6% per tick, and that error is permanent once written to history.
 
 ### Storage
 
 **sqld table: `spot_prices`**
 
-Primary data store. `spot-extract.js` inserts rows via `insertSpotPrices()` with gold, silver, platinum, palladium prices and a floored 15-minute window timestamp.
+Primary data store. `spot-extract.js` inserts one row per tracked metal via `insertSpotPrices()`, keyed on `(metal, timestamp_floor)` with a floored 15-minute window timestamp. The metal set comes from `spot-metals.js`; `insertSpotPrices` validates every requested metal is a finite number before writing any row, so a partial payload fails before it can half-commit.
 
 **JSON files on Fly volume:**
 

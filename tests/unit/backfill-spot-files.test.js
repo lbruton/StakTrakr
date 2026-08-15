@@ -113,14 +113,26 @@ describe("rowsToEntries", () => {
     timestamp: ts,
   });
 
-  const fullHour = [
+  // Pre-copper hour: exactly what every archived file written before the
+  // STRK-303 deploy contains. Kept as the LEGACY fixture rather than updated in
+  // place, because these four are still the complete truth for those hours.
+  const legacyHour = [
     row("gold", 3380.1, "2026-06-11T06:00:00Z", "2026-06-11T06:05:00Z"),
     row("silver", 48.2, "2026-06-11T06:00:00Z", "2026-06-11T06:05:00Z"),
     row("platinum", 1410.5, "2026-06-11T06:00:00Z", "2026-06-11T06:05:00Z"),
     row("palladium", 1320.7, "2026-06-11T06:00:00Z", "2026-06-11T06:05:00Z"),
   ];
 
-  it("emits the four metals in spot-extract order with the exact entry shape", () => {
+  /** Metal names required for a pre-copper hour. */
+  const LEGACY_REQUIRED = ["Gold", "Silver", "Platinum", "Palladium"];
+
+  // Post-copper hour: what spot-extract writes once copper is live.
+  const fullHour = [
+    ...legacyHour,
+    row("copper", 0.4126, "2026-06-11T06:00:00Z", "2026-06-11T06:05:00Z"),
+  ];
+
+  it("emits every tracked metal in spot-extract order with the exact entry shape", () => {
     const entries = rowsToEntries(fullHour);
     assert.deepEqual(entries, [
       {
@@ -151,7 +163,35 @@ describe("rowsToEntries", () => {
         provider: "StakTrakr",
         timestamp: "2026-06-11 06:05:00",
       },
+      {
+        spot: 0.4126,
+        metal: "Copper",
+        source: "hourly",
+        provider: "StakTrakr",
+        timestamp: "2026-06-11 06:05:00",
+      },
     ]);
+  });
+
+  it("keeps copper LAST so pre-copper files stay byte-compatible", () => {
+    const entries = rowsToEntries(fullHour);
+    assert.equal(entries.at(-1).metal, "Copper");
+    assert.deepEqual(
+      entries.slice(0, 4).map((e) => e.metal),
+      LEGACY_REQUIRED
+    );
+  });
+
+  it("regenerates a pre-copper hour as four entries when only the legacy four are required", () => {
+    // STRK-303: an archived hour predating copper is COMPLETE with four metals.
+    // Demanding copper there would refuse to heal a gap over a metal that was
+    // never polled at the time.
+    const entries = rowsToEntries(legacyHour, LEGACY_REQUIRED);
+    assert.equal(entries.length, 4);
+    assert.deepEqual(
+      entries.map((e) => e.metal),
+      LEGACY_REQUIRED
+    );
   });
 
   it("picks the latest row per metal (max timestamp_floor — overwrite-wins-last)", () => {
@@ -161,14 +201,23 @@ describe("rowsToEntries", () => {
       row("silver", 48.9, "2026-06-11T06:30:00Z", "2026-06-11T06:35:00Z"),
       row("platinum", 1411.0, "2026-06-11T06:30:00Z", "2026-06-11T06:35:00Z"),
       row("palladium", 1321.0, "2026-06-11T06:30:00Z", "2026-06-11T06:35:00Z"),
+      row("copper", 0.4131, "2026-06-11T06:30:00Z", "2026-06-11T06:35:00Z"),
     ];
     const entries = rowsToEntries(twoPolls);
     assert.equal(entries[0].spot, 3390.9);
     assert.equal(entries[0].timestamp, "2026-06-11 06:35:00");
+    assert.equal(entries.at(-1).spot, 0.4131);
   });
 
-  it("returns null when a metal is missing", () => {
+  it("returns null when a required metal is missing", () => {
     assert.equal(rowsToEntries(fullHour.slice(0, 3)), null);
+  });
+
+  it("returns null when copper is missing from an hour that requires it", () => {
+    // The gap detector STRK-187 exists for. Making copper permanently optional
+    // would turn a copper outage into a silently incomplete file that the
+    // healer reports as success.
+    assert.equal(rowsToEntries(legacyHour), null);
   });
 
   it("returns null on empty or undefined input", () => {
