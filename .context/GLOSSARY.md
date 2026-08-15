@@ -45,7 +45,7 @@ _Avoid_: audit log, edit history, activity log
 ## Market Data & Pricing
 
 **Spot Price**:
-The current per-troy-ounce market price for a precious metal (gold, silver, platinum, palladium), sourced from a configured Spot Provider.
+The current per-troy-ounce market price for a tracked metal (gold, silver, platinum, palladium, copper — STRK-305), sourced from a configured Spot Provider.
 _Avoid_: market price, live price, melt value
 
 **Spot Provider**:
