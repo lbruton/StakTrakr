@@ -97,12 +97,13 @@ All new components must be authored against the dark theme first.
 
 ### Metal Colors (Slate Theme — reference hex)
 
-| Token         | Hex       | Usage                      |
-| ------------- | --------- | -------------------------- |
-| `--silver`    | `#d1d5db` | Silver badge background    |
-| `--gold`      | `#fbbf24` | Gold badge background      |
-| `--platinum`  | `#f3f4f6` | Platinum badge background  |
-| `--palladium` | `#d8b4fe` | Palladium badge background |
+| Token         | Hex       | Usage                                                                                   |
+| ------------- | --------- | --------------------------------------------------------------------------------------- |
+| `--silver`    | `#d1d5db` | Silver badge background                                                                 |
+| `--gold`      | `#fbbf24` | Gold badge background                                                                   |
+| `--platinum`  | `#f3f4f6` | Platinum badge background                                                               |
+| `--palladium` | `#d8b4fe` | Palladium badge background                                                              |
+| `--copper`    | `#d99668` | Copper badge background (STRK-305; per-theme tuned like its siblings — slate hex shown) |
 
 ### Brand Colors (Theme-Invariant)
 
@@ -229,7 +230,7 @@ Standard HTML `<input type="checkbox">` with custom switch styling. Minimum 44px
 
 ### Metal Filter Pills
 
-Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
+Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper` — STRK-305). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
 
 ---
 

@@ -1000,7 +1000,7 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 | Colors      | `--primary`, `--secondary`, `--success`, `--info`, `--warning`, `--danger` + `-hover` variants |
 | Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card`                                 |
 | Text        | `--text-primary`, `--text-secondary`                                                           |
-| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`                                              |
+| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`, `--copper` (STRK-305)                       |
 | Types       | `--type-{coin,round,bar,note,set,other}-{bg,text}`                                             |
 | Borders     | `--border`, `--border-hover`                                                                   |
 | Shadows     | `--shadow-sm`, `--shadow`, `--shadow-lg`                                                       |
