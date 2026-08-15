@@ -1,9 +1,6 @@
 ---
 paths:
-  - ".worktrees/**"
-  - "js/**"
-  - "tests/**"
-  - "devops/**"
+  - "**"
 ---
 
 # Worktree Sessions — Bash cwd Is Not Trustworthy
@@ -25,8 +22,9 @@ drops every commit on `dev` — this rule covers the cost it leaves behind.
 
 - **Never rely on a `cd` from an earlier Bash call.** Every gate, test, git,
   or script command targeting the worktree must carry its own anchoring in the
-  same compound command: `cd /path/to/.worktrees/<name> && …`, `git -C <path>`,
-  or absolute file paths throughout.
+  same compound command: `cd /path/to/.worktrees/<name> && <command>`, or
+  `git -C /path/to/.worktrees/<name> <subcommand>`, or absolute file paths
+  throughout.
 - **Re-anchor after any background task or long-running command.** Those are
   the known recycle points. A bare `pwd &&` prefix is cheap verification.
 - **A green test run proves nothing until the count matches.** The wrong-tree
