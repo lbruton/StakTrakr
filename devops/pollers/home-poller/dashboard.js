@@ -400,12 +400,44 @@ function escAttr(s) {
   return escHtml(s);
 }
 
+// RETAIL catalog metals — the provider_coins.metal vocabulary. Palladium is
+// absent here on purpose (no palladium retail coins), and copper is absent for
+// the same reason: Phase 1a is spot-only. Do not "complete" this list from the
+// spot set — they are different vocabularies (STRK-303).
 const METAL_COLORS = {
   silver: "#94a3b8",
   gold: "#fbbf24",
   goldback: "#a3e635",
   platinum: "#e2e8f0",
 };
+
+/**
+ * SPOT metals, keyed by the lowercase ISO code the v2 API publishes.
+ * Separate from METAL_COLORS above, which is the retail catalog vocabulary.
+ * @constant {string[]}
+ */
+const SPOT_ISO_ORDER = ["xau", "xag", "xpt", "xpd", "xcu"];
+
+/** Display names for the spot ISO codes. @constant {Record<string,string>} */
+const SPOT_ISO_NAMES = {
+  xau: "Gold",
+  xag: "Silver",
+  xpt: "Platinum",
+  xpd: "Palladium",
+  xcu: "Copper",
+};
+
+/** Chart colours for the spot ISO codes. @constant {Record<string,string>} */
+const SPOT_ISO_COLORS = {
+  xau: "#fbbf24",
+  xag: "#c0c0c0",
+  xpt: "#a78bfa",
+  xpd: "#f97316",
+  xcu: "#b87333",
+};
+
+/** Number of tracked spot metals — the run-log denominator. @constant {number} */
+const SPOT_METAL_COUNT = SPOT_ISO_ORDER.length;
 
 function metalBadge(metal) {
   const color = METAL_COLORS[metal] || "#94a3b8";
@@ -538,7 +570,7 @@ function renderCompactRunsTable(runs) {
       const dur = fmtDuration(r.started_at, r.finished_at);
       const isSpot = r.poller_id?.includes("spot");
       const resultCell = isSpot
-        ? `<small>${captured || 4}/4</small>`
+        ? `<small>${captured || SPOT_METAL_COUNT}/${SPOT_METAL_COUNT}</small>`
         : total > 0
           ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
           : `${captured}/${total}`;
@@ -2295,8 +2327,8 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   let spotHtml = '<p class="no-data">Spot data unavailable</p>';
   if (v2.spot_latest?.ok) {
     const spot = v2.spot_latest.data.data;
-    const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
-    const metalColors = { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", xpd: "#f97316" };
+    const metalNames = SPOT_ISO_NAMES;
+    const metalColors = SPOT_ISO_COLORS;
     const spotRows = Object.entries(spot)
       .map(([metal, d]) => {
         const change = d.change_24h_pct;
@@ -2506,12 +2538,11 @@ ${renderNav("api-health", failureCount)}
   <!-- 7-Day Spot History — All Metals -->
   ${
     v2.spot_7d?.ok
-      ? [
-          { key: "xau", name: "Gold", color: "#fbbf24" },
-          { key: "xag", name: "Silver", color: "#c0c0c0" },
-          { key: "xpt", name: "Platinum", color: "#a78bfa" },
-          { key: "xpd", name: "Palladium", color: "#f97316" },
-        ]
+      ? SPOT_ISO_ORDER.map((key) => ({
+          key,
+          name: SPOT_ISO_NAMES[key],
+          color: SPOT_ISO_COLORS[key],
+        }))
           .map((m) => {
             const rows = v2.spot_7d.data.data[m.key] || [];
             if (!rows.length) return "";

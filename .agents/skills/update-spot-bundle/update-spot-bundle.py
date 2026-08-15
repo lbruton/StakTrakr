@@ -42,6 +42,23 @@ METAL_DISPLAY = {
 }
 METAL_LOWER = {v: k for k, v in METAL_DISPLAY.items()}
 
+# Metals allowed into the shipped bundle.
+#
+# STRK-303: this is NOT the same set the poller tracks. Copper rows now land in
+# sqld, but the bundle is precached by the service worker and loaded straight
+# into the frontend's historical cache — and the frontend ingest path has no
+# metal whitelist of its own. Without this gate the first version-bump PR after
+# copper started polling would have shipped copper history to every user with
+# no UI to show it and nobody intending it.
+#
+# METAL_DISPLAY alone was never a gate: the sqld query below has no metal
+# filter, and both call sites fall back to passing unknown metals through
+# (one raw, one .capitalize()'d).
+#
+# REMOVE THIS GATE IN STRK-304 (Phase 1b), whose job is to seed copper history
+# into the bundle. Until then it is deliberate, not a bug.
+BUNDLE_METALS = frozenset(METAL_DISPLAY.values())
+
 
 # ── sqld helpers ──────────────────────────────────────────────────────────────
 
@@ -155,6 +172,8 @@ def build_bundle_from_json_files():
             spot = e.get("spot")
             if not (metal and ts and spot is not None):
                 continue
+            if metal not in BUNDLE_METALS:
+                continue  # STRK-303 copper hold-back — see BUNDLE_METALS
             mm_dd = ts[5:10]  # "MM-DD" from "YYYY-MM-DD HH:MM:SS"
             year_data[metal].append([mm_dd, round(float(spot), 2)])
             total += 1
@@ -208,6 +227,8 @@ def main():
             day = str(row["day"])           # "YYYY-MM-DD"
             metal_raw = str(row["metal"])   # "gold" etc.
             metal = METAL_DISPLAY.get(metal_raw.lower(), metal_raw.capitalize())
+            if metal not in BUNDLE_METALS:
+                continue  # STRK-303 copper hold-back — see BUNDLE_METALS
             spot = row["spot"]
             try:
                 price = round(float(spot), 2)

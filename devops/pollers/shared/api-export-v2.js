@@ -39,6 +39,7 @@ import { writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toTimestampPair, computeOhlca, wrapEnvelope } from "./v2-utils.js";
+import { SPOT_METAL_KEYS } from "./spot-metals.js";
 
 // db.js / provider-db.js statically import the poller-only native dep
 // better-sqlite3, which is not installed where unit tests run. They are
@@ -52,8 +53,23 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const DATA_DIR = resolve(process.env.DATA_DIR || join(__dirname, "../../data"));
 const DRY_RUN = process.env.DRY_RUN === "1";
 
-const METALS = ["gold", "silver", "platinum", "palladium"];
-const METAL_TO_ISO = { gold: "xau", silver: "xag", platinum: "xpt", palladium: "xpd" };
+const METALS = SPOT_METAL_KEYS;
+const METAL_TO_ISO = {
+  gold: "xau",
+  silver: "xag",
+  platinum: "xpt",
+  palladium: "xpd",
+  copper: "xcu",
+};
+
+/**
+ * ISO codes advertised in manifest.json, derived from METALS so the manifest
+ * can never disagree with what is actually exported. It was a third hardcoded
+ * literal with no link to the two above, so adding a metal published every file
+ * for it while the manifest still listed four (STRK-303).
+ * @constant {string[]}
+ */
+const MANIFEST_METAL_ISOS = METALS.map((metal) => METAL_TO_ISO[metal]);
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 
@@ -1059,7 +1075,7 @@ async function writeManifest(client) {
   writeV2File(
     "manifest.json",
     {
-      metals: ["xau", "xag", "xpt", "xpd"],
+      metals: MANIFEST_METAL_ISOS,
       coins: coinList,
       vendors: vendorList,
       endpoints: {

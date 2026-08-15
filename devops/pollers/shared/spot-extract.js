@@ -11,17 +11,23 @@
 
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createSqldClient, initSqldSchema } from "./sqld-client.js";
 import { insertSpotPrices, startRunLog, finishRunLog, windowFloor } from "./db.js";
+import {
+  METAL_MAP,
+  METAL_ORDER,
+  SPOT_METAL_KEYS,
+  derivePrice,
+  assertPriceInRange,
+  roundPrice,
+} from "./spot-metals.js";
 
 const API_URL = "https://api.metalpriceapi.com/v1/latest";
 
-const METAL_MAP = {
-  XAU: "Gold",
-  XAG: "Silver",
-  XPT: "Platinum",
-  XPD: "Palladium",
-};
+/** Metal count, derived so a new metal never leaves a stale hardcoded total behind. */
+const METAL_COUNT = METAL_ORDER.length;
 
 /**
  * Format a Date as "YYYY-MM-DD HH:MM:SS" in UTC.
@@ -33,14 +39,9 @@ function formatTimestamp(d) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
-/**
- * Round a number to 2 decimal places.
- * @param {number} n
- * @returns {number}
- */
-function round2(n) {
-  return Math.round(n * 100) / 100;
-}
+// Price rounding lives in spot-metals.js (roundPrice) — it is magnitude-aware,
+// because two decimals quantises a sub-dollar metal like copper by ~0.6% per
+// tick and that error is permanent once written to history (STRK-303).
 
 /**
  * Check if a file exists.
@@ -91,7 +92,7 @@ async function main() {
   try {
     client = createSqldClient();
     await initSqldSchema(client);
-    runId = await startRunLog(client, { pollerId, startedAt, total: 4 });
+    runId = await startRunLog(client, { pollerId, startedAt, total: METAL_COUNT });
   } catch (err) {
     console.error("sqld init failed (degraded mode):", err.message);
     client = null;
@@ -100,7 +101,11 @@ async function main() {
   // --- Fetch spot prices ---
   let prices;
   try {
-    const url = `${API_URL}?api_key=${apiKey}&base=USD&currencies=XAU,XAG,XPT,XPD`;
+    // Symbol list is derived from METAL_MAP so it cannot drift from the loop
+    // below. When these were two separate literals, adding a metal to one and
+    // not the other made every poll throw and exit (STRK-303).
+    const currencies = Object.keys(METAL_MAP).join(",");
+    const url = `${API_URL}?api_key=${apiKey}&base=USD&currencies=${currencies}`;
     const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`API returned ${res.status}: ${await res.text()}`);
@@ -112,18 +117,8 @@ async function main() {
 
     prices = {};
     for (const [code, name] of Object.entries(METAL_MAP)) {
-      const rateKey = code;
-      const rate = data.rates?.[rateKey];
-      if (!rate || rate === 0) {
-        throw new Error(`Missing or zero rate for ${rateKey}`);
-      }
-      // MetalPriceAPI USDXAG returns the direct USD price per troy oz.
-      // If the value is < 1, it's the inverse rate (oz-per-USD) — invert it.
-      const price = rate >= 1 ? round2(rate) : round2(1 / rate);
-      // Sanity bounds: reject obviously wrong prices
-      if (price < 5 || price > 50000) {
-        throw new Error(`Price out of range for ${name}: $${price} (rate=${rate})`);
-      }
+      const price = roundPrice(derivePrice(data.rates, code));
+      assertPriceInRange(code, name, price);
       prices[name.toLowerCase()] = price;
     }
   } catch (err) {
@@ -134,7 +129,7 @@ async function main() {
           runId,
           finishedAt: new Date().toISOString(),
           captured: 0,
-          failures: 4,
+          failures: METAL_COUNT,
           fbpFilled: 0,
           error: err.message,
         });
@@ -145,25 +140,26 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(
-    `Spot prices: Gold=$${prices.gold}, Silver=$${prices.silver}, Platinum=$${prices.platinum}, Palladium=$${prices.palladium}`
+  // Derived from METAL_ORDER — a hand-written list here silently omitted any
+  // metal added later, which is how this line stayed four-wide (STRK-303).
+  const priceSummary = METAL_ORDER.map((metal) => `${metal}=$${prices[metal.toLowerCase()]}`).join(
+    ", "
   );
+  console.log(`Spot prices: ${priceSummary}`);
 
   // --- Write to sqld ---
   let dbOk = false;
   if (client) {
     try {
-      await insertSpotPrices(
-        client,
-        {
-          gold: prices.gold,
-          silver: prices.silver,
-          platinum: prices.platinum,
-          palladium: prices.palladium,
-          timestamp: tsWindow,
-        },
-        pollerId
-      );
+      // Built from SPOT_METAL_KEYS rather than spelled out. db.js destructures
+      // this payload by name and silently discards anything it does not know
+      // about, so a hand-written object here drops a new metal with no error
+      // and no log line (STRK-303).
+      const spotPayload = { timestamp: tsWindow };
+      for (const key of SPOT_METAL_KEYS) {
+        spotPayload[key] = prices[key];
+      }
+      await insertSpotPrices(client, spotPayload, pollerId);
       dbOk = true;
     } catch (err) {
       console.error("sqld insert failed:", err.message);
@@ -219,8 +215,8 @@ async function main() {
   if (client && runId) {
     try {
       const error = dbOk ? null : "sqld insert failed";
-      const captured = dbOk ? 4 : 0;
-      const failures = dbOk ? 0 : 4;
+      const captured = dbOk ? METAL_COUNT : 0;
+      const failures = dbOk ? 0 : METAL_COUNT;
       await finishRunLog(client, {
         runId,
         finishedAt: new Date().toISOString(),
@@ -237,4 +233,16 @@ async function main() {
   console.log(`Done. DB: ${dbOk ? "ok" : "degraded"}, files: ${filesWritten}`);
 }
 
-main();
+// Run only when executed directly, so tests can import this module without
+// starting a live poll. Same guard as backfill-spot-files.js (STRK-303).
+const isDirectRun = (() => {
+  try {
+    return realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirectRun) {
+  main();
+}
