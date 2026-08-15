@@ -61,6 +61,10 @@ playwright-report/
 .worktrees/
 .claude/worktrees/
 
+# Per-worktree session lock from the version-lock protocol. Inside a linked worktree
+# the worktree root IS the repo root, so the .worktrees/ rule above never covers it.
+.worktree.lock
+
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/
 
