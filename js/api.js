@@ -872,7 +872,8 @@ const updateHistoryPullCost = (provider) => {
 
   const selected = config.metals?.[provider] || {};
   // Wired-metal restriction keeps the cost preview aligned with what the pull
-  // will actually request (copper is config-truthy but unmapped, STRK-342).
+  // will actually request — only canonically-mapped metals count (STRK-342;
+  // copper joined the map in STRK-303 Part 2).
   const selectedMetals = Object.keys(selected).filter(
     (metal) => selected[metal] !== false && SPOT_PROVIDER_METAL_SYMBOLS[metal]
   );
@@ -1658,8 +1659,9 @@ const _fetchCustomLatest = async (config, providerConfig, apiKey, remaining, res
     return true;
   }
   for (const metal of remaining) {
-    // Unmapped metals (e.g. copper until STRK-303 Part 2) are skipped — a null
-    // code must never reach the user's endpoint URL as the string "undefined".
+    // Unmapped metals (any future metal not yet in the canonical map) are
+    // skipped — a null code must never reach the user's endpoint URL as the
+    // string "undefined" (STRK-342 defect 2).
     const metalCode = getSpotProviderMetalCode(metal, format);
     if (!metalCode) continue;
     try {
@@ -1760,8 +1762,8 @@ const fetchBatchSpotPrices = async (
     if (provider === "METALS_DEV") {
       url = url.replace("{API_KEY}", apiKey);
     } else if (provider === "METALS_API") {
-      // filter(Boolean) drops unmapped metals (e.g. copper until STRK-303
-      // Part 2) so the URL never carries the string "undefined".
+      // filter(Boolean) drops unmapped metals (any future metal not yet in
+      // the canonical map) so the URL never carries the string "undefined".
       const symbols = selectedMetals
         .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
         .filter(Boolean)
@@ -1891,9 +1893,10 @@ const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
   }
 
   // Third-party providers serve only canonically-wired metals, but config can
-  // carry additional truthy entries (copper since STRK-305). Without this
-  // restriction a copper-only selection skips the empty-selection error above
-  // and fails later with a misleading "No valid prices retrieved" (STRK-342).
+  // carry additional truthy entries for metals added ahead of provider wiring
+  // (as copper was between STRK-305 and STRK-303 Part 2). Without this
+  // restriction such a selection skips the empty-selection error above and
+  // fails later with a misleading "No valid prices retrieved" (STRK-342).
   const supportedMetals = selectedMetals.filter((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal]);
   if (supportedMetals.length === 0) {
     throw new Error("No metals selected for sync");
@@ -2148,8 +2151,9 @@ const handleHistoryPull = async (provider) => {
 
   const selected = config.metals?.[provider] || {};
   // History pulls hit third-party batch endpoints only, so restrict to
-  // canonically-wired metals — a copper-only selection must surface as "no
-  // metals selected", not as a malformed empty-symbols request (STRK-342).
+  // canonically-wired metals — a selection of only unmapped metals must
+  // surface as "no metals selected", not as a malformed empty-symbols
+  // request (STRK-342).
   const selectedMetals = Object.keys(selected).filter(
     (m) => selected[m] !== false && SPOT_PROVIDER_METAL_SYMBOLS[m]
   );
