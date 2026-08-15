@@ -38,6 +38,7 @@ import {
   assertPriceInRange,
   roundPrice,
 } from "../../devops/pollers/shared/spot-metals.js";
+import { computeOhlca } from "../../devops/pollers/shared/v2-utils.js";
 
 /** Live MetalPriceAPI `rates` payload, probed 2026-08-15. */
 const LIVE_RATES = {
@@ -203,5 +204,31 @@ describe("roundPrice", () => {
     // Regression guard: these are what round2 produced before STRK-303.
     assert.equal(roundPrice(1316.4839), 1316.48);
     assert.equal(roundPrice(0.4126) > 0, true);
+  });
+});
+
+describe("computeOhlca avg precision (shared with the retail export)", () => {
+  const sample = (price, t) => ({ price, timestamp: t });
+
+  it("no longer publishes an avg that contradicts high/low for a sub-dollar metal", () => {
+    // open/high/low/close pass through raw, so a flat 2-decimal avg used to
+    // emit avg: 0.41 beside high: 0.4131 in the same object.
+    const bucket = computeOhlca([
+      sample(0.4121, "2026-08-15T00:00:00Z"),
+      sample(0.4131, "2026-08-15T00:15:00Z"),
+    ]);
+    assert.equal(bucket.avg, 0.4126);
+    assert.ok(
+      bucket.avg >= bucket.low && bucket.avg <= bucket.high,
+      `avg ${bucket.avg} fell outside [${bucket.low}, ${bucket.high}]`
+    );
+  });
+
+  it("is byte-identical to the old behaviour at or above $1 — retail is untouched", () => {
+    const bucket = computeOhlca([
+      sample(34.21, "2026-08-15T00:00:00Z"),
+      sample(34.28, "2026-08-15T00:15:00Z"),
+    ]);
+    assert.equal(bucket.avg, 34.25); // (34.21 + 34.28) / 2 = 34.245 -> 34.25
   });
 });

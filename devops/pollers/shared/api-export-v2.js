@@ -39,7 +39,7 @@ import { writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toTimestampPair, computeOhlca, wrapEnvelope } from "./v2-utils.js";
-import { SPOT_METAL_KEYS } from "./spot-metals.js";
+import { SPOT_METAL_KEYS, roundPrice } from "./spot-metals.js";
 
 // db.js / provider-db.js statically import the poller-only native dep
 // better-sqlite3, which is not installed where unit tests run. They are
@@ -247,7 +247,10 @@ async function exportSpot(client) {
       const price = Number(row.spot);
       const perMetalLatest = { metal: iso, price, t, ts };
       if (price24hAgo !== null && price24hAgo !== 0) {
-        perMetalLatest.change_24h = parseFloat((price - price24hAgo).toFixed(2));
+        // Magnitude-aware. A flat 2-decimal delta reads 0.00 on almost every
+        // copper day while change_24h_pct beside it shows a non-zero move —
+        // two fields in one object contradicting each other (STRK-303).
+        perMetalLatest.change_24h = roundPrice(price - price24hAgo);
         perMetalLatest.change_24h_pct = parseFloat(
           (((price - price24hAgo) / price24hAgo) * 100).toFixed(2)
         );

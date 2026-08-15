@@ -68,12 +68,12 @@ v2 endpoints embed their freshness threshold in the envelope. The frontend alway
 
 ### Overview
 
-Spot prices (gold, silver, platinum, palladium in USD/oz) are polled **4× per hour** (every 15 minutes) by **two independent writers**: the Fly.io container and the home poller. Both write to the sqld `spot_prices` table and JSON files on the Fly.io persistent volume. Published to GitHub Pages via `run-publish.sh`.
+Spot prices (gold, silver, platinum, palladium, copper in USD per troy oz) are polled **4× per hour** (every 15 minutes) by **two independent writers**: the Fly.io container and the home poller. Both write to the sqld `spot_prices` table and JSON files on the Fly.io persistent volume. Published to GitHub Pages via `run-publish.sh`.
 
 ### Flow
 
 ```text
-MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD)
+MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD,XCU)
         │
         ├──► Fly.io run-spot.sh  (0,30 * * * *)   POLLER_ID=fly-spot
         │         spot-extract.js
@@ -130,7 +130,7 @@ Prices are rounded by magnitude — two decimals at or above $1, four below. Two
 
 **sqld table: `spot_prices`**
 
-Primary data store. `spot-extract.js` inserts rows via `insertSpotPrices()` with gold, silver, platinum, palladium prices and a floored 15-minute window timestamp.
+Primary data store. `spot-extract.js` inserts one row per tracked metal via `insertSpotPrices()`, keyed on `(metal, timestamp_floor)` with a floored 15-minute window timestamp. The metal set comes from `spot-metals.js`; `insertSpotPrices` validates every requested metal is a finite number before writing any row, so a partial payload fails before it can half-commit.
 
 **JSON files on Fly volume:**
 

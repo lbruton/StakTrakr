@@ -4,6 +4,12 @@
  * Usage:
  *   DATA_DIR=/path/to/data node backfill-spot.js
  *
+ * Optional env:
+ *   COPPER_REQUIRED_FROM  ISO instant from which copper must be present in an
+ *                         archived file. Set this to the STRK-303 deploy time
+ *                         once copper is live, or copper gaps go unreported.
+ *                         Unset = no enforcement (logs a warning).
+ *
  * Scans DATA_DIR/hourly/ and DATA_DIR/15min/ for spot price JSON files,
  * parses each, and inserts into the spot_prices table via insertSpotPrices().
  * Idempotent — safe to re-run (INSERT OR REPLACE semantics).
@@ -44,8 +50,7 @@ const COPPER_CUTOVER_MS = (() => {
   if (!COPPER_REQUIRED_FROM) return null;
   const parsed = Date.parse(COPPER_REQUIRED_FROM);
   if (Number.isNaN(parsed)) {
-    console.error(`ERROR: COPPER_REQUIRED_FROM is not a valid ISO date: ${COPPER_REQUIRED_FROM}`);
-    process.exit(1);
+    throw new Error(`COPPER_REQUIRED_FROM is not a valid ISO date: ${COPPER_REQUIRED_FROM}`);
   }
   return parsed;
 })();
@@ -58,8 +63,11 @@ const COPPER_CUTOVER_MS = (() => {
 function requiredMetalsFor(timestamp) {
   if (COPPER_CUTOVER_MS === null) return LEGACY_SPOT_METAL_KEYS;
   const fileMs = Date.parse(timestamp);
-  if (Number.isNaN(fileMs) || fileMs < COPPER_CUTOVER_MS) return LEGACY_SPOT_METAL_KEYS;
-  return SPOT_METAL_KEYS;
+  // An undated file cannot be placed in an era. Require copper rather than
+  // waving it through, so an unreadable timestamp fails loudly as a skip
+  // instead of quietly importing as if it predated copper.
+  if (Number.isNaN(fileMs)) return SPOT_METAL_KEYS;
+  return fileMs < COPPER_CUTOVER_MS ? LEGACY_SPOT_METAL_KEYS : SPOT_METAL_KEYS;
 }
 
 /**

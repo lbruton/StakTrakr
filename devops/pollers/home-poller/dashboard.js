@@ -570,7 +570,7 @@ function renderCompactRunsTable(runs) {
       const dur = fmtDuration(r.started_at, r.finished_at);
       const isSpot = r.poller_id?.includes("spot");
       const resultCell = isSpot
-        ? `<small>${captured || SPOT_METAL_COUNT}/${SPOT_METAL_COUNT}</small>`
+        ? `<small>${captured}/${total || SPOT_METAL_COUNT}</small>`
         : total > 0
           ? `<div class="mini-bar"><div style="width:${rate}%;background:${barColor}"></div></div>${captured}`
           : `${captured}/${total}`;
@@ -2337,7 +2337,7 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
         const changeStr = change != null ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
         return `<tr>
         <td><span style="color:${metalColors[metal] || "var(--text)"};font-weight:600;">${metalNames[metal] || metal.toUpperCase()}</span> <span style="color:var(--muted);font-size:10px;">${metal.toUpperCase()}</span></td>
-        <td style="font-weight:700;font-family:monospace;">$${Number(d.price).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="font-weight:700;font-family:monospace;">$${Number(d.price).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: Number(d.price) < 1 ? 4 : 2 })}</td>
         <td style="color:${changeColor}">${changeStr}</td>
       </tr>`;
       })

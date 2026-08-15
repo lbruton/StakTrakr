@@ -233,8 +233,13 @@ async function main() {
   console.log(`Done. DB: ${dbOk ? "ok" : "degraded"}, files: ${filesWritten}`);
 }
 
-// Run only when executed directly, so tests can import this module without
-// starting a live poll. Same guard as backfill-spot-files.js (STRK-303).
+/**
+ * Whether this module was executed directly rather than imported.
+ *
+ * Gates the call to main() so a test can import this file without starting a
+ * live poll. Same guard as backfill-spot-files.js (STRK-303).
+ * @constant {boolean}
+ */
 const isDirectRun = (() => {
   try {
     return realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
@@ -244,5 +249,8 @@ const isDirectRun = (() => {
 })();
 
 if (isDirectRun) {
-  main();
+  main().catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
 }

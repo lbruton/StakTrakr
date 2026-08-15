@@ -9,6 +9,13 @@
  *   DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js \
  *     --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]
  *
+ * Optional env:
+ *   COPPER_REQUIRED_FROM  ISO instant from which copper must be present for an
+ *                         hour to be regenerated. Set this to the STRK-303
+ *                         deploy time once copper is live, or a copper gap will
+ *                         heal into a silently incomplete file. Unset = no
+ *                         enforcement. An invalid value throws.
+ *
  * Hours are UTC, inclusive on both ends; --to defaults to --from.
  * Existing files are skipped unless --overwrite. Output is byte-compatible
  * with the hourly files spot-extract.js writes.
@@ -39,18 +46,35 @@ const LEGACY_METAL_ORDER = LEGACY_SPOT_METAL_KEYS.map(
 const COPPER_REQUIRED_FROM = process.env.COPPER_REQUIRED_FROM;
 
 /**
+ * Parsed cutover instant, or null when enforcement is off.
+ *
+ * Throws on an invalid value rather than falling back to "no enforcement". A
+ * typo'd date would otherwise silently disable copper-gap detection — the
+ * failure mode this cutover exists to prevent — and look identical to a
+ * deliberately unset variable.
+ * @constant {number|null}
+ */
+const COPPER_CUTOVER_MS = (() => {
+  if (!COPPER_REQUIRED_FROM) return null;
+  const parsed = Date.parse(COPPER_REQUIRED_FROM);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`COPPER_REQUIRED_FROM is not a valid ISO date: ${COPPER_REQUIRED_FROM}`);
+  }
+  return parsed;
+})();
+
+/**
  * Metals that must be present for a given hour to be regenerated.
  * @param {string} hour - Hour key in `YYYY-MM-DDTHH` form.
  * @returns {string[]} Capitalised metal names required for that hour.
  */
 export function requiredMetalsForHour(hour) {
-  if (!COPPER_REQUIRED_FROM) return LEGACY_METAL_ORDER;
-  const cutoverMs = Date.parse(COPPER_REQUIRED_FROM);
+  if (COPPER_CUTOVER_MS === null) return LEGACY_METAL_ORDER;
   const hourMs = Date.parse(`${hour}:00:00Z`);
-  if (Number.isNaN(cutoverMs) || Number.isNaN(hourMs) || hourMs < cutoverMs) {
-    return LEGACY_METAL_ORDER;
+  if (Number.isNaN(hourMs)) {
+    throw new Error(`requiredMetalsForHour received an unparseable hour: ${hour}`);
   }
-  return METAL_ORDER;
+  return hourMs < COPPER_CUTOVER_MS ? LEGACY_METAL_ORDER : METAL_ORDER;
 }
 const HOUR_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/;
 const MAX_RANGE_HOURS = 24 * 366; // sanity cap — one year

@@ -529,7 +529,9 @@ export async function insertSpotPrices(client, prices, pollerId, metals = SPOT_M
   const { timestamp } = prices;
   const floor = windowFloor(timestamp);
 
-  const missing = metals.filter((metal) => typeof prices[metal] !== "number");
+  // Number.isFinite, not typeof — NaN and Infinity are both typeof "number" and
+  // would pass a bare type check straight into a REAL NOT NULL column.
+  const missing = metals.filter((metal) => !Number.isFinite(prices[metal]));
   if (missing.length) {
     throw new Error(`insertSpotPrices missing numeric price for: ${missing.join(", ")}`);
   }

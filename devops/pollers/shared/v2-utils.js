@@ -4,6 +4,8 @@
  * All timestamps are ISO 8601 UTC with Z suffix.
  */
 
+import { roundPrice } from "./spot-metals.js";
+
 /**
  * Floor a Date to the given granularity boundary and return an ISO 8601 UTC Z-suffixed string.
  */
@@ -66,7 +68,11 @@ export function computeOhlca(samples) {
     high: Math.max(...prices),
     low: Math.min(...prices),
     close: sorted[sorted.length - 1].price,
-    avg: parseFloat((sum / prices.length).toFixed(2)),
+    // Magnitude-aware: open/high/low/close pass through raw, so a flat 2-decimal
+    // avg would publish `avg: 0.41` beside `high: 0.4126` in the same object for
+    // a sub-dollar metal like copper. Identical to the old behaviour at or
+    // above $1, so retail and the precious metals are unaffected (STRK-303).
+    avg: roundPrice(sum / prices.length),
     n: prices.length,
   };
 }
