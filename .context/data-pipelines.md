@@ -187,6 +187,18 @@ The frontend user-selectable spot source (v3.34.24+) replaces the legacy fallbac
 
 **Gap-healing backfiller (STRK-187):** `shared/backfill-spot-files.js` regenerates hourly spot JSON files **from sqld** — the reverse of `backfill-spot.js` (which imports files _into_ sqld). Use it when spot rows kept landing in sqld but file writes failed (e.g. the 2026-06-11 inode-exhaustion outage). Usage: `DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]` (hours UTC, inclusive; existing files skipped unless `--overwrite`; output byte-compatible with `spot-extract.js`).
 
+**v2 day-file backfiller (STRK-345):** `shared/backfill-v2-day-files.js` backfills a metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive **from year-file daily history** — sqld cannot source it (`spot_prices` reaches back only to 2026-02 and holds a new metal only from its go-live). Emits one honest single-sample OHLCA entry per day (`n: 1`, `t` at noon UTC) in the standard v2 envelope; existing files are skipped unless `--overwrite`, so it can never clobber a real hourly file. Usage (on the Fly machine; `run-publish.sh` pushes on its next cycle): `DATA_DIR=/data/staktrakr-api-export/data node backfill-v2-day-files.js --metal xcu --from 2026-03-25 --to 2026-08-14 [--source <url-or-path>] [--overwrite] [--dry-run]`.
+
+### Adding a metal — rollout checklist addition (STRK-345)
+
+A new metal's poller go-live starts its v2 day-file archive **at go-live**; nothing
+backfills the archive automatically, so the client's hourly-resolution pulls 404
+across the metal's pre-go-live window (this bit copper: legacy archive floor
+2026-03-25, copper's first day file 2026-08-15). After deploying a new metal's
+poller support, run `backfill-v2-day-files.js` for the new metal from the legacy
+metals' archive floor to the day before go-live, then verify sample dates return
+200 on both `api.staktrakr.com` and `api2.staktrakr.com`.
+
 ---
 
 ## Retail Pipeline
