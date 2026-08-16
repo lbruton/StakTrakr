@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.7] - 2026-08-16
+
+### Fixed — STRK-343: Copper sparkline flat on existing profiles
+
+- **Per-metal backfill freshness check** (STRK-343): `backfillStaktrakrHourly`'s
+  fresh-load-vs-incremental decision was global across metals — any recent
+  `api-hourly` row (always true on an existing profile via the legacy four)
+  forced the 24 h window, so copper never received its 7-day deep backfill and
+  its sparkline flat-lined on every ≤180d range. The window decision is now a
+  pure helper (`_staktrakrBackfillHoursBack`) that requires EVERY metal in
+  `METALS` to have a recent hourly row before taking the 24 h fast path; any
+  metal without coverage extends the pull to 7 days so it self-heals on the
+  next sync. Deriving the tracked set from `METALS` means the next metal
+  addition inherits the behavior with no new code.
+
 ## [3.36.6] - 2026-08-15
 
 ### Added — STRK-341: The Silver:Copper ratio pair — Copper Phase 4

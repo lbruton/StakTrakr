@@ -407,11 +407,35 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack, { signal } = {}) => {
 };
 
 /**
+ * Decides the hourly-backfill window: 24 h incremental only when EVERY metal
+ * in METALS has a recent api-hourly row; otherwise 7 days so a newly added
+ * metal receives its deep backfill (STRK-343 — the check was global, so an
+ * existing profile's legacy-metal rows starved copper of its 7-day pull and
+ * flat-lined its sparkline; deriving the set from METALS makes the next
+ * metal addition inherit the behavior).
+ * @param {Array<{metal: string, source: string, timestamp: string}>} history spot history entries
+ * @param {number} [now] epoch ms reference for the 24 h cutoff
+ * @returns {number} hours to backfill (24 or 168)
+ */
+const _staktrakrBackfillHoursBack = (history, now = Date.now()) => {
+  const oneDayAgo = now - 24 * 3600000;
+  const recentMetals = new Set();
+  history.forEach((e) => {
+    if (e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo) {
+      recentMetals.add(e.metal);
+    }
+  });
+  const everyMetalRecent = Object.values(METALS).every((m) => recentMetals.has(m.name));
+  return everyMetalRecent ? 24 : 7 * 24;
+};
+
+/**
  * Backfills hourly spot data from StakTrakr into spotHistory.
- * On a fresh load (no recent api-hourly entries), extends to 7 days to populate
+ * When any tracked metal lacks recent api-hourly entries (fresh load, or a
+ * newly added metal on an existing profile), extends to 7 days to populate
  * the sparkline window — the seed bundle can lag by ~9 days (LBMA data delay),
- * so 24 h alone is not enough to draw a 7-day sparkline (STAK-303).
- * On subsequent loads, only backfills the last 24 h for efficiency.
+ * so 24 h alone is not enough to draw a 7-day sparkline (STAK-303, STRK-343).
+ * Otherwise only backfills the last 24 h for efficiency.
  * Only runs when STAKTRAKR is the primary provider (rank 1) and sync succeeded.
  * @returns {Promise<number>} Count of new entries added
  */
@@ -426,11 +450,7 @@ const backfillStaktrakrHourly = async ({ signal } = {}) => {
       debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
       return 0;
     }
-    const oneDayAgo = Date.now() - 24 * 3600000;
-    const hasRecentHourly = spotHistory.some(
-      (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
-    );
-    const hoursBack = hasRecentHourly ? 24 : 7 * 24;
+    const hoursBack = _staktrakrBackfillHoursBack(spotHistory);
     if (signal?.aborted) return 0;
     const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack, { signal });
     // Track usage per file fetched (each file = 1 API request)
