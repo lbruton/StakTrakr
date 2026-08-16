@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.7";
+const APP_VERSION = "3.36.8";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1191,7 +1191,7 @@ const ALLOWED_STORAGE_KEYS = [
   LATEST_REMOTE_URL_KEY, // string: cached latest remote release URL (STACK-67)
   "ff_migration_fuzzy_autocomplete", // one-time migration flag (v3.26.01)
   "migration_hourlySource", // one-time migration flag: re-tag StakTrakr hourly entries
-  "migration_seedHistoryMerge", // one-time migration flag: skip redundant seed-history merge writes
+  "migration_seedHistoryMerge", // seed-pass settle sentinel (STRK-344: no longer read as a gate; Playwright waits on it)
   "migration_cmp2_compression", // one-time migration flag: re-encode CMP1/large keys to CMP2 (STRK-140)
   "migration_idb_history_v1", // one-time migration flag: market histories moved to IndexedDB (STRK-141)
   "numistaLookupRules", // custom Numista search lookup rules (JSON array)

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.8] - 2026-08-16
+
+### Fixed — STRK-344: Per-metal seed merge for existing profiles
+
+- **`loadSeedSpotHistory` merges seed rows per metal** (STRK-344): the seeder
+  previously hydrated the 180-day seed window only for empty profiles and
+  skipped existing ones entirely (behind a global `migration_seedHistoryMerge`
+  read), so a newly added metal (copper) could never obtain its 8–180-day
+  chart history — every range ≤180d reads only `spotHistory`. A new pure
+  helper (`_seedEntriesToMerge`) now runs the merge per metal: any metal
+  lacking a history row older than 30 days receives its seed rows inside the
+  180-day window, skipping days that already have live rows (live wins).
+  Idempotent every boot; the flag write is retained purely as the
+  seed-pass settle sentinel Playwright waits on. Companion to v3.36.7's
+  per-metal backfill fix — same global-check-vs-per-metal-need root cause,
+  one layer down. Server-side day-file parity is tracked separately
+  (STRK-345).
+
 ## [3.36.7] - 2026-08-16
 
 ### Fixed — STRK-343: Copper sparkline flat on existing profiles
