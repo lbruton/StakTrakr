@@ -17,10 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forced the 24 h window, so copper never received its 7-day deep backfill and
   its sparkline flat-lined on every ≤180d range. The window decision is now a
   pure helper (`_staktrakrBackfillHoursBack`) that requires EVERY metal in
-  `METALS` to have a recent hourly row before taking the 24 h fast path; any
-  metal without coverage extends the pull to 7 days so it self-heals on the
-  next sync. Deriving the tracked set from `METALS` means the next metal
-  addition inherits the behavior with no new code.
+  `METALS` to have both a recent hourly row (≤24 h) AND deep coverage (a row
+  ≥6 days old, proof its 7-day pull already landed) before taking the 24 h
+  fast path — recency alone would strand profiles that kept syncing after the
+  new metal shipped. Timestamps are compared in the UTC frame (stored rows
+  are UTC-naive), so the decision is offset-independent. Any uncovered metal
+  extends the pull to 7 days and self-heals on the next sync; deriving the
+  tracked set from `METALS` means the next metal addition inherits the
+  behavior with no new code.
 
 ## [3.36.6] - 2026-08-15
 

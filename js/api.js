@@ -408,25 +408,38 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack, { signal } = {}) => {
 
 /**
  * Decides the hourly-backfill window: 24 h incremental only when EVERY metal
- * in METALS has a recent api-hourly row; otherwise 7 days so a newly added
- * metal receives its deep backfill (STRK-343 — the check was global, so an
- * existing profile's legacy-metal rows starved copper of its 7-day pull and
- * flat-lined its sparkline; deriving the set from METALS makes the next
- * metal addition inherit the behavior).
+ * in METALS has BOTH a recent api-hourly row (≤24 h) AND deep hourly coverage
+ * (a row ≥6 days old — proof its 7-day pull already landed); otherwise 7 days
+ * so an uncovered metal self-heals (STRK-343 — the check was global, so an
+ * existing profile's legacy-metal rows starved copper of its deep pull and
+ * flat-lined its sparkline). Recency alone is not enough: a profile that kept
+ * syncing after a new metal shipped has recent rows for it but no trailing
+ * week. The 6-day threshold sits inside the 7-day pull and far inside
+ * purgeSpotHistory's 180-day retention. Deriving the set from METALS makes
+ * the next metal addition inherit the behavior.
  * @param {Array<{metal: string, source: string, timestamp: string}>} history spot history entries
- * @param {number} [now] epoch ms reference for the 24 h cutoff
+ * @param {number} [now] epoch ms reference for the cutoffs
  * @returns {number} hours to backfill (24 or 168)
  */
 const _staktrakrBackfillHoursBack = (history, now = Date.now()) => {
-  const oneDayAgo = now - 24 * 3600000;
+  // Stored rows are UTC-naive ("YYYY-MM-DD HH:MM:SS" — the writer strips the
+  // Z); restore the UTC frame before comparing, since a local-frame parse
+  // shifts rows by the UTC offset and can wrongly skip the deep pull.
+  const utcMs = (ts) => new Date(`${ts.replace(" ", "T")}Z`).getTime();
+  const recentCutoff = now - 24 * 3600000;
+  const deepCutoff = now - 6 * 24 * 3600000;
   const recentMetals = new Set();
+  const deepMetals = new Set();
   history.forEach((e) => {
-    if (e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo) {
-      recentMetals.add(e.metal);
-    }
+    if (e.source !== "api-hourly") return;
+    const t = utcMs(e.timestamp);
+    if (t >= recentCutoff) recentMetals.add(e.metal);
+    if (t <= deepCutoff) deepMetals.add(e.metal);
   });
-  const everyMetalRecent = Object.values(METALS).every((m) => recentMetals.has(m.name));
-  return everyMetalRecent ? 24 : 7 * 24;
+  const everyMetalCovered = Object.values(METALS).every(
+    (m) => recentMetals.has(m.name) && deepMetals.has(m.name)
+  );
+  return everyMetalCovered ? 24 : 7 * 24;
 };
 
 /**
