@@ -407,11 +407,48 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack, { signal } = {}) => {
 };
 
 /**
+ * Decides the hourly-backfill window: 24 h incremental only when EVERY metal
+ * in METALS has BOTH a recent api-hourly row (≤24 h) AND deep hourly coverage
+ * (a row ≥6 days old — proof its 7-day pull already landed); otherwise 7 days
+ * so an uncovered metal self-heals (STRK-343 — the check was global, so an
+ * existing profile's legacy-metal rows starved copper of its deep pull and
+ * flat-lined its sparkline). Recency alone is not enough: a profile that kept
+ * syncing after a new metal shipped has recent rows for it but no trailing
+ * week. The 6-day threshold sits inside the 7-day pull and far inside
+ * purgeSpotHistory's 180-day retention. Deriving the set from METALS makes
+ * the next metal addition inherit the behavior.
+ * @param {Array<{metal: string, source: string, timestamp: string}>} history spot history entries
+ * @param {number} [now] epoch ms reference for the cutoffs
+ * @returns {number} hours to backfill (24 or 168)
+ */
+const _staktrakrBackfillHoursBack = (history, now = Date.now()) => {
+  // Stored rows are UTC-naive ("YYYY-MM-DD HH:MM:SS" — the writer strips the
+  // Z); restore the UTC frame before comparing, since a local-frame parse
+  // shifts rows by the UTC offset and can wrongly skip the deep pull.
+  const utcMs = (ts) => new Date(`${ts.replace(" ", "T")}Z`).getTime();
+  const recentCutoff = now - 24 * 3600000;
+  const deepCutoff = now - 6 * 24 * 3600000;
+  const recentMetals = new Set();
+  const deepMetals = new Set();
+  history.forEach((e) => {
+    if (e.source !== "api-hourly") return;
+    const t = utcMs(e.timestamp);
+    if (t >= recentCutoff) recentMetals.add(e.metal);
+    if (t <= deepCutoff) deepMetals.add(e.metal);
+  });
+  const everyMetalCovered = Object.values(METALS).every(
+    (m) => recentMetals.has(m.name) && deepMetals.has(m.name)
+  );
+  return everyMetalCovered ? 24 : 7 * 24;
+};
+
+/**
  * Backfills hourly spot data from StakTrakr into spotHistory.
- * On a fresh load (no recent api-hourly entries), extends to 7 days to populate
+ * When any tracked metal lacks recent api-hourly entries (fresh load, or a
+ * newly added metal on an existing profile), extends to 7 days to populate
  * the sparkline window — the seed bundle can lag by ~9 days (LBMA data delay),
- * so 24 h alone is not enough to draw a 7-day sparkline (STAK-303).
- * On subsequent loads, only backfills the last 24 h for efficiency.
+ * so 24 h alone is not enough to draw a 7-day sparkline (STAK-303, STRK-343).
+ * Otherwise only backfills the last 24 h for efficiency.
  * Only runs when STAKTRAKR is the primary provider (rank 1) and sync succeeded.
  * @returns {Promise<number>} Count of new entries added
  */
@@ -426,11 +463,7 @@ const backfillStaktrakrHourly = async ({ signal } = {}) => {
       debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
       return 0;
     }
-    const oneDayAgo = Date.now() - 24 * 3600000;
-    const hasRecentHourly = spotHistory.some(
-      (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
-    );
-    const hoursBack = hasRecentHourly ? 24 : 7 * 24;
+    const hoursBack = _staktrakrBackfillHoursBack(spotHistory);
     if (signal?.aborted) return 0;
     const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack, { signal });
     // Track usage per file fetched (each file = 1 API request)
