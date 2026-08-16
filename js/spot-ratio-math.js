@@ -189,6 +189,25 @@ const RATIO_PAIRS = [
     interpretive: false,
     title: "How many ounces of palladium buy one ounce of platinum",
   },
+  {
+    // STRK-341: the one non-gold-numerator pair — the comparison a stacker
+    // holding both metals actually makes. Runs ~165 (silver ~$64.70 /
+    // copper ~$0.41), an order of magnitude above every other pair, so one
+    // decimal keeps it legible without implying false precision. Pre-2013
+    // copper history is monthly (World Bank Pink Sheet), so the series is
+    // sparse there by construction — buildRatioSeries emits only shared
+    // dates and never fabricates points.
+    id: "ag-cu",
+    label: "Ag:Cu",
+    num: "Silver",
+    den: "Copper",
+    numSym: "xag",
+    denSym: "xcu",
+    accent: "copper",
+    decimals: 1,
+    interpretive: false,
+    title: "How many ounces of copper buy one ounce of silver",
+  },
 ];
 
 /**

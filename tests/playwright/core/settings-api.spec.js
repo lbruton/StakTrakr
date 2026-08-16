@@ -273,26 +273,27 @@ test.describe("core/settings-api", () => {
     expect(await page.evaluate(() => localStorage.getItem("show-spot-ratios"))).toBe("true");
   });
 
-  test("STRK-161: toggling the spot-ratios setting shows/hides all four chips live without reload (AC-11)", async ({
+  test("STRK-161: toggling the spot-ratios setting shows/hides all five chips live without reload (AC-11)", async ({
     page,
   }) => {
     await seedRatioState(page, "api");
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await populateRatioInputs(page);
 
-    // Default ON: all four chips are present.
-    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+    // Default ON: all five chips are present in the DOM (the Ag:Cu chip lives
+    // inside the copper card, hidden until the Metal Order opt-in — STRK-341).
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
 
     await openSettingsSection(page, "currency");
     const toggle = page.locator("#settingsPanel_currency #showSpotRatiosToggle");
 
-    // OFF → all four chips removed live (no reload).
+    // OFF → all five chips removed live (no reload).
     await toggle.locator('.chip-sort-btn[data-val="no"]').click();
     await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
 
-    // ON → all four chips return live.
+    // ON → all five chips return live.
     await toggle.locator('.chip-sort-btn[data-val="yes"]').click();
-    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
   });
 
   test("STRK-161: while the toggle is OFF, all chips stay hidden regardless of goldback mode or spot validity (AC-12)", async ({
@@ -302,9 +303,10 @@ test.describe("core/settings-api", () => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await populateRatioInputs(page);
 
-    // Baseline: master ON + valid spot + fresh goldback → all four chips render.
+    // Baseline: master ON + valid spot + fresh goldback → all five chips render
+    // (five since STRK-341 — the Ag:Cu chip rides the hidden copper card).
     // (Anchors the test to real render behavior so it is RED against the stub.)
-    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
 
     // Turn the master toggle OFF.
     await openSettingsSection(page, "currency");

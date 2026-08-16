@@ -14,11 +14,14 @@ const SPOT_RATIOS_STORAGE_KEY =
 const RATIO_CHIP_GLYPH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/></svg>`;
 const GOLDBACK_CHIP_GLYPH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M5 9v6M19 9v6"/></svg>`;
 
-// Ratio-card definitions (gold ÷ <metal>). The gold card is handled separately.
-// pairId maps each chip to its RATIO_PAIRS entry for the panel modal (STRK-271);
-// the gold card's goldback chip has NO pairId — it shows a G1 rate, not a ratio,
-// and must never open the ratios panel. Pt:Pd deliberately has no chip; it is
-// reachable via the in-panel selector.
+// Ratio-card definitions. Each chip lives on its pair's DENOMINATOR card;
+// `num` names the numerator spot key (default "gold"). pairId maps each chip
+// to its RATIO_PAIRS entry for the panel modal (STRK-271); the gold card's
+// goldback chip has NO pairId — it shows a G1 rate, not a ratio, and must
+// never open the ratios panel. Pt:Pd deliberately has no chip; it is
+// reachable via the in-panel selector. The Ag:Cu chip rides the COPPER card
+// (STRK-341), so its visibility structurally follows copper's Metal Order
+// opt-in — no copper figure ever surfaces on a copper-less dashboard.
 const RATIO_CHIP_CARDS = [
   { metal: "silver", label: "Au:Ag", decimals: 1, accentClass: "metal-silver", pairId: "au-ag" },
   {
@@ -34,6 +37,14 @@ const RATIO_CHIP_CARDS = [
     decimals: 2,
     accentClass: "metal-palladium",
     pairId: "au-pd",
+  },
+  {
+    metal: "copper",
+    label: "Ag:Cu",
+    decimals: 1,
+    accentClass: "metal-copper",
+    pairId: "ag-cu",
+    num: "silver",
   },
 ];
 
@@ -157,6 +168,13 @@ const ratioChipTipText = (metal) => {
   }
   // spotPrices (state.js) loads before this file — read it bare. computeRatio
   // already returns null for missing/≤0 inputs, so undefined metals are safe.
+  if (metal === "copper") {
+    const agcu = computeRatio(spotPrices.silver, spotPrices.copper);
+    return {
+      heading: "Silver-to-Copper Ratio",
+      body: `It takes ${formatRatio(agcu, 1)} oz of copper to buy 1 oz of silver. Click for trends.`,
+    };
+  }
   const r = computeRatio(spotPrices.gold, spotPrices[metal]);
   if (metal === "silver") {
     return {
@@ -231,7 +249,8 @@ const resolveChipContent = (metalKey, spots) => {
   }
   const card = RATIO_CHIP_CARDS.find((c) => c.metal === metalKey);
   if (!card) return null;
-  const ratio = computeRatio(spots.gold, spots[metalKey]);
+  // Numerator defaults to gold; Ag:Cu overrides with silver (STRK-341).
+  const ratio = computeRatio(spots[card.num || "gold"], spots[metalKey]);
   if (ratio === null) return null;
   return {
     accentClass: card.accentClass,
@@ -285,6 +304,9 @@ const renderRatioChips = () => {
   renderRatioChip("gold");
   renderRatioChip("platinum");
   renderRatioChip("palladium");
+  // Renders into the copper card, which is hidden unless copper is enabled
+  // in Settings › Metal Order — chip visibility follows the opt-in (STRK-341).
+  renderRatioChip("copper");
 };
 
 // =============================================================================

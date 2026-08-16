@@ -16530,6 +16530,9 @@ input[type="number"] {
 .spot-ratio-chip.metal-palladium {
   --metal: var(--palladium);
 }
+.spot-ratio-chip.metal-copper {
+  --metal: var(--copper);
+}
 .spot-ratio-chip.metal-gold {
   --metal: var(--type-goldback-bg);
 }
