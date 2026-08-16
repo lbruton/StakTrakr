@@ -94,11 +94,12 @@ const weekdayDates = (n) => {
 // RATIO_PAIRS config
 // =============================================================================
 describe("RATIO_PAIRS config", () => {
-  test("exposes exactly the 4 pairs in panel order", () => {
+  test("exposes exactly the 5 pairs in panel order", () => {
     assert.ok(Array.isArray(mod.RATIO_PAIRS), "RATIO_PAIRS must be an array on window");
+    // ag-cu appended by STRK-341; the original four are unchanged (regression).
     assert.deepEqual(
       mod.RATIO_PAIRS.map((p) => p.id),
-      ["au-ag", "au-pt", "au-pd", "pt-pd"]
+      ["au-ag", "au-pt", "au-pd", "pt-pd", "ag-cu"]
     );
   });
 
@@ -120,6 +121,11 @@ describe("RATIO_PAIRS config", () => {
       [byId["pt-pd"].num, byId["pt-pd"].den, byId["pt-pd"].numSym, byId["pt-pd"].denSym],
       ["Platinum", "Palladium", "xpt", "xpd"]
     );
+    // STRK-341: silver over copper — the one non-gold-numerator pair.
+    assert.deepEqual(
+      [byId["ag-cu"].num, byId["ag-cu"].den, byId["ag-cu"].numSym, byId["ag-cu"].denSym],
+      ["Silver", "Copper", "xag", "xcu"]
+    );
   });
 
   test("accent follows the denominator metal", () => {
@@ -129,14 +135,26 @@ describe("RATIO_PAIRS config", () => {
       "au-pt": "platinum",
       "au-pd": "palladium",
       "pt-pd": "palladium",
+      "ag-cu": "copper",
     });
   });
 
-  test("decimals: 1 for Au:Ag, 2 for the rest; interpretive is Au:Ag only", () => {
+  test("decimals: 1 for Au:Ag and Ag:Cu, 2 for the rest; interpretive is Au:Ag only", () => {
     for (const p of mod.RATIO_PAIRS) {
-      assert.equal(p.decimals, p.id === "au-ag" ? 1 : 2, `decimals for ${p.id}`);
+      // Ag:Cu runs ~165 (silver ~$64.70 / copper ~$0.41) — an order of
+      // magnitude above every other pair, so one decimal keeps it legible
+      // (165.0) without implying false precision (STRK-341).
+      const oneDp = p.id === "au-ag" || p.id === "ag-cu";
+      assert.equal(p.decimals, oneDp ? 1 : 2, `decimals for ${p.id}`);
       assert.equal(p.interpretive, p.id === "au-ag", `interpretive for ${p.id}`);
     }
+  });
+
+  test("Ag:Cu math verifies against a hand calculation at real magnitudes", () => {
+    // 2026-08-15 live values: silver $64.70/ozt, copper $0.4126/ozt.
+    const ratio = mod.computeRatio(64.7, 0.4126);
+    assert.ok(Math.abs(ratio - 156.81) < 0.01, `hand calc 64.70/0.4126 ≈ 156.81, got ${ratio}`);
+    assert.equal(mod.formatRatio(ratio, 1), "156.8");
   });
 });
 
@@ -190,6 +208,26 @@ describe("buildRatioSeries", () => {
     ];
     const series = mod.buildRatioSeries(entries, "Gold", "Palladium");
     assert.deepEqual(series, [["1990-01-02", 3.99]]);
+  });
+
+  test("a monthly leg joins a daily leg only on shared dates — no fabricated points (STRK-341)", () => {
+    // Pre-2013 copper is MONTHLY (World Bank Pink Sheet rows stamped on the
+    // 1st at 12:00) while silver is daily. The Ag:Cu series must emit only
+    // where both printed — roughly one point per month — and must never
+    // interpolate silver-only dates into copper points.
+    const entries = [
+      { metal: "Silver", timestamp: "2005-06-01 00:00:00", spot: 7.25 },
+      { metal: "Silver", timestamp: "2005-06-02 00:00:00", spot: 7.3 },
+      { metal: "Silver", timestamp: "2005-06-03 00:00:00", spot: 7.28 },
+      { metal: "Copper", timestamp: "2005-06-01 12:00:00", spot: 0.1 }, // monthly WB row (Wed)
+      { metal: "Silver", timestamp: "2005-07-01 00:00:00", spot: 7.1 },
+      { metal: "Copper", timestamp: "2005-07-01 12:00:00", spot: 0.11 }, // monthly WB row (Fri)
+    ];
+    const series = mod.buildRatioSeries(entries, "Silver", "Copper");
+    assert.deepEqual(series, [
+      ["2005-06-01", 72.5],
+      ["2005-07-01", 7.1 / 0.11],
+    ]);
   });
 
   test("excludes zero, negative, and non-numeric closes on either side", () => {

@@ -39,18 +39,21 @@ const ratiosPageYearUrls = (year) => [
   `../data/spot-history-${year}.json`,
 ];
 
-/** Live-spot symbol → metal key/name mapping for the four panel metals. */
+/** Live-spot symbol → metal key/name mapping for the five panel metals. */
 const RATIOS_PAGE_METALS = [
   { symbol: "xag", key: "silver", name: "Silver" },
   { symbol: "xau", key: "gold", name: "Gold" },
   { symbol: "xpt", key: "platinum", name: "Platinum" },
   { symbol: "xpd", key: "palladium", name: "Palladium" },
+  // STRK-341: Ag:Cu needs a live copper leg or the pair could never show a
+  // current ratio or Live badge on this standalone host.
+  { symbol: "xcu", key: "copper", name: "Copper" },
 ];
 
 // The globals the panel reads bare, owned by this host on the standalone page.
 const ratiosPageCache = new Map();
 const ratiosPageHistory = [];
-const ratiosPageSpot = { silver: 0, gold: 0, platinum: 0, palladium: 0 };
+const ratiosPageSpot = { silver: 0, gold: 0, platinum: 0, palladium: 0, copper: 0 };
 window.historicalDataCache = ratiosPageCache;
 window.spotHistory = ratiosPageHistory;
 window.spotPrices = ratiosPageSpot;

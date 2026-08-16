@@ -269,9 +269,10 @@ test.describe("core/settings STRK-306 copper dashboard cards", () => {
     await expect(page.locator("#totalsCarousel")).toHaveAttribute("data-cards", "6");
 
     // Copper displays $/lb primary (industry convention) with the stored
-    // per-ozt figure on the secondary line — storage stays per troy ounce.
+    // per-ozt figure in the value's hover title (a visible second line broke
+    // the card's row alignment — STRK-341 review). Storage stays per-ozt.
     await expect(page.locator("#spotPriceDisplayCopper")).toContainText("/lb");
-    await expect(page.locator("#spotPriceSecondaryCopper")).toContainText("/ozt");
+    await expect(page.locator("#spotPriceDisplayCopper")).toHaveAttribute("title", /\/ozt/);
     const stored = await page.evaluate(() => parseFloat(localStorage.getItem("spotCopper")));
     const displayed = await page.locator("#spotPriceDisplayCopper").textContent();
     const lbValue = parseFloat(displayed.replace(/[^\d.]/g, ""));
@@ -283,6 +284,38 @@ test.describe("core/settings STRK-306 copper dashboard cards", () => {
       .locator("#totalsCarousel .total-card:not([style*='display: none']) .total-title")
       .first();
     await expect(firstVisibleTitle).toHaveText("All Metals");
+  });
+
+  test("the Ag:Cu ratio chip follows copper's Metal Order opt-in (STRK-341)", async ({ page }) => {
+    await gotoDashboard(page);
+
+    // Copper disabled (default): the chip renders into the copper card, which
+    // is display:none — no copper figure surfaces on a copper-less dashboard.
+    await expect(page.locator('.spot-ratio-chip[data-pair="ag-cu"]')).toBeHidden();
+
+    // Enable copper mid-session exactly as the settings table does.
+    await page.evaluate(() => {
+      const cfg = JSON.parse(localStorage.getItem("metalOrderConfig") || "null") || [];
+      const copperRow = cfg.find((m) => m.id === "copper");
+      if (copperRow) copperRow.enabled = true;
+      else cfg.push({ id: "copper", label: "Copper", enabled: true });
+      localStorage.setItem("metalOrderConfig", JSON.stringify(cfg));
+      window.applyMetalOrder();
+      window.renderRatioChips();
+    });
+
+    const chip = page.locator('.spot-ratio-chip[data-pair="ag-cu"]');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText("Ag:Cu");
+    // Value formats legibly at the pair's real ~3-digit magnitude, and equals
+    // the live silver/copper spots to the chip's one-decimal precision.
+    const chipValue = await chip.locator(".val").textContent();
+    const expected = await page.evaluate(
+      () =>
+        parseFloat(localStorage.getItem("spotSilver")) /
+        parseFloat(localStorage.getItem("spotCopper"))
+    );
+    expect(parseFloat(chipValue)).toBeCloseTo(expected, 1);
   });
 
   test("a pre-copper stored config keeps its order and leaves copper hidden", async ({ page }) => {

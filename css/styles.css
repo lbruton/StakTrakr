@@ -2256,16 +2256,6 @@ input[type="submit"] {
   padding: 0 var(--spacing);
 }
 
-/* Secondary unit line under the value — copper shows $/lb primary
-   (industry convention) with the stored $/ozt here (STRK-306) */
-.spot-card-value-secondary {
-  position: relative;
-  z-index: 1;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
 /* Spot price change indicators */
 .spot-up {
   color: var(--success);
@@ -5439,22 +5429,30 @@ input[type="submit"] {
   }
 }
 
-/* Six-card tier (STRK-306) — let the row WRAP instead of truncating. Short
-   values keep today's inline layout (label left, value right); a value too
-   wide for the remaining space drops to its own line, still right-aligned
-   (margin-left:auto), so $123,456.78 never truncates and $0.00 rows never
-   waste a second line (prototype review 2026-08-15: no uniform stacking).
+/* Six-card tier (STRK-306/341) — every row is a uniform two-line block:
+   label left on the first line, value RIGHT-ALIGNED on the second, so
+   $123,456.78 never truncates AND row separators stay height-aligned
+   across all six cards. (The earlier per-row conditional wrap fixed
+   truncation but let long-value cards grow taller than their neighbors —
+   STRK-341 live review chose all-lines-drop over misaligned rows.)
    Keyed on the data-cards count applyMetalOrder() stamps, so five-card
    layouts stay pixel-identical to the pre-copper dashboard. */
 @media (min-width: 1350px) {
   .totals[data-cards="6"] .total-item {
-    flex-wrap: wrap;
+    display: block;
+    padding: 0.3rem 0;
+  }
+  .totals[data-cards="6"] .total-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    line-height: 1.2;
   }
   .totals[data-cards="6"] .total-value {
+    display: block;
     overflow: visible;
     text-overflow: clip;
     text-align: right;
-    margin-left: auto;
+    line-height: 1.35;
   }
 }
 
@@ -16530,6 +16528,9 @@ input[type="number"] {
 .spot-ratio-chip.metal-palladium {
   --metal: var(--palladium);
 }
+.spot-ratio-chip.metal-copper {
+  --metal: var(--copper);
+}
 .spot-ratio-chip.metal-gold {
   --metal: var(--type-goldback-bg);
 }
@@ -16600,6 +16601,9 @@ input[type="number"] {
 }
 .gsr-panel[data-accent="platinum"] {
   --gsr-accent: var(--platinum);
+}
+.gsr-panel[data-accent="copper"] {
+  --gsr-accent: var(--copper);
 }
 .gsr-panel[data-accent="palladium"] {
   --gsr-accent: var(--palladium);

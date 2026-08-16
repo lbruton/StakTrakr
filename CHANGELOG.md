@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.6] - 2026-08-15
+
+### Added — STRK-341: The Silver:Copper ratio pair — Copper Phase 4
+
+- **Ag:Cu joins RATIO_PAIRS** (STRK-341): one pair, not the cross-product, per the locked
+  decision — Silver:Copper is the comparison a stacker holding both actually makes.
+  Silver numerator over copper denominator (`xag`/`xcu`), copper accent, one decimal
+  (the pair runs ~157–165, an order of magnitude above every other pair, so 1dp keeps it
+  legible without false precision). The ratios panel, the `/ratios/` page selector, and
+  the panel modal pick the pair up automatically from the registry.
+- **The Ag:Cu chip rides the copper spot card** (STRK-341): chips live on their pair's
+  denominator card by convention, so the chip's visibility structurally follows copper's
+  Settings › Metal Order opt-in — no copper figure ever surfaces on a copper-less
+  dashboard, with no extra config plumbing. `resolveChipContent` gains a per-card
+  numerator override (default gold; silver for this pair) and the chip tooltip explains
+  the ratio in plain English.
+- **Monthly/daily boundary verified** (STRK-341): pre-2013 copper history is monthly
+  (World Bank Pink Sheet), so the Ag:Cu series is sparse there by construction —
+  `buildRatioSeries` emits points only where both metals printed on a shared trading
+  date and never fabricates values, now pinned by a unit test.
+- **Four existing pairs unchanged** (STRK-341): pinned by regression assertions; the
+  four-pair-era count assertions across the unit and Playwright suites were updated to
+  the five-pair spec.
+
+### Changed — STRK-341: dashboard alignment refinements from live review
+
+- **Copper card per-ozt moved to a hover title** (STRK-341): the visible `$0.41 /ozt`
+  second line made the copper card's change/timestamp rows sit lower than the other
+  four cards. The stored per-troy-ounce figure now lives in the price's hover tooltip
+  (alongside the shift-click edit hint), restoring row alignment.
+- **Six-card totals rows are uniform two-line** (STRK-341): the v3.36.5 per-row
+  conditional wrap fixed truncation but let long-value cards grow taller than their
+  neighbors, misaligning row separators across the six cards. Every row now stacks
+  uniformly — label left on the first line, value right-aligned on the second — so all
+  six cards stay height-aligned and `$123,456.78` still never truncates. Five-card
+  layouts (copper disabled) remain untouched.
+
+---
+
 ## [3.36.5] - 2026-08-15
 
 ### Added — STRK-306: Copper dashboard cards, Metal Order entry, and the six-card layout
