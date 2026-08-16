@@ -7952,12 +7952,74 @@ function getEmbeddedSeedData() {
 }
 
 /**
+ * How far back a metal must have history before the seed merge considers it
+ * covered. A metal tracked by a live profile accretes api/api-hourly rows
+ * continuously, so any row older than this proves ongoing coverage; a metal
+ * with only fresher rows is either newly added (STRK-344: copper on an
+ * existing profile) or on a young profile — both correctly receive the seed
+ * window, with live rows winning on day collisions.
+ * @constant {number}
+ */
+const SEED_MERGE_COVERAGE_DAYS = 30;
+
+/**
+ * Selects the seed rows an existing profile is missing, per metal (STRK-344).
+ * A metal lacking any history row older than `coverageDays` gets its seed
+ * rows inside the `windowDays` runtime window, skipping days where that
+ * metal already has a live row (live wins — precedent js/spot.js day-dedup).
+ * Pure and idempotent: re-running against the merged result returns [].
+ * Cutoffs are fixed-epoch offsets rendered via toISOString, so the comparison
+ * strings are UTC-stamped like the stored UTC-naive timestamps (deliberate
+ * frame handling; getPersistedSpotHistorySnapshot reaches the same UTC-stamped
+ * shape via local-calendar setDate — a DST-edge difference of at most an hour,
+ * irrelevant at these day-scale thresholds).
+ * @param {Array<{metal: string, timestamp: string}>} existing current spotHistory rows
+ * @param {Array<{metal: string, timestamp: string}>} seedEntries validated seed rows
+ * @param {string[]} metalNames tracked metal names (derive from METALS)
+ * @param {number} [now] epoch ms reference for the cutoffs
+ * @param {number} [windowDays] runtime seed window (default SEED_RUNTIME_HISTORY_DAYS)
+ * @param {number} [coverageDays] coverage threshold (default SEED_MERGE_COVERAGE_DAYS)
+ * @returns {Array} seed rows to append to spotHistory
+ */
+const _seedEntriesToMerge = (
+  existing,
+  seedEntries,
+  metalNames,
+  now = Date.now(),
+  windowDays = SEED_RUNTIME_HISTORY_DAYS,
+  coverageDays = SEED_MERGE_COVERAGE_DAYS
+) => {
+  const stampDaysAgo = (days) =>
+    new Date(now - days * 86400000).toISOString().replace("T", " ").slice(0, 19);
+  const windowStart = stampDaysAgo(windowDays);
+  const coverageCutoff = stampDaysAgo(coverageDays);
+
+  const liveDays = new Set();
+  const covered = new Set();
+  existing.forEach((e) => {
+    liveDays.add(`${e.metal}|${e.timestamp.slice(0, 10)}`);
+    if (e.timestamp < coverageCutoff) covered.add(e.metal);
+  });
+
+  const wanted = new Set(metalNames.filter((name) => !covered.has(name)));
+  if (wanted.size === 0) return [];
+
+  return seedEntries.filter(
+    (e) =>
+      wanted.has(e.metal) &&
+      e.timestamp >= windowStart &&
+      !liveDays.has(`${e.metal}|${e.timestamp.slice(0, 10)}`)
+  );
+};
+
+/**
  * Loads seed/reference spot history without bulk-persisting the full bundle.
  *
  * First-time users: hydrate a recent storage-safe runtime window into spotHistory.
- * Existing users: keep their persisted runtime history intact and use the bundle
- * cache/year files as the source of truth for long-range reference data.
- * Runs once per app version for existing users via migration_seedHistoryMerge flag.
+ * Existing users: merge seed rows PER METAL for any metal lacking deep
+ * coverage (STRK-344) — a newly added metal (copper) gets its ≤180d chart
+ * history; fully covered metals are untouched. Runs every boot; the per-metal
+ * check makes it an idempotent no-op once coverage exists.
  *
  * Data sources (priority order):
  *   1. historicalDataCache — pre-populated by spot-history-bundle.js
@@ -7970,12 +8032,6 @@ async function loadSeedSpotHistory() {
   const existing =
     typeof spotHistory !== "undefined" && Array.isArray(spotHistory) ? spotHistory : [];
   const isMerge = existing.length > 0;
-
-  // Skip if merge already completed for this version
-  if (isMerge && localStorage.getItem("migration_seedHistoryMerge")) {
-    debugLog("Seed data: merge already completed — skipping");
-    return;
-  }
 
   debugLog(
     "Seed data: " +
@@ -8035,11 +8091,33 @@ async function loadSeedSpotHistory() {
   seedEntries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   if (isMerge) {
-    debugLog(
-      "Seed data: bundle cache available for historical lookups — skipping persisted merge for existing spotHistory (" +
-        existing.length +
-        " entries)"
-    );
+    // STRK-344: per-metal merge — a metal without deep coverage (newly added,
+    // e.g. copper on an existing profile) receives its seed window; covered
+    // metals are untouched. Idempotent: no additions → no writes.
+    const metalNames =
+      typeof METALS !== "undefined"
+        ? Object.values(METALS).map((mc) => mc.name)
+        : [...new Set(seedEntries.map((e) => e.metal))];
+    const additions = _seedEntriesToMerge(existing, seedEntries, metalNames);
+    if (additions.length > 0) {
+      spotHistory = existing.concat(additions);
+      debugLog(
+        "Seed data: merged " +
+          additions.length +
+          " seed entries for metals lacking coverage (" +
+          [...new Set(additions.map((e) => e.metal))].join(", ") +
+          ")"
+      );
+      if (typeof saveSpotHistory === "function") {
+        saveSpotHistory();
+      }
+    } else {
+      debugLog(
+        "Seed data: all tracked metals covered — no seed merge needed (" +
+          existing.length +
+          " entries)"
+      );
+    }
   } else {
     const runtimeSeedEntries = getSeedRuntimeHistoryWindow(seedEntries);
     spotHistory = runtimeSeedEntries;
@@ -8058,13 +8136,17 @@ async function loadSeedSpotHistory() {
     }
   }
 
-  // Mark merge complete so we don't re-run on every load
+  // Settle sentinel: written every boot after the seed pass completes.
+  // STRK-344 removed the read that short-circuited on it (the per-metal check
+  // above is the real gate now); Playwright suites still wait on this key as
+  // the "seed pass settled" signal, so the write stays.
   localStorage.setItem("migration_seedHistoryMerge", "1");
 
   // Set latest seed price per metal in localStorage so fetchSpotPrice()
-  // picks them up instead of hardcoded defaults
+  // picks them up instead of hardcoded defaults. spotHistory is the sorted
+  // post-merge snapshot in both branches (saveSpotHistory reassigns it).
   const latestByMetal = {};
-  const latestSource = isMerge ? existing : spotHistory;
+  const latestSource = spotHistory;
   for (const entry of latestSource) {
     latestByMetal[entry.metal] = entry.spot;
   }
