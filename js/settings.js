@@ -2852,11 +2852,17 @@ const renderViewModalSectionConfigTable = () =>
 // =============================================================================
 
 const METAL_ORDER_DEFAULTS = [
+  // All Metals leads by default (STRK-306 review decision). Stored configs
+  // are never reordered by getMetalOrderConfig(), so existing customized
+  // orders are untouched — only fresh installs pick this up.
+  { id: "all", label: "All Metals", enabled: true },
   { id: "silver", label: "Silver", enabled: true },
   { id: "gold", label: "Gold", enabled: true },
   { id: "platinum", label: "Platinum", enabled: true },
   { id: "palladium", label: "Palladium", enabled: true },
-  { id: "all", label: "All Metals", enabled: true },
+  // Disabled by default per the copper epic decision (STRK-302) — enabling
+  // it shows BOTH the copper spot card and the copper totals card.
+  { id: "copper", label: "Copper", enabled: false },
 ];
 
 /**
@@ -2897,29 +2903,45 @@ const applyMetalOrder = () => {
     gold: document.querySelector(".spot-input.gold"),
     platinum: document.querySelector(".spot-input.platinum"),
     palladium: document.querySelector(".spot-input.palladium"),
+    copper: document.querySelector(".spot-input.copper"),
   };
   const totalsMap = {
     silver: document.querySelector(".total-card.silver"),
     gold: document.querySelector(".total-card.gold"),
     platinum: document.querySelector(".total-card.platinum"),
     palladium: document.querySelector(".total-card.palladium"),
+    copper: document.querySelector(".total-card.copper"),
     all: document.querySelector(".total-card.total-card-all"),
   };
 
+  let visibleSpot = 0;
+  let visibleTotals = 0;
   config.forEach(({ id, enabled }) => {
     const spotEl = spotMap[id];
     if (spotEl && spotGrid) {
       spotEl.style.display = enabled ? "" : "none";
       spotGrid.appendChild(spotEl);
+      if (enabled) visibleSpot++;
     }
     const totalEl = totalsMap[id];
     if (totalEl && totalsEl) {
       totalEl.style.display = enabled ? "" : "none";
       totalsEl.appendChild(totalEl);
+      if (enabled) visibleTotals++;
     }
   });
 
+  // Stamp the visible card counts — the five-spot-card and six-totals-card
+  // CSS tiers key on these, so the pre-copper layouts stay untouched while
+  // copper is disabled (STRK-306).
+  if (spotGrid) spotGrid.dataset.cards = String(visibleSpot);
+  if (totalsEl) totalsEl.dataset.cards = String(visibleTotals);
+
   if (typeof window.refreshTotalsDots === "function") window.refreshTotalsDots();
+  // Redraw sparklines: a card enabled mid-session (copper, STRK-306) has a
+  // zero-size canvas from while it was display:none and would show blank
+  // until the next scheduled refresh otherwise.
+  if (typeof window.updateAllSparklines === "function") window.updateAllSparklines();
 };
 window.applyMetalOrder = applyMetalOrder;
 

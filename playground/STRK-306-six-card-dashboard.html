@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-306 — Six-Card Dashboard Playground</title>
+    <!-- Real app stylesheet: the prototype inherits every token, theme, and
+         card style. Everything in the <style> block below is the DELTA that
+         production would need. Serve from repo root: python3 -m http.server 8000
+         → http://localhost:8000/playground/STRK-306-six-card-dashboard.html -->
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
+         DELTA CSS — everything below is the proposed production change.
+         Gating strategy: applyMetalOrder() already knows how many cards are
+         visible, so it stamps data-cards on the two containers. With copper
+         disabled the attributes read 4/5 and NONE of these rules match —
+         the dashboard stays pixel-identical to 3.35.101 (AC #3).
+         ═══════════════════════════════════════════════════════════════════ */
+
+      /* 1 ── Spot grid, five-card tiers (data-cards="5" only).
+             <960px: keep the 2-col grid; the FIRST card spans the full top
+             row — the user's top-sorted metal gets the wide slot and the
+             remaining four fill 2+2 below, no orphan. ≥960px: five equal
+             columns. */
+      .spot-cards-grid[data-cards="5"] .spot-input:first-child {
+        grid-column: span 2;
+      }
+      @media (min-width: 960px) {
+        .spot-cards-grid[data-cards="5"] {
+          grid-template-columns: repeat(5, 1fr);
+        }
+        .spot-cards-grid[data-cards="5"] .spot-input:first-child {
+          grid-column: auto;
+        }
+      }
+
+      /* 2 ── Six-card totals row: stack label above value (data-cards="6",
+             ≥1350px only — below that the carousel already handles width).
+             Fixes the backwards truncation priority: the dollar figure gets
+             the full card width (~174px @1350) instead of the ~76px left
+             over beside a protected label. */
+      @media (min-width: 1350px) {
+        .totals[data-cards="6"] .total-item {
+          display: block;
+          padding: 0.3rem 0;
+        }
+        .totals[data-cards="6"] .total-label {
+          display: block;
+          font-size: var(--font-size-sm);
+          line-height: 1.2;
+        }
+        .totals[data-cards="6"] .total-value {
+          display: block;
+          font-size: var(--font-size-lg);
+          line-height: 1.35;
+        }
+      }
+
+      /* 3 ── Copper accents (mirrors the four existing per-metal rules). */
+      .copper .total-title {
+        border-bottom: 4px solid var(--copper);
+      }
+
+      /* 3b ── All Metals card leads at EVERY width (lbruton, prototype
+              review 2026-08-15). Production change: delete the ≥1350px
+              `order: 0` reset in styles.css so the existing order:-1
+              applies everywhere. !important is playground-only, to beat
+              the linked stylesheet's reset. */
+      .total-card-all {
+        order: -1 !important;
+      }
+
+      /* 4 ── Copper spot card secondary unit line ($/lb primary, per the
+             recorded display decision; stored value stays per-ozt). */
+      .spot-card-value-secondary {
+        position: relative;
+        z-index: 1;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        white-space: nowrap;
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         PLAYGROUND CHROME ONLY — none of this ships.
+         ═══════════════════════════════════════════════════════════════════ */
+      body {
+        margin: 0;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .pg-controls {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+      }
+      .pg-controls .group {
+        display: flex;
+        gap: 0.35rem;
+        align-items: center;
+      }
+      .pg-controls button,
+      .pg-controls select {
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 0.3rem 0.85rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+      .pg-controls button.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .pg-stage {
+        margin: 1.5rem auto;
+        transition: width 0.2s;
+        padding: 0 1rem;
+      }
+      .pg-stage-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-align: right;
+        margin-bottom: 0.5rem;
+      }
+      .pg-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 1.5rem 0 0.75rem;
+      }
+      .pg-note {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 1rem 1.25rem;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius-lg);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+      /* keep spot sparkline canvases behaving without app JS */
+      .spot-sparkline {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .spot-card {
+        overflow: hidden;
+        padding-bottom: 0.75rem;
+      }
+      .spot-card-header {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0.75rem 0.25rem;
+        gap: 0.4rem;
+      }
+      .totals-wrapper {
+        margin-top: 0.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pg-controls">
+      <div class="group" id="pgThemes">
+        <span>Theme:</span>
+        <button data-t="light">Light</button>
+        <button data-t="dark" class="active">Dark</button>
+        <button data-t="slate">Slate</button>
+        <button data-t="sepia">Sepia</button>
+      </div>
+      <div class="group">
+        <span>Width:</span>
+        <select id="pgWidth">
+          <option value="1350">1350px (six-card minimum)</option>
+          <option value="1600" selected>1600px (desktop cap)</option>
+          <option value="960">960px (three-across carousel)</option>
+          <option value="420">420px (mobile carousel)</option>
+          <option value="fluid">Fluid (drag window)</option>
+        </select>
+      </div>
+      <div class="group">
+        <button id="pgCopper" class="active">Copper: ON (5 spot / 6 totals)</button>
+      </div>
+      <div class="group">
+        <button id="pgWorst">Worst-case $123,456.78</button>
+      </div>
+      <div class="group">
+        <button id="pgStacked" class="active">Stacked labels (proposed)</button>
+      </div>
+    </div>
+
+    <div class="pg-stage" id="pgStage" style="width: 1600px">
+      <div class="pg-stage-label" id="pgStageLabel">1600px</div>
+
+      <div class="pg-section-title">Spot Prices</div>
+      <div class="spot-cards-grid" id="spotGrid" data-cards="5">
+        <!-- cards injected by script -->
+      </div>
+
+      <div class="pg-section-title">Portfolio Summary</div>
+      <div class="totals-wrapper">
+        <div class="totals" id="totalsRow" data-cards="6">
+          <!-- cards injected by script -->
+        </div>
+      </div>
+
+      <div class="pg-note">
+        <strong>What to judge:</strong> (1) six summary cards in one row at 1350px and 1600px with
+        no truncated dollar values — toggle <em>Worst-case</em> to force $123,456.78 into every
+        money row; (2) the stacked label-above-value layout vs the current inline layout — toggle
+        <em>Stacked labels</em> to compare (inline mode reproduces today's ellipsis truncation); (3)
+        five spot cards with no orphan — at ≥960px they sit five across, below that the fifth spans
+        the full row; (4) the copper spot card shows <strong>$/lb primary</strong> with per-ozt
+        secondary; (5) toggle <em>Copper</em> off to confirm the dashboard collapses to today's
+        exact 4-spot / 5-totals layout (the delta CSS only matches <code>data-cards="5"/"6"</code>).
+        Check all four themes.
+      </div>
+    </div>
+
+    <script>
+      const SPOT = [
+        { key: "silver", name: "Silver", value: "$64.70", change: "+0.42 (0.65%)", dir: "spot-up" },
+        { key: "gold", name: "Gold", value: "$4,376.56", change: "+18.22 (0.42%)", dir: "spot-up" },
+        {
+          key: "platinum",
+          name: "Platinum",
+          value: "$1,749.64",
+          change: "-3.11 (0.18%)",
+          dir: "spot-down",
+        },
+        {
+          key: "palladium",
+          name: "Palladium",
+          value: "$1,316.48",
+          change: "+6.90 (0.53%)",
+          dir: "spot-up",
+        },
+        {
+          key: "copper",
+          name: "Copper",
+          value: "$6.02",
+          unit: "/lb",
+          secondary: "$0.4126 /ozt",
+          change: "+0.05 (0.83%)",
+          dir: "spot-up",
+        },
+      ];
+
+      const TOTALS = [
+        {
+          key: "silver",
+          name: "Silver",
+          rows: {
+            Items: "342",
+            "Total Weight": "512.25 ozt",
+            "Avg Cost/oz": "$31.84",
+            Purchased: "$16,310.44",
+            "Melt Value": "$33,142.58",
+            "Retail Value": "$35,880.10",
+            "Gain/Loss": "+$16,832.14",
+            Realized: "$1,204.55",
+          },
+        },
+        {
+          key: "gold",
+          name: "Gold",
+          rows: {
+            Items: "28",
+            "Total Weight": "9.65 ozt",
+            "Avg Cost/oz": "$2,105.30",
+            Purchased: "$20,316.15",
+            "Melt Value": "$42,233.80",
+            "Retail Value": "$44,120.00",
+            "Gain/Loss": "+$21,917.65",
+            Realized: "$3,410.00",
+          },
+        },
+        {
+          key: "platinum",
+          name: "Platinum",
+          rows: {
+            Items: "6",
+            "Total Weight": "6.00 ozt",
+            "Avg Cost/oz": "$988.12",
+            Purchased: "$5,928.72",
+            "Melt Value": "$10,497.84",
+            "Retail Value": "$10,890.00",
+            "Gain/Loss": "+$4,569.12",
+            Realized: "$0.00",
+          },
+        },
+        {
+          key: "palladium",
+          name: "Palladium",
+          rows: {
+            Items: "2",
+            "Total Weight": "2.00 ozt",
+            "Avg Cost/oz": "$1,411.00",
+            Purchased: "$2,822.00",
+            "Melt Value": "$2,632.96",
+            "Retail Value": "$2,700.00",
+            "Gain/Loss": "-$189.04",
+            Realized: "$0.00",
+          },
+        },
+        {
+          key: "copper",
+          name: "Copper",
+          rows: {
+            Items: "120",
+            "Total Weight": "109.38 ozt",
+            "Avg Cost/oz": "$0.71",
+            Purchased: "$85.20",
+            "Melt Value": "$45.13",
+            "Retail Value": "$132.00",
+            "Gain/Loss": "-$40.07",
+            Realized: "$0.00",
+          },
+        },
+        {
+          key: "all",
+          name: "All Metals",
+          rows: {
+            Items: "498",
+            "Total Weight": "639.28 ozt",
+            "Avg Cost/oz": "$71.31",
+            Purchased: "$45,462.51",
+            "Melt Value": "$88,552.31",
+            "Retail Value": "$93,722.10",
+            "Gain/Loss": "+$43,089.80",
+            Realized: "$4,614.55",
+          },
+        },
+      ];
+
+      const MONEY_ROWS = new Set([
+        "Avg Cost/oz",
+        "Purchased",
+        "Melt Value",
+        "Retail Value",
+        "Gain/Loss",
+        "Realized",
+      ]);
+
+      const spotGrid = document.getElementById("spotGrid");
+      const totalsRow = document.getElementById("totalsRow");
+      let worstCase = false;
+
+      const renderSpot = () => {
+        spotGrid.innerHTML = SPOT.map(
+          (m) => `
+          <div class="spot-input ${m.key}">
+            <div class="spot-card" data-metal="${m.key}">
+              <canvas class="spot-sparkline" data-metal="${m.key}"></canvas>
+              <div class="spot-card-header">
+                <div class="spot-card-label">${m.name} Spot Price</div>
+                <button type="button" class="spot-card-period">90d</button>
+              </div>
+              <div class="spot-card-value">${m.value}${m.unit ? `<span style="font-size:0.55em;font-weight:600"> ${m.unit}</span>` : ""}</div>
+              ${m.secondary ? `<div class="spot-card-value-secondary">${m.secondary}</div>` : ""}
+              <div class="spot-card-change ${m.dir}">${m.change}</div>
+              <div class="spot-card-timestamp">Updated 2:15 PM</div>
+            </div>
+          </div>`
+        ).join("");
+        drawSparklines();
+      };
+
+      const renderTotals = () => {
+        totalsRow.innerHTML = TOTALS.map(
+          (c) => `
+          <div class="total-card ${c.key === "all" ? "total-card-all" : c.key}">
+            <div class="total-title">${c.name}</div>
+            ${Object.entries(c.rows)
+              .map(([label, v]) => {
+                const value = worstCase && MONEY_ROWS.has(label) ? "$123,456.78" : v;
+                return `<div class="total-item"><span class="total-label">${label}:</span><span class="total-value">${value}</span></div>`;
+              })
+              .join("")}
+          </div>`
+        ).join("");
+      };
+
+      const drawSparklines = () => {
+        document.querySelectorAll(".spot-sparkline").forEach((cv) => {
+          const styles = getComputedStyle(document.documentElement);
+          const color = styles.getPropertyValue(`--${cv.dataset.metal}`).trim() || "#888";
+          cv.width = cv.offsetWidth * 2;
+          cv.height = cv.offsetHeight * 2;
+          const ctx = cv.getContext("2d");
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          let y = cv.height * 0.6;
+          // deterministic pseudo-walk so themes redraw identically
+          let seed = [...cv.dataset.metal].reduce((s, ch) => s + ch.charCodeAt(0), 0);
+          for (let x = 0; x <= cv.width; x += cv.width / 40) {
+            seed = (seed * 9301 + 49297) % 233280;
+            y += (seed / 233280 - 0.5) * cv.height * 0.16;
+            y = Math.max(cv.height * 0.15, Math.min(cv.height * 0.85, y));
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        });
+      };
+
+      // ── controls ──
+      document.getElementById("pgThemes").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-t]");
+        if (!btn) return;
+        document.documentElement.setAttribute("data-theme", btn.dataset.t);
+        document
+          .querySelectorAll("#pgThemes button")
+          .forEach((b) => b.classList.toggle("active", b === btn));
+        drawSparklines();
+      });
+
+      const stage = document.getElementById("pgStage");
+      const stageLabel = document.getElementById("pgStageLabel");
+      document.getElementById("pgWidth").addEventListener("change", (e) => {
+        const v = e.target.value;
+        stage.style.width = v === "fluid" ? "auto" : `${v}px`;
+        stageLabel.textContent = v === "fluid" ? "fluid" : `${v}px`;
+        drawSparklines();
+      });
+
+      const copperBtn = document.getElementById("pgCopper");
+      copperBtn.addEventListener("click", () => {
+        const on = !copperBtn.classList.contains("active");
+        copperBtn.classList.toggle("active", on);
+        copperBtn.textContent = on
+          ? "Copper: ON (5 spot / 6 totals)"
+          : "Copper: OFF (4 spot / 5 totals)";
+        spotGrid.dataset.cards = on ? "5" : "4";
+        totalsRow.dataset.cards = on ? "6" : "5";
+        spotGrid.querySelector(".spot-input.copper").style.display = on ? "" : "none";
+        totalsRow.querySelector(".total-card.copper").style.display = on ? "" : "none";
+        drawSparklines();
+      });
+
+      const worstBtn = document.getElementById("pgWorst");
+      worstBtn.addEventListener("click", () => {
+        worstCase = !worstCase;
+        worstBtn.classList.toggle("active", worstCase);
+        renderTotals();
+        // re-apply copper visibility after re-render
+        if (!copperBtn.classList.contains("active")) {
+          totalsRow.querySelector(".total-card.copper").style.display = "none";
+        }
+      });
+
+      const stackedBtn = document.getElementById("pgStacked");
+      stackedBtn.addEventListener("click", () => {
+        // Inline (current) mode simulates today's CSS by removing the
+        // data-cards hook the stacked delta keys on.
+        const stacked = !stackedBtn.classList.contains("active");
+        stackedBtn.classList.toggle("active", stacked);
+        const copperOn = copperBtn.classList.contains("active");
+        totalsRow.dataset.cards = stacked ? (copperOn ? "6" : "5") : "off";
+      });
+
+      renderSpot();
+      renderTotals();
+      window.addEventListener("resize", drawSparklines);
+    </script>
+  </body>
+</html>

@@ -2020,6 +2020,23 @@ input[type="submit"] {
   }
 }
 
+/* Five-card tier (STRK-306) — applyMetalOrder() stamps data-cards with the
+   visible count, so none of these rules match while copper stays disabled
+   (the four-card dashboard is untouched). Narrow: the FIRST card (the user's
+   top-sorted metal) takes the full-width top slot and the rest fill 2+2 —
+   no orphan. ≥960px: five equal columns. */
+.spot-cards-grid[data-cards="5"] .spot-input:first-child {
+  grid-column: span 2;
+}
+@media (min-width: 960px) {
+  .spot-cards-grid[data-cards="5"] {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .spot-cards-grid[data-cards="5"] .spot-input:first-child {
+    grid-column: auto;
+  }
+}
+
 .spot-card {
   position: relative;
   background: var(--bg-primary);
@@ -2237,6 +2254,16 @@ input[type="submit"] {
   overflow: hidden;
   text-overflow: ellipsis;
   padding: 0 var(--spacing);
+}
+
+/* Secondary unit line under the value — copper shows $/lb primary
+   (industry convention) with the stored $/ozt here (STRK-306) */
+.spot-card-value-secondary {
+  position: relative;
+  z-index: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* Spot price change indicators */
@@ -5402,7 +5429,7 @@ input[type="submit"] {
   }
 }
 @media (min-width: 1350px) {
-  /* All 5 in one row — disable carousel scrolling */
+  /* All cards (5, or 6 with copper) in one row — disable carousel scrolling */
   .totals {
     overflow-x: visible;
     scroll-snap-type: none;
@@ -5412,14 +5439,38 @@ input[type="submit"] {
   }
 }
 
-/* All Metals shows first in the carousel on small/medium screens */
+/* Six-card tier (STRK-306) — let the row WRAP instead of truncating. Short
+   values keep today's inline layout (label left, value right); a value too
+   wide for the remaining space drops to its own line, still right-aligned
+   (margin-left:auto), so $123,456.78 never truncates and $0.00 rows never
+   waste a second line (prototype review 2026-08-15: no uniform stacking).
+   Keyed on the data-cards count applyMetalOrder() stamps, so five-card
+   layouts stay pixel-identical to the pre-copper dashboard. */
+@media (min-width: 1350px) {
+  .totals[data-cards="6"] .total-item {
+    flex-wrap: wrap;
+  }
+  .totals[data-cards="6"] .total-value {
+    overflow: visible;
+    text-overflow: clip;
+    text-align: right;
+    margin-left: auto;
+  }
+}
+
+/* All Metals is pinned first in the carousel below 1350px (pre-existing
+   behavior, unchanged). At ≥1350px the pin resets and the user's
+   Settings › Metal Order config governs; the DEFAULT config now leads
+   with All Metals (STRK-306 review decision), so new users see the
+   aggregate card first at every width, while a stored custom order still
+   controls the ≥1350px row exactly as before. */
 .total-card-all {
   order: -1;
 }
 @media (min-width: 1350px) {
   .total-card-all {
     order: 0;
-  } /* natural order at full desktop */
+  } /* config/DOM order at full desktop */
 }
 
 /* ── Carousel navigation arrows ─────────────────────────────────────────── */
@@ -5594,6 +5645,9 @@ input[type="submit"] {
 }
 .palladium .total-title {
   border-bottom: 4px solid var(--palladium);
+}
+.copper .total-title {
+  border-bottom: 4px solid var(--copper);
 }
 
 /* All Metals combined card — uses primary accent */

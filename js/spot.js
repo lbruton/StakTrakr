@@ -444,6 +444,26 @@ const getSpotHistoryForMetal = (metal, points = 30, withTimestamps = false) => {
 };
 
 /**
+ * Formats a spot price for its card's value line. Copper displays in the
+ * industry-standard $/lb (STRK-306 display decision) while every stored,
+ * synced, and computed value stays USD per troy ounce; the stored per-ozt
+ * figure is mirrored into the card's secondary line as a side effect so the
+ * two lines can never desync. Other metals format unchanged.
+ * @param {string} metalKey - Metal key ('silver', 'gold', ..., 'copper')
+ * @param {number} price - Spot price in USD per troy ounce
+ * @returns {string} Display string for the card value line
+ */
+const formatSpotCardValue = (metalKey, price) => {
+  const fmt = (v) => (typeof formatCurrency === "function" ? formatCurrency(v) : v.toFixed(2));
+  if (metalKey !== "copper") return fmt(price);
+  // safeGetElement per convention — a missing element yields a no-op dummy,
+  // so the secondary write degrades harmlessly.
+  const secondaryEl = safeGetElement("spotPriceSecondaryCopper");
+  secondaryEl.textContent = `${fmt(price)} /ozt`;
+  return `${fmt(price * TROY_OUNCES_PER_POUND)} /lb`;
+};
+
+/**
  * Updates spot card color based on price movement compared to last history entry
  *
  * @param {string} metalKey - Metal key ('silver', 'gold', etc.)
@@ -465,8 +485,11 @@ const updateSpotCardColor = (metalKey, newPrice) => {
     .find((e) => e.metal === metalConfig.name && e.source !== "cached" && e.spot !== newPrice);
 
   let arrow = "";
-  const formatted =
-    typeof formatCurrency === "function" ? formatCurrency(newPrice) : newPrice.toFixed(2);
+  // updateSpotCardColor is the final writer in every price flow (API sync,
+  // manual entry, reset, inline edit), so this is the single display-unit
+  // conversion seam — earlier same-task textContent writes are overwritten
+  // before the browser paints.
+  const formatted = formatSpotCardValue(metalKey, newPrice);
 
   if (!lastEntry) {
     el.classList.remove("spot-up", "spot-down", "spot-unchanged");
@@ -1261,8 +1284,8 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
   const priceEl = elements.spotPriceDisplay[metalKey];
   if (priceEl) {
     const currentPrice = spotPrices[metalKey];
-    const formatted =
-      typeof formatCurrency === "function" ? formatCurrency(currentPrice) : currentPrice.toFixed(2);
+    // Same display seam as updateSpotCardColor — copper renders $/lb here too.
+    const formatted = formatSpotCardValue(metalKey, currentPrice);
 
     if (pctChange > 0) {
       priceEl.classList.add("spot-up");
@@ -1315,10 +1338,15 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
   const currentPrice = spotPrices[metalKey] || 0;
   const originalHTML = valueEl.innerHTML;
 
+  // Copper edits in the unit the card displays ($/lb, STRK-306); the saved
+  // value converts back to the stored per-ozt frame below.
+  const isCopper = metalKey === "copper";
+  const editPrice = isCopper ? currentPrice * TROY_OUNCES_PER_POUND : currentPrice;
+
   const input = document.createElement("input");
   input.type = "number";
   input.className = "spot-inline-input";
-  input.value = currentPrice > 0 ? currentPrice.toFixed(2) : "";
+  input.value = editPrice > 0 ? editPrice.toFixed(2) : "";
   input.step = "0.01";
   input.min = "0";
 
@@ -1333,15 +1361,18 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
   };
 
   const save = () => {
-    const num = parseFloat(input.value);
-    if (isNaN(num) || num <= 0) {
+    const entered = parseFloat(input.value);
+    if (isNaN(entered) || entered <= 0) {
       cancel();
       return;
     }
 
+    // Convert a copper $/lb entry back to the stored per-ozt frame.
+    const num = isCopper ? entered / TROY_OUNCES_PER_POUND : entered;
+
     localStorage.setItem(metalConfig.localStorageKey, num);
     spotPrices[metalKey] = num;
-    valueEl.textContent = formatCurrency(num);
+    valueEl.textContent = formatSpotCardValue(metalKey, num);
     updateSpotCardColor(metalKey, num);
     recordSpot(num, "manual", metalConfig.name);
     updateSpotTimestamp(metalConfig.name);
@@ -1729,6 +1760,7 @@ if (typeof window !== "undefined") {
 window.fetchSpotPrice = fetchSpotPrice;
 window.syncManualSpotStorage = syncManualSpotStorage;
 window.updateSpotCardColor = updateSpotCardColor;
+window.formatSpotCardValue = formatSpotCardValue;
 window.updateSparkline = updateSparkline;
 window.updateAllSparklines = updateAllSparklines;
 window.destroySparklines = destroySparklines;
