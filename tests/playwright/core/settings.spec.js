@@ -269,9 +269,10 @@ test.describe("core/settings STRK-306 copper dashboard cards", () => {
     await expect(page.locator("#totalsCarousel")).toHaveAttribute("data-cards", "6");
 
     // Copper displays $/lb primary (industry convention) with the stored
-    // per-ozt figure on the secondary line — storage stays per troy ounce.
+    // per-ozt figure in the value's hover title (a visible second line broke
+    // the card's row alignment — STRK-341 review). Storage stays per-ozt.
     await expect(page.locator("#spotPriceDisplayCopper")).toContainText("/lb");
-    await expect(page.locator("#spotPriceSecondaryCopper")).toContainText("/ozt");
+    await expect(page.locator("#spotPriceDisplayCopper")).toHaveAttribute("title", /\/ozt/);
     const stored = await page.evaluate(() => parseFloat(localStorage.getItem("spotCopper")));
     const displayed = await page.locator("#spotPriceDisplayCopper").textContent();
     const lbValue = parseFloat(displayed.replace(/[^\d.]/g, ""));

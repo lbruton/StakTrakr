@@ -31,6 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   four-pair-era count assertions across the unit and Playwright suites were updated to
   the five-pair spec.
 
+### Changed — STRK-341: dashboard alignment refinements from live review
+
+- **Copper card per-ozt moved to a hover title** (STRK-341): the visible `$0.41 /ozt`
+  second line made the copper card's change/timestamp rows sit lower than the other
+  four cards. The stored per-troy-ounce figure now lives in the price's hover tooltip
+  (alongside the shift-click edit hint), restoring row alignment.
+- **Six-card totals rows are uniform two-line** (STRK-341): the v3.36.5 per-row
+  conditional wrap fixed truncation but let long-value cards grow taller than their
+  neighbors, misaligning row separators across the six cards. Every row now stacks
+  uniformly — label left on the first line, value right-aligned on the second — so all
+  six cards stay height-aligned and `$123,456.78` still never truncates. Five-card
+  layouts (copper disabled) remain untouched.
+
 ---
 
 ## [3.36.5] - 2026-08-15

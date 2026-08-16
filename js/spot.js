@@ -447,8 +447,10 @@ const getSpotHistoryForMetal = (metal, points = 30, withTimestamps = false) => {
  * Formats a spot price for its card's value line. Copper displays in the
  * industry-standard $/lb (STRK-306 display decision) while every stored,
  * synced, and computed value stays USD per troy ounce; the stored per-ozt
- * figure is mirrored into the card's secondary line as a side effect so the
- * two lines can never desync. Other metals format unchanged.
+ * figure is mirrored into the value's hover title as a side effect so the
+ * two can never desync (a visible second line broke the card's row
+ * alignment against the other four — STRK-341 review). Other metals format
+ * unchanged.
  * @param {string} metalKey - Metal key ('silver', 'gold', ..., 'copper')
  * @param {number} price - Spot price in USD per troy ounce
  * @returns {string} Display string for the card value line
@@ -457,9 +459,9 @@ const formatSpotCardValue = (metalKey, price) => {
   const fmt = (v) => (typeof formatCurrency === "function" ? formatCurrency(v) : v.toFixed(2));
   if (metalKey !== "copper") return fmt(price);
   // safeGetElement per convention — a missing element yields a no-op dummy,
-  // so the secondary write degrades harmlessly.
-  const secondaryEl = safeGetElement("spotPriceSecondaryCopper");
-  secondaryEl.textContent = `${fmt(price)} /ozt`;
+  // so the title write degrades harmlessly.
+  const displayEl = safeGetElement("spotPriceDisplayCopper");
+  displayEl.title = `${fmt(price)} /ozt stored · Shift+click to edit`;
   return `${fmt(price * TROY_OUNCES_PER_POUND)} /lb`;
 };
 
