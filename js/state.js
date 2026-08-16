@@ -92,6 +92,7 @@ const elements = {
   syncIconGold: null,
   syncIconPlatinum: null,
   syncIconPalladium: null,
+  syncIconCopper: null,
 
   // Import elements
   importCsvFile: null,

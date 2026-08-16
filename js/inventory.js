@@ -2738,7 +2738,9 @@ const printInventory = () => {
  * Called from settings toggle and on page load.
  */
 const applyRealizedVisibility = (show) => {
-  const metals = ["Silver", "Gold", "Platinum", "Palladium", "All"];
+  // Derived from METALS (+ the aggregate card) so a new first-class metal's
+  // Realized row can never silently ignore the toggle (STRK-306).
+  const metals = [...Object.values(METALS).map((m) => m.name), "All"];
   metals.forEach((m) => {
     // Use getElementById directly — this runs from events.js top-level (before init.js defines safeGetElement)
     const el = document.getElementById(`realizedGainLoss${m}`);

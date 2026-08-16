@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.5] - 2026-08-15
+
+### Added — STRK-306: Copper dashboard cards, Metal Order entry, and the six-card layout
+
+- **Copper spot card and copper totals card** (STRK-306): full parity with the other four
+  metals — live price, sparkline, trend-period chip and select, sync icon, timestamp, and
+  the eight-row totals card (items, weight, avg cost, purchased, melt, retail, gain/loss,
+  realized, all fed by the existing METALS-driven loops). Both cards ship hidden: copper
+  is opt-in via Settings › Appearance › Metal Order per the epic decision, and
+  `getMetalOrderConfig()` appends the new row as disabled to stored configs, so existing
+  users see no change until they enable it.
+- **Copper displays $/lb, stores $/ozt** (STRK-306): the spot card shows the
+  industry-standard dollars-per-pound figure (~$6.02) with the stored per-troy-ounce value
+  (~$0.41) on a secondary line — a raw $0.41 next to gold at ~$4,376 reads as broken.
+  `formatSpotCardValue()` is the single display-conversion seam (exact 7000/480 grains
+  ratio); every stored, synced, charted, and computed value stays per troy ounce, and the
+  shift-click inline editor accepts the price in the displayed $/lb unit and converts back.
+- **Six-card summary layout** (STRK-306): with copper enabled, `applyMetalOrder()` stamps
+  visible-card counts (`data-cards`) on both containers and new CSS tiers key on them —
+  totals rows stack label-above-value at ≥1350px so a $123,456.78 figure never truncates,
+  and the five spot cards sit five across at ≥960px with the user's first-sorted metal
+  taking the full-width top slot below that (no orphan card). With copper disabled the
+  stamps read 4/5, no new rule matches, and the dashboard is pixel-identical to v3.36.4 —
+  verified by byte-identical screenshot comparison against baseline.
+- **All Metals leads by default** (STRK-306 review decision): the default Metal Order now
+  puts the All Metals card first at every width for new users. Stored configs are never
+  reordered — existing customized orders keep working, including on mobile.
+- **Derived metal lists** (STRK-306): the trend-control wiring (`TREND_METALS`), the
+  Realized-row visibility toggle, and the provider-info metal list now derive from METALS
+  instead of hardcoding four names, so they can never silently miss a future metal.
+
+---
+
 ## [3.36.4] - 2026-08-15
 
 ### Added — STRK-303: Copper in the user-selectable spot providers — Part 2

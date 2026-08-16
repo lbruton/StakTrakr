@@ -2867,7 +2867,9 @@ const showProviderInfo = (providerKey) => {
     body.innerHTML = `
       <div class="info-provider-name">${provider.name}</div>
       <div>Base URL: ${provider.baseUrl}</div>
-      <div>Metals: Silver, Gold, Platinum, Palladium</div>
+      <div>Metals: ${Object.values(METALS)
+        .map((m) => m.name)
+        .join(", ")}</div>
       <div class="api-key-info">
         <div>📋 <strong>API Key Management:</strong></div>
         <ul>
