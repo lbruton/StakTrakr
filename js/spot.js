@@ -456,8 +456,10 @@ const getSpotHistoryForMetal = (metal, points = 30, withTimestamps = false) => {
 const formatSpotCardValue = (metalKey, price) => {
   const fmt = (v) => (typeof formatCurrency === "function" ? formatCurrency(v) : v.toFixed(2));
   if (metalKey !== "copper") return fmt(price);
-  const secondaryEl = document.getElementById("spotPriceSecondaryCopper");
-  if (secondaryEl) secondaryEl.textContent = `${fmt(price)} /ozt`;
+  // safeGetElement per convention — a missing element yields a no-op dummy,
+  // so the secondary write degrades harmlessly.
+  const secondaryEl = safeGetElement("spotPriceSecondaryCopper");
+  secondaryEl.textContent = `${fmt(price)} /ozt`;
   return `${fmt(price * TROY_OUNCES_PER_POUND)} /lb`;
 };
 

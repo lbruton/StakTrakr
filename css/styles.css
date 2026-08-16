@@ -5439,33 +5439,31 @@ input[type="submit"] {
   }
 }
 
-/* Six-card tier (STRK-306) — stack label above value so the dollar figure
-   gets the full card width instead of the remainder beside a protected
-   label ($123,456.78 must never truncate). Keyed on the data-cards count
-   applyMetalOrder() stamps, so five-card layouts stay pixel-identical to
-   the pre-copper dashboard. */
+/* Six-card tier (STRK-306) — let the row WRAP instead of truncating. Short
+   values keep today's inline layout (label left, value right); a value too
+   wide for the remaining space drops to its own line, still right-aligned
+   (margin-left:auto), so $123,456.78 never truncates and $0.00 rows never
+   waste a second line (prototype review 2026-08-15: no uniform stacking).
+   Keyed on the data-cards count applyMetalOrder() stamps, so five-card
+   layouts stay pixel-identical to the pre-copper dashboard. */
 @media (min-width: 1350px) {
   .totals[data-cards="6"] .total-item {
-    display: block;
-    padding: 0.3rem 0;
-  }
-  .totals[data-cards="6"] .total-label {
-    display: block;
-    font-size: var(--font-size-sm);
-    line-height: 1.2;
+    flex-wrap: wrap;
   }
   .totals[data-cards="6"] .total-value {
-    display: block;
-    font-size: var(--font-size-lg);
-    line-height: 1.35;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: right;
+    margin-left: auto;
   }
 }
 
-/* All Metals shows first in the carousel on small/medium screens.
-   At ≥1350px the user's Settings › Metal Order config governs — the
-   default config now leads with All Metals (STRK-306 review decision),
-   so new users see the aggregate card first at every width while stored
-   custom orders keep working. */
+/* All Metals is pinned first in the carousel below 1350px (pre-existing
+   behavior, unchanged). At ≥1350px the pin resets and the user's
+   Settings › Metal Order config governs; the DEFAULT config now leads
+   with All Metals (STRK-306 review decision), so new users see the
+   aggregate card first at every width, while a stored custom order still
+   controls the ≥1350px row exactly as before. */
 .total-card-all {
   order: -1;
 }

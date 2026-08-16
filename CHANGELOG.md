@@ -26,11 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shift-click inline editor accepts the price in the displayed $/lb unit and converts back.
 - **Six-card summary layout** (STRK-306): with copper enabled, `applyMetalOrder()` stamps
   visible-card counts (`data-cards`) on both containers and new CSS tiers key on them —
-  totals rows stack label-above-value at ≥1350px so a $123,456.78 figure never truncates,
-  and the five spot cards sit five across at ≥960px with the user's first-sorted metal
-  taking the full-width top slot below that (no orphan card). With copper disabled the
-  stamps read 4/5, no new rule matches, and the dashboard is pixel-identical to v3.36.4 —
-  verified by byte-identical screenshot comparison against baseline.
+  at ≥1350px totals rows keep the inline label-left/value-right layout and a value only
+  wraps to its own right-aligned line when it genuinely doesn't fit (so $123,456.78
+  never truncates and $0.00 rows never waste a second line; review round on the live
+  preview replaced the prototype's uniform stacking). The five spot cards sit five
+  across at ≥960px with the user's first-sorted metal taking the full-width top slot
+  below that (no orphan card). With copper disabled the stamps read 4/5, no new rule
+  matches, and the dashboard is pixel-identical to v3.36.4 — verified by byte-identical
+  screenshot comparison against baseline.
 - **All Metals leads by default** (STRK-306 review decision): the default Metal Order now
   puts the All Metals card first at every width for new users. Stored configs are never
   reordered — existing customized orders keep working, including on mobile.
