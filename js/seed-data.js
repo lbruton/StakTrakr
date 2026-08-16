@@ -7968,8 +7968,11 @@ const SEED_MERGE_COVERAGE_DAYS = 30;
  * rows inside the `windowDays` runtime window, skipping days where that
  * metal already has a live row (live wins — precedent js/spot.js day-dedup).
  * Pure and idempotent: re-running against the merged result returns [].
- * Cutoffs derive from the UTC frame to match the stored UTC-naive
- * timestamps (deliberate frame handling, same as getPersistedSpotHistorySnapshot).
+ * Cutoffs are fixed-epoch offsets rendered via toISOString, so the comparison
+ * strings are UTC-stamped like the stored UTC-naive timestamps (deliberate
+ * frame handling; getPersistedSpotHistorySnapshot reaches the same UTC-stamped
+ * shape via local-calendar setDate — a DST-edge difference of at most an hour,
+ * irrelevant at these day-scale thresholds).
  * @param {Array<{metal: string, timestamp: string}>} existing current spotHistory rows
  * @param {Array<{metal: string, timestamp: string}>} seedEntries validated seed rows
  * @param {string[]} metalNames tracked metal names (derive from METALS)
