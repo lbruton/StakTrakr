@@ -16604,6 +16604,9 @@ input[type="number"] {
 .gsr-panel[data-accent="platinum"] {
   --gsr-accent: var(--platinum);
 }
+.gsr-panel[data-accent="copper"] {
+  --gsr-accent: var(--copper);
+}
 .gsr-panel[data-accent="palladium"] {
   --gsr-accent: var(--palladium);
 }

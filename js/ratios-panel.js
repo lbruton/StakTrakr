@@ -231,7 +231,7 @@ const ratioPanelChartHtml = (activeRange = "90") => {
  */
 const ratioPanelFootHtml = (pair, stats) => `
   <div class="gsr-foot">
-    ${pair.num} ÷ ${pair.den} from LBMA daily closes, <code>${stats.spanStart.slice(0, 4)}</code>
+    ${pair.num} ÷ ${pair.den} from ${pair.provenance || "LBMA daily closes"}, <code>${stats.spanStart.slice(0, 4)}</code>
     to present (${stats.points.toLocaleString()} sessions where both metals printed).
     Averages are trailing trading sessions, not calendar days. Not investment advice.
   </div>`;

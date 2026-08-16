@@ -207,6 +207,10 @@ const RATIO_PAIRS = [
     decimals: 1,
     interpretive: false,
     title: "How many ounces of copper buy one ounce of silver",
+    // Pair-specific footer provenance (the default is "LBMA daily closes",
+    // which would misattribute copper — its pre-2013 leg is the monthly
+    // World Bank Pink Sheet LME series; STRK-304).
+    provenance: "LBMA silver closes and LME copper (monthly World Bank series before mid-2013)",
   },
 ];
 
