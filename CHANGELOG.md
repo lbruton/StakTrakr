@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.9] - 2026-08-16
+
+### Added — STRK-345: v2 day-file backfill tool for new metals
+
+- **`devops/pollers/shared/backfill-v2-day-files.js`** (STRK-345): backfills a
+  metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive from year-file daily
+  history. The v2 per-day archive begins at each metal's poller go-live —
+  copper's first day file is 2026-08-15 while the legacy metals' floor is
+  2026-03-25 — so the client's hourly-resolution pulls 404 across a new
+  metal's pre-go-live window (the STRK-302 epic's pre-seed intent covered the
+  daily layer but never the day-file archive). sqld cannot source the gap
+  (`spot_prices` reaches back only to 2026-02), so the tool reads the
+  published year files and emits one honest single-sample OHLCA entry per day
+  (`n: 1`, noon-UTC `t`) in the standard v2 envelope. Skip-existing by
+  default so it can never clobber a live hourly file; `--dry-run` and
+  `--overwrite` supported. Rollout checklist for future metals added to
+  `.context/data-pipelines.md`. 12 unit cases.
+
 ## [3.36.8] - 2026-08-16
 
 ### Fixed — STRK-344: Per-metal seed merge for existing profiles
