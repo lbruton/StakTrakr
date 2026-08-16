@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.4] - 2026-08-15
+
+### Added — STRK-303: Copper in the user-selectable spot providers — Part 2
+
+- **Copper joins the canonical provider map** (STRK-303): `SPOT_PROVIDER_METAL_SYMBOLS`
+  gains `copper: "XCU"`, wiring copper through the Metals-API and MetalPriceAPI latest
+  and timeseries paths (XCU is per troy ounce on both — probe-verified 2026-08-15; the
+  unconditional `1/rate` inversion is unchanged, and correct even though copper's bare
+  rate ~2.42 is the one wired rate ≥ 1), the CUSTOM provider's `{METAL}` substitution,
+  and all three wired-metal selection gates (sync, history pull, cost preview).
+- **gold-api copper via COMEX HG with pound→troy conversion** (STRK-303): the Gold API
+  provider gains a `/price/HG` endpoint and a metal-aware `parseResponse` that divides
+  copper's per-pound quote by exactly 7000/480 (≈14.5833) troy ounces per pound. The
+  ~9% COMEX-futures-over-LME-spot premium is accepted by decision — a user who selects
+  gold-api gets that provider's consistent view of copper.
+- **metals.dev copper is batch-latest only, unit-asserted** (STRK-303): copper rides the
+  `/v1/latest` batch call (which requests `&unit=toz`) and is accepted only when the
+  response echoes `unit: "toz"` — industrial metals default to metric tonnes on this
+  API, a 32,150× error. A non-toz echo rejects the whole payload; the per-metal
+  `/metal/spot` endpoint (no unit parameter) deliberately gains no copper entry, and
+  the `/timeseries` parser skips copper for the same reason. Copper history comes from
+  Metals-API/MetalPriceAPI instead.
+- **Copper checkbox in "Metals to track"** (STRK-303): every provider panel's metal
+  selection grid now surfaces copper (config-truthy since v3.36.2), so users can opt
+  out of the fifth metal's API calls. History-pull cost previews and the confirm
+  dialog count copper automatically via the wired-metal gates.
+
+---
+
 ## [3.36.3] - 2026-08-15
 
 ### Fixed — STRK-342: Spot provider registry hygiene

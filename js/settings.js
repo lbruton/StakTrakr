@@ -491,7 +491,7 @@ const _buildApiKeyField = (opts) => {
 };
 
 /**
- * Builds the four-metal checkbox grid used by every provider panel, hydrated
+ * Builds the five-metal checkbox grid used by every provider panel, hydrated
  * from `metalApiConfig.metals[provider]` (unset metals default to checked).
  * Persistence is the delegated change handler in settings-listeners.js
  * (`wireSpotMetalSelection`, STRK-342).
@@ -518,6 +518,9 @@ const _buildMetalsCheckboxes = (provider) => {
     { metal: "silver", display: "Silver" },
     { metal: "platinum", display: "Platinum" },
     { metal: "palladium", display: "Palladium" },
+    // Config-truthy since the STRK-305 backfill; surfaced here so users can
+    // opt out of the fifth metal's API calls (STRK-303 Part 2).
+    { metal: "copper", display: "Copper" },
   ].forEach(({ metal, display }) => {
     const wrapLabel = document.createElement("label");
     wrapLabel.className = "metal-checkbox";
