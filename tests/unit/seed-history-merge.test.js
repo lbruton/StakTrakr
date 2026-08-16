@@ -19,22 +19,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { extractConstFn } from "./helpers/source-extract.js";
 
-// --- extract _seedEntriesToMerge from seed-data.js source ---
-// Substring extraction (start marker → first column-0 "};"), same harness as
-// tests/unit/staktrakr-hourly-backfill.test.js.
 const seedSrc = readFileSync(new URL("../../js/seed-data.js", import.meta.url), "utf-8");
-
-const extractConstFn = (src, name) => {
-  const marker = `const ${name} = `;
-  const start = src.indexOf(marker);
-  assert.notEqual(start, -1, `could not locate ${marker} in js/seed-data.js`);
-  const end = src.indexOf("\n};", start);
-  assert.notEqual(end, -1, `could not locate the end of ${name} in js/seed-data.js`);
-  const expr = src.slice(start + marker.length, end + "\n}".length);
-  return new Function(`return ${expr};`)();
-};
-
 const seedEntriesToMerge = extractConstFn(seedSrc, "_seedEntriesToMerge");
 
 // Fixtures use the stored UTC-naive timestamp shape ("YYYY-MM-DD HH:MM:SS").

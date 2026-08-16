@@ -25,36 +25,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { evalConstantsWindow, extractConstFn } from "./helpers/source-extract.js";
 
-// --- constants.js: whole-file eval with a mock window (same harness as
-// spot-provider-symbols.test.js) ---
-const constSrc = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
-const win = {
-  location: { search: "", protocol: "https:" },
-  localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-};
-new Function("window", constSrc)(win);
-
-const { METALS } = win;
+const { METALS } = evalConstantsWindow();
 assert.ok(METALS, "METALS must load from constants.js");
 
-// --- extract _staktrakrBackfillHoursBack from api.js source ---
-// Substring extraction (start marker → first column-0 "};") rather than a
-// regex over the body, so internal formatting changes cannot silently break
-// the harness (Copilot review, PR #1465).
 const apiSrc = readFileSync(new URL("../../js/api.js", import.meta.url), "utf-8");
-
-const extractConstFn = (src, name) => {
-  const marker = `const ${name} = `;
-  const start = src.indexOf(marker);
-  assert.notEqual(start, -1, `could not locate ${marker} in js/api.js`);
-  const end = src.indexOf("\n};", start);
-  assert.notEqual(end, -1, `could not locate the end of ${name} in js/api.js`);
-  const expr = src.slice(start + marker.length, end + "\n}".length);
-  return new Function("METALS", `return ${expr};`)(METALS);
-};
-
-const hoursBackFor = extractConstFn(apiSrc, "_staktrakrBackfillHoursBack");
+const hoursBackFor = extractConstFn(apiSrc, "_staktrakrBackfillHoursBack", { METALS });
 
 // Fixture rows mirror the writer exactly: UTC ISO with "T"→" " and no "Z"
 // (_fetchStaktrakrHourlyRangeV2's stored shape).
