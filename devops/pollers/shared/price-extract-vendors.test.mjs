@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
-const migratedVendorIds = ["goldback", "apmex", "summitmetals", "mintbuilder"];
-const notYetMigratedVendorIds = ["jmbullion"];
+const migratedVendorIds = ["goldback", "apmex", "summitmetals", "mintbuilder", "jmbullion"];
+const notYetMigratedVendorIds = ["sdbullion"];
 
 const unwrapVendor = (candidate) => candidate?.vendor ?? candidate?.default ?? candidate;
 
@@ -494,7 +494,7 @@ test("STRK-314: resolveVendorConfig is idempotent on an already-resolved config"
   // scrapeGenericTarget re-runs the resolution on a context config that
   // scrapeVendor already merged. That second pass must be a no-op, or the
   // registry and the scrape would disagree about the effective config.
-  for (const providerId of [...migratedVendorIds, "bullionexchanges", "jmbullion"]) {
+  for (const providerId of [...migratedVendorIds, "bullionexchanges"]) {
     const module = registry.getVendorModule(providerId);
     const once = registry.resolveVendorConfig(providerId, module, { waitAfter: 31 });
     const twice = registry.resolveVendorConfig(providerId, module, once);
@@ -546,7 +546,10 @@ test("STRK-314: no-caller-config resolution is unchanged from the pre-fix chain"
 
   // The production poll loop passes no explicit override, so every vendor —
   // migrated or legacy — must resolve exactly as it did before STRK-314.
-  for (const providerId of [...migratedVendorIds, "jmbullion", "sdbullion", "monumentmetals"]) {
+  // jmbullion is migrated but FBP-feed-only: its scrape never dispatches to the
+  // generic scraper, so it is excluded from this generic-path resolution probe.
+  const genericMigrated = migratedVendorIds.filter((id) => id !== "jmbullion");
+  for (const providerId of [...genericMigrated, "sdbullion", "monumentmetals"]) {
     const vendor = registry.getVendorModule(providerId);
     const resolved = await resolveConfigVia(registry, providerId, undefined);
     assert.deepEqual(

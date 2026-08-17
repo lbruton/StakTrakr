@@ -156,6 +156,8 @@ JMBullion marks some coins as "Presale" at year-start but still shows purchasabl
 
 Preorder tolerance is resolved **per vendor** by `resolvePreorderTolerant()` (`devops/pollers/shared/price-extract-shared.js:106-110`, consumed at `:214`): a `preorderTolerant` field on the vendor descriptor wins, and `LEGACY_PREORDER_TOLERANT_PROVIDERS` (`:72`) is only the fallback. That legacy set holds **two** vendors — `jmbullion` and `monumentmetals`. There is no `PREORDER_TOLERANT_PROVIDERS` constant.
 
+Poller-side (STRK-334), `jmbullion` prices are FBP-sourced rather than JM-direct scraped: `price-extract-vendor-jmbullion-fbp.js` follows the standard `MIGRATED_VENDOR_MAP` `scrape(context)` contract and consumes a `context.fetchFbpPage` seam (see `.context/data-pipelines.md`).
+
 ### Frontend Consumption
 
 The frontend fetches `providers.json` once per sync and caches it in localStorage. The modal uses `retailProviders[slug][vendorId]` for deep-link URLs, falling back to `RETAIL_VENDOR_URLS[vendorId]`.

@@ -1390,7 +1390,7 @@ export async function runFullPoller(options = {}) {
           finishedAt: new Date().toISOString(),
           captured: ok,
           failures: fail,
-          fbpFilled: 0,
+          fbpFilled: scrapeResults.filter((r) => r && r.source === "fbp" && r.ok).length,
           error: errorMsg,
         });
       } catch (err) {
