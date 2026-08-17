@@ -216,7 +216,7 @@ This section documents how each vendor's website is structured for scraping purp
 
 - **Stack:** Next.js App Router with RSC streaming
 - **Spot API:** `contentapi-managed.jmbullion.com/api/spot/summary` — unauthenticated, returns current spot prices.
-- **Product pricing:** No dedicated product price API. Prices must be extracted from HTML scraping only.
+- **Product pricing:** No dedicated product price API. JM direct scraping is Webscale/reCAPTCHA-blocked, so product prices are gap-filled from **FindBullionPrices.com** JSON-LD `ItemList` via `price-extract-vendor-jmbullion-fbp.js` (`source: "fbp"`, STRK-334) — a plain HTTPS fetch + JSON-LD parse, no CF-bypass. See the JM-via-FBP subsection in `.context/data-pipelines.md`.
 
 ### APMEX
 

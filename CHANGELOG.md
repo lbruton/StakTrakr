@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.10] - 2026-08-16
+
+### Added — STRK-334: Restore JM Bullion market pricing via FindBullionPrices gap-fill
+
+- **FindBullionPrices.com JSON-LD gap-fill poller vendor** (STRK-334): JM
+  Bullion is blocked at the source by its Webscale/reCAPTCHA challenge, so its
+  market prices had gone stale. A new poller vendor module scrapes
+  FindBullionPrices.com's product pages — which expose clean JSON-LD ItemList
+  data with no bot challenge — and uses those listings to gap-fill JM Bullion
+  pricing back onto the market table. A year-preferring slug resolver picks the
+  correct year-specific FBP product URL (older slugs 302-redirect), and a new
+  `provider_coins.fbp_match` column records the resolved FBP mapping per coin.
+- **Market footer FindBullionPrices attribution** (STRK-334): the market view
+  footer now carries a FindBullionPrices.com attribution link crediting the
+  gap-fill data source.
+- Re-enabling JM Bullion as a live market vendor is a post-deploy step once the
+  gap-fill feed is publishing.
+
 ## [3.36.9] - 2026-08-16
 
 ### Added — STRK-345: v2 day-file backfill tool for new metals

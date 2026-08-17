@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS provider_coins (
   name       TEXT NOT NULL,        -- "American Silver Eagle"
   weight_oz  REAL NOT NULL,        -- troy ounces (e.g. 1, 10)
   fbp_url    TEXT,                 -- FindBullionPrices URL (legacy, nullable)
+  fbp_match  TEXT,                 -- FBP slug-resolver keyword hints (STRK-334, nullable)
   notes      TEXT,                 -- free-form notes
   enabled    INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),

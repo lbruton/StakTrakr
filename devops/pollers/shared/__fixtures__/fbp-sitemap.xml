@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  STRK-334 TDD fixture — representative slice of FindBullionPrices' product
+  sitemap. Covers every ranking case the year-preferring resolver must handle
+  for the "american silver eagle 1 oz" coin:
+    - current-year dated slug (2026-...)         → top pick
+    - random-year slug (...-random-year)          → second
+    - older dated slug (2024-...)                 → third
+    - undated slug                                → last
+  Plus non-matching product URLs the keyword filter must exclude.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://findbullionprices.com/p/2024-american-silver-eagle-1-oz-bu-coin/</loc>
+    <lastmod>2024-01-15</lastmod>
+  </url>
+  <url>
+    <loc>https://findbullionprices.com/p/american-silver-eagle-1-oz-random-year/</loc>
+    <lastmod>2026-06-01</lastmod>
+  </url>
+  <url>
+    <loc>https://findbullionprices.com/p/2026-american-silver-eagle-1-oz-bu-coin/</loc>
+    <lastmod>2026-01-05</lastmod>
+  </url>
+  <url>
+    <loc>https://findbullionprices.com/p/american-silver-eagle-1-oz/</loc>
+    <lastmod>2020-03-22</lastmod>
+  </url>
+  <url>
+    <loc>https://findbullionprices.com/p/2026-american-gold-eagle-1-oz-bu-coin/</loc>
+    <lastmod>2026-01-05</lastmod>
+  </url>
+  <url>
+    <loc>https://findbullionprices.com/p/2026-canadian-silver-maple-leaf-1-oz/</loc>
+    <lastmod>2026-01-05</lastmod>
+  </url>
+  <url>
+    <loc>https://findbullionprices.com/about/</loc>
+    <lastmod>2026-01-01</lastmod>
+  </url>
+</urlset>
