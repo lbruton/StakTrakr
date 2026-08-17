@@ -50,6 +50,20 @@ test("matchCoinSlugs keeps only slugs containing every keyword (hyphen-normalize
   );
 });
 
+test("matchCoinSlugs matches whole words, not substrings (1 oz must not match 10 oz)", async () => {
+  const { matchCoinSlugs } = await importModule();
+
+  const oneOz = `${BASE}2026-american-silver-eagle-1-oz-bu-coin/`;
+  const tenOz = `${BASE}2026-american-silver-eagle-10-oz-bu-coin/`;
+
+  const matched = matchCoinSlugs([oneOz, tenOz], "american silver eagle 1 oz");
+  assert.deepEqual(
+    matched,
+    [oneOz],
+    "the '1 oz' hint matches the 1 oz slug but NOT the 10 oz slug (substring bug)"
+  );
+});
+
 test("rankByYear orders current-year ▸ random-year ▸ older-dated ▸ undated", async () => {
   const { rankByYear } = await importModule();
 

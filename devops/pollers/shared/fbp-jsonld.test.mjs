@@ -53,6 +53,41 @@ test("parseFbpItemList returns [] for malformed / missing-ItemList HTML without 
   assert.deepEqual(parseFbpItemList(""), []);
 });
 
+test("parseFbpItemList drops offers with null / empty-string / zero raw prices", async () => {
+  const { parseFbpItemList } = await importModule();
+
+  const itemList = {
+    "@type": "ItemList",
+    itemListElement: [
+      { position: 1, item: { seller: { name: "Null Co" }, price: null, priceCurrency: "USD" } },
+      { position: 2, item: { seller: { name: "Empty Co" }, price: "", priceCurrency: "USD" } },
+      { position: 3, item: { seller: { name: "Zero Co" }, price: 0, priceCurrency: "USD" } },
+      { position: 4, item: { seller: { name: "JM Bullion" }, price: 82.95, priceCurrency: "USD" } },
+    ],
+  };
+  const html = `<script type="application/ld+json">${JSON.stringify(itemList)}</script>`;
+  const offers = parseFbpItemList(html);
+
+  assert.equal(offers.length, 1, "only the strictly-positive-priced offer survives");
+  assert.equal(offers[0].seller, "JM Bullion");
+  assert.equal(offers[0].price, 82.95);
+  assert.equal(
+    offers.find((offer) => offer.seller === "Null Co"),
+    undefined,
+    "a null raw price must not produce an offer"
+  );
+  assert.equal(
+    offers.find((offer) => offer.seller === "Empty Co"),
+    undefined,
+    "an empty-string raw price must not produce an offer"
+  );
+  assert.equal(
+    offers.find((offer) => offer.seller === "Zero Co"),
+    undefined,
+    "a zero raw price must not produce an offer"
+  );
+});
+
 test("findVendorOffer returns the JM offer, and null when the seller is absent", async () => {
   const { parseFbpItemList, findVendorOffer } = await importModule();
 

@@ -49,8 +49,14 @@ function parseFbpItemList(html) {
       if (!item) {
         continue;
       }
-      const price = Number(item.price);
-      if (!Number.isFinite(price)) {
+      const rawPrice = item.price;
+      const isUsableRaw =
+        typeof rawPrice === "number" || (typeof rawPrice === "string" && rawPrice.trim() !== "");
+      if (!isUsableRaw) {
+        continue;
+      }
+      const price = Number(rawPrice);
+      if (!Number.isFinite(price) || price <= 0) {
         continue;
       }
       offers.push({

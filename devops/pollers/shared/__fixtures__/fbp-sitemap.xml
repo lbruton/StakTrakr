@@ -9,7 +9,7 @@
     - undated slug                                → last
   Plus non-matching product URLs the keyword filter must exclude.
 -->
-<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://findbullionprices.com/p/2024-american-silver-eagle-1-oz-bu-coin/</loc>
     <lastmod>2024-01-15</lastmod>

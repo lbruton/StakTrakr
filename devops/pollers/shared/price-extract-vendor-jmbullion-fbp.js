@@ -17,6 +17,12 @@ import { parseFbpItemList, findVendorOffer, fetchFbpPage } from "./fbp-jsonld.js
 
 const JM_SELLER_NAME = "JM Bullion";
 
+// Exact apex host FBP pages are served from. Matches the allowlist
+// resolve-fbp-slugs.js enforces when it writes fbp_url, so a poisoned or
+// misconfigured provider_coins.fbp_url pointing at any other host fails closed
+// here before we ever open a socket (SSRF defense-in-depth).
+const FBP_HOST = "findbullionprices.com";
+
 export const vendor = {
   id: "jmbullion",
   displayName: "JM Bullion",
@@ -44,6 +50,25 @@ export const vendor = {
       };
     }
 
+    // SSRF guard: only ever fetch the FBP apex. A malformed URL also fails
+    // closed (new URL throws). This never reaches the network on a bad host.
+    let host;
+    try {
+      host = new URL(fbpUrl).host;
+    } catch {
+      host = "";
+    }
+    if (host !== FBP_HOST) {
+      return {
+        ok: false,
+        price: null,
+        inStock: false,
+        source: "fbp",
+        error: "off-host-fbp-url",
+        url: fbpUrl,
+      };
+    }
+
     try {
       const fetchPage = context.fetchFbpPage || fetchFbpPage;
       const html = await fetchPage(fbpUrl);
@@ -53,6 +78,9 @@ export const vendor = {
       if (offer) {
         return { ok: true, price: offer.price, inStock: true, source: "fbp", url: fbpUrl };
       }
+      // Genuine no-offer: JM is not listed on a page we successfully fetched
+      // and parsed. This is a confirmed absence (inStock:false → is_failed=0),
+      // so it ages out per R4 rather than being retried forever.
       return {
         ok: false,
         price: null,
@@ -62,10 +90,15 @@ export const vendor = {
         url: fbpUrl,
       };
     } catch (error) {
+      // Transport/parse failure (timeout, non-2xx, unparseable HTML) — NOT a
+      // confirmed out-of-stock. runFullPoller derives is_failed from
+      // `price === null && inStock`, so we report inStock:true here to mark
+      // this a retryable scrape failure and preserve carry-forward of the
+      // last-known price, matching the pipeline's failure convention.
       return {
         ok: false,
         price: null,
-        inStock: false,
+        inStock: true,
         source: "fbp",
         error: error.message,
         url: fbpUrl,

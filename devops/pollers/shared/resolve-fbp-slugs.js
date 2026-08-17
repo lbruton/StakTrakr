@@ -87,8 +87,13 @@ function matchCoinSlugs(locs, keywords) {
     return [];
   }
   return locs.filter((loc) => {
-    const normalized = normalizeSlug(loc);
-    return tokens.every((token) => normalized.includes(token));
+    const slugWords = new Set(normalizeSlug(loc).split(/\s+/).filter(Boolean));
+    return tokens.every((token) =>
+      token
+        .split(/\s+/)
+        .filter(Boolean)
+        .every((word) => slugWords.has(word))
+    );
   });
 }
 
@@ -293,6 +298,8 @@ function parseArgs(argv, env = process.env) {
       dryRun = true;
     } else if (arg.startsWith("COINS=")) {
       coinsRaw = arg.slice("COINS=".length);
+    } else {
+      throw new Error(`unrecognized argument: ${arg}`);
     }
   }
   const coinsFilter = coinsRaw
@@ -304,12 +311,16 @@ function parseArgs(argv, env = process.env) {
   return { dryRun, coinsFilter };
 }
 
-const isMain = realpathSync(process.argv[1] ?? "") === fileURLToPath(import.meta.url);
+const isMain =
+  typeof process.argv[1] === "string" &&
+  realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  main(parseArgs(process.argv.slice(2))).catch((err) => {
+  try {
+    await main(parseArgs(process.argv.slice(2)));
+  } catch (err) {
     console.error(`[resolve-fbp-slugs] fatal: ${err.message}`);
     process.exitCode = 1;
-  });
+  }
 }
 
 export {
