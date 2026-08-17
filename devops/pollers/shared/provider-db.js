@@ -77,12 +77,6 @@ export async function initProviderSchema(client) {
   } catch {
     // Column already exists — expected on subsequent runs
   }
-  // STRK-334: Add fbp_match column if missing (migration for existing DBs)
-  try {
-    await client.execute("ALTER TABLE provider_coins ADD COLUMN fbp_match TEXT");
-  } catch {
-    // Column already exists — expected on subsequent runs
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +93,7 @@ export async function initProviderSchema(client) {
  */
 export async function getProviders(client) {
   const coinsResult = await client.execute(
-    "SELECT slug, metal, name, weight_oz, fbp_url, fbp_match, notes, enabled FROM provider_coins ORDER BY slug"
+    "SELECT slug, metal, name, weight_oz, fbp_url, notes, enabled FROM provider_coins ORDER BY slug"
   );
   const vendorsResult = await client.execute(
     "SELECT coin_slug, vendor_id, vendor_name, url, enabled, selector, hints, skip_bounds FROM provider_vendors ORDER BY coin_slug, vendor_id"
@@ -128,7 +122,6 @@ export async function getProviders(client) {
       metal: row.metal,
       weight_oz: row.weight_oz,
       ...(row.fbp_url ? { fbp_url: row.fbp_url } : {}),
-      ...(row.fbp_match ? { fbp_match: row.fbp_match } : {}),
       ...(row.notes ? { notes: row.notes } : {}),
       providers: vendorsByCoin.get(row.slug) || [],
     };
@@ -168,7 +161,7 @@ export async function getProvidersByCoin(client, coinSlug) {
  */
 export async function getAllCoins(client) {
   const result = await client.execute(
-    "SELECT slug, metal, name, weight_oz, fbp_url, fbp_match, notes, enabled FROM provider_coins ORDER BY slug"
+    "SELECT slug, metal, name, weight_oz, fbp_url, notes, enabled FROM provider_coins ORDER BY slug"
   );
   return result.rows.map((row) => ({
     slug: row.slug,
@@ -176,7 +169,6 @@ export async function getAllCoins(client) {
     name: row.name,
     weight_oz: row.weight_oz,
     fbp_url: row.fbp_url,
-    fbp_match: row.fbp_match,
     notes: row.notes,
     enabled: row.enabled === 1,
   }));
@@ -196,21 +188,19 @@ export async function getAllCoins(client) {
  * @param {string} coin.name
  * @param {number} [coin.weight_oz=1.0]
  * @param {string} [coin.fbp_url]
- * @param {string} [coin.fbp_match]
  * @param {string} [coin.notes]
  * @param {boolean} [coin.enabled=true]
  */
 export async function upsertCoin(client, coin) {
   await client.execute({
     sql: `
-      INSERT INTO provider_coins (slug, metal, name, weight_oz, fbp_url, fbp_match, notes, enabled, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      INSERT INTO provider_coins (slug, metal, name, weight_oz, fbp_url, notes, enabled, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(slug) DO UPDATE SET
         metal = excluded.metal,
         name = excluded.name,
         weight_oz = excluded.weight_oz,
         fbp_url = excluded.fbp_url,
-        fbp_match = excluded.fbp_match,
         notes = excluded.notes,
         enabled = excluded.enabled,
         updated_at = datetime('now')
@@ -221,7 +211,6 @@ export async function upsertCoin(client, coin) {
       coin.name,
       coin.weight_oz ?? 1.0,
       coin.fbp_url ?? null,
-      coin.fbp_match ?? null,
       coin.notes ?? null,
       coin.enabled !== false ? 1 : 0,
     ],
