@@ -205,3 +205,63 @@ test("By Vendor enable/disable toggle honors the readOnly flag (STRK-323)", () =
       "in read-only mode issues a write that cannot succeed"
   );
 });
+
+test("FBP-backed vendor ids are declared as a Set including jmbullion (STRK-347)", () => {
+  const line = constLine("FBP_VENDOR_IDS");
+  assert.match(
+    line,
+    /new Set\(\[/,
+    "FBP_VENDOR_IDS must be a Set so the render can test membership per vendor"
+  );
+  assert.match(
+    line,
+    /"jmbullion"/,
+    "jmbullion is the current FBP-backed vendor (price scraped from FindBullionPrices.com)"
+  );
+});
+
+test("the provider editor surfaces an FBP-backed badge (STRK-347)", () => {
+  assert.match(
+    DASHBOARD_SRC,
+    /FBP-backed/,
+    "FBP-backed vendors must carry a visible badge so the price-source distinction is obvious"
+  );
+});
+
+test("By Vendor FBP price-source URL input honors the readOnly flag (STRK-347)", () => {
+  assert.match(
+    renderLineFor("vendor-fbp-url-byvendor"),
+    /readOnly \? "disabled" : ""/,
+    "the By Vendor FBP price-source URL is a write control and must be disabled when sqld is down"
+  );
+});
+
+test("By Coin FBP price-source URL input honors the readOnly flag (STRK-347)", () => {
+  const line = DASHBOARD_SRC.split("\n").find((l) => l.includes('class="vendor-fbp-url"'));
+  assert.ok(line, 'expected a By-Coin input with class="vendor-fbp-url"');
+  assert.match(
+    line,
+    /readOnly \? "disabled" : ""/,
+    "the By Coin FBP price-source URL is a write control and must be disabled when sqld is down"
+  );
+});
+
+test("the coin-fbp-url endpoint writes fbp_url alone, never upsertCoin (STRK-347)", () => {
+  const start = DASHBOARD_SRC.indexOf('url === "/providers/coin-fbp-url"');
+  assert.ok(start >= 0, "expected a /providers/coin-fbp-url handler");
+  // Slice to the next route marker so the assertion is scoped to this handler.
+  const rest = DASHBOARD_SRC.slice(start + 1);
+  const nextRoute = rest.indexOf('url === "/providers/');
+  const handler = DASHBOARD_SRC.slice(start, nextRoute >= 0 ? start + 1 + nextRoute : undefined);
+  assert.match(
+    handler,
+    /updateCoinFbpUrl\(/,
+    "must use the dedicated fbp_url writer so the coin's identity columns survive"
+  );
+  assert.doesNotMatch(
+    handler,
+    /upsertCoin\(/,
+    "upsertCoin writes metal/name/weight from its payload — calling it here with a " +
+      "partial coin would null the coin's identity fields"
+  );
+});

@@ -26,6 +26,7 @@ import {
   upsertCoin,
   upsertVendor,
   updateVendorUrl,
+  updateCoinFbpUrl,
   toggleVendor,
   deleteCoin,
   deleteVendor,
@@ -1397,6 +1398,15 @@ const API_FED_VENDOR_IDS = new Set(["mintbuilder"]);
 // other value on an API-fed row means that item fell back to page scraping.
 const FEED_SOURCE = "mintbuilder-api";
 
+// Vendors whose price is scraped from FindBullionPrices.com instead of their own
+// site (STRK-334). Presentation-only: drives the "FBP-backed" badge and the
+// second (price-source) URL input in the provider editor. For these vendors the
+// row's own URL is only the buy-link click-through; the scraped price comes from
+// the coin's fbp_url. Hardcoded like API_FED_VENDOR_IDS above — the runtime
+// authority is the jmbullion module (price-extract-vendor-jmbullion-fbp.js,
+// source:"fbp"); add any new FBP-backed vendor ids here too (STRK-347).
+const FBP_VENDOR_IDS = new Set(["jmbullion"]);
+
 // How long a feed probe is reused before /providers re-checks. The dashboard is
 // a long-running process, so getFeedIndex must be bounded or the health line
 // would freeze at whatever the first page load saw (STRK-324).
@@ -1444,6 +1454,7 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
   const vendorViewHtml = (vendorGroups || [])
     .map((vg) => {
       const isApiFed = API_FED_VENDOR_IDS.has(vg.vendorId);
+      const isFbpBacked = FBP_VENDOR_IDS.has(vg.vendorId);
       const okCount = vg.items.filter((i) => {
         const key = `${i.coinSlug}:${vg.vendorId}`;
         const st = scrapeStatus?.get(key);
@@ -1492,11 +1503,24 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
         <input type="text" class="vendor-productid-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(pinnedId)}" style="width:100%;font-size:11px;" placeholder="feed id (optional)" title="Pin this row to an exact feed product ID. Leave blank to match by URL. Saved into the hints JSON without touching its other keys." ${readOnly ? "disabled" : ""}>
         ${matchBadge}`;
           }
-          const gridCols = isApiFed ? "auto 1fr 2fr 90px auto 1fr auto" : "auto 1fr 2fr 1fr auto";
+          // FBP-backed rows get a second URL input for the coin-level fbp_url —
+          // the actual price source. The url input to its left is the vendor's
+          // own buy-link click-through, no longer scraped (STRK-347).
+          let fbpCells = "";
+          if (isFbpBacked) {
+            fbpCells = `
+        <input type="text" class="vendor-fbp-url-byvendor" data-coin="${escAttr(item.coinSlug)}" value="${escAttr(item.fbpUrl || "")}" style="width:100%;font-size:11px;" placeholder="FBP price-source URL" title="FindBullionPrices.com page the price is scraped from — the real price source. The URL to the left is the ${escAttr(vg.vendorName)} buy link only, not scraped." ${readOnly ? "disabled" : ""}>`;
+          }
+          const gridCols = isApiFed
+            ? "auto 1fr 2fr 90px auto 1fr auto"
+            : isFbpBacked
+              ? "auto 1fr 2fr 2fr 1fr auto"
+              : "auto 1fr 2fr 1fr auto";
+          const urlPlaceholder = isFbpBacked ? "buy link (not scraped)" : "https://...";
           return `<div style="display:grid;grid-template-columns:${gridCols};gap:8px;align-items:center;padding:5px 8px 5px 24px;border-bottom:1px solid var(--border);font-size:12px;">
         ${dot}
         <span style="font-weight:600;">${escHtml(item.coinName)} ${metalBadge(item.metal)}</span>
-        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="https://..." ${readOnly ? "disabled" : ""}>${apiCells}
+        <input type="text" class="vendor-url-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" value="${escAttr(item.url || "")}" style="width:100%;font-size:11px;" placeholder="${urlPlaceholder}" ${readOnly ? "disabled" : ""}>${apiCells}${fbpCells}
         ${priceText}
         <button class="btn-sm vendor-toggle-byvendor" data-coin="${escAttr(item.coinSlug)}" data-vendor="${escAttr(vg.vendorId)}" data-enabled="${item.enabled !== false ? "1" : "0"}" style="background:${item.enabled !== false ? "var(--green)" : "var(--red)"};color:#fff;font-size:10px;min-width:32px;" ${readOnly ? "disabled" : ""}>${item.enabled !== false ? "On" : "Off"}</button>
       </div>`;
@@ -1517,6 +1541,10 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
         <span style="font-weight:600;font-size:13px;">${escHtml(vg.vendorName)}${
           isApiFed
             ? ' <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--muted);vertical-align:middle;" title="Prices come from this vendor&#39;s direct API feed (one call per run). Product URLs below still drive feed matching and Buy links — add/remove items exactly like scraped vendors.">Direct API</span>'
+            : ""
+        }${
+          isFbpBacked
+            ? ' <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--muted);vertical-align:middle;" title="Prices are scraped from FindBullionPrices.com (the price source, edited per row). Each row&#39;s own URL is only the buy-link click-through, not scraped.">FBP-backed</span>'
             : ""
         }</span>
         <span style="font-size:11px;color:var(--muted);">${statsText}</span>
@@ -1549,6 +1577,7 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
       const vendorRows = (coin.providers || [])
         .map((p, i) => {
           const key = `${slug}:${p.id}`;
+          const isFbpBacked = FBP_VENDOR_IDS.has(p.id);
           const status = scrapeStatus ? scrapeStatus.get(key) : null;
           let dot = '<span class="dot dot-gray" title="No data"></span>';
           let hoverText = "No data";
@@ -1565,8 +1594,15 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
           return `<tr class="vendor-row" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}">
         <td>${dot}</td>
         <td><input type="checkbox" class="vendor-toggle" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" ${p.enabled !== false ? "checked" : ""} ${readOnly ? "disabled" : ""}></td>
-        <td><code>${escHtml(p.id)}</code></td>
-        <td><input type="text" class="vendor-url" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" value="${escAttr(p.url || "")}" style="width:100%" ${readOnly ? "disabled" : ""}></td>
+        <td><code>${escHtml(p.id)}</code>${isFbpBacked ? ' <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;color:var(--muted);" title="Price scraped from FindBullionPrices.com. The buy link is a click-through only; the FBP URL below it is the price source.">FBP</span>' : ""}</td>
+        <td>${
+          isFbpBacked
+            ? `<div style="display:flex;flex-direction:column;gap:3px;">
+          <input type="text" class="vendor-url" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" value="${escAttr(p.url || "")}" style="width:100%" placeholder="buy link (not scraped)" title="${escAttr(p.id)} buy-link click-through only — not scraped." ${readOnly ? "disabled" : ""}>
+          <input type="text" class="vendor-fbp-url" data-coin="${escAttr(slug)}" value="${escAttr(coin.fbp_url || "")}" style="width:100%" placeholder="FBP price-source URL" title="FindBullionPrices.com page the price is scraped from — the real price source." ${readOnly ? "disabled" : ""}>
+        </div>`
+            : `<input type="text" class="vendor-url" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" value="${escAttr(p.url || "")}" style="width:100%" ${readOnly ? "disabled" : ""}>`
+        }</td>
         <td style="white-space:nowrap">
           <button class="btn-expand" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" title="Edit selector/hints" ${readOnly ? "disabled" : ""}>&#9881;</button>
           <button class="btn-del-vendor" data-coin="${escAttr(slug)}" data-vendor="${escAttr(p.id)}" data-name="${escAttr(p.id)}" data-coinname="${escAttr(coin.name)}" ${readOnly ? "disabled" : ""} style="background:#7f1d1d;color:#fca5a5;">&#10005;</button>
@@ -1904,6 +1940,28 @@ document.querySelectorAll('.vendor-url').forEach(input => {
   });
 });
 
+// ── FBP price-source URL blur-to-save (By Coin) ──────────────────────────────
+// Writes the coin-level fbp_url (the scraped price source), not the vendor row
+// URL. FBP-backed rows only (STRK-347).
+document.querySelectorAll('.vendor-fbp-url').forEach(input => {
+  let orig = input.value;
+  input.addEventListener('blur', async () => {
+    if (input.value === orig) return;
+    if (input.value && !input.value.startsWith('https://')) {
+      showToast('URL must start with https://', false);
+      return;
+    }
+    const r = await fetch('/providers/coin-fbp-url', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ coinSlug: input.dataset.coin, fbpUrl: input.value })
+    });
+    const j = await r.json();
+    showToast(j.message, r.ok);
+    if (r.ok) orig = input.value;
+  });
+});
+
 // ── Expand vendor details ────────────────────────────────────────────────────
 document.querySelectorAll('.btn-expand').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2145,6 +2203,28 @@ document.querySelectorAll('.vendor-url-byvendor').forEach(function(input) {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, url: input.value })
+    });
+    const j = await r.json();
+    showToast(j.message, r.ok);
+    if (r.ok) orig = input.value;
+  });
+});
+
+// ── By Vendor tab: FBP price-source URL blur-to-save ─────────────────────
+// FBP-backed vendors carry the coin's fbp_url beside the buy link. Writes the
+// coin-level price source, not the vendor row URL (STRK-347).
+document.querySelectorAll('.vendor-fbp-url-byvendor').forEach(function(input) {
+  var orig = input.value;
+  input.addEventListener('blur', async function() {
+    if (input.value === orig) return;
+    if (input.value && !input.value.startsWith('https://')) {
+      showToast('URL must start with https://', false);
+      return;
+    }
+    const r = await fetch('/providers/coin-fbp-url', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ coinSlug: input.dataset.coin, fbpUrl: input.value })
     });
     const j = await r.json();
     showToast(j.message, r.ok);
@@ -3093,6 +3173,29 @@ async function handleRequest(req, res) {
       await updateVendorUrl(client, coinSlug, vendorId, newUrl);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, message: `Updated ${vendorId}/${coinSlug} URL.` }));
+    } catch (err) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, message: err.message }));
+    }
+    return;
+  }
+
+  // ── POST /providers/coin-fbp-url ───────────────────────────────────────
+  // Writes the coin-level fbp_url (the FBP price source) alone. Deliberately
+  // uses updateCoinFbpUrl, not upsertCoin — an upsert with a partial coin
+  // payload would null the coin's metal/name/weight columns (STRK-347).
+  if (req.method === "POST" && url === "/providers/coin-fbp-url") {
+    try {
+      const data = JSON.parse(await readBody(req));
+      const coinSlug = data.coinSlug || data.coinId;
+      const newUrl = data.fbpUrl;
+      if (!coinSlug) throw new Error("coinSlug required");
+      if (newUrl && !newUrl.startsWith("https://")) throw new Error("URL must start with https://");
+      const client = getSqldClient();
+      const result = await updateCoinFbpUrl(client, coinSlug, newUrl || null);
+      if (result.rowsAffected === 0) throw new Error(`No coin found for ${coinSlug}.`);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, message: `Updated ${coinSlug} FBP price source.` }));
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, message: err.message }));

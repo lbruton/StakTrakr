@@ -218,6 +218,27 @@ export async function upsertCoin(client, coin) {
 }
 
 /**
+ * Update only a coin's fbp_url (the FBP price source), leaving every other
+ * column untouched. Deliberately separate from upsertCoin: that one writes
+ * metal/name/weight/notes/enabled from its payload, so calling it with a
+ * partial `{ slug, fbp_url }` would null the coin's identity fields. The
+ * dashboard's per-coin FBP URL editor (STRK-347) edits fbp_url alone. This is
+ * the coin-level analog of updateVendorUrl.
+ *
+ * @param {import("@libsql/client").Client} client
+ * @param {string} slug
+ * @param {string|null} fbpUrl
+ * @returns {Promise<{rowsAffected: number}>}
+ */
+export async function updateCoinFbpUrl(client, slug, fbpUrl) {
+  const result = await client.execute({
+    sql: "UPDATE provider_coins SET fbp_url = ?, updated_at = datetime('now') WHERE slug = ?",
+    args: [fbpUrl ?? null, slug],
+  });
+  return { rowsAffected: result.rowsAffected };
+}
+
+/**
  * Insert or update a vendor for a coin.
  *
  * @param {import("@libsql/client").Client} client
@@ -529,7 +550,7 @@ export async function getProvidersByVendor(client) {
   const result = await client.execute(`
     SELECT pv.vendor_id, pv.vendor_name, pv.coin_slug, pv.url, pv.enabled,
            pv.selector, pv.hints, pv.skip_bounds,
-           pc.name AS coin_name, pc.metal, pc.weight_oz
+           pc.name AS coin_name, pc.metal, pc.weight_oz, pc.fbp_url
     FROM provider_vendors pv
     JOIN provider_coins pc ON pc.slug = pv.coin_slug
     ORDER BY pv.vendor_id, pc.metal, pc.name
@@ -550,6 +571,10 @@ export async function getProvidersByVendor(client) {
       metal: row.metal,
       weightOz: row.weight_oz,
       url: row.url,
+      // fbp_url is a coin-level column (provider_coins), surfaced here so the
+      // dashboard can show the FBP price source beside the buy link for
+      // FBP-backed vendors like jmbullion (STRK-347).
+      fbpUrl: row.fbp_url,
       enabled: row.enabled === 1,
       selector: row.selector,
       hints: row.hints,

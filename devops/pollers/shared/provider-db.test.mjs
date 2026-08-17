@@ -23,7 +23,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 
-import { initProviderSchema, upsertCoin, getAllCoins } from "./provider-db.js";
+import {
+  initProviderSchema,
+  upsertCoin,
+  getAllCoins,
+  upsertVendor,
+  getProvidersByVendor,
+  updateCoinFbpUrl,
+} from "./provider-db.js";
 
 /**
  * Minimal libSQL-client shim over node:sqlite, exposing the `execute` /
@@ -90,4 +97,71 @@ test("upsertCoin + getAllCoins round-trip fbp_url", async () => {
     "https://findbullionprices.com/p/2026-american-silver-eagle-1-oz-bu-coin/",
     "fbp_url must survive the upsert → getAllCoins round-trip"
   );
+});
+
+test("getProvidersByVendor surfaces each coin's fbp_url (STRK-347)", async () => {
+  const client = makeMemoryClient();
+  await initProviderSchema(client);
+
+  await upsertCoin(client, {
+    slug: "ase",
+    metal: "silver",
+    name: "American Silver Eagle 1 oz",
+    weight_oz: 1,
+    fbp_url: "https://findbullionprices.com/p/2026-american-silver-eagle-1-oz-bu-coin/",
+  });
+  await upsertVendor(client, {
+    coin_slug: "ase",
+    vendor_id: "jmbullion",
+    vendor_name: "JM Bullion",
+    url: "https://www.jmbullion.com/2026-american-silver-eagle/",
+  });
+
+  const groups = await getProvidersByVendor(client);
+  const jm = groups.find((group) => group.vendorId === "jmbullion");
+  assert.ok(jm, "the jmbullion vendor group must exist");
+  const ase = jm.items.find((item) => item.coinSlug === "ase");
+  assert.ok(ase, "the ase item must be present under jmbullion");
+  assert.equal(
+    ase.url,
+    "https://www.jmbullion.com/2026-american-silver-eagle/",
+    "the vendor buy url must be preserved"
+  );
+  assert.equal(
+    ase.fbpUrl,
+    "https://findbullionprices.com/p/2026-american-silver-eagle-1-oz-bu-coin/",
+    "getProvidersByVendor must surface the coin's fbp_url so the dashboard can show the price source (STRK-347)"
+  );
+});
+
+test("updateCoinFbpUrl changes only fbp_url, never the coin's identity fields (STRK-347)", async () => {
+  const client = makeMemoryClient();
+  await initProviderSchema(client);
+
+  await upsertCoin(client, {
+    slug: "ase",
+    metal: "silver",
+    name: "American Silver Eagle 1 oz",
+    weight_oz: 1,
+    fbp_url: "https://findbullionprices.com/p/old-ase-slug/",
+  });
+
+  const result = await updateCoinFbpUrl(
+    client,
+    "ase",
+    "https://findbullionprices.com/p/2026-american-silver-eagle-1-oz-bu-coin/"
+  );
+  assert.equal(result.rowsAffected, 1, "the update must affect exactly the target coin row");
+
+  const ase = (await getAllCoins(client)).find((coin) => coin.slug === "ase");
+  assert.equal(
+    ase.fbp_url,
+    "https://findbullionprices.com/p/2026-american-silver-eagle-1-oz-bu-coin/",
+    "fbp_url must be updated"
+  );
+  // The whole point of a dedicated updater: unlike upsertCoin, it must NOT
+  // touch the coin's identity columns (an upsert with partial data would null them).
+  assert.equal(ase.name, "American Silver Eagle 1 oz", "name must be untouched");
+  assert.equal(ase.metal, "silver", "metal must be untouched");
+  assert.equal(ase.weight_oz, 1, "weight_oz must be untouched");
 });

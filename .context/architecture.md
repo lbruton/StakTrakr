@@ -618,7 +618,7 @@ Lives at `devops/pollers/shared/provider-db.js`. Both pollers' Dockerfiles `COPY
 
 ### Dashboard
 
-Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables: add/edit/delete coins, add/edit/delete vendors, toggle enabled state, bulk enable/disable/remove by vendor+metal, coverage stats, failure queue at `/failures`.
+Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables: add/edit/delete coins, add/edit/delete vendors, toggle enabled state, bulk enable/disable/remove by vendor+metal, coverage stats, failure queue at `/failures`. FBP-backed vendors (`jmbullion`, STRK-347) carry an "FBP-backed" badge and a second editable URL per coin — the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
 
 ---
 

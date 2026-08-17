@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.12] - 2026-08-17
+
+### Added — STRK-347: Poller dashboard shows both FBP price-source + buy-link URLs for FBP-backed vendors
+
+- **Dual URL editor for FBP-backed vendors** (STRK-347): the home-poller provider
+  editor (`/providers`) now surfaces, per coin, both the `provider_coins.fbp_url`
+  (the FindBullionPrices page the price is scraped from) and the vendor's own
+  buy-link URL, each editable and clearly labeled price-source vs buy-link, in both
+  the By-Coin and By-Vendor views. FBP-backed vendors (currently `jmbullion`) carry
+  an "FBP-backed" badge, driven by a `FBP_VENDOR_IDS` set that mirrors the runtime
+  FBP vendor module. Editing the FBP URL writes through a dedicated
+  `updateCoinFbpUrl` (via `POST /providers/coin-fbp-url`) that touches only
+  `fbp_url` — never the coin's identity columns — and `getProvidersByVendor` now
+  surfaces `fbp_url` so the By-Vendor view can render it. Operator-facing only; no
+  change to the app or its data.
+
+---
+
 ## [3.36.11] - 2026-08-17
 
 ### Removed — STRK-346: Remove unused FBP slug resolver + provider_coins.fbp_match column
