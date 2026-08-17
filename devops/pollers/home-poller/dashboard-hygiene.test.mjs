@@ -265,3 +265,22 @@ test("the coin-fbp-url endpoint writes fbp_url alone, never upsertCoin (STRK-347
       "partial coin would null the coin's identity fields"
   );
 });
+
+test("the coin-fbp-url endpoint validates the FBP host, not just the protocol (STRK-347)", () => {
+  const start = DASHBOARD_SRC.indexOf('url === "/providers/coin-fbp-url"');
+  assert.ok(start >= 0, "expected a /providers/coin-fbp-url handler");
+  // Slice to the next route marker so the assertion is scoped to this handler.
+  const rest = DASHBOARD_SRC.slice(start + 1);
+  const nextRoute = rest.indexOf('url === "/providers/');
+  const handler = DASHBOARD_SRC.slice(start, nextRoute >= 0 ? start + 1 + nextRoute : undefined);
+  assert.match(
+    handler,
+    /new URL\(/,
+    "must parse the submitted value with new URL() instead of a startsWith(\"https://\") string check"
+  );
+  assert.match(
+    handler,
+    /FBP_HOST|findbullionprices\.com/,
+    "must reject any host other than the FBP scraper's exact allowlisted host"
+  );
+});

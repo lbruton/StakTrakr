@@ -1407,6 +1407,12 @@ const FEED_SOURCE = "mintbuilder-api";
 // source:"fbp"); add any new FBP-backed vendor ids here too (STRK-347).
 const FBP_VENDOR_IDS = new Set(["jmbullion"]);
 
+// Exact-host allowlist for coin-level fbp_url values, mirrored from the FBP
+// vendor module (price-extract-vendor-jmbullion-fbp.js) — its scraper rejects
+// any other host as off-host-fbp-url, so the save path must reject it first
+// (STRK-347).
+const FBP_HOST = "findbullionprices.com";
+
 // How long a feed probe is reused before /providers re-checks. The dashboard is
 // a long-running process, so getFeedIndex must be bounded or the health line
 // would freeze at whatever the first page load saw (STRK-324).
@@ -1940,17 +1946,22 @@ document.querySelectorAll('.vendor-url').forEach(input => {
   });
 });
 
-// ── FBP price-source URL blur-to-save (By Coin) ──────────────────────────────
-// Writes the coin-level fbp_url (the scraped price source), not the vendor row
-// URL. FBP-backed rows only (STRK-347).
-document.querySelectorAll('.vendor-fbp-url').forEach(input => {
-  let orig = input.value;
-  input.addEventListener('blur', async () => {
-    if (input.value === orig) return;
-    if (input.value && !input.value.startsWith('https://')) {
-      showToast('URL must start with https://', false);
-      return;
-    }
+// ── FBP price-source URL blur-to-save (shared By-Coin + By-Vendor) ────────
+// Writes the coin-level fbp_url. Validates host to match the scraper's exact
+// allowlist (findbullionprices.com), restores the field on any failure, and
+// syncs the twin input in the other view since both edit the same coin value
+// (STRK-347 review: T1/T2/T4/T5/T6/T7).
+async function saveFbpUrl(input) {
+  const orig = input.dataset.fbpOrig || '';
+  if (input.value === orig) return;
+  if (input.value) {
+    let parsed;
+    try { parsed = new URL(input.value); }
+    catch { showToast('Invalid URL', false); input.value = orig; return; }
+    if (parsed.protocol !== 'https:') { showToast('URL must start with https://', false); input.value = orig; return; }
+    if (parsed.host !== 'findbullionprices.com') { showToast('FBP URL host must be findbullionprices.com', false); input.value = orig; return; }
+  }
+  try {
     const r = await fetch('/providers/coin-fbp-url', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
@@ -1958,7 +1969,24 @@ document.querySelectorAll('.vendor-fbp-url').forEach(input => {
     });
     const j = await r.json();
     showToast(j.message, r.ok);
-    if (r.ok) orig = input.value;
+    if (r.ok) {
+      const val = input.value;
+      document.querySelectorAll('.vendor-fbp-url[data-coin="'+input.dataset.coin+'"], .vendor-fbp-url-byvendor[data-coin="'+input.dataset.coin+'"]').forEach(function(el) {
+        el.value = val;
+        el.dataset.fbpOrig = val;
+      });
+    } else {
+      input.value = orig;
+    }
+  } catch {
+    showToast('Request failed — FBP URL not saved', false);
+    input.value = orig;
+  }
+}
+['.vendor-fbp-url', '.vendor-fbp-url-byvendor'].forEach(function(sel) {
+  document.querySelectorAll(sel).forEach(function(input) {
+    input.dataset.fbpOrig = input.value;
+    input.addEventListener('blur', function() { saveFbpUrl(input); });
   });
 });
 
@@ -2203,28 +2231,6 @@ document.querySelectorAll('.vendor-url-byvendor').forEach(function(input) {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ coinSlug: input.dataset.coin, vendorId: input.dataset.vendor, url: input.value })
-    });
-    const j = await r.json();
-    showToast(j.message, r.ok);
-    if (r.ok) orig = input.value;
-  });
-});
-
-// ── By Vendor tab: FBP price-source URL blur-to-save ─────────────────────
-// FBP-backed vendors carry the coin's fbp_url beside the buy link. Writes the
-// coin-level price source, not the vendor row URL (STRK-347).
-document.querySelectorAll('.vendor-fbp-url-byvendor').forEach(function(input) {
-  var orig = input.value;
-  input.addEventListener('blur', async function() {
-    if (input.value === orig) return;
-    if (input.value && !input.value.startsWith('https://')) {
-      showToast('URL must start with https://', false);
-      return;
-    }
-    const r = await fetch('/providers/coin-fbp-url', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ coinSlug: input.dataset.coin, fbpUrl: input.value })
     });
     const j = await r.json();
     showToast(j.message, r.ok);
@@ -3190,7 +3196,18 @@ async function handleRequest(req, res) {
       const coinSlug = data.coinSlug || data.coinId;
       const newUrl = data.fbpUrl;
       if (!coinSlug) throw new Error("coinSlug required");
-      if (newUrl && !newUrl.startsWith("https://")) throw new Error("URL must start with https://");
+      if (newUrl) {
+        let parsed;
+        try {
+          parsed = new URL(newUrl);
+        } catch {
+          throw new Error("Invalid URL");
+        }
+        if (parsed.protocol !== "https:") throw new Error("URL must start with https://");
+        if (parsed.host !== FBP_HOST) {
+          throw new Error(`FBP URL host must be ${FBP_HOST} — the scraper rejects any other host`);
+        }
+      }
       const client = getSqldClient();
       const result = await updateCoinFbpUrl(client, coinSlug, newUrl || null);
       if (result.rowsAffected === 0) throw new Error(`No coin found for ${coinSlug}.`);
