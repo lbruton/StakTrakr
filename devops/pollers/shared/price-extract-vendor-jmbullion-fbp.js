@@ -17,10 +17,9 @@ import { parseFbpItemList, findVendorOffer, fetchFbpPage } from "./fbp-jsonld.js
 
 const JM_SELLER_NAME = "JM Bullion";
 
-// Exact apex host FBP pages are served from. Matches the allowlist
-// resolve-fbp-slugs.js enforces when it writes fbp_url, so a poisoned or
-// misconfigured provider_coins.fbp_url pointing at any other host fails closed
-// here before we ever open a socket (SSRF defense-in-depth).
+// Exact apex host FBP pages are served from. A poisoned or misconfigured
+// provider_coins.fbp_url pointing at any other host fails closed here before we
+// ever open a socket (SSRF defense-in-depth). fbp_url is hand-assigned per coin.
 const FBP_HOST = "findbullionprices.com";
 
 export const vendor = {

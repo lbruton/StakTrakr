@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.11] - 2026-08-17
+
+### Removed — STRK-346: Remove unused FBP slug resolver + provider_coins.fbp_match column
+
+- **Dropped the dormant FindBullionPrices slug resolver** (STRK-346): STRK-334
+  shipped an on-demand year-preferring slug resolver (`resolve-fbp-slugs.js`) and
+  a `provider_coins.fbp_match` keyword-hint column to auto-populate each coin's
+  `fbp_url`, but go-live chose direct hand-assignment instead — the resolver's
+  positive-token matching can't disambiguate FBP's multi-variant products (single
+  coin vs tube vs monster-box vs fractional). The resolver never ran in the hot
+  path, so it and its `fbp_match` threading are removed as dead code. No runtime
+  behavior change: the JM Bullion vendor module still reads `coin.fbp_url`
+  directly. The inert `fbp_match` column is left in existing databases (libSQL
+  DROP COLUMN needs a table rebuild) but is no longer created or referenced.
+
+---
+
 ## [3.36.10] - 2026-08-16
 
 ### Added — STRK-334: Restore JM Bullion market pricing via FindBullionPrices gap-fill

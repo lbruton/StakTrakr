@@ -552,15 +552,14 @@ One row per failed scrape attempt. Queried for vendors with 3+ failures in 7 day
 
 #### `provider_coins` — Provider Config
 
-| Column      | Type    | Description                                          |
-| ----------- | ------- | ---------------------------------------------------- |
-| `slug`      | TEXT PK | Coin slug                                            |
-| `metal`     | TEXT    | `"gold"` \| `"silver"` \| `"platinum"`               |
-| `name`      | TEXT    | Display name                                         |
-| `weight_oz` | REAL    | Troy ounces                                          |
-| `enabled`   | INTEGER | 1 = active                                           |
-| `fbp_url`   | TEXT    | FindBullionPrices URL (legacy, nullable)             |
-| `fbp_match` | TEXT    | FBP slug-resolver keyword hints (STRK-334, nullable) |
+| Column      | Type    | Description                                             |
+| ----------- | ------- | ------------------------------------------------------- |
+| `slug`      | TEXT PK | Coin slug                                               |
+| `metal`     | TEXT    | `"gold"` \| `"silver"` \| `"platinum"`                  |
+| `name`      | TEXT    | Display name                                            |
+| `weight_oz` | REAL    | Troy ounces                                             |
+| `enabled`   | INTEGER | 1 = active                                              |
+| `fbp_url`   | TEXT    | FindBullionPrices product URL, hand-assigned (nullable) |
 
 #### `provider_vendors` — Provider Config
 
