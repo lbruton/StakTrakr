@@ -192,7 +192,7 @@ const debounce = (func, wait) => {
  * Refreshes composition dropdown options in add/edit modals
  */
 const refreshCompositionOptions = () => {
-  const priority = ["Gold", "Silver", "Platinum", "Palladium", "Alloy"];
+  const priority = ["Gold", "Silver", "Platinum", "Palladium", "Copper", "Alloy"];
   const sorted = [...compositionOptions].sort((a, b) => {
     const ai = priority.indexOf(a);
     const bi = priority.indexOf(b);
@@ -264,7 +264,7 @@ const getCompositionFirstWords = (composition = "") => {
 const getDisplayComposition = (composition = "") => {
   const firstWords = getCompositionFirstWords(composition);
   const first = firstWords.split(/\s+/)[0] || "";
-  const metals = ["gold", "silver", "platinum", "palladium"];
+  const metals = ["gold", "silver", "platinum", "palladium", "copper"];
   return metals.includes(first.toLowerCase()) ? firstWords : "Alloy";
 };
 
@@ -541,7 +541,7 @@ const mapNumistaType = (type = "") => {
  * Determines metal type from Numista composition string
  *
  * @param {string} composition - Composition description
- * @returns {string} Recognized metal or 'Alloy' if not silver/gold/platinum/palladium
+ * @returns {string} Recognized metal or 'Alloy' if not silver/gold/platinum/palladium/copper
  */
 const parseNumistaMetal = (composition = "") => {
   const c = composition.trim().toLowerCase();
@@ -549,6 +549,11 @@ const parseNumistaMetal = (composition = "") => {
   if (c.startsWith("gold")) return "Gold";
   if (c.startsWith("platinum")) return "Platinum";
   if (c.startsWith("palladium")) return "Palladium";
+  // STRK-305: pure copper only — "copper" or "copper (.999)". Numista alloy
+  // strings like "copper-nickel" or "copper plated steel" must stay Alloy, or
+  // the import gate would accept them with a defaulted purity of 1.0 and
+  // produce materially wrong copper melt values.
+  if (/^copper(\s*\(|$)/.test(c)) return "Copper";
   if (c.startsWith("paper")) return "Paper";
   return "Alloy";
 };
@@ -596,7 +601,7 @@ const validateInventoryItem = (item) => {
     errors.push("Name must be 100 characters or less");
   }
 
-  if (!item.metal || !["Silver", "Gold", "Platinum", "Palladium"].includes(item.metal)) {
+  if (!item.metal || !["Silver", "Gold", "Platinum", "Palladium", "Copper"].includes(item.metal)) {
     errors.push("Valid metal type is required");
   }
 
@@ -898,7 +903,7 @@ const isDerivedWeightUnit = (item) =>
  * now makes a single pass instead of one per unit family, which is no more work than before.
  * @constant {string[]}
  */
-const WEIGHT_DISPLAY_LENS_UNITS = ["gb", "sb", "g", "kg", "lb", "mg"];
+const WEIGHT_DISPLAY_LENS_UNITS = ["gb", "sb", "g", "kg", "lb", "mg", "avdp"];
 
 /**
  * The human-readable chip label for a weight filter key (STRK-316).

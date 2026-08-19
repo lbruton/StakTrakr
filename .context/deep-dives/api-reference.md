@@ -3,7 +3,7 @@ title: "API Reference"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/api-reference.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/API Reference.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/API Reference.md" # historical provenance; migrated 2026-08-12
 updated: "2026-08-12"
 ---
 
@@ -43,7 +43,7 @@ All v2 endpoints live under `data/v2/`:
 | Endpoint                                 | Description                                                                               | Updated             |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- |
 | `data/v2/manifest.json`                  | Self-describing index: coin list, endpoint templates, stale thresholds per type           | Every 15 min        |
-| `data/v2/spot/latest.json`               | Current spot prices (4 metals) with OHLCA aggregates                                      | Every 15 min        |
+| `data/v2/spot/latest.json`               | Current spot prices (5 metals) with OHLCA aggregates                                      | Every 15 min        |
 | `data/v2/spot/history-24h.json`          | 24h spot time series (96 windows)                                                         | Every 15 min        |
 | `data/v2/retail/{slug}/latest.json`      | Per-coin vendor prices with carry-forward metadata                                        | Every 15 min        |
 | `data/v2/retail/{slug}/history-7d.json`  | 7-day hourly OHLCA buckets                                                                | Every 15 min        |
@@ -149,12 +149,12 @@ database. Representative slugs include:
 **Platinum (1 oz):** `ape`
 **Goldback:** `goldback-oklahoma-g1`, `goldback-utah-g50`, `goldback-wyoming-g5`, `goldback-wyoming-g50`, and others as enabled
 
-#### Planned/Future: Goldback Per-State Matrix
+#### Goldback Per-State Catalog Endpoints
 
-**Goldback (per-state — STAK-335):** `goldback-{state}-g{denom}` where state is one of
-`utah`, `nevada`, `wyoming`, `new-hampshire`, `south-dakota`, `arizona`, `oklahoma`, `dc`
-and denom is `ghalf`, `g1`, `g2`, `g5`, `g10`, `g25`, `g50` (56 slugs total, 8 states ×
-7 denominations). These endpoints populate as vendors are enabled in the database.
+Per-state retail endpoints use `goldback-{state}-{denomination}` slugs and appear only when
+enabled by the provider catalog. Do not hard-code a state list, denomination count, or slug
+total here. The rate envelope's generated denomination keys are authoritative for the v2
+Goldback price API; catalog slugs can include compatibility forms accepted by `retail.js`.
 
 ### Vendor Source Values (retail `latest.json`)
 
@@ -182,7 +182,7 @@ These are writer-side paths (still actively written), not part of the v2 serving
 
 | Endpoint Pattern                  | Description                                                                               | Updated                                   |
 | --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `data/hourly/YYYY/MM/DD/HH.json`  | Hourly spot prices (4 metals) — overwritten each poll                                     | 4x/hr (remote at `0,30`, home at `15,45`) |
+| `data/hourly/YYYY/MM/DD/HH.json`  | Hourly spot prices (5 metals) — overwritten each poll                                     | 4x/hr (remote at `0,30`, home at `15,45`) |
 | `data/15min/YYYY/MM/DD/HHMM.json` | Immutable 15-min spot snapshots                                                           | Per poll (immutable)                      |
 | `data/spot-history-YYYY.json`     | Annual daily spot history (legacy seed — no longer actively written by `spot-extract.js`) | Legacy                                    |
 
@@ -207,9 +207,9 @@ These are writer-side paths (still actively written), not part of the v2 serving
 ]
 ```
 
-**Metals:** Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD)
+**Metals:** Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU) — all quoted USD per troy oz (STRK-303)
 **Data source:** MetalPriceAPI (`metalpriceapi.com`)
-**Rate conversion:** Conditional — `rate >= 1` uses value directly; `rate < 1` inverts (`1 / rate`) to get USD per troy oz
+**Rate conversion:** `derivePrice()` in `devops/pollers/shared/spot-metals.js` prefers the direct `USD{code}` key from the `base=USD` response; only if absent does it invert the bare-symbol reciprocal (`1 / rate`). The old `rate >= 1` magnitude heuristic was removed in STRK-303 — it misread sub-dollar metals like copper (~$0.41/ozt). A per-metal `assertPriceInRange()` sanity check follows.
 
 ---
 

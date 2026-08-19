@@ -3,7 +3,7 @@ title: "Home Poller"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/home-poller.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Home Poller.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Home Poller.md" # historical provenance; migrated 2026-08-12
 updated: "2026-04-11"
 ---
 
@@ -145,7 +145,7 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 
 ### 3-Phase Scraping Pipeline
 
-`shared/price-extract.js` uses a 3-phase fallback cascade for vendors with `cf_clearance_fallback: true` in `PROVIDER_CONFIG`:
+`shared/price-extract.js` uses a 3-phase fallback cascade for vendors whose resolved `providerCfg()` configuration enables `cf_clearance_fallback`:
 
 | Phase | Method              | Triggers When                                                                |
 | ----- | ------------------- | ---------------------------------------------------------------------------- |
@@ -162,13 +162,13 @@ Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which P
 After scraping, `price-extract.js` extracts the wire/ACH price via:
 
 1. **JSON-LD first** — `extractJsonLdPrice()` reads `<script type="application/ld+json">` Product schemas (`offers.price`). Authoritative price set by the merchant; avoids spot ticker / related-product false positives. Applies in Phase 0 and Phase 2.
-2. **Pipe-table first row** — `firstTableRowFirstPrice()` — standard pricing grid layout. Only matches Firecrawl markdown (which produces `| $price |` pipe tables). Phase 0 plain `innerText` has no pipe characters — vendors that need table-based extraction must use `phase: "firecrawl"` in `PROVIDER_CONFIG`.
+2. **Pipe-table first row** — `firstTableRowFirstPrice()` — standard pricing grid layout. Only matches Firecrawl markdown (which produces `| $price |` pipe tables). Phase 0 plain `innerText` has no pipe characters — configure the vendor module or `providerCfg()` resolution with `phase: "firecrawl"` when table parsing is required.
 3. **Prose price scan** — `firstInRangePriceProse()` — first `$XX.XX` value in the metal's price range (SPA fallback).
 4. **As Low As** — `asLowAsPrices()` — bulk-discount price as last resort.
 
 **Nav stripping (Phase 0 + Phase 2):** Before capturing `innerText`, Phase 0 (`scrapeWithPlaywrightDirect`) removes `nav, header, footer, [role='navigation'], [role='banner']` from the DOM — the same treatment applied in Phase 2 (`scrapeViaCFClearance`). This prevents site-wide spot price tickers (e.g. Provident Metals gold ticker ~$5,320) from appearing before the product price in the text stream and being matched by `firstInRangePriceProse`.
 
-**Vendor routing (PROVIDER_CONFIG):** Vendors where Phase 0 `innerText` extraction is structurally insufficient use `phase: "firecrawl"`:
+**Vendor routing (`providerCfg()`):** Vendors where Phase 0 `innerText` extraction is structurally insufficient use `phase: "firecrawl"`:
 
 - `herobullion` — "As Low As" bulk price appears before the 1-unit table; pipe-table extraction via Firecrawl returns the correct 1-unit price.
 - `gainesvillecoins` — Phase 0 Playwright always times out; Firecrawl succeeds reliably.
@@ -233,29 +233,18 @@ Playwright version is locked to whatever is in `shared/package.json` at build ti
 
 ---
 
-## Environment Variables
+## Configuration Boundary
 
-Injected via Portainer stack env vars (must be passed on every redeploy):
+Portainer stack environment is the authority for the home poller's secret-backed configuration.
+This public context intentionally does not inventory deployed variable names, values, endpoint
+addresses, or operator identifiers. For self-hosting, identify required configuration from the
+enabled compose and poller scripts, then provide equivalent database, backup, external-feed,
+optional-integration, and service-discovery settings in the operator's stack environment.
 
-| Variable                   | Required       | Notes                                                                                                                                                                                                                                                                                  |
-| -------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TURSO_DATABASE_URL`       | Yes            | sqld connection string (`http://staktrakr-sqld:8080` via Docker DNS)                                                                                                                                                                                                                   |
-| `TURSO_AUTH_TOKEN`         | No             | Empty — sqld has no auth by default                                                                                                                                                                                                                                                    |
-| `SQLD_URL`                 | Yes            | `http://staktrakr-sqld:8080` — used by DR sync job                                                                                                                                                                                                                                     |
-| `TURSO_BACKUP_URL`         | Yes            | Turso Cloud DR target URL                                                                                                                                                                                                                                                              |
-| `TURSO_BACKUP_TOKEN`       | Yes            | Turso Cloud auth token (DR sync only)                                                                                                                                                                                                                                                  |
-| `METAL_PRICE_API_KEY`      | Yes            | For spot-extract.js                                                                                                                                                                                                                                                                    |
-| `POLLER_ID`                | Set in compose | `home`                                                                                                                                                                                                                                                                                 |
-| `DATA_DIR`                 | Set in compose | `/data`                                                                                                                                                                                                                                                                                |
-| `FIRECRAWL_BASE_URL`       | Yes            | `http://firecrawl-api:3002` (Docker DNS)                                                                                                                                                                                                                                               |
-| `FLYIO_TAILSCALE_IP`       | Yes            | `100.90.171.110` — used by check-flyio.sh                                                                                                                                                                                                                                              |
-| `FLYIO_HTTP_URL`           | Yes            | `https://api2.staktrakr.com/data/retail/providers.json`                                                                                                                                                                                                                                |
-| `GEMINI_API_KEY`           | No             | Enables vision pipeline                                                                                                                                                                                                                                                                |
-| `VISION_ENABLED`           | No             | Set to `1` to enable vision pipeline                                                                                                                                                                                                                                                   |
-| `CF_CLEARANCE_SCRAPER_URL` | No             | Defaults to `http://staktrakr-byparr:8191` (Docker DNS via container name). `CF_CLEARANCE_SIDECAR_URL` is accepted as a legacy alias in `cf-clearance.js`.                                                                                                                             |
-| `CF_CLEARANCE_ENABLED`     | No             | Set to `1` (default) to enable Phase 2; `0` to disable                                                                                                                                                                                                                                 |
-| `CF_CLEARANCE_TIMEOUT_MS`  | No             | Sidecar request timeout; defaults to `30000` (30 s)                                                                                                                                                                                                                                    |
-| `MB_API_KEY`               | No             | MintBuilder direct price feed (STRK-321) — unset falls back to page scraping. Must stay declared in `docker-compose.home.yml` AND covered by the `run-home.sh` cron re-export (STRK-230 pattern); missing either hop = "works from dashboard retry, falls back under cron" half-state. |
+`docker-compose.home.yml` is an explicit allow-list: a value configured in Portainer reaches the
+container only when compose passes it through. Recreate the stack after a configuration change so
+cron receives the new environment; a restart does not apply it. Do not print environment values
+while diagnosing a deployment.
 
 ---
 
@@ -352,20 +341,20 @@ rm -f /tmp/retail-poller.lock
 
 ## Diagnosing Issues
 
-| Symptom                           | Check                                                                                             |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| No rows from home poller in sqld  | Container running? Env vars present? `docker logs staktrakr-home-poller`                          |
-| sqld queries fail                 | Missing env vars after redeploy — always pass `env` array. Check sqld container is running.       |
-| Dashboard not loading             | `docker exec staktrakr-home-poller supervisorctl status dashboard`                                |
-| Logs empty after redeploy         | Verify logs go to `/data/logs/` (persistent volume), not `/var/log/`                              |
-| Firecrawl not responding          | `curl -sf http://localhost:3002/health` from VM                                                   |
-| Lockfile stuck                    | `docker exec staktrakr-home-poller rm -f /tmp/retail-poller.lock`                                 |
-| Container crash loop              | `docker logs --tail 50 staktrakr-home-poller` — check entrypoint errors                           |
-| Tailscale sidecar down            | `docker logs tailscale-staktrakr` — check for auth issues                                         |
-| Tinyproxy unreachable from Fly.io | Verify tailscale sidecar is up, tinyproxy shares its network namespace                            |
-| CF sidecar not resolving 403s     | Check `CF_CLEARANCE_ENABLED=1` on home-poller; `docker logs staktrakr-byparr` for Camoufox errors |
-| CF sidecar crashes on start       | Verify `/dev/shm` volume is mounted in compose; container needs shared memory for Chromium        |
-| Phase 2 never attempted           | Confirm vendor has `cf_clearance_fallback: true` in `PROVIDER_CONFIG` (`shared/price-extract.js`) |
+| Symptom                           | Check                                                                                                      |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| No rows from home poller in sqld  | Container running? Env vars present? `docker logs staktrakr-home-poller`                                   |
+| sqld queries fail                 | Missing env vars after redeploy — always pass `env` array. Check sqld container is running.                |
+| Dashboard not loading             | `docker exec staktrakr-home-poller supervisorctl status dashboard`                                         |
+| Logs empty after redeploy         | Verify logs go to `/data/logs/` (persistent volume), not `/var/log/`                                       |
+| Firecrawl not responding          | `curl -sf http://localhost:3002/health` from VM                                                            |
+| Lockfile stuck                    | `docker exec staktrakr-home-poller rm -f /tmp/retail-poller.lock`                                          |
+| Container crash loop              | `docker logs --tail 50 staktrakr-home-poller` — check entrypoint errors                                    |
+| Tailscale sidecar down            | `docker logs tailscale-staktrakr` — check for auth issues                                                  |
+| Tinyproxy unreachable from Fly.io | Verify tailscale sidecar is up, tinyproxy shares its network namespace                                     |
+| CF sidecar not resolving 403s     | Check `CF_CLEARANCE_ENABLED=1` on home-poller; `docker logs staktrakr-byparr` for Camoufox errors          |
+| CF sidecar crashes on start       | Verify `/dev/shm` volume is mounted in compose; container needs shared memory for Chromium                 |
+| Phase 2 never attempted           | Confirm the resolved `providerCfg()` enables `cf_clearance_fallback` in `price-extract-provider-config.js` |
 
 ---
 

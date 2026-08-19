@@ -42,7 +42,9 @@ function extractJsonLdPrice(jsonLdScripts, metal, weightOz = 1, providerId = "")
     if (typeof method === "string")
       return method.includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method);
     if (method["@id"])
-      return method["@id"].includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method["@id"]);
+      return (
+        method["@id"].includes("ByBankTransferInAdvance") || WIRE_METHOD_RE.test(method["@id"])
+      );
     if (method.name) return WIRE_METHOD_RE.test(method.name);
     return false;
   }
@@ -144,8 +146,7 @@ assert(
             price: "895.42",
           },
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { minValue: "1", maxValue: "9" },
             price: "859.60",
           },
@@ -208,14 +209,12 @@ assert(
         price: "893.33",
         priceSpecification: [
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { minValue: "10", maxValue: "19" },
             price: "857.60",
           },
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { minValue: "50", maxValue: "10000" },
             price: "849.60",
           },
@@ -314,8 +313,7 @@ assert(
       offers: {
         price: "895.42",
         priceSpecification: {
-          appliesToPaymentMethod:
-            "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+          appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
           eligibleQuantity: { minValue: "1", maxValue: "9" },
           price: "859.60",
         },
@@ -419,8 +417,7 @@ assert(
         price: "5,350.14",
         priceSpecification: [
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { minValue: "1", maxValue: "9" },
             price: "5,200.00",
           },
@@ -442,8 +439,7 @@ assert(
         price: "895.42",
         priceSpecification: [
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             price: "859.60",
           },
         ],
@@ -536,8 +532,7 @@ assert(
         price: "895.42",
         priceSpecification: [
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { value: 1 },
             price: "859.60",
           },
@@ -559,8 +554,7 @@ assert(
         price: "893.33",
         priceSpecification: [
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { value: 10 },
             price: "857.60",
           },
@@ -649,8 +643,7 @@ assert(
         price: "78.23", // bulk in offer.price — would be picked without the fix
         priceSpecification: [
           {
-            appliesToPaymentMethod:
-              "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
+            appliesToPaymentMethod: "http://purl.org/goodrelations/v1#ByBankTransferInAdvance",
             eligibleQuantity: { minValue: "1", maxValue: "49" },
             price: "79.23", // single-unit wire — should win
           },

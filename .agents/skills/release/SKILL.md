@@ -109,6 +109,23 @@ grep -n "OLD_VERSION" js/constants.js package.json version.json
 git diff --stat
 ```
 
+### 6. .context sweep (diff-scoped — fix in THIS branch)
+
+`.context/*.md` is canonical and lives in this repo; a release PR that changes documented
+behavior must carry the doc corrections itself, so reviewers see docs and code together
+and no follow-up chore PR is needed (the wrap's docs-sync step is the safety net, not the
+plan). Scope to the diff — this is not a full `/context-drift` audit:
+
+1. From the branch diff, list changed identifiers: enum members, unit codes, storage keys,
+   constants, CSS tokens, thresholds, endpoint shapes.
+2. Grep `.context/` (incl. `deep-dives/`), CLAUDE.md, and AGENTS.md for each identifier
+   AND for the old value it replaced or extended (adding a member to a list → grep an
+   existing member's name to find every restatement of the list).
+3. Verify each hit against the code and update stale claims in this same branch/commit.
+
+Precedent: the STRK-303/304/305 copper releases each left `.context` enums stale and cost
+a separate chore PR (#1455, #1458) to catch up.
+
 If any check fails, fix before committing.
 
 ## Phase 3: Post-Commit

@@ -102,6 +102,7 @@
   --gold: oklch(0.507 0.134 48.2);
   --platinum: oklch(0.446 0.026 256.8);
   --palladium: oklch(0.495 0.22 293);
+  --copper: oklch(0.52 0.115 50); /* STRK-305 — copper brown, AA on light bg */
 
   /* Inventory Type Colors (darkened for text readability on light backgrounds) */
   --type-coin-bg: oklch(0.58 0.143 55.6);
@@ -240,6 +241,7 @@
   --gold: oklch(0.811 0.157 79); /* #fbbf24 equivalent */
   --platinum: oklch(0.961 0.003 264.5); /* #f3f4f6 equivalent */
   --palladium: oklch(0.794 0.119 305.9); /* #d8b4fe equivalent */
+  --copper: oklch(0.75 0.11 55); /* STRK-305 — lightened copper for dark bg */
 
   /* Inventory Type Colors */
   --type-coin-bg: oklch(0.52 0.14 60);
@@ -367,6 +369,7 @@
   --gold: #fbbf24;
   --platinum: #f3f4f6;
   --palladium: #d8b4fe;
+  --copper: #d99668; /* STRK-305 — lightened copper for slate bg */
 
   /* Inventory Type Colors */
   --type-coin-bg: #b45309;
@@ -489,6 +492,7 @@
   --gold: oklch(0.513 0.102 86.8);
   --platinum: oklch(0.468 0 0);
   --palladium: oklch(0.468 0.043 67.7);
+  --copper: oklch(0.48 0.085 50); /* STRK-305 — muted copper, AA on warm bg */
 
   /* Inventory Type Colors (darkened for text readability on sepia backgrounds) */
   --type-coin-bg: oklch(0.525 0.131 52.3);
@@ -2013,6 +2017,23 @@ input[type="submit"] {
 @media (min-width: 960px) {
   .spot-cards-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Five-card tier (STRK-306) — applyMetalOrder() stamps data-cards with the
+   visible count, so none of these rules match while copper stays disabled
+   (the four-card dashboard is untouched). Narrow: the FIRST card (the user's
+   top-sorted metal) takes the full-width top slot and the rest fill 2+2 —
+   no orphan. ≥960px: five equal columns. */
+.spot-cards-grid[data-cards="5"] .spot-input:first-child {
+  grid-column: span 2;
+}
+@media (min-width: 960px) {
+  .spot-cards-grid[data-cards="5"] {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .spot-cards-grid[data-cards="5"] .spot-input:first-child {
+    grid-column: auto;
   }
 }
 
@@ -5398,7 +5419,7 @@ input[type="submit"] {
   }
 }
 @media (min-width: 1350px) {
-  /* All 5 in one row — disable carousel scrolling */
+  /* All cards (5, or 6 with copper) in one row — disable carousel scrolling */
   .totals {
     overflow-x: visible;
     scroll-snap-type: none;
@@ -5408,14 +5429,46 @@ input[type="submit"] {
   }
 }
 
-/* All Metals shows first in the carousel on small/medium screens */
+/* Six-card tier (STRK-306/341) — every row is a uniform two-line block:
+   label left on the first line, value RIGHT-ALIGNED on the second, so
+   $123,456.78 never truncates AND row separators stay height-aligned
+   across all six cards. (The earlier per-row conditional wrap fixed
+   truncation but let long-value cards grow taller than their neighbors —
+   STRK-341 live review chose all-lines-drop over misaligned rows.)
+   Keyed on the data-cards count applyMetalOrder() stamps, so five-card
+   layouts stay pixel-identical to the pre-copper dashboard. */
+@media (min-width: 1350px) {
+  .totals[data-cards="6"] .total-item {
+    display: block;
+    padding: 0.3rem 0;
+  }
+  .totals[data-cards="6"] .total-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    line-height: 1.2;
+  }
+  .totals[data-cards="6"] .total-value {
+    display: block;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: right;
+    line-height: 1.35;
+  }
+}
+
+/* All Metals is pinned first in the carousel below 1350px (pre-existing
+   behavior, unchanged). At ≥1350px the pin resets and the user's
+   Settings › Metal Order config governs; the DEFAULT config now leads
+   with All Metals (STRK-306 review decision), so new users see the
+   aggregate card first at every width, while a stored custom order still
+   controls the ≥1350px row exactly as before. */
 .total-card-all {
   order: -1;
 }
 @media (min-width: 1350px) {
   .total-card-all {
     order: 0;
-  } /* natural order at full desktop */
+  } /* config/DOM order at full desktop */
 }
 
 /* ── Carousel navigation arrows ─────────────────────────────────────────── */
@@ -5590,6 +5643,9 @@ input[type="submit"] {
 }
 .palladium .total-title {
   border-bottom: 4px solid var(--palladium);
+}
+.copper .total-title {
+  border-bottom: 4px solid var(--copper);
 }
 
 /* All Metals combined card — uses primary accent */
@@ -14348,6 +14404,10 @@ th {
   background: color-mix(in oklch, var(--palladium) 18%, var(--bg-tertiary));
   color: var(--palladium);
 }
+.cv-chip-metal.copper {
+  background: color-mix(in oklch, var(--copper) 18%, var(--bg-tertiary));
+  color: var(--copper);
+}
 .cv-chip-attach {
   background: color-mix(in oklch, var(--primary) 14%, var(--bg-tertiary));
   color: var(--primary);
@@ -14413,6 +14473,9 @@ th {
 .metal-palladium {
   --metal-color: var(--palladium);
 }
+.metal-copper {
+  --metal-color: var(--copper);
+}
 
 /* Coin image in cards */
 .card-view-grid .coin-img {
@@ -14460,6 +14523,9 @@ th {
 }
 .metal-palladium .cv-no-image {
   --metal-color: #ced0dd;
+}
+.metal-copper .cv-no-image {
+  --metal-color: #b87333;
 }
 
 /* Table thumbnails — rect items use contain */
@@ -16462,6 +16528,9 @@ input[type="number"] {
 .spot-ratio-chip.metal-palladium {
   --metal: var(--palladium);
 }
+.spot-ratio-chip.metal-copper {
+  --metal: var(--copper);
+}
 .spot-ratio-chip.metal-gold {
   --metal: var(--type-goldback-bg);
 }
@@ -16532,6 +16601,9 @@ input[type="number"] {
 }
 .gsr-panel[data-accent="platinum"] {
   --gsr-accent: var(--platinum);
+}
+.gsr-panel[data-accent="copper"] {
+  --gsr-accent: var(--copper);
 }
 .gsr-panel[data-accent="palladium"] {
   --gsr-accent: var(--palladium);

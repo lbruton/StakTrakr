@@ -13,6 +13,7 @@ import Database from "better-sqlite3";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createSqldClient, initSqldSchema } from "./sqld-client.js";
+import { SPOT_METAL_KEYS } from "./spot-metals.js";
 
 // ---------------------------------------------------------------------------
 // Window floor utility (shared by price-extract and api-export)
@@ -499,32 +500,50 @@ export async function recordFailure(client, { coinSlug, vendorId, url, error, fa
 // Spot price operations
 // ---------------------------------------------------------------------------
 
-const SPOT_METALS = ["gold", "silver", "platinum", "palladium"];
-
 /**
- * Insert spot prices for all four metals into spot_prices table.
+ * Insert one spot price row per tracked metal into the spot_prices table.
  * Uses INSERT OR REPLACE keyed on (metal, timestamp_floor).
  *
- * @param {import("@libsql/client").Client} client
- * @param {{ gold: number, silver: number, platinum: number, palladium: number, timestamp: string }} prices
- * @param {string} pollerId  e.g. "fly-spot" or "home-spot"
+ * The metal list is imported from spot-metals.js rather than declared here.
+ * It was previously a private array plus a matching parameter destructure, and
+ * the two had to be kept in step by hand — a payload key this function did not
+ * name was silently discarded, so a caller could add a metal and see a green
+ * run that wrote no row for it (STRK-303).
+ *
+ * Every metal is validated BEFORE the first write. The loop is not wrapped in a
+ * transaction, so throwing partway through would leave earlier metals committed
+ * and the run log reporting a total failure for a poll that half succeeded.
+ *
+ * @param {import("@libsql/client").Client} client - Open sqld client.
+ * @param {Record<string, number|string>} prices - One numeric key per metal in
+ *   `metals`, plus a `timestamp` string.
+ * @param {string} pollerId - e.g. "fly-spot" or "home-spot".
+ * @param {string[]} [metals] - Metals to write. Defaults to every tracked metal.
+ *   Callers importing archived files pass only the metals that file contains,
+ *   since rows are independent per (metal, timestamp_floor) and a pre-copper
+ *   archive legitimately has no copper row to write.
+ * @returns {Promise<void>}
+ * @throws {Error} When a requested metal is missing or non-numeric.
  */
-export async function insertSpotPrices(
-  client,
-  { gold, silver, platinum, palladium, timestamp },
-  pollerId
-) {
+export async function insertSpotPrices(client, prices, pollerId, metals = SPOT_METAL_KEYS) {
+  const { timestamp } = prices;
   const floor = windowFloor(timestamp);
-  const values = { gold, silver, platinum, palladium };
 
-  for (const metal of SPOT_METALS) {
+  // Number.isFinite, not typeof — NaN and Infinity are both typeof "number" and
+  // would pass a bare type check straight into a REAL NOT NULL column.
+  const missing = metals.filter((metal) => !Number.isFinite(prices[metal]));
+  if (missing.length) {
+    throw new Error(`insertSpotPrices missing numeric price for: ${missing.join(", ")}`);
+  }
+
+  for (const metal of metals) {
     await client.execute({
       sql: `
         INSERT OR REPLACE INTO spot_prices
           (metal, spot, source, poller_id, timestamp, timestamp_floor)
         VALUES (?, ?, 'metalprice-api', ?, ?, ?)
       `,
-      args: [metal, values[metal], pollerId, timestamp, floor],
+      args: [metal, prices[metal], pollerId, timestamp, floor],
     });
   }
 }

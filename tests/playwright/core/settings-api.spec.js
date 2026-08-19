@@ -134,6 +134,49 @@ test.describe("core/settings-api", () => {
     expect(await readSpotPricingSource(page)).toBe("GOLD_API");
   });
 
+  // STRK-342 — the pre-fix listener targeted `.provider-metal[data-provider]`
+  // markup that no longer exists, so "Metals to track" checkboxes neither
+  // hydrated from nor persisted to metalApiConfig.metals.
+  test("Metals to track hydrates checkbox state from metalApiConfig", async ({ page }) => {
+    await seedApiState(page, {
+      spotPricingSource: "METALS_API",
+      metalApiConfig: { metals: { METALS_API: { platinum: false } } },
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page.locator('#apiSection_spot .spot-accordion-panel[data-val="METALS_API"]');
+    await expect(panel.locator('.metal-checkboxes input[data-metal="platinum"]')).not.toBeChecked();
+    await expect(panel.locator('.metal-checkboxes input[data-metal="gold"]')).toBeChecked();
+  });
+
+  test("Metals to track persists per-provider selection changes", async ({ page }) => {
+    await seedApiState(page, { spotPricingSource: "METALS_API" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openApiSettings(page);
+
+    const panel = page.locator('#apiSection_spot .spot-accordion-panel[data-val="METALS_API"]');
+    const goldCheckbox = panel.locator('.metal-checkboxes input[data-metal="gold"]');
+    await expect(goldCheckbox).toBeChecked();
+    await goldCheckbox.uncheck();
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem("metalApiConfig");
+          return raw ? JSON.parse(raw).metals?.METALS_API?.gold : undefined;
+        })
+      )
+      .toBe(false);
+
+    // Other providers' selections are untouched by a per-provider change.
+    const goldApiGold = await page.evaluate(() => {
+      const raw = localStorage.getItem("metalApiConfig");
+      return raw ? JSON.parse(raw).metals?.GOLD_API?.gold : undefined;
+    });
+    expect(goldApiGold).not.toBe(false);
+  });
+
   test("Catalog API key state remains sync-scoped and round-trips through storage helpers", async ({
     page,
   }) => {
@@ -230,26 +273,27 @@ test.describe("core/settings-api", () => {
     expect(await page.evaluate(() => localStorage.getItem("show-spot-ratios"))).toBe("true");
   });
 
-  test("STRK-161: toggling the spot-ratios setting shows/hides all four chips live without reload (AC-11)", async ({
+  test("STRK-161: toggling the spot-ratios setting shows/hides all five chips live without reload (AC-11)", async ({
     page,
   }) => {
     await seedRatioState(page, "api");
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await populateRatioInputs(page);
 
-    // Default ON: all four chips are present.
-    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+    // Default ON: all five chips are present in the DOM (the Ag:Cu chip lives
+    // inside the copper card, hidden until the Metal Order opt-in — STRK-341).
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
 
     await openSettingsSection(page, "currency");
     const toggle = page.locator("#settingsPanel_currency #showSpotRatiosToggle");
 
-    // OFF → all four chips removed live (no reload).
+    // OFF → all five chips removed live (no reload).
     await toggle.locator('.chip-sort-btn[data-val="no"]').click();
     await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
 
-    // ON → all four chips return live.
+    // ON → all five chips return live.
     await toggle.locator('.chip-sort-btn[data-val="yes"]').click();
-    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
   });
 
   test("STRK-161: while the toggle is OFF, all chips stay hidden regardless of goldback mode or spot validity (AC-12)", async ({
@@ -259,9 +303,10 @@ test.describe("core/settings-api", () => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await populateRatioInputs(page);
 
-    // Baseline: master ON + valid spot + fresh goldback → all four chips render.
+    // Baseline: master ON + valid spot + fresh goldback → all five chips render
+    // (five since STRK-341 — the Ag:Cu chip rides the hidden copper card).
     // (Anchors the test to real render behavior so it is RED against the stub.)
-    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(4);
+    await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
 
     // Turn the master toggle OFF.
     await openSettingsSection(page, "currency");

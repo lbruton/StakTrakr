@@ -825,7 +825,7 @@
           let processed = 0;
           let importedCount = 0;
 
-          const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+          const supportedMetals = SUPPORTED_INVENTORY_METALS;
           const skippedNonPM = [];
           const pendingTagsByUuid = new Map();
           const pendingRemovedTagsByUuid = new Map();
@@ -965,7 +965,7 @@
    *   {skipped: false, item: object}}
    */
   const _buildNumistaItemFromRow = (row, getValue) => {
-    const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+    const supportedMetals = SUPPORTED_INVENTORY_METALS;
     const numistaRaw = (
       getValue(row, [
         "N# number",
@@ -988,7 +988,7 @@
 
     const metal = parseNumistaMetal(composition);
 
-    // Skip non-precious-metal items (Paper, Alloy, Copper, Nickel, etc.)
+    // Skip unsupported-metal items (Paper, Alloy, Nickel, etc. — Copper is supported as of STRK-305)
     if (!supportedMetals.includes(metal)) {
       return { skipped: true, name, compositionRaw };
     }
@@ -1258,7 +1258,7 @@
         let imported = [];
         const skippedDetails = [];
         const skippedNonPM = [];
-        const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+        const supportedMetals = SUPPORTED_INVENTORY_METALS;
         const totalItems = data.length;
         startImportProgress(totalItems);
         let processed = 0;
@@ -1620,7 +1620,7 @@
       comments: "#",
     });
     if (!results || !results.data) return null;
-    const supportedMetals = ["Silver", "Gold", "Platinum", "Palladium"];
+    const supportedMetals = SUPPORTED_INVENTORY_METALS;
     const parsed = [];
     for (const row of results.data) {
       const compositionRaw = row["Composition"] || row["Metal"] || "Silver";

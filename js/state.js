@@ -35,7 +35,7 @@ let sparklineInstances = {
 };
 
 /** @type {Set<string>} Available composition options */
-let compositionOptions = new Set(["Gold", "Silver", "Platinum", "Palladium", "Alloy"]);
+let compositionOptions = new Set(["Gold", "Silver", "Platinum", "Palladium", "Copper", "Alloy"]);
 
 /** @type {Set<number>} Items currently showing market value instead of purchase price */
 let marketValueViewItems = new Set();
@@ -92,6 +92,7 @@ const elements = {
   syncIconGold: null,
   syncIconPlatinum: null,
   syncIconPalladium: null,
+  syncIconCopper: null,
 
   // Import elements
   importCsvFile: null,
@@ -256,6 +257,18 @@ const elements = {
       premium: null, // Total premium paid
       lossProfit: null, // Total loss/profit
     },
+    // STRK-305: documentation-parity only — init.js rebuilds this object from
+    // METALS; the copper totals card DOM itself is Phase 3 (STRK-306).
+    copper: {
+      items: null,
+      weight: null,
+      value: null,
+      purchased: null,
+      avgPrice: null,
+      avgPremium: null,
+      premium: null, // Total premium paid
+      lossProfit: null, // Total loss/profit
+    },
     all: {
       // Combined totals for all metals
       items: null,
@@ -327,6 +340,7 @@ let spotPrices = {
   gold: 0,
   platinum: 0,
   palladium: 0,
+  copper: 0,
 };
 
 /** @type {Array} Historical spot price records */

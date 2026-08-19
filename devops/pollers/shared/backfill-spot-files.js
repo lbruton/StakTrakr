@@ -9,6 +9,13 @@
  *   DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js \
  *     --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]
  *
+ * Optional env:
+ *   COPPER_REQUIRED_FROM  ISO instant from which copper must be present for an
+ *                         hour to be regenerated. Set this to the STRK-303
+ *                         deploy time once copper is live, or a copper gap will
+ *                         heal into a silently incomplete file. Unset = no
+ *                         enforcement. An invalid value throws.
+ *
  * Hours are UTC, inclusive on both ends; --to defaults to --from.
  * Existing files are skipped unless --overwrite. Output is byte-compatible
  * with the hourly files spot-extract.js writes.
@@ -18,8 +25,57 @@ import { mkdir, writeFile, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { METAL_ORDER, LEGACY_SPOT_METAL_KEYS } from "./spot-metals.js";
 
-const METAL_ORDER = ["Gold", "Silver", "Platinum", "Palladium"];
+/**
+ * Capitalised names of the metals tracked before copper (STRK-303).
+ * Used as the completeness gate for hours that predate copper, so healing an
+ * old gap does not demand a metal that was never polled then.
+ * @constant {string[]}
+ */
+const LEGACY_METAL_ORDER = LEGACY_SPOT_METAL_KEYS.map(
+  (key) => key.charAt(0).toUpperCase() + key.slice(1)
+);
+
+/**
+ * ISO instant from which copper must be present for an hour to be healable.
+ * Unset means "never require copper", correct for a purely pre-copper archive.
+ * See the matching constant in backfill-spot.js for the full rationale.
+ * @constant {string|undefined}
+ */
+const COPPER_REQUIRED_FROM = process.env.COPPER_REQUIRED_FROM;
+
+/**
+ * Parsed cutover instant, or null when enforcement is off.
+ *
+ * Throws on an invalid value rather than falling back to "no enforcement". A
+ * typo'd date would otherwise silently disable copper-gap detection — the
+ * failure mode this cutover exists to prevent — and look identical to a
+ * deliberately unset variable.
+ * @constant {number|null}
+ */
+const COPPER_CUTOVER_MS = (() => {
+  if (!COPPER_REQUIRED_FROM) return null;
+  const parsed = Date.parse(COPPER_REQUIRED_FROM);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`COPPER_REQUIRED_FROM is not a valid ISO date: ${COPPER_REQUIRED_FROM}`);
+  }
+  return parsed;
+})();
+
+/**
+ * Metals that must be present for a given hour to be regenerated.
+ * @param {string} hour - Hour key in `YYYY-MM-DDTHH` form.
+ * @returns {string[]} Capitalised metal names required for that hour.
+ */
+export function requiredMetalsForHour(hour) {
+  if (COPPER_CUTOVER_MS === null) return LEGACY_METAL_ORDER;
+  const hourMs = Date.parse(`${hour}:00:00Z`);
+  if (Number.isNaN(hourMs)) {
+    throw new Error(`requiredMetalsForHour received an unparseable hour: ${hour}`);
+  }
+  return hourMs < COPPER_CUTOVER_MS ? LEGACY_METAL_ORDER : METAL_ORDER;
+}
 const HOUR_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/;
 const MAX_RANGE_HOURS = 24 * 366; // sanity cap — one year
 
@@ -107,13 +163,28 @@ export function isoToSpaceTs(iso) {
 
 /**
  * Build hourly-file entries from sqld spot_prices rows for one hour.
+ *
  * Picks the latest row (max timestamp_floor) per metal — matching
- * spot-extract's overwrite-wins-last hourly semantics. Returns null if any
- * of the four metals is missing.
+ * spot-extract's overwrite-wins-last hourly semantics.
+ *
+ * Returns null when any REQUIRED metal is missing, which the caller reports as
+ * a loud skip. That all-or-nothing gate is the point of this file: it exists
+ * because of the STRK-187 inode outage, and a partially-written hour would hide
+ * exactly the gap it is meant to surface.
+ *
+ * `required` is a parameter rather than a constant because archived hours split
+ * into two eras. Copper only began being polled at the Phase 1a deploy, so
+ * demanding it for an older hour would refuse to heal a gap over a metal that
+ * was never recorded then (STRK-303). Entries are emitted for every tracked
+ * metal actually present, in METAL_ORDER order, so a pre-copper hour
+ * regenerates byte-compatible with what spot-extract originally wrote.
+ *
  * @param {Array<{metal: string, spot: number, timestamp: string, timestamp_floor: string}>} rows
- * @returns {Array<object> | null}
+ * @param {string[]} [required] - Capitalised metal names that must be present.
+ *   Defaults to every tracked metal.
+ * @returns {Array<object> | null} Entries, or null when incomplete.
  */
-export function rowsToEntries(rows) {
+export function rowsToEntries(rows, required = METAL_ORDER) {
   const latest = {};
   for (const row of rows ?? []) {
     const key = row.metal?.toLowerCase();
@@ -122,10 +193,15 @@ export function rowsToEntries(rows) {
       latest[key] = row;
     }
   }
+
+  for (const metal of required) {
+    if (!latest[metal.toLowerCase()]) return null;
+  }
+
   const entries = [];
   for (const metal of METAL_ORDER) {
     const row = latest[metal.toLowerCase()];
-    if (!row) return null;
+    if (!row) continue;
     entries.push({
       spot: row.spot,
       metal,
@@ -191,10 +267,11 @@ async function main() {
     }
     const [date, hh] = hour.split("T");
     const rows = await readSpotHourly(client, date, Number(hh));
-    const entries = rowsToEntries(rows);
+    const required = requiredMetalsForHour(hour);
+    const entries = rowsToEntries(rows, required);
     if (!entries) {
       const present = new Set(rows.map((r) => r.metal?.toLowerCase()).filter(Boolean));
-      const missing = METAL_ORDER.filter((name) => !present.has(name.toLowerCase()));
+      const missing = required.filter((name) => !present.has(name.toLowerCase()));
       console.warn(
         `SKIP (incomplete sqld data, missing: ${missing.join(", ")}; ${rows.length} rows): ${hour}`
       );

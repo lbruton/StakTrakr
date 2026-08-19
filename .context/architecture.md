@@ -3,7 +3,7 @@ title: "StakTrakr — Architecture"
 project: StakTrakr
 audience: agent
 canonical: .context/architecture.md
-source: "DocVault/Projects/StakTrakr/Foundation/architecture.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/architecture.md" # historical provenance; migrated 2026-08-12
 updated: "2026-07-24"
 ---
 
@@ -53,10 +53,10 @@ DR backup:  sqld (Home VM)  ──nightly──►  Turso Cloud (libSQL, free ti
 
 ## Repo Boundaries
 
-| Repo                   | Owns                                                                                                                                                         | PR Target |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `lbruton/StakTrakr`    | Frontend app code, all poller code (`devops/pollers/`), Fly.io config (`devops/pollers/remote-poller/fly.toml`), Docker configs, Cloudflare Pages deployment | `dev`     |
-| `lbruton/StakTrakrApi` | `api` branch data publishing, GHA workflows                                                                                                                  | `main`    |
+| Repo                   | Owns                                                                                                                                                         | PR Target               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `lbruton/StakTrakr`    | Frontend app code, all poller code (`devops/pollers/`), Fly.io config (`devops/pollers/remote-poller/fly.toml`), Docker configs, Cloudflare Pages deployment | `dev`                   |
+| `lbruton/StakTrakrApi` | `api` branch data publishing for GitHub Pages                                                                                                                | Publisher-managed `api` |
 
 The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages. It is force-pushed by the Fly.io publisher on every publish cycle — never edited manually.
 
@@ -70,7 +70,13 @@ The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages
 | Spot prices          | `data/hourly/YYYY/MM/DD/HH.json` and `data/15min/...` | Fly.io `run-spot.sh` at `:00/:30` + Home `spot-extract.js` at `:15/:45`                                                                  | 4×/hr (two writers, staggered) |
 | Goldback spot        | `data/v2/goldback/latest.json`                        | Home `goldback-scraper.js` hourly at **:05** (`5 * * * *`, STRK-58) → sqld → Fly.io `api-export.js` reads cached row every publish cycle | Hourly scrape, 4×/hr republish |
 
-> **Goldback "~2m ago" badge** reads envelope `generated_at` (refreshed every publish cycle), not `scraped_at`. Scrapes run hourly, but goldback.com's upstream rate (`data.t`) can lag — so an unchanged `g1_usd` across multiple publishes (and even across hourly scrapes) is correct behavior.
+> **Goldback badge freshness (STRK-257).** Envelope `generated_at` is **always** the
+> normalized `scraped_at` — `resolveGoldbackGeneratedAt()`
+> (`devops/pollers/shared/api-export-v2.js:894-920`, used at `:948-960`) falls back to
+> publish time only when no usable scrape timestamp exists. So the badge tracks the scrape,
+> not the publish cycle, and it reads roughly the scrape age rather than "~2m". An unchanged
+> `g1_usd` across publishes is still normal — goldback.com's upstream rate (`data.t`) can lag
+> — but the timestamp no longer refreshes with it.
 
 ---
 
@@ -371,7 +377,7 @@ Full typedef in `js/types.js`. All fields persist in the `metalInventory` localS
 | `serial`                                  | Number           | Auto-increment integer — primary identity key in diff/sync engine; must be regenerated (via `getNextSerial()`) alongside `uuid` whenever a clone is created |
 | `name`                                    | String           | Display name                                                                                                                                                |
 | `type`                                    | String           | `"Coin"` \| `"Round"` \| `"Bar"` \| …                                                                                                                       |
-| `metal`                                   | String           | `"Silver"` \| `"Gold"` \| `"Platinum"` \| `"Palladium"`                                                                                                     |
+| `metal`                                   | String           | `"Silver"` \| `"Gold"` \| `"Platinum"` \| `"Palladium"` \| `"Copper"` (STRK-305)                                                                            |
 | `weight`                                  | Number           | Fine troy oz per unit (Goldback denomination when `weightUnit === 'gb'`; face-per-coin or total face value when `weightUnit === 'cu'`)                      |
 | `weightUnit`                              | String           | `"oz"` (default) \| `"g"` \| `"kg"` \| `"lb"` \| `"gb"` \| `"sb"` \| `"cu"`                                                                                 |
 | `constitutionalVariant`                   | String           | `cu` items only — `CONSTITUTIONAL_VARIANTS` id (e.g. `con-90-quarter`). Hyphenated; exempt from `sanitizeObjectFields` stripping                            |
@@ -510,16 +516,17 @@ Window floor: `Math.floor(minutes / 15) * 15` — e.g. 14:22 → `14:15:00Z`.
 
 One row per metal per 15-min floor.
 
-| Column            | Type       | Description                                             |
-| ----------------- | ---------- | ------------------------------------------------------- |
-| `id`              | INTEGER PK | Auto-increment                                          |
-| `metal`           | TEXT       | `"gold"` \| `"silver"` \| `"platinum"` \| `"palladium"` |
-| `spot`            | REAL       | USD price per troy oz                                   |
-| `source`          | TEXT       | `"metalprice-api"`                                      |
-| `poller_id`       | TEXT       | `"fly-spot"` or `"home-spot"`                           |
-| `timestamp`       | TEXT       | ISO 8601 UTC                                            |
-| `timestamp_floor` | TEXT       | 15-min floor                                            |
-| UNIQUE            |            | `(metal, timestamp_floor)`                              |
+| Column            | Type       | Description                                                                      |
+| ----------------- | ---------- | -------------------------------------------------------------------------------- |
+| `id`              | INTEGER PK | Auto-increment                                                                   |
+| `metal`           | TEXT       | `"gold"` \| `"silver"` \| `"platinum"` \| `"palladium"` \| `"copper"` (STRK-303) |
+| `spot`            | REAL       | USD price per troy oz                                                            |
+| `source`          | TEXT       | `"metalprice-api"`                                                               |
+| `poller_id`       | TEXT       | `"fly-spot"` or `"home-spot"`                                                    |
+| `timestamp`       | TEXT       | ISO 8601 UTC                                                                     |
+| `timestamp_floor` | TEXT       | 15-min floor                                                                     |
+| `scraped_at`      | TEXT       | Ingestion timestamp, `DEFAULT (datetime('now'))`                                 |
+| UNIQUE            |            | `(metal, timestamp_floor)`                                                       |
 
 Indexes: `(metal, timestamp_floor DESC)`, `(timestamp_floor DESC)`.
 
@@ -545,14 +552,14 @@ One row per failed scrape attempt. Queried for vendors with 3+ failures in 7 day
 
 #### `provider_coins` — Provider Config
 
-| Column      | Type    | Description                              |
-| ----------- | ------- | ---------------------------------------- |
-| `slug`      | TEXT PK | Coin slug                                |
-| `metal`     | TEXT    | `"gold"` \| `"silver"` \| `"platinum"`   |
-| `name`      | TEXT    | Display name                             |
-| `weight_oz` | REAL    | Troy ounces                              |
-| `enabled`   | INTEGER | 1 = active                               |
-| `fbp_url`   | TEXT    | FindBullionPrices URL (legacy, nullable) |
+| Column      | Type    | Description                                             |
+| ----------- | ------- | ------------------------------------------------------- |
+| `slug`      | TEXT PK | Coin slug                                               |
+| `metal`     | TEXT    | `"gold"` \| `"silver"` \| `"platinum"`                  |
+| `name`      | TEXT    | Display name                                            |
+| `weight_oz` | REAL    | Troy ounces                                             |
+| `enabled`   | INTEGER | 1 = active                                              |
+| `fbp_url`   | TEXT    | FindBullionPrices product URL, hand-assigned (nullable) |
 
 #### `provider_vendors` — Provider Config
 
@@ -611,7 +618,7 @@ Lives at `devops/pollers/shared/provider-db.js`. Both pollers' Dockerfiles `COPY
 
 ### Dashboard
 
-Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables: add/edit/delete coins, add/edit/delete vendors, toggle enabled state, bulk enable/disable/remove by vendor+metal, coverage stats, failure queue at `/failures`.
+Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables: add/edit/delete coins, add/edit/delete vendors, toggle enabled state, bulk enable/disable/remove by vendor+metal, coverage stats, failure queue at `/failures`. FBP-backed vendors (`jmbullion`, STRK-347) carry an "FBP-backed" badge and a second editable URL per coin — the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
 
 ---
 

@@ -491,11 +491,14 @@ const _buildApiKeyField = (opts) => {
 };
 
 /**
- * Builds the four-metal checkbox grid used by every provider panel. All
- * checkboxes are rendered checked — Task 11 syncs them to stored state.
+ * Builds the five-metal checkbox grid used by every provider panel, hydrated
+ * from `metalApiConfig.metals[provider]` (unset metals default to checked).
+ * Persistence is the delegated change handler in settings-listeners.js
+ * (`wireSpotMetalSelection`, STRK-342).
+ * @param {string} provider - Provider key matching the panel's data-val
  * @returns {HTMLElement}
  */
-const _buildMetalsCheckboxes = () => {
+const _buildMetalsCheckboxes = (provider) => {
   const wrap = document.createElement("div");
   wrap.className = "metal-selection";
 
@@ -507,17 +510,23 @@ const _buildMetalsCheckboxes = () => {
   const grid = document.createElement("div");
   grid.className = "metal-checkboxes";
 
+  const config = typeof loadApiConfig === "function" ? loadApiConfig() : null;
+  const selected = config?.metals?.[provider] || {};
+
   [
     { metal: "gold", display: "Gold" },
     { metal: "silver", display: "Silver" },
     { metal: "platinum", display: "Platinum" },
     { metal: "palladium", display: "Palladium" },
+    // Config-truthy since the STRK-305 backfill; surfaced here so users can
+    // opt out of the fifth metal's API calls (STRK-303 Part 2).
+    { metal: "copper", display: "Copper" },
   ].forEach(({ metal, display }) => {
     const wrapLabel = document.createElement("label");
     wrapLabel.className = "metal-checkbox";
     const cb = document.createElement("input");
     cb.type = "checkbox";
-    cb.checked = true;
+    cb.checked = selected[metal] !== false;
     cb.dataset.metal = metal;
     wrapLabel.appendChild(cb);
     const span = document.createElement("span");
@@ -774,7 +783,7 @@ const renderSpotPanelMetalsDev = () => {
     })
   );
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by metals.dev"));
 
@@ -817,7 +826,7 @@ const renderSpotPanelMetalsApi = () => {
     })
   );
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by metals-api.com"));
 
@@ -860,7 +869,7 @@ const renderSpotPanelMetalPriceApi = () => {
     })
   );
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by metalpriceapi.com"));
 
@@ -897,7 +906,7 @@ const renderSpotPanelGoldApi = () => {
   );
   panel.appendChild(details);
 
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow());
   panel.appendChild(_buildProviderFooter("Provided by gold-api.com"));
 
@@ -1041,7 +1050,7 @@ const renderSpotPanelCustom = () => {
   grid.appendChild(keyShell);
 
   panel.appendChild(grid);
-  panel.appendChild(_buildMetalsCheckboxes());
+  panel.appendChild(_buildMetalsCheckboxes(panel.dataset.val));
   panel.appendChild(_buildAutoRefreshRow("History pull not supported for custom endpoints."));
 
   return panel;
@@ -2843,11 +2852,17 @@ const renderViewModalSectionConfigTable = () =>
 // =============================================================================
 
 const METAL_ORDER_DEFAULTS = [
+  // All Metals leads by default (STRK-306 review decision). Stored configs
+  // are never reordered by getMetalOrderConfig(), so existing customized
+  // orders are untouched — only fresh installs pick this up.
+  { id: "all", label: "All Metals", enabled: true },
   { id: "silver", label: "Silver", enabled: true },
   { id: "gold", label: "Gold", enabled: true },
   { id: "platinum", label: "Platinum", enabled: true },
   { id: "palladium", label: "Palladium", enabled: true },
-  { id: "all", label: "All Metals", enabled: true },
+  // Disabled by default per the copper epic decision (STRK-302) — enabling
+  // it shows BOTH the copper spot card and the copper totals card.
+  { id: "copper", label: "Copper", enabled: false },
 ];
 
 /**
@@ -2888,29 +2903,45 @@ const applyMetalOrder = () => {
     gold: document.querySelector(".spot-input.gold"),
     platinum: document.querySelector(".spot-input.platinum"),
     palladium: document.querySelector(".spot-input.palladium"),
+    copper: document.querySelector(".spot-input.copper"),
   };
   const totalsMap = {
     silver: document.querySelector(".total-card.silver"),
     gold: document.querySelector(".total-card.gold"),
     platinum: document.querySelector(".total-card.platinum"),
     palladium: document.querySelector(".total-card.palladium"),
+    copper: document.querySelector(".total-card.copper"),
     all: document.querySelector(".total-card.total-card-all"),
   };
 
+  let visibleSpot = 0;
+  let visibleTotals = 0;
   config.forEach(({ id, enabled }) => {
     const spotEl = spotMap[id];
     if (spotEl && spotGrid) {
       spotEl.style.display = enabled ? "" : "none";
       spotGrid.appendChild(spotEl);
+      if (enabled) visibleSpot++;
     }
     const totalEl = totalsMap[id];
     if (totalEl && totalsEl) {
       totalEl.style.display = enabled ? "" : "none";
       totalsEl.appendChild(totalEl);
+      if (enabled) visibleTotals++;
     }
   });
 
+  // Stamp the visible card counts — the five-spot-card and six-totals-card
+  // CSS tiers key on these, so the pre-copper layouts stay untouched while
+  // copper is disabled (STRK-306).
+  if (spotGrid) spotGrid.dataset.cards = String(visibleSpot);
+  if (totalsEl) totalsEl.dataset.cards = String(visibleTotals);
+
   if (typeof window.refreshTotalsDots === "function") window.refreshTotalsDots();
+  // Redraw sparklines: a card enabled mid-session (copper, STRK-306) has a
+  // zero-size canvas from while it was display:none and would show blank
+  // until the next scheduled refresh otherwise.
+  if (typeof window.updateAllSparklines === "function") window.updateAllSparklines();
 };
 window.applyMetalOrder = applyMetalOrder;
 

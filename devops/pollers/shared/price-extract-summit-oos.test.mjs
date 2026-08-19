@@ -333,11 +333,11 @@ test("STRUCTURAL: Summit cutoff + table-first strategy live in the Vendor module
   const regIdx = strategy.indexOf("regularPricePrices()");
   assert.ok(
     tblIdx !== -1 && tierIdx !== -1 && regIdx !== -1,
-    "expected all three extractors in summit extractPrice",
+    "expected all three extractors in summit extractPrice"
   );
   assert.ok(
     tblIdx < regIdx && tierIdx < regIdx,
-    "qty-tier extractors must precede the bulk regularPricePrices fallback",
+    "qty-tier extractors must precede the bulk regularPricePrices fallback"
   );
 });
 
@@ -346,12 +346,12 @@ test("STRUCTURAL: shared.js no longer owns Summit-specific data (isolation guara
   assert.equal(
     sharedSrc.includes("Description Shipping & Returns"),
     false,
-    "summit cutoff anchor must not live in shared.js — it belongs to the Vendor module",
+    "summit cutoff anchor must not live in shared.js — it belongs to the Vendor module"
   );
   assert.equal(
     sharedSrc.includes('providerId === "summitmetals"'),
     false,
-    "summit price branch must not live in shared.js — it belongs to the Vendor module",
+    "summit price branch must not live in shared.js — it belongs to the Vendor module"
   );
 });
 

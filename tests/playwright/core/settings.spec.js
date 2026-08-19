@@ -208,3 +208,133 @@ test.describe("core/settings", () => {
     await expect(input).toHaveValue(MASK);
   });
 });
+
+// ── STRK-306: copper dashboard cards + Metal Order ──────────────────────────
+// Copper ships disabled by default (epic decision); enabling it in Settings ›
+// Metal Order shows BOTH the copper spot card and the copper totals card.
+// applyMetalOrder() stamps data-cards counts that gate the five-spot-card and
+// six-totals-card CSS tiers, so pre-copper layouts stay untouched.
+
+const COPPER_ON_CONFIG = [
+  { id: "all", label: "All Metals", enabled: true },
+  { id: "silver", label: "Silver", enabled: true },
+  { id: "gold", label: "Gold", enabled: true },
+  { id: "platinum", label: "Platinum", enabled: true },
+  { id: "palladium", label: "Palladium", enabled: true },
+  { id: "copper", label: "Copper", enabled: true },
+];
+
+// A config saved before copper existed — simulates an existing user.
+const LEGACY_FIVE_CONFIG = [
+  { id: "silver", label: "Silver", enabled: true },
+  { id: "gold", label: "Gold", enabled: true },
+  { id: "platinum", label: "Platinum", enabled: true },
+  { id: "palladium", label: "Palladium", enabled: true },
+  { id: "all", label: "All Metals", enabled: true },
+];
+
+async function gotoDashboard(page) {
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.appListenersReady === true);
+}
+
+test.describe("core/settings STRK-306 copper dashboard cards", () => {
+  test("copper is hidden by default and the four/five-card layouts are untouched", async ({
+    page,
+  }) => {
+    await gotoDashboard(page);
+
+    await expect(page.locator(".spot-input.copper")).toBeHidden();
+    await expect(page.locator(".total-card.copper")).toBeHidden();
+    await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "4");
+    await expect(page.locator("#totalsCarousel")).toHaveAttribute("data-cards", "5");
+
+    // The Metal Order settings table surfaces the copper row (unchecked).
+    await openSettings(page, "site");
+    const copperRow = page.locator('#metalOrderConfigContainer tr[data-section-id="copper"]');
+    await expect(copperRow).toHaveCount(1);
+  });
+
+  test("enabling copper shows both cards, stamps the card counts, and renders $/lb", async ({
+    page,
+  }) => {
+    await page.addInitScript((cfg) => {
+      localStorage.setItem("metalOrderConfig", JSON.stringify(cfg));
+    }, COPPER_ON_CONFIG);
+    await gotoDashboard(page);
+
+    await expect(page.locator(".spot-input.copper")).toBeVisible();
+    await expect(page.locator(".total-card.copper")).toBeVisible();
+    await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "5");
+    await expect(page.locator("#totalsCarousel")).toHaveAttribute("data-cards", "6");
+
+    // Copper displays $/lb primary (industry convention) with the stored
+    // per-ozt figure in the value's hover title (a visible second line broke
+    // the card's row alignment — STRK-341 review). Storage stays per-ozt.
+    await expect(page.locator("#spotPriceDisplayCopper")).toContainText("/lb");
+    await expect(page.locator("#spotPriceDisplayCopper")).toHaveAttribute("title", /\/ozt/);
+    const stored = await page.evaluate(() => parseFloat(localStorage.getItem("spotCopper")));
+    const displayed = await page.locator("#spotPriceDisplayCopper").textContent();
+    const lbValue = parseFloat(displayed.replace(/[^\d.]/g, ""));
+    // Displayed $/lb must equal stored $/ozt × 7000/480 (to display rounding).
+    expect(Math.abs(lbValue - stored * (7000 / 480))).toBeLessThan(0.01);
+
+    // All Metals leads the totals row under the new default-order config.
+    const firstVisibleTitle = page
+      .locator("#totalsCarousel .total-card:not([style*='display: none']) .total-title")
+      .first();
+    await expect(firstVisibleTitle).toHaveText("All Metals");
+  });
+
+  test("the Ag:Cu ratio chip follows copper's Metal Order opt-in (STRK-341)", async ({ page }) => {
+    await gotoDashboard(page);
+
+    // Copper disabled (default): the chip renders into the copper card, which
+    // is display:none — no copper figure surfaces on a copper-less dashboard.
+    await expect(page.locator('.spot-ratio-chip[data-pair="ag-cu"]')).toBeHidden();
+
+    // Enable copper mid-session exactly as the settings table does.
+    await page.evaluate(() => {
+      const cfg = JSON.parse(localStorage.getItem("metalOrderConfig") || "null") || [];
+      const copperRow = cfg.find((m) => m.id === "copper");
+      if (copperRow) copperRow.enabled = true;
+      else cfg.push({ id: "copper", label: "Copper", enabled: true });
+      localStorage.setItem("metalOrderConfig", JSON.stringify(cfg));
+      window.applyMetalOrder();
+      window.renderRatioChips();
+    });
+
+    const chip = page.locator('.spot-ratio-chip[data-pair="ag-cu"]');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText("Ag:Cu");
+    // Value formats legibly at the pair's real ~3-digit magnitude, and equals
+    // the live silver/copper spots to the chip's one-decimal precision.
+    const chipValue = await chip.locator(".val").textContent();
+    const expected = await page.evaluate(
+      () =>
+        parseFloat(localStorage.getItem("spotSilver")) /
+        parseFloat(localStorage.getItem("spotCopper"))
+    );
+    expect(parseFloat(chipValue)).toBeCloseTo(expected, 1);
+  });
+
+  test("a pre-copper stored config keeps its order and leaves copper hidden", async ({ page }) => {
+    await page.addInitScript((cfg) => {
+      localStorage.setItem("metalOrderConfig", JSON.stringify(cfg));
+    }, LEGACY_FIVE_CONFIG);
+    await gotoDashboard(page);
+
+    // getMetalOrderConfig appends copper as disabled — cards stay hidden and
+    // the stamped counts keep the pre-copper CSS tiers inert.
+    await expect(page.locator(".spot-input.copper")).toBeHidden();
+    await expect(page.locator(".total-card.copper")).toBeHidden();
+    await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "4");
+    await expect(page.locator("#totalsCarousel")).toHaveAttribute("data-cards", "5");
+
+    // The stored order is preserved — Silver stays the first totals card.
+    const firstVisibleTitle = page
+      .locator("#totalsCarousel .total-card:not([style*='display: none']) .total-title")
+      .first();
+    await expect(firstVisibleTitle).toHaveText("Silver");
+  });
+});

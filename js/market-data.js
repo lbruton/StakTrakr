@@ -2218,11 +2218,26 @@ const renderVendorPrices = () => {
   const footer = document.createElement("div");
   footer.style.cssText =
     "padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;";
-  let footerText =
-    "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor.";
+  footer.appendChild(
+    document.createTextNode(
+      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor."
+    )
+  );
+  footer.appendChild(
+    document.createTextNode(
+      " Prices are sourced directly from vendors when possible, or provided by "
+    )
+  );
+  const fbpLink = document.createElement("a");
+  fbpLink.href = "https://findbullionprices.com";
+  fbpLink.target = "_blank";
+  fbpLink.rel = "noopener noreferrer";
+  fbpLink.textContent = "findbullionprices.com";
+  footer.appendChild(fbpLink);
   const currencyDisclaimer = _getRetailCurrencyDisclaimer();
-  if (currencyDisclaimer) footerText += " " + currencyDisclaimer;
-  footer.textContent = footerText;
+  if (currencyDisclaimer) {
+    footer.appendChild(document.createTextNode(" " + currencyDisclaimer));
+  }
   container.appendChild(footer);
 
   // STRK-290: paint the relocated freshness dot now that it is mounted. The

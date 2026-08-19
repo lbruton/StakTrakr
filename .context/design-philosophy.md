@@ -3,7 +3,7 @@ title: "StakTrakr — Design Philosophy"
 project: StakTrakr
 audience: agent
 canonical: .context/design-philosophy.md
-source: "DocVault/Projects/StakTrakr/Foundation/design-philosophy.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/design-philosophy.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-16"
 ---
 
@@ -97,12 +97,13 @@ All new components must be authored against the dark theme first.
 
 ### Metal Colors (Slate Theme — reference hex)
 
-| Token         | Hex       | Usage                      |
-| ------------- | --------- | -------------------------- |
-| `--silver`    | `#d1d5db` | Silver badge background    |
-| `--gold`      | `#fbbf24` | Gold badge background      |
-| `--platinum`  | `#f3f4f6` | Platinum badge background  |
-| `--palladium` | `#d8b4fe` | Palladium badge background |
+| Token         | Hex       | Usage                                                                                   |
+| ------------- | --------- | --------------------------------------------------------------------------------------- |
+| `--silver`    | `#d1d5db` | Silver badge background                                                                 |
+| `--gold`      | `#fbbf24` | Gold badge background                                                                   |
+| `--platinum`  | `#f3f4f6` | Platinum badge background                                                               |
+| `--palladium` | `#d8b4fe` | Palladium badge background                                                              |
+| `--copper`    | `#d99668` | Copper badge background (STRK-305; per-theme tuned like its siblings — slate hex shown) |
 
 ### Brand Colors (Theme-Invariant)
 
@@ -217,8 +218,7 @@ Market list cards expand/collapse per coin. Cards always stack vertically on mob
 
 ### Modals
 
-- Use Bootstrap modal pattern with `.modal-close` or `[data-bs-dismiss='modal']`
-- Close selector is `.modal-close` — **not** `.close-btn` (incorrect, do not use)
+- Close selector is `.modal-close` — **not** `.close-btn`, and **not** `[data-bs-dismiss]`. The Bootstrap JS library is not loaded in this project (verified 2026-08-13: zero `data-bs-*` attributes in `index.html` and `js/`), so a `data-bs-dismiss` handle is inert.
 - FIFO dialog queue managed via `showDialog()` / `presentDialog()` in `js/dialogs.js`
 - All modal open/close goes through `openModalById()` / `closeModalById()`
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
@@ -230,7 +230,7 @@ Standard HTML `<input type="checkbox">` with custom switch styling. Minimum 44px
 
 ### Metal Filter Pills
 
-Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
+Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper` — STRK-305). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
 
 ---
 

@@ -107,11 +107,11 @@ assert(
   "standard pipe table",
   run(
     `| Qty | (e)Check/Wire | Crypto | Card |\n` +
-    `| --- | --- | --- | --- |\n` +
-    `| 1-9 | $1,950.00 | $1,960.00 | $1,975.00 |\n` +
-    `| 10+ | $1,940.00 | $1,950.00 | $1,965.00 |\n`
+      `| --- | --- | --- | --- |\n` +
+      `| 1-9 | $1,950.00 | $1,960.00 | $1,975.00 |\n` +
+      `| 10+ | $1,940.00 | $1,950.00 | $1,965.00 |\n`
   ),
-  1950.00
+  1950.0
 );
 
 // 2. Reordered columns: wire in col 3 (Qty | Crypto | (e)Check/Wire | Card)
@@ -119,20 +119,16 @@ assert(
   "reordered columns — wire in col 3",
   run(
     `| Qty | Crypto | (e)Check/Wire | Card |\n` +
-    `| --- | --- | --- | --- |\n` +
-    `| 1-9 | $1,960.00 | $1,950.00 | $1,975.00 |\n`
+      `| --- | --- | --- | --- |\n` +
+      `| 1-9 | $1,960.00 | $1,950.00 | $1,975.00 |\n`
   ),
-  1950.00
+  1950.0
 );
 
 // 3. No wire header — expect null
 assert(
   "no wire header → null",
-  run(
-    `| Qty | Crypto | Card |\n` +
-    `| --- | --- | --- |\n` +
-    `| 1-9 | $1,960.00 | $1,975.00 |\n`
-  ),
+  run(`| Qty | Crypto | Card |\n` + `| --- | --- | --- |\n` + `| 1-9 | $1,960.00 | $1,975.00 |\n`),
   null
 );
 
@@ -141,10 +137,10 @@ assert(
   "Check / Wire no-paren variant",
   run(
     `| Qty | Check / Wire | Crypto | Card |\n` +
-    `| --- | --- | --- | --- |\n` +
-    `| 1-9 | $2,050.00 | $2,060.00 | $2,080.00 |\n`
+      `| --- | --- | --- | --- |\n` +
+      `| 1-9 | $2,050.00 | $2,060.00 | $2,080.00 |\n`
   ),
-  2050.00
+  2050.0
 );
 
 // 5. Shipping-price noise before real table — only in-range price should match
@@ -152,11 +148,11 @@ assert(
   "shipping-price noise before real table",
   run(
     `Shipping: $9.95 standard\n\n` +
-    `| Qty | (e)Check/Wire | Crypto | Card |\n` +
-    `| --- | --- | --- | --- |\n` +
-    `| 1-9 | $1,980.00 | $1,990.00 | $2,005.00 |\n`
+      `| Qty | (e)Check/Wire | Crypto | Card |\n` +
+      `| --- | --- | --- | --- |\n` +
+      `| 1-9 | $1,980.00 | $1,990.00 | $2,005.00 |\n`
   ),
-  1980.00
+  1980.0
 );
 
 // ---------------------------------------------------------------------------
@@ -170,10 +166,10 @@ assert(
   "F1: CRLF endings + leading whitespace",
   run(
     "  | Qty | (e)Check/Wire | Crypto | Card |\r\n" +
-    "  | --- | --- | --- | --- |\r\n" +
-    "  | 1-9 | $1,955.00 | $1,965.00 | $1,980.00 |\r\n"
+      "  | --- | --- | --- | --- |\r\n" +
+      "  | 1-9 | $1,955.00 | $1,965.00 | $1,980.00 |\r\n"
   ),
-  1955.00
+  1955.0
 );
 
 // 7. F2 — Single-cell note row containing "(e)Check/Wire" before the real header
@@ -181,14 +177,14 @@ assert(
   "F2: note row false-positive before real header",
   run(
     `| See (e)Check/Wire pricing below |\n` +
-    `\n` +
-    `Some prose about payment methods.\n` +
-    `\n` +
-    `| Qty | (e)Check/Wire | Crypto | Card |\n` +
-    `| --- | --- | --- | --- |\n` +
-    `| 1-9 | $1,945.00 | $1,955.00 | $1,970.00 |\n`
+      `\n` +
+      `Some prose about payment methods.\n` +
+      `\n` +
+      `| Qty | (e)Check/Wire | Crypto | Card |\n` +
+      `| --- | --- | --- | --- |\n` +
+      `| 1-9 | $1,945.00 | $1,955.00 | $1,970.00 |\n`
   ),
-  1945.00
+  1945.0
 );
 
 // 8. F3 — Real table followed by an unrelated trailing table with a wire-column-index
@@ -197,16 +193,16 @@ assert(
   "F3: table boundary — trailing unrelated table ignored",
   run(
     `| Qty | (e)Check/Wire | Crypto | Card |\n` +
-    `| --- | --- | --- | --- |\n` +
-    `| 1-9 | $1,935.00 | $1,945.00 | $1,960.00 |\n` +
-    `\n` +
-    `Some prose separating tables.\n` +
-    `\n` +
-    `| Item | Price | Notes |\n` +
-    `| --- | --- | --- |\n` +
-    `| Bag | $5.00 | free over $500 |\n`
+      `| --- | --- | --- | --- |\n` +
+      `| 1-9 | $1,935.00 | $1,945.00 | $1,960.00 |\n` +
+      `\n` +
+      `Some prose separating tables.\n` +
+      `\n` +
+      `| Item | Price | Notes |\n` +
+      `| --- | --- | --- |\n` +
+      `| Bag | $5.00 | free over $500 |\n`
   ),
-  1935.00
+  1935.0
 );
 
 // ---------------------------------------------------------------------------

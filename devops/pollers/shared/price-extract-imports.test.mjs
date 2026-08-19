@@ -144,10 +144,11 @@ test("shared helpers provide representative parser, OOS, HTML, and JSON-LD behav
     77.82
   );
 
-  assert.deepEqual(
-    shared.detectStockStatus("This product is out of stock.", 1, "apmex"),
-    { inStock: false, reason: "out_of_stock", detectedText: "out of stock" }
-  );
+  assert.deepEqual(shared.detectStockStatus("This product is out of stock.", 1, "apmex"), {
+    inStock: false,
+    reason: "out_of_stock",
+    detectedText: "out of stock",
+  });
 
   const parsed = shared.extractMarkdownPrice(
     "| Qty | (e)Check/Wire | Card |\n| --- | ---: | ---: |\n| 1+ | $77.82 | $80.93 |",

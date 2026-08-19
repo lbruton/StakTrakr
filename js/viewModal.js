@@ -613,7 +613,7 @@ function _appendSourceField(container, sourceValue) {
   container.appendChild(srcItem);
 }
 
-const SUPPORTED_PREMIUM_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium"]);
+const SUPPORTED_PREMIUM_METALS = new Set(["Gold", "Silver", "Platinum", "Palladium", "Copper"]);
 
 function _resolvePremiumData(item, metrics, computed) {
   const purchasePrice = computed?.purchasePrice ?? (parseFloat(item.price) || 0);

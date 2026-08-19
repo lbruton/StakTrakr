@@ -1300,8 +1300,10 @@ const TREND_LABELS = {
   3650: "10Y",
 };
 
-/** @constant {string[]} TREND_METALS - Metal suffixes for the per-card trend controls. */
-const TREND_METALS = ["Silver", "Gold", "Platinum", "Palladium"];
+/** @constant {string[]} TREND_METALS - Metal suffixes for the per-card trend controls.
+ * Derived from METALS so a new first-class metal (copper, STRK-306) can never
+ * be silently missing from the trend wiring. */
+const TREND_METALS = Object.values(METALS).map((m) => m.name);
 
 /**
  * Applies a trend period value to all four metal sparkline selects and to the

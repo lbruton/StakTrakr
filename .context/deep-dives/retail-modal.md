@@ -3,15 +3,22 @@ title: "Retail Modal"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/retail-modal.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Retail Modal.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Retail Modal.md" # historical provenance; migrated 2026-08-12
 updated: "2026-04-11"
 ---
 
-# Retail Modal
+# Retail Modal (Legacy Compatibility Surface)
 
 ## Overview
 
-The **Retail View Modal** is a per-coin detail panel that opens when a user clicks a coin in the market view. It surfaces live and historical retail pricing data for a single coin slug (e.g. `ase`, `age`, `maple-silver`) sourced from the StakTrakrApi REST endpoints.
+> **Legacy compatibility surface:** the active per-coin product-detail experience is the
+> **Market Detail Modal** in `js/market-data.js`; the vendor comparison matrix opens it through
+> `openMarketDetailModal(slug)`. `retail-view-modal.js` remains loaded, exported, and
+> test-covered for compatibility. Do not use it for new product-detail work.
+
+The **Retail View Modal** is the retained legacy per-coin detail panel. It surfaces live and
+historical retail pricing data for a single coin slug (for example, `ase`, `age`, or
+`maple-silver`) when explicitly invoked.
 
 The modal contains two tabs:
 
@@ -46,11 +53,8 @@ On open, the modal displays cached data from localStorage immediately, then fire
 - The full sync pipeline: `syncRetailPrices` (fetches manifest, per-slug `latest.json` + `history-30d.json`, providers.json, and writes all results to localStorage).
 - Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of STAK-521 (v3.33.96), `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path — slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape (e.g. bare `goldback-gN` denomination stubs, unmapped manifest slugs) are quarantined before any downstream plane sees them. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
 - The sync log, sync-in-progress flags, and error state. The sync log Time column uses timezone-aware formatting via `TIMEZONE_KEY` from localStorage, matching the `_fmtIntradayTime` pattern in `retail-view-modal.js`. Falls back gracefully if the stored timezone is invalid.
-- Rendering of the market list view (`_renderMarketListView`).
-- Metal filter pill state (`_marketMetalFilter`) and filtering logic in `_getFilteredSortedSlugs()` — filters slugs by `getRetailCoinMeta(slug).metal` when a pill other than "All" is active.
-- Expand/Collapse button text reset — `_renderMarketListView()` resets `marketExpandAllBtn` to "Expand All" on every re-render (search, filter change), since newly rendered cards are always collapsed.
-- Card-level trend indicators via `_computeRetailTrend(slug)`, which sorts history by date descending before comparing the two most recent entries to determine trend direction.
-- Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, `_invalidateMarketFilterCache` (STAK-515). Filter guards in `_getFilteredSortedSlugs()` and `_buildMarketListCard()` exclude disabled slug/vendor combinations from the market list view.
+- Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, and `_invalidateMarketFilterCache` (STAK-515). `market-data.js` consumes that state when rendering the vendor comparison matrix.
+- The retail data cache consumed by the market matrix. Matrix rendering, metal tabs, vendor cells, and row ordering live in `js/market-data.js`, not `retail.js`.
 
 **`retail-view-modal.js`** owns:
 
@@ -78,12 +82,10 @@ Declared in `retail.js`. All three maps must be updated together when adding a n
 | `gainesvillecoins` | Gainesville  | —                        |
 | `goldback`         | Goldback     | `#d4a017` deep gold      |
 
-### Module-Level State (retail.js — market list view)
+### Module-Level State (retail.js)
 
 | Variable             | Type             | Purpose                                                                                                                   |
 | -------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `_marketMetalFilter` | `string`         | Active metal filter pill value: `"all"`, `"silver"`, `"gold"`, `"goldback"`, `"platinum"`, or `"palladium"`               |
-| `_marketSearchTimer` | `number \| null` | Search input debounce timer                                                                                               |
 | `_marketFilterCache` | `object \| null` | In-memory cache of the market filter matrix from localStorage (STAK-515). Invalidated by `_invalidateMarketFilterCache()` |
 
 ### Module-Level State (retail-view-modal.js)
@@ -328,7 +330,7 @@ Two-pass anomaly filter that nulls scraper spike prices before charting. Preserv
 
 **Pass 2 — Cross-vendor median consensus (safety net):** For each window with 3+ vendors, any vendor deviating more than `RETAIL_ANOMALY_THRESHOLD` (default 40%) from the median is nulled. Guard: if all vendors would be flagged, none are (prevents false consensus collapse).
 
-> **Note:** `_flagAnomalies` is the intraday-only pipeline. The 7-day trend card charts in `retail.js` use a separate `_filterHistorySpikes()` function with its own three-pass logic — see the **7-Day Trend Card Chart** section below.
+> **Note:** `_flagAnomalies` is the intraday-only pipeline. Daily history is rendered from the API aggregates; there is no separate client-side trend-card correction pipeline.
 
 Anomalous chart prices are set to `null` so Chart.js gaps over them via `spanGaps: true`. Table cells with anomalous values render with strikethrough at reduced opacity.
 
@@ -497,55 +499,6 @@ Both `_retailViewModalChart` and `_retailViewIntradayChart` must be explicitly d
 As of v3.33.57, `RETAIL_COIN_META` includes 15 hardcoded entries covering all standard coins plus the three Australian silver coins (Kangaroo, Koala, Kookaburra). The manifest's `coins_meta` field provides runtime metadata but is not persisted to localStorage — on page reload before the manifest re-fetches, only the hardcoded entries are available.
 
 ---
-
----
-
-## 7-Day Trend Card Chart (`retail.js`)
-
-The **market card** expanded view renders a 7-day per-vendor trend chart using `_initMarketCardChart(slug, detailsEl)`. This is separate from the retail-view-modal history tab — it lives entirely in `retail.js` and operates on `retailPriceHistory[slug]`.
-
-### Pipeline
-
-```text
-retailPriceHistory[slug].slice(-7)     -> last7[]  (7 daily entries, oldest first)
-         |
-         v
-  _filterHistorySpikes(last7, vendors) -> { prices, estimated }
-  (three-pass spike + OOS filter)
-         |
-         v
-  _interpolateGaps(prices[vid], estimated[vid])  -> { filled, interp }
-  (linear interpolation for null gaps only;
-   OOS carry-forward values are already present and are NOT re-interpolated)
-         |
-         v
-  Chart.js line chart  (dashed/dimmed segments where interp[i] === true)
-```
-
-### `_filterHistorySpikes(entries, vendorIds)`
-
-Three-pass filter applied before chart rendering:
-
-**Pass 0 — OOS carry-forward (data extraction):** For each vendor per day:
-
-- In-stock with price → real data point; updates `lastKnown`
-- OOS with prior in-stock price → carry `lastKnown` forward, mark `estimated = true`; **`lastKnown` is NOT updated** — the carry anchor always remains the last confirmed in-stock price, keeping dotted lines flat
-- OOS with no prior in-stock price → use scraped price as fallback (no `lastKnown` available)
-- No data → `null`
-
-**Pass 1 — Temporal spike detection:** For `t=1` to `t=length-2` (interior points only), flags points deviating more than `RETAIL_SPIKE_NEIGHBOR_TOLERANCE` (5%) from the average of stable neighbors. Skips estimated (OOS carry) points.
-
-**Pass 1b — Endpoint spike detection (v3.33.62+):** For `t=0` and `t=length-1`, compares against the average of the nearest 2 real interior data points. Threshold: `2× RETAIL_SPIKE_NEIGHBOR_TOLERANCE` (10%). Catches anomalous first/last data points that Pass 1 cannot reach.
-
-**Pass 2 — Cross-vendor median consensus:** For interior positions: requires 3+ vendors, 40% threshold. For endpoint positions: requires 2+ vendors, 20% threshold (stricter, to catch edge spikes that slipped Pass 1b due to single-vendor coverage).
-
-### `_interpolateGaps(data, preEstimated)`
-
-Linearly interpolates only `null` entries in the price array. OOS carry-forward values are already non-null after Pass 0, so they are preserved as flat. Trailing/leading nulls (vendor not present on those days) are left as-is — no extrapolation beyond the vendor's known data range.
-
-### Dotted line rendering
-
-Chart.js `segment.borderDash` callback: if either endpoint of a segment has `interp[i] === true`, the segment renders dashed (`[4, 3]`) at 50% opacity. This applies to both OOS carry-forward and linearly interpolated gap fills.
 
 ---
 

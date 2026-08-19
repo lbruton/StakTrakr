@@ -1,4 +1,84 @@
 // CONFIGURATION & GLOBAL CONSTANTS
+
+/**
+ * Canonical metal → provider symbol map for the third-party spot providers
+ * (STRK-342). Single source of truth — api.js and the provider parseResponse /
+ * parseBatchResponse blocks below all reference it; do not redeclare inline
+ * copies (tests/unit/spot-provider-symbols.test.js scans for drift).
+ *
+ * Copper wired by STRK-303 Part 2. XCU serves Metals-API and MetalPriceAPI
+ * directly (per troy ounce, probe-verified 2026-08-15); providers whose
+ * copper symbol differs (gold-api's HG, metals.dev's lowercase word) carry
+ * the divergence in their own endpoint/parse blocks below — this map stays
+ * the wiring gate. An unmapped metal must resolve to null (a provider miss),
+ * never fall through to another metal's symbol. The StakTrakr v2 feed's own
+ * five-metal map (_V2_METAL_MAP in api.js) is a separate domain.
+ */
+// Null prototype so inherited names ("toString", "constructor") can never
+// resolve as mapped metals through any lookup site.
+const SPOT_PROVIDER_METAL_SYMBOLS = Object.assign(Object.create(null), {
+  silver: "XAG",
+  gold: "XAU",
+  platinum: "XPT",
+  palladium: "XPD",
+  copper: "XCU",
+});
+
+/**
+ * Troy ounces per avoirdupois pound — exact by definition (1 lb = 7000
+ * grains, 1 ozt = 480 grains). Divides gold-api's per-pound COMEX HG copper
+ * quote down to USD per troy ounce (STRK-303 Part 2).
+ * @constant {number}
+ */
+const TROY_OUNCES_PER_POUND = 7000 / 480;
+
+/**
+ * Per-provider history exclusions: metals a provider serves on its latest
+ * path but cannot serve safely on its history/timeseries path. metals.dev's
+ * /timeseries documents no unit parameter, so its parseBatchResponse
+ * discards copper rows — without this exclusion a copper-only history pull
+ * would burn an API call to "successfully" pull zero points, and the cost
+ * preview would count a metal the pull cannot deliver (STRK-303 Part 2).
+ */
+const SPOT_PROVIDER_HISTORY_EXCLUSIONS = Object.assign(Object.create(null), {
+  METALS_DEV: ["copper"],
+});
+
+/**
+ * True when a metal is canonically wired AND the provider can serve it on
+ * the history/timeseries path. Use for history pulls and their cost
+ * previews; latest-sync paths gate on SPOT_PROVIDER_METAL_SYMBOLS alone.
+ * @param {string} provider - Provider key (e.g. "METALS_DEV")
+ * @param {string} metal - Metal key (e.g. "copper")
+ * @returns {boolean}
+ */
+const isProviderHistoryMetal = (provider, metal) =>
+  Boolean(SPOT_PROVIDER_METAL_SYMBOLS[metal]) &&
+  !(SPOT_PROVIDER_HISTORY_EXCLUSIONS[provider] || []).includes(metal);
+
+/** Derived inverse: provider symbol → metal key (e.g. "XAG" → "silver"). */
+const SPOT_PROVIDER_SYMBOL_TO_METAL = Object.assign(
+  Object.create(null),
+  Object.fromEntries(
+    Object.entries(SPOT_PROVIDER_METAL_SYMBOLS).map(([metal, symbol]) => [symbol, metal])
+  )
+);
+
+/**
+ * Resolves the metal code the CUSTOM provider substitutes for {METAL} in a
+ * user-configured endpoint. Returns null for any metal outside the canonical
+ * map so callers skip the request instead of substituting "undefined" into
+ * the URL (STRK-342 defect 2).
+ * @param {string} metal - Metal key ("silver", "gold", ...)
+ * @param {string} format - "symbol" for XAG-style codes, anything else for the metal word
+ * @returns {string|null} Code for URL substitution, or null when unmapped
+ */
+const getSpotProviderMetalCode = (metal, format) => {
+  const symbol = SPOT_PROVIDER_METAL_SYMBOLS[metal];
+  if (!symbol) return null;
+  return format === "symbol" ? symbol : metal;
+};
+
 /**
  * API Provider configurations for metals pricing services
  *
@@ -47,11 +127,22 @@ const API_PROVIDERS = {
     latestBatchEndpoint: "/latest?api_key={API_KEY}&currency=USD&unit=toz",
     parseResponse: (data) => data.rate?.price || null,
     parseLatestBatchResponse: (data) => {
+      // We request &unit=toz and the response echoes a top-level `unit`.
+      // Industrial metals (copper) default to metric tonnes on this API — a
+      // 32,150x error — so a non-toz echo means the server ignored the
+      // parameter and every number is suspect: return nothing and let the
+      // caller fall back to the per-metal endpoints (STRK-303 Part 2).
+      if (data?.unit && data.unit !== "toz") return {};
+      // No unit echo at all: precious metals default to toz anyway, but
+      // copper's default is tonnes, so copper needs the explicit echo.
+      const unitConfirmedToz = data?.unit === "toz";
       const current = {};
       if (data?.metals) {
         Object.entries(data.metals).forEach(([metal, price]) => {
+          const key = metal.toLowerCase();
+          if (key === "copper" && !unitConfirmedToz) return;
           if (typeof price === "number" && price > 0) {
-            current[metal.toLowerCase()] = price;
+            current[key] = price;
           }
         });
       }
@@ -76,6 +167,11 @@ const API_PROVIDERS = {
           Object.entries(metals).forEach(([metal, price]) => {
             if (typeof price !== "number" || price <= 0) return;
             const key = metal.toLowerCase();
+            // /timeseries documents no unit parameter, so industrial metals
+            // come back per metric tonne with no reliable in-payload signal.
+            // Copper history is served by Metals-API / MetalPriceAPI instead;
+            // accepting it here would store a 32,150x error (STRK-303 Part 2).
+            if (key === "copper") return;
             if (!history[key]) history[key] = [];
             history[key].push({
               timestamp: `${dateStr} 00:00:00`,
@@ -98,17 +194,16 @@ const API_PROVIDERS = {
       gold: "/latest?access_key={API_KEY}&base=USD&symbols=XAU",
       platinum: "/latest?access_key={API_KEY}&base=USD&symbols=XPT",
       palladium: "/latest?access_key={API_KEY}&base=USD&symbols=XPD",
+      // XCU is per troy ounce on this API (probe-verified 2026-08-15); the
+      // shared 1/rate inversion in parseResponse applies unchanged.
+      copper: "/latest?access_key={API_KEY}&base=USD&symbols=XCU",
     },
     parseResponse: (data, metal) => {
       // Expected format: { "success": true, "rates": { "XAG": 0.04 } }
-      const metalCode =
-        metal === "silver"
-          ? "XAG"
-          : metal === "gold"
-            ? "XAU"
-            : metal === "platinum"
-              ? "XPT"
-              : "XPD";
+      // Unmapped metals resolve to null — never fall through to another
+      // metal's symbol (STRK-342 defect 1).
+      const metalCode = SPOT_PROVIDER_METAL_SYMBOLS[metal];
+      if (!metalCode) return null;
       const rate = data.rates?.[metalCode];
       return rate ? 1 / rate : null; // Convert from metal per USD to USD per ounce
     },
@@ -122,12 +217,7 @@ const API_PROVIDERS = {
     parseBatchResponse: (data) => {
       const current = {};
       const history = {};
-      const symbolMap = {
-        XAG: "silver",
-        XAU: "gold",
-        XPT: "platinum",
-        XPD: "palladium",
-      };
+      const symbolMap = SPOT_PROVIDER_SYMBOL_TO_METAL;
       if (data.rates) {
         const firstKey = Object.keys(data.rates)[0];
         if (
@@ -169,17 +259,16 @@ const API_PROVIDERS = {
       gold: "/latest?api_key={API_KEY}&base=USD&currencies=XAU",
       platinum: "/latest?api_key={API_KEY}&base=USD&currencies=XPT",
       palladium: "/latest?api_key={API_KEY}&base=USD&currencies=XPD",
+      // XCU is per troy ounce (live probe 2026-08-15: rate 2.4235 → $0.4126);
+      // the shared 1/rate inversion in parseResponse applies unchanged.
+      copper: "/latest?api_key={API_KEY}&base=USD&currencies=XCU",
     },
     parseResponse: (data, metal) => {
       // Expected format: { "success": true, "rates": { "XAG": 0.04 } }
-      const metalCode =
-        metal === "silver"
-          ? "XAG"
-          : metal === "gold"
-            ? "XAU"
-            : metal === "platinum"
-              ? "XPT"
-              : "XPD";
+      // Unmapped metals resolve to null — never fall through to another
+      // metal's symbol (STRK-342 defect 1).
+      const metalCode = SPOT_PROVIDER_METAL_SYMBOLS[metal];
+      if (!metalCode) return null;
       const rate = data.rates?.[metalCode];
       return rate ? 1 / rate : null; // Convert from metal per USD to USD per ounce
     },
@@ -196,12 +285,7 @@ const API_PROVIDERS = {
     parseBatchResponse: (data) => {
       const current = {};
       const history = {};
-      const symbolMap = {
-        XAG: "silver",
-        XAU: "gold",
-        XPT: "platinum",
-        XPD: "palladium",
-      };
+      const symbolMap = SPOT_PROVIDER_SYMBOL_TO_METAL;
       if (data.rates) {
         const firstKey = Object.keys(data.rates)[0];
         if (
@@ -244,10 +328,18 @@ const API_PROVIDERS = {
       gold: "/price/XAU",
       platinum: "/price/XPT",
       palladium: "/price/XPD",
+      // COMEX HG futures series, accepted by decision (STRK-303, 2026-08-15):
+      // a user who selects gold-api gets gold-api's consistent view of copper.
+      // Symbol is case-sensitive — only uppercase HG resolves.
+      copper: "/price/HG",
     },
-    parseResponse: (data) => {
+    parseResponse: (data, metal) => {
       const price = data?.price;
-      return typeof price === "number" && price > 0 ? price : null;
+      if (typeof price !== "number" || price <= 0) return null;
+      // HG is quoted per POUND while the same endpoint shape serves the other
+      // four metals per troy ounce — nothing in the payload flags the
+      // difference, so the conversion branches on the metal (STRK-303 Part 2).
+      return metal === "copper" ? price / TROY_OUNCES_PER_POUND : price;
     },
     batchSupported: false,
     parseBatchResponse: () => ({ current: {}, history: {} }),
@@ -305,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.35.100";
+const APP_VERSION = "3.36.12";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -617,6 +709,15 @@ const KG_TO_OZT = 32.15075;
 
 /** @constant {number} LB_TO_OZT - Conversion factor: 1 avoirdupois pound = 14.58333 troy ounces */
 const LB_TO_OZT = 14.58333;
+
+/**
+ * @constant {number} AVDP_TO_OZT - Conversion factor: 1 avoirdupois ounce = 0.9114583 troy ounces.
+ * STRK-305: copper bullion is sold in avoirdupois ounces; entering a "1 oz copper
+ * round" as troy would overstate metal content ~9.7%. Input-lens only — storage
+ * stays troy ounces, exactly like g/kg/lb. Do NOT use "cu" as this unit's code:
+ * "cu" is the constitutional-silver weightUnit.
+ */
+const AVDP_TO_OZT = 0.9114583;
 
 /**
  * Standard Goldback denominations with gold content.
@@ -1032,6 +1133,7 @@ const ALLOWED_STORAGE_KEYS = [
   "spotGold",
   "spotPlatinum",
   "spotPalladium",
+  "spotCopper", // STRK-305 — written via METALS[].localStorageKey like the other four
   "chipMinCount",
   "chipMaxCount",
   "changeLog",
@@ -1089,7 +1191,7 @@ const ALLOWED_STORAGE_KEYS = [
   LATEST_REMOTE_URL_KEY, // string: cached latest remote release URL (STACK-67)
   "ff_migration_fuzzy_autocomplete", // one-time migration flag (v3.26.01)
   "migration_hourlySource", // one-time migration flag: re-tag StakTrakr hourly entries
-  "migration_seedHistoryMerge", // one-time migration flag: skip redundant seed-history merge writes
+  "migration_seedHistoryMerge", // seed-pass settle sentinel (STRK-344: no longer read as a gate; Playwright waits on it)
   "migration_cmp2_compression", // one-time migration flag: re-encode CMP1/large keys to CMP2 (STRK-140)
   "migration_idb_history_v1", // one-time migration flag: market histories moved to IndexedDB (STRK-141)
   "numistaLookupRules", // custom Numista search lookup rules (JSON array)
@@ -1191,6 +1293,7 @@ const VAULT_SETTINGS_DIFF_SKIP = [
   "spotSilver",
   "spotPlatinum",
   "spotPalladium",
+  "spotCopper", // STRK-305
   SPOT_HISTORY_KEY,
   ITEM_PRICE_HISTORY_KEY,
   EXCHANGE_RATES_KEY,
@@ -1994,13 +2097,38 @@ const METALS = {
     color: "palladium",
     defaultPrice: 1000.0,
   },
+  // STRK-305: copper is a first-class inventory metal, but its dashboard spot
+  // card, summary card, and Metal Order entry are Phase 3 (STRK-306). The
+  // spot/totals iteration over METALS no-ops safely on the missing DOM nodes.
+  COPPER: {
+    name: "Copper",
+    key: "copper",
+    spotKey: "spotCopper",
+    localStorageKey: "spotCopper",
+    color: "copper",
+    defaultPrice: 0.45,
+  },
 };
+
+/**
+ * Metal names accepted by the CSV/JSON import gates (STRK-305).
+ * Derived from METALS so the four import-path copies in inventory-import.js
+ * can never drift from the app's first-class metal set again.
+ * @constant {string[]}
+ */
+const SUPPORTED_INVENTORY_METALS = Object.values(METALS).map((m) => m.name);
 
 // =============================================================================
 
 // Expose globals
 if (typeof window !== "undefined") {
   window.API_PROVIDERS = API_PROVIDERS;
+  window.SPOT_PROVIDER_METAL_SYMBOLS = SPOT_PROVIDER_METAL_SYMBOLS;
+  window.SPOT_PROVIDER_SYMBOL_TO_METAL = SPOT_PROVIDER_SYMBOL_TO_METAL;
+  window.TROY_OUNCES_PER_POUND = TROY_OUNCES_PER_POUND;
+  window.SPOT_PROVIDER_HISTORY_EXCLUSIONS = SPOT_PROVIDER_HISTORY_EXCLUSIONS;
+  window.isProviderHistoryMetal = isProviderHistoryMetal;
+  window.getSpotProviderMetalCode = getSpotProviderMetalCode;
   window.METALS = METALS;
   window.DEBUG = DEBUG;
   window.DEFAULT_CURRENCY = DEFAULT_CURRENCY;
@@ -2078,6 +2206,8 @@ if (typeof window !== "undefined") {
   window.GOLDBACK_ENABLED_KEY = GOLDBACK_ENABLED_KEY;
   window.GB_TO_OZT = GB_TO_OZT;
   window.SB_TO_OZT = SB_TO_OZT;
+  window.AVDP_TO_OZT = AVDP_TO_OZT;
+  window.SUPPORTED_INVENTORY_METALS = SUPPORTED_INVENTORY_METALS;
   window.GOLDBACK_DENOMINATIONS = GOLDBACK_DENOMINATIONS;
   // STRK-235: constitutional / junk silver
   window.CONSTITUTIONAL_VARIANTS = CONSTITUTIONAL_VARIANTS;

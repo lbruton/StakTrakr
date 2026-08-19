@@ -3,7 +3,7 @@ title: "Provider Database"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/provider-database.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Provider Database.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Provider Database.md" # historical provenance; migrated 2026-08-12
 updated: "2026-03-22"
 ---
 
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS provider_coins (
   metal      TEXT NOT NULL,        -- "gold", "silver", "platinum"
   name       TEXT NOT NULL,        -- "American Silver Eagle"
   weight_oz  REAL NOT NULL,        -- troy ounces (e.g. 1, 10)
-  fbp_url    TEXT,                 -- FindBullionPrices URL (legacy, nullable)
+  fbp_url    TEXT,                 -- FindBullionPrices product URL, hand-assigned (nullable)
   notes      TEXT,                 -- free-form notes
   enabled    INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -91,31 +91,32 @@ CREATE INDEX IF NOT EXISTS idx_pf_failed_at ON provider_failures(failed_at);
 
 Shared module at `StakTrakr/devops/pollers/shared/provider-db.js`. Most functions take a database `client` as the first argument. Exceptions: `loadProvidersFromFile(dataDir)` reads from the local filesystem, and `loadProviders(client, dataDir)` uses sqld-first with file fallback.
 
-| Function                                                              | Description                                                                                                                                       |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initProviderSchema(client)`                                          | Idempotent DDL — creates tables, indexes, and runs `skip_bounds` column migration (STAK-496)                                                      |
-| `getProviders(client)`                                                | Returns `{ coins: { [slug]: { metal, name, weight_oz, providers: [...] } } }` — vendors include `skipPriceBounds: true` when `skip_bounds=1`      |
-| `getProvidersByCoin(client, coinSlug)`                                | Vendors for a single coin — includes `skipPriceBounds` flag                                                                                       |
-| `getAllCoins(client)`                                                 | Coin list without vendor detail                                                                                                                   |
-| `upsertCoin(client, coin)`                                            | Insert or update a coin row                                                                                                                       |
-| `upsertVendor(client, vendor)`                                        | Insert or update a vendor row                                                                                                                     |
-| `toggleVendor(client, coinSlug, vendorId, enabled)`                   | Enable/disable a vendor                                                                                                                           |
-| `updateVendorUrl(client, coinSlug, vendorId, url)`                    | Change a vendor's scrape URL                                                                                                                      |
-| `deleteCoin(client, slug)`                                            | Delete coin + all its vendors (batch)                                                                                                             |
-| `deleteVendor(client, coinSlug, vendorId)`                            | Delete a single vendor row                                                                                                                        |
-| `updateVendorFields(client, coinSlug, vendorId, { selector, hints })` | Update selector/hints metadata                                                                                                                    |
-| `getVendorScrapeStatus(client)`                                       | Latest scrape result per vendor (window function query)                                                                                           |
-| `getFailureStats(client)`                                             | Vendors with 3+ failures in last 7 days                                                                                                           |
-| `getRunStats(client)`                                                 | Poller run aggregates (last 24h)                                                                                                                  |
-| `batchToggleVendor(client, { vendorId, metal, enabled })`             | Toggle all vendors of a vendor ID + metal type. Returns `{ rowsAffected }`                                                                        |
-| `batchDeleteVendor(client, { vendorId, metal })`                      | Delete all vendor entries for a vendor ID + metal type. Returns `{ rowsAffected }`                                                                |
-| `batchToggleVendorByCoins(client, { vendorId, coinSlugs, enabled })`  | Toggle vendor across specific coin slugs. Returns `{ rowsAffected }`                                                                              |
-| `getVendorSummary(client)`                                            | Grouped counts by vendor ID and metal. Returns `{ [vendorId]: { total, enabled, disabled, byMetal: { [metal]: { total, enabled, disabled } } } }` |
-| `getCoverageStats(client, hours?)`                                    | Hourly coverage — how many enabled pairs had a successful price. Returns `{ totalEnabled, hours: [{ hour, covered, pct }] }`                      |
-| `getMissingItems(client)`                                             | Enabled pairs with no successful price this hour. Returns `[{ coinSlug, coinName, metal, vendor, url }]`                                          |
-| `exportProvidersJson(client)`                                         | Returns JSON string matching `providers.json` format                                                                                              |
-| `loadProvidersFromFile(dataDir)`                                      | File fallback — reads `{dataDir}/retail/providers.json`                                                                                           |
-| `loadProviders(client, dataDir)`                                      | sqld-first with file fallback; logs which path taken                                                                                              |
+| Function                                                              | Description                                                                                                                                                           |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initProviderSchema(client)`                                          | Idempotent DDL — creates tables, indexes, and runs `skip_bounds` column migration (STAK-496)                                                                          |
+| `getProviders(client)`                                                | Returns `{ coins: { [slug]: { metal, name, weight_oz, providers: [...] } } }` — vendors include `skipPriceBounds: true` when `skip_bounds=1`                          |
+| `getProvidersByCoin(client, coinSlug)`                                | Vendors for a single coin — includes `skipPriceBounds` flag                                                                                                           |
+| `getAllCoins(client)`                                                 | Coin list without vendor detail                                                                                                                                       |
+| `upsertCoin(client, coin)`                                            | Insert or update a coin row                                                                                                                                           |
+| `upsertVendor(client, vendor)`                                        | Insert or update a vendor row                                                                                                                                         |
+| `toggleVendor(client, coinSlug, vendorId, enabled)`                   | Enable/disable a vendor                                                                                                                                               |
+| `updateVendorUrl(client, coinSlug, vendorId, url)`                    | Change a vendor's scrape URL                                                                                                                                          |
+| `updateCoinFbpUrl(client, slug, fbpUrl)`                              | Change only a coin's `fbp_url` (FBP price source), leaving identity columns untouched — coin-level analog of `updateVendorUrl` (STRK-347). Returns `{ rowsAffected }` |
+| `deleteCoin(client, slug)`                                            | Delete coin + all its vendors (batch)                                                                                                                                 |
+| `deleteVendor(client, coinSlug, vendorId)`                            | Delete a single vendor row                                                                                                                                            |
+| `updateVendorFields(client, coinSlug, vendorId, { selector, hints })` | Update selector/hints metadata                                                                                                                                        |
+| `getVendorScrapeStatus(client)`                                       | Latest scrape result per vendor (window function query)                                                                                                               |
+| `getFailureStats(client)`                                             | Vendors with 3+ failures in last 7 days                                                                                                                               |
+| `getRunStats(client)`                                                 | Poller run aggregates (last 24h)                                                                                                                                      |
+| `batchToggleVendor(client, { vendorId, metal, enabled })`             | Toggle all vendors of a vendor ID + metal type. Returns `{ rowsAffected }`                                                                                            |
+| `batchDeleteVendor(client, { vendorId, metal })`                      | Delete all vendor entries for a vendor ID + metal type. Returns `{ rowsAffected }`                                                                                    |
+| `batchToggleVendorByCoins(client, { vendorId, coinSlugs, enabled })`  | Toggle vendor across specific coin slugs. Returns `{ rowsAffected }`                                                                                                  |
+| `getVendorSummary(client)`                                            | Grouped counts by vendor ID and metal. Returns `{ [vendorId]: { total, enabled, disabled, byMetal: { [metal]: { total, enabled, disabled } } } }`                     |
+| `getCoverageStats(client, hours?)`                                    | Hourly coverage — how many enabled pairs had a successful price. Returns `{ totalEnabled, hours: [{ hour, covered, pct }] }`                                          |
+| `getMissingItems(client)`                                             | Enabled pairs with no successful price this hour. Returns `[{ coinSlug, coinName, metal, vendor, url }]`                                                              |
+| `exportProvidersJson(client)`                                         | Returns JSON string matching `providers.json` format                                                                                                                  |
+| `loadProvidersFromFile(dataDir)`                                      | File fallback — reads `{dataDir}/retail/providers.json`                                                                                                               |
+| `loadProviders(client, dataDir)`                                      | sqld-first with file fallback; logs which path taken                                                                                                                  |
 
 ---
 
@@ -234,14 +235,15 @@ The local `providers.json` files are kept on both pollers as a safety net but ar
 
 **One-time migration script:** `migrate-providers.js`
 
+Run the script in an environment where the target deployment's database configuration has been
+provided through its secret store:
+
 ```bash
 # Dry run (safe)
-TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... DATA_DIR=data \
-  node devops/pollers/shared/migrate-providers.js --dry-run --production
+node devops/pollers/shared/migrate-providers.js --dry-run --production
 
 # Execute
-TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... DATA_DIR=data \
-  node devops/pollers/shared/migrate-providers.js --production
+node devops/pollers/shared/migrate-providers.js --production
 ```
 
 - `--production` required when the database URL is not localhost

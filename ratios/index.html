@@ -25,8 +25,8 @@
       // inline pre-paint to avoid a theme flash. Reads only — this page never
       // writes localStorage.
       try {
-        var ratiosSavedTheme = localStorage.getItem("appTheme");
-        if (["dark", "light", "sepia", "slate"].indexOf(ratiosSavedTheme) >= 0) {
+        const ratiosSavedTheme = localStorage.getItem("appTheme");
+        if (["dark", "light", "sepia", "slate"].includes(ratiosSavedTheme)) {
           document.documentElement.setAttribute("data-theme", ratiosSavedTheme);
         }
       } catch (e) {
@@ -133,12 +133,18 @@
              standalone window into the full tracker. -->
         <a class="ratios-open-tracker" href="../">Open full tracker →</a>
       </header>
-      <main class="ratios-page-shell" aria-live="polite">
+      <!-- No aria-live on <main> (STRK-310): renderRatiosPanel replaces the whole
+           mount on every pair switch and chart repaint, so a shell-wide live region
+           made a screen reader re-read the hero, tiles and legend each time. The
+           status line below is the only region that should announce. -->
+      <main class="ratios-page-shell">
         <div id="ratiosPageMount">
           <noscript>
             <div class="ratios-page-loading">Metal Ratios needs JavaScript to render.</div>
           </noscript>
-          <div class="ratios-page-loading" id="ratiosPageLoading">Loading ratio history…</div>
+          <div class="ratios-page-loading" id="ratiosPageLoading" role="status">
+            Loading ratio history…
+          </div>
         </div>
       </main>
       <footer class="ratios-page-foot">

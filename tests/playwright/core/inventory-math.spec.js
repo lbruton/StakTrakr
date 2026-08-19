@@ -3393,6 +3393,164 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
     });
     expect(units).toContain("mg");
     // The full set stays in sync with the add/edit modal's own dropdown.
-    expect(units).toEqual(expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "gb", "sb", "cu"]));
+    expect(units).toEqual(
+      expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "avdp", "gb", "sb", "cu"])
+    );
+  });
+});
+
+test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () => {
+  const AVDP_OZT = 0.9114583;
+
+  const COPPER_ROUND = {
+    ...MONEY_ITEM,
+    uuid: "core-copper-round",
+    metal: "Copper",
+    composition: "Copper",
+    name: "Core Copper Round",
+    qty: 1,
+    type: "Round",
+    weight: AVDP_OZT, // stored troy ounces — entered as 1 avdp oz
+    weightUnit: "avdp",
+    price: 2,
+    purity: 0.999,
+    spotPriceAtPurchase: 0.41,
+    serial: 31,
+  };
+
+  test("a 1 avdp oz copper round entered via the form stores 0.9114583 ozt", async ({ page }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+    await page.selectOption("#itemMetal", "Copper");
+    // Picking Copper auto-defaults the unit from oz to avdp (input lens only).
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("avdp");
+    await page.selectOption("#itemType", "Round");
+    await page.fill("#itemName", "One AVDP Copper Round");
+    await page.fill("#itemQty", "1");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemDate", "2026-04-01");
+    await page.fill("#itemPrice", "2");
+    await submitItemForm(page);
+
+    const item = await getInventoryItem(page, "One AVDP Copper Round");
+    expect(item).not.toBeNull();
+    expect(item.metal).toBe("Copper");
+    expect(item.weightUnit).toBe("avdp");
+    expect(item.weight).toBeCloseTo(AVDP_OZT, 6);
+  });
+
+  test("copper-alloy compositions stay Alloy — only pure copper imports as Copper", async ({
+    page,
+  }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    const r = await page.evaluate(() => {
+      // normalizeMetal lives on NumistaProvider and reads no instance state.
+      const norm = NumistaProvider.prototype.normalizeMetal;
+      return {
+        pure: parseNumistaMetal("Copper"),
+        fineness: parseNumistaMetal("Copper (.999)"),
+        cuNi: parseNumistaMetal("Copper-nickel"),
+        plated: parseNumistaMetal("Copper plated steel"),
+        exactStored: parseWeight("1", "avdp", false, {}),
+        catalogPure: norm.call(null, "Copper"),
+        catalogCuNi: norm.call(null, "Copper-nickel"),
+        catalogBronze: norm.call(null, "Bronze"),
+      };
+    });
+    // Pure copper is first-class; every copper alloy keeps its pre-STRK-305
+    // classification so it cannot slip through the import gate at purity 1.0
+    // (PR #1457 review — Codacy + Codex).
+    expect(r.pure).toBe("Copper");
+    expect(r.fineness).toBe("Copper");
+    expect(r.cuNi).toBe("Alloy");
+    expect(r.plated).toBe("Alloy");
+    // parseWeight keeps 7dp for avdp so the conversion constant is stored exactly.
+    expect(r.exactStored).toBe(0.9114583);
+    if (r.catalogPure !== null) {
+      expect(r.catalogPure).toBe("Copper");
+      expect(r.catalogCuNi).toBe("Alloy/Other");
+      expect(r.catalogBronze).toBe("Alloy/Other");
+    }
+  });
+
+  test("copper melt value matches the hand calculation on the stored troy weight", async ({
+    page,
+  }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    const melt = await page.evaluate(
+      (it) => window.computeMeltValue({ ...it, purity: 1 }, 0.41),
+      COPPER_ROUND
+    );
+    // 0.9114583 ozt × qty 1 × $0.41/ozt × purity 1
+    expect(melt).toBeCloseTo(0.9114583 * 0.41, 6);
+  });
+
+  test("picking Copper never clobbers an explicit non-oz unit choice", async ({ page }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+    await page.selectOption("#itemWeightUnit", "g");
+    await page.selectOption("#itemMetal", "Copper");
+    // The avdp default only applies from the plain-oz starting state.
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
+  });
+
+  test("an avdp item survives the edit round trip unchanged (STRK-319 bug class)", async ({
+    page,
+  }) => {
+    await seedMoneyData(page, { inventory: [COPPER_ROUND] });
+    await gotoApp(page);
+    await openEditModal(page, 0);
+    // The modal reopens in the entry unit, not the storage unit.
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("avdp");
+    await expect(page.locator("#itemWeight")).toHaveValue("1");
+    await submitItemForm(page);
+    const item = await getInventoryItem(page, "Core Copper Round");
+    expect(item.weightUnit).toBe("avdp");
+    expect(item.weight).toBeCloseTo(AVDP_OZT, 6);
+  });
+
+  test("constitutional 'cu' items are provably untouched by the avdp unit", async ({ page }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    const r = await page.evaluate(() => {
+      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
+      const cuItem = {
+        weightUnit: "cu",
+        constitutionalEntryMode: "face",
+        constitutionalVariant: "con-90-subsidiary",
+        weight: 10,
+        qty: 1,
+        purity: 0.9,
+      };
+      return {
+        oz: window.getConstitutionalSilverOz(cuItem),
+        melt: window.computeMeltValue(cuItem, 33.25),
+        // The bulk converter must treat "cu" as a pass-through, never an avdp alias.
+        // (Top-level const — reachable as a bare global, not via window.)
+        bulkCu: convertBulkWeightToOzt("10", "cu"),
+        bulkAvdp: convertBulkWeightToOzt("1", "avdp"),
+      };
+    });
+    // Identical to the pre-STRK-305 constitutional contract.
+    expect(r.oz).toBeCloseTo(7.15, 2);
+    expect(r.melt).toBeCloseTo(7.15 * 33.25, 1);
+    expect(r.bulkCu).toBe("10");
+    expect(parseFloat(r.bulkAvdp)).toBeCloseTo(0.9114583, 6);
+  });
+
+  test("copper renders in the metal dropdown and the four legacy metals are unchanged", async ({
+    page,
+  }) => {
+    await seedMoneyData(page);
+    await gotoApp(page);
+    await openAddModal(page);
+    const options = await page.evaluate(() =>
+      Array.from(document.getElementById("itemMetal").options).map((o) => o.value)
+    );
+    expect(options).toEqual(["", "Gold", "Silver", "Platinum", "Palladium", "Copper", "Alloy"]);
   });
 });

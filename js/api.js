@@ -77,7 +77,13 @@ const _staktrakrFetch = async (urls, path, { signal, validate } = {}) => {
  * Walks back up to 24 hours from the current UTC hour to find data.
  * Tries the primary endpoint first; falls back to backup after 5 s timeout or error.
  */
-const _V2_METAL_MAP = { xau: "gold", xag: "silver", xpt: "platinum", xpd: "palladium" };
+const _V2_METAL_MAP = {
+  xau: "gold",
+  xag: "silver",
+  xpt: "platinum",
+  xpd: "palladium",
+  xcu: "copper",
+};
 
 // Publication timestamp (epoch ms) of the last accepted /spot/latest.json payload.
 // In-memory only: guards against an older payload overwriting a fresher one within
@@ -401,11 +407,48 @@ const _fetchStaktrakrHourlyRangeV2 = async (hoursBack, { signal } = {}) => {
 };
 
 /**
+ * Decides the hourly-backfill window: 24 h incremental only when EVERY metal
+ * in METALS has BOTH a recent api-hourly row (≤24 h) AND deep hourly coverage
+ * (a row ≥6 days old — proof its 7-day pull already landed); otherwise 7 days
+ * so an uncovered metal self-heals (STRK-343 — the check was global, so an
+ * existing profile's legacy-metal rows starved copper of its deep pull and
+ * flat-lined its sparkline). Recency alone is not enough: a profile that kept
+ * syncing after a new metal shipped has recent rows for it but no trailing
+ * week. The 6-day threshold sits inside the 7-day pull and far inside
+ * purgeSpotHistory's 180-day retention. Deriving the set from METALS makes
+ * the next metal addition inherit the behavior.
+ * @param {Array<{metal: string, source: string, timestamp: string}>} history spot history entries
+ * @param {number} [now] epoch ms reference for the cutoffs
+ * @returns {number} hours to backfill (24 or 168)
+ */
+const _staktrakrBackfillHoursBack = (history, now = Date.now()) => {
+  // Stored rows are UTC-naive ("YYYY-MM-DD HH:MM:SS" — the writer strips the
+  // Z); restore the UTC frame before comparing, since a local-frame parse
+  // shifts rows by the UTC offset and can wrongly skip the deep pull.
+  const utcMs = (ts) => new Date(`${ts.replace(" ", "T")}Z`).getTime();
+  const recentCutoff = now - 24 * 3600000;
+  const deepCutoff = now - 6 * 24 * 3600000;
+  const recentMetals = new Set();
+  const deepMetals = new Set();
+  history.forEach((e) => {
+    if (e.source !== "api-hourly") return;
+    const t = utcMs(e.timestamp);
+    if (t >= recentCutoff) recentMetals.add(e.metal);
+    if (t <= deepCutoff) deepMetals.add(e.metal);
+  });
+  const everyMetalCovered = Object.values(METALS).every(
+    (m) => recentMetals.has(m.name) && deepMetals.has(m.name)
+  );
+  return everyMetalCovered ? 24 : 7 * 24;
+};
+
+/**
  * Backfills hourly spot data from StakTrakr into spotHistory.
- * On a fresh load (no recent api-hourly entries), extends to 7 days to populate
+ * When any tracked metal lacks recent api-hourly entries (fresh load, or a
+ * newly added metal on an existing profile), extends to 7 days to populate
  * the sparkline window — the seed bundle can lag by ~9 days (LBMA data delay),
- * so 24 h alone is not enough to draw a 7-day sparkline (STAK-303).
- * On subsequent loads, only backfills the last 24 h for efficiency.
+ * so 24 h alone is not enough to draw a 7-day sparkline (STAK-303, STRK-343).
+ * Otherwise only backfills the last 24 h for efficiency.
  * Only runs when STAKTRAKR is the primary provider (rank 1) and sync succeeded.
  * @returns {Promise<number>} Count of new entries added
  */
@@ -420,11 +463,7 @@ const backfillStaktrakrHourly = async ({ signal } = {}) => {
       debugLog("[StakTrakr v2] Backfill skipped — spotPricingSource is MANUAL");
       return 0;
     }
-    const oneDayAgo = Date.now() - 24 * 3600000;
-    const hasRecentHourly = spotHistory.some(
-      (e) => e.source === "api-hourly" && new Date(e.timestamp).getTime() >= oneDayAgo
-    );
-    const hoursBack = hasRecentHourly ? 24 : 7 * 24;
+    const hoursBack = _staktrakrBackfillHoursBack(spotHistory);
     if (signal?.aborted) return 0;
     const { newCount, fetchCount } = await fetchStaktrakrHourlyRange(hoursBack, { signal });
     // Track usage per file fetched (each file = 1 API request)
@@ -618,9 +657,11 @@ const loadApiConfig = () => {
             gold: true,
             platinum: true,
             palladium: true,
+            copper: true,
           };
         else {
-          ["silver", "gold", "platinum", "palladium"].forEach((m) => {
+          // The forEach also backfills copper into configs saved before STRK-305.
+          ["silver", "gold", "platinum", "palladium", "copper"].forEach((m) => {
             if (typeof metals[p][m] === "undefined") metals[p][m] = true;
           });
         }
@@ -686,7 +727,7 @@ const loadApiConfig = () => {
       quota: providerRequiresKey(p) ? DEFAULT_API_QUOTA : 5000,
       used: 0,
     };
-    metals[p] = { silver: true, gold: true, platinum: true, palladium: true };
+    metals[p] = { silver: true, gold: true, platinum: true, palladium: true, copper: true };
     historyDays[p] = p === "METALS_DEV" ? 29 : 30;
     historyTimes[p] = [];
     defaultCacheTimeouts[p] = 24;
@@ -863,7 +904,13 @@ const updateHistoryPullCost = (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter((metal) => selected[metal] !== false);
+  // History-capable restriction keeps the cost preview aligned with what the
+  // pull will actually deliver — canonically-mapped metals minus per-provider
+  // history exclusions (metals.dev cannot serve copper history; STRK-342,
+  // STRK-303 Part 2).
+  const selectedMetals = Object.keys(selected).filter(
+    (metal) => selected[metal] !== false && isProviderHistoryMetal(provider, metal)
+  );
 
   // Check for hourly toggle (MetalPriceAPI)
   const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
@@ -933,84 +980,6 @@ const updateProviderSettings = (provider) => {
   }
 
   saveApiConfig(config);
-};
-
-/**
- * Attaches DOM event listeners to the settings controls for a specific provider.
- * Handles cache changes, history pull parameters, and metal selection checkboxes.
- *
- * @param {string} provider - The unique key of the API provider
- */
-const setupProviderSettingsListeners = (provider) => {
-  // STAKTRAKR: wire enabled toggle + auto-refresh (no cache dropdown)
-  if (provider === "STAKTRAKR") {
-    const enabledEl = document.getElementById("enabled_STAKTRAKR");
-    if (enabledEl) {
-      enabledEl.addEventListener("change", () => updateProviderSettings(provider));
-    }
-    const autoEl = document.getElementById("autoRefresh_STAKTRAKR");
-    if (autoEl) {
-      autoEl.addEventListener("change", () => updateProviderSettings(provider));
-    }
-    return;
-  }
-
-  // Cache timeout change
-  const cacheSelect = document.getElementById(`cacheTimeout_${provider}`);
-  if (cacheSelect) {
-    cacheSelect.addEventListener("change", () => updateProviderSettings(provider));
-  }
-
-  // History pull days dropdown — update cost indicator
-  const pullDaysSelect = document.getElementById(`historyPullDays_${provider}`);
-  if (pullDaysSelect) {
-    pullDaysSelect.addEventListener("change", () => updateHistoryPullCost(provider));
-  }
-
-  // History pull button
-  const pullBtn = document.querySelector(`.api-history-btn[data-provider="${provider}"]`);
-  if (pullBtn) {
-    pullBtn.addEventListener("click", () => handleHistoryPull(provider));
-  }
-
-  // Hourly toggle — cap days dropdown and update cost
-  const hourlyToggle = document.getElementById(`hourlyPull_${provider}`);
-  if (hourlyToggle) {
-    hourlyToggle.addEventListener("change", () => {
-      const daysEl = document.getElementById(`historyPullDays_${provider}`);
-      if (daysEl && hourlyToggle.checked) {
-        const maxDays = API_PROVIDERS[provider]?.maxHourlyDays || 7;
-        if (parseInt(daysEl.value, 10) > maxDays) {
-          daysEl.value = String(maxDays);
-        }
-      }
-      updateHistoryPullCost(provider);
-    });
-  }
-
-  // Metal selection changes
-  document.querySelectorAll(`.provider-metal[data-provider="${provider}"]`).forEach((checkbox) => {
-    checkbox.addEventListener("change", (e) => {
-      const config = loadApiConfig();
-      const metalKey = e.target.dataset.metal;
-      if (!config.metals[provider]) config.metals[provider] = {};
-      config.metals[provider][metalKey] = e.target.checked;
-      saveApiConfig(config);
-      updateHistoryPullCost(provider);
-    });
-  });
-
-  // Auto-refresh toggle (STAK-222)
-  const autoRefreshToggle = document.getElementById(`autoRefresh_${provider}`);
-  if (autoRefreshToggle) {
-    autoRefreshToggle.addEventListener("change", () => {
-      const config = loadApiConfig();
-      if (!config.autoRefresh) config.autoRefresh = {};
-      config.autoRefresh[provider] = autoRefreshToggle.checked;
-      saveApiConfig(config);
-      if (typeof startSpotBackgroundSync === "function") startSpotBackgroundSync();
-    });
-  }
 };
 
 /**
@@ -1723,15 +1692,14 @@ const _fetchCustomLatest = async (config, providerConfig, apiKey, remaining, res
     console.warn("Invalid custom API base URL:", base, urlErr.message);
     return true;
   }
-  const metalCodes = {
-    silver: format === "symbol" ? "XAG" : "silver",
-    gold: format === "symbol" ? "XAU" : "gold",
-    platinum: format === "symbol" ? "XPT" : "platinum",
-    palladium: format === "symbol" ? "XPD" : "palladium",
-  };
   for (const metal of remaining) {
+    // Unmapped metals (any future metal not yet in the canonical map) are
+    // skipped — a null code must never reach the user's endpoint URL as the
+    // string "undefined" (STRK-342 defect 2).
+    const metalCode = getSpotProviderMetalCode(metal, format);
+    if (!metalCode) continue;
     try {
-      const endpoint = pattern.replace("{API_KEY}", apiKey).replace("{METAL}", metalCodes[metal]);
+      const endpoint = pattern.replace("{API_KEY}", apiKey).replace("{METAL}", metalCode);
       const url = `${base}${endpoint}`;
       const response = await fetch(url, {
         method: "GET",
@@ -1828,12 +1796,20 @@ const fetchBatchSpotPrices = async (
     if (provider === "METALS_DEV") {
       url = url.replace("{API_KEY}", apiKey);
     } else if (provider === "METALS_API") {
-      const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-      const symbols = selectedMetals.map((metal) => symbolMap[metal]).join(",");
+      // filter(Boolean) drops unmapped metals (any future metal not yet in
+      // the canonical map) so the URL never carries the string "undefined".
+      const symbols = selectedMetals
+        .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
+        .filter(Boolean)
+        .join(",");
+      if (!symbols) return {};
       url = url.replace("{API_KEY}", apiKey).replace("{SYMBOLS}", symbols);
     } else if (provider === "METAL_PRICE_API") {
-      const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-      const currencies = selectedMetals.map((metal) => symbolMap[metal]).join(",");
+      const currencies = selectedMetals
+        .map((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal])
+        .filter(Boolean)
+        .join(",");
+      if (!currencies) return {};
       url = url.replace("{API_KEY}", apiKey).replace("{CURRENCIES}", currencies);
     }
 
@@ -1950,9 +1926,19 @@ const fetchSpotPricesFromApi = async (provider, apiKey, { signal } = {}) => {
     return await fetchStaktrakrPrices(selectedMetals, { signal });
   }
 
+  // Third-party providers serve only canonically-wired metals, but config can
+  // carry additional truthy entries for metals added ahead of provider wiring
+  // (as copper was between STRK-305 and STRK-303 Part 2). Without this
+  // restriction such a selection skips the empty-selection error above and
+  // fails later with a misleading "No valid prices retrieved" (STRK-342).
+  const supportedMetals = selectedMetals.filter((metal) => SPOT_PROVIDER_METAL_SYMBOLS[metal]);
+  if (supportedMetals.length === 0) {
+    throw new Error("No metals selected for sync");
+  }
+
   // Latest-only: no history backfill on regular sync
   return {
-    prices: await fetchLatestPrices(provider, apiKey, selectedMetals),
+    prices: await fetchLatestPrices(provider, apiKey, supportedMetals),
     generatedAt: null,
     priceTimestamps: {},
   };
@@ -2034,12 +2020,18 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
 
       // Replace symbol/currency placeholders
       if (provider === "METALS_API") {
-        const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-        const symbols = metals.map((m) => symbolMap[m]).join(",");
+        const symbols = metals
+          .map((m) => SPOT_PROVIDER_METAL_SYMBOLS[m])
+          .filter(Boolean)
+          .join(",");
+        if (!symbols) continue;
         url = url.replace("{SYMBOLS}", symbols);
       } else if (provider === "METAL_PRICE_API") {
-        const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
-        const currencies = metals.map((m) => symbolMap[m]).join(",");
+        const currencies = metals
+          .map((m) => SPOT_PROVIDER_METAL_SYMBOLS[m])
+          .filter(Boolean)
+          .join(",");
+        if (!currencies) continue;
         url = url.replace("{CURRENCIES}", currencies);
       }
 
@@ -2095,7 +2087,7 @@ const fetchHistoryBatched = async (provider, apiKey, selectedMetals, totalDays) 
  */
 const fetchMetalPriceApiHourly = async (apiKey, selectedMetals, totalDays) => {
   const baseUrl = API_PROVIDERS.METAL_PRICE_API.baseUrl;
-  const symbolMap = { silver: "XAG", gold: "XAU", platinum: "XPT", palladium: "XPD" };
+  const symbolMap = SPOT_PROVIDER_METAL_SYMBOLS;
   const config = loadApiConfig();
   const usage = config.usage?.METAL_PRICE_API || { quota: DEFAULT_API_QUOTA, used: 0 };
   const providerName = API_PROVIDERS.METAL_PRICE_API.name;
@@ -2192,7 +2184,14 @@ const handleHistoryPull = async (provider) => {
   }
 
   const selected = config.metals?.[provider] || {};
-  const selectedMetals = Object.keys(selected).filter((m) => selected[m] !== false);
+  // History pulls hit third-party batch endpoints only, so restrict to
+  // history-capable metals — canonically-wired minus per-provider exclusions
+  // (metals.dev discards copper timeseries rows; a copper-only pull there
+  // must surface as "no metals selected", not burn a call to pull zero
+  // points) (STRK-342, STRK-303 Part 2).
+  const selectedMetals = Object.keys(selected).filter(
+    (m) => selected[m] !== false && isProviderHistoryMetal(provider, m)
+  );
   if (selectedMetals.length === 0) {
     appAlert("No metals selected. Please select at least one metal to track.");
     return;
@@ -2901,7 +2900,9 @@ const showProviderInfo = (providerKey) => {
     body.innerHTML = `
       <div class="info-provider-name">${provider.name}</div>
       <div>Base URL: ${provider.baseUrl}</div>
-      <div>Metals: Silver, Gold, Platinum, Palladium</div>
+      <div>Metals: ${Object.values(METALS)
+        .map((m) => m.name)
+        .join(", ")}</div>
       <div class="api-key-info">
         <div>📋 <strong>API Key Management:</strong></div>
         <ul>

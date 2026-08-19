@@ -7,6 +7,359 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.12] - 2026-08-17
+
+### Added — STRK-347: Poller dashboard shows both FBP price-source + buy-link URLs for FBP-backed vendors
+
+- **Dual URL editor for FBP-backed vendors** (STRK-347): the home-poller provider
+  editor (`/providers`) now surfaces, per coin, both the `provider_coins.fbp_url`
+  (the FindBullionPrices page the price is scraped from) and the vendor's own
+  buy-link URL, each editable and clearly labeled price-source vs buy-link, in both
+  the By-Coin and By-Vendor views. FBP-backed vendors (currently `jmbullion`) carry
+  an "FBP-backed" badge, driven by a `FBP_VENDOR_IDS` set that mirrors the runtime
+  FBP vendor module. Editing the FBP URL writes through a dedicated
+  `updateCoinFbpUrl` (via `POST /providers/coin-fbp-url`) that touches only
+  `fbp_url` — never the coin's identity columns — and `getProvidersByVendor` now
+  surfaces `fbp_url` so the By-Vendor view can render it. Operator-facing only; no
+  change to the app or its data.
+
+---
+
+## [3.36.11] - 2026-08-17
+
+### Removed — STRK-346: Remove unused FBP slug resolver + provider_coins.fbp_match column
+
+- **Dropped the dormant FindBullionPrices slug resolver** (STRK-346): STRK-334
+  shipped an on-demand year-preferring slug resolver (`resolve-fbp-slugs.js`) and
+  a `provider_coins.fbp_match` keyword-hint column to auto-populate each coin's
+  `fbp_url`, but go-live chose direct hand-assignment instead — the resolver's
+  positive-token matching can't disambiguate FBP's multi-variant products (single
+  coin vs tube vs monster-box vs fractional). The resolver never ran in the hot
+  path, so it and its `fbp_match` threading are removed as dead code. No runtime
+  behavior change: the JM Bullion vendor module still reads `coin.fbp_url`
+  directly. The inert `fbp_match` column is left in existing databases (libSQL
+  DROP COLUMN needs a table rebuild) but is no longer created or referenced.
+
+---
+
+## [3.36.10] - 2026-08-16
+
+### Added — STRK-334: Restore JM Bullion market pricing via FindBullionPrices gap-fill
+
+- **FindBullionPrices.com JSON-LD gap-fill poller vendor** (STRK-334): JM
+  Bullion is blocked at the source by its Webscale/reCAPTCHA challenge, so its
+  market prices had gone stale. A new poller vendor module scrapes
+  FindBullionPrices.com's product pages — which expose clean JSON-LD ItemList
+  data with no bot challenge — and uses those listings to gap-fill JM Bullion
+  pricing back onto the market table. A year-preferring slug resolver picks the
+  correct year-specific FBP product URL (older slugs 302-redirect), and a new
+  `provider_coins.fbp_match` column records the resolved FBP mapping per coin.
+- **Market footer FindBullionPrices attribution** (STRK-334): the market view
+  footer now carries a FindBullionPrices.com attribution link crediting the
+  gap-fill data source.
+- Re-enabling JM Bullion as a live market vendor is a post-deploy step once the
+  gap-fill feed is publishing.
+
+## [3.36.9] - 2026-08-16
+
+### Added — STRK-345: v2 day-file backfill tool for new metals
+
+- **`devops/pollers/shared/backfill-v2-day-files.js`** (STRK-345): backfills a
+  metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive from year-file daily
+  history. The v2 per-day archive begins at each metal's poller go-live —
+  copper's first day file is 2026-08-15 while the legacy metals' floor is
+  2026-03-25 — so the client's hourly-resolution pulls 404 across a new
+  metal's pre-go-live window (the STRK-302 epic's pre-seed intent covered the
+  daily layer but never the day-file archive). sqld cannot source the gap
+  (`spot_prices` reaches back only to 2026-02), so the tool reads the
+  published year files and emits one honest single-sample OHLCA entry per day
+  (`n: 1`, noon-UTC `t`) in the standard v2 envelope. Skip-existing by
+  default so it can never clobber a live hourly file; `--dry-run` and
+  `--overwrite` supported. Rollout checklist for future metals added to
+  `.context/data-pipelines.md`. 12 unit cases.
+
+## [3.36.8] - 2026-08-16
+
+### Fixed — STRK-344: Per-metal seed merge for existing profiles
+
+- **`loadSeedSpotHistory` merges seed rows per metal** (STRK-344): the seeder
+  previously hydrated the 180-day seed window only for empty profiles and
+  skipped existing ones entirely (behind a global `migration_seedHistoryMerge`
+  read), so a newly added metal (copper) could never obtain its 8–180-day
+  chart history — every range ≤180d reads only `spotHistory`. A new pure
+  helper (`_seedEntriesToMerge`) now runs the merge per metal: any metal
+  lacking a history row older than 30 days receives its seed rows inside the
+  180-day window, skipping days that already have live rows (live wins).
+  Idempotent every boot; the flag write is retained purely as the
+  seed-pass settle sentinel Playwright waits on. Companion to v3.36.7's
+  per-metal backfill fix — same global-check-vs-per-metal-need root cause,
+  one layer down. Server-side day-file parity is tracked separately
+  (STRK-345).
+
+## [3.36.7] - 2026-08-16
+
+### Fixed — STRK-343: Copper sparkline flat on existing profiles
+
+- **Per-metal backfill freshness check** (STRK-343): `backfillStaktrakrHourly`'s
+  fresh-load-vs-incremental decision was global across metals — any recent
+  `api-hourly` row (always true on an existing profile via the legacy four)
+  forced the 24 h window, so copper never received its 7-day deep backfill and
+  its sparkline flat-lined on every ≤180d range. The window decision is now a
+  pure helper (`_staktrakrBackfillHoursBack`) that requires EVERY metal in
+  `METALS` to have both a recent hourly row (≤24 h) AND deep coverage (a row
+  ≥6 days old, proof its 7-day pull already landed) before taking the 24 h
+  fast path — recency alone would strand profiles that kept syncing after the
+  new metal shipped. Timestamps are compared in the UTC frame (stored rows
+  are UTC-naive), so the decision is offset-independent. Any uncovered metal
+  extends the pull to 7 days and self-heals on the next sync; deriving the
+  tracked set from `METALS` means the next metal addition inherits the
+  behavior with no new code.
+
+## [3.36.6] - 2026-08-15
+
+### Added — STRK-341: The Silver:Copper ratio pair — Copper Phase 4
+
+- **Ag:Cu joins RATIO_PAIRS** (STRK-341): one pair, not the cross-product, per the locked
+  decision — Silver:Copper is the comparison a stacker holding both actually makes.
+  Silver numerator over copper denominator (`xag`/`xcu`), copper accent, one decimal
+  (the pair runs ~157–165, an order of magnitude above every other pair, so 1dp keeps it
+  legible without false precision). The ratios panel, the `/ratios/` page selector, and
+  the panel modal pick the pair up automatically from the registry.
+- **The Ag:Cu chip rides the copper spot card** (STRK-341): chips live on their pair's
+  denominator card by convention, so the chip's visibility structurally follows copper's
+  Settings › Metal Order opt-in — no copper figure ever surfaces on a copper-less
+  dashboard, with no extra config plumbing. `resolveChipContent` gains a per-card
+  numerator override (default gold; silver for this pair) and the chip tooltip explains
+  the ratio in plain English.
+- **Monthly/daily boundary verified** (STRK-341): pre-2013 copper history is monthly
+  (World Bank Pink Sheet), so the Ag:Cu series is sparse there by construction —
+  `buildRatioSeries` emits points only where both metals printed on a shared trading
+  date and never fabricates values, now pinned by a unit test.
+- **Four existing pairs unchanged** (STRK-341): pinned by regression assertions; the
+  four-pair-era count assertions across the unit and Playwright suites were updated to
+  the five-pair spec.
+
+### Changed — STRK-341: dashboard alignment refinements from live review
+
+- **Copper card per-ozt moved to a hover title** (STRK-341): the visible `$0.41 /ozt`
+  second line made the copper card's change/timestamp rows sit lower than the other
+  four cards. The stored per-troy-ounce figure now lives in the price's hover tooltip
+  (alongside the shift-click edit hint), restoring row alignment.
+- **Six-card totals rows are uniform two-line** (STRK-341): the v3.36.5 per-row
+  conditional wrap fixed truncation but let long-value cards grow taller than their
+  neighbors, misaligning row separators across the six cards. Every row now stacks
+  uniformly — label left on the first line, value right-aligned on the second — so all
+  six cards stay height-aligned and `$123,456.78` still never truncates. Five-card
+  layouts (copper disabled) remain untouched.
+
+---
+
+## [3.36.5] - 2026-08-15
+
+### Added — STRK-306: Copper dashboard cards, Metal Order entry, and the six-card layout
+
+- **Copper spot card and copper totals card** (STRK-306): full parity with the other four
+  metals — live price, sparkline, trend-period chip and select, sync icon, timestamp, and
+  the eight-row totals card (items, weight, avg cost, purchased, melt, retail, gain/loss,
+  realized, all fed by the existing METALS-driven loops). Both cards ship hidden: copper
+  is opt-in via Settings › Appearance › Metal Order per the epic decision, and
+  `getMetalOrderConfig()` appends the new row as disabled to stored configs, so existing
+  users see no change until they enable it.
+- **Copper displays $/lb, stores $/ozt** (STRK-306): the spot card shows the
+  industry-standard dollars-per-pound figure (~$6.02) with the stored per-troy-ounce value
+  (~$0.41) on a secondary line — a raw $0.41 next to gold at ~$4,376 reads as broken.
+  `formatSpotCardValue()` is the single display-conversion seam (exact 7000/480 grains
+  ratio); every stored, synced, charted, and computed value stays per troy ounce, and the
+  shift-click inline editor accepts the price in the displayed $/lb unit and converts back.
+- **Six-card summary layout** (STRK-306): with copper enabled, `applyMetalOrder()` stamps
+  visible-card counts (`data-cards`) on both containers and new CSS tiers key on them —
+  at ≥1350px totals rows keep the inline label-left/value-right layout and a value only
+  wraps to its own right-aligned line when it genuinely doesn't fit (so $123,456.78
+  never truncates and $0.00 rows never waste a second line; review round on the live
+  preview replaced the prototype's uniform stacking). The five spot cards sit five
+  across at ≥960px with the user's first-sorted metal taking the full-width top slot
+  below that (no orphan card). With copper disabled the stamps read 4/5, no new rule
+  matches, and the dashboard is pixel-identical to v3.36.4 — verified by byte-identical
+  screenshot comparison against baseline.
+- **All Metals leads by default** (STRK-306 review decision): the default Metal Order now
+  puts the All Metals card first at every width for new users. Stored configs are never
+  reordered — existing customized orders keep working, including on mobile.
+- **Derived metal lists** (STRK-306): the trend-control wiring (`TREND_METALS`), the
+  Realized-row visibility toggle, and the provider-info metal list now derive from METALS
+  instead of hardcoding four names, so they can never silently miss a future metal.
+
+---
+
+## [3.36.4] - 2026-08-15
+
+### Added — STRK-303: Copper in the user-selectable spot providers — Part 2
+
+- **Copper joins the canonical provider map** (STRK-303): `SPOT_PROVIDER_METAL_SYMBOLS`
+  gains `copper: "XCU"`, wiring copper through the Metals-API and MetalPriceAPI latest
+  and timeseries paths (XCU is per troy ounce on both — probe-verified 2026-08-15; the
+  unconditional `1/rate` inversion is unchanged, and correct even though copper's bare
+  rate ~2.42 is the one wired rate ≥ 1), the CUSTOM provider's `{METAL}` substitution,
+  and all three wired-metal selection gates (sync, history pull, cost preview).
+- **gold-api copper via COMEX HG with pound→troy conversion** (STRK-303): the Gold API
+  provider gains a `/price/HG` endpoint and a metal-aware `parseResponse` that divides
+  copper's per-pound quote by exactly 7000/480 (≈14.5833) troy ounces per pound. The
+  ~9% COMEX-futures-over-LME-spot premium is accepted by decision — a user who selects
+  gold-api gets that provider's consistent view of copper.
+- **metals.dev copper is batch-latest only, unit-asserted** (STRK-303): copper rides the
+  `/v1/latest` batch call (which requests `&unit=toz`) and is accepted only when the
+  response echoes `unit: "toz"` — industrial metals default to metric tonnes on this
+  API, a 32,150× error. A non-toz echo rejects the whole payload; the per-metal
+  `/metal/spot` endpoint (no unit parameter) deliberately gains no copper entry, and
+  the `/timeseries` parser skips copper for the same reason. Copper history comes from
+  Metals-API/MetalPriceAPI instead.
+- **Copper checkbox in "Metals to track"** (STRK-303): every provider panel's metal
+  selection grid now surfaces copper (config-truthy since v3.36.2), so users can opt
+  out of the fifth metal's API calls. History-pull cost previews and the confirm
+  dialog count copper automatically via the wired-metal gates.
+
+---
+
+## [3.36.3] - 2026-08-15
+
+### Fixed — STRK-342: Spot provider registry hygiene
+
+- **Unknown metals no longer resolve to palladium** (STRK-342): the METALS_API and
+  METAL_PRICE_API symbol resolvers used a ternary chain whose else-branch was XPD, so any
+  metal outside the four wired ones was silently priced as palladium (~$1,316/ozt for
+  copper's true ~$0.41). Palladium is now matched explicitly and unmapped metals return
+  `null` — a provider miss, never a wrong price. This unblocks STRK-303 Part 2.
+- **CUSTOM provider no longer substitutes `undefined` into user endpoints** (STRK-342):
+  with copper defaulted into `config.metals` since v3.36.2, the CUSTOM fetch loop and the
+  Metals-API/MetalPriceAPI batch-history URL builders interpolated `undefined` into live
+  request URLs. Unmapped metals are now skipped before URL construction.
+- **One canonical symbol map** (STRK-342): the four-metal metal↔symbol map was redeclared
+  eight times across `constants.js`, `api.js`, and `spotLookup.js` (and had already
+  drifted — spotLookup gained copper in v3.36.2 while the rest did not). A single
+  `SPOT_PROVIDER_METAL_SYMBOLS` map in `constants.js` now feeds every provider path, with
+  unit tests scanning for inline-copy drift.
+- **"Metals to track" checkboxes actually work now** (STRK-342): the per-provider metal
+  selection in Settings → Spot Price rendered every box checked and persisted nothing —
+  the listener targeted markup retired with the v2 settings shell, and was itself never
+  invoked. Checkboxes now hydrate from the stored selection and persist changes
+  per provider via a delegated handler.
+
+---
+
+## [3.36.2] - 2026-08-15
+
+### Added — STRK-305: Copper as a first-class inventory metal — Phase 2
+
+- **Copper is selectable in the add/edit form** (STRK-305): items save, reload, edit,
+  bulk-edit, import, export, filter, search, and autocomplete like any other metal.
+  Copper's spot resolution works end to end — the v2 feed's copper price is now ingested
+  (`xcu` joined the frontend metal map), historical lookups reach the 59 years of seeded
+  copper history, and melt/premium values compute from real copper spot. The dashboard
+  spot card, summary card, and Metal Order entry are deliberately **not** added — that is
+  Phase 3 (STRK-306) — and copper items total correctly with the cards absent.
+- **New avoirdupois-ounce weight unit (`avdp`)** (STRK-305): copper bullion is sold in
+  avoirdupois ounces, and entering a "1 oz copper round" as troy ounces would overstate
+  its metal content — and melt value — by ~9.7%. The new unit converts on entry
+  (1 avdp oz = 0.9114583 ozt) and displays back in avdp, while storage stays troy ounces
+  like every other metric lens. Picking Copper auto-defaults the unit to avdp (only from
+  plain "oz" — an explicit unit choice is never overridden). The unit code is `avdp`,
+  **not** `cu` — `cu` is the constitutional-silver unit, and a collision would have
+  silently corrupted junk-silver valuations.
+- **Copper theming** (STRK-305): a `--copper` token in all four themes (tuned per
+  background like its metal siblings), metal-accent card class, chip, and thumb
+  placeholder colors.
+
+### Added — STRK-304: Copper history backfill — Phase 1b
+
+- **Copper now has a full price history back to 1968** (STRK-304): the offline seed
+  bundle and year history files carry copper from January 1968 to today — 546 monthly
+  points (1968–mid-2013) sourced from the World Bank Pink Sheet's LME grade-A cathode
+  series, then 3,602 daily points from the price API's copper feed, which begins
+  2013-07-23. Pre-2013 points are deliberately stored monthly-sparse rather than
+  forward-filled — the source is a monthly average, and inventing daily points would
+  fabricate precision it never had. Provenance is recorded per row (`LME-WB` vs
+  `StakTrakr`) so the two eras stay distinguishable.
+- **The two eras are calibrated onto one quote basis** (STRK-304): across the 157
+  months where both sources overlap, the World Bank series runs a systematic ~9%
+  above the API's copper quote (median ratio 1.0944, stdev 0.026) — a benchmark
+  difference, not noise. Pre-2013 values are scaled by 0.9138 onto the API basis,
+  which closes the seam at the 2013 splice to 0.5% and prevents a permanent false
+  step in any long-range chart.
+- **The bundle's copper hold-back gate is open** (STRK-304): v3.36.0 deliberately kept
+  copper out of the shipped bundle until history existed. The bundle now includes all
+  five metals, and sub-dollar prices keep four decimal places in the bundle as well,
+  matching the poller's precision rules. Existing metals' bundle series are
+  byte-identical to the previous release.
+
+### Fixed — STRK-304: Seed tooling path resolution and writer parity
+
+- **The seed updater resolves the repo data directory correctly again** (STRK-304): the
+  script computed the data path relative to its own location with a depth that predates
+  the shared-poller migration, silently pointing at a nonexistent directory. It now
+  resolves four levels up and refuses to run if the target does not exist.
+- **Both year-file writers now emit the same compact format** (STRK-304): the seed
+  updater wrote year files single-line while the bundle gap-fill pretty-printed them, so
+  whichever tool ran last reformatted the whole file. Both now write the compact format
+  the repo predominantly uses; the four recent year files collapse to single-line in
+  this release as the one-time migration (content verified unchanged row for row).
+
+---
+
+## [3.36.0] - 2026-08-14
+
+### Added — STRK-303: Copper (Cu) spot feed — Phase 1a
+
+- **Copper now flows through the spot pipeline end to end** (STRK-303): the poller fetches
+  copper (XCU) alongside gold, silver, platinum and palladium, writes it to the database,
+  and publishes it through the v2 API. **Nothing changes in the app yet** — copper has no
+  spot card, no summary card, and cannot be selected on an item. This release only starts
+  collecting the data so a chart has history to draw when the interface work lands
+  (STRK-305, STRK-306).
+- **The tracked metal set is now defined in one place** (STRK-303): new
+  `devops/pollers/shared/spot-metals.js` owns the metal list, and the API query string,
+  database key set, JSON entry order, exporter ISO map and manifest array are all derived
+  from it. The set had been duplicated across five files in two different casings with no
+  link between the copies.
+
+### Fixed — STRK-303: Spot price derivation and sanity bounds
+
+- **Spot prices are no longer inferred from their own magnitude** (STRK-303): the poller
+  guessed whether the feed had returned a price or its reciprocal by testing whether the
+  value was above 1. That only ever worked because every tracked metal was worth far more
+  than $1 per ounce, which put the two candidates orders of magnitude apart. The response
+  carries the direct price in a separate field all along — the code's own comment said so —
+  so the guess has been replaced with reading that field.
+- **Sanity bounds are now per metal** (STRK-303): a single $5–$50,000 range cannot cover
+  metals four orders of magnitude apart. Because a rejected price throws and the poller
+  treats that as a fatal error, an out-of-range value would have ended the entire run
+  rather than dropping one metal.
+- **Sub-dollar metals keep more precision** (STRK-303): prices below $1 are now stored to
+  four decimal places instead of two. Two decimals is ample at $4,000 an ounce but
+  quantises a 40-cent metal by roughly 0.6% on every reading, and that error is permanent
+  once written to history.
+- **Historical backfill understands that copper starts partway through** (STRK-303):
+  archived files written before copper was tracked are complete with four metals, so the
+  completeness check only requires copper from a configured cutover onward. The all-or-
+  nothing gate is retained after that point — it is what makes a missed poll visible.
+
+---
+
+## [3.35.101] - 2026-08-13
+
+### Fixed — STRK-338: Market coin names could silently stop caching
+
+- **Market manifest cache now survives compression** (STRK-338): The cached list of coins
+  the Market block tracks — the canonical names, weights, and metals behind every row —
+  was written by one module through the app's compressing storage helpers but read back by
+  another with those helpers bypassed. Values under 4,096 characters are stored verbatim,
+  so the two halves agreed and nothing broke; past that size the reader could no longer
+  parse what the writer had stored, silently discarded the cache, and fell back to a short
+  built-in coin list until the next successful sync. The cached roster measured about
+  57% of that limit and grows with every coin added, so this was on track to start
+  happening on its own. Both sides now use the same helpers, and the duplicated restore
+  logic that let them drift apart has been collapsed into one place (STRK-338).
+
+---
+
 ## [3.35.100] - 2026-08-12
 
 ### Fixed — STRK-329: Constitutional silver card should not be collapsible

@@ -670,8 +670,13 @@ class NumistaProvider extends CatalogProvider {
     if (comp.includes("silver") || comp.includes("ag")) return "Silver";
     if (comp.includes("platinum") || comp.includes("pt")) return "Platinum";
     if (comp.includes("palladium") || comp.includes("pd")) return "Palladium";
-    if (comp.includes("copper") || comp.includes("bronze") || comp.includes("brass"))
-      return "Alloy/Other";
+    // STRK-305: pure copper is a first-class metal, but the specific alloys must
+    // be recognised FIRST — "copper-nickel", "copper plated steel", bronze and
+    // brass all contain "copper" and stay Alloy/Other. No "cu" substring check
+    // on purpose — it matches too many words.
+    if (comp.includes("bronze") || comp.includes("brass")) return "Alloy/Other";
+    if (comp.includes("copper") && !/nickel|plated|clad|steel|zinc|alloy/.test(comp))
+      return "Copper";
     return "Alloy/Other";
   }
 

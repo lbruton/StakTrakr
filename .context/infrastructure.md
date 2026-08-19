@@ -3,7 +3,7 @@ title: "StakTrakr — Infrastructure"
 project: StakTrakr
 audience: agent
 canonical: .context/infrastructure.md
-source: "DocVault/Projects/StakTrakr/Foundation/infrastructure.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/infrastructure.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-28"
 ---
 
@@ -133,22 +133,18 @@ Runs 4x/hour. Lockfile-guarded (`/tmp/retail-publish.lock`, atomic `noclobber`).
 4. `git add data/` — stages adds **and deletions** (the retention sweep relies on `git add` staging tracked-file deletions; do not "fix" this). Exits early if nothing is staged and nothing is unpushed.
 5. **Verify-then-push freshness gate (STRK-187)** — fetches `http://localhost:8080/data/api/manifest.json` (api2 / `serve.js`, the by-design primary), requires a parseable `generated_at`; when this cycle staged exports, rejects a manifest older than **30 min** (`exit 1`, no push). api2 stays fresh regardless — only the published GitHub Pages feed waits for a later cycle. (A push-only retry cycle skips the freshness check, since it legitimately re-pushes an older-but-verified manifest.)
 6. **`git commit` — only after the gate passes** (STRK-187 fix `1a8bffc2`). Committing _before_ the gate left an unpushed local commit on any gate `exit 1`; the next push-only cycle would skip the freshness check and force-push that stale commit. The commit lives behind the gate so a rejected cycle leaves nothing to resurrect.
-7. `git push --force "$REMOTE" HEAD:api`, where `$REMOTE` = `https://<GITHUB_TOKEN>@github.com/lbruton/StakTrakrApi.git` — sole writer to `api` (push to `api`, never `main`). Push failure logs an isolated error and `exit 1` (api2 remains fresh; only the published feed goes stale until a later cycle succeeds).
+7. `git push --force "$REMOTE" HEAD:api` using the configured publisher remote — sole writer to `api` (push to `api`, never `main`). Push failure logs an isolated error and `exit 1` (api2 remains fresh; only the published feed goes stale until a later cycle succeeds).
 
-### Fly.io Environment Variables (Active)
+### Fly.io Configuration (Active)
 
-| Variable                                  | Source                                    | Purpose                                                                                                  |
-| ----------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `POLLER_ID`                               | `fly.toml` (hardcoded `api`)              | Identifies this poller in sqld rows                                                                      |
-| `API_EXPORT_DIR` / `DATA_REPO_PATH`       | `fly.toml` (`/data/staktrakr-api-export`) | Working copy of StakTrakrApi                                                                             |
-| `GITHUB_TOKEN`                            | Fly secret                                | Push to `api` branch                                                                                     |
-| `SQLD_URL`                                | Fly secret                                | `http://192.168.1.81:8080` (via Tailscale subnet route) — primary DB                                     |
-| `SQLD_AUTH_TOKEN`                         | Fly secret                                | Empty — sqld has no auth                                                                                 |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | _(unset in our deploy)_                   | Read only if `SQLD_URL` unset. Self-hosters running against Turso Cloud instead of local sqld use these. |
-| `METAL_PRICE_API_KEY`                     | Fly secret                                | MetalPriceAPI spot prices                                                                                |
-| `TS_AUTHKEY`                              | Fly secret                                | Tailscale ephemeral reusable auth key                                                                    |
+`fly.toml` contains non-secret operational settings. The Fly.io secret store supplies the
+credentials needed by the slim image's database, publishing, external-feed, and network
+integrations. Inspect the enabled scripts and the operator's secret store when troubleshooting;
+do not add the deployed inventory to this document.
 
-Legacy full-image variables (`RETAIL_ENABLED`, `GOLDBACK_ENABLED`, `VISION_ENABLED`, `GEMINI_API_KEY`, `FIRECRAWL_BASE_URL`, `PLAYWRIGHT_LAUNCH`, `HOME_PROXY_URL`) are present in `fly.toml` env block but inactive in the slim image.
+The former full retail-and-goldback image is historical. Its browser, proxy, retail, and vision
+configuration is inactive in the slim image and must not be restored merely because it remains in
+historical source.
 
 ### Fly.io Deployment
 
@@ -205,7 +201,7 @@ Retail runs at `:30` (staggered from Fly.io spot at `:00/:30`). Spot runs at `:1
 
 ### Scraping Pipeline (3-Phase Cascade)
 
-`shared/price-extract.js` — for vendors with `cf_clearance_fallback: true` in `PROVIDER_CONFIG`:
+`shared/price-extract.js` — for vendors whose resolved `providerCfg()` configuration enables `cf_clearance_fallback`:
 
 | Phase | Method                                               | Triggers When                    |
 | ----- | ---------------------------------------------------- | -------------------------------- |
@@ -224,28 +220,13 @@ Phase 2 uses Byparr's already-fetched HTML (avoids TLS fingerprint mismatch from
 | `/data/logs/`             | All log files (persistent)                         |
 | `/etc/cron.d/home-poller` | Cron schedule (written by entrypoint at startup)   |
 
-### Home Poller Environment Variables
+### Home Poller Configuration
 
-Injected via Portainer stack env (must be passed on every git-based redeploy):
-
-| Variable                                  | Required       | Value / Notes                                                                                                                                                    |
-| ----------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SQLD_URL`                                | Yes            | `http://staktrakr-sqld:8080` (Docker DNS) — primary DB                                                                                                           |
-| `SQLD_AUTH_TOKEN`                         | No             | Empty                                                                                                                                                            |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | No             | _Unset in our deploy._ Self-hosters running against Turso Cloud primary set these instead of `SQLD_URL`.                                                         |
-| `TURSO_BACKUP_URL`                        | Yes            | Turso Cloud DR target URL                                                                                                                                        |
-| `TURSO_BACKUP_TOKEN`                      | Yes            | Turso Cloud auth token (DR sync only)                                                                                                                            |
-| `METAL_PRICE_API_KEY`                     | Yes            | MetalPriceAPI                                                                                                                                                    |
-| `POLLER_ID`                               | Set in compose | `home`                                                                                                                                                           |
-| `DATA_DIR`                                | Set in compose | `/data`                                                                                                                                                          |
-| `FIRECRAWL_BASE_URL`                      | Yes            | `http://firecrawl-api:3002`                                                                                                                                      |
-| `FLYIO_TAILSCALE_IP`                      | Yes            | `100.90.171.110`                                                                                                                                                 |
-| `FLYIO_HTTP_URL`                          | Yes            | `https://api2.staktrakr.com/data/retail/providers.json`                                                                                                          |
-| `CF_CLEARANCE_SCRAPER_URL`                | No             | Defaults to `http://staktrakr-byparr:8191`                                                                                                                       |
-| `CF_CLEARANCE_ENABLED`                    | No             | `1` to enable Phase 2 (default), `0` to disable                                                                                                                  |
-| `GEMINI_API_KEY`                          | No             | Enables vision pipeline                                                                                                                                          |
-| `VISION_ENABLED`                          | No             | `1` to enable                                                                                                                                                    |
-| `MB_API_KEY`                              | No             | MintBuilder direct price feed key (STRK-321) — unset = page-scrape fallback. Compose-declared + cron re-export required (see .context/deep-dives/home-poller.md) |
+Portainer injects the home poller's secret-backed database, backup, feed, optional-integration,
+and service-discovery configuration during a git-based redeploy. For a self-hosted deployment,
+use the enabled compose and poller scripts as the authority for its required configuration.
+`docker-compose.home.yml` must explicitly pass through each required variable, and cron needs a
+recreated container to receive a changed environment.
 
 ### Home Poller Deployment
 
@@ -283,7 +264,9 @@ The tinyproxy container shares the Tailscale sidecar's network namespace (`netwo
 | `staktrakr-sqld`             | Primary database (libSQL / sqld self-hosted) | Home VM port `8080` | Docker DNS: `http://staktrakr-sqld:8080`; Fly.io via Tailscale: `http://192.168.1.81:8080` |
 | Turso Cloud (`staktrakrapi`) | DR backup only (nightly sync from sqld)      | AWS us-east-2       | libsql://staktrakrapi-lbruton.aws-us-east-2.turso.io                                       |
 
-The home-poller container connects to sqld via Docker DNS. Fly.io connects via Tailscale subnet routing. The `TURSO_AUTH_TOKEN` is empty on sqld (no auth by default).
+The home-poller container connects to sqld via Docker DNS. Fly.io connects via Tailscale subnet
+routing. Authentication behavior is deployment-specific and belongs in the operator-managed
+configuration store.
 
 DR sync runs nightly at 03:00 UTC via `turso-backup-sync.js` on the home poller.
 
@@ -334,7 +317,7 @@ v2 endpoints embed their freshness threshold in the response envelope:
 | Goldback | 7200                    | 2 h (was 90000 / 25 h before STRK-248) |
 | Manifest | 1800                    | 30 min                                 |
 
-When `USE_V2_API` is enabled, `api-health.js` reads `stale_after` from the v2 envelope instead of hardcoded constants.
+The frontend always consumes v2. `api-health.js` reads `stale_after` from a valid v2 envelope and falls back to its per-feed constants only when that field is unavailable.
 
 ### Publish-Freshness Watchdog (STRK-187)
 
@@ -386,7 +369,7 @@ EOF
 ### Database Freshness Check
 
 ```bash
-curl -s http://192.168.1.81:8090/v2/pipeline -H 'Content-Type: application/json' -d '{
+curl -s http://192.168.1.81:8080/v2/pipeline -H 'Content-Type: application/json' -d '{
   "requests": [{"type":"execute","stmt":{"sql":"SELECT poller_id, COUNT(*) as rows, MAX(scraped_at) as latest FROM price_snapshots WHERE scraped_at > datetime('"'"'now'"'"', '"'"'-2 hours'"'"') GROUP BY poller_id"}}]
 }' | jq '.results[0].response.result.rows'
 ```
@@ -397,71 +380,27 @@ Expected: rows from `home` (retail), `home-spot` (home spot), `fly-spot` (Fly.io
 
 ---
 
-## Secret Keys Inventory
+## Secret Configuration Boundary
 
-Source: .context/deep-dives/secret-keys.md
+Secret-backed configuration belongs in its deployment authority, not in this public context
+corpus: Fly.io secrets for the managed cloud runtime, Infisical for local development and
+managed-secret administration, and Portainer stack environment for the home poller. See
+`.context/deep-dives/secret-keys.md` for the safe self-hosting and troubleshooting boundary.
 
-Three secret stores:
-
-| Store                                               | Used by                                 |
-| --------------------------------------------------- | --------------------------------------- |
-| Fly.io secrets (`fly secrets`)                      | Fly.io container — all runtime secrets  |
-| Infisical (`stak-trakr-94m4`, env: `dev`)           | Local dev, agent contexts               |
-| Portainer stack env (via `docker-compose.home.yml`) | Home poller — injected on each redeploy |
-
-### Fly.io Secrets (Active)
-
-| Secret                                    | Purpose                                                                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `GITHUB_TOKEN`                            | Push to `api` branch (`contents: write` on `StakTrakrApi`)                                                              |
-| `SQLD_URL`                                | sqld URL (`http://192.168.1.81:8080` via Tailscale) — primary DB                                                        |
-| `SQLD_AUTH_TOKEN`                         | sqld auth (empty — kept for client compat)                                                                              |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | _Not set in our deploy._ Fallback read only if `SQLD_URL` unset — enables self-hosters to point at Turso Cloud primary. |
-| `METAL_PRICE_API_KEY`                     | Spot price API (MetalPriceAPI)                                                                                          |
-| `TS_AUTHKEY`                              | Tailscale reusable ephemeral auth key (also in Infisical as `FLY_TAILSCALE_AUTHKEY`)                                    |
-| `GEMINI_API_KEY`                          | Vision pipeline (inactive in slim image by default)                                                                     |
-| `VISION_ENABLED`                          | Vision pipeline gate (`1` = on)                                                                                         |
-
-### Infisical
-
-- **Project:** StakTrakr
-- **Project ID:** `319a1db5-207d-49d0-a61d-3f3e6b440ded`
-- **Slug:** `stak-trakr-94m4`
-- **Environment:** `dev` (production env is empty — all secrets in `dev`)
-
-Mirrors all Fly.io secrets plus additional dev-only keys. Access via `mcp__infisical__*` or `infisical` CLI.
-
-### Home Docker Environment (Key Vars)
-
-```text
-# Primary DB — Option A (our deploy): local sqld
-SQLD_URL=http://staktrakr-sqld:8080
-SQLD_AUTH_TOKEN=
-
-# Option B (self-hosters without sqld): Turso Cloud primary — leave unset in our deploy
-# TURSO_DATABASE_URL=libsql://your-db.turso.io
-# TURSO_AUTH_TOKEN=<turso-auth-token>
-
-# Turso Cloud DR backup — independent of primary DB choice
-TURSO_BACKUP_URL=libsql://staktrakrapi-lbruton.aws-us-east-2.turso.io
-TURSO_BACKUP_TOKEN=<turso-cloud-token>
-
-POLLER_ID=home
-DATA_DIR=/opt/poller/data
-```
+Do not add secret inventories, deployment identifiers, internal addresses, rotation procedures,
+or secret-reading commands here. Determine an enabled service's required configuration from its
+source and deployment configuration, then inspect the operator-controlled store without exposing
+values.
 
 ---
 
 ## CI/CD
 
-### GitHub Actions (StakTrakrApi)
+### API data publishing
 
-| Workflow                | Status                | Purpose                                |
-| ----------------------- | --------------------- | -------------------------------------- |
-| `Merge Poller Branches` | Retired / manual-only | Previously merged poller data branches |
-| `spot-poller.yml`       | Retired / manual-only | Previously ran spot polling via GHA    |
-
-The `api` branch is now written directly by `run-publish.sh` on Fly.io. No GHA workflows are in the active publish path.
+`run-publish.sh` on Fly.io writes the `api` branch directly. The API repository currently
+exposes only that publisher-managed branch; do not use retired poller workflow names or a
+nonexistent `main` branch as an operational control surface.
 
 ### Pre-commit Hooks (StakTrakr)
 
@@ -470,22 +409,21 @@ The `api` branch is now written directly by `run-publish.sh` on Fly.io. No GHA w
 
 ### Deployment Paths by Change Type
 
-| Change type                      | Action                                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Fly.io code change               | `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile` |
-| Home poller code change          | Push to git branch + Portainer API redeploy (stack ID 7)                                                |
-| Provider URL fix                 | Dashboard at `http://192.168.1.81:3010/providers` — no redeploy needed                                  |
-| New Fly.io secret                | `fly secrets set KEY=value --app staktrakr`                                                             |
-| Home poller env var              | Pass updated `env` array on next Portainer redeploy                                                     |
-| GHA workflow                     | Push to `main` on `StakTrakrApi`                                                                        |
-| Fly.io deploy during active cron | Kills in-progress spot poll or publish cycle silently                                                   |
+| Change type                           | Action                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Fly.io code change                    | `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile` |
+| Home poller code change               | Push to git branch + Portainer API redeploy (stack ID 7)                                                |
+| Provider URL fix                      | Dashboard at `http://192.168.1.81:3010/providers` — no redeploy needed                                  |
+| New secret-backed cloud configuration | Add it through the operator's Fly.io secret store, then deploy normally.                                |
+| Home poller env var                   | Update the Portainer stack environment and compose allow-list, then recreate the stack.                 |
+| Fly.io deploy during active cron      | Kills in-progress spot poll or publish cycle silently                                                   |
 
 ### Home Poller Env Var Propagation (gotchas, verified 2026-06-20)
 
 A new/changed env var must clear **three** hops before the scraper sees it. Each silently swallows it if skipped:
 
 1. **`docker-compose.home.yml` `environment:` is an explicit allow-list.** A var in the Portainer stack env reaches the container **only if compose names it** (`- FOO=${FOO:-}`). Adding a var to the Portainer UI alone is not enough — add it to compose too.
-2. **Env is baked at container start, not read live.** The entrypoint does `printenv > /etc/environment` once at boot; cron jobs source that snapshot. Changing a value requires a **recreate** ("Pull and redeploy" / "Update the stack") — a plain **Restart reuses the old env**. `StartedAt` advancing is not proof; verify with `grep -oE '^VAR' /etc/environment` via exec.
+2. **Env is baked at container start, not read live.** The entrypoint snapshots the configured environment once at boot and cron jobs source that snapshot. Changing a value requires a **recreate** ("Pull and redeploy" / "Update the stack") — a plain **Restart reuses the old env**. Do not verify by printing environment values; use deployment status and service health instead.
 3. **Sourced `/etc/environment` vars are not exported to child processes.** `run-home.sh` (cron child) only inherits exported vars; most vendors work via in-code defaults. Scripts needing a var must re-export it (see `run-home.sh`'s `WEBSCALE_*` loop).
 
 Related: **provider enable/disable** (`provider_vendors.enabled` in sqld) only takes effect after `providers.json` regenerates (cron `export-providers-json.js` every `*/5`, or run it manually) — the poller reads the file, not live sqld.
@@ -498,16 +436,16 @@ JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA
 
 ## Environment Differences (Prod vs Dev)
 
-| Property           | Fly.io (prod)                              | Home Poller (prod)                                 | Local Dev             |
-| ------------------ | ------------------------------------------ | -------------------------------------------------- | --------------------- |
-| sqld URL           | `http://192.168.1.81:8080` (via Tailscale) | `http://staktrakr-sqld:8080` (Docker DNS)          | Infisical-sourced     |
-| Secrets source     | Fly secrets                                | Portainer stack env                                | Infisical (`dev` env) |
-| Git push           | Yes (`run-publish.sh`)                     | No                                                 | No                    |
-| Tailscale          | Client (`--accept-routes`)                 | Server (exit node + subnet router)                 | N/A                   |
-| Node.js            | 20.x (Docker base)                         | 22.x (system, container)                           | Local                 |
-| Playwright         | Slim image (no Playwright)                 | Local Chromium (`npx playwright install chromium`) | N/A                   |
-| Dashboard          | None                                       | `http://192.168.1.81:3010`                         | N/A                   |
-| Prometheus metrics | None                                       | `http://192.168.1.81:9100/metrics`                 | N/A                   |
+| Property           | Fly.io (prod)                 | Home Poller (prod)                                 | Local Dev        |
+| ------------------ | ----------------------------- | -------------------------------------------------- | ---------------- |
+| sqld URL           | Deployment-managed connection | Deployment-managed connection                      | Operator-managed |
+| Secrets source     | Fly.io secrets                | Portainer stack environment                        | Infisical        |
+| Git push           | Yes (`run-publish.sh`)        | No                                                 | No               |
+| Tailscale          | Client (`--accept-routes`)    | Server (exit node + subnet router)                 | N/A              |
+| Node.js            | `node:20-slim` (Docker base)  | `node:20-slim` (Docker base)                       | Local            |
+| Playwright         | Slim image (no Playwright)    | Local Chromium (`npx playwright install chromium`) | N/A              |
+| Dashboard          | None                          | `http://192.168.1.81:3010`                         | N/A              |
+| Prometheus metrics | None                          | `http://192.168.1.81:9100/metrics`                 | N/A              |
 
 ---
 
@@ -541,11 +479,11 @@ All poller code was consolidated into `StakTrakr/devops/pollers/` as of 2026-03-
 | ------------------------------ | --------------------------------------------------------------------------------------------- |
 | `manifest.json` > 30 min stale | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running                 |
 | `manifest.json` > 4h stale     | Container down — check Portainer + `fly status --app staktrakr`                               |
-| Spot hourly > 75 min stale     | `METAL_PRICE_API_KEY` expired or quota exceeded                                               |
+| Spot hourly > 75 min stale     | External price-feed credential expired or quota exceeded                                      |
 | Goldback > 2h stale (STRK-248) | Home poller `goldback-scraper.js` failed — check home poller logs                             |
 | Only 1-2 vendors per coin      | Home poller down — home is sole retail scraper                                                |
 | Services not running on Fly    | `fly ssh console --app staktrakr -C "supervisorctl status"`                                   |
-| Tailscale not connecting       | `tailscale status` in container; check `TS_AUTHKEY`; verify subnet route approved in admin    |
+| Tailscale not connecting       | Check container status, operator-managed network identity, and approved subnet routes         |
 | sqld unreachable from Fly.io   | Verify Tailscale connected; subnet route approved; home VM `staktrakr-sqld` container running |
 | Git push rejected on publish   | `git fetch origin api && git rebase origin/api` inside `/data/staktrakr-api-export`           |
 | Stuck lockfile (Fly.io)        | `fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/retail-publish.lock"` |
@@ -560,7 +498,7 @@ All poller code was consolidated into `StakTrakr/devops/pollers/` as of 2026-03-
 - .context/deep-dives/remote-poller.md— Fly.io container in depth: supervisord, publish pipeline, tiered recovery
 - .context/deep-dives/home-poller.md— Docker stacks, dashboard, CF bypass sidecar, Portainer API commands
 - .context/deep-dives/health-checks.md— diagnostic scripts, incident log, manual trigger commands
-- .context/deep-dives/secret-keys.md— rotation procedures for each secret
+- .context/deep-dives/secret-keys.md— secret configuration boundary and safe troubleshooting
 - Poller Parity (deprecated DocVault page) — Fly.io vs home poller capability and code drift comparison
 - architecture — system diagram, data feed summary, branch strategy
 - .context/deep-dives/api-reference.md — REST endpoint documentation

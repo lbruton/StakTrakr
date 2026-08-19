@@ -3,7 +3,7 @@ title: "StakTrakr — Reusable Patterns"
 project: StakTrakr
 audience: agent
 canonical: .context/reusable-patterns.md
-source: "DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md" # historical provenance; migrated 2026-08-12
 updated: "2026-07-24"
 ---
 
@@ -69,30 +69,26 @@ Retail source data remains USD, but active retail and market-price surfaces form
 
 ### OOS State
 
-OOS detection happens in the poller (StakTrakrApi). The frontend reads and persists it.
+OOS detection happens in the poller. The frontend reads and persists it.
 
 **OOS check pattern:** `retailAvailability[slug][vendorId] === false` means OOS. A missing key is treated as in-stock: `isAvailable = availability[key] !== false`. Never use `=== true` to check in-stock status.
 
 **Persistence caveat:** `retailAvailability` is merged with `Object.assign` on each sync. Once a vendor is marked OOS in localStorage, it stays OOS until the next sync where `availability_by_site` explicitly sets it back to `true`. If the poller omits a vendor entirely, the prior stored state persists.
 
-**Sort order:** OOS vendors always render last. Within a card: high-confidence in-stock (score ≥ 60) sorted by price ascending → low-confidence in-stock → OOS vendors.
-
-**Medal rules:** Top-3 medals (gold/silver/bronze in grid view; 1st/2nd/3rd in list view) are awarded only to vendors with confidence score ≥ 60. Lowest price with confidence < 60 does not win a medal.
+The active market surface is the vendor comparison matrix in `market-data.js`. Its OOS cells render an `OOS` marker; the former card/list sort and medal rules were removed with the card-list view.
 
 ### OOS Rendering by Context
 
-| Context                                    | Rendering                                                                                  |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Grid view (`_buildOOSVendorRow`)           | Name link grayed, price in `<del>`, red `OOS` badge, tooltip shows last-known price + date |
-| List view (`_buildMarketListCard`)         | Vendor chip gets `.oos` CSS class, price text reads "OOS"                                  |
-| Retail modal legend (`_buildVendorLegend`) | 50% opacity, `<del>` for last-known price, red `OOS` badge                                 |
-| Daily history chart                        | `null` returned for OOS entries; `spanGaps: false` renders actual gap in Chart.js line     |
+| Context                                    | Rendering                                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Retail modal legend (`_buildVendorLegend`) | 50% opacity, `<del>` for last-known price, red `OOS` badge                             |
+| Daily history chart                        | `null` returned for OOS entries; `spanGaps: false` renders actual gap in Chart.js line |
 
 ### Goldback — Special Vendor
 
-Goldback has a separate pipeline. Its price comes from `getGoldbackVendorPrice(slug)`, not from the standard `priceData.vendors` map. It is injected at the top of the vendor list before the sorted main-vendor block and is never medal-ranked.
+Goldback has a separate pipeline. Its price comes from `getGoldbackVendorPrice(slug)`, not from the standard `priceData.vendors` map. The former card-list injection and medal behavior were removed with that view.
 
-Goldback staleness: if `goldback-spot.json` is older than ~25 hours, `isStale: true` is returned. The frontend appends `(stale)` to the price text and reduces opacity to 0.6 on the card row.
+Goldback staleness: `getGoldbackVendorPrice()` applies its 25-hour threshold to the local `goldbackPrices` cache. This is a separate legacy display path; API-envelope consumers use their v2 `stale_after` values.
 
 Goldback slug parsing: `_parseGoldbackSlug(slug)` parses the pattern `goldback-{state}-{denomination}`. Supported denominations: `g0.25`, `g0.5`/`ghalf`, `g1`, `g2`, `g5`, `g10`, `g25`, `g50`. Unrecognized slugs return `{ weight: 0, metal: "unknown" }`.
 
@@ -156,7 +152,11 @@ Monument Metals runs parallel SKUs. At year-start (Jan–Mar), random-year SKUs 
 
 ### JMBullion Pre-Order Tolerance
 
-JMBullion marks some coins as "Presale" at year-start but still shows purchasable prices. These are not OOS. The poller has `PREORDER_TOLERANT_PROVIDERS = Set(["jmbullion"])` to skip the OOS pattern for JMBullion only. Affected coins: `buffalo`, `maple-silver`, `maple-gold`, `krugerrand-silver`.
+JMBullion marks some coins as "Presale" at year-start but still shows purchasable prices. These are not OOS. Affected coins: `buffalo`, `maple-silver`, `maple-gold`, `krugerrand-silver`.
+
+Preorder tolerance is resolved **per vendor** by `resolvePreorderTolerant()` (`devops/pollers/shared/price-extract-shared.js:106-110`, consumed at `:214`): a `preorderTolerant` field on the vendor descriptor wins, and `LEGACY_PREORDER_TOLERANT_PROVIDERS` (`:72`) is only the fallback. That legacy set holds **two** vendors — `jmbullion` and `monumentmetals`. There is no `PREORDER_TOLERANT_PROVIDERS` constant.
+
+Poller-side (STRK-334), `jmbullion` prices are FBP-sourced rather than JM-direct scraped: `price-extract-vendor-jmbullion-fbp.js` follows the standard `MIGRATED_VENDOR_MAP` `scrape(context)` contract and consumes a `context.fetchFbpPage` seam (see `.context/data-pipelines.md`).
 
 ### Frontend Consumption
 
@@ -190,9 +190,16 @@ Every selected-range render destroys the prior Lightweight Charts instance befor
 
 ## Retail Modal
 
-### Architecture — `retail.js` vs `retail-view-modal.js`
+### Legacy compatibility modal — `retail.js` vs `retail-view-modal.js`
 
-Script load order in `index.html` places `retail.js` before `retail-view-modal.js`. `retail-view-modal.js` reads globals defined in `retail.js` through `window` — never use imports.
+The active per-coin product-detail experience is the **Market Detail Modal** in
+`js/market-data.js`; its matrix click handler calls `openMarketDetailModal(slug)`.
+`retail-view-modal.js` remains loaded, exported, and test-covered as a legacy compatibility
+surface. Do not use it for new product-detail work. Its maintenance notes are retained below
+only for fixes to that legacy surface.
+
+Script load order in `index.html` places `retail.js` before `retail-view-modal.js`.
+`retail-view-modal.js` reads globals defined in `retail.js` through `window` — never use imports.
 
 **`retail.js` owns:**
 
@@ -200,8 +207,7 @@ Script load order in `index.html` places `retail.js` before `retail-view-modal.j
 - All module-level state (`retailPrices`, `retailPriceHistory`, `retailIntradayData`, `retailProviders`, `retailAvailability`, etc.)
 - All localStorage persistence helpers (`saveRetailPrices`, `saveRetailIntradayData`, etc.)
 - Full sync pipeline (`syncRetailPrices`)
-- Market list view rendering, metal filter pills, card expand/collapse, trend indicators
-- Market filter matrix persistence (STAK-515)
+- Retail data cache and market-filter persistence; `market-data.js` renders the vendor comparison matrix from that persisted filter state (STAK-515)
 
 **`retail-view-modal.js` owns:**
 
@@ -210,7 +216,7 @@ Script load order in `index.html` places `retail.js` before `retail-view-modal.j
 - Both Chart.js instances: `_retailViewModalChart` (daily history), `_retailViewIntradayChart` (24h intraday)
 - Background refresh on modal open (per-coin only)
 
-### Modal Open Sequence
+### Legacy Modal Open Sequence
 
 `openRetailViewModal(slug)`:
 
@@ -285,24 +291,17 @@ getRetailHistoryForSlug(slug)   → history[] (daily entries, newest first)
 
 **Price field disambiguation:**
 
-| Context               | Field                  | Source                                      |
-| --------------------- | ---------------------- | ------------------------------------------- |
-| Live price (card row) | `vendorData.price`     | `latest.json → priceData.vendors[id].price` |
-| History chart (daily) | `vendorData.avg`       | `history-30d.json → entry.vendors[id].avg`  |
-| Market list stats     | `.avg` (in-stock only) | Computed via `_calcVendorAvg()`             |
+| Context               | Field              | Source                                      |
+| --------------------- | ------------------ | ------------------------------------------- |
+| Live price (card row) | `vendorData.price` | `latest.json → priceData.vendors[id].price` |
+| History chart (daily) | `vendorData.avg`   | `history-30d.json → entry.vendors[id].avg`  |
 
 Never mix `.price` and `.avg` — they represent different aggregation windows.
 
-### 7-Day Trend Card Chart (`retail.js`)
-
-Separate from the modal history tab. Uses `_filterHistorySpikes()` — a three-pass filter:
-
-- **Pass 0 — OOS carry-forward:** Carries last known in-stock price forward for OOS days; `lastKnown` is not updated during carries (flat carry anchor)
-- **Pass 1 — Interior temporal spike detection:** Same 5% neighbor tolerance as `_flagAnomalies`
-- **Pass 1b — Endpoint spike detection (v3.33.62+):** 10% threshold for first/last points against nearest 2 interior real data points
-- **Pass 2 — Cross-vendor median consensus:** Interior: 3+ vendors, 40% threshold; endpoints: 2+ vendors, 20% threshold
-
-Then `_interpolateGaps()` linearly interpolates `null` gaps only — OOS carry-forward values are already non-null and are not re-interpolated. Interpolated segments render dashed at 50% opacity via `segment.borderDash`.
+> **Removed with the card-list view (v3.34.30, `45af18ef`, STAK-582 / PR #1028).** The 7-day
+> trend card chart and its `_filterHistorySpikes()` three-pass filter, `_interpolateGaps()`,
+> and `_calcVendorAvg()` no longer exist. Spike/anomaly handling that survives lives in the
+> retail modal path — see `_flagAnomalies` and the intraday chart section above.
 
 ### Background Refresh on Modal Open
 
@@ -346,9 +345,9 @@ Extracted from duplicated patterns across `retail.js`, `retail-view-modal.js`, a
 
 ## Chip Filter Pattern
 
-Metal filter pills (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`) use pill-variant buttons (`.btn` + `border-radius: 999px`). State stored in `_marketMetalFilter`. Logic in `_getFilteredSortedSlugs()`. Filter matrix (per-slug/per-vendor enable/disable) persisted via `_loadMarketFilter` / `_saveMarketFilter` with in-memory cache in `_marketFilterCache` (invalidated by `_invalidateMarketFilterCache()`).
+The **persistence half of this pattern is live**: the per-slug/per-vendor filter matrix is stored via `_loadMarketFilter` / `_saveMarketFilter`, cached in `_marketFilterCache`, invalidated by `_invalidateMarketFilterCache()`, and read through `_isMarketItemEnabled` — all at `js/retail.js:128-168`.
 
-After any render that changes the visible card set (search, filter change), `_renderMarketListView()` resets `marketExpandAllBtn` to "Expand All" — newly rendered cards are always collapsed.
+> **The rendering half was removed with the card-list view** (v3.34.30, `45af18ef`). `_marketMetalFilter`, `_getFilteredSortedSlugs()`, `_renderMarketListView()`, and the `marketExpandAllBtn` expand/collapse reset no longer exist.
 
 ---
 
@@ -359,7 +358,7 @@ All modals use the FIFO dialog queue in `js/dialogs.js`:
 - `openModalById(id)` / `closeModalById(id)` — the only correct way to open/close modals
 - `showDialog()` / `presentDialog()` — queue management
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
-- Close button selector is `.modal-close` or `[data-bs-dismiss='modal']` — **not** `.close-btn`
+- Close button selector is `.modal-close` — **not** `.close-btn`, and **not** `[data-bs-dismiss]` (the Bootstrap JS library is not loaded in this project; `data-bs-*` appears zero times in `index.html` and `js/`)
 - `safeGetElement(id)` is the preferred DOM lookup for all new code in modal files
 
 ---

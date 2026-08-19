@@ -3,7 +3,7 @@ title: "StakTrakr — Coding Standards"
 project: StakTrakr
 audience: agent
 canonical: .context/coding-standards.md
-source: "DocVault/Projects/StakTrakr/Foundation/coding-standards.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/coding-standards.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-28"
 ---
 
@@ -246,9 +246,9 @@ const theme = await loadData(THEME_KEY, "light");
 
 ### ALLOWED_STORAGE_KEYS guard
 
-`cleanupStorage()` runs at `DOMContentLoaded` and deletes every `localStorage` key not listed in `ALLOWED_STORAGE_KEYS` (defined in `js/constants.js` at line 949). A key written before it is added to the allowlist survives the current session but is wiped on the next startup.
+`cleanupStorage()` runs at `DOMContentLoaded` and deletes every `localStorage` key not listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`. A key written before it is added to the allowlist survives the current session but is wiped on the next startup.
 
-The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding — the constant IS defined at `constants.js:949`. Automated reviewer flags on this pattern are false positives.
+The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding. Automated reviewer flags on this pattern are false positives.
 
 **STAK-443 additions:** `spotPricingSource` (single-select spot price source) and `metalSpotPrices` (manual-mode unified spot object) are registered in ALLOWED_STORAGE_KEYS as of v3.34.24.
 
@@ -430,7 +430,7 @@ Keep `CORE_ASSETS` entries in the same order as `<script>` tags in `index.html` 
 | `spot-latest`          | `/v2/spot/latest.json`                                                         | 1200 s (20 min) | yes           |
 | `spot-history-daily`   | `/v2/spot/{metal}/YYYY/MM/DD.json`                                             | 3600 s (1 h)    | yes           |
 | `goldback-latest`      | `/v2/goldback/latest.json`                                                     | 7200 s (2 h)    | yes           |
-| `goldback-intraday`    | `/v2/goldback/intraday.json`                                                   | 1200 s (20 min) | yes           |
+| `goldback-intraday`    | `/v2/goldback/intraday.json`                                                   | 7200 s (2 h)    | yes           |
 | `retail-latest`        | `/v2/retail/{slug}/latest.json`                                                | 1800 s (30 min) | yes           |
 | `retail-intraday`      | `/v2/retail/{slug}/intraday.json`                                              | 1200 s (20 min) | yes           |
 | `retail-history-short` | `/v2/retail/{slug}/history-7d.json`                                            | 3600 s (1 h)    | yes           |
@@ -438,9 +438,9 @@ Keep `CORE_ASSETS` entries in the same order as `<script>` tags in `index.html` 
 | `providers`            | `/v2/providers.json`                                                           | 86400 s (24 h)  | yes           |
 | `annual-spot-history`  | `/data/spot-history-YYYY.json` (local) or `/spot-history-YYYY.json` (API root) | 86400 s (24 h)  | no            |
 
-**Network-first realtime families (STRK-249, v3.35.61):** `spot-latest`, `goldback-latest`, and `retail-latest` carry a `networkFirst: true` descriptor flag in `FAMILY_TABLE` (propagated through `classifyEndpoint`'s descriptor). `classifiedFetch` branches on it: while online they **skip the cache-hit shortcut** and fetch network-first (`lastStrategy="network"`), serving the cached copy **only** on a network error (`lastStrategy="network-fallback"`). Their `floor` values above still bound the **offline-fallback** freshness, not an online cache-hit. The other (non-realtime) families keep cache-first-with-TTL. This reverses STRK-190's blanket cache-first for the realtime price families, restoring STRK-79's network-first intent for live pricing — the cache is retained purely as an offline fallback. (Companion app-level change: the `market-data.js` goldback-G1 and retail-detail fetches now fail over api1→api2 via `_marketV2Fetch` with a strict freshness gate capped at 2 h, so a stale SW-cached api1 `200` cannot short-circuit failover to api2.)
+**Network-first families:** four families carry a `networkFirst: true` descriptor flag in `FAMILY_TABLE` — the three realtime price families `spot-latest`, `goldback-latest`, and `retail-latest` (STRK-249, v3.35.61), **plus `providers`** (STRK-264, which carries its own rationale comment in `sw-router.js`). The flag propagates through `classifyEndpoint`'s descriptor. `classifiedFetch` branches on it: while online they **skip the cache-hit shortcut** and fetch network-first (`lastStrategy="network"`), serving the cached copy **only** on a network error (`lastStrategy="network-fallback"`). Their `floor` values above still bound the **offline-fallback** freshness, not an online cache-hit. The other (non-realtime) families keep cache-first-with-TTL. This reverses STRK-190's blanket cache-first for the realtime price families, restoring STRK-79's network-first intent for live pricing — the cache is retained purely as an offline fallback. (Companion app-level change: the `market-data.js` goldback-G1 and retail-detail fetches now fail over api1→api2 via `_marketV2Fetch` with a strict freshness gate capped at 2 h, so a stale SW-cached api1 `200` cannot short-circuit failover to api2.)
 
-**Goldback intraday family (STRK-248, v3.35.62):** the `goldback-intraday` family above (exact-match `/v2/goldback/intraday.json`) is **cache-first-with-TTL**, not networkFirst — it mirrors `retail-intraday`. Its `floor` is 1200 s but the response envelope carries `stale_after: 7200`, which wins via the precedence rule below. The same release dropped the `goldback-latest` floor from 90000 s (25 h) to 7200 s (2 h), aligning the SW offline-fallback budget with the endpoint's new 2 h `stale_after`; `goldback-latest` stays networkFirst.
+**Goldback intraday family (STRK-248, v3.35.62):** the `goldback-intraday` family above (exact-match `/v2/goldback/intraday.json`) is **cache-first-with-TTL**, not networkFirst — it mirrors `retail-intraday` in strategy but **not** in floor: its floor is **7200 s**, and `sw-router.js:56` carries a source comment noting the deliberate divergence from `retail-intraday`'s 1200. The response envelope also carries `stale_after: 7200`, which wins via the precedence rule below. The same release dropped the `goldback-latest` floor from 90000 s (25 h) to 7200 s (2 h), aligning the SW offline-fallback budget with the endpoint's new 2 h `stale_after`; `goldback-latest` stays networkFirst.
 
 **Effective TTL precedence:** `envelope.stale_after ?? family.floor`
 
@@ -462,9 +462,9 @@ Legacy entry (no headers) → treat as stale → force one cold network hit
 - Cache miss or stale → `"network"` (fetch, synthesize + write freshness headers, return)
 - Network error (offline/timeout) + stale entry exists → `"network-fallback"` (serve stale)
 - Network error + no cache entry → `Response.error()`
-- **Network-first families** (the three realtime price families — `spot-latest`/`goldback-latest`/`retail-latest`, STRK-249): `classifiedFetch` skips the cache-hit check entirely — online → `"network"`, network error → `"network-fallback"` (cached copy). These families are **never** `"cache-hit"` while online.
+- **Network-first families** (`spot-latest`/`goldback-latest`/`retail-latest` from STRK-249, plus `providers` from STRK-264 — four in total): `classifiedFetch` skips the cache-hit check entirely — online → `"network"`, network error → `"network-fallback"` (cached copy). These families are **never** `"cache-hit"` while online.
 
-**Unit tests:** `tests/unit/sw-router.test.js` — 26 tests covering all 10 families + negative cases. Run: `npm run test:unit`.
+**Unit tests:** `tests/unit/sw-router.test.js` covers every family in `FAMILY_TABLE` plus negative cases. Run: `npm run test:unit`. (Grep `FAMILY_TABLE` for the family count and read the test output for the test count — both have drifted from hard-coded values here before.)
 
 **Integration tests:** `tests/playwright/extended/service-worker.spec.js` — SC-1–3 cover `annual-spot-history` (cache-first, unchanged); SC-4–9 cover the realtime families' network-first behavior (online → `network`, offline → `network-fallback`), rescoped/added by STRK-249. Run: `npm run test:extended`.
 
@@ -511,16 +511,16 @@ Current version is always authoritative in `js/constants.js`. Check `devops/vers
 
 ### 8 files touched by every version bump
 
-| #   | File                       | What changes                                     | How                                         |
-| --- | -------------------------- | ------------------------------------------------ | ------------------------------------------- |
-| 1   | `js/constants.js`          | `APP_VERSION` string                             | Manual                                      |
-| 2   | `sw.js`                    | `CACHE_NAME`                                     | Auto — pre-commit hook                      |
-| 3   | `CHANGELOG.md`             | New version section                              | Manual                                      |
-| 4   | `js/about.js`              | `getEmbeddedWhatsNew()` + `getEmbeddedRoadmap()` | Manual                                      |
-| 5   | `version.json`             | `version` + `releaseDate`                        | Manual                                      |
-| 6   | `package.json`             | `version` field                                  | Manual                                      |
-| 7   | `package-lock.json`        | `version` + `packages[""].version`               | With `package.json` (not hook-validated)    |
-| 8   | `data/spot-history-*.json` | New seed entries                                 | Staged conditionally if poller has new data |
+| #   | File                       | What changes                       | How                                         |
+| --- | -------------------------- | ---------------------------------- | ------------------------------------------- |
+| 1   | `js/constants.js`          | `APP_VERSION` string               | Manual                                      |
+| 2   | `sw.js`                    | `CACHE_NAME`                       | Auto — pre-commit hook                      |
+| 3   | `CHANGELOG.md`             | New version section                | Manual                                      |
+| 4   | `js/about.js`              | `getEmbeddedWhatsNew()`            | Manual                                      |
+| 5   | `version.json`             | `version` + `releaseDate`          | Manual                                      |
+| 6   | `package.json`             | `version` field                    | Manual                                      |
+| 7   | `package-lock.json`        | `version` + `packages[""].version` | With `package.json` (not hook-validated)    |
+| 8   | `data/spot-history-*.json` | New seed entries                   | Staged conditionally if poller has new data |
 
 **Pre-commit enforcement:** `devops/hooks/check-release-sync.sh` fails the commit if `APP_VERSION` disagrees across files 1, 3, 5, 6, and 4 (`getEmbeddedWhatsNew` version entry).
 
@@ -874,10 +874,10 @@ chartInstances.typeChart = new Chart(canvas, config);
 
 ### Bootstrap 5
 
-- **`getOrCreateInstance()`** instead of `new bootstrap.Modal()` — prevents duplicate instance errors
-- **Dispose after `hidden.bs.*` event** when modals are dynamically created
-- **Never mix jQuery and Bootstrap 5** — the app uses vanilla Bootstrap only
-- **Use `data-bs-*` attributes** for declarative behavior, JavaScript API for programmatic control
+Bootstrap's JavaScript library is not loaded: there is no `bootstrap` global, CDN tag, or
+`data-bs-*` behavior in the app. Do not introduce Bootstrap APIs or attributes. A few
+historical CSS class names remain, but current modal behavior uses `openModalById()`,
+`closeModalById()`, and `.modal-close`; see `.context/reusable-patterns.md`.
 
 ### PapaParse (CSV)
 
@@ -972,18 +972,16 @@ Related settings wrap in a `.settings-fieldset` card with a `.settings-fieldset-
 Standard modal pattern — glass-morphism shell with gradient top accent:
 
 ```html
-<div class="modal-overlay" id="myModal">
+<div class="modal" id="myModal">
   <div class="modal-content">
     <div
-      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border);"
-    >
+      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing); padding-bottom:var(--spacing-sm); border-bottom:1px solid var(--border);"
       <h2>Title</h2>
-      <button class="btn btn-sm secondary" id="myCloseBtn">&times;</button>
+      <button class="modal-close" id="myCloseBtn" type="button">&times;</button>
     </div>
     <div>...</div>
     <div
-      style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:0.75rem; border-top:1px solid var(--border);"
-    >
+      style="display:flex; justify-content:flex-end; gap:var(--spacing-sm); padding-top:var(--spacing-sm); border-top:1px solid var(--border);"
       <button class="btn secondary btn-sm">Cancel</button>
       <button class="btn btn-sm">Save</button>
     </div>
@@ -1002,7 +1000,7 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 | Colors      | `--primary`, `--secondary`, `--success`, `--info`, `--warning`, `--danger` + `-hover` variants |
 | Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card`                                 |
 | Text        | `--text-primary`, `--text-secondary`                                                           |
-| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`                                              |
+| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`, `--copper` (STRK-305)                       |
 | Types       | `--type-{coin,round,bar,note,set,other}-{bg,text}`                                             |
 | Borders     | `--border`, `--border-hover`                                                                   |
 | Shadows     | `--shadow-sm`, `--shadow`, `--shadow-lg`                                                       |

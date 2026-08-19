@@ -893,7 +893,7 @@ const renderActiveFilters = () => {
  * @returns {boolean|null} true/false for definitive match result, null to fall through to default logic
  */
 const matchCoinSeries = (searchMetal, coinType, itemText, exactPhrase) => {
-  const metalWords = ["gold", "silver", "platinum", "palladium"];
+  const metalWords = ["gold", "silver", "platinum", "palladium", "copper"];
 
   // Two-word coin-series disambiguation rules — mirrors search.js's `_COIN_SERIES`
   // table-dispatch (filters.js keeps a function-local copy because both files are
@@ -1485,7 +1485,7 @@ const _filterMatchMultiWordTerm = (termData, item, itemText) => {
 
     if (
       ["american", "canadian", "british", "chinese", "australian", "south"].includes(firstWord) &&
-      ["gold", "silver", "platinum", "palladium"].includes(middleWord) &&
+      ["gold", "silver", "platinum", "palladium", "copper"].includes(middleWord) &&
       ["eagle", "maple", "britannia", "krugerrand", "buffalo", "panda", "kangaroo"].includes(
         lastWord
       )

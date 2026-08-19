@@ -966,6 +966,79 @@
                 <div class="spot-card-timestamp" id="spotTimestampPalladium">No data</div>
               </div>
             </div>
+            <!-- Copper spot price card (STRK-306) — hidden until enabled in
+                 Settings › Metal Order (copper is opt-in per the epic
+                 decision); applyMetalOrder() shows it when enabled -->
+            <div class="spot-input copper" style="display: none">
+              <div class="spot-card" data-metal="copper">
+                <canvas class="spot-sparkline" id="sparklineCopper" aria-hidden="true"></canvas>
+                <div class="spot-card-header">
+                  <div class="spot-card-label">Copper Spot Price</div>
+                  <button
+                    type="button"
+                    class="spot-card-period"
+                    id="spotPeriodCopper"
+                    aria-label="Trend period: 90d. Activate to change."
+                  >
+                    90d
+                  </button>
+                  <div class="spot-card-controls">
+                    <select
+                      class="spot-range-select"
+                      id="spotRangeCopper"
+                      title="Trend period"
+                      aria-label="Copper trend period"
+                    >
+                      <option value="1">1d</option>
+                      <option value="7">7d</option>
+                      <option value="14">14d</option>
+                      <option value="30">30d</option>
+                      <option value="60">60d</option>
+                      <option value="90" selected>90d</option>
+                      <option value="365">1Y</option>
+                      <option value="1095">3Y</option>
+                      <option value="1825">5Y</option>
+                      <option value="3650">10Y</option>
+                    </select>
+                    <button
+                      class="spot-sync-icon"
+                      id="syncIconCopper"
+                      title="Sync from API"
+                      disabled
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6" />
+                        <path d="M2.5 22v-6h6" />
+                        <path d="M2.5 11.5a10 10 0 0 1 18.4-4.5" />
+                        <path d="M21.5 12.5a10 10 0 0 1-18.4 4.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="spot-card-value"
+                  id="spotPriceDisplayCopper"
+                  title="Shift+click to edit"
+                >
+                  —
+                </div>
+                <!-- Copper displays $/lb primary (industry convention); the
+                     stored $/ozt lives in the value's hover title so the
+                     card's rows stay height-aligned with the other four
+                     (STRK-341 review) -->
+                <div class="spot-card-change" id="spotChangeCopper"></div>
+                <div class="spot-card-timestamp" id="spotTimestampCopper">No data</div>
+              </div>
+            </div>
           </div>
         </section>
         <!-- ── Best Price Ticker (STAK-504) ── -->
@@ -1146,6 +1219,47 @@
                   <div class="total-item">
                     <span class="total-label">Realized:</span>
                     <span class="total-value" id="realizedGainLossPalladium">$0.00</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Copper totals card (STRK-306) — hidden until enabled in
+                   Settings › Metal Order; applyMetalOrder() shows it -->
+              <div class="total-card copper" style="display: none">
+                <div class="total-title" data-metal="Copper">Copper</div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Items:</span>
+                    <span class="total-value" id="totalItemsCopper">0</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Weight (oz):</span>
+                    <span class="total-value" id="totalWeightCopper">0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Avg Cost/oz:</span>
+                    <span class="total-value" id="avgCostPerOzCopper">$0.00</span>
+                  </div>
+                </div>
+                <div class="total-group">
+                  <div class="total-item">
+                    <span class="total-label">Purchase Price:</span>
+                    <span class="total-value" id="totalPurchasedCopper">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Melt Value:</span>
+                    <span class="total-value" id="currentValueCopper">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Retail Value:</span>
+                    <span class="total-value" id="retailValueCopper">$0.00</span>
+                  </div>
+                  <div class="total-item total-item-bottom-line">
+                    <span class="total-label">Gain:</span>
+                    <span class="total-value" id="lossProfitCopper">$0.00</span>
+                  </div>
+                  <div class="total-item">
+                    <span class="total-label">Realized:</span>
+                    <span class="total-value" id="realizedGainLossCopper">$0.00</span>
                   </div>
                 </div>
               </div>
@@ -1961,6 +2075,7 @@
                   <option value="Gold">Gold</option>
                   <option value="Platinum">Platinum</option>
                   <option value="Palladium">Palladium</option>
+                  <option value="Copper">Copper</option>
                 </select>
               </div>
             </div>
@@ -2064,6 +2179,11 @@
                   <option value="mg">milligram</option>
                   <option value="kg">kilogram</option>
                   <option value="lb">pound</option>
+                  <!-- STRK-305: copper bullion is sold in avoirdupois ounces (1 avdp oz =
+                       0.9114583 ozt). Entry/display lens like g/kg/lb — storage stays troy.
+                       Auto-selected when Metal = Copper; usable manually for any metal.
+                       NOT "cu" — that code is constitutional silver (above). -->
+                  <option value="avdp">avoirdupois oz</option>
                   <option value="gb">goldback</option>
                   <option value="sb">silverback</option>
                   <!-- STRK-243: cu is Type-driven only — Type=Constitutional sets this

@@ -246,11 +246,13 @@ describe("ratioPanelHtml — structure", () => {
     assert.ok(h.includes("Last close"));
   });
 
-  test("in-panel pair selector renders all four pairs with aria-pressed", () => {
+  test("in-panel pair selector renders all five pairs with aria-pressed", () => {
     const h = html();
-    assert.equal((h.match(/data-pair="/g) || []).length, 4);
+    // Five since STRK-341 added ag-cu.
+    assert.equal((h.match(/data-pair="/g) || []).length, 5);
     assert.match(h, /data-pair="au-ag" aria-pressed="true"/);
     assert.match(h, /data-pair="au-pt" aria-pressed="false"/);
+    assert.match(h, /data-pair="ag-cu" aria-pressed="false"/);
     assert.match(h, /role="group" aria-label="Metal pair"/);
   });
 

@@ -38,9 +38,10 @@ test.describe("core/ratios-panel — shared Layout C component (STRK-270)", () =
     await expect(panel).toBeVisible();
     await expect(panel).toHaveAttribute("data-accent", "silver"); // Au:Ag default
 
-    // In-panel pair selector: four real buttons, the active pair pressed.
+    // In-panel pair selector: five real buttons (Ag:Cu joined in STRK-341),
+    // the active pair pressed.
     const pairButtons = page.locator(`${MOUNT} .gsr-pairs button`);
-    await expect(pairButtons).toHaveCount(4);
+    await expect(pairButtons).toHaveCount(5);
     await expect(page.locator(`${MOUNT} [data-pair="au-ag"]`)).toHaveAttribute(
       "aria-pressed",
       "true"
@@ -156,10 +157,13 @@ test.describe("core/ratios-panel — chip → modal host (STRK-271)", () => {
     await page.waitForSelector('.spot-card[data-metal="silver"] .spot-ratio-chip.is-actionable');
   });
 
-  test("exactly the three ratio chips are actionable — never the goldback chip", async ({
+  test("exactly the four ratio chips are actionable — never the goldback chip", async ({
     page,
   }) => {
-    await expect(page.locator(".spot-ratio-chip.is-actionable")).toHaveCount(3);
+    // Four since STRK-341: Au:Ag, Au:Pt, Au:Pd, plus Ag:Cu on the copper card
+    // (in the DOM but hidden with copper's card until the Metal Order opt-in —
+    // visibility is covered in core/settings.spec.js).
+    await expect(page.locator(".spot-ratio-chip.is-actionable")).toHaveCount(4);
     // The gold card's chip (when present) shows a G1 rate, not a ratio — it
     // must never carry the actionable affordance or a pair mapping.
     await expect(
@@ -282,7 +286,8 @@ test.describe("core/ratios-panel — standalone /ratios/ page (STRK-273)", () =>
     await routeApi(page, spotFixture());
     await page.goto("/ratios/");
     await expect(page.locator(`${PAGE_MOUNT} .gsr-panel`)).toBeVisible();
-    await expect(page.locator(`${PAGE_MOUNT} .gsr-pairs button`)).toHaveCount(4);
+    // Five pair buttons since STRK-341 added Ag:Cu.
+    await expect(page.locator(`${PAGE_MOUNT} .gsr-pairs button`)).toHaveCount(5);
     // The live quotes drive the hero: 4300 / 67 ≈ 64.2 at Au:Ag's 1dp.
     await expect(page.locator(`${PAGE_MOUNT} .gsr-hero-num`)).toContainText("64.2");
     await expect(page.locator(`${PAGE_MOUNT} .gsr-live`)).toHaveAttribute("data-state", "live");

@@ -3,7 +3,7 @@ title: "Data Model"
 project: StakTrakr
 audience: agent
 canonical: .context/deep-dives/data-model.md
-source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Data Model.md" # migrated 2026-08-12
+migration_source: "DocVault/Projects/StakTrakr/Foundation/Deep Dives/Data Model.md" # historical provenance; migrated 2026-08-12
 updated: "2026-06-27"
 ---
 
@@ -67,12 +67,12 @@ Defined via JSDoc typedef in `js/types.js`. All fields persist on the item objec
   uuid:                  String,         // UUID v4 — primary key (required)
   name:                  String,         // display name, e.g. "2024 American Gold Eagle 1 oz" (required)
   type:                  String,         // "Coin" | "Round" | "Bar" | etc. (required)
-  metal:                 String,         // "Silver" | "Gold" | "Platinum" | "Palladium" (required)
-  composition:           String,         // optional — "Gold" | "Silver" | "Platinum" | "Palladium" | "Alloy"
+  metal:                 String,         // "Silver" | "Gold" | "Platinum" | "Palladium" | "Copper" (STRK-305) (required)
+  composition:           String,         // optional — "Gold" | "Silver" | "Platinum" | "Palladium" | "Copper" | "Alloy"
 
   // --- Physical properties ---
   weight:                Number,         // fine troy ounces per unit, Goldback denomination when weightUnit is 'gb', or Silverback unit count when weightUnit is 'sb' (required)
-  weightUnit:            String,         // "oz" (default) | "g" | "kg" | "lb" | "gb" (Goldback) | "sb" (Silverback)
+  weightUnit:            String,         // "oz" (default) | "g" | "mg" (STRK-319) | "kg" | "lb" | "avdp" (avoirdupois oz, STRK-305) | "gb" (Goldback) | "sb" (Silverback) | "cu" (constitutional, STRK-235 — NOT copper)
   purity:                Number,         // metal purity factor 0.0–1.0 (default 1.0)
   qty:                   Number,         // integer quantity held (required)
 
@@ -195,7 +195,7 @@ const spot = spotPrices?.[item.metal] ?? 0;
 const meltValue = computeMeltValue(item, spot);
 ```
 
-`spotPrices` is defined in `js/state.js` and populated by the spot-price fetch in `js/api.js`. It is not written to `localStorage` under the inventory key. Individual per-metal spot values are cached under `spotGold`, `spotSilver`, `spotPlatinum`, and `spotPalladium`.
+`spotPrices` is defined in `js/state.js` and populated by the spot-price fetch in `js/api.js`. It is not written to `localStorage` under the inventory key. Individual per-metal spot values are cached under `spotGold`, `spotSilver`, `spotPlatinum`, `spotPalladium`, and `spotCopper` (STRK-305).
 
 ### Data Flow
 
@@ -261,6 +261,7 @@ All keys currently registered in `js/constants.js`. `cleanupStorage()` enforces 
 | `spotSilver`       | Number string | Cached silver spot price                                                                                                                                                             |
 | `spotPlatinum`     | Number string | Cached platinum spot price                                                                                                                                                           |
 | `spotPalladium`    | Number string | Cached palladium spot price                                                                                                                                                          |
+| `spotCopper`       | Number string | Cached copper spot price (STRK-305)                                                                                                                                                  |
 | `spotTrendRange`   | String        | Selected spot trend range                                                                                                                                                            |
 | `spotCompareMode`  | String        | Spot chart compare mode                                                                                                                                                              |
 | `spotTrendPeriod`  | String        | Trend period: `"1"` \| `"7"` \| `"30"` \| `"90"` \| `"365"` \| `"1095"`                                                                                                              |

@@ -262,7 +262,7 @@ const BULK_EDITABLE_FIELDS = [
     id: "metal",
     label: "Metal",
     inputType: "select",
-    options: ["Silver", "Gold", "Platinum", "Palladium"],
+    options: ["Silver", "Gold", "Platinum", "Palladium", "Copper"],
   },
   {
     id: "type",
@@ -282,6 +282,7 @@ const BULK_EDITABLE_FIELDS = [
       { value: "mg", label: "milligram" }, // STRK-319
       { value: "kg", label: "kilogram" },
       { value: "lb", label: "pound" },
+      { value: "avdp", label: "avoirdupois ounce" }, // STRK-305 — NOT "cu" (constitutional)
       { value: "gb", label: "goldback" },
       { value: "sb", label: "silverback" },
       { value: "cu", label: "constitutional" },
@@ -1560,6 +1561,7 @@ const convertBulkWeightToOzt = (rawWeight, effectiveUnit) => {
   if (effectiveUnit === "mg") return String(mgToOzt(numeric)); // STRK-319
   if (effectiveUnit === "kg") return String(kgToOzt(numeric));
   if (effectiveUnit === "lb") return String(lbToOzt(numeric));
+  if (effectiveUnit === "avdp") return String(avdpToOzt(numeric)); // STRK-305
   return rawWeight;
 };
 

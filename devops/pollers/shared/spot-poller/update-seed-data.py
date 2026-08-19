@@ -28,15 +28,25 @@ from dotenv import load_dotenv
 API_BASE_URL = "https://api.metalpriceapi.com/v1"
 TIMEFRAME_ENDPOINT = "/timeframe"
 LATEST_ENDPOINT = "/latest"
-CURRENCIES = "XAU,XAG,XPT,XPD"
-
-# MetalPriceAPI returns rates as "units of metal per 1 USD" — we invert to get $/oz
+# MetalPriceAPI returns rates as "units of metal per 1 USD" — we invert to get $/oz.
+# Insertion order is the emit order: copper stays LAST so pre-copper consumers keep
+# their historical ordering (mirrors METAL_ORDER in shared/spot-metals.js, STRK-303).
+# XCU history floor is 2013-07-23 — earlier dates simply return no XCU key.
 SYMBOL_TO_METAL = {
     "XAU": "Gold",
     "XAG": "Silver",
     "XPT": "Platinum",
     "XPD": "Palladium",
+    "XCU": "Copper",
 }
+
+CURRENCIES = ",".join(SYMBOL_TO_METAL)
+
+# Sub-dollar prices keep extra decimals so copper (~$0.41/ozt) doesn't lose ~1%
+# to 2dp quantization — mirrors roundPrice() in shared/spot-metals.js (STRK-303).
+SUB_DOLLAR_THRESHOLD = 1
+DECIMALS_STANDARD = 2
+DECIMALS_SUB_DOLLAR = 4
 
 MAX_DAYS_PER_REQUEST = 365
 
@@ -68,7 +78,15 @@ def resolve_data_dir():
     env_dir = os.getenv("DATA_DIR")
     if env_dir:
         return Path(env_dir)
-    return Path(__file__).parent.parent.parent / "data"
+    # __file__ is devops/pollers/shared/spot-poller/update-seed-data.py;
+    # parents[0] is spot-poller/, so the repo root is parents[4]. The old
+    # .parent.parent.parent survived the pre-shared layout and silently
+    # pointed at devops/pollers/data/ (nonexistent) after the move.
+    data_dir = Path(__file__).resolve().parents[4] / "data"
+    if not data_dir.is_dir():
+        print(f"Error: resolved data dir {data_dir} does not exist. Set DATA_DIR.")
+        sys.exit(1)
+    return data_dir
 
 # ---------------------------------------------------------------------------
 # Year-file I/O
@@ -162,7 +180,7 @@ def find_latest_date(data_dir):
 # API interaction
 # ---------------------------------------------------------------------------
 
-def fetch_timeframe(api_key, start_date, end_date):
+def fetch_timeframe(api_key, start_date, end_date, currencies=CURRENCIES):
     """
     Call MetalPriceAPI /timeframe endpoint.
     Returns the raw JSON response dict or raises on error.
@@ -174,7 +192,7 @@ def fetch_timeframe(api_key, start_date, end_date):
         "start_date": str(start_date),
         "end_date": str(end_date),
         "base": "USD",
-        "currencies": CURRENCIES,
+        "currencies": currencies,
     }
     resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
@@ -210,13 +228,19 @@ def fetch_latest(api_key):
 # Data transformation
 # ---------------------------------------------------------------------------
 
+def round_price(price):
+    """Round a $/oz price for storage — 4dp below $1 (copper), 2dp otherwise."""
+    decimals = DECIMALS_SUB_DOLLAR if price < SUB_DOLLAR_THRESHOLD else DECIMALS_STANDARD
+    return round(price, decimals)
+
+
 def invert_rates(rates_dict):
     """
     Convert API rates (units of metal per 1 USD) to $/oz.
     Input:  {"XAU": 0.000345, "XAG": 0.012, ...}
     Output: {"XAU": 2898.55, "XAG": 83.33, ...}
     """
-    return {symbol: round(1.0 / rate, 2) for symbol, rate in rates_dict.items() if rate}
+    return {symbol: round_price(1.0 / rate) for symbol, rate in rates_dict.items() if rate}
 
 
 def transform_to_seed_format(rates_by_date):
@@ -231,7 +255,7 @@ def transform_to_seed_format(rates_by_date):
     entries = []
     for date_str, symbols in sorted(rates_by_date.items()):
         inverted = invert_rates(symbols)
-        for symbol in ["XAU", "XAG", "XPT", "XPD"]:
+        for symbol in SYMBOL_TO_METAL:
             if symbol not in inverted:
                 continue
             metal = SYMBOL_TO_METAL[symbol]
@@ -250,11 +274,11 @@ def transform_latest_to_seed(rates, date_str):
     Convert a /latest response's rates into seed entries for a single date.
 
     Input: {"XAU": 0.000345, "XAG": 0.012, ...}, "2026-02-13"
-    Output: list of 4 seed entries
+    Output: list of seed entries, one per metal present in the response
     """
     inverted = invert_rates(rates)
     entries = []
-    for symbol in ["XAU", "XAG", "XPT", "XPD"]:
+    for symbol in SYMBOL_TO_METAL:
         if symbol not in inverted:
             continue
         metal = SYMBOL_TO_METAL[symbol]
@@ -344,6 +368,16 @@ def parse_args():
         default=None,
         help="Override end date (YYYY-MM-DD). Default: today.",
     )
+    parser.add_argument(
+        "--currencies",
+        type=str,
+        default=CURRENCIES,
+        help=(
+            "Comma-separated API symbols to fetch (default: all). Use a single "
+            "symbol (e.g. XCU) for one-metal backfills so dedup-merge cannot add "
+            "new dates for metals whose history is already frozen."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -389,7 +423,7 @@ def main():
         chunk_end = min(chunk_start + timedelta(days=MAX_DAYS_PER_REQUEST - 1), end)
         print(f"API request: {chunk_start} to {chunk_end} ... ", end="", flush=True)
         try:
-            data = fetch_timeframe(api_key, chunk_start, chunk_end)
+            data = fetch_timeframe(api_key, chunk_start, chunk_end, args.currencies)
         except Exception as e:
             print(f"FAILED")
             print(f"  Error: {e}")
