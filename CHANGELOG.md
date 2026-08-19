@@ -268,6 +268,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   background like its metal siblings), metal-accent card class, chip, and thumb
   placeholder colors.
 
+---
+
+## [3.36.1] - 2026-08-15
+
 ### Added — STRK-304: Copper history backfill — Phase 1b
 
 - **Copper now has a full price history back to 1968** (STRK-304): the offline seed
