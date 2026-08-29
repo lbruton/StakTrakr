@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.18] - 2026-08-29
+
+### Changed — STRK-358: Detail modal fits a desktop viewport
+
+- **Change**: Composition lists (By Metal / By Purchase Location) cap at the top 5 rows with a "+N more…" row, composition rows tightened, and the ledger's minimum height reduced (340→300px) — on a desktop-class window (~1350px tall) the modal now renders without an outer scrollbar (STRK-358)
+- Smaller windows keep the designed 90vh cap with inner modal scroll; mobile layout unchanged (STRK-358)
+
+---
+
 ## [3.36.17] - 2026-08-29
 
 ### Changed — STRK-356: Acquisitions ledger cleanup

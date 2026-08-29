@@ -8179,7 +8179,7 @@ a.about-badge:hover {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.3rem 0;
+  padding: 0.22rem 0; /* STRK-358: was 0.3 — tighter rows shave the grid height */
   border-bottom: 1px dashed var(--border);
   font-size: var(--font-size-base);
 }
@@ -8226,7 +8226,11 @@ a.about-badge:hover {
 /* 6 ── Acquisitions ledger */
 .dm-ledger-fill {
   position: relative;
-  min-height: 340px;
+  /* STRK-358: 340 → 300 — the ledger stretches to the composition column's
+     height (dm-grid--ledger align-items: stretch); this floor only guards
+     the short-composition case, and 300 keeps the modal inside a desktop
+     viewport. Mobile zeroes it in the 768px block. */
+  min-height: 300px;
 }
 .dm-ledger-fill > .dm-panel {
   position: absolute;
@@ -8423,6 +8427,11 @@ table.dm-ledger {
   }
   .dm-ledger-wrap {
     max-height: 300px;
+  }
+  .dm-comp-row {
+    /* STRK-358 AC-3: mobile keeps its original spacing — the desktop
+       height-budget trim (0.22rem) must not tighten touch layouts */
+    padding: 0.3rem 0;
   }
   .dm-ledger th.dm-col-paid,
   .dm-ledger td.dm-col-paid,
