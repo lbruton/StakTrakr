@@ -515,10 +515,14 @@ test("AC-14: a marker whose acquisitions are all disposed is a no-op (no flash, 
   expect(errors).toHaveLength(0);
 });
 
-test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
-  page,
-}) => {
-  // name long enough that the line exceeds the tooltip's max-width clamp
+/**
+ * Shared STRK-354/355 setup: seeds s1 with a name wider than the old 260px
+ * tooltip clamp, opens the Silver scope, and hovers s1's acquisition marker
+ * (AC-13 pattern) so the buy tooltip is showing. Assertions stay in the tests.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<import('@playwright/test').Locator>} The tooltip locator
+ */
+async function hoverLongNameBuyMarker(page) {
   const items = SEED_ITEMS.map((it) =>
     it.uuid === "s1"
       ? { ...it, name: "SAMPLE - 1 oz Canadian Silver Maple Leaf Brilliant Uncirculated" }
@@ -530,11 +534,16 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
   await chartReady(page);
   await chartSettled(page);
   const box = await page.locator("#dmHeroChart").boundingBox();
-  // hover s1's acquisition marker (AC-13 pattern)
   const marker = await buysMarkerCoords(page, 1);
   await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
   await page.mouse.move(box.x + marker.x, box.y + marker.y);
-  const tip = page.locator("#dmChartTooltip");
+  return page.locator("#dmChartTooltip");
+}
+
+test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
+  page,
+}) => {
+  const tip = await hoverLongNameBuyMarker(page);
   await expect(tip).toBeVisible();
   await expect(tip).toContainText("Canadian Silver Maple");
   // the box must fit the text: no horizontal overflow past the padding box
@@ -545,21 +554,7 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
 test("STRK-355: a realistic long buy line stays on ONE line — the box extends to fit", async ({
   page,
 }) => {
-  const items = SEED_ITEMS.map((it) =>
-    it.uuid === "s1"
-      ? { ...it, name: "SAMPLE - 1 oz Canadian Silver Maple Leaf Brilliant Uncirculated" }
-      : it
-  );
-  await installSeed(page, { items });
-  await bootApp(page);
-  await openScope(page, "Silver");
-  await chartReady(page);
-  await chartSettled(page);
-  const box = await page.locator("#dmHeroChart").boundingBox();
-  const marker = await buysMarkerCoords(page, 1);
-  await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
-  await page.mouse.move(box.x + marker.x, box.y + marker.y);
-  const tip = page.locator("#dmChartTooltip");
+  const tip = await hoverLongNameBuyMarker(page);
   await expect(tip).toBeVisible();
   await expect(tip).toContainText("Canadian Silver Maple");
   // intent (STRK-355): the box extends past the old 260px clamp and the buy
