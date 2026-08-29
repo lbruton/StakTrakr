@@ -1,0 +1,2304 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metal Detail Modal — Redesign Playground</title>
+    <!-- Real app stylesheet: the prototype inherits every token, theme, and
+         modal style. Everything in the <style> block below is the DELTA that
+         production would need. Works from file:// or serve from repo root:
+         python3 -m http.server 8000
+         → http://localhost:8000/playground/metal-detail-modal-playground.html -->
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
+         DELTA CSS — proposed production changes for the redesigned details
+         modal ("dm-" prefix). Replaces the two-pie layout inside
+         #detailsModal. Reuses: .modal, .modal-content, .modal-header,
+         .chart-metric-toggle/.chart-metric-btn, .total-group treatment,
+         --type-* chips, metal accent tokens.
+         ═══════════════════════════════════════════════════════════════════ */
+
+      /* 1 ── Header: close on its own top row, then serif title + metal
+             accent underline + quiet substats */
+      .dm-topbar {
+        display: flex;
+        justify-content: flex-end;
+        margin: calc(var(--spacing-sm) * -1) calc(var(--spacing-sm) * -1) 0 0;
+      }
+      .dm-topbar .modal-close {
+        position: static;
+      }
+      .dm-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--spacing);
+        border-bottom: 4px solid var(--border);
+        padding-bottom: var(--spacing-sm);
+        margin-bottom: var(--spacing);
+        flex-wrap: wrap;
+      }
+      .dm-header[data-accent="silver"] {
+        border-bottom-color: var(--silver);
+      }
+      .dm-header[data-accent="gold"] {
+        border-bottom-color: var(--gold);
+      }
+      .dm-header[data-accent="platinum"] {
+        border-bottom-color: var(--platinum);
+      }
+      .dm-header[data-accent="palladium"] {
+        border-bottom-color: var(--palladium);
+      }
+      .dm-header[data-accent="copper"] {
+        border-bottom-color: var(--copper);
+      }
+      .dm-header[data-accent="all"] {
+        border-bottom-color: var(--primary);
+      }
+      .dm-title {
+        font-family: var(--font-heading);
+        font-size: var(--font-size-2xl);
+        font-weight: 400;
+        color: var(--text-primary);
+        margin: 0;
+      }
+      .dm-substats {
+        color: var(--text-muted);
+        font-size: var(--font-size-sm);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+      }
+
+      /* 2 ── KPI strip */
+      .dm-kpis {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing);
+      }
+      .dm-kpi {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: var(--spacing-sm) var(--spacing);
+        min-width: 0;
+      }
+      .dm-kpi-label {
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .dm-kpi-value {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-lg);
+        font-weight: 650;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .dm-kpi-sub {
+        font-size: var(--font-size-xs);
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .dm-kpi--gain .dm-kpi-value,
+      .dm-pos {
+        color: var(--success);
+      }
+      .dm-kpi--loss .dm-kpi-value,
+      .dm-neg {
+        color: var(--danger);
+      }
+
+      /* 3 ── Chart card (inner panel, mirrors .total-group treatment) */
+      .dm-chart-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: var(--spacing);
+        margin-bottom: var(--spacing);
+      }
+      .dm-chart-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+        margin-bottom: var(--spacing-sm);
+      }
+      .dm-series-chips {
+        display: flex;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+      }
+      .dm-series-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        padding: 0.2rem 0.65rem;
+        cursor: pointer;
+        transition: var(--transition);
+        user-select: none;
+      }
+      .dm-series-chip:hover {
+        border-color: var(--border-hover);
+        color: var(--text-primary);
+      }
+      .dm-series-chip[data-on="false"] {
+        opacity: 0.45;
+      }
+      .dm-series-chip[disabled] {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .dm-series-swatch {
+        width: 14px;
+        height: 0;
+        border-top: 3px solid currentColor;
+        border-radius: 2px;
+      }
+      .dm-series-swatch--dash {
+        border-top-style: dashed;
+      }
+      .dm-series-swatch--dot {
+        width: 8px;
+        height: 8px;
+        border: none;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      /* Segmented controls (range + metric): the app's .chart-metric-toggle
+         wrapper adds vertical padding, its own background, and a sticky
+         position — the buttons float in a taller box with mismatched corners.
+         The .dm-seg variant hugs the buttons: wrapper keeps only the border
+         and radius, overflow clips the button corners to match. */
+      .chart-metric-toggle.dm-seg {
+        padding: 0;
+        margin: 0;
+        background: transparent;
+        position: static;
+        overflow: hidden;
+      }
+      .dm-chart-wrap {
+        position: relative;
+      }
+      .dm-chart-wrap svg {
+        display: block;
+        width: 100%;
+      }
+      .dm-substrip {
+        display: flex;
+        gap: var(--spacing);
+        flex-wrap: wrap;
+        margin-top: var(--spacing-sm);
+        padding-top: var(--spacing-sm);
+        border-top: 1px dashed var(--border);
+        font-size: var(--font-size-sm);
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+      }
+      .dm-substrip strong {
+        color: var(--text-secondary);
+        font-weight: 650;
+      }
+
+      /* 4 ── Composition: stacked bar + single-line rows (replaces pies) */
+      .dm-comp-bar {
+        display: flex;
+        height: 14px;
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        margin: var(--spacing-sm) 0;
+      }
+      .dm-comp-seg {
+        min-width: 3px;
+        transition: filter 0.15s;
+      }
+      .dm-comp-seg:hover {
+        filter: brightness(1.25);
+      }
+      .dm-comp-rows {
+        display: flex;
+        flex-direction: column;
+      }
+      .dm-comp-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.3rem 0;
+        border-bottom: 1px dashed var(--border);
+        font-size: var(--font-size-base);
+      }
+      .dm-comp-row:last-child {
+        border-bottom: none;
+      }
+      .dm-comp-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .dm-comp-name {
+        color: var(--text-secondary);
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        flex: 1 1 40%;
+      }
+      .dm-comp-meta {
+        color: var(--text-muted);
+        font-size: var(--font-size-xs);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        flex: 0 1 auto;
+        margin-left: auto;
+      }
+      .dm-comp-val {
+        font-family: var(--font-mono);
+        font-weight: 650;
+        color: var(--text-primary);
+        white-space: nowrap;
+      }
+      .dm-panel-title {
+        font-size: var(--font-size-md);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 var(--spacing-xs) 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      /* 5 ── Mini ledger */
+      .dm-ledger-wrap {
+        overflow: auto;
+        max-height: 300px;
+        border-radius: var(--radius);
+      }
+      table.dm-ledger {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--font-size-base);
+      }
+      .dm-ledger th {
+        position: sticky;
+        top: 0;
+        background: var(--bg-secondary);
+        color: var(--text-muted);
+        font-size: var(--font-size-xs);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: left;
+        padding: 0.35rem 0.5rem;
+        border-bottom: 1px solid var(--border);
+        z-index: 1;
+      }
+      .dm-ledger td {
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px dashed var(--border);
+        white-space: nowrap;
+        color: var(--text-secondary);
+      }
+      .dm-ledger td.num {
+        font-family: var(--font-mono);
+        text-align: right;
+        color: var(--text-primary);
+      }
+      .dm-ledger th.num {
+        text-align: right;
+      }
+      .dm-ledger tbody tr {
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .dm-ledger tbody tr:hover {
+        background: color-mix(in oklch, var(--primary), transparent 92%);
+      }
+      .dm-ledger-date {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-sm);
+        color: var(--text-muted);
+      }
+      /* Full ledger: fixed layout pins the numeric columns; the name column
+         absorbs the remainder. Inside it a flex row lets the name ellipsize
+         while the type chip keeps its full width. */
+      .dm-ledger--full {
+        table-layout: fixed;
+      }
+      .dm-ledger--full th:nth-child(1) {
+        width: 94px;
+      }
+      .dm-ledger--full th:nth-child(3) {
+        width: 42px;
+      }
+      .dm-ledger--full th:nth-child(4) {
+        width: 80px;
+      }
+      .dm-ledger--full th:nth-child(5) {
+        width: 90px;
+      }
+      .dm-ledger--full th:nth-child(6) {
+        width: 50px;
+      }
+      .dm-lrow {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+      .dm-lrow .dm-item-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dm-lrow .dm-type-chip {
+        flex: 0 0 auto;
+        margin-left: 0;
+      }
+      .dm-lrow .dm-metal-dot {
+        flex: 0 0 auto;
+        margin-right: 0;
+      }
+      .dm-ledger--compact td:nth-child(2) {
+        max-width: 108px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .dm-item-name {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .dm-type-chip {
+        display: inline-block;
+        font-size: var(--font-size-xs);
+        font-weight: 650;
+        border-radius: var(--radius-pill);
+        padding: 0.05rem 0.5rem;
+        margin-left: 0.4rem;
+        vertical-align: 1px;
+      }
+      .dm-metal-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 0.4rem;
+      }
+      @keyframes dmFlash {
+        0% {
+          background: color-mix(in oklch, var(--primary), transparent 55%);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      .dm-flash {
+        animation: dmFlash 1.6s ease-out;
+      }
+
+      /* 6 ── Layout variants */
+      .dm-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing);
+        align-items: start;
+      }
+      /* Variant A: ledger earns the wider column */
+      .dm-grid--ledger {
+        grid-template-columns: 0.85fr 1.15fr;
+        align-items: stretch;
+      }
+      /* Variant A: the ledger fills exactly the height the composition column
+         sets — absolute-fill inside the grid cell so it never drives the row
+         height itself; overflow scrolls internally */
+      .dm-ledger-fill {
+        position: relative;
+        min-height: 340px;
+      }
+      .dm-ledger-fill > .dm-panel {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .dm-ledger-fill .dm-ledger-wrap {
+        flex: 1 1 auto;
+        max-height: none;
+        min-height: 0;
+      }
+      .dm-panel {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: var(--spacing);
+        min-width: 0;
+      }
+      /* Variant B — command center: chart 2fr + right rail 1fr */
+      .dm-cc {
+        display: grid;
+        grid-template-columns: 2.1fr 1fr;
+        gap: var(--spacing);
+        align-items: start;
+      }
+      .dm-cc-rail {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing);
+        min-width: 0;
+      }
+      .dm-cc .dm-kpis {
+        grid-template-columns: 1fr 1fr;
+        margin-bottom: 0;
+      }
+      /* Variant C — tabs */
+      .dm-tabbar {
+        margin-bottom: var(--spacing);
+      }
+      /* Scoped to the modal's tab panes — a bare [hidden] override is broader
+         than the app's targeted-override approach (Copilot, PR #1475) */
+      #detailsModal [hidden] {
+        display: none !important;
+      }
+
+      /* 7 ── Footer note */
+      .dm-foot {
+        margin-top: var(--spacing);
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+        text-align: center;
+        font-family: var(--font-mono);
+      }
+      .dm-link {
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .dm-link:hover {
+        text-decoration: underline;
+      }
+
+      /* 8 ── Empty + loading states */
+      .dm-empty {
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 3rem var(--spacing-xl);
+        text-align: center;
+        color: var(--text-muted);
+      }
+      .dm-empty-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.7;
+      }
+      .dm-empty h3 {
+        color: var(--text-secondary);
+        margin: 0 0 0.35rem 0;
+      }
+      .dm-empty p {
+        margin: 0 0 1rem 0;
+        font-size: var(--font-size-base);
+      }
+      .dm-skel {
+        border-radius: var(--radius);
+        background: linear-gradient(
+          100deg,
+          var(--bg-tertiary) 40%,
+          color-mix(in oklch, var(--bg-tertiary), var(--text-muted) 12%) 50%,
+          var(--bg-tertiary) 60%
+        );
+        background-size: 200% 100%;
+        animation: dmShimmer 1.4s infinite linear;
+      }
+      @keyframes dmShimmer {
+        to {
+          background-position: -200% 0;
+        }
+      }
+
+      /* 9 ── Narrow layout (production: @media (max-width: 768px);
+             simulated here via the stage width toggle) */
+      .pg-stage[data-width="narrow"] .dm-grid,
+      .pg-stage[data-width="narrow"] .dm-cc {
+        grid-template-columns: 1fr;
+      }
+      .pg-stage[data-width="narrow"] .dm-kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .pg-stage[data-width="narrow"] .dm-cc .dm-kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .pg-stage[data-width="narrow"] .modal-content {
+        max-width: 420px;
+      }
+      .pg-stage[data-width="narrow"] .dm-substats {
+        display: none;
+      }
+      /* narrow: ledger back to natural flow with its own scroll cap */
+      .pg-stage[data-width="narrow"] .dm-ledger-fill {
+        min-height: 0;
+      }
+      .pg-stage[data-width="narrow"] .dm-ledger-fill > .dm-panel {
+        position: static;
+      }
+      .pg-stage[data-width="narrow"] .dm-ledger-fill .dm-ledger-wrap {
+        max-height: 300px;
+      }
+      /* narrow: ledger slims to Date · Item · Qty · ±% */
+      .pg-stage[data-width="narrow"] .dm-ledger--full th:nth-child(4),
+      .pg-stage[data-width="narrow"] .dm-ledger--full td:nth-child(4),
+      .pg-stage[data-width="narrow"] .dm-ledger--full th:nth-child(5),
+      .pg-stage[data-width="narrow"] .dm-ledger--full td:nth-child(5) {
+        display: none;
+      }
+
+      /* 10 ── Dashboard summary-card redesign (bonus section) */
+      .dm-card2-hero {
+        position: relative;
+        margin: 0 0 var(--spacing-sm) 0;
+      }
+      .dm-card2-spark {
+        display: block;
+        width: 100%;
+        height: 56px;
+      }
+      .dm-card2-melt-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .dm-card2-melt {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-2xl);
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+      .dm-card2-gain-chip {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-sm);
+        font-weight: 700;
+        border-radius: var(--radius-pill);
+        padding: 0.1rem 0.55rem;
+        background: color-mix(in oklch, var(--success), transparent 85%);
+        color: var(--success);
+      }
+      .dm-card2-gain-chip.neg {
+        background: color-mix(in oklch, var(--danger), transparent 85%);
+        color: var(--danger);
+      }
+      .dm-card2-minigrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 var(--spacing);
+        margin-top: var(--spacing-sm);
+      }
+      .dm-card2-minigrid .total-item {
+        padding: 0.25rem 0;
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         PLAYGROUND CHROME ONLY — none of this ships.
+         ═══════════════════════════════════════════════════════════════════ */
+      body {
+        margin: 0;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+      }
+      .pg-controls {
+        position: sticky;
+        top: 0;
+        z-index: 500;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem 1.1rem;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        background: color-mix(in oklch, var(--bg-secondary), transparent 4%);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border);
+        font-size: var(--font-size-sm);
+      }
+      .pg-group {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .pg-group-label {
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.05em;
+      }
+      .pg-seg {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+      }
+      .pg-seg button {
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-weight: 600;
+        padding: 0.28rem 0.7rem;
+        cursor: pointer;
+      }
+      .pg-seg button:hover {
+        color: var(--text-primary);
+        background: color-mix(in oklch, var(--primary), transparent 90%);
+      }
+      .pg-seg button.active {
+        background: var(--primary);
+        color: var(--text-inverse);
+      }
+      .pg-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .pg-check input {
+        accent-color: var(--primary);
+      }
+      select.pg-select {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font: inherit;
+        padding: 0.25rem 0.5rem;
+      }
+      .pg-stage {
+        padding: 2rem 1rem 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        background:
+          radial-gradient(
+            1100px 500px at 50% -10%,
+            color-mix(in oklch, var(--primary), transparent 92%),
+            transparent
+          ),
+          var(--bg-primary);
+        min-height: 60vh;
+      }
+      /* Un-fix the real .modal so it renders in-flow inside the stage */
+      .pg-stage .modal {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        height: auto;
+        background: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        padding: 0;
+        animation: none;
+        z-index: 1;
+        display: block;
+      }
+      /* The app ships #detailsModal .modal-content { padding:0; max-width:1200px;
+         display:flex; overflow:hidden } for the pie layout — ID specificity, so
+         the stage overrides must carry the ID too. Production: those ID rules
+         get updated alongside this redesign. */
+      .pg-stage #detailsModal .modal-content {
+        max-height: none;
+        overflow: visible;
+        margin: 0 auto;
+        max-width: 1100px;
+        width: 100%;
+        display: block;
+        padding: var(--spacing-xl);
+      }
+      .pg-stage[data-width="narrow"] #detailsModal .modal-content {
+        max-width: 420px;
+      }
+      .pg-bonus {
+        width: 100%;
+        max-width: 1200px;
+      }
+      .pg-bonus-grid {
+        display: grid;
+        grid-template-columns: 340px 340px;
+        gap: 1.5rem;
+        justify-content: center;
+        align-items: start;
+      }
+      .pg-bonus-col-label {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: var(--font-size-sm);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+      }
+      .pg-prompt-bar {
+        max-width: 1200px;
+        margin: 1rem auto 3rem;
+        padding: 0 1rem;
+      }
+      .pg-prompt {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1rem;
+        font-family: var(--font-mono);
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+        line-height: 1.55;
+      }
+      .pg-copy {
+        margin-top: 0.5rem;
+        border: none;
+        border-radius: var(--radius-pill);
+        background: var(--primary);
+        color: var(--text-inverse);
+        font: inherit;
+        font-weight: 700;
+        padding: 0.45rem 1.2rem;
+        cursor: pointer;
+      }
+      .pg-copy:hover {
+        background: var(--primary-hover);
+      }
+      #pgToast {
+        position: fixed;
+        bottom: 1.2rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-hover);
+        border-radius: var(--radius-pill);
+        padding: 0.5rem 1.1rem;
+        font-size: var(--font-size-base);
+        font-weight: 600;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
+        z-index: 900;
+        box-shadow: var(--shadow-lg);
+      }
+      #pgToast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      #pgTooltip {
+        position: fixed;
+        z-index: 950;
+        pointer-events: none;
+        display: none;
+        background: color-mix(in oklch, var(--bg-tertiary), transparent 5%);
+        border: 1px solid var(--border-hover);
+        border-radius: var(--radius);
+        padding: 0.45rem 0.6rem;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        box-shadow: var(--shadow-lg);
+        font-family: var(--font-mono);
+        line-height: 1.5;
+        max-width: 260px;
+        white-space: nowrap;
+      }
+      #pgTooltip .tt-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-family: var(--font-body);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ══════════════ CONTROLS ══════════════ -->
+    <div class="pg-controls">
+      <div class="pg-group">
+        <span class="pg-group-label">Preset</span>
+        <select class="pg-select" id="ctlPreset">
+          <option value="">— pick —</option>
+          <option value="story">Recommended · Story / dark / All</option>
+          <option value="terminal">Terminal · Command Center / slate / Silver</option>
+          <option value="tabbed">Calm · Tabs / light / Gold</option>
+          <option value="mobile">Mobile check · narrow / Silver</option>
+          <option value="edge">Edge states · empty / sepia</option>
+        </select>
+      </div>
+      <div class="pg-group">
+        <span class="pg-group-label">Variant</span>
+        <span class="pg-seg" id="ctlVariant">
+          <button data-v="A" class="active">A · Stack Story</button>
+          <button data-v="B">B · Command Center</button>
+          <button data-v="C">C · Focus Tabs</button>
+        </span>
+      </div>
+      <div class="pg-group">
+        <span class="pg-group-label">Scope</span>
+        <span class="pg-seg" id="ctlMetal">
+          <button data-m="All" class="active">All</button>
+          <button data-m="Silver">Silver</button>
+          <button data-m="Gold">Gold</button>
+          <button data-m="Copper">Copper</button>
+        </span>
+      </div>
+      <div class="pg-group">
+        <span class="pg-group-label">Theme</span>
+        <span class="pg-seg" id="ctlTheme">
+          <button data-t="dark" class="active">Dark</button>
+          <button data-t="light">Light</button>
+          <button data-t="slate">Slate</button>
+          <button data-t="sepia">Sepia</button>
+        </span>
+      </div>
+      <div class="pg-group">
+        <span class="pg-group-label">State</span>
+        <span class="pg-seg" id="ctlState">
+          <button data-s="populated" class="active">Populated</button>
+          <button data-s="loading">Loading</button>
+          <button data-s="empty">Empty</button>
+        </span>
+      </div>
+      <div class="pg-group">
+        <span class="pg-group-label">Width</span>
+        <span class="pg-seg" id="ctlWidth">
+          <button data-w="desktop" class="active">Desktop</button>
+          <button data-w="narrow">Mobile</button>
+        </span>
+      </div>
+      <div class="pg-group">
+        <label class="pg-check"
+          ><input type="checkbox" id="ctlBonus" /> Dashboard card redesign</label
+        >
+      </div>
+    </div>
+
+    <!-- ══════════════ STAGE ══════════════ -->
+    <div class="pg-stage" id="pgStage" data-width="desktop">
+      <div
+        class="modal"
+        id="detailsModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dmTitle"
+      >
+        <div class="modal-content" id="dmContent">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Bonus: dashboard summary card, current vs proposed -->
+      <section class="pg-bonus" id="pgBonus" hidden>
+        <div class="pg-bonus-grid" id="pgBonusGrid"></div>
+      </section>
+    </div>
+
+    <!-- ══════════════ PROMPT ══════════════ -->
+    <div class="pg-prompt-bar">
+      <div class="pg-prompt" id="pgPrompt"></div>
+      <button class="pg-copy" id="pgCopy">Copy Prompt</button>
+    </div>
+
+    <div id="pgToast"></div>
+    <div id="pgTooltip"></div>
+
+    <script>
+      "use strict";
+      /* ════════════════════════════════════════════════════════════════
+         PLAYGROUND STATE
+         ════════════════════════════════════════════════════════════════ */
+      const DEFAULTS = {
+        variant: "A",
+        metal: "All",
+        theme: "dark",
+        dataState: "populated",
+        width: "desktop",
+        range: "1Y",
+        metric: "melt",
+        tab: "performance",
+        showSpot: true,
+        showBasis: true,
+        showBuys: true,
+        bonus: false,
+      };
+      const state = { ...DEFAULTS };
+
+      /* ════════════════════════════════════════════════════════════════
+         SAMPLE DATA — mirrors the real portfolio's scale (EUR).
+         Deterministic: seeded LCG, same picture on every load.
+         ════════════════════════════════════════════════════════════════ */
+      let _seed = 42;
+      const rnd = () => (_seed = (_seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+
+      const DAY = 86400000;
+      const START = Date.UTC(2024, 0, 1);
+      const END = Date.UTC(2026, 7, 28); // 2026-08-28
+      const N_DAYS = Math.round((END - START) / DAY) + 1;
+      const dates = Array.from({ length: N_DAYS }, (_, i) => new Date(START + i * DAY));
+      const dIdx = (iso) =>
+        Math.round(
+          (Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - START) / DAY
+        );
+
+      // Spot anchors (EUR/ozt) → linear interpolation + gentle noise
+      const anchorSeries = (anchors, noise) => {
+        const pts = anchors.map(([iso, v]) => [dIdx(iso), v]);
+        const out = new Array(N_DAYS);
+        let a = 0;
+        for (let i = 0; i < N_DAYS; i++) {
+          while (a < pts.length - 2 && i > pts[a + 1][0]) a++;
+          const [x0, y0] = pts[a],
+            [x1, y1] = pts[Math.min(a + 1, pts.length - 1)];
+          const t = x1 === x0 ? 0 : Math.min(1, Math.max(0, (i - x0) / (x1 - x0)));
+          const base = y0 + (y1 - y0) * t;
+          out[i] = base * (1 + (rnd() - 0.5) * noise);
+        }
+        // pin the final value exactly
+        out[N_DAYS - 1] = pts[pts.length - 1][1];
+        return out;
+      };
+
+      const SPOT = {
+        Silver: anchorSeries(
+          [
+            ["2024-01-01", 21.4],
+            ["2024-04-15", 24.8],
+            ["2024-08-01", 26.4],
+            ["2025-01-05", 28.9],
+            ["2025-06-10", 33.5],
+            ["2025-12-01", 42.0],
+            ["2026-04-01", 55.5],
+            ["2026-05-30", 64.9],
+            ["2026-07-10", 52.6],
+            ["2026-08-28", 57.17],
+          ],
+          0.012
+        ),
+        Gold: anchorSeries(
+          [
+            ["2024-01-01", 1867],
+            ["2024-07-01", 2130],
+            ["2025-01-05", 2480],
+            ["2025-07-01", 2900],
+            ["2026-01-05", 3300],
+            ["2026-04-10", 3980],
+            ["2026-05-30", 3910],
+            ["2026-07-10", 3655],
+            ["2026-08-28", 3837.57],
+          ],
+          0.007
+        ),
+        Copper: anchorSeries(
+          [
+            ["2024-01-01", 0.271],
+            ["2025-01-05", 0.292],
+            ["2025-12-01", 0.305],
+            ["2026-05-30", 0.314],
+            ["2026-08-28", 0.324],
+          ],
+          0.006
+        ),
+      };
+
+      // Inventory line items. weightOz = per-unit troy oz (already derived for
+      // constitutional lots, matching getConstitutionalSilverOz semantics).
+      const ITEMS = [
+        {
+          name: "American Silver Eagle 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 10,
+          weightOz: 1,
+          purity: 0.999,
+          price: 38.5,
+          retail: 52,
+          vendor: "apmex.com",
+          date: "2024-02-14",
+        },
+        {
+          name: "Canadian Maple Leaf 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 20,
+          weightOz: 1,
+          purity: 0.9999,
+          price: 36.2,
+          retail: 49,
+          vendor: "sdbullion.com",
+          date: "2024-03-08",
+        },
+        {
+          name: "Austrian Philharmonic 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 12,
+          weightOz: 1,
+          purity: 0.999,
+          price: 35.9,
+          retail: 48,
+          vendor: "bullionexchanges.com",
+          date: "2024-05-21",
+        },
+        {
+          name: "Britannia 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 15,
+          weightOz: 1,
+          purity: 0.999,
+          price: 37.1,
+          retail: 50,
+          vendor: "herobullion.com",
+          date: "2024-07-30",
+        },
+        {
+          name: "Generic Silver Round 1 oz",
+          metal: "Silver",
+          type: "Round",
+          qty: 40,
+          weightOz: 1,
+          purity: 0.999,
+          price: 33.8,
+          retail: 46,
+          vendor: "monumentmetals.com",
+          date: "2024-10-12",
+        },
+        {
+          name: "Generic Silver Bar 10 oz",
+          metal: "Silver",
+          type: "Bar",
+          qty: 3,
+          weightOz: 10,
+          purity: 0.999,
+          price: 332,
+          retail: 470,
+          vendor: "silvergoldbull.com",
+          date: "2025-01-17",
+        },
+        {
+          name: "Krugerrand Silver 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 8,
+          weightOz: 1,
+          purity: 0.999,
+          price: 36.4,
+          retail: 49,
+          vendor: "ebay.com",
+          date: "2025-03-05",
+        },
+        {
+          name: "Australian Silver Koala 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 10,
+          weightOz: 1,
+          purity: 0.9999,
+          price: 37.8,
+          retail: 51,
+          vendor: "ebay.com",
+          date: "2025-05-22",
+        },
+        {
+          name: "90% Mercury Dimes — $5 FV",
+          metal: "Silver",
+          type: "Constitutional",
+          qty: 2,
+          weightOz: 3.575,
+          purity: 1,
+          price: 118,
+          retail: 165,
+          vendor: "Local coin shop",
+          date: "2025-08-14",
+        },
+        {
+          name: "Silver Bar 5 oz",
+          metal: "Silver",
+          type: "Bar",
+          qty: 2,
+          weightOz: 5,
+          purity: 0.999,
+          price: 168,
+          retail: 235,
+          vendor: "apmex.com",
+          date: "2025-11-03",
+        },
+        {
+          name: "Kookaburra 2 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 3,
+          weightOz: 2,
+          purity: 0.9999,
+          price: 72.5,
+          retail: 98,
+          vendor: "ebay.com",
+          date: "2026-01-26",
+        },
+        {
+          name: "American Silver Eagle 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 15,
+          weightOz: 1,
+          purity: 0.999,
+          price: 41.2,
+          retail: 58,
+          vendor: "monumentmetals.com",
+          date: "2026-03-19",
+        },
+        {
+          name: "Morgan Design Round 1 oz",
+          metal: "Silver",
+          type: "Round",
+          qty: 20,
+          weightOz: 1,
+          purity: 0.999,
+          price: 34.6,
+          retail: 47,
+          vendor: "monumentmetals.com",
+          date: "2026-05-28",
+        },
+        {
+          name: "Canadian Maple Leaf 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 10,
+          weightOz: 1,
+          purity: 0.9999,
+          price: 44.9,
+          retail: 60,
+          vendor: "ebay.com",
+          date: "2026-07-15",
+        },
+        {
+          name: "Britannia 1 oz",
+          metal: "Silver",
+          type: "Coin",
+          qty: 5,
+          weightOz: 1,
+          purity: 0.999,
+          price: 46.3,
+          retail: 62,
+          vendor: "herobullion.com",
+          date: "2026-08-09",
+        },
+        {
+          name: "G1 Utah Goldback",
+          metal: "Gold",
+          type: "Goldback",
+          qty: 5,
+          weightOz: 0.001,
+          purity: 0.9999,
+          price: 6.8,
+          retail: 9.1,
+          vendor: "goldback.com",
+          date: "2025-02-10",
+        },
+        {
+          name: "G1 Wyoming Goldback",
+          metal: "Gold",
+          type: "Goldback",
+          qty: 5,
+          weightOz: 0.001,
+          purity: 0.9999,
+          price: 6.8,
+          retail: 9.1,
+          vendor: "goldback.com",
+          date: "2025-06-14",
+        },
+        {
+          name: "G5 South Dakota Goldback",
+          metal: "Gold",
+          type: "Goldback",
+          qty: 2,
+          weightOz: 0.005,
+          purity: 0.9999,
+          price: 33.5,
+          retail: 45,
+          vendor: "ebay.com",
+          date: "2026-02-08",
+        },
+        {
+          name: "G10 Goldback",
+          metal: "Gold",
+          type: "Goldback",
+          qty: 1,
+          weightOz: 0.01,
+          purity: 0.9999,
+          price: 66,
+          retail: 90,
+          vendor: "ebay.com",
+          date: "2026-04-12",
+        },
+        {
+          name: "PAMP Suisse Bar 1 g",
+          metal: "Gold",
+          type: "Bar",
+          qty: 1,
+          weightOz: 0.0322,
+          purity: 0.9999,
+          price: 98,
+          retail: 122,
+          vendor: "apmex.com",
+          date: "2026-06-20",
+        },
+        {
+          name: "American Gold Eagle 1/10 oz",
+          metal: "Gold",
+          type: "Coin",
+          qty: 1,
+          weightOz: 0.1,
+          purity: 0.9167,
+          price: 352,
+          retail: 415,
+          vendor: "bullionexchanges.com",
+          date: "2026-08-21",
+        },
+        {
+          name: "Copper Round 1 oz — Morgan",
+          metal: "Copper",
+          type: "Round",
+          qty: 1,
+          weightOz: 1,
+          purity: 0.999,
+          price: 12.92,
+          retail: 25.83,
+          retailFixed: 25.83,
+          vendor: "ebay.com",
+          date: "2026-08-02",
+        },
+      ].map((it, i) => ({ ...it, id: i }));
+
+      const REALIZED = { All: 298.68, Silver: 298.68, Gold: 0, Copper: 0 };
+
+      /* ════════════════════════════════════════════════════════════════
+         DERIVED SERIES — ledger-driven, backdated to first purchase
+         ════════════════════════════════════════════════════════════════ */
+      // weightOz already stores derived per-unit oz (constitutional lots included)
+      const itemOz = (it) => it.qty * it.weightOz;
+      const itemMeltAt = (it, i) => itemOz(it) * it.purity * SPOT[it.metal][i];
+
+      // Retail tracks the market: melt-now × type premium (copper rounds and
+      // goldbacks carry fixed/outsized premiums, mirroring real listings)
+      const RETAIL_PREM = {
+        Coin: 1.12,
+        Round: 1.08,
+        Bar: 1.06,
+        Goldback: 1.42,
+        Constitutional: 1.05,
+      };
+      const retailOf = (it) =>
+        it.retailFixed != null
+          ? it.qty * it.retailFixed
+          : itemMeltAt(it, N_DAYS - 1) * (RETAIL_PREM[it.type] || 1.1);
+
+      const seriesCache = {};
+      function computeSeries(scope) {
+        if (seriesCache[scope]) return seriesCache[scope];
+        const items = ITEMS.filter((it) => scope === "All" || it.metal === scope);
+        const melt = new Array(N_DAYS).fill(0);
+        const basis = new Array(N_DAYS).fill(0);
+        items.forEach((it) => {
+          const from = dIdx(it.date);
+          const cost = it.qty * it.price;
+          for (let i = from; i < N_DAYS; i++) {
+            melt[i] += itemMeltAt(it, i);
+            basis[i] += cost;
+          }
+        });
+        // group buys by date for chart markers
+        const buyMap = new Map();
+        items.forEach((it) => {
+          const k = dIdx(it.date);
+          if (!buyMap.has(k)) buyMap.set(k, { idx: k, items: [], total: 0 });
+          const b = buyMap.get(k);
+          b.items.push(it);
+          b.total += it.qty * it.price;
+        });
+        const buys = [...buyMap.values()].sort((a, b) => a.idx - b.idx);
+        const firstBuy = buys.length ? buys[0].idx : 0;
+        const out = {
+          items,
+          melt,
+          basis,
+          buys,
+          firstBuy,
+          spot: scope === "All" ? null : SPOT[scope],
+        };
+        seriesCache[scope] = out;
+        return out;
+      }
+
+      function scopeTotals(scope) {
+        const s = computeSeries(scope);
+        const last = N_DAYS - 1;
+        const purchase = s.basis[last];
+        const melt = s.melt[last];
+        const retail = s.items.reduce((a, it) => a + retailOf(it), 0);
+        const oz = s.items.reduce((a, it) => a + itemOz(it), 0);
+        const count = s.items.reduce((a, it) => a + it.qty, 0);
+        return {
+          purchase,
+          melt,
+          retail,
+          oz,
+          count,
+          gain: retail - purchase,
+          gainPct: purchase ? ((retail - purchase) / purchase) * 100 : 0,
+          avgCost: oz ? purchase / oz : 0,
+          realized: REALIZED[scope] || 0,
+          firstDate: s.buys.length ? dates[s.firstBuy] : null,
+        };
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         FORMAT HELPERS
+         ════════════════════════════════════════════════════════════════ */
+      const eur = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" });
+      const eur0 = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0,
+      });
+      const fmt = (v) => eur.format(v);
+      const fmtK = (v) =>
+        Math.abs(v) >= 10000 ? "€" + (v / 1000).toFixed(1) + "k" : eur0.format(v);
+      // dates[] are UTC-midnight keys — format in the UTC frame or negative
+      // offsets display the previous calendar day
+      const fmtDate = (d) => d.toLocaleDateString("en-CA", { timeZone: "UTC" });
+      const fmtMon = (d) =>
+        d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+      const sign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "");
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"']/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+        );
+
+      const cssVar = (name) =>
+        getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      const METAL_VAR = {
+        Silver: "--silver",
+        Gold: "--gold",
+        Platinum: "--platinum",
+        Palladium: "--palladium",
+        Copper: "--copper",
+        All: "--primary",
+      };
+      const metalColor = (m) => cssVar(METAL_VAR[m] || "--primary");
+      const TYPE_VAR = {
+        Coin: "coin",
+        Round: "round",
+        Bar: "bar",
+        Note: "note",
+        Goldback: "goldback",
+        Constitutional: "constitutional",
+      };
+
+      const RANGES = { "30D": 30, "90D": 90, "1Y": 365, ALL: Infinity };
+
+      /* ════════════════════════════════════════════════════════════════
+         SVG CHART — hero portfolio chart
+         (prototype for a Chart.js 3.9.1 dual-axis implementation)
+         ════════════════════════════════════════════════════════════════ */
+      function renderChart(host, scope, heightPx) {
+        const s = computeSeries(scope);
+        const days = RANGES[state.range];
+        const start = days === Infinity ? Math.max(0, s.firstBuy - 14) : N_DAYS - days;
+        const i0 = Math.max(0, start),
+          i1 = N_DAYS - 1;
+        const W = Math.max(320, host.clientWidth || 640);
+        const H = heightPx;
+        const PAD = { l: 46, r: state.showSpot && s.spot ? 44 : 12, t: 10, b: 22 };
+        const iw = W - PAD.l - PAD.r,
+          ih = H - PAD.t - PAD.b;
+        const n = i1 - i0;
+        const x = (i) => PAD.l + ((i - i0) / n) * iw;
+
+        const win = (arr) => arr.slice(i0, i1 + 1);
+        const meltW = win(s.melt),
+          basisW = win(s.basis);
+        let lo = Infinity,
+          hi = -Infinity;
+        meltW.forEach((v) => {
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        });
+        if (state.showBasis)
+          basisW.forEach((v) => {
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
+          });
+        if (hi === lo) {
+          hi += 1;
+          lo = Math.max(0, lo - 1);
+        }
+        const padV = (hi - lo) * 0.08;
+        lo = Math.max(0, lo - padV);
+        hi += padV;
+        const y = (v) => PAD.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+        let sLo = 0,
+          sHi = 1,
+          ys = null;
+        if (state.showSpot && s.spot) {
+          const spotW = win(s.spot);
+          sLo = Math.min(...spotW);
+          sHi = Math.max(...spotW);
+          const sp = (sHi - sLo) * 0.08 || 1;
+          sLo -= sp;
+          sHi += sp;
+          ys = (v) => PAD.t + ih - ((v - sLo) / (sHi - sLo)) * ih;
+        }
+
+        const accent = metalColor(scope);
+        const basisCol = cssVar("--text-muted");
+        const spotCol = cssVar("--info");
+        const gridCol = cssVar("--border");
+        const txtCol = cssVar("--text-muted");
+
+        const pathOf = (arr, yFn) => {
+          let d = "";
+          for (let i = i0; i <= i1; i++) {
+            d += (i === i0 ? "M" : "L") + x(i).toFixed(1) + " " + yFn(arr[i]).toFixed(1);
+          }
+          return d;
+        };
+
+        const meltPath = pathOf(s.melt, y);
+        const areaPath =
+          meltPath +
+          `L${x(i1).toFixed(1)} ${(PAD.t + ih).toFixed(1)}L${x(i0).toFixed(1)} ${(PAD.t + ih).toFixed(1)}Z`;
+
+        // stepped cost-basis path
+        let basisPath = "";
+        if (state.showBasis) {
+          basisPath = `M${x(i0).toFixed(1)} ${y(s.basis[i0]).toFixed(1)}`;
+          for (let i = i0 + 1; i <= i1; i++) {
+            if (s.basis[i] !== s.basis[i - 1]) {
+              basisPath += `L${x(i).toFixed(1)} ${y(s.basis[i - 1]).toFixed(1)}L${x(i).toFixed(1)} ${y(s.basis[i]).toFixed(1)}`;
+            }
+          }
+          basisPath += `L${x(i1).toFixed(1)} ${y(s.basis[i1]).toFixed(1)}`;
+        }
+
+        // horizontal gridlines + left labels
+        let grid = "",
+          labels = "";
+        for (let g = 0; g <= 3; g++) {
+          const vy = PAD.t + (ih / 3) * g;
+          const val = hi - ((hi - lo) / 3) * g;
+          grid += `<line x1="${PAD.l}" y1="${vy}" x2="${W - PAD.r}" y2="${vy}" stroke="${gridCol}" stroke-dasharray="2 4" stroke-width="1"/>`;
+          labels += `<text x="${PAD.l - 6}" y="${vy + 3}" text-anchor="end" font-size="10" fill="${txtCol}" font-family="var(--font-mono)">${fmtK(val)}</text>`;
+        }
+        if (ys) {
+          for (let g = 0; g <= 3; g += 3) {
+            const vy = PAD.t + (ih / 3) * g;
+            const val = sHi - ((sHi - sLo) / 3) * g;
+            labels += `<text x="${W - PAD.r + 6}" y="${vy + 3}" text-anchor="start" font-size="10" fill="${spotCol}" font-family="var(--font-mono)">€${val >= 100 ? val.toFixed(0) : val.toFixed(2)}</text>`;
+          }
+        }
+        // x labels
+        const ticks = 4;
+        for (let g = 0; g <= ticks; g++) {
+          const i = Math.round(i0 + (n / ticks) * g);
+          labels += `<text x="${x(i)}" y="${H - 6}" text-anchor="${g === 0 ? "start" : g === ticks ? "end" : "middle"}" font-size="10" fill="${txtCol}" font-family="var(--font-mono)">${fmtMon(dates[i])}</text>`;
+        }
+
+        // acquisition markers (grouped per date)
+        let markers = "";
+        const winBuys = s.buys.filter((b) => b.idx >= i0 && b.idx <= i1);
+        if (state.showBuys) {
+          winBuys.forEach((b) => {
+            const r = Math.max(3.5, Math.min(8, Math.sqrt(b.total) / 5));
+            const fill = scope === "All" ? metalColor(b.items[0].metal) : accent;
+            markers += `<circle class="dm-buy" data-buy="${b.idx}" cx="${x(b.idx).toFixed(1)}" cy="${y(s.melt[b.idx]).toFixed(1)}" r="${r.toFixed(1)}" fill="${fill}" stroke="${cssVar("--bg-primary")}" stroke-width="1.5" style="cursor:pointer"/>`;
+          });
+        }
+
+        const spotPath = ys ? pathOf(s.spot, ys) : "";
+        const gid = "dmGrad" + scope;
+
+        host.innerHTML = `
+          <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Portfolio value over time">
+            <defs>
+              <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${accent}" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            ${grid}
+            <path d="${areaPath}" fill="url(#${gid})"/>
+            ${state.showBasis ? `<path d="${basisPath}" fill="none" stroke="${basisCol}" stroke-width="1.4" opacity="0.9"/>` : ""}
+            ${ys ? `<path d="${spotPath}" fill="none" stroke="${spotCol}" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.9"/>` : ""}
+            <path d="${meltPath}" fill="none" stroke="${accent}" stroke-width="2"/>
+            <line id="dmCross" x1="0" y1="${PAD.t}" x2="0" y2="${PAD.t + ih}" stroke="${txtCol}" stroke-width="1" opacity="0" stroke-dasharray="3 3"/>
+            ${labels}
+            <rect id="dmHover" x="${PAD.l}" y="${PAD.t}" width="${iw}" height="${ih}" fill="transparent"/>
+            ${markers}
+          </svg>`;
+
+        // ── interactions ──
+        const svg = host.querySelector("svg");
+        const cross = svg.querySelector("#dmCross");
+        const hover = svg.querySelector("#dmHover");
+        const tip = document.getElementById("pgTooltip");
+        const showTip = (html, cx, cy) => {
+          tip.innerHTML = html;
+          tip.style.display = "block";
+          const r = tip.getBoundingClientRect();
+          tip.style.left = Math.min(window.innerWidth - r.width - 12, cx + 14) + "px";
+          tip.style.top = Math.max(8, cy - r.height - 10) + "px";
+        };
+        hover.addEventListener("mousemove", (ev) => {
+          const box = svg.getBoundingClientRect();
+          const px = ((ev.clientX - box.left) / box.width) * W;
+          const i = Math.round(i0 + Math.min(1, Math.max(0, (px - PAD.l) / iw)) * n);
+          cross.setAttribute("x1", x(i));
+          cross.setAttribute("x2", x(i));
+          cross.setAttribute("opacity", "0.6");
+          const g = s.melt[i] - s.basis[i];
+          showTip(
+            `<div class="tt-title">${fmtDate(dates[i])}</div>` +
+              `Melt <strong>${fmt(s.melt[i])}</strong><br>` +
+              (state.showBasis ? `Cost basis ${fmt(s.basis[i])}<br>` : "") +
+              (ys ? `Spot €${s.spot[i].toFixed(2)}/oz<br>` : "") +
+              `<span class="${g >= 0 ? "dm-pos" : "dm-neg"}">${sign(g)}${fmt(Math.abs(g))} vs basis</span>`,
+            ev.clientX,
+            ev.clientY
+          );
+        });
+        hover.addEventListener("mouseleave", () => {
+          cross.setAttribute("opacity", "0");
+          tip.style.display = "none";
+        });
+        svg.querySelectorAll(".dm-buy").forEach((c) => {
+          const b = winBuys.find((bb) => bb.idx === +c.dataset.buy);
+          c.addEventListener("mousemove", (ev) => {
+            ev.stopPropagation();
+            const lines = b.items
+              .map((it) => `${esc(it.name)} ×${it.qty} — ${fmt(it.qty * it.price)}`)
+              .join("<br>");
+            showTip(
+              `<div class="tt-title">Acquired ${fmtDate(dates[b.idx])}</div>${lines}` +
+                `<br><span style="opacity:.75">click → ledger row</span>`,
+              ev.clientX,
+              ev.clientY
+            );
+          });
+          c.addEventListener("click", () => {
+            const row = document.querySelector(`tr[data-buy="${b.idx}"]`);
+            if (row) {
+              row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              row.classList.remove("dm-flash");
+              void row.offsetWidth;
+              row.classList.add("dm-flash");
+            } else {
+              toast("Opens the ledger row for this acquisition");
+            }
+          });
+        });
+
+        // substrip stats for the visible window — market gain excludes new
+        // contributions so growth from buying isn't presented as performance
+        const delta = s.melt[i1] - s.melt[i0];
+        const invested = s.basis[i1] - s.basis[i0];
+        const market = delta - invested;
+        // % relative to capital deployed, not the window-start value: both
+        // melt[i0] and basis[i0] can be 0 (the ALL range starts before the
+        // first buy), so a start-of-window denominator divides by zero. A
+        // proper money-weighted return is a production concern (STRK-352).
+        const deltaPct = s.basis[i1] ? (market / s.basis[i1]) * 100 : 0;
+        const ozBought = winBuys.reduce(
+          (a, b) => a + b.items.reduce((aa, it) => aa + itemOz(it), 0),
+          0
+        );
+        const months = Math.max(1 / 30, (i1 - i0) / 30.44);
+        return { delta, market, deltaPct, invested, buys: winBuys.length, pace: ozBought / months };
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         MODAL SECTION BUILDERS
+         ════════════════════════════════════════════════════════════════ */
+      const segBtns = (pairs, activeKey, cls, dataKey) =>
+        `<div class="chart-metric-toggle dm-seg ${cls || ""}">` +
+        pairs
+          .map(
+            ([k, label]) =>
+              `<button type="button" class="chart-metric-btn${k === activeKey ? " active" : ""}" data-${dataKey}="${k}">${label}</button>`
+          )
+          .join("") +
+        `</div>`;
+
+      function kpiStripHTML(t) {
+        const gainCls = t.gain >= 0 ? "dm-kpi--gain" : "dm-kpi--loss";
+        // SPOT has no series for every scope (e.g. Platinum via the edge
+        // preset) — tolerate missing spot data instead of throwing
+        const spotSeries = state.metal !== "All" ? SPOT[state.metal] : null;
+        const spotNow = spotSeries ? spotSeries[N_DAYS - 1] : null;
+        const premium = spotNow && t.oz ? (t.avgCost / spotNow - 1) * 100 : null;
+        return `<div class="dm-kpis">
+          <div class="dm-kpi"><div class="dm-kpi-label">Purchase</div><div class="dm-kpi-value">${fmt(t.purchase)}</div>
+            <div class="dm-kpi-sub">${t.avgCost ? fmt(t.avgCost) + "/oz avg" : "—"}</div></div>
+          <div class="dm-kpi"><div class="dm-kpi-label">Melt Value</div><div class="dm-kpi-value">${fmt(t.melt)}</div>
+            <div class="dm-kpi-sub">${premium !== null ? "bought " + (premium >= 0 ? "+" : "") + premium.toFixed(1) + "% vs spot now" : "at today's spot"}</div></div>
+          <div class="dm-kpi"><div class="dm-kpi-label">Retail Value</div><div class="dm-kpi-value">${fmt(t.retail)}</div>
+            <div class="dm-kpi-sub">est. replacement</div></div>
+          <div class="dm-kpi ${gainCls}"><div class="dm-kpi-label">Unrealized</div>
+            <div class="dm-kpi-value">${sign(t.gain)}${fmt(Math.abs(t.gain))}</div>
+            <div class="dm-kpi-sub">${sign(t.gainPct)}${Math.abs(t.gainPct).toFixed(1)}% vs purchase</div></div>
+          <div class="dm-kpi"><div class="dm-kpi-label">Realized</div><div class="dm-kpi-value">${fmt(t.realized)}</div>
+            <div class="dm-kpi-sub">from disposed items</div></div>
+        </div>`;
+      }
+
+      function chartCardHTML(scope) {
+        const spotDisabled = scope === "All";
+        const chip = (key, label, swatchCls, color, on, disabled) =>
+          `<button type="button" class="dm-series-chip" data-series="${key}" data-on="${on}" ${disabled ? 'disabled title="Per-metal scope only"' : ""}>
+             <span class="dm-series-swatch ${swatchCls}" style="color:${color}"></span>${label}</button>`;
+        const accent = metalColor(scope);
+        return `<div class="dm-chart-card">
+          <div class="dm-chart-head">
+            <div class="dm-series-chips">
+              <span class="dm-series-chip" data-on="true" style="cursor:default"><span class="dm-series-swatch" style="color:${accent}"></span>Melt value</span>
+              ${chip("basis", "Cost basis", "", "var(--text-muted)", state.showBasis)}
+              ${chip("spot", "Spot €/oz", "dm-series-swatch--dash", "var(--info)", state.showSpot && !spotDisabled, spotDisabled)}
+              ${chip("buys", "Buys", "dm-series-swatch--dot", accent, state.showBuys)}
+            </div>
+            ${segBtns(
+              Object.keys(RANGES).map((r) => [r, r]),
+              state.range,
+              "",
+              "range"
+            )}
+          </div>
+          <div class="dm-chart-wrap" id="dmChartHost"></div>
+          <div class="dm-substrip" id="dmSubstrip"></div>
+        </div>`;
+      }
+
+      function aggregate(scope, dim) {
+        const s = computeSeries(scope);
+        const buckets = new Map();
+        s.items.forEach((it) => {
+          const key = dim === "location" ? it.vendor : scope === "All" ? it.metal : it.type;
+          if (!buckets.has(key))
+            buckets.set(key, { purchase: 0, melt: 0, retail: 0, gainLoss: 0, count: 0, oz: 0 });
+          const b = buckets.get(key);
+          const melt = itemMeltAt(it, N_DAYS - 1);
+          const retail = retailOf(it);
+          b.purchase += it.qty * it.price;
+          b.melt += melt;
+          b.retail += retail;
+          b.gainLoss += retail - it.qty * it.price;
+          b.count += it.qty;
+          b.oz += itemOz(it);
+        });
+        return [...buckets.entries()].sort(
+          (a, b) => Math.abs(b[1][state.metric]) - Math.abs(a[1][state.metric])
+        );
+      }
+
+      function compColors(scope, entries, dim) {
+        // metals get their token color; other dims get a stable palette.
+        // --info leads so the first segment never mimics the dark theme's
+        // gold --primary inside a non-gold metal's modal
+        const palette = [
+          "--info",
+          "--success",
+          "--warning",
+          "--danger",
+          "--secondary",
+          "--primary",
+        ];
+        return entries.map(([key], i) => {
+          if (scope === "All" && dim === "primary" && METAL_VAR[key]) return cssVar(METAL_VAR[key]);
+          return cssVar(palette[i % palette.length]);
+        });
+      }
+
+      function compPanelHTML(scope, dim, title) {
+        const entries = aggregate(scope, dim);
+        const total = entries.reduce((a, [, b]) => a + Math.abs(b[state.metric]), 0) || 1;
+        const colors = compColors(scope, entries, dim);
+        const segs = entries
+          .map(([key, b], i) => {
+            const share = (Math.abs(b[state.metric]) / total) * 100;
+            return `<div class="dm-comp-seg" style="width:${share.toFixed(2)}%;background:${colors[i]}" title="${esc(key)} ${share.toFixed(0)}%"></div>`;
+          })
+          .join("");
+        const top = entries.slice(0, 6);
+        const more = entries.length - top.length;
+        const rows =
+          top
+            .map(([key, b], i) => {
+              const v = b[state.metric];
+              const share = ((Math.abs(v) / total) * 100).toFixed(0);
+              const valCls = state.metric === "gainLoss" ? (v >= 0 ? "dm-pos" : "dm-neg") : "";
+              return `<div class="dm-comp-row">
+            <span class="dm-comp-dot" style="background:${colors[i]}"></span>
+            <span class="dm-comp-name">${esc(key)}</span>
+            <span class="dm-comp-meta">${b.count} · ${b.oz.toFixed(1)} oz · ${share}%</span>
+            <span class="dm-comp-val ${valCls}">${state.metric === "gainLoss" ? sign(v) : ""}${fmt(Math.abs(v))}</span>
+          </div>`;
+            })
+            .join("") +
+          (more > 0
+            ? `<div class="dm-comp-row"><span class="dm-comp-name" style="color:var(--text-muted)">+ ${more} more…</span></div>`
+            : "");
+        return `<div class="dm-panel">
+          <h3 class="dm-panel-title">${title}</h3>
+          <div class="dm-comp-bar">${segs}</div>
+          <div class="dm-comp-rows">${rows}</div>
+        </div>`;
+      }
+
+      function metricToggleHTML() {
+        return segBtns(
+          [
+            ["purchase", "Purchase"],
+            ["melt", "Melt"],
+            ["retail", "Retail"],
+            ["gainLoss", "Gain/Loss"],
+          ],
+          state.metric,
+          "",
+          "metric"
+        );
+      }
+
+      function ledgerHTML(scope, compact) {
+        const s = computeSeries(scope);
+        const rows = [...s.items].sort((a, b) => b.date.localeCompare(a.date));
+        const spotNowMelt = (it) => itemMeltAt(it, N_DAYS - 1);
+        const body = rows
+          .map((it) => {
+            const paid = it.qty * it.price;
+            const melt = spotNowMelt(it);
+            const g = ((melt - paid) / paid) * 100;
+            const tv = TYPE_VAR[it.type] || "other";
+            const chip = `<span class="dm-type-chip" style="background:var(--type-${tv}-bg);color:var(--type-${tv}-text)">${esc(it.type)}</span>`;
+            const dot =
+              scope === "All"
+                ? `<span class="dm-metal-dot" style="background:${metalColor(it.metal)}" title="${it.metal}"></span>`
+                : "";
+            return compact
+              ? `<tr data-buy="${dIdx(it.date)}" data-item="${it.id}">
+                <td class="dm-ledger-date">${it.date.slice(5)}</td>
+                <td>${dot}<span class="dm-item-name">${esc(it.name)}</span></td>
+                <td class="num">${fmt(melt)}</td>
+                <td class="num ${g >= 0 ? "dm-pos" : "dm-neg"}">${sign(g)}${Math.abs(g).toFixed(0)}%</td>
+              </tr>`
+              : `<tr data-buy="${dIdx(it.date)}" data-item="${it.id}">
+                <td class="dm-ledger-date">${it.date}</td>
+                <td><div class="dm-lrow">${dot}<span class="dm-item-name">${esc(it.name)}</span>${chip}</div></td>
+                <td class="num">×${it.qty}</td>
+                <td class="num">${fmt(paid)}</td>
+                <td class="num">${fmt(melt)}</td>
+                <td class="num ${g >= 0 ? "dm-pos" : "dm-neg"}">${sign(g)}${Math.abs(g).toFixed(0)}%</td>
+              </tr>`;
+          })
+          .join("");
+        return `<div class="dm-panel">
+          <h3 class="dm-panel-title">Acquisitions <span style="font-weight:400;color:var(--text-muted);font-size:var(--font-size-xs)">newest first · click to open item</span></h3>
+          <div class="dm-ledger-wrap">
+            <table class="dm-ledger${compact ? " dm-ledger--compact" : " dm-ledger--full"}">
+              <thead>${
+                compact
+                  ? `<tr><th>Date</th><th>Item</th><th class="num">Melt</th><th class="num">±%</th></tr>`
+                  : `<tr><th>Date</th><th>Item</th><th class="num">Qty</th><th class="num">Paid</th><th class="num">Melt now</th><th class="num">±%</th></tr>`
+              }
+              </thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+          <div class="dm-foot" style="text-align:right;margin-top:var(--spacing-xs)">
+            <span class="dm-link" data-act="inventory">View all in Inventory →</span>
+          </div>
+        </div>`;
+      }
+
+      function headerHTML(scope, t) {
+        const isAll = scope === "All";
+        const title = isAll ? "All Metals — Portfolio" : `${scope} — Detailed Breakdown`;
+        const first = t.firstDate
+          ? "since " +
+            t.firstDate.toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+              timeZone: "UTC",
+            })
+          : "";
+        return `<div class="dm-topbar">
+          <button aria-label="Close modal" class="modal-close" data-act="close">×</button>
+        </div>
+        <div class="dm-header" data-accent="${isAll ? "all" : scope.toLowerCase()}">
+          <h2 class="dm-title" id="dmTitle">${title}</h2>
+          <span class="dm-substats">${t.count} items · ${t.oz.toFixed(2)} oz ${first ? "· " + first : ""}</span>
+        </div>`;
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         STATE RENDERERS — empty / loading
+         ════════════════════════════════════════════════════════════════ */
+      function emptyHTML(scope) {
+        const label = scope === "All" ? "items" : scope.toLowerCase() + " items";
+        return `
+          ${headerHTML(scope, { count: 0, oz: 0, firstDate: null })}
+          <div class="dm-empty">
+            <div class="dm-empty-icon">🪙</div>
+            <h3>No ${label} yet</h3>
+            <p>Add your first item and this view lights up — value over time, cost basis, and your acquisition history.</p>
+            <button class="btn" style="border-radius:var(--radius-pill)" data-act="add">+ Add Item</button>
+          </div>`;
+      }
+
+      function loadingHTML(scope) {
+        return `
+          ${headerHTML(scope, { count: 0, oz: 0, firstDate: null })}
+          <div class="dm-kpis">${'<div class="dm-skel" style="height:64px"></div>'.repeat(5)}</div>
+          <div class="dm-skel" style="height:280px;margin-bottom:var(--spacing)"></div>
+          <div class="dm-grid">
+            <div class="dm-skel" style="height:180px"></div>
+            <div class="dm-skel" style="height:180px"></div>
+          </div>`;
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         VARIANT LAYOUTS
+         ════════════════════════════════════════════════════════════════ */
+      function variantA(scope, t) {
+        return `
+          ${headerHTML(scope, t)}
+          ${kpiStripHTML(t)}
+          ${chartCardHTML(scope)}
+          <div style="display:flex;justify-content:flex-end;margin-bottom:var(--spacing-sm)">${metricToggleHTML()}</div>
+          <div class="dm-grid dm-grid--ledger">
+            <div style="display:flex;flex-direction:column;gap:var(--spacing)">
+              ${compPanelHTML(scope, "primary", scope === "All" ? "By Metal" : "By Type")}
+              ${compPanelHTML(scope, "location", "By Purchase Location")}
+            </div>
+            <div class="dm-ledger-fill">${ledgerHTML(scope, false)}</div>
+          </div>
+          <div class="dm-foot">Local data · Spot: StakTrakr feed · Last sync Aug 28, 2026 07:00 PM</div>`;
+      }
+
+      function variantB(scope, t) {
+        return `
+          ${headerHTML(scope, t)}
+          <div class="dm-cc">
+            <div style="min-width:0">
+              ${chartCardHTML(scope)}
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--spacing-sm)">
+                <span class="dm-panel-title" style="margin:0">Composition</span>${metricToggleHTML()}
+              </div>
+              <div class="dm-grid">
+                ${compPanelHTML(scope, "primary", scope === "All" ? "By Metal" : "By Type")}
+                ${compPanelHTML(scope, "location", "By Location")}
+              </div>
+            </div>
+            <div class="dm-cc-rail">
+              ${kpiStripHTML(t)}
+              ${ledgerHTML(scope, true)}
+            </div>
+          </div>
+          <div class="dm-foot">Local data · Spot: StakTrakr feed · Last sync Aug 28, 2026 07:00 PM</div>`;
+      }
+
+      function variantC(scope, t) {
+        const tabs = [
+          ["performance", "Performance"],
+          ["breakdown", "Breakdown"],
+          ["ledger", "Acquisitions"],
+        ];
+        return `
+          ${headerHTML(scope, t)}
+          ${kpiStripHTML(t)}
+          <div class="dm-tabbar">${segBtns(tabs, state.tab, "", "tab")}</div>
+          <div data-pane="performance" ${state.tab !== "performance" ? "hidden" : ""}>
+            ${chartCardHTML(scope)}
+          </div>
+          <div data-pane="breakdown" ${state.tab !== "breakdown" ? "hidden" : ""}>
+            <div style="display:flex;justify-content:flex-end;margin-bottom:var(--spacing-sm)">${metricToggleHTML()}</div>
+            <div class="dm-grid">
+              ${compPanelHTML(scope, "primary", scope === "All" ? "By Metal" : "By Type")}
+              ${compPanelHTML(scope, "location", "By Purchase Location")}
+            </div>
+          </div>
+          <div data-pane="ledger" ${state.tab !== "ledger" ? "hidden" : ""}>
+            ${ledgerHTML(scope, false)}
+          </div>
+          <div class="dm-foot">Local data · Spot: StakTrakr feed · Last sync Aug 28, 2026 07:00 PM</div>`;
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         BONUS — dashboard summary card, current vs proposed
+         ════════════════════════════════════════════════════════════════ */
+      function sparkSVG(scope, w, h) {
+        const s = computeSeries(scope);
+        const i0 = N_DAYS - 90,
+          i1 = N_DAYS - 1;
+        const vals = s.melt.slice(i0, i1 + 1);
+        const lo = Math.min(...vals),
+          hi = Math.max(...vals) || 1;
+        const x = (i) => (i / (vals.length - 1)) * w;
+        const y = (v) => h - 4 - ((v - lo) / (hi - lo || 1)) * (h - 8);
+        let d = "";
+        vals.forEach((v, i) => {
+          d += (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1);
+        });
+        const accent = metalColor(scope);
+        return `<svg class="dm-card2-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+          <defs><linearGradient id="spark${scope}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${accent}" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
+          </linearGradient></defs>
+          <path d="${d}L${w} ${h}L0 ${h}Z" fill="url(#spark${scope})"/>
+          <path d="${d}" fill="none" stroke="${accent}" stroke-width="1.6"/>
+        </svg>`;
+      }
+
+      function bonusHTML() {
+        const scope = state.metal === "All" ? "All" : state.metal;
+        const t = scopeTotals(scope);
+        const cls = scope === "All" ? "total-card-all" : scope.toLowerCase();
+        const gainRow = (label, v, pct) =>
+          `<div class="total-item"><span class="total-label">${label}:</span>
+             <span class="total-value" style="color:var(--success)">${pct ? `<small style="font-size:var(--font-size-xs);opacity:.8">${pct}</small> ` : ""}${fmt(v)}</span></div>`;
+        const current = `
+          <div class="total-card ${cls}">
+            <div class="total-title" data-metal="${scope}">${scope === "All" ? "All Metals" : scope}</div>
+            <div class="total-group">
+              <div class="total-item"><span class="total-label">Items:</span><span class="total-value">${t.count}</span></div>
+              <div class="total-item"><span class="total-label">Weight (oz):</span><span class="total-value">${t.oz.toFixed(2)}</span></div>
+              <div class="total-item"><span class="total-label">Avg Cost/oz:</span><span class="total-value">${fmt(t.avgCost)}</span></div>
+            </div>
+            <div class="total-group">
+              <div class="total-item"><span class="total-label">Purchase Price:</span><span class="total-value">${fmt(t.purchase)}</span></div>
+              <div class="total-item"><span class="total-label">Melt Value:</span><span class="total-value">${fmt(t.melt)}</span></div>
+              <div class="total-item"><span class="total-label">Retail Value:</span><span class="total-value">${fmt(t.retail)}</span></div>
+              ${gainRow("Gain", t.gain, sign(t.gainPct) + Math.abs(t.gainPct).toFixed(1) + "%")}
+              <div class="total-item"><span class="total-label">Realized:</span><span class="total-value">${fmt(t.realized)}</span></div>
+            </div>
+          </div>`;
+        const proposed = `
+          <div class="total-card ${cls}">
+            <div class="total-title" data-metal="${scope}">${scope === "All" ? "All Metals" : scope}</div>
+            <div class="dm-card2-hero">
+              ${sparkSVG(scope, 300, 56)}
+              <div class="dm-card2-melt-row">
+                <span class="dm-card2-melt">${fmt(t.melt)}</span>
+                <span class="dm-card2-gain-chip ${t.gain < 0 ? "neg" : ""}">${sign(t.gainPct)}${Math.abs(t.gainPct).toFixed(1)}%</span>
+              </div>
+              <div class="dm-kpi-sub" style="margin-top:2px">Melt value · 90d trend</div>
+            </div>
+            <div class="total-group dm-card2-minigrid">
+              <div class="total-item"><span class="total-label">Items:</span><span class="total-value">${t.count}</span></div>
+              <div class="total-item"><span class="total-label">Weight:</span><span class="total-value">${t.oz.toFixed(2)} oz</span></div>
+              <div class="total-item"><span class="total-label">Paid:</span><span class="total-value">${fmtK(t.purchase)}</span></div>
+              <div class="total-item"><span class="total-label">Retail:</span><span class="total-value">${fmtK(t.retail)}</span></div>
+              <div class="total-item"><span class="total-label">Avg/oz:</span><span class="total-value">${fmt(t.avgCost)}</span></div>
+              <div class="total-item"><span class="total-label">Realized:</span><span class="total-value">${fmtK(t.realized)}</span></div>
+            </div>
+          </div>`;
+        return `
+          <div><div class="pg-bonus-col-label">Current (3.36.x)</div>${current}</div>
+          <div><div class="pg-bonus-col-label">Proposed — sparkline hero</div>${proposed}</div>`;
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         MAIN RENDER
+         ════════════════════════════════════════════════════════════════ */
+      const content = document.getElementById("dmContent");
+
+      function renderModal() {
+        const scope = state.metal;
+        if (state.dataState === "empty") {
+          content.innerHTML = emptyHTML(scope);
+          return;
+        }
+        if (state.dataState === "loading") {
+          content.innerHTML = loadingHTML(scope);
+          return;
+        }
+        const t = scopeTotals(scope);
+        content.innerHTML =
+          state.variant === "A"
+            ? variantA(scope, t)
+            : state.variant === "B"
+              ? variantB(scope, t)
+              : variantC(scope, t);
+
+        // hero chart — measure host, then draw
+        const host = content.querySelector("#dmChartHost");
+        if (host) {
+          const hpx = state.variant === "B" ? 300 : state.variant === "C" ? 340 : 260;
+          const stats = renderChart(host, scope, hpx);
+          const sub = content.querySelector("#dmSubstrip");
+          if (sub && stats) {
+            const paceStr =
+              scope === "All"
+                ? ""
+                : `<span>pace <strong>${stats.pace.toFixed(stats.pace < 0.1 ? 3 : 1)} oz/mo</strong></span>`;
+            sub.innerHTML = `
+              <span>market <strong class="${stats.market >= 0 ? "dm-pos" : "dm-neg"}">${sign(stats.market)}${fmt(Math.abs(stats.market))} (${sign(stats.deltaPct)}${Math.abs(stats.deltaPct).toFixed(1)}%)</strong></span>
+              <span>invested <strong>${fmtK(stats.invested)}</strong></span>
+              <span><strong>${stats.buys}</strong> buys</span>
+              ${paceStr}`;
+          }
+        }
+      }
+
+      function renderBonus() {
+        const bonus = document.getElementById("pgBonus");
+        bonus.hidden = !state.bonus;
+        if (state.bonus) document.getElementById("pgBonusGrid").innerHTML = bonusHTML();
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         PROMPT OUTPUT
+         ════════════════════════════════════════════════════════════════ */
+      const VARIANT_NAMES = {
+        A: "Variant A — “Stack Story” (single scroll: KPI strip → hero chart → composition + ledger side by side)",
+        B: "Variant B — “Command Center” (hero chart with composition beneath, right rail of KPIs + compact ledger)",
+        C: "Variant C — “Focus Tabs” (persistent KPI strip, tabs: Performance / Breakdown / Acquisitions)",
+      };
+      function updatePrompt() {
+        const p = [];
+        p.push(
+          `Redesign StakTrakr's metal detail modal (#detailsModal, js/detailsModal.js) — replace the two-pie layout with ${VARIANT_NAMES[state.variant]}.`
+        );
+        p.push(
+          `Core: a ledger-driven portfolio chart backdated to the first acquisition — melt value as the hero line (metal accent color + gradient fill), stepped cost-basis line, ${state.showSpot ? "spot €/oz overlay on a right axis (per-metal scopes only, hidden for All Metals)" : "no spot overlay by default"}, and ${state.showBuys ? "acquisition markers sized by purchase amount with tooltips; clicking a marker scrolls/flashes the matching ledger row" : "no buy markers by default"}. Range pills 30D/90D/1Y/ALL. Substrip shows range delta, buy count, and oz/month pace.`
+        );
+        p.push(
+          `Composition replaces pies with stacked horizontal bars + single-line rows (top 6 + “+N more”), keeping the existing Purchase/Melt/Retail/Gain-Loss metric toggle (.chart-metric-toggle). All Metals → by metal + by location; single metal → by type + by location.`
+        );
+        p.push(
+          `Mini ledger: acquisitions sorted newest-first (date, item + type chip, qty, paid, melt-now, ±%); row click opens the existing Item View modal; “View all in Inventory” deep-links #/inventory. In Variant A the ledger panel absolute-fills its grid cell so its height always matches the composition column, scrolling internally; on mobile the table slims to Date · Item · Qty · ±%.`
+        );
+        p.push(
+          `Header: close button on its own top row (right-aligned, no absolute overlap), then Instrument Serif title with the metal's 4px accent underline + quiet mono substats (items · oz · since). KPI strip: Purchase (avg/oz), Melt (premium-vs-spot note), Retail, Unrealized (success/danger), Realized. Segmented controls (range + metric) use the hugging .dm-seg variant of .chart-metric-toggle — wrapper keeps only border+radius with overflow:hidden, no padding/background/sticky.`
+        );
+        if (state.dataState !== "populated")
+          p.push(
+            `Currently previewing the ${state.dataState} state — include it as designed (skeleton shimmer / empty CTA).`
+          );
+        if (state.bonus)
+          p.push(
+            `Also apply the dashboard summary-card redesign: 90d melt sparkline hero + big melt value + gain% chip, 2-col mini-grid for the remaining stats (see playground bonus section).`
+          );
+        p.push(
+          `Build with Chart.js 3.9.1 (vendored) using two y-axes; destroy instances on modal close. Tokens only — all four themes (dark/light/slate/sepia) must pass. Mobile ≤768px stacks all grids to one column. Reuse .modal/.modal-content shell, .chart-metric-toggle, --type-* chips.`
+        );
+        const nonDefault = [];
+        if (!state.showBasis) nonDefault.push("cost-basis line OFF by default");
+        if (state.range !== "1Y") nonDefault.push(`default range ${state.range}`);
+        if (state.metric !== "melt")
+          nonDefault.push(`default composition metric “${state.metric}”`);
+        if (nonDefault.length) p.push(`Non-default choices: ${nonDefault.join("; ")}.`);
+        p.push(
+          `Reference prototype: playground/metal-detail-modal-playground.html (delta CSS in its <style> block is the implementation spec).`
+        );
+        document.getElementById("pgPrompt").textContent = p.join("\n\n");
+      }
+
+      /* ════════════════════════════════════════════════════════════════
+         WIRING
+         ════════════════════════════════════════════════════════════════ */
+      function toast(msg) {
+        const t = document.getElementById("pgToast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(t._h);
+        t._h = setTimeout(() => t.classList.remove("show"), 1800);
+      }
+
+      function updateAll() {
+        document.documentElement.setAttribute("data-theme", state.theme);
+        document.getElementById("pgStage").setAttribute("data-width", state.width);
+        syncSeg("ctlVariant", "v", state.variant);
+        syncSeg("ctlMetal", "m", state.metal);
+        syncSeg("ctlTheme", "t", state.theme);
+        syncSeg("ctlState", "s", state.dataState);
+        syncSeg("ctlWidth", "w", state.width);
+        document.getElementById("ctlBonus").checked = state.bonus;
+        renderModal();
+        renderBonus();
+        updatePrompt();
+      }
+
+      function syncSeg(id, key, val) {
+        document
+          .querySelectorAll(`#${id} button`)
+          .forEach((b) => b.classList.toggle("active", b.dataset[key] === val));
+      }
+
+      const segWire = (id, key, prop, after) =>
+        document.getElementById(id).addEventListener("click", (e) => {
+          const b = e.target.closest("button");
+          if (!b) return;
+          state[prop] = b.dataset[key];
+          if (after) after();
+          updateAll();
+        });
+      segWire("ctlVariant", "v", "variant");
+      segWire("ctlMetal", "m", "metal");
+      segWire("ctlTheme", "t", "theme");
+      segWire("ctlState", "s", "dataState");
+      segWire("ctlWidth", "w", "width");
+      document.getElementById("ctlBonus").addEventListener("change", (e) => {
+        state.bonus = e.target.checked;
+        updateAll();
+      });
+
+      const PRESETS = {
+        story: {
+          variant: "A",
+          metal: "All",
+          theme: "dark",
+          dataState: "populated",
+          width: "desktop",
+          bonus: false,
+        },
+        terminal: {
+          variant: "B",
+          metal: "Silver",
+          theme: "slate",
+          dataState: "populated",
+          width: "desktop",
+          bonus: false,
+        },
+        tabbed: {
+          variant: "C",
+          metal: "Gold",
+          theme: "light",
+          dataState: "populated",
+          width: "desktop",
+          tab: "performance",
+          bonus: false,
+        },
+        mobile: {
+          variant: "A",
+          metal: "Silver",
+          theme: "dark",
+          dataState: "populated",
+          width: "narrow",
+          bonus: false,
+        },
+        edge: {
+          variant: "C",
+          metal: "Platinum",
+          theme: "sepia",
+          dataState: "empty",
+          width: "desktop",
+          bonus: false,
+        },
+      };
+      document.getElementById("ctlPreset").addEventListener("change", (e) => {
+        const pr = PRESETS[e.target.value];
+        if (pr) {
+          Object.assign(state, DEFAULTS, pr);
+          updateAll();
+        }
+      });
+
+      // Delegated interactions inside the modal
+      content.addEventListener("click", (e) => {
+        const rangeBtn = e.target.closest("[data-range]");
+        if (rangeBtn) {
+          state.range = rangeBtn.dataset.range;
+          renderModal();
+          updatePrompt();
+          return;
+        }
+        const metricBtn = e.target.closest("[data-metric]");
+        if (metricBtn) {
+          state.metric = metricBtn.dataset.metric;
+          renderModal();
+          updatePrompt();
+          return;
+        }
+        const tabBtn = e.target.closest("[data-tab]");
+        if (tabBtn) {
+          state.tab = tabBtn.dataset.tab;
+          renderModal();
+          return;
+        }
+        const chip = e.target.closest(".dm-series-chip[data-series]");
+        if (chip && !chip.disabled) {
+          const k = chip.dataset.series;
+          if (k === "spot") state.showSpot = !state.showSpot;
+          if (k === "basis") state.showBasis = !state.showBasis;
+          if (k === "buys") state.showBuys = !state.showBuys;
+          renderModal();
+          updatePrompt();
+          return;
+        }
+        const row = e.target.closest("tr[data-item]");
+        if (row) {
+          const it = ITEMS[+row.dataset.item];
+          toast(`Opens Item View modal — ${it.name}`);
+          return;
+        }
+        const act = e.target.closest("[data-act]");
+        if (act) {
+          const a = act.dataset.act;
+          if (a === "close") toast("Closes via closeModalById('detailsModal')");
+          if (a === "inventory") toast("Deep-links to #/inventory filtered to this metal");
+          if (a === "add") toast("Opens the Add Item modal");
+        }
+      });
+
+      document.getElementById("pgCopy").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(document.getElementById("pgPrompt").textContent);
+          toast("Copied!");
+        } catch {
+          toast("Copy failed — select the text manually");
+        }
+      });
+
+      let _rz;
+      window.addEventListener("resize", () => {
+        clearTimeout(_rz);
+        _rz = setTimeout(() => {
+          if (state.dataState === "populated") renderModal();
+        }, 150);
+      });
+
+      updateAll();
+    </script>
+  </body>
+</html>
