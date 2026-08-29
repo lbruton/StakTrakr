@@ -8072,7 +8072,11 @@ a.about-badge:hover {
   font-family: var(--font-mono);
   line-height: 1.5;
   max-width: 260px;
-  white-space: nowrap;
+  /* STRK-354: lines longer than max-width must wrap INSIDE the box —
+     nowrap painted them past the border (overflow is visible by default) */
+  white-space: normal;
+  width: max-content;
+  overflow-wrap: break-word;
 }
 #dmChartTooltip .dm-tt-title {
   color: var(--text-primary);

@@ -504,6 +504,37 @@ test("AC-14: a marker whose acquisitions are all disposed is a no-op (no flash, 
   expect(errors).toHaveLength(0);
 });
 
+test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
+  page,
+}) => {
+  // name long enough that the line exceeds the tooltip's max-width clamp
+  const items = SEED_ITEMS.map((it) =>
+    it.uuid === "s1"
+      ? { ...it, name: "SAMPLE - 1 oz Canadian Gold Maple Leaf Brilliant Uncirculated" }
+      : it
+  );
+  await installSeed(page, { items });
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  // hover s1's acquisition marker (buys dataset = index 3; AC-13 pattern)
+  const marker = await page.evaluate(() => {
+    const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
+    const el = m.data[m.data.length - 2];
+    return { x: el.x, y: el.y };
+  });
+  await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
+  await page.mouse.move(box.x + marker.x, box.y + marker.y);
+  const tip = page.locator("#dmChartTooltip");
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("Canadian Gold Maple");
+  // the box must fit the text: no horizontal overflow past the padding box
+  const overflow = await tip.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 // ── AC-15 display + layer-2 close + D-16 footer ─────────────────────────────
 
 test("AC-15: substrip shows market, invested, buy count, and per-metal pace (no pace on All)", async ({

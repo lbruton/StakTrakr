@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.15] - 2026-08-29
+
+### Fixed — STRK-354: Detail modal tooltip fits its text
+
+- **Fix**: Long buy-marker tooltip lines in the detail modal chart now wrap inside the tooltip box instead of painting past its border — the tooltip declared `white-space: nowrap` alongside a 260px max-width, so any longer item-name line overflowed visibly (STRK-354)
+
+---
+
 ## [3.36.14] - 2026-08-29
 
 ### Fixed — STRK-353: Detail modal substrip reconciles undated items
