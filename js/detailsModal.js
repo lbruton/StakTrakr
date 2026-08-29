@@ -56,19 +56,6 @@ const _DM_ACCENT_TOKEN = {
   All: "primary",
 };
 
-/** Item type → --type-* token stem for ledger chips. */
-const _DM_TYPE_TOKEN = {
-  Coin: "coin",
-  Round: "round",
-  Bar: "bar",
-  Note: "note",
-  Goldback: "goldback",
-  Silverback: "silverback",
-  Constitutional: "constitutional",
-  Set: "set",
-  Other: "other",
-};
-
 /** Composition palette for non-metal dimensions — --info leads so the dark
  *  theme's gold --primary never mimics a metal inside a non-gold modal. */
 const _DM_PALETTE = ["info", "success", "warning", "danger", "secondary", "primary"];
@@ -585,6 +572,7 @@ const _dmBuildLedger = (scope) => {
     dateTd.textContent = it.date && it.date !== "" ? it.date : "—";
 
     const itemTd = document.createElement("td");
+    itemTd.className = "dm-item-td";
     const lrow = document.createElement("div");
     lrow.className = "dm-lrow";
     if (scope === "All") {
@@ -598,13 +586,8 @@ const _dmBuildLedger = (scope) => {
     name.className = "dm-item-name";
     name.textContent = it.name || "(unnamed)";
     lrow.appendChild(name);
-    const typeStem = _DM_TYPE_TOKEN[it.type] || "other";
-    const chip = document.createElement("span");
-    chip.className = "dm-type-chip";
-    chip.style.background = `var(--type-${typeStem}-bg)`;
-    chip.style.color = `var(--type-${typeStem}-text)`;
-    chip.textContent = it.type || "Other";
-    lrow.appendChild(chip);
+    // STRK-356: no type pill in this compact view — type detail lives in the
+    // Inventory panel; the freed width goes to the never-truncated amounts
     itemTd.appendChild(lrow);
 
     const qtyTd = document.createElement("td");

@@ -663,6 +663,30 @@ test("AC-16/AC-17: two panels, |metric| ranking with +N more, metric toggle re-r
 
 // ── AC-18 / AC-19: ledger ───────────────────────────────────────────────────
 
+test("STRK-356: ledger keeps metal dot + name, no type pill; amounts render in full", async ({
+  page,
+}) => {
+  // big-ticket amount that exceeded the old 80px Paid column width
+  const items = SEED_ITEMS.map((it) => (it.uuid === "s1" ? { ...it, price: 3450 } : it));
+  await installSeed(page, { items });
+  await bootApp(page);
+  await openScope(page, "All"); // All scope renders the metal dots
+  await chartReady(page);
+  await chartSettled(page); // measure layout only after the entry animation settles
+  const row = page.locator('#detailsModal .dm-ledger tr[data-uuid="s1"]');
+  await expect(row).toBeVisible();
+  await expect(row.locator(".dm-metal-dot")).toHaveCount(1); // dot stays (AC-1)
+  await expect(page.locator("#detailsModal .dm-type-chip")).toHaveCount(0); // pills gone (AC-1)
+  const paid = row.locator("td.dm-col-paid");
+  await expect(paid).toHaveText("$3,450.00"); // full formatted value (AC-2)
+  const paidClipped = await paid.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(paidClipped).toBeLessThanOrEqual(1); // and it actually fits the cell (AC-2)
+  const meltClipped = await row
+    .locator("td.dm-col-melt")
+    .evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(meltClipped).toBeLessThanOrEqual(1);
+});
+
 test("AC-18: ledger lists active Items newest-first with undated last; disposed excluded", async ({
   page,
 }) => {
