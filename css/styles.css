@@ -8246,7 +8246,13 @@ table.dm-ledger {
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--font-size-base);
-  table-layout: fixed;
+  /* STRK-356: auto layout — the amount columns size to their rendered
+     content (any locale/currency, never truncated); the Item cell takes the
+     remainder via width:100%/max-width:0 and is the only cell that may
+     ellipsize. min-width keeps a usable Item column in narrow panels — the
+     wrap (overflow:auto) scrolls horizontally instead of crushing it. */
+  table-layout: auto;
+  min-width: 430px;
 }
 .dm-ledger th {
   position: sticky;
@@ -8267,14 +8273,11 @@ table.dm-ledger {
 .dm-ledger th:nth-child(3) {
   width: 42px;
 }
-/* STRK-356: amounts never truncate — sized for "$999,999.99" in the mono
-   face; the flexible Item column (freed by the removed type pills) absorbs
-   the difference and remains the only cell allowed to ellipsize */
-.dm-ledger th:nth-child(4) {
-  width: 100px;
-}
-.dm-ledger th:nth-child(5) {
-  width: 104px;
+.dm-ledger td.dm-item-td {
+  /* auto-layout squeeze: claim all remaining width, let the inner flex
+     row ellipsize the name (STRK-356) */
+  width: 100%;
+  max-width: 0;
 }
 .dm-ledger th:nth-child(6) {
   width: 50px;

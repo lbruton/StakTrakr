@@ -672,6 +672,7 @@ test("STRK-356: ledger keeps metal dot + name, no type pill; amounts render in f
   await bootApp(page);
   await openScope(page, "All"); // All scope renders the metal dots
   await chartReady(page);
+  await chartSettled(page); // measure layout only after the entry animation settles
   const row = page.locator('#detailsModal .dm-ledger tr[data-uuid="s1"]');
   await expect(row).toBeVisible();
   await expect(row.locator(".dm-metal-dot")).toHaveCount(1); // dot stays (AC-1)

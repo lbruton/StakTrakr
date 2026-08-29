@@ -572,6 +572,7 @@ const _dmBuildLedger = (scope) => {
     dateTd.textContent = it.date && it.date !== "" ? it.date : "—";
 
     const itemTd = document.createElement("td");
+    itemTd.className = "dm-item-td";
     const lrow = document.createElement("div");
     lrow.className = "dm-lrow";
     if (scope === "All") {
