@@ -133,7 +133,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 ## Pre-Flight Triggers
 
 - Session reorientation ("let's start a session"): run the `start` skill, not `start-patch`.
-- Patch worktree for a specific Plane issue: run `start-patch`.
+- Patch session for a specific Plane issue: run `start-patch` — it picks the issue, then hands off to `release patch` for the version lock + worktree.
 - Feed, poller, API, or data-path diagnosis: invoke `/api-infrastructure` and `/retail-poller`.
 - Individual dealer scraping failures: invoke `/retail-provider-fix`.
 - Version-bump PRs: run `/update-spot-bundle`.
