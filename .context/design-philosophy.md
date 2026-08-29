@@ -4,7 +4,7 @@ project: StakTrakr
 audience: agent
 canonical: .context/design-philosophy.md
 migration_source: "DocVault/Projects/StakTrakr/Foundation/design-philosophy.md" # historical provenance; migrated 2026-08-12
-updated: "2026-06-16"
+updated: "2026-08-28"
 ---
 
 # StakTrakr — Design Philosophy
@@ -140,17 +140,45 @@ Colors were brightened in v3.33.06 for contrast on dark backgrounds.
 
 ## Typography
 
-Font family: Inter / system-ui stack. All sizes in `rem`. Monospace for prices and data.
+Three self-hosted faces (STRK-24 / PR #1065 replaced the original Inter / system-ui stack). Declared via `@font-face` at the top of `css/styles.css` with `font-display: swap`; the `.woff2` files live in `fonts/` alongside their `LICENSE`. Self-hosting keeps typography intact on `file://` and offline — no CDN requests. All sizes in `rem`; monospace for prices and data.
 
-| Element            | Size     | Weight | Notes                   |
-| ------------------ | -------- | ------ | ----------------------- |
-| h1                 | 1.5rem   | 700    | —                       |
-| h2                 | 1.25rem  | 700    | —                       |
-| h3                 | 1rem     | 600    | —                       |
-| Body               | 0.875rem | 400    | —                       |
-| Settings subtext   | 0.9rem   | 400    | `var(--text-secondary)` |
-| Prices / monospace | 0.85rem  | 400    | `SF Mono, Fira Code`    |
-| Small labels       | 0.75rem  | 600    | `var(--text-secondary)` |
+### Font Family Tokens
+
+| Token            | Face             | File                                   | Weights            | Fallback stack                                                      |
+| ---------------- | ---------------- | -------------------------------------- | ------------------ | ------------------------------------------------------------------- |
+| `--font-body`    | Geist            | `fonts/geist-variable.woff2`           | 100–900 (variable) | `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` |
+| `--font-heading` | Instrument Serif | `fonts/instrument-serif-regular.woff2` | 400 only           | `Georgia, "Times New Roman", serif`                                 |
+| `--font-mono`    | Geist Mono       | `fonts/geist-mono-variable.woff2`      | 100–900 (variable) | `ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace`      |
+
+- `--font-body` is the global default, set once on `html` (line-height 1.6).
+- `--font-heading` is reserved for `h1`, `h2`, and `.section-title`. Headings render at weight 400 — Instrument Serif ships regular only, so never fake bold on it.
+- `--font-mono` is for prices and numeric data.
+
+### Type Scale Tokens
+
+Fixed `rem` values — size text with `var(--font-size-*)`, not literals:
+
+| Token              | Value       | Typical usage                            |
+| ------------------ | ----------- | ---------------------------------------- |
+| `--font-size-xs`   | `0.6875rem` | Badges, metadata, hints                  |
+| `--font-size-sm`   | `0.75rem`   | Small labels                             |
+| `--font-size-base` | `0.8125rem` | Default component text (the workhorse)   |
+| `--font-size-md`   | `0.875rem`  | Form labels, emphasized body text        |
+| `--font-size-lg`   | `1rem`      | Inputs/selects, prominent secondary text |
+| `--font-size-xl`   | `1.25rem`   | `h2`                                     |
+| `--font-size-2xl`  | `1.5rem`    | Large stat values (spot cards)           |
+| `--font-size-3xl`  | `1.875rem`  | `h1`                                     |
+
+### Element Defaults
+
+| Element          | Face             | Size                         | Weight | Notes                                       |
+| ---------------- | ---------------- | ---------------------------- | ------ | ------------------------------------------- |
+| `h1`             | `--font-heading` | `--font-size-3xl` (1.875rem) | 400    | `var(--primary)` color, `-0.025em` tracking |
+| `h2`             | `--font-heading` | `--font-size-xl` (1.25rem)   | 400    | `var(--text-primary)`                       |
+| `.section-title` | `--font-heading` | inherited                    | 400    | Centered; reused in modal headers           |
+| `label`          | `--font-body`    | `--font-size-md` (0.875rem)  | 500    | —                                           |
+
+There is no global `h3` rule — `h3` is styled per component (`.settings-section-panel h3`, `.empty-state h3`, …).
 
 ---
 
