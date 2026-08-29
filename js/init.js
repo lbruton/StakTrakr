@@ -409,15 +409,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     debugLog("Phase 7: Initializing details modal elements...");
     elements.detailsModal = safeGetElement("detailsModal");
     elements.detailsModalTitle = safeGetElement("detailsModalTitle");
-    elements.typeBreakdown = safeGetElement("typeBreakdown");
-    elements.locationBreakdown = safeGetElement("locationBreakdown");
     elements.detailsCloseBtn = safeGetElement("detailsCloseBtn");
     elements.totalTitles = document.querySelectorAll(".total-title");
-
-    // Chart elements
-    debugLog("Phase 8: Initializing chart elements...");
-    elements.typeChart = safeGetElement("typeChart");
-    elements.locationChart = safeGetElement("locationChart");
 
     // Phase 9: Initialize Metal-Specific Elements
     debugLog("Phase 9: Initializing metal-specific elements...");

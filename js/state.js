@@ -20,10 +20,10 @@ let itemsPerPage = Infinity;
 /** @type {string} Current search query */
 let searchQuery = "";
 
-/** @type {Object} Chart instances for proper cleanup */
+/** @type {Object} Chart instances for proper cleanup — heroChart is the
+ *  detail modal's portfolio chart (STRK-352), owned by js/detailsModal.js */
 let chartInstances = {
-  typeChart: null,
-  locationChart: null,
+  heroChart: null,
 };
 
 /** @type {Object} Sparkline Chart.js instances keyed by metal (for cleanup) */
@@ -134,14 +134,8 @@ const elements = {
   // Details modal elements
   detailsModal: null,
   detailsModalTitle: null,
-  typeBreakdown: null,
-  locationBreakdown: null,
   detailsCloseBtn: null,
   totalTitles: null,
-
-  // Chart canvas elements
-  typeChart: null,
-  locationChart: null,
 
   // Portal view elements
   itemsPerPage: null,
