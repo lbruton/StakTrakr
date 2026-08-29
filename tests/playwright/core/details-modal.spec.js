@@ -622,6 +622,35 @@ test("D-16: footer provenance renders the last-sync surface, no per-sample claim
 
 // ── AC-16 / AC-17: composition ──────────────────────────────────────────────
 
+test("STRK-358: composition lists cap at 5 rows with a +N more row", async ({ page }) => {
+  // desktop-class viewport (AC-2's fit target) — meaningless at 720p, where
+  // the 90vh cap + inner modal scroll is the designed behavior
+  await page.setViewportSize({ width: 1600, height: 1350 });
+  // three extra unique purchase locations → 9 distinct actives on All
+  const extra = [1, 2, 3].map((n) =>
+    mkItem({
+      uuid: `loc${n}`,
+      name: `Location Filler ${n}`,
+      purchaseLocation: `vendor${n}.example`,
+      date: localDayKey(n),
+    })
+  );
+  await installSeed(page, { items: [...SEED_ITEMS, ...extra] });
+  await bootApp(page);
+  await openScope(page, "All");
+  await chartReady(page);
+  await chartSettled(page);
+  const locPanel = page.locator("#detailsModal .dm-panel", { hasText: "By Purchase Location" });
+  await expect(locPanel.locator(".dm-comp-row:not(.dm-comp-more)")).toHaveCount(5); // AC-1
+  await expect(locPanel.locator(".dm-comp-more")).toHaveText(/\+ 4 more…/); // 9 − 5
+  // AC-2: at a desktop-class window the modal carries no outer scroll
+  // (1px tolerance for integer rounding of scrollHeight/clientHeight)
+  const delta = await page
+    .locator("#detailsModal .modal-content")
+    .evaluate((el) => el.scrollHeight - el.clientHeight);
+  expect(delta).toBeLessThanOrEqual(1);
+});
+
 test("AC-16/AC-17: two panels, |metric| ranking with +N more, metric toggle re-renders signed Gain/Loss", async ({
   page,
 }) => {
@@ -650,8 +679,8 @@ test("AC-16/AC-17: two panels, |metric| ranking with +N more, metric toggle re-r
   await expect(panels).toHaveCount(2);
   await expect(panels.nth(0).locator(".dm-panel-title")).toContainText(/by metal/i);
   await expect(panels.nth(1).locator(".dm-panel-title")).toContainText(/location/i);
-  // 7 active purchase locations seeded → top 6 + a "+N more" row
-  await expect(panels.nth(1).locator(".dm-comp-row:not(.dm-comp-more)")).toHaveCount(6);
+  // 7 active purchase locations seeded → top 5 (STRK-358) + a "+N more" row
+  await expect(panels.nth(1).locator(".dm-comp-row:not(.dm-comp-more)")).toHaveCount(5);
   await expect(panels.nth(1).locator(".dm-comp-more")).toContainText(/more/);
   await expect(page.locator('#detailsModal [data-metric="melt"]')).toHaveClass(/active/);
   await page.click('#detailsModal [data-metric="gainLoss"]');

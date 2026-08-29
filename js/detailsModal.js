@@ -426,7 +426,8 @@ const _dmCompColors = (scope, entries, dim) =>
   });
 
 /**
- * Build one composition panel (stacked bar + top-6 rows + "+N more…").
+ * Build one composition panel (stacked bar + top-5 rows + "+N more…",
+ * STRK-358 — trimmed from 6 so the modal fits a desktop viewport).
  * @param {string} scope - Scope
  * @param {"primary"|"location"} dim - Dimension
  * @param {string} title - Panel title
@@ -458,7 +459,7 @@ const _dmBuildCompPanel = (scope, dim, title) => {
 
   const rows = document.createElement("div");
   rows.className = "dm-comp-rows";
-  const top = entries.slice(0, 6);
+  const top = entries.slice(0, 5);
   top.forEach(([key, b], i) => {
     const row = document.createElement("div");
     row.className = "dm-comp-row";
