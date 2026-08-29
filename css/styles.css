@@ -8428,6 +8428,11 @@ table.dm-ledger {
   .dm-ledger-wrap {
     max-height: 300px;
   }
+  .dm-comp-row {
+    /* STRK-358 AC-3: mobile keeps its original spacing — the desktop
+       height-budget trim (0.22rem) must not tighten touch layouts */
+    padding: 0.3rem 0;
+  }
   .dm-ledger th.dm-col-paid,
   .dm-ledger td.dm-col-paid,
   .dm-ledger th.dm-col-melt,
