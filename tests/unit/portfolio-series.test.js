@@ -225,9 +225,14 @@ describe("AC-8 — spot fill", () => {
   it("backward-fills days before the metal's first sample", () => {
     const maps = { Silver: dayMap([["2024-03-05", 10]]) };
     const s = build([mkItem({ date: "2024-03-01", weight: 1 })], maps);
-    // 2024-02-16..2024-03-04 precede the first sample → backfill from it
-    assert.equal(s.melt[dayIdx(s, "2024-02-16")], 10);
-    assert.equal(s.melt[dayIdx(s, "2024-03-01")], 10);
+    // Fixture correction (C.1, disclosed): the original red assertion observed
+    // the backfill through 2024-02-16 — a day the item is NOT held — which
+    // contradicts AC-5's holding interval (melt there is rightly 0). The fill
+    // is observable only through held days: 03-01..03-04 are held AND precede
+    // the first sample (03-05), so their melt proves the leading backfill.
+    assert.equal(s.melt[dayIdx(s, "2024-02-16")], 0); // not yet held (AC-5)
+    assert.equal(s.melt[dayIdx(s, "2024-03-01")], 10); // held, backfilled
+    assert.equal(s.melt[dayIdx(s, "2024-03-04")], 10); // held, still pre-sample
   });
 
   it("a metal with no Spot History contributes 0 melt (per-metal, never global)", () => {
