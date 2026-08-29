@@ -7875,10 +7875,12 @@ a.about-badge:hover {
 
 /* =============================================================================
    DETAIL MODAL — STRK-352 Variant A "Stack Story" (dm- family)
-   Replaces the legacy two-pie layout (.details-grid/.details-panel/
-   .breakdown-*/
-.chart-canvas-*). Spec source: the approved playground
-   prototype (playground/metal-detail-modal-playground.html, PR #1475).
+   Replaces the legacy two-pie layout: .details-grid, .details-panel, the
+   .breakdown- and .chart-canvas- families. (Never write a glob-slash pair in
+   this comment — a star-slash sequence terminates it early and CSS error
+   recovery then eats the next rule; that bug shipped the close button left.)
+   Spec source: the approved playground prototype
+   (playground/metal-detail-modal-playground.html, PR #1475).
    Tokens only — all four themes resolve through the semantic custom props.
    ============================================================================= */
 

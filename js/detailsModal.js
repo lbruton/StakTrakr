@@ -114,6 +114,30 @@ const _dmItemOz = (item) => {
 const _dmSigned = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + formatCurrency(Math.abs(v));
 
 /**
+ * Numeric [r, g, b] from a resolved theme color. resolveColor passes #hex
+ * through untouched (slate defines its metal accents as hex), so channel
+ * extraction must parse both rgb() and hex — digit-scraping a hex string
+ * builds an invalid rgba() and addColorStop throws (live slate regression).
+ * @param {string} color - rgb()/rgba()/#rrggbb/#rgb color string
+ * @returns {number[]} [r, g, b], gray fallback for anything unparseable
+ */
+const _dmRgbTriple = (color) => {
+  const s = String(color || "").trim();
+  const rgb = s.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i);
+  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  const hex6 = s.match(/^#([0-9a-f]{6})$/i);
+  if (hex6) {
+    const n = parseInt(hex6[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const hex3 = s.match(/^#([0-9a-f]{3})$/i);
+  if (hex3) {
+    return [...hex3[1]].map((c) => parseInt(c + c, 16));
+  }
+  return [128, 128, 128];
+};
+
+/**
  * "Mon YY" axis label from a day key — string math only, no Date objects.
  * @param {string} dayKey - "YYYY-MM-DD"
  * @returns {string} Short label
@@ -816,9 +840,9 @@ const _dmRenderChart = () => {
     const key = `${chartArea.top}-${chartArea.bottom}`;
     if (!gradient || gradientKey !== key) {
       gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-      const rgb = accent.match(/\d+/g) || ["128", "128", "128"];
-      gradient.addColorStop(0, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0)`);
-      gradient.addColorStop(1, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.28)`);
+      const [r, g, b] = _dmRgbTriple(accent);
+      gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+      gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.28)`);
       gradientKey = key;
     }
     return gradient;
@@ -1210,20 +1234,36 @@ const _dmLoadAndRender = async (scope, generation) => {
     // overrides the final day with live spot, so the ≤1-day seam is absorbed
     // there. Deliberate frame crossing, per coding standards.
     _dmSeries = buildPortfolioSeries(inventory, maps, scope, spotPrices, todayKey);
-    if (generation !== _dmGeneration) return;
-    _dmRenderBody();
   } catch (error) {
     console.error("[detailsModal] series load failed:", error);
     if (generation !== _dmGeneration) return;
-    const body = _dmBody();
-    if (body) {
-      body.textContent = "";
-      const note = document.createElement("div");
-      note.className = "dm-ledger-note";
-      note.textContent = "Could not load price history — try again.";
-      body.appendChild(note);
-    }
+    _dmShowLoadNote("Could not load price history — try again.");
+    return;
   }
+  if (generation !== _dmGeneration) return;
+  // render failures are NOT data failures — keep the messages distinct so a
+  // theme/DOM bug can never masquerade as a price-history outage (slate
+  // regression: a gradient throw surfaced as "could not load price history")
+  try {
+    _dmRenderBody();
+  } catch (error) {
+    console.error("[detailsModal] render failed:", error);
+    _dmShowLoadNote("Something went wrong rendering this view — details in the browser console.");
+  }
+};
+
+/**
+ * Replace the modal body with a single status note.
+ * @param {string} message - Plain-text status line
+ */
+const _dmShowLoadNote = (message) => {
+  const body = _dmBody();
+  if (!body) return;
+  body.textContent = "";
+  const note = document.createElement("div");
+  note.className = "dm-ledger-note";
+  note.textContent = message;
+  body.appendChild(note);
 };
 
 /**

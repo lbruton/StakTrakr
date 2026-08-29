@@ -691,6 +691,46 @@ test("AC-24: ledger rows and chips are keyboard-operable with accessible states"
   await expect(basisChip).toHaveAttribute("aria-pressed", "false");
 });
 
+// ── AC-2 regression: close button position (found in live use) ──────────────
+
+test("AC-2: the close button sits at the top-RIGHT of the modal", async ({ page }) => {
+  // Live-use regression: a `*/` inside the dm- section banner comment
+  // terminated it early and CSS error recovery ate the whole `.dm-topbar`
+  // flex rule — the close button fell to the LEFT, in-flow. Pin the position.
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  const content = await page.locator("#detailsModal .modal-content").boundingBox();
+  const btn = await page.locator("#detailsCloseBtn").boundingBox();
+  expect(btn.x + btn.width / 2).toBeGreaterThan(content.x + content.width / 2);
+});
+
+// ── AC-22 regression: slate's hex accent tokens (found in live use) ─────────
+
+test("AC-22: slate theme renders the chart — hex accent tokens must not crash the gradient", async ({
+  page,
+}) => {
+  // slate is the ONLY theme defining metal accents as hex (#d1d5db …);
+  // resolveColor passes hex through untouched, so the gradient's channel
+  // extraction must handle hex, not just rgb(). Live-use regression: silver
+  // and palladium in slate crashed to the data-error note.
+  await installSeed(page);
+  await page.addInitScript(() => localStorage.setItem("appTheme", "slate")); // THEME_KEY stores raw
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await expect(page.locator("#detailsModal .dm-ledger-note")).toHaveCount(0);
+  await expect(page.locator("#dmHeroChart")).toBeVisible();
+  // the melt fill must resolve to a real gradient built from real channels
+  const fillKind = await page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const fill = chart.data.datasets[0].backgroundColor;
+    const resolved = typeof fill === "function" ? fill({ chart }) : fill;
+    return resolved && resolved.constructor && resolved.constructor.name;
+  });
+  expect(fillKind).toBe("CanvasGradient");
+});
+
 test("AC-24: interactive controls meet the 44px touch target on mobile viewports", async ({
   page,
 }) => {
