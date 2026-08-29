@@ -125,6 +125,19 @@ The default `collapse` disables sticky behavior.
 For sticky-left + sticky-top intersections, use a three-tier z-index: corner cells = `z-index: 3`, sticky column body cells = `z-index: 1`, data cells = auto.
 Missing the corner tier causes data cells to paint over the frozen header corner during diagonal scroll.
 
+## Daily close — TWO per-day dedup policies coexist in `js/spot.js`
+
+The legacy sparkline path (`spot.js` ~line 975) keeps the FIRST live row per day.
+`getSpotDayMap` (STRK-352) deliberately keeps the LATEST live timestamp per day, and a live row always beats a seed/bundle row for that day.
+The divergence is intentional — the detail chart wants the daily close; the sparkline dedup predates it and its consumers expect the old behavior.
+Do not "unify" one policy into the other; `details-modal.spec.js` pins the latest-live-wins close.
+
+## STACK-70 Phase 4 mobile hide rules — RETIRED by STRK-352
+
+STACK-70's Phase 4 hid the old pie canvases and metric toggle on mobile (`css/styles.css`, MOBILE-OPTIMIZED MODALS block — a tombstone comment marks the spot).
+The redesigned detail modal's hero chart and toggle MUST render on mobile (AC-17/AC-22); its responsive rules live in the `dm-` block's own 768px section.
+Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdown selectors — that DOM no longer exists and the suite asserts zero legacy pie DOM.
+
 ## `--warning` color — accessibility fail on small text in light/sepia
 
 `--warning` (oklch L≈0.666) on `--bg-secondary` produces ≈1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
