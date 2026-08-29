@@ -542,6 +542,40 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("STRK-355: a realistic long buy line stays on ONE line — the box extends to fit", async ({
+  page,
+}) => {
+  const items = SEED_ITEMS.map((it) =>
+    it.uuid === "s1"
+      ? { ...it, name: "SAMPLE - 1 oz Canadian Silver Maple Leaf Brilliant Uncirculated" }
+      : it
+  );
+  await installSeed(page, { items });
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  const marker = await buysMarkerCoords(page, 1);
+  await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
+  await page.mouse.move(box.x + marker.x, box.y + marker.y);
+  const tip = page.locator("#dmChartTooltip");
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("Canadian Silver Maple");
+  // intent (STRK-355): the box extends past the old 260px clamp and the buy
+  // line renders unwrapped — one text line per item, box fits the text
+  const metrics = await tip.evaluate((el) => {
+    const line = [...el.children].find((c) => c.textContent.includes("Canadian Silver Maple"));
+    const lh = parseFloat(getComputedStyle(line).lineHeight);
+    return {
+      boxWidth: el.clientWidth,
+      lines: Math.round(line.getBoundingClientRect().height / lh),
+    };
+  });
+  expect(metrics.boxWidth).toBeGreaterThan(300);
+  expect(metrics.lines).toBe(1);
+});
+
 // ── AC-15 display + layer-2 close + D-16 footer ─────────────────────────────
 
 test("AC-15: substrip shows market, invested, buy count, and per-metal pace (no pace on All)", async ({
