@@ -297,14 +297,16 @@ const _dmBuildKpis = (scope) => {
   const unrealPct = t.purchase > 0 ? (t.unrealized / t.purchase) * 100 : null;
   const unrealSub =
     unrealPct == null
-      ? "vs purchase"
-      : `${unrealPct >= 0 ? "+" : "−"}${Math.abs(unrealPct).toFixed(1)}% vs purchase`;
+      ? "vs cost basis"
+      : `${unrealPct >= 0 ? "+" : "−"}${Math.abs(unrealPct).toFixed(1)}% vs cost basis`;
 
   const strip = document.createElement("div");
   strip.className = "dm-kpis";
   const tiles = [
     {
-      label: "Purchase",
+      // STRK-362: "Cost Basis", not "Purchase" — this tile sums ACTIVE items
+      // only, while the substrip's invested is all-time flow incl. since-sold
+      label: "Cost Basis",
       value: formatCurrency(t.purchase),
       sub: `${formatCurrency(t.avgCost)}/oz avg`,
       cls: "",
@@ -701,7 +703,14 @@ const _dmRenderSubstrip = () => {
     `${_dmSigned(stats.market)}${pctPart}`,
     stats.market >= 0 ? "dm-pos" : "dm-neg"
   );
-  addStat("invested", formatCurrency(stats.invested));
+  // STRK-362: invested is all-time flow (incl. since-sold buys) while the
+  // Cost Basis KPI is active-only — surface the sold slice so the difference
+  // reads as accounting, not error: invested − sold = active cost basis
+  const investedText =
+    stats.investedSold > 0
+      ? `${formatCurrency(stats.invested)} (− ${formatCurrency(stats.investedSold)} sold)`
+      : formatCurrency(stats.invested);
+  addStat("invested", investedText);
   addStat("buys", String(stats.buyCount));
   if (stats.paceOzPerMonth != null) {
     const pace = stats.paceOzPerMonth;

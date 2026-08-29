@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.19] - 2026-08-29
+
+### Changed — STRK-362: Detail modal clarity — Cost Basis vs invested
+
+- **Change**: The modal's first KPI tile is now labeled **Cost Basis** (it sums active holdings only, excluding disposed items), and the Unrealized subtitle reads "vs cost basis" (STRK-362)
+- **Change**: The chart substrip's **invested** figure now surfaces its since-sold slice — `invested $X (− $Y sold)` — so invested minus the sold portion visibly equals the active cost basis on the ALL range; no parenthetical renders when nothing disposed falls in the window (STRK-362)
+- The series engine tracks disposed-buy flows separately (`investedSold` in `computeWindowStats`), pinned by four new unit tests (STRK-362)
+
+---
+
 ## [3.36.18] - 2026-08-29
 
 ### Changed — STRK-358: Detail modal fits a desktop viewport
