@@ -19,7 +19,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 
 ## Worktrees
 
-- Worktree naming: `.worktrees/<issue>-<slug>/` (via `/start-patch`) or `.worktrees/patch-<version>/` (via `/release`).
+- Worktree naming: `.worktrees/patch-<version>/` (via `/release patch`) or `.worktrees/<issue>-<slug>/` (manually created chore/sketch-cohort worktrees).
 - Pick what the entry skill creates and keep it for the branch lifetime.
 - Create with `git fetch origin dev && git worktree add .worktrees/<name>/ -b <branch> origin/dev`.
 - After creation, run `cp CLAUDE.md .worktrees/<name>/`.
@@ -57,7 +57,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 
 ## Sketch & Spec Branch Overrides
 
-- **Sketch branch naming** → `/sketch dispatch` (external-terminal handoff; formerly `orchestrate`) generates sketch-style branch names by default, but StakTrakr requires `patch/<version>` via `/start-patch`.
+- **Sketch branch naming** → `/sketch dispatch` (external-terminal handoff; formerly `orchestrate`) generates sketch-style branch names by default, but StakTrakr requires `patch/<version>` via `/release patch` (`/start-patch` only picks the issue, then hands off).
 - Override generated tasks.md if it uses the sketch convention.
 - **`/sketch dispatch` closing tasks** → hand off as a single batched prompt.
 - Closing tasks have no model-routing ambiguity and no parallel hazard.

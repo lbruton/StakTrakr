@@ -117,7 +117,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 | `/finishing-a-development-branch` | Implementation complete — merge/PR/cleanup                          |
 | `/pr-ready`                       | Pre-PR checklist                                                    |
 | `/release`                        | Version bump (project override of global `/release`)                |
-| `/start-patch`                    | Pick Plane issue, claim version lock, create worktree               |
+| `/start-patch`                    | Pick Plane issue, hand off to `/release patch` (lock + worktree)    |
 | `/glossary`                       | Harvest/list/search domain terms in `.context/GLOSSARY.md`          |
 | `/ui-mockup` (global)             | New multi-element UI — Playground prototype first                   |
 | `/context-drift` (global)         | Audit `.context/` docs against source truth after infra work        |
