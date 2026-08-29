@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.14] - 2026-08-29
+
+### Fixed — STRK-353: Detail modal substrip reconciles undated items
+
+- **Fix**: Undated items' purchase cost now enters the portfolio series as an acquisition flow on the series-start day, so the detail modal's ALL-range invested and market figures reconcile exactly with actual inventory totals — previously undated purchases were silently missing from invested and their day-one melt-vs-cost differential was dropped from market (STRK-353)
+- **Fix**: The synthetic baseline day is now always empty (0/0) — undated items are series-start flows, not pre-history — preserving the reconciliation invariant `market + invested − disposal melt-out = final-day melt` (STRK-353)
+
+---
+
 ## [3.36.13] - 2026-08-29
 
 ### Changed — STRK-352: Metal detail modal redesign

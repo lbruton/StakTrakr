@@ -344,6 +344,8 @@ The detail modal's value-over-time chart is fed by two composable layers:
 | Day maps    | `getSpotDayMap(metalName, fromDayKey)` — `js/spot.js`                                                             | Async; ensures year files (1968 floor), merges `historicalDataCache` + live `spotHistory`, returns `Map<dayKey, $/oz>`. **Daily close = latest live timestamp per day; live beats seed.**  |
 | Series fold | `buildPortfolioSeries(items, spotDayMaps, scope, todaySpotPrices, todayKey, helpers?)` — `js/portfolio-series.js` | Pure, unit-tested. Returns `{days, melt, basis, buys, baseline, _flows}`. Per-metal carry-forward + leading backfill; holding interval `[acq, disp)`; final day overridden with live spot. |
 
+Undated items (STRK-353): their purchase cost enters the fold as an acquisition flow on the series-start day — no buy marker — and the synthetic `baseline` day is always `{melt: 0, basis: 0}`, so the ALL-range stats reconcile exactly with inventory totals (`market + invested − disposal melt-out = final-day melt`).
+
 `computeWindowStats(series, startKey)` (flow-adjusted window stats) and `pickLedgerRows(inventory, scope)` (active items, newest first, undated last) ride along in `portfolio-series.js`. The fold's helpers (`getUnitOztWeight`, `getConstitutionalSilverOz`, `isDisposed`) default to the browser globals but are injectable — the unit suite passes doubles, no DOM needed.
 
 **Consumption seam:** `detailsModal.js` calls `window.getSpotDayMap` — window indirection on purpose, because a bare const reference in the shared script scope cannot be stalled or stubbed by tests.
