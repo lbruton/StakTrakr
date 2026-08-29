@@ -248,6 +248,24 @@ async function chartSettled(page) {
 }
 
 /**
+ * Reads the on-canvas pixel coords of a buys-dataset marker (dataset index 3).
+ * Guards against a missing marker so a future seed change fails loudly here
+ * instead of as a TypeError inside page.evaluate (Codacy, PR #1480).
+ * @param {import('@playwright/test').Page} page
+ * @param {number} indexFromEnd - 0 = last marker (newest group), 1 = second-from-last, …
+ * @returns {Promise<{x: number, y: number}>}
+ */
+async function buysMarkerCoords(page, indexFromEnd) {
+  const coords = await page.evaluate((fromEnd) => {
+    const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
+    const el = m.data[m.data.length - 1 - fromEnd];
+    return el ? { x: el.x, y: el.y } : null;
+  }, indexFromEnd);
+  expect(coords).not.toBeNull();
+  return coords;
+}
+
+/**
  * Stalls the day-map assembly so the skeleton phase is observable.
  * FIXTURE CORRECTION (C.6, disclosed): the original stall lever routed
  * **\/spot-history-*.json fetches, but the vendored spot bundle satisfies
@@ -469,13 +487,9 @@ test("AC-13: hovering the plot shows the external tooltip; a real marker click f
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.5);
   await expect(page.locator("#dmChartTooltip")).toBeVisible();
-  // real click on an active acquisition marker (buys dataset = index 3;
-  // ascending groups s2,s4,s1,s5 → length-2 is s1's group, which is active)
-  const marker = await page.evaluate(() => {
-    const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
-    const el = m.data[m.data.length - 2];
-    return { x: el.x, y: el.y };
-  });
+  // real click on an active acquisition marker (ascending groups
+  // s2,s4,s1,s5 → second-from-last is s1's group, which is active)
+  const marker = await buysMarkerCoords(page, 1);
   await page.mouse.click(box.x + marker.x, box.y + marker.y);
   await expect(page.locator("#detailsModal .dm-ledger tr.dm-flash").first()).toBeVisible();
 });
@@ -492,12 +506,9 @@ test("AC-14: a marker whose acquisitions are all disposed is a no-op (no flash, 
   await chartSettled(page);
   const box = await page.locator("#dmHeroChart").boundingBox();
   // Buys groups sort ascending by date: s2(45d), s4(40d), s1(5d), s5(3d) —
-  // index 1 is s4's group, whose only acquisition is disposed (fixture note:
-  // originally targeted index 0, but s2 at 45d is older than s4 at 40d).
-  const marker = await page.evaluate(() => {
-    const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
-    return { x: m.data[1].x, y: m.data[1].y };
-  });
+  // third-from-last is s4's group, whose only acquisition is disposed
+  // (fixture note: originally targeted index 0, but s2 at 45d is older).
+  const marker = await buysMarkerCoords(page, 2);
   await page.mouse.click(box.x + marker.x, box.y + marker.y);
   await page.waitForTimeout(250);
   await expect(page.locator("#detailsModal .dm-ledger tr.dm-flash")).toHaveCount(0);
@@ -510,7 +521,7 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
   // name long enough that the line exceeds the tooltip's max-width clamp
   const items = SEED_ITEMS.map((it) =>
     it.uuid === "s1"
-      ? { ...it, name: "SAMPLE - 1 oz Canadian Gold Maple Leaf Brilliant Uncirculated" }
+      ? { ...it, name: "SAMPLE - 1 oz Canadian Silver Maple Leaf Brilliant Uncirculated" }
       : it
   );
   await installSeed(page, { items });
@@ -519,17 +530,13 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
   await chartReady(page);
   await chartSettled(page);
   const box = await page.locator("#dmHeroChart").boundingBox();
-  // hover s1's acquisition marker (buys dataset = index 3; AC-13 pattern)
-  const marker = await page.evaluate(() => {
-    const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
-    const el = m.data[m.data.length - 2];
-    return { x: el.x, y: el.y };
-  });
+  // hover s1's acquisition marker (AC-13 pattern)
+  const marker = await buysMarkerCoords(page, 1);
   await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
   await page.mouse.move(box.x + marker.x, box.y + marker.y);
   const tip = page.locator("#dmChartTooltip");
   await expect(tip).toBeVisible();
-  await expect(tip).toContainText("Canadian Gold Maple");
+  await expect(tip).toContainText("Canadian Silver Maple");
   // the box must fit the text: no horizontal overflow past the padding box
   const overflow = await tip.evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
