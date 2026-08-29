@@ -3217,23 +3217,18 @@
     </div>
 
     <!-- =============================================================================
-       DETAILS MODAL WITH PIE CHARTS
-       
-       Advanced analytics modal opened by clicking totals titles.
-       Provides in-depth analysis for selected metal including:
-       
-       VISUAL ANALYTICS:
-       - Pie chart breakdown by item type (rounds, bars, coins, etc.)
-       - Pie chart breakdown by purchase location
-       - Interactive Chart.js visualizations with hover details
-       
-       DATA BREAKDOWNS:
-       - Type details: count, weight, and value by item type
-       - Location details: count, weight, and value by purchase location
-       - Formatted currency and weight displays
-       
-       Modal implementation in detailsModal.js with Chart.js integration
-       Data preparation and chart rendering handled by charts.js
+       DETAIL MODAL — STRK-352 Variant A "Stack Story"
+
+       Opened by clicking the dashboard totals-card titles (All Metals or a
+       single metal). Static shell only: the close row and header carry the
+       stable ids that events.js wires (detailsCloseBtn, Escape chain) and the
+       aria-labelledby target; everything below the header — KPI strip, hero
+       portfolio chart (canvas#dmHeroChart), metric toggle, composition
+       panels, acquisitions ledger, footer, and the loading/empty states — is
+       rendered per open into #dmBody by js/detailsModal.js. Series math lives
+       in js/portfolio-series.js; per-day spot assembly in js/spot.js
+       (getSpotDayMap). Pixel authority: the approved playground prototype
+       (playground/metal-detail-modal-playground.html, PR #1475).
        ============================================================================= -->
     <div
       class="modal"
@@ -3244,33 +3239,15 @@
       aria-labelledby="detailsModalTitle"
     >
       <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="detailsModalTitle"></h2>
+        <div class="dm-topbar">
           <button aria-label="Close modal" class="modal-close" id="detailsCloseBtn">×</button>
         </div>
-        <div class="modal-body">
-          <div class="details-grid">
-            <div class="details-panel">
-              <h3 class="details-panel-title" id="typePanelTitle">Breakdown by Type</h3>
-              <div class="chart-canvas-container">
-                <canvas class="chart-canvas" id="typeChart"></canvas>
-              </div>
-              <div class="details-breakdown" id="typeBreakdown">
-                <!-- Content will be populated by JavaScript -->
-              </div>
-            </div>
-            <div class="details-panel">
-              <h3 class="details-panel-title" id="locationPanelTitle">
-                Breakdown by Purchase Location
-              </h3>
-              <div class="chart-canvas-container">
-                <canvas class="chart-canvas" id="locationChart"></canvas>
-              </div>
-              <div class="details-breakdown" id="locationBreakdown">
-                <!-- Content will be populated by JavaScript -->
-              </div>
-            </div>
-          </div>
+        <div class="dm-header" id="dmHeader" data-accent="all">
+          <h2 class="dm-title" id="detailsModalTitle"></h2>
+          <span class="dm-substats" id="dmSubstats"></span>
+        </div>
+        <div id="dmBody">
+          <!-- Rendered per open by js/detailsModal.js -->
         </div>
       </div>
     </div>
@@ -8893,6 +8870,7 @@
     <script defer src="./js/filters.js"></script>
     <script defer src="./js/sorting.js"></script>
     <script defer src="./js/pagination.js"></script>
+    <script defer src="./js/portfolio-series.js"></script>
     <script defer src="./js/detailsModal.js"></script>
     <script defer src="./js/viewModal.js"></script>
     <script defer src="./js/debugModal.js"></script>
