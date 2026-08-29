@@ -127,7 +127,7 @@ Missing the corner tier causes data cells to paint over the frozen header corner
 
 ## Daily close — TWO per-day dedup policies coexist in `js/spot.js`
 
-The legacy sparkline path (`spot.js` ~line 975) keeps the FIRST live row per day.
+The legacy sparkline path (grep `getHistoricalSparklineData` in `js/spot.js`) keeps the FIRST live row per day.
 `getSpotDayMap` (STRK-352) deliberately keeps the LATEST live timestamp per day, and a live row always beats a seed/bundle row for that day.
 The divergence is intentional — the detail chart wants the daily close; the sparkline dedup predates it and its consumers expect the old behavior.
 Do not "unify" one policy into the other; `details-modal.spec.js` pins the latest-live-wins close.

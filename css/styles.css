@@ -8238,7 +8238,8 @@ a.about-badge:hover {
 }
 table.dm-ledger {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--font-size-base);
   table-layout: fixed;
 }

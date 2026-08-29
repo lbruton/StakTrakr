@@ -241,6 +241,13 @@ const _dmRenderEmpty = (scope) => {
   btn.className = "btn";
   btn.textContent = "+ Add Item";
   btn.addEventListener("click", () => {
+    // STRK-13: mirror the card-view / inventory-table Add Item empty-state
+    // guard — when saveInventory recovery is active, the recovery banner
+    // owns the screen and this CTA must not let a panicked user defeat the
+    // recovery hold by reaching the add-item flow.
+    if (typeof isInventoryRecoveryActive === "function" && isInventoryRecoveryActive()) {
+      return;
+    }
     // D-15: run the full #newItemBtn path — its handler owns the edit-state
     // and picker-state reset; opening #itemModal directly can leak stale data
     closeDetailsModal();
@@ -610,7 +617,7 @@ const _dmBuildLedger = (scope) => {
     meltTd.className = "num dm-col-melt";
     meltTd.textContent = formatCurrency(meltNow);
     const pctTd = document.createElement("td");
-    pctTd.className = `num ${pct != null && pct >= 0 ? "dm-pos" : "dm-neg"}`;
+    pctTd.className = pct == null ? "num" : `num ${pct >= 0 ? "dm-pos" : "dm-neg"}`;
     pctTd.textContent = pct == null ? "—" : `${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(0)}%`;
 
     tr.appendChild(dateTd);
@@ -766,7 +773,7 @@ const _dmExternalTooltip = (context) => {
   const title = document.createElement("div");
   title.className = "dm-tt-title";
   if (buysPoint) {
-    const group = _dmSeries.buys.find((b) => b.day === dayKey);
+    const group = _dmSeries?.buys.find((b) => b.day === dayKey);
     title.textContent = `Acquired ${dayKey}`;
     tip.appendChild(title);
     (group?.items || []).forEach((it) => {
@@ -1174,6 +1181,21 @@ const showDetailsModal = (metal) => {
     _dmLoadAndRender(metal, generation);
   }
 
+  // utils.js openModalById() lazily installs a generic backdrop handler
+  // (`if (e.target === modal) closeModalById(id)`) gated on
+  // modal.dataset.initialized. That generic path bypasses closeDetailsModal's
+  // teardown (generation bump, ResizeObserver disconnect, chart destroy), so
+  // a backdrop click during a load-in-flight could let a stale async
+  // completion render into the hidden modal. Own the backdrop click here and
+  // pre-mark the seam so the generic handler never attaches.
+  const dmBackdropModal = document.getElementById("detailsModal");
+  if (dmBackdropModal && !dmBackdropModal.dataset.initialized) {
+    dmBackdropModal.addEventListener("click", (e) => {
+      if (e.target === dmBackdropModal) closeDetailsModal();
+    });
+    dmBackdropModal.dataset.initialized = "true";
+  }
+
   if (window.openModalById) {
     openModalById("detailsModal");
   } else {
@@ -1257,6 +1279,15 @@ const _dmLoadAndRender = async (scope, generation) => {
  * @param {string} message - Plain-text status line
  */
 const _dmShowLoadNote = (message) => {
+  // The hero chart's canvas (#dmHeroChart) lives inside #dmBody. Clearing the
+  // body below removes that canvas from the DOM, but a live Chart instance
+  // referenced by chartInstances.heroChart would then have no canvas for
+  // closeDetailsModal's Chart.getChart(canvas) lookup to find — destroy it
+  // here first so a render-phase failure can never strand a live Chart.
+  if (chartInstances.heroChart) {
+    chartInstances.heroChart.destroy();
+    chartInstances.heroChart = null;
+  }
   const body = _dmBody();
   if (!body) return;
   body.textContent = "";

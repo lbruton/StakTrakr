@@ -33,6 +33,11 @@ const localDayKey = (minusDays = 0) => {
 const utcDayKey = (minusDays = 0) =>
   new Date(Date.now() - minusDays * 86400000).toISOString().slice(0, 10);
 
+/**
+ * Builds one inventory item fixture with STRK-352 defaults, merging in overrides.
+ * @param {object} [overrides] - Fields to override on the base fixture item
+ * @returns {object} Inventory item fixture
+ */
 const mkItem = (overrides = {}) => ({
   uuid: overrides.uuid ?? `strk352-${Math.random().toString(36).slice(2, 8)}`,
   name: "Test Silver Round",
@@ -158,6 +163,13 @@ const SPOT_HISTORY = [
   },
 ];
 
+/**
+ * Seeds localStorage with inventory, raw spot values, and spot history before
+ * the app boots, then suppresses the What's New popup.
+ * @param {import('@playwright/test').Page} page
+ * @param {object} [overrides] - Optional items/spotHistory/extraJson overrides
+ * @returns {Promise<void>}
+ */
 async function installSeed(page, overrides = {}) {
   const payload = {
     items: overrides.items ?? SEED_ITEMS,
@@ -174,17 +186,32 @@ async function installSeed(page, overrides = {}) {
   await suppressWhatsNewPopup(page);
 }
 
+/**
+ * Navigates to the app root and waits for listener wiring to complete.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
 async function bootApp(page) {
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.appListenersReady === true);
 }
 
+/**
+ * Opens the detail modal for one metal scope from the dashboard totals row.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} metal - Metal scope label, e.g. "All" or "Silver"
+ * @returns {Promise<void>}
+ */
 async function openScope(page, metal) {
   await page.click(`.total-title[data-metal="${metal}"]`);
   await expect(page.locator("#detailsModal")).toBeVisible();
 }
 
-/** Waits for the two-phase open to finish rendering the chart. */
+/**
+ * Waits for the two-phase open to finish rendering the chart.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
 async function chartReady(page) {
   await page.waitForFunction(() => {
     const c = document.getElementById("dmHeroChart");
@@ -198,6 +225,8 @@ async function chartReady(page) {
  * animation and the post-populate scrollbar resize are still settling; marker
  * coords measured mid-settle drift ~15px by click time, silently missing the
  * hit radius. Requires two consecutive identical readings 250ms apart.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
  */
 async function chartSettled(page) {
   await page.waitForFunction(
@@ -225,6 +254,9 @@ async function chartSettled(page) {
  * recent years without any network fetch, so the route never engaged and the
  * body rendered instantly. Stalling window.getSpotDayMap — the real async
  * seam the two-phase open awaits — keeps every assertion unchanged.
+ * @param {import('@playwright/test').Page} page
+ * @param {number} ms - Delay in milliseconds before the stalled call resolves
+ * @returns {Promise<void>}
  */
 async function stallDayMaps(page, ms) {
   await page.evaluate((delay) => {

@@ -247,6 +247,11 @@ test.describe("STRK-352 detail modal — mobile", () => {
     },
   ];
 
+  /**
+   * Opens the detail modal on a mobile viewport for the seeded Silver items.
+   * @param {import('@playwright/test').Page} page
+   * @returns {Promise<void>}
+   */
   async function openMobileModal(page) {
     await page.setViewportSize({ width: 390, height: 844 });
     await seedInventory(page, DM_ITEMS);
