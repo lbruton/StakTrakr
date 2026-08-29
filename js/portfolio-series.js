@@ -8,7 +8,9 @@
 // is unit-testable under Node (tests/unit/portfolio-series.test.js).
 //
 // Contract source: DocVault sketch STRK-352 requirements.md AC-5..AC-8, AC-15
-// and approach.md layer 1 (series boundaries, baseline day, fill rules).
+// and approach.md layer 1 (series boundaries, baseline day, fill rules), as
+// amended by STRK-353: undated Items' purchase cost enters as an acquisition
+// flow on the series-start day (the baseline day carries no pre-history).
 // Series boundaries: start = first dated acquisition − 14 days (the AC-11 ALL
 // pre-roll is built in); all-undated fallback = todayKey − 30 days; a
 // synthetic baseline day precedes the start so every window has a prior
@@ -116,8 +118,9 @@ const _psFillSpot = (map, days) => {
  *   buys: Array<{day: string, items: object[], totalCost: number,
  *   totalOz: number}>, baseline: {day: string, melt: number, basis: number}|null}}
  *   Day-aligned series plus grouped acquisition markers and the synthetic
- *   pre-series baseline day. Internal `_flows`/`_scope` fields feed
- *   computeWindowStats and are not part of the public contract.
+ *   pre-series baseline day (always 0/0 since STRK-353 — undated Items are
+ *   series-start flows, not pre-history). Internal `_flows`/`_scope` fields
+ *   feed computeWindowStats and are not part of the public contract.
  */
 const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayKey, helpers) => {
   const empty = { days: [], melt: [], basis: [], buys: [], baseline: null };
@@ -197,6 +200,15 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
       basis[i] += c.cost;
     }
     if (c.dated && c.acqIdx >= 0 && c.acqIdx < len) buyCost[c.acqIdx] += c.cost;
+    else if (!c.dated && c.dispIdx >= 0) {
+      // STRK-353: an undated Item is not a ghost — its purchase cost enters as
+      // an acquisition flow on the series-start day, mirroring its
+      // held-from-start melt treatment, so ALL-range invested/market reconcile
+      // with actual inventory totals. No buy marker (AC-4). The >= 0 bound
+      // mirrors dispOut's: a day-zero disposition books its melt-out, so its
+      // cost must flow too; a pre-series disposition books neither.
+      buyCost[0] += c.cost;
+    }
     if (c.dispIdx >= 0 && c.dispIdx < len) {
       // melt-out value at the disposition day's spot — a flow, not market
       dispOut[c.dispIdx] += c.meltFactor * spot[c.dispIdx];
@@ -217,16 +229,12 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   });
   const buys = [...buyGroups.values()].sort((a, b) => (a.day < b.day ? -1 : 1));
 
-  // synthetic baseline day: the pre-history portfolio (undated Items only),
-  // valued at the series-start spot, so every window has a prior sample
-  let baseMelt = 0;
-  let baseBasis = 0;
-  computed.forEach((c) => {
-    if (c.dated || c.dispIdx <= 0) return;
-    baseMelt += c.meltFactor * spotByMetal[c.metal][0];
-    baseBasis += c.cost;
-  });
-  const baseline = { day: _psAddDays(days[0], -1), melt: baseMelt, basis: baseBasis };
+  // synthetic baseline day: pre-history is empty — undated Items enter as a
+  // series-start flow (STRK-353). Only the day-zero window reads this 0/0
+  // baseline; later windows use melt[w − 1]. A non-zero baseline here would
+  // double-count undated Items against buyCost[0] in computeWindowStats'
+  // ALL-range market (AC-5 reconciliation invariant).
+  const baseline = { day: _psAddDays(days[0], -1), melt: 0, basis: 0 };
 
   return { days, melt, basis, buys, baseline, _flows: { buyCost, dispOut }, _scope: scope };
 };

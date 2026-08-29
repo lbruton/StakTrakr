@@ -129,7 +129,7 @@ describe("AC-5 — series boundaries", () => {
     assert.equal(s.baseline.basis, 0);
   });
 
-  it("holds undated Items from the series start, valued into the baseline too", () => {
+  it("holds undated Items from the series start; the baseline stays empty (STRK-353)", () => {
     const items = [
       mkItem({ date: "2024-03-01", price: 10 }),
       mkItem({ date: "", weight: 5, price: 40 }), // undated: held-since-start
@@ -138,9 +138,10 @@ describe("AC-5 — series boundaries", () => {
     // day 0 (2024-02-16): only the undated item is held — 5 oz × spot 10
     assert.equal(s.melt[0], 50);
     assert.equal(s.basis[0], 40);
-    // baseline carries the undated-only pre-history portfolio
-    assert.equal(s.baseline.melt, 50);
-    assert.equal(s.baseline.basis, 40);
+    // STRK-353 supersedes the STRK-352 pre-history baseline: an undated Item
+    // enters as a series-start acquisition flow, so nothing precedes day 0
+    assert.equal(s.baseline.melt, 0);
+    assert.equal(s.baseline.basis, 0);
   });
 
   it("falls back to todayKey − 30 days when no dated acquisitions exist", () => {
@@ -361,6 +362,119 @@ describe("AC-15 — computeWindowStats", () => {
     const stats = computeWindowStats(s, s.days[0]);
     assert.equal(stats.paceOzPerMonth, null);
     assert.equal(stats.invested, 10); // distinguishes real stats from the stub
+  });
+});
+
+// ── STRK-353: undated Items reconcile as series-start flows ─────────────────
+//
+// Owner ruling (STRK-353): an undated Item is not a ghost. Its purchase cost
+// enters the series as an acquisition flow on the series-start day, mirroring
+// its held-from-start melt/basis treatment — so ALL-range invested/market
+// always reconcile with the user's actual inventory totals.
+
+describe("STRK-353 — undated acquisition flows", () => {
+  // shared fixture: dated 1 oz @ cost 10 (2024-03-01) + undated 5 oz @ cost 40,
+  // flat spot 10 → melt[end] = 60, total cost 50
+  const mixed = () => [
+    mkItem({ date: "2024-03-01", price: 10, weight: 1 }),
+    mkItem({ date: "", weight: 5, price: 40 }),
+  ];
+
+  it("AC-2: ALL invested includes undated Items' purchase cost", () => {
+    const s = build(mixed(), { Silver: flatSilver(10) });
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.invested, 50); // 10 dated + 40 undated
+  });
+
+  it("AC-3: ALL market books the undated day-one melt-vs-cost differential", () => {
+    const s = build(mixed(), { Silver: flatSilver(10) });
+    const stats = computeWindowStats(s, s.days[0]);
+    // spot flat: dated buy at melt parity contributes 0; undated 50 melt − 40
+    // cost contributes +10 — previously dropped entirely
+    assert.equal(stats.market, 10);
+  });
+
+  it("AC-4: undated Items produce no buy marker and no buys count", () => {
+    const s = build(mixed(), { Silver: flatSilver(10) });
+    assert.equal(s.buys.length, 1); // only the dated 03-01 acquisition
+    assert.equal(s.buys[0].day, "2024-03-01");
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.buyCount, 1);
+  });
+
+  it("AC-5: on ALL with zero dispositions, market + invested === final-day melt", () => {
+    const s = build(mixed(), { Silver: flatSilver(10) });
+    const last = s.melt.length - 1;
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.ok(Math.abs(stats.market + stats.invested - s.melt[last]) < 1e-9); // 10 + 50 = 60
+  });
+
+  it("AC-5: with dispositions, market + invested − disposal melt-out === final-day melt", () => {
+    const items = [
+      mkItem({
+        date: "2024-03-01",
+        price: 80,
+        weight: 10,
+        disposition: { type: "sold", date: "2024-03-10", amount: 120 },
+      }),
+      mkItem({ date: "", weight: 5, price: 40 }),
+    ];
+    const s = build(items, { Silver: flatSilver(10) });
+    const last = s.melt.length - 1;
+    assert.equal(s.melt[last], 50); // sold item gone; undated 5 oz × 10 remains
+    const stats = computeWindowStats(s, s.days[0]);
+    const meltOut = 100; // 10 oz × spot 10 on the disposition day
+    assert.equal(stats.invested, 120); // 80 dated + 40 undated
+    assert.equal(stats.market, 30); // sold gain 20 + undated differential 10
+    assert.ok(Math.abs(stats.market + stats.invested - meltOut - s.melt[last]) < 1e-9);
+  });
+
+  it("AC-6: sub-windows starting after the series start exclude the undated flow", () => {
+    const s = build(mixed(), { Silver: flatSilver(10) });
+    const stats = computeWindowStats(s, "2024-03-01");
+    assert.equal(stats.invested, 10); // dated buy only — undated flow is at day 0
+    assert.equal(stats.market, 0); // flat spot: prior-day melt already holds the undated oz
+  });
+
+  it("an undated Item disposed ON the series-start day still books its cost flow (dispIdx = 0)", () => {
+    // boundary: dispOut[0] records the melt-out, so buyCost[0] must record the
+    // cost — otherwise market inflates by the full melt-out, not the flip gain
+    const items = [
+      mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // series anchor → start 2024-02-16
+      mkItem({
+        date: "",
+        weight: 5,
+        price: 40,
+        disposition: { type: "sold", date: "2024-02-16", amount: 50 },
+      }),
+    ];
+    const s = build(items, { Silver: flatSilver(10) });
+    const last = s.melt.length - 1;
+    assert.equal(s.melt[last], 10); // only the anchor is held
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.invested, 50); // 10 anchor + 40 day-zero flip
+    assert.equal(stats.market, 10); // flip gain 50 − 40, anchor 0 — NOT +50
+    assert.ok(Math.abs(stats.market + stats.invested - 50 - s.melt[last]) < 1e-9);
+  });
+
+  it("an undated Item with a dated disposition flows in at series start and out at disposition", () => {
+    const items = [
+      mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // series anchor
+      mkItem({
+        date: "",
+        weight: 5,
+        price: 40,
+        disposition: { type: "sold", date: "2024-03-10", amount: 55 },
+      }),
+    ];
+    const s = build(items, { Silver: flatSilver(10) });
+    const last = s.melt.length - 1;
+    assert.equal(s.melt[last], 10); // only the anchor remains held
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.invested, 50); // 10 anchor + 40 undated
+    // undated flip: melt-out 50 − cost 40 = +10; anchor contributes 0
+    assert.equal(stats.market, 10);
+    assert.ok(Math.abs(stats.market + stats.invested - 50 - s.melt[last]) < 1e-9);
   });
 });
 
