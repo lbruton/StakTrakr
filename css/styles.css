@@ -8267,11 +8267,14 @@ table.dm-ledger {
 .dm-ledger th:nth-child(3) {
   width: 42px;
 }
+/* STRK-356: amounts never truncate — sized for "$999,999.99" in the mono
+   face; the flexible Item column (freed by the removed type pills) absorbs
+   the difference and remains the only cell allowed to ellipsize */
 .dm-ledger th:nth-child(4) {
-  width: 80px;
+  width: 100px;
 }
 .dm-ledger th:nth-child(5) {
-  width: 90px;
+  width: 104px;
 }
 .dm-ledger th:nth-child(6) {
   width: 50px;
@@ -8318,16 +8321,6 @@ table.dm-ledger {
   white-space: nowrap;
   font-weight: 600;
   color: var(--text-primary);
-}
-.dm-lrow .dm-type-chip {
-  flex: 0 0 auto;
-}
-.dm-type-chip {
-  display: inline-block;
-  font-size: var(--font-size-xs);
-  font-weight: 650;
-  border-radius: var(--radius-pill);
-  padding: 0.05rem 0.5rem;
 }
 .dm-metal-dot {
   flex: 0 0 auto;

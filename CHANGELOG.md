@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.17] - 2026-08-29
+
+### Changed — STRK-356: Acquisitions ledger cleanup
+
+- **Change**: Removed the Coin/Round/Bar type pills from the detail modal's Acquisitions ledger — the metal color dot stays; type detail lives in the full Inventory panel (STRK-356)
+- **Fix**: PAID and MELT NOW columns no longer truncate dollar amounts — the amount columns widened to fit any realistic sum (up to $999,999.99) and the flexible item-name column absorbs the difference as the only cell allowed to ellipsize (STRK-356)
+
+---
+
 ## [3.36.16] - 2026-08-29
 
 ### Fixed — STRK-355: Detail modal tooltip keeps one line per item
