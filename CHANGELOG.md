@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.13] - 2026-08-29
+
+### Changed — STRK-352: Metal detail modal redesign
+
+- **Feature**: Replaced the two-pie details modal with the approved "Stack Story" layout — a portfolio value chart plotting melt value against cost basis, backdated to the first acquisition, with a per-metal spot overlay and acquisition markers sized by purchase amount (STRK-352)
+- **Feature**: Composition panels (stacked bars with the Purchase/Melt/Retail/Gain-Loss metric toggle) and an acquisitions mini-ledger — rows open the Item View modal, markers flash their matching rows, and "View all in Inventory" deep-links the Inventory tab (STRK-352)
+- **Feature**: New portfolio-series engine (`js/portfolio-series.js`) — day-by-day holdings fold with Disposition-aware melt and basis, per-metal spot gap-fill from the seed/year history, and flow-adjusted window stats so buying or selling never masquerades as market movement (STRK-352)
+
+---
+
 ## [3.36.12] - 2026-08-17
 
 ### Added — STRK-347: Poller dashboard shows both FBP price-source + buy-link URLs for FBP-backed vendors

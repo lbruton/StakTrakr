@@ -222,3 +222,87 @@ test.describe("core/mobile-and-layout", () => {
     );
   });
 });
+
+// ── STRK-352: metal detail modal — responsive contract (AC-20/22/23) ────────
+// Written RED in Cohort B: the Variant A shell does not exist yet. The modal
+// opens from the DASHBOARD totals cards, so this block boots without the
+// #/inventory deep-link the suites above need.
+test.describe("STRK-352 detail modal — mobile", () => {
+  const DM_ITEMS = [
+    {
+      ...BASE_ITEM,
+      uuid: "dm-mob-1",
+      name: "Mobile Silver Bar",
+      weight: 2,
+      price: 50,
+      date: "2026-08-01",
+    },
+    {
+      ...BASE_ITEM,
+      uuid: "dm-mob-2",
+      name: "Mobile Maple",
+      serial: 2,
+      price: 30,
+      date: "2026-07-01",
+    },
+  ];
+
+  /**
+   * Opens the detail modal on a mobile viewport for the seeded Silver items.
+   * @param {import('@playwright/test').Page} page
+   * @returns {Promise<void>}
+   */
+  async function openMobileModal(page) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedInventory(page, DM_ITEMS);
+    await page.addInitScript(() => {
+      localStorage.setItem("spotSilver", "10");
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await page.click('.total-title[data-metal="Silver"]');
+    await expect(page.locator("#detailsModal")).toBeVisible();
+    await page.waitForFunction(() => {
+      const c = document.getElementById("dmHeroChart");
+      return !!(c && window.Chart && window.Chart.getChart(c));
+    });
+  }
+
+  test("AC-22: the hero chart canvas renders on mobile (STACK-70 reversal)", async ({ page }) => {
+    await openMobileModal(page);
+    const canvas = page.locator("#dmHeroChart");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    expect(box.width).toBeGreaterThan(200);
+    // the metric toggle must not be display:none'd by the old mobile rules
+    await expect(page.locator("#detailsModal .chart-metric-toggle").first()).toBeVisible();
+  });
+
+  test("AC-23: layout stacks to one column with a two-column KPI strip", async ({ page }) => {
+    await openMobileModal(page);
+    const kpis = page.locator("#detailsModal .dm-kpi");
+    const first = await kpis.nth(0).boundingBox();
+    const second = await kpis.nth(1).boundingBox();
+    const third = await kpis.nth(2).boundingBox();
+    expect(Math.abs(first.y - second.y)).toBeLessThan(2); // same row
+    expect(third.y).toBeGreaterThan(first.y + 10); // wrapped to row 2
+    // composition column and ledger stack vertically (single grid column)
+    const comp = await page.locator("#detailsModal .dm-panel").first().boundingBox();
+    const ledger = await page.locator("#detailsModal .dm-ledger").boundingBox();
+    expect(ledger.y).toBeGreaterThan(comp.y + comp.height - 2);
+  });
+
+  test("AC-20: the mobile ledger slims to Date | Item | Qty | ±%", async ({ page }) => {
+    await openMobileModal(page);
+    const headers = page.locator("#detailsModal .dm-ledger thead th");
+    const visible = [];
+    const n = await headers.count();
+    for (let i = 0; i < n; i++) {
+      if (await headers.nth(i).isVisible()) visible.push((await headers.nth(i).innerText()).trim());
+    }
+    expect(visible.map((t) => t.toLowerCase())).toEqual(["date", "item", "qty", "±%"]);
+    // paid / melt cells hidden, not merely narrow
+    await expect(page.locator("#detailsModal .dm-ledger td.dm-col-paid").first()).toBeHidden();
+    await expect(page.locator("#detailsModal .dm-ledger td.dm-col-melt").first()).toBeHidden();
+  });
+});

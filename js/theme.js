@@ -22,6 +22,9 @@ const setTheme = (theme) => {
   if (typeof updateAllSparklines === "function") {
     updateAllSparklines();
   }
+  // canvas colors are resolved rgb, not var() — the open detail modal must
+  // re-resolve them (D-7); DOM surfaces follow the cascade on their own
+  window._refreshDetailsModalTheme?.();
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
 

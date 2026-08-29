@@ -5214,13 +5214,16 @@ input[type="submit"] {
   max-width: 700px;
 }
 
+/* STRK-352: the redesigned detail modal is a single scrolling column — the
+   old flex/pie shell (padding 0, hidden overflow, inner .modal-body scroller)
+   is replaced by direct block content. ID specificity is deliberate: it must
+   outrank the generic .modal-content rules. */
 #detailsModal .modal-content {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
+  display: block;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
   width: 90%;
-  max-width: 1200px;
+  max-width: 1100px;
   max-height: 90vh;
 }
 
@@ -5234,7 +5237,6 @@ input[type="submit"] {
    from tokens so all 4 themes resolve correctly (warm gunmetal in dark,
    slate-blue in slate, light surface in light, paper in sepia). */
 #changeLogModal .modal-header,
-#detailsModal .modal-header,
 #storageReportModal .modal-header,
 #itemModal .modal-header {
   background: var(--bg-secondary);
@@ -5247,7 +5249,6 @@ input[type="submit"] {
 }
 
 #changeLogModal .modal-header h2,
-#detailsModal .modal-header h2,
 #storageReportModal .modal-header h2,
 #itemModal .modal-header h2 {
   margin: 0;
@@ -5271,14 +5272,6 @@ input[type="submit"] {
 
 #changeLogClearBtn {
   font-size: var(--font-size-xl);
-}
-
-#detailsModal .modal-body {
-  padding: var(--spacing-xl);
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
 }
 
 #storageReportModal .modal-body {
@@ -7880,133 +7873,579 @@ a.about-badge:hover {
   }
 }
 
-.details-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-xl);
-  margin-bottom: var(--spacing-lg);
-  flex: 0 0 auto;
-  overflow: visible;
-}
+/* =============================================================================
+   DETAIL MODAL — STRK-352 Variant A "Stack Story" (dm- family)
+   Replaces the legacy two-pie layout: .details-grid, .details-panel, the
+   .breakdown- and .chart-canvas- families. (Never write a glob-slash pair in
+   this comment — a star-slash sequence terminates it early and CSS error
+   recovery then eats the next rule; that bug shipped the close button left.)
+   Spec source: the approved playground prototype
+   (playground/metal-detail-modal-playground.html, PR #1475).
+   Tokens only — all four themes resolve through the semantic custom props.
+   ============================================================================= */
 
-.details-panel {
-  background: var(--bg-secondary);
-  border-radius: var(--radius);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--border);
+/* 1 ── Close row + header: close on its own top row, then serif title with
+       the scope's metal accent underline and quiet mono substats */
+.dm-topbar {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  overflow: visible;
+  justify-content: flex-end;
+  margin: calc(var(--spacing-sm) * -1) calc(var(--spacing-sm) * -1) 0 0;
 }
-
-.details-breakdown {
-  flex: 0 0 auto;
-  overflow: visible;
-  padding-right: var(--spacing-sm);
+.dm-topbar .modal-close {
+  position: static;
 }
-
-.details-panel-title {
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-  color: var(--primary);
-  margin: 0;
-  text-align: center;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: var(--spacing-sm);
-}
-
-.breakdown-item {
-  padding: var(--spacing-sm) 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.breakdown-item:last-child {
-  border-bottom: none;
-}
-
-.breakdown-header {
+.dm-header {
   display: flex;
-  align-items: center;
-  margin-bottom: 0.25rem;
-}
-
-.breakdown-color-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 0.4rem;
-  flex-shrink: 0;
-}
-
-.breakdown-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--font-size-md);
-  flex: 1;
-}
-
-.breakdown-meta {
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-}
-
-/* 2x2 financial grid for breakdown rows */
-.breakdown-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.125rem 0.75rem;
-  font-size: var(--font-size-base);
-}
-
-.breakdown-cell {
-  display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  padding: 0.1rem 0;
+  justify-content: space-between;
+  gap: var(--spacing);
+  border-bottom: 4px solid var(--border);
+  padding-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing);
+  flex-wrap: wrap;
 }
-
-.breakdown-cell-label {
-  color: var(--text-muted);
+.dm-header[data-accent="silver"] {
+  border-bottom-color: var(--silver);
+}
+.dm-header[data-accent="gold"] {
+  border-bottom-color: var(--gold);
+}
+.dm-header[data-accent="platinum"] {
+  border-bottom-color: var(--platinum);
+}
+.dm-header[data-accent="palladium"] {
+  border-bottom-color: var(--palladium);
+}
+.dm-header[data-accent="copper"] {
+  border-bottom-color: var(--copper);
+}
+.dm-header[data-accent="all"] {
+  border-bottom-color: var(--primary);
+}
+.dm-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-2xl);
   font-weight: 400;
-  font-size: var(--font-size-sm);
-}
-
-.breakdown-cell-value {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.breakdown-purchase .breakdown-cell-value {
   color: var(--text-primary);
+  margin: 0;
+  text-align: left;
 }
-.breakdown-melt .breakdown-cell-value {
-  color: var(--primary);
+.dm-substats {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  white-space: nowrap;
 }
-.breakdown-retail .breakdown-cell-value {
-  color: var(--text-secondary);
+
+/* 2 ── KPI strip */
+.dm-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing);
 }
-.breakdown-gain .breakdown-cell-value {
+.dm-kpi {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--spacing-sm) var(--spacing);
+  min-width: 0;
+}
+.dm-kpi-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.dm-kpi-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  font-weight: 650;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dm-kpi-sub {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dm-kpi--gain .dm-kpi-value,
+.dm-pos {
   color: var(--success);
 }
-.breakdown-loss .breakdown-cell-value {
+.dm-kpi--loss .dm-kpi-value,
+.dm-neg {
   color: var(--danger);
 }
 
-.chart-canvas-container {
+/* 3 ── Hero chart card */
+.dm-chart-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--spacing);
+  margin-bottom: var(--spacing);
+}
+.dm-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-sm);
+}
+.dm-series-chips {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+.dm-series-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.65rem;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+.dm-series-chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+.dm-series-chip[aria-pressed="false"] {
+  opacity: 0.45;
+}
+.dm-series-chip:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.dm-series-swatch {
+  width: 14px;
+  height: 0;
+  border-top: 3px solid currentColor;
+  border-radius: 2px;
+}
+.dm-series-swatch--dash {
+  border-top-style: dashed;
+}
+.dm-series-swatch--dot {
+  width: 8px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+.dm-chart-wrap {
   position: relative;
-  width: 100%;
-  max-width: 300px;
-  max-height: 300px;
-  aspect-ratio: 1;
-  margin: 0 auto;
-  flex: 0 0 auto;
+  height: 280px;
+}
+.dm-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+#dmChartTooltip {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  display: none;
+  background: color-mix(in oklch, var(--bg-tertiary), transparent 5%);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.6rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-mono);
+  line-height: 1.5;
+  max-width: 260px;
+  white-space: nowrap;
+}
+#dmChartTooltip .dm-tt-title {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: var(--font-body);
+}
+.dm-substrip {
+  display: flex;
+  gap: var(--spacing);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px dashed var(--border);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.dm-substrip strong {
+  color: var(--text-secondary);
+  font-weight: 650;
 }
 
-.chart-canvas {
-  max-height: 300px !important;
+/* 4 ── Segmented controls: hugging variant of .chart-metric-toggle. The base
+       class (below) keeps its own padded/sticky look for any future consumer;
+       the modal always pairs it with .dm-seg so the wrapper hugs the buttons
+       and its radius clips their corners. */
+.chart-metric-toggle.dm-seg {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  position: static;
+  overflow: hidden;
+}
+.dm-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* 5 ── Composition panels: stacked bar + single-line rows */
+.dm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing);
+  align-items: start;
+}
+.dm-grid--ledger {
+  grid-template-columns: 0.85fr 1.15fr;
+  align-items: stretch;
+}
+.dm-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+  min-width: 0;
+}
+.dm-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--spacing);
+  min-width: 0;
+}
+.dm-panel-title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.dm-panel-hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+.dm-comp-bar {
+  display: flex;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin: var(--spacing-sm) 0;
+}
+.dm-comp-seg {
+  min-width: 3px;
+  transition: filter 0.15s;
+}
+.dm-comp-seg:hover {
+  filter: brightness(1.25);
+}
+.dm-comp-rows {
+  display: flex;
+  flex-direction: column;
+}
+.dm-comp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: var(--font-size-base);
+}
+.dm-comp-row:last-child {
+  border-bottom: none;
+}
+.dm-comp-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dm-comp-name {
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 40%;
+}
+.dm-comp-meta {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
+  margin-left: auto;
+}
+.dm-comp-val {
+  font-family: var(--font-mono);
+  font-weight: 650;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.dm-comp-more .dm-comp-name {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* 6 ── Acquisitions ledger */
+.dm-ledger-fill {
+  position: relative;
+  min-height: 340px;
+}
+.dm-ledger-fill > .dm-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dm-ledger-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--radius);
+}
+table.dm-ledger {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--font-size-base);
+  table-layout: fixed;
+}
+.dm-ledger th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
+}
+.dm-ledger th:nth-child(1) {
+  width: 94px;
+}
+.dm-ledger th:nth-child(3) {
+  width: 42px;
+}
+.dm-ledger th:nth-child(4) {
+  width: 80px;
+}
+.dm-ledger th:nth-child(5) {
+  width: 90px;
+}
+.dm-ledger th:nth-child(6) {
+  width: 50px;
+}
+.dm-ledger td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px dashed var(--border);
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.dm-ledger td.num,
+.dm-ledger th.num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.dm-ledger td.num {
+  color: var(--text-primary);
+}
+.dm-ledger tbody tr {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.dm-ledger tbody tr:hover,
+.dm-ledger tbody tr:focus-visible {
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+  outline: none;
+}
+.dm-ledger-date {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+.dm-lrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.dm-lrow .dm-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dm-lrow .dm-type-chip {
+  flex: 0 0 auto;
+}
+.dm-type-chip {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+  border-radius: var(--radius-pill);
+  padding: 0.05rem 0.5rem;
+}
+.dm-metal-dot {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.dm-ledger-note {
+  padding: var(--spacing);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+@keyframes dmFlash {
+  0% {
+    background: color-mix(in oklch, var(--primary), transparent 55%);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.dm-flash {
+  animation: dmFlash 1.6s ease-out;
+}
+
+/* 7 ── Footer + links */
+.dm-foot {
+  margin-top: var(--spacing);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.dm-foot-actions {
+  text-align: right;
+  margin-top: var(--spacing-xs);
+}
+.dm-link {
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 600;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  padding: 0;
+}
+.dm-link:hover {
+  text-decoration: underline;
+}
+
+/* 8 ── Loading skeletons (net-new pattern; static under reduced motion) */
+.dm-skel {
+  border-radius: var(--radius);
+  background: linear-gradient(
+    100deg,
+    var(--bg-tertiary) 40%,
+    color-mix(in oklch, var(--bg-tertiary), var(--text-muted) 12%) 50%,
+    var(--bg-tertiary) 60%
+  );
+  background-size: 200% 100%;
+  animation: dmShimmer 1.4s infinite linear;
+}
+@keyframes dmShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dm-skel {
+    animation: none;
+  }
+  .dm-flash {
+    animation: none;
+    background: color-mix(in oklch, var(--primary), transparent 80%);
+  }
+}
+
+/* 9 ── Mobile (≤768px): single column, 2-col KPIs, slim ledger, 44px targets */
+@media (max-width: 768px) {
+  .dm-grid,
+  .dm-grid--ledger {
+    grid-template-columns: 1fr;
+  }
+  .dm-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dm-substats {
+    display: none;
+  }
+  .dm-ledger-fill {
+    min-height: 0;
+  }
+  .dm-ledger-fill > .dm-panel {
+    position: static;
+  }
+  .dm-ledger-wrap {
+    max-height: 300px;
+  }
+  .dm-ledger th.dm-col-paid,
+  .dm-ledger td.dm-col-paid,
+  .dm-ledger th.dm-col-melt,
+  .dm-ledger td.dm-col-melt {
+    display: none;
+  }
+  .dm-ledger th:nth-child(1) {
+    width: 84px;
+  }
+  /* AC-24: 44px touch targets on the modal's interactive controls */
+  #detailsModal .chart-metric-btn,
+  #detailsModal .dm-series-chip,
+  #detailsModal .dm-link {
+    min-height: 44px;
+  }
+  #detailsModal .modal-close {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  #detailsModal .dm-ledger tbody tr {
+    /* table rows treat height as a minimum — guarantees the touch target */
+    height: 44px;
+  }
 }
 
 /* Chart metric toggle — segmented button bar for details modal */
@@ -9046,12 +9485,8 @@ input:disabled + .slider {
    - Optimized table display with column adjustments
    ============================================================================= */
 
-/* STACK-71: Single-column details at tablet widths, aligned with card-view breakpoint */
-@media (max-width: 1350px) {
-  .details-grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* STACK-71 note: the legacy .details-grid tablet collapse was retired with
+   the pie layout (STRK-352); the dm- grid carries its own 768px stacking. */
 
 @media (max-width: 1200px) {
   #detailsModal .modal-content {
@@ -9169,11 +9604,6 @@ input:disabled + .slider {
 
   .import-export-grid {
     grid-template-columns: 1fr;
-  }
-
-  .details-grid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing);
   }
 
   #detailsModal .modal-content {
@@ -14078,31 +14508,10 @@ th {
     flex: 1;
   }
 
-  /* --- Phase 4: Details modal — hide charts, stack panels --------------- */
-  .chart-canvas-container {
-    display: none !important;
-  }
-  .chart-metric-toggle {
-    display: none;
-  }
-
-  .details-grid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing);
-  }
-  .details-panel {
-    padding: var(--spacing);
-  }
-  #detailsModal .modal-body {
-    overflow-y: auto;
-    flex: 1;
-  }
-
-  /* Breakdown grid: keep 2-col for compact financial data */
-  .breakdown-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.125rem 0.5rem;
-  }
+  /* --- Phase 4 (STACK-70) RETIRED by STRK-352: the old rules here hid the
+     pie canvases and the metric toggle on mobile. The redesigned modal's
+     hero chart and toggle MUST render on mobile (AC-17/AC-22); its own
+     responsive rules live in the dm- block's 768px section. --- */
 
   /* --- Phase 6: Bulk edit modal — full-screen stacking ------------------ */
   .bulk-edit-content {

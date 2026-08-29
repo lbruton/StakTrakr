@@ -5050,6 +5050,8 @@ const setupApiEvents = () => {
           } else if (changeLogModal && changeLogModal.style.display === "flex") {
             changeLogModal.style.display = "none";
             document.body.style.overflow = "";
+          } else if (document.getElementById("viewItemModal")?.style.display === "flex") {
+            /* viewModal.js's own document-level Escape listener owns this close; claiming it here would also close the details modal stacked beneath (STRK-352) */
           } else if (
             detailsModal &&
             detailsModal.style.display === "flex" &&

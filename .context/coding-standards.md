@@ -863,13 +863,12 @@ fetch(url)
 - **Destroy before reuse**: call `.destroy()` on an existing chart instance before creating a new one on the same canvas — failing to destroy causes memory leaks and ghost overlays
 - **Disable animations** on programmatic updates (when the user didn't trigger the render)
 - **Store instances** in the `chartInstances` or `sparklineInstances` objects in `state.js`
-- **`getThemeColorRGB(token)`** — always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves the token to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`).
+- **`getThemeColorRGB(token)`** — always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves those to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`) — **but `#hex` and `rgb()` inputs pass through unchanged** (slate defines its metal accents as hex). Fine for any Chart.js color field; **never scrape channels out of the result with a digit regex** — parse rgb() AND hex properly (precedent: `_dmRgbTriple` in `js/detailsModal.js`; the STRK-352 slate regression shipped from exactly this).
 
 ```js
-if (chartInstances.typeChart) {
-  chartInstances.typeChart.destroy();
-}
-chartInstances.typeChart = new Chart(canvas, config);
+const prev = Chart.getChart(canvas);
+if (prev) prev.destroy();
+chartInstances.heroChart = new Chart(canvas, config);
 ```
 
 ### Bootstrap 5

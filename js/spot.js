@@ -949,6 +949,60 @@ const fetchYearFile = (year) => {
 };
 
 /**
+ * Assemble the per-day spot map for the portfolio series (STRK-352, approach
+ * layer 2). Ensures the needed year files are in historicalDataCache, merges
+ * cache rows with live spotHistory, and returns raw day→spot samples — no gap
+ * filling (that is portfolio-series.js's job, where it is unit-testable).
+ *
+ * Daily-close selection (pinned): live rows (source !== "seed") beat seed
+ * rows; among live rows the LATEST timestamp of the day wins, independent of
+ * input order. This deliberately differs from getHistoricalSparklineData's
+ * first-live-row-of-the-day dedup below — that shape would chart a morning
+ * quote as the close (caught in the STRK-352 approach review).
+ *
+ * @param {string} metalName - Metal display name ('Silver', 'Gold', …)
+ * @param {string} fromDayKey - Inclusive "YYYY-MM-DD" lower bound (UTC day
+ *   keys — spotHistory timestamps are bare UTC)
+ * @returns {Promise<Map<string, number>>} Day key → spot USD/ozt raw samples
+ */
+const getSpotDayMap = async (metalName, fromDayKey) => {
+  const out = new Map();
+  if (typeof metalName !== "string" || typeof fromDayKey !== "string") return out;
+  const trimmed = metalName.trim();
+  if (!trimmed) return out;
+  const normalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  if (!SUPPORTED_SPOT_METALS.has(normalized)) return out;
+  const yearMatch = fromDayKey.match(/^(\d{4})-/);
+  if (!yearMatch) return out;
+
+  // Ensure year files (bundle-seeded years resolve instantly from the cache).
+  // 1968 is the seed-data floor — earlier years have no files to fetch.
+  const fromYear = Math.max(parseInt(yearMatch[1], 10), 1968);
+  const endYear = new Date().getUTCFullYear();
+  const years = [];
+  for (let y = fromYear; y <= endYear; y++) years.push(y);
+  await Promise.all(years.map(fetchYearFile));
+
+  const cached = years.flatMap((y) => historicalDataCache.get(y) || []);
+  // STAK-222: "cached" API echoes are excluded from charts everywhere
+  const live = spotHistory.filter((e) => e.source !== "cached");
+  const best = new Map(); // day → { rank, timestamp, spot }
+  [...cached, ...live].forEach((e) => {
+    if (!e || e.metal !== normalized || typeof e.spot !== "number") return;
+    if (typeof e.timestamp !== "string") return;
+    const day = e.timestamp.slice(0, 10);
+    if (day < fromDayKey) return;
+    const rank = e.source === "seed" ? 0 : 1;
+    const cur = best.get(day);
+    if (!cur || rank > cur.rank || (rank === cur.rank && e.timestamp > cur.timestamp)) {
+      best.set(day, { rank, timestamp: e.timestamp, spot: e.spot });
+    }
+  });
+  best.forEach((v, day) => out.set(day, v.spot));
+  return out;
+};
+
+/**
  * Fetches needed year files, merges with live spotHistory, filters to
  * metal + range, deduplicates by day (live data wins over seed).
  * @param {string} metalName - Metal name ('Silver', 'Gold', etc.)
@@ -1780,6 +1834,7 @@ window.saveSpotHistory = saveSpotHistory;
 window.loadSpotHistory = loadSpotHistory;
 window.migrateHourlySource = migrateHourlySource;
 window.getHistoricalSparklineData = getHistoricalSparklineData;
+window.getSpotDayMap = getSpotDayMap;
 window.getRequiredYears = getRequiredYears;
 window.fetchYearFile = fetchYearFile;
 window.lookupHistoricalSpot = lookupHistoricalSpot;
