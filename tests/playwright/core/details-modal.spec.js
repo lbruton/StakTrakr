@@ -576,7 +576,7 @@ test("STRK-355: a realistic long buy line stays on ONE line — the box extends 
 
 // ── AC-15 display + layer-2 close + D-16 footer ─────────────────────────────
 
-test("STRK-362: invested shows its since-sold slice in a parenthetical on ALL", async ({
+test("STRK-362: invested shows its since-disposed slice in a parenthetical on ALL", async ({
   page,
 }) => {
   await installSeed(page);
@@ -586,7 +586,7 @@ test("STRK-362: invested shows its since-sold slice in a parenthetical on ALL", 
   await page.click('#detailsModal [data-range="ALL"]');
   // s4 (Sold Eagle, $40 buy, since disposed) is the only sold flow in the
   // seed: invested − $40 = the active Cost Basis KPI
-  await expect(page.locator("#detailsModal .dm-substrip")).toContainText("(− $40.00 sold)");
+  await expect(page.locator("#detailsModal .dm-substrip")).toContainText("(− $40.00 disposed)");
 });
 
 test("AC-15: substrip shows market, invested, buy count, and per-metal pace (no pace on All)", async ({

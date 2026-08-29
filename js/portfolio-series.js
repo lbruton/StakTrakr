@@ -191,8 +191,8 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   const buyCost = new Array(len).fill(0);
   const dispOut = new Array(len).fill(0);
   // STRK-362: the since-disposed slice of buyCost — invested minus this equals
-  // the active cost basis on ALL, which the substrip surfaces as "(− $X sold)"
-  const soldCost = new Array(len).fill(0);
+  // the active cost basis on ALL — the substrip's "(− $X disposed)"
+  const disposedBuyCost = new Array(len).fill(0);
 
   computed.forEach((c) => {
     const from = Math.max(0, c.acqIdx);
@@ -205,7 +205,7 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
     const disposed = c.dispIdx !== Infinity;
     if (c.dated && c.acqIdx >= 0 && c.acqIdx < len) {
       buyCost[c.acqIdx] += c.cost;
-      if (disposed) soldCost[c.acqIdx] += c.cost;
+      if (disposed) disposedBuyCost[c.acqIdx] += c.cost;
     } else if (!c.dated && c.dispIdx >= 0) {
       // STRK-353: an undated Item is not a ghost — its purchase cost enters as
       // an acquisition flow on the series-start day, mirroring its
@@ -214,7 +214,7 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
       // mirrors dispOut's: a day-zero disposition books its melt-out, so its
       // cost must flow too; a pre-series disposition books neither.
       buyCost[0] += c.cost;
-      if (disposed) soldCost[0] += c.cost;
+      if (disposed) disposedBuyCost[0] += c.cost;
     }
     if (c.dispIdx >= 0 && c.dispIdx < len) {
       // melt-out value at the disposition day's spot — a flow, not market
@@ -249,7 +249,7 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
     basis,
     buys,
     baseline,
-    _flows: { buyCost, dispOut, soldCost },
+    _flows: { buyCost, dispOut, disposedBuyCost },
     _scope: scope,
   };
 };
@@ -262,17 +262,17 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
  * @param {object} series - Result of buildPortfolioSeries.
  * @param {string} windowStartKey - "YYYY-MM-DD" first visible day.
  * @returns {{market: number, marketPct: number|null, invested: number,
- *   investedSold: number, buyCount: number, paceOzPerMonth: number|null}}
+ *   investedDisposed: number, buyCount: number, paceOzPerMonth: number|null}}
  *   Window stats; marketPct is null when the end-of-window basis is 0, pace is
- *   null for the All scope. investedSold is the since-disposed slice of
- *   invested (STRK-362) — invested − investedSold = active cost basis on ALL.
+ *   null for the All scope. investedDisposed is the since-disposed slice of
+ *   invested (STRK-362) — invested − investedDisposed = active cost basis on ALL.
  */
 const computeWindowStats = (series, windowStartKey) => {
   const zero = {
     market: 0,
     marketPct: null,
     invested: 0,
-    investedSold: 0,
+    investedDisposed: 0,
     buyCount: 0,
     paceOzPerMonth: null,
   };
@@ -283,11 +283,11 @@ const computeWindowStats = (series, windowStartKey) => {
   const prevMelt = w === 0 ? (series.baseline?.melt ?? 0) : series.melt[w - 1];
 
   let invested = 0;
-  let investedSold = 0;
+  let investedDisposed = 0;
   let out = 0;
   for (let i = w; i <= end; i++) {
     invested += series._flows.buyCost[i];
-    investedSold += series._flows.soldCost[i];
+    investedDisposed += series._flows.disposedBuyCost[i];
     out += series._flows.dispOut[i];
   }
   const market = series.melt[end] - prevMelt - invested + out;
@@ -304,7 +304,7 @@ const computeWindowStats = (series, windowStartKey) => {
     paceOzPerMonth = ozBought / months;
   }
 
-  return { market, marketPct, invested, investedSold, buyCount, paceOzPerMonth };
+  return { market, marketPct, invested, investedDisposed, buyCount, paceOzPerMonth };
 };
 
 /**

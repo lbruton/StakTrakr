@@ -703,12 +703,14 @@ const _dmRenderSubstrip = () => {
     `${_dmSigned(stats.market)}${pctPart}`,
     stats.market >= 0 ? "dm-pos" : "dm-neg"
   );
-  // STRK-362: invested is all-time flow (incl. since-sold buys) while the
-  // Cost Basis KPI is active-only — surface the sold slice so the difference
-  // reads as accounting, not error: invested − sold = active cost basis
+  // STRK-362: invested is all-time flow (incl. since-disposed buys) while the
+  // Cost Basis KPI is active-only — surface the disposed slice so the
+  // difference reads as accounting, not error: invested − disposed = active
+  // cost basis. "disposed" (canonical term), not "sold": the slice covers
+  // traded/lost/gifted dispositions too (Codex, PR #1484).
   const investedText =
-    stats.investedSold > 0
-      ? `${formatCurrency(stats.invested)} (− ${formatCurrency(stats.investedSold)} sold)`
+    stats.investedDisposed > 0
+      ? `${formatCurrency(stats.invested)} (− ${formatCurrency(stats.investedDisposed)} disposed)`
       : formatCurrency(stats.invested);
   addStat("invested", investedText);
   addStat("buys", String(stats.buyCount));
