@@ -200,11 +200,13 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
       basis[i] += c.cost;
     }
     if (c.dated && c.acqIdx >= 0 && c.acqIdx < len) buyCost[c.acqIdx] += c.cost;
-    else if (!c.dated && c.dispIdx > 0) {
+    else if (!c.dated && c.dispIdx >= 0) {
       // STRK-353: an undated Item is not a ghost — its purchase cost enters as
       // an acquisition flow on the series-start day, mirroring its
       // held-from-start melt treatment, so ALL-range invested/market reconcile
-      // with actual inventory totals. No buy marker (AC-4).
+      // with actual inventory totals. No buy marker (AC-4). The >= 0 bound
+      // mirrors dispOut's: a day-zero disposition books its melt-out, so its
+      // cost must flow too; a pre-series disposition books neither.
       buyCost[0] += c.cost;
     }
     if (c.dispIdx >= 0 && c.dispIdx < len) {
@@ -228,9 +230,10 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   const buys = [...buyGroups.values()].sort((a, b) => (a.day < b.day ? -1 : 1));
 
   // synthetic baseline day: pre-history is empty — undated Items enter as a
-  // series-start flow (STRK-353), so every window's prior sample is 0/0. A
-  // non-zero baseline here would double-count them against buyCost[0] in
-  // computeWindowStats' ALL-range market (AC-5 reconciliation invariant).
+  // series-start flow (STRK-353). Only the day-zero window reads this 0/0
+  // baseline; later windows use melt[w − 1]. A non-zero baseline here would
+  // double-count undated Items against buyCost[0] in computeWindowStats'
+  // ALL-range market (AC-5 reconciliation invariant).
   const baseline = { day: _psAddDays(days[0], -1), melt: 0, basis: 0 };
 
   return { days, melt, basis, buys, baseline, _flows: { buyCost, dispOut }, _scope: scope };

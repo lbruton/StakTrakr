@@ -436,6 +436,27 @@ describe("STRK-353 — undated acquisition flows", () => {
     assert.equal(stats.market, 0); // flat spot: prior-day melt already holds the undated oz
   });
 
+  it("an undated Item disposed ON the series-start day still books its cost flow (dispIdx = 0)", () => {
+    // boundary: dispOut[0] records the melt-out, so buyCost[0] must record the
+    // cost — otherwise market inflates by the full melt-out, not the flip gain
+    const items = [
+      mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // series anchor → start 2024-02-16
+      mkItem({
+        date: "",
+        weight: 5,
+        price: 40,
+        disposition: { type: "sold", date: "2024-02-16", amount: 50 },
+      }),
+    ];
+    const s = build(items, { Silver: flatSilver(10) });
+    const last = s.melt.length - 1;
+    assert.equal(s.melt[last], 10); // only the anchor is held
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.invested, 50); // 10 anchor + 40 day-zero flip
+    assert.equal(stats.market, 10); // flip gain 50 − 40, anchor 0 — NOT +50
+    assert.ok(Math.abs(stats.market + stats.invested - 50 - s.melt[last]) < 1e-9);
+  });
+
   it("an undated Item with a dated disposition flows in at series start and out at disposition", () => {
     const items = [
       mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // series anchor
