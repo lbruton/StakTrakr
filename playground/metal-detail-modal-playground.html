@@ -477,7 +477,9 @@
       .dm-tabbar {
         margin-bottom: var(--spacing);
       }
-      [hidden] {
+      /* Scoped to the modal's tab panes — a bare [hidden] override is broader
+         than the app's targeted-override approach (Copilot, PR #1475) */
+      #detailsModal [hidden] {
         display: none !important;
       }
 
@@ -1391,7 +1393,9 @@
       const fmt = (v) => eur.format(v);
       const fmtK = (v) =>
         Math.abs(v) >= 10000 ? "€" + (v / 1000).toFixed(1) + "k" : eur0.format(v);
-      const fmtDate = (d) => d.toLocaleDateString("en-CA");
+      // dates[] are UTC-midnight keys — format in the UTC frame or negative
+      // offsets display the previous calendar day
+      const fmtDate = (d) => d.toLocaleDateString("en-CA", { timeZone: "UTC" });
       const fmtMon = (d) =>
         d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
       const sign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "");
@@ -1558,10 +1562,10 @@
             ${state.showBasis ? `<path d="${basisPath}" fill="none" stroke="${basisCol}" stroke-width="1.4" opacity="0.9"/>` : ""}
             ${ys ? `<path d="${spotPath}" fill="none" stroke="${spotCol}" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.9"/>` : ""}
             <path d="${meltPath}" fill="none" stroke="${accent}" stroke-width="2"/>
-            ${markers}
             <line id="dmCross" x1="0" y1="${PAD.t}" x2="0" y2="${PAD.t + ih}" stroke="${txtCol}" stroke-width="1" opacity="0" stroke-dasharray="3 3"/>
             ${labels}
             <rect id="dmHover" x="${PAD.l}" y="${PAD.t}" width="${iw}" height="${ih}" fill="transparent"/>
+            ${markers}
           </svg>`;
 
         // ── interactions ──
@@ -1630,8 +1634,10 @@
         const delta = s.melt[i1] - s.melt[i0];
         const invested = s.basis[i1] - s.basis[i0];
         const market = delta - invested;
-        // % relative to capital deployed, not the window-start value (which
-        // can be ~0 and would explode the percentage)
+        // % relative to capital deployed, not the window-start value: both
+        // melt[i0] and basis[i0] can be 0 (the ALL range starts before the
+        // first buy), so a start-of-window denominator divides by zero. A
+        // proper money-weighted return is a production concern (STRK-352).
         const deltaPct = s.basis[i1] ? (market / s.basis[i1]) * 100 : 0;
         const ozBought = winBuys.reduce(
           (a, b) => a + b.items.reduce((aa, it) => aa + itemOz(it), 0),
@@ -1656,7 +1662,10 @@
 
       function kpiStripHTML(t) {
         const gainCls = t.gain >= 0 ? "dm-kpi--gain" : "dm-kpi--loss";
-        const spotNow = state.metal !== "All" ? SPOT[state.metal][N_DAYS - 1] : null;
+        // SPOT has no series for every scope (e.g. Platinum via the edge
+        // preset) — tolerate missing spot data instead of throwing
+        const spotSeries = state.metal !== "All" ? SPOT[state.metal] : null;
+        const spotNow = spotSeries ? spotSeries[N_DAYS - 1] : null;
         const premium = spotNow && t.oz ? (t.avgCost / spotNow - 1) * 100 : null;
         return `<div class="dm-kpis">
           <div class="dm-kpi"><div class="dm-kpi-label">Purchase</div><div class="dm-kpi-value">${fmt(t.purchase)}</div>
