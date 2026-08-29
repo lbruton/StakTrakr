@@ -192,6 +192,50 @@ async function chartReady(page) {
   });
 }
 
+/**
+ * Waits until chart element layout is stable before coordinate math.
+ * FIXTURE CORRECTION (C.6, disclosed): chartReady fires while the 300ms entry
+ * animation and the post-populate scrollbar resize are still settling; marker
+ * coords measured mid-settle drift ~15px by click time, silently missing the
+ * hit radius. Requires two consecutive identical readings 250ms apart.
+ */
+async function chartSettled(page) {
+  await page.waitForFunction(
+    () => {
+      const c = document.getElementById("dmHeroChart");
+      const chart = c && window.Chart && window.Chart.getChart(c);
+      if (!chart) return false;
+      const meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
+      const el = meta.data[meta.data.length - 1];
+      if (!el) return false;
+      const key = `${el.x.toFixed(2)}:${el.y.toFixed(2)}:${chart.width}`;
+      if (window.__dmStableKey === key) return true;
+      window.__dmStableKey = key;
+      return false;
+    },
+    undefined,
+    { polling: 250 }
+  );
+}
+
+/**
+ * Stalls the day-map assembly so the skeleton phase is observable.
+ * FIXTURE CORRECTION (C.6, disclosed): the original stall lever routed
+ * **\/spot-history-*.json fetches, but the vendored spot bundle satisfies
+ * recent years without any network fetch, so the route never engaged and the
+ * body rendered instantly. Stalling window.getSpotDayMap — the real async
+ * seam the two-phase open awaits — keeps every assertion unchanged.
+ */
+async function stallDayMaps(page, ms) {
+  await page.evaluate((delay) => {
+    const orig = window.getSpotDayMap;
+    window.getSpotDayMap = async (...args) => {
+      await new Promise((r) => setTimeout(r, delay));
+      return orig(...args);
+    };
+  }, ms);
+}
+
 // Chart introspection happens via inline page.evaluate callbacks — Playwright
 // serializes the callback function itself, so no dynamic code strings exist.
 
@@ -279,12 +323,8 @@ test("D-3: closing during a delayed load leaves no chart, DOM, or observer behin
   page,
 }) => {
   await installSeed(page);
-  // stall every year-file fetch so the day-map assembly hangs
-  await page.route("**/spot-history-*.json", async (route) => {
-    await new Promise((r) => setTimeout(r, 2500));
-    await route.continue();
-  });
   await bootApp(page);
+  await stallDayMaps(page, 2500);
   await openScope(page, "Silver");
   await expect(page.locator("#detailsModal .dm-skel").first()).toBeVisible();
   await page.click("#detailsCloseBtn");
@@ -303,11 +343,8 @@ test("AC-21: skeletons show while series data loads, then give way to the chart"
   page,
 }) => {
   await installSeed(page);
-  await page.route("**/spot-history-*.json", async (route) => {
-    await new Promise((r) => setTimeout(r, 1200));
-    await route.continue();
-  });
   await bootApp(page);
+  await stallDayMaps(page, 1200);
   await openScope(page, "Silver");
   await expect(page.locator("#detailsModal .dm-skel").first()).toBeVisible();
   await chartReady(page);
@@ -395,11 +432,13 @@ test("AC-13: hovering the plot shows the external tooltip; a real marker click f
   await bootApp(page);
   await openScope(page, "Silver");
   await chartReady(page);
+  await chartSettled(page);
   const box = await page.locator("#dmHeroChart").boundingBox();
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.5);
   await expect(page.locator("#dmChartTooltip")).toBeVisible();
-  // real click on the s2 acquisition marker (buys dataset = index 3)
+  // real click on an active acquisition marker (buys dataset = index 3;
+  // ascending groups s2,s4,s1,s5 → length-2 is s1's group, which is active)
   const marker = await page.evaluate(() => {
     const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
     const el = m.data[m.data.length - 2];
@@ -418,11 +457,14 @@ test("AC-14: a marker whose acquisitions are all disposed is a no-op (no flash, 
   await bootApp(page);
   await openScope(page, "Silver");
   await chartReady(page);
+  await chartSettled(page);
   const box = await page.locator("#dmHeroChart").boundingBox();
-  // s4 (disposed) is the OLDEST silver buy → buys dataset index 0
+  // Buys groups sort ascending by date: s2(45d), s4(40d), s1(5d), s5(3d) —
+  // index 1 is s4's group, whose only acquisition is disposed (fixture note:
+  // originally targeted index 0, but s2 at 45d is older than s4 at 40d).
   const marker = await page.evaluate(() => {
     const m = window.Chart.getChart(document.getElementById("dmHeroChart")).getDatasetMeta(3);
-    return { x: m.data[0].x, y: m.data[0].y };
+    return { x: m.data[1].x, y: m.data[1].y };
   });
   await page.mouse.click(box.x + marker.x, box.y + marker.y);
   await page.waitForTimeout(250);
@@ -481,7 +523,24 @@ test("D-16: footer provenance renders the last-sync surface, no per-sample claim
 test("AC-16/AC-17: two panels, |metric| ranking with +N more, metric toggle re-renders signed Gain/Loss", async ({
   page,
 }) => {
-  await installSeed(page);
+  // FIXTURE CORRECTION (C.6, disclosed): the base seed carries only 6 ACTIVE
+  // purchase locations — the original "7" count included a disposed item's
+  // location, which AC-18 excludes from every active surface. Seed a 7th
+  // active-location item so the overflow row has something to overflow.
+  await installSeed(page, {
+    items: [
+      ...SEED_ITEMS,
+      mkItem({
+        uuid: "g2",
+        name: "Gold Buffalo",
+        metal: "Gold",
+        weight: 0.1,
+        price: 250,
+        date: localDayKey(12),
+        purchaseLocation: "jmbullion.com",
+      }),
+    ],
+  });
   await bootApp(page);
   await openScope(page, "All");
   await chartReady(page);
@@ -580,6 +639,11 @@ test("currency: every monetary surface renders via formatCurrency in the active 
   await installSeed(page, {
     extraJson: { displayCurrency: "EUR", exchangeRates: { EUR: 2 } },
   });
+  // FIXTURE CORRECTION (C.6, disclosed): boot runs fetchExchangeRates() against
+  // the live er-api endpoint; on success it OVERWRITES the seeded cache with
+  // real rates (EUR ≈ 0.92). Block the fetch so the seeded rate survives —
+  // core tests must not depend on live network anyway.
+  await page.route("**/open.er-api.com/**", (route) => route.abort());
   await bootApp(page);
   await openScope(page, "Silver");
   await chartReady(page);

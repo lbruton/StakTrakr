@@ -8435,9 +8435,13 @@ table.dm-ledger {
   #detailsModal .dm-link {
     min-height: 44px;
   }
-  #detailsModal .dm-ledger tbody tr td {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
+  #detailsModal .modal-close {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  #detailsModal .dm-ledger tbody tr {
+    /* table rows treat height as a minimum — guarantees the touch target */
+    height: 44px;
   }
 }
 
