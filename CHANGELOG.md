@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — STRK-355: Detail modal tooltip keeps one line per item
 
-- **Fix**: Refined the STRK-354 tooltip fix per beta feedback — buy-marker tooltip lines stay on one line each and the box extends to fit them (`max-width` raised from 260px to `min(640px, calc(100vw − 32px))` with `width: max-content`); wrapping inside the box remains only as the fallback for pathological names or narrow viewports (STRK-355)
+- **Fix**: Refined the STRK-354 tooltip fix per beta feedback — buy-marker tooltip lines stay on one line each and the box extends to fit them (`max-width` raised from 260px to `min(640px, calc(100% - 32px))` — capped by the chart wrap — with `width: max-content`); wrapping inside the box remains only as the fallback for pathological names or narrow viewports (STRK-355)
 
 ---
 

@@ -8074,7 +8074,7 @@ a.about-badge:hover {
   /* STRK-355: one line per item — width: max-content grows the box to fit
      each line; the cap exists only so pathological names / narrow viewports
      wrap INSIDE the box instead of painting past the border (STRK-354) */
-  max-width: min(640px, calc(100vw - 32px));
+  max-width: min(640px, calc(100% - 32px));
   white-space: normal;
   width: max-content;
   overflow-wrap: break-word;

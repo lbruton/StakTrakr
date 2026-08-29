@@ -566,7 +566,10 @@ test("STRK-355: a realistic long buy line stays on ONE line — the box extends 
   // line renders unwrapped — one text line per item, box fits the text
   const metrics = await tip.evaluate((el) => {
     const line = [...el.children].find((c) => c.textContent.includes("Canadian Silver Maple"));
+    if (!line) throw new Error("STRK-355: buy line not found among tooltip children");
     const lh = parseFloat(getComputedStyle(line).lineHeight);
+    if (!Number.isFinite(lh) || lh <= 0)
+      throw new Error(`STRK-355: non-numeric tooltip line-height: ${lh}`);
     return {
       boxWidth: el.clientWidth,
       lines: Math.round(line.getBoundingClientRect().height / lh),
