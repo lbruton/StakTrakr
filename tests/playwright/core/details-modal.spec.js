@@ -515,10 +515,14 @@ test("AC-14: a marker whose acquisitions are all disposed is a no-op (no flash, 
   expect(errors).toHaveLength(0);
 });
 
-test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
-  page,
-}) => {
-  // name long enough that the line exceeds the tooltip's max-width clamp
+/**
+ * Shared STRK-354/355 setup: seeds s1 with a name wider than the old 260px
+ * tooltip clamp, opens the Silver scope, and hovers s1's acquisition marker
+ * (AC-13 pattern) so the buy tooltip is showing. Assertions stay in the tests.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<import('@playwright/test').Locator>} The tooltip locator
+ */
+async function hoverLongNameBuyMarker(page) {
   const items = SEED_ITEMS.map((it) =>
     it.uuid === "s1"
       ? { ...it, name: "SAMPLE - 1 oz Canadian Silver Maple Leaf Brilliant Uncirculated" }
@@ -530,16 +534,44 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
   await chartReady(page);
   await chartSettled(page);
   const box = await page.locator("#dmHeroChart").boundingBox();
-  // hover s1's acquisition marker (AC-13 pattern)
   const marker = await buysMarkerCoords(page, 1);
   await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
   await page.mouse.move(box.x + marker.x, box.y + marker.y);
-  const tip = page.locator("#dmChartTooltip");
+  return page.locator("#dmChartTooltip");
+}
+
+test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
+  page,
+}) => {
+  const tip = await hoverLongNameBuyMarker(page);
   await expect(tip).toBeVisible();
   await expect(tip).toContainText("Canadian Silver Maple");
   // the box must fit the text: no horizontal overflow past the padding box
   const overflow = await tip.evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("STRK-355: a realistic long buy line stays on ONE line — the box extends to fit", async ({
+  page,
+}) => {
+  const tip = await hoverLongNameBuyMarker(page);
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("Canadian Silver Maple");
+  // intent (STRK-355): the box extends past the old 260px clamp and the buy
+  // line renders unwrapped — one text line per item, box fits the text
+  const metrics = await tip.evaluate((el) => {
+    const line = [...el.children].find((c) => c.textContent.includes("Canadian Silver Maple"));
+    if (!line) throw new Error("STRK-355: buy line not found among tooltip children");
+    const lh = parseFloat(getComputedStyle(line).lineHeight);
+    if (!Number.isFinite(lh) || lh <= 0)
+      throw new Error(`STRK-355: non-numeric tooltip line-height: ${lh}`);
+    return {
+      boxWidth: el.clientWidth,
+      lines: Math.round(line.getBoundingClientRect().height / lh),
+    };
+  });
+  expect(metrics.boxWidth).toBeGreaterThan(300);
+  expect(metrics.lines).toBe(1);
 });
 
 // ── AC-15 display + layer-2 close + D-16 footer ─────────────────────────────
