@@ -919,6 +919,27 @@ test("AC-24: interactive controls meet the 44px touch target on mobile viewports
 
 // ── STRK-363: disposition markers ───────────────────────────────────────────
 
+async function dmDatasetByRole(page, role) {
+  return page.evaluate((r) => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const idx = chart.data.datasets.findIndex((d) => d.dmRole === r);
+    if (idx < 0) return null;
+    const ds = chart.data.datasets[idx];
+    const meta = chart.getDatasetMeta(idx);
+    const firstEl = meta.data[0];
+    return {
+      type: ds.type,
+      bg: ds.backgroundColor,
+      borderColor: ds.borderColor,
+      borderWidth: ds.borderWidth,
+      pointCount: ds.data.length,
+      hidden: ds.hidden,
+      visible: chart.isDatasetVisible(idx),
+      firstCoord: firstEl ? { x: firstEl.x, y: firstEl.y } : null,
+    };
+  }, role);
+}
+
 test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset with danger accent", async ({
   page,
 }) => {

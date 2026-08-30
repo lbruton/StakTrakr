@@ -770,7 +770,16 @@ const _dmExternalTooltip = (context) => {
 
   const title = document.createElement("div");
   title.className = "dm-tt-title";
-  if (buysPoint) {
+  if (dispositionsPoint) {
+    const group = _dmSeries?.dispositions.find((d) => d.day === dayKey);
+    title.textContent = `Disposed ${dayKey}`;
+    tip.appendChild(title);
+    (group?.items || []).forEach((it) => {
+      const line = document.createElement("div");
+      line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(it._meltOut || 0)}`;
+      tip.appendChild(line);
+    });
+  } else if (buysPoint) {
     const group = _dmSeries?.buys.find((b) => b.day === dayKey);
     title.textContent = `Acquired ${dayKey}`;
     tip.appendChild(title);
@@ -778,15 +787,6 @@ const _dmExternalTooltip = (context) => {
       const line = document.createElement("div");
       const cost = (parseFloat(it.price) || 0) * (Number(it.qty) || 1);
       line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(cost)}`;
-      tip.appendChild(line);
-    });
-  } else if (dispositionsPoint) {
-    const group = _dmSeries?.dispositions.find((d) => d.day === dayKey);
-    title.textContent = `Disposed ${dayKey}`;
-    tip.appendChild(title);
-    (group?.items || []).forEach((it) => {
-      const line = document.createElement("div");
-      line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(it._meltOut || 0)}`;
       tip.appendChild(line);
     });
   } else {

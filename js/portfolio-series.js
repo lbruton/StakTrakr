@@ -116,11 +116,13 @@ const _psFillSpot = (map, days) => {
  *   callers omit and the app globals are used.
  * @returns {{days: string[], melt: number[], basis: number[],
  *   buys: Array<{day: string, items: object[], totalCost: number,
- *   totalOz: number}>, baseline: {day: string, melt: number, basis: number}|null}}
- *   Day-aligned series plus grouped acquisition markers and the synthetic
- *   pre-series baseline day (always 0/0 since STRK-353 — undated Items are
- *   series-start flows, not pre-history). Internal `_flows`/`_scope` fields
- *   feed computeWindowStats and are not part of the public contract.
+ *   totalOz: number}>,
+ *   dispositions: Array<{day: string, items: object[], totalMeltOut: number}>,
+ *   baseline: {day: string, melt: number, basis: number}|null}}
+ *   Day-aligned series plus grouped acquisition and disposition markers and the
+ *   synthetic pre-series baseline day (always 0/0 since STRK-353 — undated
+ *   Items are series-start flows, not pre-history). Internal `_flows`/`_scope`
+ *   fields feed computeWindowStats and are not part of the public contract.
  */
 const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayKey, helpers) => {
   const empty = { days: [], melt: [], basis: [], buys: [], dispositions: [], baseline: null };
@@ -245,8 +247,8 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
     const key = c.it.disposition.date;
     if (!dispGroups.has(key)) dispGroups.set(key, { day: key, items: [], totalMeltOut: 0 });
     const g = dispGroups.get(key);
-    const spot = spotByMetal[c.metal];
-    const itemMeltOut = c.meltFactor * spot[c.dispIdx];
+    const spot = spotByMetal[c.metal] || [];
+    const itemMeltOut = c.meltFactor * (spot[c.dispIdx] || 0);
     g.items.push(Object.assign({}, c.it, { _meltOut: itemMeltOut }));
     g.totalMeltOut += itemMeltOut;
   });
