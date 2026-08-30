@@ -919,6 +919,15 @@ test("AC-24: interactive controls meet the 44px touch target on mobile viewports
 
 // ── STRK-363: disposition markers ───────────────────────────────────────────
 
+/**
+ * Reads the detail-modal chart dataset carrying the given dmRole, along with
+ * the first rendered point's canvas coordinates — lets a test assert dataset
+ * shape and hover a marker without repeating the Chart.getChart lookup.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} role - dmRole to look up, e.g. "buys" or "dispositions".
+ * @returns {Promise<object|null>} Dataset facts, or null when no dataset
+ *   carries that role.
+ */
 async function dmDatasetByRole(page, role) {
   return page.evaluate((r) => {
     const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
