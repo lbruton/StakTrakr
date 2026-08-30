@@ -478,6 +478,61 @@ describe("STRK-353 — undated acquisition flows", () => {
   });
 });
 
+// ── STRK-362: investedDisposed — the since-disposed portion of invested ─────────
+//
+// invested is all-time acquisition flow; the Cost Basis KPI is active-only.
+// investedDisposed reports the window's since-disposed buy flows so the UI can
+// show `invested $X (− $Y disposed)` where X − Y = active cost basis on ALL.
+
+describe("STRK-362 — investedDisposed", () => {
+  const soldMix = () => [
+    mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // active
+    mkItem({
+      date: "2024-03-05",
+      price: 80,
+      weight: 10,
+      disposition: { type: "sold", date: "2024-03-10", amount: 120 },
+    }),
+  ];
+
+  it("reports the window's since-disposed acquisition cost separately", () => {
+    const s = build(soldMix(), { Silver: flatSilver(10) });
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.invested, 90); // 10 active + 80 since-sold
+    assert.equal(stats.investedDisposed, 80); // invested − investedDisposed = active basis
+  });
+
+  it("is 0 when no disposed acquisition falls in the window", () => {
+    const s = build(soldMix(), { Silver: flatSilver(10) });
+    // window opens after the sold item's BUY day — its flow is outside even
+    // though its disposition day (03-10) is inside
+    const stats = computeWindowStats(s, "2024-03-06");
+    assert.equal(stats.investedDisposed, 0);
+  });
+
+  it("counts an undated since-disposed Item's series-start flow as disposed", () => {
+    const items = [
+      mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // series anchor
+      mkItem({
+        date: "",
+        weight: 5,
+        price: 40,
+        disposition: { type: "sold", date: "2024-03-10", amount: 55 },
+      }),
+    ];
+    const s = build(items, { Silver: flatSilver(10) });
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.invested, 50);
+    assert.equal(stats.investedDisposed, 40); // the undated flip's day-zero flow
+  });
+
+  it("stays 0 with no dispositions at all", () => {
+    const s = build([mkItem({ date: "2024-03-01", price: 10 })], { Silver: flatSilver(10) });
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.investedDisposed, 0);
+  });
+});
+
 // ── pickLedgerRows ──────────────────────────────────────────────────────────
 
 describe("pickLedgerRows", () => {

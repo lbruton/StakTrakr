@@ -334,7 +334,7 @@ test("AC-3: five KPI tiles; Unrealized matches the dashboard Gain figure; Realiz
   const kpis = page.locator("#detailsModal .dm-kpi");
   await expect(kpis).toHaveCount(5);
   const labels = page.locator("#detailsModal .dm-kpi-label");
-  await expect(labels.nth(0)).toContainText(/purchase/i);
+  await expect(labels.nth(0)).toContainText(/cost basis/i);
   await expect(labels.nth(1)).toContainText(/melt/i);
   await expect(labels.nth(2)).toContainText(/retail/i);
   await expect(labels.nth(3)).toContainText(/unrealized/i);
@@ -575,6 +575,19 @@ test("STRK-355: a realistic long buy line stays on ONE line — the box extends 
 });
 
 // ── AC-15 display + layer-2 close + D-16 footer ─────────────────────────────
+
+test("STRK-362: invested shows its since-disposed slice in a parenthetical on ALL", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await page.click('#detailsModal [data-range="ALL"]');
+  // s4 (Sold Eagle, $40 buy, since disposed) is the only sold flow in the
+  // seed: invested − $40 = the active Cost Basis KPI
+  await expect(page.locator("#detailsModal .dm-substrip")).toContainText("(− $40.00 disposed)");
+});
 
 test("AC-15: substrip shows market, invested, buy count, and per-metal pace (no pace on All)", async ({
   page,
