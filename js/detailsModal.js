@@ -5,7 +5,7 @@
 // totals-card titles via the unchanged public contract showDetailsModal(metal)
 // / closeDetailsModal(). Renders, per open: a five-tile KPI strip, the hero
 // portfolio chart (melt vs cost basis, per-metal spot overlay, acquisition
-// markers — Chart.js 3.9.1, linear index x-axis, external HTML tooltip, inline
+// markers, disposition markers — Chart.js 3.9.1, linear index x-axis, external HTML tooltip, inline
 // crosshair plugin), composition panels (stacked bars + rows with the
 // Purchase/Melt/Retail/Gain-Loss metric toggle), the acquisitions ledger, and
 // the loading/empty/disposed-only states.
@@ -37,8 +37,8 @@ let _dmRange = "1Y";
 /** @type {string} Active composition metric */
 let _dmMetric = "melt";
 
-/** @type {{basis: boolean, spot: boolean, buys: boolean}} Series toggles */
-let _dmShow = { basis: true, spot: true, buys: true };
+/** @type {{basis: boolean, spot: boolean, buys: boolean, dispositions: boolean}} Series toggles */
+let _dmShow = { basis: true, spot: true, buys: true, dispositions: true };
 
 /** @type {ResizeObserver|null} Chart resize observer for the open modal */
 let _dmResizeObserver = null;
@@ -762,6 +762,9 @@ const _dmExternalTooltip = (context) => {
   tip.textContent = "";
   const points = tooltip.dataPoints;
   const buysPoint = points.find((p) => chart.data.datasets[p.datasetIndex].dmRole === "buys");
+  const dispositionsPoint = points.find(
+    (p) => chart.data.datasets[p.datasetIndex].dmRole === "dispositions"
+  );
   const dayIdx = Math.round(points[0].parsed.x);
   const dayKey = _dmSeries?.days[dayIdx] || "";
 
@@ -775,6 +778,15 @@ const _dmExternalTooltip = (context) => {
       const line = document.createElement("div");
       const cost = (parseFloat(it.price) || 0) * (Number(it.qty) || 1);
       line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(cost)}`;
+      tip.appendChild(line);
+    });
+  } else if (dispositionsPoint) {
+    const group = _dmSeries?.dispositions.find((d) => d.day === dayKey);
+    title.textContent = `Disposed ${dayKey}`;
+    tip.appendChild(title);
+    (group?.items || []).forEach((it) => {
+      const line = document.createElement("div");
+      line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(it._meltOut || 0)}`;
       tip.appendChild(line);
     });
   } else {
@@ -947,6 +959,31 @@ const _dmRenderChart = () => {
     order: 1,
   });
 
+  const dangerRGB = getThemeColorRGB("danger");
+  const windowDispositions = _dmSeries.dispositions.filter((d) => days.indexOf(d.day) >= startIdx);
+  const dispRadii = windowDispositions.map((d) =>
+    Math.max(3.5, Math.min(8, Math.sqrt(d.totalMeltOut) / 5))
+  );
+  datasets.push({
+    dmRole: "dispositions",
+    type: "scatter",
+    label: "Dispositions",
+    data: windowDispositions.map((d) => {
+      const i = days.indexOf(d.day);
+      return { x: i, y: _dmSeries.melt[i] };
+    }),
+    pointRadius: dispRadii,
+    pointHoverRadius: dispRadii.map((r) => r + 2),
+    pointHitRadius: 8,
+    pointStyle: "circle",
+    backgroundColor: "transparent",
+    borderColor: dangerRGB,
+    borderWidth: 2,
+    hidden: !_dmShow.dispositions,
+    yAxisID: "y",
+    order: 0,
+  });
+
   const scales = {
     x: {
       type: "linear",
@@ -1036,6 +1073,12 @@ const _dmRenderBody = () => {
       disabled: _dmScope === "All",
     },
     { key: "buys", label: "Buys", swatch: "dm-series-swatch--dot", disabled: false },
+    {
+      key: "dispositions",
+      label: "Dispositions",
+      swatch: "dm-series-swatch--ring",
+      disabled: false,
+    },
   ].forEach(({ key, label, swatch, disabled }) => {
     const chip = document.createElement("button");
     chip.type = "button";
@@ -1161,7 +1204,7 @@ const showDetailsModal = (metal) => {
   _dmScope = metal;
   _dmRange = "1Y";
   _dmMetric = "melt";
-  _dmShow = { basis: true, spot: true, buys: true };
+  _dmShow = { basis: true, spot: true, buys: true, dispositions: true };
   _dmSeries = null;
   _dmSpotMaps = null;
 

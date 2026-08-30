@@ -272,6 +272,111 @@ describe("buys — acquisition markers", () => {
   });
 });
 
+// ── STRK-363: dispositions index ────────────────────────────────────────────
+
+describe("dispositions — disposition markers (STRK-363)", () => {
+  it("groups by disposition date, ascending, with per-item melt-out values", () => {
+    const a = mkItem({
+      date: "2024-03-01",
+      price: 10,
+      weight: 1,
+      disposition: { type: "sold", date: "2024-03-10", amount: 100 },
+    });
+    const b = mkItem({
+      date: "2024-03-01",
+      price: 20,
+      weight: 2,
+      disposition: { type: "sold", date: "2024-03-10", amount: 200 },
+    });
+    const c = mkItem({
+      date: "2024-03-05",
+      price: 30,
+      weight: 3,
+      disposition: { type: "traded", date: "2024-03-15", amount: 300 },
+    });
+    const s = build([c, b, a], { Silver: flatSilver(10) });
+    assert.deepEqual(
+      s.dispositions.map((x) => x.day),
+      ["2024-03-10", "2024-03-15"]
+    );
+    assert.equal(s.dispositions[0].items.length, 2);
+    assert.equal(s.dispositions[1].items.length, 1);
+  });
+
+  it("computes totalMeltOut from spot at the disposition day (not the amount field)", () => {
+    const item = mkItem({
+      date: "2024-03-01",
+      price: 80,
+      weight: 10,
+      purity: 1,
+      disposition: { type: "sold", date: "2024-03-10", amount: 120 },
+    });
+    const s = build([item], { Silver: flatSilver(10) });
+    assert.equal(s.dispositions.length, 1);
+    assert.equal(s.dispositions[0].totalMeltOut, 100); // 10 oz × spot 10
+  });
+
+  it("attaches per-item meltOut so the tooltip can list individual values", () => {
+    const a = mkItem({
+      date: "2024-03-01",
+      weight: 1,
+      purity: 1,
+      disposition: { type: "sold", date: "2024-03-10", amount: 100 },
+    });
+    const b = mkItem({
+      date: "2024-03-01",
+      weight: 2,
+      purity: 1,
+      disposition: { type: "sold", date: "2024-03-10", amount: 200 },
+    });
+    const s = build([a, b], { Silver: flatSilver(10) });
+    const group = s.dispositions[0];
+    assert.equal(group.items[0]._meltOut, 10); // 1 oz × spot 10
+    assert.equal(group.items[1]._meltOut, 20); // 2 oz × spot 10
+  });
+
+  it("excludes undated dispositions (never-held items have no marker)", () => {
+    const ghost = mkItem({
+      date: "2024-03-01",
+      disposition: { type: "lost", date: "" },
+    });
+    const anchor = mkItem({ date: "2024-03-05", price: 10 });
+    const s = build([ghost, anchor], { Silver: flatSilver(10) });
+    assert.equal(s.dispositions.length, 0);
+  });
+
+  it("excludes disposition days outside the series range", () => {
+    const item = mkItem({
+      date: "2024-03-01",
+      weight: 1,
+      disposition: { type: "sold", date: "2024-05-01", amount: 20 },
+    });
+    const s = build([item], { Silver: flatSilver(10) });
+    assert.equal(s.dispositions.length, 0); // 2024-05-01 is past todayKey (2024-04-01)
+  });
+
+  it("does NOT affect buys count, pace, or invested (AC-3)", () => {
+    const active = mkItem({ date: "2024-03-01", price: 10, weight: 1 });
+    const sold = mkItem({
+      date: "2024-03-05",
+      price: 80,
+      weight: 10,
+      disposition: { type: "sold", date: "2024-03-10", amount: 120 },
+    });
+    const s = build([active, sold], { Silver: flatSilver(10) });
+    assert.equal(s.buys.length, 2); // both acquisitions still marked
+    assert.equal(s.dispositions.length, 1); // only the sold item's disposition
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.buyCount, 2); // unaffected
+    assert.equal(stats.invested, 90); // unaffected — 10 + 80
+  });
+
+  it("returns an empty dispositions array in the empty series", () => {
+    const s = build([], { Silver: flatSilver(10) });
+    assert.deepEqual(s.dispositions, []);
+  });
+});
+
 // ── D-8: final day at live spot ─────────────────────────────────────────────
 
 describe("D-8 — final day valued at live spot", () => {

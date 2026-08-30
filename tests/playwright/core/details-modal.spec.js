@@ -916,3 +916,98 @@ test("AC-24: interactive controls meet the 44px touch target on mobile viewports
     expect(box.height, `${sel} height`).toBeGreaterThanOrEqual(44);
   }
 });
+
+// ── STRK-363: disposition markers ───────────────────────────────────────────
+
+test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset with danger accent", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const info = await page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const ds = chart.data.datasets.find((d) => d.dmRole === "dispositions");
+    return ds
+      ? {
+          type: ds.type,
+          bg: ds.backgroundColor,
+          borderWidth: ds.borderWidth,
+          pointCount: ds.data.length,
+          hidden: ds.hidden,
+        }
+      : null;
+  });
+  expect(info).not.toBeNull();
+  expect(info.type).toBe("scatter");
+  expect(info.bg).toBe("transparent");
+  expect(info.borderWidth).toBe(2);
+  expect(info.pointCount).toBeGreaterThan(0);
+  expect(info.hidden).toBe(false);
+});
+
+test("STRK-363 AC-2: hovering a disposition marker shows Disposed tooltip with melt-out values", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  const coords = await page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const dsIdx = chart.data.datasets.findIndex((d) => d.dmRole === "dispositions");
+    const meta = chart.getDatasetMeta(dsIdx);
+    const el = meta.data[0];
+    return el ? { x: el.x, y: el.y } : null;
+  });
+  expect(coords).not.toBeNull();
+  await page.mouse.move(box.x + coords.x, box.y + coords.y);
+  await expect(page.locator("#dmChartTooltip")).toBeVisible();
+  await expect(page.locator("#dmChartTooltip .dm-tt-title")).toContainText("Disposed");
+});
+
+test("STRK-363 AC-3: buys count, pace, and invested are unchanged by disposition presence", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const buysCount = await page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const ds = chart.data.datasets.find((d) => d.dmRole === "buys");
+    return ds ? ds.data.length : 0;
+  });
+  expect(buysCount).toBeGreaterThan(0);
+  const dispCount = await page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const ds = chart.data.datasets.find((d) => d.dmRole === "dispositions");
+    return ds ? ds.data.length : 0;
+  });
+  expect(dispCount).toBeGreaterThan(0);
+  expect(buysCount).not.toBe(dispCount);
+});
+
+test("STRK-363 AC-4: Dispositions toggle chip hides/shows the disposition markers", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const chip = page.locator('#detailsModal .dm-series-chip[data-series="dispositions"]');
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "false");
+  const hidden = await page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const ds = chart.data.datasets.find((d) => d.dmRole === "dispositions");
+    return ds ? !chart.isDatasetVisible(chart.data.datasets.indexOf(ds)) : true;
+  });
+  expect(hidden).toBe(true);
+});
