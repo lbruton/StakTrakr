@@ -249,6 +249,72 @@ describe("AC-8 — spot fill", () => {
   });
 });
 
+// ── STRK-364: spotByMetal is total — the unguarded dereference is safe ──────
+
+// Codacy flagged `const spot = spotByMetal[c.metal]` in the accumulation loop
+// as an unguarded dereference (PR #1485 review, deferred as pre-existing). It
+// is unreachable: spotByMetal and `computed` are keyed from the same `usable`
+// array with the same `it.metal || "Unknown"` expression, and _psFillSpot is
+// total — it returns a len-sized array even for a metal with no samples. These
+// tests pin that invariant so a future refactor that breaks it fails here
+// rather than shipping a throw (or, with a `|| []` guard, a silent zero
+// series). AC-8 above covers the mixed-scope case; this block covers the
+// degenerate spotDayMaps shapes and the disposition path.
+describe("STRK-364 — unmapped metals never break the fold", () => {
+  const unmapped = (maps, scope = "Palladium") =>
+    build([mkItem({ metal: "Palladium", weight: 2, price: 30 })], maps, scope, { silver: 10 });
+
+  it("charts flat 0 melt when the metal is absent from a populated spotDayMaps", () => {
+    const s = unmapped({ Silver: flatSilver(10) });
+    assert.ok(s.days.length > 0); // a real series, not the empty fallback
+    assert.ok(s.melt.every((v) => v === 0)); // no throw, no NaN — flat zero
+    assert.equal(s.basis[s.basis.length - 1], 30); // basis still books the cost
+  });
+
+  it("tolerates an empty, undefined, or null spotDayMaps identically", () => {
+    for (const maps of [{}, undefined, null]) {
+      const s = unmapped(maps);
+      assert.ok(
+        s.melt.every((v) => v === 0),
+        `melt not flat-zero for ${String(maps)}`
+      );
+      assert.ok(!s.melt.some(Number.isNaN), `NaN leaked for ${String(maps)}`);
+      assert.equal(s.basis[s.basis.length - 1], 30);
+    }
+  });
+
+  it("books a zero melt-out for a disposed unmapped Item (the spot[dispIdx] read)", () => {
+    const item = mkItem({
+      metal: "Palladium",
+      weight: 2,
+      price: 30,
+      date: "2024-03-01",
+      disposition: { type: "sold", date: "2024-03-10", amount: 55 },
+    });
+    const s = build([item], {}, "Palladium", { silver: 10 });
+    const d = dayIdx(s, "2024-03-10");
+    assert.equal(s._flows.dispOut[d], 0); // melt-out at an unknown spot is 0
+    assert.ok(!s._flows.dispOut.some(Number.isNaN));
+    // the window chain still resolves to finite numbers rather than NaN. market
+    // = melt[end] − prevMelt − invested + out = 0 − 0 − 30 + 0: an unpriced
+    // metal's disposition books a market loss equal to its cost, because the
+    // melt-out flow that would cancel the buy flow is 0. That is the honest
+    // consequence of having no price for the metal, not a fold defect — and it
+    // is unreachable in the app, where every SUPPORTED_INVENTORY_METALS member
+    // is also in SUPPORTED_SPOT_METALS and gets a (possibly empty) day map.
+    const stats = computeWindowStats(s, s.days[0]);
+    assert.equal(stats.market, -30);
+    assert.ok(Number.isFinite(stats.market));
+    assert.equal(stats.invested, 30);
+  });
+
+  it("gives an Item with no metal at all the 'Unknown' bucket, not a crash", () => {
+    const s = build([mkItem({ metal: undefined, weight: 2, price: 30 })], {}, "All", {});
+    assert.ok(s.melt.every((v) => v === 0));
+    assert.equal(s.basis[s.basis.length - 1], 30);
+  });
+});
+
 // ── buys index ──────────────────────────────────────────────────────────────
 
 describe("buys — acquisition markers", () => {

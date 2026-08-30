@@ -197,6 +197,13 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   computed.forEach((c) => {
     const from = Math.max(0, c.acqIdx);
     const to = Math.min(len - 1, c.dispIdx - 1); // held on [acq, disp)
+    // Total by construction: spotByMetal is keyed from the same `usable` array
+    // with the same `it.metal || "Unknown"` expression as `computed`, and
+    // _psFillSpot always returns a len-sized array (all zeros when a metal has
+    // no samples). An unmapped metal charts flat at 0 — never undefined here.
+    // Deliberately unguarded: a `|| []` is dead today, and tomorrow it would
+    // mask a real spotByMetal/computed desync as a silent all-zero series
+    // instead of a throw. Invariant pinned by the STRK-364 unit tests.
     const spot = spotByMetal[c.metal];
     for (let i = from; i <= to; i++) {
       melt[i] += c.meltFactor * spot[i];
