@@ -369,6 +369,21 @@ describe("dispositions — disposition markers (STRK-363)", () => {
     const stats = computeWindowStats(s, s.days[0]);
     assert.equal(stats.buyCount, 2); // unaffected
     assert.equal(stats.invested, 90); // unaffected — 10 + 80
+
+    // pace = window-acquired oz (both items, disposition-blind) ÷ elapsed months
+    const windowDays = s.days.length - 1 - dayIdx(s, s.days[0]);
+    const months = Math.max(1 / 30, windowDays / 30.44);
+    assert.ok(Math.abs(stats.paceOzPerMonth - 11 / months) < 1e-9); // 1 + 10 oz
+
+    // otherwise-identical series with NO disposition — proves the buys/invested/
+    // pace figures are unaffected by disposition presence, not just coincidentally
+    // matching the totals above
+    const notSold = mkItem({ date: "2024-03-05", price: 80, weight: 10 });
+    const sBaseline = build([active, notSold], { Silver: flatSilver(10) });
+    const statsBaseline = computeWindowStats(sBaseline, sBaseline.days[0]);
+    assert.equal(stats.buyCount, statsBaseline.buyCount);
+    assert.equal(stats.invested, statsBaseline.invested);
+    assert.ok(Math.abs(stats.paceOzPerMonth - statsBaseline.paceOzPerMonth) < 1e-9);
   });
 
   it("returns an empty dispositions array in the empty series", () => {

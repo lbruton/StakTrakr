@@ -940,6 +940,40 @@ async function dmDatasetByRole(page, role) {
   }, role);
 }
 
+/**
+ * Reads the #dmSubstrip2 buys/pace/invested figures actually rendered in the
+ * DOM, alongside the underlying computeWindowStats() values the app used to
+ * produce them — ties visible text to real computed numbers instead of just
+ * checking dataset point counts (STRK-363 AC-3 / CodeRabbit PR #1485).
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{dom: object, computed: object}>}
+ */
+async function dmSubstripStats(page) {
+  return page.evaluate(() => {
+    const stats = computeWindowStats(_dmSeries, _dmWindowStartKey());
+    const spans = [...document.querySelectorAll("#dmSubstrip2 span")];
+    const strongText = (label) =>
+      spans.find((s) => s.textContent.trim().startsWith(label))?.querySelector("strong")
+        ?.textContent ?? null;
+    const paceFormatted =
+      stats.paceOzPerMonth != null
+        ? `${stats.paceOzPerMonth.toFixed(stats.paceOzPerMonth < 0.1 ? 3 : 1)} oz/mo`
+        : null;
+    return {
+      dom: {
+        buys: strongText("buys"),
+        investedBase: (strongText("invested") || "").split(" (")[0],
+        pace: strongText("pace"),
+      },
+      computed: {
+        buyCount: stats.buyCount,
+        investedFormatted: formatCurrency(stats.invested),
+        paceFormatted,
+      },
+    };
+  });
+}
+
 test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset with danger accent", async ({
   page,
 }) => {
@@ -952,7 +986,12 @@ test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset wi
   expect(info).not.toBeNull();
   expect(info.type).toBe("scatter");
   expect(info.bg).toBe("transparent");
-  expect(info.borderColor).toBeTruthy();
+  // must resolve to the actual danger token, not merely be a truthy string —
+  // resolveColor passes #hex through verbatim (never digit-scrape channels),
+  // so compare against the app's own token resolution (STRK-363, PR #1485)
+  const dangerRGB = await page.evaluate(() => getThemeColorRGB("danger"));
+  expect(dangerRGB).toBeTruthy();
+  expect(info.borderColor).toBe(dangerRGB);
   expect(info.borderWidth).toBe(2);
   expect(info.pointCount).toBeGreaterThan(0);
   expect(info.hidden).toBe(false);
@@ -973,6 +1012,16 @@ test("STRK-363 AC-2: hovering a disposition marker shows Disposed tooltip with m
   await expect(page.locator("#dmChartTooltip")).toBeVisible();
   await expect(page.locator("#dmChartTooltip .dm-tt-title")).toContainText("Disposed");
   const tooltipText = await page.locator("#dmChartTooltip").textContent();
+  // the disposed item row (name + qty + formatted melt-out) actually present,
+  // not just a bare currency-symbol match (STRK-363 AC-2, CodeRabbit PR #1485)
+  const dispRow = await page.evaluate(() => {
+    const group = _dmSeries?.dispositions?.[0];
+    const it = group?.items?.[0];
+    if (!it) return null;
+    return `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(it._meltOut || 0)}`;
+  });
+  expect(dispRow).not.toBeNull();
+  await expect(page.locator("#dmChartTooltip").filter({ hasText: dispRow })).toHaveCount(1);
   expect(tooltipText).toMatch(/\$/);
 });
 
@@ -985,9 +1034,33 @@ test("STRK-363 AC-3: buys count, pace, and invested are unchanged by disposition
   await chartReady(page);
   const buys = await dmDatasetByRole(page, "buys");
   const disps = await dmDatasetByRole(page, "dispositions");
+  // the actual VISIBLE buys/pace/invested figures in #dmSubstrip2, tied to the
+  // real computed stats — not just that the two dataset point counts differ
+  // (STRK-363 AC-3, CodeRabbit PR #1485)
+  const disposedStats = await dmSubstripStats(page);
+  const dmAssertSubstripMatchesComputed = (s) => {
+    expect(s.dom.buys).toBe(String(s.computed.buyCount));
+    expect(s.dom.investedBase).toBe(s.computed.investedFormatted);
+    expect(s.dom.pace).toBe(s.computed.paceFormatted);
+  };
+  dmAssertSubstripMatchesComputed(disposedStats);
+  // otherwise-identical seed with the Silver disposition removed: buys, pace,
+  // and invested must render identically, proving the substrip figures are
+  // unaffected by disposition presence
+  const activeItems = SEED_ITEMS.map((it) =>
+    it.uuid === "s4" ? { ...it, disposition: undefined } : it
+  );
+  await installSeed(page, { items: activeItems });
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const activeStats = await dmSubstripStats(page);
+  dmAssertSubstripMatchesComputed(activeStats);
+  expect(activeStats.dom.buys).toBe(disposedStats.dom.buys);
+  expect(activeStats.dom.investedBase).toBe(disposedStats.dom.investedBase);
+  expect(activeStats.dom.pace).toBe(disposedStats.dom.pace);
   expect(buys.pointCount).toBeGreaterThan(0);
   expect(disps.pointCount).toBeGreaterThan(0);
-  expect(buys.pointCount).not.toBe(disps.pointCount);
 });
 
 test("STRK-363 AC-4: Dispositions toggle chip hides/shows the disposition markers", async ({

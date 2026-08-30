@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.20] - 2026-08-30
+
+### Changed — STRK-363: Detail modal chart — disposition markers
+
+- **Change**: Disposition days now render as hollow-ring scatter dots (`--danger` accent, transparent fill) alongside the existing filled buy dots on the detail modal chart, with a "Disposed YYYY-MM-DD" tooltip showing per-item melt-out values and its own visibility toggle chip (STRK-363)
+- `buildPortfolioSeries()` returns a `dispositions[]` array grouping disposed items by date with `totalMeltOut` and per-item `_meltOut`; buys count, pace, and invested figures are unaffected (STRK-363)
+
+---
+
 ## [3.36.19] - 2026-08-29
 
 ### Changed — STRK-362: Detail modal clarity — Cost Basis vs invested
