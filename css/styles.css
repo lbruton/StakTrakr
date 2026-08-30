@@ -8049,6 +8049,13 @@ a.about-badge:hover {
   border-radius: 50%;
   background: currentColor;
 }
+.dm-series-swatch--ring {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--danger);
+  border-radius: 50%;
+  background: transparent;
+}
 .dm-chart-wrap {
   position: relative;
   height: 280px;

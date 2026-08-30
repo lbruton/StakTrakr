@@ -916,3 +916,174 @@ test("AC-24: interactive controls meet the 44px touch target on mobile viewports
     expect(box.height, `${sel} height`).toBeGreaterThanOrEqual(44);
   }
 });
+
+// ── STRK-363: disposition markers ───────────────────────────────────────────
+
+/**
+ * Reads the detail-modal chart dataset carrying the given dmRole, along with
+ * the first rendered point's canvas coordinates — lets a test assert dataset
+ * shape and hover a marker without repeating the Chart.getChart lookup.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} role - dmRole to look up, e.g. "buys" or "dispositions".
+ * @returns {Promise<object|null>} Dataset facts, or null when no dataset
+ *   carries that role.
+ */
+async function dmDatasetByRole(page, role) {
+  return page.evaluate((r) => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const idx = chart.data.datasets.findIndex((d) => d.dmRole === r);
+    if (idx < 0) return null;
+    const ds = chart.data.datasets[idx];
+    const meta = chart.getDatasetMeta(idx);
+    const firstEl = meta.data[0];
+    return {
+      type: ds.type,
+      bg: ds.backgroundColor,
+      borderColor: ds.borderColor,
+      borderWidth: ds.borderWidth,
+      pointCount: ds.data.length,
+      hidden: ds.hidden,
+      visible: chart.isDatasetVisible(idx),
+      firstCoord: firstEl ? { x: firstEl.x, y: firstEl.y } : null,
+    };
+  }, role);
+}
+
+/**
+ * Reads the #dmSubstrip2 buys/pace/invested figures actually rendered in the
+ * DOM, alongside the underlying computeWindowStats() values the app used to
+ * produce them — ties visible text to real computed numbers instead of just
+ * checking dataset point counts (STRK-363 AC-3 / CodeRabbit PR #1485).
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{dom: object, computed: object}>}
+ */
+async function dmSubstripStats(page) {
+  return page.evaluate(() => {
+    const stats = computeWindowStats(_dmSeries, _dmWindowStartKey());
+    const spans = [...document.querySelectorAll("#dmSubstrip2 span")];
+    const strongText = (label) =>
+      spans.find((s) => s.textContent.trim().startsWith(label))?.querySelector("strong")
+        ?.textContent ?? null;
+    const paceFormatted =
+      stats.paceOzPerMonth != null
+        ? `${stats.paceOzPerMonth.toFixed(stats.paceOzPerMonth < 0.1 ? 3 : 1)} oz/mo`
+        : null;
+    return {
+      dom: {
+        buys: strongText("buys"),
+        investedBase: (strongText("invested") || "").split(" (")[0],
+        pace: strongText("pace"),
+      },
+      computed: {
+        buyCount: stats.buyCount,
+        investedFormatted: formatCurrency(stats.invested),
+        paceFormatted,
+      },
+    };
+  });
+}
+
+test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset with danger accent", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const info = await dmDatasetByRole(page, "dispositions");
+  expect(info).not.toBeNull();
+  expect(info.type).toBe("scatter");
+  expect(info.bg).toBe("transparent");
+  // must resolve to the actual danger token, not merely be a truthy string —
+  // resolveColor passes #hex through verbatim (never digit-scrape channels),
+  // so compare against the app's own token resolution (STRK-363, PR #1485)
+  const dangerRGB = await page.evaluate(() => getThemeColorRGB("danger"));
+  expect(dangerRGB).toBeTruthy();
+  expect(info.borderColor).toBe(dangerRGB);
+  expect(info.borderWidth).toBe(2);
+  expect(info.pointCount).toBeGreaterThan(0);
+  expect(info.hidden).toBe(false);
+});
+
+test("STRK-363 AC-2: hovering a disposition marker shows Disposed tooltip with melt-out values", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const ds = await dmDatasetByRole(page, "dispositions");
+  expect(ds?.firstCoord).not.toBeNull();
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  await page.mouse.move(box.x + ds.firstCoord.x, box.y + ds.firstCoord.y);
+  await expect(page.locator("#dmChartTooltip")).toBeVisible();
+  await expect(page.locator("#dmChartTooltip .dm-tt-title")).toContainText("Disposed");
+  const tooltipText = await page.locator("#dmChartTooltip").textContent();
+  // the disposed item row (name + qty + formatted melt-out) actually present,
+  // not just a bare currency-symbol match (STRK-363 AC-2, CodeRabbit PR #1485)
+  const dispRow = await page.evaluate(() => {
+    const group = _dmSeries?.dispositions?.[0];
+    const it = group?.items?.[0];
+    if (!it) return null;
+    return `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(it._meltOut || 0)}`;
+  });
+  expect(dispRow).not.toBeNull();
+  await expect(page.locator("#dmChartTooltip").filter({ hasText: dispRow })).toHaveCount(1);
+  expect(tooltipText).toMatch(/\$/);
+});
+
+test("STRK-363 AC-3: buys count, pace, and invested are unchanged by disposition presence", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const buys = await dmDatasetByRole(page, "buys");
+  const disps = await dmDatasetByRole(page, "dispositions");
+  // the actual VISIBLE buys/pace/invested figures in #dmSubstrip2, tied to the
+  // real computed stats — not just that the two dataset point counts differ
+  // (STRK-363 AC-3, CodeRabbit PR #1485)
+  const disposedStats = await dmSubstripStats(page);
+  const dmAssertSubstripMatchesComputed = (s) => {
+    expect(s.dom.buys).toBe(String(s.computed.buyCount));
+    expect(s.dom.investedBase).toBe(s.computed.investedFormatted);
+    expect(s.dom.pace).toBe(s.computed.paceFormatted);
+  };
+  dmAssertSubstripMatchesComputed(disposedStats);
+  // otherwise-identical seed with the Silver disposition removed: buys, pace,
+  // and invested must render identically, proving the substrip figures are
+  // unaffected by disposition presence
+  const activeItems = SEED_ITEMS.map((it) =>
+    it.uuid === "s4" ? { ...it, disposition: undefined } : it
+  );
+  await installSeed(page, { items: activeItems });
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const activeStats = await dmSubstripStats(page);
+  dmAssertSubstripMatchesComputed(activeStats);
+  expect(activeStats.dom.buys).toBe(disposedStats.dom.buys);
+  expect(activeStats.dom.investedBase).toBe(disposedStats.dom.investedBase);
+  expect(activeStats.dom.pace).toBe(disposedStats.dom.pace);
+  expect(buys.pointCount).toBeGreaterThan(0);
+  expect(disps.pointCount).toBeGreaterThan(0);
+});
+
+test("STRK-363 AC-4: Dispositions toggle chip hides/shows the disposition markers", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const chip = page.locator('#detailsModal .dm-series-chip[data-series="dispositions"]');
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "false");
+  const ds = await dmDatasetByRole(page, "dispositions");
+  expect(ds.visible).toBe(false);
+});
