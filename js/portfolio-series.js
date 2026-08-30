@@ -116,14 +116,16 @@ const _psFillSpot = (map, days) => {
  *   callers omit and the app globals are used.
  * @returns {{days: string[], melt: number[], basis: number[],
  *   buys: Array<{day: string, items: object[], totalCost: number,
- *   totalOz: number}>, baseline: {day: string, melt: number, basis: number}|null}}
- *   Day-aligned series plus grouped acquisition markers and the synthetic
- *   pre-series baseline day (always 0/0 since STRK-353 — undated Items are
- *   series-start flows, not pre-history). Internal `_flows`/`_scope` fields
- *   feed computeWindowStats and are not part of the public contract.
+ *   totalOz: number}>,
+ *   dispositions: Array<{day: string, items: object[], totalMeltOut: number}>,
+ *   baseline: {day: string, melt: number, basis: number}|null}}
+ *   Day-aligned series plus grouped acquisition and disposition markers and the
+ *   synthetic pre-series baseline day (always 0/0 since STRK-353 — undated
+ *   Items are series-start flows, not pre-history). Internal `_flows`/`_scope`
+ *   fields feed computeWindowStats and are not part of the public contract.
  */
 const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayKey, helpers) => {
-  const empty = { days: [], melt: [], basis: [], buys: [], baseline: null };
+  const empty = { days: [], melt: [], basis: [], buys: [], dispositions: [], baseline: null };
   if (!Array.isArray(items) || !todayKey) return empty;
   const h = _psResolveHelpers(helpers);
 
@@ -236,6 +238,22 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   });
   const buys = [...buyGroups.values()].sort((a, b) => (a.day < b.day ? -1 : 1));
 
+  // STRK-363: dispositions index — dated dispositions grouped per day,
+  // ascending, with per-item melt-out at the disposition day's spot
+  const dispGroups = new Map();
+  computed.forEach((c) => {
+    if (c.dispIdx === Infinity) return;
+    if (c.dispIdx < 0 || c.dispIdx >= len) return;
+    const key = c.it.disposition.date;
+    if (!dispGroups.has(key)) dispGroups.set(key, { day: key, items: [], totalMeltOut: 0 });
+    const g = dispGroups.get(key);
+    const spot = spotByMetal[c.metal] || [];
+    const itemMeltOut = c.meltFactor * (spot[c.dispIdx] || 0);
+    g.items.push(Object.assign({}, c.it, { _meltOut: itemMeltOut }));
+    g.totalMeltOut += itemMeltOut;
+  });
+  const dispositions = [...dispGroups.values()].sort((a, b) => (a.day < b.day ? -1 : 1));
+
   // synthetic baseline day: pre-history is empty — undated Items enter as a
   // series-start flow (STRK-353). Only the day-zero window reads this 0/0
   // baseline; later windows use melt[w − 1]. A non-zero baseline here would
@@ -248,6 +266,7 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
     melt,
     basis,
     buys,
+    dispositions,
     baseline,
     _flows: { buyCost, dispOut, disposedBuyCost },
     _scope: scope,
