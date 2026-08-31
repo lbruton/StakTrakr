@@ -4,7 +4,7 @@ project: StakTrakr
 audience: agent
 canonical: .context/coding-standards.md
 migration_source: "DocVault/Projects/StakTrakr/Foundation/coding-standards.md" # historical provenance; migrated 2026-08-12
-updated: "2026-06-28"
+updated: "2026-08-30"
 ---
 
 # StakTrakr — Coding Standards
@@ -63,6 +63,48 @@ let editingIndex = null;
 
 - **Strict equality only**: `===` and `!==`. Never use `==` or `!=`
 - **Nullish checks**: prefer `value == null` (the one exception — catches both `null` and `undefined`) or optional chaining (`data?.rates?.price`)
+
+### Lookup maps — `Object.create(null)`, never `{}`
+
+Any object indexed by a **runtime string** (a metal name, vendor slug, tag, provider key)
+must be created with a null prototype. A `{}` literal inherits from `Object.prototype`, so
+`map["constructor"]`, `map["toString"]`, `map["valueOf"]`, and `map["hasOwnProperty"]` are
+all truthy before anything is ever written to them.
+
+```js
+// Correct — fresh map
+const spotByMetal = Object.create(null);
+
+// Correct — rehydrating persisted or caller-supplied data
+const map = Object.assign(Object.create(null), raw);
+
+// Wrong — `if (!byMetal["constructor"])` is false, so the assignment is skipped
+const byMetal = {};
+```
+
+The bug this prevents is silent, not loud. The near-universal populate idiom is
+`if (!map[key]) map[key] = [];` — with a plain literal that guard sees the inherited
+property, skips the assignment, and every later read of `map[key]` returns a `Function`
+instead of the array the code expects. Downstream arithmetic yields `NaN` rather than
+throwing, so it surfaces as a wrong number in the UI, not a stack trace.
+
+In-tree sites: `constants.js` (`SPOT_PROVIDER_METAL_SYMBOLS`,
+`SPOT_PROVIDER_HISTORY_EXCLUSIONS`), `tags.js` (six rehydration points), `retail.js`,
+`catalog-providers.js`, `portfolio-series.js`. Precedent: STRK-342 (provider registry),
+STRK-364 (`spotByMetal`).
+
+**A null-prototype map does not cover a second object indexed by the same key.** In
+STRK-364, fixing `spotByMetal` still left `spotDayMaps["constructor"]` returning the
+`Object` constructor — a caller-supplied plain object one layer out. Validate the _shape_
+of external input at the boundary rather than trusting the key:
+
+```js
+// js/portfolio-series.js — anything without a callable `get` is "no samples"
+const src = typeof map?.get === "function" ? map : null;
+```
+
+Guarding an internal invariant and validating a caller's input are deliberately different
+things — see the last two rows of **Common Mistakes Quick Reference** below.
 
 ---
 
@@ -1011,36 +1053,38 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 
 ## Common Mistakes Quick Reference
 
-| Mistake                                                  | Consequence                                                                                                                  | Fix                                                                                                                    |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `document.getElementById()` in app code                  | Crashes on `null.textContent`                                                                                                | Use `safeGetElement()`                                                                                                 |
-| `safeGetElement()` for existence check                   | Dummy is truthy — toggle logic breaks                                                                                        | Use `document.getElementById()` + `if`                                                                                 |
-| `safeGetElement()` in `about.js` early-init              | `ReferenceError` — not yet defined                                                                                           | Use `document.getElementById()` + `if`                                                                                 |
-| Unsanitized user content in innerHTML assignment         | XSS via crafted item name                                                                                                    | Wrap user strings in `sanitizeHtml()` first                                                                            |
-| `sanitizeHtml()` on static developer HTML                | Double-encodes intentional markup                                                                                            | Do not sanitize static strings                                                                                         |
-| `localStorage.setItem()` for JSON data                   | Bypasses compression; key wiped by `cleanupStorage`                                                                          | Use `saveData` / `saveDataSync`                                                                                        |
-| `localStorage.getItem()` on compressed key               | Returns corrupt `CMP2:...` string                                                                                            | Use `loadData` / `loadDataSync`                                                                                        |
-| New key not in `ALLOWED_STORAGE_KEYS`                    | Silently deleted on next startup                                                                                             | Add to allowlist before first write                                                                                    |
-| `loadData(key)` without explicit default for non-array   | Returns `[]` instead of correct type                                                                                         | Always pass explicit `defaultValue`                                                                                    |
-| Editing `CACHE_NAME` manually                            | Pre-commit hook overwrites it                                                                                                | Do not touch — hook owns this line                                                                                     |
-| New JS file in `index.html` but not `CORE_ASSETS`        | Missing offline; stale-serve bug                                                                                             | Add to both, in matching order                                                                                         |
-| Editing code in main `dev` directory                     | Bypasses worktree isolation                                                                                                  | Always work inside `.worktrees/patch-VERSION/`                                                                         |
-| Skipping remote sync gate before `/release patch`        | Stale worktree base; drops remote commits                                                                                    | `git pull origin dev` first                                                                                            |
-| `dev → main` PR without explicit user request            | Ships unreviewed code                                                                                                        | Only via `/ship`, on explicit "ready to ship"                                                                          |
-| Missing GitHub Release post-merge                        | `version.json` `releaseUrl` resolves to stale release                                                                        | `gh release create` immediately after merge                                                                            |
-| `getThemeColor()` for Chart.js datasets                  | Chart.js cannot parse oklch or `color-mix()` strings — renders invisible/black                                               | Use `getThemeColorRGB(token)` which resolves to `rgb(...)` via a 1x1 canvas bridge (`resolveColor()`)                  |
-| `structuredClone` without regenerating `uuid` + `serial` | Clone shares identity with original — diff/sync engine produces duplicate-key errors; Activity Log undo targets wrong record | After clone: `clone.uuid = generateUUID(); clone.serial = getNextSerial();` — both fields are mandatory                |
-| Async confirm handler without in-flight guard            | Double-click fires handler twice — inventory mutates twice, Activity Log gets duplicate entries                              | Wrap with `let _inFlight = false` + `try/finally` reset; for shared resources use `new Set()` keyed by `transactionId` |
-| `var x = ...`                                            | Leaks scope, hoists unpredictably                                                                                            | `const x = ...` or `let x = ...`                                                                                       |
-| `==` or `!=` (non-null checks)                           | Type coercion produces surprising results                                                                                    | `===` / `!==` everywhere; use `== null` only for nullish checks                                                        |
-| `.then().catch()` chains                                 | Hard to read; error handling gaps                                                                                            | `async/await` with `try/catch`                                                                                         |
-| `element.className = "..."`                              | Overwrites all existing classes                                                                                              | `element.classList.add/remove/toggle()`                                                                                |
-| `new bootstrap.Modal(el)`                                | Duplicate instance errors on re-open                                                                                         | `bootstrap.Modal.getOrCreateInstance(el)`                                                                              |
-| Nested ternaries (3+ levels)                             | Unreadable, error-prone                                                                                                      | `if/else` or extract a named helper                                                                                    |
-| Magic numbers in logic                                   | Context-free, breaks on next change                                                                                          | Named constant in `constants.js`                                                                                       |
-| `catch (e) {}` with no logging                           | Silent failure, impossible to debug                                                                                          | Log with `[module]` prefix + apply fallback                                                                            |
-| DOM query inside a loop                                  | Repeated layout thrash                                                                                                       | Cache element reference before the loop                                                                                |
-| Hardcoded localStorage key string                        | Key drift → allowlist mismatch → data loss                                                                                   | Named constant from `constants.js`                                                                                     |
+| Mistake                                                     | Consequence                                                                                                                  | Fix                                                                                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `document.getElementById()` in app code                     | Crashes on `null.textContent`                                                                                                | Use `safeGetElement()`                                                                                                 |
+| `safeGetElement()` for existence check                      | Dummy is truthy — toggle logic breaks                                                                                        | Use `document.getElementById()` + `if`                                                                                 |
+| `safeGetElement()` in `about.js` early-init                 | `ReferenceError` — not yet defined                                                                                           | Use `document.getElementById()` + `if`                                                                                 |
+| Unsanitized user content in innerHTML assignment            | XSS via crafted item name                                                                                                    | Wrap user strings in `sanitizeHtml()` first                                                                            |
+| `sanitizeHtml()` on static developer HTML                   | Double-encodes intentional markup                                                                                            | Do not sanitize static strings                                                                                         |
+| `localStorage.setItem()` for JSON data                      | Bypasses compression; key wiped by `cleanupStorage`                                                                          | Use `saveData` / `saveDataSync`                                                                                        |
+| `localStorage.getItem()` on compressed key                  | Returns corrupt `CMP2:...` string                                                                                            | Use `loadData` / `loadDataSync`                                                                                        |
+| New key not in `ALLOWED_STORAGE_KEYS`                       | Silently deleted on next startup                                                                                             | Add to allowlist before first write                                                                                    |
+| `loadData(key)` without explicit default for non-array      | Returns `[]` instead of correct type                                                                                         | Always pass explicit `defaultValue`                                                                                    |
+| Editing `CACHE_NAME` manually                               | Pre-commit hook overwrites it                                                                                                | Do not touch — hook owns this line                                                                                     |
+| New JS file in `index.html` but not `CORE_ASSETS`           | Missing offline; stale-serve bug                                                                                             | Add to both, in matching order                                                                                         |
+| Editing code in main `dev` directory                        | Bypasses worktree isolation                                                                                                  | Always work inside `.worktrees/patch-VERSION/`                                                                         |
+| Skipping remote sync gate before `/release patch`           | Stale worktree base; drops remote commits                                                                                    | `git pull origin dev` first                                                                                            |
+| `dev → main` PR without explicit user request               | Ships unreviewed code                                                                                                        | Only via `/ship`, on explicit "ready to ship"                                                                          |
+| Missing GitHub Release post-merge                           | `version.json` `releaseUrl` resolves to stale release                                                                        | `gh release create` immediately after merge                                                                            |
+| `getThemeColor()` for Chart.js datasets                     | Chart.js cannot parse oklch or `color-mix()` strings — renders invisible/black                                               | Use `getThemeColorRGB(token)` which resolves to `rgb(...)` via a 1x1 canvas bridge (`resolveColor()`)                  |
+| `structuredClone` without regenerating `uuid` + `serial`    | Clone shares identity with original — diff/sync engine produces duplicate-key errors; Activity Log undo targets wrong record | After clone: `clone.uuid = generateUUID(); clone.serial = getNextSerial();` — both fields are mandatory                |
+| Async confirm handler without in-flight guard               | Double-click fires handler twice — inventory mutates twice, Activity Log gets duplicate entries                              | Wrap with `let _inFlight = false` + `try/finally` reset; for shared resources use `new Set()` keyed by `transactionId` |
+| `var x = ...`                                               | Leaks scope, hoists unpredictably                                                                                            | `const x = ...` or `let x = ...`                                                                                       |
+| `==` or `!=` (non-null checks)                              | Type coercion produces surprising results                                                                                    | `===` / `!==` everywhere; use `== null` only for nullish checks                                                        |
+| `.then().catch()` chains                                    | Hard to read; error handling gaps                                                                                            | `async/await` with `try/catch`                                                                                         |
+| `element.className = "..."`                                 | Overwrites all existing classes                                                                                              | `element.classList.add/remove/toggle()`                                                                                |
+| `new bootstrap.Modal(el)`                                   | Duplicate instance errors on re-open                                                                                         | `bootstrap.Modal.getOrCreateInstance(el)`                                                                              |
+| Nested ternaries (3+ levels)                                | Unreadable, error-prone                                                                                                      | `if/else` or extract a named helper                                                                                    |
+| Magic numbers in logic                                      | Context-free, breaks on next change                                                                                          | Named constant in `constants.js`                                                                                       |
+| `catch (e) {}` with no logging                              | Silent failure, impossible to debug                                                                                          | Log with `[module]` prefix + apply fallback                                                                            |
+| DOM query inside a loop                                     | Repeated layout thrash                                                                                                       | Cache element reference before the loop                                                                                |
+| Hardcoded localStorage key string                           | Key drift → allowlist mismatch → data loss                                                                                   | Named constant from `constants.js`                                                                                     |
+| `{}` literal as a runtime-string-keyed lookup map           | `map["constructor"]` is truthy — `if (!map[k])` skips the write, later reads return a `Function`, arithmetic yields `NaN`    | `Object.create(null)`, or `Object.assign(Object.create(null), raw)` when rehydrating                                   |
+| Runtime fallback (`\|\| []`) to guard an internal invariant | Converts a loud desync into a silent wrong answer — the broken invariant then passes the whole suite                         | Pin the invariant with a test; validate only _caller-supplied_ input, at the boundary                                  |
 
 ---
 
