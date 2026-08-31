@@ -71,15 +71,22 @@ const _psResolveHelpers = (helpers) => {
  * Per-metal forward/backward fill over the series days (AC-8): carry the most
  * recent prior sample forward with no gap ceiling; days before the first
  * sample backward-fill from it; a metal with no samples at all fills with 0.
- * @param {Map<string, number>|undefined} map - Raw day→spot samples
+ * @param {Map<string, number>|undefined} map - Raw day→spot samples. Anything
+ *   without a callable `get` is treated as "no samples" — spotDayMaps is
+ *   caller-supplied, so a malformed entry (or an inherited Object.prototype key
+ *   picked up by a `constructor`/`toString` metal name) must degrade to a flat
+ *   zero series rather than throw. Boundary validation of an external input,
+ *   deliberately distinct from the unguarded internal invariant at the
+ *   accumulation loop below.
  * @param {string[]} days - Series day keys (consecutive)
  * @returns {number[]} Filled spot per day
  */
 const _psFillSpot = (map, days) => {
+  const src = typeof map?.get === "function" ? map : null;
   const out = new Array(days.length).fill(null);
   let last = null;
   for (let i = 0; i < days.length; i++) {
-    const v = map?.get(days[i]);
+    const v = src?.get(days[i]);
     if (v != null && Number.isFinite(v)) last = v;
     out[i] = last;
   }
@@ -152,8 +159,15 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   for (let n = startNum; n <= endNum; n++) days.push(_psEpochDaysToKey(n));
   const len = days.length;
 
-  // per-metal filled spot arrays for the metals actually held
-  const spotByMetal = {};
+  // Per-metal filled spot arrays for the metals actually held. The null
+  // prototype is load-bearing, not stylistic: on a plain {} a metal named
+  // "constructor"/"toString"/"__proto__" reads as truthy in the check below,
+  // skips its assignment, and poisons melt with NaN. Inherited keys also make
+  // the totality invariant at the accumulation loop conditional on the metal
+  // name, which is exactly the ambiguity a reader should not have to reason
+  // about. A pure lookup makes it hold for ANY string key (STRK-342
+  // null-prototype registry precedent).
+  const spotByMetal = Object.create(null);
   usable.forEach((it) => {
     const metal = it.metal || "Unknown";
     if (!spotByMetal[metal]) spotByMetal[metal] = _psFillSpot(spotDayMaps?.[metal], days);
@@ -199,6 +213,14 @@ const buildPortfolioSeries = (items, spotDayMaps, scope, todaySpotPrices, todayK
   computed.forEach((c) => {
     const from = Math.max(0, c.acqIdx);
     const to = Math.min(len - 1, c.dispIdx - 1); // held on [acq, disp)
+    // Total by construction, for any metal string: spotByMetal is a
+    // null-prototype map keyed from the same `usable` array with the same
+    // `it.metal || "Unknown"` expression as `computed`, and _psFillSpot always
+    // returns a len-sized array (all zeros when a metal has no samples). An
+    // unmapped metal charts flat at 0 — never undefined here.
+    // Deliberately unguarded: a `|| []` is dead today, and tomorrow it would
+    // mask a real spotByMetal/computed desync as a silent all-zero series
+    // instead of a throw. Invariant pinned by the STRK-364 unit tests.
     const spot = spotByMetal[c.metal];
     for (let i = from; i <= to; i++) {
       melt[i] += c.meltFactor * spot[i];
