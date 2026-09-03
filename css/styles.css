@@ -8107,7 +8107,7 @@ a.about-badge:hover {
   border-top: 1px dashed var(--border);
   font-size: var(--font-size-xs);
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: normal;
 }
 .dm-substrip {
   display: flex;
