@@ -1087,3 +1087,200 @@ test("STRK-363 AC-4: Dispositions toggle chip hides/shows the disposition marker
   const ds = await dmDatasetByRole(page, "dispositions");
   expect(ds.visible).toBe(false);
 });
+
+// ── STRK-361: marker hit target, per-theme halo contrast, richer marker tooltip ──
+
+/**
+ * Reads the buys scatter dataset's point styling alongside the melt line's
+ * border color so the halo contrast can be asserted against the app's own
+ * token resolution (never a hard-coded color).
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<object>} radii/hover/hit + colors for buys and melt
+ */
+async function dmBuysMarkerStyle(page) {
+  return page.evaluate(() => {
+    const chart = window.Chart.getChart(document.getElementById("dmHeroChart"));
+    const buys = chart.data.datasets.find((d) => d.dmRole === "buys");
+    const disps = chart.data.datasets.find((d) => d.dmRole === "dispositions");
+    const melt = chart.data.datasets.find((d) => d.dmRole === "melt");
+    const arr = (v) => (Array.isArray(v) ? v : [v]);
+    return {
+      radii: arr(buys.pointRadius),
+      hoverRadii: arr(buys.pointHoverRadius),
+      hitRadius: buys.pointHitRadius,
+      borderColor: buys.borderColor,
+      borderWidth: buys.borderWidth,
+      fills: arr(buys.backgroundColor),
+      dispRadii: arr(disps.pointRadius),
+      dispHitRadius: disps.pointHitRadius,
+      meltBorder: melt.borderColor,
+      bgPrimary: getThemeColorRGB("bg-primary"),
+    };
+  });
+}
+
+/**
+ * Computed CSS color of a probe element painted with `var(--token)` — the
+ * only reliable way to compare a DOM color against a theme token in tests
+ * (raw getPropertyValue returns the unresolved oklch()/hex source string).
+ * @param {import('@playwright/test').Page} page
+ * @param {string} token - Token name without the leading "--"
+ * @returns {Promise<string>} Resolved computed color
+ */
+async function dmTokenComputedColor(page, token) {
+  return page.evaluate((t) => {
+    const probe = document.createElement("span");
+    probe.style.color = `var(--${t})`;
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  }, token);
+}
+
+test("STRK-361 AC-1: markers are comfortably large — radius floor ≥ 5, hit radius ≥ 12, hover grows", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const s = await dmBuysMarkerStyle(page);
+  expect(s.radii.length).toBeGreaterThan(0);
+  expect(Math.min(...s.radii)).toBeGreaterThanOrEqual(5);
+  expect(Math.max(...s.radii)).toBeLessThanOrEqual(10);
+  expect(s.hitRadius).toBeGreaterThanOrEqual(12);
+  s.radii.forEach((r, i) => expect(s.hoverRadii[i]).toBeGreaterThanOrEqual(r + 2));
+  expect(Math.min(...s.dispRadii)).toBeGreaterThanOrEqual(5);
+  expect(s.dispHitRadius).toBeGreaterThanOrEqual(12);
+});
+
+for (const theme of ["light", "dark", "slate", "sepia"]) {
+  test(`STRK-361 AC-2 (${theme}): buy markers carry a bg-primary halo ≥ 2.5px that differs from the melt line`, async ({
+    page,
+  }) => {
+    await installSeed(page);
+    await page.addInitScript((t) => localStorage.setItem("appTheme", t), theme);
+    await bootApp(page);
+    await openScope(page, "Silver");
+    await chartReady(page);
+    const s = await dmBuysMarkerStyle(page);
+    expect(s.bgPrimary).toBeTruthy();
+    // the halo is the contrast element: it resolves to the page background
+    // (never the accent), so it cuts the melt line on both sides of the dot
+    expect(s.borderColor).toBe(s.bgPrimary);
+    expect(s.borderColor).not.toBe(s.meltBorder);
+    expect(s.borderWidth).toBeGreaterThanOrEqual(2.5);
+    s.fills.forEach((f) => expect(f).not.toBe(s.borderColor));
+  });
+}
+
+test("STRK-361 AC-3: a buy-marker tooltip carries the day's Melt / Basis / Spot / gap footer, honoring the basis toggle", async ({
+  page,
+}) => {
+  const tip = await hoverLongNameBuyMarker(page);
+  await expect(tip).toBeVisible();
+  await expect(tip.locator(".dm-tt-title")).toContainText("Acquired");
+  const foot = tip.locator(".dm-tt-foot");
+  await expect(foot).toHaveCount(1);
+  // the footer values are the real series numbers for that day, not decoration
+  const expected = await page.evaluate(() => {
+    const group = _dmSeries.buys[_dmSeries.buys.length - 2];
+    const idx = _dmSeries.days.indexOf(group.day);
+    const gap = _dmSeries.melt[idx] - _dmSeries.basis[idx];
+    return {
+      melt: formatCurrency(_dmSeries.melt[idx]),
+      basis: formatCurrency(_dmSeries.basis[idx]),
+      gap: (gap > 0 ? "+" : gap < 0 ? "−" : "") + formatCurrency(Math.abs(gap)),
+    };
+  });
+  await expect(foot).toContainText(`Melt ${expected.melt}`);
+  await expect(foot).toContainText(`Basis ${expected.basis}`);
+  await expect(foot).toContainText(/Spot \S+\/oz/);
+  await expect(foot).toContainText(expected.gap);
+  // the footer is visually subordinate to the item lines
+  const smaller = await tip.evaluate((el) => {
+    const f = el.querySelector(".dm-tt-foot");
+    return parseFloat(getComputedStyle(f).fontSize) < parseFloat(getComputedStyle(el).fontSize);
+  });
+  expect(smaller).toBe(true);
+  // basis toggle off → the footer drops Basis but keeps Melt
+  await page.click('#detailsModal .dm-series-chip[data-series="basis"]');
+  await chartSettled(page);
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  const marker = await buysMarkerCoords(page, 1);
+  await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
+  await page.mouse.move(box.x + marker.x, box.y + marker.y);
+  await expect(tip).toBeVisible();
+  await expect(tip.locator(".dm-tt-foot")).toContainText("Melt");
+  await expect(tip.locator(".dm-tt-foot")).not.toContainText("Basis");
+});
+
+test("STRK-361 AC-3: a disposition-marker tooltip carries the same day-stats footer", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const ds = await dmDatasetByRole(page, "dispositions");
+  expect(ds?.firstCoord).not.toBeNull();
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  await page.mouse.move(box.x + ds.firstCoord.x - 2, box.y + ds.firstCoord.y);
+  await page.mouse.move(box.x + ds.firstCoord.x, box.y + ds.firstCoord.y);
+  const tip = page.locator("#dmChartTooltip");
+  await expect(tip).toBeVisible();
+  await expect(tip.locator(".dm-tt-title")).toContainText("Disposed");
+  const expectedMelt = await page.evaluate(() => {
+    const idx = _dmSeries.days.indexOf(_dmSeries.dispositions[0].day);
+    return formatCurrency(_dmSeries.melt[idx]);
+  });
+  await expect(tip.locator(".dm-tt-foot")).toContainText(`Melt ${expectedMelt}`);
+});
+
+test("STRK-361 AC-4: each buy tooltip line names its purchase location in the By Purchase Location panel's color", async ({
+  page,
+}) => {
+  const tip = await hoverLongNameBuyMarker(page);
+  await expect(tip).toBeVisible();
+  const loc = tip.locator(".dm-tt-loc").first();
+  await expect(loc).toHaveText("apmex.com");
+  const colors = await page.evaluate(() => {
+    const span = document.querySelector("#dmChartTooltip .dm-tt-loc");
+    const row = [...document.querySelectorAll("#dmCompCol .dm-panel")]
+      .find((p) => p.querySelector(".dm-panel-title")?.textContent === "By Purchase Location")
+      ?.querySelectorAll(".dm-comp-row");
+    const match = [...(row || [])].find(
+      (r) => r.querySelector(".dm-comp-name")?.textContent === "apmex.com"
+    );
+    const dot = match?.querySelector(".dm-comp-dot");
+    return {
+      tooltip: getComputedStyle(span).color,
+      panel: dot ? getComputedStyle(dot).backgroundColor : null,
+    };
+  });
+  expect(colors.panel).not.toBeNull();
+  expect(colors.tooltip).toBe(colors.panel);
+});
+
+test("STRK-361 AC-4: an item with no purchase location reads Unknown in the neutral muted token", async ({
+  page,
+}) => {
+  const items = SEED_ITEMS.map((it) => (it.uuid === "s1" ? { ...it, purchaseLocation: "" } : it));
+  await installSeed(page, { items });
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await chartSettled(page);
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  const marker = await buysMarkerCoords(page, 1);
+  await page.mouse.move(box.x + marker.x - 2, box.y + marker.y);
+  await page.mouse.move(box.x + marker.x, box.y + marker.y);
+  const tip = page.locator("#dmChartTooltip");
+  await expect(tip).toBeVisible();
+  const loc = tip.locator(".dm-tt-loc").first();
+  await expect(loc).toHaveText("Unknown");
+  const spanColor = await loc.evaluate((el) => getComputedStyle(el).color);
+  expect(spanColor).toBe(await dmTokenComputedColor(page, "text-muted"));
+});

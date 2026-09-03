@@ -8080,8 +8080,11 @@ a.about-badge:hover {
   line-height: 1.5;
   /* STRK-355: one line per item — width: max-content grows the box to fit
      each line; the cap exists only so pathological names / narrow viewports
-     wrap INSIDE the box instead of painting past the border (STRK-354) */
-  max-width: min(640px, calc(100% - 32px));
+     wrap INSIDE the box instead of painting past the border (STRK-354).
+     STRK-361 lifted the cap 640 → 720: each buy line now carries its
+     purchase location, and the one-line-per-item intent (STRK-355) must
+     survive a long name + a long vendor domain */
+  max-width: min(720px, calc(100% - 32px));
   white-space: normal;
   width: max-content;
   overflow-wrap: break-word;
@@ -8090,6 +8093,21 @@ a.about-badge:hover {
   color: var(--text-primary);
   font-weight: 700;
   font-family: var(--font-body);
+}
+/* STRK-361: marker tooltips append the purchase location to each item line
+   (color-coded to match the By Purchase Location panel) and close with a
+   compact one-line day-stats footer, visually subordinate to the items */
+#dmChartTooltip .dm-tt-loc::before {
+  content: " · ";
+  color: var(--text-muted);
+}
+#dmChartTooltip .dm-tt-foot {
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px dashed var(--border);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  white-space: normal;
 }
 .dm-substrip {
   display: flex;
