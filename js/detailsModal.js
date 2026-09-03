@@ -54,10 +54,16 @@ const _DM_MARKER_HIT_RADIUS = 12;
 /**
  * Marker radius scaled by the day's dollar total — floor 5 so the smallest
  * buy is still a clear dot, cap 10 so a big day never blots the line.
+ * Clamps the input to a finite, non-negative number before the sqrt so a
+ * negative or corrupted day total (bad qty/price data) yields the 5px
+ * floor instead of a NaN radius.
  * @param {number} total - Day total (cost for buys, melt-out for dispositions)
  * @returns {number} Radius in px
  */
-const _dmMarkerRadius = (total) => Math.max(5, Math.min(10, Math.sqrt(total) / 5));
+const _dmMarkerRadius = (total) => {
+  const safe = Math.max(0, Number(total) || 0);
+  return Math.max(5, Math.min(10, Math.sqrt(safe) / 5));
+};
 
 /** Days per range pill; ALL spans the whole series. */
 const _DM_RANGES = { "30D": 30, "90D": 90, "1Y": 365, ALL: Infinity };
