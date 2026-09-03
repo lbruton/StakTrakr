@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.21] - 2026-09-03
+
+### Changed — STRK-361: Detail modal chart markers — hit target, per-theme contrast, richer tooltip
+
+- **Change**: Buy and disposition markers on the detail modal chart are larger (radius floor 5px, cap 10px, was 3.5/8) with a 12px hit radius (was 8), and buy dots carry a 2.5px `--bg-primary` halo (was 1.5px) so they read against the melt line in every theme — in slate the silver fill was indistinguishable from the silver line (STRK-361)
+- **Change**: Hovering a buy or disposition marker now also shows a compact footer with the day's Melt / Basis / Spot / vs-basis gap beneath the item lines, honoring the Cost basis and Spot toggles exactly as the plain line tooltip does (STRK-361)
+- **Change**: Each buy tooltip line names its purchase location, color-matched to the By Purchase Location panel's dot for that vendor; a missing location reads "Unknown" in the muted token (STRK-361)
+- Tooltip width cap lifted 640 → 720px so the added location keeps the one-line-per-item intent (STRK-355); nine new Playwright cases in `details-modal.spec.js` pin AC-1..AC-4 across all four themes (STRK-361)
+
+---
+
 ## [3.36.20] - 2026-08-30
 
 ### Changed — STRK-363: Detail modal chart — disposition markers

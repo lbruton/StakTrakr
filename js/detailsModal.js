@@ -43,6 +43,22 @@ let _dmShow = { basis: true, spot: true, buys: true, dispositions: true };
 /** @type {ResizeObserver|null} Chart resize observer for the open modal */
 let _dmResizeObserver = null;
 
+/** @type {Map<string, string>|null} Purchase location → var() color, written
+ *  by the By Purchase Location panel on every build so the marker tooltip
+ *  paints each location the same way the bars do (STRK-361). */
+let _dmLocColors = null;
+
+/** Chart.js pointHitRadius for buy/disposition markers (STRK-361 AC-1). */
+const _DM_MARKER_HIT_RADIUS = 12;
+
+/**
+ * Marker radius scaled by the day's dollar total — floor 5 so the smallest
+ * buy is still a clear dot, cap 10 so a big day never blots the line.
+ * @param {number} total - Day total (cost for buys, melt-out for dispositions)
+ * @returns {number} Radius in px
+ */
+const _dmMarkerRadius = (total) => Math.max(5, Math.min(10, Math.sqrt(total) / 5));
+
 /** Days per range pill; ALL spans the whole series. */
 const _DM_RANGES = { "30D": 30, "90D": 90, "1Y": 365, ALL: Infinity };
 
@@ -438,6 +454,11 @@ const _dmCompColors = (scope, entries, dim) =>
 const _dmBuildCompPanel = (scope, dim, title) => {
   const entries = _dmAggregate(scope, dim);
   const colors = _dmCompColors(scope, entries, dim);
+  if (dim === "location") {
+    // single writer: the metric toggle re-ranks entries (colors are
+    // index-assigned), and every rebuild passes through here
+    _dmLocColors = new Map(entries.map(([key], i) => [key, colors[i]]));
+  }
   const total = entries.reduce((a, [, b]) => a + Math.abs(b[_dmMetric]), 0) || 1;
 
   const panel = document.createElement("div");
@@ -747,6 +768,95 @@ const _dmCrosshairPlugin = {
 };
 
 /**
+ * Day-stat entries for one series index — Melt, Basis (basis toggle on),
+ * Spot (spot toggle on and a value that day) and the signed melt−basis gap.
+ * One source for both tooltip shapes: the plain line tooltip renders one
+ * entry per line; the marker tooltips render them as a compact footer so a
+ * hover on a buy/disposition never loses the day's numbers (STRK-361).
+ * @param {object} chart - Chart.js instance (spot dataset visibility)
+ * @param {number} dayIdx - Index into _dmSeries.days
+ * @param {boolean} compact - Short labels for the footer ("Basis" vs "Cost basis")
+ * @returns {Array<{text: string, cls: string}>} Ordered entries; cls is "" or
+ *   the dm-pos/dm-neg gap class
+ */
+const _dmTooltipDayStats = (chart, dayIdx, compact) => {
+  const melt = _dmSeries?.melt[dayIdx] || 0;
+  const basis = _dmSeries?.basis[dayIdx] || 0;
+  const out = [{ text: `Melt ${formatCurrency(melt)}`, cls: "" }];
+  if (_dmShow.basis) {
+    out.push({ text: `${compact ? "Basis" : "Cost basis"} ${formatCurrency(basis)}`, cls: "" });
+  }
+  const spotDs = chart.data.datasets.find((d) => d.dmRole === "spot");
+  if (_dmShow.spot && spotDs && !spotDs.hidden) {
+    const spotPoint = spotDs.data.find((pt) => pt.x === dayIdx);
+    if (spotPoint && spotPoint.y != null) {
+      out.push({ text: `Spot ${formatCurrency(spotPoint.y)}/oz`, cls: "" });
+    }
+  }
+  const gap = melt - basis;
+  out.push({ text: `${_dmSigned(gap)} vs basis`, cls: gap >= 0 ? "dm-pos" : "dm-neg" });
+  return out;
+};
+
+/**
+ * Compact one-line footer for marker tooltips — the day stats joined by
+ * middle dots, styled smaller than the item lines (STRK-361 AC-3).
+ * @param {object} chart - Chart.js instance
+ * @param {number} dayIdx - Index into _dmSeries.days
+ * @returns {HTMLElement} .dm-tt-foot
+ */
+const _dmTooltipFooter = (chart, dayIdx) => {
+  const foot = document.createElement("div");
+  foot.className = "dm-tt-foot";
+  _dmTooltipDayStats(chart, dayIdx, true).forEach((stat, i) => {
+    if (i > 0) foot.appendChild(document.createTextNode(" · "));
+    const span = document.createElement("span");
+    if (stat.cls) span.className = stat.cls;
+    span.textContent = stat.text;
+    foot.appendChild(span);
+  });
+  return foot;
+};
+
+/**
+ * CSS color for a purchase location in the tooltip — the same var() the
+ * By Purchase Location panel painted that location with, so the tooltip and
+ * the bars read as one system. Unknown (and any location the active-items
+ * panel does not list, e.g. a since-disposed vendor) falls back to the
+ * neutral muted token (STRK-361 AC-4).
+ * @param {string} location - Item purchaseLocation (may be empty)
+ * @returns {string} var() color string — DOM-safe, never for canvas
+ */
+const _dmLocationColor = (location) => {
+  const key = location || "Unknown";
+  if (key === "Unknown") return "var(--text-muted)";
+  return _dmLocColors?.get(key) || "var(--text-muted)";
+};
+
+/**
+ * One tooltip item line: "name ×qty — amount", optionally followed by a
+ * color-coded purchase-location span (buys only). textContent throughout —
+ * Item names and locations are user content (D-6).
+ * @param {object} it - Inventory Item
+ * @param {number} amount - Cost (buys) or melt-out (dispositions)
+ * @param {boolean} withLocation - Append the .dm-tt-loc span
+ * @returns {HTMLElement} Line element
+ */
+const _dmTooltipItemLine = (it, amount, withLocation) => {
+  const line = document.createElement("div");
+  line.className = "dm-tt-item";
+  line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(amount)}`;
+  if (withLocation) {
+    const loc = document.createElement("span");
+    loc.className = "dm-tt-loc";
+    loc.style.color = _dmLocationColor(it.purchaseLocation);
+    loc.textContent = it.purchaseLocation || "Unknown";
+    line.appendChild(loc);
+  }
+  return line;
+};
+
+/**
  * External HTML tooltip handler — builds DOM with createElement/textContent
  * only (Item names are user content; raw innerHTML is banned here, D-6).
  * @param {object} context - Chart.js external tooltip context
@@ -775,47 +885,27 @@ const _dmExternalTooltip = (context) => {
     title.textContent = `Disposed ${dayKey}`;
     tip.appendChild(title);
     (group?.items || []).forEach((it) => {
-      const line = document.createElement("div");
-      line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(it._meltOut || 0)}`;
-      tip.appendChild(line);
+      tip.appendChild(_dmTooltipItemLine(it, it._meltOut || 0, false));
     });
+    tip.appendChild(_dmTooltipFooter(chart, dayIdx));
   } else if (buysPoint) {
     const group = _dmSeries?.buys.find((b) => b.day === dayKey);
     title.textContent = `Acquired ${dayKey}`;
     tip.appendChild(title);
     (group?.items || []).forEach((it) => {
-      const line = document.createElement("div");
       const cost = (parseFloat(it.price) || 0) * (Number(it.qty) || 1);
-      line.textContent = `${it.name || "(unnamed)"} ×${Number(it.qty) || 1} — ${formatCurrency(cost)}`;
-      tip.appendChild(line);
+      tip.appendChild(_dmTooltipItemLine(it, cost, true));
     });
+    tip.appendChild(_dmTooltipFooter(chart, dayIdx));
   } else {
     title.textContent = dayKey;
     tip.appendChild(title);
-    const melt = _dmSeries?.melt[dayIdx] || 0;
-    const basis = _dmSeries?.basis[dayIdx] || 0;
-    const meltLine = document.createElement("div");
-    meltLine.textContent = `Melt ${formatCurrency(melt)}`;
-    tip.appendChild(meltLine);
-    if (_dmShow.basis) {
-      const basisLine = document.createElement("div");
-      basisLine.textContent = `Cost basis ${formatCurrency(basis)}`;
-      tip.appendChild(basisLine);
-    }
-    const spotDs = chart.data.datasets.find((d) => d.dmRole === "spot");
-    if (_dmShow.spot && spotDs && !spotDs.hidden) {
-      const spotPoint = spotDs.data.find((pt) => pt.x === dayIdx);
-      if (spotPoint && spotPoint.y != null) {
-        const spotLine = document.createElement("div");
-        spotLine.textContent = `Spot ${formatCurrency(spotPoint.y)}/oz`;
-        tip.appendChild(spotLine);
-      }
-    }
-    const gap = melt - basis;
-    const gapLine = document.createElement("div");
-    gapLine.className = gap >= 0 ? "dm-pos" : "dm-neg";
-    gapLine.textContent = `${_dmSigned(gap)} vs basis`;
-    tip.appendChild(gapLine);
+    _dmTooltipDayStats(chart, dayIdx, false).forEach((stat) => {
+      const line = document.createElement("div");
+      if (stat.cls) line.className = stat.cls;
+      line.textContent = stat.text;
+      tip.appendChild(line);
+    });
   }
 
   tip.style.display = "block";
@@ -935,7 +1025,13 @@ const _dmRenderChart = () => {
   }
 
   const windowBuys = _dmSeries.buys.filter((b) => days.indexOf(b.day) >= startIdx);
-  const buyRadii = windowBuys.map((b) => Math.max(3.5, Math.min(8, Math.sqrt(b.totalCost) / 5)));
+  // STRK-361: radius floor 5 / cap 10 and a 12px hit radius — the old 3.5px
+  // floor was fiddly to hover. The fill stays the accent (solid = buy, hollow
+  // = disposition), so the contrast element is the halo: a 2.5px bg-primary
+  // ring cuts the melt line on both sides in every theme, because the page
+  // background contrasts with the accent by construction (slate's silver
+  // fill is otherwise identical to the silver melt line).
+  const buyRadii = windowBuys.map((b) => _dmMarkerRadius(b.totalCost));
   datasets.push({
     dmRole: "buys",
     type: "scatter",
@@ -946,14 +1042,14 @@ const _dmRenderChart = () => {
     }),
     pointRadius: buyRadii,
     pointHoverRadius: buyRadii.map((r) => r + 2),
-    pointHitRadius: 8,
+    pointHitRadius: _DM_MARKER_HIT_RADIUS,
     backgroundColor: windowBuys.map((b) =>
       _dmScope === "All"
         ? getThemeColorRGB(_DM_ACCENT_TOKEN[b.items[0]?.metal] || "primary")
         : accent
     ),
     borderColor: getThemeColorRGB("bg-primary"),
-    borderWidth: 1.5,
+    borderWidth: 2.5,
     hidden: !_dmShow.buys,
     yAxisID: "y",
     order: 1,
@@ -961,9 +1057,7 @@ const _dmRenderChart = () => {
 
   const dangerRGB = getThemeColorRGB("danger");
   const windowDispositions = _dmSeries.dispositions.filter((d) => days.indexOf(d.day) >= startIdx);
-  const dispRadii = windowDispositions.map((d) =>
-    Math.max(3.5, Math.min(8, Math.sqrt(d.totalMeltOut) / 5))
-  );
+  const dispRadii = windowDispositions.map((d) => _dmMarkerRadius(d.totalMeltOut));
   datasets.push({
     dmRole: "dispositions",
     type: "scatter",
@@ -974,7 +1068,7 @@ const _dmRenderChart = () => {
     }),
     pointRadius: dispRadii,
     pointHoverRadius: dispRadii.map((r) => r + 2),
-    pointHitRadius: 8,
+    pointHitRadius: _DM_MARKER_HIT_RADIUS,
     pointStyle: "circle",
     backgroundColor: "transparent",
     borderColor: dangerRGB,
