@@ -181,6 +181,66 @@ const _dmWindowStartKey = () => {
   return days[Math.max(0, days.length - 1 - span)];
 };
 
+/**
+ * Whether a bounded range pill (30D / 90D / 1Y) is active; ALL is unbounded.
+ * @returns {boolean} True when the active pill has a finite day span
+ */
+const _dmRangeIsBounded = () => Number.isFinite(_DM_RANGES[_dmRange]);
+
+/**
+ * Active Items for a scope inside the chart's window (STRK-365). A bounded
+ * pill is closed on both ends: dated acquisitions on/after the window start
+ * day and on/before the series' final day (today) — the same bounds
+ * computeWindowStats applies to the buys index, so the tables reconcile with
+ * the substrip — and it always excludes undated Items, even when the series
+ * has no start key (a pre-series or all-undated scope). A future-dated
+ * acquisition falls outside the chart's visible window (the chart draws no
+ * marker for it), so the upper bound keeps it out of bounded ledgers and
+ * composition panels. ALL restores the full scope including undated Items
+ * (STRK-353: undated cost flows only into ALL).
+ * @param {string} scope - "All" or metal display name
+ * @returns {{rows: Array<object>, hiddenUndated: number}} Ledger-ordered
+ *   window rows and the count of undated Items the bounded pill excluded
+ */
+const _dmWindowItems = (scope) => {
+  const all = _dmActiveItems(scope);
+  const bounded = _dmRangeIsBounded();
+  if (!bounded) return { rows: all, hiddenUndated: 0 };
+  const startKey = _dmWindowStartKey();
+  const endKey = _dmSeries?.days?.at(-1) ?? "";
+  let hiddenUndated = 0;
+  const rows = all.filter((it) => {
+    const dated = typeof it.date === "string" && it.date !== "";
+    if (!dated) hiddenUndated += 1;
+    return (
+      dated && (startKey === "" || it.date >= startKey) && (endKey === "" || it.date <= endKey)
+    );
+  });
+  return { rows, hiddenUndated };
+};
+
+/**
+ * Caption tying a panel to the chart's range pill (STRK-365 AC-3). The
+ * hidden-undated count rides in the caption rather than a ledger note so it
+ * costs no vertical budget (STRK-358's desktop fit has zero slack).
+ * @param {number} [hiddenUndated=0] - Undated Items the bounded pill excluded
+ * @returns {HTMLElement} .dm-panel-scope span carrying data-scope-range
+ */
+const _dmBuildScopeCaption = (hiddenUndated = 0) => {
+  const cap = document.createElement("span");
+  cap.className = "dm-panel-scope";
+  // not data-range: that attribute is the pill selector's contract (AC-11)
+  cap.dataset.scopeRange = _dmRange;
+  if (!_dmRangeIsBounded()) {
+    cap.textContent = "all time";
+  } else if (hiddenUndated > 0) {
+    cap.textContent = `${_dmRange} window · ${hiddenUndated} undated hidden`;
+  } else {
+    cap.textContent = `${_dmRange} window`;
+  }
+  return cap;
+};
+
 // ── header + substats ───────────────────────────────────────────────────────
 
 /**
@@ -408,7 +468,7 @@ const _dmBuildSeg = (pairs, activeKey, dataKey, onSelect) => {
  */
 const _dmAggregate = (scope, dim) => {
   const buckets = new Map();
-  _dmActiveItems(scope).forEach((it) => {
+  _dmWindowItems(scope).rows.forEach((it) => {
     const key =
       dim === "location"
         ? it.purchaseLocation || "Unknown"
@@ -472,6 +532,10 @@ const _dmBuildCompPanel = (scope, dim, title) => {
   const h = document.createElement("h3");
   h.className = "dm-panel-title";
   h.textContent = title;
+  const hint = document.createElement("span");
+  hint.className = "dm-panel-hint";
+  hint.appendChild(_dmBuildScopeCaption());
+  h.appendChild(hint);
   panel.appendChild(h);
 
   const bar = document.createElement("div");
@@ -520,6 +584,17 @@ const _dmBuildCompPanel = (scope, dim, title) => {
     more.appendChild(name);
     rows.appendChild(more);
   }
+  if (entries.length === 0 && _dmRangeIsBounded()) {
+    // STRK-365: a bounded window can legitimately be empty while the scope
+    // holds Items — say so rather than rendering a bare empty bar
+    const empty = document.createElement("div");
+    empty.className = "dm-comp-row dm-comp-more dm-comp-empty";
+    const name = document.createElement("span");
+    name.className = "dm-comp-name";
+    name.textContent = "No acquisitions in this range";
+    empty.appendChild(name);
+    rows.appendChild(empty);
+  }
   panel.appendChild(rows);
   return panel;
 };
@@ -545,10 +620,11 @@ const _dmRerenderComposition = () => {
  * @returns {HTMLElement} .dm-ledger-fill wrapper
  */
 const _dmBuildLedger = (scope) => {
-  const rows = _dmActiveItems(scope);
+  const { rows, hiddenUndated } = _dmWindowItems(scope);
 
   const fill = document.createElement("div");
   fill.className = "dm-ledger-fill";
+  fill.id = "dmLedgerCell";
   const panel = document.createElement("div");
   panel.className = "dm-panel";
   const h = document.createElement("h3");
@@ -556,7 +632,8 @@ const _dmBuildLedger = (scope) => {
   h.textContent = "Acquisitions";
   const hint = document.createElement("span");
   hint.className = "dm-panel-hint";
-  hint.textContent = "newest first · click to open item";
+  hint.appendChild(_dmBuildScopeCaption(hiddenUndated));
+  hint.append(" · newest first · click to open item");
   h.appendChild(hint);
   panel.appendChild(h);
 
@@ -645,9 +722,15 @@ const _dmBuildLedger = (scope) => {
   wrap.appendChild(table);
 
   if (rows.length === 0) {
+    // STRK-365: two distinct empties, each named — a scope with no active
+    // Items at all vs a bounded window that excludes every active Item
+    // (hidden undated Items are counted in the title caption instead)
     const note = document.createElement("div");
     note.className = "dm-ledger-note";
-    note.textContent = "No active items — disposed history lives in the Inventory tab.";
+    note.textContent =
+      _dmRangeIsBounded() && _dmActiveItems(scope).length > 0
+        ? "No acquisitions in this range — pick ALL for the full history."
+        : "No active items — disposed history lives in the Inventory tab.";
     wrap.appendChild(note);
   }
   panel.appendChild(wrap);
@@ -682,6 +765,14 @@ const _dmBuildLedger = (scope) => {
 
   fill.appendChild(panel);
   return fill;
+};
+
+/**
+ * Rebuild the ledger cell in place (range pill handler — STRK-365).
+ */
+const _dmRerenderLedger = () => {
+  const cell = document.getElementById("dmLedgerCell");
+  if (cell) cell.replaceWith(_dmBuildLedger(_dmScope));
 };
 
 /**
@@ -1217,6 +1308,9 @@ const _dmRenderBody = () => {
         _dmRange = key;
         _dmRenderChart();
         _dmRenderSubstrip();
+        // STRK-365: the tables below the chart scope to the same window
+        _dmRerenderComposition();
+        _dmRerenderLedger();
       }
     )
   );

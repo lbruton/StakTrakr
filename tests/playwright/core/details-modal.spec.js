@@ -652,6 +652,9 @@ test("STRK-358: composition lists cap at 5 rows with a +N more row", async ({ pa
   await bootApp(page);
   await openScope(page, "All");
   await chartReady(page);
+  // STRK-365: the ninth active (s3) is undated and only counts on ALL — the
+  // full-scope fit measured here is the same 9-row ledger STRK-358 sized for
+  await page.click('#detailsModal [data-range="ALL"]');
   await chartSettled(page);
   const locPanel = page.locator("#detailsModal .dm-panel", { hasText: "By Purchase Location" });
   await expect(locPanel.locator(".dm-comp-row:not(.dm-comp-more)")).toHaveCount(5); // AC-1
@@ -736,6 +739,9 @@ test("AC-18: ledger lists active Items newest-first with undated last; disposed 
   await bootApp(page);
   await openScope(page, "Silver");
   await chartReady(page);
+  // STRK-365: the ledger follows the chart range, and only ALL includes undated
+  // Items — the full-scope ordering contract is asserted on that pill
+  await page.click('#detailsModal [data-range="ALL"]');
   const rows = page.locator("#detailsModal .dm-ledger tbody tr[data-uuid]");
   await expect(rows).toHaveCount(4); // s5(3d), s1(5d), s2(45d), s3(undated) — s4 excluded
   await expect(rows.nth(0)).toHaveAttribute("data-uuid", "s5");
@@ -1248,8 +1254,12 @@ test("STRK-361 AC-4: each buy tooltip line names its purchase location in the By
   await expect(loc).toHaveText("apmex.com");
   const colors = await page.evaluate(() => {
     const span = document.querySelector("#dmChartTooltip .dm-tt-loc");
+    // FIXTURE CORRECTION (STRK-365, disclosed): the title now carries the
+    // range caption, so match the title text by prefix, not equality
     const row = [...document.querySelectorAll("#dmCompCol .dm-panel")]
-      .find((p) => p.querySelector(".dm-panel-title")?.textContent === "By Purchase Location")
+      .find((p) =>
+        p.querySelector(".dm-panel-title")?.textContent.startsWith("By Purchase Location")
+      )
       ?.querySelectorAll(".dm-comp-row");
     const match = [...(row || [])].find(
       (r) => r.querySelector(".dm-comp-name")?.textContent === "apmex.com"
@@ -1283,4 +1293,117 @@ test("STRK-361 AC-4: an item with no purchase location reads Unknown in the neut
   await expect(loc).toHaveText("Unknown");
   const spanColor = await loc.evaluate((el) => getComputedStyle(el).color);
   expect(spanColor).toBe(await dmTokenComputedColor(page, "text-muted"));
+});
+
+// ── STRK-365: composition panels + ledger follow the chart's range ──────────
+// The substrip already reconciles to the range pill (STRK-353); the two
+// composition panels and the Acquisitions ledger must scope the same way —
+// dated acquisitions on/after the window start for 30D/90D/1Y, the full
+// scope including undated Items on ALL.
+
+test("STRK-365 AC-1: 1Y and 30D scope the ledger and panels to dated acquisitions in the window; ALL restores undated", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const rows = page.locator("#detailsModal .dm-ledger tbody tr[data-uuid]");
+  // 1Y default: s5(3d), s1(5d), s2(45d) — undated s3 is outside any bounded range
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(2)).toHaveAttribute("data-uuid", "s2");
+  await page.click('#detailsModal [data-range="30D"]');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toHaveAttribute("data-uuid", "s5");
+  await expect(rows.nth(1)).toHaveAttribute("data-uuid", "s1");
+  const locPanel = page.locator("#detailsModal .dm-panel", { hasText: "By Purchase Location" });
+  const locNames = locPanel.locator(".dm-comp-row:not(.dm-comp-more) .dm-comp-name");
+  // |melt| ranking: s1 (2 oz) ahead of s5 (0.1 oz)
+  await expect(locNames).toHaveText(["apmex.com", "herobullion.com"]);
+  await page.click('#detailsModal [data-range="ALL"]');
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(3)).toHaveAttribute("data-uuid", "s3");
+  await expect(locNames).toHaveCount(4);
+});
+
+test("STRK-365 AC-2: on 30D the ledger's row count and Paid total reconcile with the substrip's buys and invested", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await page.click('#detailsModal [data-range="30D"]');
+  const strip = page.locator("#detailsModal .dm-substrip");
+  await expect(strip).toContainText(/buys\s*2(?!\d)/);
+  await expect(strip).toContainText("invested $55.00");
+  const rows = page.locator("#detailsModal .dm-ledger tbody tr[data-uuid]");
+  await expect(rows).toHaveCount(2);
+  const paidCells = await rows.locator("td.dm-col-paid").allTextContents();
+  const paidSum = paidCells.reduce((a, t) => a + Number(t.replace(/[^0-9.-]/g, "")), 0);
+  expect(paidSum).toBeCloseTo(55, 2);
+  // the By Type panel's Purchase metric sums the same two rows (both Rounds)
+  await page.click('#detailsModal [data-metric="purchase"]');
+  const typePanel = page.locator("#detailsModal .dm-panel", { hasText: "By Type" });
+  await expect(typePanel.locator(".dm-comp-row:not(.dm-comp-more) .dm-comp-val")).toHaveText([
+    "$55.00",
+  ]);
+});
+
+test("STRK-365 AC-3: every panel carries a scope caption that tracks the active range pill", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  const caps = page.locator("#detailsModal .dm-panel .dm-panel-scope");
+  await expect(caps).toHaveCount(3);
+  for (let i = 0; i < 3; i++) {
+    await expect(caps.nth(i)).toHaveAttribute("data-scope-range", "1Y");
+    await expect(caps.nth(i)).toContainText("1Y");
+  }
+  await page.click('#detailsModal [data-range="30D"]');
+  for (let i = 0; i < 3; i++) {
+    await expect(caps.nth(i)).toHaveAttribute("data-scope-range", "30D");
+    await expect(caps.nth(i)).toContainText("30D");
+  }
+  await page.click('#detailsModal [data-range="ALL"]');
+  for (let i = 0; i < 3; i++) {
+    await expect(caps.nth(i)).toHaveAttribute("data-scope-range", "ALL");
+    await expect(caps.nth(i)).toContainText(/all time/i);
+  }
+});
+
+test("STRK-365 AC-4: after narrowing to 30D, a real marker click still flashes its ledger row", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  await page.click('#detailsModal [data-range="30D"]');
+  await chartSettled(page);
+  const box = await page.locator("#dmHeroChart").boundingBox();
+  // 30D buys groups ascending: s1(5d), s5(3d) — last is s5, which is active
+  const marker = await buysMarkerCoords(page, 0);
+  await page.mouse.click(box.x + marker.x, box.y + marker.y);
+  await expect(
+    page.locator('#detailsModal .dm-ledger tbody tr.dm-flash[data-uuid="s5"]')
+  ).toBeVisible();
+});
+
+test("STRK-365: the ledger caption says how many undated items a bounded range hides; ALL drops it", async ({
+  page,
+}) => {
+  await installSeed(page);
+  await bootApp(page);
+  await openScope(page, "Silver");
+  await chartReady(page);
+  // caption, not a .dm-ledger-note: the STRK-358 desktop fit has no spare line
+  const cap = page.locator("#detailsModal .dm-ledger-fill .dm-panel-scope");
+  await expect(cap).toContainText(/1 undated hidden/);
+  await expect(page.locator("#detailsModal .dm-ledger-note")).toHaveCount(0);
+  await page.click('#detailsModal [data-range="ALL"]');
+  await expect(cap).not.toContainText(/undated/);
 });

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.22] - 2026-09-06
+
+### Changed — STRK-365: Detail modal — composition panels and Acquisitions ledger follow the chart's range
+
+- **Change**: The By Metal / By Type and By Purchase Location panels and the Acquisitions ledger now follow the chart's range pill — 30D / 90D / 1Y show only acquisitions dated inside the window, ALL restores the full scope including undated items — using the same window-start predicate as the substrip, so the ledger's rows and Paid total reconcile with the substrip's buys and invested figures for the same range (STRK-365)
+- **Change**: Every panel title carries a range caption ("1Y window" / "all time"); the ledger's caption also counts the undated items a bounded range hides, and a window with no acquisitions says so in place of a bare empty bar or table (STRK-365)
+- **Fix**: Bounded windows are closed on both ends — a future-dated item (the date input is uncapped) no longer appears in a 30D / 90D / 1Y table, and the substrip's buys count and pace stop counting it too, matching invested, which already excluded its cost (STRK-365, PR #1491 review)
+- Five new Playwright cases pin AC-1..AC-4 and the caption; one unit test pins the future-dated exclusion; three existing fixtures were re-anchored to the ALL pill or a prefix title match, each disclosed in-file (STRK-365)
+
+---
+
 ## [3.36.21] - 2026-09-03
 
 ### Changed — STRK-361: Detail modal chart markers — hit target, per-theme contrast, richer tooltip

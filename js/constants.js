@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.21";
+const APP_VERSION = "3.36.22";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
