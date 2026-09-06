@@ -8181,6 +8181,11 @@ a.about-badge:hover {
   color: var(--text-muted);
   font-size: var(--font-size-xs);
 }
+/* STRK-365: the range caption reads as a data label, like the substrip */
+.dm-panel-scope {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
 .dm-comp-bar {
   display: flex;
   height: 14px;
