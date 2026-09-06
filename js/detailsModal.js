@@ -189,12 +189,15 @@ const _dmRangeIsBounded = () => Number.isFinite(_DM_RANGES[_dmRange]);
 
 /**
  * Active Items for a scope inside the chart's window (STRK-365). A bounded
- * pill keeps dated acquisitions on/after the window start day — the same
- * `day >= windowStart` test computeWindowStats applies to the buys index, so
- * the tables reconcile with the substrip — and always excludes undated Items,
- * even when the series has no start key (a pre-series or all-undated scope).
- * ALL restores the full scope including undated Items (STRK-353: undated
- * cost flows only into ALL).
+ * pill is closed on both ends: dated acquisitions on/after the window start
+ * day and on/before the series' final day (today) — the same bounds
+ * computeWindowStats applies to the buys index, so the tables reconcile with
+ * the substrip — and it always excludes undated Items, even when the series
+ * has no start key (a pre-series or all-undated scope). A future-dated
+ * acquisition falls outside the chart's visible window (the chart draws no
+ * marker for it), so the upper bound keeps it out of bounded ledgers and
+ * composition panels. ALL restores the full scope including undated Items
+ * (STRK-353: undated cost flows only into ALL).
  * @param {string} scope - "All" or metal display name
  * @returns {{rows: Array<object>, hiddenUndated: number}} Ledger-ordered
  *   window rows and the count of undated Items the bounded pill excluded
@@ -204,11 +207,14 @@ const _dmWindowItems = (scope) => {
   const bounded = _dmRangeIsBounded();
   if (!bounded) return { rows: all, hiddenUndated: 0 };
   const startKey = _dmWindowStartKey();
+  const endKey = _dmSeries?.days?.at(-1) ?? "";
   let hiddenUndated = 0;
   const rows = all.filter((it) => {
     const dated = typeof it.date === "string" && it.date !== "";
     if (!dated) hiddenUndated += 1;
-    return dated && (startKey === "" || it.date >= startKey);
+    return (
+      dated && (startKey === "" || it.date >= startKey) && (endKey === "" || it.date <= endKey)
+    );
   });
   return { rows, hiddenUndated };
 };

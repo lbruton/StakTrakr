@@ -335,7 +335,12 @@ const computeWindowStats = (series, windowStartKey) => {
   const basisEnd = series.basis[end];
   const marketPct = basisEnd > 0 ? (market / basisEnd) * 100 : null;
 
-  const windowBuys = series.buys.filter((b) => b.day >= series.days[w]);
+  // Future-dated acquisitions are already excluded from invested (their acqIdx
+  // falls past the series), so cap buys at the series' final day too — keeps
+  // buyCount/pace agreeing with invested (STRK-365, PR #1491 review).
+  const windowBuys = series.buys.filter(
+    (b) => b.day >= series.days[w] && b.day <= series.days[end]
+  );
   const buyCount = windowBuys.length;
 
   let paceOzPerMonth = null;

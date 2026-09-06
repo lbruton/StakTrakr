@@ -741,6 +741,32 @@ describe("STRK-362 — investedDisposed", () => {
   });
 });
 
+// ── PR #1491 review: future-dated acquisitions excluded from the window ────
+//
+// The uncapped #itemDate input lets an item's date land after todayKey. The
+// series (and its buys index) already excludes such a buy's cost from
+// invested — its acqIdx falls past the series — but series.buys itself is
+// grouped by raw acquisition date with no upper bound, so a future-dated buy
+// still showed up in computeWindowStats' buyCount/pace. The window filter
+// must cap at the series' final day (today) to agree with invested.
+
+describe("PR #1491 review — future-dated acquisitions excluded from window", () => {
+  it("a future-dated Item is not counted in buyCount for the full window, and invested is unchanged", () => {
+    const futureDate = "2024-05-01"; // TODAY + 30 days, past the series' final day
+    const dated = [mkItem({ date: "2024-03-01", price: 10, weight: 1 })];
+    const withFuture = [...dated, mkItem({ date: futureDate, price: 999, weight: 1 })];
+
+    const sBase = build(dated, { Silver: flatSilver(10) });
+    const sFuture = build(withFuture, { Silver: flatSilver(10) });
+
+    const statsBase = computeWindowStats(sBase, sBase.days[0]);
+    const statsFuture = computeWindowStats(sFuture, sFuture.days[0]);
+
+    assert.equal(statsFuture.buyCount, 1); // future buy excluded, only the dated one counts
+    assert.equal(statsFuture.invested, statsBase.invested); // future cost never entered invested
+  });
+});
+
 // ── pickLedgerRows ──────────────────────────────────────────────────────────
 
 describe("pickLedgerRows", () => {
