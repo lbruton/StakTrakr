@@ -609,7 +609,45 @@ test("AC-15: substrip shows market, invested, buy count, and per-metal pace (no 
 });
 
 test("layer-2 pin: the daily close is the LATEST live sample of the day", async ({ page }) => {
-  await installSeed(page);
+  // STRK-366: getSpotDayMap groups spotHistory by a literal UTC date string
+  // (timestamp.slice(0, 10)), while the series' "today" is the app's local
+  // calendar day. Pin the clock at local noon and build the fixture's literal
+  // keys from that local calendar, so both samples land on local yesterday
+  // even in UTC+13/+14. Converting local noon to a UTC date can shift the key
+  // back a day, which carry-forward can hide. The assertion stays untouched
+  // (AC-1/AC-2).
+  const now = new Date();
+  const fixedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  /**
+   * Return a local calendar day key relative to the pinned test time.
+   * @param {number} [minusDays=0] Calendar days to subtract from the pinned date.
+   * @returns {string} Local calendar day key in YYYY-MM-DD format.
+   */
+  const fixedLocalDayKey = (minusDays = 0) => {
+    const day = new Date(fixedNow);
+    day.setDate(day.getDate() - minusDays);
+    const month = String(day.getMonth() + 1).padStart(2, "0");
+    const date = String(day.getDate()).padStart(2, "0");
+    return `${day.getFullYear()}-${month}-${date}`;
+  };
+  const pinnedSpotHistory = [
+    {
+      spot: 11,
+      metal: "Silver",
+      source: "api",
+      provider: "test",
+      timestamp: `${fixedLocalDayKey(1)} 09:00:00`,
+    },
+    {
+      spot: 12,
+      metal: "Silver",
+      source: "api",
+      provider: "test",
+      timestamp: `${fixedLocalDayKey(1)} 15:00:00`,
+    },
+  ];
+  await installSeed(page, { spotHistory: pinnedSpotHistory });
+  await page.clock.setFixedTime(fixedNow);
   await bootApp(page);
   await openScope(page, "Silver");
   await chartReady(page);
