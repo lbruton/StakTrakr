@@ -609,7 +609,37 @@ test("AC-15: substrip shows market, invested, buy count, and per-metal pace (no 
 });
 
 test("layer-2 pin: the daily close is the LATEST live sample of the day", async ({ page }) => {
-  await installSeed(page);
+  // STRK-366: getSpotDayMap groups spotHistory by a literal UTC date string
+  // (timestamp.slice(0, 10)), while the series' "today" is the app's local
+  // calendar day. Those frames only diverge in the local-evening window,
+  // once the UTC date has rolled past local midnight — there, a UTC-yesterday
+  // sample reads as local-today's, leaving local-yesterday's slot unseeded
+  // and the pin falls through to the real historical close. Freezing the
+  // clock at local noon (safely mid-day in both frames for any US timezone)
+  // removes the wall-clock dependency; the pin's assertion is untouched
+  // (AC-1/AC-2).
+  const now = new Date();
+  const fixedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  const fixedUtcDayKey = (minusDays = 0) =>
+    new Date(fixedNow.getTime() - minusDays * 86400000).toISOString().slice(0, 10);
+  const pinnedSpotHistory = [
+    {
+      spot: 11,
+      metal: "Silver",
+      source: "api",
+      provider: "test",
+      timestamp: `${fixedUtcDayKey(1)} 09:00:00`,
+    },
+    {
+      spot: 12,
+      metal: "Silver",
+      source: "api",
+      provider: "test",
+      timestamp: `${fixedUtcDayKey(1)} 15:00:00`,
+    },
+  ];
+  await installSeed(page, { spotHistory: pinnedSpotHistory });
+  await page.clock.setFixedTime(fixedNow);
   await bootApp(page);
   await openScope(page, "Silver");
   await chartReady(page);
