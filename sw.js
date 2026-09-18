@@ -25,7 +25,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 // base the relative "./" cache keys resolve against.
 const SW_SCOPE_PATH = new URL("./", self.location.href).pathname;
 
-const CACHE_NAME = "staktrakr-v3.36.24-b1789181247";
+const CACHE_NAME = "staktrakr-v3.36.24-b1789775150";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -127,8 +127,11 @@ const CORE_ASSETS = [
   "./js/clone-picker.js",
   "./js/form-sections.js",
   "./js/events.js",
+  "./js/collections-core.js",
+  "./js/collections-store.js",
   "./js/tabs.js",
   "./js/init.js",
+  "./data/collections-bundle.js",
   "./data/spot-history-bundle.js",
   "./data/spot-history-2025.json",
   "./data/spot-history-2026.json",

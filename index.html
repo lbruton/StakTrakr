@@ -8928,6 +8928,16 @@
          renderRatiosPanel(). Must precede init.js. -->
     <script defer src="./js/ratios-panel.js"></script>
 
+    <!-- STRK-368 (epic STRK-254): Collections module. collections-core.js is the pure
+         data layer; collections-store.js is the storage + inventory seam (must follow
+         core). The Series Template bundle is read lazily, so its position is free — it
+         is a script-tag global because file:// cannot fetch() local JSON, the same
+         reason spot-history-bundle.js exists. All three must precede init.js, which
+         hydrates the store during boot. -->
+    <script defer src="./js/collections-core.js"></script>
+    <script defer src="./js/collections-store.js"></script>
+    <script defer src="./data/collections-bundle.js"></script>
+
     <!-- STRK-282: tab shell view switching. Must precede init.js. -->
     <script defer src="./js/tabs.js"></script>
     <script defer src="./js/init.js"></script>

@@ -617,6 +617,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       debugLog(`Loaded tags for ${Object.keys(itemTags).length} items`);
     }
 
+    // Load Collections state, then sweep links to items that no longer exist (STRK-368).
+    // Runs after the awaited loadInventory() above; sweep() itself refuses an empty or
+    // recovery-held inventory so a failed load can never read as "every item is gone".
+    if (window.collectionsStore) {
+      window.collectionsStore.load();
+      const swept = window.collectionsStore.sweep();
+      debugLog(`Collections loaded; swept ${swept.removed} dangling slot link(s)`);
+    }
+
     // Load Goldback denomination pricing (STACK-45)
     if (typeof loadGoldbackPrices === "function") loadGoldbackPrices();
     if (typeof loadGoldbackPriceHistory === "function") loadGoldbackPriceHistory();

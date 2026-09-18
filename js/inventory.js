@@ -1324,6 +1324,11 @@ const _deleteInventoryItem = (item, idx) => {
   if (item?.uuid && typeof deleteItemTags === "function") {
     deleteItemTags(item.uuid);
   }
+
+  // Drop the item from every Collection slot; a spare promotes into a vacated primary (STRK-368)
+  if (item?.uuid && window.collectionsStore) {
+    window.collectionsStore.pruneItem(item.uuid);
+  }
 };
 
 const confirmRemoveItem = async () => {

@@ -814,6 +814,16 @@ const ITEM_REMOVED_TAGS_KEY = "itemRemovedTags"; // nosemgrep: codacy.javascript
 /** @constant {string} ITEM_TAGS_LAST_MODIFIED_KEY - LocalStorage key for per-item tag timestamps (STRK-108) */
 const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/**
+ * @constant {string} COLLECTION_STATE_KEY - LocalStorage key for the Collections module state (STRK-368, epic
+ * STRK-254): collection definitions plus slot → Item UUID links. Links live here, never on the Item.
+ * DEVICE-LOCAL FOR NOW — deliberately NOT in SYNC_SCOPE_KEYS. A blind last-write-wins overwrite of this blob
+ * would drop a slot filled on another device; it joins the sync scope only together with the 4-part cloud-sync
+ * contract and the commutative merge (collectionsCore.mergeStates). Full sync + JSON + CSV round-trip is the
+ * epic's main-ship gate.
+ */
+const COLLECTION_STATE_KEY = "collectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} FORM_SECTION_STATE_KEY - LocalStorage key for the add/edit form per-section open/collapsed map (STRK-301) */
 const FORM_SECTION_STATE_KEY = "formSectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -1209,6 +1219,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
+  COLLECTION_STATE_KEY, // JSON object: Collections definitions + slot→Item UUID links (STRK-368, device-local until the sync contract lands — deliberately NOT in SYNC_SCOPE_KEYS)
   FORM_SECTION_STATE_KEY, // JSON object: add/edit form section open/collapsed map (STRK-301, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
@@ -1733,6 +1744,13 @@ const FEATURE_FLAGS = {
     description: "Auto-update inventory retail prices from linked market data",
     phase: "beta",
   },
+  COLLECTIONS: {
+    enabled: true,
+    urlOverride: true,
+    userToggle: true,
+    description: "Collections — date-run albums and custom checklists linked to inventory items",
+    phase: "beta",
+  },
 };
 
 /**
@@ -2230,6 +2248,8 @@ if (typeof window !== "undefined") {
   window.ITEM_TAGS_KEY = ITEM_TAGS_KEY;
   window.ITEM_REMOVED_TAGS_KEY = ITEM_REMOVED_TAGS_KEY;
   window.ITEM_TAGS_LAST_MODIFIED_KEY = ITEM_TAGS_LAST_MODIFIED_KEY;
+  // Collections module state (STRK-368)
+  window.COLLECTION_STATE_KEY = COLLECTION_STATE_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;
   // Form section disclosure state (STRK-301)
