@@ -2161,6 +2161,12 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     const itemModal = document.getElementById("itemModal");
     if (itemModal) itemModal.style.zIndex = "";
   }
+  // STRK-368: a Collection slot's "+ Add new item" opened this modal — link the new
+  // item to the slot that asked for it. The pending request is held privately by
+  // collections-store.js, which also drops it if the modal closes without a save.
+  if (!isEditing && committed?.uuid && window.collectionsStore) {
+    window.collectionsStore.resolvePendingNewItem(committed.uuid);
+  }
 };
 
 /**

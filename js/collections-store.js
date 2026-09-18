@@ -305,6 +305,168 @@
   };
 
   // ---------------------------------------------------------------------------
+  // Add new item from a slot
+  //
+  // A slot's "+ Add new item" opens the REAL Add Item modal prefilled, and the item
+  // auto-links when it is saved. The pending request lives privately here (no window
+  // flags): js/events.js hands the committed UUID to resolvePendingNewItem(), and a
+  // MutationObserver drops the request the moment #itemModal closes by ANY path —
+  // Cancel, the X, Escape or a backdrop click. Without that, an abandoned request
+  // would silently link the next unrelated item the user adds.
+  // ---------------------------------------------------------------------------
+
+  /** Slot awaiting a new item from the Add Item modal; null when idle. */
+  let pendingNewItem = null;
+
+  /** Observer watching #itemModal for the close that ends a pending request. */
+  let pendingObserver = null;
+
+  /**
+   * Whether a slot is currently waiting for the Add Item modal.
+   * @returns {boolean} True while a request is pending
+   */
+  const hasPendingNewItem = () => pendingNewItem !== null;
+
+  /**
+   * Drops the pending request without linking anything.
+   * @returns {void}
+   */
+  const cancelPendingNewItem = () => {
+    pendingNewItem = null;
+    if (pendingObserver) pendingObserver.disconnect();
+    pendingObserver = null;
+  };
+
+  /**
+   * Links the freshly committed item to the slot that asked for it.
+   * Called from commitItemToInventory (js/events.js) for NEW items only.
+   * @param {string} uuid - UUID of the item that was just added
+   * @returns {{ok: boolean, changed: boolean, reason?: string}|null} Link result, or null when idle
+   */
+  const resolvePendingNewItem = (uuid) => {
+    if (!pendingNewItem || !uuid) return null;
+    const request = pendingNewItem;
+    cancelPendingNewItem();
+    return link(request.collectionId, request.slotId, uuid, { asSpare: request.asSpare });
+  };
+
+  /**
+   * Add Item form values for a slot: the Series Template's defaults, or the custom
+   * collection's metal plus the slot's own label and year.
+   * @param {string} collectionId - Collection id (a template slug works before it is started)
+   * @param {string} slotId - Slot id
+   * @returns {Object|null} Prefill values, or null when the slot does not exist
+   */
+  const prefillFor = (collectionId, slotId) => {
+    const collection = getState().collections[collectionId] || null;
+    const template = collection ? templateFor(collection) : getTemplate(collectionId);
+    const defs = collection ? slotDefs(collection) : (template && template.slots) || [];
+    const slot = defs.find((def) => def.id === slotId);
+    if (!slot) return null;
+    const year = slot.year == null ? "" : String(slot.year);
+    if (!template) {
+      const definition = (collection && collection.definition) || {};
+      return { name: slot.label || "", metal: definition.metal || "", year };
+    }
+    const defaults = template.itemDefaults || {};
+    return {
+      name: slot.itemName || String(defaults.name || template.name).replace("{year}", year),
+      metal: defaults.metal || template.metal,
+      type: defaults.type || template.itemType,
+      weight: defaults.weight == null ? template.weight : defaults.weight,
+      weightUnit: defaults.weightUnit || template.weightUnit,
+      purity: defaults.purity == null ? template.purity : defaults.purity,
+      numistaId: defaults.numistaId || "",
+      year,
+    };
+  };
+
+  /** Weight units whose form entry is a denomination picker rather than a plain number. */
+  const DENOMINATION_UNITS = ["gb", "sb", "cu"];
+
+  /**
+   * Prefills weight + unit. Plain units are written as the bare number a user would
+   * type in add mode. Denomination units (Goldback, Silverback, constitutional) carry
+   * picker state that only the form's own populate logic knows how to restore.
+   * @param {{weight?: number, weightUnit?: string}} prefill - Values from prefillFor
+   * @returns {void}
+   */
+  const applyWeightPrefill = (prefill) => {
+    if (!prefill.weight) return;
+    const unit = prefill.weightUnit || "oz";
+    if (DENOMINATION_UNITS.includes(unit)) {
+      if (typeof _editPopulateWeightFields === "function") {
+        _editPopulateWeightFields({ weight: prefill.weight, weightUnit: unit });
+      }
+      return;
+    }
+    safeGetElement("itemWeight").value = String(prefill.weight);
+    safeGetElement("itemWeightUnit").value = unit;
+  };
+
+  /**
+   * Writes prefill values into the open Add Item form, in the order the form expects:
+   * metal → filter types → type → type-dependent fields → the rest.
+   * @param {Object} prefill - Values from prefillFor
+   * @returns {void}
+   */
+  const applyPrefill = (prefill) => {
+    const setValue = (id, value) => {
+      if (value == null || value === "") return;
+      safeGetElement(id).value = String(value);
+    };
+    setValue("itemMetal", prefill.metal);
+    if (typeof filterTypesByMetal === "function") filterTypesByMetal(prefill.metal || "");
+    setValue("itemType", prefill.type);
+    if (typeof handleTypeChange === "function") handleTypeChange();
+    setValue("itemName", prefill.name);
+    setValue("itemYear", prefill.year);
+    setValue("itemCatalog", prefill.numistaId);
+    applyWeightPrefill(prefill);
+    if (prefill.purity && typeof _editPopulatePurityField === "function") {
+      _editPopulatePurityField({ purity: prefill.purity });
+    }
+    if (typeof prepareFormSections === "function") prepareFormSections();
+  };
+
+  /**
+   * Drops the pending request as soon as #itemModal is hidden. No deferral is needed:
+   * observer callbacks are microtasks, so they run only after the current call stack
+   * unwinds — and a successful save resolves the request (disconnecting this observer)
+   * in the same synchronous stack that closes the modal.
+   * @returns {void}
+   */
+  const watchItemModalClose = () => {
+    const modal = document.getElementById("itemModal");
+    if (!modal || typeof MutationObserver !== "function") return;
+    pendingObserver = new MutationObserver(() => {
+      if (modal.style.display === "none") cancelPendingNewItem();
+    });
+    pendingObserver.observe(modal, { attributes: true, attributeFilter: ["style"] });
+  };
+
+  /**
+   * Opens the Add Item modal prefilled for a slot; the saved item links automatically.
+   * @param {string} collectionId - Collection id
+   * @param {string} slotId - Slot id
+   * @param {{asSpare?: boolean}} [opts] - asSpare: link the new item as a spare
+   * @returns {{ok: boolean, reason?: string}} Result
+   */
+  const requestNewItem = (collectionId, slotId, opts) => {
+    const prefill = prefillFor(collectionId, slotId);
+    if (!prefill) return { ok: false, reason: "no-slot" };
+    const opener = document.getElementById("newItemBtn");
+    if (!opener) return { ok: false, reason: "no-form" };
+    cancelPendingNewItem();
+    // The button's own handler resets the form, applies add-mode defaults and opens the modal.
+    opener.click();
+    applyPrefill(prefill);
+    pendingNewItem = { collectionId, slotId, asSpare: Boolean(opts && opts.asSpare) };
+    watchItemModalClose();
+    return { ok: true };
+  };
+
+  // ---------------------------------------------------------------------------
   // Global exposure
   // ---------------------------------------------------------------------------
   window.collectionsStore = Object.freeze({
@@ -330,5 +492,9 @@
     remove,
     pruneItem,
     sweep,
+    requestNewItem,
+    hasPendingNewItem,
+    resolvePendingNewItem,
+    cancelPendingNewItem,
   });
 })();
