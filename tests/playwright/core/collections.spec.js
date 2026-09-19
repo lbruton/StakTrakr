@@ -666,6 +666,56 @@ test.describe("core/collections — tab UI", () => {
     ).toHaveCount(0);
   });
 
+  test("a filled slot shows the item's URL image and refreshes after its images change", async ({
+    page,
+  }) => {
+    await page.route("https://images.test/*.png", (route) =>
+      route.fulfill({ path: "tests/playwright/helpers/test-obverse.png", contentType: "image/png" })
+    );
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      const item = window.inventory.find((entry) => entry.uuid === "col-ase-2024");
+      item.obverseImageUrl = "https://images.test/obverse.png";
+      item.reverseImageUrl = "https://images.test/reverse.png";
+      saveInventory();
+    });
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+    const image = slotOf(page, "2024").locator(".collections-coin img");
+    await expect(image).toHaveAttribute("src", "https://images.test/obverse.png");
+
+    await page.evaluate(() =>
+      window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2024"))
+    );
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await page.locator("#swapImagesBtn").click();
+    await page.locator("#itemModalSubmit").click();
+    await expect(page.locator("#itemModal")).toBeHidden();
+    await expect(image).toHaveAttribute("src", "https://images.test/reverse.png");
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(slotOf(page, "2024").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      "https://images.test/reverse.png"
+    );
+  });
+
+  test("a filled slot uses its linked item's uploaded obverse", async ({ page }) => {
+    await seedAndGoto(page);
+    const saved = await page.evaluate(async () => {
+      const blob = await (await fetch("/tests/playwright/helpers/test-obverse.png")).blob();
+      return window.imageCache.cacheUserImage("col-ase-2024", blob);
+    });
+    expect(saved).toBe(true);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+    await expect(slotOf(page, "2024").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      /^blob:/
+    );
+  });
+
   test("a hub card opens the in-page album; the breadcrumb and browser Back return", async ({
     page,
   }) => {

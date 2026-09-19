@@ -1928,20 +1928,22 @@
   };
 
   /**
-   * Best image URL for a linked Item: the image cache's user upload / pattern image
-   * (a blob: URL the caller owns), else the Item's stored CDN URL, else null so the
-   * template stock image stays.
+   * Best image URL for a linked Item: its user upload, then its stored URL, then
+   * a matching pattern image. A pattern must not mask an Item-specific URL.
    * @param {Object} item - Linked inventory item
    * @returns {Promise<string|null>} URL, or null
    */
   const resolveItemImageUrl = async (item) => {
     const cache = window.imageCache;
     if (cache && typeof cache.isAvailable === "function" && cache.isAvailable()) {
-      const cached = await cache.resolveImageUrlForItem(item, "obverse");
-      if (cached) return cached;
+      const uploaded = item.uuid ? await cache.getUserImageUrl(item.uuid, "obverse") : null;
+      if (uploaded) return uploaded;
     }
     const stored = item.obverseImageUrl;
-    return typeof ImageCache !== "undefined" && ImageCache.isValidImageUrl(stored) ? stored : null;
+    if (typeof ImageCache !== "undefined" && ImageCache.isValidImageUrl(stored)) return stored;
+    return cache && typeof cache.isAvailable === "function" && cache.isAvailable()
+      ? cache.resolveImageUrlForItem(item, "obverse")
+      : null;
   };
 
   /**
