@@ -18024,8 +18024,7 @@ input[type="number"] {
   height: 22px;
 }
 
-/* ---- First-run + filtered-empty states (on top of .empty-state) ---- */
-.collections-firstrun,
+/* ---- Filtered-empty state (on top of .empty-state) ---- */
 .collections-emptystate {
   background: transparent;
   border: 1.5px dashed var(--border);
@@ -18033,22 +18032,8 @@ input[type="number"] {
   color: var(--text-muted);
 }
 
-.collections-firstrun {
-  margin-bottom: var(--spacing-lg);
-}
-
-.collections-firstrun .collections-pair {
-  justify-content: center;
-  margin-bottom: var(--spacing);
-}
-
-.collections-firstrun h3,
 .collections-emptystate h3 {
   font: 400 var(--font-size-2xl) / 1.2 var(--font-heading);
-}
-
-.collections-firstrun p {
-  max-width: 480px;
 }
 
 /* ---- Album header ---- */

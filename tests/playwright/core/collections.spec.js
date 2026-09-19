@@ -634,7 +634,9 @@ test.describe("core/collections — ZIP backup round trip", () => {
 });
 
 test.describe("core/collections — tab UI", () => {
-  test("a fresh profile shows the first-run state and the ASE Type 2 run at 0 / 6", async ({
+  // Owner decision 2026-09-18: the "Start your first collection" hero was removed — the ghosted
+  // 0 / 6 card already IS the way in, so the banner only repeated it.
+  test("a fresh profile shows the ASE Type 2 run at 0 / 6 with no first-run banner", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -642,7 +644,8 @@ test.describe("core/collections — tab UI", () => {
 
     await expect(
       panel(page).getByRole("heading", { name: "Start your first collection" })
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(panel(page).locator(".collections-stats")).toHaveCount(0);
     const entry = panel(page).locator(`[data-collection-id="${ASE}"]`);
     await expect(entry).toContainText("American Silver Eagle");
     await expect(entry).toContainText("0 / 6");

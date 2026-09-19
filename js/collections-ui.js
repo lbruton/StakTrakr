@@ -1078,7 +1078,7 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * Header shared by the hub's first-run and populated states.
+   * Hub header: title, BETA chip and the one-line explanation.
    * @returns {HTMLElement} Header block
    */
   const buildHubHeader = () => {
@@ -1096,40 +1096,6 @@
     );
     head.appendChild(titles);
     return head;
-  };
-
-  /**
-   * First-run hero, shown until any collection has been started.
-   * @param {Object|undefined} starter - First Series Template entry, offered as the way in
-   * @returns {HTMLElement} Hero block
-   */
-  const buildFirstRun = (starter) => {
-    const hero = el("div", "empty-state collections-firstrun");
-    if (starter && starter.obverse) {
-      const pair = el("div", "collections-pair");
-      pair.appendChild(buildCoin({ src: starter.obverse, size: "md" }));
-      if (starter.reverse) pair.appendChild(buildCoin({ src: starter.reverse, size: "md" }));
-      hero.appendChild(pair);
-    }
-    hero.appendChild(el("h3", "", "Start your first collection"));
-    hero.appendChild(
-      el(
-        "p",
-        "",
-        "A collection is a checklist over your inventory — a digital coin album. Pick a date run below or build your own, then link the Items you already own to each slot."
-      )
-    );
-    if (starter) {
-      const label = [starter.name, starter.variant].filter(Boolean).join(" · ");
-      hero.appendChild(
-        buildPillButton({
-          label: `Start ${label}`,
-          focusKey: "firstrun:start",
-          onClick: () => openCollection(starter.id),
-        })
-      );
-    }
-    return hero;
   };
 
   /**
@@ -1387,10 +1353,11 @@
   const buildHub = (entries) => {
     const hub = el("div", "collections-hub");
     hub.appendChild(buildHubHeader());
+    // No first-run hero: an unstarted Series Template already shows as a ghosted 0 / N card
+    // right below, so a "Start …" banner only repeated it. The stat strip appears once a
+    // collection exists — before that every figure would be zero.
     const started = core().listCollections(store().getState()).length > 0;
-    hub.appendChild(
-      started ? buildHubStats(entries) : buildFirstRun(entries.find((entry) => entry.template))
-    );
+    if (started) hub.appendChild(buildHubStats(entries));
     hub.appendChild(buildHubToolbar());
     hub.appendChild(buildHubBody(entries));
     return hub;
