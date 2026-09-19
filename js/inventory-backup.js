@@ -428,10 +428,24 @@
     if (allPatternImages.length === 0) return;
 
     const patternImgFolder = zip.folder("pattern_images");
+    const manifest = [];
     for (const rec of allPatternImages) {
+      if (
+        window.collectionsCore &&
+        window.collectionsStore &&
+        !window.collectionsCore.isCurrentArtwork(
+          window.collectionsStore.getState(),
+          rec.ruleId,
+          rec.cachedAt,
+          rec.digest
+        )
+      )
+        continue;
       if (rec.obverse) patternImgFolder.file(`${rec.ruleId}_obverse.jpg`, rec.obverse);
       if (rec.reverse) patternImgFolder.file(`${rec.ruleId}_reverse.jpg`, rec.reverse);
+      manifest.push({ ruleId: rec.ruleId, cachedAt: rec.cachedAt, digest: rec.digest });
     }
+    zip.file("pattern_image_manifest.json", JSON.stringify(manifest));
   };
 
   /**
@@ -703,7 +717,7 @@
   const _restoreCollectionState = (ancillary) => {
     if (!ancillary.collectionState || !window.collectionsStore) return;
     const result = window.collectionsStore.mergeIn(ancillary.collectionState);
-    if (!result.ok) debugWarn("restoreBackupZip: collection state could not be saved");
+    if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
   };
 
   /**
@@ -1001,9 +1015,12 @@
             })
             .catch(function (ancillaryErr) {
               debugWarn("restoreBackupZip: ancillary data restore partial failure", ancillaryErr);
+              const collectionFailure = String(ancillaryErr.message || "").includes("Collections");
               showToast(
-                "ZIP restored with warnings — some ancillary data may not have been applied",
-                "warning"
+                collectionFailure
+                  ? "ZIP restore incomplete — Collections could not be saved. Free storage and retry."
+                  : "ZIP restored with warnings — some ancillary data may not have been applied",
+                collectionFailure ? "error" : "warning"
               );
             });
         }
@@ -1234,12 +1251,31 @@ Store this archive in a secure location for data protection.
     if (!patternImgFolder) return;
 
     const patternImageMap = await _collectSidedImagesFromFolder(patternImgFolder);
+    const manifestFile = zip.file("pattern_image_manifest.json");
+    const manifest = manifestFile ? await manifestFile.async("string").then(JSON.parse) : [];
+    const stamps = new Map(manifest.map((entry) => [entry.ruleId, entry]));
     for (const [ruleId, sides] of patternImageMap) {
+      const stamp = stamps.get(ruleId) || {};
+      const cachedAt = stamp.cachedAt || 0;
+      if (
+        window.collectionsCore &&
+        window.collectionsStore &&
+        !window.collectionsCore.isCurrentArtwork(
+          window.collectionsStore.getState(),
+          ruleId,
+          cachedAt,
+          stamp.digest
+        )
+      )
+        continue;
+      const existing = await imageCache.getPatternImage(ruleId);
+      if (existing && Number(existing.cachedAt) > Number(cachedAt)) continue;
       await imageCache.importPatternImageRecord({
         ruleId,
         obverse: sides.obverse || null,
         reverse: sides.reverse || null,
-        cachedAt: Date.now(),
+        cachedAt: cachedAt || Date.now(),
+        digest: stamp.digest,
         size: (sides.obverse?.size || 0) + (sides.reverse?.size || 0),
       });
     }

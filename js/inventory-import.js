@@ -32,6 +32,37 @@
   const CSV_IMPORT_KEY_PROP = "__csvImportKey";
   const CSV_COLLECTIONS_PROP = "__csvCollections";
 
+  /** Capture the stores an override import can mutate before its Collections write. */
+  const _captureOverrideState = () => ({
+    inventory,
+    values: Object.fromEntries(
+      [
+        "metalInventory",
+        "itemTags",
+        "itemRemovedTags",
+        "itemTagsLastModified",
+        "collectionState",
+      ].map((key) => [key, localStorage.getItem(key)])
+    ),
+  });
+
+  /** Restore a failed override and cancel the push scheduled by Item persistence. */
+  const _restoreOverrideState = (prior) => {
+    if (typeof scheduleSyncPush === "function" && scheduleSyncPush.cancel)
+      scheduleSyncPush.cancel();
+    inventory = prior.inventory;
+    Object.entries(prior.values).forEach(([key, value]) => {
+      try {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      } catch (error) {
+        console.error("Import rollback failed for", key, error);
+      }
+    });
+    if (typeof loadItemTags === "function") loadItemTags();
+    if (window.collectionsStore) window.collectionsStore.reload();
+  };
+
   /**
    * Reads a row's "Collections" cell, tolerating whitespace on the header. exportCsv
    * prepends an LF-terminated "# exportOrigin" comment to PapaParse's CRLF output, so the
@@ -99,7 +130,26 @@
    */
   const _mergeImportedCollectionState = (options) => {
     if (!options.collectionState || !window.collectionsIO) return false;
-    return Boolean(window.collectionsIO.mergeState(options.collectionState).changed);
+    const result = window.collectionsIO.mergeState(options.collectionState);
+    if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
+    return Boolean(result.changed);
+  };
+
+  /** Reports a failed Collections sidecar write before any import success message. */
+  const _applyImportedCollections = (items, options) => {
+    try {
+      _applyCsvCollections(items);
+      return { ok: true, changed: _mergeImportedCollectionState(options) };
+    } catch (error) {
+      if (typeof showToast === "function") {
+        showToast(
+          "Import incomplete — Collections could not be saved. Free storage and retry.",
+          "error"
+        );
+      }
+      debugLog("Collections import failed", error);
+      return { ok: false, changed: false };
+    }
   };
 
   /**
@@ -353,8 +403,7 @@
       _applyCsvAddedTags(parsedItems, options.pendingTagsByUuid || new Map());
       _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
       _postImportCleanup(parsedItems);
-      _applyCsvCollections(parsedItems);
-      _mergeImportedCollectionState(options);
+      if (!_applyImportedCollections(parsedItems, options).ok) return;
       if (options.stampCsvIdentity) {
         parsedItems.forEach(_clearCsvImportKey);
       }
@@ -388,7 +437,7 @@
       if (_csvPendingTagEdits || _csvPendingCollections) {
         _applyCsvAddedTags(parsedItems, options.pendingTagsByUuid || new Map());
         _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
-        _applyCsvCollections(parsedItems);
+        if (!_applyImportedCollections(parsedItems, options).ok) return;
         parsedItems.forEach(_clearCsvImportKey);
         if (typeof renderTable === "function") renderTable();
         if (typeof renderActiveFilters === "function") renderActiveFilters();
@@ -402,7 +451,9 @@
       }
       // STRK-371: a JSON envelope can carry Collections the device lacks even when every
       // item already matches.
-      if (_mergeImportedCollectionState(options)) {
+      const collectionImport = _applyImportedCollections([], options);
+      if (!collectionImport.ok) return;
+      if (collectionImport.changed) {
         if (typeof showToast === "function") showToast("Import complete: collections updated");
         if (onComplete) onComplete({ added: 0, modified: 0, deleted: 0 });
         return;
@@ -470,8 +521,7 @@
             .filter(Boolean)
         );
         // STRK-371: after the save above, so every link targets a durable, stamped UUID.
-        _applyCsvCollections(_importedItems);
-        _mergeImportedCollectionState(options);
+        if (!_applyImportedCollections(_importedItems, options).ok) return;
 
         _announceImportApplySummary(selectedChanges, onComplete);
       },
@@ -806,6 +856,7 @@
    * @param {Map<string,string[]>} pendingRemovedTagsByUuid - itemKey -> remove list
    */
   const _csvImportApplyOverride = (imported, pendingTagsByUuid, pendingRemovedTagsByUuid) => {
+    const priorOverride = _captureOverrideState();
     if (typeof migrateLegacySilverbackWeightUnit === "function") {
       migrateLegacySilverbackWeightUnit(imported);
     }
@@ -825,10 +876,18 @@
 
     if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
     if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by csvImport");
-    saveInventory();
+    if (typeof tryPersistInventory !== "function" || !tryPersistInventory()) {
+      _restoreOverrideState(priorOverride);
+      if (typeof showToast === "function")
+        showToast("Import incomplete — Items could not be saved. Free storage and retry.", "error");
+      return;
+    }
     _applyCsvAddedTags(imported, pendingTagsByUuid);
     _applyCsvRemovedTags(imported, pendingRemovedTagsByUuid);
-    _applyCsvCollections(imported);
+    if (!_applyImportedCollections(imported, {}).ok) {
+      _restoreOverrideState(priorOverride);
+      return;
+    }
     imported.forEach(_clearCsvImportKey);
     // STAK-421: Cancel the debounced sync push that saveInventory() just scheduled —
     // override imports replace all local data, so pushing immediately would overwrite
@@ -907,6 +966,7 @@
       debugLog("importCsv start", file.name);
       Papa.parse(file, {
         header: true,
+        transformHeader: (header) => header.trim(),
         skipEmptyLines: true,
         comments: "#",
         complete: function (results) {
@@ -1568,6 +1628,7 @@
 
         // ── Override path: skip DiffEngine, import all directly ──
         if (override) {
+          const priorOverride = _captureOverrideState();
           if (typeof addItemTag === "function") {
             const stampedUuids = new Set();
             for (const item of imported) {
@@ -1594,12 +1655,23 @@
           }
           if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
           if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by jsonImport");
-          saveInventory();
+          if (typeof tryPersistInventory !== "function" || !tryPersistInventory()) {
+            _restoreOverrideState(priorOverride);
+            if (typeof showToast === "function")
+              showToast(
+                "Import incomplete — Items could not be saved. Free storage and retry.",
+                "error"
+              );
+            return;
+          }
           // Restore itemRemovedTags from import payload (STAK-556)
           if (parsedRemovedTags && typeof saveDataSync === "function") {
             saveDataSync("itemRemovedTags", parsedRemovedTags);
           }
-          _mergeImportedCollectionState({ collectionState: parsedCollectionState });
+          if (!_applyImportedCollections([], { collectionState: parsedCollectionState }).ok) {
+            _restoreOverrideState(priorOverride);
+            return;
+          }
           // STAK-421: Cancel debounced sync push — override import replaces all
           // local data; pushing now would overwrite remote before user can review.
           if (
@@ -1718,6 +1790,7 @@
     const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const results = Papa.parse(normalizedText, {
       header: true,
+      transformHeader: (header) => header.trim(),
       skipEmptyLines: true,
       comments: "#",
     });

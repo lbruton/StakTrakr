@@ -18255,6 +18255,17 @@ input[type="number"] {
   color: var(--danger);
 }
 
+/* Percentage gains and losses are small text on the album surface. */
+[data-theme="light"] .collections-up,
+[data-theme="sepia"] .collections-up {
+  color: oklch(0.42 0.12 155);
+}
+
+[data-theme="light"] .collections-down,
+[data-theme="sepia"] .collections-down {
+  color: oklch(0.45 0.19 27.3);
+}
+
 .collections-qty {
   margin-left: var(--spacing-sm);
   padding: 0 var(--spacing-xs);
@@ -18967,6 +18978,25 @@ input[type="number"] {
 .collections-image-chooser {
   display: inline-flex;
   flex: none;
+  position: relative;
+}
+
+.collections-image-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-hover);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.collections-image-remove[hidden] {
+  display: none;
 }
 
 .collections-image-pick {

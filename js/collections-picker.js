@@ -385,6 +385,18 @@
   const imageId = (collectionId, slotId) =>
     slotId ? `collection--${collectionId}--${slotId}` : `collection--${collectionId}`;
 
+  /** Stable content token for equal-time artwork edits on separate devices. */
+  const imageDigest = async (blob) => {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    if (typeof crypto !== "undefined" && crypto.subtle) {
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+      return Array.from(digest, (part) => part.toString(16).padStart(2, "0")).join("");
+    }
+    let hash = 2166136261;
+    for (const byte of bytes) hash = Math.imul(hash ^ byte, 16777619);
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  };
+
   /**
    * Whether custom images can be stored on this device.
    * @returns {boolean} True when the image cache and processor are ready
@@ -407,13 +419,36 @@
         maxBytes: typeof IMAGE_MAX_BYTES === "number" ? IMAGE_MAX_BYTES : undefined,
       });
       if (!processed || !processed.blob) return false;
-      return Boolean(
-        await window.imageCache.cachePatternImage(
-          imageId(collectionId, slotId),
-          processed.blob,
-          null
-        )
+      const digest = await imageDigest(processed.blob);
+      const id = imageId(collectionId, slotId);
+      const collection = window.collectionsStore.getState().collections[collectionId];
+      const key = slotId == null ? "cover" : `slot:${slotId}`;
+      const prior = collection && collection.artwork[key];
+      const priorTime = prior ? Date.parse(prior.modified) : 0;
+      const cachedAt = Math.max(Date.now(), Number.isFinite(priorTime) ? priorTime + 1 : 0);
+      const previousRecord = await window.imageCache.getPatternImage(id);
+      const stored = await window.imageCache.importPatternImageRecord({
+        ruleId: id,
+        obverse: processed.blob,
+        reverse: null,
+        cachedAt,
+        size: processed.blob.size,
+        digest,
+      });
+      if (!stored) return false;
+      const stamped = window.collectionsStore.setArtwork(
+        collectionId,
+        slotId,
+        true,
+        cachedAt,
+        digest
       );
+      if (!stamped.ok) {
+        if (previousRecord) await window.imageCache.importPatternImageRecord(previousRecord);
+        else await window.imageCache.deletePatternImage(id);
+        return false;
+      }
+      return true;
     } catch (error) {
       console.error("[collections] Failed to store collection image:", error);
       return false;
@@ -429,10 +464,21 @@
   const getImageUrl = async (collectionId, slotId) => {
     if (!window.imageCache || !window.imageCache.isAvailable()) return null;
     try {
-      return (
-        (await window.imageCache.getPatternImageUrl(imageId(collectionId, slotId), "obverse")) ||
-        null
-      );
+      const id = imageId(collectionId, slotId);
+      const record = await window.imageCache.getPatternImage(id);
+      if (!record || !record.obverse) return null;
+      if (
+        !window.collectionsCore.isCurrentArtwork(
+          window.collectionsStore.getState(),
+          id,
+          record.cachedAt,
+          record.digest
+        )
+      ) {
+        await window.imageCache.deletePatternImage(id);
+        return null;
+      }
+      return URL.createObjectURL(record.obverse);
     } catch (error) {
       console.warn("[collections] Failed to read collection image:", error);
       return null;
@@ -443,15 +489,31 @@
    * Deletes a stored collection image.
    * @param {string} collectionId - Collection id
    * @param {string} [slotId] - Slot id; omit for the cover
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} Whether removal was recorded
    */
   const deleteImage = async (collectionId, slotId) => {
-    if (!window.imageCache || !window.imageCache.isAvailable()) return;
+    if (!window.imageCache || !window.imageCache.isAvailable()) return false;
     try {
-      await window.imageCache.deletePatternImage(imageId(collectionId, slotId));
+      const stamped = window.collectionsStore.setArtwork(collectionId, slotId, false);
+      if (!stamped.ok) return false;
+      const removed = await window.imageCache.deletePatternImage(imageId(collectionId, slotId));
+      if (removed && typeof scheduleSyncPush === "function") scheduleSyncPush();
+      if (!removed) return false;
+      return true;
     } catch (error) {
       console.warn("[collections] Failed to delete collection image:", error);
+      return false;
     }
+  };
+
+  /** Removes IndexedDB blobs once a Collection tombstone has been saved. */
+  const cleanupCollectionImages = async (collectionId, slotIds) => {
+    if (!window.imageCache || !window.imageCache.isAvailable()) return;
+    const ids = [imageId(collectionId)].concat(
+      (slotIds || []).map((slotId) => imageId(collectionId, slotId))
+    );
+    await Promise.all(ids.map((id) => window.imageCache.deletePatternImage(id)));
+    if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   };
 
   // ---------------------------------------------------------------------------
@@ -484,6 +546,8 @@
   const imageChooser = (label) => {
     let chosen = null;
     let previewUrl = null;
+    let removed = false;
+    let hadStoredImage = false;
     // The file input is a SIBLING of the button, never a child: a nested input's click would
     // bubble back into the button's handler, and swapping the preview would detach it.
     const input = el("input");
@@ -494,9 +558,21 @@
     trigger.setAttribute("aria-label", label);
     trigger.title = label;
     const node = el("span", "collections-image-chooser");
-    node.append(trigger, input);
+    const remove = button("collections-image-remove", "×", () => {
+      chosen = null;
+      removed = true;
+      input.value = "";
+      setPreview(null);
+    });
+    remove.setAttribute("aria-label", `Remove ${label.toLowerCase()}`);
+    remove.title = `Remove ${label.toLowerCase()}`;
+    remove.hidden = true;
+    node.append(trigger, remove, input);
     const setPreview = (url) => {
+      if (previewUrl && previewUrl !== url) URL.revokeObjectURL(previewUrl);
+      previewUrl = url;
       trigger.replaceChildren();
+      remove.hidden = !url;
       if (!url) {
         trigger.textContent = "+";
         return;
@@ -508,11 +584,18 @@
     };
     input.addEventListener("change", () => {
       chosen = input.files && input.files[0] ? input.files[0] : null;
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      previewUrl = chosen ? URL.createObjectURL(chosen) : null;
-      setPreview(previewUrl);
+      removed = false;
+      if (chosen) setPreview(URL.createObjectURL(chosen));
     });
-    return { node, getFile: () => chosen, setPreview };
+    return {
+      node,
+      getFile: () => chosen,
+      isRemoved: () => removed && hadStoredImage,
+      setPreview: (url) => {
+        if (url) hadStoredImage = true;
+        setPreview(url);
+      },
+    };
   };
 
   /**
@@ -607,18 +690,23 @@
    * @param {HTMLElement[]} rows - Builder rows, in the same order as the saved definition
    * @returns {Promise<void>}
    */
-  const persistChosenImages = async (collectionId, cover, rows) => {
+  const persistChosenImages = async (collectionId, cover, rows, removedSlotIds) => {
     const collection = window.collectionsStore.getState().collections[collectionId];
     const slots = (collection && collection.definition && collection.definition.slots) || [];
     const jobs = [];
     if (cover.getFile()) jobs.push(saveImage(collectionId, null, cover.getFile()));
+    else if (cover.isRemoved()) jobs.push(deleteImage(collectionId, null));
     rows.forEach((row, index) => {
       const file = row._chooser.getFile();
       if (file && slots[index]) jobs.push(saveImage(collectionId, slots[index].id, file));
+      else if (row._chooser.isRemoved() && slots[index]) {
+        jobs.push(deleteImage(collectionId, slots[index].id));
+      }
     });
+    (removedSlotIds || []).forEach((slotId) => jobs.push(deleteImage(collectionId, slotId)));
     if (!jobs.length) return;
     const stored = await Promise.all(jobs);
-    if (stored.includes(false)) toast("Some images could not be stored on this device.");
+    if (stored.includes(false)) toast("Some collection image changes could not be saved.");
     document.dispatchEvent(new CustomEvent(window.collectionsStore.CHANGED_EVENT));
   };
 
@@ -638,7 +726,7 @@
         ? "Clone & customize"
         : "New collection";
     shell.subtitle.textContent =
-      "Build any checklist — states, mint marks, varieties, a type set. Images stay on this device, like item photos.";
+      "Build any checklist — states, mint marks, varieties, a type set. ZIP and photo-inclusive encrypted vault backups include image files; JSON, CSV, and standalone Collections exports carry image references only.";
 
     const name = el("input");
     name.type = "text";
@@ -730,6 +818,7 @@
           note: row.querySelector(".collections-builder-note").value,
         })),
       };
+      const previousSlots = seed.editId ? seed.slots.map((slot) => slot.id).filter(Boolean) : [];
       const result = seed.editId ? store.updateCustom(seed.editId, spec) : store.createCustom(spec);
       if (!result.ok) {
         const reasons = {
@@ -740,9 +829,15 @@
         return;
       }
       const savedId = seed.editId || result.collection.id;
+      const currentSlots = new Set(
+        ((store.getState().collections[savedId] || {}).definition || {}).slots?.map(
+          (slot) => slot.id
+        ) || []
+      );
+      const removedSlotIds = previousSlots.filter((id) => !currentSlots.has(id));
       closeModalById(BUILDER_MODAL_ID);
       toast(seed.editId ? "Collection updated." : "Collection created.");
-      await persistChosenImages(savedId, cover, rows);
+      await persistChosenImages(savedId, cover, rows, removedSlotIds);
       if (
         !seed.editId &&
         window.collectionsUI &&
@@ -786,5 +881,6 @@
     getImageUrl,
     saveImage,
     deleteImage,
+    cleanupCollectionImages,
   });
 })();

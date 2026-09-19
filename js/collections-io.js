@@ -14,7 +14,8 @@
 //                     (a blank cell never unlinks) and cannot recreate a Custom Collection's
 //                     definition — the standalone file, JSON and ZIP are the full paths.
 //
-// MUST load after collections-store.js. Custom slot IMAGES travel only in ZIP / .stvault.
+// MUST load after collections-store.js. Image stamps travel in every full-state export;
+// image files travel in ZIP and photo-inclusive encrypted vault backups.
 // =============================================================================
 
 (() => {
@@ -158,15 +159,6 @@
    * @param {{collectionId: string, slotId: string, asSpare: boolean}} entry - Membership
    * @returns {boolean} Whether a link was written
    */
-  const applyOne = (uuid, entry) => {
-    const opts = { asSpare: entry.asSpare, move: true };
-    let result = store().link(entry.collectionId, entry.slotId, uuid, opts);
-    if (!result.ok && result.reason === "occupied") {
-      result = store().link(entry.collectionId, entry.slotId, uuid, { asSpare: true, move: true });
-    }
-    return Boolean(result.ok && result.changed);
-  };
-
   /**
    * Applies parsed memberships to Items whose UUIDs are final. Primaries go first so a
    * spare never claims the primary seat of the row that owns it.
@@ -183,10 +175,9 @@
     const ordered = flat
       .filter((pending) => !pending.entry.asSpare)
       .concat(flat.filter((pending) => pending.entry.asSpare));
-    return ordered.reduce(
-      (count, pending) => count + (applyOne(pending.uuid, pending.entry) ? 1 : 0),
-      0
-    );
+    const result = store().linkMemberships(ordered);
+    if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
+    return result.count;
   };
 
   /**

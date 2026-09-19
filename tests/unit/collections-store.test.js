@@ -121,6 +121,24 @@ function startedHarness() {
 }
 
 describe("collections store — failed storage write (STRK-377)", () => {
+  test("a CSV membership batch saves once and rolls back every link on quota failure", () => {
+    const h = makeHarness();
+    const pending = [
+      { uuid: U.a, entry: { collectionId: TEMPLATE, slotId: "2023", asSpare: false } },
+      { uuid: U.b, entry: { collectionId: TEMPLATE, slotId: "2024", asSpare: false } },
+    ];
+    h.failNextWrite();
+    const failed = h.store.linkMemberships(pending);
+    assert.equal(failed.ok, false);
+    assert.equal(failed.reason, "save-failed");
+    assert.equal(h.store.getState().collections[TEMPLATE], undefined);
+    assert.deepEqual(h.events, []);
+
+    const retried = h.store.linkMemberships(pending);
+    assert.equal(retried.count, 2);
+    assert.deepEqual(h.events, ["collections:changed"]);
+    assert.equal(persisted(h.disk).collections[TEMPLATE].slots["2024"].primary, U.b);
+  });
   test("first link: a failed write leaves no started Collection and no link behind", () => {
     const h = makeHarness();
     const before = plain(h.store.getState());

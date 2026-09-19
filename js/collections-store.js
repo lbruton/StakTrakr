@@ -254,6 +254,50 @@
   };
 
   /**
+   * Applies a CSV's memberships in one storage transaction. A quota failure rolls back
+   * every link in the batch, including a newly started Series Template.
+   * @param {{uuid: string, entry: Object}[]} pending - Ordered primary and spare links
+   * @returns {{ok: boolean, changed: boolean, count: number, reason?: string}} Batch result
+   */
+  const linkMemberships = (pending) => {
+    let started = false;
+    return transact(
+      (state) => {
+        let count = 0;
+        for (const { uuid, entry } of pending) {
+          const { collectionId, slotId } = entry;
+          const existing = state.collections[collectionId];
+          if (!existing || existing.deletedAt) {
+            if (!getTemplate(collectionId)) continue;
+            core().ensureCollection(state, {
+              id: collectionId,
+              kind: "template",
+              templateSlug: collectionId,
+            });
+            started = true;
+          }
+          let result = core().linkItem(state, collectionId, slotId, uuid, {
+            asSpare: entry.asSpare,
+            move: true,
+          });
+          if (!result.ok && result.reason === "occupied") {
+            result = core().linkItem(state, collectionId, slotId, uuid, {
+              asSpare: true,
+              move: true,
+            });
+          }
+          if (result.changed) {
+            ensureIdentityPersisted(uuid);
+            count++;
+          }
+        }
+        return { ok: true, changed: count > 0, count };
+      },
+      (result) => result.changed || started
+    );
+  };
+
+  /**
    * Unlinks an item from a slot. The item stays in the inventory.
    * @param {string} collectionId - Collection id
    * @param {string} slotId - Slot id
@@ -298,6 +342,15 @@
    */
   const updateCustom = (collectionId, spec) =>
     transact((state) => core().updateCustomDefinition(state, collectionId, spec));
+
+  /** Persists an artwork upload or removal stamp after the IndexedDB write settles. */
+  const setArtwork = (collectionId, slotId, present, cachedAt, digest) =>
+    transact((state) =>
+      core().setArtwork(state, collectionId, slotId, present, {
+        now: cachedAt ? new Date(cachedAt).toISOString() : new Date().toISOString(),
+        digest,
+      })
+    );
 
   /**
    * Removes (soft-deletes) a collection. Items are never touched.
@@ -535,10 +588,12 @@
     resolveSlot,
     memberships,
     link,
+    linkMemberships,
     unlink,
     promote,
     createCustom,
     updateCustom,
+    setArtwork,
     remove,
     pruneItem,
     sweep,

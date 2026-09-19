@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.25] - 2026-09-19
+
+### Changed — STRK-368: Collections beta and merge preparation
+
+- **Collections**: Silver Eagle Type 1 and Type 2 date runs, Custom Collections, Item links, album and ledger views, and a Settings toggle arrive as an on-by-default beta (STRK-368, STRK-372)
+- **Cloud Sync**: Concurrent Slot edits and newer unlinks converge; failed Collections writes stop apply and preserve retry state, while cover and Slot artwork additions and removals sync between devices (STRK-370, STRK-377)
+- **Backups**: ZIP, encrypted vault, standalone Collections, JSON, and CSV paths preserve Collection links; failed writes report incomplete imports or restores, and CSV memberships commit together (STRK-371, STRK-377)
+- **Reliability**: Legacy Item identity is persisted before Collection linking, stock collection art is available offline, and cost to complete refreshes when retail prices arrive (STRK-369, STRK-372)
+
+---
+
 ## [3.36.24] - 2026-09-11
 
 ### Changed — STRK-367: Detail modal — ship-review fixes (stacked Item View, chart leak, stale refresh, malformed dates)

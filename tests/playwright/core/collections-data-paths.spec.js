@@ -6,61 +6,18 @@
 // backup round trip stays in collections.spec.js where it landed with STRK-368.
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
-
-/**
- * Build one inventory fixture.
- * @param {string} uuid - Stable item identifier.
- * @param {string} name - Display name.
- * @param {string} year - Mint year.
- * @param {number} serial - Inventory serial number.
- * @returns {object} Inventory item fixture.
- */
-const baseItem = (uuid, name, year, serial) => ({
-  uuid,
-  metal: "Silver",
-  composition: "Silver",
-  name,
-  qty: 1,
-  type: "Coin",
-  weight: 1,
-  weightUnit: "oz",
-  price: 30,
-  marketValue: 0,
-  date: "2026-01-01",
-  purchaseLocation: "staktrakr.com",
-  storageLocation: "Safe",
-  notes: "",
-  year,
-  purity: 0.999,
-  serial,
-});
+import {
+  collectionItem as baseItem,
+  seedCollectionsPage,
+} from "../helpers/collections-fixtures.js";
+import { encryptVaultPayload } from "../helpers/vault-fixtures.js";
 
 const SEED = [
   baseItem("cdp-ase-2022", "2022 American Silver Eagle", "2022", 1),
   baseItem("cdp-ase-2024", "2024 American Silver Eagle BU", "2024", 2),
 ];
 
-/**
- * Seeds inventory once (never on reload, so app-written state survives) and boots the app.
- * @param {import('@playwright/test').Page} page - Browser page.
- * @returns {Promise<void>} When the app and the collection store are ready.
- */
-const seedAndGoto = async (page) => {
-  await page.addInitScript((items) => {
-    if (!localStorage.getItem("metalInventory")) {
-      localStorage.setItem("metalInventory", JSON.stringify(items));
-    }
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-        if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
-      },
-      { once: true }
-    );
-  }, SEED);
-  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsStore);
-};
+const seedAndGoto = (page, items = SEED) => seedCollectionsPage(page, items);
 
 /**
  * Read one ASE Type 2 slot's primary from the in-memory store.
@@ -108,6 +65,105 @@ test.describe("core/collections-data-paths — encrypted vault", () => {
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
     expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
   });
+
+  test("failed vault storage writes restore earlier keys and report the failed key", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await injectCollectionQuota(page);
+    const result = await page.evaluate(async () => {
+      localStorage.setItem("appTheme", "light");
+      let message = "";
+      try {
+        await window.restoreVaultData({
+          data: {
+            appTheme: "dark",
+            collectionState: JSON.stringify(window.collectionsCore.createEmptyState()),
+          },
+        });
+      } catch (error) {
+        message = error.message;
+      }
+      return { message, theme: localStorage.getItem("appTheme") };
+    });
+    await clearCollectionQuota(page);
+    expect(result.message).toContain("Vault restore failed while writing collectionState");
+    expect(result.theme).toBe("light");
+  });
+
+  test("a matching .stvault restores missing companion artwork", async ({ page }) => {
+    await seedAndGoto(page);
+    const art = await page.evaluate(async () => {
+      const created = window.collectionsStore.createCustom({
+        name: "Vault art",
+        slots: [{ label: "First" }],
+      });
+      const collectionId = created.collection.id;
+      const response = await fetch("/tests/playwright/helpers/test-obverse.png");
+      const file = new File([await response.blob()], "art.png", { type: "image/png" });
+      if (!(await window.collectionsPicker.saveImage(collectionId, null, file)))
+        throw new Error("artwork upload failed");
+      const imageData = await window.collectAndHashImageVault();
+      const password = "vault-art-test-key";
+      const images = Array.from(await window.vaultEncryptImageVault(password, imageData.payload));
+      const payload = window.collectVaultData("full");
+      await window.imageCache.deletePatternImage(`collection--${collectionId}`);
+      return { collectionId, images, payload, password };
+    });
+    const vault = await encryptVaultPayload(page, art.payload, art.password);
+    const restored = await page.evaluate(
+      async ({ images, password, bytes, collectionId }) => {
+        window.setVaultPendingImageFile(new Uint8Array(images));
+        await window.vaultRestoreWithPreview(new Uint8Array(bytes), password);
+        const url = await window.collectionsPicker.getImageUrl(collectionId);
+        if (url) URL.revokeObjectURL(url);
+        return !!url;
+      },
+      { ...art, bytes: vault }
+    );
+    expect(restored).toBe(true);
+  });
+
+  test("a failed sync-snapshot restore keeps the prior storage and alerts the user", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+    await injectCollectionQuota(page);
+    const result = await page.evaluate(async () => {
+      const priorCollection = localStorage.getItem("collectionState");
+      const priorInventory = localStorage.getItem("metalInventory");
+      localStorage.setItem("appTheme", "light");
+      localStorage.setItem(
+        "cloud_sync_override_backup",
+        JSON.stringify({
+          timestamp: Date.now(),
+          itemCount: 2,
+          appVersion: "test",
+          data: { appTheme: "dark", collectionState: "{}" },
+        })
+      );
+      window.showAppConfirm = async () => true;
+      let alertText = "";
+      window.showAppAlert = async (message) => {
+        alertText = message;
+      };
+      await window.syncRestoreOverrideBackup();
+      return {
+        alertText,
+        theme: localStorage.getItem("appTheme"),
+        collection: localStorage.getItem("collectionState"),
+        inventory: localStorage.getItem("metalInventory"),
+        priorCollection,
+        priorInventory,
+      };
+    });
+    await clearCollectionQuota(page);
+    expect(result.alertText).toContain("Restore failed");
+    expect(result.theme).toBe("light");
+    expect(result.collection).toBe(result.priorCollection);
+    expect(result.inventory).toBe(result.priorInventory);
+  });
 });
 
 /**
@@ -144,18 +200,21 @@ const wipeCollections = (page) =>
 /**
  * Run an import with the diff modal auto-accepting every change, and wait for its toast.
  * @param {import('@playwright/test').Page} page - Browser page.
- * @param {{fn: string, name: string, type: string, text: string}} spec - Import to run.
+ * @param {{fn: string, name: string, type: string, text: string, failure?: boolean}} spec - Import to run.
  * @returns {Promise<string>} The "Import complete…" / "No changes…" toast text.
  */
 const runImport = (page, spec) =>
   page.evaluate(
-    ({ fn, name, type, text }) =>
+    ({ fn, name, type, text, failure }) =>
       new Promise((resolve) => {
         const origToast = window.showToast;
         window.showToast = (msg, level) => {
           if (typeof origToast === "function") origToast(msg, level);
           const message = String(msg || "");
-          if (/^Import complete|^No changes detected/.test(message)) {
+          if (
+            (failure && message.startsWith("Import incomplete")) ||
+            (!failure && /^Import complete|^No changes detected/.test(message))
+          ) {
             window.showToast = origToast;
             resolve(message);
           }
@@ -338,6 +397,66 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
       () => window.appListenersReady === true && !!window.collectionsStore
     );
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+
+  test("a quota failure leaves no partial CSV links and reports an incomplete import", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+    });
+    const file = await captureDownload(page, "exportCsv");
+    await wipeCollections(page);
+    await injectCollectionQuota(page);
+    const csv = { fn: "importCsv", name: "inventory.csv", type: "text/csv", text: file.text };
+    const toast = await runImport(page, { ...csv, failure: true });
+    expect(toast).toContain("Collections could not be saved");
+    expect(await primaryOf(page, "2022")).toBeNull();
+    expect(await primaryOf(page, "2024")).toBeNull();
+    await clearCollectionQuota(page);
+    expect(await runImport(page, csv)).toMatch(/^Import complete/);
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+
+  test("an older CSV with a carriage return on its final Traded From UUID header keeps the link", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.inventory[0].tradedFromUuid = "cdp-ase-2024";
+    });
+    const file = await captureDownload(page, "exportCsv");
+    const legacyCsv = await page.evaluate((csv) => {
+      const parsed = window.Papa.parse(csv, {
+        header: true,
+        comments: "#",
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+      });
+      const fields = parsed.meta.fields.filter((field) => field !== "Collections");
+      return `# older export\n${window.Papa.unparse({ fields, data: parsed.data }, { newline: "\r\n" })}`;
+    }, file.text);
+    expect(legacyCsv).toContain("Traded From UUID\r\n");
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      localStorage.setItem("metalInventory", "[]");
+    });
+    expect(
+      await runImport(page, {
+        fn: "importCsv",
+        name: "legacy.csv",
+        type: "text/csv",
+        text: legacyCsv,
+      })
+    ).toMatch(/^Import complete/);
+    expect(
+      await page.evaluate(
+        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
+      )
+    ).toBe("cdp-ase-2024");
   });
 });
 
@@ -525,5 +644,394 @@ test.describe("core/collections-data-paths — cloud sync contract (STRK-370)", 
 
     expect(await page.evaluate(() => window.__cdpSettingsKeys)).not.toContain("collectionState");
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+});
+
+const CLOUD_ACCOUNT = "dbid:collections-two-device";
+const CLOUD_PASSWORD = "collections-test-password";
+
+/** Seeds the same mock Dropbox account on independent browser devices. */
+const seedCloudCredentials = (page) =>
+  page.addInitScript(
+    ({ account, password }) => {
+      localStorage.setItem("cloud_dropbox_account_id", account);
+      localStorage.setItem("cloud_vault_password", password);
+      localStorage.setItem("cloud_sync_migrated", "v2");
+      localStorage.setItem(
+        "cloud_token_dropbox",
+        JSON.stringify({
+          access_token: "sl.collections-test-token",
+          expires_at: Date.now() + 3600000,
+        })
+      );
+    },
+    { account: CLOUD_ACCOUNT, password: CLOUD_PASSWORD }
+  );
+
+/** Serves device A's encrypted files as Dropbox downloads on device B. */
+const routeCollectionDropbox = async (page, files) => {
+  await page.route("https://content.dropboxapi.com/2/files/download", (route) => {
+    const path = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}").path || "";
+    const bytes = path.endsWith(".stmanifest")
+      ? files.manifest
+      : path.endsWith("staktrakr-sync.stvault")
+        ? files.vault
+        : path.endsWith("staktrakr-images.stvault")
+          ? files.images
+          : null;
+    return bytes
+      ? route.fulfill({
+          status: 200,
+          contentType: "application/octet-stream",
+          body: Buffer.from(bytes),
+        })
+      : route.fulfill({ status: 409, body: "{}" });
+  });
+  await page.route("https://content.dropboxapi.com/2/files/upload", (route) => {
+    const path = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}").path || "";
+    if (files.onUpload) files.onUpload(path);
+    if (path.endsWith("staktrakr-images.stvault") && files.failImageUploads > 0) {
+      files.failImageUploads -= 1;
+      return route.fulfill({ status: 503, body: "{}" });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: '{"rev":"mock-rev"}',
+    });
+  });
+  await page.route("https://api.dropboxapi.com/2/**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "{}" })
+  );
+};
+
+/** Encrypts device A's current sync vault without changing the remote mock. */
+const deviceVault = async (page) => {
+  const payload = await page.evaluate(() => window.collectVaultData("sync"));
+  return encryptVaultPayload(page, payload, `${CLOUD_PASSWORD}:${CLOUD_ACCOUNT}`);
+};
+
+const deviceManifest = (page, changes = []) =>
+  page.evaluate(
+    async ({ account, password, itemChanges }) =>
+      Array.from(
+        new Uint8Array(
+          await window.encryptManifest(
+            {
+              version: 2,
+              changes: itemChanges,
+              settings: { collectionState: localStorage.getItem("collectionState") },
+            },
+            `${password}:${account}`
+          )
+        )
+      ),
+    { account: CLOUD_ACCOUNT, password: CLOUD_PASSWORD, itemChanges: changes }
+  );
+
+const prepareDevices = async (browser, page) => {
+  const context = await browser.newContext();
+  const deviceA = await context.newPage();
+  await seedCloudCredentials(deviceA);
+  await seedCloudCredentials(page);
+  await seedAndGoto(deviceA);
+  await seedAndGoto(page);
+  return { deviceA, close: () => context.close() };
+};
+
+const remoteCollectionMeta = (syncId) => ({
+  syncId,
+  rev: `${syncId}-rev`,
+  timestamp: Date.now(),
+  deviceId: "device-a",
+  itemCount: SEED.length,
+});
+
+const injectCollectionQuota = (page) =>
+  page.evaluate(() => {
+    window.__lastPullBeforeQuota = localStorage.getItem("cloud_sync_last_pull");
+    const real = Storage.prototype.setItem;
+    window.__collectionRealSetItem = real;
+    let failed = false;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "collectionState" && !failed) {
+        failed = true;
+        throw new DOMException("full", "QuotaExceededError");
+      }
+      return real.call(this, key, value);
+    };
+  });
+
+const clearCollectionQuota = (page) =>
+  page.evaluate(() => {
+    Storage.prototype.setItem = window.__collectionRealSetItem;
+  });
+
+test.describe("core/collections-data-paths — mock Dropbox two-device pulls", () => {
+  test("a failed artwork upload holds sync metadata and retries automatically", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("cloud_sync_enabled", "true"));
+    await seedCloudCredentials(page);
+    await seedAndGoto(page);
+    await page.evaluate(async () => {
+      const created = window.collectionsStore.createCustom({
+        name: "Retry art",
+        slots: [{ label: "One" }],
+      });
+      const response = await fetch("/tests/playwright/helpers/test-obverse.png");
+      await window.collectionsPicker.saveImage(
+        created.collection.id,
+        null,
+        new File([await response.blob()], "art.png", { type: "image/png" })
+      );
+      const original = window.setTimeout;
+      window.__imageRetryTimeout = original;
+      window.setTimeout = (callback, delay, ...args) => {
+        if (delay === 30000) {
+          window.__imageRetry = callback;
+          return 1;
+        }
+        return original(callback, delay, ...args);
+      };
+    });
+    const uploads = [];
+    await routeCollectionDropbox(page, {
+      failImageUploads: 1,
+      onUpload: (path) => uploads.push(path),
+    });
+    await page.evaluate(() => window.pushSyncVault());
+    expect(uploads.some((path) => path.endsWith("staktrakr-images.stvault"))).toBe(true);
+    expect(uploads.some((path) => path.endsWith("staktrakr-sync.json"))).toBe(false);
+    await page.evaluate(() => {
+      window.setTimeout = window.__imageRetryTimeout;
+      window.__imageRetry();
+    });
+    await expect
+      .poll(() => uploads.some((path) => path.endsWith("staktrakr-sync.json")))
+      .toBe(true);
+  });
+
+  test("Custom Collection cover and Slot art arrive on a second device; removals keep old vault bytes hidden", async ({
+    browser,
+    page,
+  }) => {
+    test.setTimeout(60000);
+    const { deviceA, close } = await prepareDevices(browser, page);
+    try {
+      const art = await deviceA.evaluate(async () => {
+        const created = window.collectionsStore.createCustom({
+          name: "Two device art",
+          slots: [{ label: "First" }],
+        });
+        const collectionId = created.collection.id;
+        const slotId = created.collection.definition.slots[0].id;
+        const response = await fetch("/tests/playwright/helpers/test-obverse.png");
+        const file = new File([await response.blob()], "art.png", { type: "image/png" });
+        const coverSaved = await window.collectionsPicker.saveImage(collectionId, null, file);
+        const slotSaved = await window.collectionsPicker.saveImage(collectionId, slotId, file);
+        return { collectionId, slotId, coverSaved, slotSaved };
+      });
+      expect(art.coverSaved).toBe(true);
+      expect(art.slotSaved).toBe(true);
+      const imageVault = await deviceA.evaluate(
+        async ({ account, password }) => {
+          const images = await window.collectAndHashImageVault();
+          return {
+            hash: images.hash,
+            imageCount: images.imageCount,
+            bytes: Array.from(
+              await window.vaultEncryptImageVault(`${password}:${account}`, images.payload)
+            ),
+          };
+        },
+        { account: CLOUD_ACCOUNT, password: CLOUD_PASSWORD }
+      );
+      const oldFiles = { manifest: await deviceManifest(deviceA), images: imageVault.bytes };
+      const uploadMeta = {
+        ...remoteCollectionMeta("art-upload"),
+        imageVault: { hash: imageVault.hash, imageCount: imageVault.imageCount },
+      };
+      const priorPull = await page.evaluate(() => window.syncGetLastPull());
+      await routeCollectionDropbox(page, { manifest: oldFiles.manifest });
+      await page.evaluate((remote) => window.pullWithPreview(remote), uploadMeta);
+      expect(await page.evaluate(() => window.syncGetLastPull())).toEqual(priorPull);
+      await page.unrouteAll();
+      await routeCollectionDropbox(page, oldFiles);
+      await page.evaluate((remote) => window.pullWithPreview(remote), uploadMeta);
+      await page.evaluate((id) => window.collectionsUI.openCollection(id), art.collectionId);
+      await expect(page.locator(".collections-album-head .collections-coin img")).toHaveAttribute(
+        "src",
+        /^blob:/
+      );
+      await expect(
+        page.locator(`[data-slot-id="${art.slotId}"] .collections-coin img`)
+      ).toHaveAttribute("src", /^blob:/);
+
+      await deviceA.evaluate(async ({ collectionId, slotId }) => {
+        await window.collectionsPicker.deleteImage(collectionId, null);
+        await window.collectionsPicker.deleteImage(collectionId, slotId);
+      }, art);
+      const removedManifest = await deviceManifest(deviceA);
+      await page.unrouteAll();
+      await routeCollectionDropbox(page, { ...oldFiles, manifest: removedManifest });
+      await page.evaluate(
+        (remote) => window.pullWithPreview(remote),
+        remoteCollectionMeta("art-removal")
+      );
+      await page.evaluate(() => window.collectionsUI.render());
+      await expect(page.locator(".collections-album-head .collections-coin img")).toHaveCount(0);
+      await expect(
+        page.locator(`[data-slot-id="${art.slotId}"] .collections-coin img`)
+      ).toHaveCount(0);
+      const oldVaultRejected = await page.evaluate(async (bytes) => {
+        await window.vaultDecryptAndRestoreImages(
+          new Uint8Array(bytes),
+          `${"collections-test-password"}:${"dbid:collections-two-device"}`
+        );
+        window.collectionsUI.render();
+        return window.collectionsStore.getState();
+      }, imageVault.bytes);
+      expect(oldVaultRejected.collections[art.collectionId].artwork.cover.present).toBe(false);
+      await expect(page.locator(".collections-album-head .collections-coin img")).toHaveCount(0);
+    } finally {
+      await close();
+    }
+  });
+
+  test("vault-first Collections-only pull merges concurrent Slots and retries after quota rollback", async ({
+    browser,
+    page,
+  }) => {
+    test.setTimeout(60000);
+    const { deviceA, close } = await prepareDevices(browser, page);
+    try {
+      await deviceA.evaluate(() =>
+        window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024")
+      );
+      await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+      await routeCollectionDropbox(page, { vault: await deviceVault(deviceA) });
+      await page.evaluate(() => {
+        window.DiffModal.show = (options) => options.onApply([]);
+      });
+      const meta = remoteCollectionMeta("remote-collections");
+      await injectCollectionQuota(page);
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+      expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => localStorage.getItem("cloud_sync_last_pull"))).toBe(
+        await page.evaluate(() => window.__lastPullBeforeQuota)
+      );
+
+      await clearCollectionQuota(page);
+      const priorInventory = await page.evaluate(() => localStorage.getItem("metalInventory"));
+      await page.evaluate(() => {
+        const real = Storage.prototype.setItem;
+        window.__inventoryRealSetItem = real;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "metalInventory") throw new DOMException("full", "QuotaExceededError");
+          return real.call(this, key, value);
+        };
+      });
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => localStorage.getItem("metalInventory"))).toBe(
+        priorInventory
+      );
+      expect(await page.evaluate(() => localStorage.getItem("cloud_sync_last_pull"))).toBe(
+        await page.evaluate(() => window.__lastPullBeforeQuota)
+      );
+      await page.evaluate(() => {
+        Storage.prototype.setItem = window.__inventoryRealSetItem;
+      });
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    } finally {
+      await close();
+    }
+  });
+
+  test("manifest Collections-only pull adds a concurrent Slot but preserves a newer unlink", async ({
+    browser,
+    page,
+  }) => {
+    test.setTimeout(60000);
+    const { deviceA, close } = await prepareDevices(browser, page);
+    try {
+      await deviceA.evaluate(() => {
+        const core = window.collectionsCore;
+        const state = core.createEmptyState();
+        core.ensureCollection(state, {
+          id: "ase-type2",
+          kind: "template",
+          now: "2020-01-01T00:00:00.000Z",
+        });
+        core.linkItem(state, "ase-type2", "2024", "cdp-ase-2024", {
+          now: "2020-01-02T00:00:00.000Z",
+        });
+        core.linkItem(state, "ase-type2", "2022", "cdp-ase-2022", {
+          now: "2020-01-02T00:00:00.000Z",
+        });
+        window.collectionsStore.mergeIn(state);
+      });
+      await page.evaluate(() => {
+        window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+        window.collectionsStore.unlink("ase-type2", "2022", "cdp-ase-2022");
+      });
+      await routeCollectionDropbox(page, { manifest: await deviceManifest(deviceA) });
+      await page.evaluate(() => {
+        window.DiffModal.show = () => {
+          throw new Error("Collections-only pull opened a modal");
+        };
+      });
+      await page.evaluate(
+        (remote) => window.pullWithPreview(remote),
+        remoteCollectionMeta("manifest-only")
+      );
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      expect(await primaryOf(page, "2022")).toBeNull();
+    } finally {
+      await close();
+    }
+  });
+
+  test("manifest deferred apply stops on rollback, then retries without losing either device's Slot", async ({
+    browser,
+    page,
+  }) => {
+    test.setTimeout(60000);
+    const { deviceA, close } = await prepareDevices(browser, page);
+    try {
+      await deviceA.evaluate(() =>
+        window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024")
+      );
+      await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+      const manifest = await deviceManifest(deviceA, [
+        {
+          itemKey: "edit-2024",
+          itemName: "2024 American Silver Eagle BU",
+          type: "item-edit",
+          fields: [{ field: "Name", oldValue: "old", newValue: "new" }],
+        },
+      ]);
+      await routeCollectionDropbox(page, { manifest, vault: await deviceVault(deviceA) });
+      await page.evaluate(() => {
+        window.DiffModal.show = (options) => options.onApply([]);
+      });
+      const meta = remoteCollectionMeta("manifest-deferred");
+      await injectCollectionQuota(page);
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => localStorage.getItem("cloud_sync_last_pull"))).toBe(
+        await page.evaluate(() => window.__lastPullBeforeQuota)
+      );
+      await clearCollectionQuota(page);
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    } finally {
+      await close();
+    }
   });
 });

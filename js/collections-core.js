@@ -9,7 +9,8 @@
 //   { schema, collections: { <collectionId> → collection } }
 //   collection = { id, kind: "template"|"custom", templateSlug, name, createdAt,
 //                  metaModified, lastModified, deletedAt, clonedFrom, definition,
-//                  slots: { <slotId> → { primary, spares[], modified } } }
+//                  slots: { <slotId> → { primary, spares[], modified } },
+//                  artwork: { cover|slot:<slotId> → { present, modified } } }
 //
 // DESIGN RULES
 //   - Links live on the Collection, never on the Item: zero new item fields, so no
@@ -172,6 +173,7 @@
     clonedFrom: fields.clonedFrom == null ? null : fields.clonedFrom,
     definition: fields.definition == null ? null : fields.definition,
     slots: fields.slots || Object.create(null),
+    artwork: fields.artwork || Object.create(null),
   });
 
   /**
@@ -237,6 +239,18 @@
       const link = normalizeLink(rawSlots[slotId]);
       if (link) slots[slotId] = link;
     });
+    const artwork = Object.create(null);
+    const rawArtwork = isPlainObject(raw.artwork) ? raw.artwork : {};
+    Object.keys(rawArtwork).forEach((artworkKey) => {
+      const entry = rawArtwork[artworkKey];
+      if (isPlainObject(entry) && isId(entry.modified)) {
+        artwork[artworkKey] = {
+          present: entry.present === true,
+          modified: entry.modified,
+          digest: isId(entry.digest) ? entry.digest : "",
+        };
+      }
+    });
     const createdAt = isId(raw.createdAt) ? raw.createdAt : "";
     const lastModified = isId(raw.lastModified) ? raw.lastModified : createdAt;
     const templateFallback = kind === "template" ? key : null;
@@ -253,7 +267,45 @@
       definition:
         kind === "custom" && raw.definition != null ? normalizeDefinition(raw.definition) : null,
       slots,
+      artwork,
     });
+  };
+
+  /** Stamps an artwork upload or removal; a removal remains as a merge tombstone. */
+  const setArtwork = (state, collectionId, slotId, present, opts) => {
+    const collection = liveCollection(state, collectionId);
+    if (!collection) return { ok: false, changed: false, reason: "no-collection" };
+    const key = slotId == null ? "cover" : `slot:${slotId}`;
+    const previous = collection.artwork[key];
+    const modified = nextStamp(previous ? previous.modified : "", nowIso(opts));
+    collection.artwork[key] = {
+      present: present === true,
+      modified,
+      digest: present && isId(opts && opts.digest) ? opts.digest : "",
+    };
+    collection.lastModified = laterOf(collection.lastModified, modified);
+    return { ok: true, changed: true };
+  };
+
+  /** Whether a Collection image record is current under merged artwork stamps. */
+  const isCurrentArtwork = (state, ruleId, cachedAt, digest) => {
+    if (!isId(ruleId) || !ruleId.startsWith("collection--")) return true;
+    for (const collectionId of Object.keys((state && state.collections) || {})) {
+      const prefix = `collection--${collectionId}`;
+      if (ruleId !== prefix && !ruleId.startsWith(`${prefix}--`)) continue;
+      const collection = state.collections[collectionId];
+      if (collection.deletedAt) return false;
+      const key = ruleId === prefix ? "cover" : `slot:${ruleId.slice(prefix.length + 2)}`;
+      const entry = collection.artwork[key];
+      if (!entry) return true; // pre-stamp beta images
+      if (!entry.present) return false;
+      const stamp = typeof cachedAt === "number" ? cachedAt : Date.parse(cachedAt);
+      if (!Number.isFinite(stamp) || new Date(stamp).toISOString() < entry.modified) return false;
+      // Equal-time uploads can differ across devices. The stamp's content token
+      // selects one image in either merge order; older unstamped art remains valid.
+      return !entry.digest || entry.digest === digest;
+    }
+    return false; // orphaned Custom Collection artwork
   };
 
   /**
@@ -459,6 +511,9 @@
         spares: [],
         modified: nextStamp(link.modified, stamp),
       };
+    });
+    previous.slots.forEach((slot) => {
+      if (!kept.has(slot.id)) setArtwork(state, collectionId, slot.id, false, { now: stamp });
     });
     collection.name = text(spec.name);
     collection.definition = {
@@ -913,8 +968,30 @@
         modified: winner.modified,
       };
     });
+    const artwork = Object.create(null);
+    new Set([...Object.keys(a.artwork), ...Object.keys(b.artwork)]).forEach((key) => {
+      const left = a.artwork[key];
+      const right = b.artwork[key];
+      const winner =
+        left && right
+          ? pickWinner(left, right, left.modified, right.modified, (entry) => ({
+              // At an identical timestamp a removal wins regardless of merge order.
+              removed: !entry.present,
+              digest: entry.digest || "",
+            }))
+          : left || right;
+      artwork[key] = {
+        present: winner.present,
+        modified: winner.modified,
+        digest: winner.digest || "",
+      };
+    });
     return makeCollection(
-      Object.assign({}, meta, { lastModified: laterOf(a.lastModified, b.lastModified), slots })
+      Object.assign({}, meta, {
+        lastModified: laterOf(a.lastModified, b.lastModified),
+        slots,
+        artwork,
+      })
     );
   };
 
@@ -948,6 +1025,8 @@
     normalizeState,
     ensureCollection,
     removeCollection,
+    setArtwork,
+    isCurrentArtwork,
     listCollections,
     slugifySlotId,
     createCustomCollection,

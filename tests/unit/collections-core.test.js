@@ -148,6 +148,67 @@ describe("state shape", () => {
   });
 });
 
+describe("Custom Collection artwork convergence", () => {
+  test("cover and Slot stamps survive normalization and merge in either device order", () => {
+    const left = seeded();
+    const right = seeded();
+    core.setArtwork(left, "ase-type2", null, true, { now: T1 });
+    core.setArtwork(right, "ase-type2", "2024", true, { now: T2 });
+
+    const merged = core.mergeStates(left, right);
+    assert.deepEqual(plain(merged), plain(core.mergeStates(right, left)));
+    assert.equal(merged.collections["ase-type2"].artwork.cover.present, true);
+    assert.equal(merged.collections["ase-type2"].artwork["slot:2024"].present, true);
+    assert.equal(Object.getPrototypeOf(merged.collections["ase-type2"].artwork), null);
+  });
+
+  test("a removal beats older art and ties, and a stale image cannot be restored", () => {
+    const uploaded = seeded();
+    core.setArtwork(uploaded, "ase-type2", null, true, { now: T1 });
+    const removed = seeded();
+    core.setArtwork(removed, "ase-type2", null, false, { now: T2 });
+    const merged = core.mergeStates(uploaded, removed);
+    assert.deepEqual(plain(merged), plain(core.mergeStates(removed, uploaded)));
+    assert.equal(core.isCurrentArtwork(merged, "collection--ase-type2", Date.parse(T1)), false);
+
+    const tied = seeded();
+    core.setArtwork(tied, "ase-type2", null, false, { now: T1 });
+    assert.equal(
+      core.mergeStates(uploaded, tied).collections["ase-type2"].artwork.cover.present,
+      false
+    );
+  });
+
+  test("an older image is rejected when a newer upload wins", () => {
+    const state = seeded();
+    core.setArtwork(state, "ase-type2", "2024", true, { now: T3 });
+    assert.equal(
+      core.isCurrentArtwork(state, "collection--ase-type2--2024", Date.parse(T2)),
+      false
+    );
+    assert.equal(core.isCurrentArtwork(state, "collection--ase-type2--2024", undefined), false);
+    assert.equal(core.isCurrentArtwork(state, "collection--ase-type2--2024", Date.parse(T3)), true);
+  });
+
+  test("equal-time uploads pick the same content token in either merge order", () => {
+    const left = seeded();
+    const right = seeded();
+    core.setArtwork(left, "ase-type2", null, true, { now: T2, digest: "aaaa" });
+    core.setArtwork(right, "ase-type2", null, true, { now: T2, digest: "bbbb" });
+    const merged = core.mergeStates(left, right);
+    assert.deepEqual(plain(merged), plain(core.mergeStates(right, left)));
+    assert.equal(merged.collections["ase-type2"].artwork.cover.digest, "bbbb");
+    assert.equal(
+      core.isCurrentArtwork(merged, "collection--ase-type2", Date.parse(T2), "aaaa"),
+      false
+    );
+    assert.equal(
+      core.isCurrentArtwork(merged, "collection--ase-type2", Date.parse(T2), "bbbb"),
+      true
+    );
+  });
+});
+
 describe("ensureCollection", () => {
   test("creates a template collection keyed by its id and stamps timestamps", () => {
     const state = seeded(T1);
@@ -828,15 +889,14 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
     return state;
   }
   const bothWays = (a, b) => [plain(core.mergeStates(a, b)), plain(core.mergeStates(b, a))];
+  const template = (steps) => {
+    const state = seeded(T1);
+    if (steps) steps(state);
+    return state;
+  };
 
   test("disjoint collections union", () => {
-    const a = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const a = template((s) => {
       core.linkItem(s, "ase-type2", "2024", U.a, { now: T1 });
     });
     const b = build((s) => {
@@ -854,22 +914,10 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
   });
 
   test("different slots filled on two devices both survive", () => {
-    const a = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const a = template((s) => {
       core.linkItem(s, "ase-type2", "2023", U.a, { now: T2 });
     });
-    const b = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const b = template((s) => {
       core.linkItem(s, "ase-type2", "2024", U.b, { now: T3 });
     });
     const [ab, ba] = bothWays(a, b);
@@ -880,23 +928,11 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
   });
 
   test("the newer slot write wins, and an unlink tombstone beats an older link", () => {
-    const a = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const a = template((s) => {
       core.linkItem(s, "ase-type2", "2024", U.a, { now: T1 });
       core.linkItem(s, "ase-type2", "2025", U.c, { now: T3 });
     });
-    const b = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const b = template((s) => {
       core.linkItem(s, "ase-type2", "2024", U.a, { now: T1 });
       core.unlinkItem(s, "ase-type2", "2024", U.a, { now: T2 });
       core.linkItem(s, "ase-type2", "2025", U.d, { now: T2 });
@@ -912,22 +948,10 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
   });
 
   test("a timestamp TIE with divergent content still converges identically in both orders", () => {
-    const a = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const a = template((s) => {
       core.linkItem(s, "ase-type2", "2024", U.a, { now: T2 });
     });
-    const b = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const b = template((s) => {
       core.linkItem(s, "ase-type2", "2024", U.b, { now: T2 });
     });
     const [ab, ba] = bothWays(a, b);
@@ -1002,23 +1026,11 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
   });
 
   test("merge is idempotent and never mutates its inputs", () => {
-    const a = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const a = template((s) => {
       core.linkItem(s, "ase-type2", "2022", U.a, { now: T2 });
       core.linkItem(s, "ase-type2", "2022", U.b, { asSpare: true, now: T2 });
     });
-    const b = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const b = template((s) => {
       core.linkItem(s, "ase-type2", "2023", U.c, { now: T3 });
     });
     const snapshotA = plain(a);
@@ -1034,13 +1046,7 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
   });
 
   test("merging with an empty or malformed side returns the other side's content", () => {
-    const a = build((s) => {
-      core.ensureCollection(s, {
-        id: "ase-type2",
-        kind: "template",
-        templateSlug: "ase-type2",
-        now: T1,
-      });
+    const a = template((s) => {
       core.linkItem(s, "ase-type2", "2022", U.a, { now: T2 });
     });
     assert.deepEqual(plain(core.mergeStates(a, core.createEmptyState())), plain(a));

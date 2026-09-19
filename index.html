@@ -4461,6 +4461,18 @@
               </div>
 
               <div class="settings-group">
+                <div class="settings-group-label">Collections</div>
+                <p class="settings-subtext">
+                  Show date-run albums and custom checklists linked to your inventory. On by
+                  default; turning this off hides the view without deleting its data.
+                </p>
+                <div class="chip-sort-toggle" id="settingsCollections">
+                  <button type="button" class="chip-sort-btn active" data-val="yes">On</button>
+                  <button type="button" class="chip-sort-btn" data-val="no">Off</button>
+                </div>
+              </div>
+
+              <div class="settings-group">
                 <div class="settings-group-label">Filter chip categories</div>
                 <p class="settings-subtext">
                   Enable, disable, and reorder chip categories. Assign the same Group letter to
@@ -5016,7 +5028,7 @@
                           class="btn info"
                           id="exportJsonBtn"
                           aria-describedby="exportJsonDesc"
-                          title="Inventory items only — no settings or price history"
+                          title="Inventory items and Collections definitions — no image files"
                           style="
                             font-size: 0.82rem;
                             padding: 0.4rem 0.6rem;
@@ -5027,7 +5039,7 @@
                           Export JSON
                         </button>
                         <span id="exportJsonDesc" class="sr-only"
-                          >Inventory items only — no settings or price history</span
+                          >Inventory items and Collections definitions — no image files</span
                         >
                         <button
                           class="btn info"
@@ -8956,8 +8968,9 @@
 
     <!-- STRK-368 (epic STRK-254): Collections module. collections-core.js is the pure
          data layer; collections-store.js is the storage + inventory seam (must follow
-         core); collections-ui.js renders the Collections tab and talks only to the store
-         (must follow it). The Series Template bundle is read lazily, so its position is
+         core); collections-hub.js and collections-album.js register the two renderers,
+         then collections-ui.js wires them to the store and the route. The Series Template
+         bundle is read lazily, so its position is
          free — it is a script-tag global because file:// cannot fetch() local JSON, the
          same reason spot-history-bundle.js exists. collections-picker.js (link picker +
          custom builder) and collections-item-view.js (item view chip + section) are
@@ -8969,6 +8982,8 @@
     <script defer src="./js/collections-core.js"></script>
     <script defer src="./js/collections-store.js"></script>
     <script defer src="./js/collections-io.js"></script>
+    <script defer src="./js/collections-hub.js"></script>
+    <script defer src="./js/collections-album.js"></script>
     <script defer src="./js/collections-ui.js"></script>
     <script defer src="./js/collections-picker.js"></script>
     <script defer src="./js/collections-item-view.js"></script>

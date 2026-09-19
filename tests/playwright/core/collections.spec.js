@@ -6,44 +6,10 @@
 // pinned by tests/unit/collections-core.test.js.
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
-
-/**
- * Build one inventory fixture for the collection tests.
- * @param {string} uuid - Stable item identifier.
- * @param {string} name - Display name.
- * @param {string} year - Mint year.
- * @param {number} serial - Inventory serial number.
- * @returns {object} Inventory item fixture.
- */
-const baseItem = (uuid, name, year, serial) => ({
-  uuid,
-  metal: "Silver",
-  composition: "Silver",
-  name,
-  qty: 1,
-  type: "Coin",
-  weight: 1,
-  weightUnit: "oz",
-  price: 30,
-  marketValue: 0,
-  date: "2026-01-01",
-  purchaseLocation: "staktrakr.com",
-  storageLocation: "Safe",
-  serialNumber: "",
-  notes: "",
-  year,
-  grade: "",
-  gradingAuthority: "",
-  certNumber: "",
-  pcgsNumber: "",
-  pcgsVerified: false,
-  spotPriceAtPurchase: 0,
-  premiumPerOz: 0,
-  totalPremium: 0,
-  purity: 0.999,
-  numistaId: "",
-  serial,
-});
+import {
+  collectionItem as baseItem,
+  seedCollectionsPage,
+} from "../helpers/collections-fixtures.js";
 
 const SEED = [
   baseItem("col-ase-2022-a", "2022 American Silver Eagle", "2022", 1),
@@ -52,29 +18,7 @@ const SEED = [
   baseItem("col-maple-2024", "2024 Canadian Silver Maple Leaf", "2024", 4),
 ];
 
-/**
- * Seeds inventory once (never on reload, so app-written state survives) and boots the
- * Inventory tab, where #newItemBtn lives.
- * @param {import('@playwright/test').Page} page - Browser page.
- * @param {Array<object>} [items=SEED] - Inventory to seed before app scripts run.
- * @returns {Promise<void>} When the app and collection store are ready.
- */
-const seedAndGoto = async (page, items = SEED) => {
-  await page.addInitScript((items) => {
-    if (!localStorage.getItem("metalInventory")) {
-      localStorage.setItem("metalInventory", JSON.stringify(items));
-    }
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-        if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
-      },
-      { once: true }
-    );
-  }, items);
-  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsStore);
-};
+const seedAndGoto = (page, items = SEED) => seedCollectionsPage(page, items);
 
 /**
  * Read one ASE Type 2 slot as plain JSON.
@@ -755,6 +699,58 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(after.linked).toBe("col-maple-2024");
   });
 
+  test("cover upload and removal change the visible album and old image vaults cannot revive it", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Artwork test set",
+        slots: [{ label: "First" }],
+      });
+      window.collectionsUI.openCollection(created.collection.id);
+      window.collectionsPicker.openBuilder({ editId: created.collection.id });
+      return created.collection.id;
+    });
+    const builder = builderModal(page);
+    await builder
+      .locator(".collections-builder-cover input[type=file]")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    const cover = panel(page).locator(".collections-album-head .collections-coin img");
+    await expect(cover).toHaveAttribute("src", /^blob:/);
+    const staleVault = await page.evaluate(async () => {
+      const images = await window.collectAndHashImageVault();
+      return Array.from(await window.vaultEncryptImageVault("artwork-test", images.payload));
+    });
+
+    await page.evaluate(
+      (collectionId) => window.collectionsPicker.openBuilder({ editId: collectionId }),
+      id
+    );
+    await builder.getByRole("button", { name: "Remove cover image" }).click();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(cover).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        (collectionId) =>
+          window.collectionsStore.getState().collections[collectionId].artwork.cover.present,
+        id
+      )
+    ).toBe(false);
+
+    await page.evaluate(
+      (bytes) => window.vaultDecryptAndRestoreImages(new Uint8Array(bytes), "artwork-test"),
+      staleVault
+    );
+    await page.evaluate(() => window.collectionsUI.render());
+    await expect(cover).toHaveCount(0);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await expect(cover).toHaveCount(0);
+  });
+
   test("the year-range shortcut accepts sane ranges only", async ({ page }) => {
     await seedAndGoto(page);
     const parsed = await page.evaluate(() => {
@@ -1225,6 +1221,35 @@ test.describe("core/collections — tab UI", () => {
     await expect(panel(page).locator("[data-collection-id]")).toHaveCount(0);
     await expect(panel(page).locator("[data-slot-id]")).toHaveCount(0);
     await expect(panel(page).getByRole("button", { name: "Ledger view" })).toHaveCount(0);
+  });
+
+  test("Settings turns the default-on Collections view off and back on without deleting links", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
+    await page.evaluate(() => window.showSettingsModal("grouping"));
+    const setting = page.locator("#settingsCollections");
+    await expect(setting.locator('[data-val="yes"]')).toHaveClass(/active/);
+    await setting.locator('[data-val="no"]').click();
+    await page.evaluate(() => window.hideSettingsModal());
+    await page.locator("#tabBtnDashboard").click();
+    await openCollectionsTab(page);
+    await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
+    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toHaveCount(0);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => window.showSettingsModal("grouping"));
+    await expect(setting.locator('[data-val="no"]')).toHaveClass(/active/);
+    await setting.locator('[data-val="yes"]').click();
+    await page.evaluate(() => window.hideSettingsModal());
+    await page.locator("#tabBtnDashboard").click();
+    await openCollectionsTab(page);
+    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
+    await openAseAlbum(page);
+    await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
   });
 
   test("at 390px the album is two columns and neither view overflows the page", async ({
