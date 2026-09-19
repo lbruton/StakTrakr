@@ -71,14 +71,21 @@
   };
 
   /**
-   * Runs a core mutation and persists when it reports a change.
-   * @param {Object} result - Result object returned by a core mutator
-   * @returns {Object} The same result, with ok:false when the save failed
+   * Runs a mutation as a transaction (STRK-377). Core mutators edit the state object in
+   * place, so a failed write would otherwise leave memory ahead of storage and the NEXT
+   * successful save would silently persist the "failed" change. The pre-mutation snapshot
+   * is restored through normalizeState, which rebuilds the null-prototype maps.
+   * @param {function(Object): Object} mutate - Runs the core mutation against the state
+   * @param {function(Object): boolean} [needsSave] - Whether the result must be persisted
+   * @returns {Object} The mutation result, with ok:false / save-failed when the write failed
    */
-  const commit = (result) => {
-    if (result && result.changed && !save())
-      return Object.assign({}, result, { ok: false, reason: "save-failed" });
-    return result;
+  const transact = (mutate, needsSave) => {
+    const snapshot = JSON.stringify(getState());
+    const result = mutate(getState());
+    const dirty = needsSave ? needsSave(result) : Boolean(result && result.changed);
+    if (!dirty || save()) return result;
+    collectionState = core().normalizeState(JSON.parse(snapshot));
+    return Object.assign({}, result, { ok: false, changed: false, reason: "save-failed" });
   };
 
   // ---------------------------------------------------------------------------
@@ -205,24 +212,26 @@
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
   const link = (collectionId, slotId, uuid, opts) => {
-    const state = getState();
-    const existing = state.collections[collectionId];
-    let started = false;
-    if (!existing || existing.deletedAt) {
-      if (!getTemplate(collectionId)) return { ok: false, changed: false, reason: "no-collection" };
-      core().ensureCollection(state, {
-        id: collectionId,
-        kind: "template",
-        templateSlug: collectionId,
-      });
-      started = true;
-    }
-    const result = core().linkItem(state, collectionId, slotId, uuid, opts);
-    if (result.changed) ensureIdentityPersisted(uuid);
-    // Starting the collection mutated state even if the link itself was refused.
-    if ((result.changed || started) && !save())
-      return Object.assign({}, result, { ok: false, reason: "save-failed" });
-    return result;
+    const existing = getState().collections[collectionId];
+    const mustStart = !existing || Boolean(existing.deletedAt);
+    if (mustStart && !getTemplate(collectionId))
+      return { ok: false, changed: false, reason: "no-collection" };
+    return transact(
+      (state) => {
+        if (mustStart) {
+          core().ensureCollection(state, {
+            id: collectionId,
+            kind: "template",
+            templateSlug: collectionId,
+          });
+        }
+        const result = core().linkItem(state, collectionId, slotId, uuid, opts);
+        if (result.changed) ensureIdentityPersisted(uuid);
+        return result;
+      },
+      // Starting the collection mutated state even if the link itself was refused.
+      (result) => result.changed || mustStart
+    );
   };
 
   /**
@@ -233,7 +242,7 @@
    * @returns {{ok: boolean, changed: boolean, promoted?: string|null, reason?: string}} Result
    */
   const unlink = (collectionId, slotId, uuid) =>
-    commit(core().unlinkItem(getState(), collectionId, slotId, uuid));
+    transact((state) => core().unlinkItem(state, collectionId, slotId, uuid));
 
   /**
    * Promotes a spare to primary.
@@ -243,7 +252,7 @@
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
   const promote = (collectionId, slotId, uuid) =>
-    commit(core().promoteSpare(getState(), collectionId, slotId, uuid));
+    transact((state) => core().promoteSpare(state, collectionId, slotId, uuid));
 
   /**
    * Creates a custom collection with a globally unique id (unique across devices, so
@@ -253,12 +262,13 @@
    */
   const createCustom = (spec) => {
     const suffix = typeof generateUUID === "function" ? generateUUID() : String(Date.now());
-    const result = core().createCustomCollection(
-      getState(),
-      Object.assign({}, spec, { id: `custom-${suffix}` })
+    const result = transact(
+      (state) =>
+        core().createCustomCollection(state, Object.assign({}, spec, { id: `custom-${suffix}` })),
+      (outcome) => outcome.ok
     );
-    if (result.ok && !save()) return { ok: false, reason: "save-failed" };
-    return result;
+    // A failed write must not hand back the record that was just rolled away.
+    return result.reason === "save-failed" ? { ok: false, reason: "save-failed" } : result;
   };
 
   /**
@@ -268,21 +278,22 @@
    * @returns {{ok: boolean, changed?: boolean, reason?: string}} Result
    */
   const updateCustom = (collectionId, spec) =>
-    commit(core().updateCustomDefinition(getState(), collectionId, spec));
+    transact((state) => core().updateCustomDefinition(state, collectionId, spec));
 
   /**
    * Removes (soft-deletes) a collection. Items are never touched.
    * @param {string} collectionId - Collection id
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
-  const remove = (collectionId) => commit(core().removeCollection(getState(), collectionId));
+  const remove = (collectionId) =>
+    transact((state) => core().removeCollection(state, collectionId));
 
   /**
    * Drops every link to an item — called when the Item is hard-deleted.
    * @param {string} uuid - Item UUID
    * @returns {{changed: boolean, removed: Object[]}} Slots that were touched
    */
-  const pruneItem = (uuid) => commit(core().pruneItem(getState(), uuid));
+  const pruneItem = (uuid) => transact((state) => core().pruneItem(state, uuid));
 
   /**
    * Boot-time sweep of links to items that no longer exist (bulk delete and import
@@ -301,7 +312,7 @@
         .filter(Boolean)
     );
     if (!known.size) return { changed: false, removed: 0, skipped: "empty-inventory" };
-    return commit(core().sweepDanglingLinks(getState(), known));
+    return transact((state) => core().sweepDanglingLinks(state, known));
   };
 
   /**
@@ -315,10 +326,12 @@
     const before = JSON.stringify(getState());
     const merged = core().mergeStates(getState(), incoming);
     if (JSON.stringify(merged) === before) return { ok: true, changed: false };
+    const previous = collectionState;
     collectionState = merged;
-    return save()
-      ? { ok: true, changed: true }
-      : { ok: false, changed: false, reason: "save-failed" };
+    if (save()) return { ok: true, changed: true };
+    // mergeStates returns a NEW object, so the prior state is intact — just swap it back.
+    collectionState = previous;
+    return { ok: false, changed: false, reason: "save-failed" };
   };
 
   // ---------------------------------------------------------------------------
