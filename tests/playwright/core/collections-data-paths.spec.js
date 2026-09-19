@@ -109,3 +109,234 @@ test.describe("core/collections-data-paths — encrypted vault", () => {
     expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
   });
 });
+
+/**
+ * Click an export button and return the downloaded file's text.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} trigger - Name of the window-level export function to call.
+ * @returns {Promise<{name: string, text: string}>} Suggested filename and contents.
+ */
+const captureDownload = async (page, trigger) => {
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.evaluate((fn) => {
+      const target = fn.split(".").reduce((scope, key) => scope[key], window);
+      target();
+    }, trigger),
+  ]);
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return { name: download.suggestedFilename(), text: Buffer.concat(chunks).toString("utf-8") };
+};
+
+/**
+ * Drop every Collection from storage and memory, as a fresh device would look.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>} When the store is empty.
+ */
+const wipeCollections = (page) =>
+  page.evaluate(() => {
+    localStorage.removeItem("collectionState");
+    window.collectionsStore.reload();
+  });
+
+/**
+ * Run an import with the diff modal auto-accepting every change, and wait for its toast.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {{fn: string, name: string, type: string, text: string}} spec - Import to run.
+ * @returns {Promise<string>} The "Import complete…" / "No changes…" toast text.
+ */
+const runImport = (page, spec) =>
+  page.evaluate(
+    ({ fn, name, type, text }) =>
+      new Promise((resolve) => {
+        const origToast = window.showToast;
+        window.showToast = (msg, level) => {
+          if (typeof origToast === "function") origToast(msg, level);
+          const message = String(msg || "");
+          if (/^Import complete|^No changes detected/.test(message)) {
+            window.showToast = origToast;
+            resolve(message);
+          }
+        };
+        const origShow = window.DiffModal.show;
+        window.DiffModal.show = (config) => {
+          window.DiffModal.show = origShow;
+          const diff = config.diff;
+          const changes = [
+            ...diff.added.map((item) => ({ type: "add", item })),
+            ...diff.modified.map((mod) => ({ type: "modify", ...mod })),
+          ];
+          config.onApply(changes);
+        };
+        window[fn](new File([text], name, { type }), false);
+      }),
+    spec
+  );
+
+test.describe("core/collections-data-paths — standalone Collections file", () => {
+  test("Settings offers Export and Import Collections, and the file restores links AND an empty Custom Collection", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const customId = await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+      return window.collectionsStore.createCustom({
+        name: "Carson City Morgans",
+        slots: [{ label: "1881-CC" }],
+      }).collection.id;
+    });
+
+    await expect(page.locator("#exportCollectionsBtn")).toHaveCount(1);
+    await expect(page.locator("#importCollectionsBtn")).toHaveCount(1);
+
+    const file = await captureDownload(page, "collectionsIO.exportFile");
+    expect(file.name).toMatch(/^staktrakr_collections_\d{8}\.json$/);
+    const payload = JSON.parse(file.text);
+    expect(payload.kind).toBe("staktrakr-collections");
+    expect(payload.state.collections["ase-type2"].slots["2024"].primary).toBe("cdp-ase-2024");
+
+    await wipeCollections(page);
+    expect(await primaryOf(page, "2024")).toBeNull();
+
+    const result = await page.evaluate(
+      (text) =>
+        window.collectionsIO.importFile(
+          new File([text], "collections.json", { type: "application/json" })
+        ),
+      file.text
+    );
+    expect(result).toEqual({ ok: true, changed: true });
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    const custom = await page.evaluate(
+      (id) => window.collectionsStore.getState().collections[id]?.name,
+      customId
+    );
+    expect(custom).toBe("Carson City Morgans");
+  });
+
+  test("importing a file that is not a Collections export changes nothing and reports why", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+
+    const result = await page.evaluate(() =>
+      window.collectionsIO.importFile(
+        new File(['{"items":[]}'], "inventory.json", { type: "application/json" })
+      )
+    );
+
+    expect(result).toEqual({ ok: false, changed: false, reason: "not-collections-file" });
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+});
+
+test.describe("core/collections-data-paths — JSON export and import", () => {
+  test("Export JSON carries the Collections state and Import JSON merges it even when no item changed", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(
+      () => typeof window.exportJson === "function" && typeof window.importJson === "function"
+    );
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+
+    const file = await captureDownload(page, "exportJson");
+    const payload = JSON.parse(file.text);
+    expect(payload.collectionState.collections["ase-type2"].slots["2024"].primary).toBe(
+      "cdp-ase-2024"
+    );
+
+    // Same items, no Collections: the item diff is empty, so only the zero-diff branch runs.
+    await wipeCollections(page);
+    const toast = await runImport(page, {
+      fn: "importJson",
+      name: "inventory.json",
+      type: "application/json",
+      text: file.text,
+    });
+
+    expect(toast).toBe("Import complete: collections updated");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+});
+
+test.describe("core/collections-data-paths — CSV export and import", () => {
+  test("Export CSV writes a Collections column, and a CSV whose ONLY change is that column still applies", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(
+      () => typeof window.exportCsv === "function" && typeof window.importCsv === "function"
+    );
+    await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+    });
+
+    const file = await captureDownload(page, "exportCsv");
+    const header = file.text.split("\n").find((line) => line.includes("UUID")) || "";
+    expect(header).toContain("Collections");
+    expect(file.text).toContain("ase-type2:2024");
+    expect(file.text).toContain("ase-type2:2022");
+
+    // Establish the items VIA an import (the STRK-220 pattern in import-export.spec.js): a
+    // seeded item carries pcgsVerified:false where a CSV row yields null, so it never settles
+    // to a zero diff. Items the importer created are already in CSV-normalized form.
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      localStorage.setItem("metalInventory", "[]");
+    });
+    const csvImport = { fn: "importCsv", name: "inventory.csv", type: "text/csv", text: file.text };
+    expect(await runImport(page, csvImport)).toContain("2 added");
+
+    // Existing items, Collections wiped: totalChanges === 0 (the STRK-220 trap).
+    await wipeCollections(page);
+    const toast = await runImport(page, {
+      fn: "importCsv",
+      name: "inventory.csv",
+      type: "text/csv",
+      text: file.text,
+    });
+
+    expect(toast).toBe("Import complete: collections updated");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+  });
+
+  test("a CSV import links the Items it CREATES, after their identity is stamped", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(
+      () => typeof window.exportCsv === "function" && typeof window.importCsv === "function"
+    );
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+    const file = await captureDownload(page, "exportCsv");
+
+    // A fresh device: no inventory and no Collections.
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      // "[]" (not a removed key) so the init script does not re-seed on the reload below.
+      localStorage.setItem("metalInventory", "[]");
+    });
+    await wipeCollections(page);
+
+    const toast = await runImport(page, {
+      fn: "importCsv",
+      name: "inventory.csv",
+      type: "text/csv",
+      text: file.text,
+    });
+
+    expect(toast).toContain("2 added");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () => window.appListenersReady === true && !!window.collectionsStore
+    );
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+});

@@ -4436,6 +4436,27 @@ const setupImportExportListeners = () => {
     });
   }
 
+  // STRK-371: standalone Collections file. Hidden with the COLLECTIONS flag off, so a
+  // user who never sees the tab is not offered an export of it.
+  const exportCollectionsBtn = document.getElementById("exportCollectionsBtn");
+  const importCollectionsBtn = document.getElementById("importCollectionsBtn");
+  const importCollectionsFile = document.getElementById("importCollectionsFile");
+  const collectionsEnabled =
+    typeof featureFlags !== "undefined" && featureFlags.isEnabled("COLLECTIONS");
+  if (exportCollectionsBtn && importCollectionsBtn && importCollectionsFile) {
+    exportCollectionsBtn.hidden = !collectionsEnabled;
+    importCollectionsBtn.hidden = !collectionsEnabled;
+    exportCollectionsBtn.addEventListener("click", () => {
+      if (window.collectionsIO) window.collectionsIO.exportFile();
+    });
+    importCollectionsBtn.addEventListener("click", () => importCollectionsFile.click());
+    importCollectionsFile.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file && window.collectionsIO) window.collectionsIO.importFromPicker(file);
+      importCollectionsFile.value = "";
+    });
+  }
+
   // Cloud Sync modal
   optionalListener(
     elements.cloudSyncBtn,

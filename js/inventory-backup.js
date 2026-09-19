@@ -42,6 +42,8 @@
     "Disposition Amount",
     "Realized Gain/Loss",
     "Attachments",
+    // STRK-371: LAST on purpose, mirroring buildStandardHeaders in js/csv-export.js.
+    "Collections",
   ];
 
   // ---------------------------------------------------------------------------
@@ -487,6 +489,7 @@
         ...buildCsvValueCells(item),
         ..._backupCsvIdentityCells(item),
         ..._backupCsvDispositionCells(item),
+        window.collectionsIO ? window.collectionsIO.membershipCell(item.uuid) : "",
       ]);
       const csvContent = Papa.unparse([BACKUP_CSV_HEADERS, ...csvRows]);
       zip.file("inventory_export.csv", csvContent);

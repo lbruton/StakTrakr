@@ -141,7 +141,18 @@
     "Disposition Split From UUID",
     "Traded For UUIDs",
     "Traded From UUID",
+    // STRK-371: LAST on purpose — appending keeps every positional group above intact.
+    "Collections",
   ];
+
+  /**
+   * The "Collections" cell: this Item's memberships as "collectionId:slotId" pairs.
+   * Membership lives on the Collection, not the Item, so it is read from the store.
+   * @param {object} i - Inventory item.
+   * @returns {string} Semicolon-joined memberships, or "" when the module is absent.
+   */
+  const buildCsvCollectionsCell = (i) =>
+    window.collectionsIO ? window.collectionsIO.membershipCell(i.uuid) : "";
 
   /**
    * Builds the catalog/identity columns (Payment Method … Reverse Frame).
@@ -198,6 +209,7 @@
     ...buildCsvValueCells(i),
     ...buildCsvCatalogColumns(i, removedTagsMap),
     ...buildCsvDispositionColumns(i),
+    buildCsvCollectionsCell(i),
   ];
 
   /**

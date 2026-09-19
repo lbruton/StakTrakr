@@ -4934,7 +4934,21 @@
                         >
                           Restore ZIP Backup
                         </button>
+                        <button
+                          class="btn warning"
+                          id="importCollectionsBtn"
+                          title="Merge a Collections file — adds what is missing, never overwrites"
+                          style="
+                            font-size: 0.82rem;
+                            padding: 0.4rem 0.6rem;
+                            min-height: 0;
+                            grid-column: span 2;
+                          "
+                        >
+                          Import Collections
+                        </button>
                       </div>
+                      <input accept=".json" hidden id="importCollectionsFile" type="file" />
                       <input accept=".csv" hidden id="importCsvFile" type="file" />
                       <input accept=".json" hidden id="importJsonFile" type="file" />
                       <input accept=".zip" hidden id="importZipFile" type="file" />
@@ -5048,6 +5062,24 @@
                         </button>
                         <span id="exportZipDesc" class="sr-only"
                           >Full backup — inventory, settings, price history, and images</span
+                        >
+                        <button
+                          class="btn info"
+                          id="exportCollectionsBtn"
+                          aria-describedby="exportCollectionsDesc"
+                          title="Collections only — definitions and which items fill each slot"
+                          style="
+                            font-size: 0.82rem;
+                            padding: 0.4rem 0.6rem;
+                            min-height: 0;
+                            width: 100%;
+                            grid-column: span 2;
+                          "
+                        >
+                          Export Collections
+                        </button>
+                        <span id="exportCollectionsDesc" class="sr-only"
+                          >Collections only — definitions and which items fill each slot</span
                         >
                         <button
                           class="btn success"
@@ -8930,10 +8962,13 @@
          same reason spot-history-bundle.js exists. collections-picker.js (link picker +
          custom builder) and collections-item-view.js (item view chip + section) are
          reached only at runtime through window.collectionsPicker / collectionsItemView,
-         so they just need to follow the store. All must precede tabs.js, which notifies
-         collectionsUI on activation, and init.js, which hydrates the store. -->
+         so they just need to follow the store. collections-io.js (STRK-371: standalone
+         file, JSON envelope, CSV column) is likewise runtime-only via window.collectionsIO.
+         All must precede tabs.js, which notifies collectionsUI on activation, and init.js,
+         which hydrates the store. -->
     <script defer src="./js/collections-core.js"></script>
     <script defer src="./js/collections-store.js"></script>
+    <script defer src="./js/collections-io.js"></script>
     <script defer src="./js/collections-ui.js"></script>
     <script defer src="./js/collections-picker.js"></script>
     <script defer src="./js/collections-item-view.js"></script>

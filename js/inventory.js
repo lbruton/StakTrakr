@@ -2585,6 +2585,12 @@ const exportJson = () => {
       itemCount: exportData.length,
     },
     itemRemovedTags: loadDataSync("itemRemovedTags", {}),
+    // STRK-371: Collections membership lives on the Collection, never on the Item, so it
+    // rides the envelope. Omitted when there are none, so older exports stay byte-stable.
+    ...(window.collectionsIO &&
+      window.collectionsIO.exportState() && {
+        collectionState: window.collectionsIO.exportState(),
+      }),
   };
 
   const json = JSON.stringify(exportPayload, null, 2);
