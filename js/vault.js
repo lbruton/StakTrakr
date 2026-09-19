@@ -261,6 +261,10 @@ async function restoreVaultData(payload) {
     if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
+    // STRK-371: the restore wrote collectionState straight to storage. Re-hydrate AFTER the
+    // inventory so slot reads resolve against the restored items, or the stale in-memory
+    // Collections would overwrite the restored ones on the next link/unlink.
+    if (window.collectionsStore) window.collectionsStore.reload();
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof loadSpotHistory === "function") loadSpotHistory();

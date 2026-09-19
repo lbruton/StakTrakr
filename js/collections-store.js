@@ -48,6 +48,19 @@
   };
 
   /**
+   * Re-hydrates from storage after something ELSE rewrote the key (a vault or snapshot
+   * restore writes localStorage directly), then announces it so open views repaint.
+   * Without this the stale in-memory state would overwrite the restored one on the next
+   * mutation.
+   * @returns {Object} Normalized Collections state
+   */
+  const reload = () => {
+    const state = load();
+    document.dispatchEvent(new CustomEvent(CHANGED_EVENT));
+    return state;
+  };
+
+  /**
    * The in-memory state, hydrating on first use.
    * @returns {Object} Collections state
    */
@@ -502,6 +515,7 @@
   window.collectionsStore = Object.freeze({
     CHANGED_EVENT,
     load,
+    reload,
     getState,
     save,
     getTemplates,
