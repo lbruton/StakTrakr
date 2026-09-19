@@ -304,6 +304,23 @@
     return commit(core().sweepDanglingLinks(getState(), known));
   };
 
+  /**
+   * Merges another Collections state (a ZIP backup today; a remote device once the sync
+   * contract lands) into local state. Uses the commutative core merge, so newer local
+   * links are never clobbered by an older snapshot — a restore adds back what was lost.
+   * @param {*} incoming - Raw state from a backup or another device (normalized by the merge)
+   * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
+   */
+  const mergeIn = (incoming) => {
+    const before = JSON.stringify(getState());
+    const merged = core().mergeStates(getState(), incoming);
+    if (JSON.stringify(merged) === before) return { ok: true, changed: false };
+    collectionState = merged;
+    return save()
+      ? { ok: true, changed: true }
+      : { ok: false, changed: false, reason: "save-failed" };
+  };
+
   // ---------------------------------------------------------------------------
   // Add new item from a slot
   //
@@ -492,6 +509,7 @@
     remove,
     pruneItem,
     sweep,
+    mergeIn,
     requestNewItem,
     hasPendingNewItem,
     resolvePendingNewItem,

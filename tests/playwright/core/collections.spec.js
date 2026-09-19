@@ -525,6 +525,114 @@ test.describe("core/collections — link picker, builder, item view", () => {
   });
 });
 
+test.describe("core/collections — ZIP backup round trip", () => {
+  /** Restores a ZIP with the diff modal stubbed to auto-accept, and waits for completion. */
+  const restoreZip = async (page, zipBytes) => {
+    await page.evaluate(async (bytes) => {
+      window.__zipRestoreComplete = false;
+      const origToast = window.showToast;
+      window.showToast = (msg, level) => {
+        if (typeof origToast === "function") origToast(msg, level);
+        if (String(msg || "").includes("ZIP backup restored successfully")) {
+          window.__zipRestoreComplete = true;
+        }
+      };
+      window.showImportDiffReview = (_items, _meta, _opts, onDone) =>
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      const file = new File([new Uint8Array(bytes)], "collections-restore.zip", {
+        type: "application/zip",
+      });
+      await window.restoreBackupZip(file);
+    }, zipBytes);
+    await page.waitForFunction(() => window.__zipRestoreComplete === true);
+  };
+
+  test("Backup All Data carries collection_state.json, and a restore MERGES it into local state", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(
+      () => typeof window.createBackupZip === "function" && typeof window.JSZip !== "undefined"
+    );
+
+    // Phase 1 — a template link plus a custom collection, then export.
+    const exported = await page.evaluate(async () => {
+      const store = window.collectionsStore;
+      store.link("ase-type2", "2024", "col-ase-2024");
+      const made = store.createCustom({
+        name: "Backup set",
+        metal: "Silver",
+        slots: [{ label: "Only" }],
+      });
+      store.link(made.collection.id, "only", "col-maple-2024");
+      const blob = await window.createBackupZip();
+      const buf = await blob.arrayBuffer();
+      const zip = await window.JSZip.loadAsync(buf);
+      const entry = zip.file("collection_state.json");
+      return {
+        customId: made.collection.id,
+        payload: entry ? JSON.parse(await entry.async("string")) : null,
+        zipBytes: Array.from(new Uint8Array(buf)),
+      };
+    });
+    expect(exported.payload).not.toBeNull();
+    expect(exported.payload.state.collections["ase-type2"].slots["2024"].primary).toBe(
+      "col-ase-2024"
+    );
+    expect(exported.payload.state.collections[exported.customId].name).toBe("Backup set");
+
+    // Phase 2 — lose the collections, then make a DIFFERENT local link before restoring.
+    await page.evaluate(() => {
+      localStorage.removeItem("collectionState");
+      window.collectionsStore.load();
+      window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-a");
+    });
+    expect(await readSlot(page, "2024")).toBeNull();
+
+    // Phase 3 — restore. The backup's links come back AND the newer local link survives:
+    // a restore merges (collectionsCore.mergeStates), it never clobbers.
+    await restoreZip(page, exported.zipBytes);
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+    expect(await readSlot(page, "2022")).toEqual({ primary: "col-ase-2022-a", spares: [] });
+    const custom = await page.evaluate((id) => {
+      const collection = window.collectionsStore.getState().collections[id];
+      return collection ? { name: collection.name, linked: collection.slots.only.primary } : null;
+    }, exported.customId);
+    expect(custom).toEqual({ name: "Backup set", linked: "col-maple-2024" });
+
+    // Phase 4 — it is durable, not just in memory.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () => window.appListenersReady === true && !!window.collectionsStore
+    );
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+  });
+
+  test("a backup with no collections writes no collection_state.json, and restoring an old ZIP is harmless", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(
+      () => typeof window.createBackupZip === "function" && typeof window.JSZip !== "undefined"
+    );
+    const exported = await page.evaluate(async () => {
+      const blob = await window.createBackupZip();
+      const buf = await blob.arrayBuffer();
+      const zip = await window.JSZip.loadAsync(buf);
+      return {
+        hasEntry: zip.file("collection_state.json") !== null,
+        zipBytes: Array.from(new Uint8Array(buf)),
+      };
+    });
+    expect(exported.hasEntry).toBe(false);
+
+    // Links made after that (collection-less) backup must survive restoring it.
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "col-ase-2024"));
+    await restoreZip(page, exported.zipBytes);
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+  });
+});
+
 test.describe("core/collections — tab UI", () => {
   test("a fresh profile shows the first-run state and the ASE Type 2 run at 0 / 6", async ({
     page,

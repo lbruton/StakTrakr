@@ -16,9 +16,11 @@
 // and notes are user-authored and never reach innerHTML.
 //
 // CUSTOM IMAGES live in the existing patternImages IndexedDB store under ids that can
-// never collide with a Numista pattern rule ("collection:<id>" for the cover,
-// "collection:<id>:<slotId>" for a slot), so they ride the image backup/restore that
-// store already has. MUST load after collections-store.js.
+// never collide with a Numista pattern rule ("collection--<id>" for the cover,
+// "collection--<id>--<slotId>" for a slot), so they ride the image backup/restore that
+// store already has. The ZIP backup uses these ids as FILE NAMES, so they must stay
+// filename-safe on every OS (no colons); "--" cannot occur inside an id because slugs
+// collapse to single hyphens. MUST load after collections-store.js.
 // =============================================================================
 
 (() => {
@@ -381,7 +383,7 @@
    * @returns {string} patternImages record id
    */
   const imageId = (collectionId, slotId) =>
-    slotId ? `collection:${collectionId}:${slotId}` : `collection:${collectionId}`;
+    slotId ? `collection--${collectionId}--${slotId}` : `collection--${collectionId}`;
 
   /**
    * Whether custom images can be stored on this device.

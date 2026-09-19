@@ -216,6 +216,21 @@
       };
       zip.file("item_tags.json", JSON.stringify(itemTagsData, null, 2));
     }
+
+    // Collections (STRK-368): definitions + slot → Item UUID links. Off-item data, so like
+    // item tags it needs its own file. Written only when a collection exists (tombstones
+    // included — they are what lets a restore honour an unlink).
+    if (window.collectionsStore) {
+      const collectionState = window.collectionsStore.getState();
+      if (Object.keys(collectionState.collections).length > 0) {
+        const collectionStateData = {
+          version: APP_VERSION,
+          exportDate: new Date().toISOString(),
+          state: collectionState,
+        };
+        zip.file("collection_state.json", JSON.stringify(collectionStateData, null, 2));
+      }
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -661,7 +676,31 @@
         debugWarn("restoreBackupZip: retail_prices.json parse error", e);
       }
     }
+
+    // Collections (STRK-368) — absent from backups made before the module existed.
+    const collectionStateStr = await zip.file("collection_state.json")?.async("string");
+    if (collectionStateStr) {
+      try {
+        ancillary.collectionState = JSON.parse(collectionStateStr).state || null;
+      } catch (e) {
+        debugWarn("restoreBackupZip: collection_state.json parse error", e);
+      }
+    }
     return ancillary;
+  };
+
+  /**
+   * Restores Collections from a backup by MERGING into local state (STRK-368). The merge is
+   * commutative, so links made after the backup was taken survive. Runs after the DiffModal
+   * has applied the inventory, because slot links resolve against item UUIDs.
+   *
+   * @param {Object} ancillary - Parsed ancillary payload.
+   * @returns {void}
+   */
+  const _restoreCollectionState = (ancillary) => {
+    if (!ancillary.collectionState || !window.collectionsStore) return;
+    const result = window.collectionsStore.mergeIn(ancillary.collectionState);
+    if (!result.ok) debugWarn("restoreBackupZip: collection state could not be saved");
   };
 
   /**
@@ -917,6 +956,7 @@
         _restoreNumistaRules(settingsObj);
         _restoreItemPriceHistory(ancillary);
         _restoreRetailPrices(ancillary);
+        _restoreCollectionState(ancillary);
         await _restoreCachedMedia(zip);
         await _restoreAttachments(zip);
         _finalizeRestore();
