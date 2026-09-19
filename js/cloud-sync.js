@@ -2141,7 +2141,21 @@ async function pushSyncVault() {
         var imgData = await collectAndHashImageVault();
         var lastPush = syncGetLastPush();
         var lastImageHash = lastPush ? lastPush.imageHash : null;
-        if (imgData) {
+        // PR 1500 review (P1): a dead IndexedDB connection reports zero photos,
+        // which is indistinguishable from the user having deleted them all. Never
+        // propagate a deletion on that signal — carry the remote reference forward
+        // and let a later push, on a healthy cache, decide.
+        var _imageReadFailed = !!(imgData && imgData.enumerationFailed);
+        if (_imageReadFailed) {
+          imageVaultMeta = _remoteImageVaultMeta || null;
+          _imageVaultPreserved = !!_remoteImageVaultMeta;
+          debugLog("[CloudSync] Image cache unreadable — preserving remote image vault reference");
+          logCloudSyncActivity(
+            "image_vault_push",
+            "skipped",
+            "Image cache unreadable — remote vault left untouched"
+          );
+        } else if (imgData) {
           // Upload if hash changed OR remote metadata is missing imageVault
           // (the file may have been deleted by another device's stale push).
           var _remoteFileMissing = !_remoteImageVaultMeta;
@@ -5645,6 +5659,31 @@ async function pullWithPreview(remoteMeta) {
         // _deferredVaultRestore. The global is still cleared on the exit paths so
         // the next pull cycle starts clean.
         var meta = _previewPullMeta;
+        // PR 1500 review (P1): restoreImageVaultData() judges each remote pattern
+        // record with isCurrentArtwork() against the LIVE Collections store, so a
+        // Collection this device has never seen must be merged in BEFORE its cover
+        // and Slot art arrive — otherwise the art is discarded as orphaned and the
+        // recorded imageHash below stops any later pull from retrying it.
+        // The typeof guard keeps this branch's free identifiers stable for the
+        // STRK-234 slice-and-eval re-entrancy harness.
+        try {
+          if (typeof _mergeCollectionState === "function") {
+            _mergeCollectionState(remotePayload.data);
+          }
+        } catch (_vfCollErr) {
+          console.warn(
+            "[CloudSync] Vault-first silent: Collections merge failed — holding lastPull:",
+            String(_vfCollErr.message || _vfCollErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "Collections write failed — pull held (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         var _vfSpPrevious = syncGetLastPull();
         var _vfSpImage = await _pullImageVaultIfChanged(
           remoteMeta,
@@ -5733,29 +5772,9 @@ async function pullWithPreview(remoteMeta) {
           _previewPullMeta = null;
           return;
         }
-        // STRK-370: a Collections-only change also reaches this silent branch with an
-        // empty diff (managed key). Merge BEFORE recording the pull; a failed write holds
-        // lastPull so the next poll retries. The typeof guard keeps this branch's free
-        // identifiers stable for the STRK-234 slice-and-eval re-entrancy harness, which
-        // would otherwise see a ReferenceError as a (false) held pull.
-        try {
-          if (typeof _mergeCollectionState === "function") {
-            _mergeCollectionState(remotePayload.data);
-          }
-        } catch (_vfCollErr) {
-          console.warn(
-            "[CloudSync] Vault-first silent: Collections merge failed — holding lastPull:",
-            String(_vfCollErr.message || _vfCollErr)
-          );
-          logCloudSyncActivity(
-            "auto_sync_pull",
-            "fail",
-            "Collections write failed — pull held (vault-first silent)"
-          );
-          updateSyncStatusIndicator("error", "Sync incomplete");
-          _previewPullMeta = null;
-          return;
-        }
+        // STRK-370: the Collections-only change that also reaches this silent branch
+        // (managed key) is merged at the TOP of the branch, ahead of the image pull —
+        // see the PR 1500 review note there for why the ordering is load-bearing.
         if (meta) syncSetLastPull(meta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");

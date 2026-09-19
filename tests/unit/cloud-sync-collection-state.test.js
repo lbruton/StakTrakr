@@ -265,3 +265,94 @@ describe("STRK-370 convergence — the merge the sync path relies on (STRK-154)"
     assert.equal(merged.collections["ase-type2"].slots["2024"].primary, null);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Commit ordering on the vault-first silent pull (PR 1500 review, P1).
+//
+// restoreImageVaultData() decides whether a remote pattern record is current by
+// calling isCurrentArtwork() against the LIVE collections store. On the
+// vault-first silent branch the image vault was restored BEFORE
+// _mergeCollectionState() ran, so a Collection the device had never seen was
+// still absent when its cover art was judged — the art was dropped as orphaned,
+// and the branch then recorded the image hash, so no later pull retried it.
+//
+// The fix is an ordering one, so the test is an ordering one: slice the real
+// branch and assert the merge is observed before the image pull.
+// ---------------------------------------------------------------------------
+
+describe("STRK-370 commit ordering — Collections merge precedes artwork restore", () => {
+  /** Slices the empty-diff "silently record pull" branch out of the real source. */
+  function sliceSilentBranch() {
+    return slice(
+      "if (_noItemChanges && _noSettingsChanges) {",
+      "// STRK-224 (Edge 3, D-3): capture the FULL prior lastPull"
+    );
+  }
+
+  test("_mergeCollectionState runs BEFORE _pullImageVaultIfChanged", async () => {
+    const order = [];
+    // Free identifier resolved via globalThis: the branch guards it with typeof,
+    // exactly as the STRK-234 re-entrancy harness relies on.
+    globalThis._previewPullMeta = { syncId: "order-1", timestamp: 1, rev: "r1" };
+    globalThis._mergeCollectionState = () => order.push("merge");
+
+    const factory = new Function(
+      "_noItemChanges",
+      "_noSettingsChanges",
+      "remoteMeta",
+      "remotePayload",
+      "token",
+      "password",
+      "SYNC_IMAGES_PATH",
+      "fetch",
+      "vaultDecryptAndRestoreImages",
+      "_pullImageVaultIfChanged",
+      "syncGetLastPull",
+      "syncSetLastPull",
+      "_pullAttachmentVault",
+      "_pullItemPriceHistoryVault",
+      "_currentInventoryUuids",
+      "_mergeItemPriceClearWatermark",
+      "logCloudSyncActivity",
+      "updateSyncStatusIndicator",
+      "debugLog",
+      "return (async function () {\n" + sliceSilentBranch() + "\n});"
+    );
+
+    try {
+      await factory(
+        true,
+        true,
+        { imageVault: { hash: "img-hash" } },
+        { data: {} },
+        "tok",
+        "pw",
+        "/images.stvault",
+        async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }),
+        async () => 1,
+        async () => {
+          order.push("images");
+          return { hash: "img-hash", failed: false };
+        },
+        () => null,
+        () => {},
+        async () => ({ hash: "attach" }),
+        async () => ({ hash: "iph" }),
+        () => [],
+        () => {},
+        () => {},
+        () => {},
+        () => {}
+      )();
+    } finally {
+      delete globalThis._previewPullMeta;
+      delete globalThis._mergeCollectionState;
+    }
+
+    assert.deepEqual(
+      order,
+      ["merge", "images"],
+      "Collections must merge before artwork is judged against the store"
+    );
+  });
+});

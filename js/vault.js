@@ -652,7 +652,6 @@ async function _vaultApplyRestoreSelection(
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof updateStorageStats === "function") updateStorageStats();
 
-    await _vaultRestoreCompanionImages(capturedImageFile, password);
     _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSettings, collectionsChanged);
   } catch (applyErr) {
     inventory = priorInventory;
@@ -668,6 +667,26 @@ async function _vaultApplyRestoreSelection(
     debugLog("[Vault] Restore apply failed:", applyErr);
     if (typeof showToast === "function") {
       showToast("Restore failed: " + (applyErr.message || "Unknown error"));
+    }
+    return;
+  }
+
+  // PR 1500 review (P1): the main restore is committed above, and photo import
+  // writes to IndexedDB record-by-record, throwing only after the loop. By then
+  // earlier blobs are already overwritten and the rollback above — which covers
+  // inventory, localStorage and Collections — cannot put them back. Reverting here
+  // would pair good old state with half-replaced photos, so a companion-image
+  // failure is reported as a warning on a successful restore instead.
+  try {
+    await _vaultRestoreCompanionImages(capturedImageFile, password);
+  } catch (imageErr) {
+    debugLog("[Vault] Companion photo restore incomplete:", imageErr);
+    if (typeof showToast === "function") {
+      showToast(
+        "Restore complete, but some photos could not be imported: " +
+          (imageErr.message || "Unknown error"),
+        "warning"
+      );
     }
   }
 }
@@ -837,8 +856,9 @@ function _base64ToBlob(b64, mimeType) {
  * haven't changed. Pattern images (STRK-185) travel in a separate
  * `patternRecords` array so payloads from older app versions (which lack it)
  * restore unchanged.
- * @returns {Promise<{payload: object, hash: string, imageCount: number, patternImageCount: number}|null>}
- *   null when there are no user-uploaded images and no pattern images.
+ * @returns {Promise<{payload: object, hash: string, imageCount: number, patternImageCount: number}|{enumerationFailed: true}|null>}
+ *   null when there are no user-uploaded images and no pattern images;
+ *   `{ enumerationFailed: true }` when the image cache could not be read at all.
  *   imageCount is the combined total (user + pattern).
  */
 async function collectAndHashImageVault() {
@@ -860,7 +880,16 @@ async function collectAndHashImageVault() {
       );
     });
   }
-  if (records.length === 0 && patternSource.length === 0) return null;
+  if (records.length === 0 && patternSource.length === 0) {
+    // PR 1500 review (P1): exportAll* return [] both when the store is genuinely
+    // empty AND when _ensureDb() could not open IndexedDB, so "no photos" and
+    // "could not read the photos" are indistinguishable here. Callers that act
+    // destructively on emptiness (the cloud-sync push deletes the remote image
+    // vault) must be able to tell them apart, so report the failure explicitly.
+    if (typeof imageCache.isAvailable === "function" && !imageCache.isAvailable())
+      return { enumerationFailed: true };
+    return null;
+  }
 
   var serialized = [];
   var failedCount = 0;

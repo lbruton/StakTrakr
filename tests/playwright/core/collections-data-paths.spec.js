@@ -1035,3 +1035,166 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
     }
   });
 });
+
+/**
+ * Captures every Dropbox RPC path the page calls, so a test can assert that a
+ * destructive call (files/delete_v2) was never issued. Registered AFTER
+ * routeCollectionDropbox so it wins the generic api.dropboxapi.com/2/** route.
+ */
+const captureDropboxRpc = async (page, calls) => {
+  await page.route("https://api.dropboxapi.com/2/**", async (route) => {
+    const request = route.request();
+    let body = {};
+    try {
+      body = JSON.parse(request.postData() || "{}");
+    } catch {
+      body = {};
+    }
+    calls.push({ url: request.url(), path: body.path || "" });
+    return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+};
+
+test.describe("core/collections-data-paths — commit ordering (PR 1500 review)", () => {
+  test("a transient image-cache failure never deletes the remote image vault", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("cloud_sync_enabled", "true"));
+    await seedCloudCredentials(page);
+    await seedAndGoto(page);
+
+    // This device has already pushed the current image vault, so lastImageHash is
+    // set — exactly the state in which the deletion branch is reachable.
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "cloud_sync_last_push",
+        JSON.stringify({ syncId: "push-1", timestamp: Date.now(), imageHash: "img-hash-1" })
+      )
+    );
+
+    // IndexedDB goes away mid-session. exportAll* return [] on a dead connection,
+    // which is byte-identical to "the user deleted every photo".
+    await page.evaluate(() => {
+      window.imageCache.isAvailable = () => false;
+      window.imageCache.exportAllUserImages = async () => [];
+      window.imageCache.exportAllPatternImages = async () => [];
+    });
+
+    const calls = [];
+    await routeCollectionDropbox(page, {});
+    await captureDropboxRpc(page, calls);
+    await page.evaluate(() => window.pushSyncVault());
+
+    expect(calls.some((call) => call.url.includes("files/delete_v2"))).toBe(false);
+  });
+
+  test("collectAndHashImageVault reports an unreadable cache instead of an empty one", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const unreadable = await page.evaluate(async () => {
+      window.imageCache.isAvailable = () => false;
+      window.imageCache.exportAllUserImages = async () => [];
+      window.imageCache.exportAllPatternImages = async () => [];
+      return window.collectAndHashImageVault();
+    });
+    expect(unreadable).toEqual({ enumerationFailed: true });
+
+    const genuinelyEmpty = await page.evaluate(async () => {
+      window.imageCache.isAvailable = () => true;
+      window.imageCache.exportAllUserImages = async () => [];
+      window.imageCache.exportAllPatternImages = async () => [];
+      return window.collectAndHashImageVault();
+    });
+    expect(genuinelyEmpty).toBeNull();
+  });
+
+  test("a partly-failed photo import warns instead of rolling the restore back", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const art = await page.evaluate(async () => {
+      const created = window.collectionsStore.createCustom({
+        name: "Partial photos",
+        slots: [{ label: "One" }],
+      });
+      const collectionId = created.collection.id;
+      const response = await fetch("/tests/playwright/helpers/test-obverse.png");
+      const file = new File([await response.blob()], "art.png", { type: "image/png" });
+      await window.collectionsPicker.saveImage(collectionId, null, file);
+      const imageData = await window.collectAndHashImageVault();
+      const password = "partial-photo-key";
+      const images = Array.from(await window.vaultEncryptImageVault(password, imageData.payload));
+
+      // Capture the vault with ONE modified item so the restore takes the DiffModal
+      // apply path (_vaultApplyRestoreSelection) rather than the no-change branch —
+      // the rollback under test lives only on the apply path.
+      const originalName = window.inventory[0].name;
+      window.inventory[0].name = "Renamed for the diff";
+      window.tryPersistInventory();
+      const payload = window.collectVaultData("full");
+      window.inventory[0].name = originalName;
+      window.tryPersistInventory();
+      return { collectionId, images, password, payload };
+    });
+    const vault = await encryptVaultPayload(page, art.payload, art.password);
+
+    const result = await page.evaluate(
+      async ({ images, password, bytes }) => {
+        // DiffModal.show is fire-and-forget from vaultRestoreWithPreview's view, so
+        // the apply — and the companion photo restore that follows it — outlives the
+        // outer await. Expose a promise the test can actually wait on.
+        let settleApply;
+        const applied = new Promise((resolve) => {
+          settleApply = resolve;
+        });
+        window.DiffModal.show = (options) => {
+          Promise.resolve(options.onApply([])).then(settleApply, settleApply);
+        };
+        // Every photo write fails, and restoreImageVaultData throws only after the
+        // loop — by which point the main restore has already committed and the
+        // overwritten IndexedDB blobs are unrecoverable.
+        window.imageCache.importUserImageRecord = async () => false;
+        window.imageCache.importPatternImageRecord = async () => false;
+
+        const toasts = [];
+        const realToast = window.showToast;
+        window.showToast = (message, ...rest) => {
+          toasts.push(String(message));
+          return realToast ? realToast(message, ...rest) : undefined;
+        };
+
+        window.setVaultPendingImageFile(new Uint8Array(images));
+        await window.vaultRestoreWithPreview(new Uint8Array(bytes), password);
+        await applied;
+        return { toasts };
+      },
+      { images: art.images, password: art.password, bytes: vault }
+    );
+
+    // The restore is reported as having succeeded — items, settings and Collections
+    // are committed and must not be reverted to pair with half-replaced photos...
+    expect(result.toasts.some((text) => /^Backup restored/.test(text))).toBe(true);
+    // ...and the photo shortfall is a warning on that success, not a failed restore.
+    expect(result.toasts.some((text) => /photos could not be imported/i.test(text))).toBe(true);
+    expect(result.toasts.some((text) => /^Restore failed/.test(text))).toBe(false);
+  });
+
+  test("a delete suppressed by recovery mode does not prune Collection membership", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+
+    // Recovery mode makes saveInventory() a no-op, so the item survives a reload.
+    // Pruning its membership anyway tombstones a link whose item still exists.
+    await page.evaluate(async () => {
+      window.setInventoryRecoveryActive(true);
+      const idx = window.inventory.findIndex((item) => item.uuid === "cdp-ase-2022");
+      document.getElementById("removeItemIdx").value = String(idx);
+      document.getElementById("removeItemDisposeCheck").checked = false;
+      await window.confirmRemoveItem();
+    });
+
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+  });
+});

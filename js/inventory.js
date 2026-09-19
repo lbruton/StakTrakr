@@ -1330,9 +1330,31 @@ const _disposeFullStack = async (idx, item, input) => {
  * @param {object} item - The inventory item being deleted.
  * @param {number} idx - Inventory index of the item being deleted.
  */
-const _deleteInventoryItem = (item, idx) => {
+const _deleteInventoryItem = async (item, idx) => {
   inventory.splice(idx, 1);
-  saveInventory();
+  // PR 1500 review (P2): the Collections prune at the end of this function writes a
+  // tombstone that a reload cannot undo, so it must never outrun the inventory
+  // write. saveInventory() is async AND a no-op while recovery mode is active, so
+  // the previous un-awaited call could tombstone the membership of an item that is
+  // still on disk after a reload — irreversible membership loss for a delete the
+  // user never actually got.
+  let persisted = !isInventoryRecoveryActive();
+  if (persisted) {
+    try {
+      await saveInventory();
+    } catch (saveErr) {
+      persisted = false;
+      debugLog(`Inventory write failed — delete not persisted: ${saveErr}`);
+    }
+  }
+  if (!persisted) {
+    inventory.splice(idx, 0, item);
+    closeModalById("removeItemModal");
+    if (typeof showToast === "function") {
+      showToast("Item could not be deleted — the inventory write did not complete.", "error");
+    }
+    return;
+  }
   closeModalById("removeItemModal");
   logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
 
@@ -1384,7 +1406,7 @@ const confirmRemoveItem = async () => {
       }
       await _disposeFullStack(idx, item, input);
     } else {
-      _deleteInventoryItem(item, idx);
+      await _deleteInventoryItem(item, idx);
     }
 
     renderTable();

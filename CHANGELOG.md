@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Backups**: ZIP, encrypted vault, standalone Collections, JSON, and CSV paths preserve Collection links; failed writes report incomplete imports or restores, and CSV memberships commit together (STRK-371, STRK-377)
 - **Reliability**: Legacy Item identity is persisted before Collection linking, stock collection art is available offline, and cost to complete refreshes when retail prices arrive (STRK-369, STRK-372)
 
+### Fixed — PR 1500 review: commit ordering on the data-safety paths
+
+- **Cloud Sync**: A transient image-cache failure no longer reads as "the user deleted every photo", so a push can no longer delete the remote image vault while IndexedDB is unavailable
+- **Cloud Sync**: A Collections-only pull merges the Collection before its cover and Slot artwork is judged, so art for a Collection this device has not seen yet is no longer discarded as orphaned and stranded behind a recorded image hash
+- **Backups**: A restore whose photos partly fail to import now reports the photo shortfall against a completed restore instead of reverting items, settings, and Collections that the already-overwritten photos could not be reverted with
+- **Inventory**: Deleting an Item waits for the inventory write to persist before pruning its Collection membership, so a suppressed or failed write can no longer tombstone the membership of an Item that survives a reload
+
 ---
 
 ## [3.36.24] - 2026-09-11
