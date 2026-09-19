@@ -148,6 +148,40 @@ _Avoid_: copy, unit, duplicate
 The stable string `computeItemKey()` derives to match Items across import, cloud sync, and changelog; it returns the **highest available tier**: `uuid` → `serial` → `numistaId|year|grade|certNumber` (the instance tier — year is `item.year`; grade/cert trimmed + lowercased, empty→`""`) → `name|date`. `computeItemKey` is authoritative in `diff-engine.js`; `changeLog.js` and `diff-modal.js` delegate to it. `enrichItemIdentities` does **not** re-run the full ladder — it backfills the stable `uuid` onto incoming rows (matching serial → instance-key FIFO bucket → name|date) and shares only the `_instanceKey` normalization. That UUID backfill is what keeps an Item's identity stable after it later gains a `numistaId`.
 _Avoid_: item key, dedup key, hash
 
+## Collections
+
+**Collection**:
+A named checklist over the inventory — a digital coin album (STRK-254). Holds Slots and the links from each Slot to the Items that fill it. Links are stored on the Collection in the `collectionState` store, never on the Item. Either backed by a Series Template or Custom.
+_Avoid_: set, album (as a code term), checklist (as a code term), folder
+
+**Slot**:
+One position in a Collection (e.g. the 2024 coin of a Date Run). Holds one **primary** Item plus up to `MAX_SLOT_SPARES` **Spares**. Only an active primary counts toward completion. Identified by a Slot id that is semantic and stable (`2024`, `2021-t2`, `1881-cc`), never random, so links survive export → import.
+_Avoid_: entry, hole, position, cell
+
+**Spare**:
+An additional Item linked to a Slot behind its primary — a duplicate the user also owns. The first Spare is promoted automatically when the primary is unlinked or deleted.
+_Avoid_: duplicate, extra, backup
+
+**Series Template**:
+First-party, versioned catalog data describing a prebuilt Collection: its Slots, mintages, specifications, stock images and sources. Lives in-repo at `data/collections/<slug>/collection.json` and boots from the generated `data/collections-bundle.js`. Static — user state never writes to it.
+_Avoid_: preset, catalog entry, collection definition (that is the Custom Collection's term)
+
+**Date Run**:
+A Series Template whose Slots are the successive issue years of one coin series (e.g. American Silver Eagle Type 2, 2021 → present). A year with two designs splits into two Slots (`2021-t1`, `2021-t2`).
+_Avoid_: year set, series run, date set
+
+**Custom Collection**:
+A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (metal, description, Slot list).
+_Avoid_: user collection, custom list, custom set
+
+**Tombstone**:
+A Slot link emptied to `{ primary: null }`, or a Collection stamped `deletedAt`, kept in storage instead of being deleted. A missing key cannot say "unlinked", so without Tombstones an unlink could never win a cross-device merge against an older link.
+_Avoid_: deleted slot, empty link
+
+**Cost to Complete**:
+The missing Slots of a Collection priced at the best current Vendor price from the retail feed. Always presented as a **floor estimate** — key dates carry numismatic premiums above the current-year price.
+_Avoid_: completion cost, price to finish, value to complete
+
 ## Cloud & Storage
 
 **Cloud Sync**:
@@ -175,6 +209,10 @@ _Avoid_: feature toggle, experiment, beta flag
 - The **Dual Config Store** separates **Spot Provider** credentials from **Catalog Provider** credentials.
 - The **Change Log** records every field-level mutation on every **Item**.
 - A **Numista ID** identifies a catalog type (spanning years); an **Item Instance** is `Numista ID + year + grade + certNumber`. The **Item Identity Key** encodes that instance identity in its tertiary tier.
+- A **Collection** has many **Slots**; a **Slot** links one primary **Item** and up to three **Spares**, by Item UUID. The links belong to the Collection — an Item carries no Collection field.
+- An **Item** may belong to many **Collections**, but fills at most one **Slot** within any single Collection.
+- A **Disposition** never rewrites a Slot link: a disposed Item simply stops counting, and undoing the Disposition restores the Slot. Hard-deleting an Item prunes it from every Slot.
+- A **Series Template** defines the Slots of a template-backed **Collection**; a **Custom Collection** defines its own. Name matching only ever **suggests** Items for a Slot — a link is always an explicit user action.
 
 ## Flagged Ambiguities
 
@@ -182,4 +220,6 @@ _Avoid_: feature toggle, experiment, beta flag
 - "item" vs "lot" vs "stack" — resolved: use **Item** for the data record. "Stack" is colloquial for a user's collection; never use as a code term for a single record.
 - "disposal" vs "disposition" — resolved: use **Disposition**. "Disposal" implies waste; disposition tracks realized value.
 - `metalApiConfig` vs `catalog_api_config` — resolved: these are the **Dual Config Store**. Always use the correct accessor pair.
+- "collection" (colloquial) vs **Collection** — resolved: **Collection** is the STRK-254 checklist entity. For everything a user owns, say "inventory" or "stack" in prose, never "collection". The legacy `item.collectable` boolean is unrelated: a vestige of a removed retail-vs-melt valuation toggle with no producer or consumer today. Do not build on it and do not read it as Collection membership.
+- "slot id" vs "item UUID" — resolved: a **Slot** id names a position and is human-meaningful and stable; an Item UUID names a physical holding and is random. A link is always Slot id → Item UUID, never the reverse.
 - `numistaId` as type vs instance — resolved: **Numista ID** is a catalog TYPE; physical-copy identity is the **Item Instance** (adds grade + certNumber). Keying dedup on Numista ID alone wrongly merges distinct graded instances (STRK-167).

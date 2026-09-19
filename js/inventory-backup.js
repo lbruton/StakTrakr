@@ -42,6 +42,8 @@
     "Disposition Amount",
     "Realized Gain/Loss",
     "Attachments",
+    // STRK-371: LAST on purpose, mirroring buildStandardHeaders in js/csv-export.js.
+    "Collections",
   ];
 
   // ---------------------------------------------------------------------------
@@ -215,6 +217,21 @@
         tags: itemTags,
       };
       zip.file("item_tags.json", JSON.stringify(itemTagsData, null, 2));
+    }
+
+    // Collections (STRK-368): definitions + slot → Item UUID links. Off-item data, so like
+    // item tags it needs its own file. Written only when a collection exists (tombstones
+    // included — they are what lets a restore honour an unlink).
+    if (window.collectionsStore) {
+      const collectionState = window.collectionsStore.getState();
+      if (Object.keys(collectionState.collections).length > 0) {
+        const collectionStateData = {
+          version: APP_VERSION,
+          exportDate: new Date().toISOString(),
+          state: collectionState,
+        };
+        zip.file("collection_state.json", JSON.stringify(collectionStateData, null, 2));
+      }
     }
   };
 
@@ -411,10 +428,24 @@
     if (allPatternImages.length === 0) return;
 
     const patternImgFolder = zip.folder("pattern_images");
+    const manifest = [];
     for (const rec of allPatternImages) {
+      if (
+        window.collectionsCore &&
+        window.collectionsStore &&
+        !window.collectionsCore.isCurrentArtwork(
+          window.collectionsStore.getState(),
+          rec.ruleId,
+          rec.cachedAt,
+          rec.digest
+        )
+      )
+        continue;
       if (rec.obverse) patternImgFolder.file(`${rec.ruleId}_obverse.jpg`, rec.obverse);
       if (rec.reverse) patternImgFolder.file(`${rec.ruleId}_reverse.jpg`, rec.reverse);
+      manifest.push({ ruleId: rec.ruleId, cachedAt: rec.cachedAt, digest: rec.digest });
     }
+    zip.file("pattern_image_manifest.json", JSON.stringify(manifest));
   };
 
   /**
@@ -472,6 +503,7 @@
         ...buildCsvValueCells(item),
         ..._backupCsvIdentityCells(item),
         ..._backupCsvDispositionCells(item),
+        window.collectionsIO ? window.collectionsIO.membershipCell(item.uuid) : "",
       ]);
       const csvContent = Papa.unparse([BACKUP_CSV_HEADERS, ...csvRows]);
       zip.file("inventory_export.csv", csvContent);
@@ -661,7 +693,31 @@
         debugWarn("restoreBackupZip: retail_prices.json parse error", e);
       }
     }
+
+    // Collections (STRK-368) — absent from backups made before the module existed.
+    const collectionStateStr = await zip.file("collection_state.json")?.async("string");
+    if (collectionStateStr) {
+      try {
+        ancillary.collectionState = JSON.parse(collectionStateStr).state || null;
+      } catch (e) {
+        debugWarn("restoreBackupZip: collection_state.json parse error", e);
+      }
+    }
     return ancillary;
+  };
+
+  /**
+   * Restores Collections from a backup by MERGING into local state (STRK-368). The merge is
+   * commutative, so links made after the backup was taken survive. Runs after the DiffModal
+   * has applied the inventory, because slot links resolve against item UUIDs.
+   *
+   * @param {Object} ancillary - Parsed ancillary payload.
+   * @returns {void}
+   */
+  const _restoreCollectionState = (ancillary) => {
+    if (!ancillary.collectionState || !window.collectionsStore) return;
+    const result = window.collectionsStore.mergeIn(ancillary.collectionState);
+    if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
   };
 
   /**
@@ -917,6 +973,7 @@
         _restoreNumistaRules(settingsObj);
         _restoreItemPriceHistory(ancillary);
         _restoreRetailPrices(ancillary);
+        _restoreCollectionState(ancillary);
         await _restoreCachedMedia(zip);
         await _restoreAttachments(zip);
         _finalizeRestore();
@@ -958,9 +1015,12 @@
             })
             .catch(function (ancillaryErr) {
               debugWarn("restoreBackupZip: ancillary data restore partial failure", ancillaryErr);
+              const collectionFailure = String(ancillaryErr.message || "").includes("Collections");
               showToast(
-                "ZIP restored with warnings — some ancillary data may not have been applied",
-                "warning"
+                collectionFailure
+                  ? "ZIP restore incomplete — Collections could not be saved. Free storage and retry."
+                  : "ZIP restored with warnings — some ancillary data may not have been applied",
+                collectionFailure ? "error" : "warning"
               );
             });
         }
@@ -1191,12 +1251,31 @@ Store this archive in a secure location for data protection.
     if (!patternImgFolder) return;
 
     const patternImageMap = await _collectSidedImagesFromFolder(patternImgFolder);
+    const manifestFile = zip.file("pattern_image_manifest.json");
+    const manifest = manifestFile ? await manifestFile.async("string").then(JSON.parse) : [];
+    const stamps = new Map(manifest.map((entry) => [entry.ruleId, entry]));
     for (const [ruleId, sides] of patternImageMap) {
+      const stamp = stamps.get(ruleId) || {};
+      const cachedAt = stamp.cachedAt || 0;
+      if (
+        window.collectionsCore &&
+        window.collectionsStore &&
+        !window.collectionsCore.isCurrentArtwork(
+          window.collectionsStore.getState(),
+          ruleId,
+          cachedAt,
+          stamp.digest
+        )
+      )
+        continue;
+      const existing = await imageCache.getPatternImage(ruleId);
+      if (existing && Number(existing.cachedAt) > Number(cachedAt)) continue;
       await imageCache.importPatternImageRecord({
         ruleId,
         obverse: sides.obverse || null,
         reverse: sides.reverse || null,
-        cachedAt: Date.now(),
+        cachedAt: cachedAt || Date.now(),
+        digest: stamp.digest,
         size: (sides.obverse?.size || 0) + (sides.reverse?.size || 0),
       });
     }

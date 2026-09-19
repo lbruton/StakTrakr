@@ -40,6 +40,7 @@ var _syncRetryDelay = 2000;
 
 /** @type {Function} Debounced version of pushSyncVault */
 var scheduleSyncPush = null;
+var _imagePushRetryTimer = null;
 
 /** @type {string} Currently active sync provider */
 var _syncProvider = "dropbox";
@@ -828,6 +829,10 @@ async function syncRestoreOverrideBackup() {
     typeof showAppConfirm === "function" ? await showAppConfirm(msg, "Restore Snapshot") : false;
   if (!confirmed) return;
 
+  var priorScope = Object.create(null);
+  for (var priorIndex = 0; priorIndex < SYNC_SCOPE_KEYS.length; priorIndex++) {
+    priorScope[SYNC_SCOPE_KEYS[priorIndex]] = localStorage.getItem(SYNC_SCOPE_KEYS[priorIndex]);
+  }
   try {
     var bkeys = Object.keys(backup.data);
     // Guard: only clear scope keys when the snapshot is non-empty.
@@ -860,6 +865,9 @@ async function syncRestoreOverrideBackup() {
     if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
+    // STRK-370: collectionState is a scope key, so the snapshot just rewrote it behind
+    // the store's back — re-hydrate or the next link/unlink saves stale state over it.
+    if (window.collectionsStore) window.collectionsStore.reload();
     if (typeof updateSummary === "function") updateSummary();
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
@@ -869,6 +877,23 @@ async function syncRestoreOverrideBackup() {
       showCloudToast("Local snapshot restored successfully.");
     if (typeof renderSyncHistorySection === "function") renderSyncHistorySection();
   } catch (err) {
+    for (var clearIndex = 0; clearIndex < SYNC_SCOPE_KEYS.length; clearIndex++) {
+      try {
+        localStorage.removeItem(SYNC_SCOPE_KEYS[clearIndex]);
+      } catch (clearErr) {
+        console.warn("[CloudSync] Snapshot rollback removal failed:", clearErr);
+      }
+    }
+    for (var restoreIndex = 0; restoreIndex < SYNC_SCOPE_KEYS.length; restoreIndex++) {
+      var priorKey = SYNC_SCOPE_KEYS[restoreIndex];
+      if (priorScope[priorKey] === null) continue;
+      try {
+        localStorage.setItem(priorKey, priorScope[priorKey]);
+      } catch (rollbackErr) {
+        console.warn("[CloudSync] Snapshot rollback failed for", priorKey, rollbackErr);
+      }
+    }
+    if (window.collectionsStore) window.collectionsStore.reload();
     debugLog("[CloudSync] Restore failed:", err);
     if (typeof showAppAlert === "function")
       await showAppAlert("Restore failed: " + String(err.message || err), "Sync History");
@@ -2116,7 +2141,21 @@ async function pushSyncVault() {
         var imgData = await collectAndHashImageVault();
         var lastPush = syncGetLastPush();
         var lastImageHash = lastPush ? lastPush.imageHash : null;
-        if (imgData) {
+        // PR 1500 review (P1): a dead IndexedDB connection reports zero photos,
+        // which is indistinguishable from the user having deleted them all. Never
+        // propagate a deletion on that signal — carry the remote reference forward
+        // and let a later push, on a healthy cache, decide.
+        var _imageReadFailed = !!(imgData && imgData.enumerationFailed);
+        if (_imageReadFailed) {
+          imageVaultMeta = _remoteImageVaultMeta || null;
+          _imageVaultPreserved = !!_remoteImageVaultMeta;
+          debugLog("[CloudSync] Image cache unreadable — preserving remote image vault reference");
+          logCloudSyncActivity(
+            "image_vault_push",
+            "skipped",
+            "Image cache unreadable — remote vault left untouched"
+          );
+        } else if (imgData) {
           // Upload if hash changed OR remote metadata is missing imageVault
           // (the file may have been deleted by another device's stale push).
           var _remoteFileMissing = !_remoteImageVaultMeta;
@@ -2167,11 +2206,13 @@ async function pushSyncVault() {
               "Hash unchanged — " + imgData.imageCount + " photos"
             );
           }
-        } else if (_remoteImageVaultMeta) {
-          // STAK-497: No local images but remote has an image vault from
-          // another device. Preserve the reference so pulling devices can
-          // still find it. Do NOT delete, and do NOT store imageHash in
-          // local pushMeta (to avoid triggering the deletion path next push).
+        } else if (
+          _remoteImageVaultMeta &&
+          (!lastImageHash || lastImageHash !== _remoteImageVaultMeta.hash)
+        ) {
+          // A device that has never held these photos must not delete another
+          // device's vault. A changed remote hash likewise belongs to a newer
+          // upload that this device has not downloaded yet.
           imageVaultMeta = _remoteImageVaultMeta;
           _imageVaultPreserved = true;
           debugLog(
@@ -2187,30 +2228,28 @@ async function pushSyncVault() {
               " photos)"
           );
         } else if (lastImageHash) {
-          // STAK-426: This device previously uploaded photos and they were
-          // all deleted locally. Propagate deletion to remote.
-          try {
-            var delArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-            var delResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
-              method: "POST",
-              headers: {
-                Authorization: "Bearer " + token,
-                "Content-Type": "application/json",
-              },
-              body: delArg,
-            });
-            if (delResp.ok || delResp.status === 409) {
-              debugLog("[CloudSync] Remote image vault deleted (all local photos removed)");
-              logCloudSyncActivity(
-                "image_vault_push",
-                "success",
-                "All local photos removed — remote vault deleted"
-              );
-            } else {
-              debugLog("[CloudSync] Image vault deletion returned status:", delResp.status);
-            }
-          } catch (delErr) {
-            debugLog("[CloudSync] Image vault deletion failed (non-blocking):", delErr.message);
+          // This device held the current remote image vault and all of its
+          // images are now gone locally. Propagate the removal to Dropbox.
+          // Collection artwork tombstones also stop an older vault from
+          // repainting images on a device that has not pulled this deletion.
+          var delArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
+          var delResp = await fetch("https://api.dropboxapi.com/2/files/delete_v2", {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + token,
+              "Content-Type": "application/json",
+            },
+            body: delArg,
+          });
+          if (delResp.ok || delResp.status === 409) {
+            debugLog("[CloudSync] Remote image vault deleted (all local photos removed)");
+            logCloudSyncActivity(
+              "image_vault_push",
+              "success",
+              "All local photos removed — remote vault deleted"
+            );
+          } else {
+            throw new Error("Image vault deletion failed: " + delResp.status);
           }
           // imageVaultMeta stays null → imageHash cleared in pushMeta
         } else {
@@ -2218,10 +2257,12 @@ async function pushSyncVault() {
         }
       }
     } catch (imgErr) {
-      // Image vault failure is non-fatal — inventory sync continues
+      // The metadata must never advertise artwork before its bytes arrive.
       var imgErrMsg = String(imgErr.message || imgErr);
-      console.warn("[CloudSync] Image vault push error (non-fatal):", imgErrMsg);
+      console.warn("[CloudSync] Image vault push error:", imgErrMsg);
       logCloudSyncActivity("image_vault_push", "fail", imgErrMsg);
+      imgErr.imageVaultRetry = true;
+      throw imgErr;
     }
 
     // Upload attachment vault if user attachments exist and have changed (STRK-45, STRK-65)
@@ -2584,10 +2625,9 @@ async function pushSyncVault() {
 
     // Persist push state
     var pushMeta = { syncId: syncId, timestamp: now, rev: rev, itemCount: itemCount };
-    // Only store imageHash when this device actually uploaded images (not when
-    // preserving another device's reference). Storing a preserved hash would
-    // cause the next push to enter the "all local photos deleted" path and
-    // erroneously delete the remote image vault file.
+    // Keep the hash when this device uploaded images or must retry a failed
+    // image write. A hash merely preserved from another device is omitted;
+    // otherwise the next empty push could delete that device's image vault.
     if (imageVaultMeta && !_imageVaultPreserved) pushMeta.imageHash = imageVaultMeta.hash;
     if (attachmentVaultMeta && !_attachmentVaultPreserved)
       pushMeta.attachmentHash = attachmentVaultMeta.hash;
@@ -2629,6 +2669,12 @@ async function pushSyncVault() {
     console.error("[CloudSync] Push failed:", errMsg, err);
     logCloudSyncActivity("auto_sync_push", "fail", errMsg);
     updateSyncStatusIndicator("error", errMsg.slice(0, 60));
+    if (err.imageVaultRetry && !_imagePushRetryTimer) {
+      _imagePushRetryTimer = setTimeout(function () {
+        _imagePushRetryTimer = null;
+        if (syncIsEnabled()) pushSyncVault();
+      }, 30000);
+    }
   } finally {
     _syncPushInFlight = false;
     _syncPasswordJustChanged = false; // Clear after push attempt (success or fail)
@@ -3547,7 +3593,14 @@ function _itemPriceClearKey() {
 // Keys that are NOT blindly overwritten on pull — used at every settings-apply
 // skip site (tag stores + the item-price clear watermark).
 function _isManagedSyncKey(key) {
-  return _isTagSyncKey(key) || key === _itemPriceClearKey();
+  return _isTagSyncKey(key) || key === _itemPriceClearKey() || key === _collectionStateKey();
+}
+
+// STRK-370: the Collections store key. A MANAGED sync key like the tag stores and the
+// clear watermark — a blind overwrite would drop a Slot filled on another device, so it
+// is excluded from every settings diff/apply site and reconciled by _mergeCollectionState.
+function _collectionStateKey() {
+  return typeof COLLECTION_STATE_KEY !== "undefined" ? COLLECTION_STATE_KEY : "collectionState";
 }
 
 function _parseTagStore(rawValue, fallback) {
@@ -3603,6 +3656,84 @@ function _hasItemPriceClearChange(remoteSettings) {
   if (remoteTs <= 0) return false;
   var localTs = typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
   return remoteTs > localTs;
+}
+
+/**
+ * STRK-370: true when the remote Collections state would CONTRIBUTE something this device
+ * lacks — merge(local, remote) !== local, compared on logical content (STRK-154:
+ * decompressed, key-order independent). Deliberately NOT "local !== remote": an older
+ * remote that adds nothing must not force the manifest apply path, or a device that is
+ * merely AHEAD would re-apply on every poll. Mirrors _hasItemPriceClearChange — the key is
+ * excluded from the per-key settings diff (_isManagedSyncKey), so without this a
+ * Collections-only remote change is swallowed by the manifest "no changes" fast path.
+ * @param {object} remoteSettings - Remote settings (raw localStorage strings by key)
+ * @returns {boolean} Whether an apply is needed
+ */
+function _hasCollectionStateChange(remoteSettings) {
+  var key = _collectionStateKey();
+  if (!remoteSettings || remoteSettings[key] === undefined || remoteSettings[key] === null) {
+    return false;
+  }
+  var core = typeof window !== "undefined" ? window.collectionsCore : null;
+  if (!core || typeof core.mergeStates !== "function") return true;
+  var localRaw = typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+  var local = _parseTagStore(localRaw, {});
+  var remote = _parseTagStore(remoteSettings[key], {});
+  // JSON round-trip: the core's maps are null-prototype; canonicalize plain copies.
+  var before = JSON.parse(JSON.stringify(core.normalizeState(local)));
+  var merged = JSON.parse(JSON.stringify(core.mergeStates(local, remote)));
+  return _stableCanonicalString(before) !== _stableCanonicalString(merged);
+}
+
+/**
+ * STRK-370: reconcile the remote Collections state into local through the commutative
+ * core merge (collectionsStore.mergeIn), never a blind assign. THROWS when the write
+ * fails so every caller rolls back / holds lastPull and the next poll retries — the store
+ * itself has already restored its in-memory state (STRK-377). Idempotent, so the deliberate
+ * double coverage across apply paths is safe. Runs only on apply paths, never on a
+ * cancelled preview.
+ * @param {object} remoteSettings - Remote settings (raw localStorage strings by key)
+ * @returns {boolean} Whether local Collections changed
+ */
+function _mergeCollectionState(remoteSettings) {
+  var key = _collectionStateKey();
+  if (!remoteSettings || remoteSettings[key] === undefined || remoteSettings[key] === null) {
+    return false;
+  }
+  var store = typeof window !== "undefined" ? window.collectionsStore : null;
+  if (!store || typeof store.mergeIn !== "function") {
+    throw new Error("collectionState store unavailable");
+  }
+  var result = store.mergeIn(_parseTagStore(remoteSettings[key], {}));
+  if (!result || result.ok === false) {
+    throw new Error("collectionState merge " + ((result && result.reason) || "failed"));
+  }
+  return Boolean(result.changed);
+}
+
+/**
+ * STRK-370: capture the raw Collections value before an apply, for rollback.
+ * @returns {{raw: string|null}} Snapshot (raw is null when the key was absent)
+ */
+function _snapshotCollectionState() {
+  return {
+    raw: typeof localStorage !== "undefined" ? localStorage.getItem(_collectionStateKey()) : null,
+  };
+}
+
+/**
+ * STRK-370: restore a _snapshotCollectionState() snapshot and re-hydrate the in-memory
+ * store, so a rolled-back pull leaves Collections exactly as they were. Best-effort,
+ * like _restoreRawStorageValues.
+ * @param {{raw: string|null}|null} snapshot - Prior value, or null when none was taken
+ * @returns {void}
+ */
+function _restoreCollectionState(snapshot) {
+  if (!snapshot) return;
+  var prior = {};
+  prior[_collectionStateKey()] = snapshot.raw;
+  _restoreRawStorageValues(prior);
+  if (typeof window !== "undefined" && window.collectionsStore) window.collectionsStore.reload();
 }
 
 function _restoreRawStorageValues(priorValues) {
@@ -3849,6 +3980,41 @@ function _mergeItemPriceClearWatermark(remoteSettings) {
   return remoteTs;
 }
 
+/** Pull the encrypted image companion once and report whether its hash is durable. */
+async function _pullImageVaultIfChanged(remoteMeta, token, password, priorHash, source) {
+  if (!remoteMeta || !remoteMeta.imageVault) return { hash: priorHash || null, failed: false };
+  if (remoteMeta.imageVault.hash === priorHash) return { hash: priorHash, failed: false };
+  if (typeof vaultDecryptAndRestoreImages !== "function") return { hash: null, failed: true };
+  try {
+    var response = await fetch("https://content.dropboxapi.com/2/files/download", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Dropbox-API-Arg": JSON.stringify({ path: SYNC_IMAGES_PATH }),
+      },
+    });
+    if (!response.ok) throw new Error("Image vault download failed: HTTP " + response.status);
+    var count = await vaultDecryptAndRestoreImages(
+      new Uint8Array(await response.arrayBuffer()),
+      password
+    );
+    logCloudSyncActivity(
+      "image_vault_pull",
+      "success",
+      count + " photos restored (" + source + ")"
+    );
+    return { hash: remoteMeta.imageVault.hash, failed: false };
+  } catch (error) {
+    console.warn("[CloudSync] " + source + " image vault pull failed:", error);
+    logCloudSyncActivity(
+      "image_vault_pull",
+      "fail",
+      source + ": " + String(error.message || error)
+    );
+    return { hash: null, failed: true };
+  }
+}
+
 /**
  * Consolidated post-apply sequence for sync and vault restore paths.
  * Handles backup, inventory assignment, settings application, save/render,
@@ -3867,6 +4033,7 @@ function _mergeItemPriceClearWatermark(remoteSettings) {
  * @param {boolean} [options.showToast=true] - Whether to show the summary toast
  * @param {boolean} [options.broadcastPull=true] - Whether to broadcast pull-complete to other tabs
  * @param {object} [options.remoteTagData] - Raw remote tag stores from sync payload
+ * @returns {boolean} Whether the pull was applied and finalized
  */
 function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remoteMeta, options) {
   var acceptanceCutoff = Date.now();
@@ -3916,7 +4083,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         updateSyncStatusIndicator("error", "rollback");
       }
       if (typeof refreshSyncUI === "function") refreshSyncUI();
-      return;
+      return false;
     }
   }
 
@@ -3946,7 +4113,37 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
         updateSyncStatusIndicator("error", "rollback");
       }
       if (typeof refreshSyncUI === "function") refreshSyncUI();
-      return;
+      return false;
+    }
+  }
+
+  // STRK-370: reconcile Collections through the commutative merge (excluded from the
+  // generic settings application below). The prior raw value is captured so a failure
+  // here OR in the settings loop restores it — the atomic rollback surface now covers
+  // inventory + tags + Collections. A failed write rolls back and returns WITHOUT
+  // recording the pull, so the next poll retries (HOLD).
+  var collectionPrior = null;
+  if (opts.remoteRawSettings) {
+    collectionPrior = _snapshotCollectionState();
+    try {
+      _mergeCollectionState(opts.remoteRawSettings);
+    } catch (collErr) {
+      inventory = _prevInventory;
+      if (tagPriorValues) _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
+      _restoreCollectionState(collectionPrior);
+      console.warn("[CloudSync] Collections merge failed — rolling back pull:", collErr);
+      logCloudSyncActivity(
+        "cloud_sync_pull",
+        "partial",
+        { failedCount: 1, failedKeys: [_collectionStateKey()] },
+        null
+      );
+      if (typeof updateSyncStatusIndicator === "function") {
+        updateSyncStatusIndicator("error", "rollback");
+      }
+      if (typeof refreshSyncUI === "function") refreshSyncUI();
+      return false;
     }
   }
 
@@ -4010,6 +4207,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
       inventory = _prevInventory;
       _restoreRawStorageValues(tagPriorValues);
       if (typeof loadItemTags === "function") loadItemTags();
+      _restoreCollectionState(collectionPrior);
       for (var r = 0; r < _appliedKeys.length; r++) {
         try {
           var prior = _priorValues[_appliedKeys[r]];
@@ -4041,12 +4239,36 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
       if (typeof refreshSyncUI === "function") {
         refreshSyncUI();
       }
-      return;
+      return false;
     }
   }
 
   // 4. Save & render
-  if (typeof saveInventory === "function") saveInventory();
+  // saveInventory is asynchronous and swallows quota errors. A pull must only
+  // advance its sync ID after the Item write has actually succeeded.
+  var inventorySaved =
+    typeof tryPersistInventory === "function"
+      ? tryPersistInventory()
+      : typeof saveInventory === "function" && saveInventory() !== false;
+  if (!inventorySaved) {
+    inventory = _prevInventory;
+    if (tagPriorValues) _restoreRawStorageValues(tagPriorValues);
+    if (typeof loadItemTags === "function") loadItemTags();
+    _restoreCollectionState(collectionPrior);
+    if (typeof _priorValues !== "undefined") _restoreRawStorageValues(_priorValues);
+    if (typeof scheduleSyncPush === "function" && scheduleSyncPush.cancel)
+      scheduleSyncPush.cancel();
+    logCloudSyncActivity(
+      "cloud_sync_pull",
+      "partial",
+      { failedCount: 1, failedKeys: ["metalInventory"] },
+      null
+    );
+    if (typeof updateSyncStatusIndicator === "function")
+      updateSyncStatusIndicator("error", "rollback");
+    if (typeof refreshSyncUI === "function") refreshSyncUI();
+    return false;
+  }
   if (typeof window.neutralizeSupersededChangelog === "function") {
     window.neutralizeSupersededChangelog(selectedChanges, acceptanceCutoff);
   }
@@ -4120,6 +4342,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
   }
 
   debugLog("[CloudSync] _applyAndFinalize complete (source=" + source + ")");
+  return true;
 }
 
 /**
@@ -4169,6 +4392,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
                 updateSyncStatusIndicator("idle", "just now");
                 if (typeof refreshSyncUI === "function") refreshSyncUI();
                 debugLog("[CloudSync] Full overwrite restore completed via fallback");
+                return true;
               })
               .catch(function (restoreErr) {
                 debugLog("[CloudSync] Full overwrite restore failed:", restoreErr);
@@ -4176,6 +4400,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
                 if (typeof showCloudToast === "function") {
                   showCloudToast("Restore failed: " + (restoreErr.message || "Unknown error"));
                 }
+                return false;
               });
           } else {
             // Apply only the user-selected changes via DiffEngine
@@ -4206,7 +4431,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
             }
 
             // Delegate everything to _applyAndFinalize (backup, save, render, toast, status, broadcast)
-            _applyAndFinalize(newInv, selectedChanges, settingsChanges, remoteMeta, {
+            var applied = _applyAndFinalize(newInv, selectedChanges, settingsChanges, remoteMeta, {
               source: "sync",
               remoteTagData:
                 remotePayload && remotePayload.data
@@ -4214,21 +4439,22 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
                   : null,
               remoteRawSettings: remotePayload && remotePayload.data ? remotePayload.data : null,
             });
-            debugLog("[CloudSync] Restore preview: applied selected changes via DiffEngine");
-            p = Promise.resolve();
+            if (applied) {
+              debugLog("[CloudSync] Restore preview: applied selected changes via DiffEngine");
+            }
+            p = Promise.resolve(applied);
           }
         } catch (applyErr) {
           debugLog("[CloudSync] Restore preview: apply failed:", applyErr);
           updateSyncStatusIndicator("error", "Restore failed");
           if (typeof showCloudToast === "function")
             showCloudToast("Restore failed: " + applyErr.message);
-          p = Promise.resolve();
+          p = Promise.resolve(false);
         }
-        // Resolve `true` so callers know the user applied changes (STRK-147).
-        p.then(function () {
-          resolve(true);
+        p.then(function (applied) {
+          resolve(applied === true);
         }).catch(function () {
-          resolve(true);
+          resolve(false);
         });
       },
       onCancel: function () {
@@ -4430,58 +4656,40 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
           // can restore it (the manifest-first apply records syncId before the
           // strict companion write).
           var _dvPriorLastPull = syncGetLastPull();
-          _applyAndFinalize(newInv, selectedChanges, _dvSettingsChanges, remoteMeta, {
-            source: "sync",
-            remoteTagData: _extractRemoteTagData(payload.data),
-            remoteRawSettings: payload.data,
-          });
+          var _dvApplied = _applyAndFinalize(
+            newInv,
+            selectedChanges,
+            _dvSettingsChanges,
+            remoteMeta,
+            {
+              source: "sync",
+              remoteTagData: _extractRemoteTagData(payload.data),
+              remoteRawSettings: payload.data,
+            }
+          );
+          if (!_dvApplied) return { companionFailed: true };
           debugLog(
             "[CloudSync] Deferred vault restore complete (selective apply, settings:",
             _dvSettingsChanges ? _dvSettingsChanges.length + " changes" : "none",
             ")"
           );
 
-          // STAK-426: Restore image vault on manifest-first path (previously skipped)
-          try {
-            if (
-              remoteMeta &&
-              remoteMeta.imageVault &&
-              typeof vaultDecryptAndRestoreImages === "function"
-            ) {
-              var _dvLastPull = syncGetLastPull();
-              var _dvLocalImageHash = _dvLastPull ? _dvLastPull.imageHash : null;
-              if (remoteMeta.imageVault.hash !== _dvLocalImageHash) {
-                debugLog(
-                  "[CloudSync] Manifest-path: image vault changed — pulling",
-                  remoteMeta.imageVault.imageCount,
-                  "photos"
-                );
-                var _dvImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-                var _dvImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-                  method: "POST",
-                  headers: {
-                    Authorization: "Bearer " + token,
-                    "Dropbox-API-Arg": _dvImgArg,
-                  },
-                });
-                if (_dvImgResp.ok) {
-                  var _dvImgBytes = new Uint8Array(await _dvImgResp.arrayBuffer());
-                  var _dvRestoredCount = await vaultDecryptAndRestoreImages(_dvImgBytes, password);
-                  debugLog("[CloudSync] Manifest-path: image vault restored");
-                  logCloudSyncActivity(
-                    "image_vault_pull",
-                    "success",
-                    (_dvRestoredCount || "?") + " photos restored (manifest path)"
-                  );
-                }
-              }
-            }
-          } catch (_dvImgErr) {
-            debugLog(
-              "[CloudSync] Manifest-path image restore failed (non-blocking):",
-              _dvImgErr.message
-            );
-            logCloudSyncActivity("image_vault_pull", "fail", "Manifest path: " + _dvImgErr.message);
+          var _dvImage = await _pullImageVaultIfChanged(
+            remoteMeta,
+            token,
+            password,
+            _dvPriorLastPull && _dvPriorLastPull.imageHash,
+            "manifest path"
+          );
+          if (_dvImage.failed) {
+            syncSetLastPull(_dvPriorLastPull);
+            updateSyncStatusIndicator("error", "Sync incomplete");
+            return { companionFailed: true };
+          }
+          if (_dvImage.hash) {
+            var _dvImageMeta = syncGetLastPull() || {};
+            _dvImageMeta.imageHash = _dvImage.hash;
+            syncSetLastPull(_dvImageMeta);
           }
 
           // STRK-45/STRK-65: Restore attachment vault on manifest-first path
@@ -4624,6 +4832,7 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
     debugLog("[CloudSync] Deferred vault restore failed:", err.message);
     updateSyncStatusIndicator("error", "Restore failed");
     if (typeof showCloudToast === "function") showCloudToast("Restore failed: " + err.message);
+    return { companionFailed: true };
   }
 }
 
@@ -4740,57 +4949,35 @@ async function pullWithPreview(remoteMeta) {
           // (_isManagedSyncKey), so without this it would silently no-op here and
           // never reach the apply path where _mergeItemPriceClearWatermark runs.
           var _mHasIphClear = _hasItemPriceClearChange(manifest.settings);
-          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges && !_mHasIphClear) {
+          // STRK-370: same trap for Collections — a managed key, so a Collections-only
+          // remote change is invisible to the settings diff and would no-op here.
+          var _mHasCollections = _hasCollectionStateChange(manifest.settings);
+          if (
+            _mNoChanges &&
+            _mNoSettingsChanges &&
+            !_mHasTagChanges &&
+            !_mHasIphClear &&
+            !_mHasCollections
+          ) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
             var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
               timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
               rev: remoteMeta ? remoteMeta.rev : null,
             };
-            // STAK-497: Even when items/settings are unchanged, the image vault
-            // may need syncing (e.g. new photos uploaded on another device).
-            try {
-              if (
-                remoteMeta &&
-                remoteMeta.imageVault &&
-                typeof vaultDecryptAndRestoreImages === "function"
-              ) {
-                var _spLastPull = syncGetLastPull();
-                var _spLocalHash = _spLastPull ? _spLastPull.imageHash : null;
-                if (remoteMeta.imageVault.hash !== _spLocalHash) {
-                  debugLog(
-                    "[CloudSync] Silent-pull path: image vault changed — pulling",
-                    remoteMeta.imageVault.imageCount,
-                    "photos"
-                  );
-                  var _spImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-                  var _spImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-                    method: "POST",
-                    headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _spImgArg },
-                  });
-                  if (_spImgResp.ok) {
-                    var _spImgBytes = new Uint8Array(await _spImgResp.arrayBuffer());
-                    var _spRestored = await vaultDecryptAndRestoreImages(_spImgBytes, password);
-                    _silentPullMeta.imageHash = remoteMeta.imageVault.hash;
-                    debugLog(
-                      "[CloudSync] Silent-pull path: image vault restored:",
-                      _spRestored,
-                      "photos"
-                    );
-                    logCloudSyncActivity(
-                      "image_vault_pull",
-                      "success",
-                      (_spRestored || "?") + " photos restored (silent-pull path)"
-                    );
-                  }
-                }
-              }
-            } catch (_spImgErr) {
-              debugLog(
-                "[CloudSync] Silent-pull path: image vault pull failed (non-blocking):",
-                _spImgErr.message
-              );
+            var _spPrevious = syncGetLastPull();
+            var _spImage = await _pullImageVaultIfChanged(
+              remoteMeta,
+              token,
+              password,
+              _spPrevious && _spPrevious.imageHash,
+              "silent pull"
+            );
+            if (_spImage.failed) {
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
             }
+            if (_spImage.hash) _silentPullMeta.imageHash = _spImage.hash;
             // STRK-45/STRK-65: Silent-pull path — attachment vault
             var _spAttachResult = await _pullAttachmentVault(
               remoteMeta,
@@ -4858,15 +5045,37 @@ async function pullWithPreview(remoteMeta) {
           // otherwise it falls through to an empty DiffModal whose Apply is disabled,
           // so the watermark never applies. `_applyAndFinalize` already reconciles it
           // via the `remoteRawSettings` below; we only needed to widen the entry guard.
-          if (_mNoChanges && _mNoSettingsChanges && (_mHasTagChanges || _mHasIphClear)) {
+          if (
+            _mNoChanges &&
+            _mNoSettingsChanges &&
+            (_mHasTagChanges || _mHasIphClear || _mHasCollections)
+          ) {
             // STRK-224 (Edge 3, D-5): snapshot before _applyAndFinalize advances syncId.
             var _mtPriorLastPull = syncGetLastPull();
-            _applyAndFinalize(inventory, [], null, remoteMeta, {
+            var _mtApplied = _applyAndFinalize(inventory, [], null, remoteMeta, {
               source: "sync",
               showToast: false,
               remoteTagData: _extractRemoteTagData(manifest.settings),
               remoteRawSettings: manifest.settings,
             });
+            if (!_mtApplied) return;
+            var _mtImage = await _pullImageVaultIfChanged(
+              remoteMeta,
+              token,
+              password,
+              _mtPriorLastPull && _mtPriorLastPull.imageHash,
+              "manifest Collections"
+            );
+            if (_mtImage.failed) {
+              syncSetLastPull(_mtPriorLastPull);
+              updateSyncStatusIndicator("error", "Sync incomplete");
+              return;
+            }
+            if (_mtImage.hash) {
+              var _mtImageMeta = syncGetLastPull() || {};
+              _mtImageMeta.imageHash = _mtImage.hash;
+              syncSetLastPull(_mtImageMeta);
+            }
             // STRK-224 (Edge 1 fallout / D-5): this no-modal tag-only apply path also
             // relied on the removed poll pre-merge for its companion history. Pull it
             // here with the current-inventory accepted-UUIDs boundary; on a transient
@@ -4996,6 +5205,17 @@ async function pullWithPreview(remoteMeta) {
                   String(_iphWmErr.message || _iphWmErr)
                 );
               }
+              // STRK-370: reconcile Collections on the manifest one-sided path too
+              // (idempotent). A failed write holds the pull, exactly like the two above.
+              try {
+                _mergeCollectionState(manifest.settings || {});
+              } catch (_collErr) {
+                _failedCount++;
+                console.warn(
+                  "[CloudSync] Manifest auto-merge: Collections merge failed — holding pull:",
+                  String(_collErr.message || _collErr)
+                );
+              }
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
                 var _sc = manifestSettingsDiff.changed[_si];
                 if (_isManagedSyncKey(_sc.key)) {
@@ -5067,66 +5287,22 @@ async function pullWithPreview(remoteMeta) {
                   ")"
               );
               updateSyncStatusIndicator("idle", "just now");
-              // STAK-497: Pull image vault on the auto-merge path (previously skipped).
-              // Without this, a device that only has settings diffs (no item changes)
-              // never downloads uploaded photos from the remote image vault.
-              try {
-                if (
-                  remoteMeta &&
-                  remoteMeta.imageVault &&
-                  typeof vaultDecryptAndRestoreImages === "function"
-                ) {
-                  var _amLastPull = syncGetLastPull();
-                  var _amLocalHash = _amLastPull ? _amLastPull.imageHash : null;
-                  if (remoteMeta.imageVault.hash !== _amLocalHash) {
-                    debugLog(
-                      "[CloudSync] STAK-470 path: image vault changed — pulling",
-                      remoteMeta.imageVault.imageCount,
-                      "photos"
-                    );
-                    var _amImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-                    var _amImgResp = await fetch(
-                      "https://content.dropboxapi.com/2/files/download",
-                      {
-                        method: "POST",
-                        headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _amImgArg },
-                      }
-                    );
-                    if (_amImgResp.ok) {
-                      var _amImgBytes = new Uint8Array(await _amImgResp.arrayBuffer());
-                      var _amRestored = await vaultDecryptAndRestoreImages(_amImgBytes, password);
-                      debugLog(
-                        "[CloudSync] STAK-470 path: image vault restored:",
-                        _amRestored,
-                        "photos"
-                      );
-                      logCloudSyncActivity(
-                        "image_vault_pull",
-                        "success",
-                        (_amRestored || "?") + " photos restored (auto-merge path)"
-                      );
-                      // Update pull metadata with image hash
-                      if (_failedCount === 0) {
-                        syncSetLastPull({
-                          syncId: remoteMeta ? remoteMeta.syncId : null,
-                          timestamp: remoteMeta ? remoteMeta.timestamp : Date.now(),
-                          rev: remoteMeta ? remoteMeta.rev : null,
-                          imageHash: remoteMeta.imageVault.hash,
-                        });
-                      }
-                    }
-                  }
-                }
-              } catch (_amImgErr) {
-                debugLog(
-                  "[CloudSync] STAK-470 path: image vault pull failed (non-blocking):",
-                  _amImgErr.message
-                );
-                logCloudSyncActivity(
-                  "image_vault_pull",
-                  "fail",
-                  "Auto-merge path: " + _amImgErr.message
-                );
+              var _amImage = await _pullImageVaultIfChanged(
+                remoteMeta,
+                token,
+                password,
+                _amPriorLastPull && _amPriorLastPull.imageHash,
+                "auto merge"
+              );
+              if (_amImage.failed) {
+                syncSetLastPull(_amPriorLastPull);
+                updateSyncStatusIndicator("error", "Sync incomplete");
+                return;
+              }
+              if (_amImage.hash && _failedCount === 0) {
+                var _amImageMeta = syncGetLastPull() || {};
+                _amImageMeta.imageHash = _amImage.hash;
+                syncSetLastPull(_amImageMeta);
               }
               // STRK-45/STRK-65: Auto-merge path — attachment vault
               var _amAttachResult = await _pullAttachmentVault(
@@ -5483,40 +5659,45 @@ async function pullWithPreview(remoteMeta) {
         // _deferredVaultRestore. The global is still cleared on the exit paths so
         // the next pull cycle starts clean.
         var meta = _previewPullMeta;
-        // STAK-497: Pull image vault even when items/settings are unchanged
+        // PR 1500 review (P1): restoreImageVaultData() judges each remote pattern
+        // record with isCurrentArtwork() against the LIVE Collections store, so a
+        // Collection this device has never seen must be merged in BEFORE its cover
+        // and Slot art arrive — otherwise the art is discarded as orphaned and the
+        // recorded imageHash below stops any later pull from retrying it.
+        // The typeof guard keeps this branch's free identifiers stable for the
+        // STRK-234 slice-and-eval re-entrancy harness.
         try {
-          if (
-            remoteMeta &&
-            remoteMeta.imageVault &&
-            typeof vaultDecryptAndRestoreImages === "function"
-          ) {
-            var _vfSpLastPull = syncGetLastPull();
-            var _vfSpLocalHash = _vfSpLastPull ? _vfSpLastPull.imageHash : null;
-            if (remoteMeta.imageVault.hash !== _vfSpLocalHash) {
-              debugLog("[CloudSync] Vault-first silent-pull: image vault changed — pulling");
-              var _vfSpImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-              var _vfSpImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-                method: "POST",
-                headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfSpImgArg },
-              });
-              if (_vfSpImgResp.ok) {
-                var _vfSpImgBytes = new Uint8Array(await _vfSpImgResp.arrayBuffer());
-                var _vfSpRestored = await vaultDecryptAndRestoreImages(_vfSpImgBytes, password);
-                if (meta) meta.imageHash = remoteMeta.imageVault.hash;
-                logCloudSyncActivity(
-                  "image_vault_pull",
-                  "success",
-                  (_vfSpRestored || "?") + " photos restored (vault-first silent)"
-                );
-              }
-            }
+          if (typeof _mergeCollectionState === "function") {
+            _mergeCollectionState(remotePayload.data);
           }
-        } catch (_vfSpImgErr) {
-          debugLog(
-            "[CloudSync] Vault-first silent-pull: image vault failed (non-blocking):",
-            _vfSpImgErr.message
+        } catch (_vfCollErr) {
+          console.warn(
+            "[CloudSync] Vault-first silent: Collections merge failed — holding lastPull:",
+            String(_vfCollErr.message || _vfCollErr)
           );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "Collections write failed — pull held (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
         }
+        var _vfSpPrevious = syncGetLastPull();
+        var _vfSpImage = await _pullImageVaultIfChanged(
+          remoteMeta,
+          token,
+          password,
+          _vfSpPrevious && _vfSpPrevious.imageHash,
+          "vault-first silent"
+        );
+        if (_vfSpImage.failed) {
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
+        if (_vfSpImage.hash && meta) meta.imageHash = _vfSpImage.hash;
         // STRK-45/STRK-65: Vault-first silent-pull — attachment vault
         var _vfSpAttachResult = await _pullAttachmentVault(
           remoteMeta,
@@ -5591,6 +5772,9 @@ async function pullWithPreview(remoteMeta) {
           _previewPullMeta = null;
           return;
         }
+        // STRK-370: the Collections-only change that also reaches this silent branch
+        // (managed key) is merged at the TOP of the branch, ahead of the image pull —
+        // see the PR 1500 review note there for why the ordering is load-bearing.
         if (meta) syncSetLastPull(meta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -5629,65 +5813,24 @@ async function pullWithPreview(remoteMeta) {
         _vfApplied = (await shownPromise) === true;
       }
 
-      // STAK-497 / STRK-225: Pull image vault after vault-first DiffModal or
-      // fallback restore — ONLY on apply. showRestorePreviewModal's onApply
-      // handles items + settings, not images. Gating on _vfApplied mirrors the
-      // companion item-price-history block below: on a CANCEL, advancing
-      // lastPull.imageHash would block a later accept from re-pulling the photos
-      // (STRK-200's guard skips them, but the stale hash persists).
       if (_vfApplied) {
-        try {
-          if (
-            remoteMeta &&
-            remoteMeta.imageVault &&
-            typeof vaultDecryptAndRestoreImages === "function"
-          ) {
-            const _vfLastPull = syncGetLastPull();
-            const _vfLocalHash = _vfLastPull ? _vfLastPull.imageHash : null;
-            if (remoteMeta.imageVault.hash !== _vfLocalHash) {
-              debugLog("[CloudSync] Vault-first path: pulling image vault");
-              const _vfImgArg = JSON.stringify({ path: SYNC_IMAGES_PATH });
-              const _vfImgResp = await fetch("https://content.dropboxapi.com/2/files/download", {
-                method: "POST",
-                headers: { Authorization: "Bearer " + token, "Dropbox-API-Arg": _vfImgArg },
-              });
-              if (_vfImgResp.ok) {
-                const _vfImgBytes = new Uint8Array(await _vfImgResp.arrayBuffer());
-                const _vfRestored = await vaultDecryptAndRestoreImages(_vfImgBytes, password);
-                debugLog(
-                  "[CloudSync] Vault-first path: image vault restored:",
-                  _vfRestored,
-                  "photos"
-                );
-                logCloudSyncActivity(
-                  "image_vault_pull",
-                  "success",
-                  (_vfRestored || "?") + " photos restored (vault-first path)"
-                );
-                // Update pull meta with image hash
-                const _vfPullMeta = syncGetLastPull();
-                if (_vfPullMeta) {
-                  _vfPullMeta.imageHash = remoteMeta.imageVault.hash;
-                  syncSetLastPull(_vfPullMeta);
-                }
-              }
-            }
-          }
-        } catch (_vfImgErr) {
-          debugLog(
-            "[CloudSync] Vault-first path: image vault failed (non-blocking):",
-            _vfImgErr.message
-          );
-          logCloudSyncActivity(
-            "image_vault_pull",
-            "fail",
-            "Vault-first path: " + _vfImgErr.message
-          );
-        }
-      } else {
-        debugLog(
-          "[CloudSync] Vault-first path: diff cancelled — skipping image vault pull (STRK-225)"
+        var _vfImage = await _pullImageVaultIfChanged(
+          remoteMeta,
+          token,
+          password,
+          _vfPriorLastPull && _vfPriorLastPull.imageHash,
+          "vault-first apply"
         );
+        if (_vfImage.failed) {
+          syncSetLastPull(_vfPriorLastPull);
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          return;
+        }
+        if (_vfImage.hash) {
+          var _vfImageMeta = syncGetLastPull() || {};
+          _vfImageMeta.imageHash = _vfImage.hash;
+          syncSetLastPull(_vfImageMeta);
+        }
       }
       // STRK-45/STRK-65: Vault-first DiffModal post-restore — attachment vault.
       // STRK-225: gated on apply for the same reason as the image vault above —
@@ -6159,4 +6302,7 @@ if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostnam
   window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
   window.CloudSyncTest.mergeItemPriceClearWatermark = _mergeItemPriceClearWatermark;
   window.CloudSyncTest.hasItemPriceClearChange = _hasItemPriceClearChange;
+  window.CloudSyncTest.hasCollectionStateChange = _hasCollectionStateChange;
+  window.CloudSyncTest.mergeCollectionState = _mergeCollectionState;
+  window.CloudSyncTest.isManagedSyncKey = _isManagedSyncKey;
 }

@@ -30,6 +30,127 @@
   };
 
   const CSV_IMPORT_KEY_PROP = "__csvImportKey";
+  const CSV_COLLECTIONS_PROP = "__csvCollections";
+
+  /** Capture the stores an override import can mutate before its Collections write. */
+  const _captureOverrideState = () => ({
+    inventory,
+    values: Object.fromEntries(
+      [
+        "metalInventory",
+        "itemTags",
+        "itemRemovedTags",
+        "itemTagsLastModified",
+        "collectionState",
+      ].map((key) => [key, localStorage.getItem(key)])
+    ),
+  });
+
+  /** Restore a failed override and cancel the push scheduled by Item persistence. */
+  const _restoreOverrideState = (prior) => {
+    if (typeof scheduleSyncPush === "function" && scheduleSyncPush.cancel)
+      scheduleSyncPush.cancel();
+    inventory = prior.inventory;
+    Object.entries(prior.values).forEach(([key, value]) => {
+      try {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      } catch (error) {
+        console.error("Import rollback failed for", key, error);
+      }
+    });
+    if (typeof loadItemTags === "function") loadItemTags();
+    if (window.collectionsStore) window.collectionsStore.reload();
+  };
+
+  /**
+   * Reads a row's "Collections" cell, tolerating whitespace on the header. exportCsv
+   * prepends an LF-terminated "# exportOrigin" comment to PapaParse's CRLF output, so the
+   * newline auto-detect settles on LF and the LAST column's header arrives as
+   * "Collections\r" — an exact-key lookup silently misses it.
+   * @param {object} row - Parsed CSV row.
+   * @returns {string} Raw cell text, or "" when the column is absent.
+   */
+  const _readCsvCollectionsCell = (row) => {
+    const key = Object.keys(row || {}).find((name) => name.trim().toLowerCase() === "collections");
+    return key ? String(row[key] || "") : "";
+  };
+
+  /**
+   * Parks a row's parsed "Collections" cell on the item as a non-enumerable sidecar
+   * (STRK-371). Membership is off-item data keyed by UUID, and a new row has no UUID until
+   * _stampCsvItemIdentity runs — riding the object means the memberships are applied against
+   * whatever UUID it finally carries. Non-enumerable, so it never reaches saveInventory()
+   * or the diff engine.
+   * @param {object} item - Imported CSV item.
+   * @param {string} cell - Raw "Collections" cell.
+   */
+  const _rememberCsvCollections = (item, cell) => {
+    if (!item || !cell || !window.collectionsIO) return;
+    const entries = window.collectionsIO.parseMembershipCell(cell);
+    if (!entries.length) return;
+    Object.defineProperty(item, CSV_COLLECTIONS_PROP, {
+      value: entries,
+      enumerable: false,
+      configurable: true,
+    });
+  };
+
+  /**
+   * True when any imported item still carries pending Collections memberships.
+   * @param {Array<object>} items - Imported items.
+   * @returns {boolean} Whether there is Collections work to apply.
+   */
+  const _hasCsvCollections = (items) =>
+    Array.isArray(items) && items.some((item) => item && item[CSV_COLLECTIONS_PROP]);
+
+  /**
+   * Applies and clears the pending Collections memberships of items that landed in the
+   * inventory. Call AFTER identity stamping and the inventory save, so each link targets a
+   * durable UUID. Shared by all four CSV paths, like _applyCsvAddedTags.
+   * @param {Array<object>} items - Imported items (uuid-less ones were deselected; skipped).
+   * @returns {number} How many links were written.
+   */
+  const _applyCsvCollections = (items) => {
+    if (!_hasCsvCollections(items) || !window.collectionsIO) return 0;
+    const rows = [];
+    for (const item of items) {
+      const entries = item && item[CSV_COLLECTIONS_PROP];
+      if (!entries) continue;
+      if (item.uuid) rows.push({ uuid: item.uuid, entries });
+      delete item[CSV_COLLECTIONS_PROP];
+    }
+    return window.collectionsIO.applyMemberships(rows);
+  };
+
+  /**
+   * Merges a Collections state carried in a JSON import envelope (STRK-371).
+   * @param {object} options - Import options; reads options.collectionState
+   * @returns {boolean} Whether local Collections changed.
+   */
+  const _mergeImportedCollectionState = (options) => {
+    if (!options.collectionState || !window.collectionsIO) return false;
+    const result = window.collectionsIO.mergeState(options.collectionState);
+    if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
+    return Boolean(result.changed);
+  };
+
+  /** Reports a failed Collections sidecar write before any import success message. */
+  const _applyImportedCollections = (items, options) => {
+    try {
+      _applyCsvCollections(items);
+      return { ok: true, changed: _mergeImportedCollectionState(options) };
+    } catch (error) {
+      if (typeof showToast === "function") {
+        showToast(
+          "Import incomplete — Collections could not be saved. Free storage and retry.",
+          "error"
+        );
+      }
+      debugLog("Collections import failed", error);
+      return { ok: false, changed: false };
+    }
+  };
 
   /**
    * Computes the import-time lookup key used for deferred per-item tag data.
@@ -282,6 +403,7 @@
       _applyCsvAddedTags(parsedItems, options.pendingTagsByUuid || new Map());
       _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
       _postImportCleanup(parsedItems);
+      if (!_applyImportedCollections(parsedItems, options).ok) return;
       if (options.stampCsvIdentity) {
         parsedItems.forEach(_clearCsvImportKey);
       }
@@ -309,14 +431,30 @@
         options.stampCsvIdentity &&
         ((options.pendingTagsByUuid && options.pendingTagsByUuid.size) ||
           (options.pendingRemovedTagsByUuid && options.pendingRemovedTagsByUuid.size));
-      if (_csvPendingTagEdits) {
+      // STRK-371: Collections membership is the same kind of side channel — off-item, never
+      // a diffed field — so a CSV whose only edit is the Collections column lands here too.
+      const _csvPendingCollections = options.stampCsvIdentity && _hasCsvCollections(parsedItems);
+      if (_csvPendingTagEdits || _csvPendingCollections) {
         _applyCsvAddedTags(parsedItems, options.pendingTagsByUuid || new Map());
         _applyCsvRemovedTags(parsedItems, options.pendingRemovedTagsByUuid || new Map());
+        if (!_applyImportedCollections(parsedItems, options).ok) return;
         parsedItems.forEach(_clearCsvImportKey);
         if (typeof renderTable === "function") renderTable();
         if (typeof renderActiveFilters === "function") renderActiveFilters();
         if (typeof updateStorageStats === "function") updateStorageStats();
-        if (typeof showToast === "function") showToast("Import complete: tags updated");
+        const _updated = [_csvPendingTagEdits && "tags", _csvPendingCollections && "collections"]
+          .filter(Boolean)
+          .join(" and ");
+        if (typeof showToast === "function") showToast("Import complete: " + _updated + " updated");
+        if (onComplete) onComplete({ added: 0, modified: 0, deleted: 0 });
+        return;
+      }
+      // STRK-371: a JSON envelope can carry Collections the device lacks even when every
+      // item already matches.
+      const collectionImport = _applyImportedCollections([], options);
+      if (!collectionImport.ok) return;
+      if (collectionImport.changed) {
+        if (typeof showToast === "function") showToast("Import complete: collections updated");
         if (onComplete) onComplete({ added: 0, modified: 0, deleted: 0 });
         return;
       }
@@ -382,6 +520,8 @@
             })
             .filter(Boolean)
         );
+        // STRK-371: after the save above, so every link targets a durable, stamped UUID.
+        if (!_applyImportedCollections(_importedItems, options).ok) return;
 
         _announceImportApplySummary(selectedChanges, onComplete);
       },
@@ -716,6 +856,7 @@
    * @param {Map<string,string[]>} pendingRemovedTagsByUuid - itemKey -> remove list
    */
   const _csvImportApplyOverride = (imported, pendingTagsByUuid, pendingRemovedTagsByUuid) => {
+    const priorOverride = _captureOverrideState();
     if (typeof migrateLegacySilverbackWeightUnit === "function") {
       migrateLegacySilverbackWeightUnit(imported);
     }
@@ -735,9 +876,18 @@
 
     if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
     if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by csvImport");
-    saveInventory();
+    if (typeof tryPersistInventory !== "function" || !tryPersistInventory()) {
+      _restoreOverrideState(priorOverride);
+      if (typeof showToast === "function")
+        showToast("Import incomplete — Items could not be saved. Free storage and retry.", "error");
+      return;
+    }
     _applyCsvAddedTags(imported, pendingTagsByUuid);
     _applyCsvRemovedTags(imported, pendingRemovedTagsByUuid);
+    if (!_applyImportedCollections(imported, {}).ok) {
+      _restoreOverrideState(priorOverride);
+      return;
+    }
     imported.forEach(_clearCsvImportKey);
     // STAK-421: Cancel the debounced sync push that saveInventory() just scheduled —
     // override imports replace all local data, so pushing immediately would overwrite
@@ -816,6 +966,7 @@
       debugLog("importCsv start", file.name);
       Papa.parse(file, {
         header: true,
+        transformHeader: (header) => header.trim(),
         skipEmptyLines: true,
         comments: "#",
         complete: function (results) {
@@ -856,6 +1007,7 @@
               pendingTagsByUuid,
               pendingRemovedTagsByUuid
             );
+            _rememberCsvCollections(item, _readCsvCollectionsCell(row));
 
             importedCount++;
             updateImportProgress(processed, importedCount, totalRows);
@@ -1253,6 +1405,10 @@
 
         const parsedRemovedTags =
           rawParsed && !Array.isArray(rawParsed) ? rawParsed.itemRemovedTags || null : null;
+        // STRK-371: Collections ride the envelope (membership is off-item). A bare array or
+        // a pre-Collections export simply has none.
+        const parsedCollectionState =
+          rawParsed && !Array.isArray(rawParsed) ? rawParsed.collectionState || null : null;
 
         // Process each item
         let imported = [];
@@ -1472,6 +1628,7 @@
 
         // ── Override path: skip DiffEngine, import all directly ──
         if (override) {
+          const priorOverride = _captureOverrideState();
           if (typeof addItemTag === "function") {
             const stampedUuids = new Set();
             for (const item of imported) {
@@ -1498,10 +1655,22 @@
           }
           if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
           if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by jsonImport");
-          saveInventory();
+          if (typeof tryPersistInventory !== "function" || !tryPersistInventory()) {
+            _restoreOverrideState(priorOverride);
+            if (typeof showToast === "function")
+              showToast(
+                "Import incomplete — Items could not be saved. Free storage and retry.",
+                "error"
+              );
+            return;
+          }
           // Restore itemRemovedTags from import payload (STAK-556)
           if (parsedRemovedTags && typeof saveDataSync === "function") {
             saveDataSync("itemRemovedTags", parsedRemovedTags);
+          }
+          if (!_applyImportedCollections([], { collectionState: parsedCollectionState }).ok) {
+            _restoreOverrideState(priorOverride);
+            return;
           }
           // STAK-421: Cancel debounced sync push — override import replaces all
           // local data; pushing now would overwrite remote before user can review.
@@ -1535,7 +1704,11 @@
         ) {
           const settingsKeys =
             typeof SYNC_SCOPE_KEYS !== "undefined" && Array.isArray(SYNC_SCOPE_KEYS)
-              ? SYNC_SCOPE_KEYS.filter((k) => k !== "metalInventory" && k !== "itemTags")
+              ? SYNC_SCOPE_KEYS.filter(
+                  // STRK-370: collectionState is a scope key now, but it must MERGE
+                  // (envelope → mergeIn above), never be blind-written as a "setting".
+                  (k) => k !== "metalInventory" && k !== "itemTags" && k !== COLLECTION_STATE_KEY
+                )
               : [
                   "displayCurrency",
                   "appTheme",
@@ -1569,6 +1742,7 @@
             pendingTagsByUuid: pendingTagsByUuid,
             validationResult: _validationResult,
             exportMeta: parsedMeta,
+            collectionState: parsedCollectionState,
           },
           function (summary) {
             // Restore itemRemovedTags from import payload (STAK-556)
@@ -1616,6 +1790,7 @@
     const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const results = Papa.parse(normalizedText, {
       header: true,
+      transformHeader: (header) => header.trim(),
       skipEmptyLines: true,
       comments: "#",
     });

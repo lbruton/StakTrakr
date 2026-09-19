@@ -246,6 +246,8 @@ const bindFilterAndNumistaListeners = () => {
     },
   });
 
+  wireFeatureFlagToggle("settingsCollections", "COLLECTIONS");
+
   wireFeatureFlagToggle("settingsChipQtyBadge", "CHIP_QTY_BADGE", {
     onApply: () => {
       if (typeof renderActiveFilters === "function") renderActiveFilters();

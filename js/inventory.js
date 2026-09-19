@@ -361,6 +361,9 @@ const loadInventory = async () => {
     }
 
     let serialCounter = parseInt(loadDataSync(SERIAL_KEY, 0), 10);
+    // STRK-369: set when the loop below mints a serial or uuid, so that identity can be
+    // persisted once afterwards instead of being re-minted on every boot.
+    let identityBackfilled = false;
 
     // Process each inventory item: assign serials and sync with catalog manager
     inventory.forEach((item) => {
@@ -368,11 +371,13 @@ const loadInventory = async () => {
       if (!item.serial) {
         serialCounter += 1;
         item.serial = serialCounter;
+        identityBackfilled = true;
       }
 
       // Assign UUIDs to items that don't have them (migration for existing data)
       if (!item.uuid) {
         item.uuid = generateUUID();
+        identityBackfilled = true;
       }
 
       // Use CatalogManager to synchronize numistaId
@@ -381,6 +386,31 @@ const loadInventory = async () => {
 
     // Save updated serial counter
     saveDataSync(SERIAL_KEY, serialCounter);
+
+    // STRK-369: make the back-fill durable. Left in memory, a legacy item was handed a
+    // fresh uuid on every boot — orphaning every UUID-keyed side store (tags, user photos,
+    // attachments, trade links) and changing the inventory hash on each launch.
+    //
+    // Conditional on purpose: an unconditional save would stamp cloud_sync_local_modified
+    // on every boot, and STAK-414 would then treat this device as always newer than the
+    // remote vault.
+    //
+    // Through saveInventory(), never saveData(LS_KEY): an automatic back-fill is not a user
+    // mutation, so the STRK-13 recovery gate must hold for the non-boot callers (multi-tab
+    // pull broadcast, snapshot / vault restore). A damaged-key or parse-error boot cannot
+    // reach this branch at all — it loads no items, so nothing is back-filled.
+    if (identityBackfilled) {
+      try {
+        await saveInventory();
+        if (typeof debugLog === "function") {
+          debugLog("loadInventory: persisted back-filled item identity");
+        }
+      } catch (persistError) {
+        // Contained deliberately: escaping to the outer catch would blank the in-memory
+        // inventory. The identity stays in memory for this session; the next boot retries.
+        console.error("[inventory] Failed to persist back-filled identity:", persistError);
+      }
+    }
 
     // Clean up any orphaned catalog mappings
     if (typeof catalogManager.cleanupOrphans === "function") {
@@ -1300,9 +1330,31 @@ const _disposeFullStack = async (idx, item, input) => {
  * @param {object} item - The inventory item being deleted.
  * @param {number} idx - Inventory index of the item being deleted.
  */
-const _deleteInventoryItem = (item, idx) => {
+const _deleteInventoryItem = async (item, idx) => {
   inventory.splice(idx, 1);
-  saveInventory();
+  // PR 1500 review (P2): the Collections prune at the end of this function writes a
+  // tombstone that a reload cannot undo, so it must never outrun the inventory
+  // write. saveInventory() is async AND a no-op while recovery mode is active, so
+  // the previous un-awaited call could tombstone the membership of an item that is
+  // still on disk after a reload — irreversible membership loss for a delete the
+  // user never actually got.
+  let persisted = !isInventoryRecoveryActive();
+  if (persisted) {
+    try {
+      await saveInventory();
+    } catch (saveErr) {
+      persisted = false;
+      debugLog(`Inventory write failed — delete not persisted: ${saveErr}`);
+    }
+  }
+  if (!persisted) {
+    inventory.splice(idx, 0, item);
+    closeModalById("removeItemModal");
+    if (typeof showToast === "function") {
+      showToast("Item could not be deleted — the inventory write did not complete.", "error");
+    }
+    return;
+  }
   closeModalById("removeItemModal");
   logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
 
@@ -1323,6 +1375,11 @@ const _deleteInventoryItem = (item, idx) => {
   // Clean up item tags (STAK-126)
   if (item?.uuid && typeof deleteItemTags === "function") {
     deleteItemTags(item.uuid);
+  }
+
+  // Drop the item from every Collection slot; a spare promotes into a vacated primary (STRK-368)
+  if (item?.uuid && window.collectionsStore) {
+    window.collectionsStore.pruneItem(item.uuid);
   }
 };
 
@@ -1349,7 +1406,7 @@ const confirmRemoveItem = async () => {
       }
       await _disposeFullStack(idx, item, input);
     } else {
-      _deleteInventoryItem(item, idx);
+      await _deleteInventoryItem(item, idx);
     }
 
     renderTable();
@@ -2550,6 +2607,12 @@ const exportJson = () => {
       itemCount: exportData.length,
     },
     itemRemovedTags: loadDataSync("itemRemovedTags", {}),
+    // STRK-371: Collections membership lives on the Collection, never on the Item, so it
+    // rides the envelope. Omitted when there are none, so older exports stay byte-stable.
+    ...(window.collectionsIO &&
+      window.collectionsIO.exportState() && {
+        collectionState: window.collectionsIO.exportState(),
+      }),
   };
 
   const json = JSON.stringify(exportPayload, null, 2);

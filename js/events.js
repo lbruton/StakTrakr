@@ -385,6 +385,10 @@ window.showRestoreChoice = showRestoreChoice;
 let _pendingObverseBlob = null;
 /** @type {Blob|null} Pending reverse upload blob — saved on item commit */
 let _pendingReverseBlob = null;
+/** @type {Promise<boolean>|null} In-flight image swap; form submission waits for it. */
+let _pendingItemImageSwap = null;
+/** @type {number} Invalidates asynchronous image swaps when the edit session ends. */
+let _itemImageEditGeneration = 0;
 
 /** @type {string|null} Preview object URL for obverse — revoked on modal close */
 let _pendingObversePreviewUrl = null;
@@ -608,6 +612,8 @@ const setEditPreviewUrl = (url, side = "obverse") => {
  * Clear the pending upload state and previews for both sides.
  */
 const clearUploadState = () => {
+  _itemImageEditGeneration++;
+  _pendingItemImageSwap = null;
   _pendingObverseBlob = null;
   _pendingReverseBlob = null;
   _deleteObverseOnSave = false;
@@ -659,6 +665,13 @@ const clearUploadState = () => {
   // Hide swap button (STAK-341)
   const swapWrapper = document.getElementById("swapImagesBtnWrapper");
   if (swapWrapper) swapWrapper.classList.add("d-none");
+  const swapButton = document.getElementById("swapImagesBtn");
+  if (swapButton) swapButton.disabled = false;
+  const imageGroup = document.getElementById("imageUploadGroup");
+  if (imageGroup) {
+    imageGroup.inert = false;
+    imageGroup.removeAttribute("aria-busy");
+  }
   renderFrameToggles();
 
   // Reset pattern toggle state
@@ -2161,6 +2174,12 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     const itemModal = document.getElementById("itemModal");
     if (itemModal) itemModal.style.zIndex = "";
   }
+  // STRK-368: a Collection slot's "+ Add new item" opened this modal — link the new
+  // item to the slot that asked for it. The pending request is held privately by
+  // collections-store.js, which also drops it if the modal closes without a save.
+  if (!isEditing && committed?.uuid && window.collectionsStore) {
+    window.collectionsStore.resolvePendingNewItem(committed.uuid);
+  }
 };
 
 /**
@@ -2630,6 +2649,27 @@ window.filterTypesByMetal = filterTypesByMetal;
 window.validateItemFields = validateItemFields;
 
 /**
+ * Prevent overlapping saves while an image swap or image write is pending.
+ * The first commit clears editingIndex, so a second submit could otherwise add
+ * a duplicate Item instead of editing it.
+ * @param {Function} handler - Unified form submission handler
+ * @returns {Function} Submission handler with a per-form in-flight guard
+ */
+const guardItemFormSubmission = (handler) => {
+  let submitting = false;
+  return async function (event) {
+    event.preventDefault();
+    if (submitting) return;
+    submitting = true;
+    try {
+      await handler.call(this, event);
+    } finally {
+      submitting = false;
+    }
+  };
+};
+
+/**
  * Sets up item form submission and related button listeners
  */
 const setupItemFormListeners = () => {
@@ -2639,8 +2679,14 @@ const setupItemFormListeners = () => {
     safeAttachListener(
       elements.inventoryForm,
       "submit",
-      async function (e) {
+      guardItemFormSubmission(async function (e) {
         e.preventDefault();
+
+        // STRK-376: Swap resolves preview blobs asynchronously. Parse and commit only
+        // after it settles, and abandon this save if that edit session was canceled.
+        const imageGeneration = _itemImageEditGeneration;
+        if (_pendingItemImageSwap && !(await _pendingItemImageSwap)) return;
+        if (imageGeneration !== _itemImageEditGeneration) return;
 
         const isEditing = editingIndex !== null;
         const existingItem = isEditing ? { ...inventory[editingIndex] } : {};
@@ -2871,7 +2917,7 @@ const setupItemFormListeners = () => {
         if (typeof renderActiveFilters === "function") {
           renderActiveFilters();
         }
-      },
+      }),
       "Unified item form"
     );
   } else {
@@ -3162,78 +3208,113 @@ const setupItemFormListeners = () => {
   // SWAP OBVERSE/REVERSE BUTTON (STAK-341)
   const swapBtn = safeGetElement("swapImagesBtn");
   if (swapBtn) {
-    swapBtn.addEventListener("click", async () => {
-      // Hydrate each missing side from IndexedDB before swap (PR #551 review)
-      // Must hydrate per-side (not gated on both null) to handle mixed
-      // upload+swap: user uploads one side, then swaps before saving.
-      const uuid = editingIndex !== null ? inventory[editingIndex]?.uuid : null;
-      if (
-        uuid &&
-        (!_pendingObverseBlob || !_pendingReverseBlob) &&
-        window.imageCache?.isAvailable()
-      ) {
-        try {
-          const rec = await imageCache.getUserImage(uuid);
-          if (!_pendingObverseBlob && rec?.obverse) _pendingObverseBlob = rec.obverse;
-          if (!_pendingReverseBlob && rec?.reverse) _pendingReverseBlob = rec.reverse;
-        } catch {
-          /* ignore — blobs stay null */
+    swapBtn.addEventListener("click", () => {
+      if (_pendingItemImageSwap) return;
+      const generation = _itemImageEditGeneration;
+      const imgObv = safeGetElement("itemImagePreviewImgObv");
+      const imgRev = safeGetElement("itemImagePreviewImgRev");
+      const obverseSrc = imgObv.src;
+      const reverseSrc = imgRev.src;
+
+      /**
+       * Read a displayed local blob without fetching remote image URLs. This
+       * preserves uploads AND pattern images as an Item-specific override.
+       * @param {string} src - Current preview URL
+       * @returns {Promise<Blob|null>} Local image blob, or null for a URL image
+       */
+      const readPreviewBlob = async (src) => {
+        if (!src?.startsWith("blob:")) return null;
+        const response = await fetch(src);
+        if (!response.ok) throw new Error("Image preview is no longer available");
+        return response.blob();
+      };
+
+      const swap = async () => {
+        const [obverseBlob, reverseBlob] = await Promise.all([
+          readPreviewBlob(obverseSrc),
+          readPreviewBlob(reverseSrc),
+        ]);
+        const modal = safeGetElement("itemModal");
+        if (generation !== _itemImageEditGeneration || modal.style.display === "none") return false;
+
+        // Save the displayed sides, including pattern-only and mixed-source pairs.
+        _pendingObverseBlob = reverseBlob;
+        _pendingReverseBlob = obverseBlob;
+
+        // Swap preview URLs
+        const tmpUrl = _pendingObversePreviewUrl;
+        _pendingObversePreviewUrl = _pendingReversePreviewUrl;
+        _pendingReversePreviewUrl = tmpUrl;
+
+        // A URL moving onto a formerly uploaded side must remove that old blob;
+        // otherwise saveUserImageForItem would merge it back over the swapped URL.
+        _deleteObverseOnSave = !reverseBlob;
+        _deleteReverseOnSave = !obverseBlob;
+        // The swap is an explicit per-Item override; a shared pattern must not
+        // replace either of the chosen sides (especially a URL-only side).
+        const ignorePattern = safeGetElement("itemIgnorePatternImages");
+        if (ignorePattern) ignorePattern.checked = true;
+
+        // Swap frame override state with the images it describes
+        const tmpFrame = _pendingObverseFrame;
+        _pendingObverseFrame = _pendingReverseFrame;
+        _pendingReverseFrame = tmpFrame;
+
+        // Swap visible preview images
+        if (imgObv && imgRev) {
+          imgObv.src = reverseSrc;
+          imgRev.src = obverseSrc;
         }
-      }
 
-      // Swap pending blobs
-      const tmpBlob = _pendingObverseBlob;
-      _pendingObverseBlob = _pendingReverseBlob;
-      _pendingReverseBlob = tmpBlob;
+        // Swap URL fields
+        const urlObv = elements.itemObverseImageUrl;
+        const urlRev = elements.itemReverseImageUrl;
+        if (urlObv && urlRev) {
+          const tmpVal = urlObv.value;
+          urlObv.value = urlRev.value;
+          urlRev.value = tmpVal;
+        }
 
-      // Swap preview URLs
-      const tmpUrl = _pendingObversePreviewUrl;
-      _pendingObversePreviewUrl = _pendingReversePreviewUrl;
-      _pendingReversePreviewUrl = tmpUrl;
+        // Swap size info text
+        const sizeObv = document.getElementById("itemImageSizeInfoObv");
+        const sizeRev = document.getElementById("itemImageSizeInfoRev");
+        if (sizeObv && sizeRev) {
+          const tmpText = sizeObv.textContent;
+          sizeObv.textContent = sizeRev.textContent;
+          sizeRev.textContent = tmpText;
+        }
 
-      // Swap delete flags
-      const tmpDel = _deleteObverseOnSave;
-      _deleteObverseOnSave = _deleteReverseOnSave;
-      _deleteReverseOnSave = tmpDel;
+        // Clear file inputs to avoid filename mismatch (PR #551 review)
+        const fileObv = document.getElementById("itemImageFileObv");
+        const fileRev = document.getElementById("itemImageFileRev");
+        if (fileObv) fileObv.value = "";
+        if (fileRev) fileRev.value = "";
+        renderFrameToggles();
+        return true;
+      };
 
-      // Swap frame override state with the images it describes
-      const tmpFrame = _pendingObverseFrame;
-      _pendingObverseFrame = _pendingReverseFrame;
-      _pendingReverseFrame = tmpFrame;
-
-      // Swap visible preview images
-      const imgObv = document.getElementById("itemImagePreviewImgObv");
-      const imgRev = document.getElementById("itemImagePreviewImgRev");
-      if (imgObv && imgRev) {
-        const tmpSrc = imgObv.src;
-        imgObv.src = imgRev.src;
-        imgRev.src = tmpSrc;
-      }
-
-      // Swap URL fields
-      const urlObv = elements.itemObverseImageUrl;
-      const urlRev = elements.itemReverseImageUrl;
-      if (urlObv && urlRev) {
-        const tmpVal = urlObv.value;
-        urlObv.value = urlRev.value;
-        urlRev.value = tmpVal;
-      }
-
-      // Swap size info text
-      const sizeObv = document.getElementById("itemImageSizeInfoObv");
-      const sizeRev = document.getElementById("itemImageSizeInfoRev");
-      if (sizeObv && sizeRev) {
-        const tmpText = sizeObv.textContent;
-        sizeObv.textContent = sizeRev.textContent;
-        sizeRev.textContent = tmpText;
-      }
-
-      // Clear file inputs to avoid filename mismatch (PR #551 review)
-      const fileObv = document.getElementById("itemImageFileObv");
-      const fileRev = document.getElementById("itemImageFileRev");
-      if (fileObv) fileObv.value = "";
-      if (fileRev) fileRev.value = "";
-      renderFrameToggles();
+      const imageGroup = safeGetElement("imageUploadGroup");
+      imageGroup.inert = true;
+      imageGroup.setAttribute("aria-busy", "true");
+      swapBtn.disabled = true;
+      const operation = swap()
+        .catch((error) => {
+          if (generation === _itemImageEditGeneration) {
+            debugLog(`Image swap failed: ${error.message}`, "warn");
+            if (typeof showToast === "function")
+              showToast("Images could not be swapped. Please try again.", "error");
+          }
+          return false;
+        })
+        .finally(() => {
+          if (_pendingItemImageSwap === operation) _pendingItemImageSwap = null;
+          if (generation === _itemImageEditGeneration) {
+            swapBtn.disabled = false;
+            imageGroup.inert = false;
+            imageGroup.removeAttribute("aria-busy");
+          }
+        });
+      _pendingItemImageSwap = operation;
     });
   }
 
@@ -4352,6 +4433,27 @@ const setupImportExportListeners = () => {
         restoreBackupZip(file);
         importZipFile.value = "";
       }
+    });
+  }
+
+  // STRK-371: standalone Collections file. Hidden with the COLLECTIONS flag off, so a
+  // user who never sees the tab is not offered an export of it.
+  const exportCollectionsBtn = document.getElementById("exportCollectionsBtn");
+  const importCollectionsBtn = document.getElementById("importCollectionsBtn");
+  const importCollectionsFile = document.getElementById("importCollectionsFile");
+  const collectionsEnabled =
+    typeof featureFlags !== "undefined" && featureFlags.isEnabled("COLLECTIONS");
+  if (exportCollectionsBtn && importCollectionsBtn && importCollectionsFile) {
+    exportCollectionsBtn.hidden = !collectionsEnabled;
+    importCollectionsBtn.hidden = !collectionsEnabled;
+    exportCollectionsBtn.addEventListener("click", () => {
+      if (window.collectionsIO) window.collectionsIO.exportFile();
+    });
+    importCollectionsBtn.addEventListener("click", () => importCollectionsFile.click());
+    importCollectionsFile.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file && window.collectionsIO) window.collectionsIO.importFromPicker(file);
+      importCollectionsFile.value = "";
     });
   }
 

@@ -1636,6 +1636,14 @@ const syncSettingsUI = () => {
     });
   }
 
+  const collectionsSetting = document.getElementById("settingsCollections");
+  if (collectionsSetting && window.featureFlags) {
+    const selected = featureFlags.isEnabled("COLLECTIONS") ? "yes" : "no";
+    collectionsSetting.querySelectorAll(".chip-sort-btn").forEach((button) => {
+      button.classList.toggle("active", button.dataset.val === selected);
+    });
+  }
+
   // Chip quantity badge — sync toggle with feature flag
   const qtyBadgeSetting = document.getElementById("settingsChipQtyBadge");
   if (qtyBadgeSetting && window.featureFlags) {
@@ -2973,9 +2981,6 @@ const LAYOUT_SECTION_TAB_VIEW = {
   search: "tabViewInventory",
   table: "tabViewInventory",
   vendorPrices: "tabViewMarket",
-  // No DOM section answers to `collections` yet — the entry exists so the tab
-  // ownership lookup covers all four tabs (STRK-326). applyLayoutOrder skips it
-  // because sectionMap has nothing under that id.
   collections: "tabViewCollections",
 };
 window.LAYOUT_SECTION_TAB_VIEW = LAYOUT_SECTION_TAB_VIEW;
@@ -2993,6 +2998,7 @@ const applyLayoutOrder = () => {
     table: elements.tableSectionEl,
     bestPriceTicker: safeGetElement("bestPriceTickerEl"),
     vendorPrices: safeGetElement("vendorPricesSectionEl"),
+    collections: safeGetElement("collectionsSectionEl"),
   };
   const container = document.querySelector(".container");
   if (!container) return;

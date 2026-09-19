@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "updated": "2026-09-19",
+  "description": "StakTrakr Series Templates — first-party catalog data for the Collections module. Each entry points at a collection.json with slots, mintages, specifications and stock images.",
+  "attribution": "Bullion mintage figures: United States Mint sales data, republished with the Mint cited as the source.",
+  "collections": [
+    {
+      "slug": "ase-type2",
+      "path": "ase-type2/collection.json"
+    },
+    {
+      "slug": "ase-type1",
+      "path": "ase-type1/collection.json"
+    }
+  ]
+}

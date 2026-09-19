@@ -1763,6 +1763,8 @@ function buildViewContent(item, index) {
   const frag = document.createDocumentFragment();
   const metrics = _getViewMetrics(item);
   _renderHeaderMeta(item, metrics);
+  // STRK-368: one header chip per Collection slot this item fills (clears stale chips too)
+  if (window.collectionsItemView) window.collectionsItemView.renderHeaderChips(item);
 
   const chartCtx = _getPriceHistoryContext(item, metrics);
   const sectionBuilders = {
@@ -1773,6 +1775,9 @@ function buildViewContent(item, index) {
     grading: () => _buildGradingSection(item),
     numista: () => _buildNumistaPlaceholderSection(),
     tags: () => _buildTagsSection(item),
+    // STRK-368: membership lives on the Collection, so this reads the store, not the item
+    collections: () =>
+      window.collectionsItemView ? window.collectionsItemView.buildSection(item) : null,
     notes: () => _buildNotesSection(item),
     attachments: () => _buildAttachmentsSection(item),
     disposition: () => _buildDispositionSection(item),
@@ -1824,14 +1829,16 @@ async function loadViewImages(item, container) {
     _viewModalObjectUrls.push(revUrl);
     _setSlotImage(revSlot, revUrl);
   }
-  if (obvUrl || revUrl) return { loaded: true, source: "userOrPattern" };
-
-  // Final fallback: CDN URLs stored on the item (validate to skip corrupted URLs)
-  const validObv = ImageCache.isValidImageUrl(item.obverseImageUrl);
-  const validRev = ImageCache.isValidImageUrl(item.reverseImageUrl);
+  // Fall back independently: a cached reverse must not hide a URL-only obverse,
+  // or vice versa (including after swapping a mixed-source pair).
+  const validObv = !obvUrl && ImageCache.isValidImageUrl(item.obverseImageUrl);
+  const validRev = !revUrl && ImageCache.isValidImageUrl(item.reverseImageUrl);
   if (validObv) _setSlotImage(obvSlot, item.obverseImageUrl);
   if (validRev) _setSlotImage(revSlot, item.reverseImageUrl);
-  return { loaded: validObv || validRev, source: validObv || validRev ? "cdn" : null };
+  return {
+    loaded: Boolean(obvUrl || revUrl || validObv || validRev),
+    source: obvUrl || revUrl ? "userOrPattern" : validObv || validRev ? "cdn" : null,
+  };
 }
 
 const MEANINGFUL_FALSY_KEYS = new Set(["commemorative", "rarityIndex"]);

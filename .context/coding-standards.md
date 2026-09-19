@@ -302,6 +302,10 @@ When `classifyBootState()` returns `damaged-key` or `parse-error`, `js/init.js` 
 
 **When adding a new user-mutation entry point that calls `saveInventory()`** (new import format, new restore path, new direct-edit flow), call `clearInventoryRecovery()` first — otherwise the user's deliberate add/import will be suppressed by the recovery gate. Existing call sites: `js/events.js:1496` (addItem), `js/inventory-import.js:62/502/839/1342` (CSV/JSON/Numista paths), `js/vault.js:688` (cloud + .stvault restore).
 
+**Automatic (non-user) writers must go through `saveInventory()` and must NOT clear the gate.** Precedent: the STRK-369 identity back-fill in `loadInventory()` — when the load loop mints a missing `uuid` / `serial`, it persists once via `saveInventory()`, never `saveData(LS_KEY, …)`, and only when something was actually minted (an unconditional boot save would stamp `cloud_sync_local_modified` on every launch and defeat STAK-414's push-vs-pull arbitration).
+
+**The gate is not armed during the boot-time `loadInventory()`.** `js/init.js` classifies boot state _before_ the load but calls `setInventoryRecoveryActive(true)` _after_ it. A write inside `loadInventory()` is therefore protected at boot only structurally: `damaged-key` means `metalInventory` is absent and `parse-error` means it is unparseable, so both load zero items. Any new load-time write must be conditional on items having actually loaded — do not rely on the flag there. The gate does cover the non-boot callers (multi-tab pull broadcast, snapshot / vault restore).
+
 ### How to add a new storage key
 
 1. Define a named constant in `js/constants.js`:
