@@ -1829,14 +1829,16 @@ async function loadViewImages(item, container) {
     _viewModalObjectUrls.push(revUrl);
     _setSlotImage(revSlot, revUrl);
   }
-  if (obvUrl || revUrl) return { loaded: true, source: "userOrPattern" };
-
-  // Final fallback: CDN URLs stored on the item (validate to skip corrupted URLs)
-  const validObv = ImageCache.isValidImageUrl(item.obverseImageUrl);
-  const validRev = ImageCache.isValidImageUrl(item.reverseImageUrl);
+  // Fall back independently: a cached reverse must not hide a URL-only obverse,
+  // or vice versa (including after swapping a mixed-source pair).
+  const validObv = !obvUrl && ImageCache.isValidImageUrl(item.obverseImageUrl);
+  const validRev = !revUrl && ImageCache.isValidImageUrl(item.reverseImageUrl);
   if (validObv) _setSlotImage(obvSlot, item.obverseImageUrl);
   if (validRev) _setSlotImage(revSlot, item.reverseImageUrl);
-  return { loaded: validObv || validRev, source: validObv || validRev ? "cdn" : null };
+  return {
+    loaded: Boolean(obvUrl || revUrl || validObv || validRev),
+    source: obvUrl || revUrl ? "userOrPattern" : validObv || validRev ? "cdn" : null,
+  };
 }
 
 const MEANINGFUL_FALSY_KEYS = new Set(["commemorative", "rarityIndex"]);

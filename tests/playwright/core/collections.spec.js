@@ -284,6 +284,207 @@ const openAseAlbum = async (page) => {
   await expect(panel(page).getByRole("heading", { name: /American Silver Eagle/ })).toBeVisible();
 };
 
+/** Fingerprint the image actually displayed, rather than its disposable blob URL. */
+const displayedImageHash = (image) =>
+  image.evaluate(async (img) => {
+    if (!img.complete || !img.naturalWidth) return null;
+    const bytes = await (await fetch(img.currentSrc || img.src)).arrayBuffer();
+    const hash = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  });
+
+test.describe("core/collections — STRK-376 saved image swaps", () => {
+  test("Save waits for an image swap still reading its source", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.evaluate(async () => {
+      const blobs = await Promise.all(
+        ["obverse", "reverse"].map(async (side) =>
+          (await fetch(`/tests/playwright/helpers/test-${side}.png`)).blob()
+        )
+      );
+      if (!(await window.imageCache.cacheUserImage("col-ase-2024", ...blobs)))
+        throw new Error("Image fixture save failed");
+    });
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+    await page.evaluate(() =>
+      window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2024"))
+    );
+    await expect(page.locator("#swapImagesBtn")).toBeVisible();
+    const reverse = page.locator("#itemImagePreviewImgRev");
+    await expect.poll(() => displayedImageHash(reverse)).not.toBeNull();
+    const expected = await displayedImageHash(reverse);
+    // Hold the source read so a user's immediate Save reaches the form while Swap is pending.
+    await page.evaluate(() => {
+      const original = window.imageCache.getUserImage.bind(window.imageCache);
+      window.imageCache.getUserImage = async (...args) => {
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        return original(...args);
+      };
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, ...args) => {
+        if (String(input).startsWith("blob:"))
+          await new Promise((resolve) => setTimeout(resolve, 750));
+        return originalFetch(input, ...args);
+      };
+    });
+    await page.locator("#swapImagesBtn").click();
+    await page.locator("#itemModalSubmit").click();
+    await page.locator("#inventoryForm").evaluate((form) => form.requestSubmit());
+    await expect(page.locator("#itemModal")).toBeHidden();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    expect(await page.evaluate(() => window.inventory.length)).toBe(SEED.length);
+    await page.evaluate(() =>
+      window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2024"))
+    );
+    await expect
+      .poll(() => displayedImageHash(page.locator("#itemImagePreviewImgObv")))
+      .toBe(expected);
+  });
+
+  test("canceling a pending swap cannot alter the next Item", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() =>
+      window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2024"))
+    );
+    await expect(page.locator("#swapImagesBtn")).toBeVisible();
+    const image = page.locator("#itemImagePreviewImgObv");
+    await expect.poll(() => displayedImageHash(image)).not.toBeNull();
+    const before = await displayedImageHash(image);
+    await page.evaluate(() => {
+      const originalFetch = window.fetch.bind(window);
+      const gate = new Promise((resolve) => {
+        window.__releaseImageSwap = resolve;
+      });
+      window.fetch = async (input, ...args) => {
+        if (String(input).startsWith("blob:")) await gate;
+        return originalFetch(input, ...args);
+      };
+    });
+    await page.locator("#swapImagesBtn").click();
+    await page.evaluate(() => {
+      window.__imageSwapOperation = _pendingItemImageSwap;
+    });
+    await expect(page.locator("#imageUploadGroup")).toHaveAttribute("inert", "");
+    await page.locator("#cancelItem").click();
+    await page.evaluate(() =>
+      window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2022-a"))
+    );
+    await page.evaluate(async () => {
+      window.__releaseImageSwap();
+      await window.__imageSwapOperation;
+    });
+    await expect(page.locator("#imageUploadGroup")).not.toHaveAttribute("inert", "");
+    await expect(page.locator("#itemName")).toHaveValue("2022 American Silver Eagle");
+    await expect.poll(() => displayedImageHash(image)).toBe(before);
+    await page.locator("#itemModalSubmit").click();
+    await expect(page.locator("#itemModal")).toBeHidden();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() =>
+      window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2022-a"))
+    );
+    await expect.poll(() => displayedImageHash(image)).toBe(before);
+  });
+
+  for (const source of ["uploads", "URLs", "pattern images", "upload + URL", "upload + pattern"]) {
+    test(`swapping ${source} survives Save, reopening, and reload`, async ({ page }, testInfo) => {
+      await seedAndGoto(page);
+      await page.evaluate(async (kind) => {
+        const item = window.inventory.find((entry) => entry.uuid === "col-ase-2024");
+        const obverse = new URL("/tests/playwright/helpers/test-obverse.png", location.href).href;
+        const reverse = new URL("/tests/playwright/helpers/test-reverse.png", location.href).href;
+        if (kind === "uploads" || kind.startsWith("upload +")) {
+          const [obv, rev] = await Promise.all(
+            [obverse, reverse].map(async (url) => (await fetch(url)).blob())
+          );
+          if (
+            !(await window.imageCache.cacheUserImage(
+              item.uuid,
+              obv,
+              kind === "uploads" ? rev : null
+            ))
+          )
+            throw new Error("Image fixture save failed");
+          if (kind === "upload + URL") {
+            item.reverseImageUrl = reverse;
+            saveInventory();
+          }
+        } else if (kind === "URLs") {
+          item.obverseImageUrl = obverse;
+          item.reverseImageUrl = reverse;
+          item.ignorePatternImages = true;
+          saveInventory();
+        }
+      }, source);
+      await openCollectionsTab(page);
+      await linkItems(page, [["2024", "col-ase-2024"]]);
+      if (source === "pattern images") await linkItems(page, [["2022", "col-ase-2022-a"]]);
+      await openAseAlbum(page);
+      const openEdit = async (expected) => {
+        await slotOf(page, "2024")
+          .getByRole("button", { name: /2024 American Silver Eagle BU/ })
+          .click();
+        if (expected) {
+          for (const side of ["obverse", "reverse"]) {
+            const viewImage = page.locator(
+              `#viewImageSection .view-image-slot[data-side="${side}"] img`
+            );
+            await expect(viewImage).toBeVisible();
+            await expect.poll(() => displayedImageHash(viewImage)).toBe(expected[side]);
+          }
+        }
+        await page
+          .locator("#viewItemModal")
+          .getByRole("button", { name: "Edit", exact: true })
+          .click();
+        await expect(page.locator("#swapImagesBtn")).toBeVisible();
+      };
+      await openEdit();
+      const obv = page.locator("#itemImagePreviewImgObv");
+      const rev = page.locator("#itemImagePreviewImgRev");
+      await expect.poll(() => displayedImageHash(obv)).not.toBeNull();
+      await expect.poll(() => displayedImageHash(rev)).not.toBeNull();
+      const before = {
+        obverse: await displayedImageHash(obv),
+        reverse: await displayedImageHash(rev),
+      };
+      const swapped = { obverse: before.reverse, reverse: before.obverse };
+      expect(before.obverse).not.toBe(before.reverse);
+      await page.locator("#swapImagesBtn").click();
+      await expect.poll(() => displayedImageHash(obv)).toBe(before.reverse);
+      await expect.poll(() => displayedImageHash(rev)).toBe(before.obverse);
+      await page.locator("#itemModalSubmit").click();
+      await expect(page.locator("#itemModal")).toBeHidden();
+      await expect
+        .poll(() => displayedImageHash(slotOf(page, "2024").locator(".collections-coin img")))
+        .toBe(before.reverse);
+      if (source === "pattern images") {
+        await expect
+          .poll(() => displayedImageHash(slotOf(page, "2022").locator(".collections-coin img")))
+          .toBe(before.obverse);
+      }
+      await openEdit(swapped);
+      await expect.poll(() => displayedImageHash(obv)).toBe(before.reverse);
+      await expect.poll(() => displayedImageHash(rev)).toBe(before.obverse);
+      await page.locator("#cancelItem").click();
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await openEdit(swapped);
+      await expect.poll(() => displayedImageHash(obv)).toBe(before.reverse);
+      await expect.poll(() => displayedImageHash(rev)).toBe(before.obverse);
+      if (source === "pattern images") {
+        await testInfo.attach("saved-pattern-swap-after-reload", {
+          body: await page.locator("#imageUploadGroup").screenshot(),
+          contentType: "image/png",
+        });
+      }
+    });
+  }
+});
+
 test.describe("core/collections — link picker, builder, item view", () => {
   const pickerModal = (page) => page.locator("#collectionsPickerModal");
   const builderModal = (page) => page.locator("#collectionsBuilderModal");
