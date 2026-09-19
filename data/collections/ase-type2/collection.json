@@ -2,7 +2,7 @@
   "schema": 1,
   "slug": "ase-type2",
   "version": 1,
-  "updated": "2026-09-18",
+  "updated": "2026-09-19",
   "name": "American Silver Eagle",
   "variant": "Type 2",
   "subtitle": "Landing Eagle reverse",
@@ -33,11 +33,16 @@
   },
   "mintageBasis": "United States Mint bullion sales to Authorized Purchasers. The Mint reports these as bullion mintage.",
   "images": {
-    "obverse": "obverse.jpg",
-    "reverse": "reverse.jpg",
-    "credit": "United States Mint image",
-    "note": "Stock images show the 2021-W proof strike; bullion strikes carry no mint mark.",
-    "license": "pending-review"
+    "obverse": "obverse.png",
+    "reverse": "reverse.png",
+    "credit": "United States Mint images, via Wikimedia Commons",
+    "note": "The obverse shown is the 2022 bullion coin. The reverse shows a proof strike; bullion strikes carry no mint mark.",
+    "license": "pending-review",
+    "licenseNote": "Both files are tagged public domain on Wikimedia Commons. The obverse is a United States Mint work. The reverse design is by Emily Damstra, an Artistic Infusion Program artist rather than a Mint employee, so its public-domain status is less certain; beta placeholder, to be replaced with first-party photography.",
+    "origin": {
+      "obverse": "https://commons.wikimedia.org/wiki/File:2022-american-eagle-silver-one-ounce-bullion-coin-obverse.png",
+      "reverse": "https://commons.wikimedia.org/wiki/File:$1_Silver_Eagle_Type_2_Reverse.png"
+    }
   },
   "match": {
     "names": ["American Silver Eagle"],

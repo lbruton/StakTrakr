@@ -171,4 +171,25 @@ describe("series templates — integrity", () => {
     assert.equal(ase.retailSlug, "ase");
     assert.ok(ase.slots[0].hints.reject.includes("type 1"));
   });
+
+  test("ASE Type 1 pins the 1986 to 2021 slot list and the verified 2021 split", () => {
+    const ase = bundle.templates["ase-type1"];
+    const expectedIds = [];
+    for (let year = 1986; year <= 2020; year++) expectedIds.push(String(year));
+    expectedIds.push("2021-t1");
+    assert.deepEqual(
+      ase.slots.map((slot) => slot.id),
+      expectedIds
+    );
+    assert.equal(ase.slots.length, 36);
+    const last = ase.slots[ase.slots.length - 1];
+    assert.equal(last.mintage, 13306500);
+    assert.equal(ase.slots[0].mintage, 5096000);
+    assert.equal(ase.retailSlug, "ase");
+    assert.deepEqual(ase.run, { start: 1986, end: 2021 });
+    assert.ok(last.hints.prefer.includes("type 1"));
+    assert.ok(last.hints.reject.includes("type 2"));
+    // The two 2021 Slots must add up to the Mint's single 2021 sales total.
+    assert.equal(last.mintage + bundle.templates["ase-type2"].slots[0].mintage, 28275000);
+  });
 });

@@ -949,8 +949,10 @@ test.describe("core/collections — tab UI", () => {
     const entry = panel(page).locator(`[data-collection-id="${ASE}"]`);
     await expect(entry).toContainText("American Silver Eagle");
     await expect(entry).toContainText("0 / 6");
-    // Only real Series Templates ship — the mockup's Type 1 / Morgan demo entries must not.
-    await expect(panel(page).locator("[data-collection-id]")).toHaveCount(1);
+    // Only real Series Templates ship (ASE Type 2 and, since STRK-373, ASE Type 1) — the
+    // mockup's Morgan demo entry must not.
+    await expect(panel(page).locator('[data-collection-id="ase-type1"]')).toContainText("0 / 36");
+    await expect(panel(page).locator("[data-collection-id]")).toHaveCount(2);
   });
 
   test("linking an item moves the hub card to 1 / 6 and 17% without a reload", async ({ page }) => {
@@ -1235,7 +1237,9 @@ test.describe("core/collections — tab UI", () => {
 
     // The hub table collapses the same way.
     await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
-    await expect(panel(page).locator(".collections-hubrow[data-collection-id]")).toBeVisible();
+    await expect(
+      panel(page).locator(`.collections-hubrow[data-collection-id="${ASE}"]`)
+    ).toBeVisible();
     expect(await overflow()).toBeLessThanOrEqual(0);
   });
 
