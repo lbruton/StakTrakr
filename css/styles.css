@@ -18714,3 +18714,352 @@ input[type="number"] {
     text-align: right;
   }
 }
+
+/* ---- Collections in the item view modal (js/collections-item-view.js) ---- */
+.collections-view-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  /* The view modal header is a METAL-COLORED gradient whose text color is computed per item
+     (dark on silver, light on gold…). Like the N# and count chips beside it, follow that
+     color via currentColor instead of a fixed accent that fails contrast on light metals. */
+  color: inherit;
+  background: color-mix(in oklch, currentColor, transparent 84%);
+  border: 1px solid color-mix(in oklch, currentColor, transparent 55%);
+}
+
+.collections-view-chip:hover {
+  background: color-mix(in oklch, currentColor, transparent 72%);
+}
+
+.collections-view-list {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.collections-view-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing);
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+
+.collections-view-title {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.collections-view-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-view-row .collections-progress {
+  margin-top: var(--spacing-xs);
+  max-width: 220px;
+}
+
+.collections-view-actions {
+  display: inline-flex;
+  gap: var(--spacing);
+}
+
+.collections-textlink {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.collections-textlink:hover {
+  text-decoration: underline;
+}
+
+.collections-textlink.is-muted {
+  color: var(--text-muted);
+}
+
+/* ---- Collections dialogs: link picker + custom builder (js/collections-picker.js) ---- */
+.collections-modal .collections-modal-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  max-width: 640px;
+}
+
+.collections-modal .collections-modal-content--builder {
+  max-width: 860px;
+}
+
+.collections-modal-header {
+  position: relative;
+  padding: var(--spacing-lg) var(--spacing-xl) var(--spacing);
+  padding-right: calc(var(--spacing-xl) + 32px);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.collections-modal-header .modal-close {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing);
+}
+
+.collections-modal-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.collections-modal-subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.collections-modal-body {
+  padding: var(--spacing-lg) var(--spacing-xl);
+  overflow-y: auto;
+}
+
+.collections-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing);
+  padding: var(--spacing) var(--spacing-xl);
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.collections-modal-footer-actions {
+  display: inline-flex;
+  gap: var(--spacing-sm);
+}
+
+.collections-pick-search {
+  width: 100%;
+  margin-bottom: var(--spacing);
+}
+
+.collections-pick-group {
+  margin: var(--spacing) 0 var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.collections-pick-group.is-muted {
+  color: var(--text-muted);
+}
+
+.collections-pick-group-note {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+}
+
+.collections-pick-note {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.collections-pick {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  gap: var(--spacing);
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing);
+  margin-bottom: var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+
+.collections-pick.is-suggested {
+  border-color: color-mix(in oklch, var(--primary), transparent 50%);
+}
+
+.collections-pick.is-disabled {
+  opacity: 0.55;
+}
+
+.collections-pick-metal {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font-family: var(--font-heading);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.collections-pick-main {
+  min-width: 0;
+}
+
+.collections-pick-name {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collections-pick-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collections-pick-why {
+  color: var(--primary);
+}
+
+.collections-pick-price {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.collections-pick-used {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-builder-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing) var(--spacing-lg);
+}
+
+.collections-field.is-wide,
+.collections-builder-cover {
+  grid-column: 1 / -1;
+}
+
+.collections-field input,
+.collections-field select {
+  width: 100%;
+}
+
+.collections-builder-cover {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing);
+}
+
+.collections-builder-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-image-chooser {
+  display: inline-flex;
+  flex: none;
+}
+
+.collections-image-pick {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 1.5px dashed var(--border-hover);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.collections-image-pick:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.collections-image-pick img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.collections-builder-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1.1fr) 84px minmax(0, 1.4fr) 32px;
+  gap: var(--spacing-sm);
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.collections-builder-row input {
+  width: 100%;
+}
+
+.collections-builder-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  color: var(--text-muted);
+  min-height: 32px;
+}
+
+.collections-builder-remove:hover {
+  color: var(--danger);
+}
+
+.collections-builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+@media (max-width: 640px) {
+  .collections-pick {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+  }
+
+  .collections-pick-price {
+    display: none;
+  }
+
+  .collections-builder-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .collections-builder-row {
+    grid-template-columns: 44px minmax(0, 1fr) 64px 32px;
+  }
+
+  .collections-builder-note {
+    display: none;
+  }
+}

@@ -8927,11 +8927,16 @@
          core); collections-ui.js renders the Collections tab and talks only to the store
          (must follow it). The Series Template bundle is read lazily, so its position is
          free — it is a script-tag global because file:// cannot fetch() local JSON, the
-         same reason spot-history-bundle.js exists. All four must precede tabs.js, which
-         notifies collectionsUI on activation, and init.js, which hydrates the store. -->
+         same reason spot-history-bundle.js exists. collections-picker.js (link picker +
+         custom builder) and collections-item-view.js (item view chip + section) are
+         reached only at runtime through window.collectionsPicker / collectionsItemView,
+         so they just need to follow the store. All must precede tabs.js, which notifies
+         collectionsUI on activation, and init.js, which hydrates the store. -->
     <script defer src="./js/collections-core.js"></script>
     <script defer src="./js/collections-store.js"></script>
     <script defer src="./js/collections-ui.js"></script>
+    <script defer src="./js/collections-picker.js"></script>
+    <script defer src="./js/collections-item-view.js"></script>
     <script defer src="./data/collections-bundle.js"></script>
 
     <!-- STRK-282: tab shell view switching. Must precede init.js. -->

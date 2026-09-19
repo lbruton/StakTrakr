@@ -1574,6 +1574,7 @@ const VIEW_MODAL_SECTION_DEFAULTS = [
   { id: "numista", label: "Numista data", enabled: true },
   { id: "notes", label: "Notes", enabled: true },
   { id: "tags", label: "Tags", enabled: true },
+  { id: "collections", label: "Collections", enabled: true }, // STRK-368 — renders only when the item fills a slot
   { id: "attachments", label: "Attachments", enabled: true },
   { id: "disposition", label: "Disposition", enabled: true },
 ];

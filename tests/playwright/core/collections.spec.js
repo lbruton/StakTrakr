@@ -284,6 +284,247 @@ const openAseAlbum = async (page) => {
   await expect(panel(page).getByRole("heading", { name: /American Silver Eagle/ })).toBeVisible();
 };
 
+test.describe("core/collections — link picker, builder, item view", () => {
+  const pickerModal = (page) => page.locator("#collectionsPickerModal");
+  const builderModal = (page) => page.locator("#collectionsBuilderModal");
+  const viewModal = (page) => page.locator("#viewItemModal");
+
+  /** Opens the item view modal for a seeded item by uuid. */
+  const openItemView = async (page, uuid) => {
+    await page.evaluate((id) => {
+      window.showViewModal(window.inventory.findIndex((entry) => entry.uuid === id));
+    }, uuid);
+    await expect(viewModal(page)).toBeVisible();
+  };
+
+  test("Add → Link existing item opens the picker with the match pinned, and linking fills the tile", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await slotOf(page, "2024").getByRole("button", { name: /Add/ }).click();
+    await page.getByText("Link existing item").click();
+
+    await expect(pickerModal(page)).toBeVisible();
+    await expect(pickerModal(page).getByRole("heading")).toContainText("2024 slot");
+    const suggested = pickerModal(page).locator(".collections-pick.is-suggested");
+    await expect(suggested).toHaveCount(1);
+    await expect(suggested).toContainText("2024 American Silver Eagle BU");
+    await expect(suggested).toContainText("name match + year match");
+    // Same year and metal, wrong series: offered in the full list, never suggested.
+    await expect(
+      pickerModal(page).locator('.collections-pick[data-uuid="col-maple-2024"]:not(.is-suggested)')
+    ).toBeVisible();
+
+    await suggested.getByRole("button", { name: /Link/ }).click();
+    await expect(pickerModal(page)).toBeHidden();
+    await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+  });
+
+  test("the picker disables items already used in this collection and never lists disposed items", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2022", "col-ase-2022-a"]]);
+    await page.evaluate(() => {
+      window.inventory.find((entry) => entry.uuid === "col-maple-2024").disposition = {
+        type: "sold",
+        date: "2026-09-01",
+        amount: 40,
+        currency: "USD",
+      };
+      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2023" });
+    });
+
+    await expect(pickerModal(page)).toBeVisible();
+    await expect(pickerModal(page)).toContainText("No obvious match for the 2023 slot");
+    const used = pickerModal(page).locator('.collections-pick[data-uuid="col-ase-2022-a"]');
+    await expect(used).toContainText("in 2022 slot");
+    await expect(used.getByRole("button")).toHaveCount(0);
+    await expect(
+      pickerModal(page).locator('.collections-pick[data-uuid="col-maple-2024"]')
+    ).toHaveCount(0);
+  });
+
+  test("the picker search narrows the list, and Add a new item instead hands off to Add Item", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await page.evaluate(() =>
+      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2023" })
+    );
+    await pickerModal(page).getByRole("searchbox").fill("maple");
+    await expect(pickerModal(page).locator(".collections-pick")).toHaveCount(1);
+    await expect(pickerModal(page).locator(".collections-pick")).toContainText(
+      "Canadian Silver Maple Leaf"
+    );
+
+    await pickerModal(page)
+      .getByRole("button", { name: /Add a new item instead/ })
+      .click();
+    await expect(pickerModal(page)).toBeHidden();
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemName")).toHaveValue("2023 American Silver Eagle");
+  });
+
+  test("New collection builds a custom checklist with stable slot ids and opens its album", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    await expect(builderModal(page)).toBeVisible();
+
+    await builderModal(page).getByLabel("Collection name").fill("Morgan Dollars — Carson City");
+    const labels = builderModal(page).getByLabel("Slot label");
+    await labels.nth(0).fill("1881-CC");
+    await labels.nth(1).fill("1882-CC");
+    // The third starter row is left blank on purpose: unlabelled rows are dropped, not saved.
+    await builderModal(page).getByRole("button", { name: "Create collection" }).click();
+    await expect(builderModal(page)).toBeHidden();
+
+    const created = await page.evaluate(() => {
+      const list = window.collectionsCore.listCollections(window.collectionsStore.getState());
+      const custom = list.find((entry) => entry.kind === "custom");
+      return custom
+        ? { name: custom.name, slotIds: custom.definition.slots.map((slot) => slot.id) }
+        : null;
+    });
+    expect(created).toEqual({
+      name: "Morgan Dollars — Carson City",
+      slotIds: ["1881-cc", "1882-cc"],
+    });
+    await expect(
+      panel(page).getByRole("heading", { name: /Morgan Dollars — Carson City/ })
+    ).toBeVisible();
+    await expect(panel(page)).toContainText("1881-CC");
+  });
+
+  test("Clone & customize copies the template's slots into a new custom collection", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await panel(page).getByRole("button", { name: /Clone/ }).click();
+    await expect(builderModal(page)).toBeVisible();
+    await expect(builderModal(page).getByLabel("Slot label")).toHaveCount(6);
+    await expect(builderModal(page).getByLabel("Slot label").first()).toHaveValue("2021 T2");
+
+    await builderModal(page).getByRole("button", { name: "Create collection" }).click();
+    await expect(builderModal(page)).toBeHidden();
+    const clone = await page.evaluate(() => {
+      const list = window.collectionsCore.listCollections(window.collectionsStore.getState());
+      const custom = list.find((entry) => entry.kind === "custom");
+      return custom
+        ? { clonedFrom: custom.clonedFrom, slots: custom.definition.slots.length }
+        : null;
+    });
+    expect(clone).toEqual({ clonedFrom: "ase-type2", slots: 6 });
+  });
+
+  test("editing a custom collection renames a slot without dropping its link", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await page.evaluate(() => {
+      const made = window.collectionsStore.createCustom({
+        name: "Type set",
+        metal: "Silver",
+        slots: [{ label: "Alpha" }, { label: "Beta" }],
+      });
+      window.collectionsStore.link(made.collection.id, "alpha", "col-maple-2024");
+      window.collectionsPicker.openBuilder({ editId: made.collection.id });
+      return made.collection.id;
+    });
+
+    await expect(builderModal(page)).toBeVisible();
+    await builderModal(page).getByLabel("Slot label").first().fill("Alpha (renamed)");
+    await builderModal(page).getByRole("button", { name: "Save changes" }).click();
+    await expect(builderModal(page)).toBeHidden();
+
+    const after = await page.evaluate((collectionId) => {
+      const collection = window.collectionsStore.getState().collections[collectionId];
+      return {
+        first: collection.definition.slots[0],
+        linked: collection.slots.alpha.primary,
+      };
+    }, id);
+    expect(after.first).toMatchObject({ id: "alpha", label: "Alpha (renamed)" });
+    expect(after.linked).toBe("col-maple-2024");
+  });
+
+  test("the year-range shortcut accepts sane ranges only", async ({ page }) => {
+    await seedAndGoto(page);
+    const parsed = await page.evaluate(() => {
+      const parse = window.collectionsPicker.parseYearRange;
+      return [
+        parse("1986-1990"),
+        parse("1999"),
+        parse("2005-1986"),
+        parse("abc"),
+        parse("1000-2999"),
+      ];
+    });
+    expect(parsed).toEqual([[1986, 1987, 1988, 1989, 1990], [1999], null, null, null]);
+  });
+
+  test("the item view shows a Collections chip and section, and Unlink clears both", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openItemView(page, "col-ase-2024");
+
+    const chip = viewModal(page).locator(".collections-view-chip");
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toHaveText("American Silver Eagle Type 2 · 2024");
+    const section = viewModal(page).locator(".collections-view-section");
+    await expect(section).toContainText("American Silver Eagle — Type 2");
+    await expect(section).toContainText("2024 slot · primary · 1 of 6 collected");
+
+    await section.getByRole("button", { name: "Unlink" }).click();
+    await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(0);
+    await expect(viewModal(page).locator(".collections-view-section")).toHaveCount(0);
+    expect(await readSlot(page, "2024")).toEqual({ primary: null, spares: [] });
+  });
+
+  test("the item view chip opens the collection's album", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openItemView(page, "col-ase-2024");
+
+    await viewModal(page).locator(".collections-view-chip").click();
+    await expect(viewModal(page)).toBeHidden();
+    await expect(page).toHaveURL(/#\/collections\/ase-type2$/);
+    await expect(panel(page).getByRole("heading", { name: /American Silver Eagle/ })).toBeVisible();
+  });
+
+  test("an item in no collection shows neither chip nor section, even after viewing one that is", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openItemView(page, "col-ase-2024");
+    await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(1);
+    await page.evaluate(() => window.closeViewModal());
+
+    // The badge row is shared DOM — a stale chip from the previous item must not survive.
+    await openItemView(page, "col-maple-2024");
+    await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(0);
+    await expect(viewModal(page).locator(".collections-view-section")).toHaveCount(0);
+  });
+});
+
 test.describe("core/collections — tab UI", () => {
   test("a fresh profile shows the first-run state and the ASE Type 2 run at 0 / 6", async ({
     page,
@@ -469,7 +710,11 @@ test.describe("core/collections — tab UI", () => {
     await linkItems(page, [["2024", "col-ase-2024"]]);
     await openAseAlbum(page);
 
-    // The link picker is a later slice: until window.collectionsPicker exists the seam toasts.
+    // Resilience guard: if collections-picker.js ever fails to load, the seam must toast, never
+    // throw. The picker ships now, so remove it on purpose to exercise the degraded path.
+    await page.evaluate(() => {
+      delete window.collectionsPicker;
+    });
     await slotOf(page, "2023").getByRole("button", { name: /Add/ }).click();
     await page.getByRole("menuitem", { name: /Link existing item/ }).click();
     await expect(page.locator(".cloud-toast").first()).toHaveText("Coming in the next build");

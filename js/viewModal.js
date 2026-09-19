@@ -1763,6 +1763,8 @@ function buildViewContent(item, index) {
   const frag = document.createDocumentFragment();
   const metrics = _getViewMetrics(item);
   _renderHeaderMeta(item, metrics);
+  // STRK-368: one header chip per Collection slot this item fills (clears stale chips too)
+  if (window.collectionsItemView) window.collectionsItemView.renderHeaderChips(item);
 
   const chartCtx = _getPriceHistoryContext(item, metrics);
   const sectionBuilders = {
@@ -1773,6 +1775,9 @@ function buildViewContent(item, index) {
     grading: () => _buildGradingSection(item),
     numista: () => _buildNumistaPlaceholderSection(),
     tags: () => _buildTagsSection(item),
+    // STRK-368: membership lives on the Collection, so this reads the store, not the item
+    collections: () =>
+      window.collectionsItemView ? window.collectionsItemView.buildSection(item) : null,
     notes: () => _buildNotesSection(item),
     attachments: () => _buildAttachmentsSection(item),
     disposition: () => _buildDispositionSection(item),
