@@ -77,8 +77,14 @@
       console.error("[collections] Failed to save collection state:", error);
       return false;
     }
-    // Sync seam: once COLLECTION_STATE_KEY joins SYNC_SCOPE_KEYS (with the 4-part cloud-sync
-    // contract + collectionsCore.mergeStates), scheduleSyncPush() belongs here.
+    // STRK-370: a Collections-only edit never touches saveInventory(), so it must schedule
+    // its own debounced push (same pattern as saveItemTags). Best-effort — a missing or
+    // throwing trigger must never fail a local save.
+    try {
+      if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+    } catch (pushError) {
+      console.warn("[collections] scheduleSyncPush failed:", pushError);
+    }
     document.dispatchEvent(new CustomEvent(CHANGED_EVENT));
     return true;
   };

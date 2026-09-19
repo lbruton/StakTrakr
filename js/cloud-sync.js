@@ -860,6 +860,9 @@ async function syncRestoreOverrideBackup() {
     if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
+    // STRK-370: collectionState is a scope key, so the snapshot just rewrote it behind
+    // the store's back — re-hydrate or the next link/unlink saves stale state over it.
+    if (window.collectionsStore) window.collectionsStore.reload();
     if (typeof updateSummary === "function") updateSummary();
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
@@ -3547,7 +3550,14 @@ function _itemPriceClearKey() {
 // Keys that are NOT blindly overwritten on pull — used at every settings-apply
 // skip site (tag stores + the item-price clear watermark).
 function _isManagedSyncKey(key) {
-  return _isTagSyncKey(key) || key === _itemPriceClearKey();
+  return _isTagSyncKey(key) || key === _itemPriceClearKey() || key === _collectionStateKey();
+}
+
+// STRK-370: the Collections store key. A MANAGED sync key like the tag stores and the
+// clear watermark — a blind overwrite would drop a Slot filled on another device, so it
+// is excluded from every settings diff/apply site and reconciled by _mergeCollectionState.
+function _collectionStateKey() {
+  return typeof COLLECTION_STATE_KEY !== "undefined" ? COLLECTION_STATE_KEY : "collectionState";
 }
 
 function _parseTagStore(rawValue, fallback) {
@@ -3603,6 +3613,82 @@ function _hasItemPriceClearChange(remoteSettings) {
   if (remoteTs <= 0) return false;
   var localTs = typeof loadItemPriceClearedAt === "function" ? loadItemPriceClearedAt() : 0;
   return remoteTs > localTs;
+}
+
+/**
+ * STRK-370: true when the remote Collections state would CONTRIBUTE something this device
+ * lacks — merge(local, remote) !== local, compared on logical content (STRK-154:
+ * decompressed, key-order independent). Deliberately NOT "local !== remote": an older
+ * remote that adds nothing must not force the manifest apply path, or a device that is
+ * merely AHEAD would re-apply on every poll. Mirrors _hasItemPriceClearChange — the key is
+ * excluded from the per-key settings diff (_isManagedSyncKey), so without this a
+ * Collections-only remote change is swallowed by the manifest "no changes" fast path.
+ * @param {object} remoteSettings - Remote settings (raw localStorage strings by key)
+ * @returns {boolean} Whether an apply is needed
+ */
+function _hasCollectionStateChange(remoteSettings) {
+  var key = _collectionStateKey();
+  if (!remoteSettings || remoteSettings[key] === undefined || remoteSettings[key] === null) {
+    return false;
+  }
+  var core = typeof window !== "undefined" ? window.collectionsCore : null;
+  if (!core || typeof core.mergeStates !== "function") return false;
+  var localRaw = typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+  var local = _parseTagStore(localRaw, {});
+  var remote = _parseTagStore(remoteSettings[key], {});
+  // JSON round-trip: the core's maps are null-prototype; canonicalize plain copies.
+  var before = JSON.parse(JSON.stringify(core.normalizeState(local)));
+  var merged = JSON.parse(JSON.stringify(core.mergeStates(local, remote)));
+  return _stableCanonicalString(before) !== _stableCanonicalString(merged);
+}
+
+/**
+ * STRK-370: reconcile the remote Collections state into local through the commutative
+ * core merge (collectionsStore.mergeIn), never a blind assign. THROWS when the write
+ * fails so every caller rolls back / holds lastPull and the next poll retries — the store
+ * itself has already restored its in-memory state (STRK-377). Idempotent, so the deliberate
+ * double coverage across apply paths is safe. Runs only on apply paths, never on a
+ * cancelled preview.
+ * @param {object} remoteSettings - Remote settings (raw localStorage strings by key)
+ * @returns {boolean} Whether local Collections changed
+ */
+function _mergeCollectionState(remoteSettings) {
+  var key = _collectionStateKey();
+  if (!remoteSettings || remoteSettings[key] === undefined || remoteSettings[key] === null) {
+    return false;
+  }
+  var store = typeof window !== "undefined" ? window.collectionsStore : null;
+  if (!store || typeof store.mergeIn !== "function") return false;
+  var result = store.mergeIn(_parseTagStore(remoteSettings[key], {}));
+  if (!result || result.ok === false) {
+    throw new Error("collectionState merge " + ((result && result.reason) || "failed"));
+  }
+  return Boolean(result.changed);
+}
+
+/**
+ * STRK-370: capture the raw Collections value before an apply, for rollback.
+ * @returns {{raw: string|null}} Snapshot (raw is null when the key was absent)
+ */
+function _snapshotCollectionState() {
+  return {
+    raw: typeof localStorage !== "undefined" ? localStorage.getItem(_collectionStateKey()) : null,
+  };
+}
+
+/**
+ * STRK-370: restore a _snapshotCollectionState() snapshot and re-hydrate the in-memory
+ * store, so a rolled-back pull leaves Collections exactly as they were. Best-effort,
+ * like _restoreRawStorageValues.
+ * @param {{raw: string|null}|null} snapshot - Prior value, or null when none was taken
+ * @returns {void}
+ */
+function _restoreCollectionState(snapshot) {
+  if (!snapshot) return;
+  var prior = {};
+  prior[_collectionStateKey()] = snapshot.raw;
+  _restoreRawStorageValues(prior);
+  if (typeof window !== "undefined" && window.collectionsStore) window.collectionsStore.reload();
 }
 
 function _restoreRawStorageValues(priorValues) {
@@ -3950,6 +4036,36 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     }
   }
 
+  // STRK-370: reconcile Collections through the commutative merge (excluded from the
+  // generic settings application below). The prior raw value is captured so a failure
+  // here OR in the settings loop restores it — the atomic rollback surface now covers
+  // inventory + tags + Collections. A failed write rolls back and returns WITHOUT
+  // recording the pull, so the next poll retries (HOLD).
+  var collectionPrior = null;
+  if (opts.remoteRawSettings) {
+    collectionPrior = _snapshotCollectionState();
+    try {
+      _mergeCollectionState(opts.remoteRawSettings);
+    } catch (collErr) {
+      inventory = _prevInventory;
+      if (tagPriorValues) _restoreRawStorageValues(tagPriorValues);
+      if (typeof loadItemTags === "function") loadItemTags();
+      _restoreCollectionState(collectionPrior);
+      console.warn("[CloudSync] Collections merge failed — rolling back pull:", collErr);
+      logCloudSyncActivity(
+        "cloud_sync_pull",
+        "partial",
+        { failedCount: 1, failedKeys: [_collectionStateKey()] },
+        null
+      );
+      if (typeof updateSyncStatusIndicator === "function") {
+        updateSyncStatusIndicator("error", "rollback");
+      }
+      if (typeof refreshSyncUI === "function") refreshSyncUI();
+      return;
+    }
+  }
+
   // 3. Apply settings changes.
   // remoteVal is typically a raw localStorage string (from vault payload.data or
   // manifest.settings snapshot), but DiffModal may pass non-string values for
@@ -4010,6 +4126,7 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
       inventory = _prevInventory;
       _restoreRawStorageValues(tagPriorValues);
       if (typeof loadItemTags === "function") loadItemTags();
+      _restoreCollectionState(collectionPrior);
       for (var r = 0; r < _appliedKeys.length; r++) {
         try {
           var prior = _priorValues[_appliedKeys[r]];
@@ -4740,7 +4857,16 @@ async function pullWithPreview(remoteMeta) {
           // (_isManagedSyncKey), so without this it would silently no-op here and
           // never reach the apply path where _mergeItemPriceClearWatermark runs.
           var _mHasIphClear = _hasItemPriceClearChange(manifest.settings);
-          if (_mNoChanges && _mNoSettingsChanges && !_mHasTagChanges && !_mHasIphClear) {
+          // STRK-370: same trap for Collections — a managed key, so a Collections-only
+          // remote change is invisible to the settings diff and would no-op here.
+          var _mHasCollections = _hasCollectionStateChange(manifest.settings);
+          if (
+            _mNoChanges &&
+            _mNoSettingsChanges &&
+            !_mHasTagChanges &&
+            !_mHasIphClear &&
+            !_mHasCollections
+          ) {
             // STAK-387: Silent return — no vault download needed when manifest confirms no changes
             var _silentPullMeta = {
               syncId: remoteMeta ? remoteMeta.syncId : null,
@@ -4858,7 +4984,11 @@ async function pullWithPreview(remoteMeta) {
           // otherwise it falls through to an empty DiffModal whose Apply is disabled,
           // so the watermark never applies. `_applyAndFinalize` already reconciles it
           // via the `remoteRawSettings` below; we only needed to widen the entry guard.
-          if (_mNoChanges && _mNoSettingsChanges && (_mHasTagChanges || _mHasIphClear)) {
+          if (
+            _mNoChanges &&
+            _mNoSettingsChanges &&
+            (_mHasTagChanges || _mHasIphClear || _mHasCollections)
+          ) {
             // STRK-224 (Edge 3, D-5): snapshot before _applyAndFinalize advances syncId.
             var _mtPriorLastPull = syncGetLastPull();
             _applyAndFinalize(inventory, [], null, remoteMeta, {
@@ -4994,6 +5124,17 @@ async function pullWithPreview(remoteMeta) {
                 console.warn(
                   "[CloudSync] Manifest auto-merge: clear-watermark apply failed — holding pull:",
                   String(_iphWmErr.message || _iphWmErr)
+                );
+              }
+              // STRK-370: reconcile Collections on the manifest one-sided path too
+              // (idempotent). A failed write holds the pull, exactly like the two above.
+              try {
+                _mergeCollectionState(manifest.settings || {});
+              } catch (_collErr) {
+                _failedCount++;
+                console.warn(
+                  "[CloudSync] Manifest auto-merge: Collections merge failed — holding pull:",
+                  String(_collErr.message || _collErr)
                 );
               }
               for (var _si = 0; _si < manifestSettingsDiff.changed.length; _si++) {
@@ -5591,6 +5732,29 @@ async function pullWithPreview(remoteMeta) {
           _previewPullMeta = null;
           return;
         }
+        // STRK-370: a Collections-only change also reaches this silent branch with an
+        // empty diff (managed key). Merge BEFORE recording the pull; a failed write holds
+        // lastPull so the next poll retries. The typeof guard keeps this branch's free
+        // identifiers stable for the STRK-234 slice-and-eval re-entrancy harness, which
+        // would otherwise see a ReferenceError as a (false) held pull.
+        try {
+          if (typeof _mergeCollectionState === "function") {
+            _mergeCollectionState(remotePayload.data);
+          }
+        } catch (_vfCollErr) {
+          console.warn(
+            "[CloudSync] Vault-first silent: Collections merge failed — holding lastPull:",
+            String(_vfCollErr.message || _vfCollErr)
+          );
+          logCloudSyncActivity(
+            "auto_sync_pull",
+            "fail",
+            "Collections write failed — pull held (vault-first silent)"
+          );
+          updateSyncStatusIndicator("error", "Sync incomplete");
+          _previewPullMeta = null;
+          return;
+        }
         if (meta) syncSetLastPull(meta);
         _previewPullMeta = null;
         logCloudSyncActivity("auto_sync_pull", "success", "No changes — pull recorded silently");
@@ -6159,4 +6323,7 @@ if (window.location && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostnam
   window.CloudSyncTest.mergeOneSidedTagSettings = _mergeOneSidedTagSettings;
   window.CloudSyncTest.mergeItemPriceClearWatermark = _mergeItemPriceClearWatermark;
   window.CloudSyncTest.hasItemPriceClearChange = _hasItemPriceClearChange;
+  window.CloudSyncTest.hasCollectionStateChange = _hasCollectionStateChange;
+  window.CloudSyncTest.mergeCollectionState = _mergeCollectionState;
+  window.CloudSyncTest.isManagedSyncKey = _isManagedSyncKey;
 }

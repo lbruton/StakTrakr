@@ -452,7 +452,7 @@ A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Seri
 
 The CSV column is **last** in both header lists (`buildStandardHeaders`, `BACKUP_CSV_HEADERS`). `exportCsv` prepends an LF-terminated `# exportOrigin` comment to PapaParse's CRLF body, so the importer's newline auto-detect settles on LF and the last column's header arrives with a trailing `\r` — read it with a trimmed key match (`_readCsvCollectionsCell`), never `row["Collections"]`.
 
-**Not yet synced:** `collectionState` is in `ALLOWED_STORAGE_KEYS` and deliberately **not** in `SYNC_SCOPE_KEYS`. It joins the sync scope only together with the 4-part cloud-sync contract (`.context/cloud-sync.md`) wired to `mergeStates`. Cloud sync + JSON + CSV round-trip is the epic's main-ship gate.
+**Synced as a managed key (STRK-370):** `collectionState` is in both `ALLOWED_STORAGE_KEYS` and `SYNC_SCOPE_KEYS`, but is never blind-overwritten — `cloud-sync.js` excludes it from every settings diff/apply site and reconciles it through `mergeStates`. See "Collections Sync" in `.context/cloud-sync.md`. `collectionsViewMode` stays device-local by design.
 
 ### Storage Layer
 
@@ -467,23 +467,23 @@ All keys registered in `ALLOWED_STORAGE_KEYS` (`js/constants.js`). `cleanupStora
 
 ### v2 Storage Keys
 
-| Key                         | Purpose                                                                                                                                                                    |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `v2SpotHistory`             | Spot price time series                                                                                                                                                     |
-| `retailPrices`              | Retail vendor prices                                                                                                                                                       |
-| `goldback-prices`           | Goldback denomination rates                                                                                                                                                |
-| `v2RetailHistory`           | Daily retail price history per slug — **moved to `StakTrakrHistory` IndexedDB (STRK-141, v3.35.3)**; localStorage key retained only as the IDB-unavailable fallback        |
-| `v2RetailIntraday`          | 15-min intraday window data                                                                                                                                                |
-| `v2SpotHistory`             | Cached v2 spot history for market charts (STAK-504)                                                                                                                        |
-| `retailPrices`              | Current retail ask prices keyed by slug                                                                                                                                    |
-| `retailManifestSlugs`       | Cached manifest coin slug list                                                                                                                                             |
-| `metalInventory`            | Primary inventory array                                                                                                                                                    |
-| `spotPricingSource`         | Single-select spot price source (STAK-443): STAKTRAKR \| METALS_DEV \| METALS_API \| METAL_PRICE_API \| CUSTOM \| MANUAL                                                   |
-| `metalSpotPrices`           | Manual-mode unified spot prices object {gold, silver, platinum, palladium} (STAK-443)                                                                                      |
-| `inventorySeedApplied`      | ISO 8601 timestamp sentinel (STRK-13) — proves a successful seed has run on this origin; only key _presence_ is consulted by `classifyBootState()`                         |
-| `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js`  |
-| `collectionState`           | Collections definitions + Slot → Item UUID links (STRK-368). Device-local until the sync contract lands — see Collections Module above. Owned by `js/collections-store.js` |
-| `collectionsViewMode`       | Collections tab view preference, `"album"` \| `"ledger"` (STRK-368). Device-local by design: album on a phone, ledger on a desktop                                         |
+| Key                         | Purpose                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `v2SpotHistory`             | Spot price time series                                                                                                                                                         |
+| `retailPrices`              | Retail vendor prices                                                                                                                                                           |
+| `goldback-prices`           | Goldback denomination rates                                                                                                                                                    |
+| `v2RetailHistory`           | Daily retail price history per slug — **moved to `StakTrakrHistory` IndexedDB (STRK-141, v3.35.3)**; localStorage key retained only as the IDB-unavailable fallback            |
+| `v2RetailIntraday`          | 15-min intraday window data                                                                                                                                                    |
+| `v2SpotHistory`             | Cached v2 spot history for market charts (STAK-504)                                                                                                                            |
+| `retailPrices`              | Current retail ask prices keyed by slug                                                                                                                                        |
+| `retailManifestSlugs`       | Cached manifest coin slug list                                                                                                                                                 |
+| `metalInventory`            | Primary inventory array                                                                                                                                                        |
+| `spotPricingSource`         | Single-select spot price source (STAK-443): STAKTRAKR \| METALS_DEV \| METALS_API \| METAL_PRICE_API \| CUSTOM \| MANUAL                                                       |
+| `metalSpotPrices`           | Manual-mode unified spot prices object {gold, silver, platinum, palladium} (STAK-443)                                                                                          |
+| `inventorySeedApplied`      | ISO 8601 timestamp sentinel (STRK-13) — proves a successful seed has run on this origin; only key _presence_ is consulted by `classifyBootState()`                             |
+| `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js`      |
+| `collectionState`           | Collections definitions + Slot → Item UUID links (STRK-368). Synced as a managed, merge-only key (STRK-370) — see Collections Module above. Owned by `js/collections-store.js` |
+| `collectionsViewMode`       | Collections tab view preference, `"album"` \| `"ledger"` (STRK-368). Device-local by design: album on a phone, ledger on a desktop                                             |
 
 ### IndexedDB Stores
 

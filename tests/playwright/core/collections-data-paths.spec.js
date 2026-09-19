@@ -340,3 +340,190 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
   });
 });
+
+/**
+ * Build the raw collectionState string another device would have pushed.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {{slotId: string, uuid: string, now: string}} link - The other device's one link.
+ * @returns {Promise<string>} Raw localStorage value as it rides the sync vault.
+ */
+const remoteDeviceState = (page, link) =>
+  page.evaluate(({ slotId, uuid, now }) => {
+    const core = window.collectionsCore;
+    const state = core.createEmptyState();
+    core.ensureCollection(state, {
+      id: "ase-type2",
+      kind: "template",
+      templateSlug: "ase-type2",
+      now,
+    });
+    core.linkItem(state, "ase-type2", slotId, uuid, { now });
+    return JSON.stringify(state);
+  }, link);
+
+test.describe("core/collections-data-paths — cloud sync contract (STRK-370)", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(
+      () =>
+        !!window.CloudSyncTest && typeof window.CloudSyncTest.mergeCollectionState === "function"
+    );
+  });
+
+  test("SCOPE + EXCLUDE: collectionState rides the sync vault and is a managed key", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+      return {
+        inSyncVault: Object.prototype.hasOwnProperty.call(
+          window.collectVaultData("sync").data,
+          "collectionState"
+        ),
+        managed: window.CloudSyncTest.isManagedSyncKey("collectionState"),
+      };
+    });
+    expect(result).toEqual({ inSyncVault: true, managed: true });
+  });
+
+  test("two devices: a Slot filled here and a Slot filled there BOTH survive the pull, durably and idempotently", async ({
+    page,
+  }) => {
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+    const remote = await remoteDeviceState(page, {
+      slotId: "2024",
+      uuid: "cdp-ase-2024",
+      now: "2026-09-18T11:00:00.000Z",
+    });
+
+    const before = await page.evaluate(
+      (raw) => window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw }),
+      remote
+    );
+    expect(before).toBe(true); // the manifest fast path must NOT swallow this
+
+    await page.evaluate(
+      (raw) => window.CloudSyncTest.mergeCollectionState({ collectionState: raw }),
+      remote
+    );
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+
+    // Converged: the same remote no longer reads as a change, so no apply loop.
+    const after = await page.evaluate(
+      (raw) => window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw }),
+      remote
+    );
+    expect(after).toBe(false);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () => window.appListenersReady === true && !!window.collectionsStore
+    );
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+
+  test("a newer unlink here beats an OLDER link arriving from the other device", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+      window.collectionsStore.unlink("ase-type2", "2024", "cdp-ase-2024");
+    });
+    const staleRemote = await remoteDeviceState(page, {
+      slotId: "2024",
+      uuid: "cdp-ase-2024",
+      now: "2020-01-01T00:00:00.000Z",
+    });
+
+    const result = await page.evaluate((raw) => {
+      const changed = window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw });
+      window.CloudSyncTest.mergeCollectionState({ collectionState: raw });
+      return changed;
+    }, staleRemote);
+
+    expect(result).toBe(false);
+    expect(await primaryOf(page, "2024")).toBeNull();
+  });
+
+  test("HOLD: a failed write throws for the caller and leaves local Collections untouched", async ({
+    page,
+  }) => {
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+    const remote = await remoteDeviceState(page, {
+      slotId: "2024",
+      uuid: "cdp-ase-2024",
+      now: "2026-09-18T11:00:00.000Z",
+    });
+
+    const outcome = await page.evaluate((raw) => {
+      const realSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "collectionState") throw new DOMException("full", "QuotaExceededError");
+        return realSetItem.call(this, key, value);
+      };
+      try {
+        window.CloudSyncTest.mergeCollectionState({ collectionState: raw });
+        return "no-throw";
+      } catch (error) {
+        return String(error.message);
+      } finally {
+        Storage.prototype.setItem = realSetItem;
+      }
+    }, remote);
+
+    expect(outcome).toContain("save-failed");
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    expect(await primaryOf(page, "2024")).toBeNull();
+  });
+
+  test("a Collections-only edit schedules its own sync push", async ({ page }) => {
+    const pushes = await page.evaluate(() => {
+      let count = 0;
+      window.scheduleSyncPush = () => {
+        count += 1;
+      };
+      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+      return count;
+    });
+    expect(pushes).toBeGreaterThan(0);
+  });
+
+  test("a JSON import cannot blind-overwrite Collections through its settings block", async ({
+    page,
+  }) => {
+    await page.waitForFunction(() => typeof window.importJson === "function");
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+    const text = await page.evaluate(() =>
+      JSON.stringify({
+        // Real items: an empty list short-circuits on "No items to import" before any diff.
+        items: window.inventory.map((item) => ({ ...item })),
+        settings: {
+          collectionState: JSON.stringify(window.collectionsCore.createEmptyState()),
+          appTheme: localStorage.getItem("appTheme") === "light" ? "dark" : "light",
+        },
+      })
+    );
+
+    await page.evaluate(
+      (json) =>
+        new Promise((resolve) => {
+          const origShow = window.DiffModal.show;
+          window.DiffModal.show = (config) => {
+            window.DiffModal.show = origShow;
+            const keys = ((config.settingsDiff && config.settingsDiff.changed) || []).map(
+              (change) => change.key
+            );
+            window.__cdpSettingsKeys = keys;
+            resolve();
+          };
+          window.importJson(new File([json], "settings.json", { type: "application/json" }), false);
+        }),
+      text
+    );
+
+    expect(await page.evaluate(() => window.__cdpSettingsKeys)).not.toContain("collectionState");
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+  });
+});

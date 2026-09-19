@@ -817,10 +817,10 @@ const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy
 /**
  * @constant {string} COLLECTION_STATE_KEY - LocalStorage key for the Collections module state (STRK-368, epic
  * STRK-254): collection definitions plus slot → Item UUID links. Links live here, never on the Item.
- * DEVICE-LOCAL FOR NOW — deliberately NOT in SYNC_SCOPE_KEYS. A blind last-write-wins overwrite of this blob
- * would drop a slot filled on another device; it joins the sync scope only together with the 4-part cloud-sync
- * contract and the commutative merge (collectionsCore.mergeStates). Full sync + JSON + CSV round-trip is the
- * epic's main-ship gate.
+ * SYNCED AS A MANAGED KEY (STRK-370): it is in SYNC_SCOPE_KEYS, but a blind last-write-wins overwrite of this
+ * blob would drop a slot filled on another device, so cloud-sync.js excludes it from every settings diff/apply
+ * site (_isManagedSyncKey) and reconciles it through the commutative collectionsCore.mergeStates instead
+ * (_mergeCollectionState). Any new path that writes this key must merge, never assign.
  */
 const COLLECTION_STATE_KEY = "collectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -1066,6 +1066,7 @@ const SYNC_SCOPE_KEYS = [
   "itemRemovedTags", // ITEM_REMOVED_TAGS_KEY — removed per-item tags
   "itemTagsLastModified", // ITEM_TAGS_LAST_MODIFIED_KEY — per-item tag timestamps
   "itemPriceHistoryClearedAt", // ITEM_PRICE_HISTORY_CLEARED_AT_KEY — synced clear-all watermark (STRK-223)
+  "collectionState", // COLLECTION_STATE_KEY — Collections + slot links; MANAGED key, merged by collectionsCore.mergeStates, never blind-overwritten (STRK-370)
 
   // ── Display preferences ──
   "displayCurrency", // DISPLAY_CURRENCY_KEY — active display currency
@@ -1227,7 +1228,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
-  COLLECTION_STATE_KEY, // JSON object: Collections definitions + slot→Item UUID links (STRK-368, device-local until the sync contract lands — deliberately NOT in SYNC_SCOPE_KEYS)
+  COLLECTION_STATE_KEY, // JSON object: Collections definitions + slot→Item UUID links (STRK-368; synced as a MANAGED key since STRK-370)
   COLLECTIONS_VIEW_MODE_KEY, // JSON string: "album"|"ledger" — Collections tab view mode (STRK-368, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   FORM_SECTION_STATE_KEY, // JSON object: add/edit form section open/collapsed map (STRK-301, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   "seedImagesVer", // string: current seed images version for cache invalidation

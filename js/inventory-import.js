@@ -1632,7 +1632,11 @@
         ) {
           const settingsKeys =
             typeof SYNC_SCOPE_KEYS !== "undefined" && Array.isArray(SYNC_SCOPE_KEYS)
-              ? SYNC_SCOPE_KEYS.filter((k) => k !== "metalInventory" && k !== "itemTags")
+              ? SYNC_SCOPE_KEYS.filter(
+                  // STRK-370: collectionState is a scope key now, but it must MERGE
+                  // (envelope → mergeIn above), never be blind-written as a "setting".
+                  (k) => k !== "metalInventory" && k !== "itemTags" && k !== COLLECTION_STATE_KEY
+                )
               : [
                   "displayCurrency",
                   "appTheme",
