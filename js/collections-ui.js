@@ -443,8 +443,33 @@
   };
 
   /**
-   * Every collection the hub lists: each Series Template (started or not), then the
-   * user's Custom Collections, oldest first. Only real data — no demo entries.
+   * Orders Series Template slugs chronologically by run start, so the hub does not inherit
+   * the file order of index.json. Templates with no run start sort last; ties fall back to
+   * the slug so the order is stable across renders.
+   * @param {Object<string, Object>} templates - Templates keyed by slug
+   * @returns {string[]} Slugs, earliest run first
+   */
+  const chronologicalSlugs = (templates) => {
+    /**
+     * Run start year used as the sort key.
+     * @param {string} slug - Template slug
+     * @returns {number} Start year, or Infinity when the template has none
+     */
+    const startOf = (slug) => {
+      const run = templates[slug] && templates[slug].run;
+      return run && Number.isFinite(run.start) ? run.start : Infinity;
+    };
+    return Object.keys(templates).sort((a, b) => {
+      const byStart = startOf(a) - startOf(b);
+      // Infinity - Infinity is NaN, which would make the comparator inconsistent.
+      return (Number.isNaN(byStart) ? 0 : byStart) || a.localeCompare(b);
+    });
+  };
+
+  /**
+   * Every collection the hub lists: each Series Template (started or not) chronologically
+   * by run start, then the user's Custom Collections, oldest first. Only real data — no
+   * demo entries.
    * @returns {Object[]} Entry view models
    */
   const buildEntries = () => {
@@ -461,7 +486,7 @@
     };
     const live = core().listCollections(store().getState());
     const templates = store().getTemplates();
-    const entries = Object.keys(templates).map((slug) =>
+    const entries = chronologicalSlugs(templates).map((slug) =>
       describeEntry(
         slug,
         live.find((collection) => collection.id === slug && collection.kind === "template") || null,

@@ -955,6 +955,24 @@ test.describe("core/collections — tab UI", () => {
     await expect(panel(page).locator("[data-collection-id]")).toHaveCount(2);
   });
 
+  test("the hub lists Series Templates chronologically by run start, in both layouts", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+
+    /** @returns {Promise<string[]>} Hub collection ids in rendered order. */
+    const hubOrder = () =>
+      panel(page)
+        .locator("[data-collection-id]")
+        .evaluateAll((els) => els.map((el) => el.getAttribute("data-collection-id")));
+
+    // index.json lists Type 2 first; the hub must not inherit that file order.
+    expect(await hubOrder()).toEqual(["ase-type1", "ase-type2"]);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    expect(await hubOrder()).toEqual(["ase-type1", "ase-type2"]);
+  });
+
   test("linking an item moves the hub card to 1 / 6 and 17% without a reload", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
