@@ -361,6 +361,9 @@ const loadInventory = async () => {
     }
 
     let serialCounter = parseInt(loadDataSync(SERIAL_KEY, 0), 10);
+    // STRK-369: set when the loop below mints a serial or uuid, so that identity can be
+    // persisted once afterwards instead of being re-minted on every boot.
+    let identityBackfilled = false;
 
     // Process each inventory item: assign serials and sync with catalog manager
     inventory.forEach((item) => {
@@ -368,11 +371,13 @@ const loadInventory = async () => {
       if (!item.serial) {
         serialCounter += 1;
         item.serial = serialCounter;
+        identityBackfilled = true;
       }
 
       // Assign UUIDs to items that don't have them (migration for existing data)
       if (!item.uuid) {
         item.uuid = generateUUID();
+        identityBackfilled = true;
       }
 
       // Use CatalogManager to synchronize numistaId
@@ -381,6 +386,31 @@ const loadInventory = async () => {
 
     // Save updated serial counter
     saveDataSync(SERIAL_KEY, serialCounter);
+
+    // STRK-369: make the back-fill durable. Left in memory, a legacy item was handed a
+    // fresh uuid on every boot — orphaning every UUID-keyed side store (tags, user photos,
+    // attachments, trade links) and changing the inventory hash on each launch.
+    //
+    // Conditional on purpose: an unconditional save would stamp cloud_sync_local_modified
+    // on every boot, and STAK-414 would then treat this device as always newer than the
+    // remote vault.
+    //
+    // Through saveInventory(), never saveData(LS_KEY): an automatic back-fill is not a user
+    // mutation, so the STRK-13 recovery gate must hold for the non-boot callers (multi-tab
+    // pull broadcast, snapshot / vault restore). A damaged-key or parse-error boot cannot
+    // reach this branch at all — it loads no items, so nothing is back-filled.
+    if (identityBackfilled) {
+      try {
+        await saveInventory();
+        if (typeof debugLog === "function") {
+          debugLog("loadInventory: persisted back-filled item identity");
+        }
+      } catch (persistError) {
+        // Contained deliberately: escaping to the outer catch would blank the in-memory
+        // inventory. The identity stays in memory for this session; the next boot retries.
+        console.error("[inventory] Failed to persist back-filled identity:", persistError);
+      }
+    }
 
     // Clean up any orphaned catalog mappings
     if (typeof catalogManager.cleanupOrphans === "function") {
