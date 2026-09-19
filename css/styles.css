@@ -17607,3 +17607,1110 @@ input[type="number"] {
     padding-bottom: 72px;
   }
 }
+
+/* =============================================================================
+   COLLECTIONS TAB (STRK-368, epic STRK-254) — rendered by js/collections-ui.js
+
+   Two levels, one view-mode preference: HUB (cards | table) and the in-page
+   ALBUM (slot tiles | ledger rows). Every class is prefixed `collections-`.
+
+   Tokens only, authored dark-first; --primary carries the accent in all four
+   themes (gold on dark, blue on light/slate, bronze on sepia), so "owned" reads
+   as the theme's own accent rather than a fifth hard-coded colour.
+
+   Reused as-is rather than restyled: .btn / .btn.secondary / .btn.danger,
+   .chip-sort-toggle + .chip-sort-btn, .vendor-prices-tabs, .empty-state.
+   Literal px values below are component DIMENSIONS (medallion, badge, ring) —
+   spacing, colour and radius always come from tokens.
+   ============================================================================= */
+
+/* The card chrome (background, border, radius, padding) comes from the global
+   `section` rule on #collectionsSectionEl — the panel must not frame itself again. */
+.collections-panel {
+  min-width: 0;
+}
+
+.collections-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.collections-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Header ---- */
+.collections-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing);
+  margin-bottom: var(--spacing-lg);
+}
+
+.collections-head h2,
+.collections-album-head h2 {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  line-height: 1.1;
+}
+
+.collections-sub {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+}
+
+.collections-beta {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: var(--spacing-md);
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in oklch, var(--primary), transparent 55%);
+  color: var(--primary);
+  font: 700 var(--font-size-xs) / 1.6 var(--font-body);
+  letter-spacing: 0.08em;
+}
+
+/* Pill buttons: .btn supplies colour + hover; this only reshapes it. The doubled
+   class beats .btn's own padding/min-height without reaching for !important. */
+.btn.collections-btn-pill {
+  border-radius: var(--radius-pill);
+  gap: var(--spacing-sm);
+  min-height: 2.125rem;
+  padding: var(--spacing-sm) var(--spacing);
+  font-size: var(--font-size-md);
+  white-space: nowrap;
+}
+
+.btn.collections-btn-pill.collections-add {
+  min-height: 1.875rem;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing);
+  font-size: var(--font-size-sm);
+}
+
+/* ---- Stat strip ---- */
+.collections-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing);
+  margin-bottom: var(--spacing-lg);
+}
+
+.collections-stat {
+  min-width: 0;
+  padding: var(--spacing) var(--spacing-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.collections-stat-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.collections-stat-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.collections-stat-value small {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.collections-stat-note {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-stat.is-accent {
+  border-color: color-mix(in oklch, var(--primary), transparent 50%);
+  background: color-mix(in oklch, var(--primary), var(--bg-secondary) 93%);
+}
+
+.collections-stat.is-accent .collections-stat-label {
+  color: var(--primary);
+}
+
+/* ---- Toolbars ---- */
+.collections-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing);
+  margin-bottom: var(--spacing);
+}
+
+.collections-toolbar .vendor-prices-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+  overflow-x: auto;
+}
+
+.collections-toolbar .vendor-prices-tabs button {
+  white-space: nowrap;
+}
+
+.collections-toolbar-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  margin-left: auto;
+}
+
+.collections-toolbar-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.collections-iconbtn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  min-height: 28px;
+}
+
+/* ---- Progress ---- */
+.collections-progress {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.collections-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 0.35s ease;
+}
+
+.collections-progress.is-complete > span {
+  background: var(--success);
+}
+
+.collections-count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+.collections-count b {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.collections-pct {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+/* ---- Coin medallion ---- */
+.collections-coin {
+  --collections-coin: 84px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--collections-coin);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--shadow);
+}
+
+.collections-coin--sm {
+  --collections-coin: 40px;
+}
+
+.collections-coin--md {
+  --collections-coin: 72px;
+}
+
+.collections-coin--lg {
+  --collections-coin: 92px;
+}
+
+.collections-coin img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.035);
+}
+
+.collections-coin--mono {
+  font-family: var(--font-heading);
+  font-size: calc(var(--collections-coin) * 0.34);
+  color: var(--text-secondary);
+  background: radial-gradient(circle at 30% 25%, var(--bg-tertiary), var(--bg-secondary));
+}
+
+.collections-coin--ghost {
+  background: transparent;
+  box-shadow: none;
+  outline: 1.5px dashed var(--border-hover);
+  outline-offset: -1.5px;
+}
+
+.collections-coin--ghost img {
+  filter: grayscale(1);
+  opacity: 0.22;
+}
+
+.collections-coin--ghost.collections-coin--mono {
+  color: var(--text-muted);
+}
+
+.collections-coin--owned {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    var(--shadow);
+}
+
+.collections-pair {
+  display: flex;
+}
+
+.collections-pair .collections-coin + .collections-coin {
+  margin-left: calc(var(--collections-coin) * -0.24);
+}
+
+/* ---- Tags ---- */
+.collections-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tag-border);
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  font: 700 var(--font-size-xs) / 1.6 var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.collections-tag.is-done {
+  border-color: color-mix(in oklch, var(--success), transparent 60%);
+  background: color-mix(in oklch, var(--success), transparent 82%);
+  color: var(--success);
+}
+
+.collections-tag.is-variant {
+  border-color: color-mix(in oklch, var(--primary), transparent 55%);
+  background: transparent;
+  color: var(--primary);
+}
+
+/* ---- Hub cards ---- */
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr));
+  gap: var(--spacing);
+}
+
+.collections-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--spacing-lg);
+  width: 100%;
+  padding: var(--spacing-lg);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s;
+}
+
+.collections-card:hover,
+.collections-card:focus-visible {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--bg-secondary), var(--hover-mix) 4%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.collections-card-body {
+  display: block;
+  min-width: 0;
+}
+
+.collections-card-name {
+  display: block;
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.collections-card-name b {
+  font-weight: 600;
+}
+
+.collections-card-sub {
+  display: block;
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collections-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xs);
+}
+
+.collections-card-foot {
+  display: block;
+  margin-top: var(--spacing-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-card.is-new {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: center;
+  gap: var(--spacing-sm);
+  min-height: 126px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  background: transparent;
+  border-style: dashed;
+}
+
+.collections-card.is-new strong {
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.collections-card.is-new .collections-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---- First-run + filtered-empty states (on top of .empty-state) ---- */
+.collections-firstrun,
+.collections-emptystate {
+  background: transparent;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+
+.collections-firstrun {
+  margin-bottom: var(--spacing-lg);
+}
+
+.collections-firstrun .collections-pair {
+  justify-content: center;
+  margin-bottom: var(--spacing);
+}
+
+.collections-firstrun h3,
+.collections-emptystate h3 {
+  font: 400 var(--font-size-2xl) / 1.2 var(--font-heading);
+}
+
+.collections-firstrun p {
+  max-width: 480px;
+}
+
+/* ---- Album header ---- */
+.collections-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.collections-crumb button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: inherit;
+  color: var(--primary);
+}
+
+.collections-crumb button:hover,
+.collections-crumb button:focus-visible {
+  text-decoration: underline;
+}
+
+.collections-album-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+}
+
+.collections-spec {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.collections-spec span + span::before {
+  content: "\00b7";
+  margin: 0 var(--spacing-sm);
+  color: var(--border-hover);
+}
+
+.collections-about {
+  max-width: 70ch;
+  margin: var(--spacing-md) 0 0;
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+}
+
+.collections-ring {
+  --collections-pct: 0;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--bg-card) 78%, transparent 80% 100%),
+    conic-gradient(var(--primary) calc(var(--collections-pct) * 1%), var(--bg-tertiary) 0);
+}
+
+.collections-ring b {
+  display: block;
+  text-align: center;
+  font: 600 var(--font-size-xl) / 1 var(--font-mono);
+  color: var(--text-primary);
+}
+
+.collections-ring small {
+  display: block;
+  margin-top: var(--spacing-xs);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---- Slot tiles (album mode) ---- */
+.collections-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: var(--spacing);
+}
+
+.collections-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-width: 0;
+  padding: var(--spacing-lg) var(--spacing) var(--spacing);
+  text-align: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.collections-slot .collections-coin {
+  --collections-coin: 112px;
+}
+
+.collections-slot.is-missing {
+  border-style: dashed;
+}
+
+.collections-slot.is-owned {
+  border-color: color-mix(in oklch, var(--primary), transparent 45%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary), var(--bg-secondary) 90%),
+    var(--bg-secondary) 60%
+  );
+}
+
+.collections-slot.is-owned:hover,
+.collections-slot.is-owned:focus-within {
+  border-color: var(--primary);
+}
+
+/* The face of an owned tile is one button; badges and "more" sit beside it. */
+.collections-slot-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+}
+
+.collections-slot-main:focus-visible,
+.collections-more:focus-visible,
+.collections-linkbtn:focus-visible,
+.collections-match:focus-visible,
+.collections-hubrow:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.collections-slot-year {
+  display: block;
+  margin-top: var(--spacing-md);
+  font: 600 var(--font-size-lg) / 1.2 var(--font-mono);
+  color: var(--text-primary);
+}
+
+.collections-slot-tag {
+  margin-left: var(--spacing-xs);
+  vertical-align: middle;
+  font: 600 var(--font-size-xs) / 1 var(--font-body);
+  letter-spacing: 0.06em;
+  color: var(--primary);
+}
+
+.collections-slot-meta {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-slot-rule {
+  display: block;
+  width: 100%;
+  height: 1px;
+  margin: var(--spacing-sm) 0 var(--spacing-xs);
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.collections-slot-item {
+  display: block;
+  width: 100%;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collections-slot-money,
+.collections-lrow-money {
+  font: var(--font-size-xs) / 1.4 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.collections-slot-money {
+  display: block;
+}
+
+.collections-slot-price {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.collections-slot-price small {
+  font-family: var(--font-body);
+  color: var(--text-muted);
+}
+
+.collections-up {
+  color: var(--success);
+}
+
+.collections-down {
+  color: var(--danger);
+}
+
+.collections-qty {
+  margin-left: var(--spacing-sm);
+  padding: 0 var(--spacing-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: 600 var(--font-size-xs) / 1.5 var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.collections-match,
+.collections-linkbtn {
+  padding: 0;
+  border: none;
+  background: none;
+  font-weight: 600;
+  text-align: left;
+}
+
+.collections-match {
+  font-size: var(--font-size-xs);
+  color: var(--primary);
+}
+
+.collections-linkbtn {
+  max-width: 100%;
+  font-size: inherit;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.collections-match:hover,
+.collections-linkbtn:hover {
+  text-decoration: underline;
+}
+
+.collections-check,
+.collections-spare {
+  position: absolute;
+  top: var(--spacing);
+  display: inline-grid;
+  place-items: center;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  font: 700 var(--font-size-xs) / 1 var(--font-mono);
+  pointer-events: none;
+}
+
+.collections-check {
+  right: var(--spacing);
+  width: 20px;
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.collections-check .collections-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.collections-spare {
+  left: var(--spacing);
+  padding: 0 var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.collections-more {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+}
+
+.collections-more:hover,
+.collections-more[aria-expanded="true"] {
+  border-color: var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.collections-more .collections-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentcolor;
+  stroke: none;
+}
+
+.collections-slot .collections-more {
+  position: absolute;
+  right: var(--spacing-sm);
+  bottom: var(--spacing-sm);
+}
+
+/* ---- Ledger (hub table + album rows) ---- */
+.collections-ledger {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.collections-lrow {
+  display: grid;
+  grid-template-columns:
+    52px 92px minmax(0, 1.4fr) 116px 84px 84px
+    minmax(120px, 0.8fr) 116px;
+  align-items: center;
+  gap: var(--spacing);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font: inherit;
+  font-size: var(--font-size-base);
+  color: inherit;
+  text-align: left;
+}
+
+.collections-lrow:last-child {
+  border-bottom: none;
+}
+
+.collections-lrow.is-head {
+  padding-block: var(--spacing-md);
+  background: var(--bg-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.collections-lrow.is-owned {
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.collections-lrow.is-owned:hover,
+.collections-hubrow:hover:not(.is-head) {
+  background: color-mix(in oklch, var(--bg-secondary), var(--hover-mix) 4%);
+}
+
+.collections-lrow-year {
+  font: 600 var(--font-size-md) / 1.2 var(--font-mono);
+  color: var(--text-primary);
+}
+
+.collections-lrow-name {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collections-lrow-name b {
+  font-weight: 600;
+}
+
+.collections-lrow-name small {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collections-num {
+  font-family: var(--font-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.collections-muted {
+  color: var(--text-muted);
+}
+
+.collections-lrow-act {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-xs);
+}
+
+.collections-lrow-act .collections-tag {
+  margin-left: 0;
+}
+
+.collections-lrow-act .btn.collections-add {
+  margin-top: 0;
+}
+
+.collections-hubrow {
+  grid-template-columns: 52px minmax(0, 1.5fr) minmax(140px, 1fr) 110px 120px 130px 28px;
+}
+
+.collections-hubrow-progress {
+  display: block;
+  min-width: 0;
+}
+
+.collections-hubrow > .collections-icon {
+  color: var(--text-muted);
+}
+
+.collections-hubrow > .collections-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Shown only in the compact (<=640px) ledger; see the media block below. */
+.collections-show-sm,
+.collections-lrow-name small.collections-show-sm {
+  display: none;
+}
+
+/* ---- Slot action menu (appended to <body>, positioned by the script) ---- */
+.collections-menu {
+  position: absolute;
+  z-index: 9000;
+  min-width: 230px;
+  max-width: calc(100vw - var(--spacing-lg));
+  padding: var(--spacing-xs);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.collections-menu-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--spacing);
+  width: 100%;
+  padding: var(--spacing-md) var(--spacing);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.collections-menu-item:hover,
+.collections-menu-item:focus-visible {
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
+.collections-menu-item small {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.collections-menu-item .collections-icon {
+  margin-top: 2px;
+  color: var(--primary);
+}
+
+.collections-menu-item .collections-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.collections-menu-item.is-danger,
+.collections-menu-item.is-danger .collections-icon {
+  color: var(--danger);
+}
+
+.collections-menu-heading {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing) var(--spacing-xs);
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Tablet: the numeric ledger columns need room the viewport no longer has ---- */
+@media (max-width: 1024px) {
+  .collections-lrow {
+    grid-template-columns:
+      44px 76px minmax(0, 1fr) 84px 84px
+      minmax(96px, auto) 116px;
+  }
+
+  /* Mintage is reference data; paid / melt / G-L are why the ledger exists. */
+  .collections-hide-md {
+    display: none;
+  }
+
+  .collections-hubrow {
+    grid-template-columns: 44px minmax(0, 1.4fr) minmax(90px, 1fr) 84px 110px 110px 20px;
+  }
+}
+
+/* ---- Phone: 2-col stats + tiles, two-line ledger rows, 44px touch targets ---- */
+@media (max-width: 640px) {
+  /* The global section padding (--spacing-xl a side) costs a phone 48px of width. */
+  .collections-section {
+    padding: var(--spacing);
+  }
+
+  .collections-head h2,
+  .collections-album-head h2 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .collections-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .collections-stat {
+    padding: var(--spacing);
+  }
+
+  .collections-stat-value {
+    font-size: var(--font-size-xl);
+  }
+
+  .collections-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .collections-album-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing);
+  }
+
+  .collections-album-head .collections-coin {
+    --collections-coin: 64px;
+  }
+
+  .collections-ring,
+  .collections-about {
+    display: none;
+  }
+
+  .collections-toolbar-right {
+    margin-left: 0;
+  }
+
+  .btn.collections-btn-pill,
+  .btn.collections-btn-pill.collections-add {
+    min-height: 2.75rem;
+  }
+
+  .collections-toolbar .chip-sort-btn,
+  .collections-toolbar .vendor-prices-tabs button {
+    min-height: 2.75rem;
+  }
+
+  .collections-iconbtn,
+  .collections-more {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .collections-crumb button,
+  .collections-slot .collections-match {
+    min-height: 2.75rem;
+  }
+
+  .collections-slot .collections-match {
+    display: inline-flex;
+    align-items: center;
+    text-align: center;
+  }
+
+  .collections-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-md);
+  }
+
+  .collections-slot {
+    padding: var(--spacing) var(--spacing-sm) var(--spacing-sm);
+  }
+
+  .collections-slot .collections-coin {
+    --collections-coin: 88px;
+  }
+
+  /* "More" leaves the corner and joins the flow, so a 44px target never covers text. */
+  .collections-slot .collections-more {
+    position: static;
+  }
+
+  /* thumb | year | item (+ status or price line) | action */
+  .collections-lrow {
+    grid-template-columns: 40px auto minmax(0, 1fr) auto;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+
+  /* The `small` selector is repeated because .collections-lrow-name small sets
+     display:block at a higher specificity than a bare utility class. The Owned tag
+     goes too: the accent bar, the un-ghosted coin and the price line already say it. */
+  .collections-lrow.is-head,
+  .collections-hide-sm,
+  .collections-lrow-name small.collections-hide-sm,
+  .collections-lrow-act .collections-tag {
+    display: none;
+  }
+
+  .collections-show-sm,
+  .collections-lrow-name small.collections-show-sm {
+    display: block;
+  }
+
+  .collections-lrow-year,
+  .collections-lrow-name {
+    align-self: start;
+  }
+
+  .collections-lrow-name {
+    white-space: normal;
+  }
+
+  .collections-lrow-name .collections-linkbtn {
+    min-height: 1.5rem;
+  }
+
+  .collections-hubrow {
+    grid-template-columns: 40px minmax(0, 1fr) 84px;
+  }
+
+  .collections-hubrow-progress .collections-show-sm {
+    margin-top: var(--spacing-xs);
+    text-align: right;
+  }
+}

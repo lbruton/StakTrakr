@@ -824,6 +824,14 @@ const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy
  */
 const COLLECTION_STATE_KEY = "collectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/**
+ * @constant {string} COLLECTIONS_VIEW_MODE_KEY - LocalStorage key for the Collections tab view mode (STRK-368):
+ * "album" (hub cards + album tiles) or "ledger" (hub table + album rows). One preference flips both levels.
+ * DEVICE-LOCAL BY DESIGN — deliberately NOT in SYNC_SCOPE_KEYS: the same user wants the album on a phone and
+ * the ledger on a desktop, so syncing it would make each device undo the other (precedent: FORM_SECTION_STATE_KEY).
+ */
+const COLLECTIONS_VIEW_MODE_KEY = "collectionsViewMode"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} FORM_SECTION_STATE_KEY - LocalStorage key for the add/edit form per-section open/collapsed map (STRK-301) */
 const FORM_SECTION_STATE_KEY = "formSectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -1220,6 +1228,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
   ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
   COLLECTION_STATE_KEY, // JSON object: Collections definitions + slot→Item UUID links (STRK-368, device-local until the sync contract lands — deliberately NOT in SYNC_SCOPE_KEYS)
+  COLLECTIONS_VIEW_MODE_KEY, // JSON string: "album"|"ledger" — Collections tab view mode (STRK-368, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   FORM_SECTION_STATE_KEY, // JSON object: add/edit form section open/collapsed map (STRK-301, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
@@ -1455,12 +1464,12 @@ const saveFilterChipCategoryConfig = (config) => {
 /**
  * Default layout section configuration. Order determines display order.
  *
- * `collections` has no DOM section of its own — the Collections tab is still a
- * placeholder panel (STRK-254). It is carried here anyway so the STRK-326 tab
- * visibility control has somewhere to persist, which avoids a second
- * localStorage key and the dual registration it would require. Existing users
- * pick it up for free: _loadSectionConfig appends defaults the saved config
- * does not know about.
+ * `collections` answers to #collectionsSectionEl, which js/collections-ui.js
+ * renders into (STRK-368). It is the Collections tab's only section, so the
+ * STRK-326 tab visibility control persists here rather than in a second
+ * localStorage key with its own dual registration. Existing users pick it up
+ * for free: _loadSectionConfig appends defaults the saved config does not know
+ * about.
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
@@ -2250,6 +2259,7 @@ if (typeof window !== "undefined") {
   window.ITEM_TAGS_LAST_MODIFIED_KEY = ITEM_TAGS_LAST_MODIFIED_KEY;
   // Collections module state (STRK-368)
   window.COLLECTION_STATE_KEY = COLLECTION_STATE_KEY;
+  window.COLLECTIONS_VIEW_MODE_KEY = COLLECTIONS_VIEW_MODE_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;
   // Form section disclosure state (STRK-301)

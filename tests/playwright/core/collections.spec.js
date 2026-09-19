@@ -244,3 +244,312 @@ test.describe("core/collections", () => {
     expect(await readProgress()).toBe(1);
   });
 });
+
+// -----------------------------------------------------------------------------
+// Tab UI (js/collections-ui.js): hub, in-page album, album/ledger view toggle.
+// Everything below asserts what a user sees in #collectionsSectionEl; the store is
+// only used to ARRANGE state (link an item) so each case starts from a known album.
+// -----------------------------------------------------------------------------
+
+const ASE = "ase-type2";
+
+/** The Collections panel — every UI assertion is scoped to it. */
+const panel = (page) => page.locator("#collectionsSectionEl");
+
+/** One slot of the open album, tile or ledger row alike. */
+const slotOf = (page, slotId) => panel(page).locator(`[data-slot-id="${slotId}"]`);
+
+/** Waits for the boot signal the Collections UI itself renders on. */
+const waitForApp = (page) =>
+  page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsUI);
+
+/** Switches to the Collections tab through the desktop header nav. */
+const openCollectionsTab = async (page) => {
+  await waitForApp(page);
+  await page.locator("#tabBtnCollections").click();
+  await expect(panel(page)).toBeVisible();
+};
+
+/** Links seeded items to slots through the store: [[slotId, uuid], ...]. */
+const linkItems = (page, pairs) =>
+  page.evaluate(
+    ({ id, links }) =>
+      links.map(([slotId, uuid]) => window.collectionsStore.link(id, slotId, uuid)),
+    { id: ASE, links: pairs }
+  );
+
+/** Opens the ASE Type 2 album from the hub. */
+const openAseAlbum = async (page) => {
+  await panel(page).locator(`[data-collection-id="${ASE}"]`).click();
+  await expect(panel(page).getByRole("heading", { name: /American Silver Eagle/ })).toBeVisible();
+};
+
+test.describe("core/collections — tab UI", () => {
+  test("a fresh profile shows the first-run state and the ASE Type 2 run at 0 / 6", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+
+    await expect(
+      panel(page).getByRole("heading", { name: "Start your first collection" })
+    ).toBeVisible();
+    const entry = panel(page).locator(`[data-collection-id="${ASE}"]`);
+    await expect(entry).toContainText("American Silver Eagle");
+    await expect(entry).toContainText("0 / 6");
+    // Only real Series Templates ship — the mockup's Type 1 / Morgan demo entries must not.
+    await expect(panel(page).locator("[data-collection-id]")).toHaveCount(1);
+  });
+
+  test("linking an item moves the hub card to 1 / 6 and 17% without a reload", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+
+    const entry = panel(page).locator(`[data-collection-id="${ASE}"]`);
+    await expect(entry).toContainText("1 / 6");
+    await expect(entry).toContainText("17%");
+    await expect(
+      panel(page).getByRole("heading", { name: "Start your first collection" })
+    ).toHaveCount(0);
+  });
+
+  test("a hub card opens the in-page album; the breadcrumb and browser Back return", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await expect(page).toHaveURL(/#\/collections\/ase-type2$/);
+
+    const slots = panel(page).locator("[data-slot-id]");
+    await expect(slots).toHaveCount(6);
+    const slotIds = await slots.evaluateAll((els) => els.map((el) => el.dataset.slotId));
+    expect(slotIds).toEqual(["2021-t2", "2022", "2023", "2024", "2025", "2026"]);
+    for (const year of ["2021", "2022", "2023", "2024", "2025", "2026"]) {
+      await expect(panel(page).getByText(year, { exact: true }).first()).toBeVisible();
+    }
+    await expect(slotOf(page, "2021-t2")).toContainText("T2");
+    await expect(slotOf(page, "2021-t2")).toContainText("14,968,500 minted");
+    await expect(slotOf(page, "2026")).toContainText("In production");
+
+    await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+    await expect(page).toHaveURL(/#\/collections$/);
+    await expect(panel(page).locator(`[data-collection-id="${ASE}"]`)).toBeVisible();
+    await expect(slots).toHaveCount(0);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/collections\/ase-type2$/);
+    await expect(slots).toHaveCount(6);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/collections$/);
+    await expect(slots).toHaveCount(0);
+  });
+
+  test("a deep link lands on the album and survives a reload; an unknown id falls back to the hub", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.goto("/index.html#/collections/ase-type2");
+    await expect(page.locator("#tabViewCollections")).toBeVisible();
+    await expect(panel(page).locator("[data-slot-id]")).toHaveCount(6);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await expect(page.locator("#tabBtnCollections")).toHaveAttribute("aria-selected", "true");
+    await expect(panel(page).locator("[data-slot-id]")).toHaveCount(6);
+    await expect(page).toHaveURL(/#\/collections\/ase-type2$/);
+
+    await page.goto("/index.html#/collections/no-such-collection");
+    await expect(panel(page).locator(`[data-collection-id="${ASE}"]`)).toBeVisible();
+    await expect(panel(page).locator("[data-slot-id]")).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/collections$/);
+  });
+
+  test("+ Add → Add new item fills the slot tile without a reload", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await expect(panel(page).getByRole("button", { name: "Owned 0" })).toBeVisible();
+
+    await slotOf(page, "2023").getByRole("button", { name: /Add/ }).click();
+    await page.getByRole("menuitem", { name: /Add new item/ }).click();
+
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemName")).toHaveValue("2023 American Silver Eagle");
+    await expect(page.locator("#itemYear")).toHaveValue("2023");
+    await page.fill("#itemPrice", "33.40");
+    await page.click("#itemModalSubmit");
+    await expect(page.locator("#itemModal")).toBeHidden();
+
+    await expect(slotOf(page, "2023")).toContainText("2023 American Silver Eagle");
+    await expect(panel(page).getByRole("button", { name: "Owned 1" })).toBeVisible();
+    await expect(panel(page).getByRole("button", { name: "Missing 5" })).toBeVisible();
+  });
+
+  test("the view toggle switches both levels to the ledger and survives a reload", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+    await expect(panel(page).locator(".collections-slot")).toHaveCount(6);
+
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(panel(page).locator(".collections-lrow[data-slot-id]")).toHaveCount(6);
+    await expect(panel(page).locator(".collections-slot")).toHaveCount(0);
+    await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await expect(panel(page).locator(".collections-lrow[data-slot-id]")).toHaveCount(6);
+    await expect(panel(page).getByRole("button", { name: "Ledger view" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    // ONE preference flips both levels: the hub is a table now, not cards.
+    await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+    await expect(
+      panel(page).locator(`.collections-hubrow[data-collection-id="${ASE}"]`)
+    ).toBeVisible();
+    await expect(panel(page).locator(".collections-card")).toHaveCount(0);
+
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await expect(
+      panel(page).locator(`.collections-card[data-collection-id="${ASE}"]`)
+    ).toBeVisible();
+  });
+
+  test("the Owned and Missing filters show the matching slots", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [
+      ["2022", "col-ase-2022-a"],
+      ["2024", "col-ase-2024"],
+    ]);
+    await openAseAlbum(page);
+    const slots = panel(page).locator("[data-slot-id]");
+
+    await panel(page).getByRole("button", { name: "Owned 2" }).click();
+    await expect(slots).toHaveCount(2);
+    await expect(slotOf(page, "2022")).toBeVisible();
+    await expect(slotOf(page, "2024")).toBeVisible();
+
+    await panel(page).getByRole("button", { name: "Missing 4" }).click();
+    await expect(slots).toHaveCount(4);
+    await expect(slotOf(page, "2022")).toHaveCount(0);
+
+    await panel(page).getByRole("button", { name: "All", exact: true }).click();
+    await expect(slots).toHaveCount(6);
+  });
+
+  test("clicking an owned tile opens the item view modal for the linked item", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+
+    await slotOf(page, "2024")
+      .getByRole("button", { name: /2024 American Silver Eagle BU/ })
+      .click();
+    await expect(page.locator("#viewItemModal")).toBeVisible();
+    await expect(page.locator("#viewModalTitle")).toHaveText("2024 American Silver Eagle BU");
+  });
+
+  test("the slot menu unlinks an item, and the picker seam degrades to a toast", async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+
+    // The link picker is a later slice: until window.collectionsPicker exists the seam toasts.
+    await slotOf(page, "2023").getByRole("button", { name: /Add/ }).click();
+    await page.getByRole("menuitem", { name: /Link existing item/ }).click();
+    await expect(page.locator(".cloud-toast").first()).toHaveText("Coming in the next build");
+
+    await slotOf(page, "2024")
+      .getByRole("button", { name: /More actions/ })
+      .click();
+    await page.getByRole("menuitem", { name: /Unlink item/ }).click();
+    await expect(slotOf(page, "2024")).not.toContainText("2024 American Silver Eagle BU");
+    await expect(panel(page).getByRole("button", { name: "Owned 0" })).toBeVisible();
+    // The Item itself is untouched — only the link is gone.
+    expect(
+      await page.evaluate(() => window.inventory.some((entry) => entry.uuid === "col-ase-2024"))
+    ).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  test("with the COLLECTIONS flag off only the placeholder renders", async ({ page }) => {
+    await seedAndGoto(page);
+    // FeatureFlags reads the lower-cased flag name from the query string.
+    await page.goto("/index.html?collections=false#/collections", {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForApp(page);
+
+    await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
+    await expect(panel(page).locator("[data-collection-id]")).toHaveCount(0);
+    await expect(panel(page).locator("[data-slot-id]")).toHaveCount(0);
+    await expect(panel(page).getByRole("button", { name: "Ledger view" })).toHaveCount(0);
+  });
+
+  test("at 390px the album is two columns and neither view overflows the page", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedAndGoto(page);
+    await waitForApp(page);
+    await page.locator("#appBottomNav [data-tab='collections']").click();
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+
+    const overflow = () =>
+      page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
+    const columns = await panel(page)
+      .locator(".collections-slot")
+      .evaluateAll(
+        (els) => new Set(els.map((el) => Math.round(el.getBoundingClientRect().left))).size
+      );
+    expect(columns).toBe(2);
+    expect(await overflow()).toBeLessThanOrEqual(0);
+
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(panel(page).locator(".collections-lrow[data-slot-id]")).toHaveCount(6);
+    await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
+    expect(await overflow()).toBeLessThanOrEqual(0);
+
+    // The hub table collapses the same way.
+    await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+    await expect(panel(page).locator(".collections-hubrow[data-collection-id]")).toBeVisible();
+    expect(await overflow()).toBeLessThanOrEqual(0);
+  });
+
+  test("the album renders in all four themes without page errors", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+
+    for (const theme of ["dark", "light", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(
+        panel(page).getByRole("heading", { name: /American Silver Eagle/ })
+      ).toBeVisible();
+      await expect(panel(page).locator("[data-slot-id]")).toHaveCount(6);
+      await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
+      await expect(slotOf(page, "2023").getByRole("button", { name: /Add/ })).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+  });
+});

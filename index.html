@@ -1793,22 +1793,16 @@
           <div id="vendorPricesContainer"></div>
         </section>
       </div>
-      <!-- v2 tab view: Collections placeholder (STRK-282; built out under STRK-254) -->
+      <!-- v2 tab view: Collections (STRK-282 shell; STRK-368 UI, epic STRK-254).
+           #collectionsSectionEl is the render root owned by js/collections-ui.js: the hub,
+           the in-page album, or the placeholder when the COLLECTIONS flag is off. -->
       <div
         class="tab-view"
         id="tabViewCollections"
         role="tabpanel"
         aria-labelledby="tabBtnCollections"
       >
-        <section class="collections-section" id="collectionsSectionEl">
-          <div class="collections-empty">
-            <h2>Collections</h2>
-            <p>
-              Prebuilt date runs and custom checklists are on the way. This tab is the shell they
-              will render into.
-            </p>
-          </div>
-        </section>
+        <section class="collections-section" id="collectionsSectionEl"></section>
       </div>
       <!-- =============================================================================
          IMPORT/EXPORT SECTION
@@ -8930,12 +8924,14 @@
 
     <!-- STRK-368 (epic STRK-254): Collections module. collections-core.js is the pure
          data layer; collections-store.js is the storage + inventory seam (must follow
-         core). The Series Template bundle is read lazily, so its position is free — it
-         is a script-tag global because file:// cannot fetch() local JSON, the same
-         reason spot-history-bundle.js exists. All three must precede init.js, which
-         hydrates the store during boot. -->
+         core); collections-ui.js renders the Collections tab and talks only to the store
+         (must follow it). The Series Template bundle is read lazily, so its position is
+         free — it is a script-tag global because file:// cannot fetch() local JSON, the
+         same reason spot-history-bundle.js exists. All four must precede tabs.js, which
+         notifies collectionsUI on activation, and init.js, which hydrates the store. -->
     <script defer src="./js/collections-core.js"></script>
     <script defer src="./js/collections-store.js"></script>
+    <script defer src="./js/collections-ui.js"></script>
     <script defer src="./data/collections-bundle.js"></script>
 
     <!-- STRK-282: tab shell view switching. Must precede init.js. -->

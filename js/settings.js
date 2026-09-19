@@ -2973,9 +2973,6 @@ const LAYOUT_SECTION_TAB_VIEW = {
   search: "tabViewInventory",
   table: "tabViewInventory",
   vendorPrices: "tabViewMarket",
-  // No DOM section answers to `collections` yet — the entry exists so the tab
-  // ownership lookup covers all four tabs (STRK-326). applyLayoutOrder skips it
-  // because sectionMap has nothing under that id.
   collections: "tabViewCollections",
 };
 window.LAYOUT_SECTION_TAB_VIEW = LAYOUT_SECTION_TAB_VIEW;
@@ -2993,6 +2990,7 @@ const applyLayoutOrder = () => {
     table: elements.tableSectionEl,
     bestPriceTicker: safeGetElement("bestPriceTickerEl"),
     vendorPrices: safeGetElement("vendorPricesSectionEl"),
+    collections: safeGetElement("collectionsSectionEl"),
   };
   const container = document.querySelector(".container");
   if (!container) return;
