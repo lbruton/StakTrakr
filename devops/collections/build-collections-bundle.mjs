@@ -26,7 +26,8 @@ const BUNDLE_PATH = "data/collections-bundle.js";
  * @param {string} relativePath - Path relative to the root
  * @returns {any} Parsed JSON
  */
-const readJson = (root, relativePath) => JSON.parse(readFileSync(join(root, relativePath), "utf-8"));
+const readJson = (root, relativePath) =>
+  JSON.parse(readFileSync(join(root, relativePath), "utf-8"));
 
 /**
  * Builds the bundle payload from the canonical JSON files.
@@ -36,11 +37,18 @@ const readJson = (root, relativePath) => JSON.parse(readFileSync(join(root, rela
 export function buildBundleObject(root = REPO_ROOT) {
   const index = readJson(root, `${COLLECTIONS_DIR}/index.json`);
   const templates = {};
+  const seenSlugs = new Set();
   for (const entry of index.collections) {
+    if (seenSlugs.has(entry.slug)) {
+      throw new Error(`index.json contains duplicate slug "${entry.slug}"`);
+    }
     const template = readJson(root, `${COLLECTIONS_DIR}/${entry.path}`);
     if (template.slug !== entry.slug) {
-      throw new Error(`index.json slug "${entry.slug}" does not match ${entry.path} slug "${template.slug}"`);
+      throw new Error(
+        `index.json slug "${entry.slug}" does not match ${entry.path} slug "${template.slug}"`
+      );
     }
+    seenSlugs.add(entry.slug);
     templates[entry.slug] = { ...template, basePath: `${COLLECTIONS_DIR}/${dirname(entry.path)}/` };
   }
   return { schema: index.schema, basePath: `${COLLECTIONS_DIR}/`, index, templates };
@@ -64,5 +72,7 @@ export function renderBundle(payload) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const payload = buildBundleObject();
   writeFileSync(join(REPO_ROOT, BUNDLE_PATH), renderBundle(payload));
-  console.log(`[collections] wrote ${BUNDLE_PATH} — ${Object.keys(payload.templates).length} template(s)`);
+  console.log(
+    `[collections] wrote ${BUNDLE_PATH} — ${Object.keys(payload.templates).length} template(s)`
+  );
 }

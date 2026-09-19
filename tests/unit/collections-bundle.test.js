@@ -8,12 +8,14 @@
 //   2. TEMPLATE INTEGRITY — slot ids are the keys user links are stored under, so they
 //      must be unique, storage-safe, and stable; referenced images must exist.
 //
-// Harness: the bundle is a script-tag global (assigns window.__COLLECTIONS_BUNDLE), so
-// it is evaluated with a mock `window`, mirroring the other script-global unit tests.
+// Harness: the bundle is a script-tag global (assigns window.__COLLECTIONS_BUNDLE).
+// Extract its generated JSON payload without evaluating JavaScript source.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildBundleObject,
@@ -27,9 +29,14 @@ const bundleSource = readFileSync(
 );
 
 function loadBundle() {
-  const surface = {};
-  new Function("window", bundleSource)(surface);
-  return surface.__COLLECTIONS_BUNDLE;
+  const prefix = "window.__COLLECTIONS_BUNDLE = ";
+  const start = bundleSource.indexOf(prefix);
+  assert.notEqual(start, -1, "bundle assignment is missing");
+  const json = bundleSource
+    .slice(start + prefix.length)
+    .trim()
+    .replace(/;$/, "");
+  return JSON.parse(json);
 }
 
 const bundle = loadBundle();
@@ -48,6 +55,33 @@ describe("collections bundle — drift guard", () => {
     assert.ok(bundle.index.collections.length > 0);
     for (const entry of bundle.index.collections) {
       assert.equal(bundle.templates[entry.slug].slug, entry.slug);
+    }
+  });
+
+  test("the builder rejects duplicate index slugs before replacing a template", () => {
+    const root = mkdtempSync(join(tmpdir(), "staktrakr-collections-"));
+    try {
+      const collectionsDir = join(root, "data", "collections");
+      for (const directory of ["first", "second"]) {
+        mkdirSync(join(collectionsDir, directory), { recursive: true });
+        writeFileSync(
+          join(collectionsDir, directory, "collection.json"),
+          JSON.stringify({ slug: "shared", name: directory })
+        );
+      }
+      writeFileSync(
+        join(collectionsDir, "index.json"),
+        JSON.stringify({
+          schema: 1,
+          collections: [
+            { slug: "shared", path: "first/collection.json" },
+            { slug: "shared", path: "second/collection.json" },
+          ],
+        })
+      );
+      assert.throws(() => buildBundleObject(root), /index\.json contains duplicate slug "shared"/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

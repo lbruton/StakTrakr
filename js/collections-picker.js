@@ -695,7 +695,7 @@
     const rowActions = el("div", "collections-builder-actions");
     rowActions.append(
       button("btn secondary collections-btn-pill", "+ Add slot", () =>
-        addRow({}).querySelector("input").focus()
+        addRow({}).querySelector(".collections-builder-label").focus()
       ),
       button("btn secondary collections-btn-pill", "+ Add year range…", async () => {
         const answer = await showAppPrompt(

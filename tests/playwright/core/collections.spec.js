@@ -7,6 +7,14 @@
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
 
+/**
+ * Build one inventory fixture for the collection tests.
+ * @param {string} uuid - Stable item identifier.
+ * @param {string} name - Display name.
+ * @param {string} year - Mint year.
+ * @param {number} serial - Inventory serial number.
+ * @returns {object} Inventory item fixture.
+ */
 const baseItem = (uuid, name, year, serial) => ({
   uuid,
   metal: "Silver",
@@ -47,8 +55,11 @@ const SEED = [
 /**
  * Seeds inventory once (never on reload, so app-written state survives) and boots the
  * Inventory tab, where #newItemBtn lives.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {Array<object>} [items=SEED] - Inventory to seed before app scripts run.
+ * @returns {Promise<void>} When the app and collection store are ready.
  */
-const seedAndGoto = async (page) => {
+const seedAndGoto = async (page, items = SEED) => {
   await page.addInitScript((items) => {
     if (!localStorage.getItem("metalInventory")) {
       localStorage.setItem("metalInventory", JSON.stringify(items));
@@ -60,12 +71,17 @@ const seedAndGoto = async (page) => {
       },
       { once: true }
     );
-  }, SEED);
+  }, items);
   await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsStore);
 };
 
-/** Reads one slot of the ASE Type 2 collection as plain JSON (null when never touched). */
+/**
+ * Read one ASE Type 2 slot as plain JSON.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} slotId - Slot identifier.
+ * @returns {Promise<{primary: string|null, spares: string[]}|null>} Link or null when untouched.
+ */
 const readSlot = (page, slotId) =>
   page.evaluate((id) => {
     const collection = window.collectionsStore.getState().collections["ase-type2"];
@@ -222,6 +238,7 @@ test.describe("core/collections", () => {
     page,
   }) => {
     await seedAndGoto(page);
+    /** @returns {Promise<number>} Number of owned ASE Type 2 slots. */
     const readProgress = () =>
       page.evaluate(() => {
         const store = window.collectionsStore;
@@ -230,18 +247,36 @@ test.describe("core/collections", () => {
     await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "col-ase-2024"));
     expect(await readProgress()).toBe(1);
 
-    await page.evaluate(() => {
-      const item = window.inventory.find((entry) => entry.uuid === "col-ase-2024");
-      item.disposition = { type: "sold", date: "2026-09-01", amount: 70, currency: "USD" };
-    });
-    expect(await readProgress()).toBe(0);
+    const itemRow = page.locator('#inventoryTable tbody tr[data-idx="2"]');
+    await expect(itemRow).toContainText("2024 American Silver Eagle BU");
+    await itemRow.getByRole("button", { name: "Delete item" }).click();
+    await expect(page.locator("#removeItemModal")).toBeVisible();
+    await page.locator('.dispose-toggle-card[for="removeItemDisposeCheck"]').click();
+    await expect(page.locator("#removeItemDisposeCheck")).toBeChecked();
+    await page.locator("#dispositionDate").fill("2026-09-01");
+    await page.locator("#dispositionAmount").fill("70");
+    await page.locator("#removeItemDisposeBtn").click();
+    await expect(page.locator("#removeItemModal")).toBeHidden();
+    await expect.poll(readProgress).toBe(0);
     // Disposal never rewrites the stored link — that is what lets an undo restore the slot.
     expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    expect(await readProgress()).toBe(0);
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
 
-    await page.evaluate(() => {
-      window.inventory.find((entry) => entry.uuid === "col-ase-2024").disposition = null;
-    });
+    await page.locator('#disposedFilterGroup [data-disposed-mode="show-only"]').click();
+    const disposedRow = page.locator('#inventoryTable tbody tr[data-idx="2"]');
+    await expect(disposedRow).toContainText("2024 American Silver Eagle BU");
+    await disposedRow.getByRole("button", { name: "Undo disposition" }).click();
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+    await page.locator("#appDialogOk").click();
+    await expect.poll(readProgress).toBe(1);
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
     expect(await readProgress()).toBe(1);
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
   });
 });
 
@@ -253,24 +288,46 @@ test.describe("core/collections", () => {
 
 const ASE = "ase-type2";
 
-/** The Collections panel — every UI assertion is scoped to it. */
+/**
+ * Locate the Collections panel for scoped UI assertions.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {import('@playwright/test').Locator} Collections panel.
+ */
 const panel = (page) => page.locator("#collectionsSectionEl");
 
-/** One slot of the open album, tile or ledger row alike. */
+/**
+ * Locate one slot in the open album, tile or ledger row alike.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} slotId - Slot identifier.
+ * @returns {import('@playwright/test').Locator} Matching slot.
+ */
 const slotOf = (page, slotId) => panel(page).locator(`[data-slot-id="${slotId}"]`);
 
-/** Waits for the boot signal the Collections UI itself renders on. */
+/**
+ * Wait for the boot signal the Collections UI renders on.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<import('@playwright/test').JSHandle>} Boot readiness result.
+ */
 const waitForApp = (page) =>
   page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsUI);
 
-/** Switches to the Collections tab through the desktop header nav. */
+/**
+ * Switch to the Collections tab through the desktop header nav.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>} When the panel is visible.
+ */
 const openCollectionsTab = async (page) => {
   await waitForApp(page);
   await page.locator("#tabBtnCollections").click();
   await expect(panel(page)).toBeVisible();
 };
 
-/** Links seeded items to slots through the store: [[slotId, uuid], ...]. */
+/**
+ * Link seeded items to slots through the collection store.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {Array<[string, string]>} pairs - Slot IDs and item UUIDs.
+ * @returns {Promise<Array<object>>} Results of the link operations.
+ */
 const linkItems = (page, pairs) =>
   page.evaluate(
     ({ id, links }) =>
@@ -278,13 +335,21 @@ const linkItems = (page, pairs) =>
     { id: ASE, links: pairs }
   );
 
-/** Opens the ASE Type 2 album from the hub. */
+/**
+ * Open the ASE Type 2 album from the hub.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>} When the album heading is visible.
+ */
 const openAseAlbum = async (page) => {
   await panel(page).locator(`[data-collection-id="${ASE}"]`).click();
   await expect(panel(page).getByRole("heading", { name: /American Silver Eagle/ })).toBeVisible();
 };
 
-/** Fingerprint the image actually displayed, rather than its disposable blob URL. */
+/**
+ * Fingerprint the displayed image rather than its disposable blob URL.
+ * @param {import('@playwright/test').Locator} image - Image locator.
+ * @returns {Promise<string|null>} SHA-256 hex digest, or null before image load.
+ */
 const displayedImageHash = (image) =>
   image.evaluate(async (img) => {
     if (!img.complete || !img.naturalWidth) return null;
@@ -423,6 +488,11 @@ test.describe("core/collections — STRK-376 saved image swaps", () => {
       await linkItems(page, [["2024", "col-ase-2024"]]);
       if (source === "pattern images") await linkItems(page, [["2022", "col-ase-2022-a"]]);
       await openAseAlbum(page);
+      /**
+       * Open the linked item in Edit and optionally check both displayed image hashes.
+       * @param {{obverse: string, reverse: string}} [expected] - Expected image hashes.
+       * @returns {Promise<void>} When the edit modal is ready.
+       */
       const openEdit = async (expected) => {
         await slotOf(page, "2024")
           .getByRole("button", { name: /2024 American Silver Eagle BU/ })
@@ -486,11 +556,31 @@ test.describe("core/collections — STRK-376 saved image swaps", () => {
 });
 
 test.describe("core/collections — link picker, builder, item view", () => {
+  /**
+   * Locate the collection link picker modal.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {import('@playwright/test').Locator} Picker modal.
+   */
   const pickerModal = (page) => page.locator("#collectionsPickerModal");
+  /**
+   * Locate the collection builder modal.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {import('@playwright/test').Locator} Builder modal.
+   */
   const builderModal = (page) => page.locator("#collectionsBuilderModal");
+  /**
+   * Locate the item view modal.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {import('@playwright/test').Locator} Item view modal.
+   */
   const viewModal = (page) => page.locator("#viewItemModal");
 
-  /** Opens the item view modal for a seeded item by uuid. */
+  /**
+   * Open the item view modal for a seeded item by UUID.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string} uuid - Item identifier.
+   * @returns {Promise<void>} When the modal is visible.
+   */
   const openItemView = async (page, uuid) => {
     await page.evaluate((id) => {
       window.showViewModal(window.inventory.findIndex((entry) => entry.uuid === id));
@@ -527,18 +617,22 @@ test.describe("core/collections — link picker, builder, item view", () => {
   test("the picker disables items already used in this collection and never lists disposed items", async ({
     page,
   }) => {
-    await seedAndGoto(page);
+    await seedAndGoto(
+      page,
+      SEED.map((item) =>
+        item.uuid === "col-maple-2024"
+          ? {
+              ...item,
+              disposition: { type: "sold", date: "2026-09-01", amount: 40, currency: "USD" },
+            }
+          : item
+      )
+    );
     await openCollectionsTab(page);
     await linkItems(page, [["2022", "col-ase-2022-a"]]);
-    await page.evaluate(() => {
-      window.inventory.find((entry) => entry.uuid === "col-maple-2024").disposition = {
-        type: "sold",
-        date: "2026-09-01",
-        amount: 40,
-        currency: "USD",
-      };
-      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2023" });
-    });
+    await page.evaluate(() =>
+      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2023" })
+    );
 
     await expect(pickerModal(page)).toBeVisible();
     await expect(pickerModal(page)).toContainText("No obvious match for the 2023 slot");
@@ -727,7 +821,12 @@ test.describe("core/collections — link picker, builder, item view", () => {
 });
 
 test.describe("core/collections — ZIP backup round trip", () => {
-  /** Restores a ZIP with the diff modal stubbed to auto-accept, and waits for completion. */
+  /**
+   * Restore a ZIP with the diff modal stubbed to auto-accept.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {number[]} zipBytes - Backup ZIP bytes.
+   * @returns {Promise<void>} When the success toast is shown.
+   */
   const restoreZip = async (page, zipBytes) => {
     await page.evaluate(async (bytes) => {
       window.__zipRestoreComplete = false;
@@ -1118,6 +1217,7 @@ test.describe("core/collections — tab UI", () => {
     await linkItems(page, [["2024", "col-ase-2024"]]);
     await openAseAlbum(page);
 
+    /** @returns {Promise<number>} Horizontal page overflow in CSS pixels. */
     const overflow = () =>
       page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
     const columns = await panel(page)
