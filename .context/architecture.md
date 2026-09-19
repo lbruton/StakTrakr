@@ -414,6 +414,31 @@ Written to `item.disposition` when an item is sold/disposed. Never re-derived af
 
 **Partial-stack splits (STRK-44):** When `disposedQty < stackQty`, the original record is decremented in place (no disposition set) and a `structuredClone` is inserted at `idx + 1` with `qty = disposedQty`, a fresh `uuid` + `serial`, and a disposition containing `splitFromUuid`. Two correlated Activity Log entries share the same `transactionId` (the `disposedAt` ISO timestamp) and undo atomically via `confirmCascadeUndo`. Restoring a split clone prompts merge-or-separate.
 
+### Collections Module (STRK-368, epic STRK-254)
+
+A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Series Template, Date Run, Tombstone, Cost to Complete) are defined in `.context/GLOSSARY.md`.
+
+| Layer            | File                                                     | Role                                                                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core             | `js/collections-core.js`                                 | Pure, DOM-free, storage-free (`window.collectionsCore`). Link integrity, spare promotion, tombstones, slot suggestions, `mergeStates`. Runs unchanged in the Node unit harness.                         |
+| Store            | `js/collections-store.js`                                | The only file touching storage, the live `inventory` global and the template bundle (`window.collectionsStore`). Fires `collections:changed` on `document`. Owns the add-new-item-from-slot flow.       |
+| UI               | `js/collections-ui.js`                                   | Collections tab: hub + in-page album, album/ledger view toggle, sub-route `#/collections/<id>`.                                                                                                         |
+| Series Templates | `data/collections/<slug>/collection.json` + `index.json` | Canonical first-party catalog data (slots, mintages, specs, stock images, sources).                                                                                                                     |
+| Template bundle  | `data/collections-bundle.js` (generated, committed)      | `window.__COLLECTIONS_BUNDLE`. Exists because `file://` cannot `fetch()` local JSON — the same split as `spot-history-bundle.js`. Rebuild with `npm run build:collections`; a unit test fails on drift. |
+| Bundle builder   | `devops/collections/build-collections-bundle.mjs`        | JSON → bundle. `data/` is Prettier-ignored on purpose: the drift test is byte-exact.                                                                                                                    |
+
+**State shape** (`collectionState`): `{ schema, collections: { id → { id, kind: "template"|"custom", templateSlug, name, createdAt, metaModified, lastModified, deletedAt, clonedFrom, definition, slots: { slotId → { primary, spares[], modified } } } } }`. Every runtime-string-keyed map is null-prototype.
+
+**Invariants:**
+
+- Links live on the Collection, never on the Item — zero new item fields, so no enumeration blast radius (diff fields, change log, inventory hash, bulk edit).
+- An Item fills at most one Slot per Collection; a Slot holds one primary + up to `MAX_SLOT_SPARES` (3) Spares; unlinking or deleting the primary promotes the first Spare.
+- Disposal never rewrites a link — `resolveSlot()` filters disposed/unknown UUIDs at read time, so undoing a Disposition restores the Slot. Hard delete prunes (`_deleteInventoryItem` → `collectionsStore.pruneItem`); a guarded boot sweep covers bulk-delete/import paths and refuses an empty or recovery-held inventory.
+- An emptied Slot and a removed Collection are **Tombstones**, never deleted keys, and `metaModified` is tracked apart from `lastModified` — both exist so `mergeStates` can be commutative and idempotent on ties (STRK-154).
+- `loadInventory()` back-fills a missing `item.uuid` in memory only, so `collectionsStore.link()` persists the inventory when the linked UUID is not yet durable.
+
+**Not yet synced:** `collectionState` is in `ALLOWED_STORAGE_KEYS` and deliberately **not** in `SYNC_SCOPE_KEYS`. It joins the sync scope only together with the 4-part cloud-sync contract (`.context/cloud-sync.md`) wired to `mergeStates`. Cloud sync + JSON + CSV round-trip is the epic's main-ship gate.
+
 ### Storage Layer
 
 | API               | Function                                                  | Use When                           |
@@ -427,21 +452,23 @@ All keys registered in `ALLOWED_STORAGE_KEYS` (`js/constants.js`). `cleanupStora
 
 ### v2 Storage Keys
 
-| Key                         | Purpose                                                                                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `v2SpotHistory`             | Spot price time series                                                                                                                                                    |
-| `retailPrices`              | Retail vendor prices                                                                                                                                                      |
-| `goldback-prices`           | Goldback denomination rates                                                                                                                                               |
-| `v2RetailHistory`           | Daily retail price history per slug — **moved to `StakTrakrHistory` IndexedDB (STRK-141, v3.35.3)**; localStorage key retained only as the IDB-unavailable fallback       |
-| `v2RetailIntraday`          | 15-min intraday window data                                                                                                                                               |
-| `v2SpotHistory`             | Cached v2 spot history for market charts (STAK-504)                                                                                                                       |
-| `retailPrices`              | Current retail ask prices keyed by slug                                                                                                                                   |
-| `retailManifestSlugs`       | Cached manifest coin slug list                                                                                                                                            |
-| `metalInventory`            | Primary inventory array                                                                                                                                                   |
-| `spotPricingSource`         | Single-select spot price source (STAK-443): STAKTRAKR \| METALS_DEV \| METALS_API \| METAL_PRICE_API \| CUSTOM \| MANUAL                                                  |
-| `metalSpotPrices`           | Manual-mode unified spot prices object {gold, silver, platinum, palladium} (STAK-443)                                                                                     |
-| `inventorySeedApplied`      | ISO 8601 timestamp sentinel (STRK-13) — proves a successful seed has run on this origin; only key _presence_ is consulted by `classifyBootState()`                        |
-| `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js` |
+| Key                         | Purpose                                                                                                                                                                    |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v2SpotHistory`             | Spot price time series                                                                                                                                                     |
+| `retailPrices`              | Retail vendor prices                                                                                                                                                       |
+| `goldback-prices`           | Goldback denomination rates                                                                                                                                                |
+| `v2RetailHistory`           | Daily retail price history per slug — **moved to `StakTrakrHistory` IndexedDB (STRK-141, v3.35.3)**; localStorage key retained only as the IDB-unavailable fallback        |
+| `v2RetailIntraday`          | 15-min intraday window data                                                                                                                                                |
+| `v2SpotHistory`             | Cached v2 spot history for market charts (STAK-504)                                                                                                                        |
+| `retailPrices`              | Current retail ask prices keyed by slug                                                                                                                                    |
+| `retailManifestSlugs`       | Cached manifest coin slug list                                                                                                                                             |
+| `metalInventory`            | Primary inventory array                                                                                                                                                    |
+| `spotPricingSource`         | Single-select spot price source (STAK-443): STAKTRAKR \| METALS_DEV \| METALS_API \| METAL_PRICE_API \| CUSTOM \| MANUAL                                                   |
+| `metalSpotPrices`           | Manual-mode unified spot prices object {gold, silver, platinum, palladium} (STAK-443)                                                                                      |
+| `inventorySeedApplied`      | ISO 8601 timestamp sentinel (STRK-13) — proves a successful seed has run on this origin; only key _presence_ is consulted by `classifyBootState()`                         |
+| `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js`  |
+| `collectionState`           | Collections definitions + Slot → Item UUID links (STRK-368). Device-local until the sync contract lands — see Collections Module above. Owned by `js/collections-store.js` |
+| `collectionsViewMode`       | Collections tab view preference, `"album"` \| `"ledger"` (STRK-368). Device-local by design: album on a phone, ledger on a desktop                                         |
 
 ### IndexedDB Stores
 
