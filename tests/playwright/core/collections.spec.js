@@ -9,6 +9,7 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 import {
   collectionItem as baseItem,
   seedCollectionsPage,
+  reloadCollections,
 } from "../helpers/collections-fixtures.js";
 
 const SEED = [
@@ -41,10 +42,7 @@ test.describe("core/collections", () => {
     );
     expect(result).toEqual({ ok: true, changed: true });
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () => window.appListenersReady === true && !!window.collectionsStore
-    );
+    await reloadCollections(page);
 
     // cleanupStorage() runs on every boot and deletes unregistered keys — the link surviving
     // proves COLLECTION_STATE_KEY is allow-listed, not merely written.
@@ -204,8 +202,7 @@ test.describe("core/collections", () => {
     await expect.poll(readProgress).toBe(0);
     // Disposal never rewrites the stored link — that is what lets an undo restore the slot.
     expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     expect(await readProgress()).toBe(0);
     expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
 
@@ -217,8 +214,7 @@ test.describe("core/collections", () => {
     await page.locator("#appDialogOk").click();
     await expect.poll(readProgress).toBe(1);
     expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     expect(await readProgress()).toBe(1);
     expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
   });
@@ -254,6 +250,18 @@ const slotOf = (page, slotId) => panel(page).locator(`[data-slot-id="${slotId}"]
  */
 const waitForApp = (page) =>
   page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsUI);
+
+/**
+ * Reload and wait for the UI layer specifically. Distinct from the shared
+ * reloadCollections(), which only needs the store — the UI cases must not race
+ * collections-ui.js (PR 1500 review — duplication).
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>}
+ */
+const reloadApp = async (page) => {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+};
 
 /**
  * Switch to the Collections tab through the desktop header nav.
@@ -342,8 +350,7 @@ test.describe("core/collections — STRK-376 saved image swaps", () => {
     await page.locator("#itemModalSubmit").click();
     await page.locator("#inventoryForm").evaluate((form) => form.requestSubmit());
     await expect(page.locator("#itemModal")).toBeHidden();
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     expect(await page.evaluate(() => window.inventory.length)).toBe(SEED.length);
     await page.evaluate(() =>
       window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2024"))
@@ -390,8 +397,7 @@ test.describe("core/collections — STRK-376 saved image swaps", () => {
     await expect.poll(() => displayedImageHash(image)).toBe(before);
     await page.locator("#itemModalSubmit").click();
     await expect(page.locator("#itemModal")).toBeHidden();
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     await page.evaluate(() =>
       window.editItem(window.inventory.findIndex((item) => item.uuid === "col-ase-2022-a"))
     );
@@ -484,8 +490,7 @@ test.describe("core/collections — STRK-376 saved image swaps", () => {
       await expect.poll(() => displayedImageHash(obv)).toBe(before.reverse);
       await expect.poll(() => displayedImageHash(rev)).toBe(before.obverse);
       await page.locator("#cancelItem").click();
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await waitForApp(page);
+      await reloadApp(page);
       await openEdit(swapped);
       await expect.poll(() => displayedImageHash(obv)).toBe(before.reverse);
       await expect.poll(() => displayedImageHash(rev)).toBe(before.obverse);
@@ -746,8 +751,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     );
     await page.evaluate(() => window.collectionsUI.render());
     await expect(cover).toHaveCount(0);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     await expect(cover).toHaveCount(0);
   });
 
@@ -897,10 +901,7 @@ test.describe("core/collections — ZIP backup round trip", () => {
     expect(custom).toEqual({ name: "Backup set", linked: "col-maple-2024" });
 
     // Phase 4 — it is durable, not just in memory.
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () => window.appListenersReady === true && !!window.collectionsStore
-    );
+    await reloadCollections(page);
     expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
   });
 
@@ -1073,8 +1074,7 @@ test.describe("core/collections — tab UI", () => {
     await expect(page.locator("#tabViewCollections")).toBeVisible();
     await expect(panel(page).locator("[data-slot-id]")).toHaveCount(6);
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     await expect(page.locator("#tabBtnCollections")).toHaveAttribute("aria-selected", "true");
     await expect(panel(page).locator("[data-slot-id]")).toHaveCount(6);
     await expect(page).toHaveURL(/#\/collections\/ase-type2$/);
@@ -1120,8 +1120,7 @@ test.describe("core/collections — tab UI", () => {
     await expect(panel(page).locator(".collections-slot")).toHaveCount(0);
     await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     await expect(panel(page).locator(".collections-lrow[data-slot-id]")).toHaveCount(6);
     await expect(panel(page).getByRole("button", { name: "Ledger view" })).toHaveAttribute(
       "aria-pressed",
@@ -1239,8 +1238,7 @@ test.describe("core/collections — tab UI", () => {
     await openCollectionsTab(page);
     await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
     await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toHaveCount(0);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
+    await reloadApp(page);
     await page.evaluate(() => window.showSettingsModal("grouping"));
     await expect(setting.locator('[data-val="no"]')).toHaveClass(/active/);
     await setting.locator('[data-val="yes"]').click();

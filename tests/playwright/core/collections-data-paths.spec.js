@@ -9,6 +9,7 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 import {
   collectionItem as baseItem,
   seedCollectionsPage,
+  reloadCollections,
 } from "../helpers/collections-fixtures.js";
 import { encryptVaultPayload } from "../helpers/vault-fixtures.js";
 
@@ -58,10 +59,7 @@ test.describe("core/collections-data-paths — encrypted vault", () => {
 
     // ...and a later mutation saves ON TOP of the restored state, not over it.
     await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () => window.appListenersReady === true && !!window.collectionsStore
-    );
+    await reloadCollections(page);
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
     expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
   });
@@ -392,10 +390,7 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
 
     expect(toast).toContain("2 added");
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () => window.appListenersReady === true && !!window.collectionsStore
-    );
+    await reloadCollections(page);
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
   });
 
@@ -535,10 +530,7 @@ test.describe("core/collections-data-paths — cloud sync contract (STRK-370)", 
     );
     expect(after).toBe(false);
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () => window.appListenersReady === true && !!window.collectionsStore
-    );
+    await reloadCollections(page);
     expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
     expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
   });
@@ -739,6 +731,25 @@ const prepareDevices = async (browser, page) => {
   return { deviceA, close: () => context.close() };
 };
 
+/**
+ * Runs a two-device body with the second device's context always torn down.
+ * Every two-device case repeated the same setTimeout + prepare + try/finally
+ * preamble, which is the bulk of this file's duplication (PR 1500 review).
+ * @param {import('@playwright/test').Browser} browser - Playwright browser.
+ * @param {import('@playwright/test').Page} page - The receiving device.
+ * @param {(deviceA: import('@playwright/test').Page) => Promise<void>} body - Test body.
+ * @returns {Promise<void>}
+ */
+const withDevices = async (browser, page, body) => {
+  test.setTimeout(60000);
+  const { deviceA, close } = await prepareDevices(browser, page);
+  try {
+    await body(deviceA);
+  } finally {
+    await close();
+  }
+};
+
 const remoteCollectionMeta = (syncId) => ({
   syncId,
   rev: `${syncId}-rev`,
@@ -816,9 +827,7 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
     browser,
     page,
   }) => {
-    test.setTimeout(60000);
-    const { deviceA, close } = await prepareDevices(browser, page);
-    try {
+    await withDevices(browser, page, async (deviceA) => {
       const art = await deviceA.evaluate(async () => {
         const created = window.collectionsStore.createCustom({
           name: "Two device art",
@@ -894,18 +903,14 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       }, imageVault.bytes);
       expect(oldVaultRejected.collections[art.collectionId].artwork.cover.present).toBe(false);
       await expect(page.locator(".collections-album-head .collections-coin img")).toHaveCount(0);
-    } finally {
-      await close();
-    }
+    });
   });
 
   test("vault-first Collections-only pull merges concurrent Slots and retries after quota rollback", async ({
     browser,
     page,
   }) => {
-    test.setTimeout(60000);
-    const { deviceA, close } = await prepareDevices(browser, page);
-    try {
+    await withDevices(browser, page, async (deviceA) => {
       await deviceA.evaluate(() =>
         window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024")
       );
@@ -947,18 +952,14 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       await page.evaluate((remote) => window.pullWithPreview(remote), meta);
       expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
       expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-    } finally {
-      await close();
-    }
+    });
   });
 
   test("manifest Collections-only pull adds a concurrent Slot but preserves a newer unlink", async ({
     browser,
     page,
   }) => {
-    test.setTimeout(60000);
-    const { deviceA, close } = await prepareDevices(browser, page);
-    try {
+    await withDevices(browser, page, async (deviceA) => {
       await deviceA.evaluate(() => {
         const core = window.collectionsCore;
         const state = core.createEmptyState();
@@ -991,18 +992,14 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       );
       expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
       expect(await primaryOf(page, "2022")).toBeNull();
-    } finally {
-      await close();
-    }
+    });
   });
 
   test("manifest deferred apply stops on rollback, then retries without losing either device's Slot", async ({
     browser,
     page,
   }) => {
-    test.setTimeout(60000);
-    const { deviceA, close } = await prepareDevices(browser, page);
-    try {
+    await withDevices(browser, page, async (deviceA) => {
       await deviceA.evaluate(() =>
         window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024")
       );
@@ -1030,9 +1027,7 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       await page.evaluate((remote) => window.pullWithPreview(remote), meta);
       expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
       expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-    } finally {
-      await close();
-    }
+    });
   });
 });
 

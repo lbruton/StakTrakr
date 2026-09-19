@@ -46,3 +46,15 @@ export const seedCollectionsPage = async (page, items) => {
   await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsStore);
 };
+
+/**
+ * Reload and wait for the app to be ready again. Every durability assertion in
+ * the Collections suites repeated this pair; sharing it is what keeps the pair
+ * from drifting apart (PR 1500 review — duplication).
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>}
+ */
+export const reloadCollections = async (page) => {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.appListenersReady === true && !!window.collectionsStore);
+};

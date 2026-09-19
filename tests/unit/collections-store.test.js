@@ -147,11 +147,22 @@ describe("collections store — failed storage write (STRK-377)", () => {
     const result = h.store.link(TEMPLATE, "2024", U.a);
 
     assert.equal(result.ok, false);
+    assertWriteRolledBack(result, h, before);
+    assert.equal(h.store.getState().collections[TEMPLATE], undefined);
+  });
+
+  /**
+   * Every failed-write case asserts the same rollback contract: the reason is
+   * reported, the state is byte-identical to the snapshot, and no event escapes.
+   * @param {object} result - The store call's result object.
+   * @param {object} h - The harness under test.
+   * @param {object} before - plain() snapshot taken before the failing write.
+   */
+  const assertWriteRolledBack = (result, h, before) => {
     assert.equal(result.reason, "save-failed");
     assert.deepEqual(plain(h.store.getState()), before);
-    assert.equal(h.store.getState().collections[TEMPLATE], undefined);
     assert.deepEqual(h.events, []);
-  });
+  };
 
   test("link into a started Collection: a failed write rolls the slot back", () => {
     const h = startedHarness();
@@ -160,10 +171,8 @@ describe("collections store — failed storage write (STRK-377)", () => {
 
     const result = h.store.link(TEMPLATE, "2024", U.b);
 
-    assert.equal(result.reason, "save-failed");
-    assert.deepEqual(plain(h.store.getState()), before);
+    assertWriteRolledBack(result, h, before);
     assert.deepEqual(h.store.memberships(U.b), []);
-    assert.deepEqual(h.events, []);
   });
 
   test("unlink: a failed write keeps the item linked", () => {
@@ -174,10 +183,8 @@ describe("collections store — failed storage write (STRK-377)", () => {
     const result = h.store.unlink(TEMPLATE, "2023", U.a);
 
     assert.equal(result.ok, false);
-    assert.equal(result.reason, "save-failed");
-    assert.deepEqual(plain(h.store.getState()), before);
+    assertWriteRolledBack(result, h, before);
     assert.equal(h.store.getState().collections[TEMPLATE].slots["2023"].primary, U.a);
-    assert.deepEqual(h.events, []);
   });
 
   test("createCustom: a failed write leaves no Custom Collection in memory", () => {

@@ -395,12 +395,18 @@ describe("linkItem", () => {
   });
 });
 
+/** A 2022 slot holding U.a as primary with U.b and U.c queued as spares. */
+const primaryWithTwoSpares = () => {
+  const state = seeded(T1);
+  core.linkItem(state, "ase-type2", "2022", U.a, { now: T1 });
+  core.linkItem(state, "ase-type2", "2022", U.b, { asSpare: true, now: T1 });
+  core.linkItem(state, "ase-type2", "2022", U.c, { asSpare: true, now: T1 });
+  return state;
+};
+
 describe("unlinkItem / promoteSpare", () => {
   test("unlinking the primary promotes the first spare", () => {
-    const state = seeded(T1);
-    core.linkItem(state, "ase-type2", "2022", U.a, { now: T1 });
-    core.linkItem(state, "ase-type2", "2022", U.b, { asSpare: true, now: T1 });
-    core.linkItem(state, "ase-type2", "2022", U.c, { asSpare: true, now: T1 });
+    const state = primaryWithTwoSpares();
     const res = core.unlinkItem(state, "ase-type2", "2022", U.a, { now: T2 });
     assert.deepEqual(res, { ok: true, changed: true, promoted: U.b });
     assert.deepEqual(plain(state.collections["ase-type2"].slots["2022"]), {
@@ -445,10 +451,7 @@ describe("unlinkItem / promoteSpare", () => {
   });
 
   test("promoteSpare swaps a spare into the primary seat", () => {
-    const state = seeded(T1);
-    core.linkItem(state, "ase-type2", "2022", U.a, { now: T1 });
-    core.linkItem(state, "ase-type2", "2022", U.b, { asSpare: true, now: T1 });
-    core.linkItem(state, "ase-type2", "2022", U.c, { asSpare: true, now: T1 });
+    const state = primaryWithTwoSpares();
     const res = core.promoteSpare(state, "ase-type2", "2022", U.c, { now: T2 });
     assert.deepEqual(res, { ok: true, changed: true });
     assert.deepEqual(plain(state.collections["ase-type2"].slots["2022"]), {
