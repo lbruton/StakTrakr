@@ -68,6 +68,11 @@ playwright-report/
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/
 
+# Scratch space for in-flight work — mockups, source images before they are sized into
+# data/, throwaway HTML. Nothing here is referenced by the app. Untracked and multi-MB,
+# it was one `git add -A` away from landing in a PR (Collections beta, 2026-09).
+temp/
+
 # Specflow transient run state — only config.json is tracked.
 .specflow/**
 !.specflow/config.json
