@@ -57,10 +57,7 @@
    * Whether Collections affordances can be shown in the Item modal.
    * @returns {boolean} True when memberships can be shown
    */
-  const isEnabled = () =>
-    Boolean(window.collectionsStore) &&
-    (!window.featureFlags || window.featureFlags.isEnabled("COLLECTIONS")) &&
-    isTabVisible();
+  const isEnabled = () => Boolean(window.collectionsStore) && isTabVisible();
 
   /**
    * Clears Collection affordances from an already-open Item View when the tab

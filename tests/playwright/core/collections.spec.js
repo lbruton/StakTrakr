@@ -1246,48 +1246,6 @@ test.describe("core/collections — tab UI", () => {
     expect(errors).toEqual([]);
   });
 
-  test("with the COLLECTIONS flag off only the placeholder renders", async ({ page }) => {
-    await seedAndGoto(page);
-    // FeatureFlags reads the lower-cased flag name from the query string.
-    await page.goto("/index.html?collections=false#/collections", {
-      waitUntil: "domcontentloaded",
-    });
-    await waitForApp(page);
-
-    await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
-    await expect(panel(page).locator("[data-collection-id]")).toHaveCount(0);
-    await expect(panel(page).locator("[data-slot-id]")).toHaveCount(0);
-    await expect(panel(page).getByRole("button", { name: "Ledger view" })).toHaveCount(0);
-  });
-
-  test("Settings turns the default-on Collections view off and back on without deleting links", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await openCollectionsTab(page);
-    await linkItems(page, [["2024", "col-ase-2024"]]);
-    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
-    await page.evaluate(() => window.showSettingsModal("grouping"));
-    const setting = page.locator("#settingsCollections");
-    await expect(setting.locator('[data-val="yes"]')).toHaveClass(/active/);
-    await setting.locator('[data-val="no"]').click();
-    await page.evaluate(() => window.hideSettingsModal());
-    await page.locator("#tabBtnDashboard").click();
-    await openCollectionsTab(page);
-    await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
-    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toHaveCount(0);
-    await reloadApp(page);
-    await page.evaluate(() => window.showSettingsModal("grouping"));
-    await expect(setting.locator('[data-val="no"]')).toHaveClass(/active/);
-    await setting.locator('[data-val="yes"]').click();
-    await page.evaluate(() => window.hideSettingsModal());
-    await page.locator("#tabBtnDashboard").click();
-    await openCollectionsTab(page);
-    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
-    await openAseAlbum(page);
-    await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
-  });
-
   test("at 390px the album is two columns and neither view overflows the page", async ({
     page,
   }) => {

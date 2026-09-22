@@ -199,11 +199,10 @@
   };
 
   /**
-   * Whether the COLLECTIONS feature flag is on.
-   * @returns {boolean} True when the module should render
+   * Whether Collections rendering is enabled (graduated from feature flag).
+   * @returns {boolean} Always true
    */
-  const isEnabled = () =>
-    typeof featureFlags !== "undefined" && featureFlags.isEnabled("COLLECTIONS");
+  const isEnabled = () => true;
 
   /**
    * Whether boot has finished: inventory hydrated, listeners wired (STRK-294).
@@ -1305,23 +1304,6 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * The placeholder shown while the COLLECTIONS flag is off.
-   * @returns {HTMLElement} Placeholder block
-   */
-  const buildPlaceholder = () => {
-    const block = el("div", "collections-empty");
-    block.appendChild(el("h2", "", "Collections"));
-    block.appendChild(
-      el(
-        "p",
-        "",
-        "Prebuilt date runs and custom checklists are on the way. This tab is the shell they will render into."
-      )
-    );
-    return block;
-  };
-
-  /**
    * Renders the Collections tab from the current route. Safe to call at any time:
    * it does nothing before boot has finished or while the panel is hidden.
    * @returns {void}
@@ -1331,19 +1313,10 @@
     // the existence check needs a real null rather than the truthy dummy.
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
-    const enabled = isEnabled();
-    // Checked BEFORE any teardown, so an event that arrives while the panel is hidden
-    // leaves the last frame — and the blob: URLs it is showing — exactly as it was.
-    if (enabled && (!isAppReady() || !isTabActive() || !store() || !core())) return;
+    if (!isAppReady() || !isTabActive() || !store() || !core()) return;
     closeMenu();
     revokeObjectUrls();
     renderGeneration += 1;
-
-    if (!enabled) {
-      lastRouteId = null;
-      root.replaceChildren(buildPlaceholder());
-      return;
-    }
 
     const focused = root.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = focused ? focused.dataset.focusKey : "";
@@ -1413,11 +1386,11 @@
     (window.collectionsStore && window.collectionsStore.CHANGED_EVENT) || CHANGED_EVENT_FALLBACK;
   document.addEventListener(changedEvent, render);
   document.addEventListener("retail:updated", render);
+  document.addEventListener("spot:updated", render);
   // Money is shown in the display currency (precedent: inventory-table / market-data).
   window.addEventListener("currencychange", render);
   window.addEventListener("resize", () => closeMenu());
   if (typeof featureFlags !== "undefined" && typeof featureFlags.addListener === "function") {
-    featureFlags.addListener("COLLECTIONS", render);
     featureFlags.addListener("COIN_IMAGES", render);
   }
   if (isAppReady()) start();
