@@ -1021,6 +1021,31 @@ test.describe("core/collections — tab UI", () => {
     ).toHaveCount(0);
   });
 
+  test("a manual Spot Price edit refreshes the open Collection's melt value", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+
+    const meltValue = panel(page)
+      .locator(".collections-stat", { hasText: "Melt value" })
+      .locator(".collections-stat-value");
+    const before = await meltValue.textContent();
+
+    // Drive the production shift+click editor seam while the Collection stays open,
+    // then save through the editor's real Enter handler.
+    await page.evaluate(() => {
+      const value = document.getElementById("spotPriceDisplaySilver");
+      window.startSpotInlineEdit(value, "silver");
+      const input = value.querySelector(".spot-inline-input");
+      input.value = "123.45";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+
+    await expect(meltValue).not.toHaveText(before);
+    await expect(meltValue).toHaveText("$123.33");
+  });
+
   test("a filled slot shows the item's URL image and refreshes after its images change", async ({
     page,
   }) => {
@@ -1244,48 +1269,6 @@ test.describe("core/collections — tab UI", () => {
       await page.evaluate(() => window.inventory.some((entry) => entry.uuid === "col-ase-2024"))
     ).toBe(true);
     expect(errors).toEqual([]);
-  });
-
-  test("with the COLLECTIONS flag off only the placeholder renders", async ({ page }) => {
-    await seedAndGoto(page);
-    // FeatureFlags reads the lower-cased flag name from the query string.
-    await page.goto("/index.html?collections=false#/collections", {
-      waitUntil: "domcontentloaded",
-    });
-    await waitForApp(page);
-
-    await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
-    await expect(panel(page).locator("[data-collection-id]")).toHaveCount(0);
-    await expect(panel(page).locator("[data-slot-id]")).toHaveCount(0);
-    await expect(panel(page).getByRole("button", { name: "Ledger view" })).toHaveCount(0);
-  });
-
-  test("Settings turns the default-on Collections view off and back on without deleting links", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await openCollectionsTab(page);
-    await linkItems(page, [["2024", "col-ase-2024"]]);
-    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
-    await page.evaluate(() => window.showSettingsModal("grouping"));
-    const setting = page.locator("#settingsCollections");
-    await expect(setting.locator('[data-val="yes"]')).toHaveClass(/active/);
-    await setting.locator('[data-val="no"]').click();
-    await page.evaluate(() => window.hideSettingsModal());
-    await page.locator("#tabBtnDashboard").click();
-    await openCollectionsTab(page);
-    await expect(panel(page)).toContainText("Prebuilt date runs and custom checklists");
-    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toHaveCount(0);
-    await reloadApp(page);
-    await page.evaluate(() => window.showSettingsModal("grouping"));
-    await expect(setting.locator('[data-val="no"]')).toHaveClass(/active/);
-    await setting.locator('[data-val="yes"]').click();
-    await page.evaluate(() => window.hideSettingsModal());
-    await page.locator("#tabBtnDashboard").click();
-    await openCollectionsTab(page);
-    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
-    await openAseAlbum(page);
-    await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
   });
 
   test("at 390px the album is two columns and neither view overflows the page", async ({

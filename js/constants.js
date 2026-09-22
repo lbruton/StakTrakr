@@ -1755,13 +1755,6 @@ const FEATURE_FLAGS = {
     description: "Auto-update inventory retail prices from linked market data",
     phase: "beta",
   },
-  COLLECTIONS: {
-    enabled: true,
-    urlOverride: true,
-    userToggle: true,
-    description: "Collections — date-run albums and custom checklists linked to inventory items",
-    phase: "beta",
-  },
 };
 
 /**
