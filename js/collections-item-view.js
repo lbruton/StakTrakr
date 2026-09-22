@@ -34,12 +34,33 @@
   };
 
   /**
-   * Whether the Collections feature is enabled and its store is loaded.
+   * Whether the user has left the Collections tab visible in Settings > Layout.
+   *
+   * Collection membership stays stored even while its tab is hidden; suppressing
+   * the Item-modal affordances avoids offering an Open action that can only
+   * redirect the user to Dashboard.
+   * @returns {boolean} True when the Collections tab is visible or unavailable to inspect
+   */
+  const isTabVisible = () => {
+    try {
+      if (typeof window.getLayoutTabConfig !== "function") return true;
+      const tabs = window.getLayoutTabConfig();
+      if (!Array.isArray(tabs)) return true;
+      const collectionsTab = tabs.find((tab) => tab?.id === "collections");
+      return !collectionsTab || collectionsTab.enabled;
+    } catch {
+      return true;
+    }
+  };
+
+  /**
+   * Whether Collections affordances can be shown in the Item modal.
    * @returns {boolean} True when memberships can be shown
    */
   const isEnabled = () =>
     Boolean(window.collectionsStore) &&
-    (!window.featureFlags || window.featureFlags.isEnabled("COLLECTIONS"));
+    (!window.featureFlags || window.featureFlags.isEnabled("COLLECTIONS")) &&
+    isTabVisible();
 
   /**
    * Display facts for one membership.
