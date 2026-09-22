@@ -63,6 +63,20 @@
     isTabVisible();
 
   /**
+   * Clears Collection affordances from an already-open Item View when the tab
+   * becomes hidden in Settings. Membership stays stored in collectionState.
+   * @returns {void}
+   */
+  const syncVisibility = () => {
+    if (isTabVisible()) return;
+    const modal = document.getElementById("viewItemModal");
+    if (!modal || modal.style.display === "none") return;
+    modal.querySelectorAll(`.${CHIP_CLASS}, .collections-view-section`).forEach((node) => {
+      node.remove();
+    });
+  };
+
+  /**
    * Display facts for one membership.
    * @param {{collectionId: string, slotId: string, role: string}} membership - Membership record
    * @returns {{title: string, shortTitle: string, slotLabel: string, progress: Object}|null} Facts, or null
@@ -197,5 +211,5 @@
     return section;
   };
 
-  window.collectionsItemView = Object.freeze({ buildSection, renderHeaderChips });
+  window.collectionsItemView = Object.freeze({ buildSection, renderHeaderChips, syncVisibility });
 })();

@@ -2825,6 +2825,9 @@ const renderLayoutTabConfigTable = () =>
     onApply: () => {
       if (typeof applyLayoutOrder === "function") applyLayoutOrder();
       if (typeof window.applyTabVisibility === "function") window.applyTabVisibility();
+      if (typeof window.collectionsItemView?.syncVisibility === "function") {
+        window.collectionsItemView.syncVisibility();
+      }
     },
     onRender: () => renderLayoutTabConfigTable(),
   });
