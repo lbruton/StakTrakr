@@ -199,12 +199,6 @@
   };
 
   /**
-   * Whether Collections rendering is enabled (graduated from feature flag).
-   * @returns {boolean} Always true
-   */
-  const isEnabled = () => true;
-
-  /**
    * Whether boot has finished: inventory hydrated, listeners wired (STRK-294).
    * @returns {boolean} True once the app has signalled readiness
    */

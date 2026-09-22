@@ -1021,6 +1021,31 @@ test.describe("core/collections — tab UI", () => {
     ).toHaveCount(0);
   });
 
+  test("a manual Spot Price edit refreshes the open Collection's melt value", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+
+    const meltValue = panel(page)
+      .locator(".collections-stat", { hasText: "Melt value" })
+      .locator(".collections-stat-value");
+    const before = await meltValue.textContent();
+
+    // Drive the production shift+click editor seam while the Collection stays open,
+    // then save through the editor's real Enter handler.
+    await page.evaluate(() => {
+      const value = document.getElementById("spotPriceDisplaySilver");
+      window.startSpotInlineEdit(value, "silver");
+      const input = value.querySelector(".spot-inline-input");
+      input.value = "123.45";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+
+    await expect(meltValue).not.toHaveText(before);
+    await expect(meltValue).toHaveText("$123.33");
+  });
+
   test("a filled slot shows the item's URL image and refreshes after its images change", async ({
     page,
   }) => {
