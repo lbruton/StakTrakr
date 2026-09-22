@@ -34,12 +34,47 @@
   };
 
   /**
-   * Whether the Collections feature is enabled and its store is loaded.
+   * Whether the user has left the Collections tab visible in Settings > Layout.
+   *
+   * Collection membership stays stored even while its tab is hidden; suppressing
+   * the Item-modal affordances avoids offering an Open action that can only
+   * redirect the user to Dashboard.
+   * @returns {boolean} True when the Collections tab is visible or unavailable to inspect
+   */
+  const isTabVisible = () => {
+    try {
+      if (typeof window.getLayoutTabConfig !== "function") return true;
+      const tabs = window.getLayoutTabConfig();
+      if (!Array.isArray(tabs)) return true;
+      const collectionsTab = tabs.find((tab) => tab?.id === "collections");
+      return !collectionsTab || collectionsTab.enabled;
+    } catch {
+      return true;
+    }
+  };
+
+  /**
+   * Whether Collections affordances can be shown in the Item modal.
    * @returns {boolean} True when memberships can be shown
    */
   const isEnabled = () =>
     Boolean(window.collectionsStore) &&
-    (!window.featureFlags || window.featureFlags.isEnabled("COLLECTIONS"));
+    (!window.featureFlags || window.featureFlags.isEnabled("COLLECTIONS")) &&
+    isTabVisible();
+
+  /**
+   * Clears Collection affordances from an already-open Item View when the tab
+   * becomes hidden in Settings. Membership stays stored in collectionState.
+   * @returns {void}
+   */
+  const syncVisibility = () => {
+    if (isTabVisible()) return;
+    const modal = document.getElementById("viewItemModal");
+    if (!modal || modal.style.display === "none") return;
+    modal.querySelectorAll(`.${CHIP_CLASS}, .collections-view-section`).forEach((node) => {
+      node.remove();
+    });
+  };
 
   /**
    * Display facts for one membership.
@@ -176,5 +211,5 @@
     return section;
   };
 
-  window.collectionsItemView = Object.freeze({ buildSection, renderHeaderChips });
+  window.collectionsItemView = Object.freeze({ buildSection, renderHeaderChips, syncVisibility });
 })();

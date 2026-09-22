@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.26] - 2026-09-21
+
+### Fixed — STRK-380: Collections visibility respects Layout
+
+- **Item View**: Hiding Collections in Settings > Layout also removes membership chips, details, and Open actions, while Slot links remain intact and return when Collections is re-enabled (STRK-380)
+
+---
+
 ## [3.36.25] - 2026-09-19
 
 ### Changed — STRK-368: Collections beta and merge preparation

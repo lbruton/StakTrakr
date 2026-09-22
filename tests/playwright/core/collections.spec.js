@@ -818,6 +818,44 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(0);
     await expect(viewModal(page).locator(".collections-view-section")).toHaveCount(0);
   });
+
+  test("hiding the Collections tab also hides item-modal links without unlinking the Item", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openItemView(page, "col-ase-2024");
+    await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(1);
+
+    await page.evaluate(() => window.showSettingsModal("site"));
+    const tabToggle = page.locator(
+      "#layoutTabConfigContainer tr[data-section-id='collections'] input"
+    );
+    // Item View remains above the Settings dialog and intercepts pointer events.
+    // Dispatch the checkbox's real change handler to cover the Layout apply path.
+    await tabToggle.evaluate((input) => {
+      input.checked = false;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await expect(page.locator("#tabBtnCollections")).toBeHidden();
+    await expect(page.locator("#appBottomNav [data-tab='collections']")).toBeHidden();
+    await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(0);
+    await expect(viewModal(page).locator(".collections-view-section")).toHaveCount(0);
+    await page.evaluate(() => window.hideSettingsModal());
+
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+
+    await page.evaluate(() => window.closeViewModal());
+    await page.evaluate(() => window.showSettingsModal("site"));
+    await tabToggle.check();
+    await page.evaluate(() => window.hideSettingsModal());
+
+    await openItemView(page, "col-ase-2024");
+    await expect(viewModal(page).locator(".collections-view-chip")).toHaveCount(1);
+    await expect(viewModal(page).locator(".collections-view-section")).toBeVisible();
+    expect(await readSlot(page, "2024")).toEqual({ primary: "col-ase-2024", spares: [] });
+  });
 });
 
 test.describe("core/collections — ZIP backup round trip", () => {
