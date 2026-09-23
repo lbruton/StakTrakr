@@ -232,6 +232,31 @@ const runImport = (page, spec) =>
     spec
   );
 
+/**
+ * Run the real CSV import and capture PapaParse's result before item sanitization.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {{fn: string, name: string, type: string, text: string}} spec - CSV import to run.
+ * @returns {Promise<{toast: string, parsed: object}>} Import toast and parsed rows.
+ */
+const runCsvImportCapturingParse = async (page, spec) => {
+  await page.evaluate(() => {
+    const parse = window.Papa.parse;
+    window.Papa.parse = (input, options) => {
+      if (!(input instanceof File)) return parse(input, options);
+      window.Papa.parse = parse;
+      return parse(input, {
+        ...options,
+        complete: (result) => {
+          window.lastCsvImportParse = result;
+          options.complete(result);
+        },
+      });
+    };
+  });
+  const toast = await runImport(page, spec);
+  return { toast, parsed: await page.evaluate(() => window.lastCsvImportParse) };
+};
+
 test.describe("core/collections-data-paths — standalone Collections file", () => {
   test("Settings offers Export and Import Collections, and the file restores links AND an empty Custom Collection", async ({
     page,
@@ -376,29 +401,13 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
       localStorage.setItem("metalInventory", "[]");
     });
     await wipeCollections(page);
-    await page.evaluate(() => {
-      const parse = window.Papa.parse;
-      window.Papa.parse = (input, options) => {
-        if (!(input instanceof File)) return parse(input, options);
-        window.Papa.parse = parse;
-        return parse(input, {
-          ...options,
-          complete: (result) => {
-            window.legacyCsvParsed = result;
-            options.complete(result);
-          },
-        });
-      };
+    const { toast, parsed } = await runCsvImportCapturingParse(page, {
+      fn: "importCsv",
+      name: "legacy.csv",
+      type: "text/csv",
+      text: legacyCsv,
     });
-    expect(
-      await runImport(page, {
-        fn: "importCsv",
-        name: "legacy.csv",
-        type: "text/csv",
-        text: legacyCsv,
-      })
-    ).toContain("2 added");
-    const parsed = await page.evaluate(() => window.legacyCsvParsed);
+    expect(toast).toContain("2 added");
     expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
     expect(parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))).toBe(
       true
@@ -409,6 +418,52 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
         () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
       )
     ).toBe("cdp-ase-2024");
+  });
+
+  test("a lowercase Collections header retains membership on import", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+    const file = await captureDownload(page, "exportCsv");
+    const csv = file.text.replace(/,Collections\r\n/, ", collections \r\n");
+    expect(csv).not.toBe(file.text);
+
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      localStorage.setItem("metalInventory", "[]");
+    });
+    await wipeCollections(page);
+    expect(
+      await runImport(page, { fn: "importCsv", name: "lowercase.csv", type: "text/csv", text: csv })
+    ).toContain("2 added");
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+  });
+
+  test("CSV parsing preserves a quoted terminal carriage return before Notes sanitization", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.inventory[0].notes = "Line with a terminal CR\r";
+    });
+    const file = await captureDownload(page, "exportCsv");
+    expect(file.text).toContain('"Line with a terminal CR\r"');
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      localStorage.setItem("metalInventory", "[]");
+    });
+    const { toast, parsed } = await runCsvImportCapturingParse(page, {
+      fn: "importCsv",
+      name: file.name,
+      type: "text/csv",
+      text: file.text,
+    });
+    expect(toast).toContain("2 added");
+    expect(parsed.data[0]["Notes"]).toBe("Line with a terminal CR\r");
+    expect(
+      await page.evaluate(
+        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.notes
+      )
+    ).toBe("Line with a terminal CR");
   });
 
   test("Export CSV writes a Collections column, and a CSV whose ONLY change is that column still applies", async ({
@@ -529,14 +584,14 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
       window.inventory.length = 0;
       localStorage.setItem("metalInventory", "[]");
     });
-    expect(
-      await runImport(page, {
-        fn: "importCsv",
-        name: "legacy.csv",
-        type: "text/csv",
-        text: legacyCsv,
-      })
-    ).toMatch(/^Import complete/);
+    const { toast, parsed } = await runCsvImportCapturingParse(page, {
+      fn: "importCsv",
+      name: "legacy.csv",
+      type: "text/csv",
+      text: legacyCsv,
+    });
+    expect(toast).toMatch(/^Import complete/);
+    expect(parsed.data[0]["Traded From UUID"]).toBe("cdp-ase-2024");
     expect(
       await page.evaluate(
         () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid

@@ -64,7 +64,7 @@
   };
 
   /**
-   * Reads a row's "Collections" cell after CSV headers and values are normalized by PapaParse.
+   * Reads a row's "Collections" cell after PapaParse canonicalizes the header.
    * @param {object} row - Parsed CSV row.
    * @returns {string} Raw cell text, or "" when the column is absent.
    */
@@ -962,8 +962,13 @@
       debugLog("importCsv start", file.name);
       Papa.parse(file, {
         header: true,
-        transformHeader: (header) => header.trim(),
-        transform: (value) => value.replace(/\r$/, ""),
+        transformHeader: (header) => {
+          const trimmed = header.trim();
+          return trimmed.toLowerCase() === "collections" ? "Collections" : trimmed;
+        },
+        // Older files may use LF after the leading comment but CRLF for the CSV body.
+        // Correct only that delimiter before newline detection; preserve quoted cell data.
+        beforeFirstChunk: (chunk) => chunk.replace(/^(#[^\r\n]*)\n(?=[^\r\n]*\r\n)/, "$1\r\n"),
         skipEmptyLines: true,
         comments: "#",
         complete: function (results) {
