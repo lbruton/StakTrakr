@@ -321,6 +321,96 @@ test.describe("core/collections-data-paths — JSON export and import", () => {
 });
 
 test.describe("core/collections-data-paths — CSV export and import", () => {
+  test("a real CSV download uses CRLF and re-imports non-final trade and Collections values", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.inventory[0].tradedFromUuid = "cdp-ase-2024";
+      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+    });
+    const file = await captureDownload(page, "exportCsv");
+    expect(file.text).toMatch(/^# exportOrigin: [^\r\n]*\r\n/);
+    expect(file.text.replace(/\r\n/g, "")).not.toContain("\n");
+    const parsed = await page.evaluate(
+      (csv) => window.Papa.parse(csv, { header: true, comments: "#", skipEmptyLines: true }),
+      file.text
+    );
+    expect(parsed.meta.linebreak).toBe("\r\n");
+    expect(parsed.meta.fields.at(-1)).toBe("Collections");
+    expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
+    expect(parsed.data[0]["Collections"]).toBe("ase-type2:2022");
+    expect(parsed.data[0]["Traded From UUID"]).toBe("cdp-ase-2024");
+    expect(parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))).toBe(
+      true
+    );
+
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      localStorage.setItem("metalInventory", "[]");
+    });
+    await wipeCollections(page);
+    expect(
+      await runImport(page, { fn: "importCsv", name: file.name, type: "text/csv", text: file.text })
+    ).toContain("2 added");
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    expect(
+      await page.evaluate(
+        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
+      )
+    ).toBe("cdp-ase-2024");
+  });
+
+  test("a legacy mixed-ending CSV imports clean non-final Collections values", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.inventory[0].tradedFromUuid = "cdp-ase-2024";
+      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+    });
+    const file = await captureDownload(page, "exportCsv");
+    const legacyCsv = file.text.replace(/^(# exportOrigin: [^\r\n]*)\r\n/, "$1\n");
+    expect(legacyCsv).toMatch(/^# exportOrigin: [^\r\n]*\n[^\r]/);
+    expect(legacyCsv).toContain("\r\n");
+    await page.evaluate(() => {
+      window.inventory.length = 0;
+      localStorage.setItem("metalInventory", "[]");
+    });
+    await wipeCollections(page);
+    await page.evaluate(() => {
+      const parse = window.Papa.parse;
+      window.Papa.parse = (input, options) => {
+        if (!(input instanceof File)) return parse(input, options);
+        window.Papa.parse = parse;
+        return parse(input, {
+          ...options,
+          complete: (result) => {
+            window.legacyCsvParsed = result;
+            options.complete(result);
+          },
+        });
+      };
+    });
+    expect(
+      await runImport(page, {
+        fn: "importCsv",
+        name: "legacy.csv",
+        type: "text/csv",
+        text: legacyCsv,
+      })
+    ).toContain("2 added");
+    const parsed = await page.evaluate(() => window.legacyCsvParsed);
+    expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
+    expect(parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))).toBe(
+      true
+    );
+    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    expect(
+      await page.evaluate(
+        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
+      )
+    ).toBe("cdp-ase-2024");
+  });
+
   test("Export CSV writes a Collections column, and a CSV whose ONLY change is that column still applies", async ({
     page,
   }) => {
