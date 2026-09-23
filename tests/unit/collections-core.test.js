@@ -40,8 +40,7 @@ assert.equal(
   "js/utils.js must publish window.getUnitOztWeight"
 );
 
-function loadCore() {
-  const surface = { getUnitOztWeight };
+function loadCore(surface = { getUnitOztWeight }) {
   new Function("window", src)(surface);
   return surface.collectionsCore;
 }
@@ -877,6 +876,18 @@ describe("suggestItemsForSlot", () => {
       item(U.a, "2008 American Silver Eagle", "2008", { weight: 1, weightUnit: "cu" }),
     ];
     const out = core.suggestItemsForSlot(profile, { id: "2008", year: 2008 }, items, {
+      normalizeName,
+    });
+    assert.deepEqual(out, []);
+  });
+
+  test("without window.getUnitOztWeight no weight is trusted, so a weighted profile matches nothing", () => {
+    // Fail closed: a missing helper must not silently fall back to reading raw item.weight.
+    const bare = loadCore({});
+    const items = [
+      item(U.a, "2008 American Silver Eagle", "2008", { weight: 1, weightUnit: "oz" }),
+    ];
+    const out = bare.suggestItemsForSlot(profile, { id: "2008", year: 2008 }, items, {
       normalizeName,
     });
     assert.deepEqual(out, []);

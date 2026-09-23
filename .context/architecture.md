@@ -174,7 +174,7 @@ For full file:line traceability see STRK-13 verification and the Plane issue at 
 
 ### Weight Units and Valuation
 
-The item data model uses `weightUnit` to decide whether `weight` is already fine troy ounces or needs conversion before valuation:
+`weightUnit` says what `weight` holds: for the metric/troy units it is only a display lens over a value already stored in troy ounces, while `gb`, `sb`, and `cu` store raw inputs that are converted when read:
 
 | Unit                                | Meaning                                                                   | Conversion                                                                  |
 | ----------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |

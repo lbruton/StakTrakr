@@ -223,9 +223,10 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * An item's weight as the inventory table shows it. `item.weight` is stored in troy oz
-   * whatever `weightUnit` says, so printing the raw number beside the unit mislabels it
-   * (0.999984 ozt read as "0.999984 g" — STRK-398). formatWeight converts back for display.
+   * An item's weight as the inventory table shows it. For the metric/troy units `item.weight`
+   * is stored in troy oz whatever unit is displayed (gb/sb store a denomination, cu a face
+   * value), so printing the raw number beside the unit mislabels it (0.999984 ozt read as
+   * "0.999984 g" — STRK-398). formatWeight handles every unit, converting back for display.
    * @param {Object} item - Inventory item
    * @returns {string} Display weight, or "" when unknown
    */
