@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.27] - 2026-09-23
+
+### Fixed — STRK-398: Collections match Items entered in grams
+
+- **Fixed**: Collections now suggests Items entered in grams (or any metric unit) for their year Slot — they showed Not owned even when owned, because stored troy-oz weights were converted a second time (STRK-398)
+- **Fixed**: The link picker shows an Item's weight in its own unit (31.10 g) instead of the raw troy-oz number beside a gram label (STRK-398)
+- **Improved**: The link picker opens filtered to the Slot's year, with an All items chip to see everything (STRK-398)
+
+---
+
 ## [3.36.26] - 2026-09-21
 
 ### Fixed — STRK-380: Collections visibility respects Layout

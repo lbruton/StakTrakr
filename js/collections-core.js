@@ -39,9 +39,6 @@
   /** Longest slot id slugifySlotId will emit before the de-dupe suffix. */
   const MAX_SLOT_ID_LENGTH = 64;
 
-  /** Grams per troy ounce, for matching gram-denominated items to an oz template. */
-  const GRAMS_PER_TROY_OZ = 31.1034768;
-
   /** Relative tolerance when comparing an item's weight to a template's. */
   const WEIGHT_TOLERANCE = 0.002;
 
@@ -783,16 +780,22 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * Converts an item weight to troy ounces for comparison with a template.
+   * An item's per-unit weight in troy ounces, for comparison with a template (STRK-398).
+   *
+   * `item.weight` is already stored in troy oz for every metric/troy display unit — `weightUnit`
+   * only picks how it is shown (parseWeight converts on save). The exceptions live in the
+   * canonical window.getUnitOztWeight (js/utils.js, STRK-316): Goldback/Silverback store the
+   * denomination. Never re-derive the conversion here — a local copy of it was this bug.
    * @param {Object} item - Inventory item
-   * @returns {number|null} Weight in troy oz, or null when the unit is not comparable
+   * @returns {number|null} Per-unit troy oz, or null when the item has no comparable coin weight
    */
   const itemTroyOz = (item) => {
-    const weight = Number(item.weight);
-    if (!Number.isFinite(weight) || weight <= 0) return null;
-    const unit = text(item.weightUnit).toLowerCase() || "oz";
-    if (unit === "oz") return weight;
-    return unit === "g" ? weight / GRAMS_PER_TROY_OZ : null;
+    // Constitutional weight is variant-derived and qty-folded (STRK-235) — never one coin.
+    if (text(item.weightUnit).toLowerCase() === "cu") return null;
+    // Fail closed: without the canonical helper no unit is trusted as raw ounces.
+    if (typeof window.getUnitOztWeight !== "function") return null;
+    const ounces = Number(window.getUnitOztWeight(item));
+    return Number.isFinite(ounces) && ounces > 0 ? ounces : null;
   };
 
   /**
@@ -1040,6 +1043,7 @@
     resolveSlot,
     collectionProgress,
     findMemberships,
+    itemYear,
     suggestItemsForSlot,
     mergeStates,
   });

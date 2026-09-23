@@ -79,7 +79,7 @@ _Avoid_: market view, dealer view, price comparison
 ## Weight Units
 
 **Weight Unit** (`weightUnit`):
-A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text — which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back (STRK-316, STRK-318, STRK-319).
+A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg`/`avdp` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text — which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back (STRK-316, STRK-318, STRK-319).
 _Avoid_: weight type, measurement unit
 
 **Milligram** (`mg`):

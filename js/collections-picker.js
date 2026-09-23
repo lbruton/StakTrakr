@@ -223,6 +223,60 @@
   // ---------------------------------------------------------------------------
 
   /**
+   * An item's weight as the inventory table shows it. For the metric/troy units `item.weight`
+   * is stored in troy oz whatever unit is displayed (gb/sb store a denomination, cu a face
+   * value), so printing the raw number beside the unit mislabels it (0.999984 ozt read as
+   * "0.999984 g" — STRK-398). formatWeight handles every unit, converting back for display.
+   * @param {Object} item - Inventory item
+   * @returns {string} Display weight, or "" when unknown
+   */
+  const weightLabel = (item) => {
+    if (!item.weight || typeof formatWeight !== "function") return "";
+    return formatWeight(item.weight, item.weightUnit, item);
+  };
+
+  /**
+   * Marks the chip for the current mode as pressed.
+   * @param {HTMLElement} group - Control from yearFilterToggle
+   * @param {boolean} yearOnly - Whether the list is filtered to the slot's year
+   * @returns {void}
+   */
+  const syncYearFilter = (group, yearOnly) => {
+    group.querySelectorAll(".chip-sort-btn").forEach((chip) => {
+      const pressed = chip.dataset.yearOnly === String(yearOnly);
+      chip.classList.toggle("active", pressed);
+      chip.setAttribute("aria-pressed", String(pressed));
+    });
+  };
+
+  /**
+   * The "<year> only" / "All items" chip pair shown for a dated slot (STRK-398). The control
+   * keeps its own pressed state; the caller only hears which mode was chosen.
+   * @param {string} year - The slot's year
+   * @param {boolean} yearOnly - Initial mode
+   * @param {(yearOnly: boolean) => void} onChange - Called with the chosen mode
+   * @returns {HTMLElement} Segmented control
+   */
+  const yearFilterToggle = (year, yearOnly, onChange) => {
+    const group = el("div", "chip-sort-toggle");
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-label", "Year filter");
+    [
+      [true, `${year} only`],
+      [false, "All items"],
+    ].forEach(([mode, label]) => {
+      const chip = button("chip-sort-btn", label, () => {
+        syncYearFilter(group, mode);
+        onChange(mode);
+      });
+      chip.dataset.yearOnly = String(mode);
+      group.appendChild(chip);
+    });
+    syncYearFilter(group, yearOnly);
+    return group;
+  };
+
+  /**
    * One item row in the picker.
    * @param {Object} item - Inventory item
    * @param {{reasons?: string[], usedIn?: string, onLink: Function}} options - Row options
@@ -244,7 +298,7 @@
     const meta = [
       item.year || "no year",
       item.metal,
-      item.weight ? `${item.weight} ${item.weightUnit || "oz"}` : "",
+      weightLabel(item),
       item.purchaseLocation,
       item.date,
     ].filter(Boolean);
@@ -314,6 +368,11 @@
     search.setAttribute("aria-label", "Search inventory");
     const list = el("div", "collections-pick-list");
 
+    // A dated slot opens on its own year; suggestions stay pinned in both modes (STRK-398).
+    const slotYear = slot.year == null ? "" : String(slot.year).trim();
+    let yearOnly = slotYear !== "";
+    const inYear = (item) => !yearOnly || window.collectionsCore.itemYear(item) === slotYear;
+
     const renderList = () => {
       const query = search.value.trim().toLowerCase();
       const matches = (item) =>
@@ -339,8 +398,14 @@
         );
       }
 
-      const rest = active.filter((item) => !suggestedIds.has(item.uuid) && matches(item));
-      const heading = el("div", "collections-pick-group is-muted", "All active items");
+      const rest = active.filter(
+        (item) => !suggestedIds.has(item.uuid) && inYear(item) && matches(item)
+      );
+      const heading = el(
+        "div",
+        "collections-pick-group is-muted",
+        yearOnly ? `Active ${slotYear} items` : "All active items"
+      );
       heading.appendChild(
         el("span", "collections-pick-group-note", " · disposed items are never shown")
       );
@@ -350,7 +415,12 @@
         .forEach((item) =>
           list.appendChild(pickerRow(item, { usedIn: used.get(item.uuid), onLink }))
         );
-      if (!rest.length) list.appendChild(el("p", "collections-pick-note", "No items match."));
+      if (!rest.length) {
+        const empty = yearOnly
+          ? `No other ${slotYear} items — choose All items to see everything.`
+          : "No items match.";
+        list.appendChild(el("p", "collections-pick-note", empty));
+      }
       if (rest.length > MAX_LISTED_ITEMS) {
         const more = rest.length - MAX_LISTED_ITEMS;
         list.appendChild(
@@ -359,8 +429,14 @@
       }
     };
     search.addEventListener("input", renderList);
+    const yearFilter = slotYear
+      ? yearFilterToggle(slotYear, yearOnly, (mode) => {
+          yearOnly = mode;
+          renderList();
+        })
+      : null;
 
-    shell.body.replaceChildren(search, list);
+    shell.body.replaceChildren(...[search, yearFilter, list].filter(Boolean));
     shell.footer.replaceChildren(
       button("collections-textlink", "+ Add a new item instead", () => {
         closeModalById(PICKER_MODAL_ID);
