@@ -27,8 +27,16 @@ import { readFileSync } from "node:fs";
 
 const src = readFileSync(new URL("../../js/collections-core.js", import.meta.url), "utf-8");
 
+// STRK-398: the core converts stored weight through the canonical window.getUnitOztWeight
+// (js/utils.js, STRK-316). Slice the REAL helper out of utils.js — a hand-written double here
+// could drift from production, which is how the double-conversion bug went unnoticed.
+const utilsSrc = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+const unitOztMatch = utilsSrc.match(/const getUnitOztWeight = \([\s\S]*?\n\};/);
+assert.ok(unitOztMatch, "could not locate getUnitOztWeight in js/utils.js");
+const getUnitOztWeight = new Function(`${unitOztMatch[0]}\nreturn getUnitOztWeight;`)();
+
 function loadCore() {
-  const surface = {};
+  const surface = { getUnitOztWeight };
   new Function("window", src)(surface);
   return surface.collectionsCore;
 }
@@ -820,13 +828,59 @@ describe("suggestItemsForSlot", () => {
   test("reads the year from the item name when item.year is blank, and accepts grams", () => {
     const items = [
       item(U.a, "2024 American Silver Eagle", ""),
-      item(U.b, "2024 American Silver Eagle", "2024", { weight: 31.1035, weightUnit: "g" }),
+      // STRK-398: item.weight is stored in troy oz whatever the display unit — parseWeight
+      // (js/events.js) converts 31.1035 g to 0.999984 on save. The fixture used to hold raw
+      // grams, a shape the app never writes, and only passed because of the double conversion.
+      item(U.b, "2024 American Silver Eagle", "2024", { weight: 0.999984, weightUnit: "g" }),
       item(U.c, "American Silver Eagle", ""),
     ];
     const out = core.suggestItemsForSlot(profile, { id: "2024", year: 2024 }, items, {
       normalizeName,
     });
     assert.deepEqual(out.map((s) => s.item.uuid).sort(), [U.a, U.b].sort());
+  });
+
+  // STRK-398 AC2: every metric/troy display unit stores troy oz, so a 1 oz coin saved under
+  // any of them (the parseWeight output, 0.999984) fits the 1 oz profile. "" is a legacy item.
+  for (const weightUnit of ["oz", "g", "mg", "kg", "lb", "avdp", ""]) {
+    test(`a 1 oz coin displayed in "${weightUnit || "(none)"}" is suggested for its year slot`, () => {
+      const items = [
+        item(U.a, "2008 American Silver Eagle", "2008", { weight: 0.999984, weightUnit }),
+      ];
+      const out = core.suggestItemsForSlot(profile, { id: "2008", year: 2008 }, items, {
+        normalizeName,
+      });
+      assert.deepEqual(
+        out.map((s) => s.item.uuid),
+        [U.a]
+      );
+    });
+  }
+
+  test("a Silverback stores its denomination, so a 1 sb note is 0.001 ozt and never fits 1 oz", () => {
+    const items = [
+      item(U.a, "2008 American Silver Eagle", "2008", { weight: 1, weightUnit: "sb" }),
+    ];
+    const out = core.suggestItemsForSlot(profile, { id: "2008", year: 2008 }, items, {
+      normalizeName,
+    });
+    assert.deepEqual(out, []);
+  });
+
+  test("a constitutional lot is not a per-coin weight and never fits a bullion profile", () => {
+    const items = [
+      item(U.a, "2008 American Silver Eagle", "2008", { weight: 1, weightUnit: "cu" }),
+    ];
+    const out = core.suggestItemsForSlot(profile, { id: "2008", year: 2008 }, items, {
+      normalizeName,
+    });
+    assert.deepEqual(out, []);
+  });
+
+  test("itemYear is the explicit year, else a 4-digit year from the name (the picker's year filter)", () => {
+    assert.equal(core.itemYear({ year: "2008", name: "American Silver Eagle" }), "2008");
+    assert.equal(core.itemYear({ year: "", name: "2008 American Silver Eagle" }), "2008");
+    assert.equal(core.itemYear({ year: "", name: "American Silver Eagle" }), "");
   });
 
   test("slot hints separate the two 2021 reverse types", () => {

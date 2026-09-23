@@ -584,6 +584,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
     );
 
     await expect(pickerModal(page)).toBeVisible();
+    // STRK-398: a dated slot opens filtered to its year; widen it to reach the 2022 item.
+    await pickerModal(page).getByRole("button", { name: "All items" }).click();
     await expect(pickerModal(page)).toContainText("No obvious match for the 2023 slot");
     const used = pickerModal(page).locator('.collections-pick[data-uuid="col-ase-2022-a"]');
     await expect(used).toContainText("in 2022 slot");
@@ -601,6 +603,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await page.evaluate(() =>
       window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2023" })
     );
+    // STRK-398: a dated slot opens filtered to its year; widen it to search the 2024 Maple.
+    await pickerModal(page).getByRole("button", { name: "All items" }).click();
     await pickerModal(page).getByRole("searchbox").fill("maple");
     await expect(pickerModal(page).locator(".collections-pick")).toHaveCount(1);
     await expect(pickerModal(page).locator(".collections-pick")).toContainText(
@@ -613,6 +617,84 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(pickerModal(page)).toBeHidden();
     await expect(page.locator("#itemModal")).toBeVisible();
     await expect(page.locator("#itemName")).toHaveValue("2023 American Silver Eagle");
+  });
+
+  test("an item entered in grams is offered for its year slot, and the picker shows its weight in grams", async ({
+    page,
+  }) => {
+    // STRK-398 AC1: item.weight is stored in troy oz whatever the display unit, so a 31.1 g
+    // coin is stored as 0.999984 — the shape parseWeight writes on save.
+    await seedAndGoto(
+      page,
+      SEED.map((item) =>
+        item.uuid === "col-ase-2024" ? { ...item, weight: 0.999984, weightUnit: "g" } : item
+      )
+    );
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await expect(slotOf(page, "2024")).toContainText("1 match in your inventory");
+
+    await page.evaluate(() =>
+      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2024" })
+    );
+    const suggested = pickerModal(page).locator(".collections-pick.is-suggested");
+    await expect(suggested).toHaveCount(1);
+    await expect(suggested).toContainText("2024 American Silver Eagle BU");
+    await expect(suggested).toContainText("31.1");
+    await expect(suggested).not.toContainText("0.999984");
+  });
+
+  test("the picker opens filtered to a dated slot's year, and All items widens it", async ({
+    page,
+  }) => {
+    // STRK-398 AC4
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await page.evaluate(() =>
+      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2024" })
+    );
+    const onlyYear = pickerModal(page).getByRole("button", { name: "2024 only" });
+    const allItems = pickerModal(page).getByRole("button", { name: "All items" });
+    const row = (uuid) => pickerModal(page).locator(`.collections-pick[data-uuid="${uuid}"]`);
+
+    await expect(onlyYear).toHaveAttribute("aria-pressed", "true");
+    await expect(allItems).toHaveAttribute("aria-pressed", "false");
+    await expect(pickerModal(page).locator(".collections-pick").first()).toHaveClass(
+      /is-suggested/
+    );
+    await expect(row("col-ase-2024")).toBeVisible();
+    await expect(row("col-maple-2024")).toBeVisible();
+    await expect(row("col-ase-2022-a")).toHaveCount(0);
+    await expect(row("col-ase-2022-b")).toHaveCount(0);
+
+    await allItems.click();
+    await expect(allItems).toHaveAttribute("aria-pressed", "true");
+    await expect(onlyYear).toHaveAttribute("aria-pressed", "false");
+    await expect(pickerModal(page).locator(".collections-pick").first()).toHaveClass(
+      /is-suggested/
+    );
+    await expect(row("col-ase-2022-a")).toBeVisible();
+    await expect(row("col-ase-2022-b")).toBeVisible();
+
+    await onlyYear.click();
+    await expect(row("col-ase-2022-a")).toHaveCount(0);
+  });
+
+  test("an undated slot's picker lists every active item with no year filter", async ({ page }) => {
+    // STRK-398 AC4: custom checklist slots carry no year, so nothing is filtered.
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await page.evaluate(() => {
+      const made = window.collectionsStore.createCustom({
+        name: "Undated set",
+        metal: "Silver",
+        slots: [{ label: "Any" }],
+      });
+      window.collectionsPicker.openLinkPicker({ collectionId: made.collection.id, slotId: "any" });
+    });
+    await expect(pickerModal(page)).toBeVisible();
+    await expect(pickerModal(page).getByRole("button", { name: "All items" })).toHaveCount(0);
+    await expect(pickerModal(page).locator(".collections-pick")).toHaveCount(SEED.length);
   });
 
   test("New collection builds a custom checklist with stable slot ids and opens its album", async ({

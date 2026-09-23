@@ -176,12 +176,14 @@ For full file:line traceability see STRK-13 verification and the Plane issue at 
 
 The item data model uses `weightUnit` to decide whether `weight` is already fine troy ounces or needs conversion before valuation:
 
-| Unit                  | Meaning                                                                   | Conversion                                                                  |
-| --------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `oz`, `g`, `kg`, `lb` | Standard bullion weight entry modes                                       | Normalized to troy ounces before valuation                                  |
-| `gb`                  | Goldback denomination count                                               | `weight * GB_TO_OZT`                                                        |
-| `sb`                  | Silverback unit count                                                     | `weight * SB_TO_OZT`                                                        |
-| `cu`                  | Constitutional / junk-silver inputs (denomination + count, or face value) | `getConstitutionalSilverOz(item)` — already pure, qty-folded, wear-adjusted |
+| Unit                                | Meaning                                                                   | Conversion                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `oz`, `g`, `mg`, `kg`, `lb`, `avdp` | Standard bullion weight entry modes                                       | Converted to troy oz **at save** by `parseWeight`                           |
+| `gb`                                | Goldback denomination count                                               | `weight * GB_TO_OZT`                                                        |
+| `sb`                                | Silverback unit count                                                     | `weight * SB_TO_OZT`                                                        |
+| `cu`                                | Constitutional / junk-silver inputs (denomination + count, or face value) | `getConstitutionalSilverOz(item)` — already pure, qty-folded, wear-adjusted |
+
+For the metric/troy group, `weight` is **already** troy oz and `weightUnit` only chooses the display unit (`formatWeight` converts outward). Code that needs ounces must read them through `getUnitOztWeight(item)` (or `getConstitutionalSilverOz` for `cu`) — never divide or multiply by unit again. STRK-398 was exactly that: Collections re-converted gram items and never matched them.
 
 Goldbacks are the only type eligible for the Goldback denomination retail-price path. Silverbacks use the dedicated `sb` unit and fall through to melt-based retail valuation (`weight * SB_TO_OZT * spot * purity`). Legacy Silverback records that were stored as `weightUnit: "gb"` are migrated to `sb` during load, import, encrypted backup restore, and cloud restore preview paths.
 
@@ -378,8 +380,8 @@ Full typedef in `js/types.js`. All fields persist in the `metalInventory` localS
 | `name`                                    | String           | Display name                                                                                                                                                |
 | `type`                                    | String           | `"Coin"` \| `"Round"` \| `"Bar"` \| …                                                                                                                       |
 | `metal`                                   | String           | `"Silver"` \| `"Gold"` \| `"Platinum"` \| `"Palladium"` \| `"Copper"` (STRK-305)                                                                            |
-| `weight`                                  | Number           | Fine troy oz per unit (Goldback denomination when `weightUnit === 'gb'`; face-per-coin or total face value when `weightUnit === 'cu'`)                      |
-| `weightUnit`                              | String           | `"oz"` (default) \| `"g"` \| `"kg"` \| `"lb"` \| `"gb"` \| `"sb"` \| `"cu"`                                                                                 |
+| `weight`                                  | Number           | Troy oz per unit whatever the display unit (denomination for `gb`/`sb`; face value for `cu`) — read as ozt via `getUnitOztWeight`                           |
+| `weightUnit`                              | String           | `"oz"` (default) \| `"g"` \| `"mg"` \| `"kg"` \| `"lb"` \| `"avdp"` \| `"gb"` \| `"sb"` \| `"cu"`                                                           |
 | `constitutionalVariant`                   | String           | `cu` items only — `CONSTITUTIONAL_VARIANTS` id (e.g. `con-90-quarter`). Hyphenated; exempt from `sanitizeObjectFields` stripping                            |
 | `constitutionalEntryMode`                 | String           | `cu` items only — `"denom"` (variant + count) \| `"face"` (total face value)                                                                                |
 | `purity`                                  | Number           | Metal purity 0.0–1.0 (default 1.0)                                                                                                                          |
@@ -420,7 +422,7 @@ A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Seri
 
 | Layer            | File                                                                       | Role                                                                                                                                                                                                                                          |
 | ---------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Core             | `js/collections-core.js`                                                   | Pure, DOM-free, storage-free (`window.collectionsCore`). Link integrity, spare promotion, tombstones, slot suggestions, `mergeStates`. Runs unchanged in the Node unit harness.                                                               |
+| Core             | `js/collections-core.js`                                                   | Pure, DOM-free, storage-free (`window.collectionsCore`). Link integrity, spare promotion, tombstones, slot suggestions (weight via `getUnitOztWeight`, STRK-398), `mergeStates`. Unit harness injects the real helper.                        |
 | Store            | `js/collections-store.js`                                                  | The only file touching storage, the live `inventory` global and the template bundle (`window.collectionsStore`). Fires `collections:changed` on `document`. Owns the add-new-item-from-slot flow.                                             |
 | IO               | `js/collections-io.js`                                                     | Data paths outside ZIP / `.stvault` (`window.collectionsIO`, STRK-371): standalone Collections file, the JSON export envelope, and the CSV `Collections` column. All imports go through `mergeIn`/`link`.                                     |
 | UI               | `js/collections-ui.js`, `js/collections-hub.js`, `js/collections-album.js` | Route and image resolution plus separate hub and album renderers. Item-modal membership affordances follow Settings > Layout Collections visibility, without changing `collectionState`. All three load after the store and before `tabs.js`. |
