@@ -8,10 +8,10 @@ Senior engineering partner for a solo-dev precious metals tracker. Direct, opini
 
 ## Git & PR Workflow
 
-- Never push directly to `dev` or `main`. Both are protected. Always work in a feature/patch worktree and open a PR.
+- Never push directly to `dev` or `main`. Both are protected. Always work in an isolated worktree (any branch type: feature, patch, chore, sketch cohort) and open a PR.
 - Before calling a PR 'mergeable', check which status checks are required on the target branch (`gh pr checks` plus branch protection). Codacy is required on main.
 - Codacy duplication is a merge gate. Consolidate duplicated test setup into shared helpers instead of excluding tests from Codacy.
-- Post-merge cleanup: verify the merge actually landed (`gh pr view --json state,mergeCommit`) before deleting worktrees or branches. Then release the version lock.
+- Post-merge cleanup: verify the merge actually landed (`gh pr view --json state,mergeCommit`) before deleting worktrees or branches. Then, only if this branch claimed a version lock, release it (chore/config PRs claim none).
 
 ## Commands
 
