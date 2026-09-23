@@ -113,6 +113,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 | `/retail-poller`                  | Retail pipeline — scraping, confidence, providers.json              |
 | `/retail-provider-fix`            | Diagnose scraping failures for individual dealers                   |
 | `/deploy-verify`                  | Post-deploy health (Portainer home + Fly.io cloud)                  |
+| `/cloud-infrastructure`           | Fly.io deploy/rollback, GitHub Pages API, Cloudflare Pages + DNS    |
 | `/faq`                            | In-app FAQ entries                                                  |
 | `/finishing-a-development-branch` | Implementation complete — merge/PR/cleanup                          |
 | `/pr-ready`                       | Pre-PR checklist                                                    |
