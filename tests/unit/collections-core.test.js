@@ -28,12 +28,17 @@ import { readFileSync } from "node:fs";
 const src = readFileSync(new URL("../../js/collections-core.js", import.meta.url), "utf-8");
 
 // STRK-398: the core converts stored weight through the canonical window.getUnitOztWeight
-// (js/utils.js, STRK-316). Slice the REAL helper out of utils.js — a hand-written double here
-// could drift from production, which is how the double-conversion bug went unnoticed.
-const utilsSrc = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
-const unitOztMatch = utilsSrc.match(/const getUnitOztWeight = \([\s\S]*?\n\};/);
-assert.ok(unitOztMatch, "could not locate getUnitOztWeight in js/utils.js");
-const getUnitOztWeight = new Function(`${unitOztMatch[0]}\nreturn getUnitOztWeight;`)();
+// (js/utils.js, STRK-316). Load the REAL module through the same boundary the browser uses —
+// utils.js publishes the helper on `window` — because a hand-written double could drift from
+// production, which is how the double-conversion bug went unnoticed.
+globalThis.window = globalThis.window || {};
+await import("../../js/utils.js");
+const { getUnitOztWeight } = globalThis.window;
+assert.equal(
+  typeof getUnitOztWeight,
+  "function",
+  "js/utils.js must publish window.getUnitOztWeight"
+);
 
 function loadCore() {
   const surface = { getUnitOztWeight };

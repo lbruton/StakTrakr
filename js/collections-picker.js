@@ -235,27 +235,6 @@
   };
 
   /**
-   * The "<year> only" / "All items" chip pair shown for a dated slot (STRK-398).
-   * @param {string} year - The slot's year
-   * @param {(yearOnly: boolean) => void} onChange - Called with the chosen mode
-   * @returns {HTMLElement} Segmented control; sync it with syncYearFilter
-   */
-  const yearFilterToggle = (year, onChange) => {
-    const group = el("div", "chip-sort-toggle");
-    group.setAttribute("role", "group");
-    group.setAttribute("aria-label", "Year filter");
-    [
-      [true, `${year} only`],
-      [false, "All items"],
-    ].forEach(([yearOnly, label]) => {
-      const chip = button("chip-sort-btn", label, () => onChange(yearOnly));
-      chip.dataset.yearOnly = String(yearOnly);
-      group.appendChild(chip);
-    });
-    return group;
-  };
-
-  /**
    * Marks the chip for the current mode as pressed.
    * @param {HTMLElement} group - Control from yearFilterToggle
    * @param {boolean} yearOnly - Whether the list is filtered to the slot's year
@@ -267,6 +246,33 @@
       chip.classList.toggle("active", pressed);
       chip.setAttribute("aria-pressed", String(pressed));
     });
+  };
+
+  /**
+   * The "<year> only" / "All items" chip pair shown for a dated slot (STRK-398). The control
+   * keeps its own pressed state; the caller only hears which mode was chosen.
+   * @param {string} year - The slot's year
+   * @param {boolean} yearOnly - Initial mode
+   * @param {(yearOnly: boolean) => void} onChange - Called with the chosen mode
+   * @returns {HTMLElement} Segmented control
+   */
+  const yearFilterToggle = (year, yearOnly, onChange) => {
+    const group = el("div", "chip-sort-toggle");
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-label", "Year filter");
+    [
+      [true, `${year} only`],
+      [false, "All items"],
+    ].forEach(([mode, label]) => {
+      const chip = button("chip-sort-btn", label, () => {
+        syncYearFilter(group, mode);
+        onChange(mode);
+      });
+      chip.dataset.yearOnly = String(mode);
+      group.appendChild(chip);
+    });
+    syncYearFilter(group, yearOnly);
+    return group;
   };
 
   /**
@@ -365,14 +371,6 @@
     const slotYear = slot.year == null ? "" : String(slot.year).trim();
     let yearOnly = slotYear !== "";
     const inYear = (item) => !yearOnly || window.collectionsCore.itemYear(item) === slotYear;
-    const yearFilter = slotYear
-      ? yearFilterToggle(slotYear, (mode) => {
-          yearOnly = mode;
-          syncYearFilter(yearFilter, yearOnly);
-          renderList();
-        })
-      : null;
-    if (yearFilter) syncYearFilter(yearFilter, yearOnly);
 
     const renderList = () => {
       const query = search.value.trim().toLowerCase();
@@ -430,6 +428,12 @@
       }
     };
     search.addEventListener("input", renderList);
+    const yearFilter = slotYear
+      ? yearFilterToggle(slotYear, yearOnly, (mode) => {
+          yearOnly = mode;
+          renderList();
+        })
+      : null;
 
     shell.body.replaceChildren(...[search, yearFilter, list].filter(Boolean));
     shell.footer.replaceChildren(
