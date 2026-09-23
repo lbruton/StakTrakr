@@ -43,13 +43,13 @@ Everything hosted outside the home network.
 | --------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | App       | `staktrakr`                                                                                                                     |
 | Region    | `dfw` (fly.toml)                                                                                                                |
-| Resources | 512MB RAM, 1 shared CPU                                                                                                         |
+| Resources | 1024MB RAM, 1 shared CPU (raised from 512 in STRK-277 — `fly.toml` is authoritative)                                            |
 | Config    | `StakTrakr/devops/pollers/remote-poller/fly.toml` + `Dockerfile`                                                                |
 | Runs      | Spot cron, publish cron, serve.js. Retail/goldback disabled (`RETAIL_ENABLED=0`, `GOLDBACK_ENABLED=0`) — handled by home poller |
 | Logs      | `fly logs --app staktrakr`                                                                                                      |
 | SSH       | `fly ssh console --app staktrakr`                                                                                               |
 
-> **STAK-478 (2026-03-19):** Fly.io was slimmed from a fat all-in-one container to a thin publisher. Retail and goldback scraping moved to the home poller. Firecrawl/Playwright/Redis/RabbitMQ/PostgreSQL are still in the image but idle.
+> **STAK-478 (2026-03-19):** Fly.io was slimmed from a fat all-in-one container to a thin publisher. Retail and goldback scraping moved to the home poller. The active image is the slim build (`node:20-slim` + `supervisord-slim.conf`) — Firecrawl, Playwright browsers, Redis, RabbitMQ, and PostgreSQL are **not** in it, so never troubleshoot them on Fly.
 
 ### Deploy Workflow
 
@@ -59,10 +59,10 @@ Never deploy uncommitted code. Never deploy from StakTrakrApi repo (legacy — c
 #### Safety Gates (mandatory before ANY deploy)
 
 1. **Correct repo:** `cd /Volumes/DATA/GitHub/StakTrakr && git rev-parse --show-toplevel` must return StakTrakr
-2. **On dev or merged branch:** Changes must be on `dev` or a merged branch
-3. **Synced with remote:** `git fetch origin dev && git rev-list HEAD..origin/dev --count` must return `0`
-4. **No uncommitted changes:** `git status --short -- devops/pollers/` must be empty
-5. **Change is present:** `git log --oneline -5 -- devops/pollers/` must show your change
+2. **HEAD is exactly the reviewed, pushed `dev`:** `git fetch origin dev && test "$(git rev-parse HEAD)" = "$(git rev-parse origin/dev)"` must succeed. Equality rules out BOTH failure modes — an unmerged feature branch based on `dev` and local commits that were never pushed (a behind-only check like `git rev-list HEAD..origin/dev` passes on both).
+3. **No uncommitted changes:** `git status --short -- devops/pollers/` must be empty
+4. **Change is present:** `git log --oneline -5 -- devops/pollers/` must show your change
+5. **Deploy window:** the current minute is between `:08:30` and `:23:00` — the only stretch per hour with no spot (`:00/:30`) or publish (`:08/:23/:38/:53`) cron. A deploy restarts the container and silently kills whichever cycle is running. Re-check the crons in `.context/infrastructure.md` if they may have changed.
 
 All 5 gates must pass before proceeding.
 
@@ -108,13 +108,14 @@ After rollback: verify health, diagnose from logs, fix in new PR, re-deploy.
 
 ### Common Deploy Mistakes
 
-| Mistake                                 | Prevention                                   |
-| --------------------------------------- | -------------------------------------------- |
-| Deploy from an unmerged worktree branch | Gate 2: must be on `dev` or a merged branch  |
-| Deploy from StakTrakrApi repo           | Gate 1: must be in StakTrakr (code migrated) |
-| Deploy uncommitted changes              | Gate 4: no uncommitted devops changes        |
-| Forget to update home-poller            | Post-deploy step 4                           |
-| Skip health check                       | Post-deploy step 2                           |
+| Mistake                               | Prevention                                   |
+| ------------------------------------- | -------------------------------------------- |
+| Deploy an unmerged or unpushed branch | Gate 2: HEAD must equal `origin/dev`         |
+| Deploy from StakTrakrApi repo         | Gate 1: must be in StakTrakr (code migrated) |
+| Deploy uncommitted changes            | Gate 3: no uncommitted devops changes        |
+| Deploy mid-cycle                      | Gate 5: `:08:30`–`:23:00` window only        |
+| Forget to update home-poller          | Post-deploy step 4                           |
+| Skip health check                     | Post-deploy step 2                           |
 
 ---
 
@@ -127,15 +128,16 @@ After rollback: verify health, diagnose from logs, fix in new PR, re-deploy.
 | Domain   | `api.staktrakr.com`                        |
 | Content  | Static JSON feeds (market, spot, goldback) |
 
-The `api` branch is a write-only output channel for the pollers. Multiple agents push to it
-concurrently (Fly.io container, GHA merge-poller workflow).
+GitHub Pages serves the `api` branch directly. Its **sole writer** is `run-publish.sh` on
+Fly.io, which force-pushes `HEAD:api` each publish cycle — there is no `main` merge step and
+no other concurrent writer. A stale feed means a failed publish on Fly, not a stuck workflow.
 
 ### GHA Workflows
 
-| Workflow                | Schedule                    | Purpose                                          |
-| ----------------------- | --------------------------- | ------------------------------------------------ |
-| `Merge Poller Branches` | `*/15 min`                  | Merges `api` → `main` → triggers GH Pages deploy |
-| `spot-poller.yml`       | **RETIRED** (dispatch only) | Was Python→MetalPriceAPI; now Fly.io             |
+| Workflow                | Status                      | Note                                                               |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------ |
+| `Merge Poller Branches` | **RETIRED** (manual-only)   | Never an operational control surface — do not wait on or re-run it |
+| `spot-poller.yml`       | **RETIRED** (dispatch only) | Was Python→MetalPriceAPI; now Fly.io                               |
 
 ---
 
