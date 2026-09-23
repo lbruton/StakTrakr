@@ -64,16 +64,12 @@
   };
 
   /**
-   * Reads a row's "Collections" cell, tolerating whitespace on the header. exportCsv
-   * prepends an LF-terminated "# exportOrigin" comment to PapaParse's CRLF output, so the
-   * newline auto-detect settles on LF and the LAST column's header arrives as
-   * "Collections\r" — an exact-key lookup silently misses it.
+   * Reads a row's "Collections" cell after CSV headers and values are normalized by PapaParse.
    * @param {object} row - Parsed CSV row.
    * @returns {string} Raw cell text, or "" when the column is absent.
    */
   const _readCsvCollectionsCell = (row) => {
-    const key = Object.keys(row || {}).find((name) => name.trim().toLowerCase() === "collections");
-    return key ? String(row[key] || "") : "";
+    return String(row["Collections"] || "");
   };
 
   /**
@@ -967,6 +963,7 @@
       Papa.parse(file, {
         header: true,
         transformHeader: (header) => header.trim(),
+        transform: (value) => value.replace(/\r$/, ""),
         skipEmptyLines: true,
         comments: "#",
         complete: function (results) {

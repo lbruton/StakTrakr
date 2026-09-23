@@ -227,7 +227,7 @@
 
     const _csvOrigin =
       typeof window !== "undefined" && window.location ? window.location.origin : "";
-    const _originComment = "# exportOrigin: " + _csvOrigin + "\n";
+    const _originComment = "# exportOrigin: " + _csvOrigin + "\r\n";
     return _originComment + Papa.unparse([headers, ...rows]);
   };
 
