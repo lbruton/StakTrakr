@@ -18407,6 +18407,47 @@ input[type="number"] {
   color: var(--text-muted);
 }
 
+/* Hub header controls inherit the Ledger grid and all four theme tokens. */
+.collections-sort-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.collections-sort-header.collections-num {
+  justify-content: flex-end;
+}
+
+.collections-sort-header.is-active {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.collections-sort-header:focus-visible,
+.collections-hub-sort select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.collections-hub-sort select {
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
 .collections-lrow.is-owned {
   box-shadow: inset 2px 0 0 var(--primary);
 }

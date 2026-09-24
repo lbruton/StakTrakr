@@ -96,6 +96,7 @@
 
   const state = {
     hubFilter: STATUS_ALL,
+    hubSort: null,
     albumFilter: SLOTS_ALL,
     albumSort: SORT_OLDEST,
   };
@@ -403,12 +404,19 @@
     const progress = core().collectionProgress(collection, slotDefs, store().isActiveUuid);
     let paid = 0;
     let melt = 0;
+    let hasMelt = true;
     slotDefs.forEach((def) => {
       const primary = store().resolveSlot(collection, def.id).primary;
       const item = primary ? store().findItem(primary) : null;
       if (!item) return;
       paid += unitPaid(item);
       melt += unitMelt(item);
+      if (
+        !spotFor(item.metal) ||
+        typeof computeMeltValue !== "function" ||
+        !Number.isFinite(computeMeltValue(item, spotFor(item.metal)))
+      )
+        hasMelt = false;
     });
     const best = template ? bestPriceFor(text(template.retailSlug)) : null;
     const name = isCustom ? text(collection.name) : text(template && template.name);
@@ -430,6 +438,7 @@
       status: statusOf(progress),
       paid,
       melt,
+      ledgerMelt: hasMelt ? melt : null,
       best,
       costToComplete: best && progress.missing > 0 ? best.price * progress.missing : null,
       obverse: stockImage(template, "obverse"),
