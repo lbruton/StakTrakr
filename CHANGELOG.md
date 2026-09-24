@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.28] - 2026-09-24
+
+### Changed — STRK-392: Sort the Collections hub Ledger
+
+- **Ledger sorting**: Sort Collections by name, Progress, Owned, Value (melt), or To complete using keyboard-accessible headers or the mobile Sort control. Filters retain the selected sort, equal values keep default order, and unavailable values remain last in either direction (STRK-392).
+- **Order preservation**: Ledger sorting is transient; Album cards and saved Collection and Slot order stay unchanged. Slot Ledger header sorting remains deferred (STRK-392).
+
+---
+
 ## [3.36.27] - 2026-09-23
 
 ### Fixed — STRK-398: Collections match Items entered in grams

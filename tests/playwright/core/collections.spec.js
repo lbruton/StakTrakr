@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 // Collections module (STRK-368, epic STRK-254) — new product domain: Collections.
 //
 // A Collection is a checklist over the inventory: each Slot links to Item UUIDs held on
@@ -1407,4 +1408,195 @@ test.describe("core/collections — tab UI", () => {
     }
     expect(errors).toEqual([]);
   });
+});
+
+const ledgerFixtures = JSON.parse(
+  readFileSync(new URL("../../fixtures/collections-sort.json", import.meta.url), "utf8")
+);
+
+/** Arrange distinct raw values through the real store and render the hub.
+ * @param {import('@playwright/test').Page} page - Browser page
+ * @returns {Promise<void>}
+ */
+const seedSortableHub = async (page) => {
+  const items = ledgerFixtures.flatMap((entry) =>
+    Array.from({ length: entry.owned }, (_, index) => ({
+      ...baseItem(`${entry.id}-${index}`, `${entry.name} Item ${index}`, "2024", index + 1),
+      metal: entry.melt === null ? "Copper" : "Silver",
+      weight: entry.melt === null ? 1 : entry.melt / entry.owned,
+    }))
+  );
+  await seedAndGoto(page, items);
+  await page.evaluate((fixtures) => {
+    spotPrices.silver = 1;
+    spotPrices.copper = 0;
+    window.__COLLECTIONS_BUNDLE = {
+      templates: Object.fromEntries(
+        fixtures.map((entry, index) => [
+          entry.id,
+          {
+            slug: entry.id,
+            name: entry.name,
+            metal: "Silver",
+            run: { start: 2000 + index },
+            retailSlug: entry.id,
+            slots: Array.from({ length: entry.total }, (_, i) => ({
+              id: String(i),
+              label: `Slot ${i}`,
+            })),
+          },
+        ])
+      ),
+    };
+    window._v2RetailData = {
+      prices: Object.fromEntries(
+        fixtures.map((entry) => [
+          entry.id,
+          {
+            vendors: entry.best === null ? {} : { apmex: { price: entry.best, in_stock: true } },
+          },
+        ])
+      ),
+    };
+    for (const entry of fixtures) {
+      for (let i = 0; i < entry.owned; i++) {
+        const result = window.collectionsStore.link(entry.id, String(i), `${entry.id}-${i}`);
+        if (!result.ok) throw new Error(JSON.stringify(result));
+      }
+    }
+  }, ledgerFixtures);
+  await openCollectionsTab(page);
+  await panel(page).getByRole("button", { name: "Ledger view" }).click();
+};
+
+/** Visible hub names in rendered order.
+ * @param {import('@playwright/test').Page} page - Browser page
+ * @returns {import('@playwright/test').Locator} Collection name cells
+ */
+const ledgerNames = (page) =>
+  panel(page).locator(".collections-hubrow[data-collection-id] .collections-lrow-name b");
+
+const hubSortCases = [
+  [
+    "Collection",
+    ["Alpha", "Beta", "Delta", "Unknown", "Zeta"],
+    ["Zeta", "Unknown", "Delta", "Beta", "Alpha"],
+  ],
+  [
+    "Progress",
+    ["Delta", "Beta", "Unknown", "Zeta", "Alpha"],
+    ["Zeta", "Alpha", "Unknown", "Beta", "Delta"],
+  ],
+  [
+    "Owned",
+    ["Delta", "Zeta", "Beta", "Unknown", "Alpha"],
+    ["Alpha", "Zeta", "Beta", "Unknown", "Delta"],
+  ],
+  [
+    "Value (melt)",
+    ["Delta", "Zeta", "Beta", "Alpha", "Unknown"],
+    ["Alpha", "Beta", "Zeta", "Delta", "Unknown"],
+  ],
+  [
+    "To complete",
+    ["Zeta", "Beta", "Alpha", "Delta", "Unknown"],
+    ["Alpha", "Beta", "Zeta", "Delta", "Unknown"],
+  ],
+];
+
+test.describe("hub Ledger sorting", () => {
+  for (const [label, ascending, descending] of hubSortCases) {
+    test(`${label} sorts visible rows in both directions`, async ({ page }) => {
+      await seedSortableHub(page);
+      const header = panel(page).getByRole("button", {
+        name: `Sort by ${label}, not sorted`,
+        exact: true,
+      });
+      await header.click();
+      await expect(ledgerNames(page)).toHaveText(ascending);
+      await panel(page)
+        .getByRole("button", { name: `Sort by ${label}, ascending`, exact: true })
+        .click();
+      await expect(ledgerNames(page)).toHaveText(descending);
+      await expect(page).toHaveURL(/#\/collections$/);
+    });
+  }
+
+  test("keyboard sorting survives filters and Album round trips without saved-order changes", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    const saved = await page.evaluate(() => JSON.stringify(window.collectionsStore.getState()));
+    const header = panel(page).getByRole("button", {
+      name: "Sort by Owned, not sorted",
+      exact: true,
+    });
+    await header.focus();
+    await header.press("Enter");
+    const active = panel(page).getByRole("button", {
+      name: "Sort by Owned, ascending",
+      exact: true,
+    });
+    await expect(active).toBeFocused();
+    await active.press("Space");
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
+    await expect(ledgerNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Unknown"]);
+    await panel(page).getByRole("button", { name: "Complete", exact: true }).click();
+    await expect(panel(page)).toContainText("No collections match this filter");
+    await panel(page).getByRole("button", { name: "All", exact: true }).click();
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await expect(panel(page).locator(".collections-card-name b")).toHaveText(
+      ledgerFixtures.map((entry) => entry.name)
+    );
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    expect(await page.evaluate(() => JSON.stringify(window.collectionsStore.getState()))).toBe(
+      saved
+    );
+  });
+
+  test("mobile Sort exposes every column and both directions with default-order reset", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(panel(page).locator(".is-head")).toBeHidden();
+    const select = panel(page).getByRole("combobox", { name: "Sort collections" });
+    await expect(select).toBeVisible();
+    for (let i = 0; i < hubSortCases.length; i++) {
+      const key = ["name", "progress", "owned", "melt", "cost"][i];
+      await select.selectOption(`${key}:asc`);
+      await expect(ledgerNames(page)).toHaveText(hubSortCases[i][1]);
+      await select.selectOption(`${key}:desc`);
+      await expect(ledgerNames(page)).toHaveText(hubSortCases[i][2]);
+    }
+    await select.selectOption("");
+    await expect(ledgerNames(page)).toHaveText(ledgerFixtures.map((entry) => entry.name));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true
+    );
+  });
+});
+
+test("hub Ledger sorting remains usable in four themes", async ({ page }, testInfo) => {
+  await seedSortableHub(page);
+  await panel(page)
+    .getByRole("button", { name: "Sort by Progress, not sorted", exact: true })
+    .click();
+  for (const theme of ["dark", "light", "slate", "sepia"]) {
+    await page.evaluate(
+      (value) => document.documentElement.setAttribute("data-theme", value),
+      theme
+    );
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[1][1]);
+    await expect(
+      panel(page).getByRole("button", { name: "Sort by Progress, ascending", exact: true })
+    ).toBeVisible();
+    await panel(page).screenshot({ path: testInfo.outputPath(`hub-${theme}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toBeVisible();
+  await panel(page).screenshot({ path: testInfo.outputPath("hub-mobile.png") });
 });

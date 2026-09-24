@@ -32,6 +32,87 @@
       PERCENT,
       state,
     } = deps;
+    const sort = window.collectionsSort;
+    const sortColumns = [
+      ["name", "Collection"],
+      ["progress", "Progress"],
+      ["owned", "Owned"],
+      ["melt", "Value (melt)"],
+      ["cost", "To complete"],
+    ];
+
+    /** Select or reverse a hub column without changing saved Collection order.
+     * @param {string} key - Column key
+     * @returns {void}
+     */
+    const selectSort = (key) => {
+      state.hubSort = sort.nextSort(state.hubSort, key);
+      render();
+    };
+
+    /** Compact equivalent of the header actions for hidden mobile headers.
+     * @returns {HTMLElement} Labelled select with both directions and default order
+     */
+    const buildCompactSort = () => {
+      const label = el("label", "collections-hub-sort collections-show-sm", "Sort ");
+      const select = el("select");
+      select.setAttribute("aria-label", "Sort collections");
+      select.dataset.focusKey = "hubsort:compact";
+      const option = el("option", "", "Default order");
+      option.value = "";
+      select.appendChild(option);
+      sortColumns.forEach(([key, name]) => {
+        ["asc", "desc"].forEach((direction) => {
+          const item = el(
+            "option",
+            "",
+            `${name} — ${direction === "asc" ? "ascending" : "descending"}`
+          );
+          item.value = `${key}:${direction}`;
+          select.appendChild(item);
+        });
+      });
+      select.value = state.hubSort ? `${state.hubSort.key}:${state.hubSort.direction}` : "";
+      select.addEventListener("change", () => {
+        const [key, direction] = select.value.split(":");
+        state.hubSort = key ? { key, direction } : null;
+        render();
+      });
+      label.appendChild(select);
+      return label;
+    };
+
+    /** Builds the hub's sortable header while leaving the shared Slot header static.
+     * @returns {HTMLElement} Header with native keyboard buttons
+     */
+    const buildHubHead = () => {
+      const head = el("div", "collections-lrow is-head collections-hubrow");
+      head.appendChild(el("span"));
+      sortColumns.forEach(([key, label], index) => {
+        const active = state.hubSort?.key === key;
+        const direction = active ? state.hubSort.direction : null;
+        const control = button(
+          `collections-sort-header ${index > 1 ? "collections-num" : ""}`,
+          `hubsort:${key}`,
+          () => selectSort(key)
+        );
+        control.appendChild(el("span", "", label));
+        const indicator = el(
+          "span",
+          "collections-sort-indicator",
+          active ? (direction === "asc" ? "↑" : "↓") : "↕"
+        );
+        indicator.setAttribute("aria-hidden", "true");
+        control.appendChild(indicator);
+        const status = active ? (direction === "asc" ? "ascending" : "descending") : "not sorted";
+        control.setAttribute("aria-label", `Sort by ${label}, ${status}`);
+        control.classList.toggle("is-active", active);
+        head.appendChild(control);
+      });
+      head.appendChild(el("span"));
+      return head;
+    };
+
     // ---------------------------------------------------------------------------
     // Hub
     // ---------------------------------------------------------------------------
@@ -129,6 +210,7 @@
       });
       toolbar.appendChild(tabs);
       const right = el("div", "collections-toolbar-right");
+      if (getViewMode() === VIEW_LEDGER) right.appendChild(buildCompactSort());
       right.appendChild(buildViewToggle());
       right.appendChild(
         buildPillButton({
@@ -288,18 +370,17 @@
         if (!visible.length)
           return buildEmptyState("Nothing here yet", "No collections match this filter.");
         const table = el("div", "collections-ledger");
-        table.appendChild(
-          buildLedgerHead("collections-hubrow", [
-            ["", ""],
-            ["Collection", ""],
-            ["Progress", ""],
-            ["Owned", "collections-num"],
-            ["Value (melt)", "collections-num"],
-            ["To complete", "collections-num"],
-            ["", ""],
-          ])
-        );
-        visible.forEach((entry) => table.appendChild(buildHubRow(entry)));
+        table.appendChild(buildHubHead());
+        const selected = state.hubSort;
+        const ordered = selected
+          ? sort.sortRows(
+              visible,
+              (entry) => sort.hubKey(entry, selected.key),
+              selected.direction,
+              selected.key === "name" ? "text" : "number"
+            )
+          : visible;
+        ordered.forEach((entry) => table.appendChild(buildHubRow(entry)));
         return table;
       }
       const grid = el("div", "collections-grid");

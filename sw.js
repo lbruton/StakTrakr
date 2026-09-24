@@ -25,7 +25,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 // base the relative "./" cache keys resolve against.
 const SW_SCOPE_PATH = new URL("./", self.location.href).pathname;
 
-const CACHE_NAME = "staktrakr-v3.36.27-b1790204092";
+const CACHE_NAME = "staktrakr-v3.36.28-b1790289106";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -130,6 +130,7 @@ const CORE_ASSETS = [
   "./js/collections-core.js",
   "./js/collections-store.js",
   "./js/collections-io.js",
+  "./js/collections-sort.js",
   "./js/collections-hub.js",
   "./js/collections-album.js",
   "./js/collections-ui.js",
