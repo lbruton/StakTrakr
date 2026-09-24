@@ -1,12 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-const surface = {};
-new Function(
-  "window",
-  readFileSync(new URL("../../js/collections-sort.js", import.meta.url), "utf8")
-)(surface);
-const { sortRows, hubKey, nextSort } = surface.collectionsSort;
+globalThis.window = {};
+await import("../../js/collections-sort.js");
+const { sortRows, hubKey, nextSort } = globalThis.window.collectionsSort;
 const ids = (rows) => rows.map((row) => row.id);
 
 test("numeric keys keep zero known and unknown values last in both directions", () => {
