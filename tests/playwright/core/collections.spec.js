@@ -849,7 +849,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     });
 
     const builder = builderModal(page);
-    await builder.getByLabel("Coin side").selectOption("reverse");
+    await builder.getByRole("radiogroup", { name: "Coin side" }).getByLabel("Reverse").check();
     await builder.getByRole("button", { name: "Save changes" }).click();
     await expect(slotOf(page, "maple").locator(".collections-coin img")).toHaveAttribute(
       "src",

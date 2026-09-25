@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STRK-400: Custom Collection editor layout polish
 
-- **Custom Collection editor**: Removed backup details from the modal and placed the Cover Image upload beside the Coin side selector below Description (STRK-400).
+- **Custom Collection editor**: Removed backup details and the Slots rename hint from the modal. The Cover Image upload is larger and sits beside a new Obverse/Reverse Coin side toggle below Description (STRK-400).
 
 ---
 

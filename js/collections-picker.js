@@ -614,6 +614,38 @@
   };
 
   /**
+   * A labelled segmented control backed by radio inputs, for small either/or choices.
+   * @param {string} labelText - Group label
+   * @param {{value: string, label: string}[]} options - Choices, in display order
+   * @param {string} value - Initially selected value
+   * @returns {{node: HTMLElement, getValue: () => string}} Control
+   */
+  const segmented = (labelText, options, value) => {
+    const wrap = el("div", "collections-field");
+    const caption = el("span", "collections-builder-caption", labelText);
+    caption.id = `collectionsSeg${Math.random().toString(36).slice(2, 9)}`;
+    const group = el("div", "collections-segmented");
+    group.setAttribute("role", "radiogroup");
+    group.setAttribute("aria-labelledby", caption.id);
+    const inputs = options.map((option) => {
+      const choice = el("label", "collections-segmented-option");
+      const input = el("input");
+      input.type = "radio";
+      input.name = caption.id;
+      input.value = option.value;
+      input.checked = option.value === value;
+      choice.append(input, el("span", "", option.label));
+      group.appendChild(choice);
+      return input;
+    });
+    wrap.append(caption, group);
+    return {
+      node: wrap,
+      getValue: () => (inputs.find((input) => input.checked) || inputs[0]).value,
+    };
+  };
+
+  /**
    * An image chooser: a preview medallion plus a hidden file input. Holds the chosen
    * File until the collection is saved (its id does not exist before then).
    * @param {string} label - Accessible label
@@ -812,30 +844,37 @@
     const metal = el("select");
     METALS.forEach((option) => metal.appendChild(el("option", "", option)));
     metal.value = METALS.includes(seed.metal) ? seed.metal : "Mixed";
-    const side = el("select");
-    const obverse = el("option", "", "Obverse");
-    obverse.value = "obverse";
-    const reverse = el("option", "", "Reverse");
-    reverse.value = "reverse";
-    side.append(obverse, reverse);
-    side.value = seed.side;
+    const side = segmented(
+      "Coin side",
+      [
+        { value: "obverse", label: "Obverse" },
+        { value: "reverse", label: "Reverse" },
+      ],
+      seed.side
+    );
     const description = el("input");
     description.type = "text";
     description.placeholder = "Notes about this set (optional)";
     description.value = seed.description;
 
     const cover = imageChooser("Cover image");
+    // The media row groups the cover art with the display controls. Its two columns are
+    // built to grow: a reverse cover joins the covers strip, a shape control joins the
+    // display stack, without reflowing the rest of the form.
+    const covers = el("div", "collections-builder-covers");
+    covers.appendChild(cover.node);
     const coverWrap = el("div", "collections-builder-cover");
-    coverWrap.append(
-      el("span", "collections-builder-cover-label", "Cover Image (Optional)"),
-      cover.node
-    );
+    coverWrap.append(el("span", "collections-builder-caption", "Cover Image (Optional)"), covers);
     if (!imagesAvailable()) {
       coverWrap.appendChild(
         el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
       );
     }
     if (seed.editId) getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
+    const display = el("div", "collections-builder-display");
+    display.appendChild(side.node);
+    const media = el("div", "collections-builder-media");
+    media.append(coverWrap, display);
 
     const rowsHost = el("div", "collections-builder-rows");
     const removeRow = (row) => {
@@ -857,13 +896,9 @@
       field("Collection name", name),
       field("Metal", metal),
       field("Description", description, "is-wide"),
-      coverWrap,
-      field("Coin side", side)
+      media
     );
     const slotsHeading = el("div", "collections-pick-group", "Slots");
-    slotsHeading.appendChild(
-      el("span", "collections-pick-group-note", " · a slot keeps its links when you rename it")
-    );
     const rowActions = el("div", "collections-builder-actions");
     rowActions.append(
       button("btn secondary collections-btn-pill", "+ Add slot", () =>
@@ -893,7 +928,7 @@
       const spec = {
         name: name.value,
         metal: metal.value,
-        side: side.value,
+        side: side.getValue(),
         description: description.value,
         clonedFrom: seed.clonedFrom,
         slots: rows.map((row) => ({
