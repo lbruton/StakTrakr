@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.29] - 2026-09-24
+
+### Changed — STRK-390: Custom Collection coin side and Slot notes
+
+- **Collections**: Custom Collections can declare whether their artwork is Obverse or Reverse, and Slot notes now appear in Album and Ledger views (STRK-390).
+
+---
+
 ## [3.36.28] - 2026-09-24
 
 ### Changed — STRK-392: Sort the Collections hub Ledger

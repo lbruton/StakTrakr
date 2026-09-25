@@ -927,7 +927,8 @@
 
   /**
    * Coin medallion: a stock / item photo, or a monogram when there is no image.
-   * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string,
+   * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string, alt?: string,
+   *   imageSide?: string,
    *   itemUuid?: string, artwork?: {collectionId: string, slotId?: string}}} spec - Medallion spec.
    *   itemUuid marks it for the async item-photo pass; artwork for custom collection art.
    * @returns {HTMLElement} The medallion
@@ -938,6 +939,8 @@
     if (spec.ghost) coin.classList.add("collections-coin--ghost");
     if (spec.owned) coin.classList.add("collections-coin--owned");
     if (spec.itemUuid) coin.dataset.itemUuid = spec.itemUuid;
+    if (spec.alt) coin.dataset.imageAlt = spec.alt;
+    if (spec.imageSide) coin.dataset.imageSide = spec.imageSide;
     if (spec.artwork) {
       coin.dataset.artCollection = spec.artwork.collectionId;
       if (spec.artwork.slotId) coin.dataset.artSlot = spec.artwork.slotId;
@@ -945,7 +948,7 @@
     coin.dataset.monogram = spec.monogram || "?";
     if (spec.src) {
       const image = el("img");
-      image.alt = "";
+      image.alt = spec.alt || "";
       image.loading = "lazy";
       image.src = spec.src;
       coin.dataset.stockSrc = spec.src;
@@ -1207,17 +1210,20 @@
    * @param {Object} item - Linked inventory item
    * @returns {Promise<string|null>} URL, or null
    */
-  const resolveItemImageUrl = async (item) => {
+  const resolveItemImageUrl = async (item, side = "obverse") => {
     const cache = window.imageCache;
-    if (cache && typeof cache.isAvailable === "function" && cache.isAvailable()) {
-      const uploaded = item.uuid ? await cache.getUserImageUrl(item.uuid, "obverse") : null;
-      if (uploaded) return uploaded;
-    }
-    const stored = item.obverseImageUrl;
-    if (typeof ImageCache !== "undefined" && ImageCache.isValidImageUrl(stored)) return stored;
-    return cache && typeof cache.isAvailable === "function" && cache.isAvailable()
-      ? cache.resolveImageUrlForItem(item, "obverse")
-      : null;
+    const resolveSide = async (requestedSide) => {
+      if (cache && typeof cache.isAvailable === "function" && cache.isAvailable()) {
+        const uploaded = item.uuid ? await cache.getUserImageUrl(item.uuid, requestedSide) : null;
+        if (uploaded) return uploaded;
+      }
+      const stored = item[`${requestedSide}ImageUrl`];
+      if (typeof ImageCache !== "undefined" && ImageCache.isValidImageUrl(stored)) return stored;
+      return cache && typeof cache.isAvailable === "function" && cache.isAvailable()
+        ? cache.resolveImageUrlForItem(item, requestedSide)
+        : null;
+    };
+    return (await resolveSide(side)) || resolveSide(side === "reverse" ? "obverse" : "reverse");
   };
 
   /**
@@ -1243,7 +1249,7 @@
     let image = coin.querySelector("img");
     if (!image) {
       image = el("img");
-      image.alt = "";
+      image.alt = coin.dataset.imageAlt || "";
       coin.textContent = "";
       coin.classList.remove("collections-coin--mono");
       coin.appendChild(image);
@@ -1275,8 +1281,9 @@
   const resolveCoin = async (coin, generation) => {
     try {
       const item = coin.dataset.itemUuid ? store().findItem(coin.dataset.itemUuid) : null;
+      const side = coin.dataset.imageSide || "obverse";
       const url =
-        (item ? await resolveItemImageUrl(item) : null) || (await resolveArtworkUrl(coin));
+        (item ? await resolveItemImageUrl(item, side) : null) || (await resolveArtworkUrl(coin));
       if (!url) return;
       const isBlob = url.startsWith("blob:");
       if (generation !== renderGeneration || !coin.isConnected) {

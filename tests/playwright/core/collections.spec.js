@@ -787,6 +787,57 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(after.linked).toBe("col-maple-2024");
   });
 
+  test("a Custom Collection side choice persists and drives reverse images plus Slot notes", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const item = window.inventory.find((entry) => entry.uuid === "col-maple-2024");
+      item.obverseImageUrl = new URL(
+        "/tests/playwright/helpers/test-obverse.png",
+        location.href
+      ).href;
+      item.reverseImageUrl = new URL(
+        "/tests/playwright/helpers/test-reverse.png",
+        location.href
+      ).href;
+      item.ignorePatternImages = true;
+      saveInventory();
+      const created = window.collectionsStore.createCustom({
+        name: "Reverse artwork",
+        slots: [{ label: "Maple", note: "Key date" }],
+      });
+      window.collectionsStore.link(created.collection.id, "maple", item.uuid);
+      window.collectionsUI.openCollection(created.collection.id);
+      window.collectionsPicker.openBuilder({ editId: created.collection.id });
+      return created.collection.id;
+    });
+
+    const builder = builderModal(page);
+    await builder.getByLabel("Coin side").selectOption("reverse");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(slotOf(page, "maple").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      /test-reverse\.png$/
+    );
+    await expect(slotOf(page, "maple").locator(".collections-slot-note")).toHaveText("Key date");
+
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(slotOf(page, "maple").locator(".collections-lrow-note")).toHaveText("Key date");
+    await reloadApp(page);
+    expect(
+      await page.evaluate(
+        (collectionId) =>
+          window.collectionsStore.getState().collections[collectionId].definition.side,
+        id
+      )
+    ).toBe("reverse");
+    await expect(slotOf(page, "maple").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      /test-reverse\.png$/
+    );
+  });
+
   test("cover upload and removal change the visible album and old image vaults cannot revive it", async ({
     page,
   }) => {

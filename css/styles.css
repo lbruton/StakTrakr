@@ -18193,6 +18193,22 @@ input[type="number"] {
   color: var(--text-primary);
 }
 
+.collections-slot-note,
+.collections-lrow-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.collections-slot-note {
+  width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .collections-slot-tag {
   margin-left: var(--spacing-xs);
   vertical-align: middle;
@@ -18460,6 +18476,12 @@ input[type="number"] {
 .collections-lrow-year {
   font: 600 var(--font-size-md) / 1.2 var(--font-mono);
   color: var(--text-primary);
+}
+
+.collections-lrow-note {
+  margin-top: var(--spacing-xs);
+  font-family: var(--font-body);
+  font-weight: 400;
 }
 
 .collections-lrow-name {

@@ -171,7 +171,7 @@ A Series Template whose Slots are the successive issue years of one coin series 
 _Avoid_: year set, series run, date set
 
 **Custom Collection**:
-A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (metal, description, Slot list).
+A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (metal, description, coin side, Slot list). Its coin-side declaration selects the linked Item image side and labels single-image Slot artwork; it defaults to obverse.
 _Avoid_: user collection, custom list, custom set
 
 **Tombstone**:

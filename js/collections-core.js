@@ -199,9 +199,9 @@
   };
 
   /**
-   * Normalizes a custom collection's definition (metal, description, slot list).
+   * Normalizes a custom collection's definition (metal, description, side, slot list).
    * @param {*} raw - Persisted definition
-   * @returns {{metal: string, description: string, slots: Object[]}} Clean definition
+   * @returns {{metal: string, description: string, side: string, slots: Object[]}} Clean definition
    */
   const normalizeDefinition = (raw) => {
     const source = isPlainObject(raw) ? raw : {};
@@ -217,7 +217,12 @@
         note: text(slot.note),
       });
     });
-    return { metal: text(source.metal), description: text(source.description), slots };
+    return {
+      metal: text(source.metal),
+      description: text(source.description),
+      side: source.side === "reverse" ? "reverse" : "obverse",
+      slots,
+    };
   };
 
   /**
@@ -474,6 +479,7 @@
       definition: {
         metal: text(spec.metal),
         description: text(spec.description),
+        side: spec.side === "reverse" ? "reverse" : "obverse",
         slots: buildDefinitionSlots(spec.slots, new Set()),
       },
     });
@@ -486,7 +492,7 @@
    * their links; links in slots that were removed are tombstoned.
    * @param {Object} state - Collections state
    * @param {string} collectionId - Collection id
-   * @param {{name: string, slots: Object[], metal?: string, description?: string, now?: string}} spec - New definition
+   * @param {{name: string, slots: Object[], metal?: string, description?: string, side?: string, now?: string}} spec - New definition
    * @returns {{ok: boolean, changed?: boolean, reason?: string}} Result
    */
   const updateCustomDefinition = (state, collectionId, spec) => {
@@ -496,7 +502,12 @@
     const error = customSpecError(spec);
     if (error) return { ok: false, reason: error };
 
-    const previous = collection.definition || { metal: "", description: "", slots: [] };
+    const previous = collection.definition || {
+      metal: "",
+      description: "",
+      side: "obverse",
+      slots: [],
+    };
     const slots = buildDefinitionSlots(spec.slots, new Set(previous.slots.map((slot) => slot.id)));
     const stamp = nextStamp(collection.metaModified, nowIso(spec));
     const kept = new Set(slots.map((slot) => slot.id));
@@ -516,6 +527,12 @@
     collection.definition = {
       metal: spec.metal == null ? previous.metal : text(spec.metal),
       description: spec.description == null ? previous.description : text(spec.description),
+      side:
+        spec.side == null
+          ? previous.side || "obverse"
+          : spec.side === "reverse"
+            ? "reverse"
+            : "obverse",
       slots,
     };
     collection.metaModified = stamp;

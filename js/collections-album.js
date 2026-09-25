@@ -359,16 +359,29 @@
      * @param {string} [size] - Medallion size modifier
      * @returns {HTMLElement} The medallion
      */
-    const buildSlotCoin = (entry, slot, size) =>
-      buildCoin({
-        src: entry.obverse,
+    const buildSlotCoin = (entry, slot, size) => {
+      const side =
+        entry.isCustom && entry.collection.definition?.side === "reverse" ? "reverse" : "obverse";
+      return buildCoin({
+        src: entry[side] || entry.obverse,
         monogram: entry.monogram,
         ghost: !slot.item,
         owned: Boolean(slot.item),
         size,
+        alt: `${side} of ${slot.label}`,
+        imageSide: side,
         itemUuid: slot.item ? slot.item.uuid : "",
         artwork: entry.isCustom ? { collectionId: entry.id, slotId: slot.def.id } : null,
       });
+    };
+
+    /** Builds a visible, clamped Slot note when one was supplied in the builder. */
+    const buildSlotNote = (slot, className) => {
+      if (!slot.note) return null;
+      const note = el("small", className, slot.note);
+      note.title = slot.note;
+      return note;
+    };
 
     /**
      * One slot tile (album mode).
@@ -389,6 +402,8 @@
       if (!slot.item) {
         tile.appendChild(buildSlotCoin(entry, slot));
         tile.appendChild(buildSlotLabel(slot, "collections-slot-year"));
+        const note = buildSlotNote(slot, "collections-slot-note");
+        if (note) tile.appendChild(note);
         tile.appendChild(el("span", "collections-slot-meta", mintage || " "));
         tile.appendChild(el("span", "collections-slot-rule"));
         tile.appendChild(buildMissingHint(entry, slot, "collections-slot-meta"));
@@ -403,6 +418,8 @@
       );
       main.appendChild(buildSlotCoin(entry, slot));
       main.appendChild(buildSlotLabel(slot, "collections-slot-year"));
+      const note = buildSlotNote(slot, "collections-slot-note");
+      if (note) main.appendChild(note);
       main.appendChild(el("span", "collections-slot-meta", mintage || " "));
       main.appendChild(el("span", "collections-slot-rule"));
       const name = el("span", "collections-slot-item", text(slot.item.name) || "Untitled item");
@@ -453,7 +470,10 @@
       row.dataset.slotId = slot.def.id;
       row.setAttribute("role", "listitem");
       row.appendChild(buildSlotCoin(entry, slot, "sm"));
-      row.appendChild(buildSlotLabel(slot, "collections-lrow-year"));
+      const year = buildSlotLabel(slot, "collections-lrow-year");
+      const note = buildSlotNote(slot, "collections-lrow-note");
+      if (note) year.appendChild(note);
+      row.appendChild(year);
       const name = el("span", "collections-lrow-name");
       /**
        * A right-aligned numeric cell; hidden in the compact (<=640px) row.
@@ -467,7 +487,6 @@
       if (!slot.item) {
         // The price has its own column here; the compact row folds it into line two instead.
         name.appendChild(buildMissingHint(entry, slot, "collections-muted", false));
-        if (slot.note) name.appendChild(el("small", "collections-hide-sm", slot.note));
         if (entry.best)
           name.appendChild(
             el(
@@ -498,7 +517,8 @@
         name.appendChild(
           buildTag(`+${slot.spares.length} spare${slot.spares.length === 1 ? "" : "s"}`)
         );
-      name.appendChild(el("small", "collections-hide-sm", purchaseLine(item) || slot.note));
+      const purchase = purchaseLine(item);
+      if (purchase) name.appendChild(el("small", "collections-hide-sm", purchase));
       name.appendChild(buildMoneyLine(item, "collections-lrow-money collections-show-sm"));
       row.appendChild(name);
 
