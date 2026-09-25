@@ -916,11 +916,13 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(noteButton).toBeFocused();
 
     await page.keyboard.press("Enter");
+    await expect(popover).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(popover).toBeHidden();
     await expect(noteButton).toHaveAttribute("aria-expanded", "false");
 
     await noteButton.click();
+    await expect(popover).toBeVisible();
     await page.getByRole("button", { name: "Collections" }).click();
     await expect(popover).toBeHidden();
   });
