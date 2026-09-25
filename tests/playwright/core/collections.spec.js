@@ -903,14 +903,27 @@ test.describe("core/collections — link picker, builder, item view", () => {
         true
       );
     });
-    await seedAndGoto(page);
+    const imageFallbackSeed = SEED.map((item) => {
+      if (item.uuid === "col-ase-2024")
+        return {
+          ...item,
+          obverseImageUrl: "https://images.test/missing.png",
+          reverseImageUrl: "",
+          ignorePatternImages: true,
+        };
+      if (item.uuid === "col-maple-2024")
+        return {
+          ...item,
+          obverseImageUrl: "https://images.test/obverse.png",
+          reverseImageUrl: "",
+          ignorePatternImages: true,
+        };
+      return item;
+    });
+    await seedAndGoto(page, imageFallbackSeed);
     await openCollectionsTab(page);
     await page.evaluate(() => {
       const item = window.inventory.find((entry) => entry.uuid === "col-ase-2024");
-      item.obverseImageUrl = "https://images.test/missing.png";
-      item.reverseImageUrl = "";
-      item.ignorePatternImages = true;
-      saveInventory();
       window.collectionsStore.link("ase-type2", "2024", item.uuid);
       window.collectionsUI.openCollection("ase-type2");
     });
@@ -925,14 +938,6 @@ test.describe("core/collections — link picker, builder, item view", () => {
 
     await page.evaluate(() => {
       const item = window.inventory.find((entry) => entry.uuid === "col-maple-2024");
-      item.obverseImageUrl = new URL(
-        "/tests/playwright/helpers/test-obverse.png",
-        location.href
-      ).href;
-      item.reverseImageUrl = "";
-      item.ignorePatternImages = true;
-      saveInventory();
-
       const created = window.collectionsStore.createCustom({
         name: "Reverse image fallback",
         side: "reverse",
@@ -944,7 +949,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
 
     const coin = slotOf(page, "maple").locator(".collections-coin");
     const image = coin.locator("img");
-    await expect(image).toHaveAttribute("src", /test-obverse\.png$/);
+    await expect(image).toHaveAttribute("src", /images\.test\/obverse\.png$/);
     await expect(image).toHaveAttribute("alt", "obverse of Maple");
     await expect(coin).toHaveAttribute("data-image-side", "reverse");
     await expect(coin).toHaveAttribute("data-resolved-image-side", "obverse");
