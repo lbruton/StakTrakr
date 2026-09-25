@@ -725,7 +725,7 @@
    * Starting values for the builder: an existing custom collection, a clone of a
    * template (or of a custom collection), or a blank three-slot checklist.
    * @param {{cloneFrom?: string, editId?: string}} request - Builder request
-   * @returns {{name: string, metal: string, description: string, slots: Object[], clonedFrom: string|null,
+   * @returns {{name: string, metal: string, description: string, side: string, slots: Object[], clonedFrom: string|null,
    *   editId: string|null}} Seed values
    */
   const builderSeed = (request) => {
@@ -733,6 +733,7 @@
       name: "",
       metal: "Silver",
       description: "",
+      side: "obverse",
       slots: [{}, {}, {}],
       clonedFrom: null,
       editId: null,
@@ -753,6 +754,7 @@
       name: request.editId ? context.title : `${context.title} — my set`,
       metal: definition.metal || (context.template && context.template.metal) || "Silver",
       description: definition.description || "",
+      side: definition.side === "reverse" ? "reverse" : "obverse",
       slots,
       clonedFrom: request.editId ? null : sourceId,
       editId: request.editId || null,
@@ -811,6 +813,13 @@
     const metal = el("select");
     METALS.forEach((option) => metal.appendChild(el("option", "", option)));
     metal.value = METALS.includes(seed.metal) ? seed.metal : "Mixed";
+    const side = el("select");
+    const obverse = el("option", "", "Obverse");
+    obverse.value = "obverse";
+    const reverse = el("option", "", "Reverse");
+    reverse.value = "reverse";
+    side.append(obverse, reverse);
+    side.value = seed.side;
     const description = el("input");
     description.type = "text";
     description.placeholder = "Notes about this set (optional)";
@@ -849,6 +858,7 @@
     form.append(
       field("Collection name", name),
       field("Metal", metal),
+      field("Coin side", side),
       field("Description", description, "is-wide"),
       coverWrap
     );
@@ -885,6 +895,7 @@
       const spec = {
         name: name.value,
         metal: metal.value,
+        side: side.value,
         description: description.value,
         clonedFrom: seed.clonedFrom,
         slots: rows.map((row) => ({

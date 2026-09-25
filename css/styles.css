@@ -18126,6 +18126,7 @@ input[type="number"] {
 }
 
 .collections-slot {
+  --collections-slot-coin: 112px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -18140,7 +18141,7 @@ input[type="number"] {
 }
 
 .collections-slot .collections-coin {
-  --collections-coin: 112px;
+  --collections-coin: var(--collections-slot-coin);
 }
 
 .collections-slot.is-missing {
@@ -18186,11 +18187,127 @@ input[type="number"] {
   outline-offset: 2px;
 }
 
-.collections-slot-year {
-  display: block;
-  margin-top: var(--spacing-md);
-  font: 600 var(--font-size-lg) / 1.2 var(--font-mono);
+.collections-slot-identity {
+  min-width: 0;
   color: var(--text-primary);
+}
+
+.collections-slot-identity-copy {
+  display: block;
+  min-width: 0;
+}
+
+.collections-slot-identity-name {
+  display: block;
+  min-width: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.collections-slot-identity-year {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+}
+
+.collections-slot-identity.is-album {
+  display: block;
+  width: 100%;
+  margin-top: var(--spacing-md);
+  text-align: center;
+}
+
+.collections-slot-identity.is-album.has-note {
+  padding-inline: 2.75rem;
+}
+
+.collections-slot-identity.is-ledger {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+}
+
+.collections-slot-identity.is-ledger.has-note {
+  min-height: 44px;
+  padding-right: 2.75rem;
+}
+
+.collections-note-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.collections-note-toggle:hover,
+.collections-note-toggle[aria-expanded="true"] {
+  border-color: var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.collections-note-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.collections-note-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentcolor;
+  border-radius: 50%;
+  font: 700 12px / 1 var(--font-body);
+}
+
+.collections-note-toggle.is-album {
+  position: absolute;
+  top: calc(var(--spacing-lg) + var(--collections-slot-coin) + var(--spacing-md) - 1.4rem);
+  right: var(--spacing-xs);
+  z-index: 1;
+}
+
+.collections-note-toggle.is-ledger {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.collections-note-popover {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  width: min(20rem, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: var(--spacing-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.collections-note-popover[hidden] {
+  display: none;
 }
 
 .collections-slot-tag {
@@ -18378,7 +18495,7 @@ input[type="number"] {
 .collections-lrow {
   display: grid;
   grid-template-columns:
-    52px 92px minmax(0, 1.4fr) 116px 84px 84px
+    52px 128px minmax(0, 1.4fr) 116px 84px 84px
     minmax(120px, 0.8fr) 116px;
   align-items: center;
   gap: var(--spacing);
@@ -18455,11 +18572,6 @@ input[type="number"] {
 .collections-lrow.is-owned:hover,
 .collections-hubrow:hover:not(.is-head) {
   background: color-mix(in oklch, var(--bg-secondary), var(--hover-mix) 4%);
-}
-
-.collections-lrow-year {
-  font: 600 var(--font-size-md) / 1.2 var(--font-mono);
-  color: var(--text-primary);
 }
 
 .collections-lrow-name {
@@ -18695,11 +18807,8 @@ input[type="number"] {
   }
 
   .collections-slot {
+    --collections-slot-coin: 88px;
     padding: var(--spacing) var(--spacing-sm) var(--spacing-sm);
-  }
-
-  .collections-slot .collections-coin {
-    --collections-coin: 88px;
   }
 
   /* "More" leaves the corner and joins the flow, so a 44px target never covers text. */
@@ -18709,7 +18818,7 @@ input[type="number"] {
 
   /* thumb | year | item (+ status or price line) | action */
   .collections-lrow {
-    grid-template-columns: 40px auto minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(72px, 0.75fr) minmax(0, 1fr) auto;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
   }
@@ -18729,7 +18838,6 @@ input[type="number"] {
     display: block;
   }
 
-  .collections-lrow-year,
   .collections-lrow-name {
     align-self: start;
   }

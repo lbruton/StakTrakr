@@ -927,7 +927,8 @@
 
   /**
    * Coin medallion: a stock / item photo, or a monogram when there is no image.
-   * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string,
+   * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string, alt?: string,
+   *   imageLabel?: string, imageSide?: string, resolvedImageSide?: string, stockImageSide?: string,
    *   itemUuid?: string, artwork?: {collectionId: string, slotId?: string}}} spec - Medallion spec.
    *   itemUuid marks it for the async item-photo pass; artwork for custom collection art.
    * @returns {HTMLElement} The medallion
@@ -938,6 +939,11 @@
     if (spec.ghost) coin.classList.add("collections-coin--ghost");
     if (spec.owned) coin.classList.add("collections-coin--owned");
     if (spec.itemUuid) coin.dataset.itemUuid = spec.itemUuid;
+    if (spec.alt) coin.dataset.imageAlt = spec.alt;
+    if (spec.imageLabel) coin.dataset.imageLabel = spec.imageLabel;
+    if (spec.imageSide) coin.dataset.imageSide = spec.imageSide;
+    if (spec.resolvedImageSide) coin.dataset.resolvedImageSide = spec.resolvedImageSide;
+    if (spec.stockImageSide) coin.dataset.stockImageSide = spec.stockImageSide;
     if (spec.artwork) {
       coin.dataset.artCollection = spec.artwork.collectionId;
       if (spec.artwork.slotId) coin.dataset.artSlot = spec.artwork.slotId;
@@ -945,7 +951,7 @@
     coin.dataset.monogram = spec.monogram || "?";
     if (spec.src) {
       const image = el("img");
-      image.alt = "";
+      image.alt = spec.alt || "";
       image.loading = "lazy";
       image.src = spec.src;
       coin.dataset.stockSrc = spec.src;
@@ -1138,7 +1144,7 @@
     PERCENT,
     state,
   });
-  const { buildAlbum } = window.createCollectionsAlbumRenderer({
+  const { buildAlbum, closeSlotNotePopover } = window.createCollectionsAlbumRenderer({
     el,
     button,
     icon,
@@ -1205,19 +1211,26 @@
    * Best image URL for a linked Item: its user upload, then its stored URL, then
    * a matching pattern image. A pattern must not mask an Item-specific URL.
    * @param {Object} item - Linked inventory item
-   * @returns {Promise<string|null>} URL, or null
+   * @returns {Promise<{url: string, side: string}|null>} URL and resolved side, or null
    */
-  const resolveItemImageUrl = async (item) => {
+  const resolveItemImage = async (item, side = "obverse") => {
     const cache = window.imageCache;
-    if (cache && typeof cache.isAvailable === "function" && cache.isAvailable()) {
-      const uploaded = item.uuid ? await cache.getUserImageUrl(item.uuid, "obverse") : null;
-      if (uploaded) return uploaded;
-    }
-    const stored = item.obverseImageUrl;
-    if (typeof ImageCache !== "undefined" && ImageCache.isValidImageUrl(stored)) return stored;
-    return cache && typeof cache.isAvailable === "function" && cache.isAvailable()
-      ? cache.resolveImageUrlForItem(item, "obverse")
-      : null;
+    const resolveSide = async (requestedSide) => {
+      if (cache && typeof cache.isAvailable === "function" && cache.isAvailable()) {
+        const uploaded = item.uuid ? await cache.getUserImageUrl(item.uuid, requestedSide) : null;
+        if (uploaded) return uploaded;
+      }
+      const stored = item[`${requestedSide}ImageUrl`];
+      if (typeof ImageCache !== "undefined" && ImageCache.isValidImageUrl(stored)) return stored;
+      return cache && typeof cache.isAvailable === "function" && cache.isAvailable()
+        ? cache.resolveImageUrlForItem(item, requestedSide)
+        : null;
+    };
+    const requestedImage = await resolveSide(side);
+    if (requestedImage) return { url: requestedImage, side };
+    const fallbackSide = side === "reverse" ? "obverse" : "reverse";
+    const fallbackImage = await resolveSide(fallbackSide);
+    return fallbackImage ? { url: fallbackImage, side: fallbackSide } : null;
   };
 
   /**
@@ -1233,17 +1246,32 @@
   };
 
   /**
-   * Shows a resolved image in a medallion, falling back to what the synchronous
-   * render painted (stock image or monogram) if it fails to load.
+   * Records the side represented by the displayed image and keeps its alt text aligned.
    * @param {HTMLElement} coin - Medallion
-   * @param {string} url - Image URL
+   * @param {string} side - Resolved image side
    * @returns {void}
    */
-  const showCoinImage = (coin, url) => {
+  const setCoinResolvedSide = (coin, side) => {
+    coin.dataset.resolvedImageSide = side;
+    if (coin.dataset.imageLabel) coin.dataset.imageAlt = `${side} of ${coin.dataset.imageLabel}`;
+    const image = coin.querySelector("img");
+    if (image) image.alt = coin.dataset.imageAlt || "";
+  };
+
+  /**
+   * Shows a resolved image in a medallion, falling back to the synchronous stock
+   * image or monogram if it fails to load.
+   * @param {HTMLElement} coin - Medallion
+   * @param {string} url - Image URL
+   * @param {string} resolvedSide - Side represented by the requested image URL
+   * @returns {void}
+   */
+  const showCoinImage = (coin, url, resolvedSide) => {
+    setCoinResolvedSide(coin, resolvedSide);
     let image = coin.querySelector("img");
     if (!image) {
       image = el("img");
-      image.alt = "";
+      image.alt = coin.dataset.imageAlt || "";
       coin.textContent = "";
       coin.classList.remove("collections-coin--mono");
       coin.appendChild(image);
@@ -1252,6 +1280,10 @@
       "error",
       () => {
         if (coin.dataset.stockSrc) {
+          setCoinResolvedSide(
+            coin,
+            coin.dataset.stockImageSide || coin.dataset.imageSide || "obverse"
+          );
           image.src = coin.dataset.stockSrc;
           return;
         }
@@ -1275,16 +1307,19 @@
   const resolveCoin = async (coin, generation) => {
     try {
       const item = coin.dataset.itemUuid ? store().findItem(coin.dataset.itemUuid) : null;
-      const url =
-        (item ? await resolveItemImageUrl(item) : null) || (await resolveArtworkUrl(coin));
+      const requestedSide = coin.dataset.imageSide || "obverse";
+      const itemImage = item ? await resolveItemImage(item, requestedSide) : null;
+      const artworkUrl = itemImage ? null : await resolveArtworkUrl(coin);
+      const url = itemImage ? itemImage.url : artworkUrl;
       if (!url) return;
+      const resolvedSide = itemImage ? itemImage.side : requestedSide;
       const isBlob = url.startsWith("blob:");
       if (generation !== renderGeneration || !coin.isConnected) {
         if (isBlob) URL.revokeObjectURL(url);
         return;
       }
       if (isBlob) objectUrls.push(url);
-      showCoinImage(coin, url);
+      showCoinImage(coin, url, resolvedSide);
     } catch (error) {
       debugLog(`[collections] Image lookup failed: ${error.message}`, "warn");
     }
@@ -1312,6 +1347,7 @@
    * @returns {void}
    */
   const render = () => {
+    closeSlotNotePopover();
     // getElementById, not safeGetElement: this can run before init.js defines it, and
     // the existence check needs a real null rather than the truthy dummy.
     const root = document.getElementById(ROOT_ID);

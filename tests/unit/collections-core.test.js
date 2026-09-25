@@ -651,6 +651,7 @@ describe("custom collections", () => {
     assert.deepEqual(plain(c.definition), {
       metal: "Silver",
       description: "GSA hoard set",
+      side: "obverse",
       slots: [
         { id: "1881-cc", label: "1881-CC", year: "1881", note: "" },
         { id: "1882-cc", label: "1882-CC", year: "1882", note: "GSA" },
@@ -658,6 +659,47 @@ describe("custom collections", () => {
       ],
     });
     assert.equal(c.clonedFrom, null);
+  });
+
+  test("normalizes a custom definition side and keeps it when an edit omits the field", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "custom-1",
+      name: "Reverse set",
+      side: "reverse",
+      slots: [{ label: "Alpha" }],
+      now: T1,
+    });
+    assert.equal(state.collections["custom-1"].definition.side, "reverse");
+
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Renamed reverse set",
+      slots: [{ id: "alpha", label: "Alpha" }],
+      now: T2,
+    });
+    assert.equal(state.collections["custom-1"].definition.side, "reverse");
+
+    const restored = core.normalizeState({
+      version: 1,
+      collections: {
+        "custom-2": {
+          id: "custom-2",
+          kind: "custom",
+          createdAt: T1,
+          metaModified: T1,
+          lastModified: T1,
+          definition: { side: "unexpected", slots: [{ id: "slot", label: "Slot" }], extra: true },
+          slots: {},
+          artwork: {},
+        },
+      },
+    });
+    assert.deepEqual(plain(restored.collections["custom-2"].definition), {
+      metal: "",
+      description: "",
+      side: "obverse",
+      slots: [{ id: "slot", label: "Slot", year: "", note: "" }],
+    });
   });
 
   test("createCustomCollection refuses a blank name, an existing id, or zero slots", () => {
