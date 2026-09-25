@@ -803,8 +803,7 @@
       : seed.clonedFrom
         ? "Clone & customize"
         : "New collection";
-    shell.subtitle.textContent =
-      "Build any checklist — states, mint marks, varieties, a type set. ZIP and photo-inclusive encrypted vault backups include image files; JSON, CSV, and standalone Collections exports carry image references only.";
+    shell.subtitle.textContent = "Build any checklist — states, mint marks, varieties, a type set.";
 
     const name = el("input");
     name.type = "text";
@@ -828,15 +827,14 @@
     const cover = imageChooser("Cover image");
     const coverWrap = el("div", "collections-builder-cover");
     coverWrap.append(
-      cover.node,
-      el(
-        "span",
-        "collections-builder-hint",
-        imagesAvailable()
-          ? "Cover image (optional) — resized and compressed like item photos. Each slot can carry its own image too."
-          : "Images are unavailable in this browser session."
-      )
+      el("span", "collections-builder-cover-label", "Cover Image (Optional)"),
+      cover.node
     );
+    if (!imagesAvailable()) {
+      coverWrap.appendChild(
+        el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
+      );
+    }
     if (seed.editId) getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
 
     const rowsHost = el("div", "collections-builder-rows");
@@ -858,9 +856,9 @@
     form.append(
       field("Collection name", name),
       field("Metal", metal),
-      field("Coin side", side),
       field("Description", description, "is-wide"),
-      coverWrap
+      coverWrap,
+      field("Coin side", side)
     );
     const slotsHeading = el("div", "collections-pick-group", "Slots");
     slotsHeading.appendChild(
@@ -934,27 +932,15 @@
       }
     };
 
-    shell.footer.replaceChildren(
-      el(
-        "span",
-        "collections-builder-hint",
-        "Custom collections back up with the rest of your data."
+    const footerActions = el("span", "collections-modal-footer-actions");
+    footerActions.append(
+      button("btn secondary collections-btn-pill", "Cancel", () =>
+        closeModalById(BUILDER_MODAL_ID)
       ),
-      (() => {
-        const group = el("span", "collections-modal-footer-actions");
-        group.append(
-          button("btn secondary collections-btn-pill", "Cancel", () =>
-            closeModalById(BUILDER_MODAL_ID)
-          ),
-          button(
-            "btn collections-btn-pill",
-            seed.editId ? "Save changes" : "Create collection",
-            submit
-          )
-        );
-        return group;
-      })()
+      button("btn collections-btn-pill", seed.editId ? "Save changes" : "Create collection", submit)
     );
+    shell.footer.classList.add("collections-modal-footer--actions-only");
+    shell.footer.replaceChildren(footerActions);
     openModalById(BUILDER_MODAL_ID);
   };
 

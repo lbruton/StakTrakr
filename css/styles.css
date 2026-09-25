@@ -18997,6 +18997,10 @@ input[type="number"] {
   gap: var(--spacing-sm);
 }
 
+.collections-modal-footer--actions-only {
+  justify-content: flex-end;
+}
+
 .collections-pick-search {
   width: 100%;
   margin-bottom: var(--spacing);
@@ -19103,8 +19107,7 @@ input[type="number"] {
   gap: var(--spacing) var(--spacing-lg);
 }
 
-.collections-field.is-wide,
-.collections-builder-cover {
+.collections-field.is-wide {
   grid-column: 1 / -1;
 }
 
@@ -19115,8 +19118,18 @@ input[type="number"] {
 
 .collections-builder-cover {
   display: flex;
-  align-items: center;
-  gap: var(--spacing);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.collections-builder-cover-label {
+  display: block;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
 }
 
 .collections-builder-hint {
