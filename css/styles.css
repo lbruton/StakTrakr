@@ -18126,7 +18126,7 @@ input[type="number"] {
 }
 
 .collections-slot {
-  --collections-coin: 112px;
+  --collections-slot-coin: 112px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -18138,6 +18138,10 @@ input[type="number"] {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+}
+
+.collections-slot .collections-coin {
+  --collections-coin: var(--collections-slot-coin);
 }
 
 .collections-slot.is-missing {
@@ -18272,7 +18276,7 @@ input[type="number"] {
 
 .collections-note-toggle.is-album {
   position: absolute;
-  top: calc(var(--spacing-lg) + var(--collections-coin) + var(--spacing-md) - 1.4rem);
+  top: calc(var(--spacing-lg) + var(--collections-slot-coin) + var(--spacing-md) - 1.4rem);
   right: var(--spacing-xs);
   z-index: 1;
 }
@@ -18803,7 +18807,7 @@ input[type="number"] {
   }
 
   .collections-slot {
-    --collections-coin: 88px;
+    --collections-slot-coin: 88px;
     padding: var(--spacing) var(--spacing-sm) var(--spacing-sm);
   }
 

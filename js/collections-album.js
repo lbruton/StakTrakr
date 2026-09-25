@@ -267,9 +267,11 @@
       active.popover.hidden = true;
       active.origin.appendChild(active.popover);
       document.removeEventListener("pointerdown", active.onPointerDown, true);
+      document.removeEventListener("focusin", active.onFocusIn, true);
       document.removeEventListener("keydown", active.onKeyDown, true);
       window.removeEventListener("scroll", active.onScroll, true);
       window.removeEventListener("resize", active.onResize);
+      window.removeEventListener("hashchange", active.onHashChange);
       if (restoreFocus && active.button.isConnected) active.button.focus();
     };
 
@@ -304,7 +306,7 @@
     const buildSlotNoteControl = (slot, surface) => {
       if (!slot.note || !String(slot.note).trim()) return null;
       const noteId = `collections-slot-note-${++slotNotePopoverSequence}`;
-      const popover = el("div", "collections-note-popover", slot.note);
+      const popover = el("span", "collections-note-popover", slot.note);
       popover.id = noteId;
       popover.hidden = true;
       popover.setAttribute("role", "region");
@@ -331,27 +333,42 @@
             if (!control.contains(pointerEvent.target) && !popover.contains(pointerEvent.target))
               closeSlotNotePopover();
           };
+          const onFocusIn = (focusEvent) => {
+            if (!control.contains(focusEvent.target) && !popover.contains(focusEvent.target))
+              closeSlotNotePopover();
+          };
           const onKeyDown = (keyEvent) => {
             if (keyEvent.key !== "Escape") return;
             keyEvent.preventDefault();
             keyEvent.stopPropagation();
             closeSlotNotePopover(true);
           };
-          const onScroll = () => positionSlotNotePopover(control, popover);
+          const onScroll = () => {
+            if (!control.isConnected) {
+              closeSlotNotePopover();
+              return;
+            }
+            positionSlotNotePopover(control, popover);
+          };
           const onResize = () => closeSlotNotePopover();
+          const onHashChange = () => closeSlotNotePopover();
           activeSlotNotePopover = {
             button: control,
             popover,
             origin,
             onPointerDown,
+            onFocusIn,
             onKeyDown,
             onScroll,
             onResize,
+            onHashChange,
           };
           document.addEventListener("pointerdown", onPointerDown, true);
+          document.addEventListener("focusin", onFocusIn, true);
           document.addEventListener("keydown", onKeyDown, true);
           window.addEventListener("scroll", onScroll, true);
           window.addEventListener("resize", onResize);
+          window.addEventListener("hashchange", onHashChange);
         }
       );
       control.type = "button";
@@ -727,10 +744,14 @@
      * @returns {HTMLElement} Album panel content
      */
     const buildAlbum = (entry) => {
+      closeSlotNotePopover();
       const album = el("div", "collections-album");
       const crumb = el("nav", "collections-crumb");
       crumb.setAttribute("aria-label", "Breadcrumb");
-      const back = button("", "album:back", () => showHub());
+      const back = button("", "album:back", () => {
+        closeSlotNotePopover();
+        showHub();
+      });
       back.appendChild(icon("back"));
       back.appendChild(el("span", "", "Collections"));
       crumb.appendChild(back);
@@ -748,6 +769,6 @@
       return album;
     };
 
-    return { buildAlbum };
+    return { buildAlbum, closeSlotNotePopover };
   };
 })();

@@ -914,6 +914,15 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(popover).toBeHidden();
     await expect(noteButton).toHaveAttribute("aria-expanded", "false");
     await expect(noteButton).toBeFocused();
+
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await expect(popover).toBeHidden();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "false");
+
+    await noteButton.click();
+    await page.getByRole("button", { name: "Collections" }).click();
+    await expect(popover).toBeHidden();
   });
 
   test("long Slot notes stay compact beside Ledger identity and linked Items", async ({

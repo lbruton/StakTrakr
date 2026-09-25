@@ -1141,7 +1141,7 @@
     PERCENT,
     state,
   });
-  const { buildAlbum } = window.createCollectionsAlbumRenderer({
+  const { buildAlbum, closeSlotNotePopover } = window.createCollectionsAlbumRenderer({
     el,
     button,
     icon,
@@ -1319,6 +1319,7 @@
    * @returns {void}
    */
   const render = () => {
+    closeSlotNotePopover();
     // getElementById, not safeGetElement: this can run before init.js defines it, and
     // the existence check needs a real null rather than the truthy dummy.
     const root = document.getElementById(ROOT_ID);
