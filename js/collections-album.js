@@ -392,7 +392,8 @@
       const copy = el("span", "collections-slot-identity-copy");
       copy.appendChild(buildSlotLabel(slot, "collections-slot-identity-name"));
       const year = text(slot.def.year);
-      if (year) copy.appendChild(el("small", "collections-slot-identity-year", year));
+      if (year && year !== text(slot.label))
+        copy.appendChild(el("small", "collections-slot-identity-year", year));
       identity.appendChild(copy);
       if (slot.note && String(slot.note).trim()) identity.classList.add("has-note");
       if (surface === "ledger") {
@@ -515,14 +516,20 @@
     const buildSlotCoin = (entry, slot, size) => {
       const side =
         entry.isCustom && entry.collection.definition?.side === "reverse" ? "reverse" : "obverse";
+      const src = entry[side] || entry.obverse;
+      const stockSide = entry[side] ? side : "obverse";
+      const displayedSide = src ? stockSide : side;
       return buildCoin({
-        src: entry[side] || entry.obverse,
+        src,
         monogram: entry.monogram,
         ghost: !slot.item,
         owned: Boolean(slot.item),
         size,
-        alt: `${side} of ${slot.label}`,
+        alt: `${displayedSide} of ${slot.label}`,
+        imageLabel: slot.label,
         imageSide: side,
+        resolvedImageSide: displayedSide,
+        stockImageSide: src ? stockSide : "",
         itemUuid: slot.item ? slot.item.uuid : "",
         artwork: entry.isCustom ? { collectionId: entry.id, slotId: slot.def.id } : null,
       });

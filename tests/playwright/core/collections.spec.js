@@ -880,6 +880,76 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
   });
 
+  test("image fallbacks keep displayed side metadata aligned with the actual art", async ({
+    page,
+  }) => {
+    await page.route("https://images.test/*.png", (route) => {
+      if (route.request().url().endsWith("/missing.png")) {
+        return route.fulfill({ status: 404 });
+      }
+      return route.fulfill({
+        path: "tests/playwright/helpers/test-obverse.png",
+        contentType: "image/png",
+      });
+    });
+    await page.addInitScript(() => {
+      window.__collectionsMissingImageFailed = false;
+      document.addEventListener(
+        "error",
+        (event) => {
+          if (event.target instanceof HTMLImageElement && event.target.src.endsWith("/missing.png"))
+            window.__collectionsMissingImageFailed = true;
+        },
+        true
+      );
+    });
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await page.evaluate(() => {
+      const item = window.inventory.find((entry) => entry.uuid === "col-ase-2024");
+      item.obverseImageUrl = "https://images.test/missing.png";
+      item.reverseImageUrl = "";
+      item.ignorePatternImages = true;
+      saveInventory();
+      window.collectionsStore.link("ase-type2", "2024", item.uuid);
+      window.collectionsUI.openCollection("ase-type2");
+    });
+
+    await expect.poll(() => page.evaluate(() => window.__collectionsMissingImageFailed)).toBe(true);
+    const stockCoin = slotOf(page, "2024").locator(".collections-coin");
+    const stockImage = stockCoin.locator("img");
+    await expect(stockImage).toHaveAttribute("src", /data\/collections\/ase-type2\/obverse\.png$/);
+    await expect(stockImage).toHaveAttribute("alt", "obverse of 2024");
+    await expect(stockCoin).toHaveAttribute("data-image-side", "obverse");
+    await expect(stockCoin).toHaveAttribute("data-resolved-image-side", "obverse");
+
+    await page.evaluate(() => {
+      const item = window.inventory.find((entry) => entry.uuid === "col-maple-2024");
+      item.obverseImageUrl = new URL(
+        "/tests/playwright/helpers/test-obverse.png",
+        location.href
+      ).href;
+      item.reverseImageUrl = "";
+      item.ignorePatternImages = true;
+      saveInventory();
+
+      const created = window.collectionsStore.createCustom({
+        name: "Reverse image fallback",
+        side: "reverse",
+        slots: [{ label: "Maple" }],
+      });
+      window.collectionsStore.link(created.collection.id, "maple", item.uuid);
+      window.collectionsUI.openCollection(created.collection.id);
+    });
+
+    const coin = slotOf(page, "maple").locator(".collections-coin");
+    const image = coin.locator("img");
+    await expect(image).toHaveAttribute("src", /test-obverse\.png$/);
+    await expect(image).toHaveAttribute("alt", "obverse of Maple");
+    await expect(coin).toHaveAttribute("data-image-side", "reverse");
+    await expect(coin).toHaveAttribute("data-resolved-image-side", "obverse");
+  });
+
   test("long Slot notes stay compact and keyboard reachable in Album cards", async ({
     page,
   }, testInfo) => {
@@ -1408,6 +1478,8 @@ test.describe("core/collections — tab UI", () => {
       await expect(panel(page).getByText(year, { exact: true }).first()).toBeVisible();
     }
     await expect(slotOf(page, "2021-t2")).toContainText("T2");
+    await expect(slotOf(page, "2021-t2").locator(".collections-slot-label")).toHaveText("2021");
+    await expect(slotOf(page, "2021-t2").locator(".collections-slot-identity-year")).toHaveCount(0);
     await expect(slotOf(page, "2021-t2")).toContainText("14,968,500 minted");
     await expect(slotOf(page, "2026")).toContainText("In production");
 
