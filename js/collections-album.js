@@ -45,6 +45,8 @@
       SORT_OLDEST,
       SORT_NEWEST,
     } = deps;
+    let activeSlotNotePopover = null;
+    let slotNotePopoverSequence = 0;
     // ---------------------------------------------------------------------------
     // Album
     // ---------------------------------------------------------------------------
@@ -253,6 +255,140 @@
     };
 
     /**
+     * Closes the open Slot note popover and removes its temporary listeners.
+     * @param {boolean} [restoreFocus] - Return keyboard focus to the triggering button
+     * @returns {void}
+     */
+    const closeSlotNotePopover = (restoreFocus = false) => {
+      if (!activeSlotNotePopover) return;
+      const active = activeSlotNotePopover;
+      activeSlotNotePopover = null;
+      active.button.setAttribute("aria-expanded", "false");
+      active.popover.hidden = true;
+      active.origin.appendChild(active.popover);
+      document.removeEventListener("pointerdown", active.onPointerDown, true);
+      document.removeEventListener("keydown", active.onKeyDown, true);
+      window.removeEventListener("scroll", active.onScroll, true);
+      window.removeEventListener("resize", active.onResize);
+      if (restoreFocus && active.button.isConnected) active.button.focus();
+    };
+
+    /**
+     * Positions a note popover beside its trigger while keeping it inside the viewport.
+     * @param {HTMLButtonElement} trigger - Note control
+     * @param {HTMLElement} popover - Note content
+     * @returns {void}
+     */
+    const positionSlotNotePopover = (trigger, popover) => {
+      const margin = 12;
+      const gap = 8;
+      const triggerRect = trigger.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      const maxLeft = Math.max(margin, window.innerWidth - popoverRect.width - margin);
+      const left = Math.min(Math.max(margin, triggerRect.left), maxLeft);
+      const below = triggerRect.bottom + gap;
+      const top =
+        below + popoverRect.height <= window.innerHeight - margin
+          ? below
+          : Math.max(margin, triggerRect.top - popoverRect.height - gap);
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    };
+
+    /**
+     * Builds an accessible disclosure control for the complete Slot note.
+     * @param {Object} slot - Slot view model
+     * @param {string} surface - Album or Ledger rendering context
+     * @returns {{control: HTMLButtonElement, popover: HTMLElement}|null} The control and content
+     */
+    const buildSlotNoteControl = (slot, surface) => {
+      if (!slot.note || !String(slot.note).trim()) return null;
+      const noteId = `collections-slot-note-${++slotNotePopoverSequence}`;
+      const popover = el("div", "collections-note-popover", slot.note);
+      popover.id = noteId;
+      popover.hidden = true;
+      popover.setAttribute("role", "region");
+      popover.setAttribute("aria-label", `Note for ${slot.label}`);
+      const control = button(
+        `collections-note-toggle is-${surface}`,
+        `note:${slot.def.id}`,
+        (event) => {
+          event.stopPropagation();
+          if (activeSlotNotePopover?.button === control) {
+            closeSlotNotePopover();
+            return;
+          }
+          closeSlotNotePopover();
+
+          const origin = popover.parentElement;
+          if (!origin) return;
+          document.body.appendChild(popover);
+          popover.hidden = false;
+          positionSlotNotePopover(control, popover);
+          control.setAttribute("aria-expanded", "true");
+
+          const onPointerDown = (pointerEvent) => {
+            if (!control.contains(pointerEvent.target) && !popover.contains(pointerEvent.target))
+              closeSlotNotePopover();
+          };
+          const onKeyDown = (keyEvent) => {
+            if (keyEvent.key !== "Escape") return;
+            keyEvent.preventDefault();
+            keyEvent.stopPropagation();
+            closeSlotNotePopover(true);
+          };
+          const onScroll = () => positionSlotNotePopover(control, popover);
+          const onResize = () => closeSlotNotePopover();
+          activeSlotNotePopover = {
+            button: control,
+            popover,
+            origin,
+            onPointerDown,
+            onKeyDown,
+            onScroll,
+            onResize,
+          };
+          document.addEventListener("pointerdown", onPointerDown, true);
+          document.addEventListener("keydown", onKeyDown, true);
+          window.addEventListener("scroll", onScroll, true);
+          window.addEventListener("resize", onResize);
+        }
+      );
+      control.type = "button";
+      control.setAttribute("aria-label", `Show note for ${slot.label}`);
+      control.setAttribute("aria-controls", noteId);
+      control.setAttribute("aria-expanded", "false");
+      const iconMark = el("span", "collections-note-icon", "i");
+      iconMark.setAttribute("aria-hidden", "true");
+      control.appendChild(iconMark);
+      return { control, popover };
+    };
+
+    /**
+     * Builds the compact Slot identity block, with its optional Ledger note control.
+     * @param {Object} slot - Slot view model
+     * @param {string} surface - Album or Ledger rendering context
+     * @returns {HTMLElement} Slot identity block
+     */
+    const buildSlotIdentity = (slot, surface) => {
+      const identity = el("span", `collections-slot-identity is-${surface}`);
+      const copy = el("span", "collections-slot-identity-copy");
+      copy.appendChild(buildSlotLabel(slot, "collections-slot-identity-name"));
+      const year = text(slot.def.year);
+      if (year) copy.appendChild(el("small", "collections-slot-identity-year", year));
+      identity.appendChild(copy);
+      if (slot.note && String(slot.note).trim()) identity.classList.add("has-note");
+      if (surface === "ledger") {
+        const note = buildSlotNoteControl(slot, surface);
+        if (note) {
+          identity.appendChild(note.control);
+          identity.appendChild(note.popover);
+        }
+      }
+      return identity;
+    };
+
+    /**
      * "paid → melt (+x%)" for one unit of a linked Item.
      * @param {Object} item - Linked inventory item
      * @param {string} className - Wrapper class
@@ -375,14 +511,6 @@
       });
     };
 
-    /** Builds a visible, clamped Slot note when one was supplied in the builder. */
-    const buildSlotNote = (slot, className) => {
-      if (!slot.note) return null;
-      const note = el("small", className, slot.note);
-      note.title = slot.note;
-      return note;
-    };
-
     /**
      * One slot tile (album mode).
      * @param {Object} entry - Entry view model
@@ -396,14 +524,16 @@
       );
       tile.dataset.slotId = slot.def.id;
       tile.setAttribute("role", "listitem");
-      if (slot.note) tile.title = slot.note;
       const mintage = mintageLine(slot.def);
 
       if (!slot.item) {
         tile.appendChild(buildSlotCoin(entry, slot));
-        tile.appendChild(buildSlotLabel(slot, "collections-slot-year"));
-        const note = buildSlotNote(slot, "collections-slot-note");
-        if (note) tile.appendChild(note);
+        tile.appendChild(buildSlotIdentity(slot, "album"));
+        const note = buildSlotNoteControl(slot, "album");
+        if (note) {
+          tile.appendChild(note.control);
+          tile.appendChild(note.popover);
+        }
         tile.appendChild(el("span", "collections-slot-meta", mintage || " "));
         tile.appendChild(el("span", "collections-slot-rule"));
         tile.appendChild(buildMissingHint(entry, slot, "collections-slot-meta"));
@@ -417,9 +547,7 @@
         viewItem(slot.item.uuid)
       );
       main.appendChild(buildSlotCoin(entry, slot));
-      main.appendChild(buildSlotLabel(slot, "collections-slot-year"));
-      const note = buildSlotNote(slot, "collections-slot-note");
-      if (note) main.appendChild(note);
+      main.appendChild(buildSlotIdentity(slot, "album"));
       main.appendChild(el("span", "collections-slot-meta", mintage || " "));
       main.appendChild(el("span", "collections-slot-rule"));
       const name = el("span", "collections-slot-item", text(slot.item.name) || "Untitled item");
@@ -430,6 +558,11 @@
         moneyLine.appendChild(el("span", "collections-qty", `×${quantityOf(slot.item)}`));
       main.appendChild(moneyLine);
       tile.appendChild(main);
+      const note = buildSlotNoteControl(slot, "album");
+      if (note) {
+        tile.appendChild(note.control);
+        tile.appendChild(note.popover);
+      }
 
       const check = el("span", "collections-check");
       check.appendChild(icon("check"));
@@ -470,10 +603,7 @@
       row.dataset.slotId = slot.def.id;
       row.setAttribute("role", "listitem");
       row.appendChild(buildSlotCoin(entry, slot, "sm"));
-      const year = buildSlotLabel(slot, "collections-lrow-year");
-      const note = buildSlotNote(slot, "collections-lrow-note");
-      if (note) year.appendChild(note);
-      row.appendChild(year);
+      row.appendChild(buildSlotIdentity(slot, "ledger"));
       const name = el("span", "collections-lrow-name");
       /**
        * A right-aligned numeric cell; hidden in the compact (<=640px) row.
@@ -540,7 +670,6 @@
       act.appendChild(buildTag("Owned", "is-done"));
       if (canMutate()) act.appendChild(buildMoreButton(entry, slot));
       row.appendChild(act);
-      if (slot.note) row.title = slot.note;
       // Convenience only — the row is not the control; the name button is.
       row.addEventListener("click", (event) => {
         if (!event.target.closest("button")) viewItem(item.uuid);
@@ -574,7 +703,7 @@
         table.appendChild(
           buildLedgerHead("", [
             ["", ""],
-            ["Year", ""],
+            ["Slot", ""],
             ["Linked item", ""],
             ["Mintage", "collections-num collections-hide-md"],
             ["Paid", "collections-num"],

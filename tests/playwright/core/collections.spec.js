@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 // pinned by tests/unit/collections-core.test.js.
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import {
   collectionItem as baseItem,
   seedCollectionsPage,
@@ -244,6 +245,11 @@ const panel = (page) => page.locator("#collectionsSectionEl");
  */
 const slotOf = (page, slotId) => panel(page).locator(`[data-slot-id="${slotId}"]`);
 
+const LONG_SLOT_NOTE =
+  "First-year proof strike with a bright mirrored field, frosted devices, and a small production run. " +
+  "Keep this complete collecting note available without letting it push the linked Item or the other " +
+  "Slots out of alignment while comparing the collection.";
+
 /**
  * Wait for the boot signal the Collections UI renders on.
  * @param {import('@playwright/test').Page} page - Browser page.
@@ -271,7 +277,7 @@ const reloadApp = async (page) => {
  */
 const openCollectionsTab = async (page) => {
   await waitForApp(page);
-  await page.locator("#tabBtnCollections").click();
+  await page.getByRole("tab", { name: "Collections", exact: true }).click();
   await expect(panel(page)).toBeVisible();
 };
 
@@ -296,6 +302,35 @@ const linkItems = (page, pairs) =>
 const openAseAlbum = async (page) => {
   await panel(page).locator(`[data-collection-id="${ASE}"]`).click();
   await expect(panel(page).getByRole("heading", { name: /American Silver Eagle/ })).toBeVisible();
+};
+
+/**
+ * Create a two-Slot custom collection with a long note and a blank-note control case.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<{collectionId: string, slotId: string, blankSlotId: string}>} Fixture IDs.
+ */
+const createSlotNoteFixture = async (page) => {
+  await seedAndGoto(page);
+  await openCollectionsTab(page);
+  return page.evaluate((note) => {
+    const created = window.collectionsStore.createCustom({
+      name: "Slot note fixture",
+      metal: "Silver",
+      slots: [
+        { label: "Proof strike", year: "2024", note },
+        { label: "Blank note", year: "2025", note: "" },
+      ],
+    });
+    if (!created.ok) throw new Error(`Fixture creation failed: ${created.reason}`);
+    const [namedSlot, blankSlot] = created.collection.definition.slots;
+    window.collectionsStore.link(created.collection.id, namedSlot.id, "col-maple-2024");
+    window.collectionsUI.openCollection(created.collection.id);
+    return {
+      collectionId: created.collection.id,
+      slotId: namedSlot.id,
+      blankSlotId: blankSlot.id,
+    };
+  }, LONG_SLOT_NOTE);
 };
 
 /**
@@ -820,10 +855,15 @@ test.describe("core/collections — link picker, builder, item view", () => {
       "src",
       /test-reverse\.png$/
     );
-    await expect(slotOf(page, "maple").locator(".collections-slot-note")).toHaveText("Key date");
+    const albumNote = slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" });
+    await expect(albumNote).toHaveAttribute("aria-expanded", "false");
+    await albumNote.click();
+    await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
 
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
-    await expect(slotOf(page, "maple").locator(".collections-lrow-note")).toHaveText("Key date");
+    const ledgerNote = slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" });
+    await ledgerNote.click();
+    await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
     await reloadApp(page);
     expect(
       await page.evaluate(
@@ -836,6 +876,117 @@ test.describe("core/collections — link picker, builder, item view", () => {
       "src",
       /test-reverse\.png$/
     );
+    await slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" }).click();
+    await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
+  });
+
+  test("long Slot notes stay compact and keyboard reachable in Album cards", async ({
+    page,
+  }, testInfo) => {
+    const { slotId, blankSlotId } = await createSlotNoteFixture(page);
+    const card = slotOf(page, slotId);
+    const identity = card.locator(".collections-slot-identity");
+    const noteButton = card.getByRole("button", { name: "Show note for Proof strike" });
+
+    await expect(identity.locator(".collections-slot-identity-name")).toContainText("Proof strike");
+    await expect(identity.locator(".collections-slot-identity-year")).toHaveText("2024");
+    await expect(noteButton).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("region", { name: "Note for Proof strike" })).toBeHidden();
+    await expect(slotOf(page, blankSlotId).locator(".collections-note-toggle")).toHaveCount(0);
+    const identityBox = await identity.boundingBox();
+    const noteButtonBox = await noteButton.boundingBox();
+    expect(
+      Math.abs(identityBox.y + identityBox.height / 2 - noteButtonBox.y - noteButtonBox.height / 2)
+    ).toBeLessThan(28);
+    const cardHeight = await card.evaluate((element) => element.getBoundingClientRect().height);
+
+    await noteButton.focus();
+    await page.keyboard.press("Enter");
+    const popover = page.getByRole("region", { name: "Note for Proof strike" });
+    await expect(popover).toHaveText(LONG_SLOT_NOTE);
+    await expect(noteButton).toHaveAttribute("aria-expanded", "true");
+    expect(await card.evaluate((element) => element.getBoundingClientRect().height)).toBe(
+      cardHeight
+    );
+    await page.screenshot({ path: testInfo.outputPath("strk-399-album-desktop.png") });
+
+    await page.keyboard.press("Escape");
+    await expect(popover).toBeHidden();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "false");
+    await expect(noteButton).toBeFocused();
+  });
+
+  test("long Slot notes stay compact beside Ledger identity and linked Items", async ({
+    page,
+  }, testInfo) => {
+    const { slotId, blankSlotId } = await createSlotNoteFixture(page);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+
+    const row = slotOf(page, slotId);
+    const identity = row.locator(".collections-slot-identity");
+    const noteButton = row.getByRole("button", { name: "Show note for Proof strike" });
+    await expect(identity.locator(".collections-slot-identity-name")).toContainText("Proof strike");
+    await expect(identity.locator(".collections-slot-identity-year")).toHaveText("2024");
+    await expect(row.locator(".collections-lrow-name .collections-linkbtn")).toHaveText(
+      "2024 Canadian Silver Maple Leaf"
+    );
+    await expect(slotOf(page, blankSlotId).locator(".collections-note-toggle")).toHaveCount(0);
+    const rowHeight = await row.evaluate((element) => element.getBoundingClientRect().height);
+
+    await noteButton.click();
+    const popover = page.getByRole("region", { name: "Note for Proof strike" });
+    await expect(popover).toHaveText(LONG_SLOT_NOTE);
+    await expect(noteButton).toHaveAttribute("aria-expanded", "true");
+    expect(await row.evaluate((element) => element.getBoundingClientRect().height)).toBe(rowHeight);
+    await page.screenshot({ path: testInfo.outputPath("strk-399-ledger-desktop.png") });
+  });
+
+  test("Slot note popover fits a 375px touch viewport without reserving blank-note space", async ({
+    browser,
+  }, testInfo) => {
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 812 },
+      hasTouch: true,
+    });
+    const page = await context.newPage();
+    await installStakTrakrNetworkMocks(page);
+    try {
+      const { slotId, blankSlotId } = await createSlotNoteFixture(page);
+      const card = slotOf(page, slotId);
+      const noteButton = card.getByRole("button", { name: "Show note for Proof strike" });
+      await expect(slotOf(page, blankSlotId).locator(".collections-note-toggle")).toHaveCount(0);
+      await noteButton.evaluate((element) => element.scrollIntoView({ block: "center" }));
+      const cardHeight = await card.evaluate((element) => element.getBoundingClientRect().height);
+      const buttonBox = await noteButton.boundingBox();
+      expect(buttonBox).not.toBeNull();
+      expect(buttonBox.y).toBeGreaterThanOrEqual(0);
+      expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(812);
+      await page.touchscreen.tap(
+        buttonBox.x + buttonBox.width / 2,
+        buttonBox.y + buttonBox.height / 2
+      );
+
+      const popover = page.getByRole("region", { name: "Note for Proof strike" });
+      await expect(popover).toBeVisible();
+      await expect(popover).toHaveText(LONG_SLOT_NOTE);
+      const popoverBox = await popover.boundingBox();
+      expect(popoverBox).not.toBeNull();
+      expect(popoverBox.x).toBeGreaterThanOrEqual(0);
+      expect(popoverBox.x + popoverBox.width).toBeLessThanOrEqual(375);
+      expect(popoverBox.y).toBeGreaterThanOrEqual(0);
+      expect(popoverBox.y + popoverBox.height).toBeLessThanOrEqual(812);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        375
+      );
+      expect(await card.evaluate((element) => element.getBoundingClientRect().height)).toBe(
+        cardHeight
+      );
+      await page.screenshot({
+        path: testInfo.outputPath("strk-399-album-mobile-375.png"),
+      });
+    } finally {
+      await context.close();
+    }
   });
 
   test("cover upload and removal change the visible album and old image vaults cannot revive it", async ({
