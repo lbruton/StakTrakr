@@ -18997,6 +18997,10 @@ input[type="number"] {
   gap: var(--spacing-sm);
 }
 
+.collections-modal-footer--actions-only {
+  justify-content: flex-end;
+}
+
 .collections-pick-search {
   width: 100%;
   margin-bottom: var(--spacing);
@@ -19103,8 +19107,7 @@ input[type="number"] {
   gap: var(--spacing) var(--spacing-lg);
 }
 
-.collections-field.is-wide,
-.collections-builder-cover {
+.collections-field.is-wide {
   grid-column: 1 / -1;
 }
 
@@ -19113,10 +19116,98 @@ input[type="number"] {
   width: 100%;
 }
 
-.collections-builder-cover {
+/* Media row: cover art on the left, display controls on the right. Sized to grow —
+   a reverse cover joins .collections-builder-covers, a shape control joins
+   .collections-builder-display — without reflowing the rest of the form. */
+.collections-builder-media {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing) var(--spacing-lg);
+  align-items: start;
+}
+
+.collections-builder-cover,
+.collections-builder-display {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.collections-builder-covers {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing);
+}
+
+.collections-builder-covers .collections-image-pick {
+  width: 104px;
+  font-size: var(--font-size-xl);
+}
+
+.collections-builder-covers .collections-image-remove {
+  top: 2px;
+  right: 2px;
+}
+
+.collections-builder-caption {
+  display: block;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+/* Segmented either/or control — radios styled as a pill pair. */
+.collections-segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+}
+
+.collections-segmented-option {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.collections-segmented-option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.collections-segmented-option span {
+  display: block;
+  padding: 0.5rem 1.5rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.collections-segmented-option:hover span {
+  color: var(--text-primary);
+}
+
+.collections-segmented-option input:checked + span {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.collections-segmented-option input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .collections-builder-hint {
@@ -19215,7 +19306,8 @@ input[type="number"] {
     display: none;
   }
 
-  .collections-builder-form {
+  .collections-builder-form,
+  .collections-builder-media {
     grid-template-columns: minmax(0, 1fr);
   }
 

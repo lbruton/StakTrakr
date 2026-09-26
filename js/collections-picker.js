@@ -614,6 +614,38 @@
   };
 
   /**
+   * A labelled segmented control backed by radio inputs, for small either/or choices.
+   * @param {string} labelText - Group label
+   * @param {{value: string, label: string}[]} options - Choices, in display order
+   * @param {string} value - Initially selected value
+   * @returns {{node: HTMLElement, getValue: () => string}} Control
+   */
+  const segmented = (labelText, options, value) => {
+    const wrap = el("div", "collections-field");
+    const caption = el("span", "collections-builder-caption", labelText);
+    caption.id = `collectionsSeg${Math.random().toString(36).slice(2, 9)}`;
+    const group = el("div", "collections-segmented");
+    group.setAttribute("role", "radiogroup");
+    group.setAttribute("aria-labelledby", caption.id);
+    const inputs = options.map((option) => {
+      const choice = el("label", "collections-segmented-option");
+      const input = el("input");
+      input.type = "radio";
+      input.name = caption.id;
+      input.value = option.value;
+      input.checked = option.value === value;
+      choice.append(input, el("span", "", option.label));
+      group.appendChild(choice);
+      return input;
+    });
+    wrap.append(caption, group);
+    return {
+      node: wrap,
+      getValue: () => (inputs.find((input) => input.checked) || inputs[0]).value,
+    };
+  };
+
+  /**
    * An image chooser: a preview medallion plus a hidden file input. Holds the chosen
    * File until the collection is saved (its id does not exist before then).
    * @param {string} label - Accessible label
@@ -803,8 +835,7 @@
       : seed.clonedFrom
         ? "Clone & customize"
         : "New collection";
-    shell.subtitle.textContent =
-      "Build any checklist — states, mint marks, varieties, a type set. ZIP and photo-inclusive encrypted vault backups include image files; JSON, CSV, and standalone Collections exports carry image references only.";
+    shell.subtitle.textContent = "Build any checklist — states, mint marks, varieties, a type set.";
 
     const name = el("input");
     name.type = "text";
@@ -813,31 +844,37 @@
     const metal = el("select");
     METALS.forEach((option) => metal.appendChild(el("option", "", option)));
     metal.value = METALS.includes(seed.metal) ? seed.metal : "Mixed";
-    const side = el("select");
-    const obverse = el("option", "", "Obverse");
-    obverse.value = "obverse";
-    const reverse = el("option", "", "Reverse");
-    reverse.value = "reverse";
-    side.append(obverse, reverse);
-    side.value = seed.side;
+    const side = segmented(
+      "Coin side",
+      [
+        { value: "obverse", label: "Obverse" },
+        { value: "reverse", label: "Reverse" },
+      ],
+      seed.side
+    );
     const description = el("input");
     description.type = "text";
     description.placeholder = "Notes about this set (optional)";
     description.value = seed.description;
 
     const cover = imageChooser("Cover image");
+    // The media row groups the cover art with the display controls. Its two columns are
+    // built to grow: a reverse cover joins the covers strip, a shape control joins the
+    // display stack, without reflowing the rest of the form.
+    const covers = el("div", "collections-builder-covers");
+    covers.appendChild(cover.node);
     const coverWrap = el("div", "collections-builder-cover");
-    coverWrap.append(
-      cover.node,
-      el(
-        "span",
-        "collections-builder-hint",
-        imagesAvailable()
-          ? "Cover image (optional) — resized and compressed like item photos. Each slot can carry its own image too."
-          : "Images are unavailable in this browser session."
-      )
-    );
+    coverWrap.append(el("span", "collections-builder-caption", "Cover Image (Optional)"), covers);
+    if (!imagesAvailable()) {
+      coverWrap.appendChild(
+        el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
+      );
+    }
     if (seed.editId) getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
+    const display = el("div", "collections-builder-display");
+    display.appendChild(side.node);
+    const media = el("div", "collections-builder-media");
+    media.append(coverWrap, display);
 
     const rowsHost = el("div", "collections-builder-rows");
     const removeRow = (row) => {
@@ -858,14 +895,10 @@
     form.append(
       field("Collection name", name),
       field("Metal", metal),
-      field("Coin side", side),
       field("Description", description, "is-wide"),
-      coverWrap
+      media
     );
     const slotsHeading = el("div", "collections-pick-group", "Slots");
-    slotsHeading.appendChild(
-      el("span", "collections-pick-group-note", " · a slot keeps its links when you rename it")
-    );
     const rowActions = el("div", "collections-builder-actions");
     rowActions.append(
       button("btn secondary collections-btn-pill", "+ Add slot", () =>
@@ -895,7 +928,7 @@
       const spec = {
         name: name.value,
         metal: metal.value,
-        side: side.value,
+        side: side.getValue(),
         description: description.value,
         clonedFrom: seed.clonedFrom,
         slots: rows.map((row) => ({
@@ -934,27 +967,15 @@
       }
     };
 
-    shell.footer.replaceChildren(
-      el(
-        "span",
-        "collections-builder-hint",
-        "Custom collections back up with the rest of your data."
+    const footerActions = el("span", "collections-modal-footer-actions");
+    footerActions.append(
+      button("btn secondary collections-btn-pill", "Cancel", () =>
+        closeModalById(BUILDER_MODAL_ID)
       ),
-      (() => {
-        const group = el("span", "collections-modal-footer-actions");
-        group.append(
-          button("btn secondary collections-btn-pill", "Cancel", () =>
-            closeModalById(BUILDER_MODAL_ID)
-          ),
-          button(
-            "btn collections-btn-pill",
-            seed.editId ? "Save changes" : "Create collection",
-            submit
-          )
-        );
-        return group;
-      })()
+      button("btn collections-btn-pill", seed.editId ? "Save changes" : "Create collection", submit)
     );
+    shell.footer.classList.add("collections-modal-footer--actions-only");
+    shell.footer.replaceChildren(footerActions);
     openModalById(BUILDER_MODAL_ID);
   };
 
