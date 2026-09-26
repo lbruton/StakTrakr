@@ -2843,16 +2843,60 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
     await expect.poll(() => settingsRowLabels(page)).toEqual(bottom);
     await expect(settings.getByRole("button", { name: "Move Zeta up", exact: true })).toBeFocused();
 
-    // AC 15: the open hub follows without a reload.
+    // AC 15: the open hub follows without a reload. (Reload persistence is pinned by the
+    // real-template test below: this fixture's bundle is injected after load and would not
+    // survive a reload.)
     await closeSettingsCollections(page);
     await expect(albumNames(page)).toHaveText(bottom);
+  });
 
-    // AC 5: the order survives a reload in both Settings and the hub.
+  test("My order and the active sort survive a reload, and Show My order persists", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await createCustomCollections(page, ["Morgan Carson City"]);
+    await openCollectionsTab(page);
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    const settings = await openSettingsCollections(page);
+    const before = await settingsRowIds(page);
+    await settings
+      .getByRole("button", { name: "Move American Silver Eagle Type 2 up", exact: true })
+      .click();
+    const arranged = await settingsRowIds(page);
+    expect(arranged).not.toEqual(before);
+    expect(arranged.indexOf("ase-type2")).toBe(before.indexOf("ase-type2") - 1);
+    await closeSettingsCollections(page);
+    await expect.poll(() => albumIds(page)).toEqual(arranged);
+
+    // AC 5: the saved order renders after a reload in Settings and the hub.
     await reloadApp(page);
     await openCollectionsTab(page);
-    await expect(albumNames(page)).toHaveText(bottom);
+    await expect.poll(() => albumIds(page)).toEqual(arranged);
     await openSettingsCollections(page);
-    expect(await settingsRowLabels(page)).toEqual(bottom);
+    expect(await settingsRowIds(page)).toEqual(arranged);
+    await closeSettingsCollections(page);
+
+    // AC 7 + 13: a header sort survives a reload and the Album keeps its hint.
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await panel(page)
+      .getByRole("button", { name: "Sort by Collection, not sorted", exact: true })
+      .click();
+    await reloadApp(page);
+    await openCollectionsTab(page);
+    await expect(
+      panel(page).getByRole("button", { name: "Sort by Collection, ascending", exact: true })
+    ).toBeVisible();
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await expect(panel(page).locator(".collections-sort-hint")).toContainText(
+      "Sorted by Collection, ascending"
+    );
+
+    // AC 14: Show My order is saved too.
+    await panel(page).getByRole("button", { name: "Show My order", exact: true }).click();
+    await reloadApp(page);
+    await openCollectionsTab(page);
+    await expect(panel(page).locator(".collections-sort-hint")).toHaveCount(0);
+    await expect.poll(() => albumIds(page)).toEqual(arranged);
   });
 
   test("a Settings drag handle drops a row before or after its target", async ({ page }) => {
@@ -2979,9 +3023,6 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
       sortKey: "my-order",
       order: ["alpha", "zeta", "beta", "delta", "unknown"],
     });
-    await reloadApp(page);
-    await openCollectionsTab(page);
-    await expect(ledgerNames(page)).toHaveText(moved);
   });
 
   test("Ledger arrange moves keep keyboard focus at both edges", async ({ page }) => {
@@ -3051,16 +3092,16 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
     await expect(albumNames(page)).toHaveText(FIXTURE_ORDER);
     await expect(hint).toHaveCount(0);
 
-    // AC 7 + 13: a Ledger header sort persists, and the Album follows it with the column label.
+    // AC 13: the Album follows a Ledger header sort and names it by the column label.
+    // (Reload persistence: the real-template test above.)
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
     await panel(page)
       .getByRole("button", { name: "Sort by Progress, not sorted", exact: true })
       .click();
-    await reloadApp(page);
-    await openCollectionsTab(page);
-    await expect(
-      panel(page).getByRole("button", { name: "Sort by Progress, descending", exact: true })
-    ).toBeVisible();
+    expect(await storedHubPreferences(page)).toMatchObject({
+      sortKey: "percent-complete",
+      direction: "desc",
+    });
     await panel(page).getByRole("button", { name: "Album view" }).click();
     await expect(albumNames(page)).toHaveText(hubSortCases[1][2]);
     await expect(hint).toHaveText(/^Sorted by Progress, descending\s*·?\s*Show My order$/);
@@ -3070,10 +3111,6 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
     await expect(albumNames(page)).toHaveText(FIXTURE_ORDER);
     await expect(hint).toHaveCount(0);
     expect((await storedHubPreferences(page)).sortKey).toBe("my-order");
-    await reloadApp(page);
-    await openCollectionsTab(page);
-    await expect(albumNames(page)).toHaveText(FIXTURE_ORDER);
-    await expect(hint).toHaveCount(0);
   });
 
   test("arrange controls, Type badges, and the hint work in four themes and at phone width", async ({
