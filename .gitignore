@@ -73,10 +73,6 @@ claude-read-tracker/
 # it was one `git add -A` away from landing in a PR (Collections beta, 2026-09).
 temp/
 
-# Specflow transient run state — only config.json is tracked.
-.specflow/**
-!.specflow/config.json
-
 # Local agent overrides — *.local.* files are per-machine, never shared
 # (e.g. settings.local.json, hookify *.local.md). Shared config has no .local. infix.
 .claude/**/*.local.*
