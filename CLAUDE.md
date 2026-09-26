@@ -106,9 +106,6 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
 - When claude-context returns thin results for a global, Grep the identifier directly — script-tag globals have no import graph, so Grep is the authoritative way to find every reference.
-- When calling `mcp__specflow__approvals` with `action: "request"`, set `filePath` relative to the specflow workflow root.
-- Example: `specs/<issue>-foo/requirements.md`.
-- Do not use a project-root path with `../DocVault/...` traversal; the dashboard content endpoint rejects paths containing `..`.
 
 ## Skills
 

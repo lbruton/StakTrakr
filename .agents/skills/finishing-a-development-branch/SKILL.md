@@ -17,17 +17,11 @@ Guide completion of development work by presenting clear options and handling ch
 
 ### Step 0: Verify Traceability
 
-**Before anything else, verify three things:**
+**Before anything else, verify two things:**
 
 **0a. Plane issue exists:** Every runtime-code branch must trace to a Plane issue (`STRK-XXX`). If you can't name the issue, STOP — create one or find the existing one before proceeding. Legacy `STAK-XXX` references are historical only.
 
 **0b. Version number exists:** The branch must have a version bump (via `/release patch`). If `js/constants.js` hasn't been updated with a new version in this branch, STOP — run `/release patch` before proceeding. Un-versioned PRs are not allowed.
-
-**0c. Implementation logs exist:** If this branch was implementing a spec-workflow spec:
-
-1. Call `spec-status` to see task completion counts
-2. Verify each completed task has a corresponding `log-implementation` entry
-3. If any are missing, **STOP** — log them before proceeding
 
 ### Step 1: Verify Tests
 
@@ -242,7 +236,7 @@ git worktree remove <worktree-path>
 
 **Called by:**
 
-- **spec-workflow Phase 4** - After all tasks complete
+- **/sketch** closing tasks - After all tasks complete
 
 **Pairs with:**
 

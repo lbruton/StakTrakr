@@ -79,14 +79,12 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 - Never push directly to `dev` or `main`; use normal merge paths only and decline `--admin` or merge-bypass requests.
 - Do not merge `dev` to `main` unless the user explicitly says "release" or "ready to ship".
 
-## Sketch And Spec Work
+## Sketch Work
 
-- Before applying a `/sketch`, read all cumulative sketch docs in `DocVault/specflow/StakTrakr/specs/<spec>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/sketch-conventions.md`.
+- Before applying a `/sketch`, read all cumulative sketch docs in `DocVault/Projects/StakTrakr/sketches/<ISSUE-ID>-<slug>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/sketch-conventions.md`.
 - Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code/artifact inventory, `approach.md` as implementation authority, and `tasks.md` as execution order.
 - Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
 - Do not mark a task or acceptance criterion complete if implementation contradicts requirements, discovery, approach, approved mockups, or project design guidance.
-- For SpecFlow approvals, use dashboard-safe paths like `specs/<spec-name>/<doc>.md`; do not use `..` traversal.
-- After every approval request, verify the approval JSON lands under `DocVault/specflow/StakTrakr/approvals/`, not `DocVault/specflow/SpecFlow/approvals/`.
 
 ## UI And Design Gates
 
