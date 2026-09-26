@@ -905,6 +905,110 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
   });
 
+  /**
+   * Seeds the Maple Item with its own obverse photo (routed to a local fixture) and opens
+   * a Custom Collection whose "maple" Slot links it; extra Slots stay empty.
+   * @param {import("@playwright/test").Page} page - Test page
+   * @param {string[]} [extraSlots] - Labels of additional, unlinked Slots
+   * @returns {Promise<string>} The Custom Collection id
+   */
+  const openMaplePhotoCollection = async (page, extraSlots = []) => {
+    await page.route("https://images.test/*.png", (route) =>
+      route.fulfill({ path: "tests/playwright/helpers/test-obverse.png", contentType: "image/png" })
+    );
+    await seedAndGoto(
+      page,
+      SEED.map((item) =>
+        item.uuid === "col-maple-2024"
+          ? {
+              ...item,
+              obverseImageUrl: "https://images.test/maple.png",
+              reverseImageUrl: "",
+              ignorePatternImages: true,
+            }
+          : item
+      )
+    );
+    return page.evaluate((labels) => {
+      const created = window.collectionsStore.createCustom({
+        name: "Artwork only",
+        slots: [{ label: "Maple" }, ...labels.map((label) => ({ label }))],
+      });
+      window.collectionsStore.link(created.collection.id, "maple", "col-maple-2024");
+      window.collectionsUI.openCollection(created.collection.id);
+      return created.collection.id;
+    }, extraSlots);
+  };
+
+  test("the Item images choice hides linked Item photos in Slots and persists", async ({
+    page,
+  }) => {
+    const id = await openMaplePhotoCollection(page);
+    const coin = () => slotOf(page, "maple").locator(".collections-coin");
+    await expect(coin().locator("img")).toHaveAttribute("src", /images\.test\/maple\.png$/);
+
+    await page.evaluate((collectionId) => {
+      window.collectionsPicker.openBuilder({ editId: collectionId });
+    }, id);
+    const builder = builderModal(page);
+    const itemImages = builder.getByRole("radiogroup", { name: "Item images" });
+    await expect(itemImages.getByLabel("Show")).toBeChecked();
+    await itemImages.getByLabel("Hide").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+
+    // Hidden: the medallion is never marked for the async Item photo pass, so it cannot
+    // resolve the photo; the Slot still reads as filled (owned, not ghosted).
+    await expect(slotOf(page, "maple")).toHaveClass(/is-owned/);
+    await expect(coin()).not.toHaveAttribute("data-item-uuid", /./);
+    await expect(coin().locator("img")).toHaveCount(0);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(coin()).not.toHaveAttribute("data-item-uuid", /./);
+    await expect(coin().locator("img")).toHaveCount(0);
+
+    await reloadApp(page);
+    expect(
+      await page.evaluate(
+        (collectionId) =>
+          window.collectionsStore.getState().collections[collectionId].definition.showItemImages,
+        id
+      )
+    ).toBe(false);
+    await expect(coin()).not.toHaveAttribute("data-item-uuid", /./);
+
+    await page.evaluate((collectionId) => {
+      window.collectionsPicker.openBuilder({ editId: collectionId });
+    }, id);
+    await expect(itemImages.getByLabel("Hide")).toBeChecked();
+    await itemImages.getByLabel("Show").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(coin().locator("img")).toHaveAttribute("src", /images\.test\/maple\.png$/);
+  });
+
+  test("hidden Item images fall back to the collection cover in filled Slots only", async ({
+    page,
+  }) => {
+    const id = await openMaplePhotoCollection(page, ["Open"]);
+    await page.evaluate((collectionId) => {
+      window.collectionsPicker.openBuilder({ editId: collectionId });
+    }, id);
+    const builder = builderModal(page);
+    await builder
+      .locator(".collections-builder-cover input[type=file]")
+      .setInputFiles("tests/playwright/helpers/test-reverse.png");
+    await builder.getByRole("radiogroup", { name: "Item images" }).getByLabel("Hide").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+
+    // The filled Slot shows the cover (a blob: URL from the image store), never the Item photo.
+    const filled = slotOf(page, "maple").locator(".collections-coin");
+    await expect(filled).not.toHaveAttribute("data-item-uuid", /./);
+    await expect(filled.locator("img")).toHaveAttribute("src", /^blob:/);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(filled.locator("img")).toHaveAttribute("src", /^blob:/);
+
+    // Empty Slots keep their existing cascade (no cover tier — that is STRK-396's scope).
+    await expect(slotOf(page, "open").locator(".collections-coin img")).toHaveCount(0);
+  });
+
   test("image fallbacks keep displayed side metadata aligned with the actual art", async ({
     page,
   }) => {
