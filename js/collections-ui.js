@@ -929,8 +929,9 @@
    * Coin medallion: a stock / item photo, or a monogram when there is no image.
    * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string, alt?: string,
    *   imageLabel?: string, imageSide?: string, resolvedImageSide?: string, stockImageSide?: string,
-   *   itemUuid?: string, artwork?: {collectionId: string, slotId?: string}}} spec - Medallion spec.
-   *   itemUuid marks it for the async item-photo pass; artwork for custom collection art.
+   *   itemUuid?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean}}} spec -
+   *   Medallion spec. itemUuid marks it for the async item-photo pass; artwork for custom collection
+   *   art, with coverFallback retrying the collection cover when the Slot has no image of its own.
    * @returns {HTMLElement} The medallion
    */
   const buildCoin = (spec) => {
@@ -947,6 +948,7 @@
     if (spec.artwork) {
       coin.dataset.artCollection = spec.artwork.collectionId;
       if (spec.artwork.slotId) coin.dataset.artSlot = spec.artwork.slotId;
+      if (spec.artwork.coverFallback) coin.dataset.artCoverFallback = "true";
     }
     coin.dataset.monogram = spec.monogram || "?";
     if (spec.src) {
@@ -1234,7 +1236,9 @@
   };
 
   /**
-   * Custom Collection artwork (cover, or one slot's image) from the builder slice.
+   * Custom Collection artwork (cover, or one slot's image) from the builder slice. A Slot
+   * marked data-art-cover-fallback (a filled Slot hiding Item images, STRK-401) retries
+   * the collection cover when it has no image of its own.
    * @param {HTMLElement} coin - Medallion carrying data-art-collection / data-art-slot
    * @returns {Promise<string|null>} blob: URL the caller owns, or null
    */
@@ -1242,7 +1246,10 @@
     const picker = window.collectionsPicker;
     if (!coin.dataset.artCollection || !picker || typeof picker.getImageUrl !== "function")
       return null;
-    return picker.getImageUrl(coin.dataset.artCollection, coin.dataset.artSlot || undefined);
+    const collectionId = coin.dataset.artCollection;
+    const slotUrl = await picker.getImageUrl(collectionId, coin.dataset.artSlot || undefined);
+    if (slotUrl || !coin.dataset.artSlot || !coin.dataset.artCoverFallback) return slotUrl;
+    return picker.getImageUrl(collectionId, undefined);
   };
 
   /**

@@ -508,7 +508,8 @@
     /**
      * Medallion for a slot: stock image (ghosted while missing); an owned slot is
      * marked so the async pass can swap in the linked Item's own photo — unless a
-     * Custom Collection hides Item images (STRK-401), which leaves it on its artwork.
+     * Custom Collection hides Item images (STRK-401): then a filled Slot shows its Slot
+     * artwork, falling back to the collection cover. Empty Slots get no cover tier.
      * @param {Object} entry - Entry view model
      * @param {Object} slot - Slot view model
      * @param {string} [size] - Medallion size modifier
@@ -533,7 +534,13 @@
         resolvedImageSide: displayedSide,
         stockImageSide: src ? stockSide : "",
         itemUuid: showItemImage ? slot.item.uuid : "",
-        artwork: entry.isCustom ? { collectionId: entry.id, slotId: slot.def.id } : null,
+        artwork: entry.isCustom
+          ? {
+              collectionId: entry.id,
+              slotId: slot.def.id,
+              coverFallback: Boolean(slot.item) && !showItemImage,
+            }
+          : null,
       });
     };
 
