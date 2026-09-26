@@ -905,6 +905,66 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
   });
 
+  test("the Item images choice hides linked Item photos in Slots and persists", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const item = window.inventory.find((entry) => entry.uuid === "col-maple-2024");
+      item.obverseImageUrl = new URL(
+        "/tests/playwright/helpers/test-obverse.png",
+        location.href
+      ).href;
+      item.ignorePatternImages = true;
+      saveInventory();
+      const created = window.collectionsStore.createCustom({
+        name: "Artwork only",
+        slots: [{ label: "Maple" }],
+      });
+      window.collectionsStore.link(created.collection.id, "maple", item.uuid);
+      window.collectionsUI.openCollection(created.collection.id);
+      return created.collection.id;
+    });
+    const coin = () => slotOf(page, "maple").locator(".collections-coin");
+    await expect(coin().locator("img")).toHaveAttribute("src", /test-obverse\.png$/);
+
+    await page.evaluate((collectionId) => {
+      window.collectionsPicker.openBuilder({ editId: collectionId });
+    }, id);
+    const builder = builderModal(page);
+    const itemImages = builder.getByRole("radiogroup", { name: "Item images" });
+    await expect(itemImages.getByLabel("Show")).toBeChecked();
+    await itemImages.getByLabel("Hide").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+
+    // Hidden: the medallion is never marked for the async Item photo pass, so it cannot
+    // resolve the photo; the Slot still reads as filled (owned, not ghosted).
+    await expect(slotOf(page, "maple")).toHaveClass(/is-owned/);
+    await expect(coin()).not.toHaveAttribute("data-item-uuid", /./);
+    await expect(coin().locator("img")).toHaveCount(0);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(coin()).not.toHaveAttribute("data-item-uuid", /./);
+    await expect(coin().locator("img")).toHaveCount(0);
+
+    await reloadApp(page);
+    expect(
+      await page.evaluate(
+        (collectionId) =>
+          window.collectionsStore.getState().collections[collectionId].definition.showItemImages,
+        id
+      )
+    ).toBe(false);
+    await expect(coin()).not.toHaveAttribute("data-item-uuid", /./);
+
+    await page.evaluate((collectionId) => {
+      window.collectionsPicker.openBuilder({ editId: collectionId });
+    }, id);
+    await expect(itemImages.getByLabel("Hide")).toBeChecked();
+    await itemImages.getByLabel("Show").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(coin().locator("img")).toHaveAttribute("src", /test-obverse\.png$/);
+  });
+
   test("image fallbacks keep displayed side metadata aligned with the actual art", async ({
     page,
   }) => {

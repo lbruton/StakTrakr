@@ -757,8 +757,8 @@
    * Starting values for the builder: an existing custom collection, a clone of a
    * template (or of a custom collection), or a blank three-slot checklist.
    * @param {{cloneFrom?: string, editId?: string}} request - Builder request
-   * @returns {{name: string, metal: string, description: string, side: string, slots: Object[], clonedFrom: string|null,
-   *   editId: string|null}} Seed values
+   * @returns {{name: string, metal: string, description: string, side: string, showItemImages: boolean,
+   *   slots: Object[], clonedFrom: string|null, editId: string|null}} Seed values
    */
   const builderSeed = (request) => {
     const blank = {
@@ -766,6 +766,7 @@
       metal: "Silver",
       description: "",
       side: "obverse",
+      showItemImages: true,
       slots: [{}, {}, {}],
       clonedFrom: null,
       editId: null,
@@ -787,6 +788,7 @@
       metal: definition.metal || (context.template && context.template.metal) || "Silver",
       description: definition.description || "",
       side: definition.side === "reverse" ? "reverse" : "obverse",
+      showItemImages: definition.showItemImages !== false,
       slots,
       clonedFrom: request.editId ? null : sourceId,
       editId: request.editId || null,
@@ -852,6 +854,15 @@
       ],
       seed.side
     );
+    // STRK-401: Hide makes filled Slots show collection artwork instead of Item photos.
+    const itemImages = segmented(
+      "Item images",
+      [
+        { value: "show", label: "Show" },
+        { value: "hide", label: "Hide" },
+      ],
+      seed.showItemImages ? "show" : "hide"
+    );
     const description = el("input");
     description.type = "text";
     description.placeholder = "Notes about this set (optional)";
@@ -872,7 +883,7 @@
     }
     if (seed.editId) getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
     const display = el("div", "collections-builder-display");
-    display.appendChild(side.node);
+    display.append(side.node, itemImages.node);
     const media = el("div", "collections-builder-media");
     media.append(coverWrap, display);
 
@@ -929,6 +940,7 @@
         name: name.value,
         metal: metal.value,
         side: side.getValue(),
+        showItemImages: itemImages.getValue() === "show",
         description: description.value,
         clonedFrom: seed.clonedFrom,
         slots: rows.map((row) => ({

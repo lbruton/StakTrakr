@@ -702,6 +702,87 @@ describe("custom collections", () => {
     });
   });
 
+  // STRK-401: "Show item images" is stored sparsely — only an explicit false is persisted;
+  // absent means shown, so pre-existing definitions keep their exact shape (no sync churn).
+  test("stores showItemImages only when false and keeps it when an edit omits the field", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "custom-1",
+      name: "Artwork set",
+      showItemImages: false,
+      slots: [{ label: "Alpha" }],
+      now: T1,
+    });
+    assert.equal(state.collections["custom-1"].definition.showItemImages, false);
+
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Renamed artwork set",
+      slots: [{ id: "alpha", label: "Alpha" }],
+      now: T2,
+    });
+    assert.equal(state.collections["custom-1"].definition.showItemImages, false);
+
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Photo set",
+      showItemImages: true,
+      slots: [{ id: "alpha", label: "Alpha" }],
+      now: T3,
+    });
+    assert.equal("showItemImages" in state.collections["custom-1"].definition, false);
+
+    core.createCustomCollection(state, {
+      id: "custom-2",
+      name: "Default set",
+      slots: [{ label: "Beta" }],
+      now: T1,
+    });
+    assert.equal("showItemImages" in state.collections["custom-2"].definition, false);
+  });
+
+  test("normalizeState keeps an explicit showItemImages false and drops non-boolean values", () => {
+    const record = (id, showItemImages) => ({
+      id,
+      kind: "custom",
+      createdAt: T1,
+      metaModified: T1,
+      lastModified: T1,
+      definition: { showItemImages, slots: [{ id: "slot", label: "Slot" }] },
+      slots: {},
+      artwork: {},
+    });
+    const restored = core.normalizeState({
+      version: 1,
+      collections: {
+        "custom-1": record("custom-1", false),
+        "custom-2": record("custom-2", "no"),
+        "custom-3": record("custom-3", true),
+      },
+    });
+    assert.equal(restored.collections["custom-1"].definition.showItemImages, false);
+    assert.equal("showItemImages" in restored.collections["custom-2"].definition, false);
+    assert.equal("showItemImages" in restored.collections["custom-3"].definition, false);
+  });
+
+  test("mergeStates carries the newer showItemImages choice in either merge order", () => {
+    const shown = core.createEmptyState();
+    core.createCustomCollection(shown, {
+      id: "custom-1",
+      name: "Set",
+      slots: [{ label: "Alpha" }],
+      now: T1,
+    });
+    const hidden = core.normalizeState(plain(shown));
+    core.updateCustomDefinition(hidden, "custom-1", {
+      name: "Set",
+      showItemImages: false,
+      slots: [{ id: "alpha", label: "Alpha" }],
+      now: T2,
+    });
+    const merged = core.mergeStates(shown, hidden);
+    assert.equal(merged.collections["custom-1"].definition.showItemImages, false);
+    assert.deepEqual(plain(merged), plain(core.mergeStates(hidden, shown)));
+  });
+
   test("createCustomCollection refuses a blank name, an existing id, or zero slots", () => {
     const state = core.createEmptyState();
     const base = { id: "custom-1", name: "Set", metal: "Silver", slots: [{ label: "A" }], now: T1 };

@@ -507,15 +507,17 @@
 
     /**
      * Medallion for a slot: stock image (ghosted while missing); an owned slot is
-     * marked so the async pass can swap in the linked Item's own photo.
+     * marked so the async pass can swap in the linked Item's own photo — unless a
+     * Custom Collection hides Item images (STRK-401), which leaves it on its artwork.
      * @param {Object} entry - Entry view model
      * @param {Object} slot - Slot view model
      * @param {string} [size] - Medallion size modifier
      * @returns {HTMLElement} The medallion
      */
     const buildSlotCoin = (entry, slot, size) => {
-      const side =
-        entry.isCustom && entry.collection.definition?.side === "reverse" ? "reverse" : "obverse";
+      const definition = entry.isCustom ? entry.collection.definition : null;
+      const side = definition?.side === "reverse" ? "reverse" : "obverse";
+      const showItemImage = Boolean(slot.item) && definition?.showItemImages !== false;
       const src = entry[side] || entry.obverse;
       const stockSide = entry[side] ? side : "obverse";
       const displayedSide = src ? stockSide : side;
@@ -530,7 +532,7 @@
         imageSide: side,
         resolvedImageSide: displayedSide,
         stockImageSide: src ? stockSide : "",
-        itemUuid: slot.item ? slot.item.uuid : "",
+        itemUuid: showItemImage ? slot.item.uuid : "",
         artwork: entry.isCustom ? { collectionId: entry.id, slotId: slot.def.id } : null,
       });
     };

@@ -199,9 +199,19 @@
   };
 
   /**
-   * Normalizes a custom collection's definition (metal, description, side, slot list).
+   * Sparse "Show item images" field (STRK-401): only an explicit false is stored, so an
+   * absent field means shown and pre-existing definitions keep their exact shape.
+   * @param {*} value - Requested setting
+   * @returns {{showItemImages?: false}} Field to spread into a definition
+   */
+  const showItemImagesField = (value) => (value === false ? { showItemImages: false } : {});
+
+  /**
+   * Normalizes a custom collection's definition (metal, description, side, item-image
+   * setting, slot list).
    * @param {*} raw - Persisted definition
-   * @returns {{metal: string, description: string, side: string, slots: Object[]}} Clean definition
+   * @returns {{metal: string, description: string, side: string, showItemImages?: false,
+   *   slots: Object[]}} Clean definition
    */
   const normalizeDefinition = (raw) => {
     const source = isPlainObject(raw) ? raw : {};
@@ -221,6 +231,7 @@
       metal: text(source.metal),
       description: text(source.description),
       side: source.side === "reverse" ? "reverse" : "obverse",
+      ...showItemImagesField(source.showItemImages),
       slots,
     };
   };
@@ -458,7 +469,7 @@
    * Creates a custom collection (blank checklist or a clone of a template).
    * @param {Object} state - Collections state
    * @param {{id: string, name: string, metal?: string, description?: string, clonedFrom?: string,
-   *   slots: Object[], now?: string}} spec - Custom collection spec
+   *   side?: string, showItemImages?: boolean, slots: Object[], now?: string}} spec - Custom collection spec
    * @returns {{ok: boolean, reason?: string, collection?: Object}} Result
    */
   const createCustomCollection = (state, spec) => {
@@ -480,6 +491,7 @@
         metal: text(spec.metal),
         description: text(spec.description),
         side: spec.side === "reverse" ? "reverse" : "obverse",
+        ...showItemImagesField(spec.showItemImages),
         slots: buildDefinitionSlots(spec.slots, new Set()),
       },
     });
@@ -492,7 +504,8 @@
    * their links; links in slots that were removed are tombstoned.
    * @param {Object} state - Collections state
    * @param {string} collectionId - Collection id
-   * @param {{name: string, slots: Object[], metal?: string, description?: string, side?: string, now?: string}} spec - New definition
+   * @param {{name: string, slots: Object[], metal?: string, description?: string, side?: string,
+   *   showItemImages?: boolean, now?: string}} spec - New definition; an omitted field keeps its value
    * @returns {{ok: boolean, changed?: boolean, reason?: string}} Result
    */
   const updateCustomDefinition = (state, collectionId, spec) => {
@@ -533,6 +546,9 @@
           : spec.side === "reverse"
             ? "reverse"
             : "obverse",
+      ...showItemImagesField(
+        spec.showItemImages == null ? previous.showItemImages : spec.showItemImages
+      ),
       slots,
     };
     collection.metaModified = stamp;

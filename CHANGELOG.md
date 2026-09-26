@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.31] - 2026-09-25
+
+### Changed — STRK-401: Show item images toggle for Custom Collections
+
+- **Collections**: Custom Collections can hide linked Item photos, so filled Slots show the collection's own artwork. Set Item images to Hide under Coin side in the editor (STRK-401).
+
+---
+
 ## [3.36.30] - 2026-09-25
 
 ### Changed — STRK-400: Custom Collection editor layout polish
