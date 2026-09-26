@@ -6,7 +6,7 @@
     ["my-order", "My order"],
     ["name", "Name"],
     ["run-start", "Run start"],
-    ["percent-complete", "Percent complete"],
+    ["percent-complete", "Progress"],
     ["recently-updated", "Recently updated"],
     ["owned", "Owned"],
     ["value-melt", "Value (melt)"],

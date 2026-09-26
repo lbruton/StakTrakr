@@ -89,6 +89,7 @@
     trash:
       '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+    arrange: '<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>',
     grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
   });
 
@@ -252,6 +253,11 @@
    */
   const setViewMode = (mode) => {
     if (!VIEW_MODES.includes(mode)) return;
+    // Arranging lives in the Ledger header only (STRK-378); leaving the Ledger drops the draft.
+    if (state.hubArrangement && mode !== VIEW_LEDGER) {
+      state.hubFilter = state.hubArrangement.restoreFilter;
+      state.hubArrangement = null;
+    }
     try {
       // saveDataSync re-throws on quota errors; the toggle still applies for this render.
       saveDataSync(COLLECTIONS_VIEW_MODE_KEY, mode);
@@ -366,6 +372,93 @@
     state.hubFocusKeyAfterRender = "hub:arrange";
     render();
     return true;
+  };
+
+  /**
+   * Saves a complete My order immediately (Settings → Collections, STRK-378). The sort is
+   * left as it is, and the hub re-renders so an open Album or Ledger follows at once.
+   * @param {string[]} order - Full order including hidden ids
+   * @returns {boolean} Whether the order was committed
+   */
+  const saveHubOrder = (order) => {
+    const committed = commitHubPreferences(
+      { ...getHubPreferences(), order },
+      "Couldn't save your Collections order."
+    );
+    if (committed) render();
+    return committed;
+  };
+
+  // Only one pointer reorder can be in flight at a time, across the hub and Settings.
+  let pointerReorder = null;
+
+  /**
+   * Clears the drag classes a pointer reorder left on its rows.
+   * @param {string} itemSelector - Selector matching every reorderable row
+   * @returns {void}
+   */
+  const clearReorderMarks = (itemSelector) => {
+    document
+      .querySelectorAll(`${itemSelector}.is-dragging, ${itemSelector}.is-drop-target`)
+      .forEach((node) => node.classList.remove("is-dragging", "is-drop-target"));
+  };
+
+  /**
+   * Wires pointer reordering to a dedicated drag handle. Dropping on the upper half of a
+   * row places the dragged row before it, the lower half after it. Shared by the Ledger
+   * arrange mode and the Settings My order list so both drag the same way.
+   * @param {HTMLButtonElement} handle - Drag-only control
+   * @param {Object} options - Reorder wiring
+   * @param {string} options.id - Id of the row this handle moves
+   * @param {string} options.itemSelector - Selector matching every reorderable row
+   * @param {(node: HTMLElement) => string} options.idOf - Reads a row's id
+   * @param {(targetId: string, after: boolean) => void} options.onDrop - Applies the move
+   * @param {() => boolean} [options.isActive] - Whether reordering is currently allowed
+   * @returns {void}
+   */
+  const wireReorderHandle = (handle, { id, itemSelector, idOf, onDrop, isActive = () => true }) => {
+    handle.draggable = false;
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !isActive()) return;
+      event.preventDefault();
+      pointerReorder = { id, handle, startX: event.clientX, startY: event.clientY, targetId: "" };
+      try {
+        handle.setPointerCapture(event.pointerId);
+        handle.closest(itemSelector)?.classList.add("is-dragging");
+      } catch (error) {
+        console.warn("[collections] Pointer capture failed:", error);
+        pointerReorder = null;
+      }
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!pointerReorder || pointerReorder.handle !== handle) return;
+      const { startX, startY } = pointerReorder;
+      if (!pointerReorder.moved && Math.hypot(event.clientX - startX, event.clientY - startY) < 5)
+        return;
+      pointerReorder.moved = true;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(itemSelector);
+      const targetId = target ? idOf(target) : "";
+      document
+        .querySelectorAll(`${itemSelector}.is-drop-target`)
+        .forEach((node) => node !== target && node.classList.remove("is-drop-target"));
+      if (target && targetId !== id) target.classList.add("is-drop-target");
+      const box = target?.getBoundingClientRect();
+      pointerReorder.targetId = targetId;
+      pointerReorder.after = Boolean(box && event.clientY >= box.top + box.height / 2);
+    });
+    handle.addEventListener("pointerup", (event) => {
+      if (!pointerReorder || pointerReorder.handle !== handle) return;
+      const current = pointerReorder;
+      pointerReorder = null;
+      clearReorderMarks(itemSelector);
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      if (current.moved && current.targetId && current.targetId !== id)
+        onDrop(current.targetId, current.after);
+    });
+    handle.addEventListener("pointercancel", () => {
+      pointerReorder = null;
+      clearReorderMarks(itemSelector);
+    });
   };
 
   /**
@@ -1198,7 +1291,7 @@
    * The album / ledger view toggle shown in both toolbars.
    * @returns {HTMLElement} Icon segmented control
    */
-  const buildViewToggle = () => {
+  const buildViewToggle = (disabled = false) => {
     const mode = getViewMode();
     const group = el("div", "chip-sort-toggle collections-modetoggle");
     group.setAttribute("role", "group");
@@ -1216,6 +1309,7 @@
       );
       node.setAttribute("aria-label", label);
       node.setAttribute("aria-pressed", String(value === mode));
+      node.disabled = disabled;
       node.title = label;
       node.appendChild(icon(iconName));
       group.appendChild(node);
@@ -1278,6 +1372,7 @@
     cancelHubArrangement,
     saveHubArrangement,
     updateHubArrangement,
+    wireReorderHandle,
   });
   const { buildAlbum, closeSlotNotePopover } = window.createCollectionsAlbumRenderer({
     el,
@@ -1528,9 +1623,12 @@
 
     for (const candidateKey of [requestedFocusKey, focusKey]) {
       if (!candidateKey) continue;
-      const target = Array.from(root.querySelectorAll("[data-focus-key]")).find(
+      // The Ledger's arrange controls exist twice (header row and phone toolbar) with one
+      // focus key; prefer the copy that is actually rendered at this width.
+      const matches = Array.from(root.querySelectorAll("[data-focus-key]")).filter(
         (node) => node.dataset.focusKey === candidateKey
       );
+      const target = matches.find((node) => node.getClientRects().length > 0) || matches[0];
       if (target && !target.disabled) {
         target.focus({ preventScroll: true });
         break;
@@ -1598,5 +1696,8 @@
     getViewMode,
     setViewMode,
     buildEntries,
+    getHubPreferences,
+    saveHubOrder,
+    wireReorderHandle,
   });
 })();

@@ -17774,14 +17774,10 @@ input[type="number"] {
   margin-left: auto;
 }
 
-.collections-sort-controls,
 .collections-hub-sort {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-sm);
-}
-
-.collections-hub-sort {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
   white-space: nowrap;
@@ -17791,67 +17787,74 @@ input[type="number"] {
   padding: var(--spacing-sm) var(--spacing-md);
 }
 
-.collections-direction {
-  min-height: 44px;
-  padding: var(--spacing-sm) var(--spacing);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font: inherit;
+/* STRK-378: phone Ledger sort select plus its arrange control. */
+.collections-hub-compact.collections-show-sm {
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* STRK-378: Ledger arrange control — an icon at rest, Cancel / Done while arranging. */
+.collections-arrange-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
   white-space: nowrap;
+}
+
+.collections-arrange-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
 }
 
-.collections-direction:hover:not(:disabled),
+.collections-arrange-toggle:hover,
 .collections-move-button:hover:not(:disabled),
 .collections-arrange-handle:hover {
-  border-color: var(--primary);
+  border-color: var(--border);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.collections-direction:focus-visible,
+.collections-arrange-toggle:focus-visible,
 .collections-move-button:focus-visible,
-.collections-arrange-handle:focus-visible {
+.collections-arrange-handle:focus-visible,
+.collections-sort-reset:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-.collections-direction:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.collections-arrange-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--spacing);
-  margin-bottom: var(--spacing);
-  padding: var(--spacing) var(--spacing-lg);
-  border: 1px solid color-mix(in oklch, var(--primary), var(--border) 45%);
-  border-radius: var(--radius);
-  background: color-mix(in oklch, var(--primary), var(--bg-secondary) 94%);
-}
-
-.collections-arrange-copy {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm) var(--spacing);
-  color: var(--text-secondary);
+/* STRK-378: one-line note above the Album when it is not in My order. */
+.collections-sort-hint {
+  margin: 0 0 var(--spacing);
+  color: var(--text-muted);
   font-size: var(--font-size-sm);
 }
 
-.collections-arrange-copy strong {
-  color: var(--text-primary);
-  font-size: var(--font-size-md);
+.collections-sort-hint b {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
-.collections-arrange-actions {
-  display: flex;
-  gap: var(--spacing-sm);
+.collections-sort-reset {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.collections-sort-reset:hover {
+  text-decoration: underline;
 }
 
 .collections-toolbar-label {
@@ -18042,19 +18045,6 @@ input[type="number"] {
   transform: translateY(-1px);
   outline: none;
 }
-
-.collections-arrange-card {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  min-width: 0;
-}
-
-.collections-arrange-card > .collections-card {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 .collections-arrange-controls {
   display: flex;
   align-items: center;
@@ -18107,7 +18097,6 @@ input[type="number"] {
   opacity: 0.58;
 }
 
-.collections-arrange-item.is-drop-target > .collections-card,
 .collections-arrange-item.is-drop-target > .collections-hubrow {
   outline: 2px solid var(--primary);
   outline-offset: -2px;
@@ -18840,7 +18829,12 @@ input[type="number"] {
   border-bottom: 0;
 }
 
-.collections-arrange-ledger-item .collections-arrange-controls {
+/* STRK-378: row move controls and the header's Cancel / Done share one width so the
+   header columns stay aligned with the arranging rows below them. */
+.collections-arrange-ledger-item .collections-arrange-controls,
+.collections-arrange-head > .collections-arrange-cell {
+  flex: 0 0 11.5rem;
+  justify-content: flex-end;
   padding-right: var(--spacing);
 }
 
@@ -19015,26 +19009,20 @@ input[type="number"] {
     margin-left: 0;
   }
 
-  .collections-sort-controls {
-    flex-wrap: wrap;
-  }
-
-  .collections-arrange-bar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .collections-arrange-ledger-item,
-  .collections-arrange-card {
+  .collections-arrange-ledger-item {
     display: block;
+  }
+
+  /* The header row is hidden on phones; the toolbar carries Cancel / Done instead. */
+  .collections-arrange-ledger-item.collections-arrange-head {
+    display: none;
   }
 
   .collections-arrange-ledger-item > .collections-hubrow.is-arranging {
     width: 100%;
   }
 
-  .collections-arrange-ledger-item .collections-arrange-controls,
-  .collections-arrange-card .collections-arrange-controls {
+  .collections-arrange-ledger-item .collections-arrange-controls {
     justify-content: flex-end;
     margin-top: var(--spacing-sm);
     padding-right: 0;
@@ -19624,7 +19612,9 @@ input[type="number"] {
 .collections-settings-header,
 .collections-settings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 9.375rem) 7.375rem minmax(8.75rem, 9.375rem);
+  grid-template-columns:
+    1.75rem minmax(0, 1fr) minmax(8.5rem, 9.375rem) 7.375rem
+    minmax(12.5rem, 13.5rem);
   gap: var(--spacing);
   align-items: center;
 }
@@ -19680,6 +19670,95 @@ input[type="number"] {
 
 .collections-settings-tag.is-hidden {
   border-style: dashed;
+}
+
+/* STRK-378: Template / Custom badge in the merged My order list. */
+.collections-settings-type {
+  display: inline-block;
+  margin-left: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.collections-settings-type.is-custom {
+  border-color: color-mix(in oklch, var(--primary), var(--border) 40%);
+  color: var(--primary);
+}
+
+.collections-settings-handle,
+.collections-settings-move {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.collections-settings-handle {
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  touch-action: none;
+  cursor: grab;
+}
+
+.collections-settings-handle:active {
+  cursor: grabbing;
+}
+
+.collections-settings-handle:hover,
+.collections-settings-move:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.collections-settings-handle:focus-visible,
+.collections-settings-move:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.collections-settings-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.collections-settings-movers {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.collections-settings-row.is-dragging {
+  opacity: 0.45;
+}
+
+.collections-settings-row.is-drop-target {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+
+.collections-settings-status {
+  min-height: 1.25rem;
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.collections-settings-status.is-error {
+  color: var(--danger);
 }
 
 .collections-settings-reason,
@@ -19757,7 +19836,9 @@ input[type="number"] {
 
 .collections-settings-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--spacing-xs);
 }
 
 .collections-settings-action {
@@ -19771,7 +19852,13 @@ input[type="number"] {
   line-height: 1.5;
 }
 
-@media (max-width: 768px) {
+/* STRK-378: the stacked row layout follows the Settings panel's own width, not the
+   viewport — a mid-size window leaves the modal too narrow for the five-column grid. */
+#collectionsSettingsRoot {
+  container: collections-settings / inline-size;
+}
+
+@container collections-settings (max-width: 46rem) {
   .collections-settings-header {
     display: none;
   }
@@ -19781,12 +19868,37 @@ input[type="number"] {
   }
 
   .collections-settings-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "name name"
-      "progress progress"
-      "toggle action";
+      "handle name movers"
+      "progress progress progress"
+      "toggle toggle action";
     gap: var(--spacing-md) var(--spacing);
+  }
+
+  .collections-settings-handle {
+    grid-area: handle;
+  }
+
+  /* STRK-378: the move arrows sit beside the name so Show in hub and the action keep
+     sharing the bottom line (STRK-393 layout). */
+  .collections-settings-actions {
+    display: contents;
+  }
+
+  .collections-settings-movers {
+    grid-area: movers;
+  }
+
+  .collections-settings-action {
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .collections-settings-handle,
+  .collections-settings-move {
+    width: 44px;
+    height: 44px;
   }
 
   .collections-settings-name {
@@ -19806,10 +19918,6 @@ input[type="number"] {
 
   .collections-settings-toggle-cell {
     grid-area: toggle;
-  }
-
-  .collections-settings-actions {
-    grid-area: action;
   }
 
   .collections-settings-toggle .chip-sort-btn,

@@ -7,7 +7,13 @@
   const CHANGED_EVENT = "collections:changed";
   const SVG_NS = "http://www.w3.org/2000/svg";
   const SAVE_ERROR = "Couldn't save the Collection setting. Try again.";
+  const STATUS_ID = "collectionsSettingsOrderStatus";
+  const ROW_SELECTOR = ".collections-settings-row[data-collection-id]";
+  const MOVE_UP = "move-up";
+  const MOVE_DOWN = "move-down";
   let builderCloseObserver = null;
+  // Last My order save result, re-shown after every render (STRK-378).
+  let orderStatus = { text: "", isError: false };
 
   const ICON_SHAPES = Object.freeze({
     lock: [
@@ -22,11 +28,24 @@
       { tag: "rect", attributes: { x: "9", y: "9", width: "12", height: "12", rx: "2" } },
       { tag: "path", attributes: { d: "M5 15V5a2 2 0 0 1 2-2h10" } },
     ],
+    grip: [
+      [8, 5],
+      [16, 5],
+      [8, 12],
+      [16, 12],
+      [8, 19],
+      [16, 19],
+    ].map(([cx, cy]) => ({
+      tag: "circle",
+      attributes: { cx: String(cx), cy: String(cy), r: "1" },
+    })),
+    up: [{ tag: "path", attributes: { d: "m6 15 6-6 6 6" } }],
+    down: [{ tag: "path", attributes: { d: "m6 9 6 6 6-6" } }],
   });
 
   /**
    * Creates a static decorative icon without parsing HTML.
-   * @param {"lock"|"edit"|"copy"} name - Icon path key
+   * @param {"lock"|"edit"|"copy"|"grip"|"up"|"down"} name - Icon path key
    * @returns {HTMLSpanElement} Decorative icon wrapper
    */
   const createIcon = (name) => {
@@ -91,7 +110,11 @@
    */
   const buildRows = () => {
     const store = window.collectionsStore;
-    const entries = window.collectionsUI.buildEntries();
+    // One list in My order; ids missing from the saved order follow in chronological order.
+    const entries = window.collectionsSort.orderEntries(
+      window.collectionsUI.buildEntries(),
+      window.collectionsUI.getHubPreferences().order
+    );
     return entries.map((entry) => {
       const savedCollection = store.getState().collections[entry.id];
       const linkedItemIds = store.linkedItemIds(entry.id);
@@ -139,7 +162,7 @@
     const header = document.createElement("div");
     header.className = "collections-settings-header";
     header.setAttribute("aria-hidden", "true");
-    ["Collection", "Owned / total", "Show in hub", "Action"].forEach((label) => {
+    ["", "Collection", "Owned / total", "Show in hub", "Order · Action"].forEach((label) => {
       const cell = document.createElement("span");
       cell.textContent = label;
       header.appendChild(cell);
@@ -181,6 +204,10 @@
 
     const title = document.createElement("b");
     title.appendChild(document.createTextNode(row.name));
+    const typeBadge = document.createElement("span");
+    typeBadge.className = `collections-settings-type ${row.isCustom ? "is-custom" : "is-template"}`;
+    typeBadge.textContent = row.isCustom ? "Custom" : "Template";
+    title.appendChild(typeBadge);
     if (!row.enabled) {
       const hiddenTag = document.createElement("span");
       hiddenTag.className = "collections-settings-tag is-hidden";
@@ -264,13 +291,34 @@
   };
 
   /**
-   * Builds an Edit or Clone & customize action for one Collection row.
+   * Builds the Move up / Move down buttons plus the Edit or Clone & customize action.
    * @param {Object} row - Settings row model
+   * @param {number} index - Row position in My order
+   * @param {number} count - Number of rows
    * @returns {HTMLDivElement} Action cell
    */
-  const buildActionCell = (row) => {
+  const buildActionCell = (row, index, count) => {
     const cell = document.createElement("div");
     cell.className = "collections-settings-actions";
+
+    const movers = document.createElement("span");
+    movers.className = "collections-settings-movers";
+    [
+      [MOVE_UP, "up", index === 0],
+      [MOVE_DOWN, "down", index === count - 1],
+    ].forEach(([action, word, disabled]) => {
+      const move = document.createElement("button");
+      move.type = "button";
+      move.className = "collections-settings-move";
+      move.dataset.collectionsAction = action;
+      move.dataset.collectionId = row.id;
+      move.setAttribute("aria-label", `Move ${rowLabel(row)} ${word}`);
+      move.title = `Move ${word}`;
+      move.disabled = disabled;
+      move.appendChild(createIcon(word));
+      movers.appendChild(move);
+    });
+    cell.appendChild(movers);
 
     const action = document.createElement("button");
     action.type = "button";
@@ -288,31 +336,41 @@
   };
 
   /**
-   * Builds one Collection row.
+   * Builds one Collection row, led by its drag handle.
    * @param {Object} row - Settings row model
+   * @param {number} index - Row position in My order
+   * @param {number} count - Number of rows
    * @returns {HTMLDivElement} Collection row
    */
-  const buildRow = (row) => {
+  const buildRow = (row, index, count) => {
     const wrapper = document.createElement("div");
     wrapper.className = "collections-settings-row";
     wrapper.dataset.collectionId = row.id;
     if (!row.enabled) wrapper.classList.add("is-off");
 
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "collections-settings-handle";
+    handle.dataset.collectionId = row.id;
+    handle.setAttribute("aria-label", `Drag ${rowLabel(row)} to reorder`);
+    handle.title = "Drag to reorder";
+    handle.appendChild(createIcon("grip"));
+    wrapper.appendChild(handle);
     wrapper.appendChild(buildNameCell(row));
     wrapper.appendChild(buildProgressCell(row));
     const toggleCell = document.createElement("div");
     toggleCell.className = "collections-settings-toggle-cell";
     toggleCell.appendChild(buildToggle(row));
     wrapper.appendChild(toggleCell);
-    wrapper.appendChild(buildActionCell(row));
+    wrapper.appendChild(buildActionCell(row, index, count));
     return wrapper;
   };
 
   /**
-   * Builds a titled settings group for one Collection kind.
+   * Builds the titled My order group holding every Collection row.
    * @param {string} title - Group title
    * @param {string} hint - Group description
-   * @param {Object[]} rows - Rows in the group
+   * @param {Object[]} rows - Rows in My order
    * @param {string} headingId - Stable heading ID
    * @returns {HTMLDivElement} Fieldset group
    */
@@ -338,7 +396,7 @@
     groupHint.textContent = hint;
     group.appendChild(groupHint);
     group.appendChild(buildHeader());
-    rows.forEach((row) => group.appendChild(buildRow(row)));
+    rows.forEach((row, index) => group.appendChild(buildRow(row, index, rows.length)));
     return group;
   };
 
@@ -370,9 +428,90 @@
       (button) =>
         button.dataset.collectionsAction === descriptor.action &&
         button.dataset.collectionId === descriptor.id &&
-        button.dataset.enabled === descriptor.enabled
+        (button.dataset.enabled || "") === descriptor.enabled
     );
-    if (match) match.focus({ preventScroll: true });
+    if (!match) return;
+    // A move that reached the list edge disables its own button; hand focus to the other one.
+    if (match.disabled && (descriptor.action === MOVE_UP || descriptor.action === MOVE_DOWN)) {
+      const opposite = descriptor.action === MOVE_UP ? MOVE_DOWN : MOVE_UP;
+      restoreFocus(root, { ...descriptor, action: opposite });
+      return;
+    }
+    match.focus({ preventScroll: true });
+  };
+
+  /**
+   * Shows the last My order save result in a live region beside the list. The region is
+   * created once, outside the re-rendered root, so screen readers announce each change.
+   * @param {HTMLElement} root - Settings render root
+   * @returns {void}
+   */
+  const renderOrderStatus = (root) => {
+    let status = document.getElementById(STATUS_ID);
+    if (!status) {
+      status = document.createElement("p");
+      status.id = STATUS_ID;
+      status.className = "collections-settings-status";
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+      root.insertAdjacentElement("afterend", status);
+    }
+    status.textContent = orderStatus.text;
+    status.classList.toggle("is-error", orderStatus.isError);
+  };
+
+  /**
+   * Moves one Collection to a target's position in My order and saves it at once.
+   * @param {string} id - Collection being moved
+   * @param {string} targetId - Collection it moves next to
+   * @param {boolean} after - Place it after the target instead of before
+   * @returns {void}
+   */
+  const applyMove = (id, targetId, after) => {
+    const rows = buildRows();
+    const ids = rows.map((row) => row.id);
+    const next = window.collectionsSort.moveVisibleId(ids, ids, id, targetId, after);
+    if (next.every((candidate, index) => candidate === ids[index])) return;
+    if (window.collectionsUI.saveHubOrder(next)) {
+      const row = rows.find((candidate) => candidate.id === id);
+      const position = next.indexOf(id) + 1;
+      orderStatus = {
+        text: `Saved · ${rowLabel(row)} moved to position ${position} of ${next.length}.`,
+        isError: false,
+      };
+    } else {
+      orderStatus = { text: "Couldn't save the new order. Nothing changed.", isError: true };
+    }
+    render();
+  };
+
+  /**
+   * Handles a Move up / Move down click by moving past the neighbouring row.
+   * @param {string} action - MOVE_UP or MOVE_DOWN
+   * @param {string} id - Collection being moved
+   * @returns {void}
+   */
+  const handleMove = (action, id) => {
+    const ids = buildRows().map((row) => row.id);
+    const neighbour = ids[ids.indexOf(id) + (action === MOVE_UP ? -1 : 1)];
+    if (neighbour) applyMove(id, neighbour, action === MOVE_DOWN);
+  };
+
+  /**
+   * Wires each row's drag handle to the shared pointer reorder used by the Ledger.
+   * @param {HTMLElement} root - Settings render root
+   * @returns {void}
+   */
+  const wireDragHandles = (root) => {
+    if (typeof window.collectionsUI.wireReorderHandle !== "function") return;
+    root.querySelectorAll(".collections-settings-handle").forEach((handle) => {
+      window.collectionsUI.wireReorderHandle(handle, {
+        id: handle.dataset.collectionId,
+        itemSelector: ROW_SELECTOR,
+        idOf: (node) => node.dataset.collectionId,
+        onDrop: (targetId, after) => applyMove(handle.dataset.collectionId, targetId, after),
+      });
+    });
   };
 
   /**
@@ -422,34 +561,30 @@
       "Choose which Collections appear in the Collections hub. Turning one off only hides it; " +
       `its Slots, artwork and Items stay as they are. A Collection with linked Items stays on. ${shown} of ${rows.length} shown.`;
 
-    const templates = rows.filter((row) => !row.isCustom);
-    const custom = rows.filter((row) => row.isCustom);
+    // STRK-378: one list in My order — the order the hub uses when it is not sorted.
     const fragment = document.createDocumentFragment();
     fragment.appendChild(
       buildGroup(
-        "Series Templates",
-        "Built-in checklists. Clone one to make an editable copy.",
-        templates,
-        "collectionsSettingsTemplatesTitle"
-      )
-    );
-    fragment.appendChild(
-      buildGroup(
-        "Custom Collections",
-        "Collections you built. To delete one, use Remove collection in its album.",
-        custom,
-        "collectionsSettingsCustomTitle"
+        "My order",
+        "Built-in templates and your Custom Collections, in one list. Drag a row or use " +
+          "the arrows to set the order the hub shows. To delete a Custom Collection, use " +
+          "Remove collection in its album.",
+        rows,
+        "collectionsSettingsOrderTitle"
       )
     );
 
     const footnote = document.createElement("p");
     footnote.className = "collections-settings-footnote";
     footnote.textContent =
-      "These choices sync with Cloud and are saved in ZIP backups. A Collection that gets Items " +
-      "from another device or a restore turns back on automatically.";
+      "Show in hub choices sync with Cloud and are saved in ZIP backups. A Collection that gets " +
+      "Items from another device or a restore turns back on automatically. My order is saved " +
+      "on this device.";
     fragment.appendChild(footnote);
 
     root.replaceChildren(fragment);
+    wireDragHandles(root);
+    renderOrderStatus(root);
     restoreFocus(root, focus);
   };
 
@@ -482,6 +617,10 @@
           window.showToast(SAVE_ERROR);
         }
       }
+      return;
+    }
+    if (action === MOVE_UP || action === MOVE_DOWN) {
+      handleMove(action, collectionId);
       return;
     }
 

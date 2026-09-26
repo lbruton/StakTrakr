@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STRK-378: Order the Collections hub
 
-- **Collections hub**: Save a device-local My order for Collections, or sort Album and Ledger by Name, Run start, Percent complete, Recently updated, Owned, Value (melt), or To complete. Arrange Collections with drag, keyboard, or touch controls; fresh profiles keep the chronological Series Template default (STRK-378).
+- **Settings → Collections**: Series Templates and Custom Collections now share one My order list with Template and Custom badges. Drag a row or use the arrows to set the order the hub shows; each move saves at once on this device (STRK-378).
+- **Collections hub**: Ledger column headers sort and remember the choice. A small Arrange button at the right of the Ledger header reorders rows by drag or arrows, with Done and Cancel. The Album follows the active sort and shows a one-line "Sorted by …" note with a Show My order link. Fresh profiles keep the chronological Series Template order (STRK-378).
 
 ---
 
