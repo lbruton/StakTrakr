@@ -230,6 +230,28 @@ async function readIdbRecord(page, key) {
   );
 }
 
+/** Wait for startup's fire-and-forget spot-history writes to settle in IndexedDB. */
+async function waitForStableSpotHistory(page) {
+  await page.evaluate(async (key) => {
+    const store = window.historyStore;
+    await store.init();
+    let previous = JSON.stringify(await store.get(key));
+    let stableReads = 0;
+    for (let i = 0; i < 50; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      const current = JSON.stringify(await store.get(key));
+      if (current === previous) {
+        stableReads += 1;
+        if (stableReads >= 2) return;
+      } else {
+        previous = current;
+        stableReads = 0;
+      }
+    }
+    throw new Error("Spot-history IndexedDB record did not settle after boot");
+  }, SPOT_KEY);
+}
+
 test.describe("core/history-store-migration (STRK-141)", () => {
   // Isolation: this spec creates and populates the StakTrakrHistory IndexedDB on
   // boot. With workers:1 the browser process is shared, so a leaked DB bleeds
@@ -297,6 +319,12 @@ test.describe("core/history-store-migration (STRK-141)", () => {
     await page.waitForFunction(() => localStorage.getItem("migration_idb_history_v1") === "true", {
       timeout: 8000,
     });
+    await page.waitForFunction(
+      () => localStorage.getItem("migration_seedHistoryMerge") === "1",
+      null,
+      { timeout: 8000 }
+    );
+    await waitForStableSpotHistory(page);
 
     const idbSpot = await readIdbRecord(page, SPOT_KEY);
     const idbRetail = await readIdbRecord(page, RETAIL_KEY);
@@ -382,10 +410,16 @@ test.describe("core/history-store-migration (STRK-141)", () => {
       { dbName: HISTORY_DB, storeName: HISTORY_STORE, recordKey: SPOT_KEY, markerEntry: marker }
     );
 
+    await page.evaluate(() => localStorage.removeItem("migration_seedHistoryMerge"));
     await suppressWhatsNew(page);
     await gotoApp(page);
     await waitForHistoryStore(page);
-    await page.waitForTimeout(500);
+    await page.waitForFunction(
+      () => localStorage.getItem("migration_seedHistoryMerge") === "1",
+      null,
+      { timeout: 8000 }
+    );
+    await waitForStableSpotHistory(page);
 
     const secondSpot = await readIdbRecord(page, SPOT_KEY);
     // Marker survived => migration did NOT re-run (R2.5). Boot's live-spot fetch

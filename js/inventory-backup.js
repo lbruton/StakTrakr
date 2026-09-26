@@ -152,6 +152,7 @@
     catalogMappings: catalogManager.exportMappings(),
     chipCustomGroups: loadDataSync("chipCustomGroups", []),
     chipBlacklist: loadDataSync("chipBlacklist", []),
+    disabledCollections: loadDataSync(DISABLED_COLLECTIONS_KEY, []),
     chipMinCount: localStorage.getItem("chipMinCount"),
     chipMaxCount: localStorage.getItem("chipMaxCount"),
     featureFlags: localStorage.getItem(FEATURE_FLAGS_KEY),
@@ -626,6 +627,8 @@
         remoteSettings["chipCustomGroups"] = settingsObj.chipCustomGroups;
       if (Array.isArray(settingsObj.chipBlacklist))
         remoteSettings["chipBlacklist"] = settingsObj.chipBlacklist;
+      if (Array.isArray(settingsObj.disabledCollections))
+        remoteSettings["disabledCollections"] = settingsObj.disabledCollections;
       if (settingsObj.chipMinCount != null)
         remoteSettings["chipMinCount"] = settingsObj.chipMinCount;
       if (settingsObj.chipMaxCount != null)
@@ -976,6 +979,18 @@
         _restoreCollectionState(ancillary);
         await _restoreCachedMedia(zip);
         await _restoreAttachments(zip);
+        // A pre-feature or malformed backup carries no disabled preference. Reset
+        // only after the accepted import settings have been applied so all
+        // Collections return to the enabled default without changing parse phase.
+        if (!Array.isArray(settingsObj && settingsObj.disabledCollections)) {
+          saveDataSync(DISABLED_COLLECTIONS_KEY, []);
+        }
+        if (
+          window.collectionsStore &&
+          typeof window.collectionsStore.reconcilePopulated === "function"
+        ) {
+          window.collectionsStore.reconcilePopulated();
+        }
         _finalizeRestore();
       };
 

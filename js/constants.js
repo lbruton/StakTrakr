@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.31";
+const APP_VERSION = "3.36.32";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -775,7 +775,7 @@ const CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR = 0.7234;
 const CONSTITUTIONAL_WORN_SCALAR = 0.98839;
 
 /** @constant {string} CONSTITUTIONAL_BASIS_KEY - LocalStorage key for the global worn/fresh valuation basis; values "worn" (default) | "fresh" (STRK-235). */
-const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis";
+const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis"; // nosemgrep: codacy.javascript.security.hard-coded-password -- Public storage key, not a credential.
 
 /**
  * @constant {string} ASW_TERM_EXPANDED - The derived pure-silver figure named on first use.

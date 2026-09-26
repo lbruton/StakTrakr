@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.32] - 2026-09-26
+
+### Changed — STRK-393: Collections Settings and visibility
+
+- **Collections settings**: View template and Custom Collection progress, hide empty Collections from Album and Ledger, and open Custom Collections in the builder. Populated Collections stay visible, and a Collection that receives an Item through cloud sync or ZIP restore returns automatically; disabled choices persist across devices and backups (STRK-393).
+
+---
+
 ## [3.36.31] - 2026-09-25
 
 ### Changed — STRK-401: Show item images toggle for Custom Collections

@@ -4269,6 +4269,15 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
     if (typeof refreshSyncUI === "function") refreshSyncUI();
     return false;
   }
+  // STRK-393: the ordinary settings loop can restore stale hidden IDs after the
+  // Collections merge. Reconcile only after the full apply has persisted successfully.
+  if (
+    typeof window !== "undefined" &&
+    typeof window.collectionsStore !== "undefined" &&
+    typeof window.collectionsStore.reconcilePopulated === "function"
+  ) {
+    window.collectionsStore.reconcilePopulated();
+  }
   if (typeof window.neutralizeSupersededChangelog === "function") {
     window.neutralizeSupersededChangelog(selectedChanges, acceptanceCutoff);
   }
@@ -5254,6 +5263,15 @@ async function pullWithPreview(remoteMeta) {
               // (e.g. QuotaExceededError), leave lastPull stale so the next
               // poll cycle retries
               if (_failedCount === 0) {
+                // STRK-393: after all merges and settings writes succeed, remove
+                // stale hidden IDs for Collections populated by this apply.
+                if (
+                  typeof window !== "undefined" &&
+                  typeof window.collectionsStore !== "undefined" &&
+                  typeof window.collectionsStore.reconcilePopulated === "function"
+                ) {
+                  window.collectionsStore.reconcilePopulated();
+                }
                 if (typeof fetchSpotPrice === "function") {
                   try {
                     fetchSpotPrice();
@@ -5771,6 +5789,15 @@ async function pullWithPreview(remoteMeta) {
           updateSyncStatusIndicator("error", "Sync incomplete");
           _previewPullMeta = null;
           return;
+        }
+        // STRK-393: finish the silent apply's Collection, artwork, and settings
+        // work before clearing stale hidden IDs or recording the pull.
+        if (
+          typeof window !== "undefined" &&
+          typeof window.collectionsStore !== "undefined" &&
+          typeof window.collectionsStore.reconcilePopulated === "function"
+        ) {
+          window.collectionsStore.reconcilePopulated();
         }
         // STRK-370: the Collections-only change that also reaches this silent branch
         // (managed key) is merged at the TOP of the branch, ahead of the image pull —

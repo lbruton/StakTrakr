@@ -140,8 +140,8 @@ test.describe("extended/visual-layout-regressions", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await waitForSpotChips(page);
 
-    // Cards reflow to a 2×2 stack below the 960px breakpoint.
-    const cards = page.locator(".spot-card");
+    // The default four visible metal cards reflow to a 2×2 stack below 960px.
+    const cards = page.locator(".spot-card:visible");
     const cardCount = await cards.count();
     expect(cardCount).toBe(4);
 
@@ -187,10 +187,11 @@ test.describe("extended/visual-layout-regressions", () => {
     await expect(page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip')).toHaveCount(0);
 
     // The hidden chip's row is reserved (spacer), so every card's timestamp shares a plane.
+    const visibleCards = page.locator(".spot-card:visible");
     const tops = await page
-      .locator(".spot-card .spot-card-timestamp")
+      .locator(".spot-card:visible .spot-card-timestamp")
       .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
-    expect(tops.length).toBe(4);
+    expect(tops.length).toBe(await visibleCards.count());
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
   });
 });

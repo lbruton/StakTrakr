@@ -1829,6 +1829,534 @@ test.describe("core/collections — tab UI", () => {
   });
 });
 
+const settingsCollectionsPanel = (page) => page.locator("#settingsPanel_collections");
+const settingsVisibilityGroup = (page, label) =>
+  settingsCollectionsPanel(page).getByRole("group", { name: `Show ${label} in Collections` });
+
+const openSettingsCollections = async (page, via = "direct") => {
+  await page.waitForFunction(
+    () => window.appListenersReady === true && typeof window.showSettingsModal === "function"
+  );
+  if (via === "nav") {
+    await page.locator("#settingsBtn").click();
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    const collectionsNav = page.locator('.settings-nav-item[data-section="collections"]');
+    await expect(collectionsNav).toBeVisible({ timeout: 2000 });
+    await collectionsNav.click({ timeout: 2000 });
+  } else {
+    await page.evaluate(() => window.showSettingsModal("collections"));
+  }
+  await expect(settingsCollectionsPanel(page)).toBeVisible({ timeout: 2000 });
+  return settingsCollectionsPanel(page);
+};
+
+const closeSettingsCollections = async (page) => {
+  await page.evaluate(() => window.hideSettingsModal());
+  await expect(page.locator("#settingsModal")).toBeHidden();
+};
+
+test.describe("core/collections — STRK-393 Collections Settings", () => {
+  test("Settings lists every template and live Custom Collection, with progress and the tab after Images", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const fixture = await page.evaluate(() => {
+      const live = window.collectionsStore.createCustom({
+        name: "Live Morgan Set",
+        metal: "Silver",
+        slots: [{ label: "First" }, { label: "Second" }],
+      });
+      const removed = window.collectionsStore.createCustom({
+        name: "Removed Morgan Set",
+        metal: "Silver",
+        slots: [{ label: "Removed" }],
+      });
+      window.collectionsStore.remove(removed.collection.id);
+      return {
+        templateCount: Object.keys(window.__COLLECTIONS_BUNDLE.templates).length,
+      };
+    });
+
+    const settings = await openSettingsCollections(page, "nav");
+    const imagesNav = page.locator('.settings-nav-item[data-section="images"]');
+    const collectionsNav = page.locator('.settings-nav-item[data-section="collections"]');
+    expect(
+      await imagesNav.evaluate(
+        (images, collections) =>
+          Boolean(images.compareDocumentPosition(collections) & Node.DOCUMENT_POSITION_FOLLOWING),
+        await collectionsNav.elementHandle()
+      )
+    ).toBe(true);
+
+    const fieldsets = settings.locator(".settings-fieldset");
+    await expect(fieldsets).toHaveCount(2);
+    await expect(fieldsets.nth(0)).toContainText("Series Templates");
+    await expect(fieldsets.nth(1)).toContainText("Custom Collections");
+    await expect(fieldsets.nth(0).getByRole("group")).toHaveCount(fixture.templateCount);
+    await expect(fieldsets.nth(1).getByRole("group")).toHaveCount(1);
+    await expect(fieldsets.nth(1)).toContainText("Live Morgan Set");
+    await expect(fieldsets.nth(1)).toContainText("2 Slots");
+    await expect(fieldsets.nth(1)).toContainText("0 / 2");
+    await expect(fieldsets.nth(1)).not.toContainText("Removed Morgan Set");
+    await expect(settingsVisibilityGroup(page, "American Silver Eagle Type 1")).toBeVisible();
+    await expect(
+      settings.locator(
+        '.collections-settings-row[data-collection-id="ase-type1"] .collections-settings-meta'
+      )
+    ).toContainText("not started");
+    await expect(settingsVisibilityGroup(page, "American Silver Eagle Type 2")).toBeVisible();
+    await expect(fieldsets.nth(0)).toContainText("0 / 36");
+    await expect(fieldsets.nth(0)).toContainText("0 / 6");
+    await expect(fieldsets.nth(0)).toContainText(/Type 1.*Heraldic Eagle reverse.*1986\s*–\s*2021/);
+    await expect(fieldsets.nth(0)).toContainText(
+      /Type 2.*Landing Eagle reverse.*2021\s*–\s*present/
+    );
+    await expect(page.locator(".modal:visible")).toHaveCount(1);
+    await closeSettingsCollections(page);
+
+    // The Settings API route opens the same panel inside the same modal.
+    await openSettingsCollections(page, "direct");
+    await expect(page.locator("#settingsModal #settingsPanel_collections")).toBeVisible();
+    await expect(page.locator(".modal:visible")).toHaveCount(1);
+  });
+
+  test("On/Off hides empty template and Custom Collection in Album and Ledger, survives reload, and restores both", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const customId = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Toggle Morgan Set",
+        metal: "Silver",
+        slots: [{ label: "One" }],
+      });
+      window.collectionsStore.link("ase-type1", "2022", "col-ase-2022-a");
+      return created.collection.id;
+    });
+    await openCollectionsTab(page);
+    const storedCollectionsBefore = await page.evaluate(() => ({
+      collectionState: localStorage.getItem("collectionState"),
+      inventory: localStorage.getItem("metalInventory"),
+    }));
+    const pageOrigin = new URL(page.url()).origin;
+    const networkRequests = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).origin !== pageOrigin) networkRequests.push(request.url());
+    });
+    const pageUrl = page.url();
+    let settings = await openSettingsCollections(page);
+    for (const label of ["American Silver Eagle Type 2", "Toggle Morgan Set"]) {
+      const group = settingsVisibilityGroup(page, label);
+      await group.getByRole("button", { name: "Off", exact: true }).click();
+      await expect(group.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      );
+    }
+    await closeSettingsCollections(page);
+    expect(
+      await page.evaluate(() => ({
+        collectionState: localStorage.getItem("collectionState"),
+        inventory: localStorage.getItem("metalInventory"),
+      }))
+    ).toEqual(storedCollectionsBefore);
+
+    for (const id of ["ase-type2", customId]) {
+      await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toHaveCount(0);
+    }
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    for (const id of ["ase-type2", customId]) {
+      await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toHaveCount(0);
+    }
+    expect(page.url()).toBe(pageUrl);
+    expect(networkRequests).toEqual([]);
+
+    await reloadApp(page);
+    await openCollectionsTab(page);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    for (const id of ["ase-type2", customId]) {
+      await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toHaveCount(0);
+    }
+
+    settings = await openSettingsCollections(page);
+    for (const label of ["American Silver Eagle Type 2", "Toggle Morgan Set"]) {
+      const group = settingsVisibilityGroup(page, label);
+      await group.getByRole("button", { name: "On", exact: true }).click();
+      await expect(group.getByRole("button", { name: "On", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      );
+    }
+    await closeSettingsCollections(page);
+    for (const id of ["ase-type2", customId]) {
+      await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toBeVisible();
+    }
+  });
+
+  test("a failed preference save shows the error and keeps the last saved visibility value", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const settings = await openSettingsCollections(page);
+    const group = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
+    await group.getByRole("button", { name: "Off", exact: true }).click();
+    await expect(group.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    const savedPreference = await page.evaluate(() => localStorage.getItem("disabledCollections"));
+
+    await page.evaluate(() => {
+      const originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "disabledCollections") throw new Error("simulated preference write failure");
+        return originalSetItem.call(this, key, value);
+      };
+    });
+    await settingsVisibilityGroup(page, "American Silver Eagle Type 1")
+      .getByRole("button", { name: "On", exact: true })
+      .click();
+
+    await expect(
+      page
+        .locator(".cloud-toast")
+        .filter({ hasText: "Couldn't save the Collection setting. Try again." })
+    ).toBeVisible();
+    const rerenderedGroup = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
+    await expect(rerenderedGroup.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(rerenderedGroup.getByRole("button", { name: "On", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    expect(await page.evaluate(() => localStorage.getItem("disabledCollections"))).toBe(
+      savedPreference
+    );
+    await expect(rerenderedGroup.getByRole("button", { name: "On", exact: true })).toBeFocused();
+  });
+
+  test("a populated row stays On with disabled controls and an accessible linked-Item/Spare reason", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-a");
+      window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-b", { asSpare: true });
+    });
+
+    const settings = await openSettingsCollections(page);
+    const group = settingsVisibilityGroup(page, "American Silver Eagle Type 2");
+    const on = group.getByRole("button", { name: "On", exact: true });
+    const off = group.getByRole("button", { name: "Off", exact: true });
+    await expect(on).toBeDisabled();
+    await expect(off).toBeDisabled();
+    await expect(on).toHaveAttribute("aria-pressed", "true");
+    const descriptionId = await group.getAttribute("aria-describedby");
+    expect(descriptionId).toBeTruthy();
+    const reason = page.locator(`#${descriptionId}`);
+    await expect(reason).toContainText("2 linked Items");
+    await expect(reason).toContainText("incl. 1 Spare");
+    await expect(reason).toContainText("unlink them to turn off");
+  });
+
+  test("a populated row stays locked and stacked at 375px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await seedAndGoto(page);
+    await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-a");
+      window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-b", { asSpare: true });
+    });
+
+    const settings = await openSettingsCollections(page);
+    const row = settings.locator('.collections-settings-row[data-collection-id="ase-type2"]');
+    const group = settingsVisibilityGroup(page, "American Silver Eagle Type 2");
+    const on = group.getByRole("button", { name: "On", exact: true });
+    const off = group.getByRole("button", { name: "Off", exact: true });
+    const reason = row.locator(".collections-settings-reason");
+    await expect(on).toBeDisabled();
+    await expect(off).toBeDisabled();
+    await expect(reason).toContainText("2 linked Items (incl. 1 Spare)");
+    await expect(reason).toContainText("unlink them to turn off");
+
+    const nameBox = await row.locator(".collections-settings-name").boundingBox();
+    const progressBox = await row.locator(".collections-settings-progress").boundingBox();
+    const toggleBox = await group.boundingBox();
+    const actionBox = await row.locator(".collections-settings-action").boundingBox();
+    expect(progressBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height);
+    expect(toggleBox.y).toBeGreaterThanOrEqual(progressBox.y + progressBox.height);
+    expect(Math.abs(actionBox.y - toggleBox.y)).toBeLessThanOrEqual(2);
+    expect((await on.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect((await off.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect(
+      await row.evaluate((element) => element.scrollWidth - element.clientWidth)
+    ).toBeLessThanOrEqual(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    ).toBeLessThanOrEqual(0);
+  });
+
+  test("empty Custom Collection with Slot artwork can be hidden and its artwork returns when turned back on", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const art = await page.evaluate(async () => {
+      const created = window.collectionsStore.createCustom({
+        name: "Peace Artwork Collection",
+        metal: "Silver",
+        slots: [{ label: "First" }],
+      });
+      const collectionId = created.collection.id;
+      const slotId = created.collection.definition.slots[0].id;
+      const image = await fetch("/tests/playwright/helpers/test-obverse.png").then((r) => r.blob());
+      const saved = await window.collectionsPicker.saveImage(
+        collectionId,
+        slotId,
+        new File([image], "art.png", { type: "image/png" })
+      );
+      if (!saved) throw new Error("Slot artwork upload failed");
+      return { collectionId, slotId };
+    });
+    await openCollectionsTab(page);
+    const settings = await openSettingsCollections(page);
+    const group = settingsVisibilityGroup(page, "Peace Artwork Collection");
+    await group.getByRole("button", { name: "Off", exact: true }).click();
+    await expect(settings).toContainText("Slot artwork is kept and returns when turned back on.");
+    await group.getByRole("button", { name: "On", exact: true }).click();
+    await expect(group.getByRole("button", { name: "On", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await closeSettingsCollections(page);
+
+    await panel(page).locator(`[data-collection-id="${art.collectionId}"]`).click();
+    await expect(page.locator("#collectionsSectionEl [data-slot-id]")).toHaveCount(1);
+    await expect(
+      page.locator(`#collectionsSectionEl [data-slot-id="${art.slotId}"] .collections-coin img`)
+    ).toHaveAttribute("src", /^blob:/);
+  });
+
+  test("Custom Edit stays over Settings and refreshes the row; template Clone seeds the builder without Edit or Remove", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const customId = await page.evaluate(
+      () =>
+        window.collectionsStore.createCustom({
+          name: "Before Edit",
+          metal: "Silver",
+          slots: [{ label: "One" }],
+        }).collection.id
+    );
+    const settings = await openSettingsCollections(page);
+    await expect(settings.getByRole("button", { name: "Edit Before Edit" })).toBeVisible();
+    await expect(
+      settings.getByRole("button", { name: /Clone and customize.*American Silver Eagle Type 2/ })
+    ).toBeVisible();
+    await expect(settings.getByRole("button", { name: /Edit American Silver Eagle/ })).toHaveCount(
+      0
+    );
+    await expect(settings.getByRole("button", { name: /Remove/ })).toHaveCount(0);
+
+    const editTrigger = settings.getByRole("button", { name: "Edit Before Edit" });
+    const originalEditTrigger = await editTrigger.elementHandle();
+    expect(originalEditTrigger).toBeTruthy();
+    const builder = page.locator("#collectionsBuilderModal");
+    const openEdit = async () => {
+      await editTrigger.focus();
+      await page.keyboard.press("Enter");
+      await expect(builder).toBeVisible();
+    };
+
+    await openEdit();
+    const cancel = builder.getByRole("button", { name: "Cancel" });
+    await cancel.focus();
+    await page.keyboard.press("Enter");
+    await expect(builder).toBeHidden();
+    await expect(editTrigger).toBeFocused();
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
+
+    await openEdit();
+    await page.keyboard.press("Escape");
+    await expect(builder).toBeHidden();
+    await expect(editTrigger).toBeFocused();
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
+
+    await openEdit();
+    await expect(page.locator("#settingsModal")).toBeVisible();
+    await expect(builder).toBeVisible();
+    await builder.getByLabel("Collection name").fill("After Edit");
+    const saveChanges = builder.getByRole("button", { name: "Save changes" });
+    await saveChanges.focus();
+    await page.keyboard.press("Enter");
+    await expect(builder).toBeHidden();
+    const refreshedEdit = settings.getByRole("button", { name: "Edit After Edit" });
+    await expect(refreshedEdit).toBeVisible();
+    await expect(refreshedEdit).toBeFocused();
+    expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(false);
+    expect(
+      await page.evaluate((id) => window.collectionsStore.getState().collections[id].name, customId)
+    ).toBe("After Edit");
+
+    await closeSettingsCollections(page);
+    await openSettingsCollections(page);
+    await settingsCollectionsPanel(page)
+      .getByRole("button", { name: /Clone and customize.*American Silver Eagle Type 2/ })
+      .click();
+    await expect(page.locator("#settingsModal")).toBeHidden();
+    await expect(builder).toBeVisible();
+    await expect(builder.getByLabel("Slot label")).toHaveCount(6);
+    await expect(builder.getByLabel("Slot label").first()).toHaveValue("2021 T2");
+  });
+
+  test("status filters include enabled Collections only, while an empty hidden row keeps its progress", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    const progressRow = panel(page).locator(
+      '[data-collection-id="ase-type2"] .collections-card-row'
+    );
+    const countBefore = await progressRow.locator(".collections-count").innerText();
+    const percentageBefore = await progressRow.locator(".collections-pct").innerText();
+    const settings = await openSettingsCollections(page);
+    const hidden = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
+    await hidden.getByRole("button", { name: "Off", exact: true }).click();
+    await closeSettingsCollections(page);
+
+    await panel(page).getByRole("button", { name: "Not started", exact: true }).click();
+    await expect(panel(page).locator('[data-collection-id="ase-type1"]')).toHaveCount(0);
+    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toHaveCount(0);
+    await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
+    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toBeVisible();
+    const filteredProgressRow = panel(page).locator(
+      '[data-collection-id="ase-type2"] .collections-card-row'
+    );
+    await expect(filteredProgressRow.locator(".collections-count")).toHaveText(countBefore);
+    await expect(filteredProgressRow.locator(".collections-pct")).toHaveText(percentageBefore);
+
+    const reopened = await openSettingsCollections(page);
+    await expect(
+      reopened.locator(
+        '.collections-settings-row[data-collection-id="ase-type1"] .collections-settings-progress'
+      )
+    ).toContainText("0 / 36");
+    await expect(
+      reopened.locator(
+        '.collections-settings-row[data-collection-id="ase-type2"] .collections-settings-progress'
+      )
+    ).toContainText("1 / 6");
+  });
+
+  test("all-off recovery works in Album and Ledger with no lone New collection card", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const settings = await openSettingsCollections(page);
+    for (const label of ["American Silver Eagle Type 1", "American Silver Eagle Type 2"]) {
+      await settingsVisibilityGroup(page, label)
+        .getByRole("button", { name: "Off", exact: true })
+        .click();
+    }
+    await closeSettingsCollections(page);
+
+    for (const view of ["Album", "Ledger"]) {
+      if (view === "Ledger") {
+        await panel(page).getByRole("button", { name: "Ledger view" }).click();
+      }
+      await expect(
+        panel(page).getByRole("heading", { name: "All Collections are turned off" })
+      ).toBeVisible();
+      await expect(panel(page)).toContainText(
+        "Nothing was deleted. Turn Collections back on in Settings, or start a new one."
+      );
+      await expect(panel(page).locator(".collections-card.is-new")).toHaveCount(0);
+      await panel(page).getByRole("button", { name: "Open Collections settings" }).click();
+      await expect(settingsCollectionsPanel(page)).toBeVisible();
+      await closeSettingsCollections(page);
+    }
+  });
+
+  test("hidden-count link and toolbar Manage both open Settings Collections", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const settings = await openSettingsCollections(page);
+    await settingsVisibilityGroup(page, "American Silver Eagle Type 1")
+      .getByRole("button", { name: "Off", exact: true })
+      .click();
+    await closeSettingsCollections(page);
+
+    await expect(panel(page)).toContainText("1 hidden · Manage in Settings");
+    await panel(page).getByRole("button", { name: "Manage in Settings" }).click();
+    await expect(settingsCollectionsPanel(page)).toBeVisible();
+    await closeSettingsCollections(page);
+    await panel(page).getByRole("button", { name: "Manage", exact: true }).click();
+    await expect(settingsCollectionsPanel(page)).toBeVisible();
+  });
+
+  test("a hidden Collection deep link falls back to the hub and corrects the URL", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      localStorage.setItem("disabledCollections", JSON.stringify(["ase-type2"]))
+    );
+    await seedAndGoto(page);
+    await page.goto("/index.html#/collections/ase-type2");
+
+    await expect(page.locator("#collectionsSectionEl")).toBeVisible();
+    await expect(
+      page.locator('#collectionsSectionEl [data-collection-id="ase-type2"]')
+    ).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/collections$/);
+  });
+
+  test("Collections Settings remains usable at 375px in all four themes with 44px controls", async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.setViewportSize({ width: 375, height: 812 });
+    await seedAndGoto(page);
+    await page.evaluate(() =>
+      window.collectionsStore.createCustom({
+        name: "Responsive Custom",
+        metal: "Silver",
+        slots: [{ label: "One" }],
+      })
+    );
+    const settings = await openSettingsCollections(page);
+    for (const theme of ["dark", "light", "slate", "sepia"]) {
+      await page.evaluate((value) => window.setTheme(value), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(settings.getByRole("heading", { name: "Collections" })).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      ).toBeLessThanOrEqual(0);
+    }
+    const targets = [
+      settingsVisibilityGroup(page, "American Silver Eagle Type 2").getByRole("button", {
+        name: "On",
+        exact: true,
+      }),
+      settingsVisibilityGroup(page, "American Silver Eagle Type 2").getByRole("button", {
+        name: "Off",
+        exact: true,
+      }),
+      settings.getByRole("button", { name: "Edit Responsive Custom" }),
+    ];
+    for (const target of targets) {
+      const height = await target.evaluate((element) => element.getBoundingClientRect().height);
+      expect(height).toBeGreaterThanOrEqual(44);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
 const ledgerFixtures = JSON.parse(
   readFileSync(new URL("../../fixtures/collections-sort.json", import.meta.url), "utf8")
 );

@@ -1,7 +1,7 @@
 // SETTINGS MODAL
 // =============================================================================
 
-const CATALOG_KEY_MASK = "••••••••";
+const CATALOG_KEY_MASK = "••••••••"; // nosemgrep: codacy.javascript.security.hard-coded-password -- Fixed UI mask placeholder, not a credential.
 
 /**
  * Opens the unified Settings modal, optionally navigating to a section.
@@ -88,6 +88,10 @@ const switchSettingsSection = (name) => {
   // Render market filter matrix when switching to the market section
   if (targetName === "market" && typeof renderMarketFilterMatrix === "function") {
     renderMarketFilterMatrix();
+  }
+
+  if (targetName === "collections" && window.collectionsSettings) {
+    window.collectionsSettings.render();
   }
 
   // Populate Storage section when switching to it
@@ -3801,6 +3805,7 @@ const STORAGE_KEY_LABELS = {
   chipMaxCount: { label: "Chip Max Count", icon: "⚙️", category: "Settings" },
   chipCustomGroups: { label: "Chip Custom Groups", icon: "⚙️", category: "Settings" },
   chipBlacklist: { label: "Chip Blacklist", icon: "⚙️", category: "Settings" },
+  disabledCollections: { label: "Hidden Collections", icon: "⚙️", category: "Settings" },
   inlineChipConfig: { label: "Inline Chip Config", icon: "⚙️", category: "Settings" },
   filterChipCategoryConfig: { label: "Filter Chip Categories", icon: "⚙️", category: "Settings" },
   chipSortOrder: { label: "Chip Sort Order", icon: "⚙️", category: "Settings" },

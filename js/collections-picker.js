@@ -143,7 +143,12 @@
       );
       modal.appendChild(content);
       modal.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") closeModalById(id);
+        if (event.key === "Escape") {
+          // The builder can sit over Settings; keep the global handler from closing
+          // both layers. The link picker retains its existing Escape propagation.
+          if (id === BUILDER_MODAL_ID) event.stopPropagation();
+          closeModalById(id);
+        }
       });
       document.body.appendChild(modal);
     }

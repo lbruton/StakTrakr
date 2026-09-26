@@ -60,6 +60,10 @@
         "tagBlacklist",
       ],
     },
+    Collections: {
+      icon: "📚",
+      keys: ["disabledCollections"],
+    },
     Images: {
       icon: "\uD83D\uDDBC\uFE0F",
       keys: ["tableImagesEnabled", "tableImageSides"],
@@ -108,6 +112,7 @@
     chipMaxCount: "Chip Max Count",
     chipCustomGroups: "Custom Chip Groups",
     chipBlacklist: "Hidden Chips",
+    disabledCollections: "Hidden Collections",
     chipSortOrder: "Filter Sort (alpha/count)",
     layoutSectionConfig: "Section Layout",
     tableImagesEnabled: "Table Images",
@@ -2101,13 +2106,13 @@
    */
   function _mergeSlugChips(prefix, localVal, remoteVal) {
     if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
-    var lSet = {};
+    var lSet = Object.create(null);
     var lList = Array.isArray(localVal) ? localVal : [];
     var rList = Array.isArray(remoteVal) ? remoteVal : [];
     var i;
     for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
     var mergedArr = [];
-    var slugSeen = {};
+    var slugSeen = Object.create(null);
     // First pass: iterate remote array in order (default wins)
     for (i = 0; i < rList.length; i++) {
       var rSlug = rList[i];
