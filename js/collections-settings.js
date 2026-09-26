@@ -393,6 +393,9 @@
       const root = document.getElementById(ROOT_ID);
       const settingsModal = document.getElementById("settingsModal");
       if (!root || !settingsModal || settingsModal.style.display === "none") return;
+      // closeModalById clears the body lock when the builder closes, even though
+      // Settings remains open underneath it.
+      document.body.style.overflow = "hidden";
       const refreshedEdit = Array.from(
         root.querySelectorAll('button[data-collections-action="edit"]')
       ).find((button) => button.dataset.collectionId === collectionId);

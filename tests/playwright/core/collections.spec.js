@@ -1829,10 +1829,24 @@ test.describe("core/collections — tab UI", () => {
   });
 });
 
+/** Locate the rendered Collections panel inside the Settings modal. */
 const settingsCollectionsPanel = (page) => page.locator("#settingsPanel_collections");
+
+/**
+ * Locate one Collection's accessible On/Off control group by its visible name.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} label - Collection name shown in the Settings row.
+ * @returns {import('@playwright/test').Locator} The visibility control group.
+ */
 const settingsVisibilityGroup = (page, label) =>
   settingsCollectionsPanel(page).getByRole("group", { name: `Show ${label} in Collections` });
 
+/**
+ * Open Settings › Collections through the nav item or the direct Settings API.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {"direct"|"nav"} [via="direct"] - Route used to open the panel.
+ * @returns {Promise<import('@playwright/test').Locator>} The visible Collections panel.
+ */
 const openSettingsCollections = async (page, via = "direct") => {
   await page.waitForFunction(
     () => window.appListenersReady === true && typeof window.showSettingsModal === "function"
@@ -1850,6 +1864,7 @@ const openSettingsCollections = async (page, via = "direct") => {
   return settingsCollectionsPanel(page);
 };
 
+/** Close the Settings modal and wait for it to leave the visible page. */
 const closeSettingsCollections = async (page) => {
   await page.evaluate(() => window.hideSettingsModal());
   await expect(page.locator("#settingsModal")).toBeHidden();
@@ -1940,6 +1955,10 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     }));
     const pageOrigin = new URL(page.url()).origin;
     const networkRequests = [];
+    let loadEvents = 0;
+    page.on("load", () => {
+      loadEvents++;
+    });
     page.on("request", (request) => {
       if (new URL(request.url()).origin !== pageOrigin) networkRequests.push(request.url());
     });
@@ -1969,6 +1988,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toHaveCount(0);
     }
     expect(page.url()).toBe(pageUrl);
+    expect(loadEvents).toBe(0);
     expect(networkRequests).toEqual([]);
 
     await reloadApp(page);
@@ -2174,6 +2194,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await cancel.focus();
     await page.keyboard.press("Enter");
     await expect(builder).toBeHidden();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
     await expect(editTrigger).toBeFocused();
     await expect(page.locator("#settingsModal")).toBeVisible();
     expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
@@ -2181,6 +2202,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await openEdit();
     await page.keyboard.press("Escape");
     await expect(builder).toBeHidden();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
     await expect(editTrigger).toBeFocused();
     await expect(page.locator("#settingsModal")).toBeVisible();
     expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
@@ -2193,6 +2215,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await saveChanges.focus();
     await page.keyboard.press("Enter");
     await expect(builder).toBeHidden();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
     const refreshedEdit = settings.getByRole("button", { name: "Edit After Edit" });
     await expect(refreshedEdit).toBeVisible();
     await expect(refreshedEdit).toBeFocused();
@@ -2210,6 +2233,39 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await expect(builder).toBeVisible();
     await expect(builder.getByLabel("Slot label")).toHaveCount(6);
     await expect(builder.getByLabel("Slot label").first()).toHaveValue("2021 T2");
+  });
+
+  test("store reload refreshes open hub and Settings after a visibility preference changes", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const customId = await page.evaluate(
+      () =>
+        window.collectionsStore.createCustom({
+          name: "Refresh Custom",
+          metal: "Silver",
+          slots: [{ label: "One" }],
+        }).collection.id
+    );
+    await openCollectionsTab(page);
+    await expect(panel(page).locator(`[data-collection-id="${customId}"]`)).toBeVisible();
+    const settings = await openSettingsCollections(page);
+    const group = settingsVisibilityGroup(page, "Refresh Custom");
+    await expect(group.getByRole("button", { name: "On", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await page.evaluate((id) => {
+      saveDataSync("disabledCollections", [id]);
+      window.collectionsStore.reload();
+    }, customId);
+
+    await expect(group.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(panel(page).locator(`[data-collection-id="${customId}"]`)).toHaveCount(0);
   });
 
   test("status filters include enabled Collections only, while an empty hidden row keeps its progress", async ({

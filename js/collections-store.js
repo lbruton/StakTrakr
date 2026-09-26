@@ -127,16 +127,17 @@
 
   /**
    * Persists the in-memory state and notifies listeners.
+   * @param {{deferReconcile?: boolean}} [options] - Defer commit-boundary reconciliation
    * @returns {boolean} False when the write failed (e.g. quota)
    */
-  const save = () => {
+  const save = (options) => {
     try {
       saveDataSync(COLLECTION_STATE_KEY, getState());
     } catch (error) {
       console.error("[collections] Failed to save collection state:", error);
       return false;
     }
-    reconcilePopulated();
+    if (!(options && options.deferReconcile)) reconcilePopulated();
     // STRK-370: a Collections-only edit never touches saveInventory(), so it must schedule
     // its own debounced push (same pattern as saveItemTags). Best-effort — a missing or
     // throwing trigger must never fail a local save.
@@ -485,15 +486,16 @@
    * contract lands) into local state. Uses the commutative core merge, so newer local
    * links are never clobbered by an older snapshot — a restore adds back what was lost.
    * @param {*} incoming - Raw state from a backup or another device (normalized by the merge)
+   * @param {{deferReconcile?: boolean}} [options] - Defer commit-boundary reconciliation
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
-  const mergeIn = (incoming) => {
+  const mergeIn = (incoming, options) => {
     const before = JSON.stringify(getState());
     const merged = core().mergeStates(getState(), incoming);
     if (JSON.stringify(merged) === before) return { ok: true, changed: false };
     const previous = collectionState;
     collectionState = merged;
-    if (save()) return { ok: true, changed: true };
+    if (save(options)) return { ok: true, changed: true };
     // mergeStates returns a NEW object, so the prior state is intact — just swap it back.
     collectionState = previous;
     return { ok: false, changed: false, reason: "save-failed" };

@@ -415,4 +415,21 @@ describe("collections store — disabled Collections preference (STRK-393)", () 
     reloaded.store.reload();
     assert.deepEqual(reloaded.store.getDisabledIds(), []);
   });
+
+  test("mergeIn can defer populated reconciliation until the caller commits", () => {
+    const donor = makeHarness();
+    assert.equal(donor.store.link(TEMPLATE, "2024", U.a).ok, true);
+    const incoming = persisted(donor.disk);
+
+    const merged = makeHarness(undefined, { disabledCollections: [TEMPLATE] });
+    const result = merged.store.mergeIn(incoming, { deferReconcile: true });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(merged.store.getDisabledIds(), [TEMPLATE]);
+    assert.deepEqual(merged.events, ["collections:changed"]);
+
+    merged.store.reload();
+    assert.deepEqual(merged.store.getDisabledIds(), []);
+    assert.deepEqual(merged.events, ["collections:changed", "collections:changed"]);
+  });
 });

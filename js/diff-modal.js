@@ -2403,7 +2403,10 @@
     // check `selectedChanges &&` treat null as "no selective picks, do full restore".
     // This differs from the intentional "deselect all" case where _checkedItems has
     // entries but they are all false (then selected is [] and apply-nothing is correct).
-    if (Object.keys(_checkedItems).length === 0) selected = null;
+    // Settings-only diffs still carry explicit local/remote picks and must keep them.
+    var hasSettings =
+      _options && _options.settingsDiff && (_options.settingsDiff.changed || []).length > 0;
+    if (Object.keys(_checkedItems).length === 0 && !hasSettings) selected = null;
     // Capture callback before close() — close() nullifies _options
     var callback = _options && _options.onApply;
     DiffModal.close();

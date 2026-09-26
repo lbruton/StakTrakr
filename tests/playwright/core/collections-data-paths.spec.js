@@ -1148,7 +1148,48 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       await deviceA.evaluate(() =>
         window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024")
       );
+      await deviceA.evaluate(() => {
+        const state = window.collectionsCore.createEmptyState();
+        const created = window.collectionsCore.createCustomCollection(state, {
+          id: "custom-sync-rollback-hidden",
+          name: "Rollback Hidden",
+          metal: "Silver",
+          slots: [{ label: "Only slot" }],
+          now: "2026-09-26T00:00:00.000Z",
+        });
+        if (!created.ok)
+          throw new Error(`Could not create remote test Collection: ${created.reason}`);
+        const slotId = created.collection.definition.slots[0].id;
+        window.collectionsCore.linkItem(
+          state,
+          created.collection.id,
+          slotId,
+          "cdp-hidden-rollback",
+          {
+            now: "2026-09-26T00:01:00.000Z",
+          }
+        );
+        window.collectionsStore.mergeIn(state);
+      });
       await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+      await page.evaluate(() => {
+        const state = window.collectionsCore.createEmptyState();
+        const created = window.collectionsCore.createCustomCollection(state, {
+          id: "custom-sync-rollback-hidden",
+          name: "Rollback Hidden",
+          metal: "Silver",
+          slots: [{ label: "Only slot" }],
+          now: "2026-09-26T00:00:00.000Z",
+        });
+        if (!created.ok)
+          throw new Error(`Could not create local test Collection: ${created.reason}`);
+        window.collectionsStore.mergeIn(state);
+        const disabled = window.collectionsStore.setEnabled(created.collection.id, false);
+        if (!disabled.ok) throw new Error(`Could not hide local Collection: ${disabled.reason}`);
+      });
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+        "custom-sync-rollback-hidden",
+      ]);
       const manifest = await deviceManifest(deviceA, [
         {
           itemKey: "edit-2024",
@@ -1165,13 +1206,47 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       await injectCollectionQuota(page);
       await page.evaluate((remote) => window.pullWithPreview(remote), meta);
       expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+        "custom-sync-rollback-hidden",
+      ]);
       expect(await page.evaluate(() => localStorage.getItem("cloud_sync_last_pull"))).toBe(
         await page.evaluate(() => window.__lastPullBeforeQuota)
       );
       await clearCollectionQuota(page);
+
+      const priorInventory = await page.evaluate(() => localStorage.getItem("metalInventory"));
+      await page.evaluate(() => {
+        const real = Storage.prototype.setItem;
+        window.__inventoryRealSetItem = real;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "metalInventory") throw new DOMException("full", "QuotaExceededError");
+          return real.call(this, key, value);
+        };
+      });
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+        "custom-sync-rollback-hidden",
+      ]);
+      expect(await page.evaluate(() => localStorage.getItem("metalInventory"))).toBe(
+        priorInventory
+      );
+      await page.evaluate(() => {
+        Storage.prototype.setItem = window.__inventoryRealSetItem;
+      });
+
       await page.evaluate((remote) => window.pullWithPreview(remote), meta);
       expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
       expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([]);
+      expect(
+        await page.evaluate(
+          () =>
+            window.collectionsStore.getState().collections["custom-sync-rollback-hidden"].slots[
+              "only-slot"
+            ].primary
+        )
+      ).toBe("cdp-hidden-rollback");
     });
   });
 });
@@ -1339,7 +1414,12 @@ test.describe("core/collections-data-paths — commit ordering (PR 1500 review)"
   });
 });
 
-/** Restore a ZIP while accepting each changed setting, as if the collector chose remote. */
+/**
+ * Restore a ZIP while accepting each changed setting, as if the collector chose remote.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {number[]} zipBytes - ZIP archive bytes returned by the in-page JSZip helper.
+ * @returns {Promise<string[]>} Toast messages emitted during the restore.
+ */
 const restoreBackupZipAndAccept = async (page, zipBytes) => {
   await page.evaluate(async (bytes) => {
     window.__strk393ZipRestoreComplete = false;
@@ -1427,6 +1507,56 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     expect(toasts).toContain("ZIP backup restored successfully");
     expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([]);
     expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(true);
+  });
+
+  test("a legacy ZIP keeps local hidden choices when Settings are resolved locally", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const zipBytes = await page.evaluate(async () => {
+      window.setTheme("light");
+      const hidden = window.collectionsStore.setEnabled("ase-type2", false);
+      if (!hidden.ok) throw new Error(`Could not hide empty Collection: ${hidden.reason}`);
+
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const settings = JSON.parse(await zip.file("settings.json").async("string"));
+      delete settings.disabledCollections;
+      settings.theme = "dark";
+      zip.file("settings.json", JSON.stringify(settings));
+      return Array.from(await zip.generateAsync({ type: "uint8array" }));
+    });
+    await page.getByRole("button", { name: "OK", exact: true }).click();
+    await expect(page.locator("#appDialogModal")).toBeHidden();
+
+    await page.evaluate((bytes) => {
+      window.__legacyLocalSettingsToasts = [];
+      const originalToast = window.showToast;
+      window.showToast = (message, level) => {
+        const text = String(message || "");
+        window.__legacyLocalSettingsToasts.push(text);
+        if (typeof originalToast === "function") originalToast(message, level);
+      };
+      const file = new File([new Uint8Array(bytes)], "legacy-local-settings.zip", {
+        type: "application/zip",
+      });
+      window.restoreBackupZip(file);
+    }, zipBytes);
+
+    const diffSettings = page.locator("#diffReviewSettings");
+    await expect(page.locator("#diffReviewModal")).toBeVisible();
+    await diffSettings.locator('[data-settings-bulk="local"]').click();
+    await page.locator("#diffReviewApplyBtn").click();
+    await page.waitForFunction(() =>
+      window.__legacyLocalSettingsToasts.some((text) => text === "ZIP backup restored successfully")
+    );
+
+    expect(await page.evaluate(() => localStorage.getItem("appTheme"))).toBe("light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+      "ase-type2",
+    ]);
   });
 
   test("ZIP restore silently re-enables a disabled Collection that arrives populated", async ({

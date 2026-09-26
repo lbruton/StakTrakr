@@ -188,6 +188,7 @@ test.describe("extended/visual-layout-regressions", () => {
 
     // The hidden chip's row is reserved (spacer), so every card's timestamp shares a plane.
     const visibleCards = page.locator(".spot-card:visible");
+    await expect(visibleCards).toHaveCount(4);
     const tops = await page
       .locator(".spot-card:visible .spot-card-timestamp")
       .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));

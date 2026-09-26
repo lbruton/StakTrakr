@@ -719,7 +719,9 @@
    */
   const _restoreCollectionState = (ancillary) => {
     if (!ancillary.collectionState || !window.collectionsStore) return;
-    const result = window.collectionsStore.mergeIn(ancillary.collectionState);
+    const result = window.collectionsStore.mergeIn(ancillary.collectionState, {
+      deferReconcile: true,
+    });
     if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
   };
 
@@ -739,7 +741,14 @@
       const localSettings = {};
       for (const key of settingsKeys) {
         const val = loadDataSync(key, null);
-        if (val !== null) localSettings[key] = val;
+        if (val !== null) {
+          localSettings[key] = val;
+        } else {
+          // Some scalar preferences (notably appTheme) are stored as raw strings,
+          // so loadDataSync cannot JSON-decode them for the local side of the diff.
+          const raw = localStorage.getItem(key);
+          if (raw !== null) localSettings[key] = raw;
+        }
       }
       const settingsDiff = DiffEngine.compareSettings(localSettings, remoteSettings);
       return settingsDiff.changed.length === 0 ? null : settingsDiff;
@@ -971,7 +980,7 @@
       const settingsDiff = _buildSettingsDiff(remoteSettings);
 
       // -- Phase 3: Ancillary data applicator (runs after user accepts DiffModal) --
-      const applyAncillaryData = async () => {
+      const applyAncillaryData = async (importsBackupSettings) => {
         _restoreSpotAndCatalog(settingsObj);
         _restoreNumistaRules(settingsObj);
         _restoreItemPriceHistory(ancillary);
@@ -980,16 +989,16 @@
         await _restoreCachedMedia(zip);
         await _restoreAttachments(zip);
         // A pre-feature or malformed backup carries no disabled preference. Reset
-        // only after the accepted import settings have been applied so all
-        // Collections return to the enabled default without changing parse phase.
-        if (!Array.isArray(settingsObj && settingsObj.disabledCollections)) {
+        // only when the user accepts backup settings; a local Settings resolution
+        // keeps this device's hidden choices intact.
+        if (
+          importsBackupSettings !== false &&
+          !Array.isArray(settingsObj && settingsObj.disabledCollections)
+        ) {
           saveDataSync(DISABLED_COLLECTIONS_KEY, []);
         }
-        if (
-          window.collectionsStore &&
-          typeof window.collectionsStore.reconcilePopulated === "function"
-        ) {
-          window.collectionsStore.reconcilePopulated();
+        if (window.collectionsStore && typeof window.collectionsStore.reload === "function") {
+          window.collectionsStore.reload();
         }
         _finalizeRestore();
       };
@@ -1014,7 +1023,7 @@
               }
             : null,
         },
-        function (summary) {
+        function (summary, importsBackupSettings) {
           debugLog(
             "restoreBackupZip DiffModal complete",
             summary.added,
@@ -1024,7 +1033,7 @@
             summary.deleted,
             "deleted"
           );
-          applyAncillaryData()
+          applyAncillaryData(importsBackupSettings)
             .then(function () {
               showToast("ZIP backup restored successfully");
             })
