@@ -769,6 +769,31 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(panel(page)).toContainText("1881-CC");
   });
 
+  test("the Custom Collection builder media row stacks at a 375px viewport", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+
+    const media = builderModal(page).locator(".collections-builder-media");
+    const cover = media.locator(".collections-builder-cover");
+    const display = media.locator(".collections-builder-display");
+    await expect(media).toBeVisible();
+    await expect(cover).toBeVisible();
+    await expect(display).toBeVisible();
+
+    const coverBox = await cover.boundingBox();
+    const displayBox = await display.boundingBox();
+    expect(coverBox).not.toBeNull();
+    expect(displayBox).not.toBeNull();
+    expect(displayBox.x).toBeCloseTo(coverBox.x, 0);
+    expect(displayBox.width).toBeCloseTo(coverBox.width, 0);
+    expect(displayBox.y).toBeGreaterThan(coverBox.y);
+  });
+
   test("Clone & customize copies the template's slots into a new custom collection", async ({
     page,
   }) => {
