@@ -3,14 +3,14 @@ title: "StakTrakr — Issue Tracking (Plane)"
 project: StakTrakr
 audience: agent
 canonical: .context/issue-tracking.md
-updated: "2026-08-12"
+updated: "2026-09-26"
 ---
 
 # Issue Tracking — Plane
 
 Plane project: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`
 (workspace `lbruton`, prefix **STRK**). Create issues via `/issue` or `mcp__plane__create_issue`.
-Backend config lives in `.specflow/config.json`.
+Backend config lives in the `plane` block of `.claude/project.json` (`plane.workspace`, `plane.projectId`); Codex reads the mirrored `.codex/project.json`. `.specflow/config.json` is retired (DEVS-71) and will be removed in DEVS-74.
 
 Pre-migration issues currently live in the vault trash at
 `DocVault/.trash/Issues-Pre-Plane/StakTrakr/` — **not** under `DocVault/Archive/`, where this

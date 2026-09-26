@@ -91,7 +91,7 @@ Note which issue IDs appear in the mem0 results — these get a continuity boost
 
 ```text
 ⚠️  Active version claims:
-    - v3.32.29 — claude / STRK-315 (expires 10:30Z)
+    - v3.32.29 — Codex / STRK-315 (expires 10:30Z)
     - v3.32.30 — user / hotfix (expires 10:35Z)
     Next available version: v3.32.31
     (Claims expire after 30 min and are pruned automatically on next lock read.)
