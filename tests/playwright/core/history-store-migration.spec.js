@@ -9,7 +9,7 @@
 //   - the backup export/restore exclusion of spot/retail history
 //
 // Each test maps to one or more acceptance criteria from
-//   DocVault/specflow/StakTrakr/specs/STRK-141-migrate-market-histories-to-indexeddb/
+//   DocVault/Archive/specflow/StakTrakr/archive/specs/STRK-141-migrate-market-histories-to-indexeddb/
 //   {requirements.md, design.md (Testing Strategy)}.
 //
 // Conventions (StakTrakr Playwright gotchas):
