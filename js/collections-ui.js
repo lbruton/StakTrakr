@@ -89,6 +89,7 @@
     trash:
       '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+    grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
   });
 
   // ---------------------------------------------------------------------------
@@ -97,7 +98,10 @@
 
   const state = {
     hubFilter: STATUS_ALL,
-    hubSort: null,
+    hubPreferences: null,
+    hubArrangement: null,
+    hubAnnouncement: "",
+    hubFocusKeyAfterRender: "",
     albumFilter: SLOTS_ALL,
     albumSort: SORT_OLDEST,
   };
@@ -254,6 +258,127 @@
     } catch (error) {
       console.warn("[collections] Failed to save the view mode:", error);
     }
+    render();
+  };
+
+  /**
+   * Loads and validates the device-local hub preferences once per page session.
+   * @returns {{order: string[], sortKey: string, direction: string}} Preferences
+   */
+  const getHubPreferences = () => {
+    if (!state.hubPreferences) {
+      const stored =
+        typeof loadDataSync === "function"
+          ? loadDataSync(COLLECTIONS_HUB_PREFERENCES_KEY, null)
+          : null;
+      state.hubPreferences = window.collectionsSort.normalizeHubPreferences(stored);
+    }
+    return state.hubPreferences;
+  };
+
+  /**
+   * Attempts one atomic preference write and only updates page state after success.
+   * @param {Object} candidate - Complete preference value
+   * @param {string} failureMessage - User-facing error copy
+   * @returns {boolean} Whether the preference was committed
+   */
+  const commitHubPreferences = (candidate, failureMessage) => {
+    const result = window.collectionsSort.commitHubPreferences(
+      getHubPreferences(),
+      candidate,
+      (value) => {
+        if (typeof saveDataSync !== "function")
+          throw new Error("Synchronous storage is unavailable");
+        saveDataSync(COLLECTIONS_HUB_PREFERENCES_KEY, value);
+      }
+    );
+    if (!result.ok) {
+      console.error("[collections] Failed to save hub preferences:", result.error);
+      if (typeof window.showToast === "function") window.showToast(failureMessage, "error");
+      return false;
+    }
+    state.hubPreferences = result.preferences;
+    return true;
+  };
+
+  /**
+   * Saves a sort choice without changing the user's My order list.
+   * @param {string} sortKey - Selected preset
+   * @param {string} direction - asc or desc
+   * @returns {boolean} Whether the preference was committed
+   */
+  const saveHubSort = (sortKey, direction) =>
+    commitHubPreferences(
+      { ...getHubPreferences(), sortKey, direction },
+      "Couldn't save the Collections sort preference."
+    );
+
+  /**
+   * Begins a draft arrangement while retaining the current status filter for restoration.
+   * @param {Object[]} entries - All Collections, including hidden ones
+   * @returns {void}
+   */
+  const beginHubArrangement = (entries) => {
+    const preferences = getHubPreferences();
+    state.hubArrangement = {
+      order: window.collectionsSort
+        .orderEntries(entries, preferences.order)
+        .map((entry) => entry.id),
+      restoreFilter: state.hubFilter,
+    };
+    state.hubFilter = STATUS_ALL;
+    state.hubAnnouncement = "Arrange mode. Collections are shown in My order.";
+    state.hubFocusKeyAfterRender = "hub:arrange:cancel";
+    render();
+  };
+
+  /**
+   * Discards the draft arrangement and restores the previous status filter.
+   * @returns {void}
+   */
+  const cancelHubArrangement = () => {
+    if (!state.hubArrangement) return;
+    state.hubFilter = state.hubArrangement.restoreFilter;
+    state.hubArrangement = null;
+    state.hubAnnouncement = "Arrangement canceled.";
+    state.hubFocusKeyAfterRender = "hub:arrange";
+    render();
+  };
+
+  /**
+   * Saves a draft arrangement as My order. A failed write leaves the draft open.
+   * @returns {boolean} Whether the arrangement was committed
+   */
+  const saveHubArrangement = () => {
+    if (!state.hubArrangement) return false;
+    const committed = commitHubPreferences(
+      {
+        ...getHubPreferences(),
+        order: state.hubArrangement.order,
+        sortKey: "my-order",
+      },
+      "Couldn't save your Collections order. Your draft is still open."
+    );
+    if (!committed) return false;
+    state.hubFilter = state.hubArrangement.restoreFilter;
+    state.hubArrangement = null;
+    state.hubAnnouncement = "Collection order saved.";
+    state.hubFocusKeyAfterRender = "hub:arrange";
+    render();
+    return true;
+  };
+
+  /**
+   * Accepts a rendered reorder and updates the unsaved draft.
+   * @param {string[]} order - Full order including hidden ids
+   * @param {string} announcement - Accessible move result
+   * @returns {void}
+   */
+  const updateHubArrangement = (order, announcement, focusKey = "") => {
+    if (!state.hubArrangement) return;
+    state.hubArrangement = { ...state.hubArrangement, order };
+    state.hubAnnouncement = announcement;
+    state.hubFocusKeyAfterRender = focusKey;
     render();
   };
 
@@ -1146,6 +1271,13 @@
     DASH,
     PERCENT,
     state,
+    getHubPreferences,
+    saveHubSort,
+    getHubArrangement: () => state.hubArrangement,
+    beginHubArrangement,
+    cancelHubArrangement,
+    saveHubArrangement,
+    updateHubArrangement,
   });
   const { buildAlbum, closeSlotNotePopover } = window.createCollectionsAlbumRenderer({
     el,
@@ -1367,6 +1499,8 @@
 
     const focused = root.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = focused ? focused.dataset.focusKey : "";
+    const requestedFocusKey = state.hubFocusKeyAfterRender;
+    state.hubFocusKeyAfterRender = "";
 
     const all = buildEntries();
     const entries = all.filter((candidate) => store().isEnabled(candidate.id));
@@ -1386,15 +1520,21 @@
 
     const panel = el("div", "collections-panel");
     panel.appendChild(
-      entry ? buildAlbum(entry) : buildHub({ enabled: entries, hiddenCount, totalCount })
+      entry
+        ? buildAlbum(entry)
+        : buildHub({ entries: all, enabled: entries, hiddenCount, totalCount })
     );
     root.replaceChildren(panel);
 
-    if (focusKey) {
+    for (const candidateKey of [requestedFocusKey, focusKey]) {
+      if (!candidateKey) continue;
       const target = Array.from(root.querySelectorAll("[data-focus-key]")).find(
-        (node) => node.dataset.focusKey === focusKey
+        (node) => node.dataset.focusKey === candidateKey
       );
-      if (target) target.focus({ preventScroll: true });
+      if (target && !target.disabled) {
+        target.focus({ preventScroll: true });
+        break;
+      }
     }
     // Opening an album from far down the hub must not leave the user mid-page.
     if (routeChanged && root.getBoundingClientRect().top < 0)

@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.33 &ndash; Order the Collections hub</strong>: Save a device-local My order for Collections or choose from the same eight sort options in Album and Ledger. Arrange with drag handles, move buttons, or keyboard controls; new profiles keep the chronological Series Template default (STRK-378).</li>
     <li><strong>v3.36.32 &ndash; Manage Collections from Settings</strong>: A new Settings panel lists Series Templates and Custom Collections with ownership progress, lets you hide empty Collections from the hub, and opens Custom Collections in the builder. Populated Collections stay visible, their data remains intact, and hidden Collections return when Items arrive through sync or backup; the choice syncs across devices and ZIP backups (STRK-393).</li>
     <li><strong>v3.36.31 &ndash; Show or hide Item photos in Custom Collections</strong>: A new Item images choice sits under Coin side in Edit collection. Set it to Hide and filled Slots keep showing your Slot artwork or cover image instead of each Item&rsquo;s own photo &mdash; handy for a display-style set. Slots still read as owned, and the choice syncs with the Collection (STRK-401).</li>
     <li><strong>v3.36.30 &ndash; Custom Collection editor updates</strong>: The Edit collection header and footer are shorter, removing backup details. A larger Cover Image upload now sits beside an Obverse/Reverse Coin side toggle below Description, making it easier to choose which Item side appears in the Slots (STRK-400).</li>
     <li><strong>v3.36.29 &ndash; Custom Collection coin side and Slot notes</strong>: Choose whether a Custom Collection shows an Item&rsquo;s obverse or reverse from Edit collection, so the artwork matches the series you are building. Optional Slot notes open from an info button in Album and Ledger, with the note shown in a compact popover (STRK-399). The side choice travels with your Collection through sync and backup (STRK-390).</li>
-    <li><strong>v3.36.28 &ndash; Sort the Collections hub Ledger</strong>: Click a hub header to sort by Collection, Progress, Owned, Value (melt), or To complete; click again to reverse it. Keyboard controls and a mobile Sort menu keep the same choices available, while filters retain your selection and Album order stays unchanged (STRK-392).</li>
   `;
 };
 

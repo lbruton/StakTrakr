@@ -31,73 +31,99 @@
       DASH,
       PERCENT,
       state,
+      getHubPreferences,
+      saveHubSort,
+      getHubArrangement,
+      beginHubArrangement,
+      cancelHubArrangement,
+      saveHubArrangement,
+      updateHubArrangement,
     } = deps;
     const sort = window.collectionsSort;
+    let pointerDrag = null;
     const openCollectionsSettings = () => {
       if (typeof window.showSettingsModal === "function") window.showSettingsModal("collections");
     };
     const sortColumns = [
       ["name", "Collection"],
-      ["progress", "Progress"],
+      ["percent-complete", "Progress"],
       ["owned", "Owned"],
-      ["melt", "Value (melt)"],
-      ["cost", "To complete"],
+      ["value-melt", "Value (melt)"],
+      ["to-complete", "To complete"],
     ];
 
-    /** Select or reverse a hub column without changing saved Collection order.
-     * @param {string} key - Column key
+    /**
+     * Selects a preset and keeps the committed My order list intact.
+     * @param {string} key - Preset key
+     * @param {string} [direction] - Optional explicit direction
      * @returns {void}
      */
-    const selectSort = (key) => {
-      state.hubSort = sort.nextSort(state.hubSort, key);
+    const selectSort = (key, direction) => {
+      const nextDirection = direction || sort.defaultDirection(key);
+      saveHubSort(key, nextDirection);
+      // Re-render on failure too, restoring the selector to the last committed choice.
       render();
     };
 
-    /** Compact equivalent of the header actions for hidden mobile headers.
-     * @returns {HTMLElement} Labelled select with both directions and default order
+    /**
+     * Sort selector and direction control shared by Album and Ledger layouts.
+     * @returns {HTMLElement} Accessible sort controls
      */
-    const buildCompactSort = () => {
-      const label = el("label", "collections-hub-sort collections-show-sm", "Sort ");
+    const buildSortControls = () => {
+      const preferences = getHubPreferences();
+      const arranging = Boolean(getHubArrangement());
+      const group = el("div", "collections-sort-controls");
+      const label = el("label", "collections-hub-sort", "Sort ");
       const select = el("select");
       select.setAttribute("aria-label", "Sort collections");
-      select.dataset.focusKey = "hubsort:compact";
-      const option = el("option", "", "Default order");
-      option.value = "";
-      select.appendChild(option);
-      sortColumns.forEach(([key, name]) => {
-        ["asc", "desc"].forEach((direction) => {
-          const item = el(
-            "option",
-            "",
-            `${name} — ${direction === "asc" ? "ascending" : "descending"}`
-          );
-          item.value = `${key}:${direction}`;
-          select.appendChild(item);
-        });
+      select.dataset.focusKey = "hubsort:select";
+      sort.sortChoices.forEach(([key, name]) => {
+        const option = el("option", "", name);
+        option.value = key;
+        select.appendChild(option);
       });
-      select.value = state.hubSort ? `${state.hubSort.key}:${state.hubSort.direction}` : "";
+      select.value = preferences.sortKey;
+      select.disabled = arranging;
       select.addEventListener("change", () => {
-        const [key, direction] = select.value.split(":");
-        state.hubSort = key ? { key, direction } : null;
-        render();
+        selectSort(select.value);
       });
       label.appendChild(select);
-      return label;
+      group.appendChild(label);
+      const direction = button("collections-direction", "hubsort:direction", () =>
+        selectSort(preferences.sortKey, preferences.direction === "asc" ? "desc" : "asc")
+      );
+      direction.textContent = `${preferences.direction === "asc" ? "↑" : "↓"} ${preferences.direction === "asc" ? "Ascending" : "Descending"}`;
+      direction.setAttribute(
+        "aria-label",
+        `Sort direction: ${preferences.direction === "asc" ? "ascending" : "descending"}. Reverse direction`
+      );
+      direction.disabled = arranging || preferences.sortKey === "my-order";
+      group.appendChild(direction);
+      return group;
     };
 
     /** Builds the hub's sortable header while leaving the shared Slot header static.
      * @returns {HTMLElement} Header with native keyboard buttons
      */
     const buildHubHead = () => {
+      const preferences = getHubPreferences();
       const head = el("div", "collections-lrow is-head collections-hubrow");
       head.appendChild(el("span"));
       sortColumns.forEach(([key, label], index) => {
-        const active = state.hubSort?.key === key;
-        const direction = active ? state.hubSort.direction : null;
+        const active = preferences.sortKey === key;
+        const direction = active ? preferences.direction : null;
         const control = button(
           `collections-sort-header ${index > 1 ? "collections-num" : ""}`,
           `hubsort:${key}`,
-          () => selectSort(key)
+          () =>
+            selectSort(
+              key,
+              active
+                ? preferences.direction === "asc"
+                  ? "desc"
+                  : "asc"
+                : sort.defaultDirection(key)
+            )
         );
         control.appendChild(el("span", "", label));
         const indicator = el(
@@ -109,6 +135,7 @@
         control.appendChild(indicator);
         const status = active ? (direction === "asc" ? "ascending" : "descending") : "not sorted";
         control.setAttribute("aria-label", `Sort by ${label}, ${status}`);
+        control.disabled = Boolean(getHubArrangement());
         control.classList.toggle("is-active", active);
         head.appendChild(control);
       });
@@ -189,10 +216,11 @@
     };
 
     /**
-     * Hub toolbar: status filter, view toggle, Manage, New collection.
+     * Hub toolbar: status filter, shared sort controls, view toggle, and actions.
      * @returns {HTMLElement} The toolbar
      */
-    const buildHubToolbar = () => {
+    const buildHubToolbar = (entries) => {
+      const arranging = Boolean(getHubArrangement());
       const toolbar = el("div", "collections-toolbar");
       const tabs = el("div", "vendor-prices-tabs");
       tabs.setAttribute("role", "group");
@@ -209,11 +237,12 @@
         });
         tab.textContent = label;
         tab.setAttribute("aria-pressed", String(value === state.hubFilter));
+        tab.disabled = arranging;
         tabs.appendChild(tab);
       });
       toolbar.appendChild(tabs);
       const right = el("div", "collections-toolbar-right");
-      if (getViewMode() === VIEW_LEDGER) right.appendChild(buildCompactSort());
+      right.appendChild(buildSortControls());
       right.appendChild(buildViewToggle());
       right.appendChild(
         buildPillButton({
@@ -224,16 +253,66 @@
           onClick: openCollectionsSettings,
         })
       );
-      right.appendChild(
-        buildPillButton({
-          label: "New collection",
-          icon: "plus",
-          focusKey: "hub:new",
-          onClick: () => callPicker("openBuilder", {}),
-        })
-      );
+      if (!arranging && state.hubFilter === STATUS_ALL) {
+        right.appendChild(
+          buildPillButton({
+            label: "Arrange",
+            icon: "grip",
+            secondary: true,
+            focusKey: "hub:arrange",
+            onClick: () => beginHubArrangement(entries),
+          })
+        );
+      }
+      if (!arranging) {
+        right.appendChild(
+          buildPillButton({
+            label: "New collection",
+            icon: "plus",
+            focusKey: "hub:new",
+            onClick: () => callPicker("openBuilder", {}),
+          })
+        );
+      }
       toolbar.appendChild(right);
       return toolbar;
+    };
+
+    /**
+     * Draft controls and a polite move announcement for keyboard and assistive technology.
+     * @returns {HTMLElement|null} Draft control bar, if arranging
+     */
+    const buildArrangeBar = () => {
+      if (!getHubArrangement()) return null;
+      const bar = el("div", "collections-arrange-bar");
+      const copy = el("div", "collections-arrange-copy");
+      copy.appendChild(el("strong", "", "Arrange Collections"));
+      copy.appendChild(
+        el(
+          "span",
+          "",
+          "Drag a handle or use the move buttons. Your order saves when you choose Done."
+        )
+      );
+      bar.appendChild(copy);
+      const actions = el("div", "collections-arrange-actions");
+      actions.appendChild(
+        buildPillButton({
+          label: "Cancel",
+          secondary: true,
+          focusKey: "hub:arrange:cancel",
+          onClick: cancelHubArrangement,
+        })
+      );
+      actions.appendChild(
+        buildPillButton({
+          label: "Done",
+          focusKey: "hub:arrange:done",
+          onClick: saveHubArrangement,
+        })
+      );
+      bar.appendChild(actions);
+      return bar;
     };
 
     /**
@@ -281,11 +360,157 @@
       });
 
     /**
+     * Applies one pointer or button move to the current draft and announces its position.
+     * @param {Object} entry - Collection being moved
+     * @param {string} targetId - Visible target id
+     * @param {Object[]} visibleEntries - Entries shown in My order
+     * @param {boolean} [after] - Place after the target
+     * @returns {void}
+     */
+    const moveEntry = (entry, targetId, visibleEntries, after = false) => {
+      const arrangement = getHubArrangement();
+      if (!arrangement) return;
+      const visibleIds = visibleEntries.map((candidate) => candidate.id);
+      const nextOrder = sort.moveVisibleId(
+        arrangement.order,
+        visibleIds,
+        entry.id,
+        targetId,
+        after
+      );
+      if (nextOrder.every((id, index) => id === arrangement.order[index])) return;
+      const nextVisible = sort.orderEntries(visibleEntries, nextOrder);
+      const position = nextVisible.findIndex((candidate) => candidate.id === entry.id) + 1;
+      const activeFocusKey = document.activeElement?.dataset.focusKey || "";
+      let focusKey = "";
+      if (activeFocusKey === `hub:move-down:${entry.id}` && position === nextVisible.length)
+        focusKey = `hub:move-up:${entry.id}`;
+      else if (activeFocusKey === `hub:move-up:${entry.id}` && position === 1)
+        focusKey = `hub:move-down:${entry.id}`;
+      updateHubArrangement(
+        nextOrder,
+        `${entry.name} moved to position ${position} of ${nextVisible.length}.`,
+        focusKey
+      );
+    };
+
+    /**
+     * Scopes pointer reordering to the dedicated handle and captures pointer movement.
+     * @param {HTMLButtonElement} handle - Drag-only control
+     * @param {Object} entry - Collection represented by the handle
+     * @param {Object[]} visibleEntries - Current visible arrangement order
+     * @returns {void}
+     */
+    const wireDragHandle = (handle, entry, visibleEntries) => {
+      handle.draggable = false;
+      handle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !getHubArrangement()) return;
+        event.preventDefault();
+        pointerDrag = {
+          id: entry.id,
+          handle,
+          startX: event.clientX,
+          startY: event.clientY,
+          targetId: "",
+          after: false,
+          moved: false,
+        };
+        try {
+          handle.setPointerCapture(event.pointerId);
+          handle.closest("[data-hub-arrange-id]")?.classList.add("is-dragging");
+        } catch (error) {
+          pointerDrag = null;
+        }
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (!pointerDrag || pointerDrag.handle !== handle) return;
+        const distance = Math.hypot(
+          event.clientX - pointerDrag.startX,
+          event.clientY - pointerDrag.startY
+        );
+        if (distance < 5) return;
+        pointerDrag.moved = true;
+        const target = document
+          .elementFromPoint(event.clientX, event.clientY)
+          ?.closest("[data-hub-arrange-id]");
+        const targetId = target?.dataset.hubArrangeId || "";
+        const previous = document.querySelector("[data-hub-arrange-id].is-drop-target");
+        if (previous && previous !== target) previous.classList.remove("is-drop-target");
+        if (target && targetId !== pointerDrag.id) target.classList.add("is-drop-target");
+        pointerDrag.targetId = targetId;
+        pointerDrag.after = Boolean(
+          target &&
+          event.clientY >=
+            target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2
+        );
+      });
+      handle.addEventListener("pointerup", (event) => {
+        if (!pointerDrag || pointerDrag.handle !== handle) return;
+        const current = pointerDrag;
+        pointerDrag = null;
+        handle.closest("[data-hub-arrange-id]")?.classList.remove("is-dragging");
+        document
+          .querySelectorAll("[data-hub-arrange-id].is-drop-target")
+          .forEach((target) => target.classList.remove("is-drop-target"));
+        if (current.moved && current.targetId && current.targetId !== current.id)
+          moveEntry(entry, current.targetId, visibleEntries, current.after);
+        if (handle.hasPointerCapture(event.pointerId))
+          handle.releasePointerCapture(event.pointerId);
+      });
+      handle.addEventListener("pointercancel", () => {
+        pointerDrag = null;
+        handle.closest("[data-hub-arrange-id]")?.classList.remove("is-dragging");
+        document
+          .querySelectorAll("[data-hub-arrange-id].is-drop-target")
+          .forEach((target) => target.classList.remove("is-drop-target"));
+      });
+    };
+
+    /**
+     * Dedicated handle and touch-sized keyboard move buttons for one entry.
+     * @param {Object} entry - Collection entry
+     * @param {number} index - Position in the visible arrangement
+     * @param {Object[]} visibleEntries - All enabled entries in My order
+     * @returns {HTMLElement} Reorder control group
+     */
+    const buildArrangeControls = (entry, index, visibleEntries) => {
+      const controls = el("div", "collections-arrange-controls");
+      controls.setAttribute("role", "group");
+      controls.setAttribute("aria-label", `Arrange ${entry.name}`);
+      const handle = button("collections-arrange-handle", `hub:drag:${entry.id}`, () => {});
+      handle.setAttribute("aria-label", `Drag ${entry.name} to reorder`);
+      handle.title = `Drag ${entry.name} to reorder`;
+      handle.appendChild(icon("grip"));
+      wireDragHandle(handle, entry, visibleEntries);
+      controls.appendChild(handle);
+
+      const up = button("collections-move-button", `hub:move-up:${entry.id}`, () => {
+        if (index > 0) moveEntry(entry, visibleEntries[index - 1].id, visibleEntries);
+      });
+      up.textContent = "↑";
+      up.setAttribute("aria-label", `Move ${entry.name} up`);
+      up.disabled = index === 0;
+      controls.appendChild(up);
+
+      const down = button("collections-move-button", `hub:move-down:${entry.id}`, () => {
+        if (index + 1 < visibleEntries.length)
+          moveEntry(entry, visibleEntries[index + 1].id, visibleEntries, true);
+      });
+      down.textContent = "↓";
+      down.setAttribute("aria-label", `Move ${entry.name} down`);
+      down.disabled = index + 1 >= visibleEntries.length;
+      controls.appendChild(down);
+      return controls;
+    };
+
+    /**
      * One hub card (album mode).
      * @param {Object} entry - Entry view model
-     * @returns {HTMLButtonElement} The card
+     * @param {number} index - Position in visible My order while arranging
+     * @param {Object[]} visibleEntries - All visible enabled entries
+     * @returns {HTMLElement} The card or its arrangement wrapper
      */
-    const buildHubCard = (entry) => {
+    const buildHubCard = (entry, index, visibleEntries) => {
       const card = button("collections-card", `open:${entry.id}`, () => openCollection(entry.id));
       card.dataset.collectionId = entry.id;
       card.appendChild(buildEntryCoin(entry));
@@ -299,7 +524,12 @@
       body.appendChild(buildProgress(entry.progress));
       body.appendChild(el("span", "collections-card-foot", cardFootText(entry)));
       card.appendChild(body);
-      return card;
+      if (!getHubArrangement()) return card;
+      const item = el("div", "collections-arrange-item collections-arrange-card");
+      item.dataset.hubArrangeId = entry.id;
+      item.appendChild(card);
+      item.appendChild(buildArrangeControls(entry, index, visibleEntries));
+      return item;
     };
 
     /**
@@ -325,9 +555,11 @@
     /**
      * One hub table row (ledger mode).
      * @param {Object} entry - Entry view model
-     * @returns {HTMLButtonElement} The row
+     * @param {number} index - Position in visible My order while arranging
+     * @param {Object[]} visibleEntries - All visible enabled entries
+     * @returns {HTMLElement} The row or its arrangement wrapper
      */
-    const buildHubRow = (entry) => {
+    const buildHubRow = (entry, index, visibleEntries) => {
       const row = button("collections-lrow collections-hubrow", `open:${entry.id}`, () =>
         openCollection(entry.id)
       );
@@ -351,10 +583,18 @@
       row.appendChild(
         el("span", "collections-num collections-hide-sm", costLabel(entry.costToComplete))
       );
-      const chevron = icon("chevron");
-      chevron.classList.add("collections-hide-sm");
-      row.appendChild(chevron);
-      return row;
+      if (!getHubArrangement()) {
+        const chevron = icon("chevron");
+        chevron.classList.add("collections-hide-sm");
+        row.appendChild(chevron);
+        return row;
+      }
+      row.classList.add("is-arranging");
+      const item = el("div", "collections-arrange-item collections-arrange-ledger-item");
+      item.dataset.hubArrangeId = entry.id;
+      item.appendChild(row);
+      item.appendChild(buildArrangeControls(entry, index, visibleEntries));
+      return item;
     };
 
     /**
@@ -375,8 +615,8 @@
      * @param {number} totalCount - Number of available entries before filtering
      * @returns {HTMLElement} The body
      */
-    const buildHubBody = (entries, totalCount) => {
-      if (totalCount > 0 && entries.length === 0) {
+    const buildHubBody = (entries, enabled, totalCount) => {
+      if (totalCount > 0 && enabled.length === 0) {
         const empty = buildEmptyState(
           "All Collections are turned off",
           "Nothing was deleted. Turn Collections back on in Settings, or start a new one."
@@ -404,38 +644,38 @@
         return empty;
       }
 
-      const visible = entries.filter(
-        (entry) => state.hubFilter === STATUS_ALL || entry.status === state.hubFilter
+      const arrangement = getHubArrangement();
+      const arranged = arrangement
+        ? sort.orderEntries(entries, arrangement.order)
+        : sort.sortHubEntries(entries, getHubPreferences());
+      const enabledIds = new Set(enabled.map((entry) => entry.id));
+      const visible = arranged.filter(
+        (entry) =>
+          enabledIds.has(entry.id) &&
+          (arrangement || state.hubFilter === STATUS_ALL || entry.status === state.hubFilter)
       );
       if (getViewMode() === VIEW_LEDGER) {
         if (!visible.length)
           return buildEmptyState("Nothing here yet", "No collections match this filter.");
         const table = el("div", "collections-ledger");
         table.appendChild(buildHubHead());
-        const selected = state.hubSort;
-        const ordered = selected
-          ? sort.sortRows(
-              visible,
-              (entry) => sort.hubKey(entry, selected.key),
-              selected.direction,
-              selected.key === "name" ? "text" : "number"
-            )
-          : visible;
-        ordered.forEach((entry) => table.appendChild(buildHubRow(entry)));
+        visible.forEach((entry, index) => table.appendChild(buildHubRow(entry, index, visible)));
         return table;
       }
-      const grid = el("div", "collections-grid");
-      visible.forEach((entry) => grid.appendChild(buildHubCard(entry)));
-      if (state.hubFilter === STATUS_ALL || !visible.length) grid.appendChild(buildNewCard());
+      const grid = el("div", arrangement ? "collections-grid is-arranging" : "collections-grid");
+      visible.forEach((entry, index) => grid.appendChild(buildHubCard(entry, index, visible)));
+      if (!arrangement && (state.hubFilter === STATUS_ALL || !visible.length))
+        grid.appendChild(buildNewCard());
       return grid;
     };
 
     /**
      * The hub view.
-     * @param {{enabled: Object[], hiddenCount: number, totalCount: number}} spec - Entry counts
+     * @param {{entries: Object[], enabled: Object[], hiddenCount: number, totalCount: number}} spec
+     *   - All entries and visibility counts
      * @returns {HTMLElement} Hub panel content
      */
-    const buildHub = ({ enabled, hiddenCount, totalCount }) => {
+    const buildHub = ({ entries, enabled, hiddenCount, totalCount }) => {
       const hub = el("div", "collections-hub");
       hub.appendChild(buildHubHeader());
       // No first-run hero: an unstarted Series Template already shows as a ghosted 0 / N card
@@ -443,8 +683,14 @@
       // collection exists — before that every figure would be zero.
       const started = core().listCollections(store().getState()).length > 0;
       if (started) hub.appendChild(buildHubStats(enabled));
-      hub.appendChild(buildHubToolbar());
-      hub.appendChild(buildHubBody(enabled, totalCount));
+      hub.appendChild(buildHubToolbar(entries));
+      const arrangeBar = buildArrangeBar();
+      if (arrangeBar) hub.appendChild(arrangeBar);
+      const announcement = el("div", "sr-only collections-arrange-status", state.hubAnnouncement);
+      announcement.setAttribute("role", "status");
+      announcement.setAttribute("aria-live", "polite");
+      hub.appendChild(announcement);
+      hub.appendChild(buildHubBody(entries, enabled, totalCount));
       if (hiddenCount > 0 && enabled.length > 0) {
         const note = el("div", "collections-hidden-note");
         note.appendChild(document.createTextNode(`${hiddenCount} hidden · `));

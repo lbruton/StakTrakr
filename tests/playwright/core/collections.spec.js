@@ -2478,6 +2478,16 @@ const seedSortableHub = async (page) => {
  */
 const ledgerNames = (page) =>
   panel(page).locator(".collections-hubrow[data-collection-id] .collections-lrow-name b");
+const albumNames = (page) =>
+  panel(page).locator(".collections-card[data-collection-id] .collections-card-name b");
+const albumIds = (page) =>
+  panel(page)
+    .locator(".collections-card[data-collection-id]")
+    .evaluateAll((nodes) => nodes.map((node) => node.dataset.collectionId));
+const ledgerIds = (page) =>
+  panel(page)
+    .locator(".collections-hubrow[data-collection-id]")
+    .evaluateAll((nodes) => nodes.map((node) => node.dataset.collectionId));
 
 const hubSortCases = [
   [
@@ -2509,18 +2519,25 @@ const hubSortCases = [
 
 test.describe("hub Ledger sorting", () => {
   for (const [label, ascending, descending] of hubSortCases) {
-    test(`${label} sorts visible rows in both directions`, async ({ page }) => {
+    const defaultDirection =
+      label === "Progress" || label === "Owned" || label === "Value (melt)" ? "desc" : "asc";
+    const presetOrder = defaultDirection === "asc" ? ascending : descending;
+    const reversedOrder = defaultDirection === "asc" ? descending : ascending;
+    test(`${label} header selects its preset direction and then reverses`, async ({ page }) => {
       await seedSortableHub(page);
       const header = panel(page).getByRole("button", {
         name: `Sort by ${label}, not sorted`,
         exact: true,
       });
       await header.click();
-      await expect(ledgerNames(page)).toHaveText(ascending);
+      await expect(ledgerNames(page)).toHaveText(presetOrder);
       await panel(page)
-        .getByRole("button", { name: `Sort by ${label}, ascending`, exact: true })
+        .getByRole("button", {
+          name: `Sort by ${label}, ${defaultDirection === "asc" ? "ascending" : "descending"}`,
+          exact: true,
+        })
         .click();
-      await expect(ledgerNames(page)).toHaveText(descending);
+      await expect(ledgerNames(page)).toHaveText(reversedOrder);
       await expect(page).toHaveURL(/#\/collections$/);
     });
   }
@@ -2537,30 +2554,28 @@ test.describe("hub Ledger sorting", () => {
     await header.focus();
     await header.press("Enter");
     const active = panel(page).getByRole("button", {
-      name: "Sort by Owned, ascending",
+      name: "Sort by Owned, descending",
       exact: true,
     });
     await expect(active).toBeFocused();
     await active.press("Space");
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][1]);
     await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
-    await expect(ledgerNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Unknown"]);
+    await expect(ledgerNames(page)).toHaveText(["Zeta", "Beta", "Unknown", "Alpha"]);
     await panel(page).getByRole("button", { name: "Complete", exact: true }).click();
     await expect(panel(page)).toContainText("No collections match this filter");
     await panel(page).getByRole("button", { name: "All", exact: true }).click();
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][1]);
     await panel(page).getByRole("button", { name: "Album view" }).click();
-    await expect(panel(page).locator(".collections-card-name b")).toHaveText(
-      ledgerFixtures.map((entry) => entry.name)
-    );
+    await expect(panel(page).locator(".collections-card-name b")).toHaveText(hubSortCases[2][1]);
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][1]);
     expect(await page.evaluate(() => JSON.stringify(window.collectionsStore.getState()))).toBe(
       saved
     );
   });
 
-  test("mobile Sort exposes every column and both directions with default-order reset", async ({
+  test("mobile Sort exposes all eight presets and reverses each sortable preset", async ({
     page,
   }) => {
     await seedSortableHub(page);
@@ -2568,14 +2583,61 @@ test.describe("hub Ledger sorting", () => {
     await expect(panel(page).locator(".is-head")).toBeHidden();
     const select = panel(page).getByRole("combobox", { name: "Sort collections" });
     await expect(select).toBeVisible();
-    for (let i = 0; i < hubSortCases.length; i++) {
-      const key = ["name", "progress", "owned", "melt", "cost"][i];
-      await select.selectOption(`${key}:asc`);
-      await expect(ledgerNames(page)).toHaveText(hubSortCases[i][1]);
-      await select.selectOption(`${key}:desc`);
-      await expect(ledgerNames(page)).toHaveText(hubSortCases[i][2]);
+    const choices = [
+      ["my-order", ledgerFixtures.map((entry) => entry.name), null],
+      ["name", hubSortCases[0][1], "asc"],
+      ["run-start", ledgerFixtures.map((entry) => entry.name), "asc"],
+      ["percent-complete", hubSortCases[1][2], "desc"],
+      ["recently-updated", ledgerFixtures.map((entry) => entry.name), "desc"],
+      ["owned", hubSortCases[2][2], "desc"],
+      ["value-melt", hubSortCases[3][2], "desc"],
+      ["to-complete", hubSortCases[4][1], "asc"],
+    ];
+    const recentRows = await page.evaluate(() => {
+      const templates = Object.values(window.__COLLECTIONS_BUNDLE.templates);
+      const collections = window.collectionsStore.getState().collections;
+      return templates.map((template, index) => ({
+        name: template.name,
+        index,
+        lastModified: collections[template.slug]?.lastModified || "",
+      }));
+    });
+    const recentlyUpdated = recentRows
+      .slice()
+      .sort((a, b) => {
+        if (Boolean(a.lastModified) !== Boolean(b.lastModified)) return a.lastModified ? -1 : 1;
+        return (b.lastModified || "").localeCompare(a.lastModified || "") || a.index - b.index;
+      })
+      .map((row) => row.name);
+    const recentlyUpdatedAsc = recentRows
+      .slice()
+      .sort((a, b) => {
+        if (Boolean(a.lastModified) !== Boolean(b.lastModified)) return a.lastModified ? -1 : 1;
+        return (a.lastModified || "").localeCompare(b.lastModified || "") || a.index - b.index;
+      })
+      .map((row) => row.name);
+    choices[4][1] = recentlyUpdated;
+    for (const [key, expectedDefault, defaultDirection] of choices) {
+      await select.selectOption(key);
+      await expect(ledgerNames(page)).toHaveText(expectedDefault);
+      const direction = panel(page).getByRole("button", {
+        name: `Sort direction: ${defaultDirection === "desc" ? "descending" : "ascending"}. Reverse direction`,
+      });
+      if (defaultDirection) {
+        await direction.click();
+        const reversed = {
+          name: hubSortCases[0][2],
+          "run-start": ledgerFixtures.map((entry) => entry.name).reverse(),
+          "percent-complete": hubSortCases[1][1],
+          "recently-updated": recentlyUpdatedAsc,
+          owned: hubSortCases[2][1],
+          "value-melt": hubSortCases[3][1],
+          "to-complete": hubSortCases[4][2],
+        }[key];
+        await expect(ledgerNames(page)).toHaveText(reversed);
+      }
     }
-    await select.selectOption("");
+    await select.selectOption("my-order");
     await expect(ledgerNames(page)).toHaveText(ledgerFixtures.map((entry) => entry.name));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true
@@ -2593,13 +2655,345 @@ test("hub Ledger sorting remains usable in four themes", async ({ page }, testIn
       (value) => document.documentElement.setAttribute("data-theme", value),
       theme
     );
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[1][1]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[1][2]);
     await expect(
-      panel(page).getByRole("button", { name: "Sort by Progress, ascending", exact: true })
+      panel(page).getByRole("button", { name: "Sort by Progress, descending", exact: true })
     ).toBeVisible();
     await panel(page).screenshot({ path: testInfo.outputPath(`hub-${theme}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toBeVisible();
   await panel(page).screenshot({ path: testInfo.outputPath("hub-mobile.png") });
+});
+
+test("arrangement controls fit desktop and phone widths in all four themes", async ({
+  page,
+}, testInfo) => {
+  await seedSortableHub(page);
+  for (const [view, buttonName] of [
+    ["album", "Album view"],
+    ["ledger", "Ledger view"],
+  ]) {
+    await panel(page).getByRole("button", { name: buttonName }).click();
+    await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+    await expect(page.locator(".cloud-toast").filter({ hasText: "Running locally" })).toHaveCount(
+      0
+    );
+    for (const theme of ["dark", "light", "slate", "sepia"]) {
+      await page.evaluate(
+        (value) => document.documentElement.setAttribute("data-theme", value),
+        theme
+      );
+      for (const [width, height, size] of [
+        [1280, 900, "desktop"],
+        [390, 844, "mobile"],
+      ]) {
+        await page.setViewportSize({ width, height });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true
+        );
+        const controls = panel(page).locator(".collections-arrange-controls button");
+        const dimensions = await controls.evaluateAll((nodes) =>
+          nodes.map((node) => {
+            const rect = node.getBoundingClientRect();
+            return { width: rect.width, height: rect.height };
+          })
+        );
+        expect(dimensions.length).toBeGreaterThan(0);
+        dimensions.forEach(({ width: controlWidth, height: controlHeight }) => {
+          expect(controlWidth).toBeGreaterThanOrEqual(44);
+          expect(controlHeight).toBeGreaterThanOrEqual(44);
+        });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toBeVisible();
+        await page.screenshot({
+          path: testInfo.outputPath(`arrange-${view}-${theme}-${size}.png`),
+        });
+      }
+    }
+    await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  }
+});
+
+test("Arrange keeps a keyboard draft across filters, views, and album navigation", async ({
+  page,
+}) => {
+  await seedSortableHub(page);
+  const baseline = ledgerFixtures.map((entry) => entry.name);
+  await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
+  await panel(page).getByRole("combobox", { name: "Sort collections" }).selectOption("owned");
+  await expect(ledgerNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Unknown"]);
+  await expect(panel(page).getByRole("button", { name: "Arrange", exact: true })).toHaveCount(0);
+  await panel(page).getByRole("button", { name: "All", exact: true }).click();
+
+  await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+  await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toHaveValue(
+    "owned"
+  );
+  await expect(ledgerNames(page)).toHaveText(baseline);
+  const moveZetaDown = panel(page).getByRole("button", { name: "Move Zeta down", exact: true });
+  await moveZetaDown.focus();
+  await moveZetaDown.press("Enter");
+  const moved = ["Alpha", "Zeta", "Beta", "Delta", "Unknown"];
+  await expect(ledgerNames(page)).toHaveText(moved);
+  await expect(
+    panel(page).getByRole("button", { name: "Move Zeta down", exact: true })
+  ).toBeFocused();
+  await expect(panel(page).getByRole("status")).toHaveText("Zeta moved to position 2 of 5.");
+
+  await panel(page).getByRole("button", { name: "Album view" }).click();
+  await expect(albumNames(page)).toHaveText(moved);
+  await panel(page).locator('.collections-card[data-collection-id="zeta"]').click();
+  await expect(panel(page).getByRole("heading", { name: "Zeta" })).toBeVisible();
+  await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+  await expect(albumNames(page)).toHaveText(moved);
+
+  await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(albumNames(page)).toHaveText(hubSortCases[2][2]);
+  await expect(panel(page).getByRole("button", { name: "All", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toHaveValue(
+    "owned"
+  );
+
+  await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+  await panel(page).getByRole("button", { name: "Move Zeta down", exact: true }).click();
+  await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+  await expect(albumNames(page)).toHaveText(moved);
+  await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toHaveValue(
+    "my-order"
+  );
+  await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
+  await expect(albumNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Unknown"]);
+});
+
+test("drag handles reorder rendered cards and rows in both layouts", async ({ page }) => {
+  await seedSortableHub(page);
+  await panel(page).getByRole("button", { name: "Album view" }).click();
+  const baseline = await albumIds(page);
+  await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+
+  const dragTo = async (movingName, targetId, lowerHalf) => {
+    const handle = panel(page).getByRole("button", { name: `Drag ${movingName} to reorder` });
+    const target = panel(page).locator(`[data-hub-arrange-id="${targetId}"]`);
+    await target.scrollIntoViewIfNeeded();
+    const handleBox = await handle.boundingBox();
+    const targetBox = await target.boundingBox();
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height * (lowerHalf ? 0.8 : 0.2),
+      { steps: 6 }
+    );
+    await page.mouse.up();
+  };
+
+  await dragTo("Zeta", "unknown", true);
+  const albumExpected = ["alpha", "beta", "delta", "unknown", "zeta"];
+  await expect.poll(() => albumIds(page)).toEqual(albumExpected);
+  await expect(page).toHaveURL(/#\/collections$/);
+
+  await panel(page).getByRole("button", { name: "Ledger view" }).click();
+  expect(await ledgerIds(page)).toEqual(albumExpected);
+  await dragTo("Unknown", "beta", false);
+  const ledgerExpected = ["alpha", "unknown", "beta", "delta", "zeta"];
+  await expect.poll(() => ledgerIds(page)).toEqual(ledgerExpected);
+  await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(await ledgerIds(page)).toEqual(baseline);
+});
+
+test("sort and My order preferences persist and render after reload", async ({ page }) => {
+  await seedAndGoto(page);
+  await openCollectionsTab(page);
+  const optionLabels = [
+    "My order",
+    "Name",
+    "Run start",
+    "Percent complete",
+    "Recently updated",
+    "Owned",
+    "Value (melt)",
+    "To complete",
+  ];
+  await expect(
+    panel(page).getByRole("combobox", { name: "Sort collections" }).locator("option")
+  ).toHaveText(optionLabels);
+  const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+  await panel(page).getByRole("combobox", { name: "Sort collections" }).selectOption("name");
+  await panel(page)
+    .getByRole("button", { name: /Sort direction: ascending/ })
+    .click();
+  const descendingNames = (await albumNames(page).allTextContents())
+    .slice()
+    .sort((a, b) => collator.compare(b, a));
+  await expect(albumNames(page)).toHaveText(descendingNames);
+  await panel(page).getByRole("button", { name: "Ledger view" }).click();
+  await expect(
+    panel(page).getByRole("combobox", { name: "Sort collections" }).locator("option")
+  ).toHaveText(optionLabels);
+  await expect(ledgerNames(page)).toHaveText(descendingNames);
+
+  await reloadCollections(page);
+  await openCollectionsTab(page);
+  await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toHaveValue("name");
+  await expect(ledgerNames(page)).toHaveText(descendingNames);
+
+  const fallbackIds = await page.evaluate(() =>
+    window.collectionsUI.buildEntries().map((entry) => entry.id)
+  );
+  await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+  expect(await ledgerIds(page)).toEqual(fallbackIds);
+  await panel(page)
+    .locator(`[data-hub-arrange-id="${fallbackIds[0]}"]`)
+    .getByRole("button", { name: /Move .* down$/ })
+    .click();
+  const arrangedIds = fallbackIds.slice();
+  [arrangedIds[0], arrangedIds[1]] = [arrangedIds[1], arrangedIds[0]];
+  await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+  expect(await ledgerIds(page)).toEqual(arrangedIds);
+
+  await reloadCollections(page);
+  await openCollectionsTab(page);
+  await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toHaveValue(
+    "my-order"
+  );
+  expect(await ledgerIds(page)).toEqual(arrangedIds);
+  expect(
+    await page.evaluate(() =>
+      window.SYNC_SCOPE_KEYS.includes(window.COLLECTIONS_HUB_PREFERENCES_KEY)
+    )
+  ).toBe(false);
+});
+
+test("hidden Collections keep their position when visible entries are arranged", async ({
+  page,
+}) => {
+  await seedAndGoto(page);
+  await page.evaluate(() => {
+    ["Hidden-order fixture", "New-order fixture"].forEach((name) => {
+      const created = window.collectionsStore.createCustom({
+        name,
+        metal: "Silver",
+        slots: [{ label: "One" }],
+      });
+      if (!created.ok) throw new Error(`Fixture creation failed: ${created.reason}`);
+    });
+  });
+  const ids = await page.evaluate(() =>
+    window.collectionsUI
+      .buildEntries()
+      .slice(0, 4)
+      .map((entry) => entry.id)
+  );
+  await page.evaluate(
+    ({ ids: [first, hidden, third, fourth] }) => {
+      window.saveDataSync(window.COLLECTIONS_HUB_PREFERENCES_KEY, {
+        order: [first, hidden, third, fourth],
+        sortKey: "my-order",
+        direction: "asc",
+      });
+      const result = window.collectionsStore.setEnabled(hidden, false);
+      if (!result.ok) throw new Error(JSON.stringify(result));
+    },
+    { ids }
+  );
+  await openCollectionsTab(page);
+  expect(await albumIds(page)).toEqual([ids[0], ids[2], ids[3]]);
+  await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+  const fourthName = await panel(page)
+    .locator(`[data-collection-id="${ids[3]}"] .collections-card-name b`)
+    .textContent();
+  await panel(page)
+    .getByRole("button", { name: `Move ${fourthName} up`, exact: true })
+    .click();
+  await panel(page)
+    .getByRole("button", { name: `Move ${fourthName} up`, exact: true })
+    .click();
+  await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+  expect(await albumIds(page)).toEqual([ids[3], ids[0], ids[2]]);
+
+  await page.evaluate((hiddenId) => window.collectionsStore.setEnabled(hiddenId, true), ids[1]);
+  await expect.poll(() => albumIds(page)).toEqual([ids[3], ids[1], ids[0], ids[2]]);
+});
+
+test("a failed order save keeps Arrange open and reports the error", async ({ page }) => {
+  await seedSortableHub(page);
+  const baseline = await ledgerNames(page).allTextContents();
+  await panel(page).getByRole("button", { name: "Arrange", exact: true }).click();
+  await panel(page).getByRole("button", { name: "Move Zeta down", exact: true }).click();
+  await page.evaluate(() => {
+    window.__hubPreferenceErrors = [];
+    window.__originalShowToast = window.showToast;
+    window.showToast = (message, level) => window.__hubPreferenceErrors.push({ message, level });
+    window.__originalStorageSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === window.COLLECTIONS_HUB_PREFERENCES_KEY)
+        throw new DOMException("Storage full", "QuotaExceededError");
+      return window.__originalStorageSetItem.call(this, key, value);
+    };
+  });
+
+  await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+  await expect(panel(page).locator(".collections-arrange-bar")).toBeVisible();
+  await expect(ledgerNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Delta", "Unknown"]);
+  expect(
+    await page.evaluate(() =>
+      window.__hubPreferenceErrors.some(
+        ({ message, level }) => message.includes("draft is still open") && level === "error"
+      )
+    )
+  ).toBe(true);
+  await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  const sortSelect = panel(page).getByRole("combobox", { name: "Sort collections" });
+  await sortSelect.selectOption("name");
+  await expect(sortSelect).toHaveValue("my-order");
+  await expect(ledgerNames(page)).toHaveText(baseline);
+  expect(
+    await page.evaluate(() =>
+      window.__hubPreferenceErrors.some(
+        ({ message, level }) => message.includes("sort preference") && level === "error"
+      )
+    )
+  ).toBe(true);
+  await page.evaluate(() => {
+    Storage.prototype.setItem = window.__originalStorageSetItem;
+    window.showToast = window.__originalShowToast;
+  });
+});
+
+test("Arrange entry, boundary moves, and exit keep keyboard focus", async ({ page }) => {
+  await seedSortableHub(page);
+  const arrange = panel(page).getByRole("button", { name: "Arrange", exact: true });
+  await arrange.focus();
+  await arrange.press("Enter");
+  await expect(panel(page).getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+
+  const firstName = await ledgerNames(page).first().textContent();
+  const itemCount = await panel(page).locator("[data-hub-arrange-id]").count();
+  const moveDown = panel(page).getByRole("button", {
+    name: `Move ${firstName} down`,
+    exact: true,
+  });
+  for (let index = 1; index < itemCount; index += 1) await moveDown.click();
+  await expect(
+    panel(page).getByRole("button", { name: `Move ${firstName} up`, exact: true })
+  ).toBeFocused();
+  const moveUp = panel(page).getByRole("button", {
+    name: `Move ${firstName} up`,
+    exact: true,
+  });
+  for (let index = 1; index < itemCount; index += 1) await moveUp.click();
+  await expect(
+    panel(page).getByRole("button", { name: `Move ${firstName} down`, exact: true })
+  ).toBeFocused();
+
+  await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(arrange).toBeFocused();
+  await arrange.press("Enter");
+  await expect(panel(page).getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+  await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+  await expect(arrange).toBeFocused();
 });

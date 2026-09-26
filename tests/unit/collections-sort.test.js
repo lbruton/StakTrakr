@@ -2,7 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 globalThis.window = {};
 await import("../../js/collections-sort.js");
-const { sortRows, hubKey, nextSort } = globalThis.window.collectionsSort;
+const {
+  sortRows,
+  hubKey,
+  nextSort,
+  normalizeHubPreferences,
+  orderEntries,
+  sortHubEntries,
+  commitHubPreferences,
+  moveVisibleId,
+} = globalThis.window.collectionsSort;
 const ids = (rows) => rows.map((row) => row.id);
 
 test("numeric keys keep zero known and unknown values last in both directions", () => {
@@ -64,4 +73,126 @@ test("new columns start ascending and the active column toggles", () => {
     key: "name",
     direction: "asc",
   });
+});
+
+test("hub preferences validate sort choices, directions, and unique string ids", () => {
+  assert.deepEqual(
+    normalizeHubPreferences({
+      order: ["ase-type2", "", 4, "ase-type2", "maple"],
+      sortKey: "unknown",
+      direction: "sideways",
+    }),
+    { order: ["ase-type2", "maple"], sortKey: "my-order", direction: "asc" }
+  );
+  assert.deepEqual(normalizeHubPreferences({ order: ["maple"], sortKey: "percent-complete" }), {
+    order: ["maple"],
+    sortKey: "percent-complete",
+    direction: "desc",
+  });
+  assert.deepEqual(normalizeHubPreferences(null), {
+    order: [],
+    sortKey: "my-order",
+    direction: "asc",
+  });
+});
+
+test("saved order ignores removed ids and appends new entries in fallback order", () => {
+  const entries = ["type1", "type2", "custom-oldest", "custom-newest"].map((id) => ({ id }));
+  assert.deepEqual(ids(orderEntries(entries, ["removed", "custom-oldest", "type2"])), [
+    "custom-oldest",
+    "type2",
+    "type1",
+    "custom-newest",
+  ]);
+});
+
+test("preset ties retain My order and missing run dates, updates, and values stay last", () => {
+  const entries = [
+    {
+      id: "custom",
+      name: "Set 2",
+      template: null,
+      collection: { lastModified: "2026-02-01T00:00:00.000Z" },
+      ledgerMelt: 0,
+      progress: { owned: 0, total: 0, missing: 0 },
+      costToComplete: null,
+    },
+    {
+      id: "template-later",
+      name: "Set 2",
+      template: { run: { start: 2024 } },
+      collection: { lastModified: "2026-03-01T00:00:00.000Z" },
+      ledgerMelt: 12,
+      progress: { owned: 1, total: 2, missing: 1 },
+      costToComplete: 24,
+    },
+    {
+      id: "template-earlier",
+      name: "Set 10",
+      template: { run: { start: 2022 } },
+      collection: { lastModified: "" },
+      ledgerMelt: null,
+      progress: { owned: 0, total: 1, missing: 1 },
+      costToComplete: null,
+    },
+  ];
+  const myOrder = ["custom", "template-later", "template-earlier"];
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "name", direction: "asc" })),
+    ["custom", "template-later", "template-earlier"]
+  );
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "run-start", direction: "desc" })),
+    ["template-later", "template-earlier", "custom"]
+  );
+  assert.deepEqual(
+    ids(
+      sortHubEntries(entries, { order: myOrder, sortKey: "recently-updated", direction: "desc" })
+    ),
+    ["template-later", "custom", "template-earlier"]
+  );
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "value-melt", direction: "desc" })),
+    ["template-later", "custom", "template-earlier"]
+  );
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "recently-updated", direction: "asc" })),
+    ["custom", "template-later", "template-earlier"]
+  );
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "value-melt", direction: "asc" })),
+    ["custom", "template-later", "template-earlier"]
+  );
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "to-complete", direction: "desc" })),
+    ["template-later", "custom", "template-earlier"]
+  );
+});
+
+test("arrangement reorders visible entries without moving hidden entries", () => {
+  assert.deepEqual(moveVisibleId(["hidden", "a", "b", "c"], ["a", "b", "c"], "c", "a"), [
+    "hidden",
+    "c",
+    "a",
+    "b",
+  ]);
+  assert.deepEqual(moveVisibleId(["a", "b"], ["a", "b"], "a", "a"), ["a", "b"]);
+});
+
+test("preference persistence reports write failures without accepting the new value", () => {
+  const current = { order: ["a"], sortKey: "name", direction: "asc" };
+  const next = { order: ["b", "a"], sortKey: "my-order", direction: "asc" };
+  const error = new Error("quota");
+  const failed = commitHubPreferences(current, next, () => {
+    throw error;
+  });
+  assert.deepEqual(failed, { ok: false, preferences: current, error });
+  assert.deepEqual(
+    commitHubPreferences(current, next, () => {}),
+    {
+      ok: true,
+      preferences: next,
+      error: null,
+    }
+  );
 });

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.33] - 2026-09-26
+
+### Changed — STRK-378: Order the Collections hub
+
+- **Collections hub**: Save a device-local My order for Collections, or sort Album and Ledger by Name, Run start, Percent complete, Recently updated, Owned, Value (melt), or To complete. Arrange Collections with drag, keyboard, or touch controls; fresh profiles keep the chronological Series Template default (STRK-378).
+
+---
+
 ## [3.36.32] - 2026-09-26
 
 ### Changed — STRK-393: Collections Settings and visibility
