@@ -323,8 +323,16 @@
    * localStorage verbatim; the rest via saveDataSync. (STAK-374)
    * @param {object|null} settingsDiff - DiffEngine.compareSettings result or null
    */
-  const _applyImportSettingsChanges = (settingsDiff) => {
+  const _applyImportSettingsChanges = (settingsDiff, selectedChanges) => {
     if (!settingsDiff || !settingsDiff.changed || settingsDiff.changed.length === 0) return;
+    const selectedSettings =
+      selectedChanges == null
+        ? null
+        : new Map(
+            selectedChanges
+              .filter((change) => change.type === "setting")
+              .map((change) => [change.key, change.value])
+          );
     // Raw-string settings stored via localStorage.setItem, not JSON-encoded
     const _rawKeys = new Set([
       "appTheme",
@@ -339,11 +347,53 @@
       "inlineChipConfig",
     ]);
     for (const sc of settingsDiff.changed) {
+      if (selectedSettings && !selectedSettings.has(sc.key)) continue;
+      const value = selectedSettings ? selectedSettings.get(sc.key) : sc.remoteVal;
+      // A missing local value is already absent; preserving it must not write an
+      // undefined setting into storage.
+      if (value === undefined) continue;
       if (_rawKeys.has(sc.key)) {
-        localStorage.setItem(sc.key, String(sc.remoteVal));
+        localStorage.setItem(sc.key, String(value));
       } else {
-        saveDataSync(sc.key, sc.remoteVal);
+        saveDataSync(sc.key, value);
       }
+    }
+  };
+
+  /**
+   * Whether the accepted Settings selection includes any value from the backup.
+   * @param {object|null} settingsDiff - DiffEngine.compareSettings result or null
+   * @param {Array|null} selectedChanges - DiffModal choices, or null for accept-all
+   * @returns {boolean} True when the accepted settings import includes backup values
+   */
+  const _importsBackupSettings = (settingsDiff, selectedChanges) => {
+    if (!settingsDiff || !Array.isArray(settingsDiff.changed) || !settingsDiff.changed.length) {
+      return true;
+    }
+    if (selectedChanges == null) return true;
+    return selectedChanges.some((change) => {
+      if (change.type !== "setting") return false;
+      const setting = settingsDiff.changed.find((entry) => entry.key === change.key);
+      return setting && JSON.stringify(change.value) !== JSON.stringify(setting.localVal);
+    });
+  };
+
+  /**
+   * Refreshes open Collections views after an accepted import changes visibility settings.
+   * @param {object|null} settingsDiff - DiffEngine.compareSettings result or null
+   * @returns {void}
+   */
+  const _refreshImportedCollectionVisibility = (settingsDiff) => {
+    const visibilityChanged =
+      settingsDiff &&
+      Array.isArray(settingsDiff.changed) &&
+      settingsDiff.changed.some((change) => change.key === "disabledCollections");
+    if (
+      visibilityChanged &&
+      window.collectionsStore &&
+      typeof window.collectionsStore.reload === "function"
+    ) {
+      window.collectionsStore.reload();
     }
   };
 
@@ -352,7 +402,7 @@
    * @param {Array} selectedChanges - Accepted changes (add/modify/delete)
    * @param {function} [onComplete] - Optional callback({added,modified,deleted})
    */
-  const _announceImportApplySummary = (selectedChanges, onComplete) => {
+  const _announceImportApplySummary = (selectedChanges, onComplete, importsBackupSettings) => {
     const addCount = selectedChanges.filter(function (c) {
       return c.type === "add";
     }).length;
@@ -369,7 +419,9 @@
     if (typeof showToast === "function") {
       showToast("Import complete: " + (parts.length > 0 ? parts.join(", ") : "no changes applied"));
     }
-    if (onComplete) onComplete({ added: addCount, modified: modCount, deleted: delCount });
+    if (onComplete) {
+      onComplete({ added: addCount, modified: modCount, deleted: delCount }, importsBackupSettings);
+    }
     if (localStorage.getItem("staktrakr.debug") && typeof window.showDebugModal === "function") {
       showDebugModal();
     }
@@ -503,7 +555,7 @@
         _applyCsvAddedTags(_importedItems, options.pendingTagsByUuid || new Map());
         _applyCsvRemovedTags(_importedItems, options.pendingRemovedTagsByUuid || new Map());
 
-        _applyImportSettingsChanges(settingsDiff);
+        _applyImportSettingsChanges(settingsDiff, selectedChanges);
 
         if (options.stampCsvIdentity) parsedItems.forEach(_clearCsvImportKey);
         _postImportCleanup(
@@ -517,9 +569,15 @@
             .filter(Boolean)
         );
         // STRK-371: after the save above, so every link targets a durable, stamped UUID.
-        if (!_applyImportedCollections(_importedItems, options).ok) return;
+        const importedCollections = _applyImportedCollections(_importedItems, options);
+        _refreshImportedCollectionVisibility(settingsDiff);
+        if (!importedCollections.ok) return;
 
-        _announceImportApplySummary(selectedChanges, onComplete);
+        _announceImportApplySummary(
+          selectedChanges,
+          onComplete,
+          _importsBackupSettings(settingsDiff, selectedChanges)
+        );
       },
       onCancel: function () {
         debugLog("Import cancelled by user");
@@ -1722,7 +1780,13 @@
           const localSettings = {};
           for (const key of settingsKeys) {
             const val = loadDataSync(key, null);
-            if (val !== null) localSettings[key] = val;
+            if (val !== null) {
+              localSettings[key] = val;
+            } else {
+              // Raw scalar preferences such as appTheme are not JSON encoded.
+              const raw = localStorage.getItem(key);
+              if (raw !== null) localSettings[key] = raw;
+            }
           }
           const filteredRemote = {};
           for (const key of settingsKeys) {

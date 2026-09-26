@@ -18036,6 +18036,51 @@ input[type="number"] {
   font: 400 var(--font-size-2xl) / 1.2 var(--font-heading);
 }
 
+.collections-emptystate.collections-all-off {
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  background: var(--bg-card);
+}
+
+.collections-all-off p {
+  margin-bottom: 0;
+}
+
+.collections-all-off-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.collections-hidden-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.collections-hidden-manage {
+  padding: var(--spacing-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.collections-hidden-manage:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* ---- Album header ---- */
 .collections-crumb {
   display: flex;
@@ -18710,6 +18755,14 @@ input[type="number"] {
   text-overflow: ellipsis;
 }
 
+@media (max-width: 768px) {
+  .collections-toolbar .btn.collections-btn-pill,
+  .collections-all-off-actions .btn.collections-btn-pill,
+  .collections-hidden-manage {
+    min-height: 44px;
+  }
+}
+
 /* ---- Tablet: the numeric ledger columns need room the viewport no longer has ---- */
 @media (max-width: 1024px) {
   .collections-lrow {
@@ -19317,5 +19370,237 @@ input[type="number"] {
 
   .collections-builder-note {
     display: none;
+  }
+}
+
+/* ---- Collections Settings (STRK-393) ---- */
+.collections-settings-summary {
+  max-width: 68ch;
+  margin: 0 0 var(--spacing-lg);
+  line-height: 1.5;
+}
+
+.collections-settings-fieldset {
+  min-width: 0;
+  padding-bottom: var(--spacing-sm);
+}
+
+.collections-settings-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing);
+  margin-bottom: var(--spacing-sm);
+}
+
+.collections-settings-count {
+  font: 500 var(--font-size-sm) / 1.4 var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.collections-settings-hint {
+  margin: 0 0 var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.collections-settings-header,
+.collections-settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 9.375rem) 7.375rem minmax(8.75rem, 9.375rem);
+  gap: var(--spacing);
+  align-items: center;
+}
+
+.collections-settings-header {
+  padding: var(--spacing-xs) 0 var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.collections-settings-row {
+  min-width: 0;
+  padding: var(--spacing) 0;
+  border-top: 1px solid var(--border);
+}
+
+.collections-settings-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.collections-settings-name > b {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.collections-settings-meta {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.collections-settings-tag {
+  display: inline-block;
+  margin-left: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.collections-settings-tag.is-hidden {
+  border-style: dashed;
+}
+
+.collections-settings-reason,
+.collections-settings-artwork-note {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.collections-settings-reason {
+  color: var(--warning-text);
+  font-weight: 500;
+}
+
+.collections-settings-artwork-note {
+  color: var(--text-secondary);
+}
+
+.collections-settings-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.collections-settings-icon svg {
+  display: block;
+  width: var(--font-size-md);
+  height: var(--font-size-md);
+}
+
+.collections-settings-row.is-off .collections-settings-name > b,
+.collections-settings-row.is-off .collections-settings-progress {
+  opacity: 0.62;
+}
+
+.collections-settings-progress {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.collections-settings-progress-track {
+  height: var(--spacing-xs);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-tertiary);
+}
+
+.collections-settings-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold);
+}
+
+.collections-settings-toggle-cell,
+.collections-settings-actions {
+  min-width: 0;
+}
+
+.collections-settings-toggle.is-locked {
+  opacity: 0.55;
+}
+
+.collections-settings-toggle .chip-sort-btn:disabled {
+  cursor: not-allowed;
+}
+
+.collections-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.collections-settings-action {
+  gap: var(--spacing-sm);
+}
+
+.collections-settings-footnote {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .collections-settings-header {
+    display: none;
+  }
+
+  .collections-settings-fieldset {
+    padding: var(--spacing) var(--spacing) var(--spacing-sm);
+  }
+
+  .collections-settings-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name name"
+      "progress progress"
+      "toggle action";
+    gap: var(--spacing-md) var(--spacing);
+  }
+
+  .collections-settings-name {
+    grid-area: name;
+  }
+
+  .collections-settings-progress {
+    grid-area: progress;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing);
+  }
+
+  .collections-settings-progress-track {
+    flex: 1;
+  }
+
+  .collections-settings-toggle-cell {
+    grid-area: toggle;
+  }
+
+  .collections-settings-actions {
+    grid-area: action;
+  }
+
+  .collections-settings-toggle .chip-sort-btn,
+  .btn.collections-btn-pill.collections-settings-action {
+    min-height: 44px;
+  }
+
+  .collections-settings-toggle .chip-sort-btn {
+    min-width: 56px;
   }
 }

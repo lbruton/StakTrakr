@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.31";
+const APP_VERSION = "3.36.32";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -775,7 +775,7 @@ const CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR = 0.7234;
 const CONSTITUTIONAL_WORN_SCALAR = 0.98839;
 
 /** @constant {string} CONSTITUTIONAL_BASIS_KEY - LocalStorage key for the global worn/fresh valuation basis; values "worn" (default) | "fresh" (STRK-235). */
-const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis";
+const CONSTITUTIONAL_BASIS_KEY = "constitutionalValuationBasis"; // nosemgrep: codacy.javascript.security.hard-coded-password -- Public storage key, not a credential.
 
 /**
  * @constant {string} ASW_TERM_EXPANDED - The derived pure-silver figure named on first use.
@@ -823,6 +823,9 @@ const ITEM_TAGS_LAST_MODIFIED_KEY = "itemTagsLastModified"; // nosemgrep: codacy
  * (_mergeCollectionState). Any new path that writes this key must merge, never assign.
  */
 const COLLECTION_STATE_KEY = "collectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
+/** @constant {string} DISABLED_COLLECTIONS_KEY - Synced IDs of empty Collections hidden from the Collections hub (STRK-393) */
+const DISABLED_COLLECTIONS_KEY = "disabledCollections"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
 /**
  * @constant {string} COLLECTIONS_VIEW_MODE_KEY - LocalStorage key for the Collections tab view mode (STRK-368):
@@ -1089,6 +1092,7 @@ const SYNC_SCOPE_KEYS = [
   "chipMaxCount", // maximum count for filter chips
   "chipCustomGroups", // custom chip groupings
   "chipBlacklist", // hidden chips
+  DISABLED_COLLECTIONS_KEY, // STRK-393 — hidden empty Collections
   "chipSortOrder", // chip sort preference
 
   // ── Layout & table ──
@@ -1169,6 +1173,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEMS_PER_PAGE_KEY,
   "chipCustomGroups",
   "chipBlacklist",
+  DISABLED_COLLECTIONS_KEY, // STRK-393 — hidden empty Collections
   "inlineChipConfig",
   "apiProviderOrder",
   "providerPriority",
@@ -2254,6 +2259,7 @@ if (typeof window !== "undefined") {
   window.ITEM_TAGS_LAST_MODIFIED_KEY = ITEM_TAGS_LAST_MODIFIED_KEY;
   // Collections module state (STRK-368)
   window.COLLECTION_STATE_KEY = COLLECTION_STATE_KEY;
+  window.DISABLED_COLLECTIONS_KEY = DISABLED_COLLECTIONS_KEY;
   window.COLLECTIONS_VIEW_MODE_KEY = COLLECTIONS_VIEW_MODE_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;

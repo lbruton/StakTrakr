@@ -56,6 +56,7 @@
    */
   const reload = () => {
     const state = load();
+    reconcilePopulated();
     document.dispatchEvent(new CustomEvent(CHANGED_EVENT));
     return state;
   };
@@ -67,16 +68,76 @@
   const getState = () => collectionState || load();
 
   /**
+   * The normalized IDs of Collections hidden from the hub.
+   * @returns {string[]} Unique, non-empty Collection IDs
+   */
+  const getDisabledIds = () => {
+    const raw =
+      typeof loadDataSync === "function" ? loadDataSync(DISABLED_COLLECTIONS_KEY, []) : [];
+    if (!Array.isArray(raw)) return [];
+    return Array.from(
+      new Set(raw.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim()))
+    );
+  };
+
+  /**
+   * Raw unique Item IDs linked to a Collection, including disposed and unresolved Items.
+   * @param {string} id - Collection ID
+   * @returns {string[]} Primary and Spare Item IDs
+   */
+  const linkedItemIds = (id) => {
+    const collection = getState().collections[id];
+    if (!collection || !collection.slots || typeof collection.slots !== "object") return [];
+    const linked = new Set();
+    Object.keys(collection.slots).forEach((slotId) => {
+      const slot = collection.slots[slotId];
+      if (!slot || typeof slot !== "object") return;
+      if (typeof slot.primary === "string" && slot.primary.trim()) linked.add(slot.primary);
+      if (Array.isArray(slot.spares)) {
+        slot.spares.forEach((uuid) => {
+          if (typeof uuid === "string" && uuid.trim()) linked.add(uuid);
+        });
+      }
+    });
+    return Array.from(linked);
+  };
+
+  /**
+   * Whether a Collection is enabled or has links that make it effectively visible.
+   * @param {string} id - Collection ID
+   * @returns {boolean} True when enabled or populated
+   */
+  const isEnabled = (id) => !getDisabledIds().includes(id) || linkedItemIds(id).length > 0;
+
+  /**
+   * Removes populated Collections from the hidden-ID preference without emitting UI or sync events.
+   * @returns {boolean} True when the preference was changed and saved
+   */
+  const reconcilePopulated = () => {
+    const disabledIds = getDisabledIds();
+    const remainingIds = disabledIds.filter((id) => linkedItemIds(id).length === 0);
+    if (remainingIds.length === disabledIds.length) return false;
+    try {
+      saveDataSync(DISABLED_COLLECTIONS_KEY, remainingIds);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  };
+
+  /**
    * Persists the in-memory state and notifies listeners.
+   * @param {{deferReconcile?: boolean}} [options] - Defer commit-boundary reconciliation
    * @returns {boolean} False when the write failed (e.g. quota)
    */
-  const save = () => {
+  const save = (options) => {
     try {
       saveDataSync(COLLECTION_STATE_KEY, getState());
     } catch (error) {
       console.error("[collections] Failed to save collection state:", error);
       return false;
     }
+    if (!(options && options.deferReconcile)) reconcilePopulated();
     // STRK-370: a Collections-only edit never touches saveInventory(), so it must schedule
     // its own debounced push (same pattern as saveItemTags). Best-effort — a missing or
     // throwing trigger must never fail a local save.
@@ -216,6 +277,39 @@
    * @returns {{collectionId: string, slotId: string, role: string}[]} Memberships
    */
   const memberships = (uuid) => core().findMemberships(getState(), uuid);
+
+  /**
+   * Enables or disables an empty Collection in the hub.
+   * @param {string} id - Collection ID
+   * @param {boolean} enabled - Whether the Collection should be enabled
+   * @returns {{ok: boolean, changed?: boolean, reason?: string, linkedCount?: number}} Result
+   */
+  const setEnabled = (id, enabled) => {
+    const shouldEnable = Boolean(enabled);
+    const linkedCount = linkedItemIds(id).length;
+    if (!shouldEnable && linkedCount > 0) return { ok: false, reason: "populated", linkedCount };
+
+    const disabledIds = getDisabledIds();
+    const nextIds = shouldEnable
+      ? disabledIds.filter((disabledId) => disabledId !== id)
+      : disabledIds.includes(id)
+        ? disabledIds
+        : [...disabledIds, id];
+    if (nextIds.length === disabledIds.length) return { ok: true, changed: false };
+
+    try {
+      saveDataSync(DISABLED_COLLECTIONS_KEY, nextIds);
+    } catch (_error) {
+      return { ok: false, reason: "save-failed" };
+    }
+    try {
+      if (typeof scheduleSyncPush === "function") scheduleSyncPush();
+    } catch (pushError) {
+      console.warn("[collections] scheduleSyncPush failed:", pushError);
+    }
+    document.dispatchEvent(new CustomEvent(CHANGED_EVENT));
+    return { ok: true, changed: true };
+  };
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -392,15 +486,16 @@
    * contract lands) into local state. Uses the commutative core merge, so newer local
    * links are never clobbered by an older snapshot — a restore adds back what was lost.
    * @param {*} incoming - Raw state from a backup or another device (normalized by the merge)
+   * @param {{deferReconcile?: boolean}} [options] - Defer commit-boundary reconciliation
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
-  const mergeIn = (incoming) => {
+  const mergeIn = (incoming, options) => {
     const before = JSON.stringify(getState());
     const merged = core().mergeStates(getState(), incoming);
     if (JSON.stringify(merged) === before) return { ok: true, changed: false };
     const previous = collectionState;
     collectionState = merged;
-    if (save()) return { ok: true, changed: true };
+    if (save(options)) return { ok: true, changed: true };
     // mergeStates returns a NEW object, so the prior state is intact — just swap it back.
     collectionState = previous;
     return { ok: false, changed: false, reason: "save-failed" };
@@ -577,6 +672,11 @@
     reload,
     getState,
     save,
+    getDisabledIds,
+    linkedItemIds,
+    isEnabled,
+    setEnabled,
+    reconcilePopulated,
     getTemplates,
     getTemplate,
     templateFor,

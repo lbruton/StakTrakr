@@ -85,6 +85,7 @@
     swap: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>',
     copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+    gear: '<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3.1 1.3v.2a1.8 1.8 0 0 1-3.6 0v-.2A1.8 1.8 0 0 0 7.1 17l-.1.1a1.8 1.8 0 0 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-1.3-3.1h-.2a1.8 1.8 0 0 1 0-3.6h.2A1.8 1.8 0 0 0 4.6 5.2l-.1-.1A1.8 1.8 0 0 1 7 2.6l.1.1a1.8 1.8 0 0 0 3.1-1.3v-.2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3.1 1.3l.1-.1a1.8 1.8 0 0 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 1.3 3.1h.2a1.8 1.8 0 0 1 0 3.6h-.2a1.8 1.8 0 0 0-1.3 3.1Z"/>',
     trash:
       '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
@@ -1367,7 +1368,10 @@
     const focused = root.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = focused ? focused.dataset.focusKey : "";
 
-    const entries = buildEntries();
+    const all = buildEntries();
+    const entries = all.filter((candidate) => store().isEnabled(candidate.id));
+    const hiddenCount = all.length - entries.length;
+    const totalCount = all.length;
     const routeId = currentRouteId();
     const entry = routeId ? entries.find((candidate) => candidate.id === routeId) : null;
     if (routeId && !entry) {
@@ -1381,7 +1385,9 @@
     lastRouteId = shownId;
 
     const panel = el("div", "collections-panel");
-    panel.appendChild(entry ? buildAlbum(entry) : buildHub(entries));
+    panel.appendChild(
+      entry ? buildAlbum(entry) : buildHub({ enabled: entries, hiddenCount, totalCount })
+    );
     root.replaceChildren(panel);
 
     if (focusKey) {
@@ -1451,5 +1457,6 @@
     showHub,
     getViewMode,
     setViewMode,
+    buildEntries,
   });
 })();

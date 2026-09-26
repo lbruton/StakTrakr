@@ -3580,6 +3580,25 @@
               </svg>
               Images
             </button>
+            <button class="settings-nav-item" data-section="collections">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="7" cy="7" r="3.2" />
+                <circle cx="17" cy="7" r="3.2" />
+                <circle cx="7" cy="17" r="3.2" />
+                <circle cx="17" cy="17" r="3.2" stroke-dasharray="2.2 2" />
+              </svg>
+              Collections
+            </button>
             <button class="settings-nav-item" data-section="currency">
               <svg
                 width="16"
@@ -4759,6 +4778,24 @@
                 <div class="settings-fieldset-title">Per-Item User Images</div>
                 <div id="userImageGrid"></div>
               </div>
+            </div>
+
+            <!-- ===== COLLECTIONS (STRK-393) ===== -->
+            <div
+              class="settings-section-panel"
+              id="settingsPanel_collections"
+              style="display: none"
+            >
+              <h3>Collections</h3>
+              <p
+                class="settings-subtext collections-settings-summary"
+                id="collectionsSettingsSummary"
+              >
+                Choose which Collections appear in the Collections hub. Turning one off only hides
+                it; its Slots, artwork and Items stay as they are. A Collection with linked Items
+                stays on.
+              </p>
+              <div id="collectionsSettingsRoot"></div>
             </div>
 
             <!-- ===== INVENTORY ===== -->
@@ -6746,6 +6783,18 @@
                 <p class="faq-limitations-intro">
                   We believe in transparency. Here are real trade-offs you should know about.
                 </p>
+
+                <details class="faq-item">
+                  <summary class="faq-question">Can I turn off a Collection?</summary>
+                  <div class="faq-answer">
+                    <p>
+                      You can turn off a Collection only while it has no linked Items; Spare Items
+                      count too. Turning it off hides the Collection without deleting it or any
+                      data. If another device or a restore adds Items to a hidden Collection,
+                      StakTrakr turns it back on automatically.
+                    </p>
+                  </div>
+                </details>
 
                 <details class="faq-item">
                   <summary class="faq-question">localStorage can be cleared unexpectedly</summary>
@@ -8976,6 +9025,7 @@
     <script defer src="./js/collections-ui.js"></script>
     <script defer src="./js/collections-picker.js"></script>
     <script defer src="./js/collections-item-view.js"></script>
+    <script defer src="./js/collections-settings.js"></script>
     <script defer src="./data/collections-bundle.js"></script>
 
     <!-- STRK-282: tab shell view switching. Must precede init.js. -->

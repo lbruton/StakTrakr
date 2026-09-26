@@ -33,6 +33,9 @@
       state,
     } = deps;
     const sort = window.collectionsSort;
+    const openCollectionsSettings = () => {
+      if (typeof window.showSettingsModal === "function") window.showSettingsModal("collections");
+    };
     const sortColumns = [
       ["name", "Collection"],
       ["progress", "Progress"],
@@ -186,7 +189,7 @@
     };
 
     /**
-     * Hub toolbar: status filter, view toggle, New collection.
+     * Hub toolbar: status filter, view toggle, Manage, New collection.
      * @returns {HTMLElement} The toolbar
      */
     const buildHubToolbar = () => {
@@ -212,6 +215,15 @@
       const right = el("div", "collections-toolbar-right");
       if (getViewMode() === VIEW_LEDGER) right.appendChild(buildCompactSort());
       right.appendChild(buildViewToggle());
+      right.appendChild(
+        buildPillButton({
+          label: "Manage",
+          icon: "gear",
+          secondary: true,
+          focusKey: "hub:manage",
+          onClick: openCollectionsSettings,
+        })
+      );
       right.appendChild(
         buildPillButton({
           label: "New collection",
@@ -359,10 +371,39 @@
 
     /**
      * Hub body: cards or a table, by view mode.
-     * @param {Object[]} entries - Entry view models
+     * @param {Object[]} entries - Enabled entry view models
+     * @param {number} totalCount - Number of available entries before filtering
      * @returns {HTMLElement} The body
      */
-    const buildHubBody = (entries) => {
+    const buildHubBody = (entries, totalCount) => {
+      if (totalCount > 0 && entries.length === 0) {
+        const empty = buildEmptyState(
+          "All Collections are turned off",
+          "Nothing was deleted. Turn Collections back on in Settings, or start a new one."
+        );
+        empty.classList.add("collections-all-off");
+        const actions = el("div", "collections-all-off-actions");
+        actions.appendChild(
+          buildPillButton({
+            label: "Open Collections settings",
+            icon: "gear",
+            focusKey: "hub:settings",
+            onClick: openCollectionsSettings,
+          })
+        );
+        actions.appendChild(
+          buildPillButton({
+            label: "New collection",
+            icon: "plus",
+            secondary: true,
+            focusKey: "hub:all-off:new",
+            onClick: () => callPicker("openBuilder", {}),
+          })
+        );
+        empty.appendChild(actions);
+        return empty;
+      }
+
       const visible = entries.filter(
         (entry) => state.hubFilter === STATUS_ALL || entry.status === state.hubFilter
       );
@@ -391,19 +432,31 @@
 
     /**
      * The hub view.
-     * @param {Object[]} entries - Entry view models
+     * @param {{enabled: Object[], hiddenCount: number, totalCount: number}} spec - Entry counts
      * @returns {HTMLElement} Hub panel content
      */
-    const buildHub = (entries) => {
+    const buildHub = ({ enabled, hiddenCount, totalCount }) => {
       const hub = el("div", "collections-hub");
       hub.appendChild(buildHubHeader());
       // No first-run hero: an unstarted Series Template already shows as a ghosted 0 / N card
       // right below, so a "Start …" banner only repeated it. The stat strip appears once a
       // collection exists — before that every figure would be zero.
       const started = core().listCollections(store().getState()).length > 0;
-      if (started) hub.appendChild(buildHubStats(entries));
+      if (started) hub.appendChild(buildHubStats(enabled));
       hub.appendChild(buildHubToolbar());
-      hub.appendChild(buildHubBody(entries));
+      hub.appendChild(buildHubBody(enabled, totalCount));
+      if (hiddenCount > 0 && enabled.length > 0) {
+        const note = el("div", "collections-hidden-note");
+        note.appendChild(document.createTextNode(`${hiddenCount} hidden · `));
+        const manage = button(
+          "collections-hidden-manage",
+          "hub:hidden-manage",
+          openCollectionsSettings
+        );
+        manage.textContent = "Manage in Settings";
+        note.appendChild(manage);
+        hub.appendChild(note);
+      }
       return hub;
     };
 

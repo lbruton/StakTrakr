@@ -147,6 +147,44 @@ async function gotoApp(page) {
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
 }
 
+/** Observe completion of the real IndexedDB writes issued by saveSpotHistory(). */
+async function installSpotHistoryWriteObserver(page) {
+  await page.addInitScript(() => {
+    window.__spotHistoryWriteCompletions = [];
+    if (typeof IDBObjectStore === "undefined") return;
+    const prototype = IDBObjectStore.prototype;
+    const originalPut = prototype.put;
+    if (originalPut.__strkSpotHistoryWriteObserver) return;
+
+    const observedPut = function (record, ...args) {
+      const tx = this.transaction;
+      const result = originalPut.call(this, record, ...args);
+      if (this.name === "histories" && record && record.key === "metalSpotHistory") {
+        const completion = new Promise((resolve) => {
+          tx.addEventListener("complete", () => resolve("complete"), { once: true });
+          tx.addEventListener("abort", () => resolve("abort"), { once: true });
+          tx.addEventListener("error", () => resolve("error"), { once: true });
+        });
+        window.__spotHistoryWriteCompletions.push(completion);
+      }
+      return result;
+    };
+    Object.defineProperty(observedPut, "__strkSpotHistoryWriteObserver", { value: true });
+    prototype.put = observedPut;
+  });
+}
+
+/** Await completion events for every spot-history IndexedDB write observed so far. */
+async function waitForSpotHistoryWrites(page) {
+  await page.evaluate(async () => {
+    let observedCount = -1;
+    while (observedCount !== window.__spotHistoryWriteCompletions.length) {
+      observedCount = window.__spotHistoryWriteCompletions.length;
+      await Promise.all(window.__spotHistoryWriteCompletions);
+    }
+  });
+}
+
 // Delete the StakTrakrHistory IndexedDB database and clear LS/SS for the current
 // origin. Requires the page to already be on an origin that can reach
 // indexedDB/localStorage (call AFTER a gotoApp, or in afterEach). Used both for
@@ -230,6 +268,30 @@ async function readIdbRecord(page, key) {
   );
 }
 
+/** Wait for startup's fire-and-forget spot-history writes to settle in IndexedDB. */
+async function waitForStableSpotHistory(page) {
+  // Stable reads alone can happen before a fire-and-forget IndexedDB put commits.
+  await waitForSpotHistoryWrites(page);
+  await page.evaluate(async (key) => {
+    const store = window.historyStore;
+    await store.init();
+    let previous = JSON.stringify(await store.get(key));
+    let stableReads = 0;
+    for (let i = 0; i < 50; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      const current = JSON.stringify(await store.get(key));
+      if (current === previous) {
+        stableReads += 1;
+        if (stableReads >= 2) return;
+      } else {
+        previous = current;
+        stableReads = 0;
+      }
+    }
+    throw new Error("Spot-history IndexedDB record did not settle after boot");
+  }, SPOT_KEY);
+}
+
 test.describe("core/history-store-migration (STRK-141)", () => {
   // Isolation: this spec creates and populates the StakTrakrHistory IndexedDB on
   // boot. With workers:1 the browser process is shared, so a leaked DB bleeds
@@ -241,16 +303,24 @@ test.describe("core/history-store-migration (STRK-141)", () => {
     // late write can land in IndexedDB after we wipe it — a race that re-seeds
     // the DB and re-sets the migration flag), then wipe everything. Individual
     // tests re-seed via addInitScript + their own gotoApp from this clean slate.
+    await installSpotHistoryWriteObserver(page);
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page
       .waitForFunction(() => localStorage.getItem("migration_idb_history_v1") === "true", null, {
         timeout: 8000,
       })
       .catch(() => {});
+    await page
+      .waitForFunction(() => localStorage.getItem("migration_seedHistoryMerge") === "1", null, {
+        timeout: 8000,
+      })
+      .catch(() => {});
+    await waitForSpotHistoryWrites(page);
     await clearHistoryState(page);
   });
 
   test.afterEach(async ({ page }) => {
+    await waitForSpotHistoryWrites(page);
     await clearHistoryState(page);
   });
 
@@ -275,6 +345,12 @@ test.describe("core/history-store-migration (STRK-141)", () => {
     // migration_idb_history_v1 flag) and seeded the LBMA bundle into the store.
     // Wipe that state so the upcoming boot performs a REAL migration of the
     // compressed LS payload instead of short-circuiting on the already-set flag.
+    await page.waitForFunction(
+      () => localStorage.getItem("migration_seedHistoryMerge") === "1",
+      null,
+      { timeout: 8000 }
+    );
+    await waitForSpotHistoryWrites(page);
     await clearHistoryState(page);
 
     // Re-seed LS with the compressed spot payload + plain retail, then re-boot.
@@ -297,6 +373,12 @@ test.describe("core/history-store-migration (STRK-141)", () => {
     await page.waitForFunction(() => localStorage.getItem("migration_idb_history_v1") === "true", {
       timeout: 8000,
     });
+    await page.waitForFunction(
+      () => localStorage.getItem("migration_seedHistoryMerge") === "1",
+      null,
+      { timeout: 8000 }
+    );
+    await waitForStableSpotHistory(page);
 
     const idbSpot = await readIdbRecord(page, SPOT_KEY);
     const idbRetail = await readIdbRecord(page, RETAIL_KEY);
@@ -382,10 +464,16 @@ test.describe("core/history-store-migration (STRK-141)", () => {
       { dbName: HISTORY_DB, storeName: HISTORY_STORE, recordKey: SPOT_KEY, markerEntry: marker }
     );
 
+    await page.evaluate(() => localStorage.removeItem("migration_seedHistoryMerge"));
     await suppressWhatsNew(page);
     await gotoApp(page);
     await waitForHistoryStore(page);
-    await page.waitForTimeout(500);
+    await page.waitForFunction(
+      () => localStorage.getItem("migration_seedHistoryMerge") === "1",
+      null,
+      { timeout: 8000 }
+    );
+    await waitForStableSpotHistory(page);
 
     const secondSpot = await readIdbRecord(page, SPOT_KEY);
     // Marker survived => migration did NOT re-run (R2.5). Boot's live-spot fetch
@@ -489,6 +577,7 @@ test.describe("core/history-store-migration (STRK-141)", () => {
         timeout: 8000,
       })
       .catch(() => {});
+    await waitForSpotHistoryWrites(page);
     // Then drain + engineer the deferred state in ONE evaluate (no Playwright
     // gap). Boot also fire-and-forgets saveSpotHistory() IDB writes from its live
     // spot fetch; under workers:1 (shared browser/IDB) one can land AFTER our
@@ -619,6 +708,7 @@ test.describe("core/history-store-migration (STRK-141)", () => {
         timeout: 8000,
       })
       .catch(() => {});
+    await waitForSpotHistoryWrites(page);
     // PUT our payload, then re-hydrate + render — all in ONE evaluate so a
     // pending seed write cannot sneak into the gap between put and load.
     // saveSpotHistory's IDB write is fire-and-forget: gate first on the store

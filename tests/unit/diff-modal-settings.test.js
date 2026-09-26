@@ -17,9 +17,89 @@ import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 
 const code = readFileSync(new URL("../../js/diff-modal-settings.js", import.meta.url), "utf-8");
-const window = {};
+const diffModalCode = readFileSync(new URL("../../js/diff-modal.js", import.meta.url), "utf-8");
+const window = {
+  __COLLECTIONS_BUNDLE: {
+    templates: {
+      "ase-type1": {
+        slug: "ase-type1",
+        name: "American Silver Eagle",
+        variant: "Type 1",
+      },
+      "ase-type2": {
+        slug: "ase-type2",
+        name: "American Silver Eagle",
+        variant: "Type 2",
+      },
+    },
+  },
+  collectionsStore: {
+    getTemplates() {
+      return this.templates;
+    },
+    getTemplate(id) {
+      return this.templates[id] || null;
+    },
+    getState() {
+      return {
+        collections: {
+          "custom-live": { id: "custom-live", kind: "custom", name: "Morgan Date Set" },
+          "custom-deleted": {
+            id: "custom-deleted",
+            kind: "custom",
+            name: "Removed Set",
+            deletedAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+      };
+    },
+    templates: null,
+  },
+};
+window.collectionsStore.templates = window.__COLLECTIONS_BUNDLE.templates;
 new Function("window", code)(window);
 const DMS = window.DiffModalSettings;
+
+const mergeSlugChipsSourceStart = diffModalCode.indexOf("  function _mergeSlugChips(");
+const mergeSlugChipsSourceEnd = diffModalCode.indexOf(
+  "\n  function _buildSelectedChanges()",
+  mergeSlugChipsSourceStart
+);
+const mergeSlugChips = (fieldSelections) =>
+  new Function(
+    "_fieldSelections",
+    diffModalCode.slice(mergeSlugChipsSourceStart, mergeSlugChipsSourceEnd) +
+      "\nreturn _mergeSlugChips;"
+  )(fieldSelections);
+
+const settingsTypesSource = diffModalCode.match(/var SETTINGS_VALUE_TYPE = (\{[\s\S]*?\n  \});/)[1];
+const diffModalSettingsTypes = new Function(`return ${settingsTypesSource};`)();
+
+const collectSettingsChanges = ({ settingsDiff, fieldSelections, conflictResolutions }) => {
+  const sourceStart = diffModalCode.indexOf("  function _collectSettingsChanges(result) {");
+  const sourceEnd = diffModalCode.indexOf("\n  function _hasElementPicks(", sourceStart);
+  const collectSource = diffModalCode.slice(sourceStart, sourceEnd);
+  return new Function(
+    "_options",
+    "SETTINGS_VALUE_TYPE",
+    "_fieldSelections",
+    "_conflictResolutions",
+    "_parseSetting",
+    "_hasElementPicks",
+    "_mergeSettingElements",
+    `${collectSource}\nconst result = []; _collectSettingsChanges(result); return result;`
+  )(
+    { settingsDiff },
+    diffModalSettingsTypes,
+    fieldSelections,
+    conflictResolutions,
+    (value) => value,
+    (prefix) => Object.keys(fieldSelections).some((key) => key.startsWith(prefix)),
+    () => {
+      throw new Error("disabledCollections must not use a per-element merge");
+    }
+  );
+};
 
 describe("DiffModalSettings public API", () => {
   it("exposes the four documented methods", () => {
@@ -100,6 +180,70 @@ describe("renderSettingRow — slug-chips", () => {
   it("falls back to Title Case for an unknown slug", () => {
     const html = DMS.renderSettingRow("headerBtnOrder", ["someCustomBtn"], [], {});
     assert.match(html, /Some Custom Btn/);
+  });
+
+  it("leaves disabledCollections to the whole-setting local/remote chooser", () => {
+    assert.equal(DMS.renderSettingRow("disabledCollections", ["ase-type2"], [], {}), null);
+    assert.equal(diffModalSettingsTypes.disabledCollections, undefined);
+  });
+
+  it("resolves disabledCollections as one setting even if stale per-ID picks exist", () => {
+    const localVal = ["custom-local"];
+    const remoteVal = ["future-collection-id"];
+    const fieldSelections = { "setting-disabledCollections-future-collection-id": "remote" };
+
+    assert.deepEqual(
+      collectSettingsChanges({
+        settingsDiff: {
+          changed: [{ key: "disabledCollections", localVal, remoteVal }],
+        },
+        fieldSelections,
+        conflictResolutions: { "setting-disabledCollections": "local" },
+      }),
+      [{ type: "setting", key: "disabledCollections", value: localVal }]
+    );
+    assert.deepEqual(
+      collectSettingsChanges({
+        settingsDiff: {
+          changed: [{ key: "disabledCollections", localVal, remoteVal }],
+        },
+        fieldSelections,
+        conflictResolutions: {},
+      }),
+      [{ type: "setting", key: "disabledCollections", value: remoteVal }]
+    );
+  });
+
+  it("formats known Collection IDs by name and template variant, with raw-ID fallback", () => {
+    const html = DMS.renderSettingRow(
+      "disabledCollections",
+      ["ase-type1", "ase-type2", "custom-live", "future-collection-id"],
+      [],
+      {}
+    );
+
+    assert.equal(html, null);
+
+    const summary = DMS.formatSettingValue("disabledCollections", [
+      "ase-type2",
+      "custom-live",
+      "future-collection-id",
+    ]);
+    assert.match(summary, /3 Collections/);
+    assert.match(summary, /American Silver Eagle[^,]*Type 2/);
+    assert.match(summary, /Morgan Date Set/);
+    assert.match(summary, /future-collection-id/);
+
+    assert.match(DMS.formatSettingValue("disabledCollections", ["__proto__"]), /__proto__/);
+  });
+
+  it("preserves __proto__ as an unknown slug-chip ID through settings merging", () => {
+    const prefix = "setting-headerBtnOrder-";
+    assert.deepEqual(mergeSlugChips({})(prefix, [], ["__proto__"]), ["__proto__"]);
+    assert.deepEqual(
+      mergeSlugChips({ [`${prefix}__proto__`]: "local" })(prefix, ["__proto__"], []),
+      ["__proto__"]
+    );
   });
 });
 

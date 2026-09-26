@@ -23,8 +23,10 @@ const coreSrc = readFileSync(new URL("../../js/collections-core.js", import.meta
 const storeSrc = readFileSync(new URL("../../js/collections-store.js", import.meta.url), "utf-8");
 
 const STATE_KEY = "collectionState";
+const DISABLED_KEY = "disabledCollections";
 const INVENTORY_KEY = "metalInventory";
 const TEMPLATE = "ase-type2";
+const T1 = "2026-09-18T10:00:00.000Z";
 
 const U = {
   a: "11111111-1111-4111-8111-111111111111",
@@ -39,7 +41,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
  * @param {Object} [seedState] - Collections state persisted before the store loads
  * @returns {{store: Object, core: Object, disk: Map, events: string[], failNextWrite: Function}} Harness
  */
-function makeHarness(seedState) {
+function makeHarness(seedState, options = {}) {
   const surface = {};
   new Function("window", coreSrc)(surface);
   surface.__COLLECTIONS_BUNDLE = {
@@ -47,13 +49,17 @@ function makeHarness(seedState) {
   };
 
   const disk = new Map();
-  const inventory = [{ uuid: U.a }, { uuid: U.b }];
+  const inventory = [{ uuid: U.a }, { uuid: U.b }, { uuid: "disposed-item", disposed: true }];
   disk.set(INVENTORY_KEY, JSON.stringify(inventory));
   if (seedState) disk.set(STATE_KEY, JSON.stringify(seedState));
+  if (Object.prototype.hasOwnProperty.call(options, "disabledCollections")) {
+    disk.set(DISABLED_KEY, JSON.stringify(options.disabledCollections));
+  }
 
   let failuresArmed = 0;
+  let failedKey = STATE_KEY;
   const saveDataSync = (key, value) => {
-    if (key === STATE_KEY && failuresArmed > 0) {
+    if (key === failedKey && failuresArmed > 0) {
       failuresArmed -= 1;
       throw new Error("QuotaExceededError (injected)");
     }
@@ -81,8 +87,10 @@ function makeHarness(seedState) {
     "saveDataSync",
     "loadDataSync",
     "COLLECTION_STATE_KEY",
+    "DISABLED_COLLECTIONS_KEY",
     "LS_KEY",
     "inventory",
+    "isDisposed",
     "generateUUID",
     "saveInventory",
     storeSrc
@@ -93,8 +101,10 @@ function makeHarness(seedState) {
     saveDataSync,
     loadDataSync,
     STATE_KEY,
+    DISABLED_KEY,
     INVENTORY_KEY,
     inventory,
+    (item) => Boolean(item && item.disposed),
     () => `00000000-0000-4000-8000-00000000000${(minted += 1)}`,
     () => undefined
   );
@@ -104,7 +114,8 @@ function makeHarness(seedState) {
     core: surface.collectionsCore,
     disk,
     events,
-    failNextWrite: () => {
+    failNextWrite: (key = STATE_KEY) => {
+      failedKey = key;
       failuresArmed += 1;
     },
   };
@@ -270,5 +281,155 @@ describe("collections store — failed storage write (STRK-377)", () => {
     assert.equal(result.ok, true);
     assert.equal(persisted(h.disk).collections[TEMPLATE].slots["2024"].primary, U.a);
     assert.deepEqual(h.events, ["collections:changed"]);
+  });
+});
+
+describe("collections store — disabled Collections preference (STRK-393)", () => {
+  test("normalizes missing, malformed, duplicate, and unknown disabled IDs", () => {
+    const missing = makeHarness();
+    assert.deepEqual(missing.store.getDisabledIds(), []);
+
+    for (const malformed of [null, "ase-type2", 7, {}]) {
+      const h = makeHarness(undefined, { disabledCollections: malformed });
+      assert.deepEqual(h.store.getDisabledIds(), []);
+    }
+
+    const mixed = makeHarness(undefined, {
+      disabledCollections: ["ase-type2", "", null, 4, "future-template", "ase-type2", "  "],
+    });
+    assert.deepEqual(mixed.store.getDisabledIds(), ["ase-type2", "future-template"]);
+    assert.equal(mixed.store.isEnabled("future-template"), false);
+    assert.equal(mixed.store.isEnabled("new-series-template"), true);
+  });
+
+  test("linkedItemIds returns unique raw primary and Spare IDs, including disposed and unresolved Items", () => {
+    const h = makeHarness();
+    assert.equal(h.store.link(TEMPLATE, "2024", U.a).ok, true);
+    assert.equal(h.store.link(TEMPLATE, "2024", "disposed-item", { asSpare: true }).ok, true);
+    assert.equal(h.store.link(TEMPLATE, "2024", "missing-item", { asSpare: true }).ok, true);
+
+    // Simulate a legacy/corrupt duplicate reference. Occupancy must count it once.
+    h.store.getState().collections[TEMPLATE].slots["2023"] = {
+      primary: U.a,
+      spares: ["disposed-item", "missing-item"],
+      modified: T1,
+    };
+
+    assert.deepEqual(h.store.linkedItemIds(TEMPLATE), [U.a, "disposed-item", "missing-item"]);
+  });
+
+  test("a missing template record and artwork-only Custom Collection have no linked Items", () => {
+    const h = makeHarness();
+    assert.deepEqual(h.store.linkedItemIds(TEMPLATE), []);
+
+    const created = h.store.createCustom({ name: "Artwork only", slots: [{ label: "One" }] });
+    assert.equal(created.ok, true);
+    assert.equal(h.store.setArtwork(created.collection.id, null, true, T1).ok, true);
+    assert.deepEqual(h.store.linkedItemIds(created.collection.id), []);
+  });
+
+  test("disabling an empty unstarted template persists its ID without changing Collection state", () => {
+    const h = makeHarness();
+    const stateBefore = h.disk.get(STATE_KEY) || null;
+
+    const result = h.store.setEnabled(TEMPLATE, false);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(h.store.getDisabledIds(), [TEMPLATE]);
+    assert.equal(h.store.isEnabled(TEMPLATE), false);
+    assert.equal(h.disk.get(STATE_KEY) || null, stateBefore);
+  });
+
+  test("refuses to disable a populated Collection and reports its unique primary plus Spare count", () => {
+    const h = makeHarness(undefined, { disabledCollections: ["future-template"] });
+    assert.equal(h.store.link(TEMPLATE, "2024", U.a).ok, true);
+    assert.equal(h.store.link(TEMPLATE, "2024", U.b, { asSpare: true }).ok, true);
+    const preferenceBefore = h.disk.get(DISABLED_KEY);
+
+    const result = h.store.setEnabled(TEMPLATE, false);
+
+    assert.deepEqual(result, { ok: false, reason: "populated", linkedCount: 2 });
+    assert.equal(h.disk.get(DISABLED_KEY), preferenceBefore);
+    assert.deepEqual(h.store.getDisabledIds(), ["future-template"]);
+  });
+
+  test("effective visibility remains On for a populated disabled ID before cleanup", () => {
+    const h = makeHarness();
+    assert.equal(h.store.link(TEMPLATE, "2024", U.a).ok, true);
+    // Restore a stale on-disk preference after link()'s save hook has reconciled it.
+    h.disk.set(DISABLED_KEY, JSON.stringify([TEMPLATE]));
+
+    assert.equal(h.store.isEnabled(TEMPLATE), true);
+  });
+
+  test("re-enabling preserves the Collection's stored Slot artwork", () => {
+    const h = makeHarness(undefined, { disabledCollections: [] });
+    const created = h.store.createCustom({ name: "Art returns", slots: [{ label: "One" }] });
+    const id = created.collection.id;
+    assert.equal(h.store.setArtwork(id, "one", true, T1).ok, true);
+    assert.equal(h.store.setEnabled(id, false).ok, true);
+
+    const enabled = h.store.setEnabled(id, true);
+
+    assert.equal(enabled.ok, true);
+    assert.equal(h.store.isEnabled(id), true);
+    assert.equal(h.store.getState().collections[id].artwork["slot:one"].present, true);
+  });
+
+  test("a failed preference write returns ok:false and leaves the previous list authoritative", () => {
+    const h = makeHarness(undefined, { disabledCollections: ["future-template"] });
+    const before = h.disk.get(DISABLED_KEY);
+    h.failNextWrite(DISABLED_KEY);
+
+    const result = h.store.setEnabled(TEMPLATE, false);
+
+    assert.equal(result.ok, false);
+    assert.equal(h.disk.get(DISABLED_KEY), before);
+    assert.deepEqual(h.store.getDisabledIds(), ["future-template"]);
+  });
+
+  test("reconcilePopulated removes populated IDs silently and is idempotent", () => {
+    const h = makeHarness(undefined, { disabledCollections: [TEMPLATE] });
+    assert.equal(h.store.link(TEMPLATE, "2024", U.a).ok, true);
+    h.events.length = 0;
+
+    h.store.reconcilePopulated();
+    h.store.reconcilePopulated();
+
+    assert.deepEqual(h.store.getDisabledIds(), []);
+    assert.equal(h.events.includes("toast"), false);
+    assert.equal(h.events.includes("modal"), false);
+  });
+
+  test("mergeIn and reload reconcile populated IDs without opening the Settings panel", () => {
+    const donor = makeHarness();
+    assert.equal(donor.store.link(TEMPLATE, "2024", U.a).ok, true);
+    const incoming = persisted(donor.disk);
+
+    const merged = makeHarness(undefined, { disabledCollections: [TEMPLATE] });
+    assert.equal(merged.store.mergeIn(incoming).ok, true);
+    assert.deepEqual(merged.store.getDisabledIds(), []);
+
+    const reloaded = makeHarness(undefined, { disabledCollections: [TEMPLATE] });
+    reloaded.disk.set(STATE_KEY, JSON.stringify(incoming));
+    reloaded.store.reload();
+    assert.deepEqual(reloaded.store.getDisabledIds(), []);
+  });
+
+  test("mergeIn can defer populated reconciliation until the caller commits", () => {
+    const donor = makeHarness();
+    assert.equal(donor.store.link(TEMPLATE, "2024", U.a).ok, true);
+    const incoming = persisted(donor.disk);
+
+    const merged = makeHarness(undefined, { disabledCollections: [TEMPLATE] });
+    const result = merged.store.mergeIn(incoming, { deferReconcile: true });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(merged.store.getDisabledIds(), [TEMPLATE]);
+    assert.deepEqual(merged.events, ["collections:changed"]);
+
+    merged.store.reload();
+    assert.deepEqual(merged.store.getDisabledIds(), []);
+    assert.deepEqual(merged.events, ["collections:changed", "collections:changed"]);
   });
 });

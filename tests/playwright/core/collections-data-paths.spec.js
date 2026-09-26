@@ -20,6 +20,12 @@ const SEED = [
 
 const seedAndGoto = (page, items = SEED) => seedCollectionsPage(page, items);
 
+/** Open the user-facing Collections hub tab. */
+const openCollectionsHub = async (page) => {
+  await page.getByRole("tab", { name: "Collections", exact: true }).click();
+  await expect(page.locator("#collectionsSectionEl")).toBeVisible();
+};
+
 /**
  * Read one ASE Type 2 slot's primary from the in-memory store.
  * @param {import('@playwright/test').Page} page - Browser page.
@@ -820,7 +826,7 @@ const routeCollectionDropbox = async (page, files) => {
   });
   await page.route("https://content.dropboxapi.com/2/files/upload", (route) => {
     const path = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}").path || "";
-    if (files.onUpload) files.onUpload(path);
+    if (files.onUpload) files.onUpload(path, route.request().postDataBuffer());
     if (path.endsWith("staktrakr-images.stvault") && files.failImageUploads > 0) {
       files.failImageUploads -= 1;
       return route.fulfill({ status: 503, body: "{}" });
@@ -844,19 +850,19 @@ const deviceVault = async (page) => {
 
 const deviceManifest = (page, changes = []) =>
   page.evaluate(
-    async ({ account, password, itemChanges }) =>
-      Array.from(
+    async ({ account, password, itemChanges }) => {
+      const settings = { collectionState: localStorage.getItem("collectionState") };
+      const disabledCollections = localStorage.getItem("disabledCollections");
+      if (disabledCollections !== null) settings.disabledCollections = disabledCollections;
+      return Array.from(
         new Uint8Array(
           await window.encryptManifest(
-            {
-              version: 2,
-              changes: itemChanges,
-              settings: { collectionState: localStorage.getItem("collectionState") },
-            },
+            { version: 2, changes: itemChanges, settings },
             `${password}:${account}`
           )
         )
-      ),
+      );
+    },
     { account: CLOUD_ACCOUNT, password: CLOUD_PASSWORD, itemChanges: changes }
   );
 
@@ -1142,7 +1148,48 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       await deviceA.evaluate(() =>
         window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024")
       );
+      await deviceA.evaluate(() => {
+        const state = window.collectionsCore.createEmptyState();
+        const created = window.collectionsCore.createCustomCollection(state, {
+          id: "custom-sync-rollback-hidden",
+          name: "Rollback Hidden",
+          metal: "Silver",
+          slots: [{ label: "Only slot" }],
+          now: "2026-09-26T00:00:00.000Z",
+        });
+        if (!created.ok)
+          throw new Error(`Could not create remote test Collection: ${created.reason}`);
+        const slotId = created.collection.definition.slots[0].id;
+        window.collectionsCore.linkItem(
+          state,
+          created.collection.id,
+          slotId,
+          "cdp-hidden-rollback",
+          {
+            now: "2026-09-26T00:01:00.000Z",
+          }
+        );
+        window.collectionsStore.mergeIn(state);
+      });
       await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+      await page.evaluate(() => {
+        const state = window.collectionsCore.createEmptyState();
+        const created = window.collectionsCore.createCustomCollection(state, {
+          id: "custom-sync-rollback-hidden",
+          name: "Rollback Hidden",
+          metal: "Silver",
+          slots: [{ label: "Only slot" }],
+          now: "2026-09-26T00:00:00.000Z",
+        });
+        if (!created.ok)
+          throw new Error(`Could not create local test Collection: ${created.reason}`);
+        window.collectionsStore.mergeIn(state);
+        const disabled = window.collectionsStore.setEnabled(created.collection.id, false);
+        if (!disabled.ok) throw new Error(`Could not hide local Collection: ${disabled.reason}`);
+      });
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+        "custom-sync-rollback-hidden",
+      ]);
       const manifest = await deviceManifest(deviceA, [
         {
           itemKey: "edit-2024",
@@ -1159,13 +1206,47 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       await injectCollectionQuota(page);
       await page.evaluate((remote) => window.pullWithPreview(remote), meta);
       expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+        "custom-sync-rollback-hidden",
+      ]);
       expect(await page.evaluate(() => localStorage.getItem("cloud_sync_last_pull"))).toBe(
         await page.evaluate(() => window.__lastPullBeforeQuota)
       );
       await clearCollectionQuota(page);
+
+      const priorInventory = await page.evaluate(() => localStorage.getItem("metalInventory"));
+      await page.evaluate(() => {
+        const real = Storage.prototype.setItem;
+        window.__inventoryRealSetItem = real;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "metalInventory") throw new DOMException("full", "QuotaExceededError");
+          return real.call(this, key, value);
+        };
+      });
+      await page.evaluate((remote) => window.pullWithPreview(remote), meta);
+      expect(await primaryOf(page, "2024")).toBeNull();
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+        "custom-sync-rollback-hidden",
+      ]);
+      expect(await page.evaluate(() => localStorage.getItem("metalInventory"))).toBe(
+        priorInventory
+      );
+      await page.evaluate(() => {
+        Storage.prototype.setItem = window.__inventoryRealSetItem;
+      });
+
       await page.evaluate((remote) => window.pullWithPreview(remote), meta);
       expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
       expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([]);
+      expect(
+        await page.evaluate(
+          () =>
+            window.collectionsStore.getState().collections["custom-sync-rollback-hidden"].slots[
+              "only-slot"
+            ].primary
+        )
+      ).toBe("cdp-hidden-rollback");
     });
   });
 });
@@ -1330,5 +1411,409 @@ test.describe("core/collections-data-paths — commit ordering (PR 1500 review)"
     });
 
     expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+  });
+});
+
+/**
+ * Restore a ZIP while accepting each changed setting, as if the collector chose remote.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {number[]} zipBytes - ZIP archive bytes returned by the in-page JSZip helper.
+ * @returns {Promise<string[]>} Toast messages emitted during the restore.
+ */
+const restoreBackupZipAndAccept = async (page, zipBytes) => {
+  await page.evaluate(async (bytes) => {
+    window.__strk393ZipRestoreComplete = false;
+    window.__strk393ZipRestoreToasts = [];
+    const originalToast = window.showToast;
+    window.showToast = (message, level) => {
+      const text = String(message || "");
+      window.__strk393ZipRestoreToasts.push(text);
+      if (typeof originalToast === "function") originalToast(message, level);
+      if (text.includes("ZIP backup restored successfully"))
+        window.__strk393ZipRestoreComplete = true;
+    };
+    window.showImportDiffReview = (_items, _meta, options, onDone) => {
+      for (const change of options?.settingsDiff?.changed || []) {
+        const value = change.remoteVal;
+        localStorage.setItem(change.key, typeof value === "string" ? value : JSON.stringify(value));
+      }
+      onDone({ added: 0, modified: 0, deleted: 0 });
+    };
+    const file = new File([new Uint8Array(bytes)], "strk393-restore.zip", {
+      type: "application/zip",
+    });
+    await window.restoreBackupZip(file);
+  }, zipBytes);
+  await page.waitForFunction(() => window.__strk393ZipRestoreComplete === true);
+  return page.evaluate(() => window.__strk393ZipRestoreToasts);
+};
+
+test.describe("core/collections-data-paths — hidden Collections persistence and restore", () => {
+  test("ZIP backup round-trips the disabled list", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+
+    const exported = await page.evaluate(async () => {
+      const result = window.collectionsStore.setEnabled("ase-type2", false);
+      if (!result.ok) throw new Error(`Could not hide empty Collection: ${result.reason}`);
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const settings = JSON.parse(await zip.file("settings.json").async("string"));
+      return {
+        disabledCollections: settings.disabledCollections,
+        zipBytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+      };
+    });
+    expect(exported.disabledCollections).toEqual(["ase-type2"]);
+
+    await page.evaluate(() => {
+      localStorage.removeItem("disabledCollections");
+      window.collectionsStore.reload();
+    });
+    expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(true);
+
+    const toasts = await restoreBackupZipAndAccept(page, exported.zipBytes);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+      "ase-type2",
+    ]);
+    expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(false);
+  });
+
+  test("a pre-feature ZIP without disabled-choice data restores with all Collections enabled", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const legacyZip = await page.evaluate(async () => {
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const settings = JSON.parse(await zip.file("settings.json").async("string"));
+      delete settings.disabledCollections;
+      zip.file("settings.json", JSON.stringify(settings, null, 2));
+      const output = await zip.generateAsync({ type: "uint8array" });
+      return Array.from(output);
+    });
+
+    // A legacy backup has no preference value to write, so this also proves
+    // restoring it clears a previously disabled local choice to the default.
+    await page.evaluate(() => {
+      const result = window.collectionsStore.setEnabled("ase-type2", false);
+      if (!result.ok) throw new Error(`Could not hide empty Collection: ${result.reason}`);
+    });
+    expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(false);
+
+    const toasts = await restoreBackupZipAndAccept(page, legacyZip);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([]);
+    expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(true);
+  });
+
+  test("a legacy ZIP keeps local hidden choices when Settings are resolved locally", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const zipBytes = await page.evaluate(async () => {
+      window.setTheme("light");
+      const hidden = window.collectionsStore.setEnabled("ase-type2", false);
+      if (!hidden.ok) throw new Error(`Could not hide empty Collection: ${hidden.reason}`);
+
+      const blob = await window.createBackupZip();
+      const zip = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      const settings = JSON.parse(await zip.file("settings.json").async("string"));
+      delete settings.disabledCollections;
+      settings.theme = "dark";
+      zip.file("settings.json", JSON.stringify(settings));
+      return Array.from(await zip.generateAsync({ type: "uint8array" }));
+    });
+    await page.getByRole("button", { name: "OK", exact: true }).click();
+    await expect(page.locator("#appDialogModal")).toBeHidden();
+
+    await page.evaluate((bytes) => {
+      window.__legacyLocalSettingsToasts = [];
+      const originalToast = window.showToast;
+      window.showToast = (message, level) => {
+        const text = String(message || "");
+        window.__legacyLocalSettingsToasts.push(text);
+        if (typeof originalToast === "function") originalToast(message, level);
+      };
+      const file = new File([new Uint8Array(bytes)], "legacy-local-settings.zip", {
+        type: "application/zip",
+      });
+      window.restoreBackupZip(file);
+    }, zipBytes);
+
+    const diffSettings = page.locator("#diffReviewSettings");
+    await expect(page.locator("#diffReviewModal")).toBeVisible();
+    await diffSettings.locator('[data-settings-bulk="local"]').click();
+    await page.locator("#diffReviewApplyBtn").click();
+    await page.waitForFunction(() =>
+      window.__legacyLocalSettingsToasts.some((text) => text === "ZIP backup restored successfully")
+    );
+
+    expect(await page.evaluate(() => localStorage.getItem("appTheme"))).toBe("light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    expect(await page.evaluate(() => window.collectionsStore.getDisabledIds())).toEqual([
+      "ase-type2",
+    ]);
+  });
+
+  test("ZIP restore silently re-enables a disabled Collection that arrives populated", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const zipBytes = await page.evaluate(async () => {
+      const disabled = window.collectionsStore.setEnabled("ase-type2", false);
+      if (!disabled.ok) throw new Error(`Could not hide empty Collection: ${disabled.reason}`);
+
+      const state = window.collectionsCore.createEmptyState();
+      window.collectionsCore.ensureCollection(state, {
+        id: "ase-type2",
+        kind: "template",
+        templateSlug: "ase-type2",
+        now: "2026-09-26T00:00:00.000Z",
+      });
+      window.collectionsCore.linkItem(state, "ase-type2", "2024", "cdp-ase-2024", {
+        now: "2026-09-26T00:01:00.000Z",
+      });
+
+      const zip = new window.JSZip();
+      zip.file(
+        "inventory_data.json",
+        JSON.stringify({ version: "test", exportDate: new Date().toISOString(), inventory })
+      );
+      zip.file(
+        "settings.json",
+        JSON.stringify({
+          version: "test",
+          exportDate: new Date().toISOString(),
+          exportOrigin: window.location.origin,
+          disabledCollections: ["ase-type2"],
+        })
+      );
+      zip.file(
+        "collection_state.json",
+        JSON.stringify({ version: "test", exportDate: new Date().toISOString(), state })
+      );
+      return Array.from(await zip.generateAsync({ type: "uint8array" }));
+    });
+
+    const toasts = await restoreBackupZipAndAccept(page, zipBytes);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    expect(toasts.filter((text) => /collection.*(enabled|turned on)/i.test(text))).toEqual([]);
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(true);
+    await openCollectionsHub(page);
+    await expect(
+      page.locator('#collectionsSectionEl [data-collection-id="ase-type2"]')
+    ).toBeVisible();
+  });
+
+  test("a mock Dropbox pull silently re-enables a disabled Collection that gains an Item", async ({
+    browser,
+    page,
+  }) => {
+    await withDevices(browser, page, async (deviceA) => {
+      await deviceA.evaluate(() => {
+        const linked = window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+        if (!linked.ok) throw new Error(`Could not populate remote Collection: ${linked.reason}`);
+      });
+      const manifest = await deviceManifest(deviceA);
+      await page.evaluate(() => {
+        const disabled = window.collectionsStore.setEnabled("ase-type2", false);
+        if (!disabled.ok) throw new Error(`Could not hide empty Collection: ${disabled.reason}`);
+        window.__strk393SyncToasts = [];
+        window.__strk393OriginalSyncToast = window.showToast;
+        window.__strk393OriginalSyncDiffShow = window.DiffModal.show;
+        window.showToast = (message, ...args) => {
+          window.__strk393SyncToasts.push(String(message || ""));
+          if (typeof window.__strk393OriginalSyncToast === "function") {
+            window.__strk393OriginalSyncToast(message, ...args);
+          }
+        };
+        window.DiffModal.show = (options) => options.onApply([]);
+      });
+
+      await routeCollectionDropbox(page, { manifest });
+      const toasts = await page.evaluate(async (meta) => {
+        try {
+          await window.pullWithPreview(meta);
+          return window.__strk393SyncToasts;
+        } finally {
+          window.showToast = window.__strk393OriginalSyncToast;
+          window.DiffModal.show = window.__strk393OriginalSyncDiffShow;
+          delete window.__strk393OriginalSyncToast;
+          delete window.__strk393OriginalSyncDiffShow;
+        }
+      }, remoteCollectionMeta("strk393-populated-cloud"));
+
+      expect(toasts.some((text) => /collection.*(enabled|turned on)/i.test(text))).toBe(false);
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(true);
+      await openCollectionsHub(page);
+      await expect(
+        page.locator('#collectionsSectionEl [data-collection-id="ase-type2"]')
+      ).toBeVisible();
+    });
+  });
+
+  test("encrypted .stvault restore reconciles populated Collections through reload without a Collection toast", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const password = "test";
+    const payload = await page.evaluate(() => {
+      const disabled = window.collectionsStore.setEnabled("ase-type2", false);
+      if (!disabled.ok) throw new Error(`Could not hide empty Collection: ${disabled.reason}`);
+
+      const state = window.collectionsCore.createEmptyState();
+      window.collectionsCore.ensureCollection(state, {
+        id: "ase-type2",
+        kind: "template",
+        templateSlug: "ase-type2",
+        now: "2026-09-26T00:00:00.000Z",
+      });
+      window.collectionsCore.linkItem(state, "ase-type2", "2024", "cdp-ase-2024", {
+        now: "2026-09-26T00:01:00.000Z",
+      });
+
+      const vault = window.collectVaultData("full");
+      vault.data.collectionState = JSON.stringify(state);
+      vault.data.disabledCollections = JSON.stringify(["ase-type2"]);
+      return vault;
+    });
+    const vaultBytes = await encryptVaultPayload(page, payload, password);
+    const restoreResult = await page.evaluate(
+      async ({ bytes, pass }) => {
+        window.__strk393VaultToasts = [];
+        const originalToast = window.showToast;
+        window.showToast = (message, level) => {
+          window.__strk393VaultToasts.push(String(message || ""));
+          if (typeof originalToast === "function") originalToast(message, level);
+        };
+        const originalDiffModal = window.DiffModal;
+        window.DiffModal = undefined;
+        try {
+          await window.vaultRestoreWithPreview(new Uint8Array(bytes), pass);
+        } finally {
+          window.DiffModal = originalDiffModal;
+          window.showToast = originalToast;
+        }
+        return window.__strk393VaultToasts;
+      },
+      { bytes: Array.from(vaultBytes), pass: password }
+    );
+
+    expect(restoreResult.some((text) => /collection.*(enabled|turned on)/i.test(text))).toBe(false);
+    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    expect(await page.evaluate(() => window.collectionsStore.isEnabled("ase-type2"))).toBe(true);
+    await openCollectionsHub(page);
+    await expect(
+      page.locator('#collectionsSectionEl [data-collection-id="ase-type2"]')
+    ).toBeVisible();
+  });
+
+  test("device A's hidden empty Collection reaches device B through Dropbox sync", async ({
+    browser,
+    page,
+  }) => {
+    await withDevices(browser, page, async (deviceA) => {
+      const uploads = [];
+      await deviceA.evaluate(() => {
+        localStorage.setItem("cloud_sync_enabled", "true");
+        window.scheduleSyncPush = () => {};
+        const result = window.collectionsStore.setEnabled("ase-type2", false);
+        if (!result.ok) throw new Error(`Could not hide empty Collection: ${result.reason}`);
+      });
+
+      await routeCollectionDropbox(deviceA, {
+        onUpload: (path, body) => uploads.push({ path, body }),
+      });
+      await deviceA.evaluate(() => window.pushSyncVault());
+
+      const uploadedManifest = uploads.find((entry) => entry.path.endsWith(".stmanifest"));
+      const uploadedVault = uploads.find((entry) => entry.path.endsWith("staktrakr-sync.stvault"));
+      expect(uploadedManifest?.body).toBeTruthy();
+      expect(uploadedVault?.body).toBeTruthy();
+
+      await routeCollectionDropbox(page, {
+        manifest: uploadedManifest.body,
+        vault: uploadedVault.body,
+      });
+      await page.evaluate((meta) => {
+        window.__strk393PullPromise = window.pullWithPreview(meta);
+      }, remoteCollectionMeta("strk393-hidden"));
+      await page.getByRole("button", { name: "Keep All Remote", exact: true }).click();
+      await page.getByRole("button", { name: "Apply", exact: true }).click();
+      await page.evaluate(() => window.__strk393PullPromise);
+
+      await openCollectionsHub(page);
+      await expect(
+        page.locator('#collectionsSectionEl [data-collection-id="ase-type2"]')
+      ).toHaveCount(0);
+      await page.evaluate(() => window.showSettingsModal("collections"));
+      const settingsPanel = page.locator("#settingsPanel_collections");
+      await expect(settingsPanel).toBeVisible();
+      const toggleGroup = settingsPanel.getByRole("group", {
+        name: /American Silver Eagle.*Type 2.*Collections/i,
+      });
+      await expect(toggleGroup.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      );
+    });
+  });
+
+  test("disabled Collections is in sync scope and is human-readable in Diff and Storage", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const inScope = await page.evaluate(() => {
+      window.saveDataSync("disabledCollections", ["ase-type2"]);
+      return Object.prototype.hasOwnProperty.call(
+        window.collectVaultData("sync").data,
+        "disabledCollections"
+      );
+    });
+    expect(inScope).toBe(true);
+
+    await page.evaluate(() => {
+      window.DiffModal.show({
+        source: { type: "sync", label: "Dropbox" },
+        diff: { added: [], modified: [], deleted: [] },
+        settingsDiff: {
+          changed: [{ key: "disabledCollections", localVal: [], remoteVal: ["ase-type2"] }],
+          unchanged: [],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    });
+    const diffSettings = page.locator("#diffReviewSettings");
+    await diffSettings.locator('[data-cat-toggle="settings"]').click();
+    const diffText = await diffSettings.innerText();
+    expect(diffText).toContain("Collections");
+    expect(diffText).toMatch(/Hidden Collections/i);
+    expect(diffText).toContain("American Silver Eagle");
+    expect(diffText).toContain("Type 2");
+    expect(diffText).not.toContain("disabledCollections");
+    expect(diffText).not.toContain("ase-type2");
+    await expect(
+      diffSettings.locator('[data-setting-resolution="setting-disabledCollections"]')
+    ).toHaveCount(2);
+    await expect(diffSettings.locator('[data-field^="setting-disabledCollections-"]')).toHaveCount(
+      0
+    );
+    await page.evaluate(() => window.DiffModal.close());
+
+    await page.evaluate(() => window.showSettingsModal("storage"));
+    const storageTable = page.locator("#storageKeyTable");
+    await expect(page.locator("#settingsPanel_storage")).toBeVisible();
+    await page.locator("#storageToggleTinyBottom").click();
+    const hiddenKeyRow = storageTable
+      .locator(".storage-key-row")
+      .filter({ hasText: "disabledCollections" });
+    await expect(hiddenKeyRow.locator(".storage-key-label")).toContainText("Hidden Collections");
   });
 });

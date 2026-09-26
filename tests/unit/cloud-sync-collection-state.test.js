@@ -44,6 +44,26 @@ const { __decompressIfNeeded } = new Function(
 
 const syncSrc = read("js/cloud-sync.js");
 
+/** Slice one top-level sync function without copying its implementation into the test. */
+function topLevelFunction(name) {
+  const start = syncSrc.indexOf(`function ${name}(`);
+  const end = syncSrc.indexOf("\nfunction ", start + 1);
+  assert.notEqual(start, -1, `could not locate function ${name}`);
+  return syncSrc.slice(start, end === -1 ? syncSrc.length : end);
+}
+
+/** Require the store refresh hook to follow both input merges and ordinary setting writes. */
+function assertReloadFollows(block, mergeNeedle, settingWriteNeedle) {
+  const mergeAt = block.indexOf(mergeNeedle);
+  const writeAt = block.lastIndexOf(settingWriteNeedle);
+  const reloadAt = block.lastIndexOf("window.collectionsStore.reload()");
+  assert.notEqual(mergeAt, -1, `missing ${mergeNeedle}`);
+  assert.notEqual(writeAt, -1, `missing ${settingWriteNeedle}`);
+  assert.notEqual(reloadAt, -1, "missing collectionsStore.reload call");
+  assert.ok(reloadAt > mergeAt, "store reload must follow the Collection merge");
+  assert.ok(reloadAt > writeAt, "store reload must follow ordinary setting writes");
+}
+
 function slice(from, to) {
   const a = syncSrc.indexOf(from);
   const b = syncSrc.indexOf(to);
@@ -95,11 +115,13 @@ function loadSync(opts = {}) {
         ? opts.local
         : JSON.stringify(opts.local);
   const calls = [];
+  const callOptions = [];
   const windowDouble = {
     collectionsCore: core,
     collectionsStore: {
-      mergeIn: (incoming) => {
+      mergeIn: (incoming, options) => {
         calls.push(incoming);
+        callOptions.push(options);
         return opts.mergeIn ? opts.mergeIn(incoming) : { ok: true, changed: true };
       },
     },
@@ -123,7 +145,7 @@ function loadSync(opts = {}) {
     _stableCanonicalString,
     { warn: () => {} }
   );
-  return Object.assign(fns, { calls });
+  return Object.assign(fns, { calls, callOptions });
 }
 
 describe("STRK-370 SCOPE + EXCLUDE", () => {
@@ -210,6 +232,7 @@ describe("STRK-370 APPLY + HOLD — _mergeCollectionState", () => {
 
     assert.equal(sync.calls.length, 1);
     assert.equal(sync.calls[0].collections["ase-type2"].slots["2024"].primary, U.b);
+    assert.deepEqual(sync.callOptions[0], { deferReconcile: true });
   });
 
   test("decompresses a CMP2 remote before merging", () => {
@@ -354,5 +377,56 @@ describe("STRK-370 commit ordering — Collections merge precedes artwork restor
       ["merge", "images"],
       "Collections must merge before artwork is judged against the store"
     );
+  });
+});
+
+describe("STRK-393 post-apply populated Collection reconciliation", () => {
+  test("_applyAndFinalize refreshes after Collection merge and ordinary setting writes", () => {
+    const apply = topLevelFunction("_applyAndFinalize");
+    assertReloadFollows(
+      apply,
+      "_mergeCollectionState(opts.remoteRawSettings)",
+      "localStorage.setItem(sc.key, writeVal)"
+    );
+  });
+
+  test("manifest one-sided auto-merge refreshes after both merge and setting writes", () => {
+    const start = syncSrc.indexOf(
+      "var _tagMerge = _mergeOneSidedTagSettings(manifest.settings || {});"
+    );
+    const end = syncSrc.indexOf("var _amImage = await _pullImageVaultIfChanged(", start);
+    assert.ok(start !== -1 && end > start, "could not locate manifest one-sided apply block");
+    assertReloadFollows(
+      syncSrc.slice(start, end),
+      "_mergeCollectionState(manifest.settings || {})",
+      "localStorage.setItem("
+    );
+  });
+
+  test("vault-first silent apply refreshes after merge and any ordinary settings writes", () => {
+    const start = syncSrc.indexOf("if (_noItemChanges && _noSettingsChanges) {");
+    const end = syncSrc.indexOf(
+      "// STRK-224 (Edge 3, D-3): capture the FULL prior lastPull",
+      start
+    );
+    assert.ok(start !== -1 && end > start, "could not locate vault-first silent branch");
+    const branch = syncSrc.slice(start, end);
+    const mergeAt = branch.indexOf("_mergeCollectionState(remotePayload.data)");
+    const writes = branch.lastIndexOf("localStorage.setItem(");
+    const reloadAt = branch.lastIndexOf("window.collectionsStore.reload()");
+    assert.notEqual(mergeAt, -1, "missing vault-first Collections merge");
+    assert.notEqual(reloadAt, -1, "missing vault-first store refresh");
+    assert.ok(reloadAt > mergeAt, "vault-first store refresh must follow the Collections merge");
+    if (writes !== -1) {
+      assert.ok(reloadAt > writes, "vault-first refresh must follow settings writes");
+    }
+  });
+
+  test("a cancelled sync preview never reconciles Collections", () => {
+    const applyStart = syncSrc.indexOf("function _applyAndFinalize(");
+    const cancelStart = syncSrc.indexOf("onCancel: function () {", applyStart);
+    const cancelEnd = syncSrc.indexOf("\n      },", cancelStart);
+    assert.ok(applyStart !== -1 && cancelStart > applyStart && cancelEnd > cancelStart);
+    assert.doesNotMatch(syncSrc.slice(cancelStart, cancelEnd), /reconcilePopulated|\.reload\(\)/);
   });
 });

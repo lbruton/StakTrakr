@@ -152,6 +152,7 @@
     catalogMappings: catalogManager.exportMappings(),
     chipCustomGroups: loadDataSync("chipCustomGroups", []),
     chipBlacklist: loadDataSync("chipBlacklist", []),
+    disabledCollections: loadDataSync(DISABLED_COLLECTIONS_KEY, []),
     chipMinCount: localStorage.getItem("chipMinCount"),
     chipMaxCount: localStorage.getItem("chipMaxCount"),
     featureFlags: localStorage.getItem(FEATURE_FLAGS_KEY),
@@ -626,6 +627,8 @@
         remoteSettings["chipCustomGroups"] = settingsObj.chipCustomGroups;
       if (Array.isArray(settingsObj.chipBlacklist))
         remoteSettings["chipBlacklist"] = settingsObj.chipBlacklist;
+      if (Array.isArray(settingsObj.disabledCollections))
+        remoteSettings["disabledCollections"] = settingsObj.disabledCollections;
       if (settingsObj.chipMinCount != null)
         remoteSettings["chipMinCount"] = settingsObj.chipMinCount;
       if (settingsObj.chipMaxCount != null)
@@ -716,7 +719,9 @@
    */
   const _restoreCollectionState = (ancillary) => {
     if (!ancillary.collectionState || !window.collectionsStore) return;
-    const result = window.collectionsStore.mergeIn(ancillary.collectionState);
+    const result = window.collectionsStore.mergeIn(ancillary.collectionState, {
+      deferReconcile: true,
+    });
     if (!result.ok) throw new Error("Collections could not be saved (storage may be full)");
   };
 
@@ -736,7 +741,14 @@
       const localSettings = {};
       for (const key of settingsKeys) {
         const val = loadDataSync(key, null);
-        if (val !== null) localSettings[key] = val;
+        if (val !== null) {
+          localSettings[key] = val;
+        } else {
+          // Some scalar preferences (notably appTheme) are stored as raw strings,
+          // so loadDataSync cannot JSON-decode them for the local side of the diff.
+          const raw = localStorage.getItem(key);
+          if (raw !== null) localSettings[key] = raw;
+        }
       }
       const settingsDiff = DiffEngine.compareSettings(localSettings, remoteSettings);
       return settingsDiff.changed.length === 0 ? null : settingsDiff;
@@ -968,7 +980,7 @@
       const settingsDiff = _buildSettingsDiff(remoteSettings);
 
       // -- Phase 3: Ancillary data applicator (runs after user accepts DiffModal) --
-      const applyAncillaryData = async () => {
+      const applyAncillaryData = async (importsBackupSettings) => {
         _restoreSpotAndCatalog(settingsObj);
         _restoreNumistaRules(settingsObj);
         _restoreItemPriceHistory(ancillary);
@@ -976,6 +988,18 @@
         _restoreCollectionState(ancillary);
         await _restoreCachedMedia(zip);
         await _restoreAttachments(zip);
+        // A pre-feature or malformed backup carries no disabled preference. Reset
+        // only when the user accepts backup settings; a local Settings resolution
+        // keeps this device's hidden choices intact.
+        if (
+          importsBackupSettings !== false &&
+          !Array.isArray(settingsObj && settingsObj.disabledCollections)
+        ) {
+          saveDataSync(DISABLED_COLLECTIONS_KEY, []);
+        }
+        if (window.collectionsStore && typeof window.collectionsStore.reload === "function") {
+          window.collectionsStore.reload();
+        }
         _finalizeRestore();
       };
 
@@ -999,7 +1023,7 @@
               }
             : null,
         },
-        function (summary) {
+        function (summary, importsBackupSettings) {
           debugLog(
             "restoreBackupZip DiffModal complete",
             summary.added,
@@ -1009,7 +1033,7 @@
             summary.deleted,
             "deleted"
           );
-          applyAncillaryData()
+          applyAncillaryData(importsBackupSettings)
             .then(function () {
               showToast("ZIP backup restored successfully");
             })

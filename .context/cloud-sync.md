@@ -4,7 +4,7 @@ project: StakTrakr
 audience: agent
 canonical: .context/cloud-sync.md
 migration_source: "DocVault/Projects/StakTrakr/Foundation/cloud-sync.md" # historical provenance; migrated 2026-08-12
-updated: "2026-06-21"
+updated: "2026-09-26"
 ---
 
 # StakTrakr — Cloud Sync
@@ -383,6 +383,16 @@ Per-Item price history (`item-price-history` — shape `{ [uuid]: [{ ts, itemNam
 **Restore paths** that rewrite the key behind the store's back — `restoreVaultData` and `syncRestoreOverrideBackup` — call `collectionsStore.reload()`; otherwise the stale in-memory state overwrites the restored one on the next mutation.
 
 **Test depth:** the contract is pinned by `tests/unit/cloud-sync-collection-state.test.js`, `tests/unit/collections-core.test.js`, and two-device mock Dropbox browser cases in `tests/playwright/core/collections-data-paths.spec.js` for all three apply paths, artwork, rollback, quota retry, and older links versus newer unlinks.
+
+### Hidden Collections Preference (STRK-393)
+
+`disabledCollections` stores the IDs of empty Collections hidden from the hub. It follows the ordinary synced-preference path like `chipBlacklist`: it is included in `SYNC_SCOPE_KEYS` and `ALLOWED_STORAGE_KEYS`, and automatic sync applies last-write-wins to the complete ID array. When a sync diff is presented, it offers one Local/Remote choice for the entire array (Remote is the default). Do not register a per-ID renderer or custom merge for it. `collectionState` remains the separate managed key merged by `_mergeCollectionState()`.
+
+The diff labels the setting “Hidden Collections.” Known IDs display their Collection name and template variant; unknown IDs stay visible as raw IDs.
+
+**Invariant — disabled means empty.** `collectionsStore.setEnabled()` refuses to hide a Collection while any Item UUID is linked; primary and Spare links both count. If a Collection becomes populated, `collectionsStore.isEnabled()` treats it as visible and `reconcilePopulated()` removes its ID from `disabledCollections`. `collectionsStore.save()` runs that reconciliation after saving `collectionState` (`js/collections-store.js:132–139`), and `collectionsStore.reload()` runs it after re-hydrating state written by a restore (`js/collections-store.js:57–60`).
+
+CloudSync reconciles only after each successful apply, so newly applied links cannot remain hidden by a stale `disabledCollections` array. The three call sites are `_applyAndFinalize()` (`js/cloud-sync.js:4272–4280`), the one-sided manifest auto-merge inside `pullWithPreview()` after all writes succeed (`js/cloud-sync.js:5265–5273`), and the vault-first silent apply inside `pullWithPreview()` (`js/cloud-sync.js:5793–5801`). Each runs before recording the successful pull; cancellation and failed applies do not reach these hooks.
 
 ---
 

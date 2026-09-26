@@ -370,8 +370,8 @@
     if (!Array.isArray(localArr) && !Array.isArray(remoteArr)) return null;
     if (!Array.isArray(localArr)) localArr = [];
     if (!Array.isArray(remoteArr)) remoteArr = [];
-    var localSet = {};
-    var remoteSet = {};
+    var localSet = Object.create(null);
+    var remoteSet = Object.create(null);
     var i;
     for (i = 0; i < localArr.length; i++) localSet[localArr[i]] = true;
     for (i = 0; i < remoteArr.length; i++) remoteSet[remoteArr[i]] = true;
@@ -385,7 +385,7 @@
     var overflowRemote = "";
     var overflowMatched = "";
 
-    var allSlugs = {};
+    var allSlugs = Object.create(null);
     for (i = 0; i < localArr.length; i++) allSlugs[localArr[i]] = true;
     for (i = 0; i < remoteArr.length; i++) allSlugs[remoteArr[i]] = true;
 
@@ -677,6 +677,10 @@
     if (key === "metalApiConfig") return _formatSpotApiConfig(value);
     if (key === "catalog_api_config") return value ? "••• configured" : "not set";
     value = _parseSetting(value);
+    if (key === "disabledCollections") {
+      var collectionSummary = _formatDisabledCollections(value);
+      if (collectionSummary !== null) return collectionSummary;
+    }
     if (value === null || value === undefined) return "—";
     if (typeof value === "boolean") return value ? "On" : "Off";
     if (value === "true") return "On";
@@ -692,6 +696,46 @@
     }
     if (typeof value === "object") return Object.keys(value).length + " entries";
     return _esc(String(value));
+  }
+
+  /** Resolve a disabled Collection id to its name, including its template variant. */
+  function _collectionDisplayName(id) {
+    var rawId = String(id == null ? "" : id);
+    var store = typeof window !== "undefined" ? window.collectionsStore : null;
+    if (!store) return rawId;
+
+    var template = typeof store.getTemplate === "function" ? store.getTemplate(rawId) : null;
+    if (template && template.slug === rawId && template.name)
+      return _templateDisplayName(template, rawId);
+
+    var state = typeof store.getState === "function" ? store.getState() : null;
+    var collection =
+      state && state.collections && Object.prototype.hasOwnProperty.call(state.collections, rawId)
+        ? state.collections[rawId]
+        : null;
+    if (!collection || collection.deletedAt) return rawId;
+    if (collection.kind === "template" && typeof store.getTemplate === "function") {
+      template = store.getTemplate(collection.templateSlug);
+      if (template && template.slug === collection.templateSlug && template.name)
+        return _templateDisplayName(template, rawId);
+    }
+    return collection.name ? String(collection.name) : rawId;
+  }
+
+  /** Append the variant to template names so similarly named Collections stay distinct. */
+  function _templateDisplayName(template, fallback) {
+    var name = template && template.name ? String(template.name) : fallback;
+    var variant = template && template.variant ? String(template.variant) : "";
+    return variant ? name + " " + variant : name;
+  }
+
+  /** Format disabled Collection ids by name for compact settings-diff values. */
+  function _formatDisabledCollections(value) {
+    if (!Array.isArray(value)) return null;
+    var names = value.map(_collectionDisplayName);
+    var label = value.length + " Collections";
+    if (names.length > 0) label += " (" + names.join(", ") + ")";
+    return _esc(label);
   }
 
   /** Resolve a metal name to its theme CSS color variable */

@@ -3686,12 +3686,12 @@ function _hasCollectionStateChange(remoteSettings) {
 }
 
 /**
- * STRK-370: reconcile the remote Collections state into local through the commutative
- * core merge (collectionsStore.mergeIn), never a blind assign. THROWS when the write
- * fails so every caller rolls back / holds lastPull and the next poll retries — the store
- * itself has already restored its in-memory state (STRK-377). Idempotent, so the deliberate
- * double coverage across apply paths is safe. Runs only on apply paths, never on a
- * cancelled preview.
+ * STRK-370: merge the remote Collections state into local through the commutative core
+ * merge (collectionsStore.mergeIn), never a blind assign. Defer populated-ID
+ * reconciliation until the full apply commits, so rollback cannot lose the local visibility
+ * preference. THROWS when the write fails so every caller holds lastPull and the next poll
+ * retries — the store itself has already restored its in-memory state (STRK-377).
+ * Runs only on apply paths, never on a cancelled preview.
  * @param {object} remoteSettings - Remote settings (raw localStorage strings by key)
  * @returns {boolean} Whether local Collections changed
  */
@@ -3704,7 +3704,9 @@ function _mergeCollectionState(remoteSettings) {
   if (!store || typeof store.mergeIn !== "function") {
     throw new Error("collectionState store unavailable");
   }
-  var result = store.mergeIn(_parseTagStore(remoteSettings[key], {}));
+  var result = store.mergeIn(_parseTagStore(remoteSettings[key], {}), {
+    deferReconcile: true,
+  });
   if (!result || result.ok === false) {
     throw new Error("collectionState merge " + ((result && result.reason) || "failed"));
   }
@@ -4268,6 +4270,15 @@ function _applyAndFinalize(newInventory, selectedChanges, settingsChanges, remot
       updateSyncStatusIndicator("error", "rollback");
     if (typeof refreshSyncUI === "function") refreshSyncUI();
     return false;
+  }
+  // STRK-393: the ordinary settings loop can restore stale hidden IDs after the
+  // Collections merge. Reconcile only after the full apply has persisted successfully.
+  if (
+    typeof window !== "undefined" &&
+    typeof window.collectionsStore !== "undefined" &&
+    typeof window.collectionsStore.reload === "function"
+  ) {
+    window.collectionsStore.reload();
   }
   if (typeof window.neutralizeSupersededChangelog === "function") {
     window.neutralizeSupersededChangelog(selectedChanges, acceptanceCutoff);
@@ -5254,6 +5265,15 @@ async function pullWithPreview(remoteMeta) {
               // (e.g. QuotaExceededError), leave lastPull stale so the next
               // poll cycle retries
               if (_failedCount === 0) {
+                // STRK-393: after all merges and settings writes succeed, remove
+                // stale hidden IDs for Collections populated by this apply.
+                if (
+                  typeof window !== "undefined" &&
+                  typeof window.collectionsStore !== "undefined" &&
+                  typeof window.collectionsStore.reload === "function"
+                ) {
+                  window.collectionsStore.reload();
+                }
                 if (typeof fetchSpotPrice === "function") {
                   try {
                     fetchSpotPrice();
@@ -5771,6 +5791,15 @@ async function pullWithPreview(remoteMeta) {
           updateSyncStatusIndicator("error", "Sync incomplete");
           _previewPullMeta = null;
           return;
+        }
+        // STRK-393: finish the silent apply's Collection, artwork, and settings
+        // work before clearing stale hidden IDs or recording the pull.
+        if (
+          typeof window !== "undefined" &&
+          typeof window.collectionsStore !== "undefined" &&
+          typeof window.collectionsStore.reload === "function"
+        ) {
+          window.collectionsStore.reload();
         }
         // STRK-370: the Collections-only change that also reaches this silent branch
         // (managed key) is merged at the TOP of the branch, ahead of the image pull —
