@@ -16,12 +16,21 @@ if [ -n "$_GIT_TOKEN" ]; then
 fi
 
 # ── 3. Write cron schedule ─────────────────────────────────────────────
+# STRK-402: every job is wrapped in `flock -n <job>.flock timeout -k 30 <N>`.
+# `flock -n` guarantees at most one instance of a given job runs at a time —
+# belt-and-suspenders alongside each script's own internal lock — and
+# `timeout -k 30 <N>` puts a hard ceiling on a single run so a stalled sqld
+# connection or a hung network fetch can no longer wedge a cron slot forever
+# (the OOM-killed repack that caused the 2026-09-26 outage held its slot for
+# 86 minutes with nothing to stop it). Budgets: spot 600s, publish 720s,
+# provider-export 240s, cleanup 1800s — all comfortably above observed normal
+# run time, tight enough to guarantee eventual recovery.
 echo "[entrypoint] Writing cron schedule (spot + publish + provider-export + weekly cleanup)..."
 : > /etc/cron.d/retail-poller
-echo "0,30 * * * * root . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1" >> /etc/cron.d/retail-poller
-echo "8,23,38,53 * * * * root . /etc/environment; /app/run-publish.sh >> /var/log/publish.log 2>&1" >> /etc/cron.d/retail-poller
-echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1" >> /etc/cron.d/retail-poller
-echo "17 3 * * 0 root . /etc/environment; /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1" >> /etc/cron.d/retail-poller
+echo "0,30 * * * * root . /etc/environment; flock -n /tmp/spot.flock timeout -k 30 600 /app/run-spot.sh >> /var/log/spot-poller.log 2>&1" >> /etc/cron.d/retail-poller
+echo "8,23,38,53 * * * * root . /etc/environment; flock -n /tmp/publish-cron.flock timeout -k 30 720 /app/run-publish.sh >> /var/log/publish.log 2>&1" >> /etc/cron.d/retail-poller
+echo "*/5 * * * * root . /etc/environment; cd /app && flock -n /tmp/provider-export.flock timeout -k 30 240 node export-providers-json.js >> /var/log/provider-export.log 2>&1" >> /etc/cron.d/retail-poller
+echo "17 3 * * 0 root . /etc/environment; flock -n /tmp/cleanup-cron.flock timeout -k 30 1800 /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1" >> /etc/cron.d/retail-poller
 chmod 0644 /etc/cron.d/retail-poller
 
 # ── 4. Tailscale state directory (on persistent /data volume) ──────────

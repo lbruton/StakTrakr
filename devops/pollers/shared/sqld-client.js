@@ -26,13 +26,22 @@
  */
 
 import { createClient } from "@libsql/client";
+import {
+  createTimeoutFetch,
+  resolveSqldTimeoutMs,
+  DEFAULT_SQLD_TIMEOUT_MS,
+} from "./sqld-timeout-fetch.js";
+
+export { createTimeoutFetch, resolveSqldTimeoutMs, DEFAULT_SQLD_TIMEOUT_MS };
 
 /**
  * Create a libSQL client configured from environment variables.
  *
  * Chooses the URL/token family based on whether `process.env.SQLD_URL` is set:
  * uses `SQLD_URL` with optional `SQLD_AUTH_TOKEN` when present, otherwise falls back to
- * legacy `TURSO_DATABASE_URL` with optional `TURSO_AUTH_TOKEN`.
+ * legacy `TURSO_DATABASE_URL` with optional `TURSO_AUTH_TOKEN`. Requests time out after
+ * `SQLD_TIMEOUT_MS` (default `DEFAULT_SQLD_TIMEOUT_MS`) instead of hanging on an
+ * unreachable host (STRK-402).
  *
  * @returns {import("@libsql/client").Client} A configured libSQL client instance.
  * @throws {Error} If neither `SQLD_URL` nor `TURSO_DATABASE_URL` is set.
@@ -46,7 +55,13 @@ export function createSqldClient() {
     throw new Error("SQLD_URL (or legacy TURSO_DATABASE_URL) must be set");
   }
 
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  const timeoutMs = resolveSqldTimeoutMs(process.env.SQLD_TIMEOUT_MS);
+
+  return createClient({
+    url,
+    ...(authToken ? { authToken } : {}),
+    fetch: createTimeoutFetch(timeoutMs),
+  });
 }
 
 /**
