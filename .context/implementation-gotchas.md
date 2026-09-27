@@ -193,7 +193,7 @@ cannot be missed. Adding a second guard in a branch is a redundant duplicate, no
 
 The duplication-checker hook respects `// duplication-ok` inline comments. Use this when intentional shadowing or deliberate repetition would otherwise trigger the hook.
 
-## Closing task ordering in sketch workflow
+## Closing task ordering in spec workflow
 
 Follow this sequence:
 
@@ -204,10 +204,10 @@ Follow this sequence:
 5. Mark Plane issue as Done
 
 **Warning:** Mark Plane issues Done only after the PR merges.
-Plane closure tasks (close task number) follow `/sketch archive` after merging.
+Plane closure tasks (close task number) follow `/spec archive` after merging.
 
-**DocVault git add discipline:** When committing sketch archives, stage with surgical precision:
+**DocVault git add discipline:** When committing spec archives, stage with surgical precision:
 
 - Stage by exact file paths: `git add specs/STRK-74/requirements.md ...`
 - Do not use broad staging: `git add specs/` or `git add .`
-- Broad staging picks up in-progress sketches as unintended additions.
+- Broad staging picks up in-progress specs as unintended additions.

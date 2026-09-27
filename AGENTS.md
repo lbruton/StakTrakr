@@ -18,9 +18,9 @@ duplicating its rules here; on any conflict with source code, code wins.
 - `.context/testing.md` — test tiers, TDD rules, coverage-map requirement. **Read before editing or running tests.**
 - `.context/issue-tracking.md` — Plane state UUIDs, epic conventions.
 - `.context/git-topology.md` — branch model, worktrees, version locks, release flow, spot bundle, merge strategy, stale branch checks.
-- `.context/implementation-gotchas.md` — runtime and module foot-guns (dual config store, script load order, date frames, storage behavior, sticky columns, goldback predicates, sketch closing order).
+- `.context/implementation-gotchas.md` — runtime and module foot-guns (dual config store, script load order, date frames, storage behavior, sticky columns, goldback predicates, spec closing order).
 - `.context/review-and-ci.md` — Codacy CLI behavior, agentlint requirements, reviewer false positives, CI/review triage.
-- `.context/sketch-conventions.md` — per-project `/sketch-*` overrides, branch naming, closing tasks.
+- `.context/spec-conventions.md` — per-project `/spec-*` overrides, branch naming, closing tasks.
 - `.context/GLOSSARY.md` — canonical StakTrakr domain terms, avoided aliases, relationships, and naming ambiguities.
 - `.context/deep-dives/` — 13 deep-dive docs (data model, DOM patterns, pollers, API reference, health checks, vendor quirks, …) for subsystem-deep work.
 
@@ -79,9 +79,9 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 - Never push directly to `dev` or `main`; use normal merge paths only and decline `--admin` or merge-bypass requests.
 - Do not merge `dev` to `main` unless the user explicitly says "release" or "ready to ship".
 
-## Sketch Work
+## Spec Work
 
-- Before applying a `/sketch`, read all cumulative sketch docs in `DocVault/Projects/StakTrakr/sketches/<ISSUE-ID>-<slug>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/sketch-conventions.md`.
+- Before applying a `/spec`, read all cumulative spec docs in `DocVault/Projects/StakTrakr/specs/<ISSUE-ID>-<slug>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/spec-conventions.md`.
 - Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code/artifact inventory, `approach.md` as implementation authority, and `tasks.md` as execution order.
 - Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
 - Do not mark a task or acceptance criterion complete if implementation contradicts requirements, discovery, approach, approved mockups, or project design guidance.
@@ -92,7 +92,7 @@ For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or in
 
 - Read `.context/design-philosophy.md`.
 - Check `ui-standards/style.html` for live component and token patterns.
-- Search the issue/sketch and `playground/` for approved or referenced mockups.
+- Search the issue/spec and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
 - Use existing StakTrakr design tokens and components.
 - Verify every mocked screen/state in a browser and include screenshot/GIF evidence in the PR.

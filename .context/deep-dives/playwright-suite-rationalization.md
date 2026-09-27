@@ -62,7 +62,7 @@ There is also heavy helper duplication: many specs define their own `seedData`, 
 
 This is a normal failure mode for a one-person product with a strong spec workflow:
 
-1. Each feature or sketch adds acceptance-criterion tests.
+1. Each feature or spec adds acceptance-criterion tests.
 2. Those tests remain forever, even after the feature becomes ordinary product behavior.
 3. The suite starts encoding implementation and design history instead of current user risk.
 4. Full regression becomes expensive enough that agents and humans avoid running it.
