@@ -27,12 +27,36 @@
 
 import { createClient } from "@libsql/client";
 
+/** Default request timeout (ms) when `SQLD_TIMEOUT_MS` is unset (STRK-402). */
+export const DEFAULT_SQLD_TIMEOUT_MS = 20000;
+
+/**
+ * Wrap a `fetch` implementation so a request aborts after `timeoutMs` instead
+ * of hanging forever (STRK-402 — an unreachable sqld host previously had no
+ * ceiling, so a stalled request blocked its caller indefinitely).
+ *
+ * A caller-supplied `AbortSignal` is left untouched — this only fills in a
+ * timeout when nothing is already controlling cancellation.
+ *
+ * @param {number} timeoutMs
+ * @param {typeof fetch} [fetchImpl] - Injectable for tests; defaults to global `fetch`.
+ * @returns {typeof fetch}
+ */
+export function createTimeoutFetch(timeoutMs, fetchImpl = globalThis.fetch) {
+  return (input, init = {}) => {
+    if (init.signal) return fetchImpl(input, init);
+    return fetchImpl(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  };
+}
+
 /**
  * Create a libSQL client configured from environment variables.
  *
  * Chooses the URL/token family based on whether `process.env.SQLD_URL` is set:
  * uses `SQLD_URL` with optional `SQLD_AUTH_TOKEN` when present, otherwise falls back to
- * legacy `TURSO_DATABASE_URL` with optional `TURSO_AUTH_TOKEN`.
+ * legacy `TURSO_DATABASE_URL` with optional `TURSO_AUTH_TOKEN`. Requests time out after
+ * `SQLD_TIMEOUT_MS` (default `DEFAULT_SQLD_TIMEOUT_MS`) instead of hanging on an
+ * unreachable host (STRK-402).
  *
  * @returns {import("@libsql/client").Client} A configured libSQL client instance.
  * @throws {Error} If neither `SQLD_URL` nor `TURSO_DATABASE_URL` is set.
@@ -46,7 +70,13 @@ export function createSqldClient() {
     throw new Error("SQLD_URL (or legacy TURSO_DATABASE_URL) must be set");
   }
 
-  return createClient({ url, ...(authToken ? { authToken } : {}) });
+  const timeoutMs = Number(process.env.SQLD_TIMEOUT_MS) || DEFAULT_SQLD_TIMEOUT_MS;
+
+  return createClient({
+    url,
+    ...(authToken ? { authToken } : {}),
+    fetch: createTimeoutFetch(timeoutMs),
+  });
 }
 
 /**

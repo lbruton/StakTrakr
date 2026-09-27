@@ -39,6 +39,37 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 > Retail (`run-local.sh`), retry (`run-retry.sh`), and goldback (`run-goldback.sh`) are **disabled** on Fly.io since STAK-478 (2026-03-21). Fly.io is a thin publisher only.
 
+### Fly Publisher Failure Signature — full-history OOM loop (STRK-402, 2026-09-26)
+
+**Signature:** all three feeds frozen simultaneously, `fly logs` shows a repeating OOM kill,
+Tailscale ping to the Fly machine times out, and `ps` (via `fly ssh console`) shows a
+long-running `git pack-objects`. Looks like a tunnel/network problem — it isn't; the tunnel
+stall is a _symptom_ of memory thrash, not the cause.
+
+**Root cause:** `git repack -a` in `cleanup-export.sh` enumerates the export repo's **entire**
+history before it can build deltas — `--window-memory` only caps the per-delta window, not the
+object list. Years of 4×/hour publish commits (10k+ commits, millions of objects) pushed the
+repack past the machine's memory ceiling; it was OOM-killed mid-run, 86 minutes in, wedging the
+whole VM (Tailscale, sqld connections, the `*/5` provider-export cron) while still holding the
+publish lock. Because it never reached `prune`, the low-inode condition that triggered the
+repack never cleared, so the _next_ publish immediately re-entered the same repack — a
+permanent loop that a plain `fly machine restart` does not break.
+
+**Fix (this issue):** `cleanup-export.sh` re-shallows (fresh depth-1 clone of the current tip)
+instead of repacking full history — bounded to the current tree regardless of how much history
+has accumulated. `run-publish.sh` re-shallows on bootstrap if `.git/shallow` is missing. Every
+cron job is wrapped in its own `flock -n <job>.flock timeout -k 30 <N>` (see
+`docker-entrypoint-slim.sh`), and the cross-script publish/cleanup mutex moved from a
+`noclobber` lockfile to `flock` on `/tmp/retail-publish.flock` — the noclobber version needed
+its `EXIT` trap to fire to release, which does not happen on SIGKILL/OOM-kill, and left the
+lock stranded during this incident.
+
+**Manual recovery** (if the fix has not yet reached a machine): take the publish lock, back up
+`.git/config`, `rm -rf .git`, `git init`, restore the config, `git symbolic-ref HEAD
+refs/heads/api`, `git fetch --depth 1 origin api`, `git reset FETCH_HEAD` (mixed — working tree
+untouched), release the lock, run `/app/run-publish.sh`. Then heal any spot-hourly gap from the
+outage window with `backfill-spot-files.js` (it skips files that already exist).
+
 ---
 
 ## Stale Thresholds

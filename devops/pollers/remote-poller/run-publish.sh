@@ -7,13 +7,19 @@
 set -e
 
 # Lockfile guard — skip if previous publish is still running.
-# noclobber makes test-and-create atomic (no race with cleanup-export.sh).
-PUBLISH_LOCK=/tmp/retail-publish.lock
-if ! (set -o noclobber; echo "$$" > "$PUBLISH_LOCK") 2>/dev/null; then
+# flock (STRK-402) — kernel-managed and tied to fd 9's process lifetime, so a
+# SIGKILL (OOM-kill, `fly machine restart` mid-run) releases it automatically.
+# The prior noclobber lock needed its EXIT trap to fire to clean up, which
+# does not happen on SIGKILL — the 2026-09-26 outage left it stranded and a
+# manual `rm -f` was required before any publish could run again. fd 9 is
+# inherited by cleanup-export.sh when called below, so CLEANUP_SKIP_LOCK=1
+# there is still race-free without re-acquiring the lock.
+PUBLISH_LOCK=/tmp/retail-publish.flock
+exec 9>"$PUBLISH_LOCK"
+if ! flock -n 9; then
   echo "[$(date -u +%H:%M:%S)] Previous publish still running, skipping"
   exit 0
 fi
-trap 'rm -f "$PUBLISH_LOCK"' EXIT
 
 REPO_DIR="/data/staktrakr-api-export"
 REMOTE="https://${GITHUB_TOKEN}@github.com/lbruton/StakTrakrApi.git"
@@ -29,6 +35,16 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
 fi
 
 cd "$REPO_DIR"
+
+# ── Bootstrap re-shallow guard (STRK-402) ───────────────────────────────
+# A full (non-shallow) repo here means either a fresh full `git clone` or a
+# volume from before this fix landed. Re-shallow now instead of waiting for
+# the weekly cron or the inode floor below — a full-history repo is exactly
+# the condition that let `git repack -a` OOM the machine in the first place.
+if [ ! -f .git/shallow ]; then
+  echo "[$(date -u +%H:%M:%S)] WARN: repo is not shallow — running cleanup to re-shallow before publishing"
+  CLEANUP_SKIP_LOCK=1 /app/cleanup-export.sh || echo "[$(date -u +%H:%M:%S)] ERROR: cleanup failed"
+fi
 
 # ── Pre-flight space backstop (STRK-187) ────────────────────────────────
 # Floors sized to absorb one inter-cleanup week of growth (~30k inodes) on
