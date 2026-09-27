@@ -42,7 +42,7 @@ All v2 endpoints live under `data/v2/`:
 
 | Endpoint                                     | Description                                                                               | Updated             |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- |
-| `data/v2/manifest.json`                      | Self-describing index: coin list, endpoint templates, stale thresholds per type           | Every 15 min        |
+| `data/v2/manifest.json`                      | Self-describing index: metals, coins, vendors, endpoint templates; envelope `stale_after` | Every 15 min        |
 | `data/v2/spot/latest.json`                   | Current spot prices (5 metals) with OHLCA aggregates                                      | Every 15 min        |
 | `data/v2/spot/{metal}/latest.json`           | Per-metal price with `change_24h` / `change_24h_pct`                                      | Every 15 min        |
 | `data/v2/spot/{metal}/intraday.json`         | Rolling 24h of 15-min OHLCA                                                               | Every 15 min        |

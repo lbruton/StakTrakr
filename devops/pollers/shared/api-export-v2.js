@@ -303,11 +303,10 @@ async function exportSpot(client) {
     }
   }
 
-  // --- spot/history/{7,30,90}d.json ---
-  const history = await buildSpotHistory(client, now);
-  for (const [days, histData] of Object.entries(history)) {
-    writeV2File(`spot/history/${days}d.json`, histData, 3600);
-  }
+  // --- spot/history/{7,30,90}d.json --- each window published as it completes
+  await buildSpotHistory(client, now, (days, histData) =>
+    writeV2File(`spot/history/${days}d.json`, histData, 3600)
+  );
 
   log("Spot export complete");
 }
@@ -318,25 +317,41 @@ async function exportSpot(client) {
  * One query per (window, metal) — never an all-metal pull (STRK-407). The
  * 90-day window is the largest response (~8.6k rows for one metal).
  *
+ * Failure isolation: `onWindow` fires the moment a window completes, and a
+ * window that fails does not stop the windows after it — so one bad query can
+ * only stale its own file. The first failure is re-thrown after every window
+ * has been attempted, so main() still flags the run as failed.
+ *
  * @param {{execute: Function}} client  libSQL/Hrana client.
  * @param {Date} now  Window end (exclusive).
+ * @param {(days: string, histData: Record<string, object[]>) => void} [onWindow]
+ *   Called with each completed window (e.g. to publish it).
  * @returns {Promise<Record<string, Record<string, object[]>>>}
- *   `{ "7": { xau: [...], ... }, "30": {...}, "90": {...} }`
+ *   `{ "7": { xau: [...], ... }, "30": {...}, "90": {...} }` — resolves only
+ *   when every window succeeded.
  */
-async function buildSpotHistory(client, now) {
+async function buildSpotHistory(client, now, onWindow = () => {}) {
   const history = {};
+  let firstError = null;
   const histEnd = now.toISOString().replace(".000Z", "Z");
   for (const days of SPOT_HISTORY_WINDOWS_DAYS) {
     const histStart = new Date(now.getTime() - days * MS_PER_DAY)
       .toISOString()
       .replace(".000Z", "Z");
-    const histData = {};
-    for (const metal of METALS) {
-      const metalHist = await querySpotRange(client, histStart, histEnd, metal);
-      histData[METAL_TO_ISO[metal]] = buildOhlcaBuckets(metalHist, "daily");
+    try {
+      const histData = {};
+      for (const metal of METALS) {
+        const metalHist = await querySpotRange(client, histStart, histEnd, metal);
+        histData[METAL_TO_ISO[metal]] = buildOhlcaBuckets(metalHist, "daily");
+      }
+      history[String(days)] = histData;
+      onWindow(String(days), histData);
+    } catch (err) {
+      warn(`spot history ${days}d: ${err.message}`);
+      firstError ??= err;
     }
-    history[String(days)] = histData;
   }
+  if (firstError) throw firstError;
   return history;
 }
 

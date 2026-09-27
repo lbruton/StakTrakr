@@ -148,6 +148,41 @@ test("buildSpotHistory: a daily entry is the OHLCA of that UTC day's samples", a
   assert.equal(day.low, Math.min(...samples));
 });
 
+/** Wraps a client so any query whose window starts on `failStartPrefix` (optionally for one metal) throws. */
+const failingClient = (inner, failStartPrefix, failMetal) => ({
+  calls: inner.calls,
+  execute: async (stmt) => {
+    const [start, , metal] = stmt.args;
+    if (start.startsWith(failStartPrefix) && (!failMetal || metal === failMetal)) {
+      throw new Error("RESPONSE_TOO_LARGE: Response is too large");
+    }
+    return inner.execute(stmt);
+  },
+});
+
+test("buildSpotHistory: publishes each window as it completes — a 90d failure still delivers 7d and 30d", async () => {
+  const published = [];
+  const client = failingClient(fakeClient(TABLE), "2026-06-29");
+  await assert.rejects(
+    buildSpotHistory(client, NOW, (days, data) => published.push([days, Object.keys(data).length])),
+    /RESPONSE_TOO_LARGE/
+  );
+  assert.deepEqual(published, [
+    ["7", 5],
+    ["30", 5],
+  ]);
+});
+
+test("buildSpotHistory: one failed window does not stop later windows, and the failure still surfaces", async () => {
+  const published = [];
+  const client = failingClient(fakeClient(TABLE), "2026-08-28", "copper"); // 30d window, copper only
+  await assert.rejects(
+    buildSpotHistory(client, NOW, (days) => published.push(days)),
+    /RESPONSE_TOO_LARGE/
+  );
+  assert.deepEqual(published, ["7", "90"]);
+});
+
 test("buildSpotHistory: the 90d window starts 90 days before now", async () => {
   const client = fakeClient(TABLE);
   await buildSpotHistory(client, NOW);
