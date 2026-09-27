@@ -73,6 +73,9 @@ const MANIFEST_METAL_ISOS = METALS.map((metal) => METAL_TO_ISO[metal]);
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 
+/** Rolling spot/history/{N}d.json windows, in publish order. */
+const SPOT_HISTORY_WINDOWS_DAYS = [7, 30, 90];
+
 const VENDOR_META = {
   apmex: { name: "APMEX", color: "#60a5fa", url: "https://www.apmex.com" },
   jmbullion: { name: "JM Bullion", color: "#fbbf24", url: "https://www.jmbullion.com" },
@@ -144,15 +147,30 @@ async function querySpotCurrent(client) {
   return result.rows;
 }
 
-async function querySpotRange(client, startIso, endIso) {
+/**
+ * One metal's spot_prices rows in a half-open timestamp_floor window.
+ *
+ * Narrow on purpose (STRK-407): only the three columns buildOhlcaBuckets and
+ * its callers read, and one metal per query. The previous all-metal SELECT *
+ * returned ~43k rows for the 90-day window and sqld rejected it with
+ * RESPONSE_TOO_LARGE, freezing spot/history/90d.json from 2026-05-22. The
+ * ORDER BY is unchanged, so each metal sees the same rows in the same order as
+ * the old query-then-filter path and the OHLCA output is identical.
+ *
+ * @param {{execute: Function}} client  libSQL/Hrana client.
+ * @param {string} startIso  Inclusive timestamp_floor lower bound.
+ * @param {string} endIso    Exclusive timestamp_floor upper bound.
+ * @param {string} metal     Lowercase sqld metal key (e.g. "gold").
+ * @returns {Promise<Array<{metal: string, spot: number, timestamp_floor: string}>>}
+ */
+async function querySpotRange(client, startIso, endIso, metal) {
   const result = await client.execute({
     sql: `
-      SELECT *
-      FROM spot_prices
-      WHERE timestamp_floor >= ? AND timestamp_floor < ?
+      SELECT metal, spot, timestamp_floor FROM spot_prices
+      WHERE timestamp_floor >= ? AND timestamp_floor < ? AND metal = ?
       ORDER BY metal, timestamp_floor
     `,
-    args: [startIso, endIso],
+    args: [startIso, endIso, metal],
   });
   return result.rows;
 }
@@ -175,16 +193,6 @@ async function querySpot24hAgo(client, metal) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function groupByMetal(rows) {
-  const map = {};
-  for (const row of rows) {
-    const metal = String(row.metal);
-    if (!map[metal]) map[metal] = [];
-    map[metal].push(row);
-  }
-  return map;
-}
 
 function buildOhlcaBuckets(rows, granularity) {
   const buckets = {};
@@ -262,9 +270,7 @@ async function exportSpot(client) {
         .toISOString()
         .replace(".000Z", "Z");
       const intradayEnd = now.toISOString().replace(".000Z", "Z");
-      const intradayRows = (await querySpotRange(client, intradayStart, intradayEnd)).filter(
-        (r) => String(r.metal) === metal
-      );
+      const intradayRows = await querySpotRange(client, intradayStart, intradayEnd, metal);
       const intradayEntries = buildOhlcaBuckets(intradayRows, "15min");
       writeV2File(`spot/${iso}/intraday.json`, intradayEntries, 1200);
 
@@ -277,9 +283,7 @@ async function exportSpot(client) {
         Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
       );
       const dayEnd = nextDay.toISOString().replace(".000Z", "Z");
-      const dayRows = (await querySpotRange(client, dayStart, dayEnd)).filter(
-        (r) => String(r.metal) === metal
-      );
+      const dayRows = await querySpotRange(client, dayStart, dayEnd, metal);
       const hourlyEntries = buildOhlcaBuckets(dayRows, "hourly");
       if (hourlyEntries.length) {
         writeV2File(`spot/${iso}/${yyyy}/${mm}/${dd}.json`, hourlyEntries, 3600);
@@ -288,9 +292,7 @@ async function exportSpot(client) {
       // spot/{metal}/{YYYY}/{MM}.json — current month daily OHLCA (noon UTC)
       const monthStart = `${yyyy}-${mm}-01T00:00:00Z`;
       const monthEnd = nextDay.toISOString().replace(".000Z", "Z");
-      const monthRows = (await querySpotRange(client, monthStart, monthEnd)).filter(
-        (r) => String(r.metal) === metal
-      );
+      const monthRows = await querySpotRange(client, monthStart, monthEnd, metal);
       const dailyEntries = buildOhlcaBuckets(monthRows, "daily");
       if (dailyEntries.length) {
         writeV2File(`spot/${iso}/${yyyy}/${mm}.json`, dailyEntries, 86400);
@@ -302,24 +304,40 @@ async function exportSpot(client) {
   }
 
   // --- spot/history/{7,30,90}d.json ---
-  for (const days of [7, 30, 90]) {
-    const histStart = new Date(now.getTime() - days * MS_PER_DAY)
-      .toISOString()
-      .replace(".000Z", "Z");
-    const histEnd = now.toISOString().replace(".000Z", "Z");
-    const histRows = await querySpotRange(client, histStart, histEnd);
-    const byMetal = groupByMetal(histRows);
-
-    const histData = {};
-    for (const metal of METALS) {
-      const iso = METAL_TO_ISO[metal];
-      const metalHist = byMetal[metal] || [];
-      histData[iso] = buildOhlcaBuckets(metalHist, "daily");
-    }
+  const history = await buildSpotHistory(client, now);
+  for (const [days, histData] of Object.entries(history)) {
     writeV2File(`spot/history/${days}d.json`, histData, 3600);
   }
 
   log("Spot export complete");
+}
+
+/**
+ * Daily OHLCA per metal for each rolling spot/history window.
+ *
+ * One query per (window, metal) — never an all-metal pull (STRK-407). The
+ * 90-day window is the largest response (~8.6k rows for one metal).
+ *
+ * @param {{execute: Function}} client  libSQL/Hrana client.
+ * @param {Date} now  Window end (exclusive).
+ * @returns {Promise<Record<string, Record<string, object[]>>>}
+ *   `{ "7": { xau: [...], ... }, "30": {...}, "90": {...} }`
+ */
+async function buildSpotHistory(client, now) {
+  const history = {};
+  const histEnd = now.toISOString().replace(".000Z", "Z");
+  for (const days of SPOT_HISTORY_WINDOWS_DAYS) {
+    const histStart = new Date(now.getTime() - days * MS_PER_DAY)
+      .toISOString()
+      .replace(".000Z", "Z");
+    const histData = {};
+    for (const metal of METALS) {
+      const metalHist = await querySpotRange(client, histStart, histEnd, metal);
+      histData[METAL_TO_ISO[metal]] = buildOhlcaBuckets(metalHist, "daily");
+    }
+    history[String(days)] = histData;
+  }
+  return history;
 }
 
 // ---------------------------------------------------------------------------
@@ -1181,7 +1199,13 @@ async function main() {
   if (hadError) process.exitCode = 1;
 }
 
-export { buildGoldbackIntradayEntries, resolveGoldbackGeneratedAt, VENDOR_META };
+export {
+  buildGoldbackIntradayEntries,
+  buildSpotHistory,
+  querySpotRange,
+  resolveGoldbackGeneratedAt,
+  VENDOR_META,
+};
 
 // Normalize argv[1] (resolves relative paths + symlinks) before comparing, so
 // main() still runs when invoked via a relative path or symlink — matches
