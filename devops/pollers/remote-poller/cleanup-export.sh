@@ -105,11 +105,21 @@ git count-objects -v | sed 's/^/[cleanup]   /'
 # repo with no commits.
 NEW_GIT_DIR=$(mktemp -d "$(dirname "$REPO_DIR")/.git-reshallow.XXXXXX")
 OLD_GIT_DIR=".git.old.$$"
-# Belt-and-suspenders: harmless no-op once the mv's below succeed (both paths
-# are gone by then). Without it, a failed fetch/reset leaks NEW_GIT_DIR on
-# every retry — a slow-motion repeat of the inode problem this whole fix
-# exists to solve.
-trap 'rm -rf "$NEW_GIT_DIR" "$OLD_GIT_DIR"' EXIT
+# If the swap below is interrupted between its two renames — the first
+# succeeded (.git is now at $OLD_GIT_DIR) but the second failed or never ran
+# — $OLD_GIT_DIR holds the ONLY remaining copy of the repository. An
+# unconditional `rm -rf` here would delete it, which is precisely the
+# failure a reviewer caught: a naive cleanup trap defeating the whole point
+# of renaming instead of deleting. Restore it instead; NEW_GIT_DIR is always
+# disposable regardless of how far the swap got.
+_cleanup_reshallow_tmp() {
+  if [ ! -e .git ] && [ -d "$OLD_GIT_DIR" ]; then
+    mv "$OLD_GIT_DIR" .git
+    log "WARN: re-shallow swap interrupted — restored the original .git; will retry next schedule"
+  fi
+  rm -rf "$NEW_GIT_DIR" "$OLD_GIT_DIR"
+}
+trap _cleanup_reshallow_tmp EXIT
 git init --bare -q "$NEW_GIT_DIR"
 cp .git/config "$NEW_GIT_DIR/config"
 git --git-dir="$NEW_GIT_DIR" symbolic-ref HEAD "refs/heads/${PUBLISH_BRANCH}"
