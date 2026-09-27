@@ -214,7 +214,9 @@ The frontend user-selectable spot source (v3.34.24+) replaces the legacy fallbac
 
 ### Legacy Note
 
-`poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`. The daily seed file `data/spot-history-YYYY.json` is present on disk but not written by the active path — do not use it for freshness checks.
+`poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`, which writes no year file — so the public `data/spot-history-YYYY.json` froze at 2026-02-26 until STRK-403.
+
+**Daily year file (STRK-403):** `data/spot-history-YYYY.json` has two writers that share one rule — `shared/spot-year-history.js` (called from `api-export.js` every publish, API copy) and `.claude/skills/update-spot-bundle/update-spot-bundle.py` (release time, repo copy). Rule: one entry per (metal, UTC day) = `AVG(spot)`, aggregated **and rounded** in SQL (4dp below $1, else 2dp — keeps Python half-even and JS half-up rounding from diverging), stamped `YYYY-MM-DD 12:00:00` with `source: "sqld"`; **complete UTC days only** (the day in progress is never written); sqld fills missing keys and replaces its own earlier `sqld` entries but **never overwrites a `seed` entry** (sqld's first days held as little as 1 sample/day; seed rows cover pre-2026-02-17 and the STRK-304 copper backfill). The publisher rewrites the current UTC year (plus the previous year during Jan 1–7) and only writes when content changed, so the file gains at most one git blob per day. Change one writer → change both. It is still a daily series, not a freshness signal — live spot is `data/hourly/`.
 
 **Gap-healing backfiller (STRK-187):** `shared/backfill-spot-files.js` regenerates hourly spot JSON files **from sqld** — the reverse of `backfill-spot.js` (which imports files _into_ sqld). Use it when spot rows kept landing in sqld but file writes failed (e.g. the 2026-06-11 inode-exhaustion outage). Usage: `DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]` (hours UTC, inclusive; existing files skipped unless `--overwrite`; output byte-compatible with `spot-extract.js`).
 

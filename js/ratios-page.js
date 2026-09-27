@@ -26,9 +26,11 @@ const RATIOS_PAGE_SPOT_URL = "https://api.staktrakr.com/data/v2/spot/latest.json
 const RATIOS_PAGE_SPOT_STALE_FLOOR = 1200;
 
 /**
- * Current-year feed sources, freshest first. The API origin copy is published
- * continuously by the poller's api branch (verified live), while the
- * same-origin copy under ../data/ only refreshes when a release deploys — so
+ * Current-year feed sources, freshest first. The API origin copy is rewritten
+ * from sqld by the Fly publisher every publish (devops/pollers/shared/
+ * spot-year-history.js via api-export.js, STRK-403) and carries every complete
+ * UTC day through yesterday, while the same-origin copy under ../data/ only
+ * refreshes when a release deploys — so
  * the API origin is what actually closes the release-cadence staleness gap,
  * and same-origin is the offline/api-down fallback.
  * @param {number} year - UTC calendar year

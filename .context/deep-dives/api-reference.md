@@ -180,11 +180,11 @@ Goldback price API; catalog slugs can include compatibility forms accepted by `r
 
 These are writer-side paths (still actively written), not part of the v2 serving contract:
 
-| Endpoint Pattern                  | Description                                                                               | Updated                                   |
-| --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `data/hourly/YYYY/MM/DD/HH.json`  | Hourly spot prices (5 metals) — overwritten each poll                                     | 4x/hr (remote at `0,30`, home at `15,45`) |
-| `data/15min/YYYY/MM/DD/HHMM.json` | Immutable 15-min spot snapshots                                                           | Per poll (immutable)                      |
-| `data/spot-history-YYYY.json`     | Annual daily spot history (legacy seed — no longer actively written by `spot-extract.js`) | Legacy                                    |
+| Endpoint Pattern                  | Description                                                                              | Updated                                   |
+| --------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `data/hourly/YYYY/MM/DD/HH.json`  | Hourly spot prices (5 metals) — overwritten each poll                                    | 4x/hr (remote at `0,30`, home at `15,45`) |
+| `data/15min/YYYY/MM/DD/HHMM.json` | Immutable 15-min spot snapshots                                                          | Per poll (immutable)                      |
+| `data/spot-history-YYYY.json`     | Annual daily spot history — one UTC-day average per metal, complete days only (STRK-403) | Each publish; changes once/day            |
 
 ### Hourly File Schema
 
