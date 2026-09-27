@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.34] - 2026-09-27
+
+### Changed — STRK-403: Spot history accuracy
+
+- **Year history**: 2026 daily spot prices now use full UTC-day averages. 261 values that were recorded before their day ended are corrected, and a missing Feb 27 – Mar 8 stretch is filled in (STRK-403).
+- **Public API**: `api.staktrakr.com/data/spot-history-YYYY.json` is published from the price database again — it had stopped at Feb 26 (STRK-403).
+- **Ratios**: When the live feed and the bundled history disagree on a day, the fresher feed value wins (STRK-403).
+
+---
+
 ## [3.36.33] - 2026-09-26
 
 ### Changed — STRK-378: Order the Collections hub

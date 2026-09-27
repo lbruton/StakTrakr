@@ -271,6 +271,28 @@ describe("buildRatioSeries", () => {
     assert.deepEqual(mod.buildRatioSeries(entries, "Gold", "Silver"), [["2024-01-02", 80]]);
   });
 
+  test("equal timestamps: the entry later in source order (the overlay) wins (STRK-403)", () => {
+    // Both hosts append the API/live overlay AFTER the seed-bundle cache, and
+    // the API year file stamps its daily averages at the same "12:00:00" as
+    // the bundle. A stale cached bundle (e.g. a frozen partial-day value from
+    // an older release) must not beat the corrected overlay row on the tie.
+    const entries = [
+      entry("Gold", "2026-09-25", 4285.13), // stale bundle row
+      entry("Silver", "2026-09-25", 1),
+      { ...entry("Gold", "2026-09-25", 4285.06), source: "sqld" }, // API overlay
+    ];
+    assert.deepEqual(mod.buildRatioSeries(entries, "Gold", "Silver"), [["2026-09-25", 4285.06]]);
+  });
+
+  test("a strictly later timestamp still wins even when it comes first in source order", () => {
+    const entries = [
+      entry("Gold", "2024-01-02", 80, "16:00:00"),
+      entry("Gold", "2024-01-02", 90, "12:00:00"),
+      entry("Silver", "2024-01-02", 1),
+    ];
+    assert.deepEqual(mod.buildRatioSeries(entries, "Gold", "Silver"), [["2024-01-02", 80]]);
+  });
+
   test("returns [] for empty, missing, or malformed sources", () => {
     assert.deepEqual(mod.buildRatioSeries([], "Gold", "Silver"), []);
     assert.deepEqual(mod.buildRatioSeries(new Map(), "Gold", "Silver"), []);
