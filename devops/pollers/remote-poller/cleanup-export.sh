@@ -27,9 +27,11 @@
 # 1`) is required: fetching --depth into an already-unshallow repo does not
 # reliably drop the existing full history — verified only via full reinit
 # during the incident recovery. The new git-dir is built in a SIBLING
-# directory and only swapped in (`rm -rf .git && mv`) after fetch + reset both
-# succeed, so a transient network failure during cleanup can never destroy
-# the working repo — it's left untouched for the next scheduled retry. No
+# directory and only swapped in after fetch + reset both succeed, so a
+# transient network failure during cleanup can never destroy the working
+# repo. The swap itself renames the old `.git` out of the way before renaming
+# the new one into place (never `rm -rf` before the new one exists), so even
+# a failure mid-swap leaves the old repo recoverable rather than gone. No
 # `git gc` (it OOMs on the 512MB machine; gc.auto=0 in repo config). GNU date
 # required.
 
@@ -102,20 +104,27 @@ git count-objects -v | sed 's/^/[cleanup]   /'
 # the old, still-functional history intact is strictly better than a bricked
 # repo with no commits.
 NEW_GIT_DIR=$(mktemp -d "$(dirname "$REPO_DIR")/.git-reshallow.XXXXXX")
-# Belt-and-suspenders: harmless no-op once the mv below succeeds (the path is
-# already gone by then). Without it, a failed fetch/reset leaks this
-# directory on every retry — a slow-motion repeat of the inode problem this
-# whole fix exists to solve.
-trap 'rm -rf "$NEW_GIT_DIR"' EXIT
+OLD_GIT_DIR=".git.old.$$"
+# Belt-and-suspenders: harmless no-op once the mv's below succeed (both paths
+# are gone by then). Without it, a failed fetch/reset leaks NEW_GIT_DIR on
+# every retry — a slow-motion repeat of the inode problem this whole fix
+# exists to solve.
+trap 'rm -rf "$NEW_GIT_DIR" "$OLD_GIT_DIR"' EXIT
 git init --bare -q "$NEW_GIT_DIR"
 cp .git/config "$NEW_GIT_DIR/config"
 git --git-dir="$NEW_GIT_DIR" symbolic-ref HEAD "refs/heads/${PUBLISH_BRANCH}"
 git --git-dir="$NEW_GIT_DIR" --work-tree="$REPO_DIR" fetch --depth 1 origin "$PUBLISH_BRANCH"
 git --git-dir="$NEW_GIT_DIR" --work-tree="$REPO_DIR" reset FETCH_HEAD
 
-# Only now that fetch + reset both succeeded — atomic rename, same filesystem.
-rm -rf .git
+# Only now that fetch + reset both succeeded. `mv` is a single rename() per
+# hop, so unlike `rm -rf .git` this never destroys anything: renaming .git
+# out of the way first means that if the second rename somehow fails (e.g.
+# NEW_GIT_DIR ended up on a different filesystem), the original is still
+# fully intact and recoverable with `mv "$OLD_GIT_DIR" .git` — a plain
+# `rm -rf .git` before the swap has no such recovery path.
+mv .git "$OLD_GIT_DIR"
 mv "$NEW_GIT_DIR" .git
+rm -rf "$OLD_GIT_DIR"
 
 git reflog expire --expire=now --all
 git repack -a -d -l --threads=1 --window=5 --window-memory=32m --depth=20

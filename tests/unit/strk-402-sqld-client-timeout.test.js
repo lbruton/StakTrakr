@@ -128,7 +128,11 @@ describe("resolveSqldTimeoutMs", () => {
     assert.equal(resolveSqldTimeoutMs("5000"), 5000);
   });
 
-  for (const bad of ["-1", "1.5", "0", "not-a-number", "NaN"]) {
+  it("accepts the maximum delay AbortSignal.timeout() itself supports", () => {
+    assert.equal(resolveSqldTimeoutMs("4294967295"), 4294967295);
+  });
+
+  for (const bad of ["-1", "1.5", "0", "not-a-number", "NaN", "4294967296"]) {
     it(`rejects an invalid value ("${bad}") instead of silently breaking every request`, () => {
       assert.throws(() => resolveSqldTimeoutMs(bad), /SQLD_TIMEOUT_MS must be a positive integer/);
     });

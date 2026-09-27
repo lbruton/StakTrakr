@@ -45,24 +45,29 @@ export function createTimeoutFetch(timeoutMs, fetchImpl = globalThis.fetch) {
   };
 }
 
+/** Node's `AbortSignal.timeout()` rejects any delay above this (2^32 - 1). */
+const MAX_ABORT_SIGNAL_TIMEOUT_MS = 4294967295;
+
 /**
  * Parse and validate a `SQLD_TIMEOUT_MS` env value.
  *
  * `AbortSignal.timeout()` throws synchronously for a negative, non-integer,
- * or NaN delay — that would surface as every sqld request failing before
- * `fetch` is even called. Validate once, at client-creation time, so a
- * misconfigured env var fails loudly and immediately instead of quietly
- * breaking every subsequent query.
+ * NaN, or out-of-range delay — that would surface as every sqld request
+ * failing before `fetch` is even called. Validate once, at client-creation
+ * time, so a misconfigured env var fails loudly and immediately instead of
+ * quietly breaking every subsequent query.
  *
  * @param {string | undefined} raw - `process.env.SQLD_TIMEOUT_MS`.
  * @returns {number}
- * @throws {Error} If `raw` is set but is not a positive integer.
+ * @throws {Error} If `raw` is set but is not an integer in `AbortSignal.timeout()`'s supported range.
  */
 export function resolveSqldTimeoutMs(raw) {
   if (raw == null || raw === "") return DEFAULT_SQLD_TIMEOUT_MS;
   const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`SQLD_TIMEOUT_MS must be a positive integer, got "${raw}"`);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > MAX_ABORT_SIGNAL_TIMEOUT_MS) {
+    throw new Error(
+      `SQLD_TIMEOUT_MS must be a positive integer <= ${MAX_ABORT_SIGNAL_TIMEOUT_MS}, got "${raw}"`
+    );
   }
   return parsed;
 }
