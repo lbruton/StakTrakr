@@ -16,10 +16,10 @@ Rapid session-start triage: fetch Plane issues, rank by priority + session conti
 
 ## Step 0: Project Detection
 
-Read `.Codex/project.json` (in the current working directory):
+Read `.codex/project.json` (in the current working directory):
 
 ```bash
-cat .Codex/project.json
+cat .codex/project.json
 ```
 
 Extract:
@@ -51,7 +51,7 @@ git status --short
 
 ### Plane query
 
-Use the Plane MCP project ID from `.Codex/project.json` (`plane.projectId`). This needs **two** calls —
+Use the Plane MCP project ID from `.codex/project.json` (`plane.projectId`). This needs **two** calls —
 `mcp__plane__list_project_issues` returns each issue's `state` as an object whose
 `state.id` is the UUID but whose `state.name` is `null`; `mcp__plane__get_issue_using_readable_identifier`
 returns `state` as a bare UUID string. The MCP never populates the state name in either

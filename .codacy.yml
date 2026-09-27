@@ -7,7 +7,7 @@ exclude_paths:
   - "package-lock.json"
   - "**/package-lock.json"
   - ".agents/**"
-  - ".Codex/**"
+  - ".codex/**"
   - ".codacy/**"
   - ".claude/**"
   - ".gemini/**"
