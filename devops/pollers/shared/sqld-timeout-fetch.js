@@ -30,7 +30,11 @@ export const DEFAULT_SQLD_TIMEOUT_MS = 20000;
  * @returns {typeof fetch}
  */
 export function createTimeoutFetch(timeoutMs, fetchImpl = globalThis.fetch) {
-  return (input, init = {}) => {
+  return (input, init) => {
+    // A default parameter only covers `undefined` — native `fetch` also
+    // treats an explicit `null` init as absent, so mirror that here rather
+    // than throwing on `init.signal`.
+    init ??= {};
     if (init.signal) return fetchImpl(input, init);
 
     const requestSignal = input instanceof Request ? input.signal : null;

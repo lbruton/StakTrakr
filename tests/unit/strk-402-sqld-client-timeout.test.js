@@ -38,7 +38,11 @@ describe("createTimeoutFetch", () => {
     const timeoutFetch = createTimeoutFetch(30, neverRespondingFetch);
     const start = Date.now();
 
-    await assert.rejects(() => timeoutFetch("http://sqld.invalid/", {}));
+    // Assert the rejection is actually the abort firing, not the fetch
+    // implementation throwing early for an unrelated reason (a missing
+    // AbortSignal.timeout, a bad fetchImpl, etc.) — those would also reject
+    // quickly and could otherwise pass this test for the wrong reason.
+    await assert.rejects(() => timeoutFetch("http://sqld.invalid/", {}), { name: "AbortError" });
 
     const elapsed = Date.now() - start;
     assert.ok(elapsed < 500, `expected a fast rejection, took ${elapsed}ms`);
@@ -66,6 +70,14 @@ describe("createTimeoutFetch", () => {
     assert.equal(result, "ok-response");
   });
 
+  it("tolerates a null init, matching how native fetch treats a missing one", async () => {
+    const okFetch = async () => "ok-response";
+    const timeoutFetch = createTimeoutFetch(1000, okFetch);
+
+    const result = await timeoutFetch("http://sqld.invalid/", null);
+    assert.equal(result, "ok-response");
+  });
+
   it("exports a sane default timeout", () => {
     assert.equal(typeof DEFAULT_SQLD_TIMEOUT_MS, "number");
     assert.ok(DEFAULT_SQLD_TIMEOUT_MS > 0);
@@ -80,7 +92,7 @@ describe("createTimeoutFetch", () => {
     const request = new Request("http://sqld.invalid/", { signal: requestController.signal });
 
     const timeoutFetch = createTimeoutFetch(30, neverRespondingFetch);
-    const pending = assert.rejects(() => timeoutFetch(request));
+    const pending = assert.rejects(() => timeoutFetch(request), { name: "AbortError" });
 
     // The timeout (30ms) fires before we ever abort the request's own
     // controller — proves the timeout signal is still wired in.
@@ -93,7 +105,7 @@ describe("createTimeoutFetch", () => {
 
     const timeoutFetch = createTimeoutFetch(10_000, neverRespondingFetch);
     const start = Date.now();
-    const pending = assert.rejects(() => timeoutFetch(request));
+    const pending = assert.rejects(() => timeoutFetch(request), { name: "AbortError" });
 
     requestController.abort();
     await pending;
