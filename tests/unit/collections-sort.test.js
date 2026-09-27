@@ -169,6 +169,25 @@ test("preset ties retain My order and missing run dates, updates, and values sta
   );
 });
 
+test("recently updated compares timestamp instants, not their text (PR 1517 review)", () => {
+  // Restored or synced records keep whatever lastModified string they carried, so an offset
+  // stamp can meet a UTC one: 07:00+02:00 (05:00Z) is EARLIER than 06:00Z but sorts later as text.
+  const entries = [
+    { id: "offset-earlier", collection: { lastModified: "2026-06-03T07:00:00+02:00" } },
+    { id: "utc-later", collection: { lastModified: "2026-06-03T06:00:00Z" } },
+    { id: "unparseable", collection: { lastModified: "not a date" } },
+  ];
+  const order = entries.map((entry) => entry.id);
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order, sortKey: "recently-updated", direction: "desc" })),
+    ["utc-later", "offset-earlier", "unparseable"]
+  );
+  assert.deepEqual(
+    ids(sortHubEntries(entries, { order, sortKey: "recently-updated", direction: "asc" })),
+    ["offset-earlier", "utc-later", "unparseable"]
+  );
+});
+
 test("arrangement reorders visible entries without moving hidden entries", () => {
   assert.deepEqual(moveVisibleId(["hidden", "a", "b", "c"], ["a", "b", "c"], "c", "a"), [
     "hidden",

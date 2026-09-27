@@ -120,7 +120,9 @@
         return Number.isFinite(entry.template?.run?.start) ? entry.template.run.start : null;
       case "recently-updated": {
         const updated = entry.collection?.lastModified || entry.lastModified;
-        return typeof updated === "string" && updated.trim() ? updated : null;
+        // Compare instants: restored or synced stamps may carry a UTC offset (PR 1517 review).
+        const timestamp = typeof updated === "string" ? Date.parse(updated) : NaN;
+        return Number.isFinite(timestamp) ? timestamp : null;
       }
       case "value-melt":
       case "melt":
@@ -143,7 +145,7 @@
     const selected = normalizeHubPreferences(preferences);
     const ordered = orderEntries(entries, selected.order);
     if (selected.sortKey === "my-order") return ordered;
-    const textSort = selected.sortKey === "name" || selected.sortKey === "recently-updated";
+    const textSort = selected.sortKey === "name";
     return sortRows(
       ordered,
       (entry) => hubKey(entry, selected.sortKey),

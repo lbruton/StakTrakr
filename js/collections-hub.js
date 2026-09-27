@@ -445,6 +445,8 @@
       const handle = button("collections-arrange-handle", `hub:drag:${entry.id}`, () => {});
       handle.setAttribute("aria-label", `Drag ${entry.name} to reorder`);
       handle.title = `Drag ${entry.name} to reorder`;
+      // Pointer-only affordance: keyboard users reorder with the move buttons (PR 1517 review).
+      handle.tabIndex = -1;
       handle.appendChild(icon("grip"));
       wireReorderHandle(handle, {
         id: entry.id,

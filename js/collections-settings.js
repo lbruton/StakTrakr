@@ -354,6 +354,8 @@
     handle.dataset.collectionId = row.id;
     handle.setAttribute("aria-label", `Drag ${rowLabel(row)} to reorder`);
     handle.title = "Drag to reorder";
+    // Pointer-only affordance: keyboard users reorder with the move buttons (PR 1517 review).
+    handle.tabIndex = -1;
     handle.appendChild(createIcon("grip"));
     wrapper.appendChild(handle);
     wrapper.appendChild(buildNameCell(row));
