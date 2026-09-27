@@ -23,11 +23,15 @@
 # re-entered the same repack — a permanent loop that a plain machine restart
 # did not clear. Re-shallowing bounds the object count to the current tree
 # (~16k objects, one 12MB pack) regardless of how much history has
-# accumulated. A fresh `git init` (not an in-place `git fetch --depth 1`) is
-# required: fetching --depth into an already-unshallow repo does not reliably
-# drop the existing full history — verified only via full reinit during the
-# incident recovery. No `git gc` (it OOMs on the 512MB machine; gc.auto=0 in
-# repo config). GNU date required.
+# accumulated. A fresh `git init --bare` (not an in-place `git fetch --depth
+# 1`) is required: fetching --depth into an already-unshallow repo does not
+# reliably drop the existing full history — verified only via full reinit
+# during the incident recovery. The new git-dir is built in a SIBLING
+# directory and only swapped in (`rm -rf .git && mv`) after fetch + reset both
+# succeed, so a transient network failure during cleanup can never destroy
+# the working repo — it's left untouched for the next scheduled retry. No
+# `git gc` (it OOMs on the 512MB machine; gc.auto=0 in repo config). GNU date
+# required.
 
 set -e
 
@@ -90,14 +94,29 @@ prune_tree hourly 365
 log "git objects before:"
 git count-objects -v | sed 's/^/[cleanup]   /'
 
-GIT_CONFIG_BAK=$(mktemp)
-cp .git/config "$GIT_CONFIG_BAK"
+# Build the new shallow repo in a sibling dir on the SAME filesystem as
+# REPO_DIR (a sibling, not a path nested under it, so `git init` can't nest a
+# second repo inside the still-live one) and only swap it in after fetch +
+# reset both succeed. A transient network failure here must never destroy
+# the existing (working) repo — leaving cleanup to retry next schedule with
+# the old, still-functional history intact is strictly better than a bricked
+# repo with no commits.
+NEW_GIT_DIR=$(mktemp -d "$(dirname "$REPO_DIR")/.git-reshallow.XXXXXX")
+# Belt-and-suspenders: harmless no-op once the mv below succeeds (the path is
+# already gone by then). Without it, a failed fetch/reset leaks this
+# directory on every retry — a slow-motion repeat of the inode problem this
+# whole fix exists to solve.
+trap 'rm -rf "$NEW_GIT_DIR"' EXIT
+git init --bare -q "$NEW_GIT_DIR"
+cp .git/config "$NEW_GIT_DIR/config"
+git --git-dir="$NEW_GIT_DIR" symbolic-ref HEAD "refs/heads/${PUBLISH_BRANCH}"
+git --git-dir="$NEW_GIT_DIR" --work-tree="$REPO_DIR" fetch --depth 1 origin "$PUBLISH_BRANCH"
+git --git-dir="$NEW_GIT_DIR" --work-tree="$REPO_DIR" reset FETCH_HEAD
+
+# Only now that fetch + reset both succeeded — atomic rename, same filesystem.
 rm -rf .git
-git init -q
-mv "$GIT_CONFIG_BAK" .git/config
-git symbolic-ref HEAD "refs/heads/${PUBLISH_BRANCH}"
-git fetch --depth 1 origin "$PUBLISH_BRANCH"
-git reset FETCH_HEAD
+mv "$NEW_GIT_DIR" .git
+
 git reflog expire --expire=now --all
 git repack -a -d -l --threads=1 --window=5 --window-memory=32m --depth=20
 git prune --expire=now

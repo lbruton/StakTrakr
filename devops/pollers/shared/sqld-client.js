@@ -26,28 +26,13 @@
  */
 
 import { createClient } from "@libsql/client";
+import {
+  createTimeoutFetch,
+  resolveSqldTimeoutMs,
+  DEFAULT_SQLD_TIMEOUT_MS,
+} from "./sqld-timeout-fetch.js";
 
-/** Default request timeout (ms) when `SQLD_TIMEOUT_MS` is unset (STRK-402). */
-export const DEFAULT_SQLD_TIMEOUT_MS = 20000;
-
-/**
- * Wrap a `fetch` implementation so a request aborts after `timeoutMs` instead
- * of hanging forever (STRK-402 — an unreachable sqld host previously had no
- * ceiling, so a stalled request blocked its caller indefinitely).
- *
- * A caller-supplied `AbortSignal` is left untouched — this only fills in a
- * timeout when nothing is already controlling cancellation.
- *
- * @param {number} timeoutMs
- * @param {typeof fetch} [fetchImpl] - Injectable for tests; defaults to global `fetch`.
- * @returns {typeof fetch}
- */
-export function createTimeoutFetch(timeoutMs, fetchImpl = globalThis.fetch) {
-  return (input, init = {}) => {
-    if (init.signal) return fetchImpl(input, init);
-    return fetchImpl(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-  };
-}
+export { createTimeoutFetch, resolveSqldTimeoutMs, DEFAULT_SQLD_TIMEOUT_MS };
 
 /**
  * Create a libSQL client configured from environment variables.
@@ -70,7 +55,7 @@ export function createSqldClient() {
     throw new Error("SQLD_URL (or legacy TURSO_DATABASE_URL) must be set");
   }
 
-  const timeoutMs = Number(process.env.SQLD_TIMEOUT_MS) || DEFAULT_SQLD_TIMEOUT_MS;
+  const timeoutMs = resolveSqldTimeoutMs(process.env.SQLD_TIMEOUT_MS);
 
   return createClient({
     url,

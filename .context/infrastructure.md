@@ -94,7 +94,9 @@ Values verified against `devops/pollers/remote-poller/fly.toml` (authoritative):
 
 The Git repo at `/data/staktrakr-api-export` must be seeded manually on first deploy. It persists across subsequent deploys on the same volume.
 
-**Git memory caps (2026-06-11, STRK-187 incident):** uncapped git OOM-dies on the 512 MB machine (gc, fetch, and push pack-objects were all killed with signal 9). The repo config in `/data/staktrakr-api-export` sets `pack.threads=1`, `pack.windowMemory=32m`, `pack.deltaCacheSize=16m`, and `gc.auto=0`. Re-apply these after any re-clone or volume re-seed. History was reset to an orphan commit on 2026-06-11. **Self-cleaning shipped in STRK-187 (2026-06-13):** a weekly `cleanup-export.sh` (Sun 03:17 UTC) runs a retention sweep — pruning `data/15min` day-dirs older than 90 days and `data/hourly` day-dirs older than 365 days (path-derived dates, not mtime, so a re-clone can't defeat it) — then memory-capped git maintenance (`git reflog expire --all → git repack -a -d --threads=1 --window-memory=32m → git prune → git pack-refs`; never `git gc`, which OOMs on the 512 MB machine). `run-publish.sh` runs the same `cleanup-export.sh` inline as a pre-flight backstop when the volume drops below 25000 free inodes or 300 MB free.
+**Git memory caps (2026-06-11, STRK-187 incident):** uncapped git OOM-dies on the machine (gc, fetch, and push pack-objects were all killed with signal 9). The repo config in `/data/staktrakr-api-export` sets `pack.threads=1`, `pack.windowMemory=32m`, `pack.deltaCacheSize=16m`, and `gc.auto=0`. Re-apply these after any re-clone or volume re-seed. History was reset to an orphan commit on 2026-06-11. **Self-cleaning shipped in STRK-187 (2026-06-13):** a weekly `cleanup-export.sh` (Sun 03:17 UTC) runs a retention sweep — pruning `data/15min` day-dirs older than 90 days and `data/hourly` day-dirs older than 365 days (path-derived dates, not mtime, so a re-clone can't defeat it). `run-publish.sh` runs the same `cleanup-export.sh` inline as a pre-flight backstop when the volume drops below 25000 free inodes or 300 MB free.
+
+**Full-history OOM loop (2026-09-26, STRK-402 incident):** `--window-memory` only caps `git repack -a`'s per-delta window, not the object list it must enumerate first — years of 4x/hour publish commits (10k+ commits, ~3M objects) made that enumeration itself OOM the machine, 86 minutes into a repack that then never reached `prune`, leaving the low-inode condition in place so the _next_ publish re-entered the same repack forever. A plain `fly machine restart` did not break the loop. **Fixed in STRK-402:** `cleanup-export.sh`'s git maintenance is no longer `git reflog expire --all → git repack -a -d --threads=1 --window-memory=32m → git prune → git pack-refs` against full history. It now re-shallows first — builds a fresh depth-1 `git init --bare` clone of the current tip in a sibling directory, and only swaps it in as `.git` (atomic rename) after `fetch` + `reset FETCH_HEAD` both succeed, so a transient network failure during cleanup leaves the existing repo completely untouched — then repacks the now-tiny (~16k object) result. `run-publish.sh` also re-shallows on bootstrap if `.git/shallow` is missing, rather than waiting for the weekly cron.
 
 **VM wedge → 1024 MB (2026-07-25, STRK-277 incident):** the machine wedged with `fly machine status` still reporting `State: started, HostStatus: ok` while HTTP _and_ `fly ssh console` both hung and logs went silent. The machine event log is the discriminator — `oom_killed=false, requested_stop=true` proves the VM itself never crashed, only a process inside it. Logs showed `monitor: time jump detected (slept 28s)` as the freeze marker. The publish cron stalled 00:53–02:15 UTC. Recovery required `fly machine stop --signal SIGKILL` then `start`; a plain restart held for only ~6 minutes. Memory was raised 512 → 1024 MB as mitigation on the strongest available hypothesis (~100 MB headroom left no room for git pack spikes). **This is a mitigation, not a confirmed root cause** — SSH was dead, so actual memory pressure was never observed directly. Evidence since: 5 consecutive on-schedule publish cycles at 1024 MB vs. a re-wedge within ~6 minutes at 512 MB. If it wedges again at 1024 MB, the cause is something else.
 
@@ -113,19 +115,19 @@ The Git repo at `/data/staktrakr-api-export` must be seeded manually on first de
 
 Written by `docker-entrypoint-slim.sh` at container start:
 
-| Schedule             | Script                          | Log                            | Status                                   |
-| -------------------- | ------------------------------- | ------------------------------ | ---------------------------------------- |
-| `0,30 * * * *`       | `/app/run-spot.sh`              | `/var/log/spot-poller.log`     | Active                                   |
-| `8,23,38,53 * * * *` | `/app/run-publish.sh`           | `/var/log/publish.log`         | Active                                   |
-| `*/5 * * * *`        | `node export-providers-json.js` | `/var/log/provider-export.log` | Active                                   |
-| `17 3 * * 0`         | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`         | Active (weekly, Sun 03:17 UTC, STRK-187) |
-| ~~`CRON_SCHEDULE`~~  | ~~`run-local.sh`~~              | —                              | Disabled (`RETAIL_ENABLED=0`)            |
-| ~~`15 * * * *`~~     | ~~`run-retry.sh`~~              | —                              | Disabled                                 |
-| ~~`1 * * * *`~~      | ~~`run-goldback.sh`~~           | —                              | Disabled (`GOLDBACK_ENABLED=0`)          |
+| Schedule             | Script                          | Log                            | Status                                       |
+| -------------------- | ------------------------------- | ------------------------------ | -------------------------------------------- |
+| `0,30 * * * *`       | `/app/run-spot.sh`              | `/var/log/spot-poller.log`     | Active                                       |
+| `8,23,38,53 * * * *` | `/app/run-publish.sh`           | `/var/log/publish.log`         | Active                                       |
+| `*/5 * * * *`        | `node export-providers-json.js` | `/var/log/provider-export.log` | Active                                       |
+| `17 3 * * 0`         | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`         | Active (weekly, Sun 03:17 UTC, STRK-187/402) |
+| ~~`CRON_SCHEDULE`~~  | ~~`run-local.sh`~~              | —                              | Disabled (`RETAIL_ENABLED=0`)                |
+| ~~`15 * * * *`~~     | ~~`run-retry.sh`~~              | —                              | Disabled                                     |
+| ~~`1 * * * *`~~      | ~~`run-goldback.sh`~~           | —                              | Disabled (`GOLDBACK_ENABLED=0`)              |
 
 ### Publish Pipeline (`run-publish.sh`)
 
-Runs 4x/hour. Lockfile-guarded (`/tmp/retail-publish.lock`, atomic `noclobber`). Sequence (STRK-187 rewrote this — it is **no longer** a blind `add && commit && push`):
+Runs 4x/hour. Lockfile-guarded via `flock` on `/tmp/retail-publish.flock` (STRK-402 — replaced an atomic-`noclobber` lockfile whose cleanup depended on an `EXIT` trap that never fires on SIGKILL/OOM-kill; `flock` releases automatically when the holding process dies for any reason). Each cron invocation is also wrapped in its own `flock -n <job>.flock timeout -k 30 <N>` (STRK-402) so a single hung run can't occupy a cron slot indefinitely. Sequence (STRK-187 rewrote this — it is **no longer** a blind `add && commit && push`):
 
 1. **Pre-flight space backstop (STRK-187)** — if `/data` has < 25000 free inodes or < 300 MB free, runs `cleanup-export.sh` inline (`CLEANUP_SKIP_LOCK=1`, lock already held) before exporting. Still below floor after cleanup → logs CRITICAL and publishes anyway.
 2. `api-export.js` — reads `price_snapshots` from sqld, generates all v1 JSON endpoints under `data/api/` and `data/hourly/`
@@ -475,21 +477,21 @@ All poller code was consolidated into `StakTrakr/devops/pollers/` as of 2026-03-
 
 ## Common Troubleshooting
 
-| Symptom                        | Check                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------- |
-| `manifest.json` > 30 min stale | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running                 |
-| `manifest.json` > 4h stale     | Container down — check Portainer + `fly status --app staktrakr`                               |
-| Spot hourly > 75 min stale     | External price-feed credential expired or quota exceeded                                      |
-| Goldback > 2h stale (STRK-248) | Home poller `goldback-scraper.js` failed — check home poller logs                             |
-| Only 1-2 vendors per coin      | Home poller down — home is sole retail scraper                                                |
-| Services not running on Fly    | `fly ssh console --app staktrakr -C "supervisorctl status"`                                   |
-| Tailscale not connecting       | Check container status, operator-managed network identity, and approved subnet routes         |
-| sqld unreachable from Fly.io   | Verify Tailscale connected; subnet route approved; home VM `staktrakr-sqld` container running |
-| Git push rejected on publish   | `git fetch origin api && git rebase origin/api` inside `/data/staktrakr-api-export`           |
-| Stuck lockfile (Fly.io)        | `fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/retail-publish.lock"` |
-| Stuck lockfile (home)          | Portainer web UI Console: `rm -f /tmp/retail-poller.lock`                                     |
-| CF vendor failures             | Check `CF_CLEARANCE_ENABLED=1`; check `docker logs staktrakr-byparr`                          |
-| Deploy context error           | Run `fly deploy` from `devops/pollers/` dir, not `remote-poller/`                             |
+| Symptom                        | Check                                                                                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json` > 30 min stale | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running                                                                                                                             |
+| `manifest.json` > 4h stale     | Container down — check Portainer + `fly status --app staktrakr`                                                                                                                                           |
+| Spot hourly > 75 min stale     | External price-feed credential expired or quota exceeded                                                                                                                                                  |
+| Goldback > 2h stale (STRK-248) | Home poller `goldback-scraper.js` failed — check home poller logs                                                                                                                                         |
+| Only 1-2 vendors per coin      | Home poller down — home is sole retail scraper                                                                                                                                                            |
+| Services not running on Fly    | `fly ssh console --app staktrakr -C "supervisorctl status"`                                                                                                                                               |
+| Tailscale not connecting       | Check container status, operator-managed network identity, and approved subnet routes                                                                                                                     |
+| sqld unreachable from Fly.io   | Verify Tailscale connected; subnet route approved; home VM `staktrakr-sqld` container running                                                                                                             |
+| Git push rejected on publish   | `git fetch origin api && git rebase origin/api` inside `/data/staktrakr-api-export`                                                                                                                       |
+| Stuck lockfile (Fly.io)        | Should self-clear (STRK-402 — `flock` releases on process death, unlike the old `noclobber` lockfile). If still wedged: `fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/*.flock"` |
+| Stuck lockfile (home)          | Portainer web UI Console: `rm -f /tmp/retail-poller.lock`                                                                                                                                                 |
+| CF vendor failures             | Check `CF_CLEARANCE_ENABLED=1`; check `docker logs staktrakr-byparr`                                                                                                                                      |
+| Deploy context error           | Run `fly deploy` from `devops/pollers/` dir, not `remote-poller/`                                                                                                                                         |
 
 ---
 

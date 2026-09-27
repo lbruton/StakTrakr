@@ -41,6 +41,11 @@ cd "$REPO_DIR"
 # volume from before this fix landed. Re-shallow now instead of waiting for
 # the weekly cron or the inode floor below — a full-history repo is exactly
 # the condition that let `git repack -a` OOM the machine in the first place.
+# Continuing to publish below is deliberate, not an oversight: cleanup-export.sh
+# builds the new git-dir in a sibling directory and only swaps it in after
+# fetch + reset both succeed, so a failed cleanup here leaves the existing
+# (still full-history, still fully functional) repo completely untouched —
+# there is nothing unsafe to publish against.
 if [ ! -f .git/shallow ]; then
   echo "[$(date -u +%H:%M:%S)] WARN: repo is not shallow — running cleanup to re-shallow before publishing"
   CLEANUP_SKIP_LOCK=1 /app/cleanup-export.sh || echo "[$(date -u +%H:%M:%S)] ERROR: cleanup failed"
