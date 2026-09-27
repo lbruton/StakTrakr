@@ -60,20 +60,11 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/post-edit-lint.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/post-edit-lint.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-lint.py\""
           }
         ]
       }

@@ -2,20 +2,11 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit",
+        "matcher": "^apply_patch$",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.codex/hooks/post-edit-lint.py'"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 '/Volumes/DATA/GitHub/StakTrakr/.codex/hooks/post-edit-lint.py'"
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/post-edit-lint.py\""
           }
         ]
       }
