@@ -28,7 +28,7 @@ export SQLD_URL=http://192.168.1.81:8080
 ## Execution
 
 ```bash
-SQLD_URL=http://192.168.1.81:8080 python3 .Codex/skills/update-spot-bundle/update-spot-bundle.py
+SQLD_URL=http://192.168.1.81:8080 python3 .agents/skills/update-spot-bundle/update-spot-bundle.py
 ```
 
 Run from the **project root** (script resolves paths relative to itself).
