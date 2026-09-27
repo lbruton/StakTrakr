@@ -3,9 +3,12 @@
 .AppleDouble
 .LSOverride
 
-# Node modules (if added in future)
-node_modules/
+# Node modules (no trailing slash so a symlinked node_modules in a worktree is ignored too)
+node_modules
 npm-debug.log*
+
+# Scratch dirs from tests/unit/post-edit-lint-hook.test.js (removed after each run)
+.tmp-hooktest-*/
 
 # Editor directories and files
 .vscode/
