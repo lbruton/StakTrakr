@@ -94,9 +94,10 @@ window._loadSpotSeedBundle = function (bundle) {
  * only at release time, so alone it can leave 52-week stats up to a release
  * cycle stale; the API-origin year file is republished continuously between
  * releases (the same-origin copy is only a fallback — it is exactly as old as
- * the deploy). Rows go into the spotHistory overlay — buildRatioSeries
- * dedupes same-date closes toward the later timestamp, so fresher rows win
- * over seed rows. UTC year on purpose: feed files are keyed by UTC calendar
+ * the deploy). Rows go into the spotHistory overlay, which is appended AFTER
+ * the bundle cache — buildRatioSeries dedupes same-date closes toward the
+ * later timestamp and, on an equal "12:00:00" stamp, toward the later entry,
+ * so overlay rows win over seed rows. UTC year on purpose: feed files are keyed by UTC calendar
  * date.
  * @returns {Promise<void>}
  */
