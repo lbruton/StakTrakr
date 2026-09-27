@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.32";
+const APP_VERSION = "3.36.33";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -835,6 +835,13 @@ const DISABLED_COLLECTIONS_KEY = "disabledCollections"; // nosemgrep: codacy.jav
  */
 const COLLECTIONS_VIEW_MODE_KEY = "collectionsViewMode"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/**
+ * @constant {string} COLLECTIONS_HUB_PREFERENCES_KEY - Device-local Collections hub order and sort (STRK-378).
+ * Stores { order, sortKey, direction }. Deliberately excluded from SYNC_SCOPE_KEYS so
+ * each device can keep its own Collection arrangement.
+ */
+const COLLECTIONS_HUB_PREFERENCES_KEY = "collectionsHubPreferences"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} FORM_SECTION_STATE_KEY - LocalStorage key for the add/edit form per-section open/collapsed map (STRK-301) */
 const FORM_SECTION_STATE_KEY = "formSectionState"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -1235,6 +1242,7 @@ const ALLOWED_STORAGE_KEYS = [
   ITEM_TAGS_LAST_MODIFIED_KEY, // JSON object: per-item tag timestamps keyed by UUID (STRK-108)
   COLLECTION_STATE_KEY, // JSON object: Collections definitions + slot→Item UUID links (STRK-368; synced as a MANAGED key since STRK-370)
   COLLECTIONS_VIEW_MODE_KEY, // JSON string: "album"|"ledger" — Collections tab view mode (STRK-368, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
+  COLLECTIONS_HUB_PREFERENCES_KEY, // JSON object: { order, sortKey, direction } — Collections hub arrangement/sort (STRK-378, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   FORM_SECTION_STATE_KEY, // JSON object: add/edit form section open/collapsed map (STRK-301, device-local — deliberately NOT in SYNC_SCOPE_KEYS)
   "seedImagesVer", // string: current seed images version for cache invalidation
   "cloud_token_dropbox", // JSON: Dropbox OAuth token data
@@ -2261,6 +2269,7 @@ if (typeof window !== "undefined") {
   window.COLLECTION_STATE_KEY = COLLECTION_STATE_KEY;
   window.DISABLED_COLLECTIONS_KEY = DISABLED_COLLECTIONS_KEY;
   window.COLLECTIONS_VIEW_MODE_KEY = COLLECTIONS_VIEW_MODE_KEY;
+  window.COLLECTIONS_HUB_PREFERENCES_KEY = COLLECTIONS_HUB_PREFERENCES_KEY;
   window.MAX_TAGS_PER_ITEM = MAX_TAGS_PER_ITEM;
   window.MAX_TAG_LENGTH = MAX_TAG_LENGTH;
   // Form section disclosure state (STRK-301)

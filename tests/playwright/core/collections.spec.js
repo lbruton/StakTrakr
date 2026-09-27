@@ -1903,16 +1903,19 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       )
     ).toBe(true);
 
-    const fieldsets = settings.locator(".settings-fieldset");
-    await expect(fieldsets).toHaveCount(2);
-    await expect(fieldsets.nth(0)).toContainText("Series Templates");
-    await expect(fieldsets.nth(1)).toContainText("Custom Collections");
-    await expect(fieldsets.nth(0).getByRole("group")).toHaveCount(fixture.templateCount);
-    await expect(fieldsets.nth(1).getByRole("group")).toHaveCount(1);
-    await expect(fieldsets.nth(1)).toContainText("Live Morgan Set");
-    await expect(fieldsets.nth(1)).toContainText("2 Slots");
-    await expect(fieldsets.nth(1)).toContainText("0 / 2");
-    await expect(fieldsets.nth(1)).not.toContainText("Removed Morgan Set");
+    // STRK-378 merged the Series Templates and Custom Collections tables into one My order
+    // list; every template plus each live Custom Collection is one row with a Type badge.
+    const rows = settings.locator(".collections-settings-row[data-collection-id]");
+    await expect(rows).toHaveCount(fixture.templateCount + 1);
+    await expect(settings.getByText("Template", { exact: true })).toHaveCount(
+      fixture.templateCount
+    );
+    const liveRow = rows.filter({ hasText: "Live Morgan Set" });
+    await expect(liveRow).toHaveCount(1);
+    await expect(liveRow.getByText("Custom", { exact: true })).toBeVisible();
+    await expect(liveRow).toContainText("2 Slots");
+    await expect(liveRow).toContainText("0 / 2");
+    await expect(settings).not.toContainText("Removed Morgan Set");
     await expect(settingsVisibilityGroup(page, "American Silver Eagle Type 1")).toBeVisible();
     await expect(
       settings.locator(
@@ -1920,10 +1923,12 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       )
     ).toContainText("not started");
     await expect(settingsVisibilityGroup(page, "American Silver Eagle Type 2")).toBeVisible();
-    await expect(fieldsets.nth(0)).toContainText("0 / 36");
-    await expect(fieldsets.nth(0)).toContainText("0 / 6");
-    await expect(fieldsets.nth(0)).toContainText(/Type 1.*Heraldic Eagle reverse.*1986\s*–\s*2021/);
-    await expect(fieldsets.nth(0)).toContainText(
+    await expect(settingsRow(page, "ase-type1")).toContainText("0 / 36");
+    await expect(settingsRow(page, "ase-type2")).toContainText("0 / 6");
+    await expect(settingsRow(page, "ase-type1")).toContainText(
+      /Type 1.*Heraldic Eagle reverse.*1986\s*–\s*2021/
+    );
+    await expect(settingsRow(page, "ase-type2")).toContainText(
       /Type 2.*Landing Eagle reverse.*2021\s*–\s*present/
     );
     await expect(page.locator(".modal:visible")).toHaveCount(1);
@@ -2478,6 +2483,16 @@ const seedSortableHub = async (page) => {
  */
 const ledgerNames = (page) =>
   panel(page).locator(".collections-hubrow[data-collection-id] .collections-lrow-name b");
+const albumNames = (page) =>
+  panel(page).locator(".collections-card[data-collection-id] .collections-card-name b");
+const albumIds = (page) =>
+  panel(page)
+    .locator(".collections-card[data-collection-id]")
+    .evaluateAll((nodes) => nodes.map((node) => node.dataset.collectionId));
+const ledgerIds = (page) =>
+  panel(page)
+    .locator(".collections-hubrow[data-collection-id]")
+    .evaluateAll((nodes) => nodes.map((node) => node.dataset.collectionId));
 
 const hubSortCases = [
   [
@@ -2509,18 +2524,25 @@ const hubSortCases = [
 
 test.describe("hub Ledger sorting", () => {
   for (const [label, ascending, descending] of hubSortCases) {
-    test(`${label} sorts visible rows in both directions`, async ({ page }) => {
+    const defaultDirection =
+      label === "Progress" || label === "Owned" || label === "Value (melt)" ? "desc" : "asc";
+    const presetOrder = defaultDirection === "asc" ? ascending : descending;
+    const reversedOrder = defaultDirection === "asc" ? descending : ascending;
+    test(`${label} header selects its preset direction and then reverses`, async ({ page }) => {
       await seedSortableHub(page);
       const header = panel(page).getByRole("button", {
         name: `Sort by ${label}, not sorted`,
         exact: true,
       });
       await header.click();
-      await expect(ledgerNames(page)).toHaveText(ascending);
+      await expect(ledgerNames(page)).toHaveText(presetOrder);
       await panel(page)
-        .getByRole("button", { name: `Sort by ${label}, ascending`, exact: true })
+        .getByRole("button", {
+          name: `Sort by ${label}, ${defaultDirection === "asc" ? "ascending" : "descending"}`,
+          exact: true,
+        })
         .click();
-      await expect(ledgerNames(page)).toHaveText(descending);
+      await expect(ledgerNames(page)).toHaveText(reversedOrder);
       await expect(page).toHaveURL(/#\/collections$/);
     });
   }
@@ -2537,30 +2559,30 @@ test.describe("hub Ledger sorting", () => {
     await header.focus();
     await header.press("Enter");
     const active = panel(page).getByRole("button", {
-      name: "Sort by Owned, ascending",
+      name: "Sort by Owned, descending",
       exact: true,
     });
     await expect(active).toBeFocused();
     await active.press("Space");
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][1]);
     await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
-    await expect(ledgerNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Unknown"]);
+    await expect(ledgerNames(page)).toHaveText(["Zeta", "Beta", "Unknown", "Alpha"]);
     await panel(page).getByRole("button", { name: "Complete", exact: true }).click();
     await expect(panel(page)).toContainText("No collections match this filter");
     await panel(page).getByRole("button", { name: "All", exact: true }).click();
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][1]);
     await panel(page).getByRole("button", { name: "Album view" }).click();
-    await expect(panel(page).locator(".collections-card-name b")).toHaveText(
-      ledgerFixtures.map((entry) => entry.name)
-    );
+    await expect(panel(page).locator(".collections-card-name b")).toHaveText(hubSortCases[2][1]);
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][1]);
     expect(await page.evaluate(() => JSON.stringify(window.collectionsStore.getState()))).toBe(
       saved
     );
   });
 
-  test("mobile Sort exposes every column and both directions with default-order reset", async ({
+  // STRK-378 AC 11: the phone Ledger hides its header row, so the compact select carries
+  // My order plus every column in both directions, and the Arrange icon sits beside it.
+  test("mobile Sort offers My order and every column in both directions, beside Arrange", async ({
     page,
   }) => {
     await seedSortableHub(page);
@@ -2568,14 +2590,22 @@ test.describe("hub Ledger sorting", () => {
     await expect(panel(page).locator(".is-head")).toBeHidden();
     const select = panel(page).getByRole("combobox", { name: "Sort collections" });
     await expect(select).toBeVisible();
+    await expect(
+      panel(page).getByRole("button", { name: "Arrange Collections", exact: true })
+    ).toBeVisible();
+    const columns = hubSortCases.map(([label]) => label);
+    await expect(select.locator("option")).toHaveText([
+      "My order",
+      ...columns.flatMap((label) => [`${label} — ascending`, `${label} — descending`]),
+    ]);
+    const keys = ["name", "percent-complete", "owned", "value-melt", "to-complete"];
     for (let i = 0; i < hubSortCases.length; i++) {
-      const key = ["name", "progress", "owned", "melt", "cost"][i];
-      await select.selectOption(`${key}:asc`);
+      await select.selectOption(`${keys[i]}:asc`);
       await expect(ledgerNames(page)).toHaveText(hubSortCases[i][1]);
-      await select.selectOption(`${key}:desc`);
+      await select.selectOption(`${keys[i]}:desc`);
       await expect(ledgerNames(page)).toHaveText(hubSortCases[i][2]);
     }
-    await select.selectOption("");
+    await select.selectOption("my-order");
     await expect(ledgerNames(page)).toHaveText(ledgerFixtures.map((entry) => entry.name));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true
@@ -2593,13 +2623,551 @@ test("hub Ledger sorting remains usable in four themes", async ({ page }, testIn
       (value) => document.documentElement.setAttribute("data-theme", value),
       theme
     );
-    await expect(ledgerNames(page)).toHaveText(hubSortCases[1][1]);
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[1][2]);
     await expect(
-      panel(page).getByRole("button", { name: "Sort by Progress, ascending", exact: true })
+      panel(page).getByRole("button", { name: "Sort by Progress, descending", exact: true })
     ).toBeVisible();
     await panel(page).screenshot({ path: testInfo.outputPath(`hub-${theme}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toBeVisible();
   await panel(page).screenshot({ path: testInfo.outputPath("hub-mobile.png") });
+});
+
+// ---------------------------------------------------------------------------
+// STRK-378 (revised 2026-09-26): My order lives in Settings → Collections, the Ledger
+// header carries a compact Arrange control, and the Album follows the active sort with a
+// column-label hint. AC numbers refer to the STRK-378 issue.
+// ---------------------------------------------------------------------------
+
+/**
+ * Collection ids of the Settings rows in rendered order.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<string[]>} Row ids.
+ */
+const settingsRowIds = (page) =>
+  settingsCollectionsPanel(page)
+    .locator(".collections-settings-row[data-collection-id]")
+    .evaluateAll((nodes) => nodes.map((node) => node.dataset.collectionId));
+
+/**
+ * Accessible row labels (name plus template variant) in rendered Settings order.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<string[]>} Row labels, as used by the row's controls.
+ */
+const settingsRowLabels = (page) =>
+  settingsCollectionsPanel(page)
+    .locator(".collections-settings-row[data-collection-id] .collections-settings-toggle")
+    .evaluateAll((nodes) =>
+      nodes.map((node) =>
+        node.getAttribute("aria-label").replace(/^Show (.*) in Collections$/, "$1")
+      )
+    );
+
+/**
+ * One Settings row by Collection id.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} id - Collection id.
+ * @returns {import('@playwright/test').Locator} The row.
+ */
+const settingsRow = (page, id) =>
+  settingsCollectionsPanel(page).locator(`.collections-settings-row[data-collection-id="${id}"]`);
+
+/**
+ * The Ledger header's icon-only Arrange control.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {import('@playwright/test').Locator} The Arrange button.
+ */
+const arrangeButton = (page) =>
+  panel(page).getByRole("button", { name: "Arrange Collections", exact: true });
+
+/**
+ * The persisted hub preference record.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<{order: string[], sortKey: string, direction: string}|null>} Stored record.
+ */
+const storedHubPreferences = (page) =>
+  page.evaluate(() => window.loadDataSync(window.COLLECTIONS_HUB_PREFERENCES_KEY, null));
+
+/**
+ * Create empty Custom Collections through the real store.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string[]} names - Collection names.
+ * @returns {Promise<string[]>} New Collection ids.
+ */
+const createCustomCollections = (page, names) =>
+  page.evaluate(
+    (list) =>
+      list.map((name) => {
+        const created = window.collectionsStore.createCustom({
+          name,
+          metal: "Silver",
+          slots: [{ label: "One" }],
+        });
+        if (!created.ok) throw new Error(`Fixture creation failed: ${created.reason}`);
+        return created.collection.id;
+      }),
+    names
+  );
+
+/**
+ * Drag a handle onto the upper or lower half of a target with real pointer events.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {import('@playwright/test').Locator} handle - Drag handle.
+ * @param {import('@playwright/test').Locator} target - Row to drop on.
+ * @param {boolean} lowerHalf - Drop after the target instead of before it.
+ * @returns {Promise<void>}
+ */
+const dragHandleTo = async (page, handle, target, lowerHalf) => {
+  await target.scrollIntoViewIfNeeded();
+  const handleBox = await handle.boundingBox();
+  const targetBox = await target.boundingBox();
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    targetBox.x + targetBox.width / 2,
+    targetBox.y + targetBox.height * (lowerHalf ? 0.8 : 0.2),
+    { steps: 6 }
+  );
+  await page.mouse.up();
+};
+
+/**
+ * Make every write of the hub preference key throw, recording toasts instead of showing them.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>}
+ */
+const failHubPreferenceSaves = (page) =>
+  page.evaluate(() => {
+    window.__hubPreferenceErrors = [];
+    window.__originalShowToast = window.showToast;
+    window.showToast = (message, level) => window.__hubPreferenceErrors.push({ message, level });
+    window.__originalStorageSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === window.COLLECTIONS_HUB_PREFERENCES_KEY)
+        throw new DOMException("Storage full", "QuotaExceededError");
+      return window.__originalStorageSetItem.call(this, key, value);
+    };
+  });
+
+/**
+ * Undo failHubPreferenceSaves.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>}
+ */
+const restoreHubPreferenceSaves = (page) =>
+  page.evaluate(() => {
+    Storage.prototype.setItem = window.__originalStorageSetItem;
+    window.showToast = window.__originalShowToast;
+  });
+
+const FIXTURE_ORDER = ledgerFixtures.map((entry) => entry.name);
+
+test.describe("core/collections — STRK-378 My order and hub sorting", () => {
+  test("Settings shows one My order list with Type badges, chronological on a fresh profile", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const [morganId] = await createCustomCollections(page, ["Morgan Carson City"]);
+    const fallback = await page.evaluate(() =>
+      window.collectionsUI.buildEntries().map((entry) => entry.id)
+    );
+    const settings = await openSettingsCollections(page);
+
+    // AC 1: one list, not a Series Templates / Custom Collections split.
+    await expect(settings.locator(".settings-fieldset")).toHaveCount(1);
+    await expect(settings.locator(".settings-fieldset")).toContainText("My order");
+    await expect(settings).not.toContainText("Series Templates");
+    const ids = await settingsRowIds(page);
+    expect(ids).toEqual(fallback);
+    expect(ids.indexOf("ase-type1")).toBeLessThan(ids.indexOf("ase-type2"));
+    expect(ids).toContain(morganId);
+
+    // AC 2: Type badge, progress, visibility toggle and the type-specific action.
+    const type1 = settingsRow(page, "ase-type1");
+    await expect(type1.getByText("Template", { exact: true })).toBeVisible();
+    await expect(type1).toContainText("0 / 36");
+    await expect(settingsVisibilityGroup(page, "American Silver Eagle Type 1")).toBeVisible();
+    await expect(
+      type1.getByRole("button", { name: "Clone and customize American Silver Eagle Type 1" })
+    ).toBeVisible();
+    const morgan = settingsRow(page, morganId);
+    await expect(morgan.getByText("Custom", { exact: true })).toBeVisible();
+    await expect(morgan).toContainText("0 / 1");
+    await expect(morgan.getByRole("button", { name: "Edit Morgan Carson City" })).toBeVisible();
+  });
+
+  test("Settings move buttons save at once, announce, keep focus, and drive the hub", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await openSettingsCollections(page);
+    expect(await settingsRowLabels(page)).toEqual(FIXTURE_ORDER);
+
+    // AC 3: edge buttons are disabled.
+    const settings = settingsCollectionsPanel(page);
+    await expect(
+      settings.getByRole("button", { name: "Move Zeta up", exact: true })
+    ).toBeDisabled();
+    await expect(
+      settings.getByRole("button", { name: "Move Unknown down", exact: true })
+    ).toBeDisabled();
+    await expect(
+      settings.getByRole("button", { name: "Drag Zeta to reorder", exact: true })
+    ).toBeVisible();
+
+    // AC 4 + 6: a move saves immediately, is announced, and keeps focus on its control.
+    const zetaDown = settings.getByRole("button", { name: "Move Zeta down", exact: true });
+    await zetaDown.focus();
+    await zetaDown.press("Enter");
+    const moved = ["Alpha", "Zeta", "Beta", "Delta", "Unknown"];
+    await expect.poll(() => settingsRowLabels(page)).toEqual(moved);
+    await expect(settings.getByRole("status")).toContainText("Zeta moved to position 2 of 5.");
+    await expect(
+      settings.getByRole("button", { name: "Move Zeta down", exact: true })
+    ).toBeFocused();
+    expect((await storedHubPreferences(page)).order).toEqual([
+      "alpha",
+      "zeta",
+      "beta",
+      "delta",
+      "unknown",
+    ]);
+
+    // AC 6: reaching the bottom edge hands focus to the opposite button.
+    for (let step = 0; step < 3; step += 1) {
+      await settings.getByRole("button", { name: "Move Zeta down", exact: true }).click();
+    }
+    const bottom = ["Alpha", "Beta", "Delta", "Unknown", "Zeta"];
+    await expect.poll(() => settingsRowLabels(page)).toEqual(bottom);
+    await expect(settings.getByRole("button", { name: "Move Zeta up", exact: true })).toBeFocused();
+
+    // AC 15: the open hub follows without a reload. (Reload persistence is pinned by the
+    // real-template test below: this fixture's bundle is injected after load and would not
+    // survive a reload.)
+    await closeSettingsCollections(page);
+    await expect(albumNames(page)).toHaveText(bottom);
+  });
+
+  test("My order and the active sort survive a reload, and Show My order persists", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await createCustomCollections(page, ["Morgan Carson City"]);
+    await openCollectionsTab(page);
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    const settings = await openSettingsCollections(page);
+    const before = await settingsRowIds(page);
+    await settings
+      .getByRole("button", { name: "Move American Silver Eagle Type 2 up", exact: true })
+      .click();
+    const arranged = await settingsRowIds(page);
+    expect(arranged).not.toEqual(before);
+    expect(arranged.indexOf("ase-type2")).toBe(before.indexOf("ase-type2") - 1);
+    await closeSettingsCollections(page);
+    await expect.poll(() => albumIds(page)).toEqual(arranged);
+
+    // AC 5: the saved order renders after a reload in Settings and the hub.
+    await reloadApp(page);
+    await openCollectionsTab(page);
+    await expect.poll(() => albumIds(page)).toEqual(arranged);
+    await openSettingsCollections(page);
+    expect(await settingsRowIds(page)).toEqual(arranged);
+    await closeSettingsCollections(page);
+
+    // AC 7 + 13: a header sort survives a reload and the Album keeps its hint.
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await panel(page)
+      .getByRole("button", { name: "Sort by Collection, not sorted", exact: true })
+      .click();
+    await reloadApp(page);
+    await openCollectionsTab(page);
+    await expect(
+      panel(page).getByRole("button", { name: "Sort by Collection, ascending", exact: true })
+    ).toBeVisible();
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await expect(panel(page).locator(".collections-sort-hint")).toContainText(
+      "Sorted by Collection, ascending"
+    );
+
+    // AC 14: Show My order is saved too.
+    await panel(page).getByRole("button", { name: "Show My order", exact: true }).click();
+    await reloadApp(page);
+    await openCollectionsTab(page);
+    await expect(panel(page).locator(".collections-sort-hint")).toHaveCount(0);
+    await expect.poll(() => albumIds(page)).toEqual(arranged);
+  });
+
+  test("a Settings drag handle drops a row before or after its target", async ({ page }) => {
+    await seedSortableHub(page);
+    await openSettingsCollections(page);
+    const settings = settingsCollectionsPanel(page);
+    await dragHandleTo(
+      page,
+      settings.getByRole("button", { name: "Drag Zeta to reorder", exact: true }),
+      settingsRow(page, "delta"),
+      true
+    );
+    await expect
+      .poll(() => settingsRowLabels(page))
+      .toEqual(["Alpha", "Beta", "Delta", "Zeta", "Unknown"]);
+    await dragHandleTo(
+      page,
+      settings.getByRole("button", { name: "Drag Unknown to reorder", exact: true }),
+      settingsRow(page, "alpha"),
+      false
+    );
+    await expect
+      .poll(() => settingsRowLabels(page))
+      .toEqual(["Unknown", "Alpha", "Beta", "Delta", "Zeta"]);
+    expect((await storedHubPreferences(page)).order).toEqual([
+      "unknown",
+      "alpha",
+      "beta",
+      "delta",
+      "zeta",
+    ]);
+  });
+
+  test("a hidden Collection keeps its Settings position while the hub leaves it out", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await page.evaluate(() => {
+      const result = window.collectionsStore.setEnabled("delta", false);
+      if (!result.ok) throw new Error(JSON.stringify(result));
+    });
+    await expect(albumNames(page)).toHaveText(["Zeta", "Alpha", "Beta", "Unknown"]);
+
+    await openSettingsCollections(page);
+    expect(await settingsRowLabels(page)).toEqual(FIXTURE_ORDER);
+    await settingsCollectionsPanel(page)
+      .getByRole("button", { name: "Move Unknown up", exact: true })
+      .click();
+    // Unknown passes the hidden Delta row; Delta stays listed and keeps its slot.
+    await expect
+      .poll(() => settingsRowLabels(page))
+      .toEqual(["Zeta", "Alpha", "Beta", "Unknown", "Delta"]);
+    await closeSettingsCollections(page);
+    await expect(albumNames(page)).toHaveText(["Zeta", "Alpha", "Beta", "Unknown"]);
+
+    await page.evaluate(() => window.collectionsStore.setEnabled("delta", true));
+    await expect(albumNames(page)).toHaveText(["Zeta", "Alpha", "Beta", "Unknown", "Delta"]);
+  });
+
+  test("a failed Settings order save reports the error and keeps the saved order", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    await openSettingsCollections(page);
+    const before = await storedHubPreferences(page);
+    await failHubPreferenceSaves(page);
+    const settings = settingsCollectionsPanel(page);
+    await settings.getByRole("button", { name: "Move Zeta down", exact: true }).click();
+    await expect(settings.getByRole("status")).toContainText("Couldn't save the new order");
+    expect(await settingsRowLabels(page)).toEqual(FIXTURE_ORDER);
+    expect(await storedHubPreferences(page)).toEqual(before);
+    await restoreHubPreferenceSaves(page);
+  });
+
+  test("Ledger Arrange shows under All only; Done saves My order and Cancel discards", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    // AC 8: the icon-only control lives in the Ledger header, under the All filter only.
+    await expect(arrangeButton(page)).toBeVisible();
+    await panel(page).getByRole("button", { name: "In progress", exact: true }).click();
+    await expect(arrangeButton(page)).toHaveCount(0);
+    await panel(page).getByRole("button", { name: "All", exact: true }).click();
+    await panel(page)
+      .getByRole("button", { name: "Sort by Owned, not sorted", exact: true })
+      .click();
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+
+    // AC 9: arranging shows My order, disables header sorting, and swaps in Done / Cancel.
+    await arrangeButton(page).focus();
+    await arrangeButton(page).press("Enter");
+    await expect(panel(page).getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+    await expect(panel(page).getByRole("button", { name: "Done", exact: true })).toBeVisible();
+    await expect(arrangeButton(page)).toHaveCount(0);
+    await expect(ledgerNames(page)).toHaveText(FIXTURE_ORDER);
+    await expect(
+      panel(page).getByRole("button", { name: "Sort by Owned, descending", exact: true })
+    ).toBeDisabled();
+    await panel(page).getByRole("button", { name: "Move Zeta down", exact: true }).click();
+    const moved = ["Alpha", "Zeta", "Beta", "Delta", "Unknown"];
+    await expect(ledgerNames(page)).toHaveText(moved);
+    await expect(panel(page).getByRole("status")).toHaveText("Zeta moved to position 2 of 5.");
+
+    // AC 10: Cancel discards the draft and restores the previous sort and filter.
+    await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(arrangeButton(page)).toBeFocused();
+    await expect(ledgerNames(page)).toHaveText(hubSortCases[2][2]);
+    await expect(panel(page).getByRole("button", { name: "All", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    // AC 10: Done saves the draft as My order and makes My order the active sort.
+    await arrangeButton(page).click();
+    await panel(page).getByRole("button", { name: "Move Zeta down", exact: true }).click();
+    await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+    await expect(arrangeButton(page)).toBeFocused();
+    await expect(ledgerNames(page)).toHaveText(moved);
+    await expect(
+      panel(page).getByRole("button", { name: "Sort by Owned, not sorted", exact: true })
+    ).toBeVisible();
+    expect(await storedHubPreferences(page)).toMatchObject({
+      sortKey: "my-order",
+      order: ["alpha", "zeta", "beta", "delta", "unknown"],
+    });
+  });
+
+  test("Ledger arrange moves keep keyboard focus at both edges", async ({ page }) => {
+    await seedSortableHub(page);
+    await arrangeButton(page).click();
+    const down = panel(page).getByRole("button", { name: "Move Zeta down", exact: true });
+    for (let step = 0; step < FIXTURE_ORDER.length - 1; step += 1) await down.click();
+    await expect(ledgerNames(page)).toHaveText([...FIXTURE_ORDER.slice(1), "Zeta"]);
+    const up = panel(page).getByRole("button", { name: "Move Zeta up", exact: true });
+    await expect(up).toBeFocused();
+    for (let step = 0; step < FIXTURE_ORDER.length - 1; step += 1) await up.click();
+    await expect(ledgerNames(page)).toHaveText(FIXTURE_ORDER);
+    await expect(
+      panel(page).getByRole("button", { name: "Move Zeta down", exact: true })
+    ).toBeFocused();
+  });
+
+  test("Ledger drag handles reorder rows while arranging", async ({ page }) => {
+    await seedSortableHub(page);
+    await arrangeButton(page).click();
+    await dragHandleTo(
+      page,
+      panel(page).getByRole("button", { name: "Drag Zeta to reorder", exact: true }),
+      panel(page).locator('[data-hub-arrange-id="unknown"]'),
+      true
+    );
+    await expect.poll(() => ledgerIds(page)).toEqual(["alpha", "beta", "delta", "unknown", "zeta"]);
+    await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(await ledgerIds(page)).toEqual(["zeta", "alpha", "beta", "delta", "unknown"]);
+  });
+
+  test("a failed Ledger order save keeps Arrange open and reports the error", async ({ page }) => {
+    await seedSortableHub(page);
+    await arrangeButton(page).click();
+    await panel(page).getByRole("button", { name: "Move Zeta down", exact: true }).click();
+    await failHubPreferenceSaves(page);
+    await panel(page).getByRole("button", { name: "Done", exact: true }).click();
+    await expect(panel(page).getByRole("button", { name: "Done", exact: true })).toBeVisible();
+    await expect(ledgerNames(page)).toHaveText(["Alpha", "Zeta", "Beta", "Delta", "Unknown"]);
+    expect(
+      await page.evaluate(() => window.__hubPreferenceErrors.some(({ level }) => level === "error"))
+    ).toBe(true);
+    await restoreHubPreferenceSaves(page);
+    await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(ledgerNames(page)).toHaveText(FIXTURE_ORDER);
+  });
+
+  test("the Album follows the active sort with a column-label hint and Show My order", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const hint = panel(page).locator(".collections-sort-hint");
+    const showMyOrder = panel(page).getByRole("button", { name: "Show My order", exact: true });
+
+    // AC 12: no sort or arrange controls on the desktop toolbar, in either layout.
+    for (const view of ["Album view", "Ledger view"]) {
+      await panel(page).getByRole("button", { name: view }).click();
+      await expect(panel(page).getByRole("combobox", { name: "Sort collections" })).toBeHidden();
+      await expect(panel(page).getByRole("button", { name: /^Sort direction/ })).toHaveCount(0);
+      await expect(panel(page).getByRole("button", { name: "Arrange", exact: true })).toHaveCount(
+        0
+      );
+    }
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await expect(arrangeButton(page)).toHaveCount(0);
+    await expect(albumNames(page)).toHaveText(FIXTURE_ORDER);
+    await expect(hint).toHaveCount(0);
+
+    // AC 13: the Album follows a Ledger header sort and names it by the column label.
+    // (Reload persistence: the real-template test above.)
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await panel(page)
+      .getByRole("button", { name: "Sort by Progress, not sorted", exact: true })
+      .click();
+    expect(await storedHubPreferences(page)).toMatchObject({
+      sortKey: "percent-complete",
+      direction: "desc",
+    });
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+    await expect(albumNames(page)).toHaveText(hubSortCases[1][2]);
+    await expect(hint).toHaveText(/^Sorted by Progress, descending\s*·?\s*Show My order$/);
+
+    // AC 14: Show My order resets, saves, and removes the hint.
+    await showMyOrder.click();
+    await expect(albumNames(page)).toHaveText(FIXTURE_ORDER);
+    await expect(hint).toHaveCount(0);
+    expect((await storedHubPreferences(page)).sortKey).toBe("my-order");
+  });
+
+  test("arrange controls, Type badges, and the hint work in four themes and at phone width", async ({
+    page,
+  }) => {
+    await seedSortableHub(page);
+    await panel(page)
+      .getByRole("button", { name: "Sort by Owned, not sorted", exact: true })
+      .click();
+    const minSize = async (locator) => {
+      const boxes = await locator.evaluateAll((nodes) =>
+        nodes.map((node) => node.getBoundingClientRect())
+      );
+      expect(boxes.length).toBeGreaterThan(0);
+      return Math.min(...boxes.flatMap((box) => [box.width, box.height]));
+    };
+    for (const theme of ["dark", "light", "slate", "sepia"]) {
+      await page.evaluate(
+        (value) => document.documentElement.setAttribute("data-theme", value),
+        theme
+      );
+      for (const [width, height] of [
+        [1280, 900],
+        [390, 844],
+      ]) {
+        await page.setViewportSize({ width, height });
+        await panel(page).getByRole("button", { name: "Album view" }).click();
+        await expect(panel(page).locator(".collections-sort-hint")).toBeVisible();
+        await panel(page).getByRole("button", { name: "Ledger view" }).click();
+        await expect(arrangeButton(page)).toBeVisible();
+        await arrangeButton(page).click();
+        if (width < 640)
+          expect(
+            await minSize(panel(page).getByRole("button", { name: /^Move .* (up|down)$/ }))
+          ).toBeGreaterThanOrEqual(44);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true
+        );
+        await panel(page).getByRole("button", { name: "Cancel", exact: true }).click();
+
+        await openSettingsCollections(page);
+        const settings = settingsCollectionsPanel(page);
+        await expect(
+          settingsRow(page, "zeta").getByText("Template", { exact: true })
+        ).toBeVisible();
+        await expect(
+          settings.getByRole("button", { name: "Drag Zeta to reorder", exact: true })
+        ).toBeVisible();
+        if (width < 640)
+          expect(
+            await minSize(settings.getByRole("button", { name: /^Move .* (up|down)$/ }))
+          ).toBeGreaterThanOrEqual(44);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true
+        );
+        await closeSettingsCollections(page);
+      }
+    }
+  });
 });

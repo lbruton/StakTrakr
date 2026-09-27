@@ -456,7 +456,7 @@ A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Seri
 
 The CSV column is **last** in both header lists (`buildStandardHeaders`, `BACKUP_CSV_HEADERS`). `exportCsv` terminates its `# exportOrigin` comment with CRLF to match PapaParse's body. For legacy exports with an LF comment and CRLF body, `importCsv` normalizes only the comment terminator before parsing, so the final header and cell values do not retain `\r` and quoted cell data stays intact. CSV parsing also trims headers, including older exports whose final header is `Traded From UUID`.
 
-**Synced as a managed key (STRK-370):** `collectionState` is in both `ALLOWED_STORAGE_KEYS` and `SYNC_SCOPE_KEYS`, but is never blind-overwritten — `cloud-sync.js` excludes it from every settings diff/apply site and reconciles it through `mergeStates`. See "Collections Sync" in `.context/cloud-sync.md`. `collectionsViewMode` stays device-local by design.
+**Synced as a managed key (STRK-370):** `collectionState` is in both `ALLOWED_STORAGE_KEYS` and `SYNC_SCOPE_KEYS`, but is never blind-overwritten — `cloud-sync.js` excludes it from every settings diff/apply site and reconciles it through `mergeStates`. See "Collections Sync" in `.context/cloud-sync.md`. `collectionsViewMode` and `collectionsHubPreferences` stay device-local by design; the latter stores My order plus the shared hub sort preset and direction (STRK-378).
 
 ### Storage Layer
 
@@ -488,6 +488,7 @@ All keys registered in `ALLOWED_STORAGE_KEYS` (`js/constants.js`). `cleanupStora
 | `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js`      |
 | `collectionState`           | Collections definitions + Slot → Item UUID links (STRK-368). Synced as a managed, merge-only key (STRK-370) — see Collections Module above. Owned by `js/collections-store.js` |
 | `collectionsViewMode`       | Collections tab view preference, `"album"` \| `"ledger"` (STRK-368). Device-local by design: album on a phone, ledger on a desktop                                             |
+| `collectionsHubPreferences` | Saved Collection order, hub sort preset, and direction (STRK-378). Device-local by design                                                                                      |
 
 ### IndexedDB Stores
 

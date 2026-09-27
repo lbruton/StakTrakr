@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.33] - 2026-09-26
+
+### Changed — STRK-378: Order the Collections hub
+
+- **Settings → Collections**: Series Templates and Custom Collections now share one My order list with Template and Custom badges. Drag a row or use the arrows to set the order the hub shows; each move saves at once on this device (STRK-378).
+- **Collections hub**: Ledger column headers sort and remember the choice. A small Arrange button at the right of the Ledger header reorders rows by drag or arrows, with Done and Cancel. The Album follows the active sort and shows a one-line "Sorted by …" note with a Show My order link. Fresh profiles keep the chronological Series Template order (STRK-378).
+
+---
+
 ## [3.36.32] - 2026-09-26
 
 ### Changed — STRK-393: Collections Settings and visibility

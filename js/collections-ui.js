@@ -89,6 +89,8 @@
     trash:
       '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+    arrange: '<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>',
+    grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
   });
 
   // ---------------------------------------------------------------------------
@@ -97,7 +99,10 @@
 
   const state = {
     hubFilter: STATUS_ALL,
-    hubSort: null,
+    hubPreferences: null,
+    hubArrangement: null,
+    hubAnnouncement: "",
+    hubFocusKeyAfterRender: "",
     albumFilter: SLOTS_ALL,
     albumSort: SORT_OLDEST,
   };
@@ -248,12 +253,225 @@
    */
   const setViewMode = (mode) => {
     if (!VIEW_MODES.includes(mode)) return;
+    // Arranging lives in the Ledger header only (STRK-378); leaving the Ledger drops the draft.
+    if (state.hubArrangement && mode !== VIEW_LEDGER) {
+      state.hubFilter = state.hubArrangement.restoreFilter;
+      state.hubArrangement = null;
+    }
     try {
       // saveDataSync re-throws on quota errors; the toggle still applies for this render.
       saveDataSync(COLLECTIONS_VIEW_MODE_KEY, mode);
     } catch (error) {
       console.warn("[collections] Failed to save the view mode:", error);
     }
+    render();
+  };
+
+  /**
+   * Loads and validates the device-local hub preferences once per page session.
+   * @returns {{order: string[], sortKey: string, direction: string}} Preferences
+   */
+  const getHubPreferences = () => {
+    if (!state.hubPreferences) {
+      const stored =
+        typeof loadDataSync === "function"
+          ? loadDataSync(COLLECTIONS_HUB_PREFERENCES_KEY, null)
+          : null;
+      state.hubPreferences = window.collectionsSort.normalizeHubPreferences(stored);
+    }
+    return state.hubPreferences;
+  };
+
+  /**
+   * Attempts one atomic preference write and only updates page state after success.
+   * @param {Object} candidate - Complete preference value
+   * @param {string} failureMessage - User-facing error copy
+   * @returns {boolean} Whether the preference was committed
+   */
+  const commitHubPreferences = (candidate, failureMessage) => {
+    const result = window.collectionsSort.commitHubPreferences(
+      getHubPreferences(),
+      candidate,
+      (value) => {
+        if (typeof saveDataSync !== "function")
+          throw new Error("Synchronous storage is unavailable");
+        saveDataSync(COLLECTIONS_HUB_PREFERENCES_KEY, value);
+      }
+    );
+    if (!result.ok) {
+      console.error("[collections] Failed to save hub preferences:", result.error);
+      if (typeof window.showToast === "function") window.showToast(failureMessage, "error");
+      return false;
+    }
+    state.hubPreferences = result.preferences;
+    return true;
+  };
+
+  /**
+   * Saves a sort choice without changing the user's My order list.
+   * @param {string} sortKey - Selected preset
+   * @param {string} direction - asc or desc
+   * @returns {boolean} Whether the preference was committed
+   */
+  const saveHubSort = (sortKey, direction) =>
+    commitHubPreferences(
+      { ...getHubPreferences(), sortKey, direction },
+      "Couldn't save the Collections sort preference."
+    );
+
+  /**
+   * Begins a draft arrangement while retaining the current status filter for restoration.
+   * @param {Object[]} entries - All Collections, including hidden ones
+   * @returns {void}
+   */
+  const beginHubArrangement = (entries) => {
+    const preferences = getHubPreferences();
+    state.hubArrangement = {
+      order: window.collectionsSort
+        .orderEntries(entries, preferences.order)
+        .map((entry) => entry.id),
+      restoreFilter: state.hubFilter,
+    };
+    state.hubFilter = STATUS_ALL;
+    state.hubAnnouncement = "Arrange mode. Collections are shown in My order.";
+    state.hubFocusKeyAfterRender = "hub:arrange:cancel";
+    render();
+  };
+
+  /**
+   * Discards the draft arrangement and restores the previous status filter.
+   * @returns {void}
+   */
+  const cancelHubArrangement = () => {
+    if (!state.hubArrangement) return;
+    state.hubFilter = state.hubArrangement.restoreFilter;
+    state.hubArrangement = null;
+    state.hubAnnouncement = "Arrangement canceled.";
+    state.hubFocusKeyAfterRender = "hub:arrange";
+    render();
+  };
+
+  /**
+   * Saves a draft arrangement as My order. A failed write leaves the draft open.
+   * @returns {boolean} Whether the arrangement was committed
+   */
+  const saveHubArrangement = () => {
+    if (!state.hubArrangement) return false;
+    const committed = commitHubPreferences(
+      {
+        ...getHubPreferences(),
+        order: state.hubArrangement.order,
+        sortKey: "my-order",
+      },
+      "Couldn't save your Collections order. Your draft is still open."
+    );
+    if (!committed) return false;
+    state.hubFilter = state.hubArrangement.restoreFilter;
+    state.hubArrangement = null;
+    state.hubAnnouncement = "Collection order saved.";
+    state.hubFocusKeyAfterRender = "hub:arrange";
+    render();
+    return true;
+  };
+
+  /**
+   * Saves a complete My order immediately (Settings → Collections, STRK-378). The sort is
+   * left as it is, and the hub re-renders so an open Album or Ledger follows at once.
+   * @param {string[]} order - Full order including hidden ids
+   * @returns {boolean} Whether the order was committed
+   */
+  const saveHubOrder = (order) => {
+    const committed = commitHubPreferences(
+      { ...getHubPreferences(), order },
+      "Couldn't save your Collections order."
+    );
+    if (committed) render();
+    return committed;
+  };
+
+  // Only one pointer reorder can be in flight at a time, across the hub and Settings.
+  let pointerReorder = null;
+
+  /**
+   * Clears the drag classes a pointer reorder left on its rows.
+   * @param {string} itemSelector - Selector matching every reorderable row
+   * @returns {void}
+   */
+  const clearReorderMarks = (itemSelector) => {
+    document
+      .querySelectorAll(`${itemSelector}.is-dragging, ${itemSelector}.is-drop-target`)
+      .forEach((node) => node.classList.remove("is-dragging", "is-drop-target"));
+  };
+
+  /**
+   * Wires pointer reordering to a dedicated drag handle. Dropping on the upper half of a
+   * row places the dragged row before it, the lower half after it. Shared by the Ledger
+   * arrange mode and the Settings My order list so both drag the same way.
+   * @param {HTMLButtonElement} handle - Drag-only control
+   * @param {Object} options - Reorder wiring
+   * @param {string} options.id - Id of the row this handle moves
+   * @param {string} options.itemSelector - Selector matching every reorderable row
+   * @param {(node: HTMLElement) => string} options.idOf - Reads a row's id
+   * @param {(targetId: string, after: boolean) => void} options.onDrop - Applies the move
+   * @param {() => boolean} [options.isActive] - Whether reordering is currently allowed
+   * @returns {void}
+   */
+  const wireReorderHandle = (handle, { id, itemSelector, idOf, onDrop, isActive = () => true }) => {
+    handle.draggable = false;
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || !isActive()) return;
+      event.preventDefault();
+      pointerReorder = { id, handle, startX: event.clientX, startY: event.clientY, targetId: "" };
+      try {
+        handle.setPointerCapture(event.pointerId);
+        handle.closest(itemSelector)?.classList.add("is-dragging");
+      } catch (error) {
+        console.warn("[collections] Pointer capture failed:", error);
+        pointerReorder = null;
+      }
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!pointerReorder || pointerReorder.handle !== handle) return;
+      const { startX, startY } = pointerReorder;
+      if (!pointerReorder.moved && Math.hypot(event.clientX - startX, event.clientY - startY) < 5)
+        return;
+      pointerReorder.moved = true;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(itemSelector);
+      const targetId = target ? idOf(target) : "";
+      document
+        .querySelectorAll(`${itemSelector}.is-drop-target`)
+        .forEach((node) => node !== target && node.classList.remove("is-drop-target"));
+      if (target && targetId !== id) target.classList.add("is-drop-target");
+      const box = target?.getBoundingClientRect();
+      pointerReorder.targetId = targetId;
+      pointerReorder.after = Boolean(box && event.clientY >= box.top + box.height / 2);
+    });
+    handle.addEventListener("pointerup", (event) => {
+      if (!pointerReorder || pointerReorder.handle !== handle) return;
+      const current = pointerReorder;
+      pointerReorder = null;
+      clearReorderMarks(itemSelector);
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      if (current.moved && current.targetId && current.targetId !== id)
+        onDrop(current.targetId, current.after);
+    });
+    handle.addEventListener("pointercancel", () => {
+      pointerReorder = null;
+      clearReorderMarks(itemSelector);
+    });
+  };
+
+  /**
+   * Accepts a rendered reorder and updates the unsaved draft.
+   * @param {string[]} order - Full order including hidden ids
+   * @param {string} announcement - Accessible move result
+   * @returns {void}
+   */
+  const updateHubArrangement = (order, announcement, focusKey = "") => {
+    if (!state.hubArrangement) return;
+    state.hubArrangement = { ...state.hubArrangement, order };
+    state.hubAnnouncement = announcement;
+    state.hubFocusKeyAfterRender = focusKey;
     render();
   };
 
@@ -1073,7 +1291,7 @@
    * The album / ledger view toggle shown in both toolbars.
    * @returns {HTMLElement} Icon segmented control
    */
-  const buildViewToggle = () => {
+  const buildViewToggle = (disabled = false) => {
     const mode = getViewMode();
     const group = el("div", "chip-sort-toggle collections-modetoggle");
     group.setAttribute("role", "group");
@@ -1091,6 +1309,7 @@
       );
       node.setAttribute("aria-label", label);
       node.setAttribute("aria-pressed", String(value === mode));
+      node.disabled = disabled;
       node.title = label;
       node.appendChild(icon(iconName));
       group.appendChild(node);
@@ -1146,6 +1365,14 @@
     DASH,
     PERCENT,
     state,
+    getHubPreferences,
+    saveHubSort,
+    getHubArrangement: () => state.hubArrangement,
+    beginHubArrangement,
+    cancelHubArrangement,
+    saveHubArrangement,
+    updateHubArrangement,
+    wireReorderHandle,
   });
   const { buildAlbum, closeSlotNotePopover } = window.createCollectionsAlbumRenderer({
     el,
@@ -1367,6 +1594,8 @@
 
     const focused = root.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = focused ? focused.dataset.focusKey : "";
+    const requestedFocusKey = state.hubFocusKeyAfterRender;
+    state.hubFocusKeyAfterRender = "";
 
     const all = buildEntries();
     const entries = all.filter((candidate) => store().isEnabled(candidate.id));
@@ -1386,15 +1615,24 @@
 
     const panel = el("div", "collections-panel");
     panel.appendChild(
-      entry ? buildAlbum(entry) : buildHub({ enabled: entries, hiddenCount, totalCount })
+      entry
+        ? buildAlbum(entry)
+        : buildHub({ entries: all, enabled: entries, hiddenCount, totalCount })
     );
     root.replaceChildren(panel);
 
-    if (focusKey) {
-      const target = Array.from(root.querySelectorAll("[data-focus-key]")).find(
-        (node) => node.dataset.focusKey === focusKey
+    for (const candidateKey of [requestedFocusKey, focusKey]) {
+      if (!candidateKey) continue;
+      // The Ledger's arrange controls exist twice (header row and phone toolbar) with one
+      // focus key; prefer the copy that is actually rendered at this width.
+      const matches = Array.from(root.querySelectorAll("[data-focus-key]")).filter(
+        (node) => node.dataset.focusKey === candidateKey
       );
-      if (target) target.focus({ preventScroll: true });
+      const target = matches.find((node) => node.getClientRects().length > 0) || matches[0];
+      if (target && !target.disabled) {
+        target.focus({ preventScroll: true });
+        break;
+      }
     }
     // Opening an album from far down the hub must not leave the user mid-page.
     if (routeChanged && root.getBoundingClientRect().top < 0)
@@ -1458,5 +1696,8 @@
     getViewMode,
     setViewMode,
     buildEntries,
+    getHubPreferences,
+    saveHubOrder,
+    wireReorderHandle,
   });
 })();
