@@ -40,19 +40,23 @@ Publisher: `devops/pollers/shared/api-export-v2.js`.
 
 All v2 endpoints live under `data/v2/`:
 
-| Endpoint                                 | Description                                                                               | Updated             |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- |
-| `data/v2/manifest.json`                  | Self-describing index: coin list, endpoint templates, stale thresholds per type           | Every 15 min        |
-| `data/v2/spot/latest.json`               | Current spot prices (5 metals) with OHLCA aggregates                                      | Every 15 min        |
-| `data/v2/spot/history-24h.json`          | 24h spot time series (96 windows)                                                         | Every 15 min        |
-| `data/v2/retail/{slug}/latest.json`      | Per-coin vendor prices with carry-forward metadata                                        | Every 15 min        |
-| `data/v2/retail/{slug}/history-7d.json`  | 7-day hourly OHLCA buckets                                                                | Every 15 min        |
-| `data/v2/retail/{slug}/history-30d.json` | 30-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
-| `data/v2/retail/{slug}/history-90d.json` | 90-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
-| `data/v2/goldback/latest.json`           | G1 rate + denomination multipliers with OHLCA; `data.t` stamped at scrape hour (STRK-248) | Every publish cycle |
-| `data/v2/goldback/intraday.json`         | Raw hourly G1 point series `[{ t, ts, g1_usd }]` for the last 72 h (STRK-248)             | Every publish cycle |
-| `data/v2/goldback/{slug}/latest.json`    | Per-state goldback vendor prices                                                          | Every 15 min        |
-| `data/v2/providers.json`                 | Vendor to product URL mapping per coin (reference data — stable)                          | Every 15 min        |
+| Endpoint                                     | Description                                                                               | Updated             |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- |
+| `data/v2/manifest.json`                      | Self-describing index: metals, coins, vendors, endpoint templates; envelope `stale_after` | Every 15 min        |
+| `data/v2/spot/latest.json`                   | Current spot prices (5 metals) with OHLCA aggregates                                      | Every 15 min        |
+| `data/v2/spot/{metal}/latest.json`           | Per-metal price with `change_24h` / `change_24h_pct`                                      | Every 15 min        |
+| `data/v2/spot/{metal}/intraday.json`         | Rolling 24h of 15-min OHLCA                                                               | Every 15 min        |
+| `data/v2/spot/{metal}/{YYYY}/{MM}/{DD}.json` | Today's hourly OHLCA                                                                      | Every 15 min        |
+| `data/v2/spot/{metal}/{YYYY}/{MM}.json`      | Current month's daily OHLCA                                                               | Every 15 min        |
+| `data/v2/spot/history/{7,30,90}d.json`       | Rolling daily OHLCA per metal; queried one metal at a time (STRK-407)                     | Every 15 min        |
+| `data/v2/retail/{slug}/latest.json`          | Per-coin vendor prices with carry-forward metadata                                        | Every 15 min        |
+| `data/v2/retail/{slug}/history-7d.json`      | 7-day hourly OHLCA buckets                                                                | Every 15 min        |
+| `data/v2/retail/{slug}/history-30d.json`     | 30-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
+| `data/v2/retail/{slug}/history-90d.json`     | 90-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
+| `data/v2/goldback/latest.json`               | G1 rate + denomination multipliers with OHLCA; `data.t` stamped at scrape hour (STRK-248) | Every publish cycle |
+| `data/v2/goldback/intraday.json`             | Raw hourly G1 point series `[{ t, ts, g1_usd }]` for the last 72 h (STRK-248)             | Every publish cycle |
+| `data/v2/goldback/{slug}/latest.json`        | Per-state goldback vendor prices                                                          | Every 15 min        |
+| `data/v2/providers.json`                     | Vendor to product URL mapping per coin (reference data — stable)                          | Every 15 min        |
 
 ### v2 Envelope Format
 
@@ -113,26 +117,36 @@ Time-series data includes OHLCA aggregates per window:
 ```json
 {
   "v": 2,
-  "generated_at": "2026-03-25T14:08:01.756Z",
+  "generated_at": "2026-09-27T18:08:30.716Z",
   "stale_after": 1800,
   "data": {
-    "coin_count": 15,
-    "coins": ["ase", "age", "..."],
+    "metals": ["xau", "xag", "xpt", "xpd", "xcu"],
+    "coins": [
+      { "slug": "age", "name": "American Gold Eagle 1 oz", "metal": "xau", "weight_oz": 1 }
+    ],
+    "vendors": [
+      { "id": "apmex", "name": "APMEX", "color": "#60a5fa", "url": "https://www.apmex.com" }
+    ],
     "endpoints": {
-      "spot_latest": "v2/spot/latest.json",
-      "spot_history_24h": "v2/spot/history-24h.json",
-      "retail_latest": "v2/retail/{slug}/latest.json",
-      "retail_history_7d": "v2/retail/{slug}/history-7d.json",
-      "retail_history_30d": "v2/retail/{slug}/history-30d.json",
-      "retail_history_90d": "v2/retail/{slug}/history-90d.json",
-      "goldback_latest": "v2/goldback/latest.json",
-      "goldback_intraday": "v2/goldback/intraday.json",
-      "providers": "v2/providers.json"
-    },
-    "stale_thresholds": {
-      "spot": 1200,
-      "retail": 1800,
-      "goldback": 7200
+      "spot_latest": "spot/latest.json",
+      "spot_metal_latest": "spot/{metal}/latest.json",
+      "spot_metal_intraday": "spot/{metal}/intraday.json",
+      "spot_metal_daily": "spot/{metal}/{YYYY}/{MM}/{DD}.json",
+      "spot_metal_monthly": "spot/{metal}/{YYYY}/{MM}.json",
+      "spot_history": "spot/history/{N}d.json",
+      "retail_latest": "retail/latest.json",
+      "retail_slug_latest": "retail/{slug}/latest.json",
+      "retail_slug_intraday": "retail/{slug}/intraday.json",
+      "retail_slug_monthly": "retail/{slug}/{YYYY}/{MM}.json",
+      "retail_slug_history": "retail/{slug}/history-{N}d.json",
+      "retail_vendors": "retail/vendors/index.json",
+      "retail_vendor": "retail/vendors/{vendor}.json",
+      "goldback_latest": "goldback/latest.json",
+      "goldback_intraday": "goldback/intraday.json",
+      "goldback_monthly": "goldback/{YYYY}/{MM}.json",
+      "goldback_history": "goldback/history-30d.json",
+      "providers": "providers.json",
+      "manifest": "manifest.json"
     }
   }
 }
