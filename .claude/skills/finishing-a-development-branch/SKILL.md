@@ -236,7 +236,7 @@ git worktree remove <worktree-path>
 
 **Called by:**
 
-- **/sketch** closing tasks - After all tasks complete
+- **/spec** closing tasks - After all tasks complete
 
 **Pairs with:**
 

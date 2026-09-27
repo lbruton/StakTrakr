@@ -704,7 +704,7 @@ await sharedPage.goto("/index.html");
 await installStakTrakrNetworkMocks(page, { mode: "deny-all" });
 ```
 
-Per-spec `page.route()` overrides register **after** the shared installer and win by LIFO precedence. Reference: STRK-78 sketch archive.
+Per-spec `page.route()` overrides register **after** the shared installer and win by LIFO precedence. Reference: STRK-78 spec archive.
 
 ### Test maintenance protocol
 
