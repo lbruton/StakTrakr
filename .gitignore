@@ -85,3 +85,8 @@ temp/
 # browser-session dir, not project history.
 .mcp.json
 .playwright-mcp/
+
+# DocVault (Obsidian) per-machine state
+DocVault/.obsidian/workspace*.json
+DocVault/.obsidian/graph.json
+DocVault/.trash/

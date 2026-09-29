@@ -1,6 +1,6 @@
 # Spec — StakTrakr Project Conventions
 
-Per-project overrides for the `/spec-*` family. Pairs with the universal mechanics in `DocVault/spec/conventions.md`. Read this during `/spec new`, the `/spec-tasks` phase (Cohort 0 + closing tasks), and the `/spec run | workflow | dispatch` execution verbs.
+Per-project overrides for the `/spec-*` family. Pairs with the universal mechanics in the `spec` skill's `references/conventions.md`. Read this during `/spec new`, the `/spec-tasks` phase (Cohort 0 + closing tasks), and the `/spec run | workflow | dispatch` execution verbs.
 
 > Most detail already lives in **`.context/git-topology.md`** — this file points there rather than duplicating it, so the two never drift.
 
@@ -20,7 +20,7 @@ Per-project overrides for the `/spec-*` family. Pairs with the universal mechani
 
 ## Standard Closing Tasks roster
 
-StakTrakr uses the full Standard Closing Tasks block from `DocVault/spec/templates/tasks-template.md`, with these project bindings — reproduce skill names **verbatim**:
+StakTrakr uses the full Standard Closing Tasks block from the `spec` skill's `references/templates/tasks-template.md`, with these project bindings — reproduce skill names **verbatim**:
 
 | Task                       | Skill (verbatim)                                                                 |
 | -------------------------- | -------------------------------------------------------------------------------- |

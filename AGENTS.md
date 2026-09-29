@@ -81,7 +81,7 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 
 ## Spec Work
 
-- Before applying a `/spec`, read all cumulative spec docs in `DocVault/Projects/StakTrakr/specs/<ISSUE-ID>-<slug>/`: `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/spec-conventions.md`.
+- Before applying a `/spec`, read all cumulative spec docs in `DocVault/specs/<ISSUE-ID>-<slug>/` (in this repo): `requirements.md`, `discovery.md`, `approach.md`, and `tasks.md`, plus `.context/spec-conventions.md`.
 - Treat `requirements.md` as the acceptance contract, `discovery.md` as the live-code/artifact inventory, `approach.md` as implementation authority, and `tasks.md` as execution order.
 - Before editing files, write a short implementation contract in the session: binding ACs, key approach decisions, mockup/artifact paths, and verification gates.
 - Do not mark a task or acceptance criterion complete if implementation contradicts requirements, discovery, approach, approved mockups, or project design guidance.
