@@ -24,39 +24,34 @@ STRK-71 closes a single gap in the table view (View D) Name column: the attachme
 
 - **US-1:** As a user, I want the attachment chip (📎, currently always-on) to participate in the same visibility-toggle and reorder settings that already govern the 9 other inline chips in the Name cell, so that I can control table layout density the same way I do for every other chip type.
 - **US-2:** As a user, I want to set the display order of visible chips in the table view Name column, so that the most important metadata appears closest to the item name.
-- **US-3:** As a user, I want my chip visibility and order preferences to persist across app sessions, so that I do not need to reconfigure them every time I use the app. _(Note: persistence via the existing `inlineChipConfig` localStorage key is already implemented — discovery must not redesign it; the only delta is that the attachment chip preference rides on the same key.)_
-- **US-4:** As a user upgrading from a version that has no attachment chip settings, I want to see exactly the same chip display I had before — attachment chip visible, in its current rightmost position — so that nothing changes without my involvement. _(Note: the pre-existing chip defaults are chip-by-chip, not "all on"; the new attachment entry will default to `enabled: true`, preserving current always-on behavior.)_
+- **US-3:** As a user, I want my chip visibility and order preferences to persist across app sessions, so that I do not need to reconfigure them every time I use the app. *(Note: persistence via the existing `inlineChipConfig` localStorage key is already implemented — discovery must not redesign it; the only delta is that the attachment chip preference rides on the same key.)*
+- **US-4:** As a user upgrading from a version that has no attachment chip settings, I want to see exactly the same chip display I had before — attachment chip visible, in its current rightmost position — so that nothing changes without my involvement. *(Note: the pre-existing chip defaults are chip-by-chip, not "all on"; the new attachment entry will default to `enabled: true`, preserving current always-on behavior.)*
 
 ## Acceptance Criteria
 
 ### AC-1 — Hide a chip type (maps to US-1)
-
 - **Given** the user opens the preferences/settings panel for table chip display
 - **When** they toggle off a specific chip type (e.g., the attachments chip)
 - **Then** that chip type no longer appears in any Name cell in the table view, even for rows that have attachment data
 - **Fixture note:** The test must use at least one row that has actual attachment data; a row without attachments cannot prove the chip is being suppressed.
 
 ### AC-2 — Restore a hidden chip type (maps to US-1)
-
 - **Given** a chip type has been toggled off by the user
 - **When** they toggle it back on
 - **Then** that chip reappears in all Name cells where its data is present
 
 ### AC-3 — All chips hidden (maps to US-1)
-
 - **Given** the user has hidden every configurable chip type
 - **When** the table view renders
 - **Then** Name cells display no configurable metadata chips (the `disposition-badge` system status indicator, if present, is not a configurable chip and remains unaffected)
 
 ### AC-4 — Reorder chips (maps to US-2)
-
 - **Given** the user is viewing chip order settings with at least two chip types enabled
 - **When** they change the order of chips via the existing up/down reorder controls in the Inline Name Chips panel
 - **Then** table view Name cells reflect the new order: chips render left-to-right matching the user-specified sequence
 - **Attachment ordering:** The attachment chip must participate in the configured order. Moving "Attachments" to position 1 in the settings UI must render 📎 to the left of all other chips in the Name cell — it must not be pinned rightmost regardless of settings.
 
 ### AC-5 — Preferences persist across sessions (maps to US-3)
-
 - **Given** the user has configured chip visibility and/or order preferences
 - **When** they close the browser tab and reopen the app (or reload the page)
 - **Then** the table view renders chips exactly as the user last configured them — no revert to defaults
@@ -66,25 +61,21 @@ STRK-71 closes a single gap in the table view (View D) Name column: the attachme
 Two upgrade paths:
 
 **(a) Fresh install (no saved `inlineChipConfig`):**
-
 - **Given** a user has no chip preferences stored
 - **When** the table view renders
 - **Then** chips appear per the chip-by-chip defaults in `INLINE_CHIP_DEFAULTS`: grade, numista, year are `enabled: true` (as today); the new `attachment` entry is also `enabled: true`, at the end of the default order — preserving the current always-on, rightmost behavior
 
 **(b) Existing user with saved config (pre-STRK-71 upgrade):**
-
 - **Given** a user has a saved `inlineChipConfig` from before STRK-71
 - **When** the table view renders after upgrade
 - **Then** the `getInlineChipConfig()` merge logic at `js/constants.js:1119-1128` automatically appends the new `attachment` entry at the end of the user's saved order — no migration code is needed; the attachment chip appears rightmost (as before) and is now user-controllable
 
 ### AC-7 — Settings do not affect non-table views (maps to US-1, scoping)
-
 - **Given** the user has hidden or reordered chips for the table view
 - **When** they switch to any card view (A, B, or C)
 - **Then** card views are unaffected — specifically, hiding the table attachment chip must NOT suppress attachment badges in card views (A/B/C)
 
 ### AC-8 — Settings UI accessible from the existing preferences panel (maps to US-1, US-2)
-
 - **Given** the user opens the existing settings/preferences panel
 - **When** they navigate to Settings → Appearance → Layout → **Inline Name Chips** panel (`#inlineChipConfigContainer`, rendered by `renderInlineChipConfigTable()` at `js/settings.js:2025`)
 - **Then** they can see and modify chip visibility and order without any new standalone settings modal or panel being introduced
@@ -129,14 +120,14 @@ _Reconciled by /sketch reconcile on 2026-05-12. Original reviewer marks preserve
 
 #### What I verified against the live codebase
 
-| Claim in requirements.md                                                       | Verdict                                                                                                                                     | Evidence                                                                                                                                                                                                               |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "Table view (View D) Name column renders inline chips"                         | TRUE                                                                                                                                        | `js/inventory-table.js:597-604` — chips inserted inside `.name-cell-content`                                                                                                                                           |
-| "Three chips today: attachments, catalog ID, year"                             | FALSE — there are **10** chips                                                                                                              | `js/inventory-table.js:552-577` enumerates grade, numista, pcgs, year, serial, storage, notes, purity, tags, attachment                                                                                                |
-| "Settings/sort options were intentionally punted"                              | PARTIALLY TRUE                                                                                                                              | Settings _are_ shipped for 9 of 10 chips (`js/settings.js:2025`, `index.html:4181-4188`); only the attachment chip is punted                                                                                           |
-| "Persist preferences via `saveData()/loadData()` under `ALLOWED_STORAGE_KEYS`" | ALREADY DONE                                                                                                                                | `inlineChipConfig` is in `ALLOWED_STORAGE_KEYS` (`js/constants.js:848`,`:937`); persisted via direct `localStorage.setItem` (`js/constants.js:1142`) — NB: not via `saveData()` wrapper, contradicting the issue notes |
-| "Default settings preserve current behavior"                                   | DEPENDS on the default chosen for the new `attachment` entry (see OQ-2) — current defaults differ chip-by-chip; see comments on US-4 / AC-6 |
-| "Don't invent a new panel — extend the existing one"                           | Existing panel = "Inline Name Chips" in Settings → Grouping at `index.html:4181`                                                            |
+| Claim in requirements.md | Verdict | Evidence |
+| --- | --- | --- |
+| "Table view (View D) Name column renders inline chips" | TRUE | `js/inventory-table.js:597-604` — chips inserted inside `.name-cell-content` |
+| "Three chips today: attachments, catalog ID, year" | FALSE — there are **10** chips | `js/inventory-table.js:552-577` enumerates grade, numista, pcgs, year, serial, storage, notes, purity, tags, attachment |
+| "Settings/sort options were intentionally punted" | PARTIALLY TRUE | Settings *are* shipped for 9 of 10 chips (`js/settings.js:2025`, `index.html:4181-4188`); only the attachment chip is punted |
+| "Persist preferences via `saveData()/loadData()` under `ALLOWED_STORAGE_KEYS`" | ALREADY DONE | `inlineChipConfig` is in `ALLOWED_STORAGE_KEYS` (`js/constants.js:848`,`:937`); persisted via direct `localStorage.setItem` (`js/constants.js:1142`) — NB: not via `saveData()` wrapper, contradicting the issue notes |
+| "Default settings preserve current behavior" | DEPENDS on the default chosen for the new `attachment` entry (see OQ-2) — current defaults differ chip-by-chip; see comments on US-4 / AC-6 |
+| "Don't invent a new panel — extend the existing one" | Existing panel = "Inline Name Chips" in Settings → Grouping at `index.html:4181` |
 
 #### Top 3 concerns
 
@@ -203,7 +194,6 @@ The doc narrows to a single solution shape (toggle + reorder UI per chip). Two a
 ---
 
 ### Resolution Summary
-
 - Accepted: 14
 - Rejected: 1 (OPUS alternatives block — issue already specifies per-chip toggle UX; alternatives considered and rejected)
 - Resolved with your input: 4 (OQ-2 → `enabled: true`; Catalog ID → keep numista/pcgs separate; OQ-4 → card parity uses its own key; saveData() wrapper → no refactor in STRK-71, follow-up issue to be filed)

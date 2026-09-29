@@ -14,26 +14,24 @@ created: 2026-06-07
 >
 > **Ratio model (bullion convention — gold is always numerator):**
 >
-> | Card      | Ratio             | Formula          | Example (spot 2026-06-06)    |
-> | --------- | ----------------- | ---------------- | ---------------------------- |
-> | Silver    | Gold/Silver (GSR) | gold ÷ silver    | 4328.97 ÷ 67.84 ≈ **63.8**   |
-> | Platinum  | Gold/Platinum     | gold ÷ platinum  | 4328.97 ÷ 1778.07 ≈ **2.43** |
-> | Palladium | Gold/Palladium    | gold ÷ palladium | 4328.97 ÷ 1225.67 ≈ **3.53** |
-> | Gold      | — (no self-ratio) | Goldback G1 rate | **$8.68** (1 goldback)       |
+> | Card | Ratio | Formula | Example (spot 2026-06-06) |
+> |------|-------|---------|---------------------------|
+> | Silver | Gold/Silver (GSR) | gold ÷ silver | 4328.97 ÷ 67.84 ≈ **63.8** |
+> | Platinum | Gold/Platinum | gold ÷ platinum | 4328.97 ÷ 1778.07 ≈ **2.43** |
+> | Palladium | Gold/Palladium | gold ÷ palladium | 4328.97 ÷ 1225.67 ≈ **3.53** |
+> | Gold | — (no self-ratio) | Goldback G1 rate | **$8.68** (1 goldback) |
 >
 > **Locked design decisions:**
->
-> - **Ratio model:** gold-denominated ratio per card (GSR lives on the _silver_ card). No inverse ratios, no per-card alternate views.
+> - **Ratio model:** gold-denominated ratio per card (GSR lives on the *silver* card). No inverse ratios, no per-card alternate views.
 > - **Gold card corner:** daily goldback G1 rate (NOT a ratio).
 > - **Interaction:** static chip + hover tooltip with a plain-English explanation. No click-to-toggle.
-> - **Visibility:** single toggle in the Currency & Pricing settings panel, default ON. The goldback chip _additionally_ respects the existing goldback pricing mode (off/api/spot/manual).
+> - **Visibility:** single toggle in the Currency & Pricing settings panel, default ON. The goldback chip *additionally* respects the existing goldback pricing mode (off/api/spot/manual).
 >
 > **Goldback data source (verified 2026-06-06):** Source the gold-card rate from the existing client cache — `getGoldbackDenominationPrice(1)` reads `goldbackPrices["1"]`, populated by `fetchGoldbackApiPrices()` from `V2_API_ENDPOINTS[0]/goldback/latest.json`. Endpoint healthy: returns `g1_usd: 8.68`, `stale_after: 90000` (25h) budget, `data.ts` unix timestamp. Scrape is hourly at :05 (cron `5 * * * *`, set by STRK-58). **Freshness guard:** treat as stale when `(now − data.ts) > stale_after`; on stale/unavailable in `spot`/`manual` modes, fall back to `computeGoldbackEstimatedRate(spotPrices.gold)`. When goldback pricing mode is `off`, show no gold-card chip (correct, not a bug).
 >
 > **Proposed UI:** one chip per card in a consistent lower corner (recommend lower-left), leaving the "Last API Sync" timestamp in place — final corner/layout TBD in design. Compact label using element symbols + value, pro-terminal voice: `Au:Ag 63.8`, `Au:Pt 2.43`, `Au:Pd 3.53`, `GB $8.68`. Hover tooltip spells it out for casual users. Small inline SVG glyph using the codebase `stroke="currentColor"` pattern so it inherits theme color — must read well in all **four** themes (light, dark, slate, sepia) via design tokens. Decimals: GSR 1 dp; Au:Pt / Au:Pd 2 dp; goldback 2 dp. Responsive: cards stack on mobile — chip must not overflow or collide with the timestamp.
 >
 > **Acceptance criteria (from issue):**
->
 > - **AC1:** Silver, platinum, palladium cards each render their gold-denominated ratio chip with correct math from `spotPrices`.
 > - **AC2:** Gold card renders the goldback G1 rate chip, sourced from `getGoldbackDenominationPrice(1)` with the freshness guard and spot-estimate fallback.
 > - **AC3:** A ratio chip is hidden when either required spot price is ≤ 0 (no `Infinity`/`NaN` ever shown). The goldback chip is hidden when goldback pricing mode is `off` or no valid G1 is available.
@@ -44,7 +42,6 @@ created: 2026-06-07
 > - **AC8:** No regression to existing spot card rendering, timestamps, sparklines, or the goldback settings flow.
 >
 > **Implementation pointers (from issue):**
->
 > - Cards markup: `index.html:900-1130` — IDs `spotPriceDisplay{Metal}`, `spotChange{Metal}`, `spotTimestamp{Metal}`.
 > - Spot values: `spotPrices.{gold,silver,platinum,palladium}` (USD/oz) at `js/state.js:327`.
 > - Render hooks: `js/spot.js` — `fetchSpotPrice()` (451), `updateSpotChangePercent()` (1086); re-render on `updateManualSpot()` (503) and goldback refresh.
@@ -118,7 +115,7 @@ _Explicit list of things this sketch does NOT do. Each entry should make a futur
 - **Not** adding inverse-ratio displays or click-to-toggle alternate views — the gold-numerator convention dissolves the "show the inverse?" question entirely (issue: out of scope).
 - **Not** adding a historical-ratio sparkline or band/extreme threshold coloring (e.g. tinting GSR red when > 80) — good follow-up, separate issue (issue: out of scope).
 - **Not** changing the goldback poller, endpoint, or scrape cadence — this feature is a read-only consumer of the existing `goldback/latest.json` data already cached client-side.
-- **Not** adding per-card independent visibility toggles — a single master "Show spot ratios" toggle governs all four chips (the goldback chip is _additionally_ gated by the existing goldback pricing mode).
+- **Not** adding per-card independent visibility toggles — a single master "Show spot ratios" toggle governs all four chips (the goldback chip is *additionally* gated by the existing goldback pricing mode).
 
 ## Open Questions
 
@@ -127,7 +124,7 @@ _Anything that blocks the next phase. Empty by the time discovery starts._
 - **None blocking.** The following are **design-phase decisions intentionally deferred** to `/ui-mockup` + `/sketch-approach`; none of them changes any acceptance criterion above:
   - Exact chip **corner placement** (issue recommends lower-left, leaving the "Last API Sync" timestamp in place) — final corner/layout to be confirmed against a visual mockup.
   - **Glyph/iconography** for the inline SVG and the **compact label typography** (`Au:Ag 63.8`, `Au:Pt 2.43`, `Au:Pd 3.53`, `GB $8.68`).
-  - Tooltip **rendering mechanism** (styled custom tooltip vs. another approach) — AC-13 pins the _behavior_ (hover + focus, plain-English); the mechanism is an approach decision.
+  - Tooltip **rendering mechanism** (styled custom tooltip vs. another approach) — AC-13 pins the *behavior* (hover + focus, plain-English); the mechanism is an approach decision.
 
 ---
 

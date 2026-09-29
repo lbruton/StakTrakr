@@ -12,13 +12,13 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Thumbnail shape logic — the three views
 
-| Path                            | Role                                                    |                      Shape-Aware?                       |
-| ------------------------------- | ------------------------------------------------------- | :-----------------------------------------------------: |
-| `js/viewModal.js:1173-1180`     | View modal image section shape override                 | Yes — checks `merged.shape` via `mergeNumistaSources()` |
-| `js/viewModal.js:253-263`       | View modal initial image section (`_buildImageSection`) |            Partial — checks `item.type` only            |
-| `js/inventory-table.js:512-520` | Inventory table thumbnail shape class                   |              No — checks `item.type` only               |
-| `js/inventory-table.js:544-551` | Applies `table-thumb-rect` class to `<img>` tag         |                 N/A — consumer of above                 |
-| `js/card-view.js:550-560`       | Card grid thumbnail shape (`_cardImageHTML`)            |              No — checks `item.type` only               |
+| Path | Role | Shape-Aware? |
+|------|------|:---:|
+| `js/viewModal.js:1173-1180` | View modal image section shape override | Yes — checks `merged.shape` via `mergeNumistaSources()` |
+| `js/viewModal.js:253-263` | View modal initial image section (`_buildImageSection`) | Partial — checks `item.type` only |
+| `js/inventory-table.js:512-520` | Inventory table thumbnail shape class | No — checks `item.type` only |
+| `js/inventory-table.js:544-551` | Applies `table-thumb-rect` class to `<img>` tag | N/A — consumer of above |
+| `js/card-view.js:550-560` | Card grid thumbnail shape (`_cardImageHTML`) | No — checks `item.type` only |
 
 **The bug:** `inventory-table.js:512` and `card-view.js:550` both use this identical pattern:
 
@@ -44,22 +44,22 @@ const isNonRound = shapeStr !== "round" && shapeStr !== "circular";
 
 ### Shape classification and storage
 
-| Path                        | Role                                                         | Notes                                                                                                       |
-| --------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/catalog-api.js:528-536` | `classifyShape(shapeStr)` — normalizes Numista shape strings | Returns: "round", "rectangular", "square", "oval", "other". Exported as `window.classifyShape` at line 2661 |
-| `js/events.js:1371`         | Reads shape from form field `#numistaShape` on save          | `shape: getOrPrev("numistaShape", prev.shape)`                                                              |
-| `js/catalog-api.js:760`     | Stores raw shape from Numista API import                     | `shape: numistaData.shape \|\| ""`                                                                          |
+| `js/events.js:1371` | Reads shape from form field `#numistaShape` on save | `shape: getOrPrev("numistaShape", prev.shape)` |
+| `js/catalog-api.js:760` | Stores raw shape from Numista API import | `shape: numistaData.shape \|\| ""` |
 
 **Data path:** Shape lives in `item.numistaData.shape` (raw Numista string like "Circular", "Rectangular 41.8mm wide"). The view modal accesses it via `mergeNumistaSources(item.numistaData, meta)` which returns a `merged` object with `.shape`. For grid views, the raw value is available as `item.numistaData?.shape`.
 
 ### User-uploaded images (IndexedDB)
 
-| Path                        | Role                                 | Notes                                                         |
-| --------------------------- | ------------------------------------ | ------------------------------------------------------------- |
-| `js/image-cache.js:75-76`   | `userImages` object store creation   | Keyed by `item.uuid`                                          |
-| `js/image-cache.js:413-420` | `getUserImageUrl(uuid, side)`        | Returns object URL for user-uploaded image                    |
-| `js/image-cache.js:475-479` | `getUserImage(uuid)`                 | Retrieves full record (obverse/reverse Blobs)                 |
-| `js/image-cache.js:337-371` | `resolveImageForItem()`              | Returns `{ catalogId, source: "user"                          | "pattern" }` — knows the source |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/image-cache.js:75-76` | `userImages` object store creation | Keyed by `item.uuid` |
+| `js/image-cache.js:413-420` | `getUserImageUrl(uuid, side)` | Returns object URL for user-uploaded image |
+| `js/image-cache.js:475-479` | `getUserImage(uuid)` | Retrieves full record (obverse/reverse Blobs) |
+| `js/image-cache.js:337-371` | `resolveImageForItem()` | Returns `{ catalogId, source: "user"|"pattern" }` — knows the source |
 | `js/image-cache.js:382-404` | `resolveImageUrlForItem(item, side)` | Returns blob URL only — does NOT expose source type to caller |
 
 **Record shape:** `{ uuid, obverse: Blob|null, reverse: Blob|null, sharedImageId, cachedAt, size }`
@@ -77,11 +77,11 @@ Both inventory table and card grid use the same pattern:
 
 ### Image source detection — three sources, two storage mechanisms
 
-| Source                            | Storage                                                       |                     Detectable?                      |
-| --------------------------------- | ------------------------------------------------------------- | :--------------------------------------------------: |
-| User-uploaded photo (camera/file) | IndexedDB `userImages` store, keyed by `item.uuid` (Blob)     | Yes — `getUserImageUrl(uuid, side)` returns non-null |
-| Numista-synced URL                | `item.obverseImageUrl` / `item.reverseImageUrl` (string)      |     No — indistinguishable from user-pasted URLs     |
-| User-pasted URL                   | Same `item.obverseImageUrl` / `item.reverseImageUrl` (string) |     No — identical storage path to Numista URLs      |
+| Source | Storage | Detectable? |
+|--------|---------|:-----------:|
+| User-uploaded photo (camera/file) | IndexedDB `userImages` store, keyed by `item.uuid` (Blob) | Yes — `getUserImageUrl(uuid, side)` returns non-null |
+| Numista-synced URL | `item.obverseImageUrl` / `item.reverseImageUrl` (string) | No — indistinguishable from user-pasted URLs |
+| User-pasted URL | Same `item.obverseImageUrl` / `item.reverseImageUrl` (string) | No — identical storage path to Numista URLs |
 
 The `fieldMeta` system (`js/field-meta.js`) tracks per-field origin (`numista`, `pcgs`, `manual`) and `userModified` status, but `obverseImageUrl` / `reverseImageUrl` are **not enrolled** in the tracked fields list (`events.js:1530-1563`). Adding them is possible but out of scope for this sketch.
 
@@ -89,22 +89,22 @@ The `fieldMeta` system (`js/field-meta.js`) tracks per-field origin (`numista`, 
 
 ### Certification/grading fields
 
-| Path                            | Role                           | Notes                                                        |
-| ------------------------------- | ------------------------------ | ------------------------------------------------------------ |
-| `js/events.js:1329-1330`        | Set from form on save          | `gradingAuthority`, `certNumber` — top-level item properties |
-| `js/inventory-table.js:439-440` | Displayed in cert info tooltip | Already accessed in table rendering                          |
-| `js/constants.js:273-274`       | PCGS/NGC cert URL templates    | Uses `{certNumber}` and `{grade}`                            |
-| `js/bulkEdit.js:43-44, 66-67`   | Bulk edit field definitions    | Both fields editable in bulk                                 |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/events.js:1329-1330` | Set from form on save | `gradingAuthority`, `certNumber` — top-level item properties |
+| `js/inventory-table.js:439-440` | Displayed in cert info tooltip | Already accessed in table rendering |
+| `js/constants.js:273-274` | PCGS/NGC cert URL templates | Uses `{certNumber}` and `{grade}` |
+| `js/bulkEdit.js:43-44, 66-67` | Bulk edit field definitions | Both fields editable in bulk |
 
 ### CSS classes
 
-| Class                                 | File:Line                    | Effect                                                       |
-| ------------------------------------- | ---------------------------- | ------------------------------------------------------------ |
-| `.table-thumb` (base)                 | `css/styles.css`             | `border-radius: 50%` — circular by default                   |
-| `.table-thumb.table-thumb-rect`       | `css/styles.css:5261-5265`   | `border-radius: var(--radius)` — rectangular override        |
-| `.coin-img` (base)                    | `css/styles.css:13415`       | `border-radius: 50%` — circular by default                   |
-| `.coin-img.bar-shape`                 | `css/styles.css:13425-13427` | `border-radius: var(--radius)` — rectangular override        |
-| `.view-image-section.view-shape-rect` | `css/styles.css:6047-6060`   | View modal rectangular override with adjusted max dimensions |
+| Class | File:Line | Effect |
+|-------|-----------|--------|
+| `.table-thumb` (base) | `css/styles.css` | `border-radius: 50%` — circular by default |
+| `.table-thumb.table-thumb-rect` | `css/styles.css:5261-5265` | `border-radius: var(--radius)` — rectangular override |
+| `.coin-img` (base) | `css/styles.css:13415` | `border-radius: 50%` — circular by default |
+| `.coin-img.bar-shape` | `css/styles.css:13425-13427` | `border-radius: var(--radius)` — rectangular override |
+| `.view-image-section.view-shape-rect` | `css/styles.css:6047-6060` | View modal rectangular override with adjusted max dimensions |
 
 ## Prior Decisions
 

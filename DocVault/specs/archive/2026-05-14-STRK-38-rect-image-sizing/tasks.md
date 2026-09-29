@@ -73,11 +73,11 @@ _Tasks in this cohort modify a single file (`css/styles.css`) but target non-ove
 
 _Modifies `_cardImageHTML()` to emit `object-fit: contain` for rect items. Depends on Cohort 2 being committed (CSS wrapper dimensions must exist before changing fit behavior)._
 
-- [x] **3.1** — Verify `_cardImageHTML()` emits `object-fit: contain` for rect items
-- **File(s):** `js/card-view.js`
-- **Depends on:** Cohort 2
-- **Acceptance:** Line ~563 already computes `fitStyle` as `"object-fit:contain;"` for rect items and `"object-fit:cover;"` for round items, and line ~573 emits it inline. **Verify** this is already correct by reading the code — confirmed by reviewers as a no-op. The inline `width:100%;height:100%;border-radius:inherit;` must remain unchanged (load-bearing, no `.cv-thumb` CSS rule). Maps to: AC-1, AC-2, AC-3.
-- **Leverage:** Approach D-1 (hybrid JS+CSS); discovery finding at `js/card-view.js:563,573`.
+  - [x] **3.1** — Verify `_cardImageHTML()` emits `object-fit: contain` for rect items
+  - **File(s):** `js/card-view.js`
+  - **Depends on:** Cohort 2
+  - **Acceptance:** Line ~563 already computes `fitStyle` as `"object-fit:contain;"` for rect items and `"object-fit:cover;"` for round items, and line ~573 emits it inline. **Verify** this is already correct by reading the code — confirmed by reviewers as a no-op. The inline `width:100%;height:100%;border-radius:inherit;` must remain unchanged (load-bearing, no `.cv-thumb` CSS rule). Maps to: AC-1, AC-2, AC-3.
+  - **Leverage:** Approach D-1 (hybrid JS+CSS); discovery finding at `js/card-view.js:563,573`.
 
 ## Sprint Cohort 4 — JS: table SVG placeholder shape (sequential)
 

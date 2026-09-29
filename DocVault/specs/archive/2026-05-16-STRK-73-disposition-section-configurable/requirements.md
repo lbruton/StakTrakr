@@ -16,7 +16,6 @@ created: 2026-05-14
 > **Desired Behaviour:** The Disposition section participates in the same reorder UI as the other nine sections. Users can position it anywhere in the stack using the existing up/down arrow controls. The section only renders content when the item is actually disposed; for non-disposed items the builder returns `null` and the section is silently skipped regardless of its configured position.
 >
 > **Implementation Notes (from issue):**
->
 > - Add `{ id: "disposition", label: "Disposition", enabled: true }` to `VIEW_MODAL_SECTION_DEFAULTS` in `js/constants.js` (~line 1322). New defaults are appended to existing saved configs by `getViewModalSectionConfig()`, so existing users get the entry appended to their current order on first load — no migration needed.
 > - Add a `disposition` entry to the `sectionBuilders` map in `js/viewModal.js`, delegating directly: `disposition: () => _buildDispositionSection(item)`. The builder already returns `null` when `!item.disposition`, so no separate `isDisposed()` guard is needed. `_appendSectionsInConfiguredOrder()` already skips `null`-returning builders.
 > - Remove the hardcoded disposition append block at `js/viewModal.js:1152–1158`.
@@ -39,37 +38,31 @@ _One paragraph: what this sketch delivers and why it matters now._
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 — Disposition row appears in settings
-
 - **Given** the user opens Settings > Appearance > Item Detail Modal
 - **When** the section config table renders
 - **Then** a "Disposition" row is present and can be moved to any position using the existing reorder controls
 
 ### AC-2 — Configured order persists
-
 - **Given** the user moves the Disposition row to a new position
 - **When** the page reloads
 - **Then** the saved position is read from `viewModalSectionConfig` in localStorage and the Disposition section renders at that position for disposed items
 
 ### AC-3 — Disposed item renders at configured position
-
 - **Given** an item with `isDisposed(item) === true` AND the Disposition section is enabled in settings
 - **When** the item detail modal opens
 - **Then** the Disposition section appears at the user-configured position (not hardcoded last)
 
 ### AC-4 — Non-disposed item shows no Disposition section
-
 - **Given** an item with `isDisposed(item) === false`
 - **When** the item detail modal opens
 - **Then** no Disposition section is rendered, regardless of the section's configured position or enabled state
 
 ### AC-5 — Graceful default for existing users
-
 - **Given** a user whose `viewModalSectionConfig` in localStorage pre-dates this change (no `disposition` entry)
 - **When** the item detail modal or settings panel loads for the first time after the update
 - **Then** `getViewModalSectionConfig()` appends the Disposition entry after existing sections with `enabled: true`, without requiring any manual migration or data reset
 
 ### AC-6 — Empty disposition object does not render
-
 - **Given** an item with `item.disposition` set to an empty object `{}`
 - **When** the item detail modal opens
 - **Then** no Disposition section is rendered — the builder treats an empty disposition object as equivalent to no disposition

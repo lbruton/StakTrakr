@@ -6,7 +6,6 @@
 > **Problem:** Today users can Export PDF and then print from the PDF viewer. Excel users coming from a spreadsheet workflow expect a one-click **Print** action that opens the browser's native print dialog directly.
 >
 > **Proposed:** Add a **Print** button next to Export PDF in the Settings/Backup menu. Behavior:
->
 > - Apply a print-friendly stylesheet (`@media print`): hide chrome, navigation, filters, and chart components; preserve list/table view.
 > - Default to landscape orientation, repeating headers per page.
 > - Trigger `window.print()`.
@@ -28,50 +27,44 @@ Add a one-click **Print** button to the Settings > Inventory tab (`#settingsPane
 ## Acceptance Criteria
 
 ### AC-1 — Print button exists and triggers print (maps to US-1)
-
 - **Given** the Settings modal is open on the Settings > Inventory tab
 - **When** the user clicks the "Print" button in the Export card
 - **Then** the browser's native print dialog opens
 - **And** the Print button has an `aria-describedby` attribute pointing to a hidden description span (e.g. `printDesc` → "Direct browser print of current inventory view") for parity with the other export buttons (CSV/JSON/PDF/ZIP)
 
 ### AC-2 — Print button styling (maps to US-1)
-
 - **Given** the Settings modal is open on the Settings > Inventory tab
 - **When** the user views the Export card
 - **Then** the Print button uses `btn success` (teal-green), spans the full width of the 2-column grid (`grid-column: span 2`), and matches the inline sizing of the existing 0.6rem-padded export buttons (`font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0`). The Bulk Editor button (`bulkEditBtn`, `0.9rem` padding) is explicitly out of scope and retains its existing emphasis.
 
 ### AC-3 — Print stylesheet hides app chrome (maps to US-1)
-
 - **Given** the print dialog is triggered
 - **When** the browser renders the print preview
 - **Then** navigation, sidebar, filters, charts, modals (including the Settings modal itself), and footer are hidden; only the inventory list/table view and a minimal header are visible
 
 ### AC-4 — Print uses landscape with repeating table headers (maps to US-1)
-
 - **Given** the print dialog is triggered
 - **When** the browser renders the print preview
 - **Then** the printed output is in landscape orientation and table column headers repeat on every page
 
 ### AC-5 — Restore ZIP relocated to Import card (maps to US-2)
-
 - **Given** the Settings modal is open on the Settings > Inventory tab
 - **When** the user views the Import card
 - **Then** "Restore ZIP Backup" appears below the Import CSV / Import JSON buttons as a full-width button, and is no longer present in the Export card. The hidden `#importZipFile` input is relocated together with `#importZipBtn` so the existing listener contract in `js/events.js:3694-3699` (which depends on both IDs) remains intact.
 
 ### AC-6 — Data Reset buttons match card button sizing (maps to US-3)
-
 - **Given** the Settings modal is open on the Settings > Inventory tab (`#settingsPanel_system`)
 - **When** the user views the Data Reset section
 - **Then** "Remove Inventory" and "Wipe All Data" buttons use the same inline sizing styles as the other 0.6rem-padded card buttons (`font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0`) while retaining their existing colors (warning orange and danger red). Any new regression assertion is anchored to `#settingsPanel_system` (consistent with `tests/playwright/settings-data-reset.spec.js:82-103`), not the older Storage/Data-tab wording.
 
 ### ~~AC-7 — Print output reflects active filter and sort state (maps to US-1)~~
-
 - ~~**Given** the user has applied a filter and/or sort to the inventory~~
 - ~~**When** the user clicks Print~~
 - ~~**Then** the printed output shows the same filtered/sorted inventory currently visible on screen, not the full unfiltered dataset~~
 
-> Lonnie: AC-7 was not in scope per the original issue, the print button is a global print, any filtering needs to be done via a selection modal after the print button is pressed, this feature is not a dependent of any of the main page search/filter views. This is an independent function.  
-> Likewise a full backup of CSV/JSON is expected to be the full dataset, not a filtered view.
+> Lonnie:   AC-7 was not in scope per the original issue,  the print button is a global print, any filtering needs to be done via a selection modal after the print button is pressed, this feature is not a dependent of any of the main page search/filter views.  This is an independent function.   
+> Likewise a full backup of CSV/JSON is expected to be the full dataset, not a filtered view. 
+> 
 
 ## Non-Goals
 
@@ -87,11 +80,13 @@ Add a one-click **Print** button to the Settings > Inventory tab (`#settingsPane
 - **Q2 — Playwright observability (for discovery, depends on Q1):** Define the mechanical acceptance check for AC-1. If jsPDF-reuse wins, the test stubs the print trigger on the generated PDF window/iframe; if a CSS print stylesheet is used, the test stubs `window.print()` directly. The user-visible promise in AC-1 remains "browser print dialog opens."
 - **Q3 — Card-view rendering behavior (for discovery, likely resolved by Q1):** Today, Card Views A/B/C hide `.portal-scroll` and show `#cardViewGrid`; only style D is table mode. If Q1 lands on jsPDF reuse, the DOM view-state is irrelevant and Q3 dissolves. If Q1 lands on a CSS print stylesheet, discovery must specify whether print forces a table re-render or prints whichever view is active.
 
-> Lonnie: Again, the state of the main page rendering has no load bearing on the output of this button, the behavior is as expected from any other backup method, a full printout of the inventory. Any filtering or sorting options will be deferred to a future popup modal that triggers on click of the print button.
+>Lonnie:  Again, the state of the main page rendering has no load bearing on the output of this button, the behavior is as expected from any other backup method, a full printout of the inventory.   Any filtering or sorting options will be deferred to a future popup modal that triggers on click of the print button.  
+> 
+> 
 
 ---
 
-> **Phase complete?** Acceptance criteria are concrete and verifiable. Open questions are scoped to discovery, not blocking. Next: `/sketch review STRK-49 discovery` _after_ `/sketch discovery STRK-49`.
+> **Phase complete?** Acceptance criteria are concrete and verifiable. Open questions are scoped to discovery, not blocking. Next: `/sketch review STRK-49 discovery` *after* `/sketch discovery STRK-49`.
 
 ## Review Archive — requirements (2026-05-16)
 
@@ -128,23 +123,18 @@ _Reconciled by `/sketch reconcile` on 2026-05-16. Original reviewer marks preser
 **Inline Marks (verbatim, with original location context):**
 
 - **At Overview (was line 23):**
-
   > CODEX: Live UI names this surface Settings > Inventory, not Settings Data. The nav button is `data-section="system"` with visible text "Inventory" in `index.html:3400-3417`, and the panel is `#settingsPanel_system` with `<h3>Inventory</h3>` in `index.html:4622-4624`. Please either rename the requirement wording to "Settings > Inventory" or explicitly require a tab rename, otherwise implementers/tests may chase a nonexistent Data tab.
 
 - **At AC-1 (was line 40):**
-
   > CODEX: The intent is sound, but "native print dialog opens" is not directly observable in Playwright. Make the mechanical acceptance check "clicking the button calls `window.print()` once" and keep the human/manual check for the browser dialog. Existing export listeners are bound in `js/events.js:3681-3684`; a new print button likely needs the same binding pattern plus a test that stubs `window.print`.
 
 - **At AC-3 (was line 54):**
-
   > CODEX: Please decide whether print always forces table mode or prints the user's active view. Today A/B/C card views hide `.portal-scroll` and show `#cardViewGrid` (`js/inventory-table.js:381-387`), while table mode is only style `D` (`js/card-view.js:8-16`). If this AC means "always print the table," the print stylesheet must explicitly hide `#cardViewGrid`/sort controls and override the inline-hidden `.portal-scroll`/`#inventoryTable` state, or card-view users may not get the promised table/list output.
 
 - **At AC-4 (was line 61):**
-
   > CODEX: AC-4 should also require the main app stylesheet to own this, because the only existing `@media print` is inside the generated storage report HTML in `js/utils.js:2818-2825`; `css/styles.css` currently has no app-level `@media print` or `@page` rule. That makes this a new CSS contract, not reuse of an existing app print stylesheet.
 
 - **At AC-5 (was line 68):**
-
   > CODEX: Include the hidden `#importZipFile` input in this relocation contract. The current Export card contains both `#importZipBtn` and `#importZipFile` in `index.html:4897-4909`, and the listener depends on both IDs in `js/events.js:3694-3699`. Moving only the visible button would satisfy the wording but leave the import control split across cards.
 
 - **At AC-6 (was line 75):**
@@ -155,7 +145,6 @@ _Reconciled by `/sketch reconcile` on 2026-05-16. Original reviewer marks preser
 **Top-level review section (verbatim):**
 
 #### Verified
-
 - The \"Inventory\" header and panel ID match `CODEX` verification: `index.html:4623-4624`.
 - `bulkEditBtn` uses `0.9rem` padding: `index.html:4679`.
 - Export buttons use `0.6rem` padding: `index.html:4851`, `index.html:4867`, etc.
@@ -164,13 +153,11 @@ _Reconciled by `/sketch reconcile` on 2026-05-16. Original reviewer marks preser
 - `isCardViewActive()` logic correctly switches between card grid and portal scroll: `js/inventory-table.js:381-409`.
 
 #### Top concerns
-
 1. **Rendering Sync for Card View:** If the user is in Card View (Style A/B/C), the table DOM (`.portal-scroll`) is typically hidden and its contents might not be rendered or updated by the virtual scroller/renderer. The requirements should specify if the print action needs to force a full table re-render if the user is currently in a card view, otherwise the printed output will be empty or stale.
 2. **Accessibility Consistency:** The existing export buttons (CSV, JSON, PDF, ZIP) all use `aria-describedby` for screen reader descriptions. The Print button AC should include this for consistency and accessibility parity.
 3. **Filtered/Sorted State Clarity:** Clarify if \"inventory list/table view\" in AC-3 should follow the active filter/sort state. Most users expect \"Print\" to reflect the current on-screen state (filtered/sorted), not the entire unfiltered database.
 
 #### Unverified assumptions
-
 - Assumes `0.6rem` padding is the target for normalization even though `bulkEditBtn` uses `0.9rem`.
 - Assumes that \"hiding app chrome\" includes hiding the \"Settings\" modal itself if it's open (which it must be to click the button), otherwise the modal backdrop might obscure the print output.
 - Assumes the browser's native print behavior for `thead { display: table-header-group }` is sufficient for multi-page headers across all supported browsers without a custom header/footer renderer.
@@ -178,16 +165,13 @@ _Reconciled by `/sketch reconcile` on 2026-05-16. Original reviewer marks preser
 **Inline Marks (verbatim, with original location context):**
 
 - **At Overview (was line 21):**
-
-  > GEMINI: Existing buttons in this panel have inconsistent horizontal padding: `bulkEditBtn` uses `0.9rem` (`index.html:4679`), while the Export card buttons use `0.6rem` (`index.html:4851, 4867, etc.`). AC-2 and AC-6 specify `0.6rem`. Should we normalize _all_ Inventory settings buttons to one value, or is the larger padding for the primary action (Bulk Editor) intentional?
+  > GEMINI: Existing buttons in this panel have inconsistent horizontal padding: `bulkEditBtn` uses `0.9rem` (`index.html:4679`), while the Export card buttons use `0.6rem` (`index.html:4851, 4867, etc.`). AC-2 and AC-6 specify `0.6rem`. Should we normalize *all* Inventory settings buttons to one value, or is the larger padding for the primary action (Bulk Editor) intentional?
 
 - **At AC-1 (was line 38):**
-
   > GEMINI: For accessibility and consistency with other export buttons, the Print button should include an `aria-describedby` attribute (e.g., `aria-describedby="printDesc"`) pointing to a hidden description span (e.g., "Direct browser print of current inventory view").
 
 - **At AC-3 (was line 52):**
-
-  > GEMINI: Supporting CODEX's point: `js/inventory-table.js:381-387` skips table rendering entirely when a card view is active. If print _must_ be the table/list view, the requirement should explicitly state that the print action triggers a full table re-render if the user is currently in a card view (Style A/B/C), otherwise the printed output will be empty or stale.
+  > GEMINI: Supporting CODEX's point: `js/inventory-table.js:381-387` skips table rendering entirely when a card view is active. If print *must* be the table/list view, the requirement should explicitly state that the print action triggers a full table re-render if the user is currently in a card view (Style A/B/C), otherwise the printed output will be empty or stale.
 
 - **At AC-6 area (was line 77):**
   > GEMINI: Clarify if "inventory list/table view" in AC-3 should follow the active filter/sort state. Most users expect "Print" to reflect the current on-screen state (filtered/sorted), not the entire unfiltered database.

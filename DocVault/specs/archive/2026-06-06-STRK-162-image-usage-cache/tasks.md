@@ -15,7 +15,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ## UI Contract Traceability
 
-**N/A — no UI surface.** `approach.md`'s UI Contract is `N/A`; the only user-visible behavior in scope is the _existing_ STRK-146 quota toasts, covered as a regression assertion (AC-6). No mockups/playgrounds/screenshots are referenced, so no per-state visual-verification mapping is required and CLOSE-3 accepts test-only citations.
+**N/A — no UI surface.** `approach.md`'s UI Contract is `N/A`; the only user-visible behavior in scope is the *existing* STRK-146 quota toasts, covered as a regression assertion (AC-6). No mockups/playgrounds/screenshots are referenced, so no per-state visual-verification mapping is required and CLOSE-3 accepts test-only citations.
 
 ## Sprint Cohort 0 — Setup (sequential)
 
@@ -45,7 +45,7 @@ _Write tests that encode every EARS acceptance criterion. They MUST fail against
     - **AC-1** — after a first save warms the cache, a second save performs **no** new `userImages` scan (scan-counter unchanged across the 2nd save).
     - **AC-2** — the first usage need triggers exactly **one** scan; an immediately following need triggers **zero**.
     - **AC-3** — after a successful save, usage = prior + **signed** delta; includes a **shrink** case (replace a record with a smaller blob → usage decreases).
-    - **AC-4** — a pre-flight-blocked save (delta over limit) **and** a forced `_put` failure each leave the total moved by **zero delta**. Assert _"the total did not move by delta"_ — **not** `cache === null` (per the reconcile pin: cold→warm scan is allowed; only `delta` is gated).
+    - **AC-4** — a pre-flight-blocked save (delta over limit) **and** a forced `_put` failure each leave the total moved by **zero delta**. Assert *"the total did not move by delta"* — **not** `cache === null` (per the reconcile pin: cold→warm scan is allowed; only `delta` is gated).
     - **AC-5** — **delete-then-save** reflects the deletion (post-save `used` excludes the deleted bytes); `clearAll` → next read = 0; `importUserImageRecord` → next read recomputes including the imported record.
     - **AC-6** — STRK-146 contract intact: the pre-flight overflow path still returns `{quotaExceeded:true, usageBytes, limitBytes}` and the pressure-band warn/critical toast still fires at the same fractions (the canonical regression anchor remains the untouched `strk-146` spec).
   - **Depends on:** A.1

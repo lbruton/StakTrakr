@@ -122,7 +122,6 @@ _Reconciled by /sketch reconcile on 2026-05-13. Original reviewer marks preserve
 - Running B.1 and B.2 in parallel is still desirable after B.2 expands the fixture and potentially overlaps with shared retail fixture assumptions.
 
 ### Resolution Summary
-
 - Accepted: 4
 - Rejected: 1 (CLOSE-3 file-map conflict — tasks.md is sketch control-plane, not implementation scope)
 - Resolved with your input: 2 (branch model → patch/VERSION via /start-patch; B.1/B.2 → sequential)

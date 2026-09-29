@@ -12,19 +12,19 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 Files touched by or relevant to this work:
 
-| Path                               | Role                                                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/changeLog.js:155`              | ChangeLog producer — writes type strings                | Writes `"item-add"`, `"item-edit"`, `"item-delete"`. This is the root of the type namespace.                                                                                                                                                                                                                                                                                                                                                                |
-| `js/cloud-sync.js:1043–1082`       | `buildAndUploadManifest()` — summary counting           | Checks `entryType === "add"` / `"edit"` / `"delete"`. Never matches the prefixed producer types; summary counts always 0.                                                                                                                                                                                                                                                                                                                                   |
-| `js/cloud-sync.js:2925–2959`       | `_buildDiffFromManifest()` — diff classification        | Checks `change.type === "add"` / `"edit"` / `"delete"`. Never matches; returns `{ added:[], modified:[], deleted:[], unchanged:[] }` for any item-only changeset.                                                                                                                                                                                                                                                                                           |
-| `js/cloud-sync.js:3285–3362`       | Manifest-first pull — `_mNoChanges` silent-pull gate    | Evaluates `manifestDiff.added.length === 0 && deleted.length === 0 && modified.length === 0`. Because `_buildDiffFromManifest()` always returns empty arrays, this condition fires for every item-only sync and takes the silent-pull path. No vault download, no DiffModal, no item changes applied. The silent-pull path (lines 3296–3361) still pulls image vault (3302–3336) and attachment vault (3346–3352) — see "Partial-sync illusion" note below. |
-| `js/cloud-sync.js:3596–3611`       | Manifest conflict detection                             | Checks `mc.type === "edit"`. Misses `"item-edit"` entries; conflict detection on manifest path never fires.                                                                                                                                                                                                                                                                                                                                                 |
-| `js/cloud-sync.js:3710–3741`       | Vault-first fallback — `DiffEngine.compareItems()`      | Compares actual item arrays; not affected by the type mismatch. Triggers only when manifest diff is incomplete (count guard at line 3374). Edits-only syncs never trip the count guard (no add/delete changes item count), so they take the broken manifest path exclusively.                                                                                                                                                                               |
-| `js/diff-engine.js:32–89`          | `DIFF_FIELDS` array                                     | Canonical 44-field list for sync-relevant item data. AC-5 requires the ZIP JSON allowlist to cover this list.                                                                                                                                                                                                                                                                                                                                               |
-| `js/inventory-backup.js:22–61`     | ZIP JSON `inventory_data` field map                     | 31 of 44 DIFF_FIELDS present. 13 fields absent (see gap analysis below).                                                                                                                                                                                                                                                                                                                                                                                    |
-| `js/inventory-backup.js:131–224`   | ZIP CSV export                                          | Headers include `Obverse Image URL`, `Reverse Image URL` but not frame-shape columns (`Obverse Frame`, `Reverse Frame`).                                                                                                                                                                                                                                                                                                                                    |
-| `js/inventory-import.js:1062–1166` | Standalone CSV export (`buildCsvContent` / `exportCsv`) | Same frame-column gap as ZIP CSV. Both exports share identical header structure for image data but omit the frame-shape columns.                                                                                                                                                                                                                                                                                                                            |
-| `js/events.js:1584–1629`           | Item save path (form → item object)                     | Authoritative list of currently written item fields. `obverseImageFrame` and `reverseImageFrame` are written here (lines 1617–1618) but absent from the ZIP JSON. `purchasePrice` and `retailPrice` are **not** written here — they exist in DIFF_FIELDS but are not stored as direct item properties via the form.                                                                                                                                         |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/changeLog.js:155` | ChangeLog producer — writes type strings | Writes `"item-add"`, `"item-edit"`, `"item-delete"`. This is the root of the type namespace. |
+| `js/cloud-sync.js:1043–1082` | `buildAndUploadManifest()` — summary counting | Checks `entryType === "add"` / `"edit"` / `"delete"`. Never matches the prefixed producer types; summary counts always 0. |
+| `js/cloud-sync.js:2925–2959` | `_buildDiffFromManifest()` — diff classification | Checks `change.type === "add"` / `"edit"` / `"delete"`. Never matches; returns `{ added:[], modified:[], deleted:[], unchanged:[] }` for any item-only changeset. |
+| `js/cloud-sync.js:3285–3362` | Manifest-first pull — `_mNoChanges` silent-pull gate | Evaluates `manifestDiff.added.length === 0 && deleted.length === 0 && modified.length === 0`. Because `_buildDiffFromManifest()` always returns empty arrays, this condition fires for every item-only sync and takes the silent-pull path. No vault download, no DiffModal, no item changes applied. The silent-pull path (lines 3296–3361) still pulls image vault (3302–3336) and attachment vault (3346–3352) — see "Partial-sync illusion" note below. |
+| `js/cloud-sync.js:3596–3611` | Manifest conflict detection | Checks `mc.type === "edit"`. Misses `"item-edit"` entries; conflict detection on manifest path never fires. |
+| `js/cloud-sync.js:3710–3741` | Vault-first fallback — `DiffEngine.compareItems()` | Compares actual item arrays; not affected by the type mismatch. Triggers only when manifest diff is incomplete (count guard at line 3374). Edits-only syncs never trip the count guard (no add/delete changes item count), so they take the broken manifest path exclusively. |
+| `js/diff-engine.js:32–89` | `DIFF_FIELDS` array | Canonical 44-field list for sync-relevant item data. AC-5 requires the ZIP JSON allowlist to cover this list. |
+| `js/inventory-backup.js:22–61` | ZIP JSON `inventory_data` field map | 31 of 44 DIFF_FIELDS present. 13 fields absent (see gap analysis below). |
+| `js/inventory-backup.js:131–224` | ZIP CSV export | Headers include `Obverse Image URL`, `Reverse Image URL` but not frame-shape columns (`Obverse Frame`, `Reverse Frame`). |
+| `js/inventory-import.js:1062–1166` | Standalone CSV export (`buildCsvContent` / `exportCsv`) | Same frame-column gap as ZIP CSV. Both exports share identical header structure for image data but omit the frame-shape columns. |
+| `js/events.js:1584–1629` | Item save path (form → item object) | Authoritative list of currently written item fields. `obverseImageFrame` and `reverseImageFrame` are written here (lines 1617–1618) but absent from the ZIP JSON. `purchasePrice` and `retailPrice` are **not** written here — they exist in DIFF_FIELDS but are not stored as direct item properties via the form. |
 
 ## Type Mismatch — Cascade Map
 
@@ -41,14 +41,13 @@ changeLog.js (producer)       cloud-sync.js (all consumers)
 
 **`_deferredVaultRestore` is NOT a 5th consumer site.** It receives `selectedChanges` from `DiffModal._buildSelectedChanges()`, which hardcodes its own type vocabulary (`"add"`, `"modify"`, `"delete"`) at `diff-modal.js:2778,2818,2866` — independently of the manifest changeLog strings. `DiffEngine.applySelectedChanges()` switches on the same vocabulary at `diff-engine.js:624–643`. Line 3026's `change.type !== "add"` check is correct and must not be changed. (Verified by code inspection; CODEX, GEMINI, and OPUS consensus.)
 
-**Why items-only edits are the worst case:** adds and deletes do change the item count, so they _sometimes_ trip the count guard at line 3374 (`_mExpectedAfterApply !== _mRemoteCount`) and fall through to vault-first. Pure edits (`"item-edit"` only) never change count → count guard passes → silent pull fires → all field edits silently discarded.
+**Why items-only edits are the worst case:** adds and deletes do change the item count, so they *sometimes* trip the count guard at line 3374 (`_mExpectedAfterApply !== _mRemoteCount`) and fall through to vault-first. Pure edits (`"item-edit"` only) never change count → count guard passes → silent pull fires → all field edits silently discarded.
 
 **Partial-sync illusion:** during the silent-pull path (lines 3296–3361), image vault (3302–3336) and attachment vault (3346–3352) still sync. A user who edits a field AND uploads a new photo on Device A sees the photo appear on Device B but NOT the field edit — an illusion that sync succeeded. This known pre-fix behavior should be verified as eliminated after the fix lands.
 
 **`changesByKey` type-first-wins:** `buildAndUploadManifest()` (lines 1052–1058) stores only the first changeLog entry's type when multiple entries exist for the same item key in a sync window. Post-fix normalization is correct for most combinations (add+edit → `"item-add"` is correct), but edit+delete is wrong — the type is stored as `"item-edit"` and the delete signal is lost. The fix includes a type-priority merge rule (add > edit > delete) to address this. See Constraint 5.
 
 **Affected consumers (4 sites in cloud-sync.js):**
-
 1. `buildAndUploadManifest()` summary, line 1070–1082 — wrong type strings, summary always 0
 2. `_buildDiffFromManifest()`, lines 2933, 2935, 2949 — wrong type strings, all arrays empty
 3. `_mNoChanges` guard, lines 3288–3295 — evaluates those empty arrays, fires silent pull
@@ -62,21 +61,21 @@ Comparing `inventory_data` allowlist in `js/inventory-backup.js:22–61` against
 
 **Missing from ZIP JSON** (13 fields):
 
-| Field                 | Category    | Stored on items?                                                                                                                                                                                      |
-| --------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `purchasePrice`       | Financials  | Two write paths: CSV import (`inventory-import.js:854`) actively writes it; form save path (`events.js:1584–1629`) does not. Items created via CSV import carry this field; form-created items don't. |
-| `retailPrice`         | Financials  | No confirmed active write path; likely legacy                                                                                                                                                         |
-| `collectable`         | Catalog     | No confirmed active write path in events.js; likely set elsewhere                                                                                                                                     |
-| `ignorePatternImages` | Images      | Written at events.js:1621 — stored, but absent from ZIP JSON                                                                                                                                          |
-| `currency`            | Financials  | Written at events.js:1616 — stored, but absent from ZIP JSON                                                                                                                                          |
-| `obverseImageFrame`   | Images      | Written at events.js:1617 — stored, but absent from ZIP JSON                                                                                                                                          |
-| `reverseImageFrame`   | Images      | Written at events.js:1618 — stored, but absent from ZIP JSON                                                                                                                                          |
-| `lastModified`        | Metadata    | Active modern field — set at `events.js:1811` (edits) and `events.js:1962` (new items) on every add and edit.                                                                                         |
-| `capsule`             | Storage     | Written at events.js:1595 — stored, but absent from ZIP JSON                                                                                                                                          |
-| `capsuleNotes`        | Storage     | Written at events.js:1596 — stored, but absent from ZIP JSON                                                                                                                                          |
-| `numistaData`         | Catalog     | Written at events.js:1624 — stored (nested object), but absent from ZIP JSON                                                                                                                          |
-| `fieldMeta`           | Metadata    | Active modern field — set at `events.js:1809` (edits) and `events.js:1960` (new items) on every add and edit.                                                                                         |
-| `attachments`         | Attachments | Tested in `backup-zip.spec.js:60–80` via a mock — but that test does NOT call `createBackupZip()`; it manually serializes a raw item object. The real ZIP JSON allowlist omits attachments.           |
+| Field | Category | Stored on items? |
+|-------|----------|-----------------|
+| `purchasePrice` | Financials | Two write paths: CSV import (`inventory-import.js:854`) actively writes it; form save path (`events.js:1584–1629`) does not. Items created via CSV import carry this field; form-created items don't. |
+| `retailPrice` | Financials | No confirmed active write path; likely legacy |
+| `collectable` | Catalog | No confirmed active write path in events.js; likely set elsewhere |
+| `ignorePatternImages` | Images | Written at events.js:1621 — stored, but absent from ZIP JSON |
+| `currency` | Financials | Written at events.js:1616 — stored, but absent from ZIP JSON |
+| `obverseImageFrame` | Images | Written at events.js:1617 — stored, but absent from ZIP JSON |
+| `reverseImageFrame` | Images | Written at events.js:1618 — stored, but absent from ZIP JSON |
+| `lastModified` | Metadata | Active modern field — set at `events.js:1811` (edits) and `events.js:1962` (new items) on every add and edit. |
+| `capsule` | Storage | Written at events.js:1595 — stored, but absent from ZIP JSON |
+| `capsuleNotes` | Storage | Written at events.js:1596 — stored, but absent from ZIP JSON |
+| `numistaData` | Catalog | Written at events.js:1624 — stored (nested object), but absent from ZIP JSON |
+| `fieldMeta` | Metadata | Active modern field — set at `events.js:1809` (edits) and `events.js:1960` (new items) on every add and edit. |
+| `attachments` | Attachments | Tested in `backup-zip.spec.js:60–80` via a mock — but that test does NOT call `createBackupZip()`; it manually serializes a raw item object. The real ZIP JSON allowlist omits attachments. |
 
 **Key note on `purchasePrice` / `retailPrice`:** `purchasePrice` has an active import-origin path (CSV import at `inventory-import.js:854`) and may also exist on legacy items. `retailPrice` has no confirmed write path and is likely legacy. Both must be included in the ZIP JSON allowlist (per AC-5) — `JSON.stringify` omits `undefined` values, so fields absent on modern items produce no noise.
 
@@ -84,9 +83,9 @@ Comparing `inventory_data` allowlist in `js/inventory-backup.js:22–61` against
 
 Both CSV exports are missing image frame columns required by AC-6:
 
-| Export         | File                               | Currently exports                        | Missing                          |
-| -------------- | ---------------------------------- | ---------------------------------------- | -------------------------------- |
-| ZIP CSV        | `js/inventory-backup.js:132–165`   | `Obverse Image URL`, `Reverse Image URL` | `Obverse Frame`, `Reverse Frame` |
+| Export | File | Currently exports | Missing |
+|--------|------|-------------------|---------|
+| ZIP CSV | `js/inventory-backup.js:132–165` | `Obverse Image URL`, `Reverse Image URL` | `Obverse Frame`, `Reverse Frame` |
 | Standalone CSV | `js/inventory-import.js:1064–1102` | `Obverse Image URL`, `Reverse Image URL` | `Obverse Frame`, `Reverse Frame` |
 
 Note: `inventory-backup.js:131` has a comment claiming the two CSVs are "synced with exportCsv()" — but this is aspirational, not actual. The two CSVs already diverge by 6 columns: standalone CSV has `removedTags` and 5 disposition sub-fields (`recipient`, `notes`, `currency`, `disposedAt`, `splitFromUuid`) that ZIP CSV lacks; ZIP CSV has `Attachments` that standalone lacks. This sketch adds frame columns to both (AC-6 minimum) without attempting full parity. Full CSV parity is a candidate for a follow-up issue.
@@ -98,11 +97,10 @@ No existing tests cover the type mismatch or ZIP JSON field completeness:
 - **`_buildDiffFromManifest()`** — zero direct tests. The manifest-first pull path is exercised only indirectly through high-level Playwright tests that mock the Dropbox API.
 - **`buildAndUploadManifest()` summary counting** — zero tests.
 - **Manifest conflict detection (`mc.type === "edit"`)** — zero tests.
-- **ZIP JSON field completeness against DIFF_FIELDS** — `tests/playwright/attachments/backup-zip.spec.js:60–80` tests that an item with attachments round-trips through a _manually serialized_ object, not through the real `createBackupZip()` call. The 13 missing fields are untested.
+- **ZIP JSON field completeness against DIFF_FIELDS** — `tests/playwright/attachments/backup-zip.spec.js:60–80` tests that an item with attachments round-trips through a *manually serialized* object, not through the real `createBackupZip()` call. The 13 missing fields are untested.
 - **CSV frame columns** — `tests/playwright/image-frame-override.spec.js` tests display behavior; does not verify CSV output columns.
 
 Existing related tests to preserve (AC-7):
-
 - `tests/playwright/attachments/cloud-sync.spec.js` — DIFF_FIELDS and DiffEngine integration, attachment storage keys
 - `tests/playwright/cloud-sync-header-button.spec.js` — STAK-549 syncNow return contract
 

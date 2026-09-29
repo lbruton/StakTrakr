@@ -111,7 +111,7 @@ _Depends on Cohort A (constants + attachment-manager). Independent of the mockup
     5. Pull: vault-first DiffModal/fallback restore (cf. ~line 2305)
     6. Pull: manifest-deferred / auto-merge restore (cf. ~line 2882)
     7. Pull: silent pull (cf. ~line 3060)
-       Gated by `syncAttachments` localStorage key (missing key defaults to `true`). Size estimate via `attachmentManager.getStorageUsage()`; 100 MB warning fires once, persists via `syncAttachmentsWarnSeen`. Remote attachments preserved when local has none (initial-load); deleted from remote when authoritative local item deletes them.
+    Gated by `syncAttachments` localStorage key (missing key defaults to `true`). Size estimate via `attachmentManager.getStorageUsage()`; 100 MB warning fires once, persists via `syncAttachmentsWarnSeen`. Remote attachments preserved when local has none (initial-load); deleted from remote when authoritative local item deletes them.
   - **Leverage:** Existing image-companion sync branches in `cloud-sync.js` — mirror all 7 by grepping for `imageVault`/`SYNC_IMAGES_PATH` references.
   - **Maps to:** AC-9 (sync opt-out), D9
 

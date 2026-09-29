@@ -10,9 +10,9 @@ created: 2026-06-07
 >
 > **Title:** Numista import: instance-aware de-duplication (proper fix) + restore safe merge
 >
-> **Summary (from issue).** Restore a **safe merge** for Numista CSV import with correct, instance-aware de-duplication. Phase-2 follow-up to the STRK-165 _interim_ gate (shipped v3.35.11), which currently makes the importer a one-time onboarding/**replace** action (no merge) because dedup was unreliable.
+> **Summary (from issue).** Restore a **safe merge** for Numista CSV import with correct, instance-aware de-duplication. Phase-2 follow-up to the STRK-165 *interim* gate (shipped v3.35.11), which currently makes the importer a one-time onboarding/**replace** action (no merge) because dedup was unreliable.
 >
-> **The identity problem.** A `numistaId` identifies a catalog _type_, not a physical _instance_. A user can own multiple distinct instances of the same `numistaId` + year (e.g. a raw 2024 ASE and a PCGS-MS70 2024 ASE) with different `grade`/`certNumber`. Numista exports each owned instance as its own CSV row (53 repeated N# observed in a real export). Keying on `numistaId` alone wrongly merges distinct graded instances and clobbers cert data.
+> **The identity problem.** A `numistaId` identifies a catalog *type*, not a physical *instance*. A user can own multiple distinct instances of the same `numistaId` + year (e.g. a raw 2024 ASE and a PCGS-MS70 2024 ASE) with different `grade`/`certNumber`. Numista exports each owned instance as its own CSV row (53 repeated N# observed in a real export). Keying on `numistaId` alone wrongly merges distinct graded instances and clobbers cert data.
 >
 > **Root cause (from STRK-165).** (1) `importNumistaCsv` pre-stamps `uuid = generateUUID()` on every row before the diff → `computeItemKey` returns that uuid first → the numista matching tier never runs. (2) Importer appends year to `name` ([inventory-import.js:761](js/inventory-import.js:761)) so API vs CSV names diverge. (3) The numista key was the volatile composite `numistaId|name|date`.
 >
@@ -20,12 +20,12 @@ created: 2026-06-07
 
 ## Overview
 
-Re-establish a **non-destructive merge** for Numista CSV import, replacing the STRK-165 interim "replace-only" gate. The fix re-points the **Item Identity Key**'s instance tier from the volatile `numistaId|name|date` to `numistaId|year|grade|certNumber` (normalized), stops the importer from pre-stamping fresh UUIDs _and serials_ that short-circuit matching, and restores the existing `showImportDiffReview` merge path. Two new diff-modal affordances give the user control during reconciliation: a per-row replace/sum quantity choice, and a soft "possible duplicate" flag when an incoming ungraded row collides with an already-graded instance. This matters now because the importer is currently a one-time onboarding tool — re-importing destroys grades, cert numbers, and images.
+Re-establish a **non-destructive merge** for Numista CSV import, replacing the STRK-165 interim "replace-only" gate. The fix re-points the **Item Identity Key**'s instance tier from the volatile `numistaId|name|date` to `numistaId|year|grade|certNumber` (normalized), stops the importer from pre-stamping fresh UUIDs *and serials* that short-circuit matching, and restores the existing `showImportDiffReview` merge path. Two new diff-modal affordances give the user control during reconciliation: a per-row replace/sum quantity choice, and a soft "possible duplicate" flag when an incoming ungraded row collides with an already-graded instance. This matters now because the importer is currently a one-time onboarding tool — re-importing destroys grades, cert numbers, and images.
 
 ## Glossary Terms (this sketch)
 
 - **Item Instance** — a physical copy of a catalog type; distinct when year, grade, or certNumber differ.
-- **Numista ID** — a catalog _type_ identifier (spans years), not an instance.
+- **Numista ID** — a catalog *type* identifier (spans years), not an instance.
 - **Item Identity Key** — `computeItemKey()` tier ladder: `uuid → serial → numistaId|year|grade|certNumber → name|date`.
 
 ## User Stories
@@ -42,28 +42,28 @@ Re-establish a **non-destructive merge** for Numista CSV import, replacing the S
 
 ### Identity key
 
-- **AC-1** _(Ubiquitous)_ — The system **SHALL** derive the **Item Identity Key** instance tier as `numistaId|year|grade|certNumber`, where `year` is the issue year (`item.year`/issuedYear — **not** the acquisition date or the volatile name) and `grade`/`certNumber` are trimmed, lowercased, and empty/whitespace normalized to `""`. _(US-2, US-3)_
-- **AC-2** _(Ubiquitous)_ — The system **SHALL** apply this identity rule identically in `computeItemKey` ([diff-engine.js:325](js/diff-engine.js:325)), its `changeLog.js` mirror ([changeLog.js:24](js/changeLog.js:24)), and `enrichItemIdentities` ([diff-engine.js:359](js/diff-engine.js:359)). _(US-1, US-3)_
-- **AC-3** _(Event-driven)_ — **WHEN** keys are computed for an API-sourced Item and a Numista-CSV Item representing the same **ungraded** instance (same `numistaId`+`year`, differing `name`/acquisition-`date`), the system **SHALL** produce identical keys. _(US-1)_
-- **AC-4** _(Event-driven)_ — **WHEN** two Items share a `numistaId` but differ in `year`, `grade`, or `certNumber`, the system **SHALL** produce different keys (so distinct issue years and distinct graded instances never collapse). _(US-2, US-3)_
+- **AC-1** *(Ubiquitous)* — The system **SHALL** derive the **Item Identity Key** instance tier as `numistaId|year|grade|certNumber`, where `year` is the issue year (`item.year`/issuedYear — **not** the acquisition date or the volatile name) and `grade`/`certNumber` are trimmed, lowercased, and empty/whitespace normalized to `""`. *(US-2, US-3)*
+- **AC-2** *(Ubiquitous)* — The system **SHALL** apply this identity rule identically in `computeItemKey` ([diff-engine.js:325](js/diff-engine.js:325)), its `changeLog.js` mirror ([changeLog.js:24](js/changeLog.js:24)), and `enrichItemIdentities` ([diff-engine.js:359](js/diff-engine.js:359)). *(US-1, US-3)*
+- **AC-3** *(Event-driven)* — **WHEN** keys are computed for an API-sourced Item and a Numista-CSV Item representing the same **ungraded** instance (same `numistaId`+`year`, differing `name`/acquisition-`date`), the system **SHALL** produce identical keys. *(US-1)*
+- **AC-4** *(Event-driven)* — **WHEN** two Items share a `numistaId` but differ in `year`, `grade`, or `certNumber`, the system **SHALL** produce different keys (so distinct issue years and distinct graded instances never collapse). *(US-2, US-3)*
 
 ### Import dedup & merge
 
-- **AC-5** _(Unwanted)_ — **IF** a Numista CSV is imported, **THEN** the system **SHALL NOT** let a fresh `uuid` **or** a fresh `serial` on the incoming rows short-circuit matching before the diff/dedup (defer or strip both, or compute dedup keys from the bare instance tier), so `enrichItemIdentities` can backfill existing UUIDs and the `numistaId|year|grade|certNumber` tier participates in matching. _(US-1)_
-- **AC-6** _(Event-driven)_ — **WHEN** a Numista CSV contains multiple rows with the same Item Identity Key (repeated N#, ungraded), the system **SHALL** collapse them into one incoming Item with `qty` summed across those rows. _(US-2)_
-- **AC-7** _(Event-driven)_ — **WHEN** a Numista CSV is imported into a **non-empty** inventory, the system **SHALL** route through the import diff-review modal (`showImportDiffReview`) presenting add/modify/unchanged counts, not a destructive replace. _(US-1)_
-- **AC-8** _(Unwanted)_ — **IF** the same Numista CSV is imported twice with no inventory changes between, **THEN** the system **SHALL** result in **zero** duplicate (`numistaId+year+grade+cert`) Items after apply. _(US-1)_
-- **AC-9** _(Event-driven)_ — **WHEN** an import into an **empty** inventory occurs, the system **SHALL** present all rows as adds through the merge path (no special replace branch). _(US-1)_
+- **AC-5** *(Unwanted)* — **IF** a Numista CSV is imported, **THEN** the system **SHALL NOT** let a fresh `uuid` **or** a fresh `serial` on the incoming rows short-circuit matching before the diff/dedup (defer or strip both, or compute dedup keys from the bare instance tier), so `enrichItemIdentities` can backfill existing UUIDs and the `numistaId|year|grade|certNumber` tier participates in matching. *(US-1)*
+- **AC-6** *(Event-driven)* — **WHEN** a Numista CSV contains multiple rows with the same Item Identity Key (repeated N#, ungraded), the system **SHALL** collapse them into one incoming Item with `qty` summed across those rows. *(US-2)*
+- **AC-7** *(Event-driven)* — **WHEN** a Numista CSV is imported into a **non-empty** inventory, the system **SHALL** route through the import diff-review modal (`showImportDiffReview`) presenting add/modify/unchanged counts, not a destructive replace. *(US-1)*
+- **AC-8** *(Unwanted)* — **IF** the same Numista CSV is imported twice with no inventory changes between, **THEN** the system **SHALL** result in **zero** duplicate (`numistaId+year+grade+cert`) Items after apply. *(US-1)*
+- **AC-9** *(Event-driven)* — **WHEN** an import into an **empty** inventory occurs, the system **SHALL** present all rows as adds through the merge path (no special replace branch). *(US-1)*
 
 ### Reconciliation controls (UI)
 
-- **AC-10** _(State-driven)_ — **WHILE** the diff-review modal shows a matched ungraded row whose CSV quantity differs from the existing Item, the system **SHALL** offer a per-row choice to **REPLACE** the existing quantity with the CSV quantity or to **SUM** them. _(US-4)_
-- **AC-11** _(Event-driven)_ — **WHEN** an incoming ungraded row shares `numistaId`+year with an existing Item that has a populated `grade` or `certNumber`, the system **SHALL** flag that add row in the diff-review modal as a **possible duplicate** (advisory only — no automatic merge). _(US-5)_
+- **AC-10** *(State-driven)* — **WHILE** the diff-review modal shows a matched ungraded row whose CSV quantity differs from the existing Item, the system **SHALL** offer a per-row choice to **REPLACE** the existing quantity with the CSV quantity or to **SUM** them. *(US-4)*
+- **AC-11** *(Event-driven)* — **WHEN** an incoming ungraded row shares `numistaId`+year with an existing Item that has a populated `grade` or `certNumber`, the system **SHALL** flag that add row in the diff-review modal as a **possible duplicate** (advisory only — no automatic merge). *(US-5)*
 
 ### Replace-path retirement
 
-- **AC-12** _(Ubiquitous)_ — The system **SHALL** remove the STRK-165 interim onboarding-replace dialog; merge-via-diff-review is the default and only user-facing Numista import path. _(US-1)_
-- **AC-13** _(Optional)_ — **WHERE** a caller invokes `importNumistaCsv` with `override=true`, the system **SHALL** replace inventory directly without the diff-review modal (programmatic path preserved for existing callers/tests). _(US-1)_
+- **AC-12** *(Ubiquitous)* — The system **SHALL** remove the STRK-165 interim onboarding-replace dialog; merge-via-diff-review is the default and only user-facing Numista import path. *(US-1)*
+- **AC-13** *(Optional)* — **WHERE** a caller invokes `importNumistaCsv` with `override=true`, the system **SHALL** replace inventory directly without the diff-review modal (programmatic path preserved for existing callers/tests). *(US-1)*
 
 ## Non-Goals
 
@@ -72,7 +72,7 @@ Re-establish a **non-destructive merge** for Numista CSV import, replacing the S
 - **Not** changing how `grade`/`certNumber` are sourced for Numista CSV rows — Numista exports carry no grading, so CSV rows remain ungraded (`grade`/`cert` empty).
 - **Not** redesigning the diff-review modal beyond the two new affordances (per-row qty choice, possible-duplicate flag).
 - **Not** touching the goldback, spot, or retail pipelines — out of scope.
-- **Not** a `git revert` of STRK-165 — the merge path is restored _with_ the corrected key; reverting blindly re-introduces the 554-row bug.
+- **Not** a `git revert` of STRK-165 — the merge path is restored *with* the corrected key; reverting blindly re-introduces the 554-row bug.
 
 ## Open Questions
 

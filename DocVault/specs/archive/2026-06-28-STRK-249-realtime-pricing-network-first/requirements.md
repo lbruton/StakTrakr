@@ -13,19 +13,16 @@ created: 2026-06-27
 **Title:** Realtime pricing served stale by service worker cache-first (goldback badge missing + premium delay on normal load)
 
 **Symptoms (both on a NORMAL load; both fixed by a hard refresh):**
-
 - Gold spot card is missing its goldback badge on a normal page load. `Cmd/Ctrl+Shift+R` reliably makes the current goldback rate appear.
 - Market/premiums table goldback premiums lag ~1–2s behind spot-based premiums, which render immediately.
 
 **Root cause — service worker serving realtime pricing cache-first:**
-
 - The SW (`sw.js` + `sw-router.js`) intercepts `api.staktrakr.com` and serves it **cache-first with a TTL**. The `goldback-latest` family has a **25-hour floor** (`sw-router.js` floor `90000`s; `sw.js` `matchWithAgeCheck`/`classifiedFetch`). On a normal load the SW hands back a stale cached copy; a hard refresh bypasses the SW and hits the network.
 - **Key gotcha:** the init goldback fetch uses `fetch(url, { cache: "no-store" })` (`js/goldback.js:437`). `cache: "no-store"` only affects the **HTTP cache** — it does **NOT** bypass a service worker. So the SW still serves its Cache Storage copy.
 - **Confirmed** in the Firefox Network tab: `goldback/latest.json` is served by the SW on a normal load.
 - API is **healthy** — live `/v2/goldback/latest.json` returns today's `g1_usd: 8.18`, `generated_at` current, `source: goldback.com`. Purely a frontend/SW issue.
 
 **Contributing frontend bugs:**
-
 - **Badge never repaints:** `fetchGoldbackApiPrices()` success path (`js/goldback.js:481-486`) updates state (`saveGoldbackPrices`/`recordGoldbackPrices`/`syncGoldbackSettingsUI`) but **never calls** `renderRatioChips()`. The badge is painted earlier by `fetchSpotPrice()` (`init.js:762`) before the async goldback fetch resolves, so late-arriving fresh data is never drawn.
 - **Separate, un-awaited market fetch:** the premiums table runs its own `fetch(V2_API + "/goldback/latest.json")` into `_goldbackG1Rate` (`js/market-data.js:1700-1715`, fired un-awaited at `init.js:821`), no fast fallback. Goldback premium cells are gated on `_goldbackG1Rate > 0` (`market-data.js:1354`), so they stay blank until that round-trip resolves — the ~1–2s delay. (This fetch also lacks `cache: "no-store"`.)
 - **No api-mode fallback:** `resolveGoldbackRate()` returns `null` (no badge at all) on a stale cache in the default `"api"` mode (`js/spot-ratio-math.js:83-96`), with no spot-derived estimate fallback.
@@ -33,14 +30,12 @@ created: 2026-06-27
 **Design decision (this session):** Realtime spot/market/goldback pricing is API-derived and should always reflect current values; there is no real benefit to serving it cache-first. The app already persists last-known values in **localStorage**, which covers offline display. These price endpoints should therefore be **network-first** (or stale-while-revalidate with a very short floor): fresh when online, cached copy only as an offline fallback — not removed from the SW entirely.
 
 **Fix plan (ranked, from issue):**
-
 1. **SW:** change the goldback (and other realtime price) endpoint families from cache-first-25h to **network-first / SWR with a short floor** (`sw-router.js` / `sw.js`). Primary fix for the hard-refresh symptom.
 2. **Repaint badge:** add a guarded `renderRatioChips()` to the `fetchGoldbackApiPrices()` success path (`js/goldback.js`).
 3. **Kill the premium delay:** seed `_goldbackG1Rate` from the already-cached `goldbackPrices['1']` immediately, then let the network fetch correct it (`js/market-data.js`); align its cache strategy with #1.
 4. **Optional:** in `api` mode, fall back to a spot-derived estimate badge (marked estimated) when the cache is stale instead of hiding it (`js/spot-ratio-math.js`).
 
 **Verification (from issue):**
-
 - DevTools Network: `goldback/latest.json` hits the **network** (not the SW) on a normal load and shows today's `data.t`.
 - Gold badge appears **without** a hard refresh; goldback premiums render in lockstep with spot premiums.
 - `npm run test:core` + add a Playwright case asserting the gold-card GB chip is present after the async goldback fetch resolves on a normal load; add the `coverage-map.csv` row (AGENTS.md).

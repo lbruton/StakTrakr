@@ -26,20 +26,17 @@ Suppress per-request access logging emitted by `python3 -m http.server` during P
 ## Acceptance Criteria
 
 ### AC-1 — Request log suppression (maps to US-1)
-
 - **Given** a Playwright test run is executing via `npm test` or `npx playwright test`
 - **When** the Playwright `webServer` process starts the local Python HTTP server
 - **Then** zero `[WebServer]` HTTP access log lines (e.g., `[WebServer] ::1 - - [...] "GET /css/styles.css HTTP/1.1" 200 -`) appear in the test output
 
 ### AC-2 — Failure signal preserved (maps to US-2)
-
 - **Given** the `webServer` configuration suppresses access logs
 - **When** an asset is missing or the server fails to start
 - **Then** the failure is still visible — missing assets surface as Playwright test-level failures (assertion / page-error / function-not-found), and a server that fails to bind surfaces as a Playwright `webServer` health-check timeout reported by Playwright itself
 - **Note:** This sketch explicitly does NOT require Python's own stderr 404 log lines to remain visible. They are redundant with Playwright test failures, and the chosen suppression mechanism necessarily removes them.
 
 ### AC-3 — No regressions in test suite
-
 - **Given** the `webServer` configuration has been modified
 - **When** the full Playwright test suite is run (`npm test`)
 - **Then** all existing tests pass with zero new failures relative to the pre-change baseline (currently 599 tests in 53 files, as reported by `npx playwright test --list` on 2026-05-11)

@@ -34,7 +34,7 @@ _Distinct files, no shared symbols created-and-consumed within the cohort → al
 
 - [x] **A.2 [P]** — Persist goldback freshness fields on the cached G1 entry _(9a34fd2a: ts + staleAfter added to api-branch entry, additive)_
   - **File(s):** `js/goldback.js`
-  - **Acceptance:** `fetchGoldbackApiPrices` (420) stores `ts` (from `envelope.data.ts`) and `staleAfter` (from `envelope.data.stale_after`) on each `goldbackPrices[key]` entry **in addition to** the existing `{ price, updatedAt, source }`. Existing fields/behavior unchanged (additive only — AC-16). No staleness _logic_ here yet.
+  - **Acceptance:** `fetchGoldbackApiPrices` (420) stores `ts` (from `envelope.data.ts`) and `staleAfter` (from `envelope.data.stale_after`) on each `goldbackPrices[key]` entry **in addition to** the existing `{ price, updatedAt, source }`. Existing fields/behavior unchanged (additive only — AC-16). No staleness *logic* here yet.
   - **Leverage:** discovery OQ-1; approach D-3.
   - **Maps to:** AC-5, AC-6 (enables)
 
@@ -139,17 +139,17 @@ _Minimum code to turn Cohort B green._
 
 _approach.md has a `## UI Contract` → every named state maps to implementing task(s), verifying assertion(s), and a visual-verification method. Cited mockup: `playground/STRK-161-spot-ratio-chips.html`._
 
-| UI state (approach)                          | Implements    | Verifies (test) | Visual verification                             |
-| -------------------------------------------- | ------------- | --------------- | ----------------------------------------------- |
-| Populated (4 chips)                          | C.1, C.2      | B.1, B.2        | inspect vs playground "populated", all 4 themes |
-| Goldback off → gold hidden                   | C.1, C.3, C.4 | B.3             | playground gb=off                               |
-| Goldback api + stale → hidden                | C.1           | B.1, B.3        | playground gb=api+stale                         |
-| Goldback spot/manual + stale → `~EST`        | C.1           | B.1             | playground gb=spot+stale (`~EST` marker)        |
-| Invalid spot → chip hidden                   | C.1, C.2      | B.1, B.2        | playground silver≤0 toggle                      |
-| Master off → all hidden                      | C.4           | B.3             | playground master off                           |
-| Loading → chips absent                       | C.2           | B.2             | playground loading toggle                       |
-| Hover / Focus → tooltip                      | C.2           | B.2             | manual focus + hover; tooltip escapes card      |
-| Mobile (<960px) → `Last Synced`, no overflow | C.5, A.4      | B.4             | screenshot at 380px (2×2), all 4 themes         |
+| UI state (approach) | Implements | Verifies (test) | Visual verification |
+|---------------------|-----------|-----------------|---------------------|
+| Populated (4 chips) | C.1, C.2 | B.1, B.2 | inspect vs playground "populated", all 4 themes |
+| Goldback off → gold hidden | C.1, C.3, C.4 | B.3 | playground gb=off |
+| Goldback api + stale → hidden | C.1 | B.1, B.3 | playground gb=api+stale |
+| Goldback spot/manual + stale → `~EST` | C.1 | B.1 | playground gb=spot+stale (`~EST` marker) |
+| Invalid spot → chip hidden | C.1, C.2 | B.1, B.2 | playground silver≤0 toggle |
+| Master off → all hidden | C.4 | B.3 | playground master off |
+| Loading → chips absent | C.2 | B.2 | playground loading toggle |
+| Hover / Focus → tooltip | C.2 | B.2 | manual focus + hover; tooltip escapes card |
+| Mobile (<960px) → `Last Synced`, no overflow | C.5, A.4 | B.4 | screenshot at 380px (2×2), all 4 themes |
 
 ## Standard Closing Tasks
 

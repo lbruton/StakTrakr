@@ -12,7 +12,6 @@ tags:
   - release-workflow
   - feature-planning
 ---
-
 # Reddit Weekly Update Automation — Research & Plan
 
 > **Status:** DRAFT — Research + implementation plan (no code written yet)
@@ -25,7 +24,7 @@ tags:
 - **Access:** A regular Reddit account + a **"script"-type app** registered at `reddit.com/prefs/apps`. Reddit's own docs name this exact use case ("make a weekly post to a subreddit that you moderate"). No karma/age gate applies because we own/moderate the target sub.
 - **Auth:** Prefer a **refresh token** over storing the account password. Secrets live in **Infisical** (`stak-trakr-94m4`), never in the repo or the `file://` app bundle.
 - **Tooling:** Two viable paths. **PRAW** (Python, most robust) or a **thin `curl`/bash skill** (zero new dependency, fits StakTrakr's zero-build ethos). For a single weekly post, volume is trivial; the choice is about robustness vs. dependency footprint — see [Part 3](#part-3--tooling-decision).
-- **Anti-robotic:** Post from the **owner's aged personal account** (a fresh bot account is the #1 shadowban risk), keep a **human approval gate** before posting, lead with the _why_ not the version number, and vary titles. Feed the draft from `getEmbeddedWhatsNew()` (already plain-language), not raw commit subjects.
+- **Anti-robotic:** Post from the **owner's aged personal account** (a fresh bot account is the #1 shadowban risk), keep a **human approval gate** before posting, lead with the *why* not the version number, and vary titles. Feed the draft from `getEmbeddedWhatsNew()` (already plain-language), not raw commit subjects.
 - **Cadence:** Weekly, tied to the `dev → main` ship. Keep posts ≥24h apart; never burst.
 
 ---
@@ -55,19 +54,19 @@ Everything else (`/ship`, `/release`, the GitHub Release) already exists. This i
 
 ### Account, karma, and age
 
-- **A regular Reddit account is required.** Every API _write_ acts on behalf of a logged-in user; there is no app-only way to submit a post. (App-only auth exists but is read-only.)
+- **A regular Reddit account is required.** Every API *write* acts on behalf of a logged-in user; there is no app-only way to submit a post. (App-only auth exists but is read-only.)
 - **No sitewide karma or account-age minimum to submit a text post.** Minimums are set per-subreddit by each sub's AutoModerator — and **we control our own sub's config**, so no gate binds the owner.
-- **The real risk is the sitewide spam filter / shadowban system**, which targets _new/cold accounts behaving like bots_ — not the act of posting to your own sub. See [Part 6](#part-6--anti-robotic-playbook).
+- **The real risk is the sitewide spam filter / shadowban system**, which targets *new/cold accounts behaving like bots* — not the act of posting to your own sub. See [Part 6](#part-6--anti-robotic-playbook).
 
 ### App type — register a "script" app
 
 Register at **`https://www.reddit.com/prefs/apps/`**. Reddit has three OAuth2 app types:
 
-| Type          | Has secret? | Default flow       | Use case                                                                                         |
-| ------------- | ----------- | ------------------ | ------------------------------------------------------------------------------------------------ |
-| Web app       | Yes         | Authorization Code | Backend acting on _other users'_ accounts                                                        |
-| Installed app | No          | Code / Implicit    | Distributed to devices you don't control                                                         |
-| **Script**    | Yes         | **Password**       | "YOU are the only user… a simple bot to **make a weekly post to a subreddit that you moderate**" |
+| Type | Has secret? | Default flow | Use case |
+| --- | --- | --- | --- |
+| Web app | Yes | Authorization Code | Backend acting on *other users'* accounts |
+| Installed app | No | Code / Implicit | Distributed to devices you don't control |
+| **Script** | Yes | **Password** | "YOU are the only user… a simple bot to **make a weekly post to a subreddit that you moderate**" |
 
 **→ "script" is the textbook-correct choice.** Reddit's own documentation describes our exact use case under this type.
 
@@ -78,41 +77,41 @@ Reddit requires OAuth for all API access. Two viable flows for unattended postin
 - **Password flow (simplest):** credentials = `client_id`, `client_secret`, `username`, `password`. No browser dance. **Downside:** stores the account's real password in the secret store and **breaks if 2FA is ever enabled** (token then expires hourly and you must also store the TOTP secret).
 - **Refresh-token flow (recommended):** do a **one-time** browser authorization with `duration=permanent`, capture the long-lived `refresh_token`, then authenticate with only `client_id` + `client_secret` + `refresh_token`. **No password stored, survives 2FA, and the token can be scoped** (e.g. only `submit identity flair`) to limit blast radius if leaked.
 
-> ⚠️ **Refresh-token rotation caveat:** Reddit may hand back a _new_ refresh token each time the access token refreshes (single-use rotation). For unattended runs you must **write the rotated token back into Infisical** via a token-refresh callback. If the token turns out to be stable across refreshes for our low-frequency use, a `curl` skill stays simple; if it rotates, PRAW's `token_manager` handles write-back for you. **Action: test rotation behavior before committing to a pure-bash approach.**
+> ⚠️ **Refresh-token rotation caveat:** Reddit may hand back a *new* refresh token each time the access token refreshes (single-use rotation). For unattended runs you must **write the rotated token back into Infisical** via a token-refresh callback. If the token turns out to be stable across refreshes for our low-frequency use, a `curl` skill stays simple; if it rotates, PRAW's `token_manager` handles write-back for you. **Action: test rotation behavior before committing to a pure-bash approach.**
 
 ### Rate limits & API terms
 
-- **Free tier: 100 queries/minute per OAuth client** (averaged over 10 min, since 2023-07-01). A few posts/week + occasional reads is _orders of magnitude_ within free tier.
-- **The Data API Terms permit free, non-commercial, low-volume self-posting to your own sub**, provided it isn't spammy and isn't cross-posted to many subs. The commercial boundary is defined by _purpose and rate-limit excess_, not a published call-count. (StakTrakr is free; posting release notes isn't monetization. Revisit the "derive revenues" clause only if the app ever monetizes.)
-- **A descriptive `User-Agent` is mandatory** and format-enforced: `<platform>:<appid>:<version> (by /u/<username>)` — e.g. `python:com.staktrakr.release-bot:v1.0 (by /u/<owner>)`. Default agents (`python:urllib`) are throttled. _Never_ spoof it.
+- **Free tier: 100 queries/minute per OAuth client** (averaged over 10 min, since 2023-07-01). A few posts/week + occasional reads is *orders of magnitude* within free tier.
+- **The Data API Terms permit free, non-commercial, low-volume self-posting to your own sub**, provided it isn't spammy and isn't cross-posted to many subs. The commercial boundary is defined by *purpose and rate-limit excess*, not a published call-count. (StakTrakr is free; posting release notes isn't monetization. Revisit the "derive revenues" clause only if the app ever monetizes.)
+- **A descriptive `User-Agent` is mandatory** and format-enforced: `<platform>:<appid>:<version> (by /u/<username>)` — e.g. `python:com.staktrakr.release-bot:v1.0 (by /u/<owner>)`. Default agents (`python:urllib`) are throttled. *Never* spoof it.
 
 ### Secrets (Infisical)
 
 Store under project `stak-trakr-94m4` (suggest a `/reddit` folder), inject at runtime via `mcp__infisical__get-secret` or the Infisical CLI. Never commit; never let them reach the front-end bundle (they only run in the release/poller/CI context).
 
-| Secret                 | Refresh-token flow                     | Password flow |
-| ---------------------- | -------------------------------------- | ------------- |
-| `REDDIT_CLIENT_ID`     | ✅                                     | ✅            |
-| `REDDIT_CLIENT_SECRET` | ✅                                     | ✅            |
-| `REDDIT_REFRESH_TOKEN` | ✅                                     | —             |
-| `REDDIT_USERNAME`      | —                                      | ✅            |
-| `REDDIT_PASSWORD`      | —                                      | ✅            |
-| `REDDIT_USER_AGENT`    | ✅ (not secret, store for consistency) | ✅            |
+| Secret | Refresh-token flow | Password flow |
+| --- | --- | --- |
+| `REDDIT_CLIENT_ID` | ✅ | ✅ |
+| `REDDIT_CLIENT_SECRET` | ✅ | ✅ |
+| `REDDIT_REFRESH_TOKEN` | ✅ | — |
+| `REDDIT_USERNAME` | — | ✅ |
+| `REDDIT_PASSWORD` | — | ✅ |
+| `REDDIT_USER_AGENT` | ✅ (not secret, store for consistency) | ✅ |
 
 ---
 
 ## Part 3 — Tooling Decision
 
-| Option                                | Maturity                                                                                | Effort      | Fit for StakTrakr                                                                                                                                                                                     |
-| ------------------------------------- | --------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PRAW** (Python Reddit API Wrapper)  | Reference impl, actively maintained (7.8.1 stable; **8.0.0 in RC — pin `praw==7.8.1`**) | ~15 lines   | Most robust: handles rate limits, User-Agent contract, and refresh-token write-back for free. Adds a **Python dependency** to dev tooling.                                                            |
-| **Raw `curl`/bash skill**             | N/A (you own it)                                                                        | 2 API calls | **Zero new dependency** — best fit for the zero-build ethos. You re-implement backoff/UA discipline, but for one weekly post that's negligible. Refresh-token rotation write-back is awkward in bash. |
-| `jordanburke/reddit-mcp-server` (MCP) | 125★, MIT, active                                                                       | Config only | Best **write-capable** Reddit MCP (has `create_post`, safe-mode + bot-disclosure guardrails). But **password-flow only** and a young dependency.                                                      |
-| `Big-Comfy/community-scout-mcp` (MCP) | New, 0★, unlicensed                                                                     | Config only | Conceptually ideal (approval-gated, dry-run → approve → post) but unproven/unlicensed.                                                                                                                |
+| Option | Maturity | Effort | Fit for StakTrakr |
+| --- | --- | --- | --- |
+| **PRAW** (Python Reddit API Wrapper) | Reference impl, actively maintained (7.8.1 stable; **8.0.0 in RC — pin `praw==7.8.1`**) | ~15 lines | Most robust: handles rate limits, User-Agent contract, and refresh-token write-back for free. Adds a **Python dependency** to dev tooling. |
+| **Raw `curl`/bash skill** | N/A (you own it) | 2 API calls | **Zero new dependency** — best fit for the zero-build ethos. You re-implement backoff/UA discipline, but for one weekly post that's negligible. Refresh-token rotation write-back is awkward in bash. |
+| `jordanburke/reddit-mcp-server` (MCP) | 125★, MIT, active | Config only | Best **write-capable** Reddit MCP (has `create_post`, safe-mode + bot-disclosure guardrails). But **password-flow only** and a young dependency. |
+| `Big-Comfy/community-scout-mcp` (MCP) | New, 0★, unlicensed | Config only | Conceptually ideal (approval-gated, dry-run → approve → post) but unproven/unlicensed. |
 
-> **There is no battle-tested, widely-adopted Reddit _posting_ MCP.** The popular Reddit MCPs are read-only.
+> **There is no battle-tested, widely-adopted Reddit *posting* MCP.** The popular Reddit MCPs are read-only.
 
-**Recommendation for StakTrakr:** lean **`curl`/bash skill** to honor the zero-dependency philosophy, _or_ a small standalone **PRAW script invoked only at release time** if we want the robustness (rate-limit handling, token rotation, image/gallery helpers) and don't mind a Python dev-tool dependency. Both keep posting credentials entirely out of the runtime app.
+**Recommendation for StakTrakr:** lean **`curl`/bash skill** to honor the zero-dependency philosophy, *or* a small standalone **PRAW script invoked only at release time** if we want the robustness (rate-limit handling, token rotation, image/gallery helpers) and don't mind a Python dev-tool dependency. Both keep posting credentials entirely out of the runtime app.
 
 ### Reference: PRAW submit (self/text post + flair)
 
@@ -158,7 +157,7 @@ A drafting skill that produces an approval-ready post. **It drafts; a human appr
 
 ### Inputs (what "new since last update" means)
 
-1. **Primary source — `getEmbeddedWhatsNew()`** in `js/about.js`. These entries are _already_ plain-language, user-facing summaries that `/release` curates (e.g. "duplicate coins from Numista imports now get caught and merged safely"). This is the ideal feed — **not** raw `git log` / commit subjects.
+1. **Primary source — `getEmbeddedWhatsNew()`** in `js/about.js`. These entries are *already* plain-language, user-facing summaries that `/release` curates (e.g. "duplicate coins from Numista imports now get caught and merged safely"). This is the ideal feed — **not** raw `git log` / commit subjects.
 2. **Secondary — git range** `main@{last-release}..main` for anything not captured in What's New (and to confirm the version range).
 3. **Last-post anchor** — the date/version of the previous Reddit update, so the post covers only the delta. Store posted updates in `Projects/StakTrakr/Reddit Replies/` (or a new `Reddit Updates/` folder) for the anchor + an archive.
 
@@ -195,17 +194,14 @@ The repo ships canonical screenshots in `screenshots/` (e.g. `07-settings-about.
 **Phased rollout (mirrors the [[Spot Deals Feature Research]] phasing style):**
 
 ### Phase 0 — Manual (validate the voice)
-
 - `reddit-weekly` drafts the post; **human copies & posts manually**. No credentials yet.
 - Goal: confirm the auto-draft reads human and is worth automating.
 
 ### Phase 1 — Semi-automated post (human-in-the-loop)
-
 - Register the script app, store secrets in Infisical, build the `curl`/PRAW poster.
 - `reddit-weekly` drafts → human approves → skill posts. **Dry-run by default.**
 
 ### Phase 2 — `/ship`-triggered
-
 - `/ship` chains into `reddit-weekly` after the Release publishes.
 - Still human-approved before the actual submit (keep the gate — see anti-robotic). A fully hands-off post-merge hook is possible later but **not recommended initially** given shadowban risk.
 
@@ -214,38 +210,31 @@ The repo ships canonical screenshots in `screenshots/` (e.g. `07-settings-about.
 ## Part 6 — Anti-Robotic Playbook
 
 ### Voice
-
 First-person, conversational, a little self-deprecating and opinionated — exactly [[2026-06-03 reply to PumpkinCrouton]]. Matches the brand ("sharp, capable, empowering"). Admit tradeoffs and what's still rough. No marketing superlatives.
 
 ### Structure of a weekly post
-
-- **Lead with the _why_, not the version number.** "Spot prices were lagging on mobile — fixed, plus here's what else landed" ≫ "v3.35.14 — STRK-167…".
+- **Lead with the *why*, not the version number.** "Spot prices were lagging on mobile — fixed, plus here's what else landed" ≫ "v3.35.14 — STRK-167…".
 - Short intro → 2–4 plain-language highlights (what + why) → optional nerd corner → a question to the community.
 - **Length:** a few hundred words — handwritten-feeling, skimmable.
 - **Vary titles week to week.** Templated titles ("StakTrakr Weekly Update #14") are a spam signal. "This week: faster mobile charts + Libertad support" reads human.
 - **Never paste the raw CHANGELOG or commit subjects.** Translate `STRK-167` → "duplicate Numista coins now merge safely."
 
 ### Self-promotion norms (90/10)
-
-The sitewide "1-in-10" rule governs behavior across _other_ subs you don't run. **On your own dedicated subreddit it largely doesn't bind you** — that's the sanctioned outlet the rule itself points to. Subscribers are there for StakTrakr news.
+The sitewide "1-in-10" rule governs behavior across *other* subs you don't run. **On your own dedicated subreddit it largely doesn't bind you** — that's the sanctioned outlet the rule itself points to. Subscribers are there for StakTrakr news.
 
 ### Screenshots — how they actually embed
-
 A Reddit text/self post **does not render `![](url)` markdown images.** Real options:
-
-- **Native image post** — single screenshot _as_ the post.
+- **Native image post** — single screenshot *as* the post.
 - **Gallery post** — multiple screenshots, one post (PRAW `submit_gallery`, per-image captions).
 - **Reddit-hosted inline media in a self post** — PRAW `InlineImage` + `{placeholder}` tokens in `selftext`; uploads to i.redd.it and embeds inline. **Best for a blog-style update with 1–2 hero screenshots.**
 - Text post + `i.redd.it`/imgur **links** — renders as a link, not an embed.
 
 ### Markdown, flair, cadence
-
 - Works on Reddit: headers, bold/italic, lists, `>` blockquotes, code fences, tables, and **superscript** (`^(text)`) — the idiomatic way to add a small bot-disclosure footer.
 - Create a consistent **"Release"/"Update" flair** so subscribers can filter.
 - **Cadence:** weekly, tied to the ship. Posts ≥24h apart; never burst.
 
 ### ⚠️ The biggest pitfall — cold-account auto-posting → shadowban
-
 - 2026 sources converge: a brand-new account that immediately auto-posts links is the **highest-risk category** for a silent shadowban. Shadowbans are **invisible** — you see your post, nobody else does; no error is returned.
 - **Mitigations:**
   - **Post from the owner's aged, real account** — not a freshly minted bot account. Account age + karma form a trust score. (~30 days + ~100 karma clears most filters.)
@@ -262,7 +251,7 @@ A Reddit text/self post **does not render `![](url)` markdown images.** Real opt
 - [ ] **Which subreddit** is the target (confirm the exact `r/…` name and that the owner moderates it).
 - [ ] **Posting account:** owner's personal aged account (recommended) vs. a dedicated warmed-up bot account.
 - [ ] **Auth flow:** refresh token (safer, recommended) vs. password (simpler). Decide before registering the app.
-- [ ] **Posting tool:** `curl`/bash skill (zero-dep, on-ethos) vs. PRAW script (robust, +Python).
+- [ ] **Posting tool:** `curl`/bash skill (zero-dep, on-ethos) vs. PRAW script (robust, +Python). 
 - [ ] **Approval gate:** keep human-in-the-loop indefinitely (recommended) vs. eventually fully auto post-merge.
 - [ ] **Screenshot strategy:** inline images in a self post vs. gallery post as the default format.
 - [ ] **Archive location:** new `Projects/StakTrakr/Reddit Updates/` folder for posted-update history + last-post anchor?
@@ -272,11 +261,11 @@ A Reddit text/self post **does not render `![](url)` markdown images.** Real opt
 
 ## Implementation Phases (summary)
 
-| Phase | Deliverable                                      | Credentials needed             |
-| ----- | ------------------------------------------------ | ------------------------------ |
-| **0** | `reddit-weekly` drafts; human posts manually     | None                           |
+| Phase | Deliverable | Credentials needed |
+| --- | --- | --- |
+| **0** | `reddit-weekly` drafts; human posts manually | None |
 | **1** | Skill posts via approved draft (dry-run default) | Script app + Infisical secrets |
-| **2** | `/ship` chains into `reddit-weekly` post-Release | Same; keep approval gate       |
+| **2** | `/ship` chains into `reddit-weekly` post-Release | Same; keep approval gate |
 
 ---
 

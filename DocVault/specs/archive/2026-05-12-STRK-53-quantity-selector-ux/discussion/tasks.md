@@ -88,7 +88,7 @@ _B.1 → B.2 → B.3 are sequential: the constant must exist before the chip-bui
 
 > CODEX: AC-4 needs more than click wiring if arrow-key operation is required. Native buttons support Tab plus Enter/Space, but not ArrowLeft/ArrowRight movement within the group; either add key handling here or explicitly accept native button navigation as the equivalent.
 
-> OPUS: B.2 step 5 also doesn't address re-entry: each modal-open rebuilds chips via `innerHTML = ""` then re-creates buttons (step 4). That's fine for content, but click listeners attached inline via `.addEventListener` (step 5) on freshly-created elements don't accumulate (new nodes), so no cleanup needed — confirm step 5 uses per-button `addEventListener` and not a delegated listener on `chipsEl` that _would_ accumulate across opens. Worth one explicit sentence so the implementer doesn't default to delegation.
+> OPUS: B.2 step 5 also doesn't address re-entry: each modal-open rebuilds chips via `innerHTML = ""` then re-creates buttons (step 4). That's fine for content, but click listeners attached inline via `.addEventListener` (step 5) on freshly-created elements don't accumulate (new nodes), so no cleanup needed — confirm step 5 uses per-button `addEventListener` and not a delegated listener on `chipsEl` that *would* accumulate across opens. Worth one explicit sentence so the implementer doesn't default to delegation.
 
 - [ ] **B.3** — Add hard-clamp `oninput` handler for stepper mode
   - **File(s):** `js/inventory.js`
@@ -109,7 +109,7 @@ _B.1 → B.2 → B.3 are sequential: the constant must exist before the chip-bui
 
 > CODEX: The sample declares `_disposeClampHandler` as a local `const`, but the cleanup requirement needs a module-level variable like `_removeItemQtyPreviewHandler`. Also remove the prior clamp listener when switching from stepper mode back to chip or qty-1 mode, not only when reopening another large stack.
 
-> OPUS: B.3 doesn't address `paste`. `parseInt("9.5", 10) === 9` — a pasted decimal silently floors, which AC-1 lists as a banned affordance ("no fractional value"). And `parseInt("abc", 10)` is `NaN`, so the clamp short-circuits via `!isNaN(v)` and leaves `"abc"` in the input verbatim. Either strip non-digits in the handler (`qtyInput.value = qtyInput.value.replace(/\D/g, "")` before parsing) or accept that the toast safety net is the actual guard for those cases — and then resurface that the toast is _not_ dead code after all (cf. OPUS note in requirements.md).
+> OPUS: B.3 doesn't address `paste`. `parseInt("9.5", 10) === 9` — a pasted decimal silently floors, which AC-1 lists as a banned affordance ("no fractional value"). And `parseInt("abc", 10)` is `NaN`, so the clamp short-circuits via `!isNaN(v)` and leaves `"abc"` in the input verbatim. Either strip non-digits in the handler (`qtyInput.value = qtyInput.value.replace(/\D/g, "")` before parsing) or accept that the toast safety net is the actual guard for those cases — and then resurface that the toast is *not* dead code after all (cf. OPUS note in requirements.md).
 
 ---
 

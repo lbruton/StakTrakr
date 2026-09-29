@@ -87,7 +87,7 @@ _TDD red phase. Write Playwright tests encoding the acceptance criteria. Tests M
     - AC-9: Missing/re-disposed/restored linked items handled gracefully
     - AC-10: Trade Gain/Loss label and calculation
     - D-12 coverage (re-link conflict): Confirmation dialog when linking already-linked item — maps to AC-1 (line 37: confirmation dialog for already-linked items) and AC-6 (line 70: reassign confirmation)
-      All new tests fail (red). Update `tests/playwright/coverage-map.csv` with new test entries.
+    All new tests fail (red). Update `tests/playwright/coverage-map.csv` with new test entries.
   - **Depends on:** A.1–A.6 (HTML markup, helpers, field registrations exist)
   - **Leverage:** Existing disposition tests at `tests/playwright/core/disposition.spec.js:296`. Use `showAppConfirm` DOM-based dialog testing pattern (not `page.on("dialog")`).
   - **Maps to:** AC-1 through AC-10
@@ -193,23 +193,23 @@ _TDD green phase. Write the minimum behavioral logic to make all Cohort B tests 
 
 ## File-Map Cross-Check
 
-| Approach File Map entry                           | Task(s)                              | Status  |
-| ------------------------------------------------- | ------------------------------------ | ------- |
-| `index.html`                                      | A.5                                  | Covered |
-| `js/inventory.js`                                 | C.1                                  | Covered |
-| `js/viewModal.js`                                 | C.3                                  | Covered |
-| `js/events.js`                                    | C.4                                  | Covered |
-| `js/utils.js`                                     | A.1                                  | Covered |
-| `js/changeLog.js`                                 | A.3 (field list), C.2 (toggleChange) | Covered |
-| `js/diff-engine.js`                               | A.3                                  | Covered |
-| `js/cloud-sync.js`                                | A.3                                  | Covered |
-| `js/inventory-backup.js`                          | A.3                                  | Covered |
-| `js/inventory-import.js`                          | A.4                                  | Covered |
-| `js/types.js`                                     | A.2                                  | Covered |
-| `css/styles.css`                                  | A.6                                  | Covered |
-| `tests/playwright/core/disposition.spec.js`       | B.1                                  | Covered |
-| `tests/playwright/core/import-export.spec.js`     | B.2                                  | Covered |
-| `tests/playwright/core/attachments-cloud.spec.js` | B.3                                  | Covered |
+| Approach File Map entry | Task(s) | Status |
+|-------------------------|---------|--------|
+| `index.html` | A.5 | Covered |
+| `js/inventory.js` | C.1 | Covered |
+| `js/viewModal.js` | C.3 | Covered |
+| `js/events.js` | C.4 | Covered |
+| `js/utils.js` | A.1 | Covered |
+| `js/changeLog.js` | A.3 (field list), C.2 (toggleChange) | Covered |
+| `js/diff-engine.js` | A.3 | Covered |
+| `js/cloud-sync.js` | A.3 | Covered |
+| `js/inventory-backup.js` | A.3 | Covered |
+| `js/inventory-import.js` | A.4 | Covered |
+| `js/types.js` | A.2 | Covered |
+| `css/styles.css` | A.6 | Covered |
+| `tests/playwright/core/disposition.spec.js` | B.1 | Covered |
+| `tests/playwright/core/import-export.spec.js` | B.2 | Covered |
+| `tests/playwright/core/attachments-cloud.spec.js` | B.3 | Covered |
 
 **Result:** All 15 approach File Map entries have corresponding tasks. No task references files outside the File Map.
 

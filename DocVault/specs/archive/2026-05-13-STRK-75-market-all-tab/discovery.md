@@ -10,12 +10,12 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ## Existing Code
 
-| Path                          | Role                                                                           | Notes                                                                                                                                                                                                                                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/market-data.js:1172-1316` | Builds vendor price section, tab bar, active-tab persistence, table footer     | Primary touch point                                                                                                                                                                                                                                                                                     |
-| `js/market-data.js:1266-1274` | Defines available metal tab order: Gold, Silver, Platinum, Palladium, Goldback | Tab list construction lives here                                                                                                                                                                                                                                                                        |
-| `js/market-data.js:1276-1281` | Reads `vendorPricesActiveTab` from localStorage with fallback `xag`            | Fallback must change to `all`                                                                                                                                                                                                                                                                           |
-| `js/market-data.js:878-1170`  | Renders a single-metal table — rows filtered by `isoCode === metalCode`        | Needs a "scope = all" code path. **Core risk:** `spotPrice` at line 1033 uses the function-level `metalCode` — All-mode must carry each row's ISO metal through premium calculation or gold/silver/platinum premiums silently break. Goldback still uses `_goldbackG1Rate` fallback at lines 1122-1125. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/market-data.js:1172-1316` | Builds vendor price section, tab bar, active-tab persistence, table footer | Primary touch point |
+| `js/market-data.js:1266-1274` | Defines available metal tab order: Gold, Silver, Platinum, Palladium, Goldback | Tab list construction lives here |
+| `js/market-data.js:1276-1281` | Reads `vendorPricesActiveTab` from localStorage with fallback `xag` | Fallback must change to `all` |
+| `js/market-data.js:878-1170` | Renders a single-metal table — rows filtered by `isoCode === metalCode` | Needs a "scope = all" code path. **Core risk:** `spotPrice` at line 1033 uses the function-level `metalCode` — All-mode must carry each row's ISO metal through premium calculation or gold/silver/platinum premiums silently break. Goldback still uses `_goldbackG1Rate` fallback at lines 1122-1125. |
 
 | `js/market-data.js:981-983` | Builds vendor column set from selected rows | All tab needs union of vendors across all groups |
 | `js/retail.js:256-278` | Active slug and metadata helpers, including manifest/hardcoded/Goldback fallback | Reuse for grouping logic. **Parity gap:** tab-availability scan at `js/market-data.js:1247-1254` falls back to `{ metal: "unknown" }` while row rendering at lines 896-900 uses `window.getRetailCoinMeta()`. Tab detection and row rendering must use the same metadata fallback or Goldback/parser-only slugs can be classified differently between the tab list and the table body. |
@@ -86,7 +86,6 @@ _Reconciled by /sketch reconcile on 2026-05-13. Original reviewer marks preserve
 - The implementation can stay entirely in `js/market-data.js` without extracting helper functions for testability.
 
 ### Resolution Summary
-
 - Accepted: 3
 - Rejected: 1 (Constraint 7 relevance — kept but deprioritized as general project constraint)
 - Resolved with your input: 0

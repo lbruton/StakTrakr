@@ -23,13 +23,13 @@ The only files that change are `index.html` (one new `<div>` inside the existing
 
 ## Key Decisions
 
-| #   | Decision                                                           | Rationale                                                                                                                                                                                                       | Tradeoff                                                                                                                                                         |
-| --- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D-1 | Chip toggle (`role="group"` + `aria-pressed` buttons) for N 2..8   | Reuses `.chip-sort-toggle` — zero new CSS, fully eliminates invalid states, keyboard-native, visually consistent with Lot/Each toggle already in the modal                                                      | Buttons crowd at N = 8; threshold is adjustable via a named constant                                                                                             |
-| D-2 | Hard-clamped `type="number"` for N > 8                             | Large-stack users need to type (e.g. "47" of 50); a `<select>` with 50 options fails AC-5 for mouse users; clamping on `oninput` makes invalid values impossible to persist long enough to submit               | Transient mid-keystroke invalid state exists (e.g. "9" while typing "99"); `confirmRemoveItem` always reads the post-clamp value, so submission is never invalid |
-| D-3 | Keep `#removeItemQty` as authoritative value carrier in both modes | Minimizes cascading changes to `confirmRemoveItem`, `_removeItemQtyPreviewHandler`, and `setDisposeQty`; chips sync to it via JS dispatch, test helper fills it via `page.evaluate` (bypasses visibility check) | Hidden input in chip mode is indirect — a one-line comment in the chip click handler documents the pattern                                                       |
-| D-4 | Stack qty = 1 → hide control entirely (AC-3 option a)              | Single-item stacks have no partial disposition decision; showing a pre-selected "1" adds visual noise for no input value                                                                                        | If future work needs to surface qty 1 as a choice, the hide gate in `openRemoveItemModal` is the obvious place to revisit                                        |
-| D-5 | Chip threshold constant = 8, extracted as `DISPOSE_CHIP_QTY_MAX`   | 8 buttons fit comfortably in a modal row on mobile; common real-world stacks (rolls of 20 divided, tubes of 10) fall under 8; the constant name makes it easy to tune without a code search                     | Arbitrary UX judgment; team may prefer 5 or 6                                                                                                                    |
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Chip toggle (`role="group"` + `aria-pressed` buttons) for N 2..8 | Reuses `.chip-sort-toggle` — zero new CSS, fully eliminates invalid states, keyboard-native, visually consistent with Lot/Each toggle already in the modal | Buttons crowd at N = 8; threshold is adjustable via a named constant |
+| D-2 | Hard-clamped `type="number"` for N > 8 | Large-stack users need to type (e.g. "47" of 50); a `<select>` with 50 options fails AC-5 for mouse users; clamping on `oninput` makes invalid values impossible to persist long enough to submit | Transient mid-keystroke invalid state exists (e.g. "9" while typing "99"); `confirmRemoveItem` always reads the post-clamp value, so submission is never invalid |
+| D-3 | Keep `#removeItemQty` as authoritative value carrier in both modes | Minimizes cascading changes to `confirmRemoveItem`, `_removeItemQtyPreviewHandler`, and `setDisposeQty`; chips sync to it via JS dispatch, test helper fills it via `page.evaluate` (bypasses visibility check) | Hidden input in chip mode is indirect — a one-line comment in the chip click handler documents the pattern |
+| D-4 | Stack qty = 1 → hide control entirely (AC-3 option a) | Single-item stacks have no partial disposition decision; showing a pre-selected "1" adds visual noise for no input value | If future work needs to surface qty 1 as a choice, the hide gate in `openRemoveItemModal` is the obvious place to revisit |
+| D-5 | Chip threshold constant = 8, extracted as `DISPOSE_CHIP_QTY_MAX` | 8 buttons fit comfortably in a modal row on mobile; common real-world stacks (rolls of 20 divided, tubes of 10) fall under 8; the constant name makes it easy to tune without a code search | Arbitrary UX judgment; team may prefer 5 or 6 |
 
 > CODEX: D-1 says "keyboard-native," but button groups do not get radio-group arrow behavior from `role="group"`/`aria-pressed`. If AC-4 expects arrow-key changes within the chip set, the approach needs a roving-tabindex/radio-group-style handler or the AC should explicitly accept Tab + Enter/Space as the equivalent interaction.
 
@@ -40,11 +40,9 @@ The only files that change are `index.html` (one new `<div>` inside the existing
 ## File Map
 
 ### New
-
 _(none)_
 
 ### Modified
-
 - `index.html` — add `#removeItemQtyChips` chip container `<div>` inside the existing `#removeItemQtyGroup` `.form-group`; keep `#removeItemQty` `<input>` unchanged except add `style="display:none"` as the initial state (shown/hidden by JS alongside chips)
 - `js/inventory.js` — update `openRemoveItemModal`: extract `DISPOSE_CHIP_QTY_MAX = 8` constant near function; add chip-builder branch that creates `<button>` elements inside `#removeItemQtyChips`, wires click → `removeItemQty.value = n; removeItemQty.dispatchEvent(new Event('input'))`; add `oninput` clamp handler for stepper mode; no changes to `confirmRemoveItem`, `splitInventoryItem`, `_removeItemQtyPreviewHandler`, or `changeLog` logic
 - `tests/playwright/inventory/partial-stack-disposition.spec.js` — update `setDisposeQty(page, qty)` helper only: detect mode (chip vs stepper) and for chip mode use `page.evaluate` to set `#removeItemQty.value` + dispatch `input`; for stepper mode `page.fill` continues to work unchanged; no changes to any assertion
@@ -54,7 +52,6 @@ _(none)_
 > OPUS: File Map omits focus management. Today's modal almost certainly autofocuses `#removeItemQty` (verify in discovery). In chip mode that input is `display:none`; the browser will skip it on Tab and focus will land wherever the modal's first non-hidden tabstop is. Decide explicitly: focus the auto-selected last chip, focus the disposition reason field, or rely on whatever happens. Don't ship "whatever happens."
 
 ### Deleted
-
 _(none)_
 
 ## Data / Schema Changes

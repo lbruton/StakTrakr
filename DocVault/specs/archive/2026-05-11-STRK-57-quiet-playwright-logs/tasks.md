@@ -123,3 +123,4 @@ The tasks below depend on PR review and merge, which happen outside this sketch'
 - [x] AC-1 — verified by B.1 (zero `[WebServer]` lines in `01-page-load.spec.js`, 12/12 passed) and B.2 (zero `[WebServer]` lines in full 606-test suite)
 - [x] AC-2 — verified by B.3 (renamed `css/styles.css` → test 1.4 failed at Playwright assertion layer; zero `[WebServer]` lines and zero `code 404` lines in output)
 - [x] AC-3 — verified by B.2 (606 tests, 604 passed; 2 failures verified pre-existing on clean dev HEAD `de15913f`: `stak-437-search-tab-removal.spec.js:384` is a state-flake, `theme-tokens.spec.js:20` is a CORS-race that passes in isolation)
+

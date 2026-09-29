@@ -55,65 +55,54 @@ enabled — no separate toggle.
 > AC-8…AC-10 encode the convergence contract and STRK-141 regression guard.
 
 ### AC-1 — Cross-device union (maps to US-1, US-2)
-
 - **WHEN** two devices each add different history entries for the same Item UUID and then
   sync, the system **SHALL** result in both devices holding the union of both devices'
   entries for that UUID.
 
 ### AC-2 — Idempotent / convergent (maps to US-2)
-
 - **WHEN** a sync runs again with no new local or remote changes, the system **SHALL** make
   no further changes to item-price-history (the merge is idempotent and convergent on ties).
 
 ### AC-3 — Same-timestamp distinct preservation (maps to US-2)
-
 - **IF** two history entries share the same `ts` but differ in any value field
   (`itemName`, `retail`, `spot`, `melt`), **THEN** the system **SHALL** preserve both
   entries; exact-duplicate entries (all fields equal) **SHALL** collapse to one.
 
 ### AC-4 — History-only push trigger (maps to US-1, US-3)
-
 - **WHEN** item-price-history is saved and Cloud Sync is available, the system **SHALL**
   schedule a (debounced) sync push even when inventory is otherwise unchanged.
 
 ### AC-5 — Silent metadata-only merge (maps to US-3)
-
 - **WHEN** a remote pull differs only in item-price-history companion-vault metadata, the
   system **SHALL** download and merge the companion vault **WITHOUT** presenting an
   item/settings diff modal to the user.
 
 ### AC-6 — Orphan prevention (maps to US-2)
-
 - **IF** a remote-added Item is rejected in the diff modal, **THEN** the system **SHALL NOT**
   import that Item's remote price history (remote history is filtered to UUIDs present in the
   accepted inventory boundary).
 
 ### AC-7 — Partial-failure safety (maps to US-3, US-4)
-
 - **IF** the item-price-history merge write fails (e.g. storage quota), **THEN** the system
   **SHALL NOT** advance `lastPull`, and **SHALL** record a partial/error state so the next
   poll retries.
 
 ### AC-8 — Lightweight manifest (maps to US-3)
-
 - The system **SHALL** keep full item-price-history JSON out of the change-detection
   manifest; only a companion-vault `{hash, count}` metadata pointer **SHALL** appear on the
   sync metadata payload.
 
 ### AC-9 — Logical, commutative convergence (maps to US-2)
-
 - The system **SHALL** compare and hash item-price-history on normalized logical content
   (decompressed, JSON-parsed, sorted UUIDs, entries sorted by numeric `ts`, stable-
   stringified) so that compression-vs-plain and key-order variants do not produce phantom
   conflicts, and the merge **SHALL** be commutative (`merge(A,B) == merge(B,A)`).
 
 ### AC-10 — Retention preserved (maps to US-4)
-
 - **WHEN** entries are merged, the system **SHALL** apply the existing retention cap
   (`applyItemPriceRetention`: 365 days / 1000 entries per UUID) after merging, before saving.
 
 ### AC-11 — STRK-141 boundaries preserved (maps to US-4)
-
 - The system **SHALL** keep spot/retail market histories out of cloud auto-sync scope, and
   **SHALL** keep `item-price-history` out of `SYNC_SCOPE_KEYS` (no LWW settings path) while
   it remains in `ALLOWED_STORAGE_KEYS` for cleanup and manual backup. The existing guard

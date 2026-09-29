@@ -63,7 +63,7 @@ _TDD red phase. Each test encodes acceptance criteria BEFORE implementation and 
     - (ii) a **failing/empty** goldback fetch leaves the **previously-rendered chip intact** (no throw, no blank-out) [**AC-5**];
     - (iii) market-table goldback **premium cells render in the same paint** as spot-based premiums when a fresh cached `goldbackPrices['1']` exists [**AC-6**];
     - (iv) after the goldback **network fetch resolves**, the premium cell reflects the **updated** rate [**AC-7**].
-      All four **fail (red)** until C.3 (repaint) and C.4 (seed + re-render) land.
+    All four **fail (red)** until C.3 (repaint) and C.4 (seed + re-render) land.
   - **Read first:** `approach.md` §UI Contract — these map to the named states "GB chip painted", "GB chip unchanged on fetch failure", "premiums in lockstep". No mockup artifact exists (behavioral fix to existing components), so visual verification is manual inspection on a normal load.
   - **Leverage:** `renderRatioChip` (`spot-ratio-chips.js:211`); three gated cell builders `_buildTickerItem` (`:386`) / `_buildModalVendorRow` (`:879`) / `_buildVendorPriceCell` (`:1354`); existing gold-card surfaces (`smoke.spec.js:185-193`).
   - **Maps to:** AC-4, AC-5, AC-6, AC-7
@@ -140,11 +140,11 @@ _TDD green phase. Minimum code to make Cohort B tests pass. Tasks depend on the 
 
 _`approach.md` carries a `## UI Contract`, so each named UI state maps to its implementing task(s), verifying assertion(s), and visual-verification method. **Mockup Artifacts: none** — this is a behavioral fix to pre-existing components (no playground/prototype/screenshot to bind to), so the "every cited mockup appears in a task" rule is vacuously satisfied. Visual verification is manual inspection on a **normal (non-hard-refresh) load** against the live component's known-good hard-refresh rendering._
 
-| UI State (approach.md)                                    | Implementing task(s) | Verifying test assertion(s)                                                                                 | Visual-verification method                                                                                                                                                                                      |
-| --------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Gold card — GB chip painted (normal load)** (AC-4)      | C.3                  | B.3 (i) — GB chip element present in DOM after async goldback fetch resolves                                | Manual: load normally (no `Cmd/Ctrl+Shift+R`); confirm the GB badge appears on the gold card; compare to the hard-refresh rendering of `renderRatioChip` (`spot-ratio-chips.js:211`)                            |
-| **Gold card — GB chip unchanged on fetch failure** (AC-5) | C.3 (guarded)        | B.3 (ii) — prior chip intact after a failing/empty fetch                                                    | Manual: force a failed/empty goldback fetch; confirm the previously-rendered chip is unchanged (no throw, no blank-out)                                                                                         |
-| **Market table — premiums in lockstep** (AC-6 → AC-7)     | C.4                  | B.3 (iii)+(iv) — premium cells render same-paint, then update post-network; B.4 — seed-selection unit logic | Manual: load normally; confirm goldback premium cells (`_buildVendorPriceCell` / `_buildTickerItem` / `_buildModalVendorRow`) appear **with** spot premiums (no 1–2 s lag), then refine after the network fetch |
+| UI State (approach.md) | Implementing task(s) | Verifying test assertion(s) | Visual-verification method |
+|------------------------|----------------------|-----------------------------|----------------------------|
+| **Gold card — GB chip painted (normal load)** (AC-4) | C.3 | B.3 (i) — GB chip element present in DOM after async goldback fetch resolves | Manual: load normally (no `Cmd/Ctrl+Shift+R`); confirm the GB badge appears on the gold card; compare to the hard-refresh rendering of `renderRatioChip` (`spot-ratio-chips.js:211`) |
+| **Gold card — GB chip unchanged on fetch failure** (AC-5) | C.3 (guarded) | B.3 (ii) — prior chip intact after a failing/empty fetch | Manual: force a failed/empty goldback fetch; confirm the previously-rendered chip is unchanged (no throw, no blank-out) |
+| **Market table — premiums in lockstep** (AC-6 → AC-7) | C.4 | B.3 (iii)+(iv) — premium cells render same-paint, then update post-network; B.4 — seed-selection unit logic | Manual: load normally; confirm goldback premium cells (`_buildVendorPriceCell` / `_buildTickerItem` / `_buildModalVendorRow`) appear **with** spot premiums (no 1–2 s lag), then refine after the network fetch |
 
 ---
 

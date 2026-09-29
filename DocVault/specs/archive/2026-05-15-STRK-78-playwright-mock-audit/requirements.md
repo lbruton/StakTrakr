@@ -20,9 +20,8 @@ reconciled: 2026-05-15
 > Additional external surfaces beyond the original issue body, found in app code and/or current specs: `api2.staktrakr.com` (`js/constants.js:531-535`, `js/retail.js:639-664`), `cdn.jsdelivr.net` (`index.html:333-336`), dealer URLs (`herobullion.com`, `apmex.com`, `bullionexchanges.com`, `goldback.com`, `jmbullion.com`), and the cloud-sync providers (Dropbox/Box/pCloud). Discovery must produce the full inventory.
 >
 > **Two workstreams:**
->
 > 1. **Mock all external API calls** at the test boundary — add `page.route()` (or shared fixture installers) to every spec file that actually triggers external requests. Note: not all 44 unmocked files trigger external traffic; `config-validation.spec.js` (94 tests) is pure filesystem validation and `about-page.spec.js` (45 tests) loads only local assets — together 139 tests need no mocking. Discovery must classify the remaining 42 files.
-> 2. **Consolidate redundant tests** — verified clusters: Numista catalog (34 tests across `numista-picker-tags.spec.js` (26), `numista-search.spec.js` (5), `numista-not-configured.spec.js` (3)); view modal (34 tests across `view-modal-chart-scaling.spec.js` (18), `view-modal-no-auto-resync.spec.js` (5), `view-modal-numista-merge.spec.js` (11)); cloud sync (26 tests across `cloud-sync-header-button.spec.js` (3), `cloud-sync.spec.js` (9), `settings-cloud-tab.spec.js` (9), `view-modal-no-auto-resync.spec.js` (5)). "Market data" is _not_ a verified cluster — ~17 files reference "market" but most are settings/retail specs with incidental market content; discovery must define the consolidation boundary precisely.
+> 2. **Consolidate redundant tests** — verified clusters: Numista catalog (34 tests across `numista-picker-tags.spec.js` (26), `numista-search.spec.js` (5), `numista-not-configured.spec.js` (3)); view modal (34 tests across `view-modal-chart-scaling.spec.js` (18), `view-modal-no-auto-resync.spec.js` (5), `view-modal-numista-merge.spec.js` (11)); cloud sync (26 tests across `cloud-sync-header-button.spec.js` (3), `cloud-sync.spec.js` (9), `settings-cloud-tab.spec.js` (9), `view-modal-no-auto-resync.spec.js` (5)). "Market data" is *not* a verified cluster — ~17 files reference "market" but most are settings/retail specs with incidental market content; discovery must define the consolidation boundary precisely.
 >
 > Additional improvements to evaluate in discovery/approach: `fullyParallel: true` + `workers: 4+`, `test.slow()` markers, MSW as a global mock layer (see Non-Goals — currently deferred), `@network` tagging policy.
 >
@@ -36,7 +35,7 @@ Audit the Playwright suite, eliminate all real external API calls by mocking the
 
 **Scoping clarification — not all "unmocked" files need mocks.** Of the 44 spec files without `page.route()`, two are confirmed to make zero external requests: `config-validation.spec.js` (94 tests, pure filesystem checks) and `about-page.spec.js` (45 tests, static local HTML). That's 139 tests with no mocking work. The remaining 42 files must be classified during discovery as "actually triggers external requests" vs "pure UI/localStorage/filesystem"; only the former need route handlers.
 
-**Parallel-readiness is broader than mocking.** Mock isolation is necessary but not sufficient for `fullyParallel: true`. Shared localStorage state, file-descriptor pressure under multiple Chromium workers, and test-order side effects are independent risks. AC-6 below scopes this sketch to the _readiness audit_ (which names and files those risks as follow-ups), not the actual parallel flip.
+**Parallel-readiness is broader than mocking.** Mock isolation is necessary but not sufficient for `fullyParallel: true`. Shared localStorage state, file-descriptor pressure under multiple Chromium workers, and test-order side effects are independent risks. AC-6 below scopes this sketch to the *readiness audit* (which names and files those risks as follow-ups), not the actual parallel flip.
 
 ## User Stories
 
@@ -137,23 +136,23 @@ _Reconciled by `/sketch reconcile` on 2026-05-15. Original reviewer marks preser
 
 ##### Verified
 
-| Claim                                        | Status                | Evidence                                                                                                                             |
-| -------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 55 spec files                                | **Incorrect**         | 56 files. `find tests/playwright -name '*.spec.js' \| wc -l → 56`                                                                    |
-| 647 tests                                    | **Incorrect**         | 643 tests. `rg -c '^\s*(test\|test\.skip)\(' tests/playwright -g '*.spec.js' \| awk -F: '{s+=$2} END {print s}' → 643`               |
-| 19 files have `page.route()`                 | **Incorrect**         | 12 files. `rg -l 'page\.route\(' tests/playwright -g '*.spec.js' \| wc -l → 12`                                                      |
-| 26 files lack `page.route()`                 | **Incorrect**         | 44 files. `find ... -exec grep -L ... → 44`                                                                                          |
-| ~223 tests unmocked                          | **Incorrect**         | 472 tests in unmocked files                                                                                                          |
-| `fullyParallel: false`, `workers: 1`         | **Correct**           | `playwright.config.js:5-6`                                                                                                           |
-| `test:offline` uses `--grep-invert @network` | **Correct**           | `package.json:9`                                                                                                                     |
-| Reference mock files exist                   | **Partially correct** | Files exist but at wrong paths: both under `tests/playwright/` root, not `tests/playwright/11-market-data/`                          |
-| Priority file test counts                    | **Correct**           | settings-currency (7), goldback-type (16), silverback (10), filter-chip-and-logic (14), numista-picker-tags (26), numista-search (5) |
-| View modal: 34 tests / 3 files               | **Correct**           | 18+5+11=34 across 3 files                                                                                                            |
-| Numista catalog: 34 tests / 3 files          | **Correct**           | 26+5+3=34 across 3 files                                                                                                             |
-| `retries` 0 local, 1 CI                      | **Correct**           | `playwright.config.js:7` (`process.env.CI ? 1 : 0`)                                                                                  |
-| `api.numista.com` as a rate-limit target     | **Unverified**        | Zero occurrences in any test file. Match in source code, not tests.                                                                  |
-| Cloud sync: 35 tests / 5+ files              | **Incorrect**         | 26 tests across 4 files                                                                                                              |
-| Market data: 54 tests / 5 files              | **Unclear**           | No clear boundaries; ~17 files reference "market"                                                                                    |
+| Claim | Status | Evidence |
+|-------|--------|----------|
+| 55 spec files | **Incorrect** | 56 files. `find tests/playwright -name '*.spec.js' \| wc -l → 56` |
+| 647 tests | **Incorrect** | 643 tests. `rg -c '^\s*(test\|test\.skip)\(' tests/playwright -g '*.spec.js' \| awk -F: '{s+=$2} END {print s}' → 643` |
+| 19 files have `page.route()` | **Incorrect** | 12 files. `rg -l 'page\.route\(' tests/playwright -g '*.spec.js' \| wc -l → 12` |
+| 26 files lack `page.route()` | **Incorrect** | 44 files. `find ... -exec grep -L ... → 44` |
+| ~223 tests unmocked | **Incorrect** | 472 tests in unmocked files |
+| `fullyParallel: false`, `workers: 1` | **Correct** | `playwright.config.js:5-6` |
+| `test:offline` uses `--grep-invert @network` | **Correct** | `package.json:9` |
+| Reference mock files exist | **Partially correct** | Files exist but at wrong paths: both under `tests/playwright/` root, not `tests/playwright/11-market-data/` |
+| Priority file test counts | **Correct** | settings-currency (7), goldback-type (16), silverback (10), filter-chip-and-logic (14), numista-picker-tags (26), numista-search (5) |
+| View modal: 34 tests / 3 files | **Correct** | 18+5+11=34 across 3 files |
+| Numista catalog: 34 tests / 3 files | **Correct** | 26+5+3=34 across 3 files |
+| `retries` 0 local, 1 CI | **Correct** | `playwright.config.js:7` (`process.env.CI ? 1 : 0`) |
+| `api.numista.com` as a rate-limit target | **Unverified** | Zero occurrences in any test file. Match in source code, not tests. |
+| Cloud sync: 35 tests / 5+ files | **Incorrect** | 26 tests across 4 files |
+| Market data: 54 tests / 5 files | **Unclear** | No clear boundaries; ~17 files reference "market" |
 
 ##### Top Concerns
 
@@ -256,28 +255,28 @@ These are stated or implied by the requirements but not yet backed by live-code 
 
 ##### Verified
 
-| Claim                                                    | Status       | Evidence                                                                                                                      |
-| -------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| 56 spec files                                            | **Correct**  | `find tests/playwright -name '*.spec.js' \| wc -l → 56`                                                                       |
-| 643 tests                                                | **Correct**  | `rg -c '^\s*(test\|test\.skip)\(' tests/playwright -g '*.spec.js' → 643`                                                      |
-| 12 files with `page.route()`                             | **Correct**  | `rg -l 'page\.route\(' tests/playwright -g '*.spec.js' → 12`                                                                  |
-| 44 files without `page.route()`                          | **Correct**  | `find ... -exec grep -L → 44`                                                                                                 |
-| 472 unmocked tests                                       | **Correct**  | Sum of test counts across 44 unmocked files                                                                                   |
-| `fullyParallel: false`, workers=1, retries 0/1           | **Correct**  | `playwright.config.js:5-7`                                                                                                    |
-| `serviceWorkers: "block"`                                | **Correct**  | `playwright.config.js:11`                                                                                                     |
-| `test:offline` = `--grep-invert @network`                | **Correct**  | `package.json:14`                                                                                                             |
-| 4 `@network` tests in page-load.spec.js                  | **Correct**  | `tests/playwright/01-page-load/page-load.spec.js:93-147`                                                                      |
-| Cloud sync: 26 tests / 4 files                           | **Correct**  | 3+9+9+5=26                                                                                                                    |
-| View modal: 34 tests / 3 files                           | **Correct**  | 18+5+11=34                                                                                                                    |
-| Numista catalog: 34 tests / 3 files                      | **Correct**  | 26+5+3=34                                                                                                                     |
-| Priority file counts (7,16,10,14,26,5)                   | **Correct**  | Verified individually                                                                                                         |
-| `api.numista.com` not in test files                      | **Correct**  | `rg 'numista\.com\|api\.numista' tests/playwright -g '*.spec.js' → 0 matches`                                                 |
-| `11-market-data/` directory does not exist               | **Correct**  | `ls tests/playwright/11-market-data/ → No such file`                                                                          |
-| `tests/playwright/helpers/mocks/` does not exist         | **Correct**  | Only `seed.js` and two PNG fixtures in helpers/                                                                               |
-| `config-validation.spec.js` makes zero external requests | **Verified** | Pure `fs`/`path` file reads, no browser, no fetch, no HTTP refs                                                               |
-| `about-page.spec.js` makes zero external requests        | **Verified** | `about.html` has only local image paths and anchor links; no CDN/script tags                                                  |
-| `settings-currency.spec.js` at root, not `03-settings/`  | **Correct**  | `find tests/playwright -name '*currency*' → settings-currency.spec.js at root`                                                |
-| Existing mock patterns are per-test inline               | **Verified** | `market-sorting.spec.js:258-285` routes v2 and api2 inline; `view-modal-chart-scaling.spec.js:77` routes exchange rate inline |
+| Claim | Status | Evidence |
+|-------|--------|----------|
+| 56 spec files | **Correct** | `find tests/playwright -name '*.spec.js' \| wc -l → 56` |
+| 643 tests | **Correct** | `rg -c '^\s*(test\|test\.skip)\(' tests/playwright -g '*.spec.js' → 643` |
+| 12 files with `page.route()` | **Correct** | `rg -l 'page\.route\(' tests/playwright -g '*.spec.js' → 12` |
+| 44 files without `page.route()` | **Correct** | `find ... -exec grep -L → 44` |
+| 472 unmocked tests | **Correct** | Sum of test counts across 44 unmocked files |
+| `fullyParallel: false`, workers=1, retries 0/1 | **Correct** | `playwright.config.js:5-7` |
+| `serviceWorkers: "block"` | **Correct** | `playwright.config.js:11` |
+| `test:offline` = `--grep-invert @network` | **Correct** | `package.json:14` |
+| 4 `@network` tests in page-load.spec.js | **Correct** | `tests/playwright/01-page-load/page-load.spec.js:93-147` |
+| Cloud sync: 26 tests / 4 files | **Correct** | 3+9+9+5=26 |
+| View modal: 34 tests / 3 files | **Correct** | 18+5+11=34 |
+| Numista catalog: 34 tests / 3 files | **Correct** | 26+5+3=34 |
+| Priority file counts (7,16,10,14,26,5) | **Correct** | Verified individually |
+| `api.numista.com` not in test files | **Correct** | `rg 'numista\.com\|api\.numista' tests/playwright -g '*.spec.js' → 0 matches` |
+| `11-market-data/` directory does not exist | **Correct** | `ls tests/playwright/11-market-data/ → No such file` |
+| `tests/playwright/helpers/mocks/` does not exist | **Correct** | Only `seed.js` and two PNG fixtures in helpers/ |
+| `config-validation.spec.js` makes zero external requests | **Verified** | Pure `fs`/`path` file reads, no browser, no fetch, no HTTP refs |
+| `about-page.spec.js` makes zero external requests | **Verified** | `about.html` has only local image paths and anchor links; no CDN/script tags |
+| `settings-currency.spec.js` at root, not `03-settings/` | **Correct** | `find tests/playwright -name '*currency*' → settings-currency.spec.js at root` |
+| Existing mock patterns are per-test inline | **Verified** | `market-sorting.spec.js:258-285` routes v2 and api2 inline; `view-modal-chart-scaling.spec.js:77` routes exchange rate inline |
 
 ##### Top concerns
 

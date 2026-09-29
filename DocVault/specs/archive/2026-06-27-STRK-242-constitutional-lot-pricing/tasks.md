@@ -92,7 +92,7 @@ _TDD green phase. Write the minimum code that turns Cohort B red→green. The `j
   - **Maps to:** AC-3, AC-4, AC-6
 - [x] **C.4** — Derive cu `pricingType` from final entry mode at save (D-5 / AC-7)
   - **File(s):** `js/events.js` (`parseItemFormFields` pricingType write, `~:1670-1674`)
-  - **Acceptance:** For cu items, `pricingType` is computed from the final entry mode / toggle state and written **unconditionally** (not gated on `purchasePriceToggle.wasInteracted()`) — so a _programmatic_ denom-LOT default (set by the handler, not a user click) still persists `pricingType:"lot"` on edit-save. Non-cu items keep the existing `wasInteracted()`-gated logic untouched. Makes B.3's "edit restores stored pricingType" pass for programmatically-defaulted items.
+  - **Acceptance:** For cu items, `pricingType` is computed from the final entry mode / toggle state and written **unconditionally** (not gated on `purchasePriceToggle.wasInteracted()`) — so a *programmatic* denom-LOT default (set by the handler, not a user click) still persists `pricingType:"lot"` on edit-save. Non-cu items keep the existing `wasInteracted()`-gated logic untouched. Makes B.3's "edit restores stored pricingType" pass for programmatically-defaulted items.
   - **Depends on:** C.3 (same file, same function region)
   - **Leverage:** approach.md D-5; discovery.md open-question on `wasInteracted()` preservation.
   - **Maps to:** AC-7
@@ -163,16 +163,16 @@ _TDD green phase. Write the minimum code that turns Cohort B red→green. The `j
 
 _approach.md carries a `## UI Contract` (no standalone mockup — it reuses the existing `#purchasePriceModeToggle` segmented control + constitutional card; the contract text **is** the binding spec). Each named state maps to its implementing task(s), verifying assertion(s), and a visual-verification method. Because no screenshot/playground artifact exists, visual verification is **manual modal inspection** against the contract's described state (recorded in CLOSE-3)._
 
-| UI state (approach.md)                                | Implementing task(s) | Verifying test                                      | Visual-verification method                                                                                   |
-| ----------------------------------------------------- | -------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| cu · denom · new (toggle visible + LOT)               | C.1                  | B.1 (asserts no `is-hidden` + mode LOT)             | Manual: open add-item, Type=Constitutional, denom mode → toggle shows, LOT selected, placeholder "Lot total" |
-| cu · denom · count ≤ 1 (toggle hidden)                | C.1, C.2             | B.1 (qty>1 gate)                                    | Manual: set count to 1 → toggle hides live                                                                   |
-| cu · face (toggle hidden, EACH)                       | C.1, C.5             | B.1 (face hidden + EACH)                            | Manual: switch to face mode → toggle hidden, price is the total                                              |
-| cu · denom · edit (stored lot)                        | C.3, C.4, C.6        | B.2 + B.3 (reconstructed `price × count`, no drift) | Manual: edit a saved denom-LOT item → toggle visible + LOT, price field = exact original total               |
-| cu · denom · edit (stored each / legacy absent)       | C.4, C.6             | B.3 (EACH + per-coin)                               | Manual: edit a legacy/each cu item → toggle visible + EACH, per-coin price                                   |
-| cu · face · edit (toggle hidden, stored total)        | C.5, C.6             | B.3 (face hidden, unchanged)                        | Manual: edit a face item → toggle hidden, stored total unchanged                                             |
-| Mid-edit face→denom (toggle appears, snaps LOT)       | C.1                  | B.1 (live re-resolve)                               | Manual: toggle entry mode in an open modal → toggle appears + LOT live                                       |
-| Mid-edit denom→face (toggle disappears, reverts EACH) | C.1                  | B.1 (live re-resolve)                               | Manual: toggle entry mode → toggle disappears + EACH live                                                    |
+| UI state (approach.md) | Implementing task(s) | Verifying test | Visual-verification method |
+| --- | --- | --- | --- |
+| cu · denom · new (toggle visible + LOT) | C.1 | B.1 (asserts no `is-hidden` + mode LOT) | Manual: open add-item, Type=Constitutional, denom mode → toggle shows, LOT selected, placeholder "Lot total" |
+| cu · denom · count ≤ 1 (toggle hidden) | C.1, C.2 | B.1 (qty>1 gate) | Manual: set count to 1 → toggle hides live |
+| cu · face (toggle hidden, EACH) | C.1, C.5 | B.1 (face hidden + EACH) | Manual: switch to face mode → toggle hidden, price is the total |
+| cu · denom · edit (stored lot) | C.3, C.4, C.6 | B.2 + B.3 (reconstructed `price × count`, no drift) | Manual: edit a saved denom-LOT item → toggle visible + LOT, price field = exact original total |
+| cu · denom · edit (stored each / legacy absent) | C.4, C.6 | B.3 (EACH + per-coin) | Manual: edit a legacy/each cu item → toggle visible + EACH, per-coin price |
+| cu · face · edit (toggle hidden, stored total) | C.5, C.6 | B.3 (face hidden, unchanged) | Manual: edit a face item → toggle hidden, stored total unchanged |
+| Mid-edit face→denom (toggle appears, snaps LOT) | C.1 | B.1 (live re-resolve) | Manual: toggle entry mode in an open modal → toggle appears + LOT live |
+| Mid-edit denom→face (toggle disappears, reverts EACH) | C.1 | B.1 (live re-resolve) | Manual: toggle entry mode → toggle disappears + EACH live |
 
 > Cohort B assertions check **DOM structure + stored data** (the `is-hidden` class, toggle mode, `item.price`/`item.pricingType`/`item.qty`), not just visible text — satisfying the STRK-123 interaction-flow requirement. The price-history chart is asserted **untouched** (B.5 / AC-10 exclusion).
 
@@ -211,7 +211,7 @@ _approach.md carries a `## UI Contract` (no standalone mockup — it reuses the 
 - [x] **CLOSE-7. Resolve PR review threads**
   - _`/pr-resolve`: all 7 threads replied + resolved. 2 genuine bugs fixed in `ced4011f` (override-bleed on type exit → `clearQtySource` in handleTypeChange; count-edit re-defaulting a restored EACH → listener no longer changes mode + `updateVisibility` skips self-revert under override) + 2 regression tests; Codacy LOW (instance getExactLotPrice) fixed; Codacy MEDIUM test-dup fixed via helpers; CodeRabbit Minor (safeGetElement guard) = pre-existing; Copilot face↔denom = AC-9 spec. Codacy + CodeQL + CodeRabbit green; 0 unresolved threads; mergeStateStatus CLEAN._
   - **MUST invoke `/vault-update`** as a skill — it audits the Foundation docs even if you believe none are affected. STRK-242 reshapes the constitutional pricing path; check whether `coding-standards.md` / `reusable-patterns.md` need a note on the cu lot/each toggle seam. If zero docs change, the skill reports it — a clean N/A by audit.
-  - **Do NOT close the Plane issue here.** Per `.context/implementation-gotchas.md:45-56`, Plane is marked Done only _after_ the PR merges and the sketch is archived — that step is **CLOSE-9**.
+  - **Do NOT close the Plane issue here.** Per `.context/implementation-gotchas.md:45-56`, Plane is marked Done only *after* the PR merges and the sketch is archived — that step is **CLOSE-9**.
 
 - [x] **CLOSE-6. Open PR**
   - _[PR #1340](https://github.com/lbruton/StakTrakr/pull/1340) → `dev`, title `feat(STRK-242): …`, labels coderabbit-review + codacy-review, body links STRK-242 + sketch folder + test plan. Merge-base verified == origin/dev (no scope creep)._

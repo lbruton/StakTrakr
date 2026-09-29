@@ -27,11 +27,11 @@ _Cohort 0 ensures the worktree exists before implementation begins. If the workt
 
 _Scaffolding that later cohorts depend on. The normalization helper is the only shared primitive._
 
-- [x] **A.1** — Add `_normalizeItemChangeType()` private helper to `cloud-sync.js`
-  - **File(s):** `js/cloud-sync.js`
-  - **Acceptance:** A private function `_normalizeItemChangeType(type)` exists in `cloud-sync.js` that: (1) returns `"add"` for `"item-add"`, `"edit"` for `"item-edit"`, `"delete"` for `"item-delete"`; (2) returns `"setting"` unchanged for `"setting"`; (3) returns the input unchanged for any unrecognized type; (4) guards against `null`/`undefined` input (returns `""` or the input without throwing). Uses `String.prototype.startsWith("item-")` or `/^item-/` regex — not a naive `.replace`. No consumers wired yet — this is the stub.
-  - **Leverage:** Approach D-1. Discovery Constraint 1 (producer types frozen, consumer-side fix).
-  - **Maps to:** AC-1 (foundation for all type normalization)
+ - [x] **A.1** — Add `_normalizeItemChangeType()` private helper to `cloud-sync.js`
+   - **File(s):** `js/cloud-sync.js`
+   - **Acceptance:** A private function `_normalizeItemChangeType(type)` exists in `cloud-sync.js` that: (1) returns `"add"` for `"item-add"`, `"edit"` for `"item-edit"`, `"delete"` for `"item-delete"`; (2) returns `"setting"` unchanged for `"setting"`; (3) returns the input unchanged for any unrecognized type; (4) guards against `null`/`undefined` input (returns `""` or the input without throwing). Uses `String.prototype.startsWith("item-")` or `/^item-/` regex — not a naive `.replace`. No consumers wired yet — this is the stub.
+   - **Leverage:** Approach D-1. Discovery Constraint 1 (producer types frozen, consumer-side fix).
+   - **Maps to:** AC-1 (foundation for all type normalization)
 
 ## Sprint Cohort B — Tests · RED (parallel-safe)
 

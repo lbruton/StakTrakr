@@ -10,7 +10,6 @@ created: 2026-05-10
 > **Title:** Item detail chart: viewport auto-scaling clips data and purchase price line on shorter ranges
 >
 > Chart.js auto-scaling in the item detail modal price history chart causes two rendering issues:
->
 > 1. **Purchase price line clipped on short ranges (7d, 14d, 30d)** — On an ASE with purchase price $38 and current melt ~$65-$70, the y-axis min is set too high, pushing the $38 dashed line off the bottom edge or under the fill area.
 > 2. **Melt data visually truncated on 1Y range** — The x-axis spans the full year but melt value line only renders from ~Nov 2025 onward; May-Nov data is present (visible on 5Y/Purchased) but clipped or compressed out.
 >
@@ -29,37 +28,31 @@ The item detail modal's price history chart has two viewport-scaling bugs that h
 ## Acceptance Criteria
 
 ### AC-1 — Purchase price line visible on all ranges (maps to US-1)
-
 - **Given** an item with purchase price significantly below current melt (e.g. $38 purchase, ~$70 melt)
 - **When** I open the item detail modal and switch to any time range (7d, 14d, 30d, 90d, 1Y, 5Y, Purchased, All)
 - **Then** the purchase price dashed line is fully visible within the chart viewport with at least ~5% padding below it
 
 ### AC-2 — Purchase price line visible when above melt (maps to US-1)
-
 - **Given** an item with purchase price above current melt (e.g. bought at a premium during a dip)
 - **When** I open the item detail modal and switch to any time range
 - **Then** the purchase price dashed line is fully visible within the chart viewport with adequate padding above it, and melt data below is not compressed to the bottom edge
 
 ### AC-3 — Full melt data renders on 1Y range (maps to US-2)
-
 - **Given** an item with melt value data spanning the full past year
 - **When** I select the 1Y time range in the item detail modal chart
 - **Then** the melt value line renders from near the start of the 1Y window to today, with no unexplained gaps exceeding 45 days in the middle months
 
 ### AC-4 — No clipping or visible regression on wide ranges
-
 - **Given** any item with historical data
 - **When** I select 5Y, 10Y, Purchased, or All time ranges
 - **Then** all three data lines (purchase, melt, retail when present) are visible within the viewport — no line is clipped off the top or bottom edge. The bounds fix applies globally to all ranges.
 
 ### AC-5 — Retail price line unaffected
-
 - **Given** an item that has retail price data displayed on the chart
 - **When** I switch between time ranges
 - **Then** the retail price line's visibility and scaling behaves consistently — it is not clipped by the y-axis bounds, and benefits from the same viewport-fitting logic as purchase and melt
 
 ### AC-6 — Visual verification across all ranges and viewports
-
 - **Given** any item with purchase, melt, and retail data
 - **When** I view the chart at desktop (200px) and mobile (160px) viewport heights across all time ranges
 - **Then** all three data lines are visually distinguishable (not obscured or compressed to invisibility), and tick labels remain legible

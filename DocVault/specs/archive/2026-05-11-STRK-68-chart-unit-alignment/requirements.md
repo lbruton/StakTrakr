@@ -27,37 +27,31 @@ Persist the edit modal's lot/each pricing choice on each item so the view modal'
 ## Acceptance Criteria
 
 ### AC-1 — Chart lines use consistent units based on stored pricingType (maps to US-1)
-
 - **Given** an item with qty=5, price=$50, pricingType="each"
 - **When** I open the view modal and look at the price history chart
 - **Then** the purchase line is at $50, melt line is `spot * weightOz * 1 * purity` (per-unit melt), and retail line is per-unit retail value. All three lines are in per-unit terms.
 
 ### AC-2 — Chart lines show lot totals for lot-priced items (maps to US-1)
-
 - **Given** an item with qty=5, price=$50, pricingType="lot" (so the lot total is $250)
 - **When** I open the view modal and look at the price history chart
 - **Then** the purchase line is at $250, melt line is `spot * weightOz * 5 * purity` (lot melt), and retail line is `marketValue * 5`. All three lines are in lot terms.
 
 ### AC-3 — pricingType persists across save/reload (maps to US-2)
-
 - **Given** I add a new item, set qty=5, toggle to "Lot", enter $250 as the price, and save
 - **When** I reload the page and edit that item
 - **Then** the edit modal shows the lot/each toggle in "Lot" mode with $250 in the price field (not $50 in "Each" mode)
 
 ### AC-4 — Existing items default to sensible behavior (maps to US-1, US-2)
-
 - **Given** an item saved before this feature (no pricingType field stored)
 - **When** I open its view modal or edit it
 - **Then** the chart defaults to lot-total display (matching current behavior where `purchasePerUnit = item.price * qty`), and the edit modal shows "Each" mode (matching the current default toggle state). **On save, the item preserves its existing `pricingType` if present; legacy items (no `pricingType`) inherit the toggle state only when the user explicitly interacts with the toggle. Editing unrelated fields (notes, tags, etc.) does NOT silently flip chart behavior.**
 
 ### AC-5 — Qty=1 items are unaffected
-
 - **Given** an item with qty=1
 - **When** I open its modal and look at the chart
 - **Then** the chart looks identical to today — no toggle shown, no behavioral change
 
 ### AC-6 — Valuation section unchanged; chart uses stored pricingType
-
 - **Given** any multi-quantity item
 - **When** I open its view modal
 - **Then** the Valuation section continues to show both total and per-unit values (e.g., "$339.65 total · $67.93 each") — current behavior unchanged. The price history chart below it uses the unit determined by the stored `pricingType` (lot-total or per-unit)

@@ -30,61 +30,51 @@ This sketch fixes the Numista re-sync tag picker so users can opt out of tags th
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 (maps to US-1)
-
 - **Given** an item already has a tag that is also present in the selected Numista result
 - **When** the user opens the Numista import/re-sync modal
 - **Then** that tag is shown as checked, enabled, and visibly marked as already on the item
 
 ### AC-2 (maps to US-1)
-
 - **Given** an existing on-item Numista candidate is shown checked in the picker
 - **When** the user leaves it checked and clicks Fill Fields
 - **Then** the tag remains on the item and no removed-tag opt-out is recorded for that tag
 
 ### AC-3 (maps to US-1)
-
 - **Given** an existing on-item Numista candidate is shown checked in the picker
 - **When** the user directly unchecks that tag and clicks Fill Fields
 - **Then** the tag is removed from the item and future Numista syncs remember the user's opt-out by showing it unchecked with the removed hint
 
 ### AC-4 (maps to US-2)
-
 - **Given** an item has a manual tag that is not present in the selected Numista result
 - **When** the user opens the Numista import/re-sync modal and clicks Fill Fields
 - **Then** the manual-only tag is not shown in the Numista tag picker and remains on the item afterward
 
 ### AC-5 (maps to US-3)
-
 - **Given** an item has a manually added tag whose text matches a tag in the selected Numista result
 - **When** the user opens the Numista import/re-sync modal
 - **Then** the matching tag appears once as a checked on-item tag, not as duplicate manual and Numista tags
 
 ### AC-6 (maps to US-3)
-
 - **Given** an item stores a manual tag with different casing than the Numista candidate, such as `tree` vs `Tree`
 - **When** the user unchecks that matching candidate and clicks Fill Fields
 - **Then** the stored tag is removed case-insensitively and future Numista syncs treat that logical tag as opted out
 
 ### AC-7 (maps to US-1, US-3)
-
 - **Given** a tag was previously removed from a Numista sync and appears unchecked with the removed hint
 - **When** the user checks it and clicks Fill Fields
 - **Then** the tag is re-added and the removed-tag opt-out is cleared
 
 ### AC-8 (maps to US-4)
-
 - **Given** one or more catalog field rows are unchecked in the same Numista import/re-sync modal
 - **When** the user clicks Fill Fields
 - **Then** those unchecked catalog fields keep the item's saved values exactly as they did before this tag fix
 
 ### AC-9 (maps to US-5)
-
 - **Given** the modal contains tags already on the item plus new or previously removed Numista candidate tags
 - **When** the user clicks Uncheck all
 - **Then** existing on-item tags remain checked unless the user directly unchecks them one by one
 
 ### AC-10 (maps to US-5)
-
 - **Given** the modal contains blacklisted, removed, new, and existing on-item Numista candidate tags
 - **When** the user uses Check all or Uncheck all
 - **Then** the bulk controls preserve the existing protected states for blacklisted tags and do not create accidental removal of on-item tags

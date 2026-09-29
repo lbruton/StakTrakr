@@ -14,14 +14,12 @@ created: 2026-05-14
 > The `spotPriceAtPurchase` field is captured at purchase time and visible as a marker on the price-history chart (Item Detail modal), but the user doesn't see a labeled number like "You paid $3.40/oz over spot" or "$2.10 premium per coin." The math is doable from existing data but isn't surfaced.
 >
 > **Proposed:** In the Item Detail modal's Valuation section, add two new lines beneath Purchase:
->
 > - **Premium / oz:** `(purchasePricePerCoin / weightOzt) - spotPriceAtPurchase`
 > - **Premium / coin:** `purchasePricePerCoin - (spotPriceAtPurchase * weightOzt * purity)`
 >
 > Show as positive (premium paid above spot) or negative (rare — bought below spot) with appropriate coloring.
 >
 > **Edge cases:**
->
 > - If `spotPriceAtPurchase` is missing for legacy items, display "—" instead of zeroing.
 > - For multi-metal bars or fractional coins, math must use ASW (actual silver/gold weight), not gross weight.
 >
@@ -48,19 +46,16 @@ The spot-at-purchase is resolved from the `historicalDataCache` (59 years of LBM
 ## Acceptance Criteria
 
 ### AC-1 — Premium per oz displayed (maps to US-1)
-
 - **Given** an item with a resolved spot-at-purchase > 0 and valid `price`, `weight > 0`, `purity > 0`
 - **When** the Item Detail modal's Valuation section renders
 - **Then** a "Premium/oz" line appears showing `(price / ASW) - resolvedSpot`, where ASW = `weightOz * purity`, formatted as currency with +/− sign
 
 ### AC-2 — Premium per coin displayed (maps to US-2)
-
 - **Given** an item with a resolved spot-at-purchase > 0 and valid `price`, `weight > 0`, `purity > 0`
 - **When** the Item Detail modal's Valuation section renders
 - **Then** a "Premium/coin" line appears showing `price - (resolvedSpot * weightOz * purity)`, formatted as currency with +/− sign
 
 ### AC-3 — Positive/negative coloring
-
 - **Given** the premium values are computed
 - **When** premium is ≥ 0
 - **Then** the value uses the existing `.gain` CSS class (green in default theme)
@@ -68,7 +63,6 @@ The spot-at-purchase is resolved from the `historicalDataCache` (59 years of LBM
 - **Then** the value uses the existing `.loss` CSS class (red in default theme)
 
 ### AC-4 — Spot-at-purchase resolution (maps to US-3)
-
 - **Given** an item with a purchase date
 - **When** premium is computed
 - **Then** the resolved spot-at-purchase is looked up from `historicalDataCache` for the item's metal on the purchase date (nearest trading day if exact date is missing)
@@ -78,26 +72,22 @@ The spot-at-purchase is resolved from the `historicalDataCache` (59 years of LBM
 - **Then** both premium fields display "—" (em-dash)
 
 ### AC-5 — Zero/invalid weight or purity fallback
-
 - **Given** an item where `weight` is 0/missing or the computed ASW (`weightOz * purity`) is 0
 - **When** the Valuation section renders
 - **Then** "Premium/oz" displays "—" (division by zero guard); "Premium/coin" may still compute if `resolvedSpot > 0`
 
 ### AC-6 — Unit conversion correctness
-
 - **Given** an item with `weightUnit` of `"gb"` (goldback) or `"sb"` (silverback)
 - **When** premium is computed
 - **Then** the calculation uses the already-converted `metrics.weightOz` (which applies `GB_TO_OZT` / `SB_TO_OZT`), not the raw `weight` field
 
 ### AC-7 — Multi-quantity items
-
 - **Given** an item with `qty > 1`
 - **When** premium is computed
 - **Then** the premium values are per-unit (per single coin/bar), not multiplied by quantity
 - **Note:** `item.price` is already stored per-unit after lot-mode entry (divided before save), so no qty adjustment is needed in the formula
 
 ### AC-8 — Valuation grid layout: 6-column single row (maps to US-4)
-
 - **Given** the Valuation section renders with premium data
 - **When** viewed on desktop (≥769px)
 - **Then** the grid displays 6 columns in a single row: Purchase, Premium, Melt, Retail, Gain/Loss, G/L%
@@ -105,7 +95,6 @@ The spot-at-purchase is resolved from the `historicalDataCache` (59 years of LBM
 - **Then** the 6 columns collapse to a 3×2 grid (3 columns, 2 rows)
 
 ### AC-9 — Premium % displayed (maps to US-5)
-
 - **Given** an item with a resolved spot-at-purchase > 0 and valid ASW > 0
 - **When** the Valuation section renders
 - **Then** the Premium column shows the premium as a percentage of spot: `((price / ASW) / resolvedSpot - 1) × 100`, formatted with +/− sign and `%` suffix
@@ -113,7 +102,6 @@ The spot-at-purchase is resolved from the `historicalDataCache` (59 years of LBM
 - **Then** the Premium column displays "—"
 
 ### AC-10 — Gain/Loss % displayed (maps to US-6)
-
 - **Given** an item with `purchaseTotal > 0` and `retailTotal > 0`
 - **When** the Valuation section renders
 - **Then** the G/L% column shows `((retailTotal - purchaseTotal) / purchaseTotal) × 100`, formatted with +/− sign and `%` suffix, with `.gain`/`.loss` coloring
@@ -121,7 +109,6 @@ The spot-at-purchase is resolved from the `historicalDataCache` (59 years of LBM
 - **Then** the G/L% column displays "—"
 
 ### AC-11 — Lot rows for multi-quantity items (maps to US-7)
-
 - **Given** an item with `qty > 1`
 - **When** the Valuation section renders
 - **Then** two data rows appear: the first shows lot-total values (total purchase, total melt, total retail, total gain/loss), the second shows per-unit values (each price, per-unit premium, per-unit melt, per-unit retail, per-unit gain/loss)
@@ -175,7 +162,6 @@ _Reconciled by /sketch reconcile on 2026-05-17. Original reviewer marks preserve
 - The feature should not apply to the quick Details modal, even though `detailsModal.js` also computes valuation totals for the summary breakdown.
 
 ### Resolution Summary
-
 - Accepted: 3 (zero-weight guard → AC-5; stored premium fields unreliable → Overview + Non-Goals; per-unit price dependency → AC-7 note)
 - Rejected: 0
 - Resolved with user input: 2 (legacy spot backfill → AC-4 now uses historicalDataCache as primary source instead of trusting backfilled field; layout concerns → US-4 + AC-8 added, details deferred to approach)

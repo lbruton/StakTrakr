@@ -2,13 +2,12 @@
 title: Reply to PumpkinCrouton — 2026-06-03
 type: draft
 project: StakTrakr
-source: "https://www.reddit.com/r/Silverbugs/comments/1r1aerl/comment/opkhp3m/"
+source: 'https://www.reddit.com/r/Silverbugs/comments/1r1aerl/comment/opkhp3m/'
 tags:
   - staktrakr
   - beta-feedback
   - reddit-reply
 ---
-
 Paste-ready reply (plain text below the line — no markdown wrapping, copy from "Good questions" onward).
 
 Related issues: STRK-145 (purity label), STRK-146 (image quota squares).

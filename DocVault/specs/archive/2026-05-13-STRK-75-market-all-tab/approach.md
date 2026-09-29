@@ -20,28 +20,25 @@ Test coverage targets the two existing Playwright specs. `stak-582-market-surviv
 
 ## Key Decisions
 
-| #   | Decision                                                                                            | Rationale                                                                                                                                                                                                                                                                      | Tradeoff                                                                                                          |
-| --- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| D-1 | Extend `_renderVendorTable(scopeCode)` in place to accept `'all'` alongside metal ISO codes         | Least surface area; per-metal tabs continue to call the same function unchanged                                                                                                                                                                                                | Renders the function slightly more complex; acceptable given the localized change                                 |
-| D-2 | Valid-tab list includes `'all'` as the first entry                                                  | Cleanest fallback: one place defines what is valid; no parallel allowlist                                                                                                                                                                                                      | Tab ordering is implicit in the list; reorder the list to change order                                            |
-| D-3 | Vendor column union = all vendors from all All-tab rows, deduped, sorted alphabetically             | Consistent with the issue AC-9 requirement; mirrors per-metal column logic                                                                                                                                                                                                     | Column set is wider than any single metal — some columns will have blanks for metals that don't carry that vendor |
-| D-4 | Group row separator: rely on visual grouping (consecutive rows by type) without CSS dividers        | Matches current table aesthetics; no HTML structure changes needed                                                                                                                                                                                                             | Groups are implicit, not labeled — may need a follow-up for group headers if UX feedback asks for them            |
-| D-5 | Unify metadata fallback: use `getRetailCoinMeta()` for both tab/group eligibility AND row rendering | Currently tab detection (line 1247-1254) falls back to `{ metal: "unknown" }` while row rendering (line 896-900) uses `window.getRetailCoinMeta()`. This parity gap can cause slugs to be classified differently between the tab list and the table body. Unifying fixes both. | No tradeoff — eliminates a latent bug                                                                             |
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Extend `_renderVendorTable(scopeCode)` in place to accept `'all'` alongside metal ISO codes | Least surface area; per-metal tabs continue to call the same function unchanged | Renders the function slightly more complex; acceptable given the localized change |
+| D-2 | Valid-tab list includes `'all'` as the first entry | Cleanest fallback: one place defines what is valid; no parallel allowlist | Tab ordering is implicit in the list; reorder the list to change order |
+| D-3 | Vendor column union = all vendors from all All-tab rows, deduped, sorted alphabetically | Consistent with the issue AC-9 requirement; mirrors per-metal column logic | Column set is wider than any single metal — some columns will have blanks for metals that don't carry that vendor |
+| D-4 | Group row separator: rely on visual grouping (consecutive rows by type) without CSS dividers | Matches current table aesthetics; no HTML structure changes needed | Groups are implicit, not labeled — may need a follow-up for group headers if UX feedback asks for them |
+| D-5 | Unify metadata fallback: use `getRetailCoinMeta()` for both tab/group eligibility AND row rendering | Currently tab detection (line 1247-1254) falls back to `{ metal: "unknown" }` while row rendering (line 896-900) uses `window.getRetailCoinMeta()`. This parity gap can cause slugs to be classified differently between the tab list and the table body. Unifying fixes both. | No tradeoff — eliminates a latent bug |
 
 ## File Map
 
 ### New
-
 - _none_
 
 ### Modified
-
 - `js/market-data.js` — tab-bar builder (prepend `all`), fallback constant (`xag` → `all`), valid-tab allowlist (`all` added), render function (all-scope branch), vendor column union logic
 - `tests/playwright/retail/stak-582-market-survivors.spec.js` — update default-tab assertion (Silver → All); add All-tab presence assertion
 - `tests/playwright/market-sorting.spec.js` — add test cases: All-tab default, group ordering, invalid-saved-tab fallback, vendor column union, market-filter hiding, per-row premium math, Goldback G1 premium
 
 ### Deleted
-
 - _none_
 
 ## Data / Schema Changes
@@ -95,7 +92,6 @@ _Reconciled by /sketch reconcile on 2026-05-13. Original reviewer marks preserve
 - `market-sorting.spec.js` is the right home for all new behavior tests rather than a dedicated STRK-75 spec.
 
 ### Resolution Summary
-
 - Accepted: 4
 - Rejected: 1 (tasks.md file-map inclusion — tasks.md is a sketch control-plane artifact, not implementation scope)
 - Resolved with your input: 1 (test home — market-sorting.spec.js confirmed)

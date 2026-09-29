@@ -300,37 +300,30 @@ _Reconciled by /sketch reconcile on 2026-05-23. Original reviewer marks preserve
 ### Inline marks (removed from task bodies)
 
 **B.3:**
-
 - DEEPSEEK: `DIFF_FIELDS` not on `window` — browser-context assertions won't work → **Accepted.** Rewrote B.3 acceptance to require observable-behavior assertions.
 - GEMINI: Concurred with DEEPSEEK on `DIFF_FIELDS` → **Accepted.** Same fix.
 - CODEX: Search assertions can accidentally pass red via raw `numistaData` stringification → **Accepted.** Added search+visibility pairing requirement to B.3.
 
 **C.1:**
-
 - DEEPSEEK: AC-5 stale in requirements.md → **Accepted.** Added pre-Cohort-C gate note.
 - GEMINI: Agreed on AC-5 → **Accepted.** Same fix.
 
 **C.2:**
-
 - DEEPSEEK: C.2→C.1 dependency weak → **Resolved: keep serial** (user decision).
 - GEMINI: `markUserModified` global visibility confirmed safe → **Noted.** No change needed.
 - CODEX: `parseDimensions` copy-then-clear missing from C.2 → **Resolved: bulk intentionally skips dimension parsing** (user decision). Added explicit note to C.2 acceptance.
 
 **C.4:**
-
 - GEMINI: `aria-live="polite"` for screen-reader accessible count → **Accepted.** Added to C.4 acceptance.
 
 **C.5:**
-
 - DEEPSEEK: C.5→C.4 dependency weak → **Resolved: keep serial** (user decision).
 - GEMINI: Checkbox touch-target clipping by `overflow: hidden` → **Accepted.** Added `overflow: visible` override requirement to C.5 acceptance.
 
 **C.3:**
-
 - CODEX: False activity/sync changes for nested objects due to reference inequality → **Accepted.** Added deep-equality requirement to C.3 acceptance.
 
 ### Resolution Summary
-
 - Accepted: 6
 - Rejected: 3 (OPUS closing-tasks template mismatch — wrong template; OPUS `_Prompt:` fields — specflow-only feature; DEEPSEEK B-task file-sharing inefficiency — already sequential, aids readability)
 - Resolved with user input: 2 (keep Cohort C serial; bulk skips `parseDimensions` copy-then-clear)

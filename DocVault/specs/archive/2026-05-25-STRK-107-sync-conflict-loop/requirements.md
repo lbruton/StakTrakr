@@ -1,3 +1,4 @@
+
 # STRK-107 — Requirements
 
 > **Source Issue:** [STRK-107](https://plane.lbruton.cc/lbruton/browse/STRK-107/)
@@ -31,7 +32,6 @@ This is a data-integrity bug that erodes user trust in cloud sync. Every sync cy
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 — Superseded changelog entries neutralized after acceptance (maps to US-1, US-2, US-4)
-
 - **Given** Device A and Device B share a Dropbox vault; Device A has a local changelog entry for item X (for example, a field edit) that is newer than Device A's `lastPush.timestamp`
 - **When** Device A pulls a remote change for item X from Device B and the user accepts the remote value in DiffModal
 - **Then** Device A's next `buildAndUploadManifest()` call does NOT include the superseded local changelog entry for item X; manifest generation either skips the superseded entry or treats it as neutralized
@@ -41,13 +41,11 @@ This is a data-integrity bug that erodes user trust in cloud sync. Every sync cy
 > AGY: Verified. In [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L498), `toggleChange()` checks `entry.neutralized` and returns early to prevent undoing a neutralized sync change. Furthermore, `renderFlatRow()` in [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L264-L266) renders a "Synced" badge instead of an interactive "Undo/Redo" button for neutralized entries.
 
 ### AC-2 — Round-trip settles with zero residual conflicts (maps to US-1)
-
 - **Given** Device A accepts remote changes for items X and Y from Device B
 - **When** Device A's follow-up push completes and Device B polls and processes the resulting manifest
 - **Then** Device B's DiffModal shows zero item conflicts for X and Y (either no modal shown, or modal excludes these items)
 
 ### AC-3 — Tracked metadata fields do not re-trigger conflicts (maps to US-1)
-
 - **Given** `lastModified` is a tracked and comparable item field, and a stale local changelog entry exists for an accepted item
 - **When** accepting the remote value overwrites the local item's `lastModified` value with the remote value
 - **Then** the stale local `lastModified` changelog entry does not appear in the next manifest as a fresh local conflict
@@ -56,7 +54,6 @@ This is a data-integrity bug that erodes user trust in cloud sync. Every sync cy
 > AGY: Verified. In [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L830), `getManifestEntries()` only filters the in-memory `changeLog` array and does not query or reference the `cloud_sync_local_modified` localStorage timestamp. The `cloud_sync_local_modified` timestamp in [utils.js](file:///Volumes/DATA/GitHub/StakTrakr/js/utils.js#L1169) remains strictly scoped to checking if local modifications exist relative to the remote backup.
 
 ### AC-4 — Atomic rollback preserved (maps to US-3)
-
 - **Given** `_applyAndFinalize()` encounters a `localStorage.setItem` failure mid-apply
 - **When** the rollback path executes
 - **Then** inventory is restored to `_prevInventory`, all `_appliedKeys` are removed from localStorage, `syncSetLastPull()` is NOT called, and no changelog entries are neutralized (since the acceptance did not complete)
@@ -65,7 +62,6 @@ This is a data-integrity bug that erodes user trust in cloud sync. Every sync cy
 > AGY: Verified. In [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L2749-L2790), the settings write loop checks for write success, and rollback happens before step 4 calls `saveInventory()` and `neutralizeSupersededChangelog()`. If settings write fails, the function exits early, ensuring neutralization does not run.
 
 ### AC-5 — Existing sync paths unaffected (maps to US-3)
-
 - **Given** a normal (non-conflict) sync push or pull
 - **When** the push/pull completes
 - **Then** manifest generation, changelog recording, and image vault handling behave identically to the pre-fix baseline
@@ -73,7 +69,6 @@ This is a data-integrity bug that erodes user trust in cloud sync. Every sync cy
 - **And** the implementation preserves existing behaviors for STAK-387 (silent no-change pull), STAK-470 (auto-merge settings), and STAK-403 (Keep Mine bypass), with discovery identifying the available automated or manual regression evidence for those paths
 
 ### AC-6 — Post-acceptance local edits are not suppressed (maps to US-2, US-3)
-
 - **Given** the user accepts a remote change for item X, triggering a debounced follow-up push
 - **When** the user makes a new legitimate local edit to item X before that debounced push fires
 - **Then** the new local edit remains eligible for manifest generation
@@ -82,7 +77,6 @@ This is a data-integrity bug that erodes user trust in cloud sync. Every sync cy
 > AGY: Verified. In [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L90), `neutralizeSupersededChangelog` filters entries with a `Number(entry.timestamp) > cutoff` check, which limits neutralization to entries created at or before `acceptanceCutoff` (set at [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L2687) before writing changes).
 
 ### AC-7 — Test coverage for the repeated-conflict path (maps to US-1, US-2)
-
 - **Given** a test harness simulating two devices with a shared mocked Dropbox vault/manifest
 - **When** Device A edits item X, Device B pulls and accepts the remote value, Device B pushes, and Device A polls
 - **Then** Device A sees zero conflicts for item X
@@ -109,20 +103,17 @@ None for product scope. Discovery must verify the implementation anchors for ite
 ## AGY Review (2026-05-25)
 
 ### Verified
-
 - **Conflict Loop Root Cause**: Verified in [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L2785-L2790) and [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L830-L848). Accepting remote changes resolves conflicts locally, but unpushed obsolete local changelog entries newer than the last push timestamp were re-uploaded because `getManifestEntries` lacked a neutralization filter.
 - **Activity Log Preservation**: Verified in [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L69-L105) and [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L264-L266) that neutralization uses a non-destructive `neutralized` flag on entries rather than deleting/mutating them. Neutralized entries render with a "Synced" badge and block Undo/Redo actions ([changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L498)).
 - **Neutralization Cutoff Bounding**: Verified in [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L90) that `neutralizeSupersededChangelog` bounds neutralization using a cutoff timestamp, preventing legitimate local edits made during the sync debounce window from being neutralized.
 - **Atomic Rollback Integration**: Verified in [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L2749-L2790) that settings write failures rollback pull state and return early before `neutralizeSupersededChangelog` can be called.
 
 ### Top concerns
-
 1. **Debounce Window Interleaving**: The 2-second debounce (`SYNC_PUSH_DEBOUNCE = 2000`) in [constants.js](file:///Volumes/DATA/GitHub/StakTrakr/js/constants.js) creates a race window. While the cutoff timestamp mechanism successfully prevents subsequent edits from being neutralized, rapid successive actions by a user could still theoretically interleave with the async file/localStorage writes.
 2. **Settings Synchronization**: The conflict resolution and neutralization loop are strictly scoped to the `changeLog` (inventory edits), leaving settings changes to be applied as-is without transaction-level neutralization. While settings changes are less prone to infinite conflict loops since they don't use the `changeLog` mechanism, a failure in settings replication could still lead to desynchronized devices.
 3. **ItemKey Derivation Consistency**: Any future changes to `computeItemKey` in [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L24) or [diff-engine.js](file:///Volumes/DATA/GitHub/StakTrakr/js/diff-engine.js#L286) must remain strictly in sync. If they drift, `neutralizeSupersededChangelog` will fail to match item keys and will not neutralize the correct entries, re-introducing the conflict loop.
 
 ### Unverified assumptions
-
 - **Assumption 1**: The client clock is reasonably reliable. The cutoff timestamp depends on `Date.now()` at the time of acceptance; significant local clock skew could lead to incorrect neutralization matching.
 - **Assumption 2**: DiffModal's `selectedChanges` array will always correctly include the `itemKey` for all modified and deleted items, or the original `item` for additions, ensuring `neutralizeSupersededChangelog` can always resolve a stable key.
 
@@ -147,19 +138,16 @@ _Reconciled by /sketch reconcile on 2026-05-24. Original reviewer marks preserve
 #### Review section
 
 ### Verified
-
 - **Root Cause Path**: Confirmed in [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L2785) that `_applyAndFinalize()` calls `saveInventory()`, which triggers a sync push.
 - **Manifest Selection**: Verified in [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L1068) that `buildAndUploadManifest()` collects local changes using `getManifestEntries(lastSyncTimestamp)` from [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L788), leading to unpushed obsolete local changelog entries being re-advertised.
 - **Atomic Rollback**: Confirmed in [cloud-sync.js](file:///Volumes/DATA/GitHub/StakTrakr/js/cloud-sync.js#L2741-L2781) that a settings write failure triggers rollback to `_prevInventory` and returns early.
 
 ### Top concerns
-
 1. **Activity Log Preservation**: Neutralizing entries must not distort or corrupt the user-facing Activity Log history in the Settings tab (rendered via `renderChangeLog()` in [changeLog.js](file:///Volumes/DATA/GitHub/StakTrakr/js/changeLog.js#L200)).
 2. **Neutralization Timing**: Neutralization must happen after successful settings write and `saveInventory()` execution in `_applyAndFinalize()` to avoid corrupting the changelog state on rollback.
 3. **ItemKey Mapping Robustness**: The mapping between DiffModal's `selectedChanges` and `changeLog` entries must accurately use `itemKey` to avoid partial or incorrect neutralization.
 
 ### Unverified assumptions
-
 - **Assumption 1**: The `selectedChanges` array passed to `_applyAndFinalize()` contains the correct `itemKey` references matching the `itemKey` fields in the local `changeLog` database.
 - **Assumption 2**: The `lastModified` item field is not updated by `saveInventory()` itself, meaning the only metadata changes we need to watch are `cloud_sync_local_modified` storage timestamps.
 
@@ -168,7 +156,6 @@ _Reconciled by /sketch reconcile on 2026-05-24. Original reviewer marks preserve
 #### Inline comments
 
 > DEEPSEEK: Verified the root cause chain end-to-end:
->
 > 1. `_applyAndFinalize()` at `cloud-sync.js:2785` calls `saveInventory()` (inventory.js:169)
 > 2. `saveInventory()` calls `scheduleSyncPush()` (inventory.js:189) — debounced 2s (`SYNC_PUSH_DEBOUNCE=2000`, constants.js:802)
 > 3. On push, `pushSyncVault()` → `buildAndUploadManifest()` (`cloud-sync.js:1060`)
@@ -233,7 +220,6 @@ _Reconciled by /sketch reconcile on 2026-05-24. Original reviewer marks preserve
 - **Assumption 5**: `cloud_sync_local_modified` (inventory.js:228) is NOT consumed by any part of the manifest-building or conflict-detection pipeline. The GEMINI review flagged potential interaction but the AC text focuses on changelog entries only. This assumption is correct — `getManifestEntries()` at changeLog.js:788 only reads `changeLog`, not localStorage timestamps.
 
 ### Resolution Summary
-
 - Accepted: 7
 - Rejected: 2 (visible Activity Log badge left to approach/design; no product-scope open question remains)
 - Resolved with your input: 0

@@ -90,4 +90,4 @@ Still 100% client-side, zero data collection, MIT licensed. Optional Dropbox clo
 
 ---
 
-_Thanks to everyone who filed issues and tested betas — this release was driven entirely by user feedback. Happy stacking._
+*Thanks to everyone who filed issues and tested betas — this release was driven entirely by user feedback. Happy stacking.*

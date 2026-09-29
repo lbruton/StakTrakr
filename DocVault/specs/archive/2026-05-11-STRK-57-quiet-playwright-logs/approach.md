@@ -20,25 +20,22 @@ Server-failure signal is preserved by a different mechanism: if `python3 -m http
 
 ## Key Decisions
 
-| #   | Decision                                                                                             | Rationale                                                                                                                                                                                                                                                                                          | Tradeoff                                                                                                                                                                                                                           |
-| --- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D-1 | Use Playwright's `webServer.stderr: "ignore"` option, not a Python wrapper or one-liner              | Documented Playwright config surface (1.43+; installed local toolchain reports 1.59.1 and the lockfile records 1.58.2, both sufficient). One property, no escaping, no new files. Empirical: the only source of noise is stderr; the only stream the user currently sees from the child is stderr. | None material — see D-3 for the only meaningful loss.                                                                                                                                                                              |
-| D-2 | Leave `command:` exactly as `"python3 -m http.server 3000"`                                          | The Python invocation isn't the problem and doesn't need to change. Changing it would expand the surface for breakage on different Python versions, platforms, or shell quoting.                                                                                                                   | None — keeps the diff minimal and the original behavior identical for anyone running the command outside Playwright.                                                                                                               |
-| D-3 | Accept loss of Python's stderr 404 / error-message lines                                             | Missing assets cause Playwright test failures (function-not-found-on-window, assertion failures, etc.) that surface the problem at a more actionable layer than a raw stderr line. Server crashes that take down the process surface via Playwright's `url` health-check timeout.                  | A developer staring at Playwright output won't see a literal `code 404, message File not found` for a missing asset; they'll see the test failure that depends on it. Acceptable — the test failure is the higher-signal artifact. |
-| D-4 | Do not change `reuseExistingServer`, `workers`, `command`, or anything else in the `webServer` block | This is a log suppression change, not a test architecture change.                                                                                                                                                                                                                                  | Local devs with a stale server bound to :3000 still see the old noise (Playwright reuses the running server unchanged). Documented as a Non-Goal in requirements.md.                                                               |
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Use Playwright's `webServer.stderr: "ignore"` option, not a Python wrapper or one-liner | Documented Playwright config surface (1.43+; installed local toolchain reports 1.59.1 and the lockfile records 1.58.2, both sufficient). One property, no escaping, no new files. Empirical: the only source of noise is stderr; the only stream the user currently sees from the child is stderr. | None material — see D-3 for the only meaningful loss. |
+| D-2 | Leave `command:` exactly as `"python3 -m http.server 3000"` | The Python invocation isn't the problem and doesn't need to change. Changing it would expand the surface for breakage on different Python versions, platforms, or shell quoting. | None — keeps the diff minimal and the original behavior identical for anyone running the command outside Playwright. |
+| D-3 | Accept loss of Python's stderr 404 / error-message lines | Missing assets cause Playwright test failures (function-not-found-on-window, assertion failures, etc.) that surface the problem at a more actionable layer than a raw stderr line. Server crashes that take down the process surface via Playwright's `url` health-check timeout. | A developer staring at Playwright output won't see a literal `code 404, message File not found` for a missing asset; they'll see the test failure that depends on it. Acceptable — the test failure is the higher-signal artifact. |
+| D-4 | Do not change `reuseExistingServer`, `workers`, `command`, or anything else in the `webServer` block | This is a log suppression change, not a test architecture change. | Local devs with a stale server bound to :3000 still see the old noise (Playwright reuses the running server unchanged). Documented as a Non-Goal in requirements.md. |
 
 ## File Map
 
 ### New
-
 - _(none)_
 
 ### Modified
-
 - `playwright.config.js:15-19` — add `stderr: "ignore",` as a new property inside the `webServer` object
 
 ### Deleted
-
 - _(none)_
 
 ## Data / Schema Changes

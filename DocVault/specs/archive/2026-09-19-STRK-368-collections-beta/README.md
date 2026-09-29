@@ -32,14 +32,14 @@ STRK-377, STRK-378.
 Captured by Codex during the review pass. Theme and responsive coverage for the album
 and hub views:
 
-| File                            | Shows                     |
-| ------------------------------- | ------------------------- |
-| `evidence/album-light.png`      | Album view, `light` theme |
-| `evidence/album-dark.png`       | Album view, `dark` theme  |
-| `evidence/album-slate.png`      | Album view, `slate` theme |
-| `evidence/album-sepia.png`      | Album view, `sepia` theme |
-| `evidence/album-mobile-390.png` | Album view at 390px       |
-| `evidence/hub-mobile-390.png`   | Hub view at 390px         |
+| File | Shows |
+| --- | --- |
+| `evidence/album-light.png` | Album view, `light` theme |
+| `evidence/album-dark.png` | Album view, `dark` theme |
+| `evidence/album-slate.png` | Album view, `slate` theme |
+| `evidence/album-sepia.png` | Album view, `sepia` theme |
+| `evidence/album-mobile-390.png` | Album view at 390px |
+| `evidence/hub-mobile-390.png` | Hub view at 390px |
 
 The four themes are the complete set — there is no `contrast` theme
 (see `.context/design-philosophy.md`).
@@ -53,7 +53,7 @@ committing before the state it depended on had settled.** Fixed in `1cb37901`.
   to "the user deleted every photo", so a push could delete the remote image vault.
   `collectAndHashImageVault()` now reports `{ enumerationFailed: true }` for an unreadable
   cache; `null` still means genuinely empty.
-- `cloud-sync.js` — the vault-first silent pull restored artwork _before_
+- `cloud-sync.js` — the vault-first silent pull restored artwork *before*
   `_mergeCollectionState`, so a new Collection's cover was judged orphaned and then
   stranded behind a recorded image hash. The merge moved to the top of the branch.
 - `vault.js` — `restoreImageVaultData` throws only after committing records, so a photo

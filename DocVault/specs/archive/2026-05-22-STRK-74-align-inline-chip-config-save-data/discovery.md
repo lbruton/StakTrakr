@@ -14,66 +14,66 @@ _Files and modules already in the project that this work will touch or build on.
 
 ### Primary targets (will be modified)
 
-| Path                        | Role                           | Notes                                                                                                                                                                                           |
-| --------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/constants.js:1136-1157` | `getInlineChipConfig()`        | Reads via raw `localStorage.getItem("inlineChipConfig")` + `JSON.parse()`. Merge-with-defaults logic at lines 1142–1151 appends missing `INLINE_CHIP_DEFAULTS` entries to preserved user order. |
-| `js/constants.js:1163-1170` | `saveInlineChipConfig(config)` | Writes via raw `localStorage.setItem("inlineChipConfig", JSON.stringify(config))`. Calls `scheduleSyncPush()` afterward. Wrapped in try/catch that swallows to `console.warn`.                  |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/constants.js:1136-1157` | `getInlineChipConfig()` | Reads via raw `localStorage.getItem("inlineChipConfig")` + `JSON.parse()`. Merge-with-defaults logic at lines 1142–1151 appends missing `INLINE_CHIP_DEFAULTS` entries to preserved user order. |
+| `js/constants.js:1163-1170` | `saveInlineChipConfig(config)` | Writes via raw `localStorage.setItem("inlineChipConfig", JSON.stringify(config))`. Calls `scheduleSyncPush()` afterward. Wrapped in try/catch that swallows to `console.warn`. |
 
 ### Storage wrappers (will be called, not modified)
 
-| Path                    | Role                               | Notes                                                                                                                                                                               |
-| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/utils.js:1160-1186` | `saveData(key, data, options)`     | **Async.** Applies `__compressIfNeeded`, catches `QuotaExceededError` with toast. Does NOT call `scheduleSyncPush`. Sets `cloud_sync_local_modified` only for `metalInventory` key. |
-| `js/utils.js:1207-1227` | `saveDataSync(key, data, options)` | **Synchronous.** Same `__compressIfNeeded` path but **re-throws** after toasting on `QuotaExceededError`.                                                                           |
-| `js/utils.js:1228-1237` | `loadDataSync(key, defaultValue)`  | **Synchronous.** Applies `__decompressIfNeeded`. Returns `defaultValue` on missing key or parse error.                                                                              |
-| `js/utils.js:3229-3237` | `__compressIfNeeded(str)`          | Only compresses strings ≥ 4096 chars via LZString. Adds `CMP1:` prefix.                                                                                                             |
-| `js/utils.js:3238-3249` | `__decompressIfNeeded(stored)`     | No-op for non-`CMP1:` strings. Safe for existing plain JSON values.                                                                                                                 |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/utils.js:1160-1186` | `saveData(key, data, options)` | **Async.** Applies `__compressIfNeeded`, catches `QuotaExceededError` with toast. Does NOT call `scheduleSyncPush`. Sets `cloud_sync_local_modified` only for `metalInventory` key. |
+| `js/utils.js:1207-1227` | `saveDataSync(key, data, options)` | **Synchronous.** Same `__compressIfNeeded` path but **re-throws** after toasting on `QuotaExceededError`. |
+| `js/utils.js:1228-1237` | `loadDataSync(key, defaultValue)` | **Synchronous.** Applies `__decompressIfNeeded`. Returns `defaultValue` on missing key or parse error. |
+| `js/utils.js:3229-3237` | `__compressIfNeeded(str)` | Only compresses strings ≥ 4096 chars via LZString. Adds `CMP1:` prefix. |
+| `js/utils.js:3238-3249` | `__decompressIfNeeded(stored)` | No-op for non-`CMP1:` strings. Safe for existing plain JSON values. |
 
 ### Sibling config savers (same raw pattern — context, not targets)
 
-| Path                        | Role                                   | Notes                                                                                                 |
-| --------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `js/constants.js:1227-1234` | `saveFilterChipCategoryConfig(config)` | Raw `setItem` + `scheduleSyncPush()`. Same pattern as `saveInlineChipConfig`.                         |
-| `js/constants.js:1308-1314` | `_saveSectionConfig(key, config)`      | Generic raw `setItem`. Used by layout, view-modal, and market-history configs. No `scheduleSyncPush`. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/constants.js:1227-1234` | `saveFilterChipCategoryConfig(config)` | Raw `setItem` + `scheduleSyncPush()`. Same pattern as `saveInlineChipConfig`. |
+| `js/constants.js:1308-1314` | `_saveSectionConfig(key, config)` | Generic raw `setItem`. Used by layout, view-modal, and market-history configs. No `scheduleSyncPush`. |
 
 ### Backup / restore / cloud sync paths (read-only for this sketch)
 
-| Path                             | Role                        | Notes                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/inventory-backup.js:82`      | Backup export               | Reads `inlineChipConfig` via raw `localStorage.getItem`. Returns the raw stored string into the backup JSON object. Once normal writes move through `saveDataSync`, this export path becomes the only documented bypass of the wrapper for this structured JSON key. The exported format contract is "stored-string JSON" — approach must define how future compression is prevented or handled. |
-| `js/inventory-backup.js:425-426` | Backup import prep          | Passes `settingsObj.inlineChipConfig` into `remoteSettings` for DiffEngine comparison.                                                                                                                                                                                                                                                                                                           |
-| `js/inventory-backup.js:500-506` | DiffEngine comparison       | Reads local values via `loadDataSync(key, null)` for comparison against `remoteSettings`.                                                                                                                                                                                                                                                                                                        |
-| `js/inventory-import.js:179-197` | Restore write-back          | `inlineChipConfig` is in the `_rawKeys` Set (line 189) — restore writes via `localStorage.setItem(key, String(val))`, bypassing `saveDataSync`.                                                                                                                                                                                                                                                  |
-| `js/inventory-import.js:1497`    | Sync settings fallback list | `inlineChipConfig` in the hardcoded fallback when `SYNC_SCOPE_KEYS` is unavailable. Read via `loadDataSync` at line 1504.                                                                                                                                                                                                                                                                        |
-| `js/diff-modal.js:63`            | DiffModal settings groups   | `inlineChipConfig` listed under "Filters & Chips" category for the settings diff UI.                                                                                                                                                                                                                                                                                                             |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/inventory-backup.js:82` | Backup export | Reads `inlineChipConfig` via raw `localStorage.getItem`. Returns the raw stored string into the backup JSON object. Once normal writes move through `saveDataSync`, this export path becomes the only documented bypass of the wrapper for this structured JSON key. The exported format contract is "stored-string JSON" — approach must define how future compression is prevented or handled. |
+| `js/inventory-backup.js:425-426` | Backup import prep | Passes `settingsObj.inlineChipConfig` into `remoteSettings` for DiffEngine comparison. |
+| `js/inventory-backup.js:500-506` | DiffEngine comparison | Reads local values via `loadDataSync(key, null)` for comparison against `remoteSettings`. |
+| `js/inventory-import.js:179-197` | Restore write-back | `inlineChipConfig` is in the `_rawKeys` Set (line 189) — restore writes via `localStorage.setItem(key, String(val))`, bypassing `saveDataSync`. |
+| `js/inventory-import.js:1497` | Sync settings fallback list | `inlineChipConfig` in the hardcoded fallback when `SYNC_SCOPE_KEYS` is unavailable. Read via `loadDataSync` at line 1504. |
+| `js/diff-modal.js:63` | DiffModal settings groups | `inlineChipConfig` listed under "Filters & Chips" category for the settings diff UI. |
 
 ### Constants / config lists
 
-| Path                        | Role                   | Notes                                                                    |
-| --------------------------- | ---------------------- | ------------------------------------------------------------------------ |
-| `js/constants.js:870`       | `SYNC_SCOPE_KEYS`      | `inlineChipConfig` is sync-scoped — eligible for cloud sync push/pull.   |
-| `js/constants.js:959`       | `ALLOWED_STORAGE_KEYS` | `inlineChipConfig` is allowlisted — survives `cleanUnknownKeys()`.       |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/constants.js:870` | `SYNC_SCOPE_KEYS` | `inlineChipConfig` is sync-scoped — eligible for cloud sync push/pull. |
+| `js/constants.js:959` | `ALLOWED_STORAGE_KEYS` | `inlineChipConfig` is allowlisted — survives `cleanUnknownKeys()`. |
 | `js/constants.js:1118-1129` | `INLINE_CHIP_DEFAULTS` | 10 entries including `attachment`. Determines merge-with-defaults shape. |
 
 ### Callers
 
-| Path                                                                         | Role                            | Notes                                                                                                                                                                                                                                                                                          |
-| ---------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/settings.js:2065-2073`                                                   | `renderInlineChipConfigTable()` | Passes `saveInlineChipConfig` as `opts.saveConfig` to `_renderSectionConfigTable`.                                                                                                                                                                                                             |
-| `js/settings.js:2641`                                                        | Toggle checkbox handler         | Calls `opts.saveConfig(cfg)` (= `saveInlineChipConfig`) without `await`. Fire-and-forget.                                                                                                                                                                                                      |
-| `js/settings.js:2671`                                                        | Reorder button handler          | Same fire-and-forget call to `opts.saveConfig(cfg)`.                                                                                                                                                                                                                                           |
-| `js/inventory-table.js:416`                                                  | Table row rendering             | Calls `getInlineChipConfig()` to determine which inline chips to render per row. In the blast radius if read behavior changes (error return shape, timing).                                                                                                                                    |
-| `tests/playwright/03-settings/04-inline-chip-attachment.spec.js:127,155,321` | Playwright test helpers         | Call `window.saveInlineChipConfig(config)` directly via `page.evaluate()` — not through `_renderSectionConfigTable`. Fire-and-forget without `await`. If `saveInlineChipConfig` becomes async, the unawaited promise may resolve after subsequent page interactions, creating test flake risk. |
-| `js/constants.js:1939-1941`                                                  | Window globals                  | `getInlineChipConfig`, `saveInlineChipConfig`, `INLINE_CHIP_DEFAULTS` exposed on `window`.                                                                                                                                                                                                     |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/settings.js:2065-2073` | `renderInlineChipConfigTable()` | Passes `saveInlineChipConfig` as `opts.saveConfig` to `_renderSectionConfigTable`. |
+| `js/settings.js:2641` | Toggle checkbox handler | Calls `opts.saveConfig(cfg)` (= `saveInlineChipConfig`) without `await`. Fire-and-forget. |
+| `js/settings.js:2671` | Reorder button handler | Same fire-and-forget call to `opts.saveConfig(cfg)`. |
+| `js/inventory-table.js:416` | Table row rendering | Calls `getInlineChipConfig()` to determine which inline chips to render per row. In the blast radius if read behavior changes (error return shape, timing). |
+| `tests/playwright/03-settings/04-inline-chip-attachment.spec.js:127,155,321` | Playwright test helpers | Call `window.saveInlineChipConfig(config)` directly via `page.evaluate()` — not through `_renderSectionConfigTable`. Fire-and-forget without `await`. If `saveInlineChipConfig` becomes async, the unawaited promise may resolve after subsequent page interactions, creating test flake risk. |
+| `js/constants.js:1939-1941` | Window globals | `getInlineChipConfig`, `saveInlineChipConfig`, `INLINE_CHIP_DEFAULTS` exposed on `window`. |
 
 ### Test coverage
 
-| Path                                                                 | Role                          | Notes                                                                                                                                                                                                                                                                                                       |
-| -------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/playwright/03-settings/04-inline-chip-attachment.spec.js`     | Primary test file (346 lines) | Tests inline chip UI, attachment chip merge behavior, enable/disable, reorder, card-view independence.                                                                                                                                                                                                      |
-| `tests/playwright/03-settings/04-inline-chip-attachment.spec.js:289` | Test seed                     | Seeds state via raw `localStorage.setItem("inlineChipConfig", JSON.stringify(cfg))`. Safe because `loadDataSync` transparently handles uncompressed JSON strings. Approach should decide whether to update seeds to `saveDataSync` for architectural consistency or document why raw seeding is acceptable. |
-| `tests/playwright/03-settings/03-appearance.spec.js:121-131`         | Appearance test               | Verifies `#inlineChipConfigContainer` is visible in layout fieldset. No state seeding.                                                                                                                                                                                                                      |
-| `tests/fixtures/settings-diff-test.json:73`                          | Test fixture                  | Contains a serialized `inlineChipConfig` JSON string (8 chips, ~450 bytes). Used by DiffEngine tests.                                                                                                                                                                                                       |
+| Path | Role | Notes |
+|------|------|-------|
+| `tests/playwright/03-settings/04-inline-chip-attachment.spec.js` | Primary test file (346 lines) | Tests inline chip UI, attachment chip merge behavior, enable/disable, reorder, card-view independence. |
+| `tests/playwright/03-settings/04-inline-chip-attachment.spec.js:289` | Test seed | Seeds state via raw `localStorage.setItem("inlineChipConfig", JSON.stringify(cfg))`. Safe because `loadDataSync` transparently handles uncompressed JSON strings. Approach should decide whether to update seeds to `saveDataSync` for architectural consistency or document why raw seeding is acceptable. |
+| `tests/playwright/03-settings/03-appearance.spec.js:121-131` | Appearance test | Verifies `#inlineChipConfigContainer` is visible in layout fieldset. No state seeding. |
+| `tests/fixtures/settings-diff-test.json:73` | Test fixture | Contains a serialized `inlineChipConfig` JSON string (8 chips, ~450 bytes). Used by DiffEngine tests. |
 
 ## Prior Decisions
 
@@ -144,7 +144,6 @@ _Reconciled by /sketch reconcile on 2026-05-22. Original reviewer marks preserve
 
 **Verified**
 I have verified the following code paths and details in the active codebase:
-
 - `js/constants.js` lines 1136-1170: Checked functions `getInlineChipConfig` and `saveInlineChipConfig`. The merge-with-defaults logic correctly layers on top.
 - `js/utils.js` lines 1160-1237 and 3229-3249: Confirmed wrapper behaviors (`saveData`, `saveDataSync`, `loadDataSync`) and the threshold logic for compression/decompression.
 - `js/inventory-import.js` lines 179-197 and 1497: Verified write-back behavior and the fallback list.
@@ -152,13 +151,11 @@ I have verified the following code paths and details in the active codebase:
 - `tests/playwright/03-settings/04-inline-chip-attachment.spec.js` line 289: Confirmed seeding mechanism works correctly with raw strings.
 
 **Top Concerns**
-
 1. **Error Propagation & UI Crashing**: Caller handlers in `js/settings.js` do not handle exceptions when calling `saveInlineChipConfig`. Since `saveDataSync` propagates `QuotaExceededError` upwards, wrapping the synchronous write inside `saveInlineChipConfig` with an explicit try/catch block is required to prevent settings UI crashes.
 2. **Type Mismatch in DiffEngine**: `DiffEngine.compareSettings` compares local parsed settings (which are arrays for `inlineChipConfig`) against remote imported settings (which are stored as raw JSON strings in `settings.json` and restored via `_rawKeys`). This creates a type mismatch (Array vs String), causing backup imports to always flag `inlineChipConfig` as changed.
 3. **Consistency of Backup/Restore**: While `inlineChipConfig` is technically a JSON array, the restore flow in `inventory-import.js` writes it back using raw `localStorage.setItem` because it is listed in `_rawKeys`. The approach phase should document this design or align it.
 
 **Unverified Assumptions**
-
 - **Playwright Test Runner Quota Behavior**: We assume that browser-based quota exceptions will not be randomly triggered during standard settings integration tests.
 - **Decompression Fallback Robustness**: We assume that no edge cases in older backups contain values that could throw parsing errors during `loadDataSync` decompression checks.
 
@@ -195,7 +192,6 @@ Verified the following claims in the active codebase at `/Volumes/DATA/GitHub/St
 - **`tests/fixtures/settings-diff-test.json:73`** — stores `inlineChipConfig` as a raw JSON string. Confirmed.
 
 **Top Concerns**
-
 1. **Missing callers in discovery.** Two significant call sites are absent from the Callers table: `inventory-table.js:416` (reads `getInlineChipConfig` during table row rendering — in the blast radius if read behavior changes) and Playwright tests at lines 127/155/321 (call `window.saveInlineChipConfig` directly — this is the constraint that should tip the design toward `saveDataSync` over async `saveData`). C-1 only addresses settings.js handlers; approach.md must also account for both of these paths.
 
 2. **C-7 "never compressed" is a time bomb.** The discovery correctly notes that compression won't trigger today (< 4096 chars), but treats this as near-axiomatic. Ten chip types with user labels and future additions (or the sibling `filterChipCategoryConfig` with 13 entries that WILL be targeted in a parallel issue) could push past 4096 chars. The `_rawKeys` classification of `inlineChipConfig` in `inventory-import.js` must stay permanent — it's a design fixture, not stale cruft. If it's ever removed without updating the export path, the restore flow would write raw uncompressed data over compressed data, creating a format mismatch under future compression conditions.
@@ -203,7 +199,6 @@ Verified the following claims in the active codebase at `/Volumes/DATA/GitHub/St
 3. **DiffEngine type mismatch is pre-existing, not caused by this sketch.** Gemini's concern #2 is valid — `_settingsValuesEqual` returns `false` when comparing a parsed array (local, via `loadDataSync`) against a raw JSON string (remote, via backup import). However, this bug exists regardless of whether `saveInlineChipConfig` uses raw `setItem` or `saveDataSync`. The discovery should distinguish between bugs this sketch might fix vs. bugs this sketch must not make worse. The approach phase should neither claim to fix this nor accidentally make it worse by introducing a new write format.
 
 **Unverified Assumptions**
-
 - **Compression threshold as permanent invariant.** The assumption that `inlineChipConfig` will never exceed 4096 chars rests on today's 10-entry `INLINE_CHIP_DEFAULTS` array. If future versions add more inline chip types, or if user-customizable labels become longer, the stored JSON string could cross the threshold. The discovery treats "compression won't trigger" as an absolute truth rather than a constraint that needs monitoring.
 - **`scheduleSyncPush` global availability.** The current code guards with `typeof scheduleSyncPush === "function"` (line 1166), which is good. But the discovery asserts the explicit `scheduleSyncPush` call "must remain explicit" (C-3) without checking whether the wrapper path introduces a scenario where `scheduleSyncPush` becomes unavailable (e.g., if script load order changes in a future refactor). Not actionable now, but worth noting.
 - **`loadDataSync` default value mismatch.** The current `getInlineChipConfig` returns `INLINE_CHIP_DEFAULTS.map(...)` on any error (parse failure, missing key, etc.). If switched to `loadDataSync("inlineChipConfig", defaultValue)`, the default value is passed through directly. The approach phase must ensure `INLINE_CHIP_DEFAULTS.map((d) => ({ ...d }))` is the default, not `[]` (which is `loadDataSync`'s parameter default at `utils.js:1228`). The merge-with-defaults logic at C-5 would then layer on top. This is a detail the approach phase must get right.
@@ -224,7 +219,6 @@ Verified the following claims in the active codebase at `/Volumes/DATA/GitHub/St
 #### Review Section
 
 **Verified**
-
 - `js/constants.js:1118-1170` confirms `INLINE_CHIP_DEFAULTS`, raw `getInlineChipConfig()`, raw `saveInlineChipConfig()`, merge-with-defaults behavior, `console.warn` swallowing, and explicit `scheduleSyncPush()`.
 - `js/utils.js:1160-1237` and `js/utils.js:3228-3249` confirm `saveData` catches, `saveDataSync` re-throws, `loadDataSync` defaults to `[]`, and wrapper compression uses the `CMP1:` prefix at 4096 chars.
 - `DocVault/Projects/StakTrakr/Foundation/coding-standards.md:224-233`, `:296-302`, and `:437-439` confirm the storage-wrapper rule, raw compressed-read hazard, and script-load-order constraint.
@@ -232,20 +226,17 @@ Verified the following claims in the active codebase at `/Volumes/DATA/GitHub/St
 - `js/settings.js:2065-2073,2636-2673`, `js/inventory-table.js:415-416`, and `tests/playwright/03-settings/04-inline-chip-attachment.spec.js:123-128,153-156,288-290,317-321` confirm the synchronous settings/test callers and table render read path.
 
 **Top concerns**
-
 1. The backup export path is a compatibility surface, not just read-only context. If normal writes can ever produce `CMP1:` values, `inventory-backup.js:82` exports the raw compressed blob unless approach defines a no-compression contract or normalizes backup export.
 2. The discovery summary prematurely says both functions switch to `saveDataSync`/`loadDataSync` while also deferring the async-vs-sync decision. That should be converted back into evidence and constraints before approach starts.
 3. The approach needs to account for script order: `constants.js` loads before `utils.js`, so wrapper calls must stay inside functions invoked after page load, not move into top-level constants initialization.
 
 **Unverified Assumptions**
-
 - `inlineChipConfig` will remain below the 4096-character compression threshold for all future chip sets.
 - Backup `settings.json` intentionally stores `inlineChipConfig` as a raw JSON string forever, rather than as a parsed array or wrapper-normalized value.
 - The approach will preserve `saveInlineChipConfig` as a synchronous API because settings handlers and Playwright helpers currently call it without awaiting.
 - No startup path calls `getInlineChipConfig()` before `js/utils.js` has loaded.
 
 ### Resolution Summary
-
 - Accepted: 11
 - Rejected: 3 (scheduleSyncPush guard already exists — not actionable; Playwright quota unrealistic for ~450 bytes; loadDataSync already handles decompression fallback gracefully)
 - Resolved with your input: 0

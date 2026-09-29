@@ -14,16 +14,16 @@ The patch splits into four work streams. First, fix attachment UI reliability: q
 
 ## Key Decisions
 
-| #   | Decision                                                               | Rationale                                                                                                   | Tradeoff                                                                           |
-| --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| D-1 | Queue entries get stable local ids                                     | Filename is not unique and cannot identify a queued row                                                     | Requires wrapping raw `File` objects or parallel metadata in `_pendingAttachments` |
-| D-2 | Use context-specific object URL cleanup                                | Open-in-new-tab cannot safely use a fixed 10 second revoke timer                                            | A pagehide/unload cleanup may retain blob URLs longer during the session           |
-| D-3 | Derive `missingBinary` locally                                         | STRK-45 canonical item metadata did not include local failure flags; syncing them pollutes other devices    | Rendering may need async IDB checks to display missing state                       |
-| D-4 | Split-off items duplicate attachment blobs with new UUIDs              | STRK-64 changes product behavior: receipts/invoices should remain visible on both split records             | Uses more IDB space than shared references, but keeps delete cascade simple        |
-| D-5 | Extract `_pullAttachmentVault` helper in `cloud-sync.js`               | Repeated blocks already drifted; helper can consistently record `attachmentHash`                            | Must thread path labels/logging context through helper                             |
-| D-6 | Treat 100 MB as a warning/preflight threshold, not a hard cap          | Prevents surprise OOM risk from Base64 JSON materialization while preserving an explicit manual-export path | Background cloud sync must defer attachment binaries because it cannot prompt      |
-| D-7 | Clarify storage denominators instead of inventing a new storage engine | STRK-65 is a diagnostics/reporting problem unless investigation finds data in the wrong backend             | Some browser quota numbers remain estimates and must be labeled as such            |
-| D-8 | Promote review-found examples into real-flow tests                     | Existing tests prove constants and handcrafted shapes more than behavior                                    | More Playwright setup, but lower regression risk                                   |
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Queue entries get stable local ids | Filename is not unique and cannot identify a queued row | Requires wrapping raw `File` objects or parallel metadata in `_pendingAttachments` |
+| D-2 | Use context-specific object URL cleanup | Open-in-new-tab cannot safely use a fixed 10 second revoke timer | A pagehide/unload cleanup may retain blob URLs longer during the session |
+| D-3 | Derive `missingBinary` locally | STRK-45 canonical item metadata did not include local failure flags; syncing them pollutes other devices | Rendering may need async IDB checks to display missing state |
+| D-4 | Split-off items duplicate attachment blobs with new UUIDs | STRK-64 changes product behavior: receipts/invoices should remain visible on both split records | Uses more IDB space than shared references, but keeps delete cascade simple |
+| D-5 | Extract `_pullAttachmentVault` helper in `cloud-sync.js` | Repeated blocks already drifted; helper can consistently record `attachmentHash` | Must thread path labels/logging context through helper |
+| D-6 | Treat 100 MB as a warning/preflight threshold, not a hard cap | Prevents surprise OOM risk from Base64 JSON materialization while preserving an explicit manual-export path | Background cloud sync must defer attachment binaries because it cannot prompt |
+| D-7 | Clarify storage denominators instead of inventing a new storage engine | STRK-65 is a diagnostics/reporting problem unless investigation finds data in the wrong backend | Some browser quota numbers remain estimates and must be labeled as such |
+| D-8 | Promote review-found examples into real-flow tests | Existing tests prove constants and handcrafted shapes more than behavior | More Playwright setup, but lower regression risk |
 
 ## File Map
 

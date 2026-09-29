@@ -234,7 +234,6 @@ _Reconciled by /sketch reconcile on 2026-05-23. Original reviewer marks preserve
 - C.1's acceptance says "No inline premium math remains at any of the three call sites" — but this is a prose assertion, not a mechanically verifiable acceptance criterion. CLOSE-3's verification stamp only requires `verified at <file>:<line>` or `verified by <test name>`. There is no grep-based audit task to confirm the absence of inline `meltValue` calculations outside `_calcMarketPremium`.
 
 ### Resolution Summary
-
 - Accepted: 12 (`.vp-premium.mid` contrast fix, LightweightCharts stub in B.1, CLOSE-5→CLOSE-8 Plane timing, CLOSE-1 lint gate, C.2 grep command, AC-4 source-level audit in CLOSE-3, CLOSE-6 PR title format, ticker selector scoping, C.2 guard removal, no-`[P]` header text, ticker primitive preservation, detail modal test guidance)
 - Rejected: 2 (premiumTier signature coupling — future risk only, thresholds are constants; G1 rate failure test — redundant rate sources make existing null-guard sufficient per user confirmation)
 - Resolved with user input: 1 (G1 rate failure test — user confirmed skip)

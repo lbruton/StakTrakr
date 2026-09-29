@@ -73,7 +73,7 @@ _Each task touches exactly one file. Edits follow existing patterns and use the 
     1. **Multi-word `itemText` array** (~line 81): add `item.capsule || ""` to the join array.
     2. **Single-word `fieldMatch` chain** (~line 326): add `(item.capsule && wordRegex.test(item.capsule))` to the regex OR chain alongside `item.notes`, `item.serialNumber`, etc.
     3. **Fuzzy fallback** (~line 361): add `item.capsule` to the fuzzy-checked fields (gate behind `q.length > 2` like `storageLocation`).
-       `capsuleNotes` follows the same pattern as `notes` — include in `itemText` and `fieldMatch` for full-text search coverage.
+    `capsuleNotes` follows the same pattern as `notes` — include in `itemText` and `fieldMatch` for full-text search coverage.
   - **Leverage:** Follow the existing `item.notes` pattern in each of the three search paths. Confirmed: search.js lines 81-100 (itemText), 326-349 (fieldMatch), 358-374 (fuzzy).
   - **Maps to:** AC-8
   - **Implementation note:** Added `capsule` and `capsuleNotes` to multi-word, single-word, and fuzzy search paths.
@@ -84,7 +84,7 @@ _Each task touches exactly one file. Edits follow existing patterns and use the 
     1. **Multi-word cached `itemText` array** (~line 1116): add `item.capsule || ""` and `item.capsuleNotes || ""` to the join array.
     2. **Single-word `fieldMatch` chain** (~line 1242): add `(item.capsule && wordRegex.test(item.capsule))` to the regex OR chain.
     3. **Fuzzy fallback `fieldsToCheck`** (~line 1280): add `item.capsule || ""` to the array.
-       Cache note: `searchCache` is a `WeakMap` keyed on item objects. Edit paths replace `inventory[editIdx]` with a new object (cache miss = rebuild, correct). Verify bulk/import paths also create new objects rather than mutating in place.
+    Cache note: `searchCache` is a `WeakMap` keyed on item objects. Edit paths replace `inventory[editIdx]` with a new object (cache miss = rebuild, correct). Verify bulk/import paths also create new objects rather than mutating in place.
   - **Leverage:** Follow the existing `item.notes` pattern in each path. Confirmed: filters.js lines 1116-1134 (itemText), 1242-1264 (fieldMatch), 1280-1285 (fuzzy).
   - **Maps to:** AC-8
   - **Implementation note:** Added `capsule` and `capsuleNotes` to advanced filter cache, field-match, and fuzzy fallback paths.
@@ -109,7 +109,7 @@ _Tasks in this cohort reference symbols and patterns created in Cohort A. Run in
   - **Acceptance:** Two separate code paths updated:
     1. **Edit path** (~line 1328): `if (elements.itemCapsule) elements.itemCapsule.value = item.capsule || "";` and same for `itemCapsuleNotes`. After `populateNumistaDataFields()` and any shape/dimension normalization completes, call `updateCapsuleSuggestion()` directly with the final diameter value — do NOT use synthetic `input` event dispatch (ordering is fragile when diameter normalization runs).
     2. **Duplicate path** (~line 1679): Same capsule population lines. Same direct `updateCapsuleSuggestion()` call after diameter is settled.
-       Verify: opening an existing item for edit shows its saved capsule value AND the diameter-based suggestion. Opening a new item shows empty capsule fields and suggestion updates as diameter is entered.
+    Verify: opening an existing item for edit shows its saved capsule value AND the diameter-based suggestion. Opening a new item shows empty capsule fields and suggestion updates as diameter is entered.
   - **Depends on:** A.2 (state keys), B.1 (element binding, suggestion listener wired), A.3 (`updateCapsuleSuggestion` exposed)
   - **Leverage:** Follow `elements.itemNotes.value = item.notes || ""` pattern. Call `updateCapsuleSuggestion(diameterValue)` after all Numista field population is complete.
   - **Maps to:** AC-1, AC-3

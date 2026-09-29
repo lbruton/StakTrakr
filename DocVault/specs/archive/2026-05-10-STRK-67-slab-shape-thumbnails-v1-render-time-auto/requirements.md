@@ -28,32 +28,27 @@ The inventory table and card grid views use a type-only check (`item.type === "b
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 — Shape-aware grid thumbnails (maps to US-1)
-
 - **Given** an inventory item where `item.numistaData?.shape` is set to a value that `classifyShape()` (catalog-api.js:528) normalizes to anything other than `"round"` (e.g., raw values `"Rectangular"`, `"Rectangular (41.8mm wide)"`, `"Square"`, `"Oval"`, `"Other"`)
 - **When** the item is displayed in the inventory table view, card grid view, or item view modal
 - **Then** the thumbnail renders with rectangular clipping (`table-thumb-rect` / `bar-shape` / `view-shape-rect` class), not circular
 - **Note:** Items with no `numistaData.shape` value (manually added coins, un-synced entries) default to round — matches existing behavior.
 
 ### AC-2 — Slabbed coin with user-uploaded image (maps to US-2)
-
 - **Given** an inventory item with `gradingAuthority` set (any TPG: NGC, PCGS, ANACS, ICG, etc.; `certNumber` is informational and not required), AND the item has a user-uploaded image present in the `userImages` IndexedDB store (`getUserImage(uuid)` returns a record where `rec[side]` is a Blob with `size > 0`)
 - **When** the item is displayed in the inventory table view, card grid view, or item view modal
 - **Then** the thumbnail renders with rectangular clipping, regardless of `numistaData.shape`. In card grid view this also includes flipping the `<img>` `object-fit` from `cover` to `contain` so the full slab is visible.
 
 ### AC-3 — Slabbed coin with Numista-only image (maps to US-3)
-
 - **Given** an inventory item with `gradingAuthority` set, BUT the item has NO user-uploaded image (only Numista catalog image or pattern image — `getUserImage(uuid)` returns null OR the record's blob for that side is missing/empty)
 - **When** the item is displayed in any of the three views
 - **Then** the thumbnail respects `numistaData.shape` as in AC-1 (round coins stay round, non-round go rectangular) — the slab override does NOT apply
 
 ### AC-4 — Existing type-based logic preserved
-
 - **Given** an inventory item with `type` of "Bar", "Note", "Aurum", "Set", or `weightUnit` of "gb"/"sb"
 - **When** the item is displayed in any view
 - **Then** the thumbnail continues to render as rectangular (existing behavior unchanged)
 
 ### AC-5 — Cross-view consistency
-
 - **Given** any combination of (type, `numistaData.shape`, `gradingAuthority`, user-image presence)
 - **When** the same item is rendered in the inventory table, card grid, and item view modal
 - **Then** all three views produce the same round/rectangular decision. (The view modal currently flips to rectangular only late, in `_renderNumistaSection` at `viewModal.js:1174`, after the initial build at `_buildImageSection` at `viewModal.js:255` — this sketch makes the initial build path shape-aware so the brief round-flash before the late override is eliminated.)

@@ -137,7 +137,7 @@ _Minimum code to turn Cohort B green. `priceHistory.js` tasks (C.1/C.2) and `clo
 
 ## Verification Stamp
 
-_Generated 2026-06-21 (CLOSE-3). `approach.md` UI Contract = N/A (no UI surface) → no visual-verification lines required. Full suite: 311 passed._
+*Generated 2026-06-21 (CLOSE-3). `approach.md` UI Contract = N/A (no UI surface) → no visual-verification lines required. Full suite: 311 passed.*
 
 - [x] AC-1 (clear stamps watermark) — verified by Playwright `AC-1: confirming 'Clear all' stamps the clear watermark and wipes local history` + impl `js/priceHistory.js:743` (`saveItemPriceClearedAt(Date.now())` in `clearItemPriceHistory`)
 - [x] AC-2 (cleared push deletes companion) — verified by Playwright `AC-2: a cleared device's push deletes the remote companion vault` + impl `js/cloud-sync.js` push preserve-when-empty branch (`files/delete_v2` when `loadItemPriceClearedAt() > prePushMeta.timestamp`)

@@ -199,7 +199,6 @@ _Reconciled by /sketch reconcile on 2026-05-18. Original reviewer marks preserve
 - Assumption that `/release patch` handles the worktree creation or that the user will perform the manual steps documented in `coding-standards.md`.
 
 ### Resolution Summary
-
 - Accepted: 5 (force=true call signature, gotoApp hang guard, sw.js removal, versioned PR title, programmatic cb.checked confirmation)
 - Rejected: 2 (/start-patch existence — both reviewers falsely claimed it doesn't exist; /release patch as setup entry — /start-patch is the correct entry point)
 - Resolved with your input: 0

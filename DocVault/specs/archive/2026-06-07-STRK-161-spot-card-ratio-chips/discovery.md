@@ -14,78 +14,78 @@ _All issue-cited pointers were re-verified against current `dev` (2026-06-07). T
 
 ### Markup
 
-| Path                  | Role                                                                  | Notes                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `index.html:899-1124` | The four spot cards                                                   | `<section #spotPricesSection>` → `.spot-cards-grid` → four `.spot-input.{metal}` → `.spot-card[data-metal]`. DOM order is **Silver, Gold (2nd), Platinum, Palladium**. Each card ends with `.spot-card-value#spotPriceDisplay{Metal}`, `.spot-card-change#spotChange{Metal}`, `.spot-card-timestamp#spotTimestamp{Metal}` — the chip mounts inside `.spot-card`, in a lower corner near the timestamp. |
-| `index.html:927-941`  | Existing inline themed SVG (sync icon)                                | Already uses `stroke="currentColor"` inside `.spot-card` — **local prior art** for the issue's glyph requirement (cf. the issue's `attachment-ui.js:20` pointer; the cards themselves already demonstrate the pattern).                                                                                                                                                                                |
-| `index.html:5586`     | Currency & Pricing settings panel (`<h3>Currency &amp; Pricing</h3>`) | `gb-source-btn` pricing-source pills at 5623-5650. The new "Show spot ratios" toggle lands in this panel (AC-10).                                                                                                                                                                                                                                                                                      |
+| Path | Role | Notes |
+|------|------|-------|
+| `index.html:899-1124` | The four spot cards | `<section #spotPricesSection>` → `.spot-cards-grid` → four `.spot-input.{metal}` → `.spot-card[data-metal]`. DOM order is **Silver, Gold (2nd), Platinum, Palladium**. Each card ends with `.spot-card-value#spotPriceDisplay{Metal}`, `.spot-card-change#spotChange{Metal}`, `.spot-card-timestamp#spotTimestamp{Metal}` — the chip mounts inside `.spot-card`, in a lower corner near the timestamp. |
+| `index.html:927-941` | Existing inline themed SVG (sync icon) | Already uses `stroke="currentColor"` inside `.spot-card` — **local prior art** for the issue's glyph requirement (cf. the issue's `attachment-ui.js:20` pointer; the cards themselves already demonstrate the pattern). |
+| `index.html:5586` | Currency & Pricing settings panel (`<h3>Currency &amp; Pricing</h3>`) | `gb-source-btn` pricing-source pills at 5623-5650. The new "Show spot ratios" toggle lands in this panel (AC-10). |
 
 ### State & ratio source
 
-| Path              | Role                                                          | Notes                                                         |
-| ----------------- | ------------------------------------------------------------- | ------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/state.js:327` | `spotPrices = { gold, silver, platinum, palladium }` (USD/oz) | The numerator/denominator source for all three ratios (AC-1). |
 
 ### Spot render hooks (live-update surface — AC-8)
 
-| Path                      | Role                                                                                                                                                                           | Notes                                                                                                                                |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/spot.js:451`          | `fetchSpotPrice`                                                                                                                                                               | API-sync entry.                                                                                                                      |
-| `js/spot.js:503`          | `updateManualSpot(metalKey)`                                                                                                                                                   | Manual-edit path.                                                                                                                    |
-| `js/spot.js:1086`         | `updateSpotChangePercent(metalKey, …)`                                                                                                                                         | Change-percent render.                                                                                                               |
-| `js/spot.js` (DOM writes) | `elements.spotPriceDisplay[metalKey].textContent = formatCurrency(…)` at **366, 463/475, 525, 583**; timestamp via `getElementById('spotTimestamp'+name)` at **483, 532, 592** | API-data branch, manual branch, cache/sync branch.                                                                                   |
-| `js/api.js:1177-1214`     | `refreshFromCache`                                                                                                                                                             | Writes `elements.spotPriceDisplay[metal].textContent` (~1192) and `spotTimestamp{Name}` (~1199) directly — **outside `js/spot.js`.** |
-| `js/api.js:2151-2175`     | API save/test flow                                                                                                                                                             | Same `spotPriceDisplay` / `spotTimestamp` write pair (~2159 / ~2162).                                                                |
-| `js/api.js:2267-2297`     | `syncAllProviders`                                                                                                                                                             | Same write pair (~2286 / ~2289; timestamp via `safeGetElement`).                                                                     |
-| `js/api.js:2625-2646`     | API reset                                                                                                                                                                      | `elements.spotPriceDisplay[metalConfig.key].textContent` (~2641).                                                                    |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/spot.js:451` | `fetchSpotPrice` | API-sync entry. |
+| `js/spot.js:503` | `updateManualSpot(metalKey)` | Manual-edit path. |
+| `js/spot.js:1086` | `updateSpotChangePercent(metalKey, …)` | Change-percent render. |
+| `js/spot.js` (DOM writes) | `elements.spotPriceDisplay[metalKey].textContent = formatCurrency(…)` at **366, 463/475, 525, 583**; timestamp via `getElementById('spotTimestamp'+name)` at **483, 532, 592** | API-data branch, manual branch, cache/sync branch. |
+| `js/api.js:1177-1214` | `refreshFromCache` | Writes `elements.spotPriceDisplay[metal].textContent` (~1192) and `spotTimestamp{Name}` (~1199) directly — **outside `js/spot.js`.** |
+| `js/api.js:2151-2175` | API save/test flow | Same `spotPriceDisplay` / `spotTimestamp` write pair (~2159 / ~2162). |
+| `js/api.js:2267-2297` | `syncAllProviders` | Same write pair (~2286 / ~2289; timestamp via `safeGetElement`). |
+| `js/api.js:2625-2646` | API reset | `elements.spotPriceDisplay[metalConfig.key].textContent` (~2641). |
 
 **The full spot-card render surface spans `js/spot.js` _and_ `js/api.js`** — at least seven distinct write sites across API-data, manual, cache-refresh, save/test, sync-all, and reset paths. The chip render must fire on **every** one, or AC-8 passes for manual/default loading while API sync, cache refresh, or reset leaves ratio chips stale. This is the strongest argument for one shared `renderRatioChip(metalKey)` invoked from a single choke point (see OQ-2) rather than inline per-branch.
 
 ### Goldback (gold-card chip — AC-2/4/5/6/7)
 
-| Path                               | Role                                                                                        | Notes                                                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/goldback.js:10`                | `goldbackPricingSource` (`"off"\|"api"\|"spot"\|"manual"`)                                  | Module `let`, window-exposed (18, 741). Gates the gold chip.                                                                                                                                                                                                                                                                                                                   |
-| `js/goldback.js:300`               | `getGoldbackDenominationPrice(weightGb)`                                                    | Returns `goldbackPrices[String(w)].price` if `> 0`, else `null`. **Carries no freshness/timestamp** — only the price.                                                                                                                                                                                                                                                          |
-| `js/goldback.js:313`               | `isGoldbackPricingActive()` → `goldbackPricingSource !== "off"`                             | Handy guard.                                                                                                                                                                                                                                                                                                                                                                   |
-| `js/goldback.js:378`               | `computeGoldbackEstimatedRate(goldSpot)` = `2 * (goldSpot/1000) * goldbackEstimateModifier` | The AC-5 spot-estimate fallback.                                                                                                                                                                                                                                                                                                                                               |
-| `js/goldback.js:387`               | `onGoldSpotPriceChanged()`                                                                  | Recomputes denominations in **spot** mode when gold spot changes; calls `syncGoldbackSettingsUI()`. A natural re-render trigger for AC-9.                                                                                                                                                                                                                                      |
-| `js/goldback.js:420`               | `fetchGoldbackApiPrices(options)`                                                           | Fetches `…/goldback/latest.json`, reads `envelope.data.g1_usd`/`denominations`, stores `goldbackPrices[key] = { price, updatedAt: Date.now(), source: "api" }`. **Discards `envelope.data.ts` and `stale_after`.** ← root of Open Question 1.                                                                                                                                  |
-| `js/settings-listeners.js:343-404` | Goldback pricing-source switch handler                                                      | Mutates `goldbackPricingSource`, then branches: `api` → `fetchGoldbackApiPrices({ expectedSource })`, `spot`/`manual` → recompute; finally calls `syncGoldbackSettingsUI()` / `renderTable()` **only** (no chip render). **AC-7's hide-on-`off` re-render trigger** — the chip render must hook here too, alongside `fetchGoldbackApiPrices()` and `onGoldSpotPriceChanged()`. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/goldback.js:10` | `goldbackPricingSource` (`"off"\|"api"\|"spot"\|"manual"`) | Module `let`, window-exposed (18, 741). Gates the gold chip. |
+| `js/goldback.js:300` | `getGoldbackDenominationPrice(weightGb)` | Returns `goldbackPrices[String(w)].price` if `> 0`, else `null`. **Carries no freshness/timestamp** — only the price. |
+| `js/goldback.js:313` | `isGoldbackPricingActive()` → `goldbackPricingSource !== "off"` | Handy guard. |
+| `js/goldback.js:378` | `computeGoldbackEstimatedRate(goldSpot)` = `2 * (goldSpot/1000) * goldbackEstimateModifier` | The AC-5 spot-estimate fallback. |
+| `js/goldback.js:387` | `onGoldSpotPriceChanged()` | Recomputes denominations in **spot** mode when gold spot changes; calls `syncGoldbackSettingsUI()`. A natural re-render trigger for AC-9. |
+| `js/goldback.js:420` | `fetchGoldbackApiPrices(options)` | Fetches `…/goldback/latest.json`, reads `envelope.data.g1_usd`/`denominations`, stores `goldbackPrices[key] = { price, updatedAt: Date.now(), source: "api" }`. **Discards `envelope.data.ts` and `stale_after`.** ← root of Open Question 1. |
+| `js/settings-listeners.js:343-404` | Goldback pricing-source switch handler | Mutates `goldbackPricingSource`, then branches: `api` → `fetchGoldbackApiPrices({ expectedSource })`, `spot`/`manual` → recompute; finally calls `syncGoldbackSettingsUI()` / `renderTable()` **only** (no chip render). **AC-7's hide-on-`off` re-render trigger** — the chip render must hook here too, alongside `fetchGoldbackApiPrices()` and `onGoldSpotPriceChanged()`. |
 
 ### Settings toggle plumbing (AC-10/11)
 
-| Path                  | Role                                                                | Notes                                                                                                                                                                                                                                   |
-| --------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/settings.js:1837` | `wireStorageToggle(elementId, storageKey, { defaultVal, onApply })` | Reads/writes a **raw** localStorage key as `'true'/'false'`, syncs visual state, and fires `opts.onApply(isEnabled)` — **`onApply` is the live show/hide hook for AC-11.** Expects a `.chip-sort-btn` yes/no container, not a checkbox. |
-| `js/settings.js:1816` | `syncChipToggle(elementId, isOn)`                                   | Single source of truth for toggle visual state (mem0-confirmed).                                                                                                                                                                        |
+| `js/settings.js:1816` | `syncChipToggle(elementId, isOn)` | Single source of truth for toggle visual state (mem0-confirmed). |
 
 ### Constants
 
-| Path                  | Role                                                      | Notes                                                                                                                                                                                                        |
-| --------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/constants.js:559` | `V2_API_ENDPOINTS`                                        | Endpoint list (already consumed by `fetchGoldbackApiPrices`).                                                                                                                                                |
-| `js/constants.js:595` | `GOLDBACK_PRICING_SOURCE_KEY = "goldback-pricing-source"` | Existing goldback-mode key. New ratio-toggle key follows the pattern `const FOO_KEY = "foo"; // nosemgrep: codacy.javascript.security.hard-coded-password`.                                                  |
-| `js/constants.js:939` | `ALLOWED_STORAGE_KEYS = [ … ]`                            | Persisted-key allowlist consumed by `cleanupStorage`/vault scope. Existing raw toggle keys (table-images, show-realized) are registered here → **the new ratio-toggle key must be added** or it gets purged. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/constants.js:559` | `V2_API_ENDPOINTS` | Endpoint list (already consumed by `fetchGoldbackApiPrices`). |
+| `js/constants.js:595` | `GOLDBACK_PRICING_SOURCE_KEY = "goldback-pricing-source"` | Existing goldback-mode key. New ratio-toggle key follows the pattern `const FOO_KEY = "foo"; // nosemgrep: codacy.javascript.security.hard-coded-password`. |
+| `js/constants.js:939` | `ALLOWED_STORAGE_KEYS = [ … ]` | Persisted-key allowlist consumed by `cleanupStorage`/vault scope. Existing raw toggle keys (table-images, show-realized) are registered here → **the new ratio-toggle key must be added** or it gets purged. |
 
 ### CSS prior art
 
-| Path                   | Role                                  | Notes                                                                                             |
-| ---------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `css/styles.css:~1089` | `.trade-linked-chip` / `.chip-remove` | Existing chip/pill vocabulary.                                                                    |
-| `css/styles.css:~3835` | `.chip-grouping-*`                    | Further chip styling precedent. No existing **ratio/GSR** code anywhere — the math is greenfield. |
+| Path | Role | Notes |
+|------|------|-------|
+| `css/styles.css:~1089` | `.trade-linked-chip` / `.chip-remove` | Existing chip/pill vocabulary. |
+| `css/styles.css:~3835` | `.chip-grouping-*` | Further chip styling precedent. No existing **ratio/GSR** code anywhere — the math is greenfield. |
 
 ### Tests & coverage map
 
 _Verified against current `dev` (2026-06-07). StakTrakr enforces a `coverage-map.csv` discipline (STRK-121/122 consolidated source specs into the core/extended tiers and archived the originals) — new coverage adds a map row, not a stray root spec._
 
-| Path                                                          | Role                                       | Notes                                                                                                                                                                                                                             |
-| ------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/playwright/core/smoke.spec.js`                         | Spot-card smoke                            | Already exercises the spot cards (multiple `spot` selectors) — natural home for a chip presence/visibility smoke check.                                                                                                           |
-| `tests/playwright/core/settings-api.spec.js:125-155`          | Currency-panel Goldback controls + history | The "Show spot ratios" toggle (AC-10/11) lands in this panel — the existing Currency-panel test to extend, not a new spec.                                                                                                        |
-| `tests/playwright/core/mobile-and-layout.spec.js`             | Responsive / layout precedent              | Chip-must-not-overflow / mobile-stack assertions (requirements §UI line 32) belong alongside existing layout coverage.                                                                                                            |
-| `tests/playwright/extended/visual-layout-regressions.spec.js` | Theme-token / visual regression            | Four-theme chip legibility (AC-14) fits the existing theme-token visual tier.                                                                                                                                                     |
-| `tests/playwright/coverage-map.csv:50,62`                     | Coverage-map ledger                        | Rows 50/62 record the settings-currency→settings-api and theme-tokens→visual-layout-regressions consolidations — the pattern STRK-161 must follow: **add a coverage-map delta; do not create a new root or issue-prefixed spec.** |
+| Path | Role | Notes |
+|------|------|-------|
+| `tests/playwright/core/smoke.spec.js` | Spot-card smoke | Already exercises the spot cards (multiple `spot` selectors) — natural home for a chip presence/visibility smoke check. |
+| `tests/playwright/core/settings-api.spec.js:125-155` | Currency-panel Goldback controls + history | The "Show spot ratios" toggle (AC-10/11) lands in this panel — the existing Currency-panel test to extend, not a new spec. |
+| `tests/playwright/core/mobile-and-layout.spec.js` | Responsive / layout precedent | Chip-must-not-overflow / mobile-stack assertions (requirements §UI line 32) belong alongside existing layout coverage. |
+| `tests/playwright/extended/visual-layout-regressions.spec.js` | Theme-token / visual regression | Four-theme chip legibility (AC-14) fits the existing theme-token visual tier. |
+| `tests/playwright/coverage-map.csv:50,62` | Coverage-map ledger | Rows 50/62 record the settings-currency→settings-api and theme-tokens→visual-layout-regressions consolidations — the pattern STRK-161 must follow: **add a coverage-map delta; do not create a new root or issue-prefixed spec.** |
 
 ## Prior Decisions
 
@@ -139,7 +139,6 @@ The work lands almost entirely in `js/spot.js` (chip render + multi-path hook), 
 ### ANTIGRAVITY Review (2026-06-07)
 
 #### Verified
-
 - Checked `index.html` spot cards markup and selectors (`spotPriceDisplay{Metal}`, `spotTimestamp{Metal}`).
 - Checked `js/state.js:327` for the `spotPrices` global definition.
 - Checked `js/spot.js` for all `elements.spotPriceDisplay` DOM writes.
@@ -148,20 +147,17 @@ The work lands almost entirely in `js/spot.js` (chip render + multi-path hook), 
 - Checked `js/constants.js:939` for `ALLOWED_STORAGE_KEYS`.
 
 #### Top concerns
-
 1. **Goldback Freshness Tracking (OQ-1):** Since `fetchGoldbackApiPrices` currently discards `envelope.data.ts` and `stale_after`, the approach must extend the global cache or the cached price objects in `goldbackPrices` to store these values. Otherwise, it will not be possible to enforce the stale-after guard correctly on the front-end.
 2. **Multi-Path Rendering Synchronization:** There are at least three distinct paths in `js/spot.js` that write spot values to the DOM. Implementing a single shared update/render function (`renderRatioChip`) called from a central post-update hook is critical to prevent visual desync where ratios are not updated when a user edits spot prices manually vs. when they auto-sync.
 3. **Storage Key Purging:** The new setting toggle key must be explicitly registered in `ALLOWED_STORAGE_KEYS` in `js/constants.js`, or it will be silently purged by the next storage cleanup pass.
 
 #### Unverified assumptions
-
 1. It is assumed that the custom tooltips required by AC-13 can be styled and positioned uniformly across all themes without causing layout shifts or overlapping with the sparklines and timestamp elements.
 2. It is assumed that when the Goldback pricing source is switched to "off", hiding the chip on the gold card is the desired behavior and won't confuse users who expect to see at least a ratio or static label there.
 
 ### CODEX Review (2026-06-07)
 
 #### Verified
-
 - Read `/Volumes/DATA/GitHub/DocVault/sketch/conventions.md`, StakTrakr `AGENTS.md`, `.context/GLOSSARY.md`, `.context/git-topology.md`, `.context/implementation-gotchas.md`, `.context/review-and-ci.md`, `.context/sketch-conventions.md`, and the Foundation coding/design docs.
 - Checked `index.html:899-1124` spot-card markup and `index.html:5584-5658` Currency & Pricing / Goldback controls.
 - Checked spot update writes in `js/spot.js:451-604` and the additional API/cache/reset writes in `js/api.js:1177-1214`, `2151-2175`, `2267-2297`, and `2625-2646`.
@@ -169,13 +165,11 @@ The work lands almost entirely in `js/spot.js` (chip render + multi-path hook), 
 - Checked `wireStorageToggle` in `js/settings.js:1816-1855`, storage allowlist shape in `js/constants.js:939-970`, spot-card CSS in `css/styles.css:1949-2144`, and relevant Playwright inventory/coverage-map rows.
 
 #### Top concerns
-
 1. The discovery undercounts the spot-card render surface by omitting direct `js/api.js` DOM writes. This could cause stale chips on API sync/cache/reset paths even if `js/spot.js` manual paths are handled.
 2. The discovery omits the existing Goldback pricing-source switch event path, which is required for the gold-card chip to hide live when the user switches Goldback pricing to `off`.
 3. The discovery does not map existing Playwright targets or the coverage map, increasing the chance that approach/tasks put STRK-161 coverage in the wrong tier or miss the project-required coverage-map update.
 
 #### Unverified assumptions
-
 - I did not verify the live `goldback/latest.json` endpoint contents during this review; I only verified how the current client consumes and discards the envelope fields.
 - I did not run browser screenshots for chip placement because discovery has not yet selected a visual approach or mockup.
 

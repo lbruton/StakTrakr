@@ -3,7 +3,7 @@ type: research
 project: StakTrakr
 status: active
 source: session-research
-created: "2026-05-21"
+created: '2026-05-21'
 tags:
   - testing
   - playwright
@@ -25,47 +25,47 @@ StakTrakr's Playwright E2E suite has grown to **715 test cases across 61 spec fi
 
 ### By the Numbers
 
-| Metric                                 | Value                                |
-| -------------------------------------- | ------------------------------------ |
-| Spec files                             | 61                                   |
-| Total `test()` calls                   | 715                                  |
-| `test.describe()` blocks               | 100                                  |
-| `page.goto()` calls (cold navigations) | 132                                  |
-| Workers                                | 1 (serialized)                       |
-| Non-browser tests (filesystem only)    | 1 file (config-validation, 94 tests) |
-| Issue-named files (ticket-coupled)     | 7 files                              |
+| Metric | Value |
+|--------|-------|
+| Spec files | 61 |
+| Total `test()` calls | 715 |
+| `test.describe()` blocks | 100 |
+| `page.goto()` calls (cold navigations) | 132 |
+| Workers | 1 (serialized) |
+| Non-browser tests (filesystem only) | 1 file (config-validation, 94 tests) |
+| Issue-named files (ticket-coupled) | 7 files |
 
 ### Top 10 Heaviest Files
 
-| File                                | Tests | Category                            |
-| ----------------------------------- | ----- | ----------------------------------- |
-| `config-validation.spec.js`         | 94    | Config file assertions (no browser) |
-| `partial-stack-disposition.spec.js` | 67    | Inventory math                      |
-| `about-page.spec.js`                | 45    | Marketing page content              |
-| `numista-picker-tags.spec.js`       | 32    | Catalog integration                 |
-| `lot-each-purchase-price.spec.js`   | 28    | Inventory math                      |
-| `crud.spec.js`                      | 21    | Core CRUD                           |
-| `view-modal-valuation.spec.js`      | 20    | Valuation display                   |
-| `stak-443-api-tab.spec.js`          | 20    | API settings                        |
-| `stak-573-api-tab-qa.spec.js`       | 19    | API settings (QA follow-up)         |
-| `view-modal-chart-scaling.spec.js`  | 18    | Chart display                       |
+| File | Tests | Category |
+|------|-------|----------|
+| `config-validation.spec.js` | 94 | Config file assertions (no browser) |
+| `partial-stack-disposition.spec.js` | 67 | Inventory math |
+| `about-page.spec.js` | 45 | Marketing page content |
+| `numista-picker-tags.spec.js` | 32 | Catalog integration |
+| `lot-each-purchase-price.spec.js` | 28 | Inventory math |
+| `crud.spec.js` | 21 | Core CRUD |
+| `view-modal-valuation.spec.js` | 20 | Valuation display |
+| `stak-443-api-tab.spec.js` | 20 | API settings |
+| `stak-573-api-tab-qa.spec.js` | 19 | API settings (QA follow-up) |
+| `view-modal-chart-scaling.spec.js` | 18 | Chart display |
 
 These 10 files alone hold **364 tests (51% of the suite)**.
 
 ### Functional Area Breakdown
 
-| Area                     | Files | Est. Tests | Notes                                           |
-| ------------------------ | ----- | ---------- | ----------------------------------------------- |
-| Settings & Config        | 10    | ~160       | Includes 94 non-browser config-validation tests |
-| Attachments / Cloud Sync | 8     | ~55        | backup, vault, diff, cloud sync, diagnostics    |
-| Inventory Math           | 4     | ~104       | Disposition, lot/each, seed guard, sort         |
-| View Modal               | 4     | ~54        | Valuation, chart, Numista merge, resync         |
-| Retail / Market          | 3     | ~10        | Currency, slugs, survivors                      |
-| Numista / Catalog        | 3     | ~40        | Picker, search, not-configured                  |
-| Core (page load, CRUD)   | 2     | ~33        | Foundational                                    |
-| About Page               | 1     | ~45        | Marketing content validation                    |
-| Issue-specific one-offs  | 7     | ~70        | Ticket-named files with no home                 |
-| Everything else          | 19    | ~144       | Tags, theme, typography, capsule, etc.          |
+| Area | Files | Est. Tests | Notes |
+|------|-------|------------|-------|
+| Settings & Config | 10 | ~160 | Includes 94 non-browser config-validation tests |
+| Attachments / Cloud Sync | 8 | ~55 | backup, vault, diff, cloud sync, diagnostics |
+| Inventory Math | 4 | ~104 | Disposition, lot/each, seed guard, sort |
+| View Modal | 4 | ~54 | Valuation, chart, Numista merge, resync |
+| Retail / Market | 3 | ~10 | Currency, slugs, survivors |
+| Numista / Catalog | 3 | ~40 | Picker, search, not-configured |
+| Core (page load, CRUD) | 2 | ~33 | Foundational |
+| About Page | 1 | ~45 | Marketing content validation |
+| Issue-specific one-offs | 7 | ~70 | Ticket-named files with no home |
+| Everything else | 19 | ~144 | Tags, theme, typography, capsule, etc. |
 
 ---
 
@@ -93,15 +93,15 @@ Files like `stak-437-search-tab-removal.spec.js` and `stak-580-required-metal-ty
 
 **Recommendation:** Merge surviving assertions into the functional-area file that owns that feature. Delete the issue-named file. Specifically:
 
-| Issue File                     | Merge Into                                                   |
-| ------------------------------ | ------------------------------------------------------------ |
-| `stak-437-search-tab-removal`  | `settings.spec.js` (new consolidated)                        |
-| `stak-439-images-tab-redesign` | `view-modal.spec.js` (new consolidated)                      |
-| `stak-443-api-tab`             | `api-settings.spec.js` (new consolidated)                    |
-| `stak-573-api-tab-qa`          | `api-settings.spec.js` (same — significant overlap with 443) |
-| `stak-580-required-metal-type` | `crud.spec.js` or `add-item.spec.js`                         |
-| `stak-582-market-survivors`    | `market.spec.js` (new consolidated)                          |
-| `strk-89-gold-api`             | `api-settings.spec.js`                                       |
+| Issue File | Merge Into |
+|-----------|------------|
+| `stak-437-search-tab-removal` | `settings.spec.js` (new consolidated) |
+| `stak-439-images-tab-redesign` | `view-modal.spec.js` (new consolidated) |
+| `stak-443-api-tab` | `api-settings.spec.js` (new consolidated) |
+| `stak-573-api-tab-qa` | `api-settings.spec.js` (same — significant overlap with 443) |
+| `stak-580-required-metal-type` | `crud.spec.js` or `add-item.spec.js` |
+| `stak-582-market-survivors` | `market.spec.js` (new consolidated) |
+| `strk-89-gold-api` | `api-settings.spec.js` |
 
 **Savings: ~30 tests (after deduplication with functional homes)**
 
@@ -116,7 +116,6 @@ Files like `stak-437-search-tab-removal.spec.js` and `stak-580-required-metal-ty
 ### 5. Granular UI Assertion Tests — Consolidate Into Flows
 
 Many spec files test individual UI atoms in isolation:
-
 - `font-loading.spec.js` (6) — "Geist is loaded"
 - `typography.spec.js` (5) — "heading uses correct font-weight"
 - `theme-tokens.spec.js` (8) — "CSS custom property --brand-primary exists"
@@ -168,15 +167,15 @@ tests/playwright/
 
 ### Target Test Budget
 
-| Area      | File Count   | Test Budget   | What It Covers                                 |
-| --------- | ------------ | ------------- | ---------------------------------------------- |
-| Core      | 4            | ~30           | CRUD, math, filters — the stuff that MUST work |
-| Market    | 3            | ~15           | Prices display correctly, providers switch     |
-| Settings  | 4            | ~20           | Config persists, cloud sync round-trips        |
-| Catalog   | 1            | ~8            | Numista integration works end-to-end           |
-| UI        | 2            | ~12           | Modals, themes, view modal                     |
-| Smoke     | 1            | ~5            | Golden path + regression guards                |
-| **Total** | **15 files** | **~90 tests** |                                                |
+| Area | File Count | Test Budget | What It Covers |
+|------|-----------|-------------|----------------|
+| Core | 4 | ~30 | CRUD, math, filters — the stuff that MUST work |
+| Market | 3 | ~15 | Prices display correctly, providers switch |
+| Settings | 4 | ~20 | Config persists, cloud sync round-trips |
+| Catalog | 1 | ~8 | Numista integration works end-to-end |
+| UI | 2 | ~12 | Modals, themes, view modal |
+| Smoke | 1 | ~5 | Golden path + regression guards |
+| **Total** | **15 files** | **~90 tests** | |
 
 ---
 
@@ -270,12 +269,12 @@ If you need to assert that a button has `border-radius: 999px`, that's a visual 
 
 ## Estimated Impact
 
-| Metric                    | Before               | After                | Change     |
-| ------------------------- | -------------------- | -------------------- | ---------- |
-| Test files                | 61                   | ~15                  | -75%       |
-| Test cases                | 715                  | ~90-100              | -86%       |
-| `page.goto()` calls       | 132                  | ~20-25               | -82%       |
-| Estimated runtime         | ~20 min              | ~4-5 min             | -75%       |
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Test files | 61 | ~15 | -75% |
+| Test cases | 715 | ~90-100 | -86% |
+| `page.goto()` calls | 132 | ~20-25 | -82% |
+| Estimated runtime | ~20 min | ~4-5 min | -75% |
 | New feature test overhead | New file + new tests | Add to existing file | Structural |
 
 ---

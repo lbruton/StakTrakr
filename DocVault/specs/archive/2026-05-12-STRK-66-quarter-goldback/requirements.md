@@ -28,38 +28,32 @@ This is a runtime code PR. It claims `devops/version.lock` and bumps the version
 ## Acceptance Criteria
 
 ### AC-1 — Denomination constant
-
 - **Given** the app is loaded
 - **When** `GOLDBACK_DENOMINATIONS` is read from `js/constants.js`
 - **Then** the array contains exactly 9 entries and `GOLDBACK_DENOMINATIONS[0]` equals `{ weight: 0.25, label: "¼ Goldback", goldOz: 0.00025 }`
 
 ### AC-2 — Item add/edit modal label
-
 - **Given** a user opens the add or edit modal for a Goldback item
 - **When** they expand the denomination dropdown
 - **Then** the first option reads "¼ Goldback" (Unicode fraction, not "0.25 Goldback")
 
 ### AC-3 — Bulk-edit modal label
-
 - **Given** a user opens the bulk-edit modal for Goldback items
 - **When** they expand the denomination dropdown
 - **Then** the first option reads "¼ Goldback" and the dropdown contains 9 entries
 - **Verified by:** test 13 in `tests/playwright/goldback-type.spec.js` (Goldback assertion block at line 360-361 — `goldOptions` length and `goldOptions[0].text`)
 
 ### AC-4 — Slug parser resolution
-
 - **Given** a retail manifest slug `goldback-idaho-g0.25`
 - **When** `_parseGoldbackSlug()` (or equivalent) processes it
 - **Then** the resolved weight is `0.00025` oz (i.e., `GOLDBACK_WEIGHTS["g0.25"] === 0.00025`)
 
 ### AC-5 — Poller denomination output
-
 - **Given** `goldback-scraper.js`, `api-export.js`, and `api-export-v2.js` are executed
 - **When** they call `buildGoldbackDenominations` (or equivalent)
 - **Then** all three emit `g0.25` as a denomination key in their output
 
 ### AC-6 — Bounds-guard regex
-
 - **Given** `price-extract.js` runs its bounds-guard check on a Goldback slug
 - **When** the slug suffix is `g0.25` (decimal form)
 - **Then** the regex matches and extracts the correct multiplier (0.25), not falling through to G1 bounds
@@ -68,20 +62,17 @@ This is a runtime code PR. It claims `devops/version.lock` and bumps the version
 - **Note:** `ghalf` (the grandfathered word-form alias) is handled by a separate code path in `js/retail.js` `GOLDBACK_WEIGHTS` map and is **intentionally out of scope** for this regex fix. No new word-form aliases will be added; future fractional denominations use numeric form (`g0.1`, `g0.25`, …).
 
 ### AC-7 — Playwright tests updated
-
 - **Given** `tests/playwright/goldback-type.spec.js` tests 9 AND 13 run
 - **When** they check the denomination dropdowns
 - **Then** in test 9 (add/edit): `options` has length 9, `options[0].text === "¼ Goldback"`, `options[1].text === "½ Goldback"`
 - **And** in test 13 (bulk-edit Goldback assertion block): `goldOptions` has length 9, `goldOptions[0].text === "¼ Goldback"`
 
 ### AC-8 — Foundation docs updated
-
 - **Given** `data-pipelines.md` and `reusable-patterns.md` are read
 - **When** a developer looks up Goldback denomination support
 - **Then** `g0.25 | 1/4 Goldback | 1/4000 oz` appears in the denomination table, Idaho appears in the state table, and the slug count is accurate
 
 ### AC-9 — Manual end-to-end
-
 - **Given** the deployed app with this change
 - **When** a user adds a "1/4 Idaho Goldback" item to their inventory
 - **Then** the gold-content calculation shows 0.00025 oz per coin

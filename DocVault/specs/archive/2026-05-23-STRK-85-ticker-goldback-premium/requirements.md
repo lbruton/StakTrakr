@@ -1,7 +1,7 @@
 ---
 sketch: STRK-85-ticker-goldback-premium
 phase: requirements
-created: "2026-05-22"
+created: '2026-05-22'
 ---
 
 # STRK-85 — Requirements
@@ -12,12 +12,10 @@ created: "2026-05-22"
 > **Bug:** The market ticker does not display premium values for goldback rows, even though the Market Matrix (rendered below the inventory) shows them correctly. The math/function clearly exists — it just isn't wired into the ticker render path for goldbacks.
 >
 > **Expected:**
->
 > - Ticker shows goldback premium % alongside spot-based items, computed from the current daily goldback rate we collect.
 > - Reuse the same premium calculation the Market Matrix uses (avoid duplicating the formula).
 >
 > **Investigation hints:**
->
 > - Find where the ticker builds its rows vs where the Market Matrix does — likely a branch that early-returns or skips goldbacks because they don't have a traditional spot.
 > - Check `isGoldbackLookup` vs `isGoldbackRetailLookup` usage in the ticker pipeline (per CLAUDE.md, easy to confuse).
 >
@@ -25,7 +23,6 @@ created: "2026-05-22"
 >
 > **Enhancement: tiered premium color coding**
 > While we're in there, retune the premium color thresholds across wherever premium % is rendered (ticker + matrix + anywhere else):
->
 > - **< 1%** → green (great deal)
 > - **2–4%** → yellow (fair)
 > - **5%+** → orange/red (premium-heavy)
@@ -34,7 +31,6 @@ created: "2026-05-22"
 > Verify in the codebase first how premium colors currently work — there may already be a CSS class scheme or a JS helper returning a tier. Don't introduce a parallel system.
 >
 > **Acceptance:**
->
 > - Ticker displays goldback premium % using the existing matrix calculation.
 > - Premium color tiers applied consistently (ticker + matrix + any other premium displays) using a single shared helper.
 > - No duplicate premium math; reuse the existing function.
@@ -51,19 +47,16 @@ The market ticker currently shows premium % for spot-based metals (gold, silver,
 ## Acceptance Criteria
 
 ### AC-1: Goldback premium in ticker (maps to US-1)
-
 - **Given** the market ticker is visible and goldback retail data has loaded with a valid G1 rate
 - **When** the ticker renders goldback items
 - **Then** each goldback item shows a premium % calculated as `((bestPrice - g1Rate) / g1Rate) * 100`, matching the formula used in the Market Matrix vendor panel
 
 ### AC-2: Goldback premium uses existing calculation path (maps to US-1)
-
 - **Given** the Market Matrix already computes goldback premium via the `_goldbackG1Rate` variable
 - **When** the ticker needs goldback premium
 - **Then** it uses a shared market-premium calculation helper that covers both spot-based premiums and Goldback-over-G1 premiums across all in-scope market premium render sites — no duplicated formula in the ticker, Market Matrix, or retail detail vendor table
 
 ### AC-3: Tiered premium color thresholds (maps to US-2)
-
 - **Given** any premium % value is rendered (ticker, Market Matrix vendor badges, or any other display)
 - **When** the premium value falls into a defined tier
 - **Then** it receives a color class per this scheme:
@@ -73,14 +66,12 @@ The market ticker currently shows premium % for spot-based metals (gold, silver,
 - **And** the source issue's unresolved 1–2% gap is intentionally resolved by treating the entire `< 2%` range as green
 
 ### AC-4: Single shared color helper (maps to US-2)
-
 - **Given** premium color is applied in multiple locations (ticker `.premium` span, Market Matrix `.vp-premium` badges)
 - **When** any location determines what color class to apply
 - **Then** all locations call a single shared function (e.g., `getPremiumTierClass(premium)`) — no inline threshold logic duplicated across render sites
 - **And** the helper/class scheme applies to ticker premium spans and market premium badges with consistent semantics
 
 ### AC-5: Consistent rendering across all premium displays
-
 - **Given** the ticker, Market Matrix vendor panels, and retail detail vendor table all render market dealer premium
 - **When** the same item appears in multiple views
 - **Then** the premium value and color tier are identical in every location
@@ -134,20 +125,20 @@ The market ticker currently shows premium % for spot-based metals (gold, silver,
 
 All claims checked against the live codebase at `/Volumes/DATA/GitHub/StakTrakr/`:
 
-| Claim                                            | Source                                                                  | Verdict       |
-| ------------------------------------------------ | ----------------------------------------------------------------------- | ------------- |
-| Ticker lacks goldback premium branch             | `market-data.js:293-298` — only `(price - meltValue) / meltValue * 100` | **Confirmed** |
-| Market Matrix has goldback premium               | `market-data.js:1142-1144` — `else if (_goldbackG1Rate && ...)`         | **Confirmed** |
-| `_goldbackG1Rate` exists as module variable      | `market-data.js:13` — populated at lines 1401-1410                      | **Confirmed** |
-| Binary 10% threshold: `"low"/"high"`             | `market-data.js:775` and `:1147` — `premium < 10 ? "low" : "high"`      | **Confirmed** |
-| No existing `getPremiumTierClass` helper         | Grep across all `js/*.js` — zero matches                                | **Confirmed** |
-| `.vp-premium.low` / `.vp-premium.high` CSS       | `styles.css:14847-14852` — maps to `--warning` / `--danger`             | **Confirmed** |
-| Ticker `.premium` span has no color class        | `styles.css:14708-14711` — only `color: var(--text-muted)`              | **Confirmed** |
-| `isGoldbackRetailLookup` does NOT exist          | Grep across all `js/*.js` — zero matches                                | **Confirmed** |
-| `isGoldbackLookup` exists                        | `spotLookup.js:30` — `itemWeightUnit?.value === "gb"`                   | **Confirmed** |
-| Design tokens `--success`/`--warning`/`--danger` | `styles.css:51-57` (light theme, +dark+contrast variants)               | **Confirmed** |
-| `_renderVendorTable` also lacks goldback premium | `market-data.js:770-784` — spot-only branch, no fallback                | **Confirmed** |
-| Goldback metal code "goldback" has no spot price | `_ISO_TO_METAL` at `market-data.js:8` — only xag/xau/xpt/xpd            | **Confirmed** |
+| Claim | Source | Verdict |
+|-------|--------|---------|
+| Ticker lacks goldback premium branch | `market-data.js:293-298` — only `(price - meltValue) / meltValue * 100` | **Confirmed** |
+| Market Matrix has goldback premium | `market-data.js:1142-1144` — `else if (_goldbackG1Rate && ...)` | **Confirmed** |
+| `_goldbackG1Rate` exists as module variable | `market-data.js:13` — populated at lines 1401-1410 | **Confirmed** |
+| Binary 10% threshold: `"low"/"high"` | `market-data.js:775` and `:1147` — `premium < 10 ? "low" : "high"` | **Confirmed** |
+| No existing `getPremiumTierClass` helper | Grep across all `js/*.js` — zero matches | **Confirmed** |
+| `.vp-premium.low` / `.vp-premium.high` CSS | `styles.css:14847-14852` — maps to `--warning` / `--danger` | **Confirmed** |
+| Ticker `.premium` span has no color class | `styles.css:14708-14711` — only `color: var(--text-muted)` | **Confirmed** |
+| `isGoldbackRetailLookup` does NOT exist | Grep across all `js/*.js` — zero matches | **Confirmed** |
+| `isGoldbackLookup` exists | `spotLookup.js:30` — `itemWeightUnit?.value === "gb"` | **Confirmed** |
+| Design tokens `--success`/`--warning`/`--danger` | `styles.css:51-57` (light theme, +dark+contrast variants) | **Confirmed** |
+| `_renderVendorTable` also lacks goldback premium | `market-data.js:770-784` — spot-only branch, no fallback | **Confirmed** |
+| Goldback metal code "goldback" has no spot price | `_ISO_TO_METAL` at `market-data.js:8` — only xag/xau/xpt/xpd | **Confirmed** |
 
 ### Top Concerns
 

@@ -1,9 +1,8 @@
 ---
 sketch: STRK-92-90d-vendor-history
 phase: discovery
-created: "2026-05-21"
+created: '2026-05-21'
 ---
-
 # STRK-92 — Discovery
 
 _Research the existing system and prior art. **Don't propose solutions** -- that's the next phase._
@@ -14,41 +13,41 @@ _Files and modules already in the project that this work will touch or build on.
 
 ### Publisher (server-side — home poller + Fly.io remote poller)
 
-| Path                                             | Role                           | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `devops/pollers/shared/api-export-v2.js:642-649` | 90-day history publisher       | Currently uses `queryRetailRange()` → `buildRetailOhlcaBuckets(rows, "daily")` → strips `_vendorPrices`. This is the root cause — vendor data is discarded before write.                                                                                                                                                                                                                                                                                     |
-| `devops/pollers/shared/api-export-v2.js:634-640` | 30-day history publisher       | Uses `queryRetailDailyAggregates()` → `buildDailyWithVendors()`. Produces entries with a `vendors` object. This is the working reference for what 90d should look like.                                                                                                                                                                                                                                                                                      |
-| `devops/pollers/shared/api-export-v2.js:625-632` | 7-day history publisher        | Uses `queryRetailRange()` → `buildRetailOhlcaBuckets(rows, "hourly")` → strips `_vendorPrices`. Hourly OHLCA, no vendor data. Out of scope.                                                                                                                                                                                                                                                                                                                  |
-| `devops/pollers/shared/api-export-v2.js:381-401` | `queryRetailDailyAggregates()` | SQL: `GROUP BY date, vendor` over `price_snapshots`. Returns one row per (date, vendor) with `avg_price`, `min_price`, `max_price`, `sample_count`, `in_stock`. Already parameterized by `startIso`/`endIso` — no changes needed to support 90 days. Note: `buildDailyWithVendors()` only uses `avg_price` — per-vendor `min_price`/`max_price` are discarded. This is an inherited 30d tradeoff, not new to this change.                                    |
-| `devops/pollers/shared/api-export-v2.js:367-379` | `queryRetailRange()`           | SQL: `SELECT *` from `price_snapshots` ordered by `window_start, vendor`. Returns raw hourly snapshots — used by current 90d path but will be replaced.                                                                                                                                                                                                                                                                                                      |
-| `devops/pollers/shared/api-export-v2.js:744-774` | `buildDailyWithVendors()`      | Groups daily-aggregate rows by date, builds OHLCA from repeated averages, attaches `vendors` object with `{avg, in_stock}` per vendor per day. Pure function — takes query output, returns entry array.                                                                                                                                                                                                                                                      |
-| `devops/pollers/shared/api-export-v2.js:428-449` | `buildRetailOhlcaBuckets()`    | Groups raw snapshots into hourly or daily OHLCA buckets, stores vendor prices in `_vendorPrices` (prefixed with underscore — intended as internal, stripped before write). Currently used by 90d path. **Naming convention:** `_vendorPrices` (underscore) = internal/stripped; `vendors` (no underscore) = public/retained. The strip pattern `({ _vendorPrices, ...rest }) => rest` at lines 631, 648 relies on this — approach must not rename the field. |
+| Path | Role | Notes |
+|------|------|-------|
+| `devops/pollers/shared/api-export-v2.js:642-649` | 90-day history publisher | Currently uses `queryRetailRange()` → `buildRetailOhlcaBuckets(rows, "daily")` → strips `_vendorPrices`. This is the root cause — vendor data is discarded before write. |
+| `devops/pollers/shared/api-export-v2.js:634-640` | 30-day history publisher | Uses `queryRetailDailyAggregates()` → `buildDailyWithVendors()`. Produces entries with a `vendors` object. This is the working reference for what 90d should look like. |
+| `devops/pollers/shared/api-export-v2.js:625-632` | 7-day history publisher | Uses `queryRetailRange()` → `buildRetailOhlcaBuckets(rows, "hourly")` → strips `_vendorPrices`. Hourly OHLCA, no vendor data. Out of scope. |
+| `devops/pollers/shared/api-export-v2.js:381-401` | `queryRetailDailyAggregates()` | SQL: `GROUP BY date, vendor` over `price_snapshots`. Returns one row per (date, vendor) with `avg_price`, `min_price`, `max_price`, `sample_count`, `in_stock`. Already parameterized by `startIso`/`endIso` — no changes needed to support 90 days. Note: `buildDailyWithVendors()` only uses `avg_price` — per-vendor `min_price`/`max_price` are discarded. This is an inherited 30d tradeoff, not new to this change. |
+| `devops/pollers/shared/api-export-v2.js:367-379` | `queryRetailRange()` | SQL: `SELECT *` from `price_snapshots` ordered by `window_start, vendor`. Returns raw hourly snapshots — used by current 90d path but will be replaced. |
+| `devops/pollers/shared/api-export-v2.js:744-774` | `buildDailyWithVendors()` | Groups daily-aggregate rows by date, builds OHLCA from repeated averages, attaches `vendors` object with `{avg, in_stock}` per vendor per day. Pure function — takes query output, returns entry array. |
+| `devops/pollers/shared/api-export-v2.js:428-449` | `buildRetailOhlcaBuckets()` | Groups raw snapshots into hourly or daily OHLCA buckets, stores vendor prices in `_vendorPrices` (prefixed with underscore — intended as internal, stripped before write). Currently used by 90d path. **Naming convention:** `_vendorPrices` (underscore) = internal/stripped; `vendors` (no underscore) = public/retained. The strip pattern `({ _vendorPrices, ...rest }) => rest` at lines 631, 648 relies on this — approach must not rename the field. |
 
 ### Frontend (client-side)
 
-| Path                     | Role                         | Notes                                                                                                                                                                                                                                                         |
-| ------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/retail.js:818-827`   | History fetch                | Fetches `history-7d`, `history-30d`, `history-90d` in parallel via `_fetchV2Json()`. No change needed.                                                                                                                                                        |
-| `js/retail.js:894-916`   | History merge (`addHistory`) | Pushes all entries into a flat array, reading `entry.vendors                                                                                                                                                                                                  |     | null`. Order is 90d → 30d → 7d (coarsest first). No change needed. |
-| `js/retail.js:918-938`   | Dedup by date                | Uses a `Map` keyed by date. Later entries (finer granularity) overwrite earlier ones, but preserves `vendors` from the coarser entry if the finer one lacks them. This logic already does the right thing once 90d entries carry `vendors`. No change needed. |
-| `js/retail.js:1253-1258` | Vendor column rendering      | Reads `entry.vendors[vid].avg` per vendor. Returns `—` (em dash) via `_fmtRetailPrice()` when null/undefined. No change needed — will display prices once data arrives.                                                                                       |
-| `js/retail.js:297-298`   | `_fmtRetailPrice()`          | Formats numeric values via `formatCurrency()`, returns `—` (em dash) for null/undefined. The "dashes" symptom comes from here when `vendors` is null.                                                                                                         |
-| `js/retail.js:568`       | `getRetailHistoryForSlug()`  | Returns `retailPriceHistory[slug]                                                                                                                                                                                                                             |     | []`. Simple accessor — no change needed.                           |
-| `js/retail.js:1216-1229` | Timeframe filtering          | "All" returns full `allHistory` array; numeric days filter by cutoff date. No change needed.                                                                                                                                                                  |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/retail.js:818-827` | History fetch | Fetches `history-7d`, `history-30d`, `history-90d` in parallel via `_fetchV2Json()`. No change needed. |
+| `js/retail.js:894-916` | History merge (`addHistory`) | Pushes all entries into a flat array, reading `entry.vendors || null`. Order is 90d → 30d → 7d (coarsest first). No change needed. |
+| `js/retail.js:918-938` | Dedup by date | Uses a `Map` keyed by date. Later entries (finer granularity) overwrite earlier ones, but preserves `vendors` from the coarser entry if the finer one lacks them. This logic already does the right thing once 90d entries carry `vendors`. No change needed. |
+| `js/retail.js:1253-1258` | Vendor column rendering | Reads `entry.vendors[vid].avg` per vendor. Returns `—` (em dash) via `_fmtRetailPrice()` when null/undefined. No change needed — will display prices once data arrives. |
+| `js/retail.js:297-298` | `_fmtRetailPrice()` | Formats numeric values via `formatCurrency()`, returns `—` (em dash) for null/undefined. The "dashes" symptom comes from here when `vendors` is null. |
+| `js/retail.js:568` | `getRetailHistoryForSlug()` | Returns `retailPriceHistory[slug] || []`. Simple accessor — no change needed. |
+| `js/retail.js:1216-1229` | Timeframe filtering | "All" returns full `allHistory` array; numeric days filter by cutoff date. No change needed. |
 
 ### Tests
 
-| Path                                                                | Role                  | Notes                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/playwright/retail/stak-582-market-survivors.spec.js:12-19`   | Date helpers          | `daysAgo(20)` for `oldDate` — within 30-day window, so does not exercise the 90d-specific gap. Needs `daysAgo(45)` or similar to prove 90d is the vendor-data source for older rows (AC-4).                                                     |
-| `tests/playwright/retail/stak-582-market-survivors.spec.js:110-148` | `historyRows` fixture | Both slugs use the same vendor-populated entries. `oldDate` is 20 days ago — falls within both 30d and 90d windows, so the test can't distinguish which endpoint provided vendor data even with per-endpoint mocks.                             |
-| `tests/playwright/retail/stak-582-market-survivors.spec.js:353-368` | `responseForPath()`   | Returns identical `historyRows[slug]` for all three history endpoints (`history-7d`, `history-30d`, `history-90d`). No endpoint-specific fixture differentiation — cannot prove 90d is the source of older vendor data.                         |
-| `tests/playwright/retail/currency-switch.spec.js:287-303`           | `responseForPath()`   | Same endpoint-agnostic pattern — returns identical `historyRows[slug]` for all three history endpoints. Tests currency behavior, not history-source precedence. Whether it stays as-is or gets fixture isolation is an approach-phase decision. |
+| Path | Role | Notes |
+|------|------|-------|
+| `tests/playwright/retail/stak-582-market-survivors.spec.js:12-19` | Date helpers | `daysAgo(20)` for `oldDate` — within 30-day window, so does not exercise the 90d-specific gap. Needs `daysAgo(45)` or similar to prove 90d is the vendor-data source for older rows (AC-4). |
+| `tests/playwright/retail/stak-582-market-survivors.spec.js:110-148` | `historyRows` fixture | Both slugs use the same vendor-populated entries. `oldDate` is 20 days ago — falls within both 30d and 90d windows, so the test can't distinguish which endpoint provided vendor data even with per-endpoint mocks. |
+| `tests/playwright/retail/stak-582-market-survivors.spec.js:353-368` | `responseForPath()` | Returns identical `historyRows[slug]` for all three history endpoints (`history-7d`, `history-30d`, `history-90d`). No endpoint-specific fixture differentiation — cannot prove 90d is the source of older vendor data. |
+| `tests/playwright/retail/currency-switch.spec.js:287-303` | `responseForPath()` | Same endpoint-agnostic pattern — returns identical `historyRows[slug]` for all three history endpoints. Tests currency behavior, not history-source precedence. Whether it stays as-is or gets fixture isolation is an approach-phase decision. |
 
 ### Documentation
 
-| Path                                                                         | Role              | Notes                                                                                                                                                                                                                                                                                            |
-| ---------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Path | Role | Notes |
+|------|------|-------|
 | `DocVault/Projects/StakTrakr/Foundation/Deep Dives/API Reference.md:307-308` | v2 endpoint table | Lists `history-7d` and `history-30d` but omits `history-90d` entirely. Also misstates 7d as "daily aggregates" — code uses `buildRetailOhlcaBuckets(hist7dRows, "hourly")` at `api-export-v2.js:630`, producing hourly OHLCA, not daily. The doc update for this sketch must not copy the error. |
 
 ## Prior Decisions
@@ -99,7 +98,6 @@ Review complete. Verified all file paths and symbols; no gaps found.
 ### Codex
 
 #### Verified
-
 - Confirmed the publisher mismatch: 30d uses `queryRetailDailyAggregates()` and `buildDailyWithVendors()`, while 90d uses `queryRetailRange()`, `buildRetailOhlcaBuckets(..., "daily")`, strips `_vendorPrices`, and writes aggregate-only output (`devops/pollers/shared/api-export-v2.js:381-400`, `devops/pollers/shared/api-export-v2.js:634-649`, `devops/pollers/shared/api-export-v2.js:744-774`).
 - Confirmed the frontend fetches `history-7d`, `history-30d`, and `history-90d`, merges 90d before 30d before 7d, preserves coarser vendor data when a finer duplicate lacks it, and renders vendor cells from `entry.vendors[vid].avg` with an em dash for nullish values (`js/retail.js:297-298`, `js/retail.js:818-938`, `js/retail.js:1216-1258`).
 - Confirmed the listed Playwright gap in `stak-582-market-survivors.spec.js`: `oldDate` is `daysAgo(20)`, the fixture includes vendor-populated rows, and `responseForPath()` serves the same history payload for all three history endpoints (`tests/playwright/retail/stak-582-market-survivors.spec.js:12-19`, `tests/playwright/retail/stak-582-market-survivors.spec.js:110-148`, `tests/playwright/retail/stak-582-market-survivors.spec.js:353-368`).
@@ -109,13 +107,11 @@ Review complete. Verified all file paths and symbols; no gaps found.
 - Confirmed the remote publish script directly runs `api-export-v2.js`, while the home poller cron does not directly invoke it; the home dashboard instead triggers Fly's publish command (`devops/pollers/remote-poller/run-publish.sh:33-37`, `devops/pollers/home-poller/docker-entrypoint.sh:27-35`, `devops/pollers/home-poller/dashboard.js:2964-3003`).
 
 #### Top concerns
-
 - The sqld schema/index constraint is currently wrong. Approach should not reason from "no index definitions exist"; it should decide whether the existing `idx_coin_window` / `idx_coin_date` definitions are enough and whether deployed sqld needs verification.
 - Deployment topology is overstated. A single shared code edit may be enough, but the discovery evidence points to Fly's publisher as the actual v2 export path, not two independent publisher imports.
 - Test discovery is slightly incomplete because `currency-switch.spec.js` also encodes endpoint-agnostic history mocks. Leaving that unmentioned risks one test continuing to normalize the old behavior while AC-4 is hardened elsewhere.
 
 #### Unverified assumptions
-
 - The deployed sqld database currently has the same index set as `initSqldSchema()` / `CREATE_INDEXES`, or at least a query plan that keeps 90-day daily aggregation cheap enough for the publish cadence.
 - The 403k-row table-size fact and 2026-02-21 oldest-history fact from the prior Claude/Codex issue analysis are still current enough for approach; I did not verify live sqld contents in this read-only sketch review.
 - Fly.io publish is the sole writer for v2 `history-90d.json` in production, and home-poller involvement is limited to scraping/provider export/manual publish trigger rather than direct v2 JSON export.
@@ -157,7 +153,6 @@ Review complete. Verified all file paths and symbols; no gaps found.
 - The `_vendorPrices` underscore-prefix convention (lines 445, 631, 648) will remain unchanged in `buildRetailOhlcaBuckets` so the strip pattern continues to work for 7d and monthly archives that still use it.
 
 ### Resolution Summary
-
 - Accepted: 8
 - Rejected: 0
 - Resolved with your input: 1 (departed-vendor merge → fix in this sketch)

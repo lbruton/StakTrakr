@@ -25,27 +25,23 @@ US-2 requires two distinct changes: (1) adding `itemRemovedTags` to `SYNC_SCOPE_
 ## Acceptance Criteria
 
 ### AC-1 (maps to US-1) — Tags are carried in the selective sync merge
-
 - **Given** Browser A has an item with tags `["Other animal", "Toy or game"]`
 - **When** Browser A syncs to Dropbox and Browser B performs a cloud sync restore/merge
 - **Then** the same item on Browser B has tags `["Other animal", "Toy or game"]` (not empty)
 
 ### AC-2 (maps to US-1) — Tags reflect last-writer-wins per item via timestamp map
-
 - **Given** Browser A and Browser B have different tags for the same item UUID
 - **When** Browser B performs a cloud sync merge
 - **Then** Browser B applies the tag array from whichever device has the newer entry in `itemTagsLastModified` (a new `{ uuid: timestamp }` localStorage key, updated on every `addItemTag` / `removeItemTag` / `deleteItemTags` call)
 - **And** the winning device's tag array is written wholesale for that UUID — no additive merge — so casing variants cannot accumulate across devices
 
 ### AC-3 (maps to US-1) — In-memory tag state is refreshed after sync
-
 - **Given** a cloud sync merge has just written new tag data to `localStorage["itemTags"]`
 - **When** the merge finalizes (inside `_applyAndFinalize()`)
 - **Then** `loadItemTags()` is called so the in-memory tag map reflects the written data (no stale state)
 - **Note:** `itemRemovedTags` requires only a localStorage write — no in-memory cache refresh is needed because `loadRemovedTags(uuid)` reads from localStorage on-demand.
 
 ### AC-4 (maps to US-2) — `itemRemovedTags` is also merged
-
 - **Given** Browser A has an entry in `itemRemovedTags` indicating a tag was explicitly removed from an item
 - **When** Browser B performs a cloud sync merge
 - **Then** Browser B's `itemRemovedTags` includes that removal, preventing Numista re-sync from re-adding the tag
@@ -53,7 +49,6 @@ US-2 requires two distinct changes: (1) adding `itemRemovedTags` to `SYNC_SCOPE_
 - **Conflict rule:** Re-add wins over removal. If a tag is present in `itemTags` on the winning device (per `itemTagsLastModified`), any corresponding entry in `itemRemovedTags` for that tag/UUID pair is discarded. This mirrors `clearRemovedTag()`'s existing local behavior when a user re-adds a previously removed tag.
 
 ### AC-5 (maps to US-1 + US-2) — Tag-only remote changes are detected and applied
-
 - **Given** Browser A has changed only tags (no inventory fields, no settings) and pushed to Dropbox
 - **When** Browser B performs a cloud sync pull and the manifest shows no item-field changes and `compareSettings` returns empty
 - **Then** the early-return guard at `cloud-sync.js:3345–3412` must detect the tag difference (by comparing remote `itemTags` / `itemRemovedTags` against local state) and proceed to `_applyAndFinalize` rather than silently recording a no-op pull
@@ -93,7 +88,7 @@ _Reconciled by /sketch reconcile on 2026-05-25. Original reviewer marks preserve
 
 #### Top Concerns
 
-1. **AC-2's "last-writer-wins by `lastModified`" is under-specified and potentially misleading.** The `itemTags` store (`{ uuid: [tags] }`) has NO per-entry timestamp. The inventory item has `lastModified`, but that tracks _item_ changes (price, qty, notes), not _tag_ changes. If Browser A changes only tags (no item field edit), the item's `lastModified` may be older than Browser B's — yet A's tags should win. The acceptance criterion needs to define _what timestamp governs tag merge_: the item's `lastModified`, a new per-UUID tag timestamp, or whole-store comparison. This is a design decision that shapes implementation complexity significantly.
+1. **AC-2's "last-writer-wins by `lastModified`" is under-specified and potentially misleading.** The `itemTags` store (`{ uuid: [tags] }`) has NO per-entry timestamp. The inventory item has `lastModified`, but that tracks *item* changes (price, qty, notes), not *tag* changes. If Browser A changes only tags (no item field edit), the item's `lastModified` may be older than Browser B's — yet A's tags should win. The acceptance criterion needs to define *what timestamp governs tag merge*: the item's `lastModified`, a new per-UUID tag timestamp, or whole-store comparison. This is a design decision that shapes implementation complexity significantly.
 
 2. **AC-4 (`itemRemovedTags`) requires adding the key to `SYNC_SCOPE_KEYS`.** Currently `itemRemovedTags` is in `ALLOWED_STORAGE_KEYS` but NOT in `SYNC_SCOPE_KEYS`. It won't appear in the Dropbox vault payload during push unless added to `SYNC_SCOPE_KEYS` (or handled via a separate mechanism). The requirements should acknowledge this is a schema change to the sync payload, not just a merge-logic fix.
 
@@ -174,7 +169,7 @@ _Reconciled by /sketch reconcile on 2026-05-25. Original reviewer marks preserve
 
 #### Top Concerns
 
-1. **The silent-pull path (`cloud-sync.js:3345-3412`) is a gap not covered by any AC.** Even after fixing tag merging in `_applyAndFinalize`, tag-only remote changes will be silently skipped when the manifest shows no item changes and `compareSettings` returns empty (because `itemTags` is excluded). The approach or tasks phase must address whether tag comparison needs to happen _before_ the silent-pull early-return guard, or whether the guard itself should be relaxed to always check tags.
+1. **The silent-pull path (`cloud-sync.js:3345-3412`) is a gap not covered by any AC.** Even after fixing tag merging in `_applyAndFinalize`, tag-only remote changes will be silently skipped when the manifest shows no item changes and `compareSettings` returns empty (because `itemTags` is excluded). The approach or tasks phase must address whether tag comparison needs to happen *before* the silent-pull early-return guard, or whether the guard itself should be relaxed to always check tags.
 
 2. **AC-2's recency model is fundamentally underspecified.** The tag stores have zero timestamp metadata (`js/tags.js:8` "Data shape" comment, `js/diff-engine.js:32-89` DIFF_FIELDS), and tag operations do not mutate any `lastModified` (`js/tags.js:89-144`). Three viable recency models exist, each with different implementation cost: (a) introducing per-UUID timestamps in `itemTags` as a `{ uuid: { tags: [], lastModified: ts } }` shape, (b) having tag edits bump the inventory item's `lastModified` (which would surface tag-only edits as item modifications in DiffModal — a UX change), or (c) whole-store-level comparison using the push timestamp as a coarse tiebreaker (simplest but loses per-item granularity). The requirements must pick one before approach/design can proceed.
 
@@ -191,7 +186,6 @@ _Reconciled by /sketch reconcile on 2026-05-25. Original reviewer marks preserve
 - **Assumption: adding `itemRemovedTags` to `SYNC_SCOPE_KEYS` has no unintended side effects on existing sync payloads, cloud sync quota, or DiffModal preview rendering.** The `itemRemovedTags` store could theoretically grow large if many tags are removed across many items. The requirements should note whether a quota/performance bound is expected.
 
 ### Resolution Summary
-
 - Accepted: 3
 - Rejected: 0
 - Resolved with your input: 5

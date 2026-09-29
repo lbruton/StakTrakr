@@ -14,7 +14,6 @@ created: 2026-05-11
 > **Proposed:** Add an **optional** Payment Method dropdown in the Edit Item modal, near the Purchase Date / Purchase Location fields. Options: Zelle, PayPal, Credit Card, Debit Card, Cash, Check, Wire, Crypto, Other, (blank).
 >
 > **Use cases unlocked:**
->
 > - Filter chip: "Show me all credit-card purchases" (helps reconcile statements).
 > - Sort/group by payment method.
 > - Future: monthly spend reports broken out by method.
@@ -38,14 +37,12 @@ This sketch delivers an optional `paymentMethod` field on inventory items, surfa
 ## Acceptance Criteria
 
 ### AC-1 — Dropdown present in Edit Item modal (maps to US-1)
-
 - **Given** I am adding a new item or editing an existing item
 - **When** the Edit Item modal opens
 - **Then** a "Payment Method" `<select>` field is visible in the modal's purchase section, positioned in the same row as Purchase Location (or immediately following it)
 - **And** the dropdown options are, in this order: `(blank)`, Zelle, PayPal, Credit Card, Debit Card, Cash, Check, Wire, Crypto, Other
 
 ### AC-2 — Value persists in localStorage (maps to US-1)
-
 - **Given** I select "Credit Card" in the Payment Method dropdown
 - **When** I click Save
 - **Then** the saved item in localStorage has `paymentMethod: "Credit Card"`
@@ -53,7 +50,6 @@ This sketch delivers an optional `paymentMethod` field on inventory items, surfa
 - **And** the persistence path covers both add-mode and edit-mode save flows
 
 ### AC-3 — Field is optional; existing items load without error (maps to US-2)
-
 - **Given** an existing item that has no `paymentMethod` property in localStorage
 - **When** I open that item in the Edit Item modal
 - **Then** the Payment Method dropdown shows the blank option (no error, no console warning)
@@ -61,7 +57,6 @@ This sketch delivers an optional `paymentMethod` field on inventory items, surfa
 - **And** editing an item that already has a non-blank `paymentMethod` and clearing the dropdown back to blank deletes the `paymentMethod` key from the stored item (not preserved as stale)
 
 ### AC-4 — Payment method appears as a filter chip (maps to US-3)
-
 - **Given** items in inventory have non-blank `paymentMethod` values meeting the chipMinCount threshold (default 3)
 - **When** the filter chip row is rendered
 - **Then** the distinct payment method values appear as filter chips
@@ -72,13 +67,11 @@ This sketch delivers an optional `paymentMethod` field on inventory items, surfa
 - **And** payment method values are included in text search results (matching how Purchase Location participates in `filterInventoryAdvanced` text search today)
 
 ### AC-5 — Payment method visible in View modal (maps to US-4)
-
 - **Given** an item has `paymentMethod: "Zelle"` recorded
 - **When** I open that item's view modal (`showViewModal()` in `js/viewModal.js`)
 - **Then** "Zelle" is displayed in the purchase details section alongside Purchase Date and Purchase Location
 
 ### AC-6 — Cloud sync and backup/restore preserve paymentMethod (maps to US-1)
-
 - **Given** an item has `paymentMethod: "Wire"` recorded
 - **When** I perform a cloud sync (Dropbox), or create and restore a ZIP backup
 - **Then** the restored/synced item retains `paymentMethod: "Wire"` with no data loss
@@ -86,14 +79,12 @@ This sketch delivers an optional `paymentMethod` field on inventory items, surfa
 - **And** ZIP backup/restore includes `paymentMethod` in its field map
 
 ### AC-7 — JSON, CSV, ZIP, and PDF exports include paymentMethod (maps to US-1)
-
 - **Given** items have `paymentMethod` values recorded
 - **When** I export via JSON, CSV, ZIP backup, or PDF
 - **Then** the exported data includes the `paymentMethod` field/column
 - **And** CSV/JSON import correctly round-trips the `paymentMethod` value back into inventory
 
 ### AC-8 — Playground mockup reviewed before implementation (layout gate)
-
 - **Given** the edit modal's purchase section already has two-column rows (Date/Price, Purchase Location/Storage Location)
 - **When** a Payment Method dropdown is added
 - **Then** a playground mockup copying the real edit modal layout must be created and reviewed for desktop and mobile before implementation begins
@@ -104,14 +95,12 @@ This sketch delivers an optional `paymentMethod` field on inventory items, surfa
 > ![Current edit modal — purchase section](../../../../Screenshot%202026-05-13%20at%2010.31.42%20AM.png)
 
 ### AC-9 — Bulk edit supports paymentMethod (maps to US-5)
-
 - **Given** I have selected multiple items in the inventory
 - **When** I open the bulk edit interface
 - **Then** Payment Method appears as a selectable bulk-edit field with the same dropdown options as the edit modal
 - **And** bulk-setting to blank clears the `paymentMethod` key on all affected items (same contract as AC-3)
 
 ### AC-10 — Clone preserves paymentMethod
-
 - **Given** an item has `paymentMethod: "PayPal"` recorded
 - **When** I clone that item
 - **Then** the cloned copy retains `paymentMethod: "PayPal"`
@@ -169,7 +158,6 @@ _Reconciled by /sketch reconcile on 2026-05-13. Original reviewer marks preserve
 - Existing saved chip category settings should automatically surface a new default category. The merge helper appends new defaults, but only if `paymentMethod` is added to `FILTER_CHIP_CATEGORY_DEFAULTS`; existing user ordering and enabled/disabled expectations still need an explicit decision.
 
 ### Resolution Summary
-
 - Accepted: 12
 - Rejected: 2 (source file restoration is housekeeping not a blocker; alternative enum designs are over-engineering for sketch tier)
 - Resolved with your input: 3 (text search → chips + search; exports → all in scope; bulk edit → add as bulk-editable field)

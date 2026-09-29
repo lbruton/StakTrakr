@@ -111,20 +111,20 @@ _TDD red phase: tests encode the EARS contract and MUST fail before Cohort C. B.
 
 ## UI Contract Traceability
 
-| Named state (approach UI Contract) | Implementing task(s) | Verifying test assertion(s)                                                                  | Visual verification                                          |
-| ---------------------------------- | -------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Populated — All Metals (desktop)   | C.3, C.4, C.5, C.6   | B.2: shell/AC-1, KPIs/AC-3, disabled spot chip/AC-10, metal-dot ledger/AC-18                 | vs playground preset "Recommended · Story / dark / All"      |
-| Populated — single metal           | C.5, C.6             | B.2: spot overlay dataset + `y1`/AC-10, pace substat/AC-15                                   | vs playground Scope=Silver                                   |
-| Range switching                    | C.6                  | B.2: pill `aria-pressed` + re-render/AC-11                                                   | vs playground range pills                                    |
-| Series toggles                     | C.6                  | B.2: dataset visibility + `aria-pressed`/AC-9, AC-12                                         | vs playground series chips                                   |
-| Marker → ledger sync               | C.6                  | B.2: flash class on matching rows; no-op case/AC-14; crosshair + marker pointer events/AC-13 | vs playground marker click                                   |
-| Loading                            | C.5                  | B.2: `.dm-skel` present pre-data + generation-race case/AC-21, D-3                           | vs playground State=Loading                                  |
-| Empty (nothing ever)               | C.5                  | B.2: `.empty-state` + `#newItemBtn` activation/AC-21                                         | vs playground State=Empty                                    |
-| Disposed-only scope                | C.5                  | B.2: chart renders, Realized ≠ 0, ledger note/AC-21                                          | **no mockup — verify against AC-21 text**                    |
-| Mobile ≤768px                      | C.3, C.5, C.6        | B.3: stacking, ledger columns, visible canvas/AC-20/22/23                                    | vs playground Width=Mobile                                   |
-| Four themes                        | C.3, C.6             | B.2: rgb-resolved chart colors (no oklch strings)/AC-22                                      | manual pass in all four themes, real shell (STRK-282 lesson) |
-| Non-default currency               | C.5, C.6             | B.2: converted money on every surface incl. ticks/tooltips (AC preamble)                     | spot-check one non-USD currency in the real shell            |
-| Footer provenance                  | C.5                  | B.2: D-16 line from last-sync surface                                                        | vs D-16 copy (playground footer was mock text)               |
+| Named state (approach UI Contract) | Implementing task(s) | Verifying test assertion(s) | Visual verification |
+|---|---|---|---|
+| Populated — All Metals (desktop) | C.3, C.4, C.5, C.6 | B.2: shell/AC-1, KPIs/AC-3, disabled spot chip/AC-10, metal-dot ledger/AC-18 | vs playground preset "Recommended · Story / dark / All" |
+| Populated — single metal | C.5, C.6 | B.2: spot overlay dataset + `y1`/AC-10, pace substat/AC-15 | vs playground Scope=Silver |
+| Range switching | C.6 | B.2: pill `aria-pressed` + re-render/AC-11 | vs playground range pills |
+| Series toggles | C.6 | B.2: dataset visibility + `aria-pressed`/AC-9, AC-12 | vs playground series chips |
+| Marker → ledger sync | C.6 | B.2: flash class on matching rows; no-op case/AC-14; crosshair + marker pointer events/AC-13 | vs playground marker click |
+| Loading | C.5 | B.2: `.dm-skel` present pre-data + generation-race case/AC-21, D-3 | vs playground State=Loading |
+| Empty (nothing ever) | C.5 | B.2: `.empty-state` + `#newItemBtn` activation/AC-21 | vs playground State=Empty |
+| Disposed-only scope | C.5 | B.2: chart renders, Realized ≠ 0, ledger note/AC-21 | **no mockup — verify against AC-21 text** |
+| Mobile ≤768px | C.3, C.5, C.6 | B.3: stacking, ledger columns, visible canvas/AC-20/22/23 | vs playground Width=Mobile |
+| Four themes | C.3, C.6 | B.2: rgb-resolved chart colors (no oklch strings)/AC-22 | manual pass in all four themes, real shell (STRK-282 lesson) |
+| Non-default currency | C.5, C.6 | B.2: converted money on every surface incl. ticks/tooltips (AC preamble) | spot-check one non-USD currency in the real shell |
+| Footer provenance | C.5 | B.2: D-16 line from last-sync surface | vs D-16 copy (playground footer was mock text) |
 
 _Every implementing/reviewing session must read `playground/metal-detail-modal-playground.html` (cited in C.3, C.4, B.2 Leverage). CLOSE-3's UI stamp requires visual evidence per state above._
 
@@ -171,7 +171,7 @@ _Every implementing/reviewing session must read `playground/metal-detail-modal-p
 
 ---
 
-> **Multi-model dispatch hint:** C.1/C.2/C.3/C.4 are `[P]` (four disjoint file sets: portfolio-series.js / spot.js / styles.css / index.html+sw.js; no shared symbols — the day map is an _input_ to the fold). Cohort A is a single inert scaffold; Cohort B is sequential; the B(red)→C(green) boundary is the natural model-routing seam. C.5→C.6→C.7 are sequential (same file, then dependent deletions).
+> **Multi-model dispatch hint:** C.1/C.2/C.3/C.4 are `[P]` (four disjoint file sets: portfolio-series.js / spot.js / styles.css / index.html+sw.js; no shared symbols — the day map is an *input* to the fold). Cohort A is a single inert scaffold; Cohort B is sequential; the B(red)→C(green) boundary is the natural model-routing seam. C.5→C.6→C.7 are sequential (same file, then dependent deletions).
 
 ## Review Archive — tasks (2026-08-29)
 
@@ -243,7 +243,7 @@ Suites: `details-modal.spec.js` 25/25 (23 planned + 2 live-use regressions), mob
 - [x] AC-4 — verified by "AC-4: close destroys the chart; reopen renders cleanly with no console errors".
 - [x] AC-5 — verified by `tests/unit/portfolio-series.test.js` (held-window melt/basis, verbatim string day keys, undated-held-from-start cases).
 - [x] AC-6 — verified by unit derived-oz cases (cu via constitutional helper, qty folding) + in-browser gb path (All scope shows Gold 0.01 oz from the 5-gb seed, `01` viewed).
-- [x] AC-7 — verified by unit disposition cases (exclusion from date _d_; undated Disposition = never held) + visually: disposed-only platinum hump rises at acq, drops at disposition (`08`, viewed).
+- [x] AC-7 — verified by unit disposition cases (exclusion from date *d*; undated Disposition = never held) + visually: disposed-only platinum hump rises at acq, drops at disposition (`08`, viewed).
 - [x] AC-8 — verified by unit gap-fill cases (per-metal carry-forward, leading backfill, no-history-zero, never-drop) + layer-2 pin test (latest live sample per day = close, 61.2 exact).
 - [x] AC-9 — verified by "AC-9/AC-12: basis and buys chips …" (isDatasetVisible + aria-pressed) + `02` gradient hero + stepped basis (viewed).
 - [x] AC-10 — verified by "AC-10: single-metal scope renders the spot overlay on y1; All disables the chip and axis" + visually: dashed spot + right axis (02) vs disabled chip, no y1 (01) (viewed).

@@ -27,7 +27,6 @@ The lot/each price toggle introduces floating-point drift when converting betwee
 ## Acceptance Criteria
 
 ### AC-1 — Clean round-trip through toggle (maps to US-1)
-
 - **Given** a user is adding an item with quantity 30 and price mode LOT
 - **When** they enter $1700.00 as the lot price, toggle to EACH, then toggle back to LOT
 - **Then** the LOT price field displays exactly $1700.00 (not $1700.00001 or any sub-cent value)
@@ -35,51 +34,42 @@ The lot/each price toggle introduces floating-point drift when converting betwee
 - **Source-of-truth contract:** the implementation MUST preserve an internal exact-value reference for the original lot price that survives toggle conversions. The displayed input value is presentation only — it is NOT the source of truth for round-trip math. (How that reference is held — closure variable, dataset attribute, form-scoped cache — is an approach decision, not a requirements decision.)
 
 ### AC-2 — EACH price displays at currency precision (maps to US-1)
-
 - **Given** a lot price of $1700.00 for quantity 30
 - **When** the user toggles to EACH mode
 - **Then** the per-unit price displays rounded to the active currency's standard fraction digits (typically 2; e.g. $56.67 for USD, not $56.66667). Fraction digits follow the same `Intl.NumberFormat` rules already used by `formatCurrency` in `js/utils.js:599`.
 - **Non-source contract:** the displayed rounded EACH value MUST NOT be used as the source for any subsequent conversion back to LOT mode. The exact-value reference established in AC-1 is what drives the return trip.
 
 ### AC-3 — Edit form shows clean values (maps to US-2)
-
 Two paths must be covered — LOT-mode edit and EACH-mode edit:
 
 **AC-3a — LOT-mode edit load**
-
 - **Given** an existing inventory item saved with a lot price that has sub-cent floating-point drift (e.g. stored as 56.666667 per unit), and the user has the form in LOT mode
 - **When** the user opens the edit form for that item (path: `inventory.js:1732-1745`)
 - **Then** the price field shows $1700.00 (rounded to currency precision), not the raw `(perUnit * qty).toFixed(6)` value
 
 **AC-3b — EACH-mode edit load**
-
 - **Given** an existing inventory item with stored per-unit `price: 56.666667`, and `fxRate === 1` (no currency conversion is repricing the value), and the form is in EACH mode
 - **When** the edit form populates `#itemPrice` via the `displayPrice` assignment at `js/inventory.js:1492-1502` (BEFORE `restorePurchasePriceToggle` runs)
 - **Then** the field shows $56.67, not the raw `56.666667`
 
 ### AC-4 — Display-time rounding for legacy data (maps to US-3)
-
 - **Given** existing inventory items in localStorage that were saved with floating-point drift in their price values
 - **When** the inventory table renders those items
 - **Then** all price columns display values rounded to the active currency's standard fraction digits (already handled by `formatCurrency` in `js/inventory-table.js:621-623`, called against `purchaseTotal` from `computeItemValuation`)
 
 **Export surfaces:**
-
 - **CSV and PDF exports** (user-facing surfaces: `js/inventory-import.js:1095-1120`, `js/inventory.js:2069-2087`) MUST render price values using the same currency-precision rounding as the UI. These are documents users read, not restore points.
 - **JSON and encrypted/ZIP backup exports** (data-integrity surfaces: `js/inventory.js:1969-1979`, `js/inventory-backup.js:25-36`) MAY preserve raw internal `item.price` values. These exist for round-trip restore; rounding them would change the data, not just its presentation.
 
 ### AC-5 — No data loss for non-repeating decimals AND repeating-decimal save/load
-
 Two cases — terminating and repeating decimals through both directions:
 
 **AC-5a — Terminating EACH-to-LOT (no rounding needed)**
-
 - **Given** a user enters a per-unit price of $56.75 for quantity 30
 - **When** they toggle to LOT mode
 - **Then** the lot price displays as $1702.50 (exact multiplication, no rounding artifact, no precision loss)
 
 **AC-5b — Repeating-decimal LOT-save-then-EACH-load mirror**
-
 - **Given** a user enters $1700.00 in LOT mode with quantity 30 and saves the item (exercises save-time division at `js/events.js:1443-1445`)
 - **When** they reopen the edit form and toggle to EACH (exercises edit-time multiplication at `js/inventory.js:1732-1740`)
 - **Then** EACH displays $56.67 (currency-precision), and toggling back to LOT displays $1700.00 (exact recovery via the AC-1 exact-value contract, not by re-multiplying the displayed $56.67)
@@ -147,7 +137,6 @@ _Reconciled by /sketch reconcile on 2026-05-19. Original reviewer marks preserve
 ### Gemini
 
 #### Verified
-
 - Checked codebase paths and line numbers:
   - Verified `events.js:86` performs `Number(convertedPrice.toFixed(6)).toString()` when toggling lot/each.
   - Verified `events.js:1445` performs `(rawInput / parsedQty).toFixed(6)` when saving lot price.
@@ -156,19 +145,16 @@ _Reconciled by /sketch reconcile on 2026-05-19. Original reviewer marks preserve
   - Verified `computeItemValuation` in `js/utils.js:1486` is the central valuation function.
 
 #### Top concerns
-
 1. **Mathematical constraints/conflict between AC-1 and AC-2**: Display-rounding per-unit price to 2 decimal places ($56.67) in EACH mode means that toggling back to LOT mode naively would yield $1700.10 (56.67 * 30) instead of the original $1700.00. The implementation must preserve the precise/unrounded value behind the scenes or detect toggling state without loss.
 2. **Impact on valuation calculations**: Since `computeItemValuation` performs calculations using `item.price` (which is stored in localStorage as unit price with precision drift, e.g. `56.666667`), any purchase totals computed as `price * qty` (like `purchaseTotal`) will be `1700.00001`. While `formatCurrency` hides this at display time in the table, it could affect other areas (such as export/import or exact numeric comparisons). We should ensure all intermediate calculations round `purchaseTotal` and other financial metrics to standard currency decimals when appropriate.
 3. **Consistency of Save/Load values in Edit Form**: In `inventory.js:1739`, when the edit modal is opened, if the item is in LOT mode, it calculates `(perUnit * qty).toFixed(6)` to populate the input field. This directly loads the drifted value `$1700.00001` into the input field. Display-rounding at this input boundary to currency precision (e.g. 2 decimal places) is required.
 
 #### Unverified assumptions
-
 1. **Timezone/Currency alignment**: Assumed that the display-rounding uses the standard fraction digits for the current active currency. USD/EUR/GBP use 2 decimal places, but if other currencies are added or active (e.g., JPY, or custom/goldback denominations), the rounding must adapt to the currency's standard.
 
 ### Codex
 
 #### Verified
-
 - Confirmed the toggle's visible-input conversion path uses `convertedPrice.toFixed(6)` and dispatches `input` after changing the value (`js/events.js:83-87`).
 - Confirmed save-time LOT input is divided by quantity with `.toFixed(6)` before becoming stored per-unit price (`js/events.js:1443-1445`).
 - Confirmed edit-load LOT mode multiplies stored per-unit price by quantity with `.toFixed(6)` (`js/inventory.js:1732-1740`).
@@ -177,20 +163,17 @@ _Reconciled by /sketch reconcile on 2026-05-19. Original reviewer marks preserve
 - Confirmed existing Playwright coverage exercises lot/each mode behavior, but the visible conversion tests use exact divisions like 100/2 and do not cover the 1700/30 repeating-decimal regression (`tests/playwright/inventory/lot-each-purchase-price.spec.js:443-479`).
 
 #### Top concerns
-
 1. **AC-1 and AC-2 need an explicit hidden-value contract.** Showing `$56.67` in EACH mode cannot become the source of truth for the return to LOT mode, or the app will produce `$1700.10` instead of `$1700.00`.
 2. **AC-3 misses the raw EACH-mode edit path.** The LOT edit path is identified, but the earlier `displayPrice` assignment can also show `56.666667` before any lot multiplication occurs.
 3. **AC-4 is too narrow if the goal includes exports or downstream totals.** The main table already rounds display via `formatCurrency`; raw precision still flows through valuation calculations and JSON/vault-style exports unless the requirements name those boundaries.
 
 #### Unverified assumptions
-
 1. The implementation may introduce a transient exact-value cache for the open form without changing the persisted item schema.
 2. Currency precision should remain two decimal places for the purchase-price input regardless of display currency, even though `Intl.NumberFormat` can vary fraction digits by currency.
 3. JSON and encrypted/ZIP backup exports are allowed to retain raw internal `item.price` values, while CSV/PDF and UI surfaces should present currency-rounded values.
 4. The fix is limited to purchase price mode conversion and should not round weight, spot, premium, melt, or retail calculations that intentionally use more precision.
 
 ### Resolution Summary
-
 - **Accepted: 7** — AC-1 source-of-truth contract; AC-1 post-`input`-event clean state; AC-2 non-source contract; AC-3b EACH-mode edit path; AC-5b repeating-decimal save/load mirror; Non-Goals internal-vs-visible split; Non-Goals explicit scope limit to purchase price.
 - **Rejected: 1** — CODEX unverified #1 (transient exact-value cache approach): implementation strategy belongs in approach.md, not requirements. Forwarded to architect.
 - **Resolved with reasonable defaults: 3** —

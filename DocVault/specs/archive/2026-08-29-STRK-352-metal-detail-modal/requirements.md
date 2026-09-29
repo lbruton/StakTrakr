@@ -30,7 +30,7 @@ Replace the app's oldest surviving UI — the two-pie details modal — with the
 
 **Decisions resolved in grill + reconcile (2026-08-28, user-confirmed):**
 
-1. **Basis line drops at Disposition** — both chart lines reflect _current holdings_: a disposed Item's purchase cost leaves the cost-basis line at its Disposition date, so the melt-vs-basis gap always reads as unrealized gain on current holdings (holdings view, not invested-ever view).
+1. **Basis line drops at Disposition** — both chart lines reflect *current holdings*: a disposed Item's purchase cost leaves the cost-basis line at its Disposition date, so the melt-vs-basis gap always reads as unrealized gain on current holdings (holdings view, not invested-ever view).
 2. **Ledger lists active Items only** — disposed Items stay visible in the Inventory table and Change Log, not in the modal's mini-ledger.
 3. **Undated Items are held-since-start** — an Item with no acquisition date (Date N/A) contributes to melt and basis for the entire series, gets no buy marker, and sorts to the bottom of the ledger with "—" for date. The chart's right edge therefore always equals the KPI totals.
 4. **Buy markers show all history** — markers include acquisitions of since-disposed Items (the series includes them until Disposition). Marker click flashes all active ledger rows for that date; with zero active matches it is a no-op (the tooltip still lists the items).
@@ -62,9 +62,9 @@ Replace the app's oldest surviving UI — the two-pie details modal — with the
 
 ### Portfolio series (US-1)
 
-- **AC-5:** The portfolio series SHALL be computed from the Item ledger backdated to the scope's first dated acquisition: for each day _t_, melt(t) = Σ over Items held on _t_ of derived-oz × purity × Spot Price(t), and basis(t) = Σ of purchase cost of Items held on _t_. **Date frame:** `item.date` and `disposition.date` are date-only `YYYY-MM-DD` strings and SHALL map verbatim to series day keys (string comparison, no Date-object timezone conversion). **Undated Items** (empty `date`) SHALL count as held from the series start (grill decision 3).
+- **AC-5:** The portfolio series SHALL be computed from the Item ledger backdated to the scope's first dated acquisition: for each day *t*, melt(t) = Σ over Items held on *t* of derived-oz × purity × Spot Price(t), and basis(t) = Σ of purchase cost of Items held on *t*. **Date frame:** `item.date` and `disposition.date` are date-only `YYYY-MM-DD` strings and SHALL map verbatim to series day keys (string comparison, no Date-object timezone conversion). **Undated Items** (empty `date`) SHALL count as held from the series start (grill decision 3).
 - **AC-6:** Derived oz SHALL route through the existing unit helpers — `getConstitutionalSilverOz` for `cu` (qty already included), Denomination conversion via `GB_TO_OZT`/`SB_TO_OZT` for `gb`/`sb`, and troy-oz passthrough otherwise — never raw `item.weight` for `gb`/`sb`/`cu`.
-- **AC-7:** WHEN an Item has a Disposition dated _d_, the series SHALL exclude that Item's melt AND basis contributions for all days ≥ _d_ (holdings view; grill decision 1). An undated Disposition SHALL exclude the Item from the entire series (never held, matching the active-Items KPIs).
+- **AC-7:** WHEN an Item has a Disposition dated *d*, the series SHALL exclude that Item's melt AND basis contributions for all days ≥ *d* (holdings view; grill decision 1). An undated Disposition SHALL exclude the Item from the entire series (never held, matching the active-Items KPIs).
 - **AC-8:** Spot gaps SHALL fill per metal independently: a day with no Spot History sample for a metal carries forward that metal's most recent prior sample; days before a metal's first sample backward-fill from that first sample; a metal with no Spot History at all contributes 0 melt. The series SHALL never drop to zero or skip a day because of a data gap.
 
 ### Hero chart (US-1, US-2, US-3)

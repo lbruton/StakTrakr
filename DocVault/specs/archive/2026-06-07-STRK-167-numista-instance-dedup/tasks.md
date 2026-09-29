@@ -100,13 +100,13 @@ _Write tests that encode the EARS acceptance criteria BEFORE implementation. All
 
 ## UI Contract Traceability
 
-| UI state (approach.md)                          | Implementing task(s)                    | Verifying assertion (B.2)                                        | Visual verification                                                        |
-| ----------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Modified row — qty differs (Keep/Replace/Add)   | C.6 (+A.1 CSS)                          | AC-10: control renders, "Add" applies sum, Space/Enter activates | Compare to `shot-ac10-light.png` across all 4 themes                       |
-| Modified row — non-qty field (unchanged 2-cell) | C.6 (no regression)                     | AC-10: price row still 2-cell local/remote                       | `shot-ac10-light.png`                                                      |
-| Added row — possible duplicate (badge)          | C.5 (detect) + C.7 (render) + A.1 (CSS) | AC-11: badge present, advisory, no persist                       | `shot-dark.png`, `shot-ac11-sepia.png`; verify badge contrast all 4 themes |
-| Added row — normal (no badge)                   | C.7                                     | AC-11: no badge on non-matching add                              | `shot-dark.png` (Krugerrand)                                               |
-| Narrow viewport 320px                           | A.1 (CSS) + C.6                         | (manual) single-row, no truncation                               | `shot-ac10-320.png`; re-verify at 320px                                    |
+| UI state (approach.md) | Implementing task(s) | Verifying assertion (B.2) | Visual verification |
+|------------------------|----------------------|---------------------------|---------------------|
+| Modified row — qty differs (Keep/Replace/Add) | C.6 (+A.1 CSS) | AC-10: control renders, "Add" applies sum, Space/Enter activates | Compare to `shot-ac10-light.png` across all 4 themes |
+| Modified row — non-qty field (unchanged 2-cell) | C.6 (no regression) | AC-10: price row still 2-cell local/remote | `shot-ac10-light.png` |
+| Added row — possible duplicate (badge) | C.5 (detect) + C.7 (render) + A.1 (CSS) | AC-11: badge present, advisory, no persist | `shot-dark.png`, `shot-ac11-sepia.png`; verify badge contrast all 4 themes |
+| Added row — normal (no badge) | C.7 | AC-11: no badge on non-matching add | `shot-dark.png` (Krugerrand) |
+| Narrow viewport 320px | A.1 (CSS) + C.6 | (manual) single-row, no truncation | `shot-ac10-320.png`; re-verify at 320px |
 
 Mockup artifacts required reading for C.6/C.7: `playground/STRK-167-numista-merge/{index.html,diff-modal.js}` + the five `shot-*.png`.
 

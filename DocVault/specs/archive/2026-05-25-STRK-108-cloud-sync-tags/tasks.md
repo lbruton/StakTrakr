@@ -69,7 +69,7 @@ _TDD red phase. Write Playwright tests encoding all ACs. Tests MUST fail because
     4. AC-4: `itemRemovedTags` merge + re-add-wins conflict rule (tag present in winning `itemTags` → removal discarded)
     5. AC-5: Tag-only remote change (no item/settings diff) is detected and merged — silent-pull guard does not swallow it
     6. STAK-470: One-sided settings auto-merge path routes tag keys through `_mergeTagData()` instead of raw `localStorage.setItem`
-       All tests fail (red) when run against current `origin/dev` code.
+    All tests fail (red) when run against current `origin/dev` code.
   - **Depends on:** A.1, A.2 (tests reference the new constants and timestamp functions)
   - **Leverage:** Existing test patterns in `tests/` — construct localStorage state via `page.evaluate`, trigger sync pull flow via exposed cloud-sync helpers.
   - **Maps to:** AC-1, AC-2, AC-3, AC-4, AC-5
@@ -153,13 +153,13 @@ _TDD green phase. All tasks modify `js/cloud-sync.js`. Each builds on the prior 
 
 ## Sprint Cohort Summary
 
-| Cohort  | Tasks         | Parallelizable                  | Key File(s)                                                         |
-| ------- | ------------- | ------------------------------- | ------------------------------------------------------------------- |
-| 0       | 0.1           | —                               | worktree setup                                                      |
-| A       | A.1, A.2, A.3 | A.1 ∥ A.2; A.3 serial after A.2 | constants.js, tags.js, inventory.js, inventory-import.js, events.js |
-| B       | B.1           | —                               | tests/playwright/cloud-sync-tags.spec.js                            |
-| C       | C.1–C.5       | all serial (same file)          | cloud-sync.js                                                       |
-| Closing | CLOSE-1–8     | serial                          | various                                                             |
+| Cohort | Tasks | Parallelizable | Key File(s) |
+|--------|-------|----------------|-------------|
+| 0 | 0.1 | — | worktree setup |
+| A | A.1, A.2, A.3 | A.1 ∥ A.2; A.3 serial after A.2 | constants.js, tags.js, inventory.js, inventory-import.js, events.js |
+| B | B.1 | — | tests/playwright/cloud-sync-tags.spec.js |
+| C | C.1–C.5 | all serial (same file) | cloud-sync.js |
+| Closing | CLOSE-1–8 | serial | various |
 
 ## Review Archive — tasks (2026-05-25)
 

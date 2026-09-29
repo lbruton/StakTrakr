@@ -44,14 +44,12 @@ cloud sync push scheduling.
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 (maps to US-1)
-
 - **Given** `saveInlineChipConfig(config)` receives an inline chip config array
 - **When** it persists the preference
 - **Then** it writes `inlineChipConfig` through `saveData("inlineChipConfig", config)` instead
   of directly calling `localStorage.setItem("inlineChipConfig", JSON.stringify(config))`
 
 ### AC-2 (maps to US-2)
-
 - **Given** `scheduleSyncPush` is available in the runtime
 - **When** `saveInlineChipConfig(config)` successfully saves the preference through the
   wrapper path
@@ -59,7 +57,6 @@ cloud sync push scheduling.
   remains eligible for cloud propagation
 
 ### AC-3 (maps to US-3)
-
 - **Given** `getInlineChipConfig()` reads `inlineChipConfig`
 - **When** the implementation phase evaluates the read path
 - **Then** it reads through `loadDataSync("inlineChipConfig", null)` — this is the only
@@ -68,7 +65,6 @@ cloud sync push scheduling.
   stored values
 
 ### AC-4 (maps to US-1, US-3)
-
 - **Given** an existing saved inline chip config omits a newer default chip such as
   `attachment`
 - **When** `getInlineChipConfig()` loads the saved config
@@ -78,7 +74,6 @@ cloud sync push scheduling.
   `loadDataSync` result.)_
 
 ### AC-5 (maps to US-1)
-
 - **Given** the STRK-71 inline chip Playwright coverage for appearance settings and
   attachment chip behavior
 - **When** the storage helper alignment is implemented
@@ -88,7 +83,6 @@ cloud sync push scheduling.
   seeding remains acceptable.)_
 
 ### AC-6 (maps to US-2)
-
 - **Given** an `inlineChipConfig` value saved through the new `saveData`/`saveDataSync` path
 - **When** the value is exported via backup (`inventory-backup.js:82`, raw `getItem`),
   restored via DiffModal (`inventory-import.js:189-193`, raw `setItem`), or round-tripped
@@ -199,7 +193,6 @@ _Reconciled by /sketch reconcile on 2026-05-22. Original reviewer marks preserve
 - **Assumption: Cloud sync import path also handles this key correctly** — The requirements mention cloud sync push (`scheduleSyncPush`) but don't address the sync pull path. When cloud sync pulls new settings, how is `inlineChipConfig` written back? If it bypasses `saveData`, the same format coupling issue applies.
 
 ### Resolution Summary
-
 - Accepted: 8
 - Rejected: 0
 - Resolved with your input: 1 (backup/sync write paths → added AC-6 for round-trip correctness)

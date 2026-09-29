@@ -12,15 +12,15 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Playwright runtime & config
 
-| Path                                                            | Role                        | Notes                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `playwright.config.js:5-7`                                      | Suite-wide knobs            | `fullyParallel: false`, `workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) \|\| 1 : 1`, `retries: 0 local / 1 CI`. Already wired for parallel via `PW_WORKERS` env. Non-numeric `PW_WORKERS` values silently fall back to 1 worker (parseInt → NaN → `\|\| 1`) — a behavioral detail the installer must preserve when validating parallel safety. |
-| `playwright.config.js:11`                                       | Service-worker policy       | `serviceWorkers: "block"` — Playwright never has a live SW in the test context. Removes one MSW concern but is independent of in-page `fetch()` calls, which still escape.                                                                                                                                                                                             |
-| `playwright.config.js:14-17`                                    | Local web server            | `python3 -m http.server 3000` serves the repo. `page.goto("/")` and `page.goto("/index.html")` are local; all external traffic comes from app code after load.                                                                                                                                                                                                         |
-| `package.json:13-14`                                            | `npm test` / `test:offline` | `test:offline` is `playwright test --grep-invert @network`. Only four tests in `tests/playwright/01-page-load/page-load.spec.js:93-147` carry `@network`.                                                                                                                                                                                                              |
-| `tests/playwright/helpers/seed.js:1-23`                         | Existing helper             | Single function `injectSeedInventory(page)` — `addInitScript` seeds localStorage from `tests/fixtures/seed-inventory.js` and stamps `ackVersion`. Pure DOM-side seeding; no route handling.                                                                                                                                                                            |
-| `tests/fixtures/seed-inventory.js`                              | Inventory seed fixture      | Default-exported object dropped into localStorage by `injectSeedInventory`. Sibling `tests/fixtures/settings-diff-test.json` is a one-off fixture for the settings-diff test.                                                                                                                                                                                          |
-| `tests/playwright/helpers/test-obverse.png`, `test-reverse.png` | Image fixtures              | Used by image-related specs (`image-frame-override`, `rect-image-card-table`).                                                                                                                                                                                                                                                                                         |
+| Path | Role | Notes |
+|------|------|-------|
+| `playwright.config.js:5-7` | Suite-wide knobs | `fullyParallel: false`, `workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) \|\| 1 : 1`, `retries: 0 local / 1 CI`. Already wired for parallel via `PW_WORKERS` env. Non-numeric `PW_WORKERS` values silently fall back to 1 worker (parseInt → NaN → `\|\| 1`) — a behavioral detail the installer must preserve when validating parallel safety. |
+| `playwright.config.js:11` | Service-worker policy | `serviceWorkers: "block"` — Playwright never has a live SW in the test context. Removes one MSW concern but is independent of in-page `fetch()` calls, which still escape. |
+| `playwright.config.js:14-17` | Local web server | `python3 -m http.server 3000` serves the repo. `page.goto("/")` and `page.goto("/index.html")` are local; all external traffic comes from app code after load. |
+| `package.json:13-14` | `npm test` / `test:offline` | `test:offline` is `playwright test --grep-invert @network`. Only four tests in `tests/playwright/01-page-load/page-load.spec.js:93-147` carry `@network`. |
+| `tests/playwright/helpers/seed.js:1-23` | Existing helper | Single function `injectSeedInventory(page)` — `addInitScript` seeds localStorage from `tests/fixtures/seed-inventory.js` and stamps `ackVersion`. Pure DOM-side seeding; no route handling. |
+| `tests/fixtures/seed-inventory.js` | Inventory seed fixture | Default-exported object dropped into localStorage by `injectSeedInventory`. Sibling `tests/fixtures/settings-diff-test.json` is a one-off fixture for the settings-diff test. |
+| `tests/playwright/helpers/test-obverse.png`, `test-reverse.png` | Image fixtures | Used by image-related specs (`image-frame-override`, `rect-image-card-table`). |
 
 > No `tests/playwright/helpers/mocks/` directory exists. (Verified in requirements review by Codex and Qwen.)
 
@@ -28,15 +28,15 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 Five distinct endpoint families show up across the 12 files that currently call `page.route()`:
 
-| Endpoint family              | Hosts                                          | Mock pattern observed                                                                                                                                                                                                            | Representative spec(s)                                                                                                                                                                                          |
-| ---------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **v2 API (primary)**         | `api.staktrakr.com/data/v2/**`                 | `route.fulfill` with `{ v: 2, generated_at, data: ... }`. Per-path dispatch inside one handler: `manifest.json`, `goldback/latest.json`, `retail/{slug}/latest.json`, `retail/{slug}/history-30d.json`. 404 for unmatched paths. | `market-sorting.spec.js:258-285`, `retail/currency-switch.spec.js:253-267`, `retail/stak-582-market-survivors.spec.js:320-334`, `view-modal-chart-scaling.spec.js`, `inventory/lot-each-purchase-price.spec.js` |
-| **v2 fallback**              | `api2.staktrakr.com/data/v2/**`                | Almost always stubbed to `503` so the test exercises the primary path. A few specs swap and test the fallback.                                                                                                                   | `market-sorting.spec.js:285`, `retail/currency-switch.spec.js:268`, `retail/stak-582-market-survivors.spec.js:335`                                                                                              |
-| **Exchange rate**            | `open.er-api.com/v6/latest/USD`                | `route.fulfill` with `{ rates: { USD: 1, EUR: 0.93, ... } }` (per-test specific).                                                                                                                                                | `view-modal-chart-scaling.spec.js:77`, `inventory/virtual-sort-options.spec.js:41`, `inventory/lot-each-purchase-price.spec.js:49`, `inventory/partial-stack-disposition.spec.js:65`                            |
-| **CDN — lightweight-charts** | `cdn.jsdelivr.net/npm/lightweight-charts@4/**` | `route.fulfill` with empty 200 — chart lib swallowed because retail tests don't render charts.                                                                                                                                   | `retail/currency-switch.spec.js:245`, `retail/stak-582-market-survivors.spec.js:312`                                                                                                                            |
-| **Manifest abort**           | `**/manifest.json`                             | `route.abort()` to force the not-loaded code path.                                                                                                                                                                               | `retail/slug-resolution.spec.js:53`                                                                                                                                                                             |
-| **Image hosts (catch)**      | `https://images.example/**`                    | `route.fulfill` with stubbed PNG bytes for image-frame specs.                                                                                                                                                                    | `image-frame-override.spec.js:60`, `rect-image-card-table.spec.js:68`                                                                                                                                           |
-| **Universal block (`**/*`)** | All                                            | `route.abort()` everywhere — used by `stak-573-api-tab-qa.spec.js:161` and `stak-443-api-tab.spec.js:922` to test the "no-network" code path.                                                                                    | These specs are the only existing pattern for a "deny everything" mode.                                                                                                                                         |
+| Endpoint family | Hosts | Mock pattern observed | Representative spec(s) |
+|---|---|---|---|
+| **v2 API (primary)** | `api.staktrakr.com/data/v2/**` | `route.fulfill` with `{ v: 2, generated_at, data: ... }`. Per-path dispatch inside one handler: `manifest.json`, `goldback/latest.json`, `retail/{slug}/latest.json`, `retail/{slug}/history-30d.json`. 404 for unmatched paths. | `market-sorting.spec.js:258-285`, `retail/currency-switch.spec.js:253-267`, `retail/stak-582-market-survivors.spec.js:320-334`, `view-modal-chart-scaling.spec.js`, `inventory/lot-each-purchase-price.spec.js` |
+| **v2 fallback** | `api2.staktrakr.com/data/v2/**` | Almost always stubbed to `503` so the test exercises the primary path. A few specs swap and test the fallback. | `market-sorting.spec.js:285`, `retail/currency-switch.spec.js:268`, `retail/stak-582-market-survivors.spec.js:335` |
+| **Exchange rate** | `open.er-api.com/v6/latest/USD` | `route.fulfill` with `{ rates: { USD: 1, EUR: 0.93, ... } }` (per-test specific). | `view-modal-chart-scaling.spec.js:77`, `inventory/virtual-sort-options.spec.js:41`, `inventory/lot-each-purchase-price.spec.js:49`, `inventory/partial-stack-disposition.spec.js:65` |
+| **CDN — lightweight-charts** | `cdn.jsdelivr.net/npm/lightweight-charts@4/**` | `route.fulfill` with empty 200 — chart lib swallowed because retail tests don't render charts. | `retail/currency-switch.spec.js:245`, `retail/stak-582-market-survivors.spec.js:312` |
+| **Manifest abort** | `**/manifest.json` | `route.abort()` to force the not-loaded code path. | `retail/slug-resolution.spec.js:53` |
+| **Image hosts (catch)** | `https://images.example/**` | `route.fulfill` with stubbed PNG bytes for image-frame specs. | `image-frame-override.spec.js:60`, `rect-image-card-table.spec.js:68` |
+| **Universal block (`**/*`)** | All | `route.abort()` everywhere — used by `stak-573-api-tab-qa.spec.js:161` and `stak-443-api-tab.spec.js:922` to test the "no-network" code path. | These specs are the only existing pattern for a "deny everything" mode. |
 
 Observation for approach.md: response shapes are duplicated inline across these specs (the v2 envelope `{ v: 2, generated_at, data: ... }` appears verbatim in ~6 files; the exchange-rate `{ rates: { USD: 1, ... } }` in ~4 files; the CDN empty-200 in 2 files). All five families are candidates for shared installers.
 
@@ -46,21 +46,21 @@ Every spec that **navigates the browser to `/` or `/index.html`** triggers the a
 
 The full surface in app code:
 
-| Path                                                                             | Endpoint(s)                                                                                                                                                                          | Trigger                                                                                                                                         |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/constants.js:18,533-534`                                                     | `api.staktrakr.com/data` (legacy), `api.staktrakr.com/data/v2`, `api2.staktrakr.com/data/v2`                                                                                         | Base URLs read by `js/market-data.js` and `js/retail.js`.                                                                                       |
-| `js/constants.js:332`                                                            | `open.er-api.com/v6/latest/USD`                                                                                                                                                      | Read by `js/utils.js:754-765` and `js/init.js`-driven currency init.                                                                            |
-| `js/market-data.js:96,513-531,970,1403`                                          | `${V2_API}/manifest.json`, `/retail/{slug}/latest.json`, `/retail/{slug}/history-30d.json`, `/retail/{slug}/intraday.json`, `/goldback/latest.json`                                  | Initial market refresh + per-vendor detail fetches + goldback price.                                                                            |
-| `js/api.js:45,1421,1469,1492,1588,1763,1834,2077,2951`                           | Spot history JSONs (`data/spot-history-{year}.json` — local, served by python http.server) + various external API providers when keys are configured                                 | Most are gated by user-configured API keys; safe by default. The `data/spot-history-*.json` is **local**, not an external request.              |
-| `js/api.js:2951`                                                                 | `data/spot-history-${year}.json`                                                                                                                                                     | Local repo path; not external. Confirms why `data/spot-history-bundle.js` matters for offline runs.                                             |
-| `js/api-health.js:131`                                                           | Configurable health URLs                                                                                                                                                             | Fired by settings UI; not the cold-start path.                                                                                                  |
-| `js/catalog-api.js:272,470,573-580`                                              | Numista / PCGS                                                                                                                                                                       | Gated by `catalogConfig.isNumistaEnabled()` / configured bearer token. Default seed has no catalog key → no Numista calls fire from cold start. |
-| `js/cloud-storage.js:385,558,761,771,915`                                        | `dropbox.com`, `pcloud.com`, `box.com` OAuth + content endpoints                                                                                                                     | Gated by user-initiated OAuth flow; never fires on startup.                                                                                     |
-| `js/cloud-sync.js:3491`                                                          | `content.dropboxapi.com/2/files/upload`                                                                                                                                              | Cloud-sync flow only.                                                                                                                           |
-| `js/goldback.js:435,486`                                                         | Goldback retail + history — paths route through `V2_API`                                                                                                                             | Same v2 mock covers these.                                                                                                                      |
-| `js/image-cache.js:679-688`, `js/image-processor.js:72`, `js/vault.js:1604,1657` | Arbitrary image URLs and Dropbox content uploads                                                                                                                                     | Only fire when user actions trigger them; tests using injected fixtures rarely hit.                                                             |
-| `index.html:335`                                                                 | `cdn.jsdelivr.net/npm/lightweight-charts@4/.../lightweight-charts.standalone.production.js`                                                                                          | Loaded as a `<script src>` at parse time. Every navigation to `/index.html` triggers it unless intercepted.                                     |
-| `about.html`                                                                     | None — only `<a href>` anchor links to staktrakr.com, github.com, numista.com, pcgs.com, metals.dev. No `<script src>` or CDN imports. `about.html` has zero `<script>` tags at all. | `about-page.spec.js` is genuinely offline-safe.                                                                                                 |
+| Path | Endpoint(s) | Trigger |
+|---|---|---|
+| `js/constants.js:18,533-534` | `api.staktrakr.com/data` (legacy), `api.staktrakr.com/data/v2`, `api2.staktrakr.com/data/v2` | Base URLs read by `js/market-data.js` and `js/retail.js`. |
+| `js/constants.js:332` | `open.er-api.com/v6/latest/USD` | Read by `js/utils.js:754-765` and `js/init.js`-driven currency init. |
+| `js/market-data.js:96,513-531,970,1403` | `${V2_API}/manifest.json`, `/retail/{slug}/latest.json`, `/retail/{slug}/history-30d.json`, `/retail/{slug}/intraday.json`, `/goldback/latest.json` | Initial market refresh + per-vendor detail fetches + goldback price. |
+| `js/api.js:45,1421,1469,1492,1588,1763,1834,2077,2951` | Spot history JSONs (`data/spot-history-{year}.json` — local, served by python http.server) + various external API providers when keys are configured | Most are gated by user-configured API keys; safe by default. The `data/spot-history-*.json` is **local**, not an external request. |
+| `js/api.js:2951` | `data/spot-history-${year}.json` | Local repo path; not external. Confirms why `data/spot-history-bundle.js` matters for offline runs. |
+| `js/api-health.js:131` | Configurable health URLs | Fired by settings UI; not the cold-start path. |
+| `js/catalog-api.js:272,470,573-580` | Numista / PCGS | Gated by `catalogConfig.isNumistaEnabled()` / configured bearer token. Default seed has no catalog key → no Numista calls fire from cold start. |
+| `js/cloud-storage.js:385,558,761,771,915` | `dropbox.com`, `pcloud.com`, `box.com` OAuth + content endpoints | Gated by user-initiated OAuth flow; never fires on startup. |
+| `js/cloud-sync.js:3491` | `content.dropboxapi.com/2/files/upload` | Cloud-sync flow only. |
+| `js/goldback.js:435,486` | Goldback retail + history — paths route through `V2_API` | Same v2 mock covers these. |
+| `js/image-cache.js:679-688`, `js/image-processor.js:72`, `js/vault.js:1604,1657` | Arbitrary image URLs and Dropbox content uploads | Only fire when user actions trigger them; tests using injected fixtures rarely hit. |
+| `index.html:335` | `cdn.jsdelivr.net/npm/lightweight-charts@4/.../lightweight-charts.standalone.production.js` | Loaded as a `<script src>` at parse time. Every navigation to `/index.html` triggers it unless intercepted. |
+| `about.html` | None — only `<a href>` anchor links to staktrakr.com, github.com, numista.com, pcgs.com, metals.dev. No `<script src>` or CDN imports. `about.html` has zero `<script>` tags at all. | `about-page.spec.js` is genuinely offline-safe. |
 
 **Cold-start fetch fan-out for a vanilla navigation to `/index.html`** (no further user action, no configured API keys, default localStorage):
 
@@ -77,48 +77,46 @@ Numista, PCGS, Dropbox/Box/pCloud are all gated by user-configured state that th
 
 > DEEPSEEK: My live `grep -c 'test('` scan on 2026-05-15 returns 643, not 660. The 17-count discrepancy may come from multi-line signatures, `test.step`, or dynamic test generation. The approach.md enumeration script must count via Playwright's native listing (`npx playwright test --list`), not grep, to avoid this class of drift.
 
-| File                        | Test count | Classification                                                                                       | Evidence                                                                                                          |
-| --------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `config-validation.spec.js` | 94         | **No mocking needed** — pure Node `fs`/`path` reads of repo config files; no browser page fixture.   | Spec has no Playwright page object; classification is "no browser-page navigation," not "no literal `page.goto`." |
-| `about-page.spec.js`        | 45         | **No mocking needed** — navigates to `/about.html` only; `about.html` declares zero `<script>` tags. | Verified `grep -n 'http' about.html` returns only anchor `href`s.                                                 |
+| File | Test count | Classification | Evidence |
+|---|---|---|---|
+| `config-validation.spec.js` | 94 | **No mocking needed** — pure Node `fs`/`path` reads of repo config files; no browser page fixture. | Spec has no Playwright page object; classification is "no browser-page navigation," not "no literal `page.goto`." |
+| `about-page.spec.js` | 45 | **No mocking needed** — navigates to `/about.html` only; `about.html` declares zero `<script>` tags. | Verified `grep -n 'http' about.html` returns only anchor `href`s. |
 
 **The remaining ~343 unmocked app-loading tests across 43 files** all navigate the browser to `/index.html` (or `/`), either via direct `page.goto` or via shared-page objects like `02-crud/crud.spec.js`'s `sharedPage.goto`. By the cold-start fan-out above, **every one of them triggers at least the v2 API + exchange-rate + CDN chain**. Classification at file granularity is therefore binary in practice: `about-page` and `config-validation` are safe; all others need at minimum the four-endpoint deny set.
 
 > **These counts are a snapshot.** Approach.md must define the unmocked-suite enumeration as a repeatable script (find spec files that instantiate a Playwright page object and call `.goto` on it with an `/index.html` or `/` target — not a fixed file list) so new tests, shared-page suites, or generated cases don't drift the target between discovery and implementation.
 
-Sub-classification of the unmocked app-loading suites by _additional_ surfaces they exercise (informs whether they need per-spec extensions on top of the global installer):
+Sub-classification of the unmocked app-loading suites by *additional* surfaces they exercise (informs whether they need per-spec extensions on top of the global installer):
 
 - **Pure UI / localStorage assertions** that read the app post-load but don't action retail/cloud/catalog flows (themes, typography, modal layout, page-load smoke, CRUD inventory, payment-method, realized-toggle, etc.) → global installer is sufficient.
 - **Retail / market UI** that fetch per-slug detail (`market-filter-cache-invalidation.spec.js`, `04-market-controls.spec.js`, `filter-chip-and-logic.spec.js`, `goldback-type.spec.js`, `silverback.spec.js`, `numista-picker-tags.spec.js`, `view-modal-no-auto-resync.spec.js`, `view-modal-numista-merge.spec.js`) → global installer + per-slug fixtures.
 - **Catalog (Numista/PCGS) flows** (`catalog-api-key.spec.js`, `numista-search.spec.js`, `numista-not-configured.spec.js`, `numista-picker-tags.spec.js`) → **action-path audit required**, not uniform window-level stubbing. `catalog-api-key.spec.js:19-35` seeds real-looking `catalog_api_config` before load and only stubs `window.testNumistaAPI` inside CA-5 (`:187-210`) for the API-test action path; other tests in that file inspect settings UI rather than invoking provider fetches. Approach.md must audit configured-catalog-key specs by action path before declaring "no Numista network family needed" — recommended grep: `rg 'setNumistaConfig|setPcgsConfig' tests/playwright/03-settings`.
 
 > DEEPSEEK: `numista-search.spec.js` seeds a fake Numista API key at line 63-74 (`catalog_api_config.numista.apiKey: btoa("fake-key-for-test")`) and navigates to `/index.html` (line 78) with **zero** `page.route()` calls. The `NumistaProvider` constructor verifiably does not fire network requests (verified at `js/catalog-api.js:934-937` — constructor only calls `catalogConfig.isNumistaEnabled()` then `new NumistaProvider()` which is side-effect-free). However, if any cold-start code path (e.g., `market-data.js` init, version-check, or a DOM mutation observer) triggers a catalog `searchItems()` call, the fake key would cause a real `fetch()` to `api.numista.com`. The current test exercises only `buildNumistaSearchQuery` in `page.evaluate()` (a pure string builder), so it happens to be safe today — but this is fragile. approach.md should verify exhaustively that seeded-but-unmocked catalog keys in this and `numista-picker-tags.spec.js` (also zero `page.route()` calls) cannot escape through any init path.
-
 - **Cloud-sync flows** (`cloud-sync-header-button.spec.js`, `03-settings/settings-cloud-tab.spec.js`, `attachments/cloud-sync.spec.js`, `view-modal-no-auto-resync.spec.js`) → cloud-storage calls are gated behind user OAuth. The two header-button / settings specs verifiably stub `window.pushSyncVault` / `window.syncNow`, so no real Dropbox calls fire from them. `attachments/cloud-sync.spec.js` and `view-modal-no-auto-resync.spec.js` were not independently audited in this reconcile; see resolved Q5 for the required approach-phase grep.
 
 > DEEPSEEK: `attachments/cloud-sync.spec.js` **seeds real-looking Dropbox tokens** (line 8-18: `cloud_dropbox_account_id`, `cloud_token_dropbox`, `cloud_sync_enabled`, `cloud_vault_password`) AND navigates to `/index.html` (line 25) with **zero** `page.route()` and **zero** `window.syncNow`/`window.pushSyncVault` stubs. If the app's post-load init triggers cloud sync when these tokens are present, real Dropbox API calls escape unmocked. The first `test.describe` block (line 21, "STRK-45 — Cloud sync attachment storage keys") reads `ALLOWED_STORAGE_KEYS` and calls `loadDataSync` after navigation — a code path that does not require sync methods to be called, but the cold-start itself could fire them. The second `test.describe` block (line 58, "STRK-45 — DiffEngine integration") also navigates to `/index.html` without route mocking. This is a load-bearing gap — approach.md must either mock the cloud-sync surface for this spec OR confirm through static analysis that the app's startup path does not invoke sync when tokens are present.
 > DEEPSEEK: `view-modal-no-auto-resync.spec.js` also has zero `page.route()` calls and navigates to `/index.html`. It is not the safe category — it needs the global installer.
-
 - **Attachments / vault** (`attachments/*.spec.js`) → IndexedDB and localStorage; no external network if `injectSeedInventory` does not populate cloud tokens.
 
 ### Existing-mock-file inventory (one-line per file)
 
-| Mocked file                                   | Endpoints intercepted           | Purpose                          |
-| --------------------------------------------- | ------------------------------- | -------------------------------- |
-| `stak-573-api-tab-qa.spec.js`                 | `**/*` aborted                  | API-tab "no network" path        |
-| `view-modal-chart-scaling.spec.js`            | `open.er-api.com/v6/latest/USD` | Pin exchange rate for chart math |
-| `stak-443-api-tab.spec.js`                    | `**/*` aborted                  | API-tab "no network" path        |
-| `image-frame-override.spec.js`                | `https://images.example/**`     | Stubbed PNG                      |
-| `retail/stak-582-market-survivors.spec.js`    | CDN, v2, v2-fallback            | Retail survivors flow            |
-| `retail/currency-switch.spec.js`              | CDN, v2, v2-fallback            | Currency switching               |
-| `rect-image-card-table.spec.js`               | `https://images.example/**`     | Stubbed PNG                      |
-| `retail/slug-resolution.spec.js`              | `**/manifest.json` aborted      | Force not-loaded code path       |
-| `market-sorting.spec.js`                      | v2, v2-fallback                 | Vendor sort logic                |
-| `inventory/virtual-sort-options.spec.js`      | `open.er-api.com/v6/latest/USD` | Exchange rate                    |
-| `inventory/partial-stack-disposition.spec.js` | `open.er-api.com/v6/latest/USD` | Exchange rate                    |
-| `inventory/lot-each-purchase-price.spec.js`   | `open.er-api.com/v6/latest/USD` | Exchange rate                    |
+| Mocked file | Endpoints intercepted | Purpose |
+|---|---|---|
+| `stak-573-api-tab-qa.spec.js` | `**/*` aborted | API-tab "no network" path |
+| `view-modal-chart-scaling.spec.js` | `open.er-api.com/v6/latest/USD` | Pin exchange rate for chart math |
+| `stak-443-api-tab.spec.js` | `**/*` aborted | API-tab "no network" path |
+| `image-frame-override.spec.js` | `https://images.example/**` | Stubbed PNG |
+| `retail/stak-582-market-survivors.spec.js` | CDN, v2, v2-fallback | Retail survivors flow |
+| `retail/currency-switch.spec.js` | CDN, v2, v2-fallback | Currency switching |
+| `rect-image-card-table.spec.js` | `https://images.example/**` | Stubbed PNG |
+| `retail/slug-resolution.spec.js` | `**/manifest.json` aborted | Force not-loaded code path |
+| `market-sorting.spec.js` | v2, v2-fallback | Vendor sort logic |
+| `inventory/virtual-sort-options.spec.js` | `open.er-api.com/v6/latest/USD` | Exchange rate |
+| `inventory/partial-stack-disposition.spec.js` | `open.er-api.com/v6/latest/USD` | Exchange rate |
+| `inventory/lot-each-purchase-price.spec.js` | `open.er-api.com/v6/latest/USD` | Exchange rate |
 
-Three of the existing 12 (`stak-573-api-tab-qa`, `stak-443-api-tab`, `retail/slug-resolution`) are _deny/abort_ patterns, not response-fulfill patterns. The shared library design must accommodate both.
+Three of the existing 12 (`stak-573-api-tab-qa`, `stak-443-api-tab`, `retail/slug-resolution`) are *deny/abort* patterns, not response-fulfill patterns. The shared library design must accommodate both.
 
 ## Prior Decisions
 
@@ -154,30 +152,29 @@ Three of the existing 12 (`stak-573-api-tab-qa`, `stak-443-api-tab`, `retail/slu
 The items below need answers before approach.md can be written.
 
 - [ ] **Q1 — Global vs per-spec installer architecture.** Two viable shapes:
-      (a) `test.extend({ page })` custom fixture that auto-installs the deny set before every navigation.
-      (b) Helper functions `installV2Mock(page, opts)`, `installExchangeRateMock(page, opts)`, etc., that each spec calls explicitly.
-      Playwright's last-registered-route-first precedence means the global deny set MUST register before per-spec extensions (see Constraints). A custom fixture makes this ordering enforceable mechanically; bare helpers rely on discipline. Approach.md must pick one (or a hybrid) with this constraint baked in.
+  (a) `test.extend({ page })` custom fixture that auto-installs the deny set before every navigation.
+  (b) Helper functions `installV2Mock(page, opts)`, `installExchangeRateMock(page, opts)`, etc., that each spec calls explicitly.
+  Playwright's last-registered-route-first precedence means the global deny set MUST register before per-spec extensions (see Constraints). A custom fixture makes this ordering enforceable mechanically; bare helpers rely on discipline. Approach.md must pick one (or a hybrid) with this constraint baked in.
 - [ ] **Q2 — "Universal block" mode**. The existing `**/*` abort pattern (`stak-573-api-tab-qa`, `stak-443-api-tab`) is semantically different from per-endpoint fulfill. Should the shared library expose a `installDenyAll(page)` mode for these specs, or leave them as bespoke? Decision is approach-phase.
 - [ ] **Q3 — Network audit hook scope.** AC-1 requires a deny-list audit. Two implementations:
-      (a) `page.on('request')` listener that fails the test on unexpected hosts (must be off the allow-list).
-      (b) `page.route('**/*', ...)` catch-all installed last that fails-fast.
-      Both work; (b) gives stack traces, (a) gives a clean post-run summary. **Either implementation must distinguish `http://localhost:3000` (web server, expected) from external hosts** — without that, harmless local asset fetches (favicon, `/data/spot-history-*.json`, served stylesheets) would trip the deny-list. Approach picks the implementation and encodes the allow-list.
+  (a) `page.on('request')` listener that fails the test on unexpected hosts (must be off the allow-list).
+  (b) `page.route('**/*', ...)` catch-all installed last that fails-fast.
+  Both work; (b) gives stack traces, (a) gives a clean post-run summary. **Either implementation must distinguish `http://localhost:3000` (web server, expected) from external hosts** — without that, harmless local asset fetches (favicon, `/data/spot-history-*.json`, served stylesheets) would trip the deny-list. Approach picks the implementation and encodes the allow-list.
 - [ ] **Q4 — Consolidation scoping rule for "market data" cluster.** Requirements left this open ("~17 files reference 'market'"). Concrete rule needed before tasks.md can list which files to merge. Candidate rule: "files whose primary `test.describe` topic is a market control (filter, sort, chip) — exclude retail-detail and settings-tab specs even if they touch market UI." **The rule must preserve failure-mode boundaries** — do not merge specs that assert different failure modes (e.g. fallback-503 path vs primary-200 path) even when topic clusters overlap, because merged assertions reduce readability and debuggability when one branch regresses. Approach.md should declare the rule.
 - [ ] **Q5 — Cloud-storage mock family (resolved with audit caveat).** Gemini and Deepseek independently verified that `cloud-sync-header-button.spec.js` and `03-settings/settings-cloud-tab.spec.js` stub the sync execution methods (`window.pushSyncVault`, `window.syncNow`) even when seeding dummy Dropbox tokens, so no live `content.dropboxapi.com` calls fire. **Resolution:** no 6th mock family (cloud-storage) is required from the four specs reviewed. **Audit caveat:** `attachments/cloud-sync.spec.js` and `view-modal-no-auto-resync.spec.js` were not independently audited in this reconcile. Before approach.md locks the mock surface, run:
 
       ```
-          rg 'cloud_token|content\.dropboxapi' tests/playwright/attachments \
-                tests/playwright/**/view-modal-no-auto-resync*
-          ```
+      rg 'cloud_token|content\.dropboxapi' tests/playwright/attachments \
+            tests/playwright/**/view-modal-no-auto-resync*
+      ```
 
-          If non-stubbed hits appear, the cloud-storage family becomes mandatory. Otherwise, Q5 is fully closed.
-
+      If non-stubbed hits appear, the cloud-storage family becomes mandatory. Otherwise, Q5 is fully closed.
 - [ ] **Q6 — `@network` tag policy post-mocking.** Requirements relaxed the non-goal to allow removing the tags once mocked. Confirm in approach.md: tags removed, `npm run test:offline` script kept for transition or deleted outright. Tasks.md derives the closing actions from that.
 - [ ] **Q7 — Cold-start fan-out exhaustiveness.** Reviewer consensus surfaced the assumption that the 4-endpoint deny set + enumerated per-spec extensions cover every external fetch the app produces. Approach.md must validate this with a static scan (e.g., `rg -n 'fetch\(|XMLHttpRequest' js/ index.html` cross-referenced with the table in this discovery) and call out any new surfaces (image hosts via user actions, post-OAuth flows, configured catalog keys). Treat this as a code-derived check, not a prose claim, so future commits cannot drift the deny-list silently.
 
 ## Discovery Summary
 
-The mocking work is structurally simpler than the unmocked-test count suggests: the cold-start fan-out has exactly four mandatory endpoints (v2 primary, v2 fallback, exchange rate, CDN charts), all already mocked inline in 12 reference specs using two patterns (`fulfill` and `abort`). The bulk of the implementation is mechanical — extract those patterns into a shared installer, call it from each of the ~343 unmocked app-loading tests across the 43 non-safe files that navigate to `/index.html` (directly or via shared-page objects). The harder design call is the installer's _shape_ (custom fixture vs helper functions vs hybrid) under Playwright's last-registered-route-first precedence, and how to surface a "fail-on-unexpected-request" audit hook to satisfy AC-1 without false positives from incidental local-server fetches. Consolidation is a separate, more judgmental workstream that hinges on the "market data" scoping rule (Q4); the Numista, view-modal, and cloud-sync clusters already have clean boundaries verified in requirements review.
+The mocking work is structurally simpler than the unmocked-test count suggests: the cold-start fan-out has exactly four mandatory endpoints (v2 primary, v2 fallback, exchange rate, CDN charts), all already mocked inline in 12 reference specs using two patterns (`fulfill` and `abort`). The bulk of the implementation is mechanical — extract those patterns into a shared installer, call it from each of the ~343 unmocked app-loading tests across the 43 non-safe files that navigate to `/index.html` (directly or via shared-page objects). The harder design call is the installer's *shape* (custom fixture vs helper functions vs hybrid) under Playwright's last-registered-route-first precedence, and how to surface a "fail-on-unexpected-request" audit hook to satisfy AC-1 without false positives from incidental local-server fetches. Consolidation is a separate, more judgmental workstream that hinges on the "market data" scoping rule (Q4); the Numista, view-modal, and cloud-sync clusters already have clean boundaries verified in requirements review.
 
 ---
 
@@ -243,21 +240,18 @@ _Reconciled by /sketch reconcile on 2026-05-15. Original reviewer marks preserve
 #### Review section
 
 ### Verified
-
 - `playwright.config.js`: Verified `serviceWorkers: "block"`, `fullyParallel: false`, and `python3 -m http.server 3000` configuration is exactly as described.
 - `package.json` and `@network` tags: Verified `test:offline` is `playwright test --grep-invert @network`, and exactly 4 tests in `page-load.spec.js` carry the `@network` tag.
 - Seed data isolation: Verified `tests/fixtures/seed-inventory.js` and `helpers/seed.js` do not set catalog API keys or cloud storage tokens.
 - Cloud storage test stubs (Q5): Verified the cloud-sync specs (`cloud-sync-header-button.spec.js` and `settings-cloud-tab.spec.js`) explicitly stub out `window.syncNow` and `window.pushSyncVault`, meaning no actual Dropbox API calls fire during test execution despite token injection.
 
 ### Top Concerns
-
 1. **Network Audit Hook Implementation (Q3)**: The fail-on-unexpected-request requirement (AC-1) might inadvertently fail tests that fire harmless asynchronous fetches or local assets. The implementation must distinguish between external HTTP calls and local `http://localhost:3000` fetches.
 2. **Implicit Playwright Route Overrides**: The document notes 5 distinct mock families in 12 mock files. If moving to a global `test.extend` or shared helper, tests that currently call `page.route` manually might suffer from handler registration conflicts or precedence issues (Playwright resolves routes by last-registered). Approach.md must address how existing `page.route` overrides will co-exist.
 3. **Consolidation Scoping Rule (Q4)**: The candidate rule focuses on "market data" UI. The consolidation should ensure it doesn't mistakenly merge assertions that test entirely different failure modes, which would reduce test readability and debuggability when a specific branch fails.
 
 ### GEMINI — Unverified Assumptions
-
-- **All non-API external requests are accounted for**: Assumes that the cold-start fan-out (CDN charts, exchange rate, v2 API) is the _exhaustive_ list of external dependencies needed for the page to render fully without failing assertions.
+- **All non-API external requests are accounted for**: Assumes that the cold-start fan-out (CDN charts, exchange rate, v2 API) is the *exhaustive* list of external dependencies needed for the page to render fully without failing assertions.
 - **Local `http.server` stability**: Assumes that fetching local `/data/spot-history-{year}.json` or images via the local server during tests won't flake under `fullyParallel: true` execution in the future.
 - **Spec `page.goto` uniformity**: Assumes every unmocked spec file uses `page.goto("/")` or `/index.html` exclusively without query parameters or hash routers that might alter startup fetch behaviors.
 

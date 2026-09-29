@@ -8,7 +8,6 @@ description: "Comprehensive API documentation for our gold price API"
 tags:
   - "clippings"
 ---
-
 ## API Documentation
 
 Base URL:`https://api.gold-api.com`
@@ -29,10 +28,10 @@ No authentication required - Free endpoint with no rate limits
 
 ### Response
 
-| Field    | Type   | Description                |
-| -------- | ------ | -------------------------- |
-| `symbol` | string | The asset symbol           |
-| `name`   | string | The full name of the asset |
+| Field | Type | Description |
+| --- | --- | --- |
+| `symbol` | string | The asset symbol |
+| `name` | string | The full name of the asset |
 
 ### Try it out
 

@@ -8,34 +8,34 @@ created: 2026-05-09
 
 ## Existing Code
 
-| Path                                                 | Role                          | Notes                                                                                                                                                        |
-| ---------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/events.js:386`                                   | Attachment queue              | `_pendingAttachments` stores raw `File` objects. `dequeueAttachment(fileName)` removes by first filename match, which causes STRK-59.                        |
-| `js/events.js:2005`                                  | Form-submit attachment commit | Queued files write after item commit. If `attachmentManager` is unavailable, the `else` path clears the queue silently.                                      |
-| `js/attachment-ui.js:70`                             | Open/download helpers         | `_openAttachment` revokes object URLs after 10 seconds. `_downloadAttachment` uses the same timer and is less risky because download should snapshot.        |
-| `js/attachment-ui.js:107`                            | Queued row rendering          | Row dataset and remove handler both use `file.name`; this mirrors the `events.js` collision.                                                                 |
-| `js/attachment-ui.js:192`                            | DOM lookup                    | `renderQueuedAttachments` and nearby functions use `document.getElementById`; project standard prefers `safeGetElement` unless the code needs true null.     |
-| `index.html:2738`                                    | Attachment browse control     | Uses a styled `<label>` for hidden file input; Plane issue notes it is not keyboard-focusable.                                                               |
-| `js/attachment-manager.js:174`                       | Cascade delete                | `deleteAttachmentsForItem` loads full records with blobs through `getAttachmentsByItemUuid` before deleting them.                                            |
-| `js/inventory.js:866`                                | Delete cascade                | Plain item delete calls `deleteAttachmentsForItem`, but sync/restore metadata removal does not have a reconciliation pass.                                   |
-| `js/inventory.js:996`                                | Stack split                   | Current implementation explicitly sets the split-off item's `attachments = []`, matching STRK-45 D13 but conflicting with STRK-64's new product expectation. |
-| `js/diff-engine.js:180`                              | Attachment diff comparator    | Replacement detection indexes local attachments by `fileName`; any different UUID with the same name can be consumed as a replacement.                       |
-| `js/inventory-backup.js:642`                         | Attachment restore            | Manifest parsing and missing-binary behavior live here; malformed attachment manifests can abort restore unless fail-soft parsing is added.                  |
-| `js/vault.js:961`                                    | Attachment vault export       | `collectAndHashAttachmentVault` converts every attachment blob to Base64 and then hashes a JSON representation, materializing large strings in memory.       |
-| `js/vault.js:1182`                                   | Manual encrypted export       | Exports a single `-attachments.stvault` companion without a size guard before Base64 serialization.                                                          |
-| `js/cloud-sync.js:1811`                              | Attachment push               | Push path calls `collectAndHashAttachmentVault` and `vaultEncryptAttachmentVault`; size warning/opt-out must happen before this conversion to avoid OOM.     |
-| `js/cloud-sync.js:2485`                              | Auto-sync pull                | One attachment pull path updates `pullMeta.attachmentHash` correctly after restore or 404.                                                                   |
-| `js/cloud-sync.js:3113`                              | Manifest-first pull           | Copy-pasted attachment pull block restores attachments but does not write the attachment hash into last-pull metadata.                                       |
-| `js/cloud-sync.js:3341`                              | Silent-pull path              | Similar attachment pull logic writes `_silentPullMeta.attachmentHash`. Candidate to replace with helper.                                                     |
-| `js/cloud-sync.js:3575`                              | Auto-merge path               | Attachment pull block has its own `syncSetLastPull` update. Candidate to replace with helper.                                                                |
-| `js/cloud-sync.js:3948`                              | Vault-first silent pull       | Attachment pull block writes `_previewPullMeta.attachmentHash`. Candidate to replace with helper.                                                            |
-| `js/cloud-sync.js:4064`                              | Vault-first DiffModal path    | Attachment pull block mutates last-pull metadata after restore. Candidate to replace with helper.                                                            |
-| `js/settings-listeners.js:1213`                      | Sync attachments toggle       | Writes `String(this.checked)` via `saveDataSync`; read side tolerates strings and booleans, but the original approach called it a boolean key.               |
-| `js/settings.js:1690`                                | Settings footer               | Footer reports `LS: ... / 5 MB` and only image-cache IDB usage, not attachment manager usage.                                                                |
-| `js/settings.js:3491`                                | Storage diagnostics panel     | Detail panel counts localStorage UTF-16 bytes, image-cache estimates, and attachment exact bytes, but denominator labels can imply mixed caps.               |
-| `js/inventory-table.js:571`                          | Table attachment badge        | Hardcodes badge HTML and inline `onclick` instead of using the attachment badge helper.                                                                      |
-| `tests/playwright/attachments/backup-zip.spec.js:15` | Backup tests                  | Tests build derived objects instead of generating a real ZIP and validating actual backup/restore behavior.                                                  |
-| `tests/playwright/attachments/cloud-sync.spec.js:21` | Cloud tests                   | Current tests cover constants/defaults and a few DiffEngine assumptions, not all attachment vault pull paths.                                                |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/events.js:386` | Attachment queue | `_pendingAttachments` stores raw `File` objects. `dequeueAttachment(fileName)` removes by first filename match, which causes STRK-59. |
+| `js/events.js:2005` | Form-submit attachment commit | Queued files write after item commit. If `attachmentManager` is unavailable, the `else` path clears the queue silently. |
+| `js/attachment-ui.js:70` | Open/download helpers | `_openAttachment` revokes object URLs after 10 seconds. `_downloadAttachment` uses the same timer and is less risky because download should snapshot. |
+| `js/attachment-ui.js:107` | Queued row rendering | Row dataset and remove handler both use `file.name`; this mirrors the `events.js` collision. |
+| `js/attachment-ui.js:192` | DOM lookup | `renderQueuedAttachments` and nearby functions use `document.getElementById`; project standard prefers `safeGetElement` unless the code needs true null. |
+| `index.html:2738` | Attachment browse control | Uses a styled `<label>` for hidden file input; Plane issue notes it is not keyboard-focusable. |
+| `js/attachment-manager.js:174` | Cascade delete | `deleteAttachmentsForItem` loads full records with blobs through `getAttachmentsByItemUuid` before deleting them. |
+| `js/inventory.js:866` | Delete cascade | Plain item delete calls `deleteAttachmentsForItem`, but sync/restore metadata removal does not have a reconciliation pass. |
+| `js/inventory.js:996` | Stack split | Current implementation explicitly sets the split-off item's `attachments = []`, matching STRK-45 D13 but conflicting with STRK-64's new product expectation. |
+| `js/diff-engine.js:180` | Attachment diff comparator | Replacement detection indexes local attachments by `fileName`; any different UUID with the same name can be consumed as a replacement. |
+| `js/inventory-backup.js:642` | Attachment restore | Manifest parsing and missing-binary behavior live here; malformed attachment manifests can abort restore unless fail-soft parsing is added. |
+| `js/vault.js:961` | Attachment vault export | `collectAndHashAttachmentVault` converts every attachment blob to Base64 and then hashes a JSON representation, materializing large strings in memory. |
+| `js/vault.js:1182` | Manual encrypted export | Exports a single `-attachments.stvault` companion without a size guard before Base64 serialization. |
+| `js/cloud-sync.js:1811` | Attachment push | Push path calls `collectAndHashAttachmentVault` and `vaultEncryptAttachmentVault`; size warning/opt-out must happen before this conversion to avoid OOM. |
+| `js/cloud-sync.js:2485` | Auto-sync pull | One attachment pull path updates `pullMeta.attachmentHash` correctly after restore or 404. |
+| `js/cloud-sync.js:3113` | Manifest-first pull | Copy-pasted attachment pull block restores attachments but does not write the attachment hash into last-pull metadata. |
+| `js/cloud-sync.js:3341` | Silent-pull path | Similar attachment pull logic writes `_silentPullMeta.attachmentHash`. Candidate to replace with helper. |
+| `js/cloud-sync.js:3575` | Auto-merge path | Attachment pull block has its own `syncSetLastPull` update. Candidate to replace with helper. |
+| `js/cloud-sync.js:3948` | Vault-first silent pull | Attachment pull block writes `_previewPullMeta.attachmentHash`. Candidate to replace with helper. |
+| `js/cloud-sync.js:4064` | Vault-first DiffModal path | Attachment pull block mutates last-pull metadata after restore. Candidate to replace with helper. |
+| `js/settings-listeners.js:1213` | Sync attachments toggle | Writes `String(this.checked)` via `saveDataSync`; read side tolerates strings and booleans, but the original approach called it a boolean key. |
+| `js/settings.js:1690` | Settings footer | Footer reports `LS: ... / 5 MB` and only image-cache IDB usage, not attachment manager usage. |
+| `js/settings.js:3491` | Storage diagnostics panel | Detail panel counts localStorage UTF-16 bytes, image-cache estimates, and attachment exact bytes, but denominator labels can imply mixed caps. |
+| `js/inventory-table.js:571` | Table attachment badge | Hardcodes badge HTML and inline `onclick` instead of using the attachment badge helper. |
+| `tests/playwright/attachments/backup-zip.spec.js:15` | Backup tests | Tests build derived objects instead of generating a real ZIP and validating actual backup/restore behavior. |
+| `tests/playwright/attachments/cloud-sync.spec.js:21` | Cloud tests | Current tests cover constants/defaults and a few DiffEngine assumptions, not all attachment vault pull paths. |
 
 ## Prior Decisions
 

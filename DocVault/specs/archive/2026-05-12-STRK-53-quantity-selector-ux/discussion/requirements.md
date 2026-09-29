@@ -30,7 +30,6 @@ Replace the free-entry numeric Quantity input in the dispose modal with a constr
 ## Acceptance Criteria
 
 ### AC-1 (maps to US-1) — Invalid quantities are unreachable
-
 - **Given** an inventory item with stack quantity N (N ≥ 2)
 - **When** the user opens the dispose modal for that item
 - **Then** the quantity control exposes exactly the integers 1…N as selectable values, and there is no UI affordance to submit a value outside that set (no free-typed number, no fractional value, no zero, no value > N).
@@ -40,19 +39,16 @@ Replace the free-entry numeric Quantity input in the dispose modal with a constr
 > OPUS: AC-1 also doesn't say how `paste` is handled. A pasted "9999" produces one `input` event with the post-paste value, so a clamp listener catches it — but a pasted "9.5" parsed via `parseInt` becomes `9`, silently truncating decimals. That's a third invalid affordance ("non-integer") the AC enumerates, and the proposed clamp doesn't reject it, it rounds it. Worth deciding whether "non-integer" pastes show feedback or silently floor.
 
 ### AC-2 (maps to US-1) — No regression in dispose business logic
-
 - **Given** the new quantity control is in place
 - **When** the user selects a quantity and submits the dispose form
 - **Then** the resulting change-log entry, inventory split behavior, and lot/each toggle interaction are identical to the STRK-44 behavior, and the existing STRK-44 Playwright tests pass without modification of test assertions about dispose outcomes.
 
 ### AC-3 (maps to US-2) — Stack qty 1 collapses cleanly
-
 - **Given** an inventory item with stack quantity 1
 - **When** the user opens the dispose modal
 - **Then** either (a) the quantity control is hidden and disposition proceeds as a full-stack action, or (b) the control is present but pre-selected to 1 and visually de-emphasized — chosen behavior is documented in approach.md and consistent with the rest of the modal.
 
 ### AC-4 (maps to US-3) — Keyboard and screen-reader parity
-
 - **Given** the new quantity control is rendered
 - **When** a keyboard-only user reaches the modal
 - **Then** the control receives focus in the existing tab order, exposes an accessible name that includes the word "Quantity" and the stack's maximum (e.g. `Quantity (max 12)`), announces the current value on change, and is fully operable without a pointer (arrow keys or equivalent native interaction).
@@ -62,7 +58,6 @@ Replace the free-entry numeric Quantity input in the dispose modal with a constr
 > OPUS: AC-4 is silent on touch / mobile. Chips of digits 1..8 in a row on a 360px modal will be ~32px wide buttons — below WCAG 2.5.5 (44×44) and uncomfortable for thumb taps. If mobile is in-scope (CLAUDE.md says it is — "mobile matters"), this AC should either set a min target size or commit the design to wrap/stack chips on narrow viewports. Otherwise B.2 ships an a11y regression that no chosen AC catches.
 
 ### AC-5 (maps to US-1) — Large stack quantities remain usable
-
 - **Given** an inventory item with stack quantity ≥ 50
 - **When** the user opens the dispose modal
 - **Then** the control remains usable without forcing the user to scroll/click through every integer (e.g. stepper with keyboard typing, or selector with grouped options) — the specific affordance is chosen in approach.md but the AC bar is "selecting qty 47 of 50 takes ≤ 3 interactions from focus".

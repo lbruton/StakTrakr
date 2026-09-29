@@ -18,25 +18,23 @@ The HTML adds a new `grid grid-2` row in the Catalog Data section of Edit/Create
 
 ## Key Decisions
 
-| #   | Decision                                                                      | Rationale                                                                                                                                                                                                                               | Tradeoff                                                                                                                       |
-| --- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| D-1 | Top-level `item.capsule` / `item.capsuleNotes`, not nested in `numistaData`   | `parseNumistaDataFields()` clears all nested fields when the Numista catalog number changes — would wipe user-entered capsule data. Search/filter arrays join top-level fields. `itemX` naming convention applies to user-entered data. | Slightly wider item object, but auto-handled by `structuredClone`, cloud sync, and clone-picker with zero code changes.        |
-| D-2 | Air-Tite data + suggestion function co-located in `autocomplete.js`           | Keeps all autocomplete-related data and logic in one module. `PREBUILT_LOOKUP_DATA` is the existing pattern for static seed data.                                                                                                       | `autocomplete.js` grows by ~80 lines, but all additions are coherent with the file's purpose.                                  |
-| D-3 | New `grid grid-2` row below Diameter/Thickness/Orientation for capsule fields | Preserves existing `grid-3-equal` layout integrity. Capsule + Capsule Notes are a natural pair (structured value + free-text annotation).                                                                                               | A fourth grid row in Catalog Data makes the section taller, but capsule is directly related to the physical dimension cluster. |
-| D-4 | No field-meta integration for capsule                                         | `field-meta.js` tracks per-field Numista-vs-manual origin. Capsule is always manual — no Numista source exists. Adding it to field-meta would be dead code.                                                                             | If Numista ever adds capsule data (unlikely), field-meta would need retroactive wiring.                                        |
-| D-5 | No new JS file                                                                | All changes fit within existing module boundaries. A dedicated `capsule.js` would fragment logic that belongs with its consumers.                                                                                                       | `autocomplete.js` carries the bulk of new code (~80 lines for data + suggestion logic).                                        |
-| D-6 | Suggestion hint is display-only text, not a clickable chip                    | Clickable chip (auto-fill on click) adds event wiring, focus management, and accessibility concerns for modest UX gain. The hint text includes the model code so users can type it quickly.                                             | Users must manually type/paste the suggested value rather than clicking to accept it. Revisit if user feedback warrants.       |
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Top-level `item.capsule` / `item.capsuleNotes`, not nested in `numistaData` | `parseNumistaDataFields()` clears all nested fields when the Numista catalog number changes — would wipe user-entered capsule data. Search/filter arrays join top-level fields. `itemX` naming convention applies to user-entered data. | Slightly wider item object, but auto-handled by `structuredClone`, cloud sync, and clone-picker with zero code changes. |
+| D-2 | Air-Tite data + suggestion function co-located in `autocomplete.js` | Keeps all autocomplete-related data and logic in one module. `PREBUILT_LOOKUP_DATA` is the existing pattern for static seed data. | `autocomplete.js` grows by ~80 lines, but all additions are coherent with the file's purpose. |
+| D-3 | New `grid grid-2` row below Diameter/Thickness/Orientation for capsule fields | Preserves existing `grid-3-equal` layout integrity. Capsule + Capsule Notes are a natural pair (structured value + free-text annotation). | A fourth grid row in Catalog Data makes the section taller, but capsule is directly related to the physical dimension cluster. |
+| D-4 | No field-meta integration for capsule | `field-meta.js` tracks per-field Numista-vs-manual origin. Capsule is always manual — no Numista source exists. Adding it to field-meta would be dead code. | If Numista ever adds capsule data (unlikely), field-meta would need retroactive wiring. |
+| D-5 | No new JS file | All changes fit within existing module boundaries. A dedicated `capsule.js` would fragment logic that belongs with its consumers. | `autocomplete.js` carries the bulk of new code (~80 lines for data + suggestion logic). |
+| D-6 | Suggestion hint is display-only text, not a clickable chip | Clickable chip (auto-fill on click) adds event wiring, focus management, and accessibility concerns for modest UX gain. The hint text includes the model code so users can type it quickly. | Users must manually type/paste the suggested value rather than clicking to accept it. Revisit if user feedback warrants. |
 
 ## File Map
 
 _Every file this sketch will create, modify, or delete. Tasks.md will reference these paths._
 
 ### New
-
 - _none_
 
 ### Modified
-
 - `index.html` — Add Capsule input (`itemCapsule`), Capsule Notes textarea (`itemCapsuleNotes`), and suggestion hint span in a new `grid grid-2` row after Diameter/Thickness/Orientation in the Catalog Data section (~line 2593).
 - `js/state.js` — Register `itemCapsule: null` and `itemCapsuleNotes: null` in the `elements` object.
 - `js/init.js` — Bind `elements.itemCapsule` and `elements.itemCapsuleNotes` via `safeGetElement`. Wire a diameter-change listener that calls `getNearestAirtiteSize()` and updates the suggestion hint.
@@ -48,7 +46,6 @@ _Every file this sketch will create, modify, or delete. Tasks.md will reference 
 - `js/filters.js` — Add `item.capsule || ""` to the filter `itemText` array (~line 1116) and ensure `searchCache` invalidation covers the new field.
 
 ### Deleted
-
 - _none_
 
 ## Data / Schema Changes

@@ -4,7 +4,6 @@ phase: tasks
 created: 2026-05-21
 approved: 2026-05-22
 ---
-
 # STRK-92 — Tasks
 
 _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run in parallel within a cohort. Tasks reference file paths from approach.md._
@@ -121,7 +120,6 @@ _Reconciled by /sketch reconcile on 2026-05-22. Original reviewer marks preserve
 ### DeepSeek
 
 **Verified:**
-
 - Publisher 30d pipeline at `api-export-v2.js:634-640`: uses `queryRetailDailyAggregates()` + `buildDailyWithVendors()` with 30-day date range and 86400 TTL. ✓
 - Publisher 90d pipeline at `api-export-v2.js:642-649`: uses `queryRetailRange()` + `buildRetailOhlcaBuckets("daily")` + `_vendorPrices` strip. The task says "lines 642–649 replaced" — the current code spans exactly those 8 lines (comment + 7 code lines). ✓
 - `queryRetailDailyAggregates` at `api-export-v2.js:381-401`: parameterized by `(client, coinSlug, startIso, endIso)` — accepts arbitrary date range, no signature change needed for 90d. ✓
@@ -146,13 +144,11 @@ _Reconciled by /sketch reconcile on 2026-05-22. Original reviewer marks preserve
 - `[P]` markers: C.1 touches `api-export-v2.js` (Node), C.2 touches `js/retail.js` (browser JS) — independent files, no collision. ✓
 
 **Top Concerns:**
-
 1. CLOSE-5 closes the issue before PR merges — violates the StakTrakr CLAUDE.md gate "Never mark Plane issues Done before the PR merges" and the sketch workflow rule "Plane closure tasks must follow `/sketch archive` after merging" (CLOSE-8). Move the `mcp__plane__update_issue` call into CLOSE-8 or reorder these closing tasks.
 2. `addHistory` ordering (90d→30d→7d) at `retail.js:914-916` has no guard — C.2's union spread `{ ...existing.vendors, ...e.vendors }` depends on `existing` being the coarser entry. If anyone refactors `addHistory` to push 90d last (coarsest data last is a natural instinct), `e` becomes the coarser entry and the union direction silently breaks. The task says ordering is "preserved unchanged" but doesn't add a guard — neither a comment at the ordering site nor a test assertion. The comment I suggested at the C.2 task body is the minimum defense.
 3. B.1 fixture split requires updating existing test assertions. The existing test at lines 385 and 389 references the global `oldDate` (20 days) and global `historyRows`. After splitting into `history7dRows`/`history30dRows`/`history90dRows`, the existing "last 30 days hides old row, All shows it" assertions must be migrated to use the split fixtures. The task doesn't explicitly list this update. Noted inline above — should be added to B.1 acceptance items.
 
 **Unverified Assumptions:**
-
 - Assumption 6: `queryRetailDailyAggregates` with a 90-day range performs acceptably on production sqld. The 30d query works; 90d is 3× the date range. The same indexes (`idx_coin_window`, `idx_coin_date`) are used. Reasonable but unverified without production metrics.
 - Assumption 7: No external consumer (outside StakTrakr frontend) parses `history-90d.json` and depends on the absence of the `vendors` field. The schema change is additive, but any external tool expecting the old shape would encounter new keys.
 - Assumption 8: The DocVault API Reference update (CLOSE-5) ships in the same review cycle as the StakTrakr PR. These live in separate repos — the StakTrakr PR description should reference the corresponding DocVault commit/PR.
@@ -161,26 +157,22 @@ _Reconciled by /sketch reconcile on 2026-05-22. Original reviewer marks preserve
 ### AGY
 
 **Verified:**
-
 - Endpoint Routing and Fixtures (B.1): Splitting `historyRows` into `history7dRows`, `history30dRows`, and `history90dRows` is necessary to ensure `responseForPath()` can accurately respond with timeframe-specific mocks. ✓
 - Daily Aggregates Node Pipeline (C.1): Reusing `queryRetailDailyAggregates` and `buildDailyWithVendors` with a 90-day window (`90 * MS_PER_DAY`) matches the proven pattern for the 30-day feed. ✓
 - Array Dedup Order (C.2): Pushing 90d first, then 30d, then 7d via `addHistory` ensures that finer-grained entries process last, allowing them to overwrite coarser entries while retaining coarser vendor history via union. ✓
 
 **Top Concerns:**
-
-1. Test Fixture Mismatch (B.1): The B.1 acceptance item 3 references a departed vendor `vendorB`. However, the test suite defines only `apmex` and `jmbullion` in its mocked VENDORS array and manifest. A completely new vendor ID like `vendorB` will fail to render because the UI depends on defined vendor structures. _Recommendation:_ Mock this behavior by omitting `jmbullion` from the 30-day mock on the duplicate date while keeping it in the 90-day mock.
-2. Logic Pollution in Vendor Merge (C.2): Unconditionally spreading `{ ...(existing.vendors || {}), ...(e.vendors || {}) }` will result in `vendors: {}` for rows that have no vendor data on either feed. This pollutes the history cache and violates the convention of setting absent vendor data to `null`. _Recommendation:_ Perform the merge conditionally.
-3. Plane Release Gate Violation (CLOSE-5): Transitioning STRK-92 to "Done" in Plane during CLOSE-5 violates StakTrakr release rules. _Recommendation:_ Restrict CLOSE-5 to `/vault-update`, move Plane update to CLOSE-8.
+1. Test Fixture Mismatch (B.1): The B.1 acceptance item 3 references a departed vendor `vendorB`. However, the test suite defines only `apmex` and `jmbullion` in its mocked VENDORS array and manifest. A completely new vendor ID like `vendorB` will fail to render because the UI depends on defined vendor structures. *Recommendation:* Mock this behavior by omitting `jmbullion` from the 30-day mock on the duplicate date while keeping it in the 90-day mock.
+2. Logic Pollution in Vendor Merge (C.2): Unconditionally spreading `{ ...(existing.vendors || {}), ...(e.vendors || {}) }` will result in `vendors: {}` for rows that have no vendor data on either feed. This pollutes the history cache and violates the convention of setting absent vendor data to `null`. *Recommendation:* Perform the merge conditionally.
+3. Plane Release Gate Violation (CLOSE-5): Transitioning STRK-92 to "Done" in Plane during CLOSE-5 violates StakTrakr release rules. *Recommendation:* Restrict CLOSE-5 to `/vault-update`, move Plane update to CLOSE-8.
 
 **Unverified Assumptions:**
-
 - Performance on 90-day SQLite queries: Assumes the `idx_coin_window` and `idx_coin_date` indexes scale efficiently for 90 days of daily aggregates under typical database sizes.
 - Cache-Busting and Service Worker Cache Stamping: Assumes that the `sw.js` cache-stamping hook will correctly register the new version when merged, ensuring users fetch the new `history-90d.json` schema without cache collision.
 
 ### Codex
 
 **Verified:**
-
 - Verified the publisher delta: 30d currently uses `queryRetailDailyAggregates()` plus `buildDailyWithVendors()`, while 90d still uses `queryRetailRange()`, `buildRetailOhlcaBuckets(..., "daily")`, strips `_vendorPrices`, and writes aggregate-only JSON (`devops/pollers/shared/api-export-v2.js:381-400`, `:625-649`, `:744-774`).
 - Verified the frontend merge surface: `addHistory(hist90)`, `addHistory(hist30)`, then `addHistory(hist7)` feeds a date-dedup map, and the current merge only preserves coarser vendors when the finer row has no vendors at all (`js/retail.js:894-938`).
 - Verified B.1's current fixture shape: the survivor spec defines only `apmex` and `jmbullion`, serves the same `historyRows` payload for all history endpoints, and existing timeframe assertions use `oldDate = daysAgo(20)` (`tests/playwright/retail/stak-582-market-survivors.spec.js:7-19`, `:110-148`, `:353-390`).
@@ -189,13 +181,11 @@ _Reconciled by /sketch reconcile on 2026-05-22. Original reviewer marks preserve
 - Verified the API Reference update is cross-repo: the StakTrakr approach maps it to `DocVault/Projects/StakTrakr/Foundation/Deep Dives/API Reference.md`, and the live table still omits `history-90d.json`, mislabels 7d as daily, and omits the 30d `vendors` detail.
 
 **Top Concerns:**
-
 1. CLOSE-6 uses a non-versioned PR title. That conflicts with the StakTrakr patch flow and can produce a PR that looks like an ordinary feature PR instead of a versioned patch release. Use `v<VERSION> — STRK-92: ...` and keep the draft/codacy-review flags explicit.
 2. CLOSE-3 writes a verification stamp into DocVault without saying how that cross-repo artifact is handled. The StakTrakr patch worktree cannot commit this `tasks.md` change, so the task should name whether the stamp is part of `/vault-update`, sketch archive, or a separate DocVault commit.
 3. B.1 still names `vendorB` even though the fixture and renderer only know `apmex` and `jmbullion`. Use a known vendor, likely `jmbullion`, as the departed vendor so the RED failure proves the merge bug rather than a bad fixture.
 
 **Unverified Assumptions:**
-
 - The verification stamp is intended to remain in the active sketch file during implementation rather than move to a separate artifact.
 - The DocVault API Reference update should land in the same human review cycle as the StakTrakr runtime PR, even though it cannot be part of the same repository commit.
 - The post-deploy smoke check for `history-90d.json` will have a concrete slug with older-than-30-day vendor data available when validation runs.

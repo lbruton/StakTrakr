@@ -12,7 +12,6 @@ created: 2026-06-20
 > **Context (from issue):** Surfaced by Codex + CodeRabbit review on PR #1285 (STRK-147). The core companion-vault feature shipped complete + tested (7 ACs green), but the re-review identified three genuine failure/cancel/retry edge cases across the multiple pull paths. None cause data loss — the merge is a UUID-filtered append-only union, so the worst case is delayed propagation or merging history for already-owned items. Deferred from STRK-147 (whose ACs did not specify transient-failure or cancel-with-concurrent-changes behavior).
 >
 > **Edges to harden (from issue):**
->
 > 1. **Poll-shortcut merges before a concurrent DiffModal cancel** (`cloud-sync.js` ~2545, `_pollCompanionItemPriceHistory`): when a remote sync has item/settings changes AND a companion change, the poll path merges companion history (and records its hash) before `handleRemoteChange()` shows the review modal, so Cancel does not prevent the history merge. (The vault-first path was gated on Apply in PR #1285; the poll path was not.) `acceptedUuids` is still the local inventory, so no orphan import — but Cancel should still cancel.
 > 2. **Companion download failure skips retry** (`cloud-sync.js` ~2953): when `_pullItemPriceHistoryVault` returns `{hash:null}` on a transient download/decrypt failure (non-throwing), the caller treats it as non-failed and records the remote `syncId`; the next poll exits at the `lastPull.syncId === remoteMeta.syncId` check before retrying the companion. Treat a null-hash download failure as failed (keep `lastPull` stale) like the write-failure path does.
 > 3. **Post-apply `lastPull` advances before the strict history write** (`cloud-sync.js` ~4037 / 4834–4850): in vault-first/manifest-first paths the inventory apply records `lastPull` before the companion `writeItemPriceHistoryStrict()`; if that write throws, `lastPull.syncId` is already advanced (without `itemPriceHistoryHash`), so the same-syncId poll shortcut blocks the intended AC-7 retry. Defer the `lastPull` advance until the companion write succeeds, or restore prior pull metadata on this failure path.
@@ -21,7 +20,7 @@ created: 2026-06-20
 
 ## Overview
 
-STRK-224 hardens three independent failure/cancel/retry edges in the item-price-history companion-vault sync path (`js/cloud-sync.js`), all deferred from STRK-147. Each edge is a variant of the same anti-pattern: a sync watermark (`lastPull.syncId` / `itemPriceHistoryHash`) recorded _before_ the corresponding data is certain to have landed — so a cancel, a transient download failure, or a thrown post-apply write leaves the watermark falsely advanced, and the `lastPull.syncId === remoteMeta.syncId` poll shortcut then blocks the retry that would heal it. None cause data loss today (the merge is a UUID-filtered, append-only, idempotent union over already-owned items); the cost is delayed propagation and a cancel that doesn't fully cancel. This sketch makes each watermark advance contingent on its data actually landing, and adds one Playwright E2E per edge.
+STRK-224 hardens three independent failure/cancel/retry edges in the item-price-history companion-vault sync path (`js/cloud-sync.js`), all deferred from STRK-147. Each edge is a variant of the same anti-pattern: a sync watermark (`lastPull.syncId` / `itemPriceHistoryHash`) recorded *before* the corresponding data is certain to have landed — so a cancel, a transient download failure, or a thrown post-apply write leaves the watermark falsely advanced, and the `lastPull.syncId === remoteMeta.syncId` poll shortcut then blocks the retry that would heal it. None cause data loss today (the merge is a UUID-filtered, append-only, idempotent union over already-owned items); the cost is delayed propagation and a cancel that doesn't fully cancel. This sketch makes each watermark advance contingent on its data actually landing, and adds one Playwright E2E per edge.
 
 ## User Stories
 
@@ -59,7 +58,7 @@ STRK-224 hardens three independent failure/cancel/retry edges in the item-price-
 ## Non-Goals
 
 - **No retry backoff/cap or new scheduling** — "next poll retries" reuses the existing poll cadence; this sketch adds no timer, backoff, or attempt counter.
-- **No change to the merge algorithm** — the UUID-filtered, append-only, idempotent `mergeItemPriceHistories` union is preserved as-is; only _when_ the watermark advances changes.
+- **No change to the merge algorithm** — the UUID-filtered, append-only, idempotent `mergeItemPriceHistories` union is preserved as-is; only *when* the watermark advances changes.
 - **No image/attachment companion changes** — verified during requirements grilling: the poll shortcut pre-merges **only** item-price-history; images/attachments are pulled inside `pullWithPreview` (already gated on Apply by STRK-225), so they have no pre-modal poll-merge bug. Out of scope, not a silent omission.
 - **No DiffModal UI change** — the cancel path is exercised, but the modal's markup/behavior is untouched (no UI Contract).
 - **Not STRK-223** — explicit-clear tombstone propagation is a separate deferred-from-STRK-147 issue; not addressed here.

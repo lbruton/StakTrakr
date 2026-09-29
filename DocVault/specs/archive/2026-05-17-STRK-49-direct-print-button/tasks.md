@@ -177,7 +177,6 @@ _Reconciled by /sketch reconcile on 2026-05-17. Original reviewer marks preserve
 - Assumes `/update-spot-bundle` is available at apply/closeout time and its outputs are staged with the release commit when it changes tracked data.
 
 ### Resolution Summary
-
 - Accepted: 5
 - Rejected: 0
 - Resolved with your input: 0

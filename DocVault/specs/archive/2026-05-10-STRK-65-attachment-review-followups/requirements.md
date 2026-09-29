@@ -20,15 +20,15 @@ Harden the STRK-45 attachment feature after review by fixing duplicate-file queu
 
 ## Original Sketch Deliverable Check
 
-| Issue   | Was this part of STRK-45 deliverables? | Why                                                                                                                                                                  |
-| ------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| STRK-59 | Yes, implied by AC-1                   | The original requirements allowed multiple queued files and required each queued row to have a remove button. Duplicate filenames make that remove action ambiguous. |
-| STRK-60 | Partly                                 | Open/download behavior was in the STRK-45 approach, but object-URL revocation timing was not specified. Treat as follow-up hardening.                                |
-| STRK-61 | Yes                                    | Full attachment cloud-sync parity and hash metadata were explicit deliverables. Missing `attachmentHash` writes are a bug against that scope.                        |
-| STRK-62 | Mixed                                  | The 100 MB warning was explicit. Chunked/per-file vault serialization was not; the original sketch accepted the single STVAULT companion pattern.                    |
-| STRK-63 | Yes, edge case                         | DiffEngine attachment replacement semantics were explicit. Duplicate filename safety was an omitted edge case in that deliverable.                                   |
-| STRK-64 | Mixed                                  | Contains duplicates of STRK-59/60 plus bugs against STRK-45 schema/sync/tests, implementation polish, and one product change around split behavior.                  |
-| STRK-65 | No, related area                       | STRK-45 only required attachment rows in Storage settings. The broader localStorage vs IndexedDB quota diagnostic confusion is follow-up scope.                      |
+| Issue | Was this part of STRK-45 deliverables? | Why |
+|---|---|---|
+| STRK-59 | Yes, implied by AC-1 | The original requirements allowed multiple queued files and required each queued row to have a remove button. Duplicate filenames make that remove action ambiguous. |
+| STRK-60 | Partly | Open/download behavior was in the STRK-45 approach, but object-URL revocation timing was not specified. Treat as follow-up hardening. |
+| STRK-61 | Yes | Full attachment cloud-sync parity and hash metadata were explicit deliverables. Missing `attachmentHash` writes are a bug against that scope. |
+| STRK-62 | Mixed | The 100 MB warning was explicit. Chunked/per-file vault serialization was not; the original sketch accepted the single STVAULT companion pattern. |
+| STRK-63 | Yes, edge case | DiffEngine attachment replacement semantics were explicit. Duplicate filename safety was an omitted edge case in that deliverable. |
+| STRK-64 | Mixed | Contains duplicates of STRK-59/60 plus bugs against STRK-45 schema/sync/tests, implementation polish, and one product change around split behavior. |
+| STRK-65 | No, related area | STRK-45 only required attachment rows in Storage settings. The broader localStorage vs IndexedDB quota diagnostic confusion is follow-up scope. |
 
 ## User Stories
 

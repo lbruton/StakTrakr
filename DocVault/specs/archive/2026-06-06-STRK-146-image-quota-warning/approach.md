@@ -45,14 +45,14 @@ squares, and 4 GB max / 500 MB floor is generous. Revisit if users report premat
 
 ## File Touch Map
 
-| Action | File                                                         | Scope                                                                                                                                                                                             |
-| ------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MODIFY | `js/image-cache.js`                                          | `_put` (+ `onError`, quota classify); new `cacheUserImageResult`, `cacheUserImageWithFeedback`, `_pressureLevel`, `_emitStorageToast`; `cacheUserImage` → wrapper; constructor `_lastWarnedLevel` |
-| MODIFY | `js/events.js`                                               | `:809` `saveUserImageForItem` → `cacheUserImageWithFeedback`                                                                                                                                      |
-| MODIFY | `js/bulkEdit.js`                                             | `:2058` `_handleUpload` → `cacheUserImageWithFeedback`                                                                                                                                            |
-| MODIFY | `js/inventory.js`                                            | `:2833` thumbnail `_handleUpload` → `cacheUserImageWithFeedback`                                                                                                                                  |
-| TEST   | `tests/playwright/core/strk-146-image-quota-warning.spec.js` | pre-flight error toast, warning toast, regression no-toast, no-spam                                                                                                                               |
-| MODIFY | `tests/playwright/core/coverage-map.csv`                     | add row for the new spec                                                                                                                                                                          |
+| Action | File | Scope |
+|--------|------|-------|
+| MODIFY | `js/image-cache.js` | `_put` (+ `onError`, quota classify); new `cacheUserImageResult`, `cacheUserImageWithFeedback`, `_pressureLevel`, `_emitStorageToast`; `cacheUserImage` → wrapper; constructor `_lastWarnedLevel` |
+| MODIFY | `js/events.js` | `:809` `saveUserImageForItem` → `cacheUserImageWithFeedback` |
+| MODIFY | `js/bulkEdit.js` | `:2058` `_handleUpload` → `cacheUserImageWithFeedback` |
+| MODIFY | `js/inventory.js` | `:2833` thumbnail `_handleUpload` → `cacheUserImageWithFeedback` |
+| TEST   | `tests/playwright/core/strk-146-image-quota-warning.spec.js` | pre-flight error toast, warning toast, regression no-toast, no-spam |
+| MODIFY | `tests/playwright/core/coverage-map.csv` | add row for the new spec |
 
 **Total:** 4 modified source, 1 test added, 1 coverage-map row. **Cross-cutting:** version bump
 files handled by `/release` shipping task (not counted here).
@@ -147,7 +147,6 @@ async cacheUserImageWithFeedback(uuid, obverse, reverse = null, sharedImageId = 
   return true;
 }
 ```
-
 > Note: `Date.now()` is fine in app code (the no-`Date.now()` rule is for Workflow scripts only).
 
 ## Test design (Playwright — deterministic via `_quotaBytes`)

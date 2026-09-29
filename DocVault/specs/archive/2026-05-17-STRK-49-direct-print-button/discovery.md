@@ -1,10 +1,9 @@
 ---
 sketch: STRK-49-direct-print-button
 phase: discovery
-created: "2026-05-14"
-revised: "2026-05-17"
+created: '2026-05-14'
+revised: '2026-05-17'
 ---
-
 # STRK-49 — Discovery
 
 _Research the existing system and prior art. **Don't propose solutions** — that's the next phase. Reconciled `requirements.md` plus Lonnie's callout notes settle one key product boundary: the Print action is a global full-inventory print/export-style action. Active main-page filters, sort state, and view mode do not carry into this button; any selective print workflow belongs to a future selection modal._
@@ -15,52 +14,47 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Settings > Inventory panel (HTML, single-file `index.html`)
 
-| Path                   | Role                           | Notes                                                                                                                                                                                                                                                                                                                                                      |
-| ---------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html:3400-3417` | Settings nav                   | Nav button `data-section="system"`, visible text "Inventory". Confirms reviewer rename: "Data tab" is dead wording; the live UI is **Settings > Inventory**.                                                                                                                                                                                               |
-| `index.html:4623-4624` | Inventory panel header         | `<div id="settingsPanel_system">` containing `<h3>Inventory</h3>`. Anchor for AC-6 regression and AC-1/AC-2/AC-5 placement.                                                                                                                                                                                                                                |
-| `index.html:4663-4668` | `bulkEditBtn`                  | Inline style `padding: 0.4rem 0.9rem` — confirmed larger horizontally than card buttons. Out of scope per reconciled AC-2 (explicit non-goal).                                                                                                                                                                                                             |
-| `index.html:4730-4795` | **Import card**                | 2-col grid (`grid-template-columns: repeat(2, 1fr)`): `importCsvOverride` + `importJsonOverride` (both `btn warning`, inline `font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0`), plus hidden `#importCsvFile` / `#importJsonFile` inputs and `#importProgress`. The natural insertion point for the relocated Restore ZIP control.               |
-| `index.html:4796-4914` | **Export card**                | 2-col grid: `exportCsvBtn`, `exportJsonBtn`, `exportPdfBtn`, `exportZipBtn` (all `btn info`, 0.6rem padding, `aria-describedby="export*Desc"` + matching `<span class="sr-only">` siblings). After `exportZipDesc`, a full-width `importZipBtn` (`btn warning`, `grid-column: span 2`) and the hidden `#importZipFile` input both live in this card today. |
-| `index.html:4897-4909` | Misplaced ZIP restore controls | Button `#importZipBtn` (lines 4897-4908) + hidden `<input accept=".zip" hidden id="importZipFile">` (line 4909) — both must move together (reconciled AC-5).                                                                                                                                                                                               |
-| `index.html:5025-5038` | Data Reset fieldset            | `<div class="settings-fieldset">` containing two buttons in `<div class="settings-btn-row">`: `#removeInventoryDataBtn` (`btn warning`, "Remove Inventory") and `#boatingAccidentBtn` (`btn danger`, "Wipe All Data"). Neither has the 0.6rem inline sizing styles used by card buttons — target of reconciled AC-6.                                       |
+| Path | Role | Notes |
+|------|------|-------|
+| `index.html:3400-3417` | Settings nav | Nav button `data-section="system"`, visible text "Inventory". Confirms reviewer rename: "Data tab" is dead wording; the live UI is **Settings > Inventory**. |
+| `index.html:4623-4624` | Inventory panel header | `<div id="settingsPanel_system">` containing `<h3>Inventory</h3>`. Anchor for AC-6 regression and AC-1/AC-2/AC-5 placement. |
+| `index.html:4663-4668` | `bulkEditBtn` | Inline style `padding: 0.4rem 0.9rem` — confirmed larger horizontally than card buttons. Out of scope per reconciled AC-2 (explicit non-goal). |
+| `index.html:4730-4795` | **Import card** | 2-col grid (`grid-template-columns: repeat(2, 1fr)`): `importCsvOverride` + `importJsonOverride` (both `btn warning`, inline `font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0`), plus hidden `#importCsvFile` / `#importJsonFile` inputs and `#importProgress`. The natural insertion point for the relocated Restore ZIP control. |
+| `index.html:4796-4914` | **Export card** | 2-col grid: `exportCsvBtn`, `exportJsonBtn`, `exportPdfBtn`, `exportZipBtn` (all `btn info`, 0.6rem padding, `aria-describedby="export*Desc"` + matching `<span class="sr-only">` siblings). After `exportZipDesc`, a full-width `importZipBtn` (`btn warning`, `grid-column: span 2`) and the hidden `#importZipFile` input both live in this card today. |
+| `index.html:4897-4909` | Misplaced ZIP restore controls | Button `#importZipBtn` (lines 4897-4908) + hidden `<input accept=".zip" hidden id="importZipFile">` (line 4909) — both must move together (reconciled AC-5). |
+| `index.html:5025-5038` | Data Reset fieldset | `<div class="settings-fieldset">` containing two buttons in `<div class="settings-btn-row">`: `#removeInventoryDataBtn` (`btn warning`, "Remove Inventory") and `#boatingAccidentBtn` (`btn danger`, "Wipe All Data"). Neither has the 0.6rem inline sizing styles used by card buttons — target of reconciled AC-6. |
 
 ### Existing button conventions (siblings of the new Print button)
 
 The four existing Export buttons all follow this exact pattern:
 
 ```html
-<button
-  class="btn info"
-  id="exportPdfBtn"
-  aria-describedby="exportPdfDesc"
-  title="Inventory items only — printable report"
-  style="font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0; width: 100%"
->
+<button class="btn info" id="exportPdfBtn" aria-describedby="exportPdfDesc"
+        title="Inventory items only — printable report"
+        style="font-size: 0.82rem; padding: 0.4rem 0.6rem; min-height: 0; width: 100%">
   Export PDF
 </button>
 <span id="exportPdfDesc" class="sr-only">Inventory items only — printable report</span>
 ```
 
 Pattern observations:
-
 - `aria-describedby` ID matches a sibling `<span class="sr-only">` immediately after the button.
 - All four use the same inline sizing.
 - All four use `class="btn info"` (blue). Reconciled AC-2 specifies `btn success` (teal-green) for the new Print button to distinguish it.
 
 ### JavaScript wiring
 
-| Path                            | Role                                               | Notes                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/inventory.js:2036-2183`     | `exportPdf()` — the existing jsPDF renderer        | Builds a jsPDF (landscape, autoTable, 20 columns, font 7, theme striped, blue header), appends portfolio summary text, ends with `doc.save(filename)`. Line 2047 calls `sortInventoryByDateNewestFirst()` with the default arg, which is the unfiltered global `inventory`. That is aligned with Lonnie's callout that Print should behave like full-dataset CSV/JSON/PDF exports, not like a filtered main-page snapshot. |
-| `js/utils.js:1210-1229`         | `sortInventoryByDateNewestFirst(data = inventory)` | Signature accepts an explicit data argument — the unfiltered-default is only the call site choice in `exportPdf()`, not a hard constraint of the sort fn.                                                                                                                                                                                                                                                                  |
-| `js/search.js:13-30`            | `filterInventory()`                                | Public global (`window.filterInventory = filterInventory` at line 594). Delegates to `filterInventoryAdvanced()` if present (`js/filters.js:898`), else legacy. Used by both renderers below — the source of truth for "what the user is currently looking at."                                                                                                                                                            |
-| `js/inventory-table.js:372-409` | Table-render filter/sort pipeline                  | `const filteredInventory = typeof filterInventory === "function" ? filterInventory() : inventory;` then `sortInventory(filteredInventory)` (which honors active column sort, distinct from `sortInventoryByDateNewestFirst`). Then branches: if `isCardViewActive()` returns true (style A/B/C), it shows `#cardViewGrid` and hides `.portal-scroll`; else it shows the table.                                             |
-| `js/card-view.js:8-17`          | `getCardStyle()` + `isCardViewActive()`            | `getCardStyle()` returns `localStorage[CARD_STYLE_KEY]                                                                                                                                                                                                                                                                                                                                                                     |     | "D"`. `isCardViewActive()`returns`style !== "D"`— so D = table mode, A/B/C = card mode. Card vs table is a **runtime** flag derived from localStorage, not a CSS-only toggle — relevant to whether`@media print` alone could expose the table. |
-| `js/events.js:3681-3684`        | Export button listeners                            | `optionalListener(elements.exportPdfBtn, "click", exportPdf, "PDF export")` — pattern the new Print button will follow.                                                                                                                                                                                                                                                                                                    |
-| `js/events.js:3694-3706`        | Restore ZIP listener                               | Reads `document.getElementById("importZipBtn")` AND `document.getElementById("importZipFile")` directly (not via `elements.*`). Wiring is **purely ID-based** — moving both elements within the DOM is safe as long as both IDs are preserved together (this is the reason CODEX@68 flagged co-location).                                                                                                                  |
-| `js/init.js:281-299`            | `elements.*` binding                               | `elements.exportPdfBtn = safeGetElement("exportPdfBtn")`, `elements.removeInventoryDataBtn`, `elements.boatingAccidentBtn`. New Print button needs a parallel `elements.printBtn = safeGetElement("printBtn")` (or chosen ID) here.                                                                                                                                                                                        |
-| `js/state.js`                   | `elements` global                                  | Created and exposed as a global object that init.js populates and events.js reads. No code change needed beyond the new init slot.                                                                                                                                                                                                                                                                                         |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/inventory.js:2036-2183` | `exportPdf()` — the existing jsPDF renderer | Builds a jsPDF (landscape, autoTable, 20 columns, font 7, theme striped, blue header), appends portfolio summary text, ends with `doc.save(filename)`. Line 2047 calls `sortInventoryByDateNewestFirst()` with the default arg, which is the unfiltered global `inventory`. That is aligned with Lonnie's callout that Print should behave like full-dataset CSV/JSON/PDF exports, not like a filtered main-page snapshot. |
+| `js/utils.js:1210-1229` | `sortInventoryByDateNewestFirst(data = inventory)` | Signature accepts an explicit data argument — the unfiltered-default is only the call site choice in `exportPdf()`, not a hard constraint of the sort fn. |
+| `js/search.js:13-30` | `filterInventory()` | Public global (`window.filterInventory = filterInventory` at line 594). Delegates to `filterInventoryAdvanced()` if present (`js/filters.js:898`), else legacy. Used by both renderers below — the source of truth for "what the user is currently looking at." |
+| `js/inventory-table.js:372-409` | Table-render filter/sort pipeline | `const filteredInventory = typeof filterInventory === "function" ? filterInventory() : inventory;` then `sortInventory(filteredInventory)` (which honors active column sort, distinct from `sortInventoryByDateNewestFirst`). Then branches: if `isCardViewActive()` returns true (style A/B/C), it shows `#cardViewGrid` and hides `.portal-scroll`; else it shows the table. |
+| `js/card-view.js:8-17` | `getCardStyle()` + `isCardViewActive()` | `getCardStyle()` returns `localStorage[CARD_STYLE_KEY] || "D"`. `isCardViewActive()` returns `style !== "D"` — so D = table mode, A/B/C = card mode. Card vs table is a **runtime** flag derived from localStorage, not a CSS-only toggle — relevant to whether `@media print` alone could expose the table. |
+| `js/events.js:3681-3684` | Export button listeners | `optionalListener(elements.exportPdfBtn, "click", exportPdf, "PDF export")` — pattern the new Print button will follow. |
+| `js/events.js:3694-3706` | Restore ZIP listener | Reads `document.getElementById("importZipBtn")` AND `document.getElementById("importZipFile")` directly (not via `elements.*`). Wiring is **purely ID-based** — moving both elements within the DOM is safe as long as both IDs are preserved together (this is the reason CODEX@68 flagged co-location). |
+| `js/init.js:281-299` | `elements.*` binding | `elements.exportPdfBtn = safeGetElement("exportPdfBtn")`, `elements.removeInventoryDataBtn`, `elements.boatingAccidentBtn`. New Print button needs a parallel `elements.printBtn = safeGetElement("printBtn")` (or chosen ID) here. |
+| `js/state.js` | `elements` global | Created and exposed as a global object that init.js populates and events.js reads. No code change needed beyond the new init slot. |
 
 ### Other call sites of `sortInventoryByDateNewestFirst()` (relevant to full-dataset export behavior)
 
@@ -74,21 +68,21 @@ So the unfiltered-by-default behavior is intentional for **backup/export-style**
 
 ### Test surface (current Playwright coverage of this region)
 
-| Path                                                  | Asserts                                                                                                                                                                                                                      |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Asserts |
+|------|---------|
 | `tests/playwright/settings-data-reset.spec.js:82-103` | `#settingsPanel_system` contains `#removeInventoryDataBtn` and `#boatingAccidentBtn`; the `#settingsPanel_storage` panel does NOT. Already aligned with reconciled AC-6's `#settingsPanel_system` anchor — no rename needed. |
 
 No existing test covers `exportPdfBtn` click or any `window.print()` invocation. STAK CLAUDE.md gotcha to flag for approach: app modals (`showAppConfirm` etc.) are custom DOM, not native `confirm()` — but this is irrelevant here because the print path opens a **browser** dialog, not an app modal. The dialog is OS-owned and not observable from Playwright; that is the entire reason CODEX@40 raised the observability question (now Q2).
 
 ## Prior Art — Print Mechanisms Already in This Codebase
 
-| Path                                   | What it does                                                                                                                                                                                                             | Relevance                                                                                                                                                                                                                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/utils.js:1816-1846`                | Generates a stand-alone Storage Report HTML page (separate document) and includes `<button onclick="window.print()" class="print-btn">🖨️ Print Report</button>` plus an `@media print` block at `js/utils.js:2818-2846`. | This is the **only** existing `window.print()` invocation in the app. It works because the report is a fresh HTML document with its own DOM — the `@media print` block doesn't have to fight existing layout. The main app DOM has no such block in `css/styles.css`.          |
-| `vendor/jspdf.umd.min.js:109`          | `jsPDF.API.autoPrint = function(opts) {...}`                                                                                                                                                                             | Confirms `autoPrint()` ships with the bundled jsPDF 2.5.1. Variants: `non-conform` (default — adds `/OpenAction` PDF catalog entry that triggers print on open) and `javascript` (adds `print({})` JS action). Approach phase needs to test browser support for both variants. |
-| `vendor/jspdf.plugin.autotable.min.js` | autoTable plugin 3.5.25                                                                                                                                                                                                  | Already loaded; this is what `exportPdf()` uses for the 20-column table.                                                                                                                                                                                                       |
-| `index.html:63-93`                     | jsPDF load contract                                                                                                                                                                                                      | Local `vendor/jspdf.umd.min.js` (defer) + CDN fallback via a check on `window.jspdf.jsPDF.API.autoTable`. Print path can rely on `window.jspdf.jsPDF` being available the same way `exportPdf()` already does (`js/inventory.js:2037-2043`).                                   |
-| `css/styles.css`                       | App stylesheet                                                                                                                                                                                                           | No app-level `@media print` or `@page` rule exists. CODEX@61 (now archived) verified this. Any CSS-print mechanism creates a NEW contract here.                                                                                                                                |
+| Path | What it does | Relevance |
+|------|--------------|-----------|
+| `js/utils.js:1816-1846` | Generates a stand-alone Storage Report HTML page (separate document) and includes `<button onclick="window.print()" class="print-btn">🖨️ Print Report</button>` plus an `@media print` block at `js/utils.js:2818-2846`. | This is the **only** existing `window.print()` invocation in the app. It works because the report is a fresh HTML document with its own DOM — the `@media print` block doesn't have to fight existing layout. The main app DOM has no such block in `css/styles.css`. |
+| `vendor/jspdf.umd.min.js:109` | `jsPDF.API.autoPrint = function(opts) {...}` | Confirms `autoPrint()` ships with the bundled jsPDF 2.5.1. Variants: `non-conform` (default — adds `/OpenAction` PDF catalog entry that triggers print on open) and `javascript` (adds `print({})` JS action). Approach phase needs to test browser support for both variants. |
+| `vendor/jspdf.plugin.autotable.min.js` | autoTable plugin 3.5.25 | Already loaded; this is what `exportPdf()` uses for the 20-column table. |
+| `index.html:63-93` | jsPDF load contract | Local `vendor/jspdf.umd.min.js` (defer) + CDN fallback via a check on `window.jspdf.jsPDF.API.autoTable`. Print path can rely on `window.jspdf.jsPDF` being available the same way `exportPdf()` already does (`js/inventory.js:2037-2043`). |
+| `css/styles.css` | App stylesheet | No app-level `@media print` or `@page` rule exists. CODEX@61 (now archived) verified this. Any CSS-print mechanism creates a NEW contract here. |
 
 ## Mechanism Investigation — Two Paths for Q1
 
@@ -106,13 +100,11 @@ What it would entail at a fact level:
   - Each has popup-blocker / sandbox / `file://` implications that approach must verify.
 
 What this path makes irrelevant:
-
 - Q3 (card-view re-render). jsPDF can read directly from the inventory data pipeline instead of `#cardViewGrid` or `.portal-scroll`. The active view style has no effect on the printed output.
 - "Hide app chrome" (reconciled AC-3). The browser's PDF viewer renders only the PDF — nav, sidebar, modals, footer are simply absent from the document, no CSS needed.
 - "Landscape + repeating headers" (reconciled AC-4). `exportPdf()` already creates a landscape jsPDF (`new jsPDF("landscape")` at line 2044) with autoTable, which natively repeats `head` on every page.
 
 What this path keeps live:
-
 - AC-1 observability (Q2): the test must stub the print invocation on the generated PDF, not `window.print`.
 - Browser support for `autoPrint()`: cross-browser behavior of `/OpenAction Print` in Chrome / Firefox / Safari / Edge needs verification — historically Chrome respects it, Firefox shows the PDF but does not auto-trigger print without user action, and Safari behavior has shifted across versions.
 
@@ -129,7 +121,6 @@ What it would entail at a fact level:
 - Trigger via `window.print()` — directly observable in Playwright by stubbing `window.print` (CODEX@40's original suggestion).
 
 What this path keeps live:
-
 - All of Q3 (card-view re-render) and the modal-backdrop edge case (GEMINI hidden-modal assumption), plus a stronger risk that a DOM stylesheet accidentally prints current filtered/sorted state even though STRK-49 now excludes that behavior.
 - Multi-page header repetition via `thead { display: table-header-group }` — supported across Chromium, Firefox, Safari; the GEMINI assumption to verify is whether visual styling (borders, background fill on header cells) renders consistently when the header repeats.
 - Header / footer rendering: browsers add their own header / footer (URL, date, page numbers) by default. Suppressing those typically requires user toggle in the print dialog; `@page { margin }` only controls white space.
@@ -142,11 +133,11 @@ Open a hidden iframe pointed at a stripped-down, full-inventory render that has 
 
 Mechanism choice (Q1) determines what stubs are available:
 
-| Mechanism                     | Observable hook                                                                  | Test sketch                                                                                                                                                                                                                   |
-| ----------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Path A: jsPDF + new tab       | `window.open`                                                                    | `await page.exposeBinding('windowOpenSpy', () => …)` + `page.evaluate(() => { const orig = window.open; window.open = (url, ...rest) => { window.__lastOpenUrl = url; }; })` then assert `__lastOpenUrl` starts with `blob:`. |
-| Path A: jsPDF + hidden iframe | `HTMLIFrameElement.prototype.contentWindow.print` or `jsPDF.prototype.autoPrint` | Stub `autoPrint` on the constructor's API table before clicking.                                                                                                                                                              |
-| Path B: `window.print()`      | `window.print`                                                                   | `await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });` then assert `__printed === 1` after click. CODEX@40's original suggestion.                                              |
+| Mechanism | Observable hook | Test sketch |
+|-----------|-----------------|-------------|
+| Path A: jsPDF + new tab | `window.open` | `await page.exposeBinding('windowOpenSpy', () => …)` + `page.evaluate(() => { const orig = window.open; window.open = (url, ...rest) => { window.__lastOpenUrl = url; }; })` then assert `__lastOpenUrl` starts with `blob:`. |
+| Path A: jsPDF + hidden iframe | `HTMLIFrameElement.prototype.contentWindow.print` or `jsPDF.prototype.autoPrint` | Stub `autoPrint` on the constructor's API table before clicking. |
+| Path B: `window.print()` | `window.print` | `await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });` then assert `__printed === 1` after click. CODEX@40's original suggestion. |
 
 All three are mechanical. None of them assert the dialog actually appeared — that remains a manual smoke check.
 
@@ -207,21 +198,21 @@ _The following is the original 2026-05-14 discovery draft, written before the 20
 
 ### Existing Code
 
-| Path                        | Role                                   | Notes                                                                                                                                                                                                                           |
-| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html:4769–4783`      | Import card button grid                | 2-col grid with Import CSV + Import JSON (`btn warning`). Restore ZIP goes here.                                                                                                                                                |
-| `index.html:4825–4910`      | Export card button grid                | 2-col grid: Export CSV, JSON, PDF, ZIP (`btn info`) + full-width Restore ZIP (`btn warning`, `grid-column: span 2`). Restore ZIP moves out; Print button takes its slot.                                                        |
-| `index.html:4897–4909`      | Restore ZIP button + hidden file input | `#importZipBtn` button + `#importZipFile` input — both must move together to the Import card.                                                                                                                                   |
-| `index.html:5025–5038`      | Data Reset fieldset                    | `#removeInventoryDataBtn` (`btn warning`) and `#boatingAccidentBtn` (`btn danger`) — missing the inline sizing styles used by card buttons.                                                                                     |
-| `js/events.js:3695–3703`    | Restore ZIP event wiring               | `getElementById("importZipBtn")` click → triggers `importZipFile.click()`. Change handler calls restore logic. Wiring is ID-based, so moving the HTML doesn't break it.                                                         |
-| `js/events.js:3684`         | Export PDF event wiring                | `optionalListener(elements.exportPdfBtn, "click", exportPdf)` — pattern to follow for Print button.                                                                                                                             |
-| `js/events.js:3542,3567`    | Data Reset event wiring                | `elements.removeInventoryDataBtn` and `elements.boatingAccidentBtn` — no changes needed to JS wiring, only HTML styling.                                                                                                        |
-| `js/inventory.js:2036–2098` | `exportPdf()`                          | jsPDF-based PDF export with landscape, autoTable, column headers. Print feature does NOT reuse this — it uses `window.print()` with CSS instead. But the column list here documents what users expect to see in printed output. |
-| `js/utils.js:1845`          | Existing `window.print()` usage        | Storage report page has a print button and `@media print` block (lines 2818–2846). Prior art for print-hide patterns in the codebase.                                                                                           |
-| `css/styles.css:1441–1472`  | Button variant classes                 | `.btn.success` (teal-green, `--success`), `.btn.info` (blue), `.btn.warning` (orange), `.btn.danger` (red). All exist; Print will use `success`.                                                                                |
-| `css/styles.css:51–58`      | Color token definitions                | `--success: oklch(0.596 0.127 163.2)` — muted teal-green. Distinct from `--info: oklch(0.685 0.148 237.3)` blue. Good visual separation.                                                                                        |
-| `js/state.js:108`           | `elements.exportPdfBtn`                | State slot for PDF button reference. Print button needs a similar slot.                                                                                                                                                         |
-| `js/init.js:292`            | `safeGetElement("exportPdfBtn")`       | Init pattern for button refs. Print button follows this. Note: `safeGetElement` is only available at runtime (not top-level in `events.js`).                                                                                    |
+| Path | Role | Notes |
+|------|------|-------|
+| `index.html:4769–4783` | Import card button grid | 2-col grid with Import CSV + Import JSON (`btn warning`). Restore ZIP goes here. |
+| `index.html:4825–4910` | Export card button grid | 2-col grid: Export CSV, JSON, PDF, ZIP (`btn info`) + full-width Restore ZIP (`btn warning`, `grid-column: span 2`). Restore ZIP moves out; Print button takes its slot. |
+| `index.html:4897–4909` | Restore ZIP button + hidden file input | `#importZipBtn` button + `#importZipFile` input — both must move together to the Import card. |
+| `index.html:5025–5038` | Data Reset fieldset | `#removeInventoryDataBtn` (`btn warning`) and `#boatingAccidentBtn` (`btn danger`) — missing the inline sizing styles used by card buttons. |
+| `js/events.js:3695–3703` | Restore ZIP event wiring | `getElementById("importZipBtn")` click → triggers `importZipFile.click()`. Change handler calls restore logic. Wiring is ID-based, so moving the HTML doesn't break it. |
+| `js/events.js:3684` | Export PDF event wiring | `optionalListener(elements.exportPdfBtn, "click", exportPdf)` — pattern to follow for Print button. |
+| `js/events.js:3542,3567` | Data Reset event wiring | `elements.removeInventoryDataBtn` and `elements.boatingAccidentBtn` — no changes needed to JS wiring, only HTML styling. |
+| `js/inventory.js:2036–2098` | `exportPdf()` | jsPDF-based PDF export with landscape, autoTable, column headers. Print feature does NOT reuse this — it uses `window.print()` with CSS instead. But the column list here documents what users expect to see in printed output. |
+| `js/utils.js:1845` | Existing `window.print()` usage | Storage report page has a print button and `@media print` block (lines 2818–2846). Prior art for print-hide patterns in the codebase. |
+| `css/styles.css:1441–1472` | Button variant classes | `.btn.success` (teal-green, `--success`), `.btn.info` (blue), `.btn.warning` (orange), `.btn.danger` (red). All exist; Print will use `success`. |
+| `css/styles.css:51–58` | Color token definitions | `--success: oklch(0.596 0.127 163.2)` — muted teal-green. Distinct from `--info: oklch(0.685 0.148 237.3)` blue. Good visual separation. |
+| `js/state.js:108` | `elements.exportPdfBtn` | State slot for PDF button reference. Print button needs a similar slot. |
+| `js/init.js:292` | `safeGetElement("exportPdfBtn")` | Init pattern for button refs. Print button follows this. Note: `safeGetElement` is only available at runtime (not top-level in `events.js`). |
 
 ### Prior Decisions
 

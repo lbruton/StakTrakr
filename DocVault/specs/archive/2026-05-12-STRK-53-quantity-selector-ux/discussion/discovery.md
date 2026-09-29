@@ -11,20 +11,20 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ## Existing Code
 
-| Path                                                           | Role                                                             | Notes                                                                                                                                                                                                    |
-| -------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html` ~8258                                             | `#removeItemModal` — dispose/delete modal                        | `role="dialog"`, `aria-modal="true"`, `aria-labelledby="removeItemModalTitle"`                                                                                                                           |
-| `index.html` ~8306–8314                                        | Qty `.form-group` + `#removeItemQty`                             | `type="number"`, `min="1"`, `max` set dynamically; group has `style="display:none"` by default — shown only when stack qty > 1                                                                           |
-| `index.html` ~8310–8314                                        | `#removeItemDisposePreview`                                      | `aria-live="polite"` helper text; shows "Disposing X of N — Y will remain"; hidden when qty is full-stack or invalid                                                                                     |
-| `index.html` ~8336–8344                                        | `#removeItemAmountModeToggle`                                    | `.chip-sort-toggle` Lot/Each segmented control; `role="group"`, `aria-label="Amount mode"`, `aria-pressed` on child buttons                                                                              |
-| `js/inventory.js` line 628                                     | `openRemoveItemModal(idx, preDispose)`                           | Sets `qtyInput.value = stackQty`, `qtyInput.max = stackQty`; hides qty group when stack qty = 1; wires live preview listener                                                                             |
-| `js/inventory.js` line 694–712                                 | `_removeItemQtyPreviewHandler`                                   | Module-level var holds the event handler; removed and re-attached on each modal open to avoid listener accumulation                                                                                      |
-| `js/inventory.js` line 737                                     | `confirmRemoveItem()`                                            | Reads `#removeItemQty` value; validates non-integer (line 774) and out-of-range (line 784) — both show toasts                                                                                            |
-| `js/inventory.js` line 996                                     | `splitInventoryItem(originalIdx, disposedQty, dispositionInput)` | Does the actual stack split; reduces original qty, creates clone with disposedQty, inserts adjacent, writes paired changeLog entries with `transactionId`                                                |
-| `js/events.js` lines 4600–4617                                 | Dispose qty input side-effect listener                           | `#removeItemQty` also drives `disposeAmountToggle.updateVisibility()` and `updatePlaceholder()` on `input`; any hidden-input/chip dispatch must preserve that side effect, not only the preview listener |
-| `css/styles.css` lines 7910–7957                               | `.chip-sort-toggle` / `.chip-sort-btn`                           | Inline-flex pill container; `.chip-sort-btn.active` = primary bg, inverse text; already used for Lot/Each toggle — the ready-made styled pattern for segmented controls                                  |
-| `tests/playwright/inventory/partial-stack-disposition.spec.js` | Full STRK-44 E2E suite                                           | 16 test cases covering qty field visibility, split behavior, preview text, validation blocking, lot/each toggle interaction                                                                              |
-| `tests/playwright/02-crud/crud.spec.js` line 383–424           | Crud remove flow                                                 | References `#removeItemModal`, `#removeItemDeleteBtn` — not qty-specific, not at risk                                                                                                                    |
+| Path | Role | Notes |
+|------|------|-------|
+| `index.html` ~8258 | `#removeItemModal` — dispose/delete modal | `role="dialog"`, `aria-modal="true"`, `aria-labelledby="removeItemModalTitle"` |
+| `index.html` ~8306–8314 | Qty `.form-group` + `#removeItemQty` | `type="number"`, `min="1"`, `max` set dynamically; group has `style="display:none"` by default — shown only when stack qty > 1 |
+| `index.html` ~8310–8314 | `#removeItemDisposePreview` | `aria-live="polite"` helper text; shows "Disposing X of N — Y will remain"; hidden when qty is full-stack or invalid |
+| `index.html` ~8336–8344 | `#removeItemAmountModeToggle` | `.chip-sort-toggle` Lot/Each segmented control; `role="group"`, `aria-label="Amount mode"`, `aria-pressed` on child buttons |
+| `js/inventory.js` line 628 | `openRemoveItemModal(idx, preDispose)` | Sets `qtyInput.value = stackQty`, `qtyInput.max = stackQty`; hides qty group when stack qty = 1; wires live preview listener |
+| `js/inventory.js` line 694–712 | `_removeItemQtyPreviewHandler` | Module-level var holds the event handler; removed and re-attached on each modal open to avoid listener accumulation |
+| `js/inventory.js` line 737 | `confirmRemoveItem()` | Reads `#removeItemQty` value; validates non-integer (line 774) and out-of-range (line 784) — both show toasts |
+| `js/inventory.js` line 996 | `splitInventoryItem(originalIdx, disposedQty, dispositionInput)` | Does the actual stack split; reduces original qty, creates clone with disposedQty, inserts adjacent, writes paired changeLog entries with `transactionId` |
+| `js/events.js` lines 4600–4617 | Dispose qty input side-effect listener | `#removeItemQty` also drives `disposeAmountToggle.updateVisibility()` and `updatePlaceholder()` on `input`; any hidden-input/chip dispatch must preserve that side effect, not only the preview listener |
+| `css/styles.css` lines 7910–7957 | `.chip-sort-toggle` / `.chip-sort-btn` | Inline-flex pill container; `.chip-sort-btn.active` = primary bg, inverse text; already used for Lot/Each toggle — the ready-made styled pattern for segmented controls |
+| `tests/playwright/inventory/partial-stack-disposition.spec.js` | Full STRK-44 E2E suite | 16 test cases covering qty field visibility, split behavior, preview text, validation blocking, lot/each toggle interaction |
+| `tests/playwright/02-crud/crud.spec.js` line 383–424 | Crud remove flow | References `#removeItemModal`, `#removeItemDeleteBtn` — not qty-specific, not at risk |
 
 > CODEX: The STRK-44 suite now has more than the "16 test cases" described here; the current file includes qty-specific assertions such as invalid zero/over-max blocking and the max-attribute regression test. Those assertions are directly affected by a clamp-on-input design.
 
@@ -32,7 +32,7 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Key test helper: `setDisposeQty(page, qty)`
 
-Defined at line ~150 of `partial-stack-disposition.spec.js`. Calls `page.fill("#removeItemQty", String(qty))`. If the element ID changes or element type changes (e.g. to `<select>`), this helper must be updated — but the _assertions_ about dispose outcomes won't change. AC-2 requires test assertions pass unchanged; helper changes are expected and acceptable.
+Defined at line ~150 of `partial-stack-disposition.spec.js`. Calls `page.fill("#removeItemQty", String(qty))`. If the element ID changes or element type changes (e.g. to `<select>`), this helper must be updated — but the *assertions* about dispose outcomes won't change. AC-2 requires test assertions pass unchanged; helper changes are expected and acceptable.
 
 ### Lot/Each toggle precedent (STRK-4 → STRK-44)
 

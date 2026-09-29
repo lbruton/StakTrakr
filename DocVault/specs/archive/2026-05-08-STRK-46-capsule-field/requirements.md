@@ -25,50 +25,42 @@ Add two new fields — **Capsule** (short structured string) and **Capsule Notes
 ## Acceptance Criteria
 
 ### AC-1 — Capsule field persists and displays (maps to US-1)
-
 - **Given** a user edits an existing item
 - **When** they enter a value in the Capsule field and save
 - **Then** the value persists in localStorage, appears in the View modal's Catalog Data section, and survives page reload
 
 ### AC-2 — Capsule field on Create (maps to US-1)
-
 - **Given** a user creates a new item via the Add modal
 - **When** they enter a Capsule value during creation
 - **Then** the value is saved with the new item and visible immediately in the View modal
 
 ### AC-3 — Diameter-based suggestion (maps to US-2)
-
 - **Given** an item has a Diameter value (from Numista import or manual entry)
 - **When** the user opens the Edit or Create modal
 - **Then** a suggestion appears near the Capsule field showing the nearest Air-Tite size and model code (e.g. "Suggested: A-32 (32mm)")
 - **And** if the user changes the Diameter field, the suggestion updates dynamically
 
 ### AC-4 — Autocomplete from Air-Tite sizes (maps to US-3)
-
 - **Given** the user focuses the Capsule input field
 - **When** they begin typing
 - **Then** an autocomplete dropdown offers matches from the static Air-Tite size table (e.g. typing "38" shows "A-38", "X-38-Ring", "H-38")
 
 ### AC-5 — Autocomplete from user history (maps to US-3)
-
 - **Given** the user has previously saved capsule values on other items (e.g. "X-38-Ring", "Guardhouse 38mm")
 - **When** they begin typing in the Capsule field on any item
 - **Then** previously-used values appear in the autocomplete alongside the Air-Tite suggestions
 
 ### AC-6 — Capsule Notes field (maps to US-4)
-
 - **Given** a user edits an item
 - **When** they enter text in the Capsule Notes field and save
 - **Then** the note persists and displays alongside the Capsule value in the View modal
 
 ### AC-7 — Layout integrity
-
 - **Given** the Capsule and Capsule Notes fields are added to the Edit and Create modals
 - **When** the modal is displayed on desktop and mobile viewports
 - **Then** the existing layout of surrounding fields (Diameter, Thickness, Weight, etc.) is not disrupted
 
 ### AC-8 — Searchable and filterable
-
 - **Given** items have Capsule field values
 - **When** the user uses StakTrakr's search functionality
 - **Then** Capsule values are included in the search index and items can be found by capsule code

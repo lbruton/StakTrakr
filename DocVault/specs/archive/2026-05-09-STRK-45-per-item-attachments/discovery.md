@@ -12,12 +12,12 @@ created: 2026-05-08
 
 The `ImageCache` class (singleton `imageCache`) manages `StakTrakrImages` v3 with four stores:
 
-| Store           | Key                | Purpose                                                         |
-| --------------- | ------------------ | --------------------------------------------------------------- |
-| `coinImages`    | `catalogId`        | Legacy Numista coin images (deprecated, kept for schema compat) |
-| `coinMetadata`  | `catalogId`        | Enriched Numista metadata                                       |
-| `userImages`    | `uuid` (item UUID) | User-uploaded coin photos (obverse + reverse Blobs)             |
-| `patternImages` | `ruleId`           | Pattern-rule match images                                       |
+| Store | Key | Purpose |
+|---|---|---|
+| `coinImages` | `catalogId` | Legacy Numista coin images (deprecated, kept for schema compat) |
+| `coinMetadata` | `catalogId` | Enriched Numista metadata |
+| `userImages` | `uuid` (item UUID) | User-uploaded coin photos (obverse + reverse Blobs) |
+| `patternImages` | `ruleId` | Pattern-rule match images |
 
 The DB upgrade uses `onupgradeneeded` with per-version guards. Adding a `userAttachments` store is a **v4 bump** following the exact same pattern:
 
@@ -44,7 +44,6 @@ The `ImageCache` singleton is available on `window.imageCache` after `js/image-c
 `createBackupZip()` and `restoreBackupZip()` are the canonical backup pipeline. The user image integration (STAK-225 / STAK-226) is the direct template for attachments:
 
 **Backup side (lines 270–305):**
-
 ```js
 const allUserImages = await imageCache.exportAllUserImages();
 const userImgFolder = zip.folder("user_images");
@@ -57,7 +56,6 @@ zip.file("user_image_manifest.json", JSON.stringify(userImageManifest));
 ```
 
 **Attachment equivalent** would add:
-
 - `user_attachments/` folder containing `{attachmentUuid}.{ext}` (the raw Blob)
 - `user_attachment_manifest.json` mapping `attachmentUuid → { itemUuid, fileName, type, size, uploadedAt }`
 - `inventoryData.inventory` items gain an `attachments: [{uuid, fileName, type, size, uploadedAt}]` array
@@ -125,7 +123,6 @@ Table rows are rendered in `inventory-table.js`. A full attachment column would 
 ### CSV export — `js/inventory-backup.js`
 
 `csvHeaders` array (line 131) and `csvRows` (lines 165–215) already include all inventory fields. Adding an `Attachments` column requires:
-
 1. Appending `"Attachments"` to `csvHeaders`
 2. Computing `item.attachments?.map(a => `${a.fileName}#${a.uuid}`).join(", ") || ""` in `csvRows`
 3. Mirroring the same change in the standalone `exportCsv()` function if it exists separately
@@ -135,7 +132,6 @@ Table rows are rendered in `inventory-table.js`. A full attachment column would 
 ### Script load order
 
 Current load order (from `index.html` bottom `<script defer>` block, lines 8348–8380):
-
 ```
 image-cache.js → ... → inventory-backup.js → inventory-import.js →
 inventory-table.js → inventory.js → card-view.js → vault.js →
@@ -155,7 +151,6 @@ The `stamp-sw-cache` pre-commit hook auto-stages `sw.js` when JS files are commi
 ## Prior Decisions
 
 No prior session decisions found specific to STRK-45. The patterns for image vault, zip backup, and IndexedDB integration were established across:
-
 - STAK-181 — image vault companion file (the direct template for attachment vault)
 - STAK-225/226 — user image backup in zip (the direct template for attachment zip)
 - STAK-484 — backup extraction from inventory.js
@@ -191,8 +186,8 @@ No prior session decisions found specific to STRK-45. The patterns for image vau
 - [x] **Stvault companion format**: **STVAULT pattern** — encrypted, must survive the full import/export/cloud-sync lifecycle. Same AES-256-GCM path as images.
 
 - [x] **UI polish scope**: **Full polish required** in planning — covers two surfaces:
-  - _DiffModal_: attachment field diffs must render meaningfully (e.g., filenames added/removed), not as raw JSON. Plan a design pass; may gate as a separate approval issue.
-  - _Edit modal attachment section_: needs a design decision on form placement and input chrome before implementation. Images live near the top of the form; attachments are a different concern (document filing vs. visual display). Likely position: **after Notes, before Tags** — but this should be confirmed with a mockup or explicit layout discussion rather than assumed. Consider a `/ui-mockup` pass covering both the drop-zone input chrome and the inline file list (filename, size, type icon, remove button).
+  - *DiffModal*: attachment field diffs must render meaningfully (e.g., filenames added/removed), not as raw JSON. Plan a design pass; may gate as a separate approval issue.
+  - *Edit modal attachment section*: needs a design decision on form placement and input chrome before implementation. Images live near the top of the form; attachments are a different concern (document filing vs. visual display). Likely position: **after Notes, before Tags** — but this should be confirmed with a mockup or explicit layout discussion rather than assumed. Consider a `/ui-mockup` pass covering both the drop-zone input chrome and the inline file list (filename, size, type icon, remove button).
 
 - [x] **Cascade delete on item delete**: **Yes** — items are the anchor. `deleteInventoryItem()` must delete all IndexedDB attachments for that item UUID.
 

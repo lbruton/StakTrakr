@@ -10,13 +10,12 @@ created: 2026-05-18
 
 ### Source Issue Body
 
-**Summary.** When adding a _new_ item via the Add Item modal and using the Numista picker, tag checkboxes selected in the Fill Fields panel are silently dropped on the first sync. The user must save the item, reopen the edit modal, re-run the Numista search, and click Fill Fields a second time for tags to persist.
+**Summary.** When adding a *new* item via the Add Item modal and using the Numista picker, tag checkboxes selected in the Fill Fields panel are silently dropped on the first sync. The user must save the item, reopen the edit modal, re-run the Numista search, and click Fill Fields a second time for tags to persist.
 
 **Reproduction.**
-
 1. Open Add Item modal (not Edit).
 2. Enter Numista ID `65421` (2015 Australian Kookaburra) and search.
-3. Picker loads with _Bird_ tag pre-checked.
+3. Picker loads with *Bird* tag pre-checked.
 4. Click **Fill Fields**.
 5. Return to Edit modal — tag is missing.
 6. Save item, reopen, re-search, click Fill Fields again — tag now appears.
@@ -24,7 +23,7 @@ created: 2026-05-18
 **Root cause.** In `js/catalog-api.js` ~lines 2380–2406, the tag-application block is gated by `_fillUuid`:
 
 ```js
-const _fillIdx = typeof editingIndex !== "undefined" && editingIndex !== null ? editingIndex : null;
+const _fillIdx  = (typeof editingIndex !== 'undefined' && editingIndex !== null) ? editingIndex : null;
 const _fillItem = _fillIdx !== null && Array.isArray(inventory) ? inventory[_fillIdx] : null;
 const _fillUuid = _fillItem?.uuid || null;
 
@@ -41,14 +40,12 @@ Scalar fields (name, type, year, weight, metal) work on the first pass because t
 **Secondary observation.** Field checkboxes (Year, Type, Orientation, Technique, Obverse, Reverse, Edge descriptions) are unchecked by default in the picker. Governed by each field's `defaultOn` attribute at `catalog-api.js:1592–1593` (`cb.checked = f.available && !!f.value && effectiveDefaultOn`). Likely a separate config tweak in the field-meta source — could fold into this issue or split out. Not blocking.
 
 **Acceptance criteria (from issue).**
-
 - Adding a new Numista item with at least one tag checkbox checked persists the tag(s) on the first Fill Fields click — no second sync required.
 - Existing-item edit flow still applies tags correctly (regression check).
 - STRK-52 on-item removal walk still records opt-outs correctly for both new and existing items.
 - Playwright coverage: extend an existing Numista picker spec to add an item with a pre-checked tag and assert the tag is present in the saved row.
 
 **References.**
-
 - `js/catalog-api.js:2380-2432` — tag application + removal walk
 - `js/events.js:1828` — `editingIndex = null` on Add Item open
 - `js/events.js:2049-2066` — `commitItemToInventory` dispatch
@@ -67,13 +64,11 @@ When a user adds a new inventory item through the Numista picker and ticks one o
 ## Acceptance Criteria
 
 ### AC-1 — Tags persist on first Fill Fields for a new item (maps to US-1)
-
 - **Given** the Add Item modal is open (not Edit) and no inventory row exists yet for this item
-- **When** the user enters Numista ID `65421`, searches, leaves the pre-checked _Bird_ tag ticked, clicks **Fill Fields**, and then submits the Add Item form
-- **Then** the saved inventory row has the _Bird_ tag applied — verifiable by reopening the row's Edit modal and seeing the tag listed, or by inspecting the item's tag storage for the new UUID
+- **When** the user enters Numista ID `65421`, searches, leaves the pre-checked *Bird* tag ticked, clicks **Fill Fields**, and then submits the Add Item form
+- **Then** the saved inventory row has the *Bird* tag applied — verifiable by reopening the row's Edit modal and seeing the tag listed, or by inspecting the item's tag storage for the new UUID
 
 ### AC-2 — STRK-52 opt-out walk records removals for new items (maps to US-2)
-
 - **Given** the Add Item modal is open and the Numista picker has loaded with at least one default-on tag pre-checked
 - **When** the user un-checks one of those default-on tags before clicking **Fill Fields**, then submits the form
 - **Then** the saved row has the un-checked tag recorded as an opt-out (`itemRemovedTags`), not silently absent
@@ -81,13 +76,11 @@ When a user adds a new inventory item through the Numista picker and ticks one o
 > **Note — intentional contract expansion.** The live STRK-52 removal walk at `js/catalog-api.js:1938-1940` and `js/catalog-api.js:2416-2427` only records opt-outs for tags whose checkbox carries `data-on-item="1"`, which by construction never applies to a brand-new Add flow (no existing item tags exist yet). This AC **intentionally broadens** that contract: unchecked default-on Numista tags on a new item become `itemRemovedTags` opt-outs, even though they were never "on item" in the prior sense. The product rule is "opt-outs follow the user's choice, regardless of whether the item pre-existed". Approach must implement this expansion explicitly, not rely on the existing on-item-only walk.
 
 ### AC-3 — Edit Item flow unchanged (maps to US-3, regression guard)
-
 - **Given** an existing inventory row with a Numista catalog reference
 - **When** the user opens Edit Item, runs the Numista search, and clicks Fill Fields with one or more tag checkboxes ticked
 - **Then** the tag application behaves exactly as it does on `dev` today — no new code path, no extra round-trip, no ordering change visible to the user
 
 ### AC-4 — Playwright regression coverage
-
 - **Given** the existing Numista picker Playwright spec (`tests/playwright/numista-picker-tags.spec.js`)
 - **When** the spec is extended with a new test case that uses a **true Add Item helper path** — starting from empty inventory (no seeded row) and opening the picker through the Add Item modal entry, NOT through the existing `openEditForm()` / `window.showNumistaResults()` helpers at `tests/playwright/numista-picker-tags.spec.js:93-199` — then enters a Numista ID with a tag pre-checked, clicks Fill Fields once, and submits
 - **Then** the test asserts the saved row contains the expected tag — failing on `dev` (pre-fix) and passing post-fix

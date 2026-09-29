@@ -23,7 +23,7 @@ the write fails **silently** and the image renders as a broken/colored placehold
 No warning fires as the store fills, and no error surfaces when an individual save fails.
 
 This is a quota-pressure **UX gap**, NOT a storage-backend migration (distinct from
-STRK-139/140/141, which moved _market-history_ to IndexedDB / compressed it). Images already
+STRK-139/140/141, which moved *market-history* to IndexedDB / compressed it). Images already
 live in IndexedDB.
 
 ## Functional Requirements (EARS)
@@ -66,7 +66,7 @@ live in IndexedDB.
 
 ## Out of Scope (deferred)
 
-- The issue's _optional_ "auto/aggressive downscale under pressure" (re-encode at lower
+- The issue's *optional* "auto/aggressive downscale under pressure" (re-encode at lower
   `IMAGE_MAX_DIM`/`IMAGE_QUALITY` when full). Tracked as a possible follow-up; not in 3.35.9.
 - Storage-efficiency of shared images (`sharedImageId` may store duplicate blobs per item) —
   separate question, flagged in discovery, not addressed here.

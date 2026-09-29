@@ -26,50 +26,42 @@ The Item Detail (View) modal must reflect each item's saved Numista field values
 ## Acceptance Criteria
 
 ### AC-1 (maps to US-1)
-
 - **Given** an item where `item.numistaData.composition === "Silver (.9999)"` and the IndexedDB `coinMetadata` cache for the same `catalogId` has `composition === "Silver"`,
 - **When** the user opens the View modal for that item,
 - **Then** the Catalog Data section renders **"Silver (.9999)"** (item value wins).
 
 ### AC-2 (maps to US-2)
-
 - **Given** an item with non-empty `item.numistaData.obverseDesc`, `reverseDesc`, and/or `edgeDesc`,
 - **When** the user opens the View modal,
 - **Then** each non-empty description renders as a visible **full-width** detail row in the Catalog Data section, with labels "Obverse", "Reverse", and "Edge" respectively.
 - **And** the existing image hover tooltips for obverseDesc/reverseDesc continue to function (additive, not replaced).
 
 ### AC-3 (maps to US-3)
-
 - **Given** two inventory items A and B with the same `catalogId` (`N#571841`) but different `item.numistaData.composition` values,
 - **When** the user opens the View modal for A, then closes and opens it for B,
 - **Then** A and B render their own respective composition values.
 
 ### AC-4 (maps to US-4)
-
 - **Given** an item whose `item.numistaData.diameter` was just changed from `39` to `40` via the Edit modal,
 - **When** the user closes Edit and opens View,
 - **Then** the Catalog Data section shows **"40 mm"** (no stale cache hit).
 
 ### AC-5 (field coverage parity)
-
 - **Given** an item whose `item.numistaData` includes any of: `denomination`, `mintage`, `rarityIndex`, `kmRef`, `length`, `width`, `commemorative`, `commemorativeDesc`, `obverseDesc`, `reverseDesc`, `edgeDesc`, `country`, `composition`, `shape`, `diameter`, `thickness`, `orientation`, `technique`,
 - **When** the View modal opens with that item,
 - **Then** every populated field is rendered in the Catalog Data section (subject to the user's existing field-visibility config in Settings → Item Detail Modal).
 
 ### AC-6 (kmRef shape reconciliation)
-
 - **Given** an item with `item.numistaData.kmRef === "KM#273"` (string, from Edit modal save),
 - **When** the View modal opens,
 - **Then** "KM Reference: KM#273" renders. The renderer must also still handle the cache-only `kmReferences` array shape for items without `item.numistaData.kmRef`.
 
 ### AC-7 (no regression on cache-only items)
-
 - **Given** an item that was added before STRK-51 and has no `item.numistaData` saved (only the cache holds metadata),
 - **When** the View modal opens,
 - **Then** Catalog Data renders from the cache exactly as it does today — visible behavior is unchanged for legacy items.
 
 ### AC-8 (partial item metadata)
-
 - **Given** an item with only some keys populated in `item.numistaData` (e.g. `{ kmRef: "KM#274" }` — `kmRef` user-customized, all other fields absent),
 - **When** the View modal opens,
 - **Then** the customized field renders the item value (`KM Reference: KM#274`), and **all other Catalog Data fields render from the cache** for that catalogId.

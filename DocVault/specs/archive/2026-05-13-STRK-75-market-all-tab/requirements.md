@@ -28,61 +28,51 @@ This sketch delivers an **All tab** prepended to the vendor price matrix tab bar
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 — All tab is the first tab (maps to US-1, US-3)
-
 - **Given** the market price section is rendered
 - **When** the tab bar is built
 - **Then** an "All" tab appears as the leftmost tab, before Gold, Silver, Platinum, Palladium (if enabled), and Goldback
 
 ### AC-2 — All tab is the default for new users (maps to US-1)
-
 - **Given** `vendorPricesActiveTab` is not set in localStorage (fresh session)
 - **When** the vendor price section initialises
 - **Then** the All tab is active and the table shows all enabled market-tracked slugs
 
 ### AC-3 — Valid saved tab is preserved (maps to US-2)
-
 - **Given** `vendorPricesActiveTab` is set to a value that is present in the current tab list (e.g. `xag`)
 - **When** the vendor price section initialises
 - **Then** that tab is active — the user's prior selection is not overridden
 
 ### AC-4 — Invalid/unavailable saved tab falls back to All (maps to US-2)
-
 - **Given** `vendorPricesActiveTab` is set to a value that is not in the current tab list (e.g. a stale or unrecognised value)
 - **When** the vendor price section initialises
 - **Then** the All tab becomes active (not a crash, not an empty table)
 
 ### AC-5 — All tab group ordering (maps to US-3)
-
 - **Given** the All tab is active
 - **When** the table renders
 - **Then** rows are grouped in this order: Gold, Silver, Platinum, Palladium (if present), then Goldback; within each group rows are sorted by display name using the existing comparator (numeric-aware `localeCompare` with slug tie-breaker)
 
 ### AC-6 — Per-metal tabs still narrow correctly (maps to US-4)
-
 - **Given** the user clicks the Gold tab
 - **When** the table re-renders
 - **Then** only Gold rows appear, sorted alphabetically, identical to current Gold-tab behaviour
 
 ### AC-7 — Market filter settings respected in All tab
-
 - **Given** one or more slug/vendor combinations are disabled in market filter settings
 - **When** the All tab renders
 - **Then** disabled combinations are hidden, consistent with per-metal tab behaviour
 
 ### AC-8 — Goldback premium column still works in All tab
-
 - **Given** the All tab is active and Goldback rows are present
 - **When** the table renders
 - **Then** Goldback premium is computed against the G1 Goldback rate (same as today's Goldback tab), and spot-metal premiums (Gold, Silver, Platinum, Palladium) use each row's own metal context for `_getSpotPrice` — not a single function-level `metalCode`
 
 ### AC-9 — Vendor columns stable in All tab
-
 - **Given** the All tab is active
 - **When** the table renders
 - **Then** vendor columns are the union of vendors across all visible rows, sorted alphabetically by display name
 
 ### AC-10 — Test coverage
-
 - **Given** the test suite runs
 - **When** market-sorting and market-survivors specs execute
 - **Then** tests cover: All-tab default, valid-saved-tab preservation, invalid-saved-tab fallback, group ordering, single-tab narrowing, market-filter hiding (AC-7), Goldback/G1 premium and per-row spot premium (AC-8), and vendor-column union stability (AC-9). Fixture data must expand beyond silver-only to include at least gold and Goldback rows.
@@ -129,7 +119,6 @@ _Reconciled by /sketch reconcile on 2026-05-13. Original reviewer marks preserve
 - Implicit consecutive grouping is sufficient without visible group labels.
 
 ### Resolution Summary
-
 - Accepted: 4
 - Rejected: 0
 - Resolved with your input: 1 (AC-5 sort wording — use existing comparator)

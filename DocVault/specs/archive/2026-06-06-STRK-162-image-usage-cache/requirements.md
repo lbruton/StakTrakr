@@ -9,17 +9,15 @@ created: 2026-06-06
 > **Source Issue:** [STRK-162](https://plane.lbruton.cc/lbruton/browse/STRK-162/)
 > **Title:** Cache user-image storage usage (O(1) pre-flight) instead of full-store scan per save
 >
-> **Context (from issue):** Follow-up from STRK-146 (PR #1218 Codacy review, MEDIUM). The STRK-146 quota guard calls `_userImagesBytes()` on every interactive image save, which does an O(N) cursor scan of the `userImages` store. The scan reads each record's `size` field plus blob _references_ (blob data is not deserialized, so GC pressure is bounded) and matches the pre-existing `getStorageUsage()` pattern — but it still scales linearly with the number of stored images, on the exact path heavy-image users hit most.
+> **Context (from issue):** Follow-up from STRK-146 (PR #1218 Codacy review, MEDIUM). The STRK-146 quota guard calls `_userImagesBytes()` on every interactive image save, which does an O(N) cursor scan of the `userImages` store. The scan reads each record's `size` field plus blob *references* (blob data is not deserialized, so GC pressure is bounded) and matches the pre-existing `getStorageUsage()` pattern — but it still scales linearly with the number of stored images, on the exact path heavy-image users hit most.
 >
 > **Proposed optimization (from issue):**
->
 > - Maintain a cached `userImages` byte total on the `ImageCache` singleton, computed lazily on first need.
 > - Update it incrementally in `cacheUserImageResult()` after a successful put (it already knows `used` + `delta`).
 > - Invalidate (null → recompute) on the other mutation paths: `deleteUserImage`, `clearAll`, `importUserImageRecord`.
 > - This makes the pre-flight check O(1) amortized while keeping invalidation conservative (any external mutation forces a fresh scan).
 >
 > **Acceptance criteria (from issue):**
->
 > - Pre-flight quota check no longer performs a full-store scan on every save once the cache is warm.
 > - Cache stays correct across save / delete / clearAll / import (add a test exercising delete-then-save).
 > - No regression in the STRK-146 warning/error toast behavior.
@@ -42,32 +40,26 @@ Replace the O(N) full-store cursor scan that `cacheUserImageResult()` runs on **
 > EARS syntax. Each line is individually testable and becomes a TDD Cohort B assertion.
 
 ### AC-1 (maps to US-1) — warm-cache pre-flight skips the scan
-
 - **WHILE** the user-image usage cache is warm (non-null), the `ImageCache` **SHALL** satisfy the `cacheUserImageResult` pre-flight quota check **without** performing a full-store cursor scan of the `userImages` store.
 - _Verifiable:_ spy/instrument `_userImagesBytes` (or the underlying `_iterate("userImages", …)`); it is **not** invoked on a save when the cache is warm.
 
 ### AC-2 (maps to US-1) — lazy first computation
-
 - **WHEN** the usage total is needed and the cache is cold (null), the `ImageCache` **SHALL** compute it exactly once via a single `userImages` scan and retain the result for subsequent reads.
 - _Verifiable:_ first need triggers one scan; an immediately following need triggers zero additional scans.
 
 ### AC-3 (maps to US-2) — incremental update on success
-
 - **WHEN** a `cacheUserImageResult` write completes successfully, the `ImageCache` **SHALL** update the cached usage total by the net record delta, where the delta is positive for new or grown records and negative for a shrinking in-place replace.
 - _Verifiable:_ after a successful save the cached total equals the prior total plus the signed delta, including a shrink case.
 
 ### AC-4 (maps to US-2) — no update on a non-write
-
 - **IF** a `cacheUserImageResult` call returns without a successful put (pre-flight quota block, or an IndexedDB quota/`_put` error), **THEN** the `ImageCache` **SHALL** leave the cached usage total unchanged.
 - _Verifiable:_ a pre-flight-blocked save and a forced `_put` failure each leave the cached total identical to its pre-call value.
 
 ### AC-5 (maps to US-2) — invalidation on the other mutation paths
-
 - **WHEN** `deleteUserImage`, `clearAll`, or `importUserImageRecord` mutates the store, the `ImageCache` **SHALL** invalidate the cached usage total so the next read recomputes it from a fresh scan.
 - _Verifiable (load-bearing):_ a **delete-then-save** sequence reflects the deletion in the post-save total — i.e. the save's pre-flight `used` does not include the deleted record's bytes.
 
 ### AC-6 (maps to US-2) — no STRK-146 regression
-
 - The `ImageCache` **SHALL** preserve the STRK-146 quota behavior unchanged: the pre-flight overflow block (`delta > 0 && used + delta > limit`), the returned `usageBytes`/`limitBytes`, and the pressure-band warning toasts (`ok`/`warn`/`critical` thresholds and copy).
 - _Verifiable:_ existing STRK-146 tests remain green; warn/critical bands fire at the same usage fractions as before.
 

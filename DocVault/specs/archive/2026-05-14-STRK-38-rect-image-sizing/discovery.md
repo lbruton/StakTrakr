@@ -12,68 +12,68 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Image Frame Resolution
 
-| Path                              | Role                                                    | Notes                                                                                                                                                    |
-| --------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/image-frame.js` (entire file) | `resolveImageFrame(item, side)` → `"round"` or `"rect"` | Window-exposed. Priority: explicit override → type/weightUnit → gradingAuthority → numistaData.shape → round. Shipped with STRK-67 (v3.34.57, PR #1099). |
-| `js/image-frame.js:8-9`           | `normalizeImageFrame(value)`                            | Normalizes stored per-side frame values to `"auto"` / `"circle"` / `"rectangle"`.                                                                        |
-| `js/image-frame.js:17-22`         | `cycleFrame(value)`                                     | Cycles auto → circle → rectangle for the add/edit modal toggle.                                                                                          |
+| `js/image-frame.js:8-9` | `normalizeImageFrame(value)` | Normalizes stored per-side frame values to `"auto"` / `"circle"` / `"rectangle"`. |
+| `js/image-frame.js:17-22` | `cycleFrame(value)` | Cycles auto → circle → rectangle for the add/edit modal toggle. |
 
 ### Card View Rendering
 
-| Path                         | Role                                     | Notes                                                                                                                                                               |
-| ---------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/card-view.js:549-578`    | `_cardImageHTML(item, extraClass, side)` | Calls `resolveImageFrame()`. Adds `.bar-shape` class when rect. Sets inline `object-fit: contain` (rect) or `cover` (round). Generates `.cv-no-image` fallback div. |
-| `css/styles.css:13494-13503` | `.card-view-grid .coin-img`              | Base rule: `border-radius: 50%`, `background: var(--bg-tertiary)`, flex centering. This background is the visible "dead space" rectangle for rect items.            |
-| `css/styles.css:13504-13506` | `.card-view-grid .coin-img.bar-shape`    | Only changes `border-radius` to `var(--radius)`. Does **not** remove `background: var(--bg-tertiary)` — the dead-space box persists.                                |
-| `css/styles.css:13509-13525` | `.cv-no-image`                           | Metal-tinted glass orb placeholder. Uses `border-radius: inherit` so it follows `.bar-shape` when present.                                                          |
-| `css/styles.css:13527-13538` | `.metal-* .cv-no-image`                  | Per-metal tint overrides (silver #c0c0c0, gold #ffd700, etc.).                                                                                                      |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/card-view.js:549-578` | `_cardImageHTML(item, extraClass, side)` | Calls `resolveImageFrame()`. Adds `.bar-shape` class when rect. Sets inline `object-fit: contain` (rect) or `cover` (round). Generates `.cv-no-image` fallback div. |
+| `css/styles.css:13494-13503` | `.card-view-grid .coin-img` | Base rule: `border-radius: 50%`, `background: var(--bg-tertiary)`, flex centering. This background is the visible "dead space" rectangle for rect items. |
+| `css/styles.css:13504-13506` | `.card-view-grid .coin-img.bar-shape` | Only changes `border-radius` to `var(--radius)`. Does **not** remove `background: var(--bg-tertiary)` — the dead-space box persists. |
+| `css/styles.css:13509-13525` | `.cv-no-image` | Metal-tinted glass orb placeholder. Uses `border-radius: inherit` so it follows `.bar-shape` when present. |
+| `css/styles.css:13527-13538` | `.metal-* .cv-no-image` | Per-metal tint overrides (silver #c0c0c0, gold #ffd700, etc.). |
 
 ### Card Style A (Sparkline Header)
 
-| Path                         | Role                              | Notes                                                                                                                                                                                                                                                                                     |
-| ---------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `css/styles.css:13609-13615` | `.card-a .cv-images-sm .coin-img` | Fixed `width: 36px; height: 36px; border-radius: 50%`. **Problem:** Re-declares `border-radius: 50%` with higher specificity than the global `.bar-shape` rule, so rect items render circular at 36px even though `.bar-shape` class is present. No `.card-a .bar-shape` override exists. |
 
 ### Card Style B (Full-Bleed Overlay)
 
-| Path                         | Role                | Notes                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `css/styles.css:13680-13684` | `.card-b .coin-img` | Fixed `width: 80px; height: 80px; border: 2px solid var(--border)`. **Problem:** No `.card-b .coin-img.bar-shape` rule exists. Rect items get 80×80 square with the base `.bg-tertiary` background. The global `.bar-shape` rule at `:13504` does apply `border-radius: var(--radius)`, but the background and fixed square dimensions remain. |
 
 ### Card Style C (Split Card)
 
-| Path                         | Role                          | Notes                                                                                                                                                  |
-| ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `css/styles.css:13717-13727` | `.card-c .cv-image-col`       | Image column: `flex: 0 0 100px`, `background: var(--bg-secondary)`, centered flex layout.                                                              |
+| Path | Role | Notes |
+|------|------|-------|
+| `css/styles.css:13717-13727` | `.card-c .cv-image-col` | Image column: `flex: 0 0 100px`, `background: var(--bg-secondary)`, centered flex layout. |
 | `css/styles.css:13729-13733` | `.card-c .coin-img.bar-shape` | Explicit rect override: `width: 80px; height: 56px; border-radius: var(--radius)`. This is the **only** card style with a per-style `.bar-shape` rule. |
-| `css/styles.css:13734-13737` | `.card-c .coin-img`           | Round fallback: `width: 56px; height: 56px`.                                                                                                           |
+| `css/styles.css:13734-13737` | `.card-c .coin-img` | Round fallback: `width: 56px; height: 56px`. |
 
 ### Table View
 
-| Path                            | Role                                        | Notes                                                                                                                                                                                                                                                                                |
-| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/inventory-table.js:513-516` | `_thumbShapeClass(side)`                    | Closure that calls `resolveImageFrame()` per-side. Adds `" table-thumb-rect"` class when rect.                                                                                                                                                                                       |
-| `js/inventory-table.js:531-543` | Thumbnail HTML generation                   | Generates per-side `<img class="table-thumb...">` elements with lazy loading.                                                                                                                                                                                                        |
-| `js/inventory-table.js:245-274` | `_getThumbPlaceholder(metal, type)`         | Generates SVG data URI. **Problem:** Line 267 — outer shape is always `<circle cx="16" cy="16" r="15" .../>` regardless of item type. The inner icon varies (bar icon for bar/ingot, coin circles for all else), but the outer background is always circular.                        |
-| `css/styles.css:5290-5299`      | `.table-thumb`                              | Base: `28px × 28px`, `border-radius: 50%`, `object-fit: cover`, `background: var(--bg-tertiary)`.                                                                                                                                                                                    |
-| `css/styles.css:5307-5312`      | `.table-thumb.table-thumb-rect`             | Only changes `border-radius` to `var(--radius)`. Does **not** change `object-fit` here.                                                                                                                                                                                              |
-| `css/styles.css:13541-13543`    | `.table-thumb.table-thumb-rect` (duplicate) | Sets `object-fit: contain`. This is a second rule block later in the file that adds `contain` — combined with the `:5307` block, rect thumbs get `border-radius: var(--radius)` + `object-fit: contain`. But `background: var(--bg-tertiary)` from the base rule is **not** removed. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/inventory-table.js:513-516` | `_thumbShapeClass(side)` | Closure that calls `resolveImageFrame()` per-side. Adds `" table-thumb-rect"` class when rect. |
+| `js/inventory-table.js:531-543` | Thumbnail HTML generation | Generates per-side `<img class="table-thumb...">` elements with lazy loading. |
+| `js/inventory-table.js:245-274` | `_getThumbPlaceholder(metal, type)` | Generates SVG data URI. **Problem:** Line 267 — outer shape is always `<circle cx="16" cy="16" r="15" .../>` regardless of item type. The inner icon varies (bar icon for bar/ingot, coin circles for all else), but the outer background is always circular. |
+| `css/styles.css:5290-5299` | `.table-thumb` | Base: `28px × 28px`, `border-radius: 50%`, `object-fit: cover`, `background: var(--bg-tertiary)`. |
+| `css/styles.css:5307-5312` | `.table-thumb.table-thumb-rect` | Only changes `border-radius` to `var(--radius)`. Does **not** change `object-fit` here. |
+| `css/styles.css:13541-13543` | `.table-thumb.table-thumb-rect` (duplicate) | Sets `object-fit: contain`. This is a second rule block later in the file that adds `contain` — combined with the `:5307` block, rect thumbs get `border-radius: var(--radius)` + `object-fit: contain`. But `background: var(--bg-tertiary)` from the base rule is **not** removed. |
 
 ### Detail Modal (Reference Implementation)
 
-| Path                        | Role                                       | Notes                                                                                                                                                                                                                          |
-| --------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/viewModal.js:2185-2190` | `_applyViewSlotFrame(slot, item, side)`    | Toggles `.view-shape-rect` class on the `.view-image-slot` wrapper. Per-side resolution.                                                                                                                                       |
-| `css/styles.css:6093-6098`  | `.view-shape-rect img`                     | `border-radius: var(--radius); max-width: 200px; max-height: 260px; width: auto; height: auto;` — the pattern that works. Uses auto dimensions so the image's intrinsic aspect ratio drives sizing. No fixed square container. |
-| `css/styles.css:6101-6105`  | `.view-shape-rect .view-image-placeholder` | Rectangular placeholder: `140px × 200px` with `var(--radius)`.                                                                                                                                                                 |
-| `css/styles.css:6608-6615`  | `.view-shape-rect img` (≤768px)            | Responsive override: `max-width: 100%; max-height: 200px`. Placeholder switches to `width: 100%; aspect-ratio: 3/4`.                                                                                                           |
-| `css/styles.css:6664-6666`  | `.view-shape-rect img` (≤480px)            | Extra-small override: `max-height: 180px`. Further constrains rect images on narrow viewports.                                                                                                                                 |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/viewModal.js:2185-2190` | `_applyViewSlotFrame(slot, item, side)` | Toggles `.view-shape-rect` class on the `.view-image-slot` wrapper. Per-side resolution. |
+| `css/styles.css:6093-6098` | `.view-shape-rect img` | `border-radius: var(--radius); max-width: 200px; max-height: 260px; width: auto; height: auto;` — the pattern that works. Uses auto dimensions so the image's intrinsic aspect ratio drives sizing. No fixed square container. |
+| `css/styles.css:6101-6105` | `.view-shape-rect .view-image-placeholder` | Rectangular placeholder: `140px × 200px` with `var(--radius)`. |
+| `css/styles.css:6608-6615` | `.view-shape-rect img` (≤768px) | Responsive override: `max-width: 100%; max-height: 200px`. Placeholder switches to `width: 100%; aspect-ratio: 3/4`. |
+| `css/styles.css:6664-6666` | `.view-shape-rect img` (≤480px) | Extra-small override: `max-height: 180px`. Further constrains rect images on narrow viewports. |
 
 ### Tests
 
-| Path                                                    | Role                      | Notes                                                                                                                                           |
-| ------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/playwright/image-frame-override.spec.js:77-121`  | Resolver priority tests   | Covers all resolution levels (explicit, type, weight, grading, Numista, fallback).                                                              |
+| Path | Role | Notes |
+|------|------|-------|
+| `tests/playwright/image-frame-override.spec.js:77-121` | Resolver priority tests | Covers all resolution levels (explicit, type, weight, grading, Numista, fallback). |
 | `tests/playwright/image-frame-override.spec.js:123-159` | Mixed per-side frame test | Verifies table (`.table-thumb-rect`), Card A (`.bar-shape` + `object-fit`), and modal (`.view-shape-rect`). **Does not test Card B or Card C.** |
 
 ## Prior Decisions

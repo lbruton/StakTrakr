@@ -1,7 +1,7 @@
 ---
 sketch: STRK-91-bulk-editor-mobile
 phase: discovery
-created: "2026-05-22"
+created: '2026-05-22'
 ---
 
 # STRK-91 — Discovery
@@ -12,86 +12,86 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Primary: Bulk Editor Module
 
-| Path                       | Role                         | Notes                                                                                                                                                                                                                                                         |
-| -------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/bulkEdit.js:1-1850`    | Entire bulk edit module      | 1850 lines. Self-contained: state, field defs, table render, actions, Numista integration, image upload popover                                                                                                                                               |
-| `js/bulkEdit.js:27-58`     | `BULK_COLUMN_PRIORITY`       | 30-key array controlling column order in the table. Currently flat keys only — no `numistaData.*` dot-path entries                                                                                                                                            |
-| `js/bulkEdit.js:92-104`    | `getBulkTableDataKeys()`     | Scans `Object.keys(item)` across inventory. Only surfaces top-level keys; `numistaData` appears as a single object column and is not in `BULK_COLUMN_PRIORITY`, so items with catalog data can produce a raw JSON blob column in the remaining-column section |
-| `js/bulkEdit.js:114-117`   | `getBulkSortableValue()`     | Flat `item[key]` lookup for sort values. Synthetic `numistaData.*` keys would currently sort as empty strings                                                                                                                                                 |
-| `js/bulkEdit.js:119-146`   | `formatBulkCellValue()`      | Flat `item[key]` lookup. Objects fall through to `JSON.stringify`. No dot-path traversal support                                                                                                                                                              |
-| `js/bulkEdit.js:152-163`   | `getFilteredItems()`         | Search text is built from flat `Object.keys(item)` values. Synthetic `numistaData.*` keys would currently be invisible to search                                                                                                                              |
-| `js/bulkEdit.js:170-315`   | `BULK_EDITABLE_FIELDS`       | 23 field definitions. Missing: `shape`, `capsule`, `capsuleNotes`. All use flat `id` strings — no nested property support                                                                                                                                     |
-| `js/bulkEdit.js:430-434`   | `coerceFieldValue()`         | Falls through to `sanitizeHtml(value)` for string fields. Shape/capsule/capsuleNotes are all strings, so no new coercion is expected                                                                                                                          |
-| `js/bulkEdit.js:1272-1285` | `applyBulkEdit()` apply loop | `item[fieldId] = coerceFieldValue(...)` — flat assignment only. Writing `shape` here would create `item.shape` (wrong), not `item.numistaData.shape` (correct). Empty `paymentMethod` is deleted as a special case                                            |
-| `js/bulkEdit.js:1277`      | Change-log snapshot          | `Object.assign({}, item)` creates a shallow snapshot. Nested `numistaData` mutations can mutate both old and new references before `logItemChanges()` compares them                                                                                           |
-| `js/bulkEdit.js:881-898`   | Table column construction    | Columns built as `[{ key: "cb" }, { key: "img" }, ...dataColumns]`. The `cb` and `img` columns are prepended but have no sticky CSS                                                                                                                           |
-| `js/bulkEdit.js:926-958`   | `<thead>` rendering          | `position: sticky; top: 0` already applied via CSS. No `left` stickiness on any column                                                                                                                                                                        |
-| `js/bulkEdit.js:1849-1850` | Window exports               | Exports `window.openBulkEdit` and `window.closeBulkEdit`. Module is otherwise self-contained via closures                                                                                                                                                     |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/bulkEdit.js:1-1850` | Entire bulk edit module | 1850 lines. Self-contained: state, field defs, table render, actions, Numista integration, image upload popover |
+| `js/bulkEdit.js:27-58` | `BULK_COLUMN_PRIORITY` | 30-key array controlling column order in the table. Currently flat keys only — no `numistaData.*` dot-path entries |
+| `js/bulkEdit.js:92-104` | `getBulkTableDataKeys()` | Scans `Object.keys(item)` across inventory. Only surfaces top-level keys; `numistaData` appears as a single object column and is not in `BULK_COLUMN_PRIORITY`, so items with catalog data can produce a raw JSON blob column in the remaining-column section |
+| `js/bulkEdit.js:114-117` | `getBulkSortableValue()` | Flat `item[key]` lookup for sort values. Synthetic `numistaData.*` keys would currently sort as empty strings |
+| `js/bulkEdit.js:119-146` | `formatBulkCellValue()` | Flat `item[key]` lookup. Objects fall through to `JSON.stringify`. No dot-path traversal support |
+| `js/bulkEdit.js:152-163` | `getFilteredItems()` | Search text is built from flat `Object.keys(item)` values. Synthetic `numistaData.*` keys would currently be invisible to search |
+| `js/bulkEdit.js:170-315` | `BULK_EDITABLE_FIELDS` | 23 field definitions. Missing: `shape`, `capsule`, `capsuleNotes`. All use flat `id` strings — no nested property support |
+| `js/bulkEdit.js:430-434` | `coerceFieldValue()` | Falls through to `sanitizeHtml(value)` for string fields. Shape/capsule/capsuleNotes are all strings, so no new coercion is expected |
+| `js/bulkEdit.js:1272-1285` | `applyBulkEdit()` apply loop | `item[fieldId] = coerceFieldValue(...)` — flat assignment only. Writing `shape` here would create `item.shape` (wrong), not `item.numistaData.shape` (correct). Empty `paymentMethod` is deleted as a special case |
+| `js/bulkEdit.js:1277` | Change-log snapshot | `Object.assign({}, item)` creates a shallow snapshot. Nested `numistaData` mutations can mutate both old and new references before `logItemChanges()` compares them |
+| `js/bulkEdit.js:881-898` | Table column construction | Columns built as `[{ key: "cb" }, { key: "img" }, ...dataColumns]`. The `cb` and `img` columns are prepended but have no sticky CSS |
+| `js/bulkEdit.js:926-958` | `<thead>` rendering | `position: sticky; top: 0` already applied via CSS. No `left` stickiness on any column |
+| `js/bulkEdit.js:1849-1850` | Window exports | Exports `window.openBulkEdit` and `window.closeBulkEdit`. Module is otherwise self-contained via closures |
 
 ### Secondary: Modal Field Definitions & Save Path
 
-| Path                           | Role                              | Notes                                                                                                                                                                                  |
-| ------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html:2588-2595`         | `#numistaShape` select            | Options: Round, Rectangular, Square, Oval, Other. These are the canonical shape values                                                                                                 |
-| `index.html:2630-2631`         | `#itemCapsule` input              | Text input, placeholder "e.g. A-32, X-38-Ring"                                                                                                                                         |
-| `index.html:2644-2649`         | `#itemCapsuleNotes` input         | Text input (NOT textarea), placeholder "e.g. Guardhouse 38mm — tight fit"                                                                                                              |
-| `js/events.js:1537`            | Top-level `composition`           | Derived from the Metal selector via `getCompositionFirstWords()`. This is the user-selected composition used by existing calculations and is separate from Numista catalog composition |
-| `js/events.js:1651-1673`       | `numistaData` field collection    | Builds `fields` object from modal inputs. `composition`, `shape`, `diameter`, dimensions, and other catalog fields live inside `item.numistaData`                                      |
-| `js/events.js:1595-1596`       | Capsule field collection          | `capsule` and `capsuleNotes` are saved as top-level item properties: `item.capsule`, `item.capsuleNotes`                                                                               |
-| `js/events.js:1681-1684`       | Lean `numistaData` storage        | Empty, false, and zero-valued catalog fields are stripped before storing `numistaData`                                                                                                 |
-| `js/events.js:1903,1978`       | `registerCapsule()` call          | After save, capsule values are registered for autocomplete suggestions                                                                                                                 |
-| `js/events.js:3036-3089`       | Shape dropdown dimension toggle   | `toggleDimensionFields()` clears incompatible dimensions when shape category changes in the form. Bulk shape edits need equivalent data-model cleanup                                  |
-| `js/autocomplete.js:1120-1132` | `registerCapsule()`               | Tracks capsule names from `#itemCapsule` only; capsule notes do not participate in autocomplete                                                                                        |
-| `js/changeLog.js:80-119`       | `logItemChanges()` tracked fields | Fixed comparison list currently omits `capsule` and `capsuleNotes`                                                                                                                     |
-| `js/diff-engine.js:32-83`      | `DIFF_FIELDS`                     | Cloud sync matched-item diff fields currently omit `capsule` and `capsuleNotes`                                                                                                        |
+| Path | Role | Notes |
+|------|------|-------|
+| `index.html:2588-2595` | `#numistaShape` select | Options: Round, Rectangular, Square, Oval, Other. These are the canonical shape values |
+| `index.html:2630-2631` | `#itemCapsule` input | Text input, placeholder "e.g. A-32, X-38-Ring" |
+| `index.html:2644-2649` | `#itemCapsuleNotes` input | Text input (NOT textarea), placeholder "e.g. Guardhouse 38mm — tight fit" |
+| `js/events.js:1537` | Top-level `composition` | Derived from the Metal selector via `getCompositionFirstWords()`. This is the user-selected composition used by existing calculations and is separate from Numista catalog composition |
+| `js/events.js:1651-1673` | `numistaData` field collection | Builds `fields` object from modal inputs. `composition`, `shape`, `diameter`, dimensions, and other catalog fields live inside `item.numistaData` |
+| `js/events.js:1595-1596` | Capsule field collection | `capsule` and `capsuleNotes` are saved as top-level item properties: `item.capsule`, `item.capsuleNotes` |
+| `js/events.js:1681-1684` | Lean `numistaData` storage | Empty, false, and zero-valued catalog fields are stripped before storing `numistaData` |
+| `js/events.js:1903,1978` | `registerCapsule()` call | After save, capsule values are registered for autocomplete suggestions |
+| `js/events.js:3036-3089` | Shape dropdown dimension toggle | `toggleDimensionFields()` clears incompatible dimensions when shape category changes in the form. Bulk shape edits need equivalent data-model cleanup |
+| `js/autocomplete.js:1120-1132` | `registerCapsule()` | Tracks capsule names from `#itemCapsule` only; capsule notes do not participate in autocomplete |
+| `js/changeLog.js:80-119` | `logItemChanges()` tracked fields | Fixed comparison list currently omits `capsule` and `capsuleNotes` |
+| `js/diff-engine.js:32-83` | `DIFF_FIELDS` | Cloud sync matched-item diff fields currently omit `capsule` and `capsuleNotes` |
 
 ### CSS: Bulk Editor Styles
 
-| Path                         | Role                                   | Notes                                                                                                                                             |
-| ---------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `css/styles.css:12538-12546` | `.bulk-edit-content`                   | `width: 95vw; max-width: 1400px; max-height: 92vh; display: flex`                                                                                 |
-| `css/styles.css:12562-12568` | `.bulk-edit-body`                      | `display: flex; gap: 1.5rem; overflow: hidden` — side-by-side layout                                                                              |
-| `css/styles.css:12571-12578` | `.bulk-edit-fields`                    | `width: 300px; flex-shrink: 0; overflow-y: auto; max-height: 70vh; border-right: 1px solid`                                                       |
-| `css/styles.css:12602-12609` | Field panel checkboxes                 | `width: 16px; height: 16px` — below WCAG 2.5.8 24×24px minimum                                                                                    |
-| `css/styles.css:12703-12710` | `.bulk-edit-table-wrap`                | `overflow-x: auto; -webkit-overflow-scrolling: touch` — horizontal scroll exists but no sticky columns inside                                     |
-| `css/styles.css:12712-12718` | `.bulk-edit-table`                     | `width: max-content; min-width: 100%; table-layout: auto; border-collapse: collapse` — `border-collapse: collapse` blocks reliable sticky columns |
-| `css/styles.css:12720-12725` | `.bulk-edit-table thead`               | `position: sticky; top: 0; z-index: 2` — vertical sticky header already works                                                                     |
-| `css/styles.css:12740-12744` | Table checkboxes                       | `width: 16px; height: 16px` — same undersized problem                                                                                             |
-| `css/styles.css:13014-13030` | `@media (max-width: 768px)` responsive | Stacks field panel above table, sets `width: 100%` on panel, removes border-right. No collapsible behavior — panel always visible                 |
-| `css/styles.css:13086-13096` | Mobile fullscreen override             | Bulk edit content gets `100vw, 100dvh` fullscreen treatment                                                                                       |
-| `css/styles.css:13114-13123` | Item/view modal safe-area headers      | Safe-area padding exists for item and view modal headers, but not for the bulk edit modal header                                                  |
-| `css/styles.css:13213-13237` | Bulk edit mobile phase 6               | Panel inputs/selects get `min-height: 44px` but checkboxes do not receive the same effective tap area                                             |
+| Path | Role | Notes |
+|------|------|-------|
+| `css/styles.css:12538-12546` | `.bulk-edit-content` | `width: 95vw; max-width: 1400px; max-height: 92vh; display: flex` |
+| `css/styles.css:12562-12568` | `.bulk-edit-body` | `display: flex; gap: 1.5rem; overflow: hidden` — side-by-side layout |
+| `css/styles.css:12571-12578` | `.bulk-edit-fields` | `width: 300px; flex-shrink: 0; overflow-y: auto; max-height: 70vh; border-right: 1px solid` |
+| `css/styles.css:12602-12609` | Field panel checkboxes | `width: 16px; height: 16px` — below WCAG 2.5.8 24×24px minimum |
+| `css/styles.css:12703-12710` | `.bulk-edit-table-wrap` | `overflow-x: auto; -webkit-overflow-scrolling: touch` — horizontal scroll exists but no sticky columns inside |
+| `css/styles.css:12712-12718` | `.bulk-edit-table` | `width: max-content; min-width: 100%; table-layout: auto; border-collapse: collapse` — `border-collapse: collapse` blocks reliable sticky columns |
+| `css/styles.css:12720-12725` | `.bulk-edit-table thead` | `position: sticky; top: 0; z-index: 2` — vertical sticky header already works |
+| `css/styles.css:12740-12744` | Table checkboxes | `width: 16px; height: 16px` — same undersized problem |
+| `css/styles.css:13014-13030` | `@media (max-width: 768px)` responsive | Stacks field panel above table, sets `width: 100%` on panel, removes border-right. No collapsible behavior — panel always visible |
+| `css/styles.css:13086-13096` | Mobile fullscreen override | Bulk edit content gets `100vw, 100dvh` fullscreen treatment |
+| `css/styles.css:13114-13123` | Item/view modal safe-area headers | Safe-area padding exists for item and view modal headers, but not for the bulk edit modal header |
+| `css/styles.css:13213-13237` | Bulk edit mobile phase 6 | Panel inputs/selects get `min-height: 44px` but checkboxes do not receive the same effective tap area |
 
 ### Prior Art: Main Inventory Table Sticky Columns
 
-| Path                       | Role              | Notes                                                                                                                                           |
-| -------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `css/styles.css:5129-5142` | `#inventoryTable` | Uses `border-collapse: separate; border-spacing: 0` — prerequisite for sticky columns. Comment explicitly notes this enables `position: sticky` |
-| `css/styles.css:5090-5098` | `.table-section`  | `overflow: visible` — prevents creating an intermediate scroll container that would break sticky                                                |
-| `css/styles.css:5101-5113` | `.portal-scroll`  | The actual scroll container. `overflow-x: auto; overflow-y: auto; -webkit-overflow-scrolling: touch`                                            |
+| `css/styles.css:5090-5098` | `.table-section` | `overflow: visible` — prevents creating an intermediate scroll container that would break sticky |
+| `css/styles.css:5101-5113` | `.portal-scroll` | The actual scroll container. `overflow-x: auto; overflow-y: auto; -webkit-overflow-scrolling: touch` |
 
 ### HTML Structure
 
-| Path                   | Role                | Notes                                                                                                                                                                                        |
-| ---------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `index.html:8034-8058` | Bulk edit modal DOM | Structure: `#bulkEditModal > .bulk-edit-content > [.modal-header, .bulk-edit-body > [.bulk-edit-fields, .bulk-edit-items > [.bulk-edit-toolbar, .bulk-edit-table-wrap]], .bulk-edit-footer]` |
-| `index.html:8054`      | `.bulk-edit-footer` | Contains Apply/Cancel/Close actions. No mobile safe-area bottom padding is currently applied                                                                                                 |
-| `index.html:8060-8080` | `#bulkConfirmModal` | Inline confirmation dialog (custom DOM modal, not `window.confirm`)                                                                                                                          |
+| `index.html:8054` | `.bulk-edit-footer` | Contains Apply/Cancel/Close actions. No mobile safe-area bottom padding is currently applied |
+| `index.html:8060-8080` | `#bulkConfirmModal` | Inline confirmation dialog (custom DOM modal, not `window.confirm`) |
 
 ### Test Coverage
 
-| Path                                                        | Role                             | Notes                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tests/playwright/goldback-type.spec.js:98-126,233-254,341` | Goldback bulk edit tests         | Opens bulk editor and tests goldback denomination picker swap. Uses `openBulkEditModal()` helper                                                                                                                                                                         |
-| `tests/playwright/payment-method.spec.js:64-92,184-207`     | Payment method bulk edit test    | Tests bulk set/clear of paymentMethod field                                                                                                                                                                                                                              |
-| `tests/playwright/silverback.spec.js:78-106,173-192`        | Silverback bulk edit test        | Tests silverback unit handling in bulk editor                                                                                                                                                                                                                            |
-| `tests/playwright/mobile-modal-safe-area.spec.js:196-414`   | Mobile modal safe-area prior art | Provides viewport/source assertion patterns for fullscreen mobile modal behavior                                                                                                                                                                                         |
-| _(no dedicated file)_                                       | No bulk editor test suite        | No `bulk-edit.spec.js` exists. Coverage is incidental through feature-specific test files. No current test asserts mobile sticky offsets, checkbox/tap target geometry, collapsible panel behavior, nested `shape` persistence, or `numistaData.*` table column behavior |
+| Path | Role | Notes |
+|------|------|-------|
+| `tests/playwright/goldback-type.spec.js:98-126,233-254,341` | Goldback bulk edit tests | Opens bulk editor and tests goldback denomination picker swap. Uses `openBulkEditModal()` helper |
+| `tests/playwright/payment-method.spec.js:64-92,184-207` | Payment method bulk edit test | Tests bulk set/clear of paymentMethod field |
+| `tests/playwright/silverback.spec.js:78-106,173-192` | Silverback bulk edit test | Tests silverback unit handling in bulk editor |
+| `tests/playwright/mobile-modal-safe-area.spec.js:196-414` | Mobile modal safe-area prior art | Provides viewport/source assertion patterns for fullscreen mobile modal behavior |
+| _(no dedicated file)_ | No bulk editor test suite | No `bulk-edit.spec.js` exists. Coverage is incidental through feature-specific test files. No current test asserts mobile sticky offsets, checkbox/tap target geometry, collapsible panel behavior, nested `shape` persistence, or `numistaData.*` table column behavior |
 
 ### Existing Collapsible Pattern
 
-| Path                       | Role                        | Notes                                                                                                       |
-| -------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `css/styles.css:1262-1290` | `.form-section` collapsible | Uses `<details>/<summary>` for zero-JS collapsible sections. `.form-section-header` with `min-height: 36px` |
 
 ## Prior Decisions
@@ -282,7 +282,7 @@ _Reconciled by /sketch reconcile on 2026-05-23. Original reviewer marks preserve
 
 > DEEPSEEK: The discovery should also flag the **delete-when-empty contract**. The existing `applyBulkEdit()` deletes `item.paymentMethod` when the value is empty (`bulkEdit.js:1283-1285`). New string fields `capsule` and `capsuleNotes` should follow the same pattern to avoid persisting empty strings. Additionally, `capsuleNotes` does NOT participate in autocomplete (verified: `registerCapsule` at `autocomplete.js:1120` only reads `#itemCapsule` input, never `#itemCapsuleNotes`), so the approach should confirm that calling `registerCapsule(capsuleNotes)` is out of scope.
 
-> DEEPSEEK: There is a **column name collision** to resolve first. `composition` already appears in `BULK_COLUMN_PRIORITY` (line 30, verified) — it is currently rendered as a flat `item.composition` column via `formatBulkCellValue(item, "composition")` at line 121. If the approach phase enhances the _existing_ composition column's display logic to check `numistaData.composition` (fallback), no collision. But if it adds a _new synthetic column_ keyed `numistaData.composition`, the user sees **two** composition columns — the original flat `item.composition` (from BULK_COLUMN_PRIORITY) and the synthetic one (from the key-extension logic). The approach should enhance the existing column rather than add a duplicate.
+> DEEPSEEK: There is a **column name collision** to resolve first. `composition` already appears in `BULK_COLUMN_PRIORITY` (line 30, verified) — it is currently rendered as a flat `item.composition` column via `formatBulkCellValue(item, "composition")` at line 121. If the approach phase enhances the *existing* composition column's display logic to check `numistaData.composition` (fallback), no collision. But if it adds a *new synthetic column* keyed `numistaData.composition`, the user sees **two** composition columns — the original flat `item.composition` (from BULK_COLUMN_PRIORITY) and the synthetic one (from the key-extension logic). The approach should enhance the existing column rather than add a duplicate.
 
 #### Review section
 
@@ -311,7 +311,7 @@ _Reconciled by /sketch reconcile on 2026-05-23. Original reviewer marks preserve
 
 ### Top concerns
 
-1. **Composition column UX deadlock with no codebase precedent.** The existing `composition` column (BULK_COLUMN_PRIORITY line 30) already renders `item.composition` which is always non-empty (derived from Metal selector). No code anywhere in the app (`inventoryTable`, `viewModal`, `filters`, `sorting`) prefers `numistaData.composition` over `item.composition`. The approach phase must pick a UX winner — or this becomes a phantom feature that looks correct in code but is invisible to users because the flat column already wins the display race. Adding a _second_ composition column (keyed `numistaData.composition`) would make the table look broken with duplicate headers.
+1. **Composition column UX deadlock with no codebase precedent.** The existing `composition` column (BULK_COLUMN_PRIORITY line 30) already renders `item.composition` which is always non-empty (derived from Metal selector). No code anywhere in the app (`inventoryTable`, `viewModal`, `filters`, `sorting`) prefers `numistaData.composition` over `item.composition`. The approach phase must pick a UX winner — or this becomes a phantom feature that looks correct in code but is invisible to users because the flat column already wins the display race. Adding a *second* composition column (keyed `numistaData.composition`) would make the table look broken with duplicate headers.
 
 2. **The `numistaData` JSON-blob column is a pre-existing visual defect that synthetic columns will exacerbate.** Since `numistaData` is not in BULK_COLUMN_PRIORITY, `getBulkTableDataKeys()` places it in the "remaining" section for any item that has one. The table currently shows a `JSON.stringify` blob in that column (via `formatBulkCellValue` line 143 → `normalizeBulkValue` line 84). Adding synthetic `numistaData.*` columns without suppressing the raw `numistaData` column means users see both the individual columns AND the JSON blob — worse than today. The approach should explicitly suppress `numistaData` from the column list when synthetic sub-keys are present.
 

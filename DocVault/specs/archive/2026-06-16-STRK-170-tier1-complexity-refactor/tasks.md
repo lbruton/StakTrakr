@@ -13,11 +13,11 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 > **Skill-name discipline:** Closing tasks name specific skills (`/release patch`, `/update-spot-bundle`, `/vault-update`, `codacy-analysis-cli`, `/pr-resolve`, `/sketch archive`). Invoke them **verbatim** — paraphrasing inline drops project-specific rules. Irrelevant ones → `N/A — <reason>`, never dropped.
 
-> **Multi-PR campaign adaptation (read first).** Unlike a single-worktree sketch, STRK-170 ships as **19 independent per-file PR cohorts** (AC-6), each its own `chore/strk-170-<file>` worktree → unbumped PR → merge. The template's global _Cohort A/B/C_ therefore becomes a **Per-Cohort Recipe** (below) applied to every cohort: the TDD RED→GREEN invariant lives _inside_ each cohort PR, not across the campaign. The Standard Closing Tasks (single `/release patch`, residual triage, vault, archive) run **once, after all 19 cohorts merge**.
+> **Multi-PR campaign adaptation (read first).** Unlike a single-worktree sketch, STRK-170 ships as **19 independent per-file PR cohorts** (AC-6), each its own `chore/strk-170-<file>` worktree → unbumped PR → merge. The template's global *Cohort A/B/C* therefore becomes a **Per-Cohort Recipe** (below) applied to every cohort: the TDD RED→GREEN invariant lives *inside* each cohort PR, not across the campaign. The Standard Closing Tasks (single `/release patch`, residual triage, vault, archive) run **once, after all 19 cohorts merge**.
 
-> **Branch-convention exception (supersedes the generic `patch/<version>` rule for this campaign).** `.context/sketch-conventions.md` / `.context/git-topology.md` require `patch/<version>` via `/start-patch` — but that claims a **version lock per branch**, which is incoherent for a **no-bump campaign** (AC-7): 19 cohorts ship _unbumped_ and only the closing `/release` bumps. Per the **STRK-169 precedent** (its split PRs used `feature/strk-169-*` / `refactor/strk-176-*` branches, not `patch/<version>`), cohort PRs here use **`chore/strk-170-<file>`** off `origin/dev`. `patch/<version>` via `/start-patch` applies **only** to the closing `/release patch` PR (CLOSE-5), which is the campaign's one bumped PR. _(A one-line `.context/sketch-conventions.md` amendment documenting no-bump-campaign branches is filed as a follow-up.)_
+> **Branch-convention exception (supersedes the generic `patch/<version>` rule for this campaign).** `.context/sketch-conventions.md` / `.context/git-topology.md` require `patch/<version>` via `/start-patch` — but that claims a **version lock per branch**, which is incoherent for a **no-bump campaign** (AC-7): 19 cohorts ship *unbumped* and only the closing `/release` bumps. Per the **STRK-169 precedent** (its split PRs used `feature/strk-169-*` / `refactor/strk-176-*` branches, not `patch/<version>`), cohort PRs here use **`chore/strk-170-<file>`** off `origin/dev`. `patch/<version>` via `/start-patch` applies **only** to the closing `/release patch` PR (CLOSE-5), which is the campaign's one bumped PR. _(A one-line `.context/sketch-conventions.md` amendment documenting no-bump-campaign branches is filed as a follow-up.)_
 
-> **TDD for refactors — characterization, not classic RED.** A behavior-preserving refactor adds no new behavior, so a char test _passes_ on current code (green) and must _stay_ green through the refactor — it goes RED only if the refactor breaks behavior. That inverted-RED regression guard is the TDD discipline here: **write the char test first, confirm green on current code, then refactor** (AC-4).
+> **TDD for refactors — characterization, not classic RED.** A behavior-preserving refactor adds no new behavior, so a char test *passes* on current code (green) and must *stay* green through the refactor — it goes RED only if the refactor breaks behavior. That inverted-RED regression guard is the TDD discipline here: **write the char test first, confirm green on current code, then refactor** (AC-4).
 
 ---
 
@@ -46,7 +46,7 @@ For a cohort file `js/<file>` with target functions `<fns>`:
 
 ## Sprint Cohort 1 — Anchors (heaviest + most char tests) · each `[P]` on its own file
 
-> **Anchor-sizing learning (pilot 2026-06-14):** the ccn > 100 monsters — `editItem` (ccn133/204), `inventory-import.complete` (ccn132/322), `vault.handleVaultAction` (ccn84/285) — are each a bigger decomposition than entire mop-up cohorts. A fire-and-forget subagent pass on the _whole_ `inventory.js` cohort stalled on `editItem` alone. Treat each ccn>100 function as a **focused, supervised sub-effort** (one careful pass per monster, char-test-first), and only bundle the file's _smaller_ targets into the fire-and-forget lane. `editItem` is being done inline first to establish the table-dispatch pattern; `duplicateItem`/`confirmRemoveItem`/`splitInventoryItem`/click-dispatcher follow once the pattern is proven.
+> **Anchor-sizing learning (pilot 2026-06-14):** the ccn > 100 monsters — `editItem` (ccn133/204), `inventory-import.complete` (ccn132/322), `vault.handleVaultAction` (ccn84/285) — are each a bigger decomposition than entire mop-up cohorts. A fire-and-forget subagent pass on the *whole* `inventory.js` cohort stalled on `editItem` alone. Treat each ccn>100 function as a **focused, supervised sub-effort** (one careful pass per monster, char-test-first), and only bundle the file's *smaller* targets into the fire-and-forget lane. `editItem` is being done inline first to establish the table-dispatch pattern; `duplicateItem`/`confirmRemoveItem`/`splitInventoryItem`/click-dispatcher follow once the pattern is proven.
 
 - [x] **1.1 [P]** — Refactor `inventory.js` (5 targets)
   - **File(s):** `js/inventory.js` + char test (`tests/unit/` or extend `tests/playwright/core/inventory-crud.spec.js`)
@@ -139,7 +139,7 @@ For a cohort file `js/<file>` with target functions `<fns>`:
 
 > **Done — PR [#1277](https://github.com/lbruton/StakTrakr/pull/1277) (merged 2026-06-16, merge commit `80229812`). Cohort 3 COMPLETE (3.1–3.9); all 19 STRK-170 defined cohorts merged.** All 9 mop-up files refactored behavior-preservingly in isolated per-file worktrees, then assembled into ONE PR (9 per-file commits) to conserve review credits. Live Codacy targets resolved — several files had MORE over-gate functions than the stale sketch listed, folded in per AC-6: `api.js` `fetchLatestPrices` 36→9 **+ `_spotProviderSyncPromise` 29→7**; `bulk-image-cache` `cacheAll` 71→9; `bulkEdit` `applyBulkEdit` 39→11 **+ `renderBulkFieldPanel` 28→3**; `catalog-api` `searchItems` nloc907→15 (regex-desync phantom dissolved) **+ newly-exposed `normalizeItemData` ccn39→thin, deduped in-PR**; `csv-export` `buildCsvContent` 51→5 **+ `exportNumistaCsv` 28→3**; `chip-grouping` `extractDynamicChips` nloc287→orchestrator (quote-regex desync dissolved); `image-cache-modal` `syncNumistaImageUrls` 35→9; `retail` `_syncRetailV2` 47→10 + anon per-slug 68→named `_processV2SlugResult` 9; `viewModal` `_createPriceHistoryChart` 46/193→11/95 (render cohort). ~84 JSDoc'd helpers; every `window.*` export byte-identical. Char tests (AC-4) added for api/bulk-image-cache/bulkEdit/chip-grouping/retail, green pre+post. `npm test` 270 + D-8 visual 15 green (serial, re-confirmed on `dev` post-merge). Codacy Cloud "Up to standards — 0 new issues", −4 duplication; CodeRabbit pre-merge 5/5 (docstring 85.71%). 11 review threads all pre-existing/desync-FP → per-finding follow-ups **STRK-211…218** (2 `csv-export` IIFE threads = desync FP). **Residual discovery (CLOSE-2):** post-merge ground-truth lizard found **8 canonical-Tier-1 functions absent from AC-10** (desync-masked at inventory time; the CODEX-flagged completeness gap) → deferred to **STRK-219** (round 2). `csv-export` IIFE ccn32 (real ~1) and `inventory-table _buildRowDisplays` ccn51 (real ~21) are documented desync FPs.
 
-> **Parallelization note:** all 19 cohorts touch disjoint `js/` source files → `[P]` is collision-free on source. `tests/playwright/coverage-map.csv` is touched only if a cohort adds a _new_ Playwright spec (most char tests are unit or extend existing specs) — append-only, trivially rebase-resolved. **`index.html` is NOT append-only:** in this zero-build script-tag app, relative `<script defer>` order is _semantic_ — if more than one cohort takes the D-1a sibling-module fallback, each such PR needs a **post-merge/rebase gate that re-verifies the final script order against dependencies** (load a module only after the globals it consumes). Parallel dispatch is still fine; just don't treat `index.html` edits as conflict-free. Each cohort is an independent worktree+PR, so "parallel" = multiple cohort worktrees in flight.
+> **Parallelization note:** all 19 cohorts touch disjoint `js/` source files → `[P]` is collision-free on source. `tests/playwright/coverage-map.csv` is touched only if a cohort adds a *new* Playwright spec (most char tests are unit or extend existing specs) — append-only, trivially rebase-resolved. **`index.html` is NOT append-only:** in this zero-build script-tag app, relative `<script defer>` order is *semantic* — if more than one cohort takes the D-1a sibling-module fallback, each such PR needs a **post-merge/rebase gate that re-verifies the final script order against dependencies** (load a module only after the globals it consumes). Parallel dispatch is still fine; just don't treat `index.html` edits as conflict-free. Each cohort is an independent worktree+PR, so "parallel" = multiple cohort worktrees in flight.
 
 ---
 
@@ -159,7 +159,7 @@ For a cohort file `js/<file>` with target functions `<fns>`:
 - [x] **CLOSE-4. Generate verification stamp** — append a `## Verification Stamp` block to this file with one line per AC (AC-1 … AC-10). AC-5 (behavior preservation) is UI-mapped → its stamp line MUST cite visual evidence (the D-8 visual-regression run), not a test name alone. Refuse to proceed while any `[ ]` remains.
   - **File:** this `tasks.md`
 
-- [ ] **CLOSE-5. Version bump (campaign close)** — **MUST invoke `/update-spot-bundle` then `/release patch`** (verbatim skills). Single closing patch on a `patch/<version>` branch (this is the campaign's one bumped PR — the `patch/<version>` convention applies _here_): bumps the version, writes one code-health "What's New" entry, claims the version lock (high-water mark) (AC-7).
+- [ ] **CLOSE-5. Version bump (campaign close)** — **MUST invoke `/update-spot-bundle` then `/release patch`** (verbatim skills). Single closing patch on a `patch/<version>` branch (this is the campaign's one bumped PR — the `patch/<version>` convention applies *here*): bumps the version, writes one code-health "What's New" entry, claims the version lock (high-water mark) (AC-7).
   - **File:** release artifacts (`js/constants.js`, `package.json`, `package-lock.json`, `version.json`, `CHANGELOG.md`, `js/about.js`, `data/spot-history-bundle.js`)
   - **Maps to:** AC-7
 
@@ -185,7 +185,7 @@ _Generated 2026-06-16 at campaign close (CLOSE-4). Defined scope = the 38 AC-10 
 - **AC-5 (behavior preservation / byte-stable DOM):** ✅ **visual evidence** — D-8 `visual-layout-regressions` 15 passing on `dev` (render cohorts market-data/diff-modal/inventory-table/viewModal byte-stable).
 - **AC-6 (completeness within targeted functions):** ✅ cohorts folded in all over-gate functions surfaced in their live scans beyond the stale sketch lists. ⚠️ file-level completeness bounded by the AC-10 inventory gap → STRK-219.
 - **AC-7 (no-bump campaign + one release):** ✅ all 19 cohorts shipped unbumped; single closing `/release patch` (CLOSE-5).
-- **AC-8 (residual triage + carveout):** ccn 26–34 borderline → AcceptedUse; Tier-3 (`_esc`, `escapeDialogText`) + new desync FPs (`csv-export` IIFE ccn32→real~~1, `inventory-table _buildRowDisplays` ccn51→real~~21) → FalsePositive; **STRK-195** `settings-listeners.js` carveout remains open; 8 round-2 fns tracked by **STRK-219**; cohort-3 threads → per-finding follow-ups **STRK-211…218**.
+- **AC-8 (residual triage + carveout):** ccn 26–34 borderline → AcceptedUse; Tier-3 (`_esc`, `escapeDialogText`) + new desync FPs (`csv-export` IIFE ccn32→real~1, `inventory-table _buildRowDisplays` ccn51→real~21) → FalsePositive; **STRK-195** `settings-listeners.js` carveout remains open; 8 round-2 fns tracked by **STRK-219**; cohort-3 threads → per-finding follow-ups **STRK-211…218**.
 - **AC-9 (promote genuine anonymous fns):** ✅ named + refactored (retail `_processV2SlugResult`, filters/search `_COIN_SERIES`, inventory-table row builders).
 - **AC-10 (canonical inventory):** ⚠️ the 38-target table was the working inventory; post-hoc found 8 desync-masked omissions (the discovery-phase CODEX risk realized) → **STRK-219** carries the corrected residual.
 
@@ -197,12 +197,12 @@ _Generated 2026-06-16 at campaign close (CLOSE-4). Defined scope = the 38 AC-10 
 
 `approach.md`'s UI Contract is **N/A — no new UI surface** (behavior-preserving refactor; no mockup, playground, or screenshot cited). There are **no named UI states** to trace. The only UI obligation is **byte-stable DOM (AC-5)** for the render-function cohorts, enforced by the **D-8 extended visual gate**:
 
-| Render cohort            | Verifying gate (D-8)                                                                                                                      |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1 `market-data.js`     | `npm run test:extended -- tests/playwright/extended/visual-layout-regressions.spec.js` + `core/mobile-and-layout.spec.js` (in `npm test`) |
-| 2.3 `diff-modal.js`      | same                                                                                                                                      |
-| 2.6 `inventory-table.js` | same                                                                                                                                      |
-| 3.9 `viewModal.js`       | same                                                                                                                                      |
+| Render cohort | Verifying gate (D-8) |
+|---|---|
+| 2.1 `market-data.js` | `npm run test:extended -- tests/playwright/extended/visual-layout-regressions.spec.js` + `core/mobile-and-layout.spec.js` (in `npm test`) |
+| 2.3 `diff-modal.js` | same |
+| 2.6 `inventory-table.js` | same |
+| 3.9 `viewModal.js` | same |
 
 AC-5's verification stamp (CLOSE-4) cites the D-8 visual-regression run as the visual evidence.
 
@@ -212,45 +212,40 @@ AC-5's verification stamp (CLOSE-4) cites the D-8 visual-regression run as the v
 
 Cohort 1.1's hardest target, fully analyzed during the pilot. **Turnkey for a fresh pass.**
 
-- **Location:** `js/inventory.js` lines **1608–2012** (~405 lines incl. comments), `const editItem = (idx, logIdx = null) => {…}`. Lizard: **ccn 133 / nloc 204**. It is a _sequence of field-population blocks_, NOT a switch → technique is **extract-helper** (the tasks.md "table-dispatch" label was wrong for this function).
+- **Location:** `js/inventory.js` lines **1608–2012** (~405 lines incl. comments), `const editItem = (idx, logIdx = null) => {…}`. Lizard: **ccn 133 / nloc 204**. It is a *sequence of field-population blocks*, NOT a switch → technique is **extract-helper** (the tasks.md "table-dispatch" label was wrong for this function).
 - **Existing coverage (strong regression guard already):** `window.editItem` is called by `core/inventory-crud.spec.js` (56 edit assertions; calls at ~109/605/1122/1144/1166), `core/mobile-and-layout.spec.js` ("edit modal keeps image/identity/metal/denomination controls in order"), `core/numista-catalog.spec.js`, `core/inventory-math.spec.js`. Run these after each cut to confirm no behavior change.
-- **Char test (AC-4, focused):** add to `tests/playwright/core/inventory-crud.spec.js` (extend — no coverage-map row) a test pinning the field-population _mapping_: seed an item with known weight-unit (gb/kg/lb/g/oz), price (FX + precision), purity (preset & custom), and metadata; call `editItem(idx)`; assert the form fields' values. This is the surface the extraction most risks.
+- **Char test (AC-4, focused):** add to `tests/playwright/core/inventory-crud.spec.js` (extend — no coverage-map row) a test pinning the field-population *mapping*: seed an item with known weight-unit (gb/kg/lb/g/oz), price (FX + precision), purity (preset & custom), and metadata; call `editItem(idx)`; assert the form fields' values. This is the surface the extraction most risks.
 - **7 extractions → orchestrator (each JSDoc'd, module-private, < ccn 25):**
-  1. `_editPopulateWeightFields(item)` — gb/kg/lb/g/oz chain (~1638–1661). _big CCN._
-  2. `_editPopulateMonetaryMetaFields(item)` — FX price/marketValue display + payment/location/serial/notes/capsule/date + date-NA btn + catalog/year/grade/cert/pcgs/image-url/ignorePattern (~1663–1715). _big CCN._ Note the shared `_fmtDisplay` closure is reused by lot-pricing (#5) — hoist it or pass it.
+  1. `_editPopulateWeightFields(item)` — gb/kg/lb/g/oz chain (~1638–1661). *big CCN.*
+  2. `_editPopulateMonetaryMetaFields(item)` — FX price/marketValue display + payment/location/serial/notes/capsule/date + date-NA btn + catalog/year/grade/cert/pcgs/image-url/ignorePattern (~1663–1715). *big CCN.* Note the shared `_fmtDisplay` closure is reused by lot-pricing (#5) — hoist it or pass it.
   3. `_editPopulatePurityField(item)` — preset/custom matching (~1717–1735).
-  4. `_editLoadImages(item)` — image-cache async `.then` block + the nested `showPreview`/`showUrlPreviewFallback` helpers (~1759–1851). _big CCN._
+  4. `_editLoadImages(item)` — image-cache async `.then` block + the nested `showPreview`/`showUrlPreviewFallback` helpers (~1759–1851). *big CCN.*
   5. `_editRestoreLotPricing(item)` — `restorePurchasePriceToggle` lot-total restore (~1911–~1945).
   6. `_editNormalizeNumistaShape(item)` — shape normalize + diameter migration (~1875–1909). **Contains `/[xX×]/` → place this helper LAST IN THE FILE** ([[lizard-esc-regex-desync]]); verify with `lizard`, not `node --check`.
   7. Core fields (metal/name/qty/type @1624–1635) + trailing visibility toggles stay inline in the orchestrator.
 - **Expected result:** editItem orchestrator ccn ~10–12; every helper < 25; file-nloc stays ~flat (in-file extraction, D-1 — `inventory.js` headroom vs 2500 still to confirm at cut time, D-1a watch).
 - **Worktree is ready:** `.claude/worktrees/strk-170-inventory` (branch `chore/strk-170-inventory`) is on a CLEAN `origin/dev` baseline with `codacy-analysis init --remote` already run (local Lizard pre-flight works there). Resume: refactor → `lizard js/inventory.js -C 25 -L 150 -w` (or `codacy-analysis analyze --tool Lizard --files js/inventory.js`) → run the 4 specs + char test → `npm test` → commit `chore(STRK-170): inventory.js editItem complexity refactor`.
-- **Pilot note:** a fire-and-forget subagent stalled here (rabbit-holed on `×`-glyph caution with only the structure half-discovered). With this plan the 7 cuts are mechanical; safe to do inline or hand to a subagent _with this appendix in its prompt_.
+- **Pilot note:** a fire-and-forget subagent stalled here (rabbit-holed on `×`-glyph caution with only the structure half-discovered). With this plan the 7 cuts are mechanical; safe to do inline or hand to a subagent *with this appendix in its prompt*.
 
 ---
 
 ## Review Archive — tasks (2026-06-14)
 
 ### Resolution Summary
-
 5 Codex inline marks + 1 `## CODEX Review` section. **All 5 accepted** (0 rejected); mark #1 (branch convention) confirmed with the user as an explicit STRK-169-precedent exception. Both convention claims (branch override; closeout-ordering gotcha) verified against `.context/git-topology.md` and `.context/implementation-gotchas.md`. Net edits: `feature/strk-170-<file>` → `chore/strk-170-<file>` + a documented branch-convention exception (mark #1); recipe step 5 scans D-1a sibling files too (mark #2); recipe step 7 adds `coderabbit-review`+`codacy-review` labels and uses `chore(` not `feat(` (mark #3); parallelization note corrected — `index.html` script order is semantic, not append-only (mark #4); closeout split so Plane Done (new CLOSE-9) follows merge + archive (mark #5). A `.context/sketch-conventions.md` amendment for no-bump-campaign branches is filed as a follow-up.
 
 ### Original Codex marks (verbatim)
 
 - **On the branch convention → resolved by `chore/strk-170-<file>` + the exception note:**
-
   > CODEX: StakTrakr's project override explicitly says `/start-patch` + `patch/<version>` branches replace generic sketch branch names, and `.context/git-topology.md` repeats that sketch dispatch must override generated branch names. This plan hard-codes `feature/strk-170-<file>` as the per-cohort convention, so every implementation PR would start outside the documented repo workflow unless tasks either rewrite the cohort setup to the project convention or cite an explicit STRK-169 exception that supersedes the current `.context/sketch-conventions.md` rule.
 
 - **On recipe step 5 (D-1a scan scope) → resolved by adding sibling files to the scan:**
-
   > CODEX: This scan scope misses the D-1a fallback case. `approach.md` D-5 uses `<cohort files>`, and D-1a/File Map allow a new sibling `js/<name>.js` plus `index.html`; AC-2 forbids relocating complexity into a helper. Step 5 needs to scan `js/<file>` plus any sibling JS created by that cohort (for example `--files js/<file> js/<name>.js`) before push.
 
 - **On recipe step 7 (labels + commit type) → resolved by adding labels + `chore(`:**
-
   > CODEX: The PR step does not add the tag-gated review labels that `.context/review-and-ci.md` now requires for runtime patches (`coderabbit-review` and `codacy-review`), yet it relies on CodeRabbit's docstring-coverage panel. It also titles this internal code-health/no-user-facing-change work as `feat`; the requirements say the campaign has no user-facing change, so the task should use `chore(STRK-170): ...` unless a cohort actually adds user-visible behavior.
 
 - **On the parallelization note (`index.html`) → resolved by correcting the append-only claim:**
-
   > CODEX: The `index.html` D-1a path is not append-only in the way this note claims. In a zero-build script-tag app, relative `<script defer>` order is semantic; if more than one cohort extracts a sibling module, each PR needs a post-merge/rebase gate that re-verifies the final script order against dependencies. Parallel work is still possible, but this paragraph should stop promising collision-free append-only resolution for `index.html`.
 
 - **On closeout ordering (CLOSE-6) → resolved by splitting Plane Done into CLOSE-9 (post-archive):**
@@ -261,12 +256,10 @@ Cohort 1.1's hardest target, fully analyzed during the pilot. **Turnkey for a fr
 Verdict: revisions requested.
 
 **Verified**
-
 - Reviewed `tasks.md` against `requirements.md`, `discovery.md`, reconciled `approach.md`, `DocVault/sketch/conventions.md`, `DocVault/sketch/templates/tasks-template.md`, and StakTrakr's `.context/sketch-conventions.md`, `.context/git-topology.md`, `.context/implementation-gotchas.md`, `.context/review-and-ci.md`, and `.context/GLOSSARY.md`.
 - Read back the edited file and confirmed the only DocVault change is `Projects/StakTrakr/sketches/STRK-170-tier1-complexity-refactor/tasks.md`.
 
 **Top concerns**
-
 - The per-cohort worktree/branch convention conflicts with StakTrakr's documented `/start-patch` / `patch/<version>` override.
 - The local Lizard pre-flight does not include D-1a sibling helper files, so it can miss relocated complexity.
 - Per-cohort PR instructions omit required review labels and use `feat` for internal code-health work.
@@ -274,7 +267,6 @@ Verdict: revisions requested.
 - Closeout marks STRK-170 Done in Plane before the release PR merges and before sketch archive, contrary to the project gotcha.
 
 **Unverified assumptions**
-
 - I did not verify live Plane state for STRK-170 or STRK-195, or the historical STRK-169 precedent beyond what the current sketch documents. The blocker is based on the current StakTrakr workflow docs.
 
 ---

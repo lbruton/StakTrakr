@@ -1,7 +1,7 @@
 ---
 sketch: STRK-48-per-oz-per-coin-premium
 phase: discovery
-created: "2026-05-14"
+created: '2026-05-14'
 ---
 
 # STRK-48 — Discovery
@@ -12,73 +12,73 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Valuation section — the insertion point
 
-| Path                      | Role                                      | Notes                                                                                                                                                                                                                                      |
-| ------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `js/viewModal.js:550-591` | `_buildValuationSection(item, metrics)`   | Builds the Valuation grid. Currently renders 4 cells: Purchase, Melt Value, Retail, Gain/Loss. Premium lines will be added here.                                                                                                           |
-| `js/viewModal.js:568`     | `_el("div", "view-detail-grid four-col")` | Creates the valuation grid as a 4-column CSS grid. Adding 2 more cells pushes to 6 items in the grid.                                                                                                                                      |
-| `js/viewModal.js:582-588` | Gain/Loss coloring                        | Uses `_detailItem()` + `.gain`/`.loss` CSS classes on `.view-detail-value`. Same pattern needed for premium coloring. Gain/Loss is always rendered (either with a value or a muted "—"), so the grid always has exactly 4 items currently. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/viewModal.js:550-591` | `_buildValuationSection(item, metrics)` | Builds the Valuation grid. Currently renders 4 cells: Purchase, Melt Value, Retail, Gain/Loss. Premium lines will be added here. |
+| `js/viewModal.js:568` | `_el("div", "view-detail-grid four-col")` | Creates the valuation grid as a 4-column CSS grid. Adding 2 more cells pushes to 6 items in the grid. |
+| `js/viewModal.js:582-588` | Gain/Loss coloring | Uses `_detailItem()` + `.gain`/`.loss` CSS classes on `.view-detail-value`. Same pattern needed for premium coloring. Gain/Loss is always rendered (either with a value or a muted "—"), so the grid always has exactly 4 items currently. |
 
 ### Metrics resolution — weight, purity, unit conversion
 
-| Path                      | Role                    | Notes                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/viewModal.js:251-265` | `_getViewMetrics(item)` | Returns `{ currentSpot, qty, weight, purity, isGb, isSb, weightOz, metalColor }`. Already converts `gb`/`sb` units via `GB_TO_OZT`/`SB_TO_OZT` (both `0.001` at `js/constants.js:571-574`). `metrics.weightOz` is the pre-converted value — use it, not raw `item.weight`. Gram/kg/lb conversions happen at form-save time in `js/events.js:1373-1386` (`parseWeight`), not in `_getViewMetrics`. |
-| `js/viewModal.js:560`     | `purchasePrice`         | `computed?.purchasePrice ?? (parseFloat(item.price) \|\| 0)` — per-unit price (lot-mode items are already divided before save per AC-7 requirement).                                                                                                                                                                                                                                              |
+| `js/viewModal.js:560` | `purchasePrice` | `computed?.purchasePrice ?? (parseFloat(item.price) \|\| 0)` — per-unit price (lot-mode items are already divided before save per AC-7 requirement). |
 
 ### Spot-at-purchase resolution — the data source chain
 
-| Path                      | Role                               | Notes                                                                                                                                                                                                                                                                                                                                         |
-| ------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/spot.js:625`          | `historicalDataCache = new Map()`  | `Map<year, Array<{spot, metal, source, provider, timestamp}>>`. Keyed by integer year. Entries have `timestamp` as `"YYYY-MM-DD HH:MM:SS"` string. This is the **primary source** for purchase-day spot.                                                                                                                                      |
-| `js/spot.js:1488-1508`    | `_loadSpotSeedBundle(bundle)`      | Expands the compact bundle format into full cache entries. Bundle loaded synchronously by `data/spot-history-bundle.js` `<script>` tag — available before any modal opens. 47,828 entries spanning 1968–present.                                                                                                                              |
-| `js/spot.js:682-729`      | `fetchYearFile(year)`              | Fetches individual year JSON files, caches result. Three-tier: local fetch → XHR (file://) → remote staktrakr.com. Not needed for most items since the bundle pre-populates the cache.                                                                                                                                                        |
-| `js/spot.js:1551`         | `window.historicalDataCache`       | Exposed on `window` — accessible from `viewModal.js`.                                                                                                                                                                                                                                                                                         |
-| `js/events.js:1834-1835`  | `spotPriceAtPurchase` on new items | Set from the Spot Lookup modal value, or falls back to current `spotPrices[metalKey]`. Reliable for items added with the lookup modal; unreliable for items added without it (gets current spot, not historical).                                                                                                                             |
-| `js/inventory.js:293-321` | Legacy migration backfill          | Items missing `premiumPerOz` get `spotPriceAtPurchase: spotPrice` where `spotPrice` is the **current** spot at load time, not the historical value. Also sets `premiumPerOz` and `totalPremium` using raw weight and current spot, making both fields permanently wrong for legacy items. These stored fields must not be reused for display. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/spot.js:625` | `historicalDataCache = new Map()` | `Map<year, Array<{spot, metal, source, provider, timestamp}>>`. Keyed by integer year. Entries have `timestamp` as `"YYYY-MM-DD HH:MM:SS"` string. This is the **primary source** for purchase-day spot. |
+| `js/spot.js:1488-1508` | `_loadSpotSeedBundle(bundle)` | Expands the compact bundle format into full cache entries. Bundle loaded synchronously by `data/spot-history-bundle.js` `<script>` tag — available before any modal opens. 47,828 entries spanning 1968–present. |
+| `js/spot.js:682-729` | `fetchYearFile(year)` | Fetches individual year JSON files, caches result. Three-tier: local fetch → XHR (file://) → remote staktrakr.com. Not needed for most items since the bundle pre-populates the cache. |
+| `js/spot.js:1551` | `window.historicalDataCache` | Exposed on `window` — accessible from `viewModal.js`. |
+| `js/events.js:1834-1835` | `spotPriceAtPurchase` on new items | Set from the Spot Lookup modal value, or falls back to current `spotPrices[metalKey]`. Reliable for items added with the lookup modal; unreliable for items added without it (gets current spot, not historical). |
+| `js/inventory.js:293-321` | Legacy migration backfill | Items missing `premiumPerOz` get `spotPriceAtPurchase: spotPrice` where `spotPrice` is the **current** spot at load time, not the historical value. Also sets `premiumPerOz` and `totalPremium` using raw weight and current spot, making both fields permanently wrong for legacy items. These stored fields must not be reused for display. |
 
 ### Existing lookup utility — async, modal-scoped
 
-| Path                       | Role                                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| -------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/spotLookup.js:322-369` | `searchHistoricalByDate(metalName, dateStr)` | Async. Fetches target year ± adjacent years via `fetchYearFile()`, filters by `entry.metal`, computes day offsets, progressive widening (exact → ±1 → ±3 → ±7), sorts by `Math.abs(dayOffset)` with newest-timestamp tiebreak, dedupes by calendar day. Returns an `Array<Object>` (multiple results, not a single spot value). Currently local to `spotLookup.js` and scoped to the Spot Lookup modal — not shared across modules. |
 
 ### Existing premium fields — unreliable, do not use for display
 
-| Path                         | Role                               | Notes                                                                                                                                                                                  |
-| ---------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/events.js:1842-1843`     | `premiumPerOz: 0, totalPremium: 0` | Hard-coded to zero on new item creation. Never computed at save time.                                                                                                                  |
-| `js/utils.js:1383-1387`      | `sanitizeItem()`                   | Can reset premium fields to zero during sanitization passes.                                                                                                                           |
-| `js/inventory.js:303-304`    | Legacy computation                 | `premiumPerOz = spotPrice > 0 ? item.price / item.weight - spotPrice : 0` — uses raw weight (not ASW), current spot (not purchase-day), and no purity factor. Wrong on all three axes. |
-| `js/bulkEdit.js:39-40,64-65` | Bulk edit labels                   | `premiumPerOz` and `totalPremium` appear in the bulk-edit field list as "Premium / Oz" and "Total Premium". These are data fields, not display — this feature ignores them.            |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/events.js:1842-1843` | `premiumPerOz: 0, totalPremium: 0` | Hard-coded to zero on new item creation. Never computed at save time. |
+| `js/utils.js:1383-1387` | `sanitizeItem()` | Can reset premium fields to zero during sanitization passes. |
+| `js/inventory.js:303-304` | Legacy computation | `premiumPerOz = spotPrice > 0 ? item.price / item.weight - spotPrice : 0` — uses raw weight (not ASW), current spot (not purchase-day), and no purity factor. Wrong on all three axes. |
+| `js/bulkEdit.js:39-40,64-65` | Bulk edit labels | `premiumPerOz` and `totalPremium` appear in the bulk-edit field list as "Premium / Oz" and "Total Premium". These are data fields, not display — this feature ignores them. |
 
 ### Valuation computation — the existing pattern
 
-| Path                    | Role                                      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ----------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/utils.js:1486-1508` | `computeItemValuation(item, currentSpot)` | Returns `{ qty, purchasePrice, purchaseTotal, meltValue, retailTotal, gainLoss, ... }`. Used by `_buildValuationSection`. Does **not** compute premium — it has no access to historical spot. Called synchronously from `viewModal.js:551-554`; making it async would break the call chain. Adding premium would require either a new `historicalSpot` parameter or keeping premium computation entirely in `_buildValuationSection`. |
-| `js/utils.js:1447-1465` | `calculateRetailPrice(item, currentSpot)` | Sub-routine called by `computeItemValuation`. Handles goldback denomination pricing and manual market values.                                                                                                                                                                                                                                                                                                                         |
+| `js/utils.js:1447-1465` | `calculateRetailPrice(item, currentSpot)` | Sub-routine called by `computeItemValuation`. Handles goldback denomination pricing and manual market values. |
 
 ### DOM helpers — the building blocks
 
-| Path                        | Role                                         | Notes                                                                                                    |
-| --------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `js/viewModal.js:2152-2161` | `_detailItem(label, value, extraClass)`      | Creates a `.view-detail-item` with `.view-detail-label` + `.view-detail-value`. Used for all grid cells. |
-| `js/viewModal.js:2164-2166` | `_addDetail(grid, label, value, extraClass)` | Shorthand that appends a `_detailItem` to a grid container.                                              |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/viewModal.js:2152-2161` | `_detailItem(label, value, extraClass)` | Creates a `.view-detail-item` with `.view-detail-label` + `.view-detail-value`. Used for all grid cells. |
+| `js/viewModal.js:2164-2166` | `_addDetail(grid, label, value, extraClass)` | Shorthand that appends a `_detailItem` to a grid container. |
 
 ### CSS grid layout — responsive behavior
 
-| Path                       | Role                                      | Notes                                                                                                                            |
-| -------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `css/styles.css:6272-6284` | Grid column definitions                   | `.view-detail-grid` = 2-col default. `.three-col` = 3-col. `.four-col` = 4-col.                                                  |
-| `css/styles.css:6292-6294` | `.view-detail-item.full-width`            | Spans all columns (`grid-column: 1 / -1`). Available if approach decides a premium row deserves wider formatting.                |
-| `css/styles.css:6311-6324` | `.gain` / `.loss` / `.muted` value styles | `.gain` = `var(--success)`, `.loss` = `var(--danger)`, `.muted` = `var(--text-secondary)` italic. All with `font-weight: 600`.   |
-| `css/styles.css:6624-6628` | Mobile breakpoint ≤768px                  | All grid variants collapse to `1fr 1fr` (2-column). The `four-col` class has no special mobile handling — it just becomes 2-col. |
-| `css/styles.css:6649-6652` | Extra-small ≤480px                        | Same 2-col collapse.                                                                                                             |
+| Path | Role | Notes |
+|------|------|-------|
+| `css/styles.css:6272-6284` | Grid column definitions | `.view-detail-grid` = 2-col default. `.three-col` = 3-col. `.four-col` = 4-col. |
+| `css/styles.css:6292-6294` | `.view-detail-item.full-width` | Spans all columns (`grid-column: 1 / -1`). Available if approach decides a premium row deserves wider formatting. |
+| `css/styles.css:6311-6324` | `.gain` / `.loss` / `.muted` value styles | `.gain` = `var(--success)`, `.loss` = `var(--danger)`, `.muted` = `var(--text-secondary)` italic. All with `font-weight: 600`. |
+| `css/styles.css:6624-6628` | Mobile breakpoint ≤768px | All grid variants collapse to `1fr 1fr` (2-column). The `four-col` class has no special mobile handling — it just becomes 2-col. |
+| `css/styles.css:6649-6652` | Extra-small ≤480px | Same 2-col collapse. |
 
 ### Currency formatting
 
-| Path                  | Role                              | Notes                                                                                                                                                                                                             |
-| --------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/utils.js:599-624` | `formatCurrency(value, currency)` | Uses `Intl.NumberFormat`. Handles multi-currency via `getExchangeRate()`. Returns empty string for `NaN`. Does **not** prepend `+` sign — that must be added by the caller (see Gain/Loss at `viewModal.js:583`). |
 
 ## Prior Decisions

@@ -40,81 +40,68 @@ This solves PumpkinCrouton's case (graded coin gets rectangular by default becau
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 — Manual override forces circle (maps to US-2)
-
 - **Given** an inventory item where `obverseImageFrame === "circle"` (or `reverseImageFrame === "circle"` for the reverse side)
 - **When** that side is rendered in the inventory table view, card grid view, or item view modal
 - **Then** the thumbnail renders with circular clipping, **regardless** of `type`, `weightUnit`, `gradingAuthority`, or `numistaData.shape`
 
 ### AC-2 — Manual override forces rectangle (maps to US-2)
-
 - **Given** an inventory item where `obverseImageFrame === "rectangle"` (or `reverseImageFrame === "rectangle"`)
 - **When** that side is rendered in any of the three views
 - **Then** the thumbnail renders with rectangular framing (`table-thumb-rect` / `bar-shape` / `view-shape-rect` class as appropriate per view), **regardless** of `type`, `weightUnit`, `gradingAuthority`, or `numistaData.shape`
 
 ### AC-3 — Auto resolves to rectangle for type-based items (maps to US-5)
-
 - **Given** an inventory item with no Frame override (field absent or value `"auto"`) AND `type` ∈ {`"Bar"`, `"Note"`, `"Aurum"`, `"Set"`} (case-insensitive) OR `weightUnit` ∈ {`"gb"`, `"sb"`}
 - **When** the item is rendered in any of the three views
 - **Then** the thumbnail is rectangular — preserving today's behavior exactly
 
 ### AC-4 — Auto resolves to rectangle for graded coins (maps to US-1)
-
 - **Given** an inventory item with no Frame override AND `gradingAuthority` is a non-empty string AND no other rectangular trigger fires
 - **When** the item is rendered in any of the three views
 - **Then** the thumbnail is rectangular
 - **Note:** This is the new automation rule. It deliberately fires whether or not the user has uploaded a slab photo — see Trade-offs below.
 
 ### AC-5 — Auto resolves to rectangle for non-round Numista shape (maps to US-3)
-
 - **Given** an inventory item with no Frame override AND `classifyShape(item.numistaData?.shape)` (catalog-api.js:528) returns any value other than `"round"`
 - **When** the item is rendered in any of the three views
 - **Then** the thumbnail is rectangular
 
 ### AC-6 — Auto fallback is round (maps to US-5)
-
 - **Given** an inventory item with no Frame override AND none of AC-3, AC-4, or AC-5 conditions fires
 - **When** the item is rendered in any of the three views
 - **Then** the thumbnail is round (current default behavior preserved)
 
 ### AC-7 — Override toggle UI in add/edit modal (maps to US-2, US-4)
-
 - **Given** a user has uploaded a file or pasted a URL into the obverse or reverse image slot in the Add Item or Edit Item modal AND the image preview is visible
 - **When** the user clicks the lower-right corner Frame-toggle icon on that slot
 - **Then** the value cycles through `auto → circle → rectangle → auto`, the icon's visual state reflects the current value, and on save the corresponding `obverseImageFrame` or `reverseImageFrame` field is persisted on the item
 
 ### AC-8 — Override toggle hidden when slot is empty (maps to US-2)
-
 - **Given** a slot has no image present (`image-upload-preview` is `display: none`)
 - **When** the modal renders or the image is removed
 - **Then** the Frame-toggle icon is not visible for that slot — overriding a frame for a non-existent image is meaningless
 
 ### AC-9 — Override toggle scope is add/edit modal only
-
 - **Given** the user is viewing the inventory table thumbnail, the card grid thumbnail, or the item view modal
 - **When** any item is rendered
 - **Then** the Frame-toggle icon does **not** appear on that thumbnail/image — frame editing happens only via the Add/Edit Item modal
 
 ### AC-10 — Migration / backwards compatibility (maps to US-5)
-
 - **Given** an inventory item that pre-dates this feature (no `obverseImageFrame` and no `reverseImageFrame` keys present, OR keys present with empty/null/undefined values)
 - **When** loaded by `loadData()` and rendered in any of the three views
 - **Then** both fields are treated as `"auto"` and the item renders according to the auto-resolution rule (AC-3 through AC-6). For most legacy items the resulting visual matches today's output unchanged; the only intentional behavioral change for existing items is the new `gradingAuthority` → rectangle default introduced in AC-4 (graded coins gain rectangular auto-frames). See Trade-offs Accepted for the rationale.
 - **And** existing items must NOT be retroactively stamped with explicit `auto` values on disk — absence is the canonical default. The first time a user opens the edit modal and saves, the fields may be persisted with their then-current values.
 
 ### AC-11 — Cross-view consistency (maps to all stories)
-
 - **Given** any combination of (`type`, `weightUnit`, `gradingAuthority`, `numistaData.shape`, `obverseImageFrame`, `reverseImageFrame`)
 - **When** the same item is rendered in the inventory table, card grid, and item view modal
 - **Then** all three views produce the same round/rectangular decision per side (consuming the same `resolveImageFrame(item, side)` helper). The view modal's existing late override at `viewModal.js:1173` may continue to exist as a safety net but must produce the same final result as the synchronous resolver.
 
 ### AC-12 — Persistence round-trip
-
 - **Given** a user saves an item with `obverseImageFrame === "rectangle"` and `reverseImageFrame === "circle"`
 - **When** the item is exported via the cloud-sync backup, re-imported into a fresh client, and reopened
 - **Then** both Frame values survive the round-trip with the same string values, and the item renders accordingly. Backups created before this feature shipped must restore cleanly with the absent fields treated as `"auto"`.
 
 ### AC-13 — Frame travels with the image on swap (maps to US-2 — per-image semantics)
-
 - **Given** an item being edited with images and/or URL values on either side, with any combination of `obverseImageFrame` / `reverseImageFrame` values (including `auto`)
 - **When** the user clicks the existing swap button (`#swapImagesBtn`, handler at `events.js:2336`)
 - **Then** the per-side Frame values swap atomically along with the existing swap operations (pending blobs, preview URLs, delete flags, visible `<img>.src`, URL field values, size-info text, file-input clearing). After swap: `obverseImageFrame` holds the previous `reverseImageFrame` value, and vice versa.
@@ -123,7 +110,6 @@ This solves PumpkinCrouton's case (graded coin gets rectangular by default becau
 > CODEX: This addresses the swap trap cleanly. Approach should name both state and UI update responsibilities here: swap the pending frame variables and immediately re-render the two toggle buttons/classes so the modal cannot show stale state after the image swap.
 
 ### AC-14 — Live preview for URL-pasted images (maps to US-4)
-
 - **Given** the URL input field for a side is visible (the user has clicked the URL pill button — see `events.js:2207-2217`) and currently has no live image preview rendered for that side
 - **When** the user types or pastes a URL whose value matches the existing valid-URL pattern (`/^https?:\/\/.+\..+/i`)
 - **Then** the corresponding image preview element (`itemImagePreviewObv` / `itemImagePreviewRev`) becomes visible (display un-set from `none`) with the URL as the `<img>.src`, AND the Frame toggle becomes available per AC-7
@@ -136,7 +122,6 @@ This solves PumpkinCrouton's case (graded coin gets rectangular by default becau
 > GEMINI: For URL pasting (AC-14), consider the 300ms debounce window and loading state. Does the user need a "loading" spinner affordance during the fetch? Also, if the URL fails to load, simply hiding the preview might be confusing; consider a one-line error hint like "couldn't load image — check the URL" so they know it failed, rather than thinking the paste didn't register.
 
 ### AC-15 — Remove resets the frame (maps to US-2 — per-image semantics)
-
 - **Given** a side has an image (uploaded or URL-pasted) and any `obverseImageFrame` / `reverseImageFrame` value (including a non-`auto` override)
 - **When** the user clicks the existing Remove button on that side (handler near `events.js:2280`)
 - **Then** in addition to clearing the existing image data (preview, size info, URL field, pending blob, delete flag, file input), the corresponding Frame field is reset to `"auto"`
@@ -156,8 +141,7 @@ This solves PumpkinCrouton's case (graded coin gets rectangular by default becau
 - **Not adding bulk-edit support for `obverseImageFrame` / `reverseImageFrame`** — could be a follow-up if users request it. Single-item edit is sufficient for v1.
 - **Not surfacing the Frame toggle on read-only thumbnails** — overrides are set in the add/edit modal exclusively. Inline toggle on table/card thumbnails is a possible future ergonomics improvement.
 
-> GEMINI: Regarding "Not surfacing the Frame toggle on read-only thumbnails": If a user sets an override in the edit modal and returns to the inventory grid, the shape changes but there is no visual indicator _why_. Consider if a read-only indicator (e.g., a tiny lock/override icon on the thumbnail) is needed so users understand their explicit override is active, separate from edit UI.
-
+> GEMINI: Regarding "Not surfacing the Frame toggle on read-only thumbnails": If a user sets an override in the edit modal and returns to the inventory grid, the shape changes but there is no visual indicator *why*. Consider if a read-only indicator (e.g., a tiny lock/override icon on the thumbnail) is needed so users understand their explicit override is active, separate from edit UI.
 - **Not changing the inventory data export/import format beyond two new optional string fields** — backups carry the new fields when present and tolerate their absence (per AC-10 / AC-12).
 - **Not stamping existing items with explicit `auto` on load** — absence and `"auto"` are equivalent at render time. Stamping on load would dirty every item the first time it's read after the update, polluting cloud-sync diffs and undo/redo stacks.
 

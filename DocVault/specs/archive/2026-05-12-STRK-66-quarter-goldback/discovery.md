@@ -12,21 +12,21 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 _Files and modules already in the project that this work will touch or build on. Include paths and a one-line note on each._
 
-| Path                                                               | Role                                                                        | Notes                                                                                                                                                                                 |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/constants.js:588-596`                                          | `GOLDBACK_DENOMINATIONS` array                                              | 8 entries today; prepend 1/4 entry                                                                                                                                                    |
-| `js/events.js:1763-1769`                                           | `updateDenomLabels`                                                         | Renders fraction glyphs for ½; needs ¼ branch                                                                                                                                         |
-| `js/bulkEdit.js:587-629`                                           | `updateBulkDenomLabels`                                                     | Same pattern as events.js at line 621                                                                                                                                                 |
-| `js/retail.js`                                                     | `GOLDBACK_WEIGHTS` map                                                      | Maps slug suffixes to oz weights for slug parser                                                                                                                                      |
-| `devops/pollers/shared/goldback-scraper.js:54`                     | `DENOMINATION_MULTIPLIERS`                                                  | Spot-denomination output: feeds `goldback-spot.json`. Needs `g0.25` key.                                                                                                              |
-| `devops/pollers/shared/api-export.js:964-970`                      | `buildGoldbackDenominations`                                                | Emits denomination list for v1 API                                                                                                                                                    |
-| `devops/pollers/shared/api-export-v2.js:832-840`                   | `buildGoldbackDenominations`                                                | Emits denomination list for v2 API                                                                                                                                                    |
-| `devops/pollers/shared/price-extract.js:1527`                      | Bounds-guard regex (per-product slugs like `goldback-idaho-g0.25`)          | `/g(\d+)$/i` — doesn't match decimal suffixes                                                                                                                                         |
-| `tests/playwright/goldback-type.spec.js:269`                       | Test 9 — add/edit denomination dropdown                                     | Asserts `toHaveLength(8)`, `options[0].text === "½ Goldback"` — needs update to 9 + `¼`                                                                                               |
-| `tests/playwright/goldback-type.spec.js:337`                       | Test 13 — bulk-edit denomination dropdown (Goldback branch at line 360-361) | Asserts `goldOptions.toHaveLength(8)`, `goldOptions[0].text === "½ Goldback"` — needs same update for AC-3                                                                            |
-| `index.html`                                                       | Static `#itemGbDenom` options                                               | Runtime rebuilds the dropdown from `GOLDBACK_DENOMINATIONS` via `updateDenomLabels` — static HTML is overwritten on render. No edit required, but verified empirically by tests 9/13. |
-| `DocVault/Projects/StakTrakr/Foundation/data-pipelines.md:372-395` | Foundation: denomination table                                              | Idaho row + g0.25 row + slug count recalculation needed                                                                                                                               |
-| `DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md:96`   | Foundation: supported denominations line                                    | Update to include g0.25                                                                                                                                                               |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/constants.js:588-596` | `GOLDBACK_DENOMINATIONS` array | 8 entries today; prepend 1/4 entry |
+| `js/events.js:1763-1769` | `updateDenomLabels` | Renders fraction glyphs for ½; needs ¼ branch |
+| `js/bulkEdit.js:587-629` | `updateBulkDenomLabels` | Same pattern as events.js at line 621 |
+| `js/retail.js` | `GOLDBACK_WEIGHTS` map | Maps slug suffixes to oz weights for slug parser |
+| `devops/pollers/shared/goldback-scraper.js:54` | `DENOMINATION_MULTIPLIERS` | Spot-denomination output: feeds `goldback-spot.json`. Needs `g0.25` key. |
+| `devops/pollers/shared/api-export.js:964-970` | `buildGoldbackDenominations` | Emits denomination list for v1 API |
+| `devops/pollers/shared/api-export-v2.js:832-840` | `buildGoldbackDenominations` | Emits denomination list for v2 API |
+| `devops/pollers/shared/price-extract.js:1527` | Bounds-guard regex (per-product slugs like `goldback-idaho-g0.25`) | `/g(\d+)$/i` — doesn't match decimal suffixes |
+| `tests/playwright/goldback-type.spec.js:269` | Test 9 — add/edit denomination dropdown | Asserts `toHaveLength(8)`, `options[0].text === "½ Goldback"` — needs update to 9 + `¼` |
+| `tests/playwright/goldback-type.spec.js:337` | Test 13 — bulk-edit denomination dropdown (Goldback branch at line 360-361) | Asserts `goldOptions.toHaveLength(8)`, `goldOptions[0].text === "½ Goldback"` — needs same update for AC-3 |
+| `index.html` | Static `#itemGbDenom` options | Runtime rebuilds the dropdown from `GOLDBACK_DENOMINATIONS` via `updateDenomLabels` — static HTML is overwritten on render. No edit required, but verified empirically by tests 9/13. |
+| `DocVault/Projects/StakTrakr/Foundation/data-pipelines.md:372-395` | Foundation: denomination table | Idaho row + g0.25 row + slug count recalculation needed |
+| `DocVault/Projects/StakTrakr/Foundation/reusable-patterns.md:96` | Foundation: supported denominations line | Update to include g0.25 |
 
 ## Prior Decisions
 
@@ -49,7 +49,7 @@ _Files and modules already in the project that this work will touch or build on.
 - **Bounds-guard and scraper changes must ship together** — there are two distinct surfaces that must align:
   - `goldback-scraper.js` emits the Goldback spot denomination price map (`goldback-spot.json`). It needs `g0.25` added to `DENOMINATION_MULTIPLIERS` so the spot map publishes a `g0.25` denomination key.
   - `price-extract.js` parses per-product retail slugs (e.g., `goldback-idaho-g0.25`) and gates them against per-denomination price bounds. Without the regex fix, decimal-suffix slugs fall through to G1 bounds — a silent data-quality bug (4× the correct ceiling).
-    Both must land in the same PR.
+  Both must land in the same PR.
 
 ## Open Questions
 

@@ -31,19 +31,16 @@ Harden StakTrakr's PWA boot path against transient asset-load failures. Today, a
 ## Acceptance Criteria
 
 ### AC-1 (maps to US-1) — SW serves cached copy when network returns broken response
-
 - **Given** the service worker is installed with all CORE_ASSETS cached and the user reloads the app
 - **When** a same-origin request handled by `networkFirst`, `cacheFirst`, or `staleWhileRevalidate` receives a non-OK response (e.g. simulated 500 or aborted body) AND a cached copy exists for that request
 - **Then** the SW returns the cached copy instead of propagating the broken response, AND the broken response is NOT written to Cache Storage
 
 ### AC-2 (maps to US-1) — init tolerates missing api.js globals
-
 - **Given** the page loads but `js/api.js` failed to execute (e.g. simulated by removing the script tag or stubbing the load)
 - **When** `init.js` reaches the API initialization step (currently lines 615-617)
 - **Then** init does NOT throw a `ReferenceError` for `loadApiConfig` or `loadApiCache`; it logs a warning, uses an empty config object, and continues; spot-price and catalog features may show degraded state but the app shell stays interactive
 
 ### AC-3 (maps to US-1) — second-tier recovery on persistent ReferenceError
-
 - **Given** the existing STAK-485 single-shot reload has already been attempted (`sessionStorage["sw-recovery-attempted"] === "1"`)
 - **When** `init.js` catches another `ReferenceError` matching the asset-load signature
 - **Then** the recovery path unregisters all service workers, deletes the StakTrakr Cache Storage entries, sets a second-tier flag (`sw-recovery-nuked`), and reloads — BEFORE showing the CRITICAL modal
@@ -51,13 +48,11 @@ Harden StakTrakr's PWA boot path against transient asset-load failures. Today, a
 - **And** the `sw-recovery-nuked` flag is cleared on successful init, just like `sw-recovery-attempted`
 
 ### AC-4 (maps to US-2) — CRITICAL modal offers a Reset App action
-
 - **Given** all auto-recovery tiers have failed and the CRITICAL modal is about to display
 - **When** the modal appears
 - **Then** it includes a "Reset App" button alongside OK; pressing Reset App performs the same unregister + caches.delete + reload sequence as AC-3 (regardless of flag state)
 
 ### AC-5 (maps to US-3) — non-OK fallback shared across SW strategies
-
 - **Given** the SW source after the patch
 - **When** reading `networkFirst`, `cacheFirst`, and `staleWhileRevalidate`
 - **Then** all three route non-OK responses through a single shared fallback helper (avoiding three near-duplicate implementations); the navigation handler at `sw.js:174-197` continues to work as today

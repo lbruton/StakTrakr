@@ -27,43 +27,43 @@ updated: 2026-06-06
 
 - [x] 0.5 Test baseline — `npm run test:core` = **181 passed (3.5m)**, exit 0 (clean baseline).
 - [x] 0.6 Write failing tests `tests/playwright/core/strk-146-image-quota-warning.spec.js` (5 tests) + coverage-map row.
-      covering the 4 cases in approach.md (pre-flight error, warning band, regression no-toast,
-      no-spam). Add a `coverage-map.csv` row. Tests must FAIL now (methods don't exist yet).
+  covering the 4 cases in approach.md (pre-flight error, warning band, regression no-toast,
+  no-spam). Add a `coverage-map.csv` row. Tests must FAIL now (methods don't exist yet).
 
 ## Phase 1 — Storage layer (`js/image-cache.js`)
 
 - [x] 1. `_put(storeName, record, onError?)` — add optional `onError`; classify
-      `QuotaExceededError` / `NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR` in the catch (quota-specific
-      console.warn). Existing 2-arg callers unaffected.
+  `QuotaExceededError` / `NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR` in the catch (quota-specific
+  console.warn). Existing 2-arg callers unaffected.
 - [x] 2. Add `_pressureLevel(used, limit)` and `_emitStorageToast(message, duration=6000)`
-      (defensive `typeof showToast`). Constructor: `this._lastWarnedLevel = "ok"`.
+  (defensive `typeof showToast`). Constructor: `this._lastWarnedLevel = "ok"`.
 - [x] 3. Add `cacheUserImageResult(uuid, obv, rev, sharedImageId)` → `{ok, quotaExceeded,
-usageBytes, limitBytes}` with the pre-flight soft-cap check (delta-aware) + `_put` backstop.
-      Move `cacheUserImage`'s validation/db-ensure logic in; make `cacheUserImage` a thin
-      `(await cacheUserImageResult(...)).ok` wrapper (boolean contract preserved).
+  usageBytes, limitBytes}` with the pre-flight soft-cap check (delta-aware) + `_put` backstop.
+  Move `cacheUserImage`'s validation/db-ensure logic in; make `cacheUserImage` a thin
+  `(await cacheUserImageResult(...)).ok` wrapper (boolean contract preserved).
 - [x] 4. Add `cacheUserImageWithFeedback(...)` → boolean: error toast on `!ok`, escalation-only
-      warning toast on success, update `_lastWarnedLevel`.
+  warning toast on success, update `_lastWarnedLevel`.
 
 ## Phase 2 — Wire interactive callers (feedback only at upload choke points)
 
 - [x] 5. `js/events.js:809` `saveUserImageForItem` → `cacheUserImageWithFeedback`.
 - [x] 6. `js/bulkEdit.js:2058` `_handleUpload` → `cacheUserImageWithFeedback`.
 - [x] 7. `js/inventory.js:2833` thumbnail `_handleUpload` → `cacheUserImageWithFeedback`.
-      (Leave the 3 shrinking re-saves + `inventory.js:1432` split-clone copy on plain
-      `cacheUserImage` — silent by design.)
+  (Leave the 3 shrinking re-saves + `inventory.js:1432` split-clone copy on plain
+  `cacheUserImage` — silent by design.)
 
 ## Phase 3 — Verify & ship
 
 - [x] 8. New spec 5/5 green (red→green). Full `npm run test:core` = **185 passed, 0 real
-      failures** (1 flake: `history-store-migration.spec.js:331`, unrelated STRK-141 market-history;
-      11/11 in isolation). ESLint + Prettier clean.
+  failures** (1 flake: `history-store-migration.spec.js:331`, unrelated STRK-141 market-history;
+  11/11 in isolation). ESLint + Prettier clean.
 - [x] 9. Codacy CLI scan: `cacheUserImageResult` CC reduced 12→≤8 (helper extraction); remaining
-      findings false-positive (globals config) or pre-existing. No new actionable Critical/High.
+  findings false-positive (globals config) or pre-existing. No new actionable Critical/High.
 - [x] 10. Version bump → 3.35.9 (6 files + What's New=8 verified); `sw.js` auto-stamped
-      `staktrakr-v3.35.9-b1780759447`. `/update-spot-bundle` ran — already current (no-op).
+  `staktrakr-v3.35.9-b1780759447`. `/update-spot-bundle` ran — already current (no-op).
 - [~] 11. STRK-146 → **In Review** in Plane. `/vault-update` + set Done deferred to post-merge.
 - [x] 12. Committed `70047c4a` on `patch/3.35.9`, pushed, draft PR #1218 → `dev`. Merge-base ==
-      origin/dev verified.
+  origin/dev verified.
 
 ## Notes
 

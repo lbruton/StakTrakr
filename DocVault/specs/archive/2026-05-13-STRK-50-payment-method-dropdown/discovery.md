@@ -12,87 +12,90 @@ _Research the existing system and prior art. **Don't propose solutions** — tha
 
 ### Item form parsing and persistence
 
-| Path                     | Role                                                                                     | Notes                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/events.js:1429–1510` | `parseItemFormFields()` — reads all form inputs into a parsed object `f`                 | New field reads from `elements.itemPaymentMethod`. Pattern: `elements.purchaseLocation.value.trim()` at line 1478.                                                                                                                                                                                                                                                                |
-| `js/events.js:1616–1653` | `buildItemFields(f)` — extracts common fields for both add and edit saves                | All non-conditional fields go in the initial object literal (lines 1617–1640). Conditional fields (`pricingType`, image frames) use `if` guards after.                                                                                                                                                                                                                            |
-| `js/events.js:1690–1712` | Edit-mode save — `...oldItem, ...buildItemFields(f)` spread                              | Spreads `oldItem` first, then `buildItemFields(f)` overwrites. Key implication for AC-3: if `paymentMethod` is in `buildItemFields` unconditionally, it always overwrites. If the dropdown returns `""` for blank, that's what's stored — to **omit** the key when blank, the approach must explicitly `delete` it post-spread (same pattern as image frames at lines 1711–1712). |
-| `js/events.js:1717–1749` | `trackedFields` — array of field names whose old→new changes are logged                  | Must add `"paymentMethod"` here for changelog tracking.                                                                                                                                                                                                                                                                                                                           |
-| `js/state.js:51–88`      | Form element cache (`elements.*`)                                                        | Must add `itemPaymentMethod: null` entry.                                                                                                                                                                                                                                                                                                                                         |
-| `js/init.js:199–233`     | `safeGetElement()` initialization of cached elements (purchase/storage at lines 210–211) | Must add `elements.itemPaymentMethod = safeGetElement("itemPaymentMethod")`.                                                                                                                                                                                                                                                                                                      |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/events.js:1429–1510` | `parseItemFormFields()` — reads all form inputs into a parsed object `f` | New field reads from `elements.itemPaymentMethod`. Pattern: `elements.purchaseLocation.value.trim()` at line 1478. |
+| `js/events.js:1616–1653` | `buildItemFields(f)` — extracts common fields for both add and edit saves | All non-conditional fields go in the initial object literal (lines 1617–1640). Conditional fields (`pricingType`, image frames) use `if` guards after. |
+| `js/events.js:1690–1712` | Edit-mode save — `...oldItem, ...buildItemFields(f)` spread | Spreads `oldItem` first, then `buildItemFields(f)` overwrites. Key implication for AC-3: if `paymentMethod` is in `buildItemFields` unconditionally, it always overwrites. If the dropdown returns `""` for blank, that's what's stored — to **omit** the key when blank, the approach must explicitly `delete` it post-spread (same pattern as image frames at lines 1711–1712). |
+| `js/events.js:1717–1749` | `trackedFields` — array of field names whose old→new changes are logged | Must add `"paymentMethod"` here for changelog tracking. |
+| `js/state.js:51–88` | Form element cache (`elements.*`) | Must add `itemPaymentMethod: null` entry. |
+| `js/init.js:199–233` | `safeGetElement()` initialization of cached elements (purchase/storage at lines 210–211) | Must add `elements.itemPaymentMethod = safeGetElement("itemPaymentMethod")`. |
 
 | `index.html` (~lines 2167–2241) | Edit Item modal — purchase section HTML | New `<select id="itemPaymentMethod">` element goes here, in the Date/Price row per AC-8 layout decision. |
 
 ### Clone
 
-| Path                         | Role                                                            | Notes                                                                                                                                                                                          |
-| ---------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/clone-picker.js:86–95`   | `cloneItemDeep()` — `structuredClone` or JSON round-trip        | Copies all properties automatically. No change needed for deep clone.                                                                                                                          |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/clone-picker.js:86–95` | `cloneItemDeep()` — `structuredClone` or JSON round-trip | Copies all properties automatically. No change needed for deep clone. |
 | `js/clone-picker.js:103–117` | `CLONE_FIELDS` — checkbox definitions for optional clone fields | Add `{ labelFor: "itemPaymentMethod", key: "paymentMethod", defaultOn: true }`. Mandatory fields (metal, type, etc.) are excluded from checkboxes; payment method is optional, so it gets one. |
 
 ### Bulk edit
 
-| Path                       | Role                                                                      | Notes                                                                                                                                                                                                                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/bulkEdit.js:170–298`   | `BULK_EDITABLE_FIELDS` — field definitions with `inputType` and `options` | Add as `{ id: "paymentMethod", label: "Payment Method", inputType: "select", options: [...] }`. Pattern matches `grade` (line 228) or `gradingAuthority` (line 266).                                                                                                                                    |
-| `js/bulkEdit.js:1165–1302` | `applyBulkEdit()` — dynamically applies changes from field definitions    | `applyBulkEdit()` writes `item[fieldId] = coerceFieldValue(...)` (lines 1263–1266); `coerceFieldValue()` returns `""` for blank selects (lines 413–416). A blank bulk Payment Method becomes `paymentMethod: ""`, not key deletion. **Approach must add explicit blank-delete handling here for AC-9.** |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/bulkEdit.js:170–298` | `BULK_EDITABLE_FIELDS` — field definitions with `inputType` and `options` | Add as `{ id: "paymentMethod", label: "Payment Method", inputType: "select", options: [...] }`. Pattern matches `grade` (line 228) or `gradingAuthority` (line 266). |
+| `js/bulkEdit.js:1165–1302` | `applyBulkEdit()` — dynamically applies changes from field definitions | `applyBulkEdit()` writes `item[fieldId] = coerceFieldValue(...)` (lines 1263–1266); `coerceFieldValue()` returns `""` for blank selects (lines 413–416). A blank bulk Payment Method becomes `paymentMethod: ""`, not key deletion. **Approach must add explicit blank-delete handling here for AC-9.** |
+
 
 ### Filter chips
 
-| Path                           | Role                                                                  | Notes                                                                                                                                                                                                            |
-| ------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/filters.js:130–170`        | `generateCategorySummary()` — counting loop                           | Pattern: `const pLoc = (item.purchaseLocation \|\| "").trim(); if (pLoc && ...) { purchaseLocations[item.purchaseLocation] = ... }`. Items with blank/missing `paymentMethod` are skipped (no chip for "blank"). |
-| `js/filters.js:237–238`        | `applyMinCountThreshold()` — filters below `chipMinCount` (default 3) | Standard threshold applies — chips only appear if ≥3 items share the value.                                                                                                                                      |
-| `js/filters.js:286–287`        | Return object from `generateCategorySummary()`                        | Add `paymentMethods: filteredPaymentMethods`.                                                                                                                                                                    |
-| `js/filters.js:362–363`        | Category descriptors map — `{ summaryKey, field }`                    | Add `paymentMethod: { summaryKey: "paymentMethods", field: "paymentMethod" }`.                                                                                                                                   |
-| `js/filters.js:370–388`        | Fallback `categoryConfig` (inline default when no saved config)       | Add `{ id: "paymentMethod", enabled: true }`.                                                                                                                                                                    |
-| `js/constants.js` (~line 1157) | `FILTER_CHIP_CATEGORY_DEFAULTS`                                       | Add `{ id: "paymentMethod", label: "Payment Method", enabled: true, group: null }`. Existing user configs auto-merge new defaults via a merge helper.                                                            |
-| `js/filters.js:941–956`        | Filter predicate `switch` in `filterInventoryAdvanced()`              | Add `case "paymentMethod":` — pattern identical to `purchaseLocation` (line 941). Normalize missing values to `"—"`.                                                                                             |
-| `js/filters.js:1249–1250`      | Text search — `fieldMatch` word-boundary regex                        | Add `(item.paymentMethod && wordRegex.test(item.paymentMethod))` in the `return (...)` chain. Matches how `storageLocation` participates (truthy guard + regex test).                                            |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/filters.js:130–170` | `generateCategorySummary()` — counting loop | Pattern: `const pLoc = (item.purchaseLocation \|\| "").trim(); if (pLoc && ...) { purchaseLocations[item.purchaseLocation] = ... }`. Items with blank/missing `paymentMethod` are skipped (no chip for "blank"). |
+| `js/filters.js:237–238` | `applyMinCountThreshold()` — filters below `chipMinCount` (default 3) | Standard threshold applies — chips only appear if ≥3 items share the value. |
+| `js/filters.js:286–287` | Return object from `generateCategorySummary()` | Add `paymentMethods: filteredPaymentMethods`. |
+| `js/filters.js:362–363` | Category descriptors map — `{ summaryKey, field }` | Add `paymentMethod: { summaryKey: "paymentMethods", field: "paymentMethod" }`. |
+| `js/filters.js:370–388` | Fallback `categoryConfig` (inline default when no saved config) | Add `{ id: "paymentMethod", enabled: true }`. |
+| `js/constants.js` (~line 1157) | `FILTER_CHIP_CATEGORY_DEFAULTS` | Add `{ id: "paymentMethod", label: "Payment Method", enabled: true, group: null }`. Existing user configs auto-merge new defaults via a merge helper. |
+| `js/filters.js:941–956` | Filter predicate `switch` in `filterInventoryAdvanced()` | Add `case "paymentMethod":` — pattern identical to `purchaseLocation` (line 941). Normalize missing values to `"—"`. |
+| `js/filters.js:1249–1250` | Text search — `fieldMatch` word-boundary regex | Add `(item.paymentMethod && wordRegex.test(item.paymentMethod))` in the `return (...)` chain. Matches how `storageLocation` participates (truthy guard + regex test). |
 
 ### View modal
 
-| Path                      | Role                                                | Notes                                                                                                                                                                                                                  |
-| ------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/viewModal.js:473–481` | Purchase details grid in `_buildInventorySection()` | Currently: `invGrid2` is a `three-col` grid with Date and Source (purchase location). Payment Method needs to appear in this section. The grid already has a `three-col` class — adding a third detail fits naturally. |
 
 ### Export paths
 
-| Path                             | Role                                                                  | Notes                                                                                 |
-| -------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `js/inventory-backup.js:26–59`   | JSON backup — explicit field map in `inventory.map(...)`              | Add `paymentMethod: item.paymentMethod \|\| ""`. Currently 29 fields listed.          |
-| `js/inventory-backup.js:131–163` | CSV headers array                                                     | Add `"Payment Method"` header.                                                        |
-| `js/inventory-backup.js:180–218` | CSV row generation                                                    | Add `item.paymentMethod \|\| ""` at matching index.                                   |
-| `js/inventory.js:1844–1878`      | JSON export field map                                                 | Add `paymentMethod` to the exported object.                                           |
-| `js/inventory.js:1935–1970`      | PDF table data                                                        | Add column. (PDF column width is already tight — approach should decide positioning.) |
-| `js/inventory-backup.js:223–251` | ZIP package — HTML inventory report generation + sample JSON fields   | Add `paymentMethod` to sample JSON field map.                                         |
-| `js/inventory-backup.js:764–790` | ZIP package — HTML report table (purchase/storage/notes/date columns) | Add Payment Method column to the HTML report table.                                   |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/inventory-backup.js:26–59` | JSON backup — explicit field map in `inventory.map(...)` | Add `paymentMethod: item.paymentMethod \|\| ""`. Currently 29 fields listed. |
+| `js/inventory-backup.js:131–163` | CSV headers array | Add `"Payment Method"` header. |
+| `js/inventory-backup.js:180–218` | CSV row generation | Add `item.paymentMethod \|\| ""` at matching index. |
+| `js/inventory.js:1844–1878` | JSON export field map | Add `paymentMethod` to the exported object. |
+| `js/inventory.js:1935–1970` | PDF table data | Add column. (PDF column width is already tight — approach should decide positioning.) |
+| `js/inventory-backup.js:223–251` | ZIP package — HTML inventory report generation + sample JSON fields | Add `paymentMethod` to sample JSON field map. |
+| `js/inventory-backup.js:764–790` | ZIP package — HTML report table (purchase/storage/notes/date columns) | Add Payment Method column to the HTML report table. |
+
 
 ### Import paths
 
-| Path                               | Role                                             | Notes                                                                                                                                                                                   |
-| ---------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/inventory-import.js:304`       | CSV import — `row["Purchase Location"]`          | Add `const paymentMethod = row["Payment Method"] \|\| ""`.                                                                                                                              |
-| `js/inventory-import.js:417–447`   | CSV import → `sanitizeImportedItem({...})`       | Add `paymentMethod` to the object literal.                                                                                                                                              |
-| `js/inventory-import.js:803,842`   | Second CSV import path (legacy/alternate format) | Same pattern — add `paymentMethod`.                                                                                                                                                     |
-| `js/inventory-import.js:1247,1289` | JSON import — `raw.paymentMethod`                | Add `const paymentMethod = raw.paymentMethod \|\| ""` and pass to `sanitizeImportedItem`.                                                                                               |
-| `js/inventory-import.js:1571,1652` | ZIP restore import path                          | Same pattern.                                                                                                                                                                           |
-| `js/utils.js:1322–1371`            | `sanitizeImportedItem()`                         | String fields sanitized via `basicFields` array (line 1352). Add `"paymentMethod"` to this array — it will be `cleanString()`'d automatically. No special numeric/type coercion needed. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/inventory-import.js:304` | CSV import — `row["Purchase Location"]` | Add `const paymentMethod = row["Payment Method"] \|\| ""`. |
+| `js/inventory-import.js:417–447` | CSV import → `sanitizeImportedItem({...})` | Add `paymentMethod` to the object literal. |
+| `js/inventory-import.js:803,842` | Second CSV import path (legacy/alternate format) | Same pattern — add `paymentMethod`. |
+| `js/inventory-import.js:1247,1289` | JSON import — `raw.paymentMethod` | Add `const paymentMethod = raw.paymentMethod \|\| ""` and pass to `sanitizeImportedItem`. |
+| `js/inventory-import.js:1571,1652` | ZIP restore import path | Same pattern. |
+| `js/utils.js:1322–1371` | `sanitizeImportedItem()` | String fields sanitized via `basicFields` array (line 1352). Add `"paymentMethod"` to this array — it will be `cleanString()`'d automatically. No special numeric/type coercion needed. |
 
 ### Cloud sync
 
-| Path                            | Role                                  | Notes                                                                                                                                                                     |
-| ------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path | Role | Notes |
+|------|------|-------|
 | `js/cloud-sync.js` (~line 2660) | Inventory pull — assigns entire array | No field-level mapping. Sync copies the raw inventory array. `paymentMethod` will round-trip transparently as long as it's in the stored item. **No code change needed.** |
-| `js/vault.js:308–355,487–495`   | Encrypted vault sync                  | Same — raw localStorage payload. No change needed.                                                                                                                        |
+| `js/vault.js:308–355,487–495` | Encrypted vault sync | Same — raw localStorage payload. No change needed. |
 
 ### Edit modal form population (opening an existing item for edit)
 
-| Path                        | Role                                                                                                      | Notes                                                                                             |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `js/inventory.js:1214–1231` | `fieldMap` for Numista data fields                                                                        | NOT the general item form population — this is specifically for Numista catalog fields.           |
-| `js/inventory.js:1314–1388` | Form population on edit-open — sets element values from stored item (purchase/storage at lines 1381–1383) | Must add `itemPaymentMethod` → `item.paymentMethod` mapping.                                      |
-| `js/inventory.js:1748–1770` | Duplicate/clone form population path (purchase/storage at lines 1762–1764)                                | Must also populate `itemPaymentMethod` here. Approach should confirm clone-mode setup needs this. |
+| Path | Role | Notes |
+|------|------|-------|
+| `js/inventory.js:1214–1231` | `fieldMap` for Numista data fields | NOT the general item form population — this is specifically for Numista catalog fields. |
+| `js/inventory.js:1314–1388` | Form population on edit-open — sets element values from stored item (purchase/storage at lines 1381–1383) | Must add `itemPaymentMethod` → `item.paymentMethod` mapping. |
+| `js/inventory.js:1748–1770` | Duplicate/clone form population path (purchase/storage at lines 1762–1764) | Must also populate `itemPaymentMethod` here. Approach should confirm clone-mode setup needs this. |
+
 
 ## Prior Decisions
 

@@ -28,37 +28,31 @@ Expand the Numista import-confirmation modal to display **all** Numista-provided
 > Format: Given/When/Then. Each AC must be verifiable from code or tests after implementation.
 
 ### AC-1 (maps to US-1)
-
 - **Given** a coin whose diameter has been manually set to a custom value (e.g. 50mm)
 - **When** the user triggers a Numista re-sync
 - **Then** the import modal shows a "Diameter" row with the current 50mm value visible, the checkbox is **unchecked** by default (preserving the user's edit), and an "edited" badge is shown
 
 ### AC-2 (maps to US-1)
-
 - **Given** a coin with user-modified thickness, mintage, fineness, composition, shape, orientation, technique, rarity index, KM reference, country, denomination, commemorative flag, Obverse description, Reverse description, or Edge description fields
 - **When** the user triggers a Numista re-sync
 - **Then** each field with a Numista candidate value appears in the modal with the current local value visible, the checkbox unchecked by default, and the edited badge shown
 
 ### AC-3 (maps to US-2)
-
 - **Given** a first-time Numista import (no prior values exist)
 - **When** the import modal opens
 - **Then** all available Numista-backed stored fields with candidate values are listed and default to **checked**, and the user can uncheck any they don't want
 
 ### AC-4 (maps to US-3)
-
 - **Given** the expanded import modal with 15+ field rows
 - **When** the modal renders on a viewport shorter than the modal content
 - **Then** the modal body scrolls independently; the header and action buttons remain fixed/sticky and always visible
 
 ### AC-5 (regression guard)
-
 - **Given** the existing 8-field behavior (Name, Catalog N#, Year, Type, Weight, Obverse Image, Reverse Image, Metal)
 - **When** any import (initial or re-sync) occurs
 - **Then** those 8 fields continue to render, check/uncheck, and badge exactly as they do today
 
 ### AC-6 (missing value guard)
-
 - **Given** Numista does not provide a candidate value for a stored field
 - **When** the import modal opens
 - **Then** that missing candidate does not overwrite the existing local value, and the modal does not present it as a checked overwrite option
