@@ -81,7 +81,7 @@ sqld is a self-hosted libSQL server on the home VM (`192.168.1.81:8080`). Both p
 | Private companion (`$(vault-path private)`) | Anything with LAN IPs / internal hosts (not public)    |
 | `lbruton/StakTrakrApi` `README.md`          | If endpoints, branches, or directory structure changes |
 
-> **Lookup:** `.context/` is canonical for agent-facing facts. Human docs live in the in-repo `DocVault/` (public-safe), and infra detail with IPs lives in `$(vault-path private)` (DEVS-78). The central DocVault is archived.
+> **Lookup:** `.context/` is canonical for agent-facing facts. The in-repo `DocVault/` holds only specs and entry pages; infra detail with IPs lives in `$(vault-path private)` (DEVS-78). The central DocVault is archived.
 > **Deprecated:** In-repo `wiki/` and `docs/devops/api-infrastructure-runbook.md` — do not update.
 
 ---
@@ -133,4 +133,4 @@ EOF
 | Notion infrastructure pages                 | Deprecated 2026-02-25 — do not update              |
 | `docs/devops/api-infrastructure-runbook.md` | Deprecated — will be deleted after next wiki audit |
 
-**`.context/` is the single source of truth** for these facts. Update it in the same PR. Human-facing pages go through `/vault-update` (in-repo `DocVault/`, or the private companion for anything sensitive).
+**`.context/` is the single source of truth** for these facts. Update it in the same PR. Do not add API notes to the in-repo `DocVault/` (specs only); anything with LAN hosts goes to the private companion via `/vault-update`.

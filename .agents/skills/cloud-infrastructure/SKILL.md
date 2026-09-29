@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent
 
 # Cloud Infrastructure
 
-This skill provides **executable workflows and safety gates** for cloud-hosted services. Reference data lives in the in-repo **`.context/`** docs (Cloudflare in DocVault) — read them before acting.
+This skill provides **executable workflows and safety gates** for cloud-hosted services. Reference data lives in the in-repo **`.context/`** docs (Cloudflare in the shared `Devops/DocVault/`) — read them before acting.
 
 ## Mandatory Context Read — HARD GATE
 
@@ -25,13 +25,13 @@ Read .context/infrastructure.md
 # GitHub Pages API serving, GHA workflows, cron, thresholds
 Read .context/data-pipelines.md
 
-# DNS, tunnels, Cloudflare Pages (cross-project — lives in DocVault)
+# DNS, tunnels, Cloudflare Pages (cross-project — lives in the shared Devops/DocVault)
 Read "$(vault-path shared)/KnowledgeBase/Infrastructure/Cloudflare.md"
 ```
 
 **Do NOT cite app names, resource limits, regions, or domains from memory — always read the docs above for current values.** Source code wins on conflict: `devops/pollers/remote-poller/fly.toml` is authoritative for Fly.io config.
 
-**Update rule:** When any cloud config changes (resource limits, env vars, domains, workflows), fix the matching `.context/` doc in the same PR and run `/context-drift`. Cloudflare changes go to DocVault via `/vault-update`.
+**Update rule:** When any cloud config changes (resource limits, env vars, domains, workflows), fix the matching `.context/` doc in the same PR and run `/context-drift`. Cloudflare changes go to the shared `Devops/DocVault/` via `/vault-update`, never the in-repo `DocVault/`.
 
 Everything hosted outside the home network.
 
