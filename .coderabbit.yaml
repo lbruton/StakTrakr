@@ -41,7 +41,7 @@ reviews:
     - "!**/.claude/**"
     - "!**/.gemini/**"
     - "!**/.agents/**"
-    - "!DocVault/**" # in-repo Obsidian vault (DEVS-78); linted by docvault-lint, not code
+    - "!docs/specs/**" # spec records (STRK-411); historical, not code
     - "!**/.spec-workflow/**"
     - "!**/.codacy/**"
     - "!**/.github/**"
@@ -84,7 +84,7 @@ reviews:
     - path: "devops/pollers/home-poller/docker-entrypoint.sh"
       instructions: |
         - This file is the AUTHORITATIVE source of truth for poller cron
-          schedules. If DocVault docs disagree, the entrypoint wins.
+          schedules. If .context/ docs disagree, the entrypoint wins.
     - path: "tests/**"
       instructions: |
         - Verify meaningful assertions (not just "it runs without error").

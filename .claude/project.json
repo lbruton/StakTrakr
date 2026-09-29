@@ -11,5 +11,8 @@
   "mem0": {
     "userId": "lbruton",
     "project": "staktrakr"
+  },
+  "specs": {
+    "path": "docs/specs"
   }
 }

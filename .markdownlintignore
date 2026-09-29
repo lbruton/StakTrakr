@@ -11,5 +11,5 @@ test-results
 # lint files git deliberately ignores.
 .claude/**/*.local.*
 
-# In-repo Obsidian vault (DEVS-78) — linted by the global docvault-lint hook with DocVault/.markdownlint.jsonc
-DocVault
+# Spec records (STRK-411) — historical artifacts, not held to the repo markdownlint config
+docs/specs

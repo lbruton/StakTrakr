@@ -16,5 +16,5 @@ test-results/
 *.min.js
 *.min.css
 
-# In-repo Obsidian vault (DEVS-78) — own formatting conventions; prettier would reflow tables/frontmatter
-DocVault/
+# Spec records (STRK-411) — historical artifacts; prettier would reflow tables/frontmatter
+docs/specs/
