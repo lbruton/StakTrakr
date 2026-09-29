@@ -29,7 +29,8 @@ Precious metals inventory tracker — vanilla-JS PWA with offline-first localSto
 | `DocVault/specs/`       | Humans   | Spec artifacts; `specs/archive/` holds completed, historical ones |
 | Private companion vault | Humans   | LAN-host detail and drift reports — `vault-path private`          |
 
-This vault holds specs only. Architecture, infrastructure, pipelines, and workflow live in
+Beyond this page and the [[StakTrakr]] index, the vault holds only `specs/`. Architecture,
+infrastructure, pipelines, and workflow live in
 `.context/` — link there rather than restating them here. Source code wins over every document.
 
 Pre-Plane issues live in the frozen central DocVault archive (`lbruton/DocVault`,
