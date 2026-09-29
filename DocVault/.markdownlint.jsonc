@@ -1,0 +1,13 @@
+{
+  "// Obsidian-tuned markdownlint config": "",
+  "// Disables rules that false-positive on wikilinks, embeds, and Obsidian conventions": "",
+  "MD013": false,
+  "MD033": false,
+  "MD041": false,
+  "MD011": false,
+  "MD042": false,
+  "MD051": false,
+  "MD046": { "style": "fenced" },
+  "MD049": { "style": "asterisk" },
+  "MD050": { "style": "asterisk" }
+}

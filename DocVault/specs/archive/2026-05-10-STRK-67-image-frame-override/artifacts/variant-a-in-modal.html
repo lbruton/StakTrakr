@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>STRK-67 — Variant A in Add/Edit Modal</title>
+    <style>
+      /* ========================================================================
+         Faithful reproduction of StakTrakr's Add/Edit Inventory Item modal.
+         Class names, structure, and variable names mirror production:
+           - .image-upload-sides / .image-upload-side / .image-card
+           - .image-side-label / .image-card-actions
+           - .btn.img-btn / .img-btn-upload / .img-btn-url / .img-btn-camera / .img-btn-remove
+           - .image-swap-wrapper / #swapImagesBtn
+           - .image-upload-preview / img
+         Source: index.html:1858–1960, css/styles.css:3192–3329, 9715–9744.
+         ===================================================================== */
+      :root {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --text-inverse: #0f172a;
+        --border: #334155;
+        --border-hover: #475569;
+        --primary: #f59e0b; /* Upload pill — amber */
+        --success: #34d399; /* URL pill — green */
+        --accent-gold: #fbbf24;
+        --radius: 6px;
+        --radius-pill: 999px;
+        --spacing-xs: 4px;
+        --spacing-sm: 8px;
+        --spacing-md: 12px;
+        --spacing-lg: 20px;
+        --font-size-xs: 11px;
+        --font-size-sm: 13px;
+        --font-size-md: 14px;
+        --font-size-xl: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px 16px;
+        background: #050a14;
+        color: var(--text-primary);
+        font:
+          var(--font-size-md)/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        min-height: 100vh;
+      }
+
+      /* Page chrome (not part of the production modal) */
+      .page-header {
+        max-width: 880px;
+        margin: 0 auto 24px;
+      }
+      .page-header h1 {
+        font-size: 18px;
+        margin: 0 0 6px;
+      }
+      .page-header h1 .id {
+        color: var(--accent-gold);
+        font-family: ui-monospace, monospace;
+        margin-right: 8px;
+      }
+      .page-header .lead {
+        color: var(--text-secondary);
+        margin: 0;
+        font-size: 13px;
+      }
+
+      .scenario-bar {
+        max-width: 880px;
+        margin: 0 auto 16px;
+        display: flex;
+        gap: 4px;
+        background: var(--bg-secondary);
+        padding: 4px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        width: fit-content;
+      }
+      .scenario-bar button {
+        background: transparent;
+        border: 0;
+        color: var(--text-muted);
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: inherit;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .scenario-bar button:hover {
+        color: var(--text-primary);
+      }
+      .scenario-bar button.active {
+        background: var(--accent-gold);
+        color: var(--text-inverse);
+      }
+
+      /* === Modal shell === */
+      .modal {
+        max-width: 880px;
+        margin: 0 auto;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-header h2 {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .modal-close {
+        background: transparent;
+        border: 0;
+        color: var(--text-muted);
+        font-size: 20px;
+        cursor: pointer;
+        line-height: 1;
+        padding: 4px 8px;
+      }
+      .modal-close:hover {
+        color: var(--text-primary);
+      }
+
+      .modal-body {
+        padding: 20px;
+      }
+
+      .form-section-label {
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+      }
+
+      /* === Image upload group (matches production) === */
+      .image-upload-group {
+        margin-bottom: var(--spacing-lg);
+      }
+
+      .image-upload-sides {
+        display: flex;
+        gap: var(--spacing-md);
+      }
+
+      #inventoryForm .image-upload-side {
+        flex: 1;
+        min-width: 0;
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 0.5rem;
+        transition:
+          border-color 0.2s ease,
+          background 0.2s ease;
+      }
+      #inventoryForm .image-upload-side:hover {
+        border-color: var(--primary);
+        background: color-mix(in oklch, var(--primary), transparent 94%);
+      }
+
+      #inventoryForm .image-side-label {
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      .image-swap-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        padding-top: 1.2rem;
+      }
+      .image-swap-wrapper .btn-icon {
+        font-size: var(--font-size-xl);
+        padding: 0.4rem 0.6rem;
+        line-height: 1;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        border-radius: var(--radius);
+        cursor: pointer;
+      }
+      .image-swap-wrapper .btn-icon:hover {
+        color: var(--accent-gold);
+      }
+
+      .image-card {
+        display: flex;
+        align-items: stretch;
+        gap: var(--spacing-md);
+        min-height: 100px;
+      }
+
+      /* === IMAGE PREVIEW — this is where variant A's toggle lives === */
+      .image-upload-preview {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative; /* for absolute toggle positioning */
+        min-height: 100px;
+      }
+
+      .image-upload-preview .preview-img {
+        max-width: 100%;
+        max-height: 140px;
+        border: 1px solid var(--border);
+        object-fit: contain;
+        background: #0a1320;
+        transition:
+          border-radius 220ms ease,
+          clip-path 220ms ease;
+      }
+
+      /* Frame state classes — applied to .image-upload-preview */
+      .image-upload-preview.frame-circle .preview-img {
+        border-radius: 50%;
+        aspect-ratio: 1 / 1;
+        max-height: 140px;
+        max-width: 140px;
+        object-fit: cover;
+      }
+      .image-upload-preview.frame-rect .preview-img {
+        border-radius: 4px;
+      }
+      .image-upload-preview.frame-auto .preview-img {
+        /* In auto: gradingAuthority is set on this mock item → resolves to rect */
+        border-radius: 4px;
+      }
+
+      /* === VARIANT A — the corner toggle being prototyped === */
+      .frame-toggle {
+        position: absolute;
+        bottom: 6px;
+        right: 6px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.88);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        font:
+          600 12px/1 ui-monospace,
+          monospace;
+        backdrop-filter: blur(8px);
+        transition:
+          background 120ms ease,
+          border-color 120ms ease,
+          color 120ms ease,
+          transform 120ms ease;
+        z-index: 2;
+      }
+      .frame-toggle:hover {
+        background: rgba(15, 23, 42, 0.98);
+        border-color: var(--accent-gold);
+        color: var(--accent-gold);
+      }
+      .frame-toggle:active {
+        transform: scale(0.92);
+      }
+      .frame-toggle:focus-visible {
+        outline: 2px solid var(--accent-gold);
+        outline-offset: 2px;
+      }
+
+      .frame-toggle[data-frame="auto"] {
+        color: var(--text-muted);
+        font-size: 11px;
+      }
+      .frame-toggle[data-frame="circle"] {
+        color: var(--accent-gold);
+        font-size: 14px;
+      }
+      .frame-toggle[data-frame="rectangle"] {
+        color: var(--accent-gold);
+        font-size: 14px;
+      }
+
+      /* Hidden when slot is empty — AC-8 */
+      .image-upload-preview.empty .frame-toggle {
+        display: none;
+      }
+      .image-upload-preview.empty .preview-img {
+        display: none;
+      }
+      .image-upload-preview.empty::before {
+        content: "No image";
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      /* === Action button column (right of preview) === */
+      .image-card-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .btn.img-btn {
+        border-radius: var(--radius-pill);
+        padding: 0.3rem 0.85rem;
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        white-space: nowrap;
+        border: 1px solid transparent;
+        cursor: pointer;
+        font-family: inherit;
+        line-height: 1.4;
+        min-width: 80px;
+        text-align: center;
+      }
+      .btn.img-btn-upload {
+        background: var(--primary);
+        color: var(--text-inverse);
+        border-color: var(--primary);
+      }
+      .btn.img-btn-upload:hover {
+        opacity: 0.85;
+      }
+      .btn.img-btn-url {
+        background: color-mix(in oklch, var(--success), transparent 85%);
+        color: var(--success);
+        border-color: color-mix(in oklch, var(--success), transparent 70%);
+      }
+      .btn.img-btn-url:hover {
+        background: color-mix(in oklch, var(--success), transparent 75%);
+      }
+      .btn.img-btn-remove {
+        background: transparent;
+        color: var(--text-muted);
+        border-color: var(--border);
+        font-size: 11px;
+        padding: 0.25rem 0.7rem;
+      }
+      .btn.img-btn-remove:hover {
+        color: #f87171;
+        border-color: #f87171;
+      }
+
+      /* === Form rows below the image group === */
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+      }
+      .form-field label {
+        display: block;
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+      .form-field label .opt {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+        color: var(--text-muted);
+        margin-left: 4px;
+      }
+      .form-field select,
+      .form-field input {
+        width: 100%;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text-primary);
+        padding: 8px 10px;
+        font-size: var(--font-size-sm);
+        font-family: inherit;
+      }
+      .form-field select {
+        appearance: none;
+        cursor: pointer;
+      }
+      .form-field .with-search {
+        position: relative;
+      }
+      .form-field .with-search input {
+        padding-right: 60px;
+      }
+      .form-field .with-search .search-btn {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: 0;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        display: grid;
+        grid-auto-flow: column;
+        gap: 4px;
+        align-items: center;
+      }
+      .form-field .with-search .search-btn .dot {
+        width: 6px;
+        height: 6px;
+        background: var(--success);
+        border-radius: 50%;
+      }
+
+      /* === Inline annotation panel === */
+      .annotation {
+        max-width: 880px;
+        margin: 16px auto 0;
+        padding: 14px 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent-gold);
+        border-radius: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+      .annotation strong {
+        color: var(--accent-gold);
+      }
+      .annotation code {
+        font-family: ui-monospace, monospace;
+        background: var(--bg-tertiary);
+        padding: 1px 5px;
+        border-radius: 3px;
+        color: var(--text-primary);
+        font-size: 11px;
+      }
+      .annotation .read-out {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border);
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .annotation .read-out span {
+        color: var(--accent-gold);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>
+        <span class="id">STRK-67</span> Variant A — corner cycle button, in the real Edit Item modal
+      </h1>
+      <p class="lead">
+        Faithful reproduction of the production modal at
+        <code style="color: var(--accent-gold); font-family: ui-monospace, monospace"
+          >index.html:1858</code
+        >
+        using the same class names and styles. Variant A's toggle is positioned at the lower-right
+        of each preview area. Click to cycle
+        <code style="color: var(--accent-gold); font-family: ui-monospace, monospace"
+          >auto → circle → rectangle → auto</code
+        >; watch the image clipping change. Use the scenario bar to compare empty-slot behavior
+        (AC-8).
+      </p>
+    </div>
+
+    <div class="scenario-bar" role="tablist">
+      <button data-scenario="both-images" class="active">Both slots — slab + coin</button>
+      <button data-scenario="obverse-only">Obverse only</button>
+      <button data-scenario="empty">Both empty (AC-8)</button>
+    </div>
+
+    <!-- ===== MODAL ===== -->
+    <div class="modal" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Edit Inventory Item</h2>
+        <button class="modal-close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- Images section — production class names preserved -->
+        <div id="imageUploadGroup" class="image-upload-group">
+          <div class="form-section-label">Images</div>
+          <div id="inventoryForm">
+            <div class="image-upload-sides">
+              <!-- Obverse -->
+              <div class="image-upload-side">
+                <span class="image-side-label">Obverse</span>
+                <div class="image-card">
+                  <div id="previewObv" class="image-upload-preview frame-auto">
+                    <!-- Slab image (NGC-style) -->
+                    <svg
+                      class="preview-img"
+                      id="imgObv"
+                      viewBox="0 0 100 100"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-label="Obverse"
+                    >
+                      <defs>
+                        <linearGradient id="obvBg" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0" stop-color="#1a2540" />
+                          <stop offset="1" stop-color="#0f172a" />
+                        </linearGradient>
+                        <linearGradient id="ptCoin" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0" stop-color="#e8e9ee" />
+                          <stop offset="1" stop-color="#a8acb6" />
+                        </linearGradient>
+                      </defs>
+                      <rect width="100" height="100" fill="url(#obvBg)" />
+                      <rect
+                        x="6"
+                        y="6"
+                        width="88"
+                        height="22"
+                        fill="#0a1320"
+                        stroke="#334155"
+                        stroke-width="0.5"
+                      />
+                      <text
+                        x="50"
+                        y="16"
+                        text-anchor="middle"
+                        fill="#fbbf24"
+                        font-family="monospace"
+                        font-size="5"
+                        font-weight="700"
+                      >
+                        NGC
+                      </text>
+                      <text
+                        x="50"
+                        y="24"
+                        text-anchor="middle"
+                        fill="#e8eaed"
+                        font-family="monospace"
+                        font-size="4"
+                      >
+                        1 OZ PT MS70
+                      </text>
+                      <circle
+                        cx="50"
+                        cy="58"
+                        r="22"
+                        fill="url(#ptCoin)"
+                        stroke="#7a7e88"
+                        stroke-width="0.5"
+                      />
+                      <text
+                        x="50"
+                        y="60"
+                        text-anchor="middle"
+                        fill="#3a3a3a"
+                        font-family="serif"
+                        font-size="4"
+                        font-weight="700"
+                      >
+                        PLATINUM
+                      </text>
+                      <text
+                        x="50"
+                        y="66"
+                        text-anchor="middle"
+                        fill="#3a3a3a"
+                        font-family="monospace"
+                        font-size="3"
+                      >
+                        1 oz .9995
+                      </text>
+                      <rect
+                        x="6"
+                        y="84"
+                        width="88"
+                        height="10"
+                        fill="#0a1320"
+                        stroke="#334155"
+                        stroke-width="0.3"
+                      />
+                      <text
+                        x="50"
+                        y="91"
+                        text-anchor="middle"
+                        fill="#94a3b8"
+                        font-family="monospace"
+                        font-size="3"
+                      >
+                        CERT 8612045-001
+                      </text>
+                    </svg>
+                    <button
+                      class="frame-toggle"
+                      id="toggleObv"
+                      data-frame="auto"
+                      title="Frame override — click to cycle auto / circle / rectangle"
+                      aria-label="Frame override (currently auto)"
+                    >
+                      <span id="glyphObv">A</span>
+                    </button>
+                  </div>
+                  <div class="image-card-actions">
+                    <button class="btn img-btn img-btn-upload" type="button">Upload</button>
+                    <button class="btn img-btn img-btn-url" type="button">URL</button>
+                    <button class="btn img-btn img-btn-remove" id="removeObv" type="button">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Swap arrows -->
+              <div class="image-swap-wrapper">
+                <button
+                  class="btn-icon"
+                  id="swapImagesBtn"
+                  title="Swap obverse & reverse"
+                  aria-label="Swap obverse and reverse images"
+                >
+                  ⇄
+                </button>
+              </div>
+
+              <!-- Reverse -->
+              <div class="image-upload-side">
+                <span class="image-side-label">Reverse</span>
+                <div class="image-card">
+                  <div id="previewRev" class="image-upload-preview frame-auto">
+                    <!-- Reverse coin (round, no slab — testing override on round image) -->
+                    <svg
+                      class="preview-img"
+                      id="imgRev"
+                      viewBox="0 0 100 100"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-label="Reverse"
+                    >
+                      <defs>
+                        <linearGradient id="revBg" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0" stop-color="#1a2540" />
+                          <stop offset="1" stop-color="#0f172a" />
+                        </linearGradient>
+                        <radialGradient id="ptRev" cx="0.5" cy="0.5" r="0.55">
+                          <stop offset="0" stop-color="#f0f1f4" />
+                          <stop offset="1" stop-color="#9da1ab" />
+                        </radialGradient>
+                      </defs>
+                      <rect width="100" height="100" fill="url(#revBg)" />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="url(#ptRev)"
+                        stroke="#7a7e88"
+                        stroke-width="0.5"
+                      />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="32"
+                        fill="none"
+                        stroke="#7a7e88"
+                        stroke-width="0.3"
+                        stroke-dasharray="1,1"
+                      />
+                      <text
+                        x="50"
+                        y="38"
+                        text-anchor="middle"
+                        fill="#3a3a3a"
+                        font-family="serif"
+                        font-size="6"
+                        font-weight="700"
+                      >
+                        LIBERTY
+                      </text>
+                      <path
+                        d="M 35 44 Q 50 70 65 44"
+                        fill="none"
+                        stroke="#3a3a3a"
+                        stroke-width="0.6"
+                      />
+                      <text
+                        x="50"
+                        y="70"
+                        text-anchor="middle"
+                        fill="#3a3a3a"
+                        font-family="serif"
+                        font-size="4"
+                      >
+                        2024
+                      </text>
+                    </svg>
+                    <button
+                      class="frame-toggle"
+                      id="toggleRev"
+                      data-frame="auto"
+                      title="Frame override — click to cycle auto / circle / rectangle"
+                      aria-label="Frame override (currently auto)"
+                    >
+                      <span id="glyphRev">A</span>
+                    </button>
+                  </div>
+                  <div class="image-card-actions">
+                    <button class="btn img-btn img-btn-upload" type="button">Upload</button>
+                    <button class="btn img-btn img-btn-url" type="button">URL</button>
+                    <button class="btn img-btn img-btn-remove" id="removeRev" type="button">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form fields below — non-functional, just for context -->
+        <div class="form-row">
+          <div class="form-field">
+            <label for="metal">Metal</label>
+            <select id="metal">
+              <option>Platinum</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="type">Type</label>
+            <select id="type">
+              <option>Coin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label for="name">Name</label>
+            <div class="with-search">
+              <input id="name" type="text" value="Platinum American Eagle (NGC MS70)" />
+              <button class="search-btn" type="button" title="Search Numista">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M21 21l-4.35-4.35" />
+                </svg>
+                <span class="dot"></span>
+              </button>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="year">Year <span class="opt">(optional)</span></label>
+            <input id="year" type="text" placeholder="e.g. 2024" value="2024" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Annotation panel: live readout of state for both sides -->
+    <div class="annotation">
+      <strong>Live readout</strong> · The mock item has <code>gradingAuthority = "NGC"</code>, so
+      <code>auto</code> resolves to <code>rectangle</code> (per AC-4). Toggling either side to
+      <code>circle</code> demonstrates AC-1 (override forces circle even when auto would say
+      rectangle). Removing an image hides the toggle for that side (AC-8 / AC-9 enforcement).
+      <div class="read-out">
+        Obverse:
+        <span id="readObv">obverseImageFrame: "auto" → resolves: rectangle</span> &nbsp;|&nbsp;
+        Reverse: <span id="readRev">reverseImageFrame: "auto" → resolves: rectangle</span>
+      </div>
+    </div>
+
+    <script>
+      const FRAMES = ["auto", "circle", "rectangle"];
+      const GLYPH = { auto: "A", circle: "○", rectangle: "▭" };
+
+      // Mock item: graded slab → gradingAuthority truthy → auto resolves to rectangle.
+      // Same data model both sides share.
+      const ITEM = {
+        gradingAuthority: "NGC",
+        numistaShape: "Round",
+        type: "Coin",
+        weightUnit: "oz",
+      };
+
+      const resolveAuto = (item) => {
+        // Mirror the rule from requirements.md AC-3/AC-4/AC-5/AC-6
+        const t = (item.type || "").toLowerCase();
+        const wu = (item.weightUnit || "").toLowerCase();
+        if (["bar", "note", "aurum", "set"].includes(t)) return "rectangle";
+        if (["gb", "sb"].includes(wu)) return "rectangle";
+        if (item.gradingAuthority) return "rectangle";
+        const shape = (item.numistaShape || "").toLowerCase();
+        if (shape && !shape.startsWith("round") && !shape.startsWith("circular"))
+          return "rectangle";
+        return "round";
+      };
+
+      const setFrame = (sideId, frame) => {
+        const preview = document.getElementById(`preview${sideId}`);
+        if (!preview) return;
+        preview.classList.remove("frame-auto", "frame-circle", "frame-rect");
+        const cls =
+          frame === "circle" ? "frame-circle" : frame === "rectangle" ? "frame-rect" : "frame-auto";
+        preview.classList.add(cls);
+
+        const toggle = document.getElementById(`toggle${sideId}`);
+        const glyph = document.getElementById(`glyph${sideId}`);
+        if (toggle) {
+          toggle.dataset.frame = frame;
+          toggle.setAttribute("aria-label", `Frame override (currently ${frame})`);
+          toggle.title = `Frame: ${frame} — click to cycle auto / circle / rectangle`;
+        }
+        if (glyph) glyph.textContent = GLYPH[frame];
+
+        const resolved =
+          frame === "auto" ? resolveAuto(ITEM) : frame === "circle" ? "round" : "rectangle";
+        const readEl = document.getElementById(`read${sideId}`);
+        const fieldName = sideId === "Obv" ? "obverseImageFrame" : "reverseImageFrame";
+        if (readEl) {
+          if (frame === "auto") {
+            readEl.innerHTML = `${fieldName}: "auto" → resolves: <span>${resolved}</span>`;
+          } else {
+            readEl.innerHTML = `${fieldName}: <span>"${frame}"</span> (override)`;
+          }
+        }
+      };
+
+      const next = (current) => FRAMES[(FRAMES.indexOf(current) + 1) % FRAMES.length];
+
+      ["Obv", "Rev"].forEach((side) => {
+        setFrame(side, "auto");
+        document.getElementById(`toggle${side}`).addEventListener("click", () => {
+          const current = document.getElementById(`toggle${side}`).dataset.frame;
+          setFrame(side, next(current));
+        });
+        document.getElementById(`remove${side}`).addEventListener("click", () => {
+          // AC-8 demo: remove image, toggle disappears
+          const preview = document.getElementById(`preview${side}`);
+          const isEmpty = preview.classList.contains("empty");
+          if (isEmpty) {
+            preview.classList.remove("empty");
+            document.getElementById(`remove${side}`).textContent = "Remove";
+          } else {
+            preview.classList.add("empty");
+            document.getElementById(`remove${side}`).textContent = "Restore";
+          }
+        });
+      });
+
+      // Scenario switcher
+      const scenarioBar = document.querySelector(".scenario-bar");
+      scenarioBar.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-scenario]");
+        if (!btn) return;
+        scenarioBar
+          .querySelectorAll("button")
+          .forEach((b) => b.classList.toggle("active", b === btn));
+        const scenario = btn.dataset.scenario;
+        const obvEmpty = scenario === "empty";
+        const revEmpty = scenario === "empty" || scenario === "obverse-only";
+        document.getElementById("previewObv").classList.toggle("empty", obvEmpty);
+        document.getElementById("previewRev").classList.toggle("empty", revEmpty);
+        document.getElementById("removeObv").textContent = obvEmpty ? "Restore" : "Remove";
+        document.getElementById("removeRev").textContent = revEmpty ? "Restore" : "Remove";
+      });
+    </script>
+  </body>
+</html>

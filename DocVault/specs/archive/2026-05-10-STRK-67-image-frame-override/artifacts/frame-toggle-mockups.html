@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>STRK-67 — Frame Toggle UI Mockups</title>
+    <style>
+      :root {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
+        --bg-slot: #0a1320;
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --border-hover: #475569;
+        --accent-gold: #fbbf24;
+        --accent-silver: #d1d5db;
+        --accent-active: #fbbf24;
+        --danger: #f87171;
+        --success: #34d399;
+        --radius-card: 12px;
+        --radius-slot: 8px;
+        --shadow-slot: 0 8px 24px rgba(0, 0, 0, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font:
+          14px/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        padding: 32px 24px 64px;
+      }
+
+      header {
+        max-width: 1280px;
+        margin: 0 auto 32px;
+      }
+
+      h1 {
+        font-size: 22px;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+
+      h1 .id {
+        color: var(--accent-gold);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 18px;
+        margin-right: 8px;
+      }
+
+      .lead {
+        color: var(--text-secondary);
+        max-width: 720px;
+        margin: 0 0 12px;
+      }
+
+      .meta {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+
+      .grid {
+        max-width: 1280px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .card h2 {
+        font-size: 15px;
+        margin: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .card h2 .tag {
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 11px;
+        background: var(--bg-tertiary);
+        color: var(--accent-gold);
+        padding: 2px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.04em;
+      }
+      .card .subtitle {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: -8px 0 0;
+      }
+
+      /* Image slot — mimics the add/edit modal slot at index.html:1864 */
+      .slot-wrap {
+        display: flex;
+        gap: 24px;
+        align-items: stretch;
+      }
+
+      .slot {
+        position: relative;
+        width: 180px;
+        height: 180px;
+        background: var(--bg-slot);
+        border: 1px dashed var(--border-hover);
+        border-radius: var(--radius-slot);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: var(--shadow-slot);
+        overflow: hidden;
+      }
+
+      /* Slab placeholder — fake NGC-style certified slab */
+      .slab {
+        width: 88%;
+        height: 88%;
+        position: relative;
+        transition:
+          clip-path 220ms ease,
+          border-radius 220ms ease;
+      }
+
+      .slab svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Frame states control how the image clips */
+      .frame-circle .slab {
+        border-radius: 50%;
+        overflow: hidden;
+        aspect-ratio: 1 / 1;
+      }
+      .frame-circle .slab svg {
+        object-fit: cover;
+      }
+
+      .frame-rect .slab {
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .frame-auto .slab {
+        /* In auto, gradingAuthority is set in our mock data → resolves to rect */
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      /* === Variant A — single-glyph cycle button === */
+      .toggle-a {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        backdrop-filter: blur(6px);
+        font-size: 14px;
+        line-height: 1;
+        transition:
+          background 120ms ease,
+          border-color 120ms ease,
+          transform 120ms ease;
+      }
+      .toggle-a:hover {
+        background: rgba(15, 23, 42, 0.95);
+        border-color: var(--accent-gold);
+      }
+      .toggle-a:active {
+        transform: scale(0.94);
+      }
+      .toggle-a[data-frame="auto"] {
+        color: var(--text-secondary);
+      }
+      .toggle-a[data-frame="circle"] {
+        color: var(--accent-gold);
+      }
+      .toggle-a[data-frame="rectangle"] {
+        color: var(--accent-gold);
+      }
+
+      /* === Variant B — frame icon + state badge === */
+      .toggle-b {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 36px;
+        height: 32px;
+        border-radius: 6px;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        backdrop-filter: blur(6px);
+        display: grid;
+        place-items: center;
+        position: absolute;
+      }
+      .toggle-b:hover {
+        border-color: var(--accent-gold);
+      }
+      .toggle-b svg {
+        width: 18px;
+        height: 18px;
+        color: var(--text-secondary);
+      }
+      .toggle-b .badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border-radius: 8px;
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        font-size: 10px;
+        font-weight: 600;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--bg-primary);
+        line-height: 1;
+      }
+      .toggle-b[data-frame="auto"] .badge {
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+      }
+      .toggle-b[data-frame="circle"] .badge {
+        background: var(--accent-gold);
+        color: var(--bg-primary);
+      }
+      .toggle-b[data-frame="rectangle"] .badge {
+        background: var(--accent-gold);
+        color: var(--bg-primary);
+      }
+
+      /* === Variant C — popover === */
+      .toggle-c {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        backdrop-filter: blur(6px);
+        display: grid;
+        place-items: center;
+      }
+      .toggle-c:hover {
+        border-color: var(--accent-gold);
+      }
+      .toggle-c svg {
+        width: 16px;
+        height: 16px;
+        color: var(--text-secondary);
+      }
+
+      .popover {
+        position: absolute;
+        bottom: 48px;
+        right: 8px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-hover);
+        border-radius: 8px;
+        padding: 4px;
+        display: none;
+        gap: 2px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        z-index: 5;
+      }
+      .popover.open {
+        display: flex;
+      }
+      .popover button {
+        background: transparent;
+        border: 0;
+        color: var(--text-secondary);
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .popover button:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+      .popover button.active {
+        background: var(--accent-gold);
+        color: var(--bg-primary);
+      }
+
+      /* === Variant D — segmented chip strip below slot === */
+      .chip-strip {
+        display: flex;
+        gap: 4px;
+        margin-top: 8px;
+        padding: 3px;
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        width: fit-content;
+      }
+      .chip-strip button {
+        background: transparent;
+        border: 0;
+        color: var(--text-muted);
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 4px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        font-family: inherit;
+        text-transform: uppercase;
+      }
+      .chip-strip button:hover {
+        color: var(--text-primary);
+      }
+      .chip-strip button.active {
+        background: var(--accent-gold);
+        color: var(--bg-primary);
+      }
+
+      /* Variant info column */
+      .info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .info .row {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 12px;
+      }
+      .info .row .k {
+        color: var(--text-muted);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        min-width: 64px;
+      }
+      .info .row .v {
+        color: var(--text-primary);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+
+      .pros-cons {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.55;
+        margin: 0;
+      }
+      .pros-cons li {
+        margin: 2px 0;
+      }
+      .pros-cons .plus {
+        color: var(--success);
+      }
+      .pros-cons .minus {
+        color: var(--danger);
+      }
+
+      /* Footer — comparison + notes */
+      .summary {
+        max-width: 1280px;
+        margin: 32px auto 0;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+      }
+      @media (max-width: 900px) {
+        .summary {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .summary .card {
+        gap: 12px;
+      }
+
+      .recap-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .recap-table th,
+      .recap-table td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .recap-table th {
+        color: var(--text-muted);
+        font-weight: 500;
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .recap-table .check {
+        color: var(--success);
+      }
+      .recap-table .x {
+        color: var(--danger);
+      }
+
+      .ac-link {
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--accent-gold);
+      }
+
+      .footer-note {
+        max-width: 1280px;
+        margin: 24px auto 0;
+        padding: 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+      .footer-note code {
+        font-family: ui-monospace, monospace;
+        background: var(--bg-tertiary);
+        padding: 1px 6px;
+        border-radius: 3px;
+        color: var(--text-primary);
+      }
+
+      .label-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: ui-monospace, monospace;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+      .label-bar .state {
+        color: var(--accent-gold);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1><span class="id">STRK-67</span> Frame Toggle — UI Mockups</h1>
+      <p class="lead">
+        Four corner-toggle variants for the per-side <code>obverseImageFrame</code> /
+        <code>reverseImageFrame</code> override (AC-7). Click the toggle on each slot to cycle
+        through <code>auto → circle → rectangle</code>; the slab image's clipping changes so you can
+        compare the end-to-end visual effect, not just the affordance.
+      </p>
+      <p class="meta">
+        Sketch: <code>DocVault/Projects/StakTrakr/sketches/STRK-67-image-frame-override/</code
+        ><br />
+        Image data is mocked. Slot dimensions and dark surface match the production add/edit modal
+        at <code>index.html:1864</code>.
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- Variant A -->
+      <section class="card">
+        <h2><span class="tag">A</span> Cycle button — current-state glyph</h2>
+        <p class="subtitle">
+          Single corner button. Face shows current value. Click cycles auto → circle → rectangle.
+        </p>
+        <div class="slot-wrap">
+          <div class="slot frame-auto" id="slot-a">
+            <div class="slab">
+              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="ga" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#1a2540" />
+                    <stop offset="1" stop-color="#0f172a" />
+                  </linearGradient>
+                  <linearGradient id="ga2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#fbbf24" />
+                    <stop offset="1" stop-color="#b88a14" />
+                  </linearGradient>
+                </defs>
+                <rect width="100" height="100" fill="url(#ga)" />
+                <rect
+                  x="8"
+                  y="8"
+                  width="84"
+                  height="20"
+                  fill="#0a1320"
+                  stroke="#334155"
+                  stroke-width="0.5"
+                />
+                <text
+                  x="50"
+                  y="22"
+                  text-anchor="middle"
+                  fill="#fbbf24"
+                  font-family="monospace"
+                  font-size="6"
+                  font-weight="700"
+                >
+                  NGC MS70
+                </text>
+                <circle
+                  cx="50"
+                  cy="58"
+                  r="22"
+                  fill="url(#ga2)"
+                  stroke="#8a6f1a"
+                  stroke-width="0.5"
+                />
+                <text
+                  x="50"
+                  y="61"
+                  text-anchor="middle"
+                  fill="#3a2a08"
+                  font-family="monospace"
+                  font-size="5"
+                  font-weight="700"
+                >
+                  PT 1oz
+                </text>
+                <rect
+                  x="8"
+                  y="84"
+                  width="84"
+                  height="8"
+                  fill="#0a1320"
+                  stroke="#334155"
+                  stroke-width="0.3"
+                />
+                <text
+                  x="50"
+                  y="90"
+                  text-anchor="middle"
+                  fill="#94a3b8"
+                  font-family="monospace"
+                  font-size="3"
+                >
+                  CERT 8612045-001
+                </text>
+              </svg>
+            </div>
+            <button
+              class="toggle-a"
+              id="toggle-a"
+              data-frame="auto"
+              title="Frame override (cycle)"
+              aria-label="Frame override"
+            >
+              <span id="toggle-a-glyph">A</span>
+            </button>
+          </div>
+          <div class="info">
+            <div class="row">
+              <span class="k">state:</span><span class="v" id="state-a">auto</span>
+            </div>
+            <div class="row">
+              <span class="k">resolves:</span><span class="v" id="resolves-a">rectangle</span>
+            </div>
+            <div class="row"><span class="k">click:</span><span class="v">cycle</span></div>
+            <ul class="pros-cons">
+              <li><span class="plus">+</span> Smallest footprint, no extra DOM beyond a button</li>
+              <li><span class="plus">+</span> One affordance, one interaction model</li>
+              <li><span class="minus">−</span> Glyph swap can blur the "I'm in auto mode" state</li>
+              <li><span class="minus">−</span> Cycle order is hidden; needs hover title</li>
+            </ul>
+            <div class="label-bar">
+              <span>Maps to <span class="ac-link">AC-7, AC-8</span></span>
+              <span class="state" id="label-a">FRAME: AUTO → RECT</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Variant B -->
+      <section class="card">
+        <h2><span class="tag">B</span> Frame icon + state badge</h2>
+        <p class="subtitle">
+          Constant frame-icon button; small badge corner shows current letter (A / C / R).
+        </p>
+        <div class="slot-wrap">
+          <div class="slot frame-auto" id="slot-b">
+            <div class="slab">
+              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect width="100" height="100" fill="url(#ga)" />
+                <rect
+                  x="8"
+                  y="8"
+                  width="84"
+                  height="20"
+                  fill="#0a1320"
+                  stroke="#334155"
+                  stroke-width="0.5"
+                />
+                <text
+                  x="50"
+                  y="22"
+                  text-anchor="middle"
+                  fill="#fbbf24"
+                  font-family="monospace"
+                  font-size="6"
+                  font-weight="700"
+                >
+                  NGC MS70
+                </text>
+                <circle
+                  cx="50"
+                  cy="58"
+                  r="22"
+                  fill="url(#ga2)"
+                  stroke="#8a6f1a"
+                  stroke-width="0.5"
+                />
+                <text
+                  x="50"
+                  y="61"
+                  text-anchor="middle"
+                  fill="#3a2a08"
+                  font-family="monospace"
+                  font-size="5"
+                  font-weight="700"
+                >
+                  PT 1oz
+                </text>
+                <rect
+                  x="8"
+                  y="84"
+                  width="84"
+                  height="8"
+                  fill="#0a1320"
+                  stroke="#334155"
+                  stroke-width="0.3"
+                />
+                <text
+                  x="50"
+                  y="90"
+                  text-anchor="middle"
+                  fill="#94a3b8"
+                  font-family="monospace"
+                  font-size="3"
+                >
+                  CERT 8612045-001
+                </text>
+              </svg>
+            </div>
+            <button
+              class="toggle-b"
+              id="toggle-b"
+              data-frame="auto"
+              title="Frame override (cycle)"
+              aria-label="Frame override"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="12" cy="12" r="5" />
+              </svg>
+              <span class="badge" id="toggle-b-badge">A</span>
+            </button>
+          </div>
+          <div class="info">
+            <div class="row">
+              <span class="k">state:</span><span class="v" id="state-b">auto</span>
+            </div>
+            <div class="row">
+              <span class="k">resolves:</span><span class="v" id="resolves-b">rectangle</span>
+            </div>
+            <div class="row"><span class="k">click:</span><span class="v">cycle</span></div>
+            <ul class="pros-cons">
+              <li><span class="plus">+</span> Constant icon = clear "this is the frame control"</li>
+              <li><span class="plus">+</span> Badge gives unambiguous current-state read</li>
+              <li><span class="plus">+</span> Color-codes the auto-vs-overridden distinction</li>
+              <li>
+                <span class="minus">−</span> Slightly more DOM (icon + badge); badge can crop on
+                small viewports
+              </li>
+            </ul>
+            <div class="label-bar">
+              <span>Maps to <span class="ac-link">AC-7, AC-8</span></span>
+              <span class="state" id="label-b">FRAME: AUTO → RECT</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Variant C -->
+      <section class="card">
+        <h2><span class="tag">C</span> Tap-to-reveal popover</h2>
+        <p class="subtitle">
+          Settings glyph; click reveals 3-button picker. Direct selection, no cycling.
+        </p>
+        <div class="slot-wrap">
+          <div class="slot frame-auto" id="slot-c">
+            <div class="slab">
+              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect width="100" height="100" fill="url(#ga)" />
+                <rect
+                  x="8"
+                  y="8"
+                  width="84"
+                  height="20"
+                  fill="#0a1320"
+                  stroke="#334155"
+                  stroke-width="0.5"
+                />
+                <text
+                  x="50"
+                  y="22"
+                  text-anchor="middle"
+                  fill="#fbbf24"
+                  font-family="monospace"
+                  font-size="6"
+                  font-weight="700"
+                >
+                  NGC MS70
+                </text>
+                <circle
+                  cx="50"
+                  cy="58"
+                  r="22"
+                  fill="url(#ga2)"
+                  stroke="#8a6f1a"
+                  stroke-width="0.5"
+                />
+                <text
+                  x="50"
+                  y="61"
+                  text-anchor="middle"
+                  fill="#3a2a08"
+                  font-family="monospace"
+                  font-size="5"
+                  font-weight="700"
+                >
+                  PT 1oz
+                </text>
+                <rect
+                  x="8"
+                  y="84"
+                  width="84"
+                  height="8"
+                  fill="#0a1320"
+                  stroke="#334155"
+                  stroke-width="0.3"
+                />
+                <text
+                  x="50"
+                  y="90"
+                  text-anchor="middle"
+                  fill="#94a3b8"
+                  font-family="monospace"
+                  font-size="3"
+                >
+                  CERT 8612045-001
+                </text>
+              </svg>
+            </div>
+            <div class="popover" id="popover-c">
+              <button data-set="auto" class="active">Auto</button>
+              <button data-set="circle">Circle</button>
+              <button data-set="rectangle">Rect</button>
+            </div>
+            <button class="toggle-c" id="toggle-c" title="Choose frame…" aria-label="Choose frame">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h10M4 18h6" />
+              </svg>
+            </button>
+          </div>
+          <div class="info">
+            <div class="row">
+              <span class="k">state:</span><span class="v" id="state-c">auto</span>
+            </div>
+            <div class="row">
+              <span class="k">resolves:</span><span class="v" id="resolves-c">rectangle</span>
+            </div>
+            <div class="row">
+              <span class="k">click:</span><span class="v">popover → pick</span>
+            </div>
+            <ul class="pros-cons">
+              <li>
+                <span class="plus">+</span> Most discoverable — labels are visible, no hidden cycle
+                order
+              </li>
+              <li>
+                <span class="plus">+</span> Direct selection (1 click target, not n cycles to reach)
+              </li>
+              <li>
+                <span class="minus">−</span> Two clicks instead of one; outside-click dismiss to
+                wire
+              </li>
+              <li>
+                <span class="minus">−</span> Popover positioning needs care if slot is near viewport
+                edges
+              </li>
+            </ul>
+            <div class="label-bar">
+              <span>Maps to <span class="ac-link">AC-7, AC-8</span></span>
+              <span class="state" id="label-c">FRAME: AUTO → RECT</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Variant D -->
+      <section class="card">
+        <h2><span class="tag">D</span> Segmented chip strip below slot</h2>
+        <p class="subtitle">
+          Always-visible 3-button strip beneath the image. No corner overlay; eats vertical space.
+        </p>
+        <div class="slot-wrap">
+          <div>
+            <div class="slot frame-auto" id="slot-d">
+              <div class="slab">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <rect width="100" height="100" fill="url(#ga)" />
+                  <rect
+                    x="8"
+                    y="8"
+                    width="84"
+                    height="20"
+                    fill="#0a1320"
+                    stroke="#334155"
+                    stroke-width="0.5"
+                  />
+                  <text
+                    x="50"
+                    y="22"
+                    text-anchor="middle"
+                    fill="#fbbf24"
+                    font-family="monospace"
+                    font-size="6"
+                    font-weight="700"
+                  >
+                    NGC MS70
+                  </text>
+                  <circle
+                    cx="50"
+                    cy="58"
+                    r="22"
+                    fill="url(#ga2)"
+                    stroke="#8a6f1a"
+                    stroke-width="0.5"
+                  />
+                  <text
+                    x="50"
+                    y="61"
+                    text-anchor="middle"
+                    fill="#3a2a08"
+                    font-family="monospace"
+                    font-size="5"
+                    font-weight="700"
+                  >
+                    PT 1oz
+                  </text>
+                  <rect
+                    x="8"
+                    y="84"
+                    width="84"
+                    height="8"
+                    fill="#0a1320"
+                    stroke="#334155"
+                    stroke-width="0.3"
+                  />
+                  <text
+                    x="50"
+                    y="90"
+                    text-anchor="middle"
+                    fill="#94a3b8"
+                    font-family="monospace"
+                    font-size="3"
+                  >
+                    CERT 8612045-001
+                  </text>
+                </svg>
+              </div>
+            </div>
+            <div class="chip-strip" id="strip-d">
+              <button data-set="auto" class="active">Auto</button>
+              <button data-set="circle">○</button>
+              <button data-set="rectangle">▭</button>
+            </div>
+          </div>
+          <div class="info">
+            <div class="row">
+              <span class="k">state:</span><span class="v" id="state-d">auto</span>
+            </div>
+            <div class="row">
+              <span class="k">resolves:</span><span class="v" id="resolves-d">rectangle</span>
+            </div>
+            <div class="row"><span class="k">click:</span><span class="v">direct</span></div>
+            <ul class="pros-cons">
+              <li><span class="plus">+</span> Zero hidden state — current value always visible</li>
+              <li><span class="plus">+</span> One-click direct selection, no cycle, no popover</li>
+              <li>
+                <span class="minus">−</span> Adds ~28px vertical to each slot in an already-dense
+                modal
+              </li>
+              <li>
+                <span class="minus">−</span> Visible even when slot has no image (unless
+                conditionally rendered per AC-8)
+              </li>
+            </ul>
+            <div class="label-bar">
+              <span>Maps to <span class="ac-link">AC-7, AC-8</span></span>
+              <span class="state" id="label-d">FRAME: AUTO → RECT</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="summary">
+      <div class="card">
+        <h2>Trade-off recap</h2>
+        <table class="recap-table">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>A — Glyph cycle</th>
+              <th>B — Icon + badge</th>
+              <th>C — Popover</th>
+              <th>D — Chip strip</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Footprint in modal</td>
+              <td class="check">smallest</td>
+              <td class="check">small</td>
+              <td class="check">small (collapsed)</td>
+              <td class="x">+28px vertical</td>
+            </tr>
+            <tr>
+              <td>Discoverability</td>
+              <td class="x">low (cycle hidden)</td>
+              <td>medium</td>
+              <td class="check">high</td>
+              <td class="check">high</td>
+            </tr>
+            <tr>
+              <td>Current-state legibility</td>
+              <td>medium (glyph swap)</td>
+              <td class="check">high (badge)</td>
+              <td class="check">high (popover label)</td>
+              <td class="check">highest</td>
+            </tr>
+            <tr>
+              <td>Clicks to set value</td>
+              <td>1–3 (cycle)</td>
+              <td>1–3 (cycle)</td>
+              <td class="x">2 (open + pick)</td>
+              <td class="check">1 (direct)</td>
+            </tr>
+            <tr>
+              <td>Implementation cost</td>
+              <td class="check">lowest</td>
+              <td>low</td>
+              <td class="x">popover mgmt + outside-click</td>
+              <td>low</td>
+            </tr>
+            <tr>
+              <td>Hides correctly when slot is empty (AC-8)</td>
+              <td class="check">trivial</td>
+              <td class="check">trivial</td>
+              <td class="check">trivial</td>
+              <td>requires explicit conditional render</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Open questions for the picker</h2>
+        <ul class="pros-cons">
+          <li>
+            Should the toggle hint at <em>which</em> direction the auto resolves to? E.g., when in
+            auto and the resolved value is "rectangle," do we tint the badge or annotate the
+            tooltip?
+          </li>
+          <li>
+            Long-press / right-click reset to <code>auto</code>? Or is cycle-back-to-auto
+            sufficient?
+          </li>
+          <li>
+            Keyboard: tab focus, then space/enter to cycle (A, B) or open popover (C) or
+            focus-then-arrow within strip (D)? D is most accessible by default.
+          </li>
+          <li>
+            Color treatment when <code>auto</code> vs explicit override: subtle? loud? StakTrakr's
+            gold accent suggests we reserve it for "user has overridden" so the unmodified default
+            doesn't shout.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <strong>How this artifact connects to the sketch</strong> · The mockup resolves the open
+      question in <code>requirements.md</code> ("UI affordance for the corner toggle is undecided").
+      Once a winner is picked, strike that question, run <code>/sketch discovery STRK-67</code>, and
+      the chosen variant's interaction pattern becomes a Constraint in <code>discovery.md</code>.
+      The auto/circle/rectangle data model and click semantics are then locked for
+      <code>approach.md</code> and the tasks that follow.
+    </div>
+
+    <script>
+      const FRAMES = ["auto", "circle", "rectangle"];
+      const RESOLVES = {
+        // Mock: imagine a graded slab item — gradingAuthority is set, so auto → rectangle
+        auto: "rectangle",
+        circle: "circle",
+        rectangle: "rectangle",
+      };
+
+      const setFrame = (slotId, frame) => {
+        const slot = document.getElementById(slotId);
+        if (!slot) return;
+        slot.classList.remove("frame-auto", "frame-circle", "frame-rect");
+        const cls =
+          frame === "circle" ? "frame-circle" : frame === "rectangle" ? "frame-rect" : "frame-auto";
+        slot.classList.add(cls);
+      };
+
+      const next = (current) => FRAMES[(FRAMES.indexOf(current) + 1) % FRAMES.length];
+
+      const updateUI = (id, frame, resolves) => {
+        const stateEl = document.getElementById(`state-${id}`);
+        const resolvesEl = document.getElementById(`resolves-${id}`);
+        const labelEl = document.getElementById(`label-${id}`);
+        if (stateEl) stateEl.textContent = frame;
+        if (resolvesEl) resolvesEl.textContent = resolves;
+        if (labelEl) {
+          const arrow = frame === "auto" ? `→ ${resolves.toUpperCase().slice(0, 4)}` : "(override)";
+          labelEl.textContent = `FRAME: ${frame.toUpperCase()} ${arrow}`;
+        }
+      };
+
+      // Variant A — single-glyph cycle
+      (function () {
+        const btn = document.getElementById("toggle-a");
+        const glyph = document.getElementById("toggle-a-glyph");
+        const map = { auto: "A", circle: "○", rectangle: "▭" };
+        const apply = (f) => {
+          btn.dataset.frame = f;
+          glyph.textContent = map[f];
+          setFrame("slot-a", f);
+          updateUI("a", f, RESOLVES[f]);
+        };
+        apply("auto");
+        btn.addEventListener("click", () => apply(next(btn.dataset.frame)));
+      })();
+
+      // Variant B — icon + badge cycle
+      (function () {
+        const btn = document.getElementById("toggle-b");
+        const badge = document.getElementById("toggle-b-badge");
+        const map = { auto: "A", circle: "C", rectangle: "R" };
+        const apply = (f) => {
+          btn.dataset.frame = f;
+          badge.textContent = map[f];
+          setFrame("slot-b", f);
+          updateUI("b", f, RESOLVES[f]);
+        };
+        apply("auto");
+        btn.addEventListener("click", () => apply(next(btn.dataset.frame)));
+      })();
+
+      // Variant C — popover
+      (function () {
+        const btn = document.getElementById("toggle-c");
+        const pop = document.getElementById("popover-c");
+        let current = "auto";
+        const apply = (f) => {
+          current = f;
+          pop
+            .querySelectorAll("button")
+            .forEach((b) => b.classList.toggle("active", b.dataset.set === f));
+          setFrame("slot-c", f);
+          updateUI("c", f, RESOLVES[f]);
+        };
+        apply("auto");
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          pop.classList.toggle("open");
+        });
+        pop.querySelectorAll("button").forEach((b) =>
+          b.addEventListener("click", (e) => {
+            e.stopPropagation();
+            apply(b.dataset.set);
+            pop.classList.remove("open");
+          })
+        );
+        document.addEventListener("click", () => pop.classList.remove("open"));
+      })();
+
+      // Variant D — chip strip
+      (function () {
+        const strip = document.getElementById("strip-d");
+        const apply = (f) => {
+          strip
+            .querySelectorAll("button")
+            .forEach((b) => b.classList.toggle("active", b.dataset.set === f));
+          setFrame("slot-d", f);
+          updateUI("d", f, RESOLVES[f]);
+        };
+        apply("auto");
+        strip
+          .querySelectorAll("button")
+          .forEach((b) => b.addEventListener("click", () => apply(b.dataset.set)));
+      })();
+    </script>
+  </body>
+</html>
