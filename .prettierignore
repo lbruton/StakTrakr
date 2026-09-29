@@ -15,3 +15,6 @@ test-results/
 # Minified/generated assets
 *.min.js
 *.min.css
+
+# In-repo Obsidian vault (DEVS-78) — own formatting conventions; prettier would reflow tables/frontmatter
+DocVault/

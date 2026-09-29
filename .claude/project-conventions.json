@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "detectedAt": "2026-07-24T15:38:34.773Z",
+  "testing": {
+    "framework": "bb-test",
+    "command": "/bb-test sections=10",
+    "configFile": null,
+    "testDir": "tests/runbook/",
+    "hasBrowserbase": true
+  },
+  "versioning": {
+    "hasVersionLock": true,
+    "lockFile": "devops/version.lock",
+    "packageVersion": "3.35.64",
+    "userDeclinedSetup": false
+  },
+  "changelog": {
+    "hasChangelog": true,
+    "file": "CHANGELOG.md",
+    "format": "keepachangelog",
+    "docvaultFallback": false
+  }
+}

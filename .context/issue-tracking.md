@@ -12,10 +12,9 @@ Plane project: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1
 (workspace `lbruton`, prefix **STRK**). Create issues via `/issue` or `mcp__plane__create_issue`.
 Backend config lives in the `plane` block of `.claude/project.json` (`plane.workspace`, `plane.projectId`); Codex reads the mirrored `.codex/project.json`. The old `.specflow/config.json` was retired in DEVS-71 and removed in DEVS-74.
 
-Pre-migration issues currently live in the vault trash at
-`DocVault/.trash/Issues-Pre-Plane/StakTrakr/` — **not** under `DocVault/Archive/`, where this
-doc previously pointed. They are one trash purge from permanent loss; restore them to
-`DocVault/Archive/` if that history still matters.
+Pre-migration issues are in the **archived central DocVault** repo (`lbruton/DocVault`, frozen
+in DEVS-78), under `.trash/Issues-Pre-Plane/StakTrakr/`. They are not part of this repo's
+`DocVault/`.
 
 ## State conventions
 

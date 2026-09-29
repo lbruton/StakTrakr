@@ -1,0 +1,205 @@
+---
+sketch: "STRK-352-metal-detail-modal"
+phase: discovery
+created: 2026-08-28
+---
+
+# STRK-352 — Discovery
+
+_Research the existing system and prior art. Solutions belong to the approach phase._
+
+Research method: 5-agent read-only Workflow fan-out (structural UI, structural data, semantic patterns, memory systems, Chart.js 3.9.1 docs), findings synthesized here, then corrected in reconcile (two stale memory recalls caught by review — see Review Archive). claude-context was down (embedding 429) — the semantic agent fell back to Grep, which is authoritative in this repo anyway (script-tag globals, no import graph).
+
+## Existing Code
+
+### The surface being replaced
+
+| Path | Role | Notes |
+|------|------|-------|
+| `js/detailsModal.js:254` | `showDetailsModal(metal)` — entry point | metal ∈ `"Silver"…"Copper"` \| `"All"`; rebuilt each open |
+| `js/detailsModal.js:400` | `closeDetailsModal()` | `closeModalById` + `destroyCharts()` + observer disconnect |
+| `js/detailsModal.js:5,8` | `detailsChartMetric`, `detailsResizeObserver` | file-scope `let`s in the shared global scope |
+| `js/detailsModal.js:17,91` | `getBreakdownData` / `getAllMetalsBreakdownData` | bucket math the composition panels will re-derive |
+| `js/detailsModal.js:381-394` | The repo's only ResizeObserver | observes `elements.detailsModal`, calls `chart.resize()` |
+| `js/detailsModal.js:290-294` | `window.innerWidth <= 768` skips chart creation | STACK-70 — the behavior AC-22 reverses for the hero chart |
+| `js/events.js:1322-1336` | `.total-title` click wiring → `showDetailsModal(title.dataset.metal)` | the six dashboard entry points (`index.html:1067,1107,1147,1187,1228,1268`) |
+| `js/events.js:1338-1349` | `#detailsCloseBtn` close wiring | |
+| `js/events.js:5053-5058` | Escape handler closes it (checks `display === "flex"`) | last in the modal priority chain |
+| `js/state.js:135-144` | `elements.*` slots for the modal | populated `js/init.js:410-420` via `safeGetElement` (partial-dummy gotcha) |
+| `js/state.js:24-27` | `chartInstances = { typeChart, locationChart }` | mutable plain object in shared scope — new chart keys can be added by property assignment from any file; a state.js initializer edit is optional documentation, not a prerequisite |
+| `index.html:3238-3276` | `#detailsModal` markup block | header h2 `:3248`, close btn `:3249`, `.details-grid` `:3252` |
+| `js/init.js:1118-1119` | duplicate `window.showDetailsModal` exposure | also at `detailsModal.js:418-419` |
+
+### CSS that must change with the redesign
+
+| Path | Role | Notes |
+|------|------|-------|
+| `css/styles.css:5217-5225` | `#detailsModal .modal-content` — ID specificity | padding 0, flex column, max-width 1200px, overflow hidden |
+| `css/styles.css:5236-5247` | `#detailsModal .modal-header` (shared w/ 3 other modals) | flat panel header — shared selector, split carefully |
+| `css/styles.css:5276-5282` | `#detailsModal .modal-body` | padding, flex:1, overflow-y auto |
+| `css/styles.css:5364-5366` | `#detailsModal` font-size clamp | |
+| `css/styles.css:7883-8010` | `.details-grid` / `.details-panel` / `.breakdown-*` / `.chart-canvas-*` | legacy pie layout family — retire with the pies |
+| `css/styles.css:8012-8056` | `.chart-metric-toggle` / `.chart-metric-btn` | **sole consumer is detailsModal.js** (`:316,321,330,336`) — zero other users, so the `.dm-seg` variant (or even a direct restyle) breaks nothing |
+| `css/styles.css:14081-14105` | STACK-70 mobile block: `.chart-canvas-container { display:none !important }` (`:14082`) and `.chart-metric-toggle { display:none }` (`:14085`) | **must be removed/replaced** or the new chart + metric toggle vanish on mobile (AC-22/AC-17) |
+| `css/styles.css:9050-9054, 9174-9177` | `.details-grid` collapses to 1 col at 1350px / 768px | replaced by the new `.dm-grid` rules |
+| `css/styles.css:6435-6450, 7346-7368` | `.modal` base + `.modal-close` (absolute top-right, 31 uses) | the close-row design overrides position within this modal only |
+
+### Data & valuation (series inputs)
+
+| Path | Role | Notes |
+|------|------|-------|
+| `js/utils.js:1111-1133` | `computeItemValuation(item, spot)` → `{qty, purchaseTotal, meltValue, retailTotal, gainLoss…}` | `gainLoss = retailTotal − purchaseTotal` (null when no retail signal) — the AC-3 Unrealized source |
+| `js/utils.js:1072-1090` | `calculateRetailPrice` | retailTotal falls back to melt when no manual/gb price |
+| `js/utils.js:987-996` | `computeMeltValue` | `getUnitOztWeight × qty × spot × purity`; cu early-return via `getConstitutionalSilverOz` (purity NOT re-applied) |
+| `js/utils.js:782-797, 818-825` | `getConstitutionalSilverOz` (qty-folded, wear-adjusted) / `getUnitOztWeight` (per-unit, no cu) | AC-6's helpers; totals idiom combining them: `js/inventory-table.js:1226-1237` |
+| `js/constants.js:701-705` | `GB_TO_OZT = SB_TO_OZT = 0.001` | |
+| `js/constants.js:615-618` | `isDisposed(item)` — the sole disposition predicate | empty `{}` is NOT disposed (STRK-83) |
+| `js/inventory.js:1273-1282, 1518-1532` | Disposition shape: `{type, date, amount, currency, recipient, notes, realizedGainLoss, disposedAt}` (+ split/trade fields) | `date` can be `""`; `realizedGainLoss` may be `undefined` for no-amount types |
+| `js/inventory.js:1269-1271, 1500-1516` | Realized computed at dispose time | `amount − price×qty` |
+| `js/inventory-table.js:1198-1255` | `_accumulateItemTotals` — the canonical active-vs-disposed totals idiom | disposed rows contribute only realized/disposed-cost, then `continue` |
+| `js/inventory-table.js:1312-1318` | `_writeRealizedCell` — dashboard realized writer | **do NOT copy**: zero branch hardcodes `"$0.00"`, violating the AC currency rule; the modal computes its own tile via `formatCurrency` |
+| `js/constants.js:913-914`, `js/inventory.js:2737-2748` | `SHOW_REALIZED_KEY` + `applyRealizedVisibility` — scoped to **dashboard summary-card rows** (STAK-72) | the modal's Realized tile is NOT governed by this toggle — always shown per AC-3 (user-confirmed 2026-08-28; the toggle keeps governing the glanceable dashboard only) |
+| `js/events.js:1643-1645` | `item.date` storage: `""` (Date N/A) or local `YYYY-MM-DD` | `todayStr()` local-frame (`js/utils-format.js:30-33`) |
+| `js/utils-format.js:119-123, 183-254` | `localIsoDate` / `parseDate` (returns `"—"` sentinel on failure) | STRK-266/267 frame rules |
+| `js/state.js:325-335` | `inventory` global (defineProperty on window) | |
+| `js/state.js:338-344` | `spotPrices` — **lowercase** metal keys | read idiom `spotPrices[item.metal.toLowerCase()]` |
+
+### Spot history (chart series source)
+
+| Path | Role | Notes |
+|------|------|-------|
+| `js/state.js:347`, `js/spot.js:91-175` | `spotHistory` — **flat array**, IndexedDB w/ localStorage fallback | entry `{spot, metal (Capitalized), source, provider, timestamp "YYYY-MM-DD HH:MM:SS" bare-UTC}` |
+| `js/spot.js:224-228` | `purgeSpotHistory(days = 180)` | **spotHistory only holds ~180 days** — long ranges must use the year-file cache |
+| `js/spot.js:786, 1717-1747` | `historicalDataCache` (Map by year) + `window._loadSpotSeedBundle` | seed bundle `data/spot-history-bundle.js` (1968→, `{year: {Metal: [["MM-DD", price]]}}`) |
+| `js/spot.js:796-810, 898` | `getRequiredYears(days)` / `fetchYearFile(year)` | `data/spot-history-{year}.json`, fetch → XHR (file://) → remote fallback |
+| `js/spot.js:821-865, 1785` | `lookupHistoricalSpot(metalName, dateStr)` — sync, cache-only | **source material only, NOT the AC-5/AC-8 primitive**: it converts the day key to a local `Date`, picks the nearest sample on *either side* (`Math.abs`), and gives up beyond ±7 days (`js/spot.js:832-861`) — the ACs pin verbatim string day keys, prior-sample carry-forward, first-sample backward-fill, and no ceiling. The series builder must implement its own fold over the merged day rows |
+| `js/spot.js:958-990` | `getHistoricalSparklineData(metalName, days)` — async, merges year files + live history, live-over-seed dedup | the merge/dedup precedent for assembling day rows |
+| `js/spot.js:1002-1052` | `getSparklineData` — daily closes = last entry per UTC day, from spotHistory only | the ≤180-day sparkline path |
+| `js/spot.js:1750-1759` | charts re-render on `currencychange` CustomEvent | the modal must subscribe too |
+
+### Currency
+
+| Path | Role | Notes |
+|------|------|-------|
+| `js/utils-format.js:289-314` | `formatCurrency(value, currency = displayCurrency)` — **internal values are USD**, converted at format time via `getExchangeRate` | AC currency rule lands here; series math stays USD |
+| `js/utils-format.js:319-341` | `loadDisplayCurrency` / `saveDisplayCurrency` (dispatches `currencychange`) | |
+| `js/events.js:1635` | purchase prices normalized to USD at save (`parsePriceToUSD`) | basis series is USD-native |
+
+### Reusable UI patterns
+
+| Path | Role | Notes |
+|------|------|-------|
+| `js/chart-utils.js:119-131` | `createTimeSeriesChart` (returns `new Chart()`) + `replaceChart` helper | the enforceable invariant is **owned-instance destroy-before-reuse**, not `replaceChart()` specifically — direct construction exists at `js/charts.js:79`, `js/ratios-panel.js:444`, `js/chart-utils.js:22,131,154`; `replaceChart` is the convenience for module-level instance slots |
+| `js/charts.js:11-42, 192-199` | `getChartColors` (theme tokens via `getThemeColorRGB`), `generateColors`, `destroyCharts` | `createPieChart` (`:66-187`) dies with the pies — its only callers are detailsModal `:297,305`; `getChartTextColor`/`getChartBackgroundColor`/`generateColors` have OTHER consumers (card-view, retail-view-modal, viewModal) — keep |
+| `js/market-data.js:1215-1270` | Range buttons with `.active` + `aria-pressed` set together; styled via `[aria-pressed="true"]` (`css/styles.css:15999`) | the AC-24 toggle pattern |
+| `js/inventory-table.js:197-198, 214` | `ACTIVATE_ON_KEY` (Enter/Space → click) + `tabindex="0" role="button"` | the AC-24 row-activation pattern (STRK-209) |
+| `js/spot-ratio-chips.js:468-481` | document-level delegated keydown for dynamic elements | alternative for rendered-per-open rows |
+| `css/styles.css:15299-15338` | `.empty-state` component (icon/h3/p/.btn) — used by card-view `:811-837` and inventory-table `:973-990` | reuse for AC-21; **skeleton/shimmer has NO precedent — net-new CSS** |
+| `js/viewModal.js:81` | `showViewModal(index)` — **numeric index into `inventory`** | ledger click must resolve Item → index (e.g. `inventory.indexOf`); does NOT use `openModalById` |
+| `js/tabs.js:87-146, 238` | `activateTab(name)` (window-exposed) | AC-19's `#/inventory` deep-link = `activateTab("inventory")` |
+| `js/utils.js:1248-1261, 1336-1363` | `closeModalById` / `openModalById` (+ focus trap `1275-1329`) | keep as open/close spine |
+| `sw.js:42-163` + `index.html:8859-8954` | CORE_ASSETS + script-tag block | dual registration if a new js/ file is added (`charts.js` at sw.js:78 / index.html:8888) |
+| `js/priceHistory.js:1-22` | per-item `{ts, retail, spot, melt}` history keyed by UUID | adjacent prior art; NOT needed (series recomputes from spot), noted to avoid duplicate invention |
+
+## Prior Decisions
+
+Query strings run (mem0 `search_memories` + sessionflow `search_all_sessions`), with the hits that matter. **Two recalls were stale against live artifacts and are corrected inline** — treat memory hits as leads, not facts:
+
+1. `"details modal pie chart breakdown redesign"` — [2026-05-11] STRK-42 viewModal chart: bounded history fetch per range, synthesized purchase anchor, y-suggestions from ALL visible datasets; [2026-05-11] final STRK-42 model deliberately simplified to 3 datasets (purchase dotted flat, melt filled, retail only-when-data) — precedent for restrained series count.
+2. `"chart.js sparkline spot card chart patterns"` — recalled "copper floor ~2013" is **stale**: `data/spot-history-1968.json` opens with a Copper sample (`1968-01-01`, provider `LME-WB`), and the seed bundle carries copper from 1968 (monthly granularity in early years). The durable lesson stands in corrected form: **per-metal availability AND granularity must be derived from the live merged dataset at runtime, never hardcoded** (the STRK-343/345 global-check disease).
+3. `"ratios chart STRK-268 weekday series"` — [2026-07-26] `buildRatioSeries` filters Sat/Sun UTC and joins only dates where both metals printed (~261 sessions/yr) — the weekday-gap reality AC-8's carry-forward answers.
+4. `"disposed disposition summary filter realized"` — [2026-06-06] STRK-83: ALL disposition checks route through `isDisposed()`; [2026-08-12] STRK-233: every summary figure excludes disposed; [2026-05-26] disposition tests live in `tests/playwright/core/disposition.spec.js` (13 tests). The recalled "disposition does NOT round-trip through CSV/ZIP" is **stale**: CSV now exports full Disposition columns (`js/csv-export.js:133-143`), the importer rebuilds the object (`_parseCsvDisposition`, `js/inventory-import.js:405-439`), ZIP preserves inventory objects wholesale, and round-trips are Playwright-verified (`disposition.spec.js:605-635`, `import-export.spec.js:477-508`). The series may rely on imported/restored Dispositions.
+5. `"v2 tab shell deep-link inventory boot"` — [2026-08-02] tab wrappers break cross-section DOM code (`container.append` ejection); [2026-07-26] **playground mockups don't catch wrapper-integration bugs** — verify in the real shell; 18 test boot sites deep-link `#/inventory`/`#/market`.
+6. `"chart implementation lessons workflow"` (cross-project) — [2026-05-05] **Chart.js cannot consume oklch** — token colors must resolve to rgb (the repo's `getThemeColorRGB`/`getChartColors` exists for exactly this; the playground's raw-oklch SVG approach does NOT transfer to canvas).
+7. sessionflow `"detailsModal redesign portfolio value chart"` — [2026-05-18] valuation panel redesign vocabulary: `_detailItem()` label-above-value cells, `formatPercent()`/`signClass()` helpers; [2026-05-11] bug shape: anchoring retail from `item.marketValue` instead of shared `calculateRetailPrice()` broke Goldback paths.
+8. sessionflow `"spot history bundle daily series gaps weekday"` — [2026-08-12] bundle regeneration discipline: only worktree copies of `data/spot-history-2026.json` + bundle change; script resolves data/ relative to itself.
+
+## External References
+
+- [Chart.js v3.9.1 docs](https://github.com/chartjs/chart.js/tree/v3.9.1/docs) — all claims verified against the v3 tag (v4 syntax differs; repo vendors 3.9.1 at `vendor/chart.min.js`):
+  - **Mixed line + scatter**: per-dataset `type`; scatter data MUST be `{x,y}` objects.
+  - **Two y-axes**: `options.scales.y` / `.y1` (position right, `grid.drawOnChartArea:false`), datasets bind via `yAxisID`.
+  - **`type:'time'` THROWS without a date adapter** (none vendored — error string present in the bundle). Adapter-free: `x: {type:'linear'}` with epoch-ms `{x,y}` + `ticks.callback`, or category labels.
+  - **External HTML tooltip** (`plugins.tooltip: {enabled:false, external}`) is the right vehicle for rich acquisition lists; interaction `mode:'index', intersect:false` for crosshair, `'nearest'` for scatter markers.
+  - **Scriptable/indexable `pointRadius`** (+`pointHoverRadius`, raise `pointHitRadius`) for purchase-scaled markers.
+  - **Click**: `getElementsAtEventForMode(evt,'nearest',{intersect:true},true)`; programmatic highlight via `setActiveElements` + `chart.tooltip.setActiveElements`.
+  - **`stepped: true`** on the basis dataset; **gradient fill** via scriptable `backgroundColor` with the mandatory `if (!chartArea) return` guard + resize-keyed cache.
+  - **destroy contract**: `Chart.getChart(canvas)?.destroy()` before reuse; "Canvas is already in use" otherwise.
+  - v3-vs-v4 flags: `grid.drawBorder` (v3) not `border.display` (v4); UMD auto-registers everything.
+  - Advanced-config claims (external tooltip mechanics, programmatic activation, gradient caching) are reference-backed but not yet exercised in this repo — validate during implementation.
+- `.context/reusable-patterns.md:169-188, 237-241, 323-362` — chart lifecycle discipline (destroy per range render, render-generation guard on close, single normalization boundary feeding chart AND summary, currency at display boundary only, tooltip `ctx.raw == null` guard).
+- Deep-dives worth reading at approach time: `retail-modal.md` (chart-in-modal lifecycle template), `dom-patterns.md`, `data-model.md`, `playwright-suite-rationalization.md` (coverage-map for new specs).
+
+## Constraints
+
+- **Chart stack**: two coexist — Chart.js (sparklines, ratios, viewModal) and Lightweight Charts v4 (market detail modal; Playwright must stub `LightweightCharts` or `openMarketDetailModal` throws). The issue + requirements pin **Chart.js 3.9.1** for this modal; everything needed (dual axis, scatter markers, external tooltip, stepped line, gradient) is confirmed native to the vendored build, and no date adapter means **linear-x only**.
+- **Colors must be canvas-safe**: resolve theme tokens through `getThemeColorRGB`/`getChartColors` — Chart.js cannot parse oklch (3 of 4 themes would break).
+- **Series data source**: `spotHistory` retains only ~180 days; ranges beyond that must populate `historicalDataCache` (seed bundle + `fetchYearFile`). **The series fold is new code**: `lookupHistoricalSpot`'s nearest-either-side ±7-day semantics cannot implement AC-5/AC-8 (verbatim string day keys, carry-forward, backward-fill, no ceiling) — build the fold over the merged day rows, using the `getHistoricalSparklineData` merge/dedup as the assembly precedent. Per-metal floors and granularity derive from the live dataset at runtime (copper: monthly from 1968).
+- **All math in USD**; format at the display boundary via `formatCurrency`; re-render on the `currencychange` CustomEvent (spot.js already models this).
+- **Disposition data**: only `isDisposed()` discriminates; `disposition.date` can be `""` (AC-7's undated-Disposition rule); `realizedGainLoss` may be `undefined`; Dispositions round-trip through CSV import/export and ZIP backup (Playwright-verified) — imported data is first-class series input.
+- **Realized KPI**: always shown in the modal (user-confirmed 2026-08-28; AC-3 stands as written). `showRealizedGainLoss` remains scoped to dashboard summary-card rows. Do not copy `_writeRealizedCell` (hardcoded `"$0.00"` violates the currency rule).
+- **STACK-70 mobile CSS actively hides** `.chart-canvas-container` and `.chart-metric-toggle` at ≤768px — those rules must be retired/replaced for AC-17/AC-22 to be satisfiable.
+- **`showViewModal(index)` takes an inventory index**, not a uuid — the ledger must resolve indices at click time (items can move; resolve late).
+- **Chart lifecycle invariant**: owned-instance destroy-before-reuse (`Chart.getChart(canvas)?.destroy()` or tracked instance), destroy-before-rebuild per range render, render-generation guard against late async repopulation, tooltip `ctx.raw == null` guard. `replaceChart()` is available for module-level slots but is not mandated.
+- **Integration reality**: sections live in v2 tab wrappers; playground green ≠ integration green (STRK-282 lesson) — closing visual QA must run in the real shell, and `tests/playwright/coverage-map.csv` must be updated for any new spec files (no existing coverage touches `showDetailsModal`).
+
+## Open Questions
+
+_None — the Realized-KPI conflict surfaced by review was resolved with the user (always shown in the modal; AC-3 unchanged), and the chart stack is pinned to Chart.js 3.9.1 by the requirements._
+
+## Discovery Summary
+
+The work lands almost entirely inside `js/detailsModal.js` (full rewrite), `index.html:3238-3276` (markup), and `css/styles.css` (retire the pie-layout family, update the `#detailsModal` ID rules, remove the STACK-70 hide-chart mobile rules, add the `dm-` spec) — plus a likely new series module registered in both `index.html` and `sw.js`. The valuation, disposition, keyboard/a11y, and empty-state building blocks exist and are cited above. The genuinely new work is larger than first assessed: the **day-by-day holdings fold is net-new logic** (backdate, dispositions, per-metal carry-forward/backward-fill over year-cache day rows — no existing helper implements those semantics, and per-metal floors/granularity must be derived from live data), alongside the Chart.js dual-axis + scriptable-radius marker config (v3 syntax, rgb-resolved colors, linear x — no adapter) and a first-ever skeleton loading treatment.
+
+---
+
+> **Phase complete?** Existing code mapped. Prior decisions surfaced. Open questions resolved. Then advance: `/sketch-approach STRK-352`.
+
+## Review Archive — discovery (2026-08-28)
+
+### Resolution Summary
+
+- **Accepted: 5 / 6** (chartInstances edit-optionality; `lookupHistoricalSpot` semantics mismatch; `replaceChart` scope correction; copper-floor staleness; disposition round-trip staleness — the last two were wrong mem0 recalls, corrected against live artifacts and flagged for memory hygiene).
+- **Resolved with user input: 1 / 6** — Realized KPI always shows in the modal; AC-3 stands unchanged; `showRealizedGainLoss` stays dashboard-scoped.
+- **Rejected: 0.**
+- Review claims verified against the repo before applying: `js/spot.js:832-861` (nearest-either-side, ±7-day ceiling), `js/chart-utils.js:22,131,154` + `js/charts.js:79` + `js/ratios-panel.js:444` (direct `new Chart()`), `js/csv-export.js:133-143` + `js/inventory-import.js:405-439` (disposition round-trip), `js/inventory-table.js:1312-1318` (`"$0.00"` hardcode), `js/constants.js:913-914` + `js/inventory.js:2737-2748` (toggle scope), `data/spot-history-1968.json` (copper `1968-01-01`).
+
+### Original inline marks (verbatim)
+
+> CODEX: The file-impact conclusion is unsupported. `chartInstances` is a mutable plain object in the shared classic-script lexical scope; `detailsModal.js` can add another keyed property without changing its initializer. Editing `state.js` is optional schema documentation, not a prerequisite, so discovery should not force that file into the approach map.
+
+> CODEX: "Should honor" is a new product decision, not an established constraint. `SHOW_REALIZED_KEY` is explicitly scoped to dashboard summary-card rows (`js/constants.js:913-914`, `js/inventory.js:2737-2748`), while reconciled AC-3 unconditionally requires a five-tile strip including Realized. The existing writer is also unsafe to copy under the currency rule because its zero branch hardcodes `"$0.00"` (`js/inventory-table.js:1312-1317`). Surface the preference behavior as a requirements conflict/open question instead of resolving it here.
+
+> CODEX: This is not the AC-5/AC-8 series primitive. `lookupHistoricalSpot` converts the date-only key to a local `Date`, selects the nearest sample on either side, and gives up beyond seven days (`js/spot.js:832-861`). The requirements instead pin verbatim string day keys, carry-forward from the most recent prior sample, and backward-fill from the first sample with no seven-day ceiling. Discovery may identify the year cache/merged rows as source material, but it must record that this lookup's semantics cannot implement the acceptance contract directly.
+
+> CODEX: The cited rule is local to the two module-level Retail Modal instances, not a repository-wide ban. `createTimeSeriesChart` itself returns `new Chart()` (`js/chart-utils.js:94-131`), and current code also constructs charts directly in `js/charts.js:79` and `js/ratios-panel.js:444`. The supported invariant is owned-instance destroy-before-reuse; discovery should not constrain approach to `replaceChart()` specifically.
+
+> CODEX: This recalled copper floor is stale against the live artifact. `data/spot-history-1968.json` begins with a Copper sample (`1968-01-01`, source `seed`, provider `LME-WB`), and the bundled representation includes it as well. Per-metal availability checks remain sound, but discovery must derive each metal's actual floor from current data rather than encode `~2013`.
+
+> CODEX: The round-trip claim is stale and materially wrong. Standard CSV exports disposition/trade columns (`js/csv-export.js:133-143,177-188`), the importer rebuilds the disposition object (`js/inventory-import.js:405-439`), and `tests/playwright/core/disposition.spec.js:605-635` verifies the split-disposition round trip. ZIP backup's `inventory_data.json` preserves the full inventory objects, including trade values, as verified in `tests/playwright/core/import-export.spec.js:477-508`. Series correctness cannot assume only live, never-exported data.
+
+> CODEX: The Realized-visibility judgment is not resolved by precedent: the preference governs dashboard summary rows, whereas AC-3 requires the modal's five KPIs without a preference exception. This remains an acceptance-contract question until requirements explicitly choose whether the modal ignores or honors the setting. The Chart.js stack is pinned and is not the disputed item.
+
+> CODEX: The summary overstates reuse: `lookupHistoricalSpot` does not provide the required daily fill semantics, and "back to 1968" is not a safe global promise without determining each metal's first usable sample from the live merged dataset. The next phase needs a corrected discovery boundary before treating the series work as mostly solved.
+
+### CODEX Review (2026-08-28)
+
+#### Verified
+
+- Read the reconciled requirements contract and verified its unconditional five-KPI rule, date-only string frame, and per-metal forward/backward fill semantics against the discovery claims.
+- Traced the live modal entry points, markup, state, mobile CSS, focus/close wiring, inventory valuation helpers, disposition model, and historical spot loaders in the cited StakTrakr sources.
+- Verified current disposition CSV import/export and ZIP backup behavior against `js/csv-export.js`, `js/inventory-import.js`, `js/inventory-backup.js`, and their Playwright round-trip coverage.
+- Verified the vendored Chart.js version is 3.9.1 and that the missing-date-adapter error is present; checked the repository's actual Chart.js construction and teardown patterns rather than treating the Retail Modal convention as universal.
+- Verified current Copper history directly from `data/spot-history-1968.json`.
+
+#### Top concerns
+
+1. The proposed historical lookup has different date-frame, direction, and gap-window semantics from AC-5/AC-8; carrying it into approach would produce an incorrect portfolio series.
+2. Stale prior-memory claims incorrectly remove exported/restored disposition data from the model and incorrectly place Copper's history floor around 2013.
+3. Discovery silently adds a Realized-visibility exception that conflicts with the reconciled five-KPI requirement, then declares no open questions.
+4. Two implementation constraints are overstated: `chartInstances` does not require a `state.js` edit, and lifecycle safety does not require `replaceChart()` specifically.
+
+#### Unverified assumptions
+
+- The claimed five-agent research fan-out and the individual mem0/sessionflow result provenance cannot be independently reconstructed from this artifact; the two stale recalled facts above show those notes need live-source validation before reuse.
+- I did not exhaustively reproduce every advanced Chart.js configuration claim in the External References section (external HTML tooltip behavior, programmatic activation, scriptable gradient caching). Those remain reference-backed candidates for approach validation, not independently proven here.

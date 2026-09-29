@@ -1,0 +1,84 @@
+---
+sketch: "STRK-53-quantity-selector-ux"
+phase: discovery
+created: 2026-05-12
+revised: 2026-05-12
+supersedes: discussion/discovery.md
+---
+
+# STRK-53 — Discovery (Revision 2)
+
+_Research the existing system and prior art. **Don't propose solutions** — that's the approach phase._
+
+## Existing Code
+
+| Path | Role | Notes |
+|------|------|-------|
+| `index.html:8305-8316` | `#removeItemQtyGroup` `.form-group` wrapping the quantity input | `style="display: none"` is the **initial** state; `openRemoveItemModal` flips it via `qtyGroup.style.display = ""` when `stackQty > 1` (line 685). Contains a visible `<label for="removeItemQty">Quantity to dispose</label>` and the `#removeItemDisposePreview` helper text. |
+| `index.html:8307` | `<label for="removeItemQty">Quantity to dispose</label>` | **Direct `for=` association.** In any redesign where `#removeItemQty` becomes `type="hidden"`, the visible label associates with a non-focusable element. The label must either re-associate to the new visible control (via `for=` pointing to a new ID, or by wrapping it) or rely on an `aria-labelledby` on the visible control pointing at the existing label id. |
+| `index.html:8308` | `<input type="number" id="removeItemQty" min="1" />` | The free-entry control STRK-53 replaces. No `max` in HTML — set in JS at modal-open time (`qtyInput.max = stackQty`, line 687). No `change` / `paste` / `blur` listeners outside the `input` listener wired in `openRemoveItemModal`. |
+| `index.html:8310-8315` | `#removeItemDisposePreview` | `aria-live="polite"` helper text. Display flips between `""` and `"none"` inside `_removeItemQtyPreviewHandler` based on `entered` value. Hidden when value is full-stack or invalid. |
+| `index.html:8336-8344` | `#removeItemAmountModeToggle` (Lot/Each segmented control) | `.chip-sort-toggle` with `role="group" aria-label="Amount mode"`, two child buttons with `aria-pressed`. This is the existing styled segmented-control primitive in the modal. |
+| `js/inventory.js:625-628` | Module-level state: `_removeItemQtyPreviewHandler`, `_confirmRemoveItemInFlight` | Pattern for listener cleanup across modal opens. Any new module-level handler (e.g. clamp, key nav) should follow this `let _handlerName = null;` + remove-before-rewire pattern. |
+| `js/inventory.js:628` | `openRemoveItemModal(idx, preDispose)` | Resets disposition fields, computes `stackQty = Number(item.qty) \|\| 1`, shows/hides `qtyGroup`, sets `qtyInput.value = stackQty` and `qtyInput.max = stackQty`, wires preview listener. Modal-open ends with `openModalById("removeItemModal")` (line 717). |
+| `js/inventory.js:685-690` | Stack-qty-1 hide gate | `if (stackQty > 1) { qtyGroup.style.display = ""; qtyInput.value = stackQty; qtyInput.max = stackQty; } else { qtyGroup.style.display = "none"; }`. STRK-53 changes the else branch to render qty `1` pre-selected and de-emphasized. |
+| `js/inventory.js:693-712` | `_removeItemQtyPreviewHandler` wiring | Removed-then-re-added on each open. Listens to `input` on `#removeItemQty`. STRK-53 keeps `#removeItemQty` as the carrier, so any chip-click or `<select>` change writes to it and dispatches `new Event("input", {bubbles:true})` — preview handler keeps working unchanged. |
+| `js/inventory.js:766-786` | `confirmRemoveItem` dispose-qty validation | Reads `qtyInputEl.value`, checks `Number.isInteger`, then range. Both branches show toasts (lines 774, 784). STRK-53 keeps both branches as defense-in-depth and adds a one-line inline comment explaining they are unreachable via the UI. |
+| `js/inventory.js:768` | Full-stack branch: `if (qtyHidden \|\| qtyInputEl.value === "") disposedQty = item.qty` | The `qtyHidden` check inspects `qtyInputEl.closest(".form-group")?.style.display === "none"`. STRK-53 no longer hides the group for qty=1 (AC-3 changed) — but the `value === ""` branch is unused since we always set the value. The branch stays as a guard. |
+| `js/inventory.js:996` | `splitInventoryItem(originalIdx, disposedQty, dispositionInput)` | Untouched. Stack split, change-log entries, `transactionId` pairing all unchanged. |
+| `js/events.js:182` | `qtyInputId: "removeItemQty"` constant in `disposeAmountToggle` config | Confirms the toggle keys off the `#removeItemQty` ID. If the ID changes, this constant must change too. STRK-53 keeps the ID; no edit needed here. |
+| `js/events.js:4612` | `const removeItemQtyInput = document.getElementById("removeItemQty");` | `disposeAmountToggle` reads from this element. Same ID-stability point as above. |
+| `js/events.js:4600-4617` | `input`-listener side effect on `#removeItemQty` | Drives `disposeAmountToggle.updateVisibility()` and `updatePlaceholder()`. **Bubbles concern:** existing listener is attached directly to `#removeItemQty` (verify), so non-bubbling `Event` dispatch works. To be future-proof, approach.md mandates `new Event("input", {bubbles: true})` for all programmatic dispatches. |
+| `js/utils.js:1705-1730` | Focus-trap stack | `openModalById` invokes the focus trap. The trap's first-focusable scan uses `querySelectorAll(_FOCUSABLE_SELECTOR)` and filters by visibility. A `type="hidden"` input is non-focusable by definition and will not become the first focus target. **The auto-focus target after `openModalById("removeItemModal")` is the first focusable element inside the modal that the trap finds** — currently the dispose-checkbox or the qty input, depending on visibility. STRK-53's chip group / `<select>` becomes the first focusable element inside `#removeItemQtyGroup` and therefore is in the trap's scan. AC-4 requires focus to land on the selected chip / the `<select>`, which the approach phase handles by an explicit `.focus()` call after rendering. |
+| `css/styles.css:7910-7940` | `.chip-sort-toggle` + `.chip-sort-btn` | Inline-flex pill container, no `flex-wrap`, no min-height. Chip padding `0.2rem 0.6rem`. At 16 px base, this is ~26 px tall — **below the 44 px AAA touch target**. STRK-53 requires either a new variant class (`.chip-sort-toggle--quantity`) or a state class that adds `flex-wrap: wrap`, `min-height: 44px`, `min-width: 44px`, and a larger gap. The existing Lot/Each toggle is unaffected. |
+| `css/styles.css:7957` | `#purchasePriceModeToggle .chip-sort-btn` already overrides chip sizing | Precedent for per-instance chip sizing. STRK-53 follows the same pattern with `#removeItemQtyChips .chip-sort-btn { min-width: 44px; min-height: 44px; ... }`. |
+| `tests/playwright/inventory/partial-stack-disposition.spec.js` | Full STRK-44 + downstream coverage | **62 test cases** total (corrected from the discussion-folder draft's "16"). Helper `setDisposeQty` at line 122. Tests 7 and 8 (REQ-1.6, lines 297 + 310) directly assert invalid-quantity submission is blocked — those tests are deliberately replaced by STRK-53 with affordance-level tests. |
+| `tests/playwright/02-crud/crud.spec.js:383-424` | CRUD remove flow | Not qty-specific. Not at risk. |
+
+### Reviewer-flagged structural items now resolved
+
+The first-pass review surfaced four items the original discovery missed. Each is now documented above:
+
+- **Label association** (`for="removeItemQty"`): line 8307 — yes it exists, must be re-pointed or supplemented with `aria-labelledby`.
+- **Focus landing point after `openModalById`**: focus trap auto-focuses the first focusable element in the modal. With `#removeItemQty` going `type="hidden"`, the chip group / `<select>` becomes that element. The approach phase makes the focus call explicit rather than relying on trap order.
+- **`paste` / `change` listeners on `#removeItemQty`**: none exist outside the `input` listener wired in `openRemoveItemModal`. Replacing the input with a hidden carrier + chip/`<select>` does not orphan any other listener.
+- **Real test count**: 62 tests, not 16. The redesign-vs-replace decision in tasks.md is sized accordingly.
+
+## Prior Decisions
+
+- **2026-05-07** — STRK-44 adopted the `.chip-sort-toggle` segmented-button pattern for Lot/Each in the dispose modal (mem0 id `54b73885`). STRK-53 reuses the same primitive with a wrapping variant for the quantity chip group.
+- **2026-05-07** — STRK-44 discovery classified dispose-modal scope as medium; STRK-53 builds on that foundation (mem0 id `a4eb71a6`).
+- **Modal `<select>` reset gotcha** (mem0 id `ef91dece`) — Browser native form-state restoration can repopulate the last-selected `<select>` value across modal open/close cycles. **STRK-53 mitigation:** `openRemoveItemModal` always rebuilds the `<select>` `<option>` set from scratch and explicitly sets `.value` after building, so any stale selection is overwritten before the modal becomes visible.
+- **STRK-44 toast validation merged as "good enough"** — STRK-53's explicit origin issue. Toasts are kept as defense-in-depth.
+
+## External References
+
+- [MDN `<select>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select) — native keyboard support: ArrowUp/Down, Home/End, type-ahead (letter/number jump), Enter to confirm. No special ARIA needed.
+- [ARIA Authoring Practices — Toolbar / Radio Group](https://www.w3.org/WAI/ARIA/apg/patterns/radio/) — roving-tabindex pattern for arrow-key navigation within a group of radio-like buttons. STRK-53 applies this to the chip group (treating the chips as radio-like even though `aria-pressed` is used, since only one chip is "pressed" at a time).
+- [WCAG 2.5.5 Target Size (Enhanced) AAA](https://www.w3.org/WAI/WCAG21/Understanding/target-size.html) — 44 × 44 CSS px minimum target. STRK-53 commits to AAA, not the AA 24 × 24 fallback.
+- [WCAG 2.5.5 spacing exception](https://www.w3.org/WAI/WCAG21/Understanding/target-size.html#dfn-spacing) — does not apply here since we control the rendering.
+
+## Constraints
+
+1. **No new libraries.** Vanilla JS + existing CSS only.
+2. **`splitInventoryItem` is unchanged.** Replace targets only the input affordance.
+3. **`#removeItemQty` ID is preserved** as a `type="hidden"` carrier. `confirmRemoveItem`, `disposeAmountToggle` (`events.js:182`), and `_removeItemQtyPreviewHandler` all keep reading from it. Programmatic writes use `new Event("input", {bubbles: true})` so future ancestor listeners do not silently miss chip-driven changes.
+4. **Visible `<label for="removeItemQty">`** at `index.html:8307` must be re-associated to the visible control: either (a) change `for=` to the chip group / `<select>` ID, or (b) keep `for="removeItemQty"` but add `aria-labelledby="removeItemQtyLabel"` on the chip group / `<select>` (giving the label an `id` if it lacks one). Approach.md picks one.
+5. **Focus is set explicitly** in `openRemoveItemModal` after the control renders — do not rely on focus-trap order to land on the right element.
+6. **`partial-stack-disposition.spec.js` invalid-entry assertions** (tests 7 and 8, REQ-1.6) are deliberately replaced with affordance-level tests in STRK-53. Tests asserting downstream business logic (split, changeLog, lot/each, G/L math) are not modified.
+7. **AC-5 bar:** native `<select>` keyboard type-ahead is the documented path for selecting qty 47 of 50 in ≤ 3 interactions. The chip threshold (`DISPOSE_QTY_CHIP_MAX = 8`) must keep N=50 out of chip mode.
+8. **44 × 44 CSS px chip touch targets** with `flex-wrap: wrap` on narrow viewports. New CSS variant required; the existing `.chip-sort-toggle` rule cannot be widened in place without affecting Lot/Each + Purchase-Price toggles.
+9. **Toast handlers stay** with an inline `// STRK-53: defense-in-depth — unreachable through the chip/<select> UI; keeps the safety net for programmatic DOM access.` comment at lines 774 and 784.
+10. **Roving-tabindex** is required for ArrowLeft/Right navigation in the chip group (AC-4). `role="group"` + `aria-pressed` does **not** provide this for free.
+
+## Discovery Summary
+
+The dispose modal's quantity field has three touch surfaces for STRK-53: the input element in `index.html:8308`, the field-setup logic in `openRemoveItemModal` (`inventory.js:670-712`), and the validation branches in `confirmRemoveItem` (`inventory.js:766-786`). All downstream business logic — `splitInventoryItem`, `changeLog`, `transactionId` pairing — is fully out of scope. The redesign keeps `#removeItemQty` as a hidden authoritative carrier, replaces the visible input with a chip group (N ≤ 8) or native `<select>` (N > 8) bound to that carrier, adds a new CSS variant for AAA-compliant chip sizing with wrapping, and explicitly handles focus on modal open. The existing 62-test Playwright suite mostly survives unmodified; tests 7 and 8 are replaced with affordance-level coverage that the redesign makes possible.
+
+## Open Questions
+
+_None — all four design forks flagged in the first-pass review are resolved in requirements.md. Advance: `/sketch approach STRK-53`._
+
+---
+
+> **Phase complete.** Code paths catalogued with current line numbers, reviewer-flagged gaps resolved, constraints enumerated. Advance: `/sketch approach STRK-53`.

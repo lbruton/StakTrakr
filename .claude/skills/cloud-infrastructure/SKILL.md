@@ -26,7 +26,7 @@ Read .context/infrastructure.md
 Read .context/data-pipelines.md
 
 # DNS, tunnels, Cloudflare Pages (cross-project — lives in DocVault)
-Read /Volumes/DATA/GitHub/DocVault/KnowledgeBase/Infrastructure/Cloudflare.md
+Read "$(vault-path shared)/KnowledgeBase/Infrastructure/Cloudflare.md"
 ```
 
 **Do NOT cite app names, resource limits, regions, or domains from memory — always read the docs above for current values.** Source code wins on conflict: `devops/pollers/remote-poller/fly.toml` is authoritative for Fly.io config.

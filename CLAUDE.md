@@ -45,8 +45,9 @@ every worktree. Three tiers of truth:
   `devops/pollers/remote-poller/fly.toml`.
 
 Run `/context-drift` after architectural/infra work (replaces `/vault-drift` for this
-project). DocVault Foundation originals remain as human-dev guides only — never cite them
-as authority.
+project). Human docs live in the in-repo `DocVault/` (Overview, `specs/`, research); infra pages
+with LAN IPs live in the private companion `$(vault-path private)` (DEVS-78). The archived central
+DocVault Foundation originals are never authority.
 
 | Doc                                  | Read before                                                            |
 | ------------------------------------ | ---------------------------------------------------------------------- |

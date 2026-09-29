@@ -10,3 +10,6 @@ test-results
 # judge them. markdownlint globs the filesystem rather than git, so without this it would
 # lint files git deliberately ignores.
 .claude/**/*.local.*
+
+# In-repo Obsidian vault (DEVS-78) — linted by the global docvault-lint hook with DocVault/.markdownlint.jsonc
+DocVault

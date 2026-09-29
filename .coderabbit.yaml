@@ -41,6 +41,7 @@ reviews:
     - "!**/.claude/**"
     - "!**/.gemini/**"
     - "!**/.agents/**"
+    - "!DocVault/**" # in-repo Obsidian vault (DEVS-78); linted by docvault-lint, not code
     - "!**/.spec-workflow/**"
     - "!**/.codacy/**"
     - "!**/.github/**"

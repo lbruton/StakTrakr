@@ -11,6 +11,11 @@ elif [ "${1:-}" = "--staged" ]; then
   mode="staged"
 fi
 
+# DocVault/ is the in-repo Obsidian vault (DEVS-78): it has its own conventions and
+# .markdownlint.jsonc and is linted by the global docvault-lint hook. markdownlint-cli
+# does not apply .markdownlintignore to explicitly passed files, so exclude it here.
+VAULT_EXCLUDE=(":(exclude)DocVault/**")
+
 candidate_files=()
 append_unique_files() {
   while IFS= read -r file_path; do
@@ -31,10 +36,10 @@ append_unique_files() {
 }
 
 if [ "$mode" = "changed" ]; then
-  append_unique_files < <(git diff --name-only --diff-filter=ACMRTUXB HEAD -- '*.md')
-  append_unique_files < <(git ls-files --others --exclude-standard -- '*.md')
+  append_unique_files < <(git diff --name-only --diff-filter=ACMRTUXB HEAD -- '*.md' "${VAULT_EXCLUDE[@]}")
+  append_unique_files < <(git ls-files --others --exclude-standard -- '*.md' "${VAULT_EXCLUDE[@]}")
 else
-  append_unique_files < <(git diff --cached --name-only --diff-filter=ACMRTUXB -- '*.md')
+  append_unique_files < <(git diff --cached --name-only --diff-filter=ACMRTUXB -- '*.md' "${VAULT_EXCLUDE[@]}")
 fi
 
 if [ "${#candidate_files[@]}" -eq 0 ]; then

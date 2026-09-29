@@ -70,19 +70,18 @@ sqld is a self-hosted libSQL server on the home VM (`192.168.1.81:8080`). Both p
 
 ## When Making Changes — Update ALL of These
 
-| Location                                                        | What to update                                         |
-| --------------------------------------------------------------- | ------------------------------------------------------ |
-| `js/api-health.js`                                              | Stale thresholds, feed URLs, `_normalizeTs` logic      |
-| DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`): |                                                        |
-| — `Health Checks.md`                                            | Health checks, stale thresholds, diagnosis commands    |
-| — `Remote Poller.md`                                            | Fly config, crons, VM spec, GHA workflow table         |
-| — `API Reference.md`                                            | Endpoint map, schemas, confidence tiers                |
-| — `Turso Schema.md`                                             | Database tables, indexes, key queries                  |
-| — `Home Poller.md`                                              | Home poller crons, dashboard, Firecrawl                |
-| — `Poller Parity.md`                                            | Scrape pipeline comparison between pollers             |
-| `lbruton/StakTrakrApi` `README.md`                              | If endpoints, branches, or directory structure changes |
+| Location                                    | What to update                                         |
+| ------------------------------------------- | ------------------------------------------------------ |
+| `js/api-health.js`                          | Stale thresholds, feed URLs, `_normalizeTs` logic      |
+| `.context/deep-dives/health-checks.md`      | Health checks, stale thresholds, diagnosis commands    |
+| `.context/deep-dives/remote-poller.md`      | Fly config, crons, VM spec, GHA workflow table         |
+| `.context/deep-dives/api-reference.md`      | Endpoint map, schemas, confidence tiers                |
+| `.context/deep-dives/home-poller.md`        | Home poller crons, dashboard, Firecrawl                |
+| `.context/data-pipelines.md`                | Scrape pipeline, sqld schema, poller parity            |
+| Private companion (`$(vault-path private)`) | Anything with LAN IPs / internal hosts (not public)    |
+| `lbruton/StakTrakrApi` `README.md`          | If endpoints, branches, or directory structure changes |
 
-> **Lookup:** `Read /Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/<page>.md` or `Grep` on the vault.
+> **Lookup:** `.context/` is canonical for agent-facing facts. Human docs live in the in-repo `DocVault/` (public-safe), and infra detail with IPs lives in `$(vault-path private)` (DEVS-78). The central DocVault is archived.
 > **Deprecated:** In-repo `wiki/` and `docs/devops/api-infrastructure-runbook.md` — do not update.
 
 ---
@@ -134,4 +133,4 @@ EOF
 | Notion infrastructure pages                 | Deprecated 2026-02-25 — do not update              |
 | `docs/devops/api-infrastructure-runbook.md` | Deprecated — will be deleted after next wiki audit |
 
-**DocVault is the single source of truth.** All documentation changes go there via `/vault-update`.
+**`.context/` is the single source of truth** for these facts. Update it in the same PR. Human-facing pages go through `/vault-update` (in-repo `DocVault/`, or the private companion for anything sensitive).
