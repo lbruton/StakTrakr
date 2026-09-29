@@ -22,12 +22,12 @@ Precious metals inventory tracker — vanilla-JS PWA with offline-first localSto
 
 ## Where the docs live
 
-| Location                 | Audience | Holds                                                                  |
-| ------------------------ | -------- | ---------------------------------------------------------------------- |
-| `.context/*.md`          | Agents   | Canonical foundation + policy docs — index table in `CLAUDE.md`        |
-| `.context/deep-dives/`   | Agents   | Subsystem reference (data model, pollers, API, vendor quirks, …)       |
-| `DocVault/specs/`        | Humans   | Spec artifacts; completed specs under `specs/archive/` are historical |
-| Private companion vault  | Humans   | Anything with LAN hosts, drift reports — resolve with `vault-path private` |
+| Location                | Audience | Holds                                                             |
+| ----------------------- | -------- | ----------------------------------------------------------------- |
+| `.context/*.md`         | Agents   | Canonical foundation + policy docs — index table in `CLAUDE.md`   |
+| `.context/deep-dives/`  | Agents   | Subsystem reference (data model, pollers, API, vendor quirks)     |
+| `DocVault/specs/`       | Humans   | Spec artifacts; `specs/archive/` holds completed, historical ones |
+| Private companion vault | Humans   | LAN-host detail and drift reports — `vault-path private`          |
 
 This vault holds specs only. Architecture, infrastructure, pipelines, and workflow live in
 `.context/` — link there rather than restating them here. Source code wins over every document.
