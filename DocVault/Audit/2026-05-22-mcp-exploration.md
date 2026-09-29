@@ -1,5 +1,7 @@
 # MCP Exploration — StakTrakr Development Context
 
+> **Historical snapshot.** CGC (code-graph-context) was retired 2026-07-27 and must not be re-added; the CGC sections (1 and 7) are kept as record only. Current code search order: `claude-context` semantic search, then Grep/Glob for identifiers — script-tag globals have no import graph, so Grep is authoritative for references.
+
 **Date:** 2026-05-22  
 **Scope:** Full MCP stack evaluation (SessionFlow, Mem0, Git, Claude-Context, CGC) against the last 3 days of StakTrakr development. Instruction file audit (AGENTS.md, CLAUDE.md). Skill inventory gap analysis. SessionFlow improvement recommendations.
 

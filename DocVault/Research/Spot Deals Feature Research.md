@@ -41,7 +41,7 @@ A **Spot Deals** tab in the market matrix view that aggregates:
 ### What We Can Do Better
 - **No ads** — their pages are cluttered with display ads and affiliate trackers
 - **Integrated with our existing market view** — users don't need a separate site
-- **Real-time spot price from our own feed** — we already track spot prices for gold, silver, platinum (and soon palladium)
+- **Real-time spot price from our own feed** — we already track spot prices for gold, silver, platinum, palladium, and copper (`SPOT_PROVIDER_METAL_SYMBOLS` in `js/constants.js`)
 - **Smarter premium calculations** — we already have `weight_oz` per coin, enabling accurate $/oz-over-spot even for fractional items like Peace Dollars (0.7734 oz)
 - **Open source transparency** — users can see exactly how premiums are calculated
 

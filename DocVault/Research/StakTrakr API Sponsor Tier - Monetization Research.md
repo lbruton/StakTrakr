@@ -11,11 +11,13 @@ tags: [api, database]
 
 # StakTrakr API Sponsor Tier — Monetization Research
 
+> **Staleness note (2026-09-28):** Source line anchors below have shifted — the quoted About-page copy now appears near `index.html:6675`/`6730` and `about.html:537`. The fallback endpoint is now `api2` (see Context), so the `api1` GitHub-Pages-fallback reasoning needs re-deriving before use. The March 2026 v1-shutdown timing assumption has passed. External competitor pricing and vendor-terms research (April 2026) was not rechecked. Still exploratory and non-decision.
+
 Phase 0 research brief exploring an optional sponsor-funded API tier for StakTrakr. Core app stays free forever; free API tier stays daily; sponsor-keyed API tier unlocks hourly retail vendor market data. Captures the internal audit of prior public promises, the market research on FOSS+paid precedents, competitor API pricing, legal posture for republishing scraped bullion prices, architectural open questions, and messaging direction. **Not a decision document** — input material for a future `/discover` pass when this moves from theory to plan.
 
 ## Context
 
-StakTrakr is a free, open-source, privacy-first precious metals portfolio tracker. Runs as a single-page app on localStorage, zero backend from the user's perspective. Behind the scenes there is a substantial data infrastructure: a home-lab retail price scraper, a Fly.io publisher, a Turso DR mirror, and a dual GitHub-Pages-fronted API (`api.staktrakr.com` + `api1.staktrakr.com`) providing spot prices and retail vendor price feeds to the app. See Architecture (archived), Home Poller (archived), Remote Poller (archived), [[../../Projects/StakTrakr/Depreciated/API Reference]], API Consumption (archived).
+StakTrakr is a free, open-source, privacy-first precious metals portfolio tracker. Runs as a single-page app on localStorage, zero backend from the user's perspective. Behind the scenes there is a substantial data infrastructure: a home-lab retail price scraper, a Fly.io publisher, a Turso DR mirror, and a dual-endpoint API (`api.staktrakr.com` + `api2.staktrakr.com` — as of 2026-09-28 per `V2_API_ENDPOINTS` in `js/constants.js`; this brief was written when the fallback was `api1.staktrakr.com`, and `api1` references below are the April 2026 framing) providing spot prices and retail vendor price feeds to the app. See Architecture (archived), Home Poller (archived), Remote Poller (archived), [[../../Projects/StakTrakr/Depreciated/API Reference]], API Consumption (archived).
 
 A conversation with a peer raised the point that **the real market value of StakTrakr is the API + scraper fleet**, not the free web app. This triggered a strategic reconsideration: should there be an optional paid tier on the API to offset Fly.io and MetalpriceAPI costs, while keeping the app itself free forever and the scraper code open source?
 

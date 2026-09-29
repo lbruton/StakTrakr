@@ -1,9 +1,10 @@
 ---
 type: research
 project: StakTrakr
-status: active
+status: historical
 source: session-research
 created: '2026-05-21'
+updated: '2026-09-28'
 tags:
   - testing
   - playwright
@@ -12,6 +13,8 @@ tags:
 ---
 
 # Test Suite Consolidation Roadmap
+
+> **Historical proposal (May 2026 snapshot).** The inventory below is not current. As of 2026-09-28 (commit 731b29a8), `tests/playwright/core` and `tests/playwright/extended` hold 40 active spec files with 822 `test()` declarations; the 58 issue-acceptance specs under `tests/playwright/archive` are historical. `playwright.config.js` still defaults to one worker. For live inventory use `tests/playwright/coverage-map.csv`, the active test tree, and `.context/testing.md`.
 
 ## The Problem
 

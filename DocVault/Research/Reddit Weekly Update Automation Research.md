@@ -14,6 +14,8 @@ tags:
 ---
 # Reddit Weekly Update Automation — Research & Plan
 
+> **Reconciliation (2026-09-28):** This plan predates two current rules. (1) `dev → main` ships only on an explicit user "ready to ship" signal — the weekly-ship cadence below is aspirational, and posting must be a separately approved step, never an automatic side effect of a release. (2) Infisical lookups must use the project UUID from `CLAUDE.md` (Pre-flight), not the slug `stak-trakr-94m4` — the slug returns a 404. Reddit posting is not implemented in this repo.
+
 > **Status:** DRAFT — Research + implementation plan (no code written yet)
 > **Date:** 2026-06-07
 > **Context:** Goal — ship `dev → main` every weekend and post a **casual, blog-style** weekly update to the StakTrakr subreddit, semi-automated, after the release PR lands. Posts should read like "here's what we worked on and what's new since last time," **not** a technical bullet-list changelog. This doc captures (1) how to give the agent Reddit posting access, (2) the tooling decision, (3) the proposed `reddit-weekly` skill, (4) `/ship` integration, and (5) how to keep it from feeling robotic.

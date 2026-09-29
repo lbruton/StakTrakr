@@ -4,7 +4,7 @@ doc_type: overview
 project: StakTrakr
 source: manual
 created: "2026-04-26"
-updated: "2026-06-05"
+updated: "2026-09-28"
 ---
 
 # StakTrakr
@@ -13,63 +13,61 @@ Precious metals inventory tracker — vanilla-JS PWA with offline-first localSto
 
 ## At a Glance
 
-| Field | Value |
-|-------|-------|
-| Repo | [lbruton/StakTrakr](https://github.com/lbruton/StakTrakr) |
-| Language | Vanilla JS (ES modules) — no framework |
-| Branches | `dev` (PR target), `main` (release) |
-| Version Lock | `devops/version.lock` |
-| npm `version` | `3.35.6` (private) |
+| Field         | Value                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| Repo          | [lbruton/StakTrakr](https://github.com/lbruton/StakTrakr)                                        |
+| Language      | Vanilla JS (script-tag globals) — no framework, no build step                                    |
+| Branches      | `dev` (PR target), `main` (release)                                                              |
+| Version       | Read `version.json` at the repo root — not repeated here so it cannot go stale                   |
 | Issue Tracker | [Plane STRK](https://plane.lbruton.cc/lbruton/) (migrated 2026-04-26 — was `STAK-` historically) |
-| PR Target | `dev` (signed commits + PR + status checks required) |
+| PR Target     | `dev` (signed commits + PR + status checks required)                                             |
+
+## Where the docs live
+
+| Location                 | Audience | Holds                                                                |
+| ------------------------ | -------- | -------------------------------------------------------------------- |
+| `.context/*.md`          | Agents   | Canonical foundation + policy docs (architecture, infrastructure, …) |
+| `.context/deep-dives/`   | Agents   | Subsystem reference (data model, pollers, API, vendor quirks, …)     |
+| `DocVault/` (this vault) | Humans   | This overview, `specs/`, research notes, dated reports and audits    |
+
+Source code wins over every document. When a doc and the code disagree, fix the doc.
 
 ## Architecture
 
 PWA frontend on Cloudflare Pages consuming three feeds:
 
-1. **Spot prices** — MetalPriceAPI → home poller + Fly.io poller → sqld → JSON manifests
+1. **Spot prices** — provider APIs → home poller + Fly.io poller → sqld → JSON manifests
 2. **Retail prices** — home poller scrapes vendor sites (3-phase CF bypass) → sqld → manifests
-3. **Goldback prices** — 56 per-state slugs scraped on home poller
+3. **Goldback prices** — per-state slugs scraped on the home poller
 
-Data flows through a thin publisher API on Fly.io (`api.staktrakr.com`) and GitHub Pages JSON. Cloud sync via Dropbox OAuth + AES-256-GCM with atomic rollback.
+Data flows through a thin publisher API on Fly.io and GitHub Pages JSON. The frontend tries `api.staktrakr.com` first, then `api2.staktrakr.com` (`V2_API_ENDPOINTS` in `js/constants.js`). Cloud sync uses Dropbox OAuth + AES-256-GCM with atomic rollback.
 
-## Foundation
+## Foundation docs (`.context/`)
 
-Canonical foundation docs at `Projects/StakTrakr/Foundation/` — start here for any work.
+| Doc                                  | What's there                                                  |
+| ------------------------------------ | ------------------------------------------------------------- |
+| `.context/architecture.md`           | System design, frontend/API/data model, sqld schema           |
+| `.context/infrastructure.md`         | Deploy topology, Fly.io, home poller, secrets, CI/CD          |
+| `.context/coding-standards.md`       | DOM patterns, localStorage rules, service worker              |
+| `.context/design-philosophy.md`      | Brand, tokens, four themes, anti-references                   |
+| `.context/reusable-patterns.md`      | Vendor normalization, providers.json, retail modal, charts    |
+| `.context/data-pipelines.md`         | Spot / retail / goldback / image — cron, thresholds, failures |
+| `.context/cloud-sync.md`             | Dropbox OAuth, AES-256-GCM, rollback, backup/restore          |
+| `.context/cloud-sync-convergence.md` | Sync compare/merge/hash invariant                             |
+| `.context/testing.md`                | Test tiers, TDD rules, coverage map                           |
+| `.context/git-topology.md`           | Worktrees, merges, releases, version lock, spot bundle        |
+| `.context/implementation-gotchas.md` | Module-level foot-guns                                        |
+| `.context/review-and-ci.md`          | Codacy, agentlint, reviewer routing                           |
 
-| Doc | What's there |
-|-----|-------------|
-| Architecture (archived) | System design, frontend/API/data model, sqld schema |
-| Cloud Sync (archived) | Dropbox OAuth, AES-256-GCM, atomic rollback, multi-tab |
-| Coding Standards (archived) | DOM patterns, localStorage rules, service worker, release workflow |
-| Data Pipelines (archived) | Spot / retail / goldback / image — cron, thresholds, failure modes |
-| Design Philosophy (archived) | Brand, color palette, typography, component patterns |
-| Infrastructure (archived) | Deploy topology, Fly.io, home poller, secrets, CI/CD, health thresholds |
-| Reusable Patterns (archived) | Vendor normalization, providers.json, retail modal, chart abstractions |
+Drift audit: `/context-drift` (replaced `/vault-drift`, which is retired).
 
-Drift audit: `/vault-drift StakTrakr`.
+## Deep dives (`.context/deep-dives/`)
 
-## Deep Dives
-
-Detailed reference docs live in `Foundation/Deep Dives/` — linked from the Foundation summaries above.
-
-| Doc | What's there |
-|-----|-------------|
-| API Reference (archived) | REST endpoint schemas and response formats |
-| Data Model (archived) | Inventory item schema, storage keys, localStorage structure |
-| DOM Patterns (archived) | DOM utility API reference and edge cases |
-| Health Checks (archived) | Stale thresholds, diagnostic scripts, incident log |
-| Home Poller (archived) | Docker stacks, dashboard, CF bypass sidecar |
-| Image Pipeline (archived) | Client-side image system |
-| Provider Database (archived) | Provider CRUD API and dashboard |
-| Remote Poller (archived) | Fly.io container, supervisord, tiered recovery |
-| Retail Modal (archived) | Modal lifecycle and data flow |
-| Secret Keys (archived) | Secret rotation procedures |
-| Vendor Quirks (archived) | Per-vendor scraping notes and workarounds |
+`api-reference`, `data-model`, `dom-patterns`, `health-checks`, `home-poller`, `image-pipeline`, `playwright-suite-rationalization`, `provider-database`, `remote-poller`, `retail-modal`, `secret-keys`, `vendor-quirks`, `webscale-cookie-re-solve`.
 
 ## Workflow
 
 - Worktree + PR mandatory; PRs target `dev`.
 - `dev → main` merges only on explicit "release" / "ready to ship" signal.
-- Version bumps via `/release patch|minor|major`.
-- Pre-Plane issues archived at [[../../Archive/Issues-Pre-Plane/StakTrakr/StakTrakr|Archive/Issues-Pre-Plane/StakTrakr]].
+- Version bumps via `/release patch|minor|major`; lock and worktree rules in `.context/git-topology.md`.
+- Pre-Plane issues live in the frozen central DocVault archive (`.trash/Issues-Pre-Plane/StakTrakr/`); see `.context/issue-tracking.md`.

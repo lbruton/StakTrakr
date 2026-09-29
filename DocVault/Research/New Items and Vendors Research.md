@@ -10,6 +10,8 @@ tags:
 ---
 # New Items and Vendors Research
 
+> **Schedule expired (2026-09-28):** The late-May / mid-June 2026 target dates have passed and the "NEEDS VERIFY" product URLs were never confirmed as checked. Verify current URLs and runtime provider data before resuming. The baseline of 11 coins / 7 providers matches code defaults in `devops/pollers/shared/capture.js`, not necessarily the live catalog; the proposed additions are not in those defaults.
+
 > **Status:** DRAFT — URLs need manual verification before backend integration
 > **Date:** 2026-05-23
 > **Context:** Post-release beta expansion. Add items to scraper backend first, hydrate API for ~2 weeks, then surface in beta UI.
