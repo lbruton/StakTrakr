@@ -6,7 +6,6 @@
 
 # AI / agent configuration
 .agents/              export-ignore
-DocVault/             export-ignore
 .claude/              export-ignore
 .codex/               export-ignore
 .impeccable.md        export-ignore

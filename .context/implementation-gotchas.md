@@ -206,8 +206,8 @@ Follow this sequence:
 **Warning:** Mark Plane issues Done only after the PR merges.
 Plane closure tasks (close task number) follow `/spec archive` after merging.
 
-**DocVault git add discipline:** Specs live in-repo at `DocVault/specs/` and ride the feature PR. When committing spec archives, stage with surgical precision:
+**Spec git add discipline:** Specs live in-repo at `docs/specs/` (`specs.path` in `.claude/project.json`, STRK-411) and ride the feature PR. When committing spec archives, stage with surgical precision:
 
-- Stage by exact file paths: `git add DocVault/specs/STRK-74/requirements.md ...`
-- Do not use broad staging: `git add DocVault/specs/` or `git add .`
+- Stage by exact file paths: `git add docs/specs/STRK-74/requirements.md ...`
+- Do not use broad staging: `git add docs/specs/` or `git add .`
 - Broad staging picks up in-progress specs as unintended additions.

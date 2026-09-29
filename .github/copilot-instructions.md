@@ -312,7 +312,7 @@ ESLint 9 (config in `.eslintrc.json`) is the **authoritative** JavaScript analyz
 
 ## Documentation Policy
 
-`.context/` is the source of truth for architecture and patterns. The in-repo `DocVault/` (DEVS-78) holds two entry pages (`Overview.md`, `StakTrakr.md`) plus `specs/`; do not add notes that restate `.context/`, and do not edit completed specs under `DocVault/specs/archive/`. Planning artifacts go in `docs/plans/`.
+`.context/` is the source of truth for architecture and patterns. Specs live in `docs/specs/` (STRK-411); do not add notes there or elsewhere that restate `.context/`, and do not edit completed specs under `docs/specs/archive/`. Private docs live in the Devops repo vault, not this repo. Planning artifacts go in `docs/plans/`.
 
 After any commit that changes behavior, update the matching `.context/` doc in the same PR.
 

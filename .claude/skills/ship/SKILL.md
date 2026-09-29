@@ -146,8 +146,9 @@ mcp__plane__get_issue_using_readable_identifier  identifier: "STRK-###"
 This ensures the PR description uses accurate titles, not just commit messages.
 
 > **Pre-migration note:** legacy `STAK-###` references in old commit messages
-> point to `DocVault/Archive/Issues-Pre-Plane/StakTrakr/STAK-###.md`. Resolve
-> those by file read; new work uses `STRK-###` only.
+> point to `Archive/Issues-Pre-Plane/StakTrakr/STAK-###.md` in the archived central repo
+> `lbruton/DocVault` (not cloned locally). Resolve with `gh api repos/lbruton/DocVault/contents/<path>`;
+> new work uses `STRK-###` only.
 
 ## Step 3.5: About-page What's New audit (MANDATORY)
 
