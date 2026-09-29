@@ -276,7 +276,7 @@ test("the coin-fbp-url endpoint validates the FBP host, not just the protocol (S
   assert.match(
     handler,
     /new URL\(/,
-    "must parse the submitted value with new URL() instead of a startsWith(\"https://\") string check"
+    'must parse the submitted value with new URL() instead of a startsWith("https://") string check'
   );
   assert.match(
     handler,
