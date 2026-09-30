@@ -16,7 +16,7 @@ StakTrakr tracks precious metals inventory using three value dimensions per item
 ## Key Rules (read before touching this area)
 
 1. **`meltValue` is never stored.** It is always computed at render time: `meltValue = weightOz * qty * spot * purity` (where `weightOz` converts Goldback `gb` units via `weight * GB_TO_OZT`, Silverback `sb` units via `weight * SB_TO_OZT`, and `purity` defaults to `1.0`). Storing it would produce stale values.
-2. **Every localStorage key must be registered in `ALLOWED_STORAGE_KEYS`** (`js/constants.js`) before use. `ALLOWED_STORAGE_KEYS` is a cleanup/restore allowlist enforced by `cleanupStorage()` at startup — it is not a write-time guard inside `saveData()` or `saveDataSync()`. Unregistered keys are silently deleted on the next app startup.
+2. **Every localStorage key must be registered in `ALLOWED_STORAGE_KEYS`** (`js/constants.js`) before use. `ALLOWED_STORAGE_KEYS` is an import/sync allowlist (cloud-sync apply, vault import/restore) — it is not a write-time guard inside `saveData()` or `saveDataSync()`, and since STRK-412 (v3.36.35) `cleanupStorage()` no longer deletes unregistered keys. Unregistered keys survive locally but are refused by sync/import.
 3. **`saveData` / `loadData` are the standard localStorage accessors for JSON-serialized data.** Raw `localStorage.getItem` / `setItem` is intentional for plain scalar string preferences (e.g., `cloud_kraken_seen`, `CLOUD_VAULT_IDLE_TIMEOUT_KEY`) where async JSON serialization is inappropriate.
 4. **`spotPrices` is runtime state, not stored state.** It is fetched from the API and held in the `spotPrices` variable (defined in `js/state.js`, one property per metal). It is not written to the inventory object.
 5. **`disposition` is stored on the item record.** When an item is disposed (sold/traded/lost/gifted/returned), a `disposition` object is written to the item. The `realizedGainLoss` is computed once at disposition time and stored — it is not re-derived at render.
@@ -211,7 +211,7 @@ User edit (inventory form)
   → UI re-render
 
 App startup (init.js)
-  → cleanupStorage() — removes unregistered keys
+  → cleanupStorage() — removes only RETIRED_STORAGE_KEYS (STRK-412)
   → loadData('metalInventory') → inventory array
   → spot fetch → spotPrices populated
   → renderInventory()
@@ -239,7 +239,7 @@ Both variants are exported to `window` (`window.saveDataSync`, `window.loadDataS
 
 ## ALLOWED_STORAGE_KEYS
 
-All keys currently registered in `js/constants.js`. `cleanupStorage()` enforces this list at startup — any key not listed here is silently deleted. Keys are grouped by domain below.
+All keys currently registered in `js/constants.js`. Sync apply and vault import enforce this list — keys not listed here are refused (`cleanupStorage()` deletes only `RETIRED_STORAGE_KEYS`, since STRK-412). Keys are grouped by domain below.
 
 **Core inventory:**
 
@@ -444,7 +444,7 @@ Nine feature flags defined in `FEATURE_FLAGS` (`js/constants.js`). All stored as
 Never do this. Spot moves constantly; a stored `meltValue` is wrong the moment spot changes. Always derive it at render via `computeMeltValue(item, spotPrices[item.metal])`.
 
 **Adding a new localStorage key without registering it.**
-`ALLOWED_STORAGE_KEYS` is enforced by `cleanupStorage()` at startup — not by `saveData`/`saveDataSync` at write time. The write succeeds, but the key is silently deleted on the next startup. The symptom is settings that appear to save but reset on reload. Fix: add the key to the array in `js/constants.js` first.
+`ALLOWED_STORAGE_KEYS` is enforced by cloud-sync apply and vault import — not by `saveData`/`saveDataSync` at write time, and not by `cleanupStorage()` since STRK-412 (v3.36.35; earlier builds deleted unregistered keys on startup, so settings reset on reload). The symptom now is a key that saves locally but is dropped by sync/restore. Fix: add the key to the array in `js/constants.js` first.
 
 **Calling `localStorage.setItem` / `getItem` directly.**
 Only `saveData` / `saveDataSync` and `loadData` / `loadDataSync` are permitted for structured JSON app data. Direct calls bypass compression and are not portable to future storage backends.
