@@ -60,6 +60,10 @@
         "tagBlacklist",
       ],
     },
+    Collections: {
+      icon: "📚",
+      keys: ["disabledCollections"],
+    },
     Images: {
       icon: "\uD83D\uDDBC\uFE0F",
       keys: ["tableImagesEnabled", "tableImageSides"],
@@ -108,6 +112,7 @@
     chipMaxCount: "Chip Max Count",
     chipCustomGroups: "Custom Chip Groups",
     chipBlacklist: "Hidden Chips",
+    disabledCollections: "Hidden Collections",
     chipSortOrder: "Filter Sort (alpha/count)",
     layoutSectionConfig: "Section Layout",
     tableImagesEnabled: "Table Images",
@@ -2101,13 +2106,13 @@
    */
   function _mergeSlugChips(prefix, localVal, remoteVal) {
     if (!Array.isArray(localVal) && !Array.isArray(remoteVal)) return null;
-    var lSet = {};
+    var lSet = Object.create(null);
     var lList = Array.isArray(localVal) ? localVal : [];
     var rList = Array.isArray(remoteVal) ? remoteVal : [];
     var i;
     for (i = 0; i < lList.length; i++) lSet[lList[i]] = true;
     var mergedArr = [];
-    var slugSeen = {};
+    var slugSeen = Object.create(null);
     // First pass: iterate remote array in order (default wins)
     for (i = 0; i < rList.length; i++) {
       var rSlug = rList[i];
@@ -2398,7 +2403,10 @@
     // check `selectedChanges &&` treat null as "no selective picks, do full restore".
     // This differs from the intentional "deselect all" case where _checkedItems has
     // entries but they are all false (then selected is [] and apply-nothing is correct).
-    if (Object.keys(_checkedItems).length === 0) selected = null;
+    // Settings-only diffs still carry explicit local/remote picks and must keep them.
+    var hasSettings =
+      _options && _options.settingsDiff && (_options.settingsDiff.changed || []).length > 0;
+    if (Object.keys(_checkedItems).length === 0 && !hasSettings) selected = null;
     // Capture callback before close() — close() nullifies _options
     var callback = _options && _options.onApply;
     DiffModal.close();

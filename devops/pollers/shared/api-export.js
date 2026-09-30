@@ -44,6 +44,7 @@ import {
   readSpot15min,
   windowFloor,
 } from "./db.js";
+import { refreshSpotYearFiles } from "./spot-year-history.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -1108,6 +1109,21 @@ async function main() {
       }
     } else {
       warn(`No Turso spot data for 15-min window ${floor}`);
+    }
+
+    // --- Daily year file: data/spot-history-YYYY.json (STRK-403) ---
+    // Isolated so a year-file failure never costs the hourly/15-min writes above.
+    try {
+      await refreshSpotYearFiles({
+        client: spotClient,
+        dataDir: DATA_DIR,
+        now,
+        dryRun: DRY_RUN,
+        log,
+        warn,
+      });
+    } catch (err) {
+      warn(`Spot year-file refresh failed: ${err.message}`);
     }
 
     log("Spot export complete");

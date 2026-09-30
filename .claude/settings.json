@@ -6,10 +6,8 @@
       "WebFetch",
       "WebSearch",
       "Read(//Volumes/DATA/GitHub/**)",
-      "Write(//Volumes/DATA/GitHub/**)",
       "Edit(//Volumes/DATA/GitHub/**)",
       "Read(//Users/lbruton/.claude/**)",
-      "Write(//Users/lbruton/.claude/**)",
       "Edit(//Users/lbruton/.claude/**)",
       "Bash(grep *)",
       "Bash(git status *)",
@@ -34,11 +32,6 @@
       "Bash(gh run view *)",
       "Bash(gh run list *)",
       "Bash(gh api *)",
-      "mcp__specflow__approvals",
-      "mcp__specflow__log-implementation",
-      "mcp__specflow__spec-list",
-      "mcp__specflow__spec-workflow-guide",
-      "mcp__specflow__spec-status",
       "mcp__mem0__add_memory",
       "mcp__mem0__update_memory",
       "mcp__mem0__search_memories",
@@ -67,20 +60,11 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/post-edit-lint.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Volumes/DATA/GitHub/StakTrakr/.claude/hooks/post-edit-lint.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-lint.py\""
           }
         ]
       }

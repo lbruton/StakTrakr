@@ -1336,6 +1336,7 @@ async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
 
   if (successCount > 0) {
     _persistV2SyncResults();
+    document.dispatchEvent(new CustomEvent("retail:updated"));
   }
 
   _reportV2SyncSuccess(successCount, generatedAt, ui, syncStatus);

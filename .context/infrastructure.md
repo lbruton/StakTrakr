@@ -4,7 +4,7 @@ project: StakTrakr
 audience: agent
 canonical: .context/infrastructure.md
 migration_source: "DocVault/Projects/StakTrakr/Foundation/infrastructure.md" # historical provenance; migrated 2026-08-12
-updated: "2026-06-28"
+updated: "2026-09-29"
 ---
 
 # StakTrakr — Infrastructure
@@ -94,7 +94,9 @@ Values verified against `devops/pollers/remote-poller/fly.toml` (authoritative):
 
 The Git repo at `/data/staktrakr-api-export` must be seeded manually on first deploy. It persists across subsequent deploys on the same volume.
 
-**Git memory caps (2026-06-11, STRK-187 incident):** uncapped git OOM-dies on the 512 MB machine (gc, fetch, and push pack-objects were all killed with signal 9). The repo config in `/data/staktrakr-api-export` sets `pack.threads=1`, `pack.windowMemory=32m`, `pack.deltaCacheSize=16m`, and `gc.auto=0`. Re-apply these after any re-clone or volume re-seed. History was reset to an orphan commit on 2026-06-11. **Self-cleaning shipped in STRK-187 (2026-06-13):** a weekly `cleanup-export.sh` (Sun 03:17 UTC) runs a retention sweep — pruning `data/15min` day-dirs older than 90 days and `data/hourly` day-dirs older than 365 days (path-derived dates, not mtime, so a re-clone can't defeat it) — then memory-capped git maintenance (`git reflog expire --all → git repack -a -d --threads=1 --window-memory=32m → git prune → git pack-refs`; never `git gc`, which OOMs on the 512 MB machine). `run-publish.sh` runs the same `cleanup-export.sh` inline as a pre-flight backstop when the volume drops below 25000 free inodes or 300 MB free.
+**Git memory caps (2026-06-11, STRK-187 incident):** uncapped git OOM-dies on the machine (gc, fetch, and push pack-objects were all killed with signal 9). The repo config in `/data/staktrakr-api-export` sets `pack.threads=1`, `pack.windowMemory=32m`, `pack.deltaCacheSize=16m`, and `gc.auto=0`. Re-apply these after any re-clone or volume re-seed. History was reset to an orphan commit on 2026-06-11. **Self-cleaning shipped in STRK-187 (2026-06-13):** a weekly `cleanup-export.sh` (Sun 03:17 UTC) runs a retention sweep — pruning `data/15min` day-dirs older than 90 days and `data/hourly` day-dirs older than 365 days (path-derived dates, not mtime, so a re-clone can't defeat it). `run-publish.sh` runs the same `cleanup-export.sh` inline as a pre-flight backstop when the volume drops below 25000 free inodes or 300 MB free.
+
+**Full-history OOM loop (2026-09-26, STRK-402 incident):** `--window-memory` only caps `git repack -a`'s per-delta window, not the object list it must enumerate first — years of 4x/hour publish commits (10k+ commits, ~3M objects) made that enumeration itself OOM the machine, 86 minutes into a repack that then never reached `prune`, leaving the low-inode condition in place so the _next_ publish re-entered the same repack forever. A plain `fly machine restart` did not break the loop. **Fixed in STRK-402:** `cleanup-export.sh`'s git maintenance is no longer `git reflog expire --all → git repack -a -d --threads=1 --window-memory=32m → git prune → git pack-refs` against full history. It now re-shallows first — builds a fresh depth-1 `git init --bare` clone of the current tip in a sibling directory, and only swaps it in as `.git` (atomic rename) after `fetch` + `reset FETCH_HEAD` both succeed, so a transient network failure during cleanup leaves the existing repo completely untouched — then repacks the now-tiny (~16k object) result. `run-publish.sh` also re-shallows on bootstrap if `.git/shallow` is missing, rather than waiting for the weekly cron.
 
 **VM wedge → 1024 MB (2026-07-25, STRK-277 incident):** the machine wedged with `fly machine status` still reporting `State: started, HostStatus: ok` while HTTP _and_ `fly ssh console` both hung and logs went silent. The machine event log is the discriminator — `oom_killed=false, requested_stop=true` proves the VM itself never crashed, only a process inside it. Logs showed `monitor: time jump detected (slept 28s)` as the freeze marker. The publish cron stalled 00:53–02:15 UTC. Recovery required `fly machine stop --signal SIGKILL` then `start`; a plain restart held for only ~6 minutes. Memory was raised 512 → 1024 MB as mitigation on the strongest available hypothesis (~100 MB headroom left no room for git pack spikes). **This is a mitigation, not a confirmed root cause** — SSH was dead, so actual memory pressure was never observed directly. Evidence since: 5 consecutive on-schedule publish cycles at 1024 MB vs. a re-wedge within ~6 minutes at 512 MB. If it wedges again at 1024 MB, the cause is something else.
 
@@ -113,19 +115,19 @@ The Git repo at `/data/staktrakr-api-export` must be seeded manually on first de
 
 Written by `docker-entrypoint-slim.sh` at container start:
 
-| Schedule             | Script                          | Log                            | Status                                   |
-| -------------------- | ------------------------------- | ------------------------------ | ---------------------------------------- |
-| `0,30 * * * *`       | `/app/run-spot.sh`              | `/var/log/spot-poller.log`     | Active                                   |
-| `8,23,38,53 * * * *` | `/app/run-publish.sh`           | `/var/log/publish.log`         | Active                                   |
-| `*/5 * * * *`        | `node export-providers-json.js` | `/var/log/provider-export.log` | Active                                   |
-| `17 3 * * 0`         | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`         | Active (weekly, Sun 03:17 UTC, STRK-187) |
-| ~~`CRON_SCHEDULE`~~  | ~~`run-local.sh`~~              | —                              | Disabled (`RETAIL_ENABLED=0`)            |
-| ~~`15 * * * *`~~     | ~~`run-retry.sh`~~              | —                              | Disabled                                 |
-| ~~`1 * * * *`~~      | ~~`run-goldback.sh`~~           | —                              | Disabled (`GOLDBACK_ENABLED=0`)          |
+| Schedule             | Script                          | Log                            | Status                                       |
+| -------------------- | ------------------------------- | ------------------------------ | -------------------------------------------- |
+| `0,30 * * * *`       | `/app/run-spot.sh`              | `/var/log/spot-poller.log`     | Active                                       |
+| `8,23,38,53 * * * *` | `/app/run-publish.sh`           | `/var/log/publish.log`         | Active                                       |
+| `*/5 * * * *`        | `node export-providers-json.js` | `/var/log/provider-export.log` | Active                                       |
+| `17 3 * * 0`         | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`         | Active (weekly, Sun 03:17 UTC, STRK-187/402) |
+| ~~`CRON_SCHEDULE`~~  | ~~`run-local.sh`~~              | —                              | Disabled (`RETAIL_ENABLED=0`)                |
+| ~~`15 * * * *`~~     | ~~`run-retry.sh`~~              | —                              | Disabled                                     |
+| ~~`1 * * * *`~~      | ~~`run-goldback.sh`~~           | —                              | Disabled (`GOLDBACK_ENABLED=0`)              |
 
 ### Publish Pipeline (`run-publish.sh`)
 
-Runs 4x/hour. Lockfile-guarded (`/tmp/retail-publish.lock`, atomic `noclobber`). Sequence (STRK-187 rewrote this — it is **no longer** a blind `add && commit && push`):
+Runs 4x/hour. Lockfile-guarded via `flock` on `/tmp/retail-publish.flock` (STRK-402 — replaced an atomic-`noclobber` lockfile whose cleanup depended on an `EXIT` trap that never fires on SIGKILL/OOM-kill; `flock` releases automatically when the holding process dies for any reason). Each cron invocation is also wrapped in its own `flock -n <job>.flock timeout -k 30 <N>` (STRK-402) so a single hung run can't occupy a cron slot indefinitely. Sequence (STRK-187 rewrote this — it is **no longer** a blind `add && commit && push`):
 
 1. **Pre-flight space backstop (STRK-187)** — if `/data` has < 25000 free inodes or < 300 MB free, runs `cleanup-export.sh` inline (`CLEANUP_SKIP_LOCK=1`, lock already held) before exporting. Still below floor after cleanup → logs CRITICAL and publishes anyway.
 2. `api-export.js` — reads `price_snapshots` from sqld, generates all v1 JSON endpoints under `data/api/` and `data/hourly/`
@@ -284,12 +286,43 @@ DR sync runs nightly at 03:00 UTC via `turso-backup-sync.js` on the home poller.
 
 ## Frontend Hosting
 
-| Component       | Platform                                      | URL                 |
-| --------------- | --------------------------------------------- | ------------------- |
-| Frontend app    | Cloudflare Pages                              | `staktrakr.com`     |
-| Static JSON API | GitHub Pages (`api` branch of `StakTrakrApi`) | `api.staktrakr.com` |
+Surveyed 2026-09-29 (Cloudflare API, `gh api`, `curl -sI`); unused `staktrakr` Pages project deleted 2026-09-30.
 
-The `api` branch is force-pushed exclusively by `run-publish.sh` on Fly.io. The `Merge Poller Branches` GitHub Actions workflow is retired (manual-only).
+| Host                 | Serves                                                                | DNS (zone `staktrakr.com`, Cloudflare)     |
+| -------------------- | --------------------------------------------------------------------- | ------------------------------------------ |
+| `staktrakr.com`      | 301 to `https://www.staktrakr.com/` (dashboard redirect, not in repo) | CNAME `stacktrackr.pages.dev`, proxied     |
+| `www.staktrakr.com`  | Cloudflare Pages project **`stacktrackr`**, production branch `main`  | CNAME `stacktrackr.pages.dev`, proxied     |
+| `beta.staktrakr.com` | Cloudflare Pages project `stacktrackr`, **`dev` branch alias**        | CNAME `dev.stacktrackr.pages.dev`, proxied |
+| `api.staktrakr.com`  | GitHub Pages on `StakTrakrApi`, branch `api`, HTTPS enforced          | CNAME `lbruton.github.io`, DNS-only        |
+| `api2.staktrakr.com` | Fly.io `serve.js` (see Fly.io section)                                | A/AAAA to Fly, DNS-only                    |
+
+The `api` branch is force-pushed exclusively by `run-publish.sh` on Fly.io. The `Merge Poller Branches` GitHub Actions workflow is retired (manual-only). The repo-root `CNAME` file (`beta.staktrakr.com`) is a leftover from the GitHub Pages beta deploy (see below).
+
+**Beta moved to Cloudflare Pages (2026-09-30).** `beta.staktrakr.com` is a custom domain on `stacktrackr` whose CNAME targets the **branch alias** `dev.stacktrackr.pages.dev`; that CNAME target is what pins it to `dev`. A Pages custom domain whose CNAME targets `stacktrackr.pages.dev` serves the production branch (`main`) instead. Adding the domain in the dashboard offers to write that production target, so re-check the DNS record afterwards (on 2026-09-30 beta briefly served `main` 3.36.24 until the CNAME was corrected). Previously beta was GitHub Pages on `lbruton/StakTrakr` (`dev`, `/`, legacy build). Rollback: CNAME back to `lbruton.github.io` (proxied), remove the custom domain, and re-enable GitHub Pages if it was turned off.
+
+### Cloudflare Pages projects
+
+One project, `stacktrackr`, Git-connected to `lbruton/StakTrakr`. It has **no build command, no output dir and no root dir**, so the whole repo root is published as-is, and it builds preview deployments for **all** branches.
+
+| Project       | Created    | Production branch | Custom domains                                                                                         | Deployments (prod / preview / total, 2026-09-29) |
+| ------------- | ---------- | ----------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `stacktrackr` | 2026-02-07 | `main`            | `staktrakr.com`, `www.staktrakr.com`, `beta.staktrakr.com` (→ `dev` alias); `stackrtrackr.com` + `www` | 192 / 3,672 / 3,864                              |
+
+- **Despite the typo'd name, `stacktrackr` is the live production project.** Deleting it takes `www.staktrakr.com` down. Renaming is not possible; a clean name would mean a new project, moving both custom domains and repointing both CNAMEs.
+- **Retired 2026-09-30:** a second project, `staktrakr` (created 2026-02-20, production branch `dev`, only `staktrakr.pages.dev`, ~3,200 deployments), was an unused `dev` mirror that doubled every build. Its deployments were purged and the project deleted; `staktrakr.pages.dev` no longer exists. `beta.staktrakr.com` was never served by it.
+- Preview deployments build for every branch. Restricting them (none, or a branch allowlist) stops deployment-count growth.
+- The typo domains `stackrtrackr.com` and `stackertrackr.com` do not resolve publicly and their zones are not in the account. `stacktrackr.com` is a Namecheap parking page and is not attached to any project.
+- Cloudflare refuses to delete a project with a large deployment history from the dashboard. The working path (used for the 2026-09-30 retirement) pages through `GET .../pages/projects/{name}/deployments`, calls `DELETE .../deployments/{id}?force=true` for each one (the active production deployment returns error 8000034 and is skipped), then `DELETE .../pages/projects/{name}`.
+- `functions/api/token-exchange.js` (Dropbox OAuth token exchange) is a Pages Function served by the project.
+
+### Repo-internal files are publicly served (STRK-410)
+
+Because the repo root is the published directory, repo-internal files are reachable on every frontend host. Verified 200s for `/.context/infrastructure.md`, `/CLAUDE.md` and `/package.json` on `www.staktrakr.com` and `beta.staktrakr.com` (and on the since-deleted `staktrakr.pages.dev`). Directory URLs such as `/devops/` and `/tests/` return the SPA `index.html` fallback on Cloudflare (404 on GitHub Pages), but individual files beneath them are served.
+
+Fixes:
+
+- **Cloudflare Pages — fixed in-repo by PR #1535 (STRK-410), no build step.** `functions/_middleware.js` decodes and normalizes the path (percent-encoding, duplicate slashes, `..`, backslashes, case) and returns 404 for dot-segments (except `/.well-known/`), `artifacts/ devops/ docs/ DocVault/ functions/ playground/ tests/ ui-standards/`, root tooling files and any `*.md`. `_routes.json` includes `/*` but excludes the public static surface (page HTML and their pretty URLs, `sw.js`, `manifest.json`, `css/ data/ fonts/ images/ js/ ratios/ screenshots/ vendor/`, …), so ordinary page loads never invoke a Function. **When adding a new public top-level file or directory, add it to the `_routes.json` exclude list**; `tests/unit/pages-internal-paths.test.js` fails until every tracked top-level entry is classified as public or blocked. Takes effect on www once it ships to `main`.
+- **Beta — fixed 2026-09-30 by moving it to Cloudflare Pages** (`dev` branch alias, above), so the same middleware applies. Verified on `beta.staktrakr.com`: internal paths 404, app/assets 200, `/api/token-exchange` reachable. A legacy GitHub Pages branch deploy could not exclude files.
 
 ---
 
@@ -475,21 +508,21 @@ All poller code was consolidated into `StakTrakr/devops/pollers/` as of 2026-03-
 
 ## Common Troubleshooting
 
-| Symptom                        | Check                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------- |
-| `manifest.json` > 30 min stale | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running                 |
-| `manifest.json` > 4h stale     | Container down — check Portainer + `fly status --app staktrakr`                               |
-| Spot hourly > 75 min stale     | External price-feed credential expired or quota exceeded                                      |
-| Goldback > 2h stale (STRK-248) | Home poller `goldback-scraper.js` failed — check home poller logs                             |
-| Only 1-2 vendors per coin      | Home poller down — home is sole retail scraper                                                |
-| Services not running on Fly    | `fly ssh console --app staktrakr -C "supervisorctl status"`                                   |
-| Tailscale not connecting       | Check container status, operator-managed network identity, and approved subnet routes         |
-| sqld unreachable from Fly.io   | Verify Tailscale connected; subnet route approved; home VM `staktrakr-sqld` container running |
-| Git push rejected on publish   | `git fetch origin api && git rebase origin/api` inside `/data/staktrakr-api-export`           |
-| Stuck lockfile (Fly.io)        | `fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/retail-publish.lock"` |
-| Stuck lockfile (home)          | Portainer web UI Console: `rm -f /tmp/retail-poller.lock`                                     |
-| CF vendor failures             | Check `CF_CLEARANCE_ENABLED=1`; check `docker logs staktrakr-byparr`                          |
-| Deploy context error           | Run `fly deploy` from `devops/pollers/` dir, not `remote-poller/`                             |
+| Symptom                        | Check                                                                                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json` > 30 min stale | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running                                                                                                                             |
+| `manifest.json` > 4h stale     | Container down — check Portainer + `fly status --app staktrakr`                                                                                                                                           |
+| Spot hourly > 75 min stale     | External price-feed credential expired or quota exceeded                                                                                                                                                  |
+| Goldback > 2h stale (STRK-248) | Home poller `goldback-scraper.js` failed — check home poller logs                                                                                                                                         |
+| Only 1-2 vendors per coin      | Home poller down — home is sole retail scraper                                                                                                                                                            |
+| Services not running on Fly    | `fly ssh console --app staktrakr -C "supervisorctl status"`                                                                                                                                               |
+| Tailscale not connecting       | Check container status, operator-managed network identity, and approved subnet routes                                                                                                                     |
+| sqld unreachable from Fly.io   | Verify Tailscale connected; subnet route approved; home VM `staktrakr-sqld` container running                                                                                                             |
+| Git push rejected on publish   | `git fetch origin api && git rebase origin/api` inside `/data/staktrakr-api-export`                                                                                                                       |
+| Stuck lockfile (Fly.io)        | Should self-clear (STRK-402 — `flock` releases on process death, unlike the old `noclobber` lockfile). If still wedged: `fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/*.flock"` |
+| Stuck lockfile (home)          | Portainer web UI Console: `rm -f /tmp/retail-poller.lock`                                                                                                                                                 |
+| CF vendor failures             | Check `CF_CLEARANCE_ENABLED=1`; check `docker logs staktrakr-byparr`                                                                                                                                      |
+| Deploy context error           | Run `fly deploy` from `devops/pollers/` dir, not `remote-poller/`                                                                                                                                         |
 
 ---
 

@@ -22,4 +22,4 @@ Shared JS modules used by **both** the Home Poller and Fly.io Remote Poller.
 
 - Changes to `price-extract.js` or `goldback-scraper.js` only need a **Home Poller redeploy** (Portainer stack 7).
 - Changes to `api-export.js`, `db.js`, or `spot-extract.js` need **both** Home Poller redeploy AND `fly deploy`.
-- See DocVault: [[Home Poller]] and [[Remote Poller]] for deploy commands.
+- See `.context/deep-dives/home-poller.md` and `.context/deep-dives/remote-poller.md` for deploy commands.

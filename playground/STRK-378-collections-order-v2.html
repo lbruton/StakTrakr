@@ -1,0 +1,1435 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STRK-378 Collections Order v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Tokens copied from css/styles.css (light = :root resolved, dark, slate, sepia) */
+      :root,
+      [data-theme="light"] {
+        --primary: oklch(0.623 0.188 259.8);
+        --bg-primary: oklch(0.929 0.013 255.5);
+        --bg-secondary: oklch(0.96 0.008 253.9);
+        --bg-tertiary: oklch(0.869 0.02 252.9);
+        --text-primary: oklch(0.252 0.021 251.6);
+        --text-secondary: oklch(0.376 0.031 246.9);
+        --text-muted: oklch(0.376 0.031 246.9);
+        --border: oklch(0.711 0.035 256.8);
+        --on-primary: #fff;
+        --danger: oklch(0.55 0.2 27);
+      }
+      [data-theme="dark"] {
+        --primary: oklch(0.72 0.16 75);
+        --bg-primary: oklch(0.18 0.008 85);
+        --bg-secondary: oklch(0.22 0.008 85);
+        --bg-tertiary: oklch(0.28 0.007 85);
+        --text-primary: oklch(0.95 0.005 85);
+        --text-secondary: oklch(0.8 0.008 85);
+        --text-muted: oklch(0.65 0.012 85);
+        --border: oklch(0.32 0.008 85);
+        --on-primary: oklch(0.18 0.008 85);
+        --danger: oklch(0.68 0.19 27);
+      }
+      [data-theme="slate"] {
+        --primary: #3b82f6;
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --on-primary: #fff;
+        --danger: #f87171;
+      }
+      [data-theme="sepia"] {
+        --primary: oklch(0.569 0.133 50.9);
+        --bg-primary: oklch(0.923 0.029 89.6);
+        --bg-secondary: oklch(0.892 0.032 89.1);
+        --bg-tertiary: oklch(0.847 0.036 88.8);
+        --text-primary: oklch(0.314 0.039 86.7);
+        --text-secondary: oklch(0.403 0.039 85.2);
+        --text-muted: oklch(0.514 0.033 84.5);
+        --border: oklch(0.786 0.038 86.2);
+        --on-primary: #fff;
+        --danger: oklch(0.5 0.17 27);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 16px 24px 48px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font:
+          14px/1.45 "Geist",
+          system-ui,
+          sans-serif;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      .mono {
+        font-family: "Geist Mono", ui-monospace, monospace;
+      }
+      .serif {
+        font-family: "Instrument Serif", serif;
+        font-weight: 400;
+      }
+
+      /* ---- playground chrome ---- */
+      .pg-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        align-items: center;
+        padding: 10px 14px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .pg-bar strong {
+        color: var(--text-primary);
+      }
+      .pg-seg {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .pg-seg button {
+        border: 0;
+        background: transparent;
+        padding: 4px 10px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .pg-seg button[aria-pressed="true"] {
+        background: var(--primary);
+        color: var(--on-primary);
+      }
+      .pg-note {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin: 4px 0 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+      @media (max-width: 1100px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .panel {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+      }
+      .panel h2 {
+        margin: 0 0 4px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .panel p.lead {
+        margin: 0 0 16px;
+        color: var(--text-secondary);
+        max-width: 62ch;
+      }
+
+      /* ---- Settings: merged list ---- */
+      .set-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: var(--bg-primary);
+      }
+      .set-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 2px;
+      }
+      .set-head h3 {
+        margin: 0;
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .set-head .count {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .set-sub {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 2px 0 10px;
+      }
+      .set-row,
+      .set-cols {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) 100px 90px 200px;
+        gap: 12px;
+        align-items: center;
+      }
+      .set-cols {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+      }
+      .set-row {
+        padding: 10px 0;
+        border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 40%);
+        position: relative;
+      }
+      .set-row:last-child {
+        border-bottom: 0;
+      }
+      .set-row.is-hidden .name {
+        color: var(--text-muted);
+      }
+      .set-row.is-dragging {
+        opacity: 0.45;
+      }
+      .set-row.drop-before::before,
+      .set-row.drop-after::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--primary);
+        border-radius: 2px;
+      }
+      .set-row.drop-before::before {
+        top: -1px;
+      }
+      .set-row.drop-after::after {
+        bottom: -1px;
+      }
+      .set-row.just-moved {
+        animation: flash 900ms ease-out;
+      }
+      @keyframes flash {
+        from {
+          background: color-mix(in oklch, var(--primary), transparent 80%);
+        }
+        to {
+          background: transparent;
+        }
+      }
+
+      .order-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+      .handle {
+        width: 24px;
+        height: 28px;
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: grab;
+        border-radius: 4px;
+        display: grid;
+        place-items: center;
+        touch-action: none;
+      }
+      .handle:hover {
+        color: var(--text-primary);
+        background: var(--bg-tertiary);
+      }
+      .handle:active {
+        cursor: grabbing;
+      }
+      .name-cell .name {
+        font-weight: 600;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .name-cell .meta {
+        font-size: 12px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .badge {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+      }
+      .badge.custom {
+        border-color: color-mix(in oklch, var(--primary), var(--border) 40%);
+        color: var(--primary);
+      }
+      .owned .bar {
+        height: 3px;
+        background: var(--bg-tertiary);
+        border-radius: 3px;
+        margin-top: 4px;
+      }
+      .owned .bar i {
+        display: block;
+        height: 100%;
+        background: var(--primary);
+        border-radius: 3px;
+      }
+      .toggle {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .toggle button {
+        border: 0;
+        background: transparent;
+        padding: 3px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text-muted);
+      }
+      .toggle button[aria-pressed="true"] {
+        background: var(--primary);
+        color: var(--on-primary);
+      }
+      .act-cell {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+      }
+      .movers {
+        display: inline-flex;
+        gap: 2px;
+      }
+      .icon-btn {
+        width: 28px;
+        height: 28px;
+        border: 1px solid transparent;
+        background: transparent;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        color: var(--text-muted);
+      }
+      .icon-btn:hover:not(:disabled) {
+        border-color: var(--border);
+        color: var(--text-primary);
+        background: var(--bg-tertiary);
+      }
+      .icon-btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+      :focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .pill {
+        border: 1px solid var(--border);
+        background: var(--bg-tertiary);
+        border-radius: 999px;
+        padding: 5px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .pill:hover {
+        border-color: var(--primary);
+      }
+      .pill.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--on-primary);
+      }
+      .pill.ghost {
+        background: transparent;
+      }
+      .act-note {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-align: right;
+        line-height: 1.25;
+      }
+      .set-foot {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 12px;
+      }
+      .saved {
+        font-size: 12px;
+        color: var(--text-muted);
+        min-height: 18px;
+        margin-top: 8px;
+      }
+      .saved.err {
+        color: var(--danger);
+      }
+
+      /* ---- Hub ---- */
+      .hub-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .hub-title h2 {
+        font-size: 30px;
+        margin: 0;
+      }
+      .beta {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        font-weight: 700;
+        color: var(--primary);
+        border: 1px solid var(--primary);
+        padding: 1px 7px;
+        border-radius: 999px;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        margin: 14px 0 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+      }
+      .tabs button {
+        border: 0;
+        background: transparent;
+        padding: 8px 12px;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+      .tabs button[aria-selected="true"] {
+        color: var(--text-primary);
+        border-bottom-color: var(--primary);
+      }
+      .tabs button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .tb-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding-bottom: 8px;
+      }
+      .viewtog {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .viewtog button {
+        border: 0;
+        background: transparent;
+        width: 32px;
+        height: 28px;
+        cursor: pointer;
+        color: var(--text-muted);
+        display: grid;
+        place-items: center;
+      }
+      .viewtog button[aria-pressed="true"] {
+        background: var(--primary);
+        color: var(--on-primary);
+      }
+
+      .hint {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 0 0 12px;
+      }
+      .hint b {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .linkbtn {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: var(--primary);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .linkbtn:hover {
+        text-decoration: underline;
+      }
+
+      .album {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        display: flex;
+        gap: 12px;
+        background: var(--bg-primary);
+      }
+      .coin {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        flex: none;
+        background: radial-gradient(
+          circle at 35% 30%,
+          color-mix(in oklch, var(--text-muted), white 20%),
+          var(--bg-tertiary) 70%
+        );
+        border: 1px solid var(--border);
+      }
+      .card h4 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .card .meta {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .card .prog {
+        margin-top: 6px;
+        font-size: 13px;
+      }
+      .card .prog b {
+        color: var(--primary);
+      }
+      .card .miss {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      table.ledger {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .ledger th {
+        text-align: left;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 600;
+        padding: 0;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .ledger th .sortbtn {
+        border: 0;
+        background: transparent;
+        padding: 8px 6px;
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .ledger th .sortbtn:hover:not(:disabled) {
+        color: var(--text-primary);
+      }
+      .ledger th .sortbtn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .ledger th[aria-sort] .sortbtn {
+        color: var(--text-primary);
+      }
+      .ledger th.num,
+      .ledger td.num {
+        text-align: right;
+      }
+      .ledger th.num .sortbtn {
+        flex-direction: row-reverse;
+      }
+      .ledger td {
+        padding: 9px 6px;
+        border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 40%);
+      }
+      .ledger td .sub {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .ledger th.arr {
+        width: 1%;
+        text-align: right;
+        padding-right: 2px;
+      }
+      .arr-actions {
+        display: inline-flex;
+        gap: 4px;
+        padding: 4px 0;
+      }
+      .ledger tr.arranging td:first-child {
+        padding-left: 0;
+      }
+      .ledger .rowgrip {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      .ledger tr.is-dragging {
+        opacity: 0.45;
+      }
+      .ledger tr.drop-before td {
+        box-shadow: inset 0 2px 0 var(--primary);
+      }
+      .ledger tr.drop-after td {
+        box-shadow: inset 0 -2px 0 var(--primary);
+      }
+      .arr-banner {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 0 0 8px;
+      }
+
+      .empty,
+      .err-state {
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+        color: var(--text-muted);
+      }
+      .err-state {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      .skel {
+        height: 14px;
+        border-radius: 4px;
+        background: linear-gradient(
+          90deg,
+          var(--bg-tertiary),
+          color-mix(in oklch, var(--bg-tertiary), var(--bg-secondary) 50%),
+          var(--bg-tertiary)
+        );
+        background-size: 200% 100%;
+        animation: sh 1.2s linear infinite;
+        margin: 10px 0;
+      }
+      @keyframes sh {
+        to {
+          background-position: -200% 0;
+        }
+      }
+
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      .toast {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 12px 16px 40px;
+        }
+        .set-row,
+        .set-cols {
+          grid-template-columns: 24px minmax(0, 1fr) 84px;
+        }
+        .set-cols span:nth-child(n + 4),
+        .set-row .owned {
+          display: none;
+        }
+        .set-row .act-cell {
+          grid-column: 2 / -1;
+          justify-content: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pg-bar" role="region" aria-label="Playground controls">
+      <strong>STRK-378 v2 mockup</strong>
+      <span>Theme <span class="pg-seg" id="pgTheme"></span></span>
+      <span>State <span class="pg-seg" id="pgState"></span></span>
+      <span>Try it: drag a handle in Settings, click a Ledger header, then switch to Album.</span>
+    </div>
+
+    <div class="grid">
+      <!-- SETTINGS -->
+      <section class="panel" aria-labelledby="setTitle">
+        <div class="pg-note">Settings → Collections</div>
+        <h2 id="setTitle">Collections</h2>
+        <p class="lead">
+          Drag to set <b>My order</b>, the order the hub uses by default. Turning one off only hides
+          it from the hub; it keeps its place here.
+        </p>
+        <div class="set-card">
+          <div class="set-head">
+            <h3>My order</h3>
+            <span class="count" id="setCount"></span>
+          </div>
+          <div class="set-sub">
+            Built-in Series Templates and your Custom Collections, in one list.
+          </div>
+          <div class="set-cols" aria-hidden="true">
+            <span></span><span>Collection</span><span>Owned / total</span><span>Show in hub</span
+            ><span style="text-align: right">Order · Action</span>
+          </div>
+          <div id="setList" role="list" aria-label="My order"></div>
+        </div>
+        <div class="saved" id="setSaved" aria-live="polite"></div>
+        <div class="set-foot">
+          Order and sort are saved on this device. Show in hub choices sync with Cloud and ZIP
+          backups.
+        </div>
+      </section>
+
+      <!-- HUB -->
+      <section class="panel" aria-labelledby="hubTitle">
+        <div class="pg-note">Collections hub</div>
+        <div class="hub-title">
+          <h2 id="hubTitle" class="serif">Collections</h2>
+          <span class="beta">BETA</span>
+        </div>
+        <div class="toolbar">
+          <div class="tabs" role="tablist" id="tabs"></div>
+          <div class="tb-right">
+            <div class="viewtog" role="group" aria-label="Layout">
+              <button id="vAlbum" aria-label="Album" title="Album">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                  <rect x="1" y="1" width="5" height="5" rx="1" />
+                  <rect x="8" y="1" width="5" height="5" rx="1" />
+                  <rect x="1" y="8" width="5" height="5" rx="1" />
+                  <rect x="8" y="8" width="5" height="5" rx="1" />
+                </svg>
+              </button>
+              <button id="vLedger" aria-label="Ledger" title="Ledger">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                  <rect x="1" y="2" width="12" height="2" rx="1" />
+                  <rect x="1" y="6" width="12" height="2" rx="1" />
+                  <rect x="1" y="10" width="12" height="2" rx="1" />
+                </svg>
+              </button>
+            </div>
+            <button class="pill ghost" data-toast="Opens Settings → Collections">Manage</button>
+            <button class="pill primary" data-toast="Opens the builder">+ New collection</button>
+          </div>
+        </div>
+        <div id="hubBody"></div>
+      </section>
+    </div>
+
+    <div class="sr" aria-live="polite" id="live"></div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      (() => {
+        "use strict";
+        const $ = (s, r = document) => r.querySelector(s);
+        const ICON = {
+          grip: '<svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="3" r="1.4"/><circle cx="8.5" cy="3" r="1.4"/><circle cx="3.5" cy="8" r="1.4"/><circle cx="8.5" cy="8" r="1.4"/><circle cx="3.5" cy="13" r="1.4"/><circle cx="8.5" cy="13" r="1.4"/></svg>',
+          up: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7.5 6 4.5l3 3"/></svg>',
+          down: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 4.5 6 7.5l3-3"/></svg>',
+          arrange:
+            '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 2v10M1.5 4.5 4 2l2.5 2.5M10 12V2M7.5 9.5 10 12l2.5-2.5"/></svg>',
+        };
+
+        // Realistic sample data (melt at ~$33.40/oz Ag, $2,640/oz Au)
+        const DATA = [
+          {
+            id: "ase-t2",
+            name: "American Silver Eagle",
+            meta: "Type 2 · Landing Eagle reverse · 2021 – present",
+            type: "template",
+            start: 2021,
+            owned: 3,
+            total: 6,
+            melt: 200.4,
+            toComplete: 200.4,
+            updated: 5,
+            show: true,
+          },
+          {
+            id: "ase-t1",
+            name: "American Silver Eagle",
+            meta: "Type 1 · Heraldic Eagle reverse · 1986 – 2021",
+            type: "template",
+            start: 1986,
+            owned: 11,
+            total: 36,
+            melt: 1202.4,
+            toComplete: 1002,
+            updated: 2,
+            show: true,
+          },
+          {
+            id: "morgan-cc",
+            name: "Morgan Dollars — Carson City",
+            meta: "Custom · 1878 – 1893 · 13 Slots",
+            type: "custom",
+            start: 1878,
+            owned: 4,
+            total: 13,
+            melt: 96.64,
+            toComplete: 2150,
+            updated: 1,
+            show: true,
+          },
+          {
+            id: "walkers",
+            name: "Walking Liberty Halves",
+            meta: "Custom · 1916 – 1947 · 65 Slots",
+            type: "custom",
+            start: 1916,
+            owned: 0,
+            total: 65,
+            melt: 0,
+            toComplete: 1590,
+            updated: 9,
+            show: false,
+          },
+          {
+            id: "age-1oz",
+            name: "American Gold Eagle 1 oz",
+            meta: "Custom · 1986 – present · 40 Slots",
+            type: "custom",
+            start: 1986,
+            owned: 2,
+            total: 40,
+            melt: 5280,
+            toComplete: 105600,
+            updated: 3,
+            show: true,
+          },
+        ];
+        const SORTS = [
+          ["my-order", "My order"],
+          ["name", "Name"],
+          ["run-start", "Run start"],
+          ["percent-complete", "Percent complete"],
+          ["recently-updated", "Recently updated"],
+          ["owned", "Owned"],
+          ["value-melt", "Value (melt)"],
+          ["to-complete", "To complete"],
+        ];
+        const DEFAULT_DIR = {
+          name: "asc",
+          "run-start": "asc",
+          "percent-complete": "desc",
+          "recently-updated": "desc",
+          owned: "desc",
+          "value-melt": "desc",
+          "to-complete": "asc",
+        };
+        const keyOf = (e, k) =>
+          ({
+            name: e.name + " " + e.meta,
+            "run-start": e.start,
+            "percent-complete": e.owned / e.total,
+            "recently-updated": -e.updated,
+            owned: e.owned,
+            "value-melt": e.melt,
+            "to-complete": e.toComplete,
+          })[k];
+
+        const S = {
+          theme: "dark",
+          pg: "populated",
+          view: "album",
+          filter: "all",
+          // fresh profile fallback = chronological run start
+          order: DATA.slice()
+            .sort((a, b) => a.start - b.start)
+            .map((d) => d.id),
+          sortKey: "value-melt",
+          direction: "desc",
+          arranging: null,
+          prevFilter: null,
+          drag: null,
+          focusAfter: "",
+          flashId: "",
+        };
+
+        const byId = (id) => DATA.find((d) => d.id === id);
+        const ordered = (order = S.order) => order.map(byId).filter(Boolean);
+        const sorted = () => {
+          const base = ordered();
+          if (S.sortKey === "my-order") return base;
+          const dir = S.direction === "desc" ? -1 : 1;
+          return base
+            .map((e, i) => ({ e, i }))
+            .sort((a, b) => {
+              const x = keyOf(a.e, S.sortKey),
+                y = keyOf(b.e, S.sortKey);
+              const c =
+                typeof x === "string"
+                  ? x.localeCompare(y, "en", { numeric: true })
+                  : Math.sign(x - y);
+              return dir * c || a.i - b.i;
+            })
+            .map(({ e }) => e);
+        };
+        const status = (e) => (e.owned === 0 ? "not" : e.owned >= e.total ? "done" : "prog");
+        const visible = (list) =>
+          list.filter((e) => e.show && (S.filter === "all" || status(e) === S.filter));
+        const money = (n) =>
+          "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // Hint uses the Ledger column label so it matches the header the user clicked
+        // (e.g. "Progress", not "Percent complete"); the mobile select shares these labels.
+        const sortLabel = () =>
+          (COLS.find(([k]) => k === S.sortKey) || SORTS.find(([k]) => k === S.sortKey))[1];
+
+        const announce = (msg) => {
+          const l = $("#live");
+          l.textContent = "";
+          requestAnimationFrame(() => (l.textContent = msg));
+        };
+        let toastT;
+        const toast = (msg) => {
+          const t = $("#toast");
+          t.textContent = msg;
+          t.classList.add("show");
+          clearTimeout(toastT);
+          toastT = setTimeout(() => t.classList.remove("show"), 1600);
+        };
+        document.addEventListener("click", (e) => {
+          const t = e.target.closest("[data-toast]");
+          if (t) toast(t.dataset.toast);
+        });
+
+        const move = (order, id, delta) => {
+          const next = order.slice();
+          const i = next.indexOf(id);
+          const j = i + delta;
+          if (i < 0 || j < 0 || j >= next.length) return order;
+          [next[i], next[j]] = [next[j], next[i]];
+          return next;
+        };
+        const moveTo = (order, id, targetId, after) => {
+          const next = order.filter((x) => x !== id);
+          let j = next.indexOf(targetId);
+          if (after) j += 1;
+          next.splice(j, 0, id);
+          return next;
+        };
+
+        /* ---------- Settings (saves immediately) ---------- */
+        const commitSettings = (next, movedId) => {
+          if (S.pg === "error") {
+            const el = $("#setSaved");
+            el.textContent = "Couldn't save the new order (storage full). Nothing changed.";
+            el.className = "saved err";
+            announce("Couldn't save the new order.");
+            return;
+          }
+          S.order = next;
+          S.flashId = movedId;
+          const list = ordered();
+          const pos = list.findIndex((e) => e.id === movedId) + 1;
+          const e = byId(movedId);
+          const msg = `${e.name}${e.type === "template" ? " " + e.meta.split(" ·")[0] : ""} moved to position ${pos} of ${list.length}.`;
+          const el = $("#setSaved");
+          el.textContent = "Saved · " + msg;
+          el.className = "saved";
+          announce(msg);
+          renderAll();
+        };
+
+        const renderSettings = () => {
+          const host = $("#setList");
+          host.innerHTML = "";
+          if (S.pg === "loading") {
+            host.innerHTML =
+              '<div class="skel"></div><div class="skel"></div><div class="skel" style="width:70%"></div>';
+            $("#setCount").textContent = "";
+            return;
+          }
+          const list =
+            S.pg === "empty" ? ordered().filter((e) => e.type === "template") : ordered();
+          $("#setCount").textContent =
+            `${list.filter((e) => e.show).length} of ${list.length} shown`;
+          list.forEach((e, idx) => {
+            const row = document.createElement("div");
+            row.className =
+              "set-row" + (e.show ? "" : " is-hidden") + (S.flashId === e.id ? " just-moved" : "");
+            row.setAttribute("role", "listitem");
+            row.dataset.id = e.id;
+            const pct = Math.round((e.owned / e.total) * 100);
+            const title = e.type === "template" ? e.meta.split(" ·")[0] : "";
+            row.innerHTML = `
+        <div class="order-cell"><button class="handle" aria-label="Drag to reorder ${e.name} ${title}" title="Drag to reorder">${ICON.grip}</button></div>
+        <div class="name-cell"><div class="name">${e.name} <span class="badge ${e.type}">${e.type === "template" ? "Template" : "Custom"}</span></div>
+          <div class="meta">${e.meta}${e.show ? "" : " · hidden from hub"}</div></div>
+        <div class="owned mono">${e.owned} / ${e.total}<div class="bar"><i style="width:${pct}%"></i></div></div>
+        <div><span class="toggle" role="group" aria-label="Show ${e.name} ${title} in hub">
+          <button aria-pressed="${e.show}" data-show="1">On</button><button aria-pressed="${!e.show}" data-show="0">Off</button></span></div>
+        <div class="act-cell">
+          <span class="movers">
+            <button class="icon-btn" data-mv="-1" data-fk="up:${e.id}" aria-label="Move ${e.name} ${title} up" ${idx === 0 ? "disabled" : ""}>${ICON.up}</button>
+            <button class="icon-btn" data-mv="1" data-fk="down:${e.id}" aria-label="Move ${e.name} ${title} down" ${idx === list.length - 1 ? "disabled" : ""}>${ICON.down}</button>
+          </span>
+          ${
+            e.type === "template"
+              ? `<button class="pill" data-toast="Clones ${title} into an editable Custom Collection">Clone &amp; customize</button>`
+              : `<span class="act-note">Remove in<br>its album</span>`
+          }
+        </div>`;
+            row.querySelectorAll("[data-mv]").forEach((b) =>
+              b.addEventListener("click", () => {
+                const d = Number(b.dataset.mv);
+                const next = move(S.order, e.id, d);
+                // AC 6: keep focus on the same control; if it becomes disabled, jump to the opposite one
+                const newIdx = idx + d;
+                S.focusAfter =
+                  d < 0 && newIdx === 0
+                    ? `down:${e.id}`
+                    : d > 0 && newIdx === list.length - 1
+                      ? `up:${e.id}`
+                      : b.dataset.fk;
+                commitSettings(next, e.id);
+              })
+            );
+            row.querySelectorAll("[data-show]").forEach((b) =>
+              b.addEventListener("click", () => {
+                e.show = b.dataset.show === "1";
+                renderAll();
+              })
+            );
+            wireDrag(
+              row.querySelector(".handle"),
+              row,
+              e.id,
+              "#setList",
+              ".set-row",
+              (target, after) => commitSettings(moveTo(S.order, e.id, target, after), e.id)
+            );
+            host.appendChild(row);
+          });
+          if (S.pg === "empty") {
+            const n = document.createElement("div");
+            n.className = "set-sub";
+            n.style.marginTop = "10px";
+            n.textContent =
+              "No Custom Collections yet. Clone a template or use New collection in the hub.";
+            host.appendChild(n);
+          }
+        };
+
+        /* ---------- pointer drag (shared) ---------- */
+        function wireDrag(handle, row, id, hostSel, rowSel, onDrop) {
+          handle.addEventListener("pointerdown", (ev) => {
+            if (ev.button !== 0) return;
+            ev.preventDefault();
+            handle.setPointerCapture(ev.pointerId);
+            S.drag = { id, y: ev.clientY, moved: false, target: "", after: false };
+            row.classList.add("is-dragging");
+          });
+          handle.addEventListener("pointermove", (ev) => {
+            if (!S.drag || S.drag.id !== id) return;
+            if (Math.abs(ev.clientY - S.drag.y) < 5 && !S.drag.moved) return;
+            S.drag.moved = true;
+            document
+              .querySelectorAll(`${hostSel} .drop-before, ${hostSel} .drop-after`)
+              .forEach((r) => r.classList.remove("drop-before", "drop-after"));
+            const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(rowSel);
+            if (!t || !t.closest(hostSel) || t.dataset.id === id) {
+              S.drag.target = "";
+              return;
+            }
+            const r = t.getBoundingClientRect();
+            const after = ev.clientY > r.top + r.height / 2;
+            t.classList.add(after ? "drop-after" : "drop-before");
+            S.drag.target = t.dataset.id;
+            S.drag.after = after;
+          });
+          const end = () => {
+            if (!S.drag || S.drag.id !== id) return;
+            const d = S.drag;
+            S.drag = null;
+            row.classList.remove("is-dragging");
+            document
+              .querySelectorAll(`${hostSel} .drop-before, ${hostSel} .drop-after`)
+              .forEach((r) => r.classList.remove("drop-before", "drop-after"));
+            if (d.moved && d.target) onDrop(d.target, d.after);
+          };
+          handle.addEventListener("pointerup", end);
+          handle.addEventListener("pointercancel", () => {
+            S.drag = null;
+            row.classList.remove("is-dragging");
+          });
+        }
+
+        /* ---------- Hub ---------- */
+        const TABS = [
+          ["all", "All"],
+          ["prog", "In progress"],
+          ["not", "Not started"],
+          ["done", "Complete"],
+        ];
+        const renderTabs = () => {
+          const host = $("#tabs");
+          host.innerHTML = "";
+          TABS.forEach(([k, label]) => {
+            const b = document.createElement("button");
+            b.setAttribute("role", "tab");
+            b.textContent = label;
+            b.setAttribute("aria-selected", String(S.filter === k));
+            b.disabled = Boolean(S.arranging);
+            b.addEventListener("click", () => {
+              S.filter = k;
+              renderAll();
+            });
+            host.appendChild(b);
+          });
+          $("#vAlbum").setAttribute("aria-pressed", String(S.view === "album"));
+          $("#vLedger").setAttribute("aria-pressed", String(S.view === "ledger"));
+        };
+        $("#vAlbum").onclick = () => {
+          S.view = "album";
+          renderAll();
+        };
+        $("#vLedger").onclick = () => {
+          S.view = "ledger";
+          renderAll();
+        };
+
+        const hint = () => {
+          if (S.sortKey === "my-order") return null;
+          const h = document.createElement("div");
+          h.className = "hint";
+          h.innerHTML = `<span>Sorted by <b>${sortLabel()}</b>, ${S.direction === "asc" ? "ascending" : "descending"}</span><span aria-hidden="true">·</span>`;
+          const b = document.createElement("button");
+          b.className = "linkbtn";
+          b.textContent = "Show My order";
+          b.onclick = () => {
+            S.sortKey = "my-order";
+            S.direction = "asc";
+            announce("Showing My order.");
+            renderAll();
+          };
+          h.appendChild(b);
+          return h;
+        };
+
+        const renderAlbum = (host) => {
+          const h = hint();
+          if (h) host.appendChild(h);
+          const list = visible(sorted());
+          if (!list.length) {
+            host.insertAdjacentHTML(
+              "beforeend",
+              '<div class="empty">No Collections match this filter.</div>'
+            );
+            return;
+          }
+          const g = document.createElement("div");
+          g.className = "album";
+          list.forEach((e) => {
+            const pct = Math.round((e.owned / e.total) * 100);
+            g.insertAdjacentHTML(
+              "beforeend",
+              `<div class="card"><div class="coin"></div><div style="min-width:0">
+        <h4>${e.name}</h4><div class="meta">${e.meta}</div>
+        <div class="prog mono"><b>${e.owned}</b> / ${e.total} <span style="float:right;color:var(--text-muted);font-size:11px">${pct}%</span></div>
+        <div class="miss mono">${e.total - e.owned} missing ≈ ${money(e.toComplete)} to finish</div></div></div>`
+            );
+          });
+          host.appendChild(g);
+        };
+
+        const COLS = [
+          ["name", "Collection", ""],
+          ["run-start", "Run", ""],
+          ["owned", "Owned", "num"],
+          ["percent-complete", "Progress", "num"],
+          ["value-melt", "Value (melt)", "num"],
+          ["to-complete", "To complete", "num"],
+        ];
+        const renderLedger = (host) => {
+          const arr = S.arranging;
+          if (arr)
+            host.insertAdjacentHTML(
+              "beforeend",
+              '<div class="arr-banner">Drag a handle or use the arrows. <b>Done</b> saves My order.</div>'
+            );
+          else {
+            const h = hint();
+            if (h) host.appendChild(h);
+          }
+          const list = arr ? ordered(arr.order).filter((e) => e.show) : visible(sorted());
+          const t = document.createElement("table");
+          t.className = "ledger";
+          const tr = document.createElement("tr");
+          COLS.forEach(([k, label, cls]) => {
+            const th = document.createElement("th");
+            if (cls) th.className = cls;
+            const active = !arr && S.sortKey === k;
+            if (active)
+              th.setAttribute("aria-sort", S.direction === "asc" ? "ascending" : "descending");
+            const b = document.createElement("button");
+            b.className = "sortbtn";
+            b.disabled = Boolean(arr);
+            b.innerHTML = `<span>${label}</span><span aria-hidden="true">${active ? (S.direction === "asc" ? "↑" : "↓") : ""}</span>`;
+            b.onclick = () => {
+              if (S.sortKey === k) S.direction = S.direction === "asc" ? "desc" : "asc";
+              else {
+                S.sortKey = k;
+                S.direction = DEFAULT_DIR[k];
+              }
+              announce(
+                `Sorted by ${label}, ${S.direction === "asc" ? "ascending" : "descending"}.`
+              );
+              renderAll();
+            };
+            th.appendChild(b);
+            tr.appendChild(th);
+          });
+          const thA = document.createElement("th");
+          thA.className = "arr";
+          if (arr) {
+            thA.innerHTML =
+              '<span class="arr-actions"><button class="pill ghost" id="arrCancel">Cancel</button><button class="pill primary" id="arrDone">Done</button></span>';
+          } else if (S.filter === "all") {
+            thA.innerHTML = `<button class="icon-btn" id="arrBtn" aria-label="Arrange Collections" title="Arrange Collections">${ICON.arrange}</button>`;
+          }
+          tr.appendChild(thA);
+          const thead = document.createElement("thead");
+          thead.appendChild(tr);
+          t.appendChild(thead);
+          const tb = document.createElement("tbody");
+          tb.id = "ledgerBody";
+          list.forEach((e, idx) => {
+            const r = document.createElement("tr");
+            r.dataset.id = e.id;
+            if (arr) r.className = "arranging";
+            const pct = Math.round((e.owned / e.total) * 100);
+            const title = e.type === "template" ? e.meta.split(" ·")[0] : "";
+            r.innerHTML = `
+        <td>${arr ? `<span class="rowgrip"><button class="handle" aria-label="Drag to reorder ${e.name} ${title}">${ICON.grip}</button></span>` : ""}<b>${e.name}</b><div class="sub">${e.meta.split(" · ").slice(0, 2).join(" · ")}</div></td>
+        <td class="mono">${e.start}</td>
+        <td class="num mono">${e.owned} / ${e.total}</td>
+        <td class="num mono">${pct}%</td>
+        <td class="num mono">${money(e.melt)}</td>
+        <td class="num mono">${money(e.toComplete)}</td>
+        <td class="num">${
+          arr
+            ? `<span class="movers">
+          <button class="icon-btn" data-mv="-1" data-fk="lup:${e.id}" aria-label="Move ${e.name} ${title} up" ${idx === 0 ? "disabled" : ""}>${ICON.up}</button>
+          <button class="icon-btn" data-mv="1" data-fk="ldown:${e.id}" aria-label="Move ${e.name} ${title} down" ${idx === list.length - 1 ? "disabled" : ""}>${ICON.down}</button></span>`
+            : ""
+        }</td>`;
+            if (arr) {
+              r.querySelectorAll("[data-mv]").forEach((b) =>
+                b.addEventListener("click", () => {
+                  const d = Number(b.dataset.mv);
+                  arr.order = move(arr.order, e.id, d);
+                  const newIdx = idx + d;
+                  S.focusAfter =
+                    d < 0 && newIdx === 0
+                      ? `ldown:${e.id}`
+                      : d > 0 && newIdx === list.length - 1
+                        ? `lup:${e.id}`
+                        : b.dataset.fk;
+                  announce(`${e.name} ${title} moved to position ${newIdx + 1} of ${list.length}.`);
+                  renderAll();
+                })
+              );
+              wireDrag(
+                r.querySelector(".handle"),
+                r,
+                e.id,
+                "#ledgerBody",
+                "tr",
+                (target, after) => {
+                  arr.order = moveTo(arr.order, e.id, target, after);
+                  renderAll();
+                }
+              );
+            }
+            tb.appendChild(r);
+          });
+          t.appendChild(tb);
+          host.appendChild(t);
+          if (!list.length)
+            host.insertAdjacentHTML(
+              "beforeend",
+              '<div class="empty" style="margin-top:10px">No Collections match this filter.</div>'
+            );
+
+          $("#arrBtn", host)?.addEventListener("click", () => {
+            S.arranging = { order: S.order.slice() };
+            S.prevFilter = S.filter;
+            S.focusAfter = "arrDone";
+            announce("Arranging Collections. Use the move buttons or drag handles, then Done.");
+            renderAll();
+          });
+          $("#arrCancel", host)?.addEventListener("click", () => {
+            S.arranging = null;
+            S.filter = S.prevFilter;
+            S.focusAfter = "arrBtn";
+            announce("Arrange cancelled.");
+            renderAll();
+          });
+          $("#arrDone", host)?.addEventListener("click", () => {
+            if (S.pg === "error") {
+              toast("Couldn't save — arrange stays open");
+              announce("Couldn't save the new order.");
+              return;
+            }
+            S.order = S.arranging.order;
+            S.arranging = null;
+            S.filter = S.prevFilter;
+            S.sortKey = "my-order";
+            S.direction = "asc";
+            S.focusAfter = "arrBtn";
+            announce("My order saved.");
+            toast("My order saved");
+            renderAll();
+          });
+        };
+
+        const renderHub = () => {
+          const host = $("#hubBody");
+          host.innerHTML = "";
+          if (S.pg === "loading") {
+            host.innerHTML =
+              '<div class="skel"></div><div class="skel"></div><div class="skel" style="width:60%"></div>';
+            return;
+          }
+          if (S.view === "album") renderAlbum(host);
+          else renderLedger(host);
+        };
+
+        const renderAll = () => {
+          renderTabs();
+          renderSettings();
+          renderHub();
+          S.flashId = "";
+          if (S.focusAfter) {
+            const f = S.focusAfter;
+            S.focusAfter = "";
+            (document.querySelector(`[data-fk="${f}"]`) || document.getElementById(f))?.focus();
+          }
+        };
+
+        /* ---------- playground chrome ---------- */
+        const seg = (host, items, get, set) => {
+          items.forEach(([k, label]) => {
+            const b = document.createElement("button");
+            b.textContent = label;
+            b.onclick = () => {
+              set(k);
+              [...host.children].forEach((c, i) =>
+                c.setAttribute("aria-pressed", String(items[i][0] === get()))
+              );
+            };
+            b.setAttribute("aria-pressed", String(k === get()));
+            host.appendChild(b);
+          });
+        };
+        seg(
+          $("#pgTheme"),
+          [
+            ["light", "Light"],
+            ["dark", "Dark"],
+            ["slate", "Slate"],
+            ["sepia", "Sepia"],
+          ],
+          () => S.theme,
+          (k) => {
+            S.theme = k;
+            document.documentElement.dataset.theme = k;
+          }
+        );
+        seg(
+          $("#pgState"),
+          [
+            ["populated", "Populated"],
+            ["empty", "No custom"],
+            ["loading", "Loading"],
+            ["error", "Save fails"],
+          ],
+          () => S.pg,
+          (k) => {
+            S.pg = k;
+            $("#setSaved").textContent = "";
+            renderAll();
+          }
+        );
+
+        renderAll();
+      })();
+    </script>
+  </body>
+</html>

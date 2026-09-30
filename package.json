@@ -1,13 +1,14 @@
 {
   "name": "staktrakr",
   "private": true,
-  "version": "3.36.24",
+  "version": "3.36.34",
   "license": "MIT",
   "type": "module",
   "description": "Precious metals inventory tracker",
   "scripts": {
     "lint": "eslint js/*.js sw.js sw-router.js \"tests/unit/**/*.js\"",
     "test:unit": "node --test tests/unit/*.test.js",
+    "build:collections": "node devops/collections/build-collections-bundle.mjs",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
     "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\" \".context/**/*.md\" \".agents/**/*.md\" \".claude/**/*.md\"",
@@ -24,9 +25,9 @@
     "*.{js,css,html,json,md}": "prettier --write"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "eslint": "^9.39.5",
-    "lint-staged": "^17.3.0",
-    "prettier": "^3.9.6"
+    "lint-staged": "^17.5.1",
+    "prettier": "^3.9.9"
   }
 }

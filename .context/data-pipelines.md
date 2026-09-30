@@ -39,6 +39,37 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 > Retail (`run-local.sh`), retry (`run-retry.sh`), and goldback (`run-goldback.sh`) are **disabled** on Fly.io since STAK-478 (2026-03-21). Fly.io is a thin publisher only.
 
+### Fly Publisher Failure Signature — full-history OOM loop (STRK-402, 2026-09-26)
+
+**Signature:** all three feeds frozen simultaneously, `fly logs` shows a repeating OOM kill,
+Tailscale ping to the Fly machine times out, and `ps` (via `fly ssh console`) shows a
+long-running `git pack-objects`. Looks like a tunnel/network problem — it isn't; the tunnel
+stall is a _symptom_ of memory thrash, not the cause.
+
+**Root cause:** `git repack -a` in `cleanup-export.sh` enumerates the export repo's **entire**
+history before it can build deltas — `--window-memory` only caps the per-delta window, not the
+object list. Years of 4×/hour publish commits (10k+ commits, millions of objects) pushed the
+repack past the machine's memory ceiling; it was OOM-killed mid-run, 86 minutes in, wedging the
+whole VM (Tailscale, sqld connections, the `*/5` provider-export cron) while still holding the
+publish lock. Because it never reached `prune`, the low-inode condition that triggered the
+repack never cleared, so the _next_ publish immediately re-entered the same repack — a
+permanent loop that a plain `fly machine restart` does not break.
+
+**Fix (this issue):** `cleanup-export.sh` re-shallows (fresh depth-1 clone of the current tip)
+instead of repacking full history — bounded to the current tree regardless of how much history
+has accumulated. `run-publish.sh` re-shallows on bootstrap if `.git/shallow` is missing. Every
+cron job is wrapped in its own `flock -n <job>.flock timeout -k 30 <N>` (see
+`docker-entrypoint-slim.sh`), and the cross-script publish/cleanup mutex moved from a
+`noclobber` lockfile to `flock` on `/tmp/retail-publish.flock` — the noclobber version needed
+its `EXIT` trap to fire to release, which does not happen on SIGKILL/OOM-kill, and left the
+lock stranded during this incident.
+
+**Manual recovery** (if the fix has not yet reached a machine): take the publish lock, back up
+`.git/config`, `rm -rf .git`, `git init`, restore the config, `git symbolic-ref HEAD
+refs/heads/api`, `git fetch --depth 1 origin api`, `git reset FETCH_HEAD` (mixed — working tree
+untouched), release the lock, run `/app/run-publish.sh`. Then heal any spot-hourly gap from the
+outage window with `backfill-spot-files.js` (it skips files that already exist).
+
 ---
 
 ## Stale Thresholds
@@ -183,7 +214,9 @@ The frontend user-selectable spot source (v3.34.24+) replaces the legacy fallbac
 
 ### Legacy Note
 
-`poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`. The daily seed file `data/spot-history-YYYY.json` is present on disk but not written by the active path — do not use it for freshness checks.
+`poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`, which writes no year file — so the public `data/spot-history-YYYY.json` froze at 2026-02-26 until STRK-403.
+
+**Daily year file (STRK-403):** `data/spot-history-YYYY.json` has two writers that share one rule — `shared/spot-year-history.js` (called from `api-export.js` every publish, API copy) and `.claude/skills/update-spot-bundle/update-spot-bundle.py` (release time, repo copy). Rule: one entry per (metal, UTC day) = `AVG(spot)`, aggregated **and rounded** in SQL (4dp below $1, else 2dp — keeps Python half-even and JS half-up rounding from diverging), stamped `YYYY-MM-DD 12:00:00` with `source: "sqld"`; **complete UTC days only** (the day in progress is never written); sqld fills missing keys and replaces its own earlier `sqld` entries but **never overwrites a `seed` entry** (sqld's first days held as little as 1 sample/day; seed rows cover pre-2026-02-17 and the STRK-304 copper backfill). The publisher rewrites the current UTC year (plus the previous year during Jan 1–7) and only writes when content changed, so the file gains at most one git blob per day. Change one writer → change both. It is still a daily series, not a freshness signal — live spot is `data/hourly/`.
 
 **Gap-healing backfiller (STRK-187):** `shared/backfill-spot-files.js` regenerates hourly spot JSON files **from sqld** — the reverse of `backfill-spot.js` (which imports files _into_ sqld). Use it when spot rows kept landing in sqld but file writes failed (e.g. the 2026-06-11 inode-exhaustion outage). Usage: `DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]` (hours UTC, inclusive; existing files skipped unless `--overwrite`; output byte-compatible with `spot-extract.js`).
 

@@ -1,0 +1,209 @@
+---
+sketch: STRK-91-bulk-editor-mobile
+phase: approach
+created: '2026-05-22'
+---
+# STRK-91 — Approach
+
+_How we'll build it. **Don't write code or tests** — the tasks phase produces the work plan._
+
+## High-Level Architecture
+
+The work divides into three independent subsystems that converge in `js/bulkEdit.js` and `css/styles.css`:
+
+**1. Sticky identity region + responsive layout (CSS-first, small DOM anchors).** Switch `.bulk-edit-table` from `border-collapse: collapse` to `separate; border-spacing: 0` (matching the proven pattern at `#inventoryTable`, `styles.css:5136-5141`). Sticky selectors must have stable anchors and must not target one-cell pinned rows: add explicit column classes or `data-column` attributes for the checkbox, image, and name header/body cells during `renderBulkTable()` / `buildBulkItemRow()`, or scope any `nth-child()` body selectors to `tbody tr[data-serial] > td`. Apply `position: sticky; left: <offset>` to those three columns in both `<th>` and item-row `<td>` cells, with a three-tier z-index scheme: corner cells (thead + sticky-left) at z-index 3, sticky-left body cells at z-index 1, thead non-sticky at z-index 2, data cells at auto. Use a theme-safe sticky-boundary indicator, preferring a `1px solid var(--border)` divider unless implementation testing proves a subtle shadow remains crisp in light, dark, and sepia. Enlarge checkbox visuals to 24x24px minimum (WCAG 2.5.8) and provide 44x44px effective hit areas on viewports <=768px via labels or transparent pseudo-elements that do not widen the checkbox column. Add safe-area-inset padding to the bulk edit modal header and footer (closing the gap identified in STAK-578).
+
+**2. Collapsible field panel (HTML + CSS + small state-sync JS).** Wrap the field panel's content in a `<details>/<summary>` disclosure element on all viewports, matching the existing `.form-section` pattern (`styles.css:1262-1290`). On wide viewports (>768px) the `<details>` starts `open` and the `<summary>` is styled as the existing "Fields" heading — visually identical to today. On narrow viewports (<=768px) it starts collapsed with a compact summary line showing the count of enabled fields, saving vertical space for the table. The `<summary>` element provides native keyboard disclosure behavior; a minimal listener must keep the summary count current as field checkboxes change, sync `aria-expanded` when the open state changes, point `aria-controls` at the panel body, and toggle `open` when crossing the 768px breakpoint. Prefer incremental summary-text updates so checkbox toggles do not re-render the whole panel and lose the current disclosure state. A CSS chevron rotation may be added to communicate the disclosure state if it stays consistent with the existing form-section visual language.
+
+**3. New fields + catalog display columns (JS engine changes in `bulkEdit.js`).** Three new entries in `BULK_EDITABLE_FIELDS` (`shape`, `capsule`, `capsuleNotes`) and two display-only catalog reference columns (`numistaData.composition`, `numistaData.diameter`). Add a `resolveBulkValue(item, key)` helper that handles dot-path resolution for `numistaData.*` keys, then wire it into `formatBulkCellValue()`, `getBulkSortableValue()`, and `getFilteredItems()`. `getBulkTableDataKeys()` must deliberately synthesize the two dot-path keys when nested data exists, include them in stable priority positions, and suppress the raw `numistaData` object column so users do not see a JSON blob alongside the individual catalog columns. The search path should iterate the same visible/searchable key set rather than only `Object.keys(item)`, so catalog display columns participate in search and sorting like other data columns.
+
+The apply path gets a field-to-storage mapping for nested writes (`shape -> numistaData.shape`) that is consulted before the existing flat assignment. When a mapped dot-path target exists, the loop initializes intermediate objects, writes to the leaf property, marks the field as user-modified through `window.markUserModified(item, "shape")`, applies the same lean-storage cleanup used by the modal, and deep-copies `numistaData` / `fieldMeta` into the old snapshot before mutation so change logging observes the nested diff. Bulk shape edits should mirror the modal's dimension cleanup at the data layer: rectangular/square shapes clear `numistaData.diameter`; round/oval/other shapes clear `numistaData.length` and `numistaData.width`. Empty `capsule` and `capsuleNotes` bulk values should delete the stored top-level keys, matching the existing `paymentMethod` pattern. Capsule writes call `registerCapsule()` for autocomplete parity; capsule notes do not. Shared field-tracking surfaces (`logItemChanges` in `changeLog.js`, `DIFF_FIELDS` in `diff-engine.js`) gain `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, and `fieldMeta` entries so activity/undo and matched-item sync see the new and pre-existing field gaps. Adding whole-object `numistaData` / `fieldMeta` comparison is an intentional tradeoff: it can produce coarser conflicts, but prevents silent loss of nested catalog overrides.
+
+## Key Decisions
+
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Switch `border-collapse` from `collapse` to `separate; border-spacing: 0` | Prerequisite for CSS sticky columns — browsers can't independently position cells in the collapsed border model. The main inventory table already uses this exact pattern with a documented comment explaining why. | Must verify border rendering across light/dark/sepia themes. No theme-specific bulk-table border overrides exist today, so the visual impact should be minimal (spacing-0 mimics collapse), but needs manual inspection. |
+| D-2 | Use `<details>/<summary>` for the collapsible field panel, plus small JS for responsive and testable state | The app already has 29 `<details>` instances and `.form-section` styling. Native disclosure behavior gives the right base interaction, while STRK-91 needs dynamic summary count text, breakpoint `open` state, and explicit `aria-expanded` / `aria-controls` attributes for testable acceptance criteria. | Slightly more JS than a pure native disclosure, but still much smaller and more accessible than a custom toggle. Incremental summary updates avoid re-rendering the panel on every checkbox change. |
+| D-3 | Introduce a `resolveBulkValue(item, key)` helper for dot-path resolution rather than modifying each consumer inline | Display, sort, and search all need the same dot-path logic. A shared helper avoids triple-patching and keeps the pattern explicit. | Adds one new function to the module scope. The search helper must use the visible/searchable key set rather than only `Object.keys(item)` so synthetic keys participate. |
+| D-4 | Add synthetic column keys (`numistaData.composition`, `numistaData.diameter`) to `BULK_COLUMN_PRIORITY` and suppress raw `numistaData` from column output | Synthetic keys in the priority array give them a stable, predictable position. Suppressing the raw `numistaData` object column prevents the current JSON-blob rendering and avoids duplicate data alongside the new individual columns. | The existing `composition` column (flat `item.composition`, BULK_COLUMN_PRIORITY index 2) and the new `numistaData.composition` column are distinct — users see both. Labels differentiate: "Composition" (user-set metal) vs "Catalog Composition" (Numista-sourced). This matches the two-source reality rather than hiding one. |
+| D-5 | Map `shape` writes to `item.numistaData.shape` via a `BULK_FIELD_STORAGE_MAP` lookup consulted before flat assignment | Only `shape` needs nested storage today. A lookup table (`{ shape: "numistaData.shape" }`) is explicit and auditable. The apply loop must check the map before writing, split dot-path targets, initialize `item.numistaData = item.numistaData || {}`, write to the leaf property, and skip creating a flat `item.shape`. | Slightly less "elegant" than a generic setter, but safer for a `file://`-compatible app with no test-driven type system. If more nested fields are added later, the map extends trivially. |
+| D-6 | Deep-copy `numistaData` and `fieldMeta` in the apply snapshot, not the entire item | `Object.assign({}, item)` is shallow — nested `numistaData` mutations corrupt the old snapshot before `logItemChanges()` runs. After the shallow copy, re-attach cloned `oldItem.numistaData` and `oldItem.fieldMeta` when present. | If other nested objects are added to items in the future, this pattern must be extended. Acceptable — `numistaData` and `fieldMeta` are the nested mutable objects this work touches. |
+| D-7 | Treat user `composition` and Numista `composition` as two separate display columns with distinct labels | No code anywhere in the app prefers `numistaData.composition` over `item.composition`. Merging them (fallback chain) would always mask the richer Numista value because `item.composition` is never empty. Separate columns respect both data sources. | Users see two composition columns. The "Catalog Composition" column will be empty for items without Numista data — acceptable, matches how `diameter` behaves. |
+| D-8 | Add `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, and `fieldMeta` to both `logItemChanges()` and `DIFF_FIELDS` | `capsule` and `capsuleNotes` are real top-level item fields already saved by the modal. `paymentMethod` is already bulk-editable. `numistaData.shape` and `fieldMeta` are required for manual catalog override parity. Without shared-list coverage, undo/activity history and matched-item cloud sync can silently miss edits. | Widens the PR's change surface into shared sync/change-log lists and uses coarser object-level comparison for nested catalog data. The tradeoff is acceptable because silent data loss is worse than a coarser conflict. |
+| D-9 | Mirror modal dimension cleanup for bulk shape edits at the data layer | The single-item modal clears incompatible dimensions when shape category changes. Bulk shape changes should not leave stale diameter on rectangular/square items or stale length/width on round/oval/other items. | This is a data-model cleanup without the modal's UI affordance. It must be covered by tests so users do not see surprising measurement loss outside the documented incompatible-field cases. |
+| D-10 | Keep capsule autocomplete limited to `capsule`, not `capsuleNotes` | Existing autocomplete tracks capsule names via `registerCapsule()` and does not use notes. Bulk capsule writes should keep suggestions current; notes are free-form detail and should not pollute capsule suggestions. | One more conditional in the apply loop. Clearer UX and parity with the single-item path. |
+
+## File Map
+
+### New
+
+- `tests/playwright/bulk-edit-mobile.spec.js` — Playwright tests for sticky columns, tap targets, collapsible panel, new fields, catalog display columns, nested shape persistence, delete-when-empty capsule fields, and shared tracking of changed fields. Viewport-parameterized (1280px wide, 375px mobile, 640px zoomed desktop).
+
+### Modified
+
+- `js/bulkEdit.js` — Add `resolveBulkValue()` helper; wire into `formatBulkCellValue()`, `getBulkSortableValue()`, `getFilteredItems()`; add `shape`/`capsule`/`capsuleNotes` to `BULK_EDITABLE_FIELDS`; add `numistaData.composition`/`numistaData.diameter` to `BULK_COLUMN_PRIORITY`; synthesize nested keys in `getBulkTableDataKeys()` when catalog data exists; add labels to `BULK_COLUMN_LABEL_OVERRIDES`; suppress raw `numistaData` from column output; add stable sticky selector anchors (column classes or `data-column`) to checkbox/image/name header/body cells; add `BULK_FIELD_STORAGE_MAP` and nested-write logic before flat assignment in `applyBulkEdit()`; deep-copy `numistaData` and `fieldMeta` in apply snapshot; call `markUserModified()` for bulk shape overrides; apply dimension cleanup on shape edits; delete empty `capsule`/`capsuleNotes`; call `registerCapsule()` on capsule apply; mark `numistaData.composition`/`numistaData.diameter` columns as sortable/searchable display-only columns (not in field panel)
+- `css/styles.css` — Switch `.bulk-edit-table` to `border-collapse: separate; border-spacing: 0`; add `position: sticky; left` rules for cb/img/name columns in `th` and item-row `td` cells; exclude pinned header/divider rows from sticky body-cell rules; three-tier z-index scheme; theme-safe border or verified shadow on name-column boundary; enlarge checkbox targets (24x24px base, 44x44px effective at <=768px without widening table columns); safe-area-inset padding on `.bulk-edit-content .modal-header` and `.bulk-edit-footer`; adjust field panel mobile rules for `<details>` wrapper and summary chevron if implemented
+- `js/changeLog.js` — Add `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, and `fieldMeta` to the `fields` array in `logItemChanges()`
+- `js/diff-engine.js` — Add `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, and `fieldMeta` to `DIFF_FIELDS`
+
+### Deleted
+
+- _(none)_
+
+## Data / Schema Changes
+
+No schema or migration changes. The `numistaData` object structure on inventory items is unchanged — `shape` already lives at `item.numistaData.shape` when set via the single-item modal. The bulk editor merely gains the ability to write to the same path. `capsule` and `capsuleNotes` are already top-level item fields. No backfill needed.
+
+The only localStorage concern: old items without a `numistaData` object. The apply path initializes `item.numistaData = {}` when absent before writing `shape`, preserves any existing catalog fields, applies incompatible-dimension cleanup, and strips an empty `numistaData` object back out when no catalog fields remain (matching `parseNumistaDataFields` lean-storage behavior at `events.js:1681-1684`). Bulk shape edits also mark the catalog field as user-modified through `fieldMeta`, so future Numista refresh flows treat the edit as a manual override rather than API-owned metadata.
+
+## Tradeoffs Surfaced for Review
+
+- **D-4 / D-7: Two composition columns.** Users will see both "Composition" (user-set, always populated, derived from Metal selector) and "Catalog Composition" (Numista-sourced, often empty). This is accurate to the data model but may feel redundant to users who don't use Numista. The alternative — a single merged column — would always mask the Numista value because `item.composition` is never empty. Keeping them separate is the honest representation. If user feedback says it's too noisy, a follow-up could hide "Catalog Composition" behind a column-visibility toggle.
+
+- **D-2: `<details>` resize and ARIA handling.** If a user opens the bulk editor at desktop width (panel open) and then resizes to mobile (panel should collapse), the `<details open>` attribute won't auto-close. A small `matchMedia` listener is needed to toggle `open` on breakpoint crossing. The same listener/sync path should update `aria-expanded`, preserve `aria-controls`, and update the enabled-field count. This technically breaks the "zero JS" promise of `<details>`, but keeps the implementation small and testable.
+
+- **D-8: Object-level nested sync comparison.** Adding `numistaData` and `fieldMeta` to `DIFF_FIELDS` prevents local-only nested catalog edits, but sync conflicts for those objects will be coarser than per-leaf conflicts. This is acceptable for STRK-91 because the alternative is silently losing manual shape overrides and user-modified metadata.
+
+## Out of Scope (follow-up issues)
+
+- **Column visibility toggle** — Let users show/hide individual table columns. Would address the "two composition columns feel redundant" concern but is a larger UX feature applicable to all bulk-edit columns, not just the new ones.
+- **Inline cell editing** — Spreadsheet-style click-to-edit on table cells. Different interaction model from the current select→check→set→apply workflow.
+- **Bulk disposition** — Destructive per-item action with its own confirmation flow; not suited to the checkbox-apply pattern.
+- **`collectable` bulk editability** — Present in `BULK_COLUMN_PRIORITY` but absent from `BULK_EDITABLE_FIELDS`. Intentional or gap is unclear; not in STRK-91 requirements scope.
+
+## Risk Notes
+
+- **Theme border rendering after `border-collapse` switch**: The most likely visual regression. No theme-specific border rules exist for `.bulk-edit-table`, so `separate + border-spacing: 0` should look identical, but dark/sepia themes render `var(--border)` against different backgrounds. Needs manual inspection across all three themes during implementation.
+- **Sticky column width assumptions**: The sticky `left` offsets for the image and name columns depend on the checkbox and image columns having predictable widths. The checkbox column is fixed (2.5rem via `min-width`), but the image column width depends on thumbnail size. If thumbnails vary, the name column's sticky offset may be wrong. The image column should get an explicit `width`/`min-width` to make offsets reliable.
+- **Pinned row selector leakage**: The bulk table body includes `colSpan` pinned header/divider rows. Sticky body-cell CSS must use stable column anchors or `tr[data-serial]` scoping so those rows do not become sticky overlays.
+- **Shallow snapshot race on `numistaData` / `fieldMeta`**: D-6 mitigates this with targeted deep copies before mutation. Current `logItemChanges()` is synchronous, so deep-copy timing is safe as long as the snapshot is created before mapped writes run.
+- **`paymentMethod`, `capsule`, `capsuleNotes`, `numistaData`, and `fieldMeta` additions to `DIFF_FIELDS` / `logItemChanges`**: This fixes pre-existing gaps as well as new STRK-91 behavior. Adding nested objects can broaden conflict reports, but it is preferable to missing edits entirely.
+
+---
+
+> **Phase complete?** Architecture clear, decisions logged with rationale, file map complete. Then advance: `/sketch-review STRK-91 approach`, then `/sketch tasks STRK-91`.
+
+## Review Archive — approach (2026-05-23)
+
+_Reconciled by /sketch reconcile on 2026-05-23. Original reviewer marks preserved below for audit._
+
+### Codex
+
+#### Inline marks
+
+> CODEX: Scope the sticky body-cell selectors more tightly than "first three columns" in prose. Real item rows are emitted by `buildBulkItemRow()` with `data-serial` and three leading cells (`js/bulkEdit.js:442-512`), but the same tbody also emits `.bulk-edit-pinned-header` and `.bulk-edit-pinned-divider` one-cell `colSpan` rows (`js/bulkEdit.js:965-987`). Generic selectors such as `.bulk-edit-table td:first-child` / `td:nth-child(2)` would make the pinned header/divider sticky too, likely covering scrolling data. The approach should require either per-column classes during row/header construction or selectors scoped to `tbody tr[data-serial] > td:nth-child(...)`, with separate header rules.
+
+> CODEX: The count and acceptance-testable ARIA contract make this more than wrapper markup. `renderBulkFieldPanel()` currently creates an `h3`, hint, and rows directly under `#bulkEditFieldPanel` (`js/bulkEdit.js:521-588`), and each checkbox change only updates enabled state plus `renderBulkFooter()` (`js/bulkEdit.js:563-574`). If the summary must show the enabled-field count, the approach should specify how that text updates when checkboxes change. Also, AC-3 explicitly names `aria-expanded` / `aria-controls`; native `<details>` exposes disclosure semantics to assistive tech, but the DOM does not maintain those attributes for you. If tests assert attributes, the "minimal JS" listener must sync them.
+
+> CODEX: Make the synthetic-key source explicit, not just the resolver. `getBulkTableDataKeys()` currently builds `keySet` from `Object.keys(item)` and only includes priority entries that already exist in that set (`js/bulkEdit.js:92-103`), so adding `numistaData.composition` / `numistaData.diameter` to `BULK_COLUMN_PRIORITY` will not surface them unless the function deliberately synthesizes those keys when nested data exists. Likewise, `getFilteredItems()` currently searches `Object.keys(item)` (`js/bulkEdit.js:152-163`); simply swapping `item[key]` for `resolveBulkValue(item, key)` still misses dot-path keys unless search iterates the table key list or adds the same synthetic keys.
+
+> CODEX: Decide whether bulk shape writes also mark the Numista field as user-modified. The single-item edit path compares old/new `numistaData` and calls `window.markUserModified(cur, field)` for changed catalog fields (`js/events.js:1893-1899`), backed by `field-meta.js:53-78`. The bulk apply path currently mutates items and calls `logItemChanges()` but never calls `markUserModified()` (`js/bulkEdit.js:1273-1295`). If a bulk shape edit is a manual override, persisting only `item.numistaData.shape` may be incomplete because later Numista refresh flows can treat that field as API-owned rather than user-owned.
+
+#### Review section
+
+### Verified
+
+- Confirmed the active sketch file had no existing unreconciled `CODEX` review before this pass.
+- Verified the bulk editor's flat key discovery, value formatting, sorting, search, field rendering, row construction, special pinned rows, and apply loop in `js/bulkEdit.js:92-163`, `js/bulkEdit.js:442-588`, `js/bulkEdit.js:881-1007`, and `js/bulkEdit.js:1273-1295`.
+- Verified modal field storage and catalog metadata behavior in `index.html:2572-2650`, `js/events.js:1532-1685`, `js/events.js:1729-1809`, `js/events.js:1893-1903`, and `js/field-meta.js:53-78`.
+- Verified the mobile/sticky CSS anchors in `css/styles.css:1262-1290`, `css/styles.css:5129-5142`, `css/styles.css:12538-12759`, and `css/styles.css:13013-13237`.
+- Verified shared tracking surfaces in `js/changeLog.js:77-119` and `js/diff-engine.js:32-83`, plus existing bulk-editor test coverage references in `tests/playwright/payment-method.spec.js`, `tests/playwright/goldback-type.spec.js`, and `tests/playwright/silverback.spec.js`.
+
+### Top concerns
+
+1. Synthetic catalog columns need explicit synthesis and search participation. Priority-array entries and a dot-path resolver are not enough because current table keys and search keys both originate from flat `Object.keys(item)`.
+2. Sticky-column CSS must avoid the pinned header/divider rows. The table body includes non-item `colSpan` rows, so generic first/second/third `td` selectors can create a visual regression in the selected-but-filtered flow.
+3. Bulk shape writes may need `markUserModified()` parity with the single-item edit path. Without that contract, `shape` can be saved to `numistaData` but remain metadata-owned instead of user-owned.
+
+### Unverified assumptions
+
+- The synthetic `numistaData.composition` and `numistaData.diameter` columns are intended to be searchable and sortable, not merely visible.
+- The implementation will use column classes or `tr[data-serial]`-scoped selectors for sticky body cells rather than global `td:nth-child()` rules.
+- The collapsible field-panel summary count must update live as fields are checked/unchecked.
+- AC-3's `aria-expanded` / `aria-controls` wording is meant as a DOM attribute requirement, not only an accessibility-tree behavior requirement from native `<details>`.
+- Bulk `shape` edits should be treated as manual catalog overrides for `fieldMeta` / future Numista refresh behavior.
+
+### Gemini
+
+#### Inline marks
+
+> GEMINI: Ensure that right-side shadow/border on the name column behaves cleanly across all three themes (light, dark, sepia). A solid `1px solid var(--border)` right border is visually sharper and more consistent with the "precision tool" brand personality than a muddy gradient box-shadow on a dark background. Also, to prevent mobile table cells from stretching or text wrapping awkwardly, use a transparent pseudo-element (`::before`/`::after`) on the checkbox inputs to expand the tap target to 44×44px without altering the visual width of the checkbox column itself.
+
+> GEMINI: For premium UI aesthetics, the disclosure chevron indicator should rotate smoothly using CSS transitions (`transition: transform 0.2s ease`). For screen-reader accessibility, ensure that the `<summary>` element acts as a descriptive header (e.g. including a hidden `aria-label` or live count: "Fields to Update (N selected)").
+
+> GEMINI: Confirm that bulk-applied `shape` changes are correctly propagated via cloud sync. Since `numistaData` (the parent object containing `shape`) is not currently present in `diff-engine.js`'s `DIFF_FIELDS`, edits to `item.numistaData.shape` will be ignored by the sync engine, leading to silent synchronization gaps. We should add `"numistaData"` (and `"fieldMeta"`) to `DIFF_FIELDS` and `logItemChanges` to ensure these catalog changes are synced across devices.
+
+> GEMINI: Agree with Codex. The apply loop in `js/bulkEdit.js` must explicitly invoke `window.markUserModified(item, "shape")` to prevent Numista refresh cycles from overwriting the manual bulk updates.
+
+#### Review section
+
+### Verified
+- Verified that `paymentMethod`, `capsule`, and `capsuleNotes` are indeed not currently in `DIFF_FIELDS` or `changeLog.js` fields list, justifying D-8.
+- Verified that the main inventory table `#inventoryTable` uses `border-collapse: separate; border-spacing: 0` for its sticky column layout, verifying the precedent for D-1.
+- Verified that the `matchMedia` listener approach for D-2 is standard and necessary to coordinate details state across breakpoint transitions.
+- Verified that `window.markUserModified` is the correct contract to preserve manual catalog overrides on inventory items.
+
+### Top Concerns
+1. **Cloud Sync Gap for Catalog Data (`numistaData` / `fieldMeta`)**: While top-level fields like `capsule` and `capsuleNotes` will be synced correctly under D-8, nested changes (like `shape` writing to `item.numistaData.shape`) will be completely ignored by the synchronization engine during edits because `numistaData` and `fieldMeta` are not in `DIFF_FIELDS`. This leads to silent local-only persistence for these attributes. `numistaData` and `fieldMeta` must be added to `DIFF_FIELDS` and `logItemChanges` to close this gap.
+2. **Visual Contrast and Grid Alignment across Themes**: The right-side divider on the sticky column must look premium and clean in all three themes (light, dark, sepia). A solid `1px solid var(--border)` vertical line fits the StakTrakr "precision tool" brand identity better than a muddy box-shadow gradient.
+3. **Ergonomic Tap Targets in Tight Tables**: Expanding touch targets to 44×44px on mobile must not distort the table's column widths. Using transparent pseudo-elements (`::after` or `::before`) on the checkboxes is the recommended pattern to increase clickability without ballooning table padding.
+
+### Unverified Assumptions
+- Adding `numistaData` and `fieldMeta` to `DIFF_FIELDS` is acceptable from a sync conflict perspective (object-level conflicts are acceptable to prevent data loss).
+- The collapsible field panel header will include a rotating chevron micro-animation for a premium interactive feel.
+
+### Deepseek
+
+#### Inline marks
+
+> DEEPSEEK: The "29 instances of `<details>`" claim in D-2 is ambiguous — should be verified. A grep for `<details` in HTML source would clarify, but the `.form-section` CSS anchor (`css/styles.css:1262-1290`) is confirmed. The pattern is well-established in the codebase.
+> DEEPSEEK: D-5's `BULK_FIELD_STORAGE_MAP` approach is sound, but the `applyBulkEdit` write loop at `js/bulkEdit.js:1280-1281` does `item[fieldId] = coerceFieldValue(...)` — a flat assignment. The approach should explicitly state that the apply loop must consult the map BEFORE the assignment, and if a dot-path target is found (e.g., `numistaData.shape`), the loop must: (a) split on `.`, (b) initialize intermediate objects (`item.numistaData = item.numistaData || {}`), and (c) write to the leaf property. Without this, the map decouples the field ID from the write path but doesn't actually route the write.
+> DEEPSEEK: The "dimension cleanup on shape changes" phrase in the File Map (line 49) has no specification anywhere in this approach. Which dimensions get cleared (diameter? thickness? length? width?)? Under what conditions (shape = "Bar" vs. "Coin"?)? Is this a data-integrity concern or a UX preference? This is a load-bearing implementation detail without a corresponding decision entry or rationale.
+> DEEPSEEK: D-6 says to deep-copy `numistaData` via `JSON.parse(JSON.stringify(item.numistaData))` but doesn't address that `applyBulkEdit` currently snapshots via `Object.assign({}, item)` at `js/bulkEdit.js:1277`. The approach should state where the deep copy is inserted: either (a) deep-copy `numistaData` after the `Object.assign` snapshot and re-attach, or (b) replace the shallow copy with a targeted deep copy. The current phrasing "deep-copying just numistaData" is ambiguous about whether the `Object.assign({}, item)` line stays and `numistaData` is re-cloned, or whether the snapshot strategy changes.
+> DEEPSEEK: The File Map mentions "registerCapsule() calls" in the apply path but the current `applyBulkEdit` at `js/bulkEdit.js:1273-1321` never calls `registerCapsule()`. The single-item edit path does call it at `js/events.js:1903`. The approach should note that `registerCapsule()` needs to be called in the bulk apply loop after a capsule write, matching the single-item parity.
+> DEEPSEEK: The `th` elements in `renderBulkTable` (`js/bulkEdit.js:929-955`) and `td` elements in `buildBulkItemRow` (`js/bulkEdit.js:503-508`) lack `data-column` attributes. The `#inventoryTable` uses `td[data-column="name"]` selectors for sticky positioning (`css/styles.css:5488`). The approach should specify whether sticky-column CSS uses `nth-child` (with the pinned-row caveat CODEX flagged), `data-column` attributes on new cell construction, or per-column CSS classes. Without this, the CSS implementation has no stable selector anchor.
+> DEEPSEEK: D-8 bundles `paymentMethod` fixes with STRK-91 scope — a pragmatic call, but the approach doesn't mention that `capsule` and `capsuleNotes` already exist as item fields (`js/events.js:1595` confirms capsule is saved in the modal form) but are NOT in `logItemChanges` (confirmed at `js/changeLog.js:80-119`) or `DIFF_FIELDS` (confirmed at `js/diff-engine.js:32-83`). This gap means bulk-editing capsule today already loses undo/cloud sync silently. The approach is correct to fix it, but should flag that this is a pre-existing bug, not just a new-feature addition.
+
+#### Review section
+
+### Verified
+- Confirmed the `.bulk-edit-table` currently uses `border-collapse: collapse` at `css/styles.css:12716`, making D-1's switch to `separate` a necessary prerequisite for sticky columns.
+- Confirmed the `#inventoryTable` precedent at `css/styles.css:5129-5143` — exactly `border-collapse: separate; border-spacing: 0` with a documented comment explaining why. The approach's claim that this is the proven pattern is correct.
+- Confirmed `getBulkTableDataKeys()` at `js/bulkEdit.js:92-104` iterates `Object.keys(item)` only — no synthetic dot-path keys. Adding `numistaData.composition`/`numistaData.diameter` to `BULK_COLUMN_PRIORITY` alone will silently fail because the `filter(keySet.has(key))` check excludes them.
+- Confirmed `getFilteredItems()` at `js/bulkEdit.js:152-163` uses `Object.keys(item)` for search text construction — same synthetic-key gap. Search for catalog composition values would not match unless the search loop is modified.
+- Confirmed `formatBulkCellValue()` at `js/bulkEdit.js:119-146` and `getBulkSortableValue()` at `js/bulkEdit.js:114-117` both use direct `item[key]` access. A `resolveBulkValue()` helper is needed in all three consumers.
+- Confirmed `buildBulkItemRow()` at `js/bulkEdit.js:442-515` produces `tr[data-serial]` rows: checkbox cell → image cell (`td.bulk-img-cell`) → data cells (via `addCell()`). The data cells lack `data-column` attributes. The pinned header/divider rows at `js/bulkEdit.js:965-987` use `colSpan` with classes `bulk-edit-pinned-header`/`bulk-edit-pinned-divider`. CODEX's concern about generic `td:first-child`/`td:nth-child()` matching the `colSpan` cells is valid.
+- Confirmed `th` elements in header row are created at `js/bulkEdit.js:929-955` without `data-column` attributes. CSS for sticky-left header cells has no existing attribute anchor.
+- Confirmed `applyBulkEdit()` at `js/bulkEdit.js:1273-1321`: shallow `Object.assign({}, item)` snapshot (line 1277), flat `item[fieldId]` writes (line 1281), synchronous `logItemChanges()` call (line 1294), no `markUserModified()` call anywhere.
+- Confirmed the single-item edit path at `js/events.js:1830-1899` calls `markUserModified()` for both top-level fields (including `capsule`, `capsuleNotes`, `shape`) and `numistaData` sub-fields. The bulk apply path lacks this parity entirely.
+- Confirmed `logItemChanges()` at `js/changeLog.js:80-119` and `DIFF_FIELDS` at `js/diff-engine.js:32-83` both lack `capsule`, `capsuleNotes`, `paymentMethod`, `numistaData`, and `fieldMeta`. This is a pre-existing silent-data-loss gap for `capsule`/`capsuleNotes` bulk edits, and D-8 correctly identifies it.
+- Confirmed `BULK_EDITABLE_FIELDS` at `js/bulkEdit.js:170-315` does not include `shape`, `capsule`, or `capsuleNotes`. `paymentMethod` IS present (line 281).
+- Confirmed no `safe-area-inset` padding exists on `.bulk-edit-content .modal-header` or `.bulk-edit-footer`. The mobile fullscreen modal rule at `css/styles.css:13065-13103` sets `border-radius: 0` on the bulk-edit header but no safe-area padding. The `#itemModal` header already has safe-area padding at `css/styles.css:13114-13118` — the approach correctly identifies this as a gap to close.
+- Confirmed `parseNumistaDataFields()` at `js/events.js:1680-1684` strips empty/falsy fields from `numistaData` before saving. The approach's claim that the apply path should also strip empty `numistaData` objects matches this existing lean-storage pattern.
+- Confirmed `registerCapsule()` exists at `js/autocomplete.js:1120` and is called in the single-item path at `js/events.js:1903` but NOT in `applyBulkEdit()`.
+
+### Top concerns
+
+1. **`applyBulkEdit` write loop is flat — dot-path writes need explicit routing in the loop, not just a lookup map.** D-5 proposes a `BULK_FIELD_STORAGE_MAP` (`{ shape: "numistaData.shape" }`) but the current apply loop (`item[fieldId] = ...`) will write `item["shape"]` (a new top-level key) rather than `item.numistaData.shape`. The approach must specify that the apply loop: (a) consults the map before writing, (b) splits dot-path targets by `.`, (c) initializes intermediate objects (`item.numistaData = item.numistaData || {}`), and (d) writes to the leaf property. Without this wiring, `shape` edits will create a flat `item.shape` that diverges from the `numistaData.shape` path used by the single-item modal.
+
+2. **No `markUserModified()` parity between bulk and single-item edit paths.** The single-item modal at `js/events.js:1830-1899` marks both top-level fields and `numistaData` sub-fields as user-modified. The bulk apply loop at `js/bulkEdit.js:1273-1321` never calls `markUserModified()`. If a bulk `shape` edit writes to `numistaData.shape` but doesn't mark it user-modified, `fieldMeta` (`js/field-meta.js:59-71`) won't record the override, and future Numista refresh cycles may silently overwrite the manual edit. The approach currently omits `markUserModified()` entirely — the File Map and D-5 must address this.
+
+3. **Sticky-column CSS has no stable selector anchor in the current DOM.** Table header `th` elements (line 929) and body `td` elements (line 504) are created without `data-column` attributes, without per-column CSS classes, and without any identifier that CSS can target for sticky positioning. The approach's CSS plan says "add `position: sticky; left` rules for cb/img/name columns" but never specifies selectors. Three viable options exist: (a) add `data-column="cb"`/`"img"`/`"name"` attributes during header/row construction (matching `#inventoryTable`' `[data-column]` convention), (b) use `nth-child()` selectors with `tr[data-serial]` scope to exclude pinned headers (as CODEX suggested), or (c) add dedicated CSS classes during construction. The tasks phase cannot produce a work plan without this decision.
+
+### Unverified assumptions
+
+- The "29 instances of `<details>`" claim in D-2 has not been grep-verified. The `.form-section` CSS pattern is confirmed, but the specific count is not material to the review findings.
+- The collapsible field panel summary count (CODEX / GEMINI concern) will update via re-rendering the entire field panel (not just the summary text). If the panel is re-rendered on every checkbox toggle, the `<details>` `open` state would be lost — the approach should specify whether the summary count update is incremental (text-only replacement in the `<summary>`) or full re-render.
+- The `delete-when-empty` pattern for `capsule`/`capsuleNotes` assumes the same semantics as the existing `paymentMethod` pattern at `js/bulkEdit.js:1283-1285` (delete key from item when field value is empty string). The approach doesn't confirm this assumption.
+- The approach assumes `coerceFieldValue()` will correctly handle `shape` (select value), `capsule` (text), and `capsuleNotes` (textarea) via the default `sanitizeHtml(value)` path. Verified: the default path handles all three since none are in `FIELD_COERCIONS`.
+- The approach assumes that `numistaData.composition` and `numistaData.diameter` can coexist with flat `composition`. Verified: `item.composition` is the user-set field (Metal selector); `item.numistaData.composition` is Numista-sourced. They are independent paths — no collision.
+- The approach assumes `capsule`/`capsuleNotes` are already supported by the write path once added to `BULK_EDITABLE_FIELDS`. Verified: they fall through to the default `sanitizeHtml()` path in `coerceFieldValue()`, which is correct for text fields.
+- GEMINI's assumption that `numistaData` and `fieldMeta` must be added to `DIFF_FIELDS` for cloud sync is not addressed in the approach. If `numistaData` is added as a top-level `DIFF_FIELDS` entry, object-level comparison would treat any `numistaData` sub-field change as a sync conflict — this is a design tradeoff the approach should weigh explicitly.
+- The "dimension cleanup on shape changes" phrase in the File Map has no corresponding decision entry or specification. Which dimensions get cleared? Under what conditions? Is this a data-integrity concern or UX preference?
+
+### Resolution Summary
+
+- Accepted: 10
+- Rejected: 1 (`<details>` count concern verified true; no content change needed beyond preserving the audit note)
+- Resolved with your input: 0

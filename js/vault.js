@@ -218,39 +218,56 @@ async function restoreVaultData(payload) {
     throw new Error("Vault file appears corrupted.");
   }
 
-  // Write each key to localStorage
+  // Snapshot the keys before the first write so quota failures never leave a partial vault.
   var keys = Object.keys(data);
-  for (var i = 0; i < keys.length; i++) {
-    var key = keys[i];
+  var priorValues = Object.create(null);
+  var restoreKeys = keys.filter(function (key) {
     // Ignore market histories from older backups — they are reproducible from the
     // API and now owned by IndexedDB; write to neither localStorage nor IDB (STRK-141, R7.3).
-    if (
-      typeof HISTORY_IDB_KEYS !== "undefined" &&
-      Array.isArray(HISTORY_IDB_KEYS) &&
-      HISTORY_IDB_KEYS.indexOf(key) !== -1
-    ) {
-      continue;
+    return (
+      !(
+        typeof HISTORY_IDB_KEYS !== "undefined" &&
+        Array.isArray(HISTORY_IDB_KEYS) &&
+        HISTORY_IDB_KEYS.indexOf(key) !== -1
+      ) && ALLOWED_STORAGE_KEYS.indexOf(key) !== -1
+    );
+  });
+  for (var i = 0; i < restoreKeys.length; i++) {
+    priorValues[restoreKeys[i]] = localStorage.getItem(restoreKeys[i]);
+  }
+  try {
+    for (var j = 0; j < restoreKeys.length; j++) {
+      var key = restoreKeys[j];
+      // STAK-421: Compress before writing — raw vault payloads can exceed quota.
+      var value = data[key];
+      if (
+        typeof value === "string" &&
+        typeof __compressIfNeeded === "function" &&
+        !value.startsWith("CMP1:") &&
+        !value.startsWith("CMP2:")
+      ) {
+        value = __compressIfNeeded(value);
+      }
+      localStorage.setItem(key, value);
     }
-    // Only restore recognized keys
-    if (ALLOWED_STORAGE_KEYS.indexOf(key) !== -1) {
+  } catch (error) {
+    // Free any newly-added values first so restoring the original snapshot has room.
+    for (var r = 0; r < restoreKeys.length; r++) {
       try {
-        // STAK-421: Compress before writing — raw vault payloads can exceed
-        // localStorage quota (e.g. metalSpotHistory at 9 MB uncompressed).
-        // Skip if already compressed (CMP1 legacy or CMP2 real) to avoid double-wrapping. (STRK-140)
-        var value = data[key];
-        if (
-          typeof value === "string" &&
-          typeof __compressIfNeeded === "function" &&
-          !value.startsWith("CMP1:") &&
-          !value.startsWith("CMP2:")
-        ) {
-          value = __compressIfNeeded(value);
-        }
-        localStorage.setItem(key, value);
-      } catch (e) {
-        debugLog("Vault: could not write key", key, e);
+        localStorage.removeItem(restoreKeys[r]);
+      } catch (rollbackError) {
+        debugLog("Vault: rollback removal failed for", restoreKeys[r], rollbackError);
       }
     }
+    for (var p = 0; p < restoreKeys.length; p++) {
+      if (priorValues[restoreKeys[p]] === null) continue;
+      try {
+        localStorage.setItem(restoreKeys[p], priorValues[restoreKeys[p]]);
+      } catch (rollbackError) {
+        debugLog("Vault: rollback failed for", restoreKeys[p], rollbackError);
+      }
+    }
+    throw new Error("Vault restore failed while writing " + key + ": " + error.message);
   }
 
   // Refresh the full UI
@@ -261,6 +278,10 @@ async function restoreVaultData(payload) {
     if (typeof rehydrateCatalogState === "function") rehydrateCatalogState();
     if (typeof loadItemTags === "function") loadItemTags();
     if (typeof loadInventory === "function") await loadInventory();
+    // STRK-371: the restore wrote collectionState straight to storage. Re-hydrate AFTER the
+    // inventory so slot reads resolve against the restored items, or the stale in-memory
+    // Collections would overwrite the restored ones on the next link/unlink.
+    if (window.collectionsStore) window.collectionsStore.reload();
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof loadSpotHistory === "function") loadSpotHistory();
@@ -413,7 +434,7 @@ function _vaultBuildSettingsDiff(payload) {
   for (var i = 0; i < payloadKeys.length; i++) {
     var k = payloadKeys[i];
     // Skip inventory — handled separately via DiffEngine.compareItems
-    if (k === "metalInventory") continue;
+    if (k === "metalInventory" || k === "collectionState") continue;
     // Only include recognized storage keys
     if (settingsKeys.indexOf(k) === -1) continue;
     // Skip volatile cache keys (spot prices, timestamps) — async init updates
@@ -533,7 +554,12 @@ function _vaultApplyRestoreSettings(settingsDiff) {
  * @param {boolean} hasItemChanges Whether item changes were applied.
  * @param {boolean} appliedSettings Whether settings were written.
  */
-function _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSettings) {
+function _vaultRestoreSummaryToast(
+  selectedChanges,
+  hasItemChanges,
+  appliedSettings,
+  collectionsChanged
+) {
   var addCount = 0,
     modCount = 0,
     delCount = 0;
@@ -549,6 +575,7 @@ function _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSetti
   if (modCount > 0) parts.push(modCount + " updated");
   if (delCount > 0) parts.push(delCount + " removed");
   if (appliedSettings && !hasItemChanges) parts.push("settings updated");
+  if (collectionsChanged) parts.push("collections updated");
   if (typeof showToast === "function") {
     showToast("Backup restored: " + (parts.length > 0 ? parts.join(", ") : "no changes applied"));
   }
@@ -562,14 +589,12 @@ function _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSetti
  */
 function _vaultRestoreCompanionImages(capturedImageFile, password) {
   if (capturedImageFile && typeof vaultDecryptAndRestoreImages === "function") {
-    vaultDecryptAndRestoreImages(capturedImageFile, password)
-      .then(function (imgCount) {
-        debugLog("[Vault] Restored " + imgCount + " photo(s) from companion image vault");
-      })
-      .catch(function (imgErr) {
-        debugLog("[Vault] Image restore failed:", imgErr);
-      });
+    return vaultDecryptAndRestoreImages(capturedImageFile, password).then(function (imgCount) {
+      debugLog("[Vault] Restored " + imgCount + " photo(s) from companion image vault");
+      return imgCount;
+    });
   }
+  return Promise.resolve(0);
 }
 
 /**
@@ -582,10 +607,33 @@ function _vaultRestoreCompanionImages(capturedImageFile, password) {
  * @param {Uint8Array|null} capturedImageFile The companion image vault bytes.
  * @param {string} password Vault password.
  */
-function _vaultApplyRestoreSelection(selectedChanges, settingsDiff, capturedImageFile, password) {
+async function _vaultApplyRestoreSelection(
+  selectedChanges,
+  settingsDiff,
+  capturedImageFile,
+  password,
+  remoteCollectionState
+) {
+  var priorInventory = inventory;
+  var priorStorage = Object.create(null);
+  var touchedKeys = ["metalInventory", "collectionState"];
+  if (settingsDiff && settingsDiff.changed) {
+    settingsDiff.changed.forEach(function (change) {
+      touchedKeys.push(change.key);
+    });
+  }
+  touchedKeys.forEach(function (key) {
+    priorStorage[key] = localStorage.getItem(key);
+  });
   try {
     var hasItemChanges = _vaultApplyItemSelection(selectedChanges);
     var appliedSettings = _vaultApplyRestoreSettings(settingsDiff);
+    var collectionsChanged = false;
+    if (remoteCollectionState && window.collectionsStore) {
+      var merged = window.collectionsStore.mergeIn(parseVaultSettingValue(remoteCollectionState));
+      if (!merged.ok) throw new Error("Collections could not be saved (storage may be full)");
+      collectionsChanged = merged.changed;
+    }
 
     // STRK-186: settings writes can include catalog_api_config — rehydrate the
     // constructor-cached catalog singletons so a later CatalogConfig.save()
@@ -597,17 +645,48 @@ function _vaultApplyRestoreSelection(selectedChanges, settingsDiff, capturedImag
     // Save & render
     if (typeof clearInventoryRecovery === "function") clearInventoryRecovery();
     if (typeof debugLog === "function") debugLog("inventoryRecovery: cleared by vaultRestore");
-    if (typeof saveInventory === "function") saveInventory();
+    if (hasItemChanges && typeof tryPersistInventory === "function" && !tryPersistInventory()) {
+      throw new Error("Items could not be saved (storage may be full)");
+    }
     if (typeof renderTable === "function") renderTable();
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     if (typeof updateStorageStats === "function") updateStorageStats();
 
-    _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSettings);
-    _vaultRestoreCompanionImages(capturedImageFile, password);
+    _vaultRestoreSummaryToast(selectedChanges, hasItemChanges, appliedSettings, collectionsChanged);
   } catch (applyErr) {
+    inventory = priorInventory;
+    touchedKeys.forEach(function (key) {
+      try {
+        if (priorStorage[key] === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, priorStorage[key]);
+      } catch (rollbackError) {
+        debugLog("[Vault] Restore rollback failed for", key, rollbackError);
+      }
+    });
+    if (window.collectionsStore) window.collectionsStore.reload();
     debugLog("[Vault] Restore apply failed:", applyErr);
     if (typeof showToast === "function") {
       showToast("Restore failed: " + (applyErr.message || "Unknown error"));
+    }
+    return;
+  }
+
+  // PR 1500 review (P1): the main restore is committed above, and photo import
+  // writes to IndexedDB record-by-record, throwing only after the loop. By then
+  // earlier blobs are already overwritten and the rollback above — which covers
+  // inventory, localStorage and Collections — cannot put them back. Reverting here
+  // would pair good old state with half-replaced photos, so a companion-image
+  // failure is reported as a warning on a successful restore instead.
+  try {
+    await _vaultRestoreCompanionImages(capturedImageFile, password);
+  } catch (imageErr) {
+    debugLog("[Vault] Companion photo restore incomplete:", imageErr);
+    if (typeof showToast === "function") {
+      showToast(
+        "Restore complete, but some photos could not be imported: " +
+          (imageErr.message || "Unknown error"),
+        "warning"
+      );
     }
   }
 }
@@ -665,6 +744,37 @@ async function vaultRestoreWithPreview(fileBytes, password) {
   var totalChanges =
     diffResult.added.length + diffResult.modified.length + diffResult.deleted.length;
   if (totalChanges === 0 && !settingsDiff) {
+    if (payload.data.collectionState && window.collectionsStore) {
+      var collectionsOnly = window.collectionsStore.mergeIn(
+        parseVaultSettingValue(payload.data.collectionState)
+      );
+      if (!collectionsOnly.ok) {
+        if (typeof showToast === "function")
+          showToast(
+            "Restore failed: Collections could not be saved. Free storage and retry.",
+            "error"
+          );
+        return;
+      }
+      try {
+        await _vaultRestoreCompanionImages(capturedImageFile, password);
+      } catch (imageError) {
+        if (typeof showToast === "function")
+          showToast("Restore failed: artwork could not be saved. Free storage and retry.", "error");
+        return;
+      }
+      if (collectionsOnly.changed) {
+        if (typeof showToast === "function") showToast("Backup restored: collections updated");
+        return;
+      }
+    }
+    try {
+      await _vaultRestoreCompanionImages(capturedImageFile, password);
+    } catch (imageError) {
+      if (typeof showToast === "function")
+        showToast("Restore failed: artwork could not be saved. Free storage and retry.", "error");
+      return;
+    }
     if (typeof showToast === "function") {
       showToast("No differences found \u2014 backup matches current data");
     }
@@ -691,7 +801,13 @@ async function vaultRestoreWithPreview(fileBytes, password) {
       appVersion: payloadMeta.appVersion || null,
     },
     onApply: function (selectedChanges) {
-      _vaultApplyRestoreSelection(selectedChanges, settingsDiff, capturedImageFile, password);
+      return _vaultApplyRestoreSelection(
+        selectedChanges,
+        settingsDiff,
+        capturedImageFile,
+        password,
+        payload.data.collectionState
+      );
     },
     onCancel: function () {
       debugLog("[Vault] Restore preview cancelled");
@@ -740,8 +856,9 @@ function _base64ToBlob(b64, mimeType) {
  * haven't changed. Pattern images (STRK-185) travel in a separate
  * `patternRecords` array so payloads from older app versions (which lack it)
  * restore unchanged.
- * @returns {Promise<{payload: object, hash: string, imageCount: number, patternImageCount: number}|null>}
- *   null when there are no user-uploaded images and no pattern images.
+ * @returns {Promise<{payload: object, hash: string, imageCount: number, patternImageCount: number}|{enumerationFailed: true}|null>}
+ *   null when there are no user-uploaded images and no pattern images;
+ *   `{ enumerationFailed: true }` when the image cache could not be read at all.
  *   imageCount is the combined total (user + pattern).
  */
 async function collectAndHashImageVault() {
@@ -752,7 +869,27 @@ async function collectAndHashImageVault() {
     typeof imageCache.exportAllPatternImages === "function"
       ? (await imageCache.exportAllPatternImages()) || []
       : [];
-  if (records.length === 0 && patternSource.length === 0) return null;
+  if (window.collectionsCore && window.collectionsStore) {
+    var artworkState = window.collectionsStore.getState();
+    patternSource = patternSource.filter(function (record) {
+      return window.collectionsCore.isCurrentArtwork(
+        artworkState,
+        record.ruleId,
+        record.cachedAt,
+        record.digest
+      );
+    });
+  }
+  if (records.length === 0 && patternSource.length === 0) {
+    // PR 1500 review (P1): exportAll* return [] both when the store is genuinely
+    // empty AND when _ensureDb() could not open IndexedDB, so "no photos" and
+    // "could not read the photos" are indistinguishable here. Callers that act
+    // destructively on emptiness (the cloud-sync push deletes the remote image
+    // vault) must be able to tell them apart, so report the failure explicitly.
+    if (typeof imageCache.isAvailable === "function" && !imageCache.isAvailable())
+      return { enumerationFailed: true };
+    return null;
+  }
 
   var serialized = [];
   var failedCount = 0;
@@ -779,7 +916,7 @@ async function collectAndHashImageVault() {
   var serializedPatterns = [];
   for (var j = 0; j < patternSource.length; j++) {
     var p = patternSource[j];
-    var pEntry = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size };
+    var pEntry = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size, digest: p.digest };
     try {
       if (p.obverse instanceof Blob) {
         pEntry.obverse = await _blobToBase64(p.obverse);
@@ -910,7 +1047,20 @@ async function restoreImageVaultData(payload) {
       var p = patternRecords[j];
       if (!p.ruleId) continue;
       try {
-        var pRecord = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size };
+        if (
+          window.collectionsCore &&
+          window.collectionsStore &&
+          !window.collectionsCore.isCurrentArtwork(
+            window.collectionsStore.getState(),
+            p.ruleId,
+            p.cachedAt,
+            p.digest
+          )
+        )
+          continue;
+        var existingPattern = await imageCache.getPatternImage(p.ruleId);
+        if (existingPattern && Number(existingPattern.cachedAt) > Number(p.cachedAt)) continue;
+        var pRecord = { ruleId: p.ruleId, cachedAt: p.cachedAt, size: p.size, digest: p.digest };
         if (p.obverse) pRecord.obverse = _base64ToBlob(p.obverse, p.obverseType);
         if (p.reverse) pRecord.reverse = _base64ToBlob(p.reverse, p.reverseType);
         var pOk = await imageCache.importPatternImageRecord(pRecord);

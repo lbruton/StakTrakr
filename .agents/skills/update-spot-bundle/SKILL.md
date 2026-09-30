@@ -28,25 +28,26 @@ export SQLD_URL=http://192.168.1.81:8080
 ## Execution
 
 ```bash
-SQLD_URL=http://192.168.1.81:8080 python3 .Codex/skills/update-spot-bundle/update-spot-bundle.py
+SQLD_URL=http://192.168.1.81:8080 python3 .agents/skills/update-spot-bundle/update-spot-bundle.py
 ```
 
 Run from the **project root** (script resolves paths relative to itself).
 
 ## What It Does
 
-1. Scans `data/spot-history-{year}.json` files to find the most recent date
-2. Queries sqld for all spot prices **after** that date (fills the gap)
-3. Appends new rows to the current year's JSON file (`source: "sqld"`)
-4. Rebuilds `data/spot-history-bundle.js` from all year JSON files
+1. Queries sqld for one `AVG(spot)` per (metal, UTC day) over every **complete** UTC day (today is excluded), aggregated and rounded in SQL
+2. Merges into each `data/spot-history-{year}.json`: fills missing days, corrects earlier `source: "sqld"` entries, never overwrites a `source: "seed"` entry; sorted by date, then metal
+3. Rebuilds `data/spot-history-bundle.js` from all year JSON files
 
 Both the bundle (offline use) and the year JSON files (`fetchYearFile()` in HTTP mode) stay current.
+
+**Shared rule (STRK-403):** the Fly publisher writes the public API copy of the year file with the identical rule (`devops/pollers/shared/spot-year-history.js`). Change one, change both. Before STRK-403 this script appended only days after the latest file date — including the day in progress, never revisited — so every release froze a partial-day average.
 
 ## Verification
 
 After running, output should show:
 
-- `Found N new day×metal entries from sqld`
+- `sqld returned N day×metal averages` and either `Updated data/spot-history-YYYY.json (+N new, M corrected)` or `unchanged`
 - `Coverage: 1968 → <today>`
 - Bundle size 750 KB+
 

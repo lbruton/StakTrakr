@@ -3,9 +3,12 @@
 .AppleDouble
 .LSOverride
 
-# Node modules (if added in future)
-node_modules/
+# Node modules (no trailing slash so a symlinked node_modules in a worktree is ignored too)
+node_modules
 npm-debug.log*
+
+# Scratch dirs from tests/unit/post-edit-lint-hook.test.js (removed after each run)
+.tmp-hooktest-*/
 
 # Editor directories and files
 .vscode/
@@ -68,9 +71,10 @@ playwright-report/
 # Claude read tracker — session-scoped UUID-named read history, not project history
 claude-read-tracker/
 
-# Specflow transient run state — only config.json is tracked.
-.specflow/**
-!.specflow/config.json
+# Scratch space for in-flight work — mockups, source images before they are sized into
+# data/, throwaway HTML. Nothing here is referenced by the app. Untracked and multi-MB,
+# it was one `git add -A` away from landing in a PR (Collections beta, 2026-09).
+temp/
 
 # Local agent overrides — *.local.* files are per-machine, never shared
 # (e.g. settings.local.json, hookify *.local.md). Shared config has no .local. infix.
@@ -81,3 +85,6 @@ claude-read-tracker/
 # browser-session dir, not project history.
 .mcp.json
 .playwright-mcp/
+
+# Obsidian per-machine state (vault retired in STRK-411)
+/.obsidian/

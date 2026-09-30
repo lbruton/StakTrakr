@@ -8,6 +8,11 @@
 //
 // Route form is "#/name" (e.g. #/inventory). Bare hashes like #privacy and
 // #faq are deliberately ignored here — init.js consumes those at boot.
+//
+// A tab listed in SUB_ROUTE_TABS also owns ONE further segment, "#/name/<id>"
+// (STRK-368: #/collections/ase-type2 opens that album in-page). The router only
+// parses and exposes the segment (getTabSubRoute); what an id MEANS — and the
+// fallback for an unknown one — belongs to the tab's own module.
 // =============================================================================
 
 (() => {
@@ -15,6 +20,14 @@
 
   const TAB_NAMES = ["dashboard", "inventory", "market", "collections"];
   const DEFAULT_TAB = "dashboard";
+
+  // Tabs that accept a sub-route segment. Every other tab keeps the strict
+  // "#/name" form, so "#/inventory/anything" is still not a tab route.
+  const SUB_ROUTE_TABS = ["collections"];
+
+  // "#/name" with an optional "/<id>"; ids are lower-case slugs — a Series
+  // Template slug ("ase-type2") or a Custom Collection id ("custom-<uuid>").
+  const ROUTE_PATTERN = /^#\/([a-z]+)(?:\/([a-z0-9-]+))?$/;
 
   // The boot activation runs at parse time, before init.js. Any geometry
   // recompute must wait for that: updatePortalHeight (pagination.js) calls
@@ -28,12 +41,52 @@
   let currentTab = DEFAULT_TAB;
 
   /**
+   * Parse the current location hash into a tab route.
+   * @returns {{tab: string, sub: string}|null} Route, or null when the hash is not a
+   *   tab route. `sub` is "" unless the tab owns sub-routes and one is present.
+   */
+  const routeFromHash = () => {
+    const match = ROUTE_PATTERN.exec(window.location.hash || "");
+    if (!match || !TAB_NAMES.includes(match[1])) return null;
+    const sub = match[2] || "";
+    if (sub && !SUB_ROUTE_TABS.includes(match[1])) return null;
+    return { tab: match[1], sub };
+  };
+
+  /**
    * Parse the current location hash into a known tab name.
    * @returns {string|null} Tab name, or null when the hash is not a tab route.
    */
   const tabFromHash = () => {
-    const match = /^#\/([a-z]+)$/.exec(window.location.hash || "");
-    return match && TAB_NAMES.includes(match[1]) ? match[1] : null;
+    const route = routeFromHash();
+    return route ? route.tab : null;
+  };
+
+  /**
+   * The sub-route of the tab that is showing, e.g. "ase-type2" for
+   * "#/collections/ase-type2". Parsed live rather than cached: the owning module
+   * may correct an unknown id with history.replaceState, which fires no
+   * hashchange, and a cached copy would keep reporting the id it just rejected.
+   * @returns {string} Sub-route id, or "" when there is none.
+   */
+  const getTabSubRoute = () => {
+    const route = routeFromHash();
+    return route && route.tab === currentTab ? route.sub : "";
+  };
+
+  /**
+   * Tell a tab's own module that its panel was activated or its sub-route changed.
+   * Only Collections renders from the route today (STRK-368). Skipped during boot
+   * for the same reason as the geometry recomputes in activateTab: this file runs
+   * before init.js, so nothing a renderer needs is hydrated yet — collectionsUI
+   * paints its first frame itself once the app signals readiness.
+   * @param {string} tab - The tab that is now showing.
+   */
+  const notifyTabView = (tab) => {
+    if (!booted || tab !== "collections") return;
+    if (window.collectionsUI && typeof window.collectionsUI.render === "function") {
+      window.collectionsUI.render();
+    }
   };
 
   /**
@@ -143,6 +196,11 @@
     if (booted && typeof window.refreshTickerGeometry === "function") {
       window.refreshTickerGeometry();
     }
+
+    // Last, once the hash above is settled: a sub-route change arrives here through
+    // the hashchange handler, so this one call covers activation, Back/Forward and
+    // an in-page "#/collections/<id>" navigation alike.
+    notifyTabView(tab);
   };
 
   /**
@@ -237,4 +295,5 @@
   // Exposed for Playwright helpers and cross-module use (script-tag globals).
   window.activateTab = activateTab;
   window.applyTabVisibility = applyTabVisibility;
+  window.getTabSubRoute = getTabSubRoute;
 })();

@@ -1,0 +1,7 @@
+[
+  { "id": "zeta", "name": "Zeta", "owned": 1, "total": 2, "melt": 9, "best": 9 },
+  { "id": "alpha", "name": "Alpha", "owned": 2, "total": 4, "melt": 100, "best": 50 },
+  { "id": "beta", "name": "Beta", "owned": 1, "total": 4, "melt": 20, "best": 10 },
+  { "id": "delta", "name": "Delta", "owned": 0, "total": 2, "melt": 0, "best": null },
+  { "id": "unknown", "name": "Unknown", "owned": 1, "total": 3, "melt": null, "best": null }
+]

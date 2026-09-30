@@ -4,7 +4,7 @@ project: StakTrakr
 audience: agent
 canonical: .context/cloud-sync.md
 migration_source: "DocVault/Projects/StakTrakr/Foundation/cloud-sync.md" # historical provenance; migrated 2026-08-12
-updated: "2026-06-21"
+updated: "2026-09-26"
 ---
 
 # StakTrakr — Cloud Sync
@@ -366,6 +366,33 @@ Per-Item price history (`item-price-history` — shape `{ [uuid]: [{ ts, itemNam
 **STRK-224 (v3.35.40) — transient-failure & post-apply retry.** Two further watermark-advance gaps were closed. _Edge 2:_ a transient companion download/decrypt failure is non-throwing but previously returned the same `{hash:null, skipped:false}` shape as a benign precondition-miss no-op, so the watermark advanced and the `lastPull.syncId === remoteMeta.syncId` poll shortcut then blocked the retry. `_pullItemPriceHistoryVault` now returns an explicit `failed` flag (set **only** on the two transient returns — download `!resp.ok` and decrypt-catch); every call site declines to advance `lastPull` when it is set. _Edge 3:_ in the manifest-first (`_deferredVaultRestore`) and vault-first (`pullWithPreview`) apply paths, `_applyAndFinalize` records `syncId` **before** the post-apply companion write, so a write throw left `syncId` falsely advanced. Both paths now snapshot the full prior `lastPull` before the apply and restore it on a companion failure/throw, so the next poll retries. The merge algorithm is unchanged — only _when_ and _whether_ the watermark advances.
 
 **STRK-223 (v3.35.41) — propagating a "clear all".** Clearing all history is the one mutation the union merge cannot express (it only adds), so a clear on one device never reached the others. The fix is a synced tombstone: a new scalar **`itemPriceHistoryClearedAt`** (ms timestamp) that — unlike the companion vault data — **is** in `SYNC_SCOPE_KEYS`, riding the main vault like `itemTagsLastModified`. `clearItemPriceHistory()` stamps `Date.now()`; `applyItemPriceRetention()` then drops every entry with `ts <= clearedAt` on every save/merge/strict-write, so the clear converges through the existing commutative merge (a fresh device's `clearedAt` of 0 drops nothing; entries recorded _after_ the clear survive). **Push:** when local history is empty **and** the watermark post-dates the remote companion's last write, the push deletes the `.stvault` (`files/delete_v2`, mirroring the STAK-426 image path) and drops the pointer; a fresh/empty device with no watermark still preserves a populated remote companion. **Receive:** like the tag keys, the watermark is excluded from the blind settings-overwrite (`_isManagedSyncKey`, applied at all five settings-diff/apply sites) and reconciled by `_mergeItemPriceClearWatermark()` — a max-arbitration (an older remote can never un-clear a newer local watermark) that applies the drop immediately even when no companion is pulled. It is wired at both tag-merge chokepoints (`_applyAndFinalize` via the new `remoteRawSettings` option, and the manifest one-sided path) and is idempotent, so the deliberate double-coverage is safe. Cancel-safety is inherited: the hook only runs on apply paths, never on a cancelled preview (the `_vfApplied` gate). Shipped in **v3.35.41** (PR #1313).
+
+### Collections Sync (STRK-370)
+
+`collectionState` (Collections definitions + Slot → Item UUID links) is in `SYNC_SCOPE_KEYS` as a **managed key**: a blind last-write-wins overwrite would drop a Slot filled on another device, so it follows the same four-part contract as the tag stores and the STRK-223 watermark.
+
+| Part          | Where                                                                                     | Rule                                                                                                                                                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EXCLUDE**   | `_isManagedSyncKey` (inherited by all five settings-diff/apply sites)                     | Never appears in a settings diff, never blind-written. `importJson`'s settings filter excludes it too                                                                                                                               |
+| **RE-DETECT** | `_hasCollectionStateChange`, in the manifest silent-return guard beside `_mHasTagChanges` | True only when the remote would **contribute** something: `merge(local, remote) !== local`, on logical content. Not `local !== remote` — a device that is merely _ahead_ must not re-apply on every poll                            |
+| **APPLY**     | `_mergeCollectionState` → `collectionsStore.mergeIn` → `collectionsCore.mergeStates`      | Wired at `_applyAndFinalize` (via `remoteRawSettings`), the manifest one-sided auto-merge, and the vault-first silent branch. Commutative + idempotent, so the double coverage is safe. Apply paths only — never on a Cancel        |
+| **HOLD**      | every call site                                                                           | `_mergeCollectionState` **throws** on a failed write. `_applyAndFinalize` returns an explicit failure after rolling back inventory + tags + Collections; callers stop companion work, success reporting and `lastPull` advancement. |
+
+**Push:** `collectionsStore.save()` calls `scheduleSyncPush()` (guarded, best-effort) because a Collections-only edit never reaches `saveInventory()`. Cover and Slot image writes finish before their artwork metadata is saved and a push is scheduled. The image vault filters records behind removal stamps; a device that owned the current remote image vault deletes it when all local images are removed. A device that never held that vault preserves it. The poll-level `computeSettingsHash` already covers the managed key logically.
+
+**Restore paths** that rewrite the key behind the store's back — `restoreVaultData` and `syncRestoreOverrideBackup` — call `collectionsStore.reload()`; otherwise the stale in-memory state overwrites the restored one on the next mutation.
+
+**Test depth:** the contract is pinned by `tests/unit/cloud-sync-collection-state.test.js`, `tests/unit/collections-core.test.js`, and two-device mock Dropbox browser cases in `tests/playwright/core/collections-data-paths.spec.js` for all three apply paths, artwork, rollback, quota retry, and older links versus newer unlinks.
+
+### Hidden Collections Preference (STRK-393)
+
+`disabledCollections` stores the IDs of empty Collections hidden from the hub. It follows the ordinary synced-preference path like `chipBlacklist`: it is included in `SYNC_SCOPE_KEYS` and `ALLOWED_STORAGE_KEYS`, and automatic sync applies last-write-wins to the complete ID array. When a sync diff is presented, it offers one Local/Remote choice for the entire array (Remote is the default). Do not register a per-ID renderer or custom merge for it. `collectionState` remains the separate managed key merged by `_mergeCollectionState()`.
+
+The diff labels the setting “Hidden Collections.” Known IDs display their Collection name and template variant; unknown IDs stay visible as raw IDs.
+
+**Invariant — disabled means empty.** `collectionsStore.setEnabled()` refuses to hide a Collection while any Item UUID is linked; primary and Spare links both count. If a Collection becomes populated, `collectionsStore.isEnabled()` treats it as visible and `reconcilePopulated()` removes its ID from `disabledCollections`. `collectionsStore.save()` runs that reconciliation after saving `collectionState` (`js/collections-store.js:132–139`), and `collectionsStore.reload()` runs it after re-hydrating state written by a restore (`js/collections-store.js:57–60`).
+
+CloudSync reconciles only after each successful apply, so newly applied links cannot remain hidden by a stale `disabledCollections` array. The three call sites are `_applyAndFinalize()` (`js/cloud-sync.js:4272–4280`), the one-sided manifest auto-merge inside `pullWithPreview()` after all writes succeed (`js/cloud-sync.js:5265–5273`), and the vault-first silent apply inside `pullWithPreview()` (`js/cloud-sync.js:5793–5801`). Each runs before recording the successful pull; cancellation and failed applies do not reach these hooks.
 
 ---
 

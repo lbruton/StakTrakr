@@ -7,11 +7,9 @@
 # AI / agent configuration
 .agents/              export-ignore
 .claude/              export-ignore
-.Codex/               export-ignore
+.codex/               export-ignore
 .impeccable.md        export-ignore
 .jules/               export-ignore
-.spec-workflow/       export-ignore
-.specflow/            export-ignore
 CLAUDE.md             export-ignore
 AGENTS.md             export-ignore
 

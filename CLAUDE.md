@@ -6,6 +6,13 @@ Precious metals inventory tracker (**STRK** Plane prefix). Single HTML page, van
 
 Senior engineering partner for a solo-dev precious metals tracker. Direct, opinionated, verify-before-asserting.
 
+## Git & PR Workflow
+
+- Never push directly to `dev` or `main`. Both are protected. Always work in an isolated worktree (any branch type: feature, patch, chore, spec cohort) and open a PR.
+- Before calling a PR 'mergeable', check which status checks are required on the target branch (`gh pr checks` plus branch protection). Codacy is required on main.
+- Codacy duplication is a merge gate. Consolidate duplicated test setup into shared helpers instead of excluding tests from Codacy.
+- Post-merge cleanup: verify the merge actually landed (`gh pr view --json state,mergeCommit`) before deleting worktrees or branches. Then, only if this branch claimed a version lock, release it (chore/config PRs claim none).
+
 ## Commands
 
 ```bash
@@ -38,8 +45,9 @@ every worktree. Three tiers of truth:
   `devops/pollers/remote-poller/fly.toml`.
 
 Run `/context-drift` after architectural/infra work (replaces `/vault-drift` for this
-project). DocVault Foundation originals remain as human-dev guides only — never cite them
-as authority.
+project). Specs live in `docs/specs/` (STRK-411; this repo has no in-repo vault). Private
+docs and infra pages with LAN IPs live in the Devops repo vault, `Devops/DocVault/Projects/StakTrakr/`
+(`vault-path private`). The archived central DocVault Foundation originals are never authority.
 
 | Doc                                  | Read before                                                            |
 | ------------------------------------ | ---------------------------------------------------------------------- |
@@ -56,7 +64,7 @@ as authority.
 | `.context/git-topology.md`           | Worktrees, merges, releases, version lock, spot bundle                 |
 | `.context/implementation-gotchas.md` | The modules/patterns in the gotcha index below                         |
 | `.context/review-and-ci.md`          | Codacy scans, agentlint, pre-PR checks, reviewer false positives       |
-| `.context/sketch-conventions.md`     | Any `/sketch-*` phase work — branch naming, closing tasks              |
+| `.context/spec-conventions.md`       | Any `/spec-*` phase work — branch naming, closing tasks                |
 | `.context/GLOSSARY.md`               | Writing requirements, ACs, issue descriptions, commit messages         |
 
 ## Testing
@@ -84,7 +92,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 - `EnterWorktree` is denied in this repo — it cannot express a `dev` base. Create worktrees
   with git: `git fetch origin dev && git worktree add .worktrees/<name> -b <branch> origin/dev`.
 - **Full rules:** `.context/git-topology.md` — merge strategy, version lock high-water
-  mark, spot bundle, stale-branch detection, sketch overrides, EnterWorktree rationale.
+  mark, spot bundle, stale-branch detection, spec overrides, EnterWorktree rationale.
 
 ## Model Context Protocol Notes
 
@@ -99,9 +107,6 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
 - When claude-context returns thin results for a global, Grep the identifier directly — script-tag globals have no import graph, so Grep is the authoritative way to find every reference.
-- When calling `mcp__specflow__approvals` with `action: "request"`, set `filePath` relative to the specflow workflow root.
-- Example: `specs/<issue>-foo/requirements.md`.
-- Do not use a project-root path with `../DocVault/...` traversal; the dashboard content endpoint rejects paths containing `..`.
 
 ## Skills
 
@@ -113,6 +118,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 | `/retail-poller`                  | Retail pipeline — scraping, confidence, providers.json              |
 | `/retail-provider-fix`            | Diagnose scraping failures for individual dealers                   |
 | `/deploy-verify`                  | Post-deploy health (Portainer home + Fly.io cloud)                  |
+| `/cloud-infrastructure`           | Fly.io deploy/rollback, GitHub Pages API, Cloudflare Pages + DNS    |
 | `/faq`                            | In-app FAQ entries                                                  |
 | `/finishing-a-development-branch` | Implementation complete — merge/PR/cleanup                          |
 | `/pr-ready`                       | Pre-PR checklist                                                    |

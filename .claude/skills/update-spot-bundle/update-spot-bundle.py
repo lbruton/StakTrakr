@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """
-Update spot history bundle from sqld gap + year JSON files.
+Update spot history year JSON files from sqld, then rebuild the bundle.
 
 Flow:
-  1. Scan data/spot-history-{year}.json files to find the most recent date.
-  2. Query sqld for all spot prices AFTER that date (fills the gap).
-  3. Append new rows to the appropriate year JSON file(s).
-  4. Rebuild data/spot-history-bundle.js from all year JSON files.
+  1. Query sqld for one AVG(spot) per (metal, UTC day) over every COMPLETE
+     UTC day (the day in progress is excluded), aggregated and rounded in SQL.
+  2. Merge into each data/spot-history-{year}.json: sqld fills missing
+     (date, metal) keys and replaces its own earlier "sqld" entries; a "seed"
+     entry is never overwritten. Entries are sorted by date, then metal.
+  3. Rebuild data/spot-history-bundle.js from all year JSON files.
 
 This keeps the year JSON files current (used by fetchYearFile() in HTTP mode)
 and the bundle current (used for offline / file:// protocol).
+
+SHARED RULE (STRK-403): devops/pollers/shared/spot-year-history.js applies the
+identical rule to the public API copy of the year file. Change one, change both.
+Before STRK-403 this script appended only days AFTER the latest file date,
+including the day in progress, and never revisited it — every release froze a
+partial-day average (68 of them by 2026-09-26) and a 2026-02-27..03-08 hole.
 
 Usage (from project root):
     SQLD_URL=http://192.168.1.81:8080 python3 .claude/skills/update-spot-bundle/update-spot-bundle.py
@@ -144,20 +152,28 @@ def save_year_file(year, entries):
         json.dump(entries, f, separators=(", ", ": "))
 
 
-def find_latest_json_date():
+def entry_key(entry):
+    """(date, metal) identity of a year-file entry."""
+    return (str(entry.get("timestamp", ""))[:10], entry.get("metal"))
+
+
+def merge_year_entries(existing, fresh):
     """
-    Scan all year JSON files and return the latest timestamp string found.
-    Returns "1968-01-01" if no files exist.
+    Merge fresh sqld entries over an existing year file (mirrors
+    mergeYearEntries() in devops/pollers/shared/spot-year-history.js).
+
+    A fresh entry fills a missing (date, metal) key or replaces an earlier
+    source "sqld" entry (a frozen partial day). It never replaces a source
+    "seed" entry: sqld's first days held as little as 1 sample/day, and the
+    seed values are the better record. Output is sorted by date, then metal.
     """
-    latest = "1968-01-01"
-    current_year = datetime.date.today().year
-    for year in range(START_YEAR, current_year + 1):
-        entries = load_year_file(year)
-        for e in entries:
-            ts = str(e.get("timestamp", ""))[:10]  # "YYYY-MM-DD"
-            if ts > latest:
-                latest = ts
-    return latest
+    by_key = {entry_key(e): e for e in existing}
+    for e in fresh:
+        key = entry_key(e)
+        if by_key.get(key, {}).get("source") == "seed":
+            continue
+        by_key[key] = e
+    return sorted(by_key.values(), key=lambda e: (str(e.get("timestamp", ""))[:10], str(e.get("metal"))))
 
 
 # ── bundle builder ────────────────────────────────────────────────────────────
@@ -209,58 +225,62 @@ def main():
 
     sqld_token = os.environ.get("SQLD_AUTH_TOKEN", "").strip()
 
-    # ── Step 1: find gap start ────────────────────────────────────────────────
-    latest_json_date = find_latest_json_date()
-    print(f"Latest date in year JSON files: {latest_json_date}")
-
-    # ── Step 2: query sqld for gap data ──────────────────────────────────────
-    print(f"Querying sqld at {sqld_url} for data after {latest_json_date} ...")
+    # ── Step 1: query sqld for every complete UTC day ─────────────────────────
+    # The window ends at the start of today (UTC): the day in progress is
+    # never written, so a partial average can never be frozen into a file.
+    # Rounded in SQL so this script and spot-year-history.js read the identical
+    # number (Python round() is half-even, JS Math.round is half-up).
+    today_start = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+    print(f"Querying sqld at {sqld_url} for complete UTC days before {today_start[:10]} ...")
 
     sql = """
         SELECT
             metal,
             DATE(timestamp_floor) AS day,
-            AVG(spot)             AS spot
+            CASE
+                WHEN AVG(spot) < 1 THEN ROUND(AVG(spot), 4)
+                ELSE ROUND(AVG(spot), 2)
+            END AS spot
         FROM spot_prices
-        WHERE DATE(timestamp_floor) > ?
+        WHERE timestamp_floor < ?
         GROUP BY metal, day
         ORDER BY day, metal
     """
-    gap_rows = sqld_query(sqld_url, sqld_token, sql, args=[latest_json_date])
+    day_rows = sqld_query(sqld_url, sqld_token, sql, args=[today_start])
+    print(f"  sqld returned {len(day_rows)} day×metal averages.")
 
-    if not gap_rows:
-        print("  No new data in sqld since last JSON update.")
-    else:
-        print(f"  Found {len(gap_rows)} new day×metal entries from sqld.")
+    # ── Step 2: merge into year JSON files ────────────────────────────────────
+    fresh_by_year = defaultdict(list)
+    for row in day_rows:
+        day = str(row["day"])           # "YYYY-MM-DD"
+        metal_raw = str(row["metal"])   # "gold" etc.
+        metal = METAL_DISPLAY.get(metal_raw.lower(), metal_raw.capitalize())
+        if metal not in BUNDLE_METALS:
+            continue  # unexpected-metal gate — see BUNDLE_METALS
+        try:
+            price = round_price(float(row["spot"]))
+        except (TypeError, ValueError):
+            continue
+        fresh_by_year[int(day[:4])].append({
+            "spot": price,
+            "metal": metal,
+            "source": "sqld",
+            "timestamp": f"{day} 12:00:00",
+        })
 
-        # ── Step 3: append new rows to year JSON files ────────────────────────
-        new_by_year = defaultdict(list)
-        for row in gap_rows:
-            day = str(row["day"])           # "YYYY-MM-DD"
-            metal_raw = str(row["metal"])   # "gold" etc.
-            metal = METAL_DISPLAY.get(metal_raw.lower(), metal_raw.capitalize())
-            if metal not in BUNDLE_METALS:
-                continue  # unexpected-metal gate — see BUNDLE_METALS
-            spot = row["spot"]
-            try:
-                price = round_price(float(spot))
-            except (TypeError, ValueError):
-                continue
-            year = day[:4]
-            new_by_year[year].append({
-                "spot": price,
-                "metal": metal,
-                "source": "sqld",
-                "timestamp": f"{day} 12:00:00",
-            })
+    for year, fresh in sorted(fresh_by_year.items()):
+        existing = load_year_file(year)
+        merged = merge_year_entries(existing, fresh)
+        if merged == existing:
+            print(f"  data/spot-history-{year}.json unchanged")
+            continue
+        before = {entry_key(e): e for e in existing}
+        added = sum(1 for e in merged if entry_key(e) not in before)
+        replaced = sum(1 for e in merged if entry_key(e) in before and before[entry_key(e)] != e)
+        save_year_file(year, merged)
+        print(f"  Updated data/spot-history-{year}.json (+{added} new, {replaced} corrected)")
 
-        for year, new_entries in sorted(new_by_year.items()):
-            existing = load_year_file(int(year))
-            combined = existing + new_entries
-            save_year_file(int(year), combined)
-            print(f"  Updated data/spot-history-{year}.json (+{len(new_entries)} entries)")
-
-    # ── Step 4: rebuild bundle from all year JSON files ───────────────────────
+    # ── Step 3: rebuild bundle from all year JSON files ───────────────────────
     print("Rebuilding bundle from year JSON files ...")
     bundle, total_entries = build_bundle_from_json_files()
 
@@ -271,10 +291,8 @@ def main():
     all_years = sorted(bundle.keys())
     min_year = all_years[0]
 
-    # Find the actual max date across all entries in the latest year
-    max_date = latest_json_date
-    if gap_rows:
-        max_date = max(str(r["day"]) for r in gap_rows)
+    # Actual max date across all entries in the latest year
+    max_date = max(entry_key(e)[0] for e in load_year_file(int(all_years[-1])))
 
     js_data = json.dumps(bundle, separators=(",", ":"))
     js_content = (
@@ -290,8 +308,6 @@ def main():
     print(f"\nWritten {OUTPUT_FILE}")
     print(f"  {total_entries:,} entries · {len(bundle)} years · {file_size:,} bytes ({file_size // 1024} KB)")
     print(f"  Coverage: {min_year} → {max_date}")
-    if gap_rows:
-        print(f"  New entries added from sqld: {len(gap_rows)}")
     print()
     print("Next: git add data/spot-history-bundle.js data/spot-history-*.json")
 

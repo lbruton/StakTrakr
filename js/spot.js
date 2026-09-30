@@ -613,6 +613,14 @@ const fetchSpotPrice = () => {
 };
 
 /**
+ * Notifies live consumers after a Spot Price mutation completes.
+ * @returns {void}
+ */
+const notifySpotUpdated = () => {
+  document.dispatchEvent(new CustomEvent("spot:updated"));
+};
+
+/**
  * Updates spot price for specified metal from user input
  *
  * @param {string} metalKey - Key of metal to update ('silver', 'gold', 'platinum', 'palladium')
@@ -666,6 +674,8 @@ const updateManualSpot = (metalKey) => {
   }
 
   if (typeof renderRatioChips === "function") renderRatioChips();
+
+  notifySpotUpdated();
 
   return undefined;
 };
@@ -726,6 +736,8 @@ const resetSpot = (metalKey) => {
   if (typeof hideManualInput === "function") {
     hideManualInput(metalConfig.name);
   }
+
+  notifySpotUpdated();
 };
 
 /**
@@ -1443,6 +1455,8 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
       onGoldSpotPriceChanged();
 
     if (typeof renderRatioChips === "function") renderRatioChips();
+
+    notifySpotUpdated();
   };
 
   input.addEventListener("keydown", (e) => {

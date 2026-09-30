@@ -1793,22 +1793,16 @@
           <div id="vendorPricesContainer"></div>
         </section>
       </div>
-      <!-- v2 tab view: Collections placeholder (STRK-282; built out under STRK-254) -->
+      <!-- v2 tab view: Collections (STRK-282 shell; STRK-368 UI, epic STRK-254).
+           #collectionsSectionEl is the render root owned by js/collections-ui.js: the hub,
+           the in-page album, or the placeholder when the COLLECTIONS flag is off. -->
       <div
         class="tab-view"
         id="tabViewCollections"
         role="tabpanel"
         aria-labelledby="tabBtnCollections"
       >
-        <section class="collections-section" id="collectionsSectionEl">
-          <div class="collections-empty">
-            <h2>Collections</h2>
-            <p>
-              Prebuilt date runs and custom checklists are on the way. This tab is the shell they
-              will render into.
-            </p>
-          </div>
-        </section>
+        <section class="collections-section" id="collectionsSectionEl"></section>
       </div>
       <!-- =============================================================================
          IMPORT/EXPORT SECTION
@@ -3586,6 +3580,25 @@
               </svg>
               Images
             </button>
+            <button class="settings-nav-item" data-section="collections">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="7" cy="7" r="3.2" />
+                <circle cx="17" cy="7" r="3.2" />
+                <circle cx="7" cy="17" r="3.2" />
+                <circle cx="17" cy="17" r="3.2" stroke-dasharray="2.2 2" />
+              </svg>
+              Collections
+            </button>
             <button class="settings-nav-item" data-section="currency">
               <svg
                 width="16"
@@ -4767,6 +4780,24 @@
               </div>
             </div>
 
+            <!-- ===== COLLECTIONS (STRK-393) ===== -->
+            <div
+              class="settings-section-panel"
+              id="settingsPanel_collections"
+              style="display: none"
+            >
+              <h3>Collections</h3>
+              <p
+                class="settings-subtext collections-settings-summary"
+                id="collectionsSettingsSummary"
+              >
+                Choose which Collections appear in the Collections hub. Turning one off only hides
+                it; its Slots, artwork and Items stay as they are. A Collection with linked Items
+                stays on.
+              </p>
+              <div id="collectionsSettingsRoot"></div>
+            </div>
+
             <!-- ===== INVENTORY ===== -->
             <div class="settings-section-panel" id="settingsPanel_system" style="display: none">
               <h3>Inventory</h3>
@@ -4940,7 +4971,21 @@
                         >
                           Restore ZIP Backup
                         </button>
+                        <button
+                          class="btn warning"
+                          id="importCollectionsBtn"
+                          title="Merge a Collections file — adds what is missing, never overwrites"
+                          style="
+                            font-size: 0.82rem;
+                            padding: 0.4rem 0.6rem;
+                            min-height: 0;
+                            grid-column: span 2;
+                          "
+                        >
+                          Import Collections
+                        </button>
                       </div>
+                      <input accept=".json" hidden id="importCollectionsFile" type="file" />
                       <input accept=".csv" hidden id="importCsvFile" type="file" />
                       <input accept=".json" hidden id="importJsonFile" type="file" />
                       <input accept=".zip" hidden id="importZipFile" type="file" />
@@ -5008,7 +5053,7 @@
                           class="btn info"
                           id="exportJsonBtn"
                           aria-describedby="exportJsonDesc"
-                          title="Inventory items only — no settings or price history"
+                          title="Inventory items and Collections definitions — no image files"
                           style="
                             font-size: 0.82rem;
                             padding: 0.4rem 0.6rem;
@@ -5019,7 +5064,7 @@
                           Export JSON
                         </button>
                         <span id="exportJsonDesc" class="sr-only"
-                          >Inventory items only — no settings or price history</span
+                          >Inventory items and Collections definitions — no image files</span
                         >
                         <button
                           class="btn info"
@@ -5054,6 +5099,24 @@
                         </button>
                         <span id="exportZipDesc" class="sr-only"
                           >Full backup — inventory, settings, price history, and images</span
+                        >
+                        <button
+                          class="btn info"
+                          id="exportCollectionsBtn"
+                          aria-describedby="exportCollectionsDesc"
+                          title="Collections only — definitions and which items fill each slot"
+                          style="
+                            font-size: 0.82rem;
+                            padding: 0.4rem 0.6rem;
+                            min-height: 0;
+                            width: 100%;
+                            grid-column: span 2;
+                          "
+                        >
+                          Export Collections
+                        </button>
+                        <span id="exportCollectionsDesc" class="sr-only"
+                          >Collections only — definitions and which items fill each slot</span
                         >
                         <button
                           class="btn success"
@@ -6720,6 +6783,18 @@
                 <p class="faq-limitations-intro">
                   We believe in transparency. Here are real trade-offs you should know about.
                 </p>
+
+                <details class="faq-item">
+                  <summary class="faq-question">Can I turn off a Collection?</summary>
+                  <div class="faq-answer">
+                    <p>
+                      You can turn off a Collection only while it has no linked Items; Spare Items
+                      count too. Turning it off hides the Collection without deleting it or any
+                      data. If another device or a restore adds Items to a hidden Collection,
+                      StakTrakr turns it back on automatically.
+                    </p>
+                  </div>
+                </details>
 
                 <details class="faq-item">
                   <summary class="faq-question">localStorage can be cleared unexpectedly</summary>
@@ -8927,6 +9002,31 @@
          time only. Hosts (STRK-271 modal, STRK-273 /ratios/ page) call
          renderRatiosPanel(). Must precede init.js. -->
     <script defer src="./js/ratios-panel.js"></script>
+
+    <!-- STRK-368 (epic STRK-254): Collections module. collections-core.js is the pure
+         data layer; collections-store.js is the storage + inventory seam (must follow
+         core); collections-hub.js and collections-album.js register the two renderers,
+         then collections-ui.js wires them to the store and the route. The Series Template
+         bundle is read lazily, so its position is
+         free — it is a script-tag global because file:// cannot fetch() local JSON, the
+         same reason spot-history-bundle.js exists. collections-picker.js (link picker +
+         custom builder) and collections-item-view.js (item view chip + section) are
+         reached only at runtime through window.collectionsPicker / collectionsItemView,
+         so they just need to follow the store. collections-io.js (STRK-371: standalone
+         file, JSON envelope, CSV column) is likewise runtime-only via window.collectionsIO.
+         All must precede tabs.js, which notifies collectionsUI on activation, and init.js,
+         which hydrates the store. -->
+    <script defer src="./js/collections-core.js"></script>
+    <script defer src="./js/collections-store.js"></script>
+    <script defer src="./js/collections-io.js"></script>
+    <script defer src="./js/collections-sort.js"></script>
+    <script defer src="./js/collections-hub.js"></script>
+    <script defer src="./js/collections-album.js"></script>
+    <script defer src="./js/collections-ui.js"></script>
+    <script defer src="./js/collections-picker.js"></script>
+    <script defer src="./js/collections-item-view.js"></script>
+    <script defer src="./js/collections-settings.js"></script>
+    <script defer src="./data/collections-bundle.js"></script>
 
     <!-- STRK-282: tab shell view switching. Must precede init.js. -->
     <script defer src="./js/tabs.js"></script>

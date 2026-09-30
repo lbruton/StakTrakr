@@ -612,7 +612,9 @@ test.describe("core/import-export", () => {
 
     const result = await page.evaluate(async (password) => {
       const raw = localStorage.getItem("metalInventory");
-      const original = JSON.parse(raw);
+      // STRK-369: read through the wrapper — the identity back-fill now rewrites the
+      // uuid-less seed at boot, and at this size the stored value is CMP2-compressed.
+      const original = window.loadDataSync("metalInventory", []);
       const modifiedItems = original.map((item) => ({ ...item }));
       modifiedItems[0].notes = "MODIFIED-BY-STRK-118";
       modifiedItems.push({

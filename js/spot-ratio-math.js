@@ -262,7 +262,11 @@ const isTradingDate = (isoDate) => {
  * honest), so a pair whose metals start in different years self-truncates
  * correctly (Pt/Pd begin 1990; Au/Ag begin 1968) with no date-range
  * special-casing. When one metal has multiple closes on the same date, the
- * later timestamp wins (live data over seed).
+ * later timestamp wins (live data over seed); on an EQUAL timestamp the entry
+ * later in source order wins. Both hosts append the API/live overlay after the
+ * seed-bundle cache, and the API year file shares the bundle's "12:00:00"
+ * stamp — so a stale cached bundle row never beats a corrected overlay row
+ * (STRK-403).
  * @param {Map<number, Array>|Array} source - historicalDataCache map or flat entries array
  * @param {string} numMetal - Numerator bundle metal key (e.g. "Gold")
  * @param {string} denMetal - Denominator bundle metal key (e.g. "Silver")
@@ -286,7 +290,7 @@ const buildRatioSeries = (source, numMetal, denMetal) => {
     const isoDate = cacheEntry.timestamp.slice(0, 10);
     if (!isTradingDate(isoDate)) continue;
     const held = sideCloses.get(isoDate);
-    if (!held || cacheEntry.timestamp > held.timestamp) sideCloses.set(isoDate, cacheEntry);
+    if (!held || cacheEntry.timestamp >= held.timestamp) sideCloses.set(isoDate, cacheEntry);
   }
   const series = [];
   for (const [isoDate, numEntry] of numCloses) {

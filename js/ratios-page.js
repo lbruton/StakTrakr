@@ -26,9 +26,11 @@ const RATIOS_PAGE_SPOT_URL = "https://api.staktrakr.com/data/v2/spot/latest.json
 const RATIOS_PAGE_SPOT_STALE_FLOOR = 1200;
 
 /**
- * Current-year feed sources, freshest first. The API origin copy is published
- * continuously by the poller's api branch (verified live), while the
- * same-origin copy under ../data/ only refreshes when a release deploys — so
+ * Current-year feed sources, freshest first. The API origin copy is rewritten
+ * from sqld by the Fly publisher every publish (devops/pollers/shared/
+ * spot-year-history.js via api-export.js, STRK-403) and carries every complete
+ * UTC day through yesterday, while the same-origin copy under ../data/ only
+ * refreshes when a release deploys — so
  * the API origin is what actually closes the release-cadence staleness gap,
  * and same-origin is the offline/api-down fallback.
  * @param {number} year - UTC calendar year
@@ -92,9 +94,10 @@ window._loadSpotSeedBundle = function (bundle) {
  * only at release time, so alone it can leave 52-week stats up to a release
  * cycle stale; the API-origin year file is republished continuously between
  * releases (the same-origin copy is only a fallback — it is exactly as old as
- * the deploy). Rows go into the spotHistory overlay — buildRatioSeries
- * dedupes same-date closes toward the later timestamp, so fresher rows win
- * over seed rows. UTC year on purpose: feed files are keyed by UTC calendar
+ * the deploy). Rows go into the spotHistory overlay, which is appended AFTER
+ * the bundle cache — buildRatioSeries dedupes same-date closes toward the
+ * later timestamp and, on an equal "12:00:00" stamp, toward the later entry,
+ * so overlay rows win over seed rows. UTC year on purpose: feed files are keyed by UTC calendar
  * date.
  * @returns {Promise<void>}
  */

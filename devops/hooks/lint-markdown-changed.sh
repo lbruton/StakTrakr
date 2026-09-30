@@ -11,6 +11,11 @@ elif [ "${1:-}" = "--staged" ]; then
   mode="staged"
 fi
 
+# docs/specs/ holds spec records (STRK-411): historical artifacts not held to the repo
+# markdownlint config (see .markdownlintignore). markdownlint-cli
+# does not apply .markdownlintignore to explicitly passed files, so exclude it here.
+SPECS_EXCLUDE=(":(exclude)docs/specs/**")
+
 candidate_files=()
 append_unique_files() {
   while IFS= read -r file_path; do
@@ -31,10 +36,10 @@ append_unique_files() {
 }
 
 if [ "$mode" = "changed" ]; then
-  append_unique_files < <(git diff --name-only --diff-filter=ACMRTUXB HEAD -- '*.md')
-  append_unique_files < <(git ls-files --others --exclude-standard -- '*.md')
+  append_unique_files < <(git diff --name-only --diff-filter=ACMRTUXB HEAD -- '*.md' "${SPECS_EXCLUDE[@]}")
+  append_unique_files < <(git ls-files --others --exclude-standard -- '*.md' "${SPECS_EXCLUDE[@]}")
 else
-  append_unique_files < <(git diff --cached --name-only --diff-filter=ACMRTUXB -- '*.md')
+  append_unique_files < <(git diff --cached --name-only --diff-filter=ACMRTUXB -- '*.md' "${SPECS_EXCLUDE[@]}")
 fi
 
 if [ "${#candidate_files[@]}" -eq 0 ]; then

@@ -7,6 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.34] - 2026-09-27
+
+### Changed — STRK-403: Spot history accuracy
+
+- **Year history**: 2026 daily spot prices now use full UTC-day averages. 261 values that were recorded before their day ended are corrected, and a missing Feb 27 – Mar 8 stretch is filled in (STRK-403).
+- **Public API**: `api.staktrakr.com/data/spot-history-YYYY.json` is published from the price database again — it had stopped at Feb 26 (STRK-403).
+- **Ratios**: When the live feed and the bundled history disagree on a day, the fresher feed value wins (STRK-403).
+
+---
+
+## [3.36.33] - 2026-09-26
+
+### Changed — STRK-378: Order the Collections hub
+
+- **Settings → Collections**: Series Templates and Custom Collections now share one My order list with Template and Custom badges. Drag a row or use the arrows to set the order the hub shows; each move saves at once on this device (STRK-378).
+- **Collections hub**: Ledger column headers sort and remember the choice. A small Arrange button at the right of the Ledger header reorders rows by drag or arrows, with Done and Cancel. The Album follows the active sort and shows a one-line "Sorted by …" note with a Show My order link. Fresh profiles keep the chronological Series Template order (STRK-378).
+
+---
+
+## [3.36.32] - 2026-09-26
+
+### Changed — STRK-393: Collections Settings and visibility
+
+- **Collections settings**: View template and Custom Collection progress, hide empty Collections from Album and Ledger, and open Custom Collections in the builder. Populated Collections stay visible, and a Collection that receives an Item through cloud sync or ZIP restore returns automatically; disabled choices persist across devices and backups (STRK-393).
+
+---
+
+## [3.36.31] - 2026-09-25
+
+### Changed — STRK-401: Show item images toggle for Custom Collections
+
+- **Collections**: Custom Collections can hide linked Item photos, so filled Slots show the collection's own artwork. Set Item images to Hide under Coin side in the editor (STRK-401).
+
+---
+
+## [3.36.30] - 2026-09-25
+
+### Changed — STRK-400: Custom Collection editor layout polish
+
+- **Custom Collection editor**: Removed backup details and the Slots rename hint from the modal. The Cover Image upload is larger and sits beside a new Obverse/Reverse Coin side toggle below Description (STRK-400).
+
+---
+
+## [3.36.29] - 2026-09-24
+
+### Changed — STRK-390: Custom Collection coin side and Slot notes
+
+- **Collections**: Custom Collections can declare whether their artwork is Obverse or Reverse, and Slot notes now appear in Album and Ledger views (STRK-390).
+
+---
+
+## [3.36.28] - 2026-09-24
+
+### Changed — STRK-392: Sort the Collections hub Ledger
+
+- **Ledger sorting**: Sort Collections by name, Progress, Owned, Value (melt), or To complete using keyboard-accessible headers or the mobile Sort control. Filters retain the selected sort, equal values keep default order, and unavailable values remain last in either direction (STRK-392).
+- **Order preservation**: Ledger sorting is transient; Album cards and saved Collection and Slot order stay unchanged. Slot Ledger header sorting remains deferred (STRK-392).
+
+---
+
+## [3.36.27] - 2026-09-23
+
+### Fixed — STRK-398: Collections match Items entered in grams
+
+- **Fixed**: Collections now suggests Items entered in grams (or any metric unit) for their year Slot — they showed Not owned even when owned, because stored troy-oz weights were converted a second time (STRK-398)
+- **Fixed**: The link picker shows an Item's weight in its own unit (31.10 g) instead of the raw troy-oz number beside a gram label (STRK-398)
+- **Improved**: The link picker opens filtered to the Slot's year, with an All items chip to see everything (STRK-398)
+
+---
+
+## [3.36.26] - 2026-09-21
+
+### Fixed — STRK-380: Collections visibility respects Layout
+
+- **Item View**: Hiding Collections in Settings > Layout also removes membership chips, details, and Open actions, while Slot links remain intact and return when Collections is re-enabled (STRK-380)
+
+---
+
+## [3.36.25] - 2026-09-19
+
+### Changed — STRK-368: Collections beta and merge preparation
+
+- **Collections**: Silver Eagle Type 1 and Type 2 date runs, Custom Collections, Item links, album and ledger views, and a Settings toggle arrive as an on-by-default beta (STRK-368, STRK-372)
+- **Cloud Sync**: Concurrent Slot edits and newer unlinks converge; failed Collections writes stop apply and preserve retry state, while cover and Slot artwork additions and removals sync between devices (STRK-370, STRK-377)
+- **Backups**: ZIP, encrypted vault, standalone Collections, JSON, and CSV paths preserve Collection links; failed writes report incomplete imports or restores, and CSV memberships commit together (STRK-371, STRK-377)
+- **Reliability**: Legacy Item identity is persisted before Collection linking, stock collection art is available offline, and cost to complete refreshes when retail prices arrive (STRK-369, STRK-372)
+
+### Fixed — PR 1500 review: commit ordering on the data-safety paths
+
+- **Cloud Sync**: A transient image-cache failure no longer reads as "the user deleted every photo", so a push can no longer delete the remote image vault while IndexedDB is unavailable
+- **Cloud Sync**: A Collections-only pull merges the Collection before its cover and Slot artwork is judged, so art for a Collection this device has not seen yet is no longer discarded as orphaned and stranded behind a recorded image hash
+- **Backups**: A restore whose photos partly fail to import now reports the photo shortfall against a completed restore instead of reverting items, settings, and Collections that the already-overwritten photos could not be reverted with
+- **Inventory**: Deleting an Item waits for the inventory write to persist before pruning its Collection membership, so a suppressed or failed write can no longer tombstone the membership of an Item that survives a reload
+
+---
+
 ## [3.36.24] - 2026-09-11
 
 ### Changed — STRK-367: Detail modal — ship-review fixes (stacked Item View, chart leak, stale refresh, malformed dates)

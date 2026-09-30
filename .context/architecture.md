@@ -174,14 +174,16 @@ For full file:line traceability see STRK-13 verification and the Plane issue at 
 
 ### Weight Units and Valuation
 
-The item data model uses `weightUnit` to decide whether `weight` is already fine troy ounces or needs conversion before valuation:
+`weightUnit` says what `weight` holds: for the metric/troy units it is only a display lens over a value already stored in troy ounces, while `gb`, `sb`, and `cu` store raw inputs that are converted when read:
 
-| Unit                  | Meaning                                                                   | Conversion                                                                  |
-| --------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `oz`, `g`, `kg`, `lb` | Standard bullion weight entry modes                                       | Normalized to troy ounces before valuation                                  |
-| `gb`                  | Goldback denomination count                                               | `weight * GB_TO_OZT`                                                        |
-| `sb`                  | Silverback unit count                                                     | `weight * SB_TO_OZT`                                                        |
-| `cu`                  | Constitutional / junk-silver inputs (denomination + count, or face value) | `getConstitutionalSilverOz(item)` — already pure, qty-folded, wear-adjusted |
+| Unit                                | Meaning                                                                   | Conversion                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `oz`, `g`, `mg`, `kg`, `lb`, `avdp` | Standard bullion weight entry modes                                       | Converted to troy oz **at save** by `parseWeight`                           |
+| `gb`                                | Goldback denomination count                                               | `weight * GB_TO_OZT`                                                        |
+| `sb`                                | Silverback unit count                                                     | `weight * SB_TO_OZT`                                                        |
+| `cu`                                | Constitutional / junk-silver inputs (denomination + count, or face value) | `getConstitutionalSilverOz(item)` — already pure, qty-folded, wear-adjusted |
+
+For the metric/troy group, `weight` is **already** troy oz and `weightUnit` only chooses the display unit (`formatWeight` converts outward). Code that needs ounces must read them through `getUnitOztWeight(item)` (or `getConstitutionalSilverOz` for `cu`) — never divide or multiply by unit again. STRK-398 was exactly that: Collections re-converted gram items and never matched them.
 
 Goldbacks are the only type eligible for the Goldback denomination retail-price path. Silverbacks use the dedicated `sb` unit and fall through to melt-based retail valuation (`weight * SB_TO_OZT * spot * purity`). Legacy Silverback records that were stored as `weightUnit: "gb"` are migrated to `sb` during load, import, encrypted backup restore, and cloud restore preview paths.
 
@@ -202,7 +204,7 @@ Goldbacks are the only type eligible for the Goldback denomination retail-price 
 ### Second PWA — Metal Ratios at `/ratios/` (STRK-268, v3.35.66–71)
 
 - **Public, permanent URL** `/ratios/` (directory on purpose — PWA scope is a path prefix, so it owns `scope: "/ratios/"` without colliding with the main app's `"/"`). Own manifest (`ratios/manifest.json`) with explicit `id`, balance-scale icon set (`images/ratios-icon*`), and an Android `shortcuts` entry on the **main** manifest.
-- Host script `js/ratios-page.js` runs without the main app: defines `_loadSpotSeedBundle` + the panel's bare globals, merges the **API-origin** current-year feed file (`api.staktrakr.com/data/spot-history-YYYY.json`, continuously published — the same-origin copy is release-stale) over the seed bundle, and gates the Live badge on envelope freshness (`generated_at`/`stale_after`).
+- Host script `js/ratios-page.js` runs without the main app: defines `_loadSpotSeedBundle` + the panel's bare globals, merges the **API-origin** current-year feed file (`api.staktrakr.com/data/spot-history-YYYY.json`, rewritten from sqld every publish by `spot-year-history.js` through yesterday's complete UTC day, STRK-403 — the same-origin copy is release-stale) over the seed bundle, and gates the Live badge on envelope freshness (`generated_at`/`stale_after`).
 - Registers the **root** `sw.js` (scope `/` already controls `/ratios/`; a controlling SW on `start_url` is what enables Chrome installability). Renders offline from its own precached shell.
 - Shared UI: `js/ratios-panel.js` (Layout C panel, STRK-270) is mounted by both this page and the in-app modal opened from the spot-card ratio chips (STRK-271). Statistics engine in `js/spot-ratio-math.js` (STRK-269): weekday-only session series (weekend gap-fill rows filtered), both-metals-printed join, trailing session windows (261 = 1Y, 1,305 = 5Y).
 
@@ -378,8 +380,8 @@ Full typedef in `js/types.js`. All fields persist in the `metalInventory` localS
 | `name`                                    | String           | Display name                                                                                                                                                |
 | `type`                                    | String           | `"Coin"` \| `"Round"` \| `"Bar"` \| …                                                                                                                       |
 | `metal`                                   | String           | `"Silver"` \| `"Gold"` \| `"Platinum"` \| `"Palladium"` \| `"Copper"` (STRK-305)                                                                            |
-| `weight`                                  | Number           | Fine troy oz per unit (Goldback denomination when `weightUnit === 'gb'`; face-per-coin or total face value when `weightUnit === 'cu'`)                      |
-| `weightUnit`                              | String           | `"oz"` (default) \| `"g"` \| `"kg"` \| `"lb"` \| `"gb"` \| `"sb"` \| `"cu"`                                                                                 |
+| `weight`                                  | Number           | Troy oz per unit whatever the display unit (denomination for `gb`/`sb`; face value for `cu`) — read as ozt via `getUnitOztWeight`                           |
+| `weightUnit`                              | String           | `"oz"` (default) \| `"g"` \| `"mg"` \| `"kg"` \| `"lb"` \| `"avdp"` \| `"gb"` \| `"sb"` \| `"cu"`                                                           |
 | `constitutionalVariant`                   | String           | `cu` items only — `CONSTITUTIONAL_VARIANTS` id (e.g. `con-90-quarter`). Hyphenated; exempt from `sanitizeObjectFields` stripping                            |
 | `constitutionalEntryMode`                 | String           | `cu` items only — `"denom"` (variant + count) \| `"face"` (total face value)                                                                                |
 | `purity`                                  | Number           | Metal purity 0.0–1.0 (default 1.0)                                                                                                                          |
@@ -414,6 +416,50 @@ Written to `item.disposition` when an item is sold/disposed. Never re-derived af
 
 **Partial-stack splits (STRK-44):** When `disposedQty < stackQty`, the original record is decremented in place (no disposition set) and a `structuredClone` is inserted at `idx + 1` with `qty = disposedQty`, a fresh `uuid` + `serial`, and a disposition containing `splitFromUuid`. Two correlated Activity Log entries share the same `transactionId` (the `disposedAt` ISO timestamp) and undo atomically via `confirmCascadeUndo`. Restoring a split clone prompts merge-or-separate.
 
+### Collections Module (STRK-368, epic STRK-254)
+
+A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Series Template, Date Run, Tombstone, Cost to Complete) are defined in `.context/GLOSSARY.md`.
+
+| Layer            | File                                                                       | Role                                                                                                                                                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core             | `js/collections-core.js`                                                   | Pure, DOM-free, storage-free (`window.collectionsCore`). Link integrity, spare promotion, tombstones, slot suggestions (weight via `getUnitOztWeight`, STRK-398), `mergeStates`. Unit harness injects the real helper.                        |
+| Store            | `js/collections-store.js`                                                  | The only file touching storage, the live `inventory` global and the template bundle (`window.collectionsStore`). Fires `collections:changed` on `document`. Owns the add-new-item-from-slot flow.                                             |
+| IO               | `js/collections-io.js`                                                     | Data paths outside ZIP / `.stvault` (`window.collectionsIO`, STRK-371): standalone Collections file, the JSON export envelope, and the CSV `Collections` column. All imports go through `mergeIn`/`link`.                                     |
+| UI               | `js/collections-ui.js`, `js/collections-hub.js`, `js/collections-album.js` | Route and image resolution plus separate hub and album renderers. Item-modal membership affordances follow Settings > Layout Collections visibility, without changing `collectionState`. All three load after the store and before `tabs.js`. |
+| Series Templates | `data/collections/<slug>/collection.json` + `index.json`                   | Canonical first-party catalog data (slots, mintages, specs, stock images, sources).                                                                                                                                                           |
+| Template bundle  | `data/collections-bundle.js` (generated, committed)                        | `window.__COLLECTIONS_BUNDLE`. Exists because `file://` cannot `fetch()` local JSON — the same split as `spot-history-bundle.js`. Rebuild with `npm run build:collections`; a unit test fails on drift.                                       |
+| Bundle builder   | `devops/collections/build-collections-bundle.mjs`                          | JSON → bundle. `data/` is Prettier-ignored on purpose: the drift test is byte-exact.                                                                                                                                                          |
+
+**Hub sorting and My order (STRK-392, STRK-378):** `js/collections-sort.js` loads before the hub renderer and exposes pure typed sorting and ordering through `window.collectionsSort` (`orderEntries`, `sortHubEntries`, `moveVisibleId`). The sort and the user's **My order** persist device-locally in `collectionsHubPreferences` `{ order, sortKey, direction }`, read and written only through `collectionsUI.getHubPreferences` / `saveHubSort` / `saveHubOrder`. Sorts are applied on top of My order, so equal keys keep My order and unknown values stay last in either direction. Recently updated compares parsed timestamps, not text. A fresh profile's My order is chronological by run start; ids missing from the saved order are appended in that fallback order.
+
+Controls live in three places, and the hub toolbar has none. **Settings → Collections** (`js/collections-settings.js`) shows one My order list for templates and Custom Collections; drag handles and move arrows save immediately, and a hidden Collection keeps its position. **Ledger header** column buttons sort, and an icon-only Arrange Collections control (under the All filter only) opens a draft arrange mode with Cancel / Done. Done saves the draft as My order and makes it the active sort. At phone width the header row is hidden, so a compact Sort select (My order plus every column in both directions) and the Arrange control render in the toolbar instead. **Album** has no sort controls; it follows the active sort and shows a `Sorted by <Ledger column label>` hint with Show My order. Pointer reordering in the Ledger and in Settings shares `collectionsUI.wireReorderHandle`; drag handles are out of the tab order because the move buttons are the keyboard path. Slot order inside a Collection is untouched, and Slot Ledger header sorting remains deferred.
+
+**State shape** (`collectionState`): `{ schema, collections: { id → { id, kind: "template"|"custom", templateSlug, name, createdAt, metaModified, lastModified, deletedAt, clonedFrom, definition, slots: { slotId → { primary, spares[], modified } }, artwork: { cover|slot:<slotId> → { present, modified } } } } }`. A Custom Collection definition whitelists `metal`, `description`, `side` (`"obverse"` or `"reverse"`), `showItemImages`, and Slots; unrecognized fields and side values are discarded, while an absent side defaults to obverse for backwards compatibility. `showItemImages` is sparse (STRK-401): only an explicit `false` is stored and any other value is dropped, so an absent field means linked Item photos are shown and pre-existing definitions keep their exact shape. Every runtime-string-keyed map is null-prototype. Artwork stamps are optional for older states; removals are tombstones and win timestamp ties.
+
+**Invariants:**
+
+- Links live on the Collection, never on the Item — zero new item fields, so no enumeration blast radius (diff fields, change log, inventory hash, bulk edit).
+- An Item fills at most one Slot per Collection; a Slot holds one primary + up to `MAX_SLOT_SPARES` (3) Spares; unlinking or deleting the primary promotes the first Spare.
+- Disposal never rewrites a link — `resolveSlot()` filters disposed/unknown UUIDs at read time, so undoing a Disposition restores the Slot. Hard delete prunes (`_deleteInventoryItem` → `collectionsStore.pruneItem`); a guarded boot sweep covers bulk-delete/import paths and refuses an empty or recovery-held inventory.
+- An emptied Slot and a removed Collection are **Tombstones**, never deleted keys, and `metaModified` is tracked apart from `lastModified` — both exist so `mergeStates` can be commutative and idempotent on ties (STRK-154).
+- `loadInventory()` back-fills a missing `item.uuid` in memory only, so `collectionsStore.link()` persists the inventory when the linked UUID is not yet durable.
+- **Every store mutation is a transaction** (STRK-377): core mutators edit state in place, so `transact()` snapshots first and restores through `normalizeState` when the write throws. A failed write reports `save-failed`, fires no `collections:changed`, and can never be persisted by a later save.
+- Anything that rewrites `collectionState` in storage **behind the store's back** (vault restore, snapshot restore) must call `collectionsStore.reload()` afterwards, or the stale in-memory state overwrites the restored one on the next mutation.
+
+**Data paths** — membership is off-item, so no item-shaped export carries it for free:
+
+| Path                     | Carries                                                  | Restore semantics                                                                                                                                                          |
+| ------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ZIP backup               | `collection_state.json` + custom slot images             | `mergeIn` (commutative merge — adds back, never clobbers)                                                                                                                  |
+| `.stvault` (full)        | `collectionState` key (key-list driven) + images         | Direct full restore replaces keys and reloads the store; the preview flow merges selected Collections. A failed storage write rolls back earlier keys and reports failure. |
+| Standalone file          | Whole state, `kind: "staktrakr-collections"`             | `mergeIn`. Settings → Export / Import Collections (hidden with the flag off). No images                                                                                    |
+| JSON export              | `collectionState` on the envelope (omitted when empty)   | `mergeIn` on every import path, including the zero-item-diff branch                                                                                                        |
+| CSV (`Collections` col.) | Per-Item `collectionId:slotId[:spare]`, semicolon-joined | **Additive** batch transaction after identity stamping. A quota failure leaves no partial links. Cannot recreate a Custom Collection's definition.                         |
+
+The CSV column is **last** in both header lists (`buildStandardHeaders`, `BACKUP_CSV_HEADERS`). `exportCsv` terminates its `# exportOrigin` comment with CRLF to match PapaParse's body. For legacy exports with an LF comment and CRLF body, `importCsv` normalizes only the comment terminator before parsing, so the final header and cell values do not retain `\r` and quoted cell data stays intact. CSV parsing also trims headers, including older exports whose final header is `Traded From UUID`.
+
+**Synced as a managed key (STRK-370):** `collectionState` is in both `ALLOWED_STORAGE_KEYS` and `SYNC_SCOPE_KEYS`, but is never blind-overwritten — `cloud-sync.js` excludes it from every settings diff/apply site and reconciles it through `mergeStates`. See "Collections Sync" in `.context/cloud-sync.md`. `collectionsViewMode` and `collectionsHubPreferences` stay device-local by design; the latter stores My order plus the shared hub sort preset and direction (STRK-378).
+
 ### Storage Layer
 
 | API               | Function                                                  | Use When                           |
@@ -427,21 +473,24 @@ All keys registered in `ALLOWED_STORAGE_KEYS` (`js/constants.js`). `cleanupStora
 
 ### v2 Storage Keys
 
-| Key                         | Purpose                                                                                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `v2SpotHistory`             | Spot price time series                                                                                                                                                    |
-| `retailPrices`              | Retail vendor prices                                                                                                                                                      |
-| `goldback-prices`           | Goldback denomination rates                                                                                                                                               |
-| `v2RetailHistory`           | Daily retail price history per slug — **moved to `StakTrakrHistory` IndexedDB (STRK-141, v3.35.3)**; localStorage key retained only as the IDB-unavailable fallback       |
-| `v2RetailIntraday`          | 15-min intraday window data                                                                                                                                               |
-| `v2SpotHistory`             | Cached v2 spot history for market charts (STAK-504)                                                                                                                       |
-| `retailPrices`              | Current retail ask prices keyed by slug                                                                                                                                   |
-| `retailManifestSlugs`       | Cached manifest coin slug list                                                                                                                                            |
-| `metalInventory`            | Primary inventory array                                                                                                                                                   |
-| `spotPricingSource`         | Single-select spot price source (STAK-443): STAKTRAKR \| METALS_DEV \| METALS_API \| METAL_PRICE_API \| CUSTOM \| MANUAL                                                  |
-| `metalSpotPrices`           | Manual-mode unified spot prices object {gold, silver, platinum, palladium} (STAK-443)                                                                                     |
-| `inventorySeedApplied`      | ISO 8601 timestamp sentinel (STRK-13) — proves a successful seed has run on this origin; only key _presence_ is consulted by `classifyBootState()`                        |
-| `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js` |
+| Key                         | Purpose                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `v2SpotHistory`             | Spot price time series                                                                                                                                                         |
+| `retailPrices`              | Retail vendor prices                                                                                                                                                           |
+| `goldback-prices`           | Goldback denomination rates                                                                                                                                                    |
+| `v2RetailHistory`           | Daily retail price history per slug — **moved to `StakTrakrHistory` IndexedDB (STRK-141, v3.35.3)**; localStorage key retained only as the IDB-unavailable fallback            |
+| `v2RetailIntraday`          | 15-min intraday window data                                                                                                                                                    |
+| `v2SpotHistory`             | Cached v2 spot history for market charts (STAK-504)                                                                                                                            |
+| `retailPrices`              | Current retail ask prices keyed by slug                                                                                                                                        |
+| `retailManifestSlugs`       | Cached manifest coin slug list                                                                                                                                                 |
+| `metalInventory`            | Primary inventory array                                                                                                                                                        |
+| `spotPricingSource`         | Single-select spot price source (STAK-443): STAKTRAKR \| METALS_DEV \| METALS_API \| METAL_PRICE_API \| CUSTOM \| MANUAL                                                       |
+| `metalSpotPrices`           | Manual-mode unified spot prices object {gold, silver, platinum, palladium} (STAK-443)                                                                                          |
+| `inventorySeedApplied`      | ISO 8601 timestamp sentinel (STRK-13) — proves a successful seed has run on this origin; only key _presence_ is consulted by `classifyBootState()`                             |
+| `staktrakr.bootDiagnostics` | Bounded ring buffer (STRK-13), max 10 entries, ~2.5 KB at capacity. Schema: `[{ts, version, classification, keyPresence, errorName?}]`. Owned by `js/boot-diagnostics.js`      |
+| `collectionState`           | Collections definitions + Slot → Item UUID links (STRK-368). Synced as a managed, merge-only key (STRK-370) — see Collections Module above. Owned by `js/collections-store.js` |
+| `collectionsViewMode`       | Collections tab view preference, `"album"` \| `"ledger"` (STRK-368). Device-local by design: album on a phone, ledger on a desktop                                             |
+| `collectionsHubPreferences` | Saved Collection order, hub sort preset, and direction (STRK-378). Device-local by design                                                                                      |
 
 ### IndexedDB Stores
 

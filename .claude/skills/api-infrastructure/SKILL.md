@@ -32,8 +32,8 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 
 ## Fly.io Container (`staktrakr`) — Thin Publisher (STAK-478)
 
-- **App:** `staktrakr` — region `dfw`, 512MB RAM, 1 shared CPU, 3GB volume (`/data`)
-- **512MB RAM — uncapped git OOMs (signal 9).** Repo config in `/data/staktrakr-api-export` caps pack memory (`pack.threads=1`, `pack.windowMemory=32m`, `gc.auto=0`); re-apply after any re-clone. Self-cleaning publisher work tracked in STRK-187.
+- **App:** `staktrakr` — region `dfw`, 1024MB RAM (raised from 512MB 2026-07-25 per STRK-277; pending a 512MB re-scale once STRK-402 proves 7 OOM-free days), 1 shared CPU, 3GB volume (`/data`)
+- **Uncapped git history OOMs (signal 9).** Repo config in `/data/staktrakr-api-export` caps pack memory (`pack.threads=1`, `pack.windowMemory=32m`, `gc.auto=0`); re-apply after any re-clone. Self-cleaning publisher work tracked in STRK-187. **STRK-402 (2026-09-26):** `--window-memory` only caps the delta window, not the object list `git repack -a` must enumerate — years of full history still OOM'd a repack after 86 min and wedged the machine. `cleanup-export.sh` now re-shallows (fresh depth-1 clone of the tip) instead of repacking full history; `run-publish.sh` re-shallows on bootstrap if `.git/shallow` is missing. Every cron job also carries its own `flock -n <job>.flock timeout -k 30 <N>` (see `docker-entrypoint-slim.sh`), and the cross-script publish/cleanup lock is `flock` on `/tmp/retail-publish.flock` (fd 9) — not a `noclobber` file, which stranded on SIGKILL and needed a manual `rm -f`.
 - **Config:** `StakTrakr/devops/pollers/remote-poller/fly.toml` + `Dockerfile`
 - **Runs:** Spot cron (`0,30`), publish cron (`8,23,38,53`), provider export (`*/5`), serve.js. Retail/goldback disabled — handled by home poller.
 - **Deploy:** From StakTrakr repo: `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`
@@ -70,19 +70,18 @@ sqld is a self-hosted libSQL server on the home VM (`192.168.1.81:8080`). Both p
 
 ## When Making Changes — Update ALL of These
 
-| Location                                                        | What to update                                         |
-| --------------------------------------------------------------- | ------------------------------------------------------ |
-| `js/api-health.js`                                              | Stale thresholds, feed URLs, `_normalizeTs` logic      |
-| DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`): |                                                        |
-| — `Health Checks.md`                                            | Health checks, stale thresholds, diagnosis commands    |
-| — `Remote Poller.md`                                            | Fly config, crons, VM spec, GHA workflow table         |
-| — `API Reference.md`                                            | Endpoint map, schemas, confidence tiers                |
-| — `Turso Schema.md`                                             | Database tables, indexes, key queries                  |
-| — `Home Poller.md`                                              | Home poller crons, dashboard, Firecrawl                |
-| — `Poller Parity.md`                                            | Scrape pipeline comparison between pollers             |
-| `lbruton/StakTrakrApi` `README.md`                              | If endpoints, branches, or directory structure changes |
+| Location                                    | What to update                                         |
+| ------------------------------------------- | ------------------------------------------------------ |
+| `js/api-health.js`                          | Stale thresholds, feed URLs, `_normalizeTs` logic      |
+| `.context/deep-dives/health-checks.md`      | Health checks, stale thresholds, diagnosis commands    |
+| `.context/deep-dives/remote-poller.md`      | Fly config, crons, VM spec, GHA workflow table         |
+| `.context/deep-dives/api-reference.md`      | Endpoint map, schemas, confidence tiers                |
+| `.context/deep-dives/home-poller.md`        | Home poller crons, dashboard, Firecrawl                |
+| `.context/data-pipelines.md`                | Scrape pipeline, sqld schema, poller parity            |
+| Private companion (`$(vault-path private)`) | Anything with LAN IPs / internal hosts (not public)    |
+| `lbruton/StakTrakrApi` `README.md`          | If endpoints, branches, or directory structure changes |
 
-> **Lookup:** `Read /Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/<page>.md` or `Grep` on the vault.
+> **Lookup:** `.context/` is canonical for agent-facing facts. This repo has no in-repo vault (STRK-411; specs are in `docs/specs/`); infra detail with IPs lives in the Devops repo vault at `Devops/DocVault/Projects/StakTrakr/` (`vault-path private`). The central DocVault is archived.
 > **Deprecated:** In-repo `wiki/` and `docs/devops/api-infrastructure-runbook.md` — do not update.
 
 ---
@@ -134,4 +133,4 @@ EOF
 | Notion infrastructure pages                 | Deprecated 2026-02-25 — do not update              |
 | `docs/devops/api-infrastructure-runbook.md` | Deprecated — will be deleted after next wiki audit |
 
-**DocVault is the single source of truth.** All documentation changes go there via `/vault-update`.
+**`.context/` is the single source of truth** for these facts. Update it in the same PR. Do not write API notes anywhere else in this repo; anything with LAN hosts goes to `Devops/DocVault/Projects/StakTrakr/` via `/vault-update`.

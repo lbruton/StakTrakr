@@ -312,10 +312,9 @@ ESLint 9 (config in `.eslintrc.json`) is the **authoritative** JavaScript analyz
 
 ## Documentation Policy
 
-DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/StakTrakr/`) is the single source of truth for all architecture, operational runbooks, and pattern documentation.
-New documentation goes in DocVault (or `docs/plans/` for planning artifacts).
+`.context/` is the source of truth for architecture and patterns. Specs live in `docs/specs/` (STRK-411); do not add notes there or elsewhere that restate `.context/`, and do not edit completed specs under `docs/specs/archive/`. Private docs live in the Devops repo vault, not this repo. Planning artifacts go in `docs/plans/`.
 
-After any commit that changes behavior, update the relevant DocVault page directly.
+After any commit that changes behavior, update the matching `.context/` doc in the same PR.
 
 ---
 

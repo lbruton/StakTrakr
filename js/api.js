@@ -1386,6 +1386,7 @@ const refreshFromCache = () => {
     }
     if (typeof onGoldSpotPriceChanged === "function") onGoldSpotPriceChanged();
     if (typeof renderRatioChips === "function") renderRatioChips();
+    document.dispatchEvent(new CustomEvent("spot:updated"));
     return true;
   }
 
@@ -2485,6 +2486,7 @@ const handleProviderSync = async (provider) => {
         updateAllSparklines();
       }
       if (typeof renderRatioChips === "function") renderRatioChips();
+      document.dispatchEvent(new CustomEvent("spot:updated"));
       setProviderStatus(provider, "connected");
       updateProviderHistoryTables();
       appAlert(
@@ -2790,6 +2792,7 @@ const _runPostSpotSyncUpdates = async (prov, results, ctx) => {
   }
   if (typeof updateAllSparklines === "function") updateAllSparklines();
   if (typeof renderRatioChips === "function") renderRatioChips();
+  document.dispatchEvent(new CustomEvent("spot:updated"));
 };
 
 /**
@@ -3085,6 +3088,7 @@ const resetSpotPrice = (metal) => {
   hideManualInput(metal);
 
   if (typeof renderRatioChips === "function") renderRatioChips();
+  document.dispatchEvent(new CustomEvent("spot:updated"));
 };
 
 /**

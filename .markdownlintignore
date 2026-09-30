@@ -10,3 +10,6 @@ test-results
 # judge them. markdownlint globs the filesystem rather than git, so without this it would
 # lint files git deliberately ignores.
 .claude/**/*.local.*
+
+# Spec records (STRK-411) — historical artifacts, not held to the repo markdownlint config
+docs/specs

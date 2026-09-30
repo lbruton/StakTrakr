@@ -3,7 +3,7 @@ title: "StakTrakr — Implementation Gotchas"
 project: StakTrakr
 audience: agent
 canonical: .context/implementation-gotchas.md
-updated: "2026-08-13"
+updated: "2026-09-26"
 ---
 
 # Implementation Gotchas — StakTrakr
@@ -32,6 +32,28 @@ wrong store and the root cause of STRK-573.
 `saveData()` wraps in `JSON.stringify`. Read saved data via `loadData()` / `loadDataSync()`.
 After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale
 provider instances.
+
+When adding a synced hidden-list preference, define its key constant, then mirror
+`chipBlacklist` at all seven registration sites; missing any one can make the value disappear
+from sync, restore, diff, or Storage:
+
+1. `SYNC_SCOPE_KEYS` in `js/constants.js` so cloud sync exports it.
+2. `ALLOWED_STORAGE_KEYS` in `js/constants.js` so cleanup and guarded apply keep it.
+3. The compared-key list, `SETTINGS_CATEGORIES`, in `js/diff-modal.js` so the setting is
+   compared and assigned to a diff group.
+4. `SETTINGS_LABELS` in `js/diff-modal.js` so the diff displays a human-readable setting name.
+5. Collection value formatting in `js/diff-modal-settings.js`, with the setting label and
+   category in `js/diff-modal.js`. Known IDs resolve to Collection names and template variants;
+   unknown IDs fall back to the raw ID. Keep `disabledCollections` out of the `slug-chips` value
+   type because it exposes per-ID choices instead of the approved whole-setting Local/Remote
+   choice.
+6. ZIP settings serialization in `js/inventory-backup.js`: `_buildBackupSettings()` exports
+   the key and `_parseBackupSettingsMap()` imports it through the guarded array branch.
+7. `STORAGE_KEY_LABELS` in `js/settings.js` so the Storage panel shows a human-readable name.
+
+`disabledCollections` is the current example. It is a normal whole-setting synced list like
+`chipBlacklist`; a new hidden-list key still needs all seven registrations even when its
+storage and sync paths already use `saveDataSync()`.
 
 ## `check-release-sync` hook is a SUBSET
 
@@ -171,7 +193,7 @@ cannot be missed. Adding a second guard in a branch is a redundant duplicate, no
 
 The duplication-checker hook respects `// duplication-ok` inline comments. Use this when intentional shadowing or deliberate repetition would otherwise trigger the hook.
 
-## Closing task ordering in sketch workflow
+## Closing task ordering in spec workflow
 
 Follow this sequence:
 
@@ -182,10 +204,10 @@ Follow this sequence:
 5. Mark Plane issue as Done
 
 **Warning:** Mark Plane issues Done only after the PR merges.
-Plane closure tasks (close task number) follow `/sketch archive` after merging.
+Plane closure tasks (close task number) follow `/spec archive` after merging.
 
-**DocVault git add discipline:** When committing sketch archives, stage with surgical precision:
+**Spec git add discipline:** Specs live in-repo at `docs/specs/` (`specs.path` in `.claude/project.json`, STRK-411) and ride the feature PR. When committing spec archives, stage with surgical precision:
 
-- Stage by exact file paths: `git add specs/STRK-74/requirements.md ...`
-- Do not use broad staging: `git add specs/` or `git add .`
-- Broad staging picks up in-progress sketches as unintended additions.
+- Stage by exact file paths: `git add docs/specs/STRK-74/requirements.md ...`
+- Do not use broad staging: `git add docs/specs/` or `git add .`
+- Broad staging picks up in-progress specs as unintended additions.

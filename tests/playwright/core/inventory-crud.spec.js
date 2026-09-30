@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
+import seedInventoryFixture from "../../fixtures/seed-inventory.js";
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -299,6 +300,166 @@ test.describe("seed-guard", () => {
 
     const inventoryLength = await page.evaluate(() => window.inventory && window.inventory.length);
     expect(inventoryLength).toBe(60);
+  });
+});
+
+// ─── Identity back-fill durability (STRK-369) ───────────────────────────────
+//
+// loadInventory() back-fills a missing uuid / serial onto legacy Items. These cases pin
+// that the back-fill is DURABLE (it survives a reload with no other mutation), that it is
+// CONDITIONAL (a fully-identified inventory is not rewritten at boot), and that it goes
+// through the STRK-13 gated writer.
+//
+// Seeding: page.addInitScript re-runs on EVERY navigation, page.reload() included. An
+// unguarded seed would overwrite the freshly persisted identity with the uuid-less fixture
+// again, and the reload assertions could never pass — fix or no fix. The once-marker lives
+// in sessionStorage: it survives a reload, and unlike a localStorage marker it is not
+// deleted by cleanupStorage() at DOMContentLoaded (which drops every key missing from
+// ALLOWED_STORAGE_KEYS). That is also why these cases sit outside the seed-guard block —
+// its beforeEach clears localStorage on every navigation.
+
+test.describe("identity-backfill", () => {
+  // The shared fixture is exactly the legacy shape: every Item carries a serial but no
+  // uuid. Drop the serial from the last one so the serial back-fill branch runs too.
+  const LEGACY_ITEMS = seedInventoryFixture.metalInventory.map((item, index, all) => {
+    if (index !== all.length - 1) return item;
+    const serialLess = { ...item };
+    delete serialLess.serial;
+    return serialLess;
+  });
+  // Real data never has a counter below its highest serial. Without this the serial-less
+  // Item would be handed serial 1 and collide with the first fixture Item.
+  const LEGACY_SERIAL_COUNTER = Math.max(...LEGACY_ITEMS.map((item) => item.serial || 0));
+
+  const seedOnce = (page, entries) =>
+    page.addInitScript((data) => {
+      if (sessionStorage.getItem("strk369Seeded")) return;
+      sessionStorage.setItem("strk369Seeded", "1");
+      Object.entries(data).forEach(([key, value]) => {
+        localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+      });
+    }, entries);
+
+  // appListenersReady flips in init Phase 14, after Phase 12 has awaited loadInventory(),
+  // so it is a true "boot finished" signal. It resets with the document, which makes it
+  // just as valid after a reload.
+  const waitForBoot = (page) => page.waitForFunction(() => window.appListenersReady === true);
+
+  const bootApp = async (page) => {
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+  };
+
+  const reloadApp = async (page) => {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+  };
+
+  const seedLegacyAndBoot = async (page) => {
+    await suppressWhatsNewPopup(page);
+    await seedOnce(page, {
+      metalInventory: LEGACY_ITEMS,
+      inventorySerial: LEGACY_SERIAL_COUNTER,
+    });
+    await bootApp(page);
+  };
+
+  const readIdentity = (page) =>
+    page.evaluate(() =>
+      window.inventory.map((item) => ({ name: item.name, uuid: item.uuid, serial: item.serial }))
+    );
+
+  test("legacy Items keep the same uuid and serial across a reload with no other mutation", async ({
+    page,
+  }) => {
+    await seedLegacyAndBoot(page);
+
+    const firstBoot = await readIdentity(page);
+    expect(firstBoot).toHaveLength(LEGACY_ITEMS.length);
+    for (const identity of firstBoot) {
+      expect(identity.uuid).toBeTruthy();
+      expect(identity.serial).toBeGreaterThan(0);
+    }
+
+    await reloadApp(page);
+
+    expect(await readIdentity(page)).toEqual(firstBoot);
+  });
+
+  test("a Tag added to a legacy Item survives a reload", async ({ page }) => {
+    await seedLegacyAndBoot(page);
+
+    // addItemTag persists itemTags[uuid] but never saves the inventory, so before the
+    // back-fill was durable this Tag was keyed to an identity the reload threw away.
+    const added = await page.evaluate(() =>
+      window.addItemTag(window.inventory[0].uuid, "STRK369 Keeper")
+    );
+    expect(added).toBe(true);
+
+    await reloadApp(page);
+
+    const tags = await page.evaluate(() => window.getItemTags(window.inventory[0].uuid));
+    expect(tags).toContain("STRK369 Keeper");
+  });
+
+  test("a durable back-fill stamps cloud_sync_local_modified so sync sees new local content", async ({
+    page,
+  }) => {
+    await seedLegacyAndBoot(page);
+
+    // The new UUIDs change the inventory hash (computeItemKey is uuid-first), so the save
+    // has to go through the sync-aware writer. A raw setItem would leave sync blind to it.
+    const stamp = await page.evaluate(() => localStorage.getItem("cloud_sync_local_modified"));
+    expect(stamp).not.toBeNull();
+    expect(Number.isNaN(new Date(stamp).getTime())).toBe(false);
+  });
+
+  test("a fully-identified inventory is not rewritten at boot", async ({ page }) => {
+    const identified = LEGACY_ITEMS.map((item, index) => ({
+      ...item,
+      uuid: `strk369-identified-${index}`,
+      serial: index + 1,
+    }));
+    const seededRaw = JSON.stringify(identified);
+    await suppressWhatsNewPopup(page);
+    await seedOnce(page, { metalInventory: seededRaw, inventorySerial: identified.length });
+    await bootApp(page);
+
+    // An unconditional boot save would stamp cloud_sync_local_modified on every launch,
+    // and STAK-414 would then treat this device as always-newer than the remote vault.
+    const after = await page.evaluate(() => ({
+      raw: localStorage.getItem("metalInventory"),
+      stamp: localStorage.getItem("cloud_sync_local_modified"),
+    }));
+    expect(after.raw).toBe(seededRaw);
+    expect(after.stamp).toBeNull();
+  });
+
+  test("a back-fill does not write while inventory recovery is active", async ({ page }) => {
+    await suppressWhatsNewPopup(page);
+    await seedOnce(page, { metalInventory: "{not valid json" });
+    await bootApp(page);
+    await expect(page.locator("#inventoryRecoveryBanner")).toBeVisible();
+
+    // Stand in for a non-boot caller (the multi-tab pull-complete broadcast, a snapshot
+    // restore): valid legacy data lands in storage and loadInventory() re-reads it while
+    // the recovery hold is still up. An automatic back-fill is not a user mutation, so it
+    // must neither write through the gate nor clear it.
+    const legacyRaw = JSON.stringify(LEGACY_ITEMS);
+    const outcome = await page.evaluate(async (raw) => {
+      localStorage.setItem("metalInventory", raw);
+      await loadInventory();
+      return {
+        backfilledInMemory:
+          window.inventory.length > 0 && window.inventory.every((item) => item.uuid && item.serial),
+        recoveryActive: window.isInventoryRecoveryActive(),
+        storedRaw: localStorage.getItem("metalInventory"),
+      };
+    }, legacyRaw);
+
+    expect(outcome.backfilledInMemory).toBe(true);
+    expect(outcome.recoveryActive).toBe(true);
+    expect(outcome.storedRaw).toBe(legacyRaw);
   });
 });
 

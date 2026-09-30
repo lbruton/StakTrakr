@@ -1,0 +1,123 @@
+---
+sketch: "STRK-107-sync-conflict-loop"
+phase: approach
+created: 2026-05-24
+---
+
+# STRK-107 — Approach
+
+_How we'll build it. **Don't write code or tests** — the tasks phase produces the work plan._
+
+## High-Level Architecture
+
+The fix introduces a **changelog neutralization** mechanism that marks superseded local changelog entries as ineligible for manifest inclusion after a user accepts remote changes. The mechanism is a boolean `neutralized` flag on changelog entries — following the existing `undone` flag precedent — combined with a timestamp-scoped cutoff to protect legitimate post-acceptance edits.
+
+The data flow change is minimal and surgical. Today, `_applyAndFinalize()` calls `saveInventory()` → `scheduleSyncPush()` (2s debounce) → `buildAndUploadManifest()` → `getManifestEntries(lastPush.timestamp)`. The stale entries survive the filter because `lastPush` was never advanced by the acceptance. Instead of advancing `lastPush` (which would suppress ALL entries, breaking non-conflict items), the fix adds a neutralization step synchronously inside `_applyAndFinalize()` immediately after the `saveInventory()` call returns control (note: `_applyAndFinalize()` is a plain synchronous function and does not `await` the async `saveInventory()` — the neutralization runs synchronously after the call site, before the event loop yields to the 2s debounced push). This step walks the changelog, marks entries matching accepted item keys with `timestamp ≤ acceptanceCutoff` as `neutralized: true`, and persists the changelog. The downstream filter in `getManifestEntries()` then excludes neutralized entries, breaking the conflict loop.
+
+Two additional guards complete the fix: `toggleChange()` gets an early return for neutralized entries **before** the `transactionId` dispatch (line 459) — this is defense-in-depth even though neutralized entries cannot carry a `transactionId` (verified: `pushTransactionEntries` and `logItemChanges` are architecturally separate creation paths). `renderFlatRow()` suppresses the Undo button and shows a static `<span class="synced-badge">Synced</span>` indicator for neutralized entries. The badge must be WCAG AA compliant (≥4.5:1 contrast) in all four themes — particularly `light` and `sepia` where green/secondary colors risk poor contrast (known `--warning` oklch issue). The badge uses a borderless, subtle style visually distinct from interactive buttons, and matches the original action-cell width to prevent layout shifts. Both guards follow established patterns (`entry.type === "attachment-change"` guard in `toggleChange`, `entry.undone` button-label toggle in `renderFlatRow`).
+
+## Key Decisions
+
+| # | Decision | Rationale | Tradeoff |
+|---|----------|-----------|----------|
+| D-1 | Add `neutralized: true` flag to changelog entries (not delete, not timestamp mutation, not type change) | Non-destructive: preserves audit trail for Activity Log (AC-4). Follows `undone` flag precedent. Reversible if future work needs to un-neutralize. | Adds a new field to the changelog entry shape — all code touching entries must tolerate it (additive, so existing code ignores it safely). |
+| D-2 | Neutralization runs synchronously inside `_applyAndFinalize()` between the `saveInventory()` call (line 2785) and `syncSetLastPull()` (line 2802). **Ordering contract:** `_applyAndFinalize()` is a plain synchronous function; `saveInventory()` is async but not awaited. The neutralization call executes synchronously after the `saveInventory()` call site returns, before the event loop yields — so the 2s debounced push will always see the flags. No dependency on `saveInventory()` completing or succeeding. | After the settings-rollback window closes (AC-4 safe — rollback returns at line 2780 before reaching this point). | Adds a synchronous changelog scan to the acceptance hot path. Negligible cost — changelog is in-memory, scan is O(n) with n typically <500. |
+| D-3 | Scope neutralization by `itemKey ∈ acceptedKeys AND timestamp ≤ cutoff AND truthy itemKey`. **Settings-only acceptance is explicitly out of scope** — when `selectedChanges` contains only settings (no item keys), neutralization is a no-op. This is intentional: stale item entries are not conflict-loop drivers when only settings are accepted (see Out of Scope). | Protects post-acceptance local edits (AC-6). Excludes old-shape `logChange()` entries that lack `itemKey` — those group under `_settings` in the manifest and don't cause per-item conflict loops (discovery finding). | Old-shape `_settings` entries continue to bloat manifests. This is pre-existing debt, not a regression — deferred to a separate cleanup issue. |
+| D-4 | Capture `acceptanceCutoff = Date.now()` at the top of `_applyAndFinalize()`, before any mutations | Guarantees the cutoff is set before `saveInventory()` or any other operation creates new changelog entries. Any edit made after this moment is definitionally post-acceptance. | Tiny clock-skew risk if `Date.now()` and a concurrent `logItemChanges()` timestamp collide within the same millisecond — practically impossible since the acceptance flow is synchronous. |
+| D-5 | Filter neutralized entries in `getManifestEntries()` at the single funnel point (line 791) | All push paths flow through `getManifestEntries()` — a filter here protects every push uniformly with zero second-site risk. | Cannot selectively include neutralized entries in a manifest for any future use case without removing the filter. Acceptable: neutralized entries should never appear in manifests by definition. |
+| D-6 | Guard `toggleChange()` with `entry.neutralized` early return **before** the `transactionId` dispatch (line 459), and suppress Undo button in `renderFlatRow()` | Defense-in-depth: neutralized entries cannot carry a `transactionId` (verified — separate creation paths, see D-8), but placing the guard first protects against future changes. Follows the `attachment-change` early-return precedent. Suppressing the button follows the `undone` label-toggle precedent at line 225. The "Synced" badge uses a borderless, static `<span>` style — WCAG AA compliant (≥4.5:1 contrast) in all four themes, matching action-cell width to prevent layout shifts. | Neutralized entries remain visible in Activity Log with a "Synced" indicator. Users see the history but cannot undo it — preserves the audit trail (precision tool brand alignment). If users find "Synced" entries confusing, that's a separate UX follow-up. |
+| D-7 | Extract accepted `itemKey` set from `selectedChanges` by reading `change.itemKey` directly (for modify/delete) and `change.item.uuid` or `computeItemKey(change.item)` for adds | Matches the tiered key derivation used by both `changeLog.js:24` and `diff-engine.js:286`. Add entries lack top-level `itemKey` (discovery finding) but accepted remote adds won't have local changelog entries to neutralize — safe to derive key from `change.item` for completeness. | Relies on `computeItemKey` consistency between changelog and diff-engine — already confirmed identical in discovery. |
+| D-8 | No changes to `confirmCascadeUndo()` | **Verified:** Transaction-paired entries (split/dispose via `pushTransactionEntries()`, `changeLog.js:63-66`) have `transactionId` and are created by a separate function from `logItemChanges()` (`changeLog.js:77+`). The two creation paths share no code — `pushTransactionEntries` takes pre-built entries, `logItemChanges` builds field-diff entries with `itemKey`. The intersection is empty — neutralized entries will never carry `transactionId`, and cascade undo cannot reach neutralized entries. | If a future feature creates transaction-paired entries via `logItemChanges()`, this assumption breaks. Low risk — the two entry creation paths are architecturally distinct. |
+
+## File Map
+
+### New
+- `tests/playwright/cloud-sync-conflict-loop.spec.js` — Round-trip test simulating the acceptance-push-poll cycle. Injects changelog entries, mocks DiffModal acceptance through `_applyAndFinalize()`, captures the resulting manifest from the debounced push, and asserts the accepted items are excluded (AC-2, AC-7). Also covers `lastModified` tracked-field path (AC-3) and post-acceptance local-edit cutoff (AC-6).
+
+### Modified
+- `js/changeLog.js` — Four changes:
+  1. New exported function `neutralizeSupersededChangelog(selectedChanges, cutoffTimestamp)` — walks changelog, flags matching entries. Exposed via `window.neutralizeSupersededChangelog` for test access (follows `window.pushTransactionEntries` precedent at line 67)
+  2. `getManifestEntries()` — add `entry.neutralized` filter predicate (1 line)
+  3. `toggleChange()` — add `entry.neutralized` early return guard **before** `transactionId` dispatch (1 line, before line 459)
+  4. `renderFlatRow()` — suppress Undo/Redo button for neutralized entries, show "Synced" badge instead
+- `js/cloud-sync.js` — One change:
+  1. Inside `_applyAndFinalize()` — capture `acceptanceCutoff` at function entry, call `neutralizeSupersededChangelog()` after `saveInventory()` succeeds (between current lines 2785 and 2798)
+
+### Deleted
+- _none_
+
+## Data / Schema Changes
+
+**Changelog entry shape change (in-memory + localStorage).** A new optional boolean field `neutralized` is added to changelog entries. Existing entries without the field are treated as `neutralized: false` (falsy check). No migration needed — the field is additive. `getManifestEntries()` already strips entries to a fixed set of output fields (line 795–804), so the `neutralized` flag does not leak into manifests. The changelog is persisted via `saveDataSync("changeLog", changeLog)`, which round-trips through `JSON.stringify`/`JSON.parse` — `neutralized: true` survives the round-trip.
+
+No database schema changes, no migration, no other persisted-data changes.
+
+## Tradeoffs Surfaced for Review
+
+- **Old-shape `_settings` manifest bloat (D-3):** `logChange()` entries without `itemKey` continue to accumulate in manifests under the `_settings` key. They don't cause conflict loops (confirmed in discovery), but they do inflate manifest payloads until `pruneManifestEntries()` caps them at `maxSyncs = 10`. This is pre-existing debt. The approach explicitly defers cleanup to a separate issue rather than widening STRK-107's scope.
+
+- **Activity Log UX for neutralized entries (D-6):** Showing "Synced" entries with a disabled Undo button is a product/UX choice, not a technical requirement. An alternative is hiding neutralized entries entirely. The "visible + disabled" approach preserves the audit trail (AC-4) and avoids user confusion about "missing" history — hiding entries could make users think history was lost during sync. The "Synced" badge uses a subtle, borderless style visually distinct from interactive buttons, conveying static status. If users find "Synced" entries confusing, that's addressable in a follow-up without changing the neutralization mechanism.
+
+- **Quota failure during neutralization persistence (D-2):** If `saveDataSync("changeLog", changeLog)` fails due to localStorage quota after setting `neutralized` flags, the in-memory changelog has the flags but they aren't persisted. The debounced push (2s later) reads the in-memory changelog via `getManifestEntries()`, so the filter still works for this session. But if the user refreshes before the push fires, the un-persisted flags are lost and the conflict loop continues on the next cycle. This is a negligible risk: we're adding a boolean to existing entries (bytes, not kilobytes). Note: `saveInventory()` completion cannot be used as evidence of quota headroom — `_applyAndFinalize()` does not await it, and `saveData()` catches write failures internally.
+
+## Out of Scope (follow-up issues)
+
+- **Old-shape `_settings` manifest cleanup:** `logChange()` entries without `itemKey` produce noise entries grouped under `_settings` in every manifest. Not a conflict-loop driver but a manifest hygiene concern. File as STRK follow-up after STRK-107 ships.
+- **Multi-device (3+) conflict resolution:** Current fix targets two-device round-trip. Three-device scenarios may surface new conflict patterns but are out of scope per requirements non-goals.
+- **Settings-only DiffModal acceptance neutralization:** When a user accepts only setting changes (no item changes), `_applyAndFinalize()` runs but `selectedChanges` contains no item keys — the neutralization rule is a no-op. Stale item changelog entries from prior edits are not conflict-loop drivers in this path because the accepted changes don't touch items. File as STRK follow-up if edge cases emerge.
+
+## Risk Notes
+
+- **Risk:** `renderFlatRow()` is a complex function with multiple conditional branches (transaction-grouped rows, `priceHistoryDelete`, restored-merged, standard rows). Adding a neutralized-entry branch must not regress any existing rendering path. → **Mitigation:** The neutralized check goes at the top of `renderFlatRow()` before any other branching, similar to how `entry.undone` is checked at line 225. The early-check pattern is established and well-tested.
+- **Risk:** `_applyAndFinalize()` is the critical acceptance handler with two call sites (DiffModal `onApply` at line 2940, `_deferredVaultRestore` selective-apply at line 3148). Both pass `selectedChanges`. The neutralization call must work identically for both paths. → **Mitigation:** `neutralizeSupersededChangelog()` takes `selectedChanges` as input — it's agnostic to the call site. Both paths provide the same shape.
+- **Risk:** If a test in `cloud-sync-conflict-loop.spec.js` injects changelog entries and captures manifests, it depends on the internal shape of `changeLog` and `buildAndUploadManifest()`. These are stable interfaces but not public API — a future refactor could break the test. → **Mitigation:** The test follows the same mocking patterns established in `cloud-sync-manifest-type.spec.js` (localStorage-based sync state, mocked Dropbox routes, manifest capture/decrypt). If those tests survive a refactor, this one will too.
+- **Risk:** "Synced" badge contrast failure in `light` and `sepia` themes. The known `--warning` oklch issue (L≈0.666 on L≈0.96/0.892 backgrounds = ~1.4:1 ratio) applies to any green or secondary color used for the badge. → **Mitigation:** Use a darker custom color (~`oklch(0.55 0.15 160)` or similar) validated against all four theme backgrounds before merge. Include contrast assertion in the test file or a manual QA step.
+
+---
+
+> **Phase complete?** Architecture clear, decisions logged with rationale, file map complete. Then advance: `/sketch-review STRK-107 approach`, then `/sketch tasks STRK-107`.
+
+## Review Archive — approach (2026-05-24)
+
+_Reconciled by /sketch reconcile on 2026-05-24. Original reviewer marks preserved below for audit._
+
+### Codex
+
+**Verified**
+
+- Confirmed `_applyAndFinalize()` is synchronous, calls `saveInventory()` without awaiting it, and then records pull metadata (`js/cloud-sync.js:2686-2804`).
+- Confirmed `saveInventory()` is `async`, writes through `saveData()`, and schedules cloud push after the save call returns to it (`js/inventory.js:169-190`); `saveData()` catches localStorage write failures internally (`js/utils.js:1160-1185`).
+- Confirmed manifest generation reads `syncGetLastPush().timestamp`, calls `getManifestEntries(lastSyncTimestamp)`, prunes results, and groups missing `itemKey` entries under `_settings` (`js/cloud-sync.js:1060-1098`).
+- Confirmed `getManifestEntries()` currently filters only `sync-marker` entries and timestamp, then maps a fixed manifest entry shape without `neutralized` (`js/changeLog.js:788-805`).
+- Confirmed `logItemChanges()` creates typed, item-keyed entries and tracks `lastModified`; old `logChange()` entries lack `itemKey`, `scope`, and `type` (`js/changeLog.js:40-50`, `js/changeLog.js:77-194`).
+- Confirmed DiffModal emits item keys for modify/delete/conflict records, no top-level item key for add records, and setting-only records for settings diffs (`js/diff-modal.js:2772-2921`).
+- Confirmed `toggleChange()` dispatches transaction rows before the attachment-change no-op guard, while grouped rows render an "Undo Both" control outside the ordinary flat-row action cell (`js/changeLog.js:328-352`, `js/changeLog.js:454-468`).
+- Confirmed existing cloud-sync tests already provide Dropbox route mocking, manifest capture, and DiffModal mocking patterns but no STRK-107 conflict-loop regression file yet (`tests/playwright/cloud-sync-manifest-type.spec.js`, `tests/playwright/vault-roundtrip.spec.js`).
+
+**Top concerns**
+
+1. The approach currently depends on "`saveInventory()` succeeds" as a timing boundary, but the live function is async, not awaited by `_applyAndFinalize()`, and its storage helper catches failures. The implementation plan should state the real ordering contract or explicitly change it.
+2. The accepted-item-key neutralization rule does not cover the settings-only user-driven DiffModal path called out in discovery. Either exclude that path deliberately, or add a separate rule/test so stale item entries are handled when selected changes contain no item records.
+3. The Activity Log guard needs exact placement. A neutralized guard after the current transaction dispatch would not protect grouped transaction rows; the approach should either put the guard before `transactionId` handling or require tests/verification that neutralized transaction entries cannot exist.
+
+**Unverified assumptions**
+
+- That STRK-107 should handle settings-only user-driven acceptance by neutralizing stale item entries, rather than treating those stale item entries as legitimate pending local edits.
+- That changing `_applyAndFinalize()` to await or otherwise verify inventory persistence is in scope, if the final task plan wants to keep "after save succeeds" as a hard guarantee.
+- That `neutralized` entries will never have `transactionId`, `field === "Disposed"`, or `field === "Stack split"` in production data.
+- That a visible "Synced" Activity Log indicator is acceptable product behavior without a dedicated design pass.
+- That direct test access to the new neutralization helper should be via `window.neutralizeSupersededChangelog`, not only a global lexical binding.
+
+### Gemini
+
+**UX/UI Verification & Accessibility Assurances**
+
+- **Aesthetic Consistency & Contrast**: Verified that replacing the interactive "Undo" button with a static "Synced" badge conforms to the tool's core persona ("Sharp. Capable. Empowering. Precision tool"). In CSS implementation, the text/badge color for the Synced indicator must meet WCAG AA standards (>= 4.5:1 ratio) on the secondary backgrounds across all four themes (`light`, `dark`, `slate`, `sepia`).
+- **Keyboard Ergonomics**: Static text/badge naturally drops out of the Tab focus loop, which prevents focus clutter on non-actionable elements.
+- **Audit Trail & Undo Guard**: Keeping the entry visible preserves a clear timeline of events (no phantom state changes). Guarding `toggleChange` at the very top prevents accidental re-application via script console or custom event triggers.
+
+### Resolution Summary
+
+- Accepted: 8
+- Rejected: 0
+- Resolved with your input: 3 (settings-only acceptance → deferred; await saveInventory → resolved by reword; Synced indicator design pass → resolved, already validated by approach + Gemini)

@@ -15,3 +15,6 @@ test-results/
 # Minified/generated assets
 *.min.js
 *.min.css
+
+# Spec records (STRK-411) — historical artifacts; prettier would reflow tables/frontmatter
+docs/specs/
