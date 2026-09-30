@@ -154,19 +154,28 @@ const loadDataSync = (key, defaultValue = []) => {
 };
 
 /**
- * Removes unknown localStorage keys to maintain a clean storage state
+ * Keys that earlier builds wrote and no build reads any more. Only these are ever swept.
+ * A key that is merely absent from ALLOWED_STORAGE_KEYS is NOT retired: it may belong to a
+ * NEWER build sharing this origin (STRK-412), so it must be left alone.
+ * @constant {string[]}
+ */
+const RETIRED_STORAGE_KEYS = [
+  "bulkEditSelection", // removed: bulk-edit selection is no longer persisted
+  "headerCardViewBtnVisible", // STAK-118: header button retired (STRK-281)
+  "headerSyncBtnVisible", // header button retired (STRK-281)
+];
+
+/**
+ * Removes retired localStorage keys at boot (STRK-412).
  *
- * Iterates over all localStorage entries and deletes any keys not present in
- * ALLOWED_STORAGE_KEYS.
+ * Deletes ONLY keys listed in RETIRED_STORAGE_KEYS and never keys it does not recognise, so an
+ * older build served on top of newer data (beta alias flip, main rollback, stale service
+ * worker) cannot wipe features it predates. ALLOWED_STORAGE_KEYS still gates writes/imports.
  */
 const cleanupStorage = () => {
   if (typeof localStorage === "undefined") return;
-  const allowed = new Set(ALLOWED_STORAGE_KEYS);
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i);
-    if (!allowed.has(key)) {
-      localStorage.removeItem(key);
-    }
+  for (const key of RETIRED_STORAGE_KEYS) {
+    localStorage.removeItem(key);
   }
 };
 

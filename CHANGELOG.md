@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.35] - 2026-09-30
+
+### Changed — STRK-412: Startup no longer deletes unrecognised storage keys
+
+- **Downgrade safety**: The boot-time storage sweep now removes only an explicit list of retired keys. An older build opened on top of newer data (a rolled-back deploy or stale cached copy) no longer wipes features it predates, such as Collections (STRK-412).
+
+---
+
 ## [3.36.34] - 2026-09-27
 
 ### Changed — STRK-403: Spot history accuracy

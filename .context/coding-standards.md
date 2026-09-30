@@ -288,7 +288,7 @@ const theme = await loadData(THEME_KEY, "light");
 
 ### ALLOWED_STORAGE_KEYS guard
 
-`cleanupStorage()` runs at `DOMContentLoaded` and deletes every `localStorage` key not listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`. A key written before it is added to the allowlist survives the current session but is wiped on the next startup.
+`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) no longer uses it: since STRK-412 it deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognise, so an older build cannot wipe a newer build's data (downgrade safety). Retiring a key means adding it to `RETIRED_STORAGE_KEYS`.
 
 The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding. Automated reviewer flags on this pattern are false positives.
 
@@ -1064,7 +1064,7 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 | `safeGetElement()` in `about.js` early-init                 | `ReferenceError` — not yet defined                                                                                           | Use `document.getElementById()` + `if`                                                                                 |
 | Unsanitized user content in innerHTML assignment            | XSS via crafted item name                                                                                                    | Wrap user strings in `sanitizeHtml()` first                                                                            |
 | `sanitizeHtml()` on static developer HTML                   | Double-encodes intentional markup                                                                                            | Do not sanitize static strings                                                                                         |
-| `localStorage.setItem()` for JSON data                      | Bypasses compression; key wiped by `cleanupStorage`                                                                          | Use `saveData` / `saveDataSync`                                                                                        |
+| `localStorage.setItem()` for JSON data                      | Bypasses compression and the sync/import allowlist                                                                           | Use `saveData` / `saveDataSync`                                                                                        |
 | `localStorage.getItem()` on compressed key                  | Returns corrupt `CMP2:...` string                                                                                            | Use `loadData` / `loadDataSync`                                                                                        |
 | New key not in `ALLOWED_STORAGE_KEYS`                       | Silently deleted on next startup                                                                                             | Add to allowlist before first write                                                                                    |
 | `loadData(key)` without explicit default for non-array      | Returns `[]` instead of correct type                                                                                         | Always pass explicit `defaultValue`                                                                                    |

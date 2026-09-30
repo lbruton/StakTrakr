@@ -469,7 +469,7 @@ The CSV column is **last** in both header lists (`buildStandardHeaders`, `BACKUP
 
 Both transparently handle lz-string compression (real `compressToUTF16`, `CMP2:` prefix; legacy `CMP1:` read-only — see coding-standards.md). `loadData`/`loadDataSync` return `defaultValue` on missing or corrupt keys — never throw.
 
-All keys registered in `ALLOWED_STORAGE_KEYS` (`js/constants.js`). `cleanupStorage()` at startup silently deletes any key not in the allowlist. The allowlist is enforced at **startup** (cleanup), not at **write time** — unregistered keys write successfully but are deleted on next load.
+All keys registered in `ALLOWED_STORAGE_KEYS` (`js/constants.js`). The allowlist gates cloud-sync apply and vault import/restore, not local writes. `cleanupStorage()` at startup deletes only keys listed in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`), never unrecognised ones (STRK-412 downgrade safety). Unregistered keys write successfully and survive, but are dropped by sync/import.
 
 ### v2 Storage Keys
 
