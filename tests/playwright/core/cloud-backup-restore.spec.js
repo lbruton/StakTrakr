@@ -13,9 +13,9 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 import { encryptVaultPayload } from "../helpers/vault-fixtures.js";
 
 const ACCOUNT_ID = "dbid:strk413-test-account";
-const VAULT_PASSWORD = "strk413-vault-pass"; // gitleaks:allow — test fixture, not a real secret
-const OLD_VAULT_PASSWORD = "strk413-old-vault-pass"; // gitleaks:allow — test fixture
-const MANUAL_PASSWORD = "strk413-manual-pass"; // gitleaks:allow — test fixture
+const VAULT_PHRASE = "strk413-vault-pass"; // gitleaks:allow — test fixture, not a real secret
+const OLD_VAULT_PHRASE = "strk413-old-vault-pass"; // gitleaks:allow — test fixture
+const MANUAL_PHRASE = "strk413-manual-pass"; // gitleaks:allow — test fixture
 const PRE_SYNC_NAME = "pre-sync-2026-09-30T01-00-00-000Z.stvault";
 const MANUAL_NAME = "staktrakr-backup-20260930-010000.stvault";
 
@@ -130,13 +130,9 @@ test.describe("core/cloud-backup-restore (STRK-413)", () => {
   test("a pre-sync backup restores with the device's sync key, without a password prompt", async ({
     page,
   }) => {
-    await seedConnectedDevice(page, VAULT_PASSWORD);
+    await seedConnectedDevice(page, VAULT_PHRASE);
     await bootApp(page);
-    const bytes = await encryptVaultPayload(
-      page,
-      BACKUP_PAYLOAD,
-      `${VAULT_PASSWORD}:${ACCOUNT_ID}`
-    );
+    const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, `${VAULT_PHRASE}:${ACCOUNT_ID}`);
     await routeBackupFolder(page, PRE_SYNC_NAME, bytes);
 
     await restoreListedBackup(page, PRE_SYNC_NAME);
@@ -151,15 +147,11 @@ test.describe("core/cloud-backup-restore (STRK-413)", () => {
     // cannot derive the key silently, so the prompt must accept the vault password.
     await seedConnectedDevice(page, null);
     await bootApp(page);
-    const bytes = await encryptVaultPayload(
-      page,
-      BACKUP_PAYLOAD,
-      `${VAULT_PASSWORD}:${ACCOUNT_ID}`
-    );
+    const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, `${VAULT_PHRASE}:${ACCOUNT_ID}`);
     await routeBackupFolder(page, PRE_SYNC_NAME, bytes);
 
     await restoreListedBackup(page, PRE_SYNC_NAME);
-    await submitVaultPassword(page, VAULT_PASSWORD);
+    await submitVaultPassword(page, VAULT_PHRASE);
 
     await expect(page.locator("#diffReviewModal")).toBeVisible({ timeout: 15000 });
     await expect(page.locator("#diffReviewModal")).toContainText("STRK-413 From Backup");
@@ -168,13 +160,13 @@ test.describe("core/cloud-backup-restore (STRK-413)", () => {
   test("a manual backup still restores with the password chosen when it was made", async ({
     page,
   }) => {
-    await seedConnectedDevice(page, VAULT_PASSWORD);
+    await seedConnectedDevice(page, VAULT_PHRASE);
     await bootApp(page);
-    const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, MANUAL_PASSWORD);
+    const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, MANUAL_PHRASE);
     await routeBackupFolder(page, MANUAL_NAME, bytes);
 
     await restoreListedBackup(page, MANUAL_NAME);
-    await submitVaultPassword(page, MANUAL_PASSWORD);
+    await submitVaultPassword(page, MANUAL_PHRASE);
 
     await expect(page.locator("#diffReviewModal")).toBeVisible({ timeout: 15000 });
     await expect(page.locator("#diffReviewModal")).toContainText("STRK-413 From Backup");
@@ -185,22 +177,69 @@ test.describe("core/cloud-backup-restore (STRK-413)", () => {
   }) => {
     // Written before a vault-password change: neither the stored key nor the typed
     // current password opens it. The message must not read as file corruption.
-    await seedConnectedDevice(page, VAULT_PASSWORD);
+    await seedConnectedDevice(page, VAULT_PHRASE);
     await bootApp(page);
     const bytes = await encryptVaultPayload(
       page,
       BACKUP_PAYLOAD,
-      `${OLD_VAULT_PASSWORD}:${ACCOUNT_ID}`
+      `${OLD_VAULT_PHRASE}:${ACCOUNT_ID}`
     );
     await routeBackupFolder(page, PRE_SYNC_NAME, bytes);
 
     await restoreListedBackup(page, PRE_SYNC_NAME);
-    await submitVaultPassword(page, VAULT_PASSWORD);
+    await submitVaultPassword(page, VAULT_PHRASE);
 
     const status = page.locator("#vaultStatus");
     await expect(status).toContainText("Sync backups", { timeout: 15000 });
     await expect(status).toContainText("Manual backups");
     await expect(status).not.toContainText("corrupted");
     await expect(page.locator("#diffReviewModal")).toBeHidden();
+  });
+
+  test("vaultFindBackupKey refuses a file over the vault size limit before any key work", async ({
+    page,
+  }) => {
+    await seedConnectedDevice(page, VAULT_PHRASE);
+    await bootApp(page);
+    const result = await page.evaluate(async () => {
+      const original = window.vaultDeriveKey;
+      window.__deriveCount = 0;
+      window.vaultDeriveKey = async (...args) => {
+        window.__deriveCount++;
+        return original(...args);
+      };
+      const oversized = new Uint8Array(VAULT_MAX_FILE_SIZE + 1);
+      let message = null;
+      try {
+        await window.vaultFindBackupKey(oversized, ["any-key-1234"]);
+      } catch (err) {
+        message = err.message;
+      }
+      return { message, derivations: window.__deriveCount };
+    });
+
+    expect(result.message).toContain("50MB");
+    expect(result.derivations).toBe(0);
+  });
+
+  test("a silent pre-sync restore derives the key only once", async ({ page }) => {
+    await seedConnectedDevice(page, VAULT_PHRASE);
+    await bootApp(page);
+    const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, `${VAULT_PHRASE}:${ACCOUNT_ID}`);
+    await routeBackupFolder(page, PRE_SYNC_NAME, bytes);
+    // Installed after encryption so only the restore's derivations are counted.
+    await page.evaluate(() => {
+      const original = window.vaultDeriveKey;
+      window.__deriveCount = 0;
+      window.vaultDeriveKey = async (...args) => {
+        window.__deriveCount++;
+        return original(...args);
+      };
+    });
+
+    await restoreListedBackup(page, PRE_SYNC_NAME);
+
+    await expect(page.locator("#diffReviewModal")).toBeVisible({ timeout: 15000 });
+    expect(await page.evaluate(() => window.__deriveCount)).toBe(1);
   });
 });

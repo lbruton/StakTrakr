@@ -1088,7 +1088,8 @@ const _cloudBackupWithCachedPw = (provider, password, btn) =>
  * structurally invalid file, which the password prompt then reports by name.
  * @param {string} provider - Cloud provider key (e.g. 'dropbox')
  * @param {Uint8Array} fileBytes - Downloaded .stvault bytes
- * @returns {Promise<string|null>}
+ * @returns {Promise<{key: string, payload: object}|null>} The matching key and the
+ *   payload it decrypted, or null
  */
 const _cloudFindSilentRestoreKey = async (provider, fileBytes) => {
   if (typeof vaultFindBackupKey !== "function") return null;
@@ -1108,14 +1109,16 @@ const _cloudFindSilentRestoreKey = async (provider, fileBytes) => {
 /**
  * Restore a cloud backup with a key already known to decrypt it (no vault modal).
  * A failure here is not a wrong key, so it is reported as-is instead of re-prompting.
+ * @param {Uint8Array} fileBytes - Downloaded .stvault bytes
+ * @param {{key: string, payload: object}} match - Result of _cloudFindSilentRestoreKey
  */
-const _cloudRestoreWithKey = async (fileBytes, key) => {
+const _cloudRestoreWithKey = async (fileBytes, match) => {
   try {
     if (typeof vaultRestoreWithPreview === "function") {
-      await vaultRestoreWithPreview(fileBytes, key);
+      await vaultRestoreWithPreview(fileBytes, match.key, match.payload);
       // DiffModal now showing (or fallback applied if unavailable)
     } else {
-      await vaultDecryptAndRestore(fileBytes, key);
+      await vaultDecryptAndRestore(fileBytes, match.key);
       if (typeof showCloudToast === "function") showCloudToast("Restore complete. Reloading\u2026");
       setTimeout(function () {
         location.reload();
@@ -1248,9 +1251,9 @@ const bindCloudStorageListeners = () => {
         "Downloading\u2026",
         async () => {
           var fileBytes = await cloudDownloadVaultByName(provider, filename);
-          var silentKey = await _cloudFindSilentRestoreKey(provider, fileBytes);
-          if (silentKey) {
-            await _cloudRestoreWithKey(fileBytes, silentKey);
+          var silentMatch = await _cloudFindSilentRestoreKey(provider, fileBytes);
+          if (silentMatch) {
+            await _cloudRestoreWithKey(fileBytes, silentMatch);
             return;
           }
           openVaultModal("cloud-import", {

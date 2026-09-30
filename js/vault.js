@@ -406,18 +406,24 @@ async function vaultDecryptToData(fileBytes, password) {
  * Return the first candidate key that decrypts a backup, or null if none does (STRK-413).
  * The file header is checked once up front, so a structurally invalid file
  * ("Not a valid .stvault file.", "Created by a newer StakTrakr version") still
- * throws instead of reading as a wrong key. Each wrong candidate costs one PBKDF2
- * derivation, so callers keep the list short.
+ * throws instead of reading as a wrong key. Files over VAULT_MAX_FILE_SIZE are
+ * rejected before the header parse or any key work, so every caller gets the limit.
+ * Each wrong candidate costs one PBKDF2 derivation, so callers keep the list short.
+ * The decrypted payload is returned with the key so callers need not derive it again.
  * @param {Uint8Array|ArrayBuffer} fileBytes
  * @param {string[]} candidates - Keys to try, most likely first
- * @returns {Promise<string|null>}
+ * @returns {Promise<{key: string, payload: object}|null>} The matching key and its
+ *   decrypted payload, or null when no candidate decrypts the file
+ * @throws {Error} "File exceeds 50MB limit." or a structural header error
  */
 async function vaultFindBackupKey(fileBytes, candidates) {
-  parseVaultFile(new Uint8Array(fileBytes));
+  var bytes = new Uint8Array(fileBytes);
+  if (bytes.length > VAULT_MAX_FILE_SIZE) throw new Error("File exceeds 50MB limit.");
+  parseVaultFile(bytes);
   for (var i = 0; i < candidates.length; i++) {
     try {
-      await vaultDecryptToData(fileBytes, candidates[i]);
-      return candidates[i];
+      var payload = await vaultDecryptToData(bytes, candidates[i]);
+      return { key: candidates[i], payload: payload };
     } catch (_) {
       debugLog("[Vault] Backup key candidate", i + 1, "of", candidates.length, "did not decrypt");
     }
@@ -441,7 +447,8 @@ var VAULT_WRONG_BACKUP_KEY_MESSAGE =
  * this device's Dropbox account ID (pre-sync backups) via getBackupKeyCandidates().
  * @param {Uint8Array} fileBytes
  * @param {string} typedPassword
- * @returns {Promise<string>} The key that decrypts the file
+ * @returns {Promise<{key: string, payload: object}>} The key that decrypts the file and
+ *   the payload it decrypted
  * @throws {Error} VAULT_WRONG_BACKUP_KEY_MESSAGE when no form of the password works
  */
 async function _vaultResolveImportKey(fileBytes, typedPassword) {
@@ -449,9 +456,9 @@ async function _vaultResolveImportKey(fileBytes, typedPassword) {
     typeof getBackupKeyCandidates === "function"
       ? getBackupKeyCandidates(typedPassword)
       : [typedPassword];
-  var key = await vaultFindBackupKey(fileBytes, candidates);
-  if (key === null) throw new Error(VAULT_WRONG_BACKUP_KEY_MESSAGE);
-  return key;
+  var match = await vaultFindBackupKey(fileBytes, candidates);
+  if (match === null) throw new Error(VAULT_WRONG_BACKUP_KEY_MESSAGE);
+  return match;
 }
 
 /**
@@ -461,6 +468,8 @@ async function _vaultResolveImportKey(fileBytes, typedPassword) {
  *
  * @param {Uint8Array|ArrayBuffer} fileBytes - Raw .stvault bytes
  * @param {string} password
+ * @param {object} [decryptedPayload] - Payload already decrypted with `password`; skips a
+ *   second PBKDF2 derivation. `password` is still needed for companion image restores.
  * @returns {Promise<void>}
  */
 /**
@@ -743,13 +752,13 @@ async function _vaultApplyRestoreSelection(
   }
 }
 
-async function vaultRestoreWithPreview(fileBytes, password) {
+async function vaultRestoreWithPreview(fileBytes, password, decryptedPayload) {
   // Capture image vault file before closeVaultModal() can nullify it —
   // the onApply callback fires later, after the vault modal is closed
   var capturedImageFile = _vaultPendingImageFile;
 
   // 1. Decrypt without side effects
-  var payload = await vaultDecryptToData(fileBytes, password);
+  var payload = decryptedPayload || (await vaultDecryptToData(fileBytes, password));
 
   // 2. Guard: fall back to legacy restore if DiffEngine / DiffModal unavailable
   if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
@@ -1534,10 +1543,10 @@ async function importEncryptedBackup(fileBytes, password) {
   }
 
   debugLog("Vault: importing with", backend, "backend");
-  var restoreKey = await _vaultResolveImportKey(fileBytes, password);
-  await vaultRestoreWithPreview(fileBytes, restoreKey);
+  var match = await _vaultResolveImportKey(fileBytes, password);
+  await vaultRestoreWithPreview(fileBytes, match.key, match.payload);
   debugLog("Vault: import complete (preview shown or fallback applied)");
-  return restoreKey;
+  return match.key;
 }
 
 // =============================================================================

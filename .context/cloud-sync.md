@@ -470,7 +470,7 @@ The user never types the composite key. Before STRK-413 the restore click tried 
    - The stored variants are **deliberately not** added to a typed attempt, so a wrong typed password still fails.
    - When every form fails, the modal shows `VAULT_WRONG_BACKUP_KEY_MESSAGE`, which names the password each backup type expects.
 
-`vaultFindBackupKey(fileBytes, candidates)` parses the header once up front. A structurally invalid file ("Not a valid .stvault file.") therefore still throws by name and is never mistaken for a wrong key. Each wrong candidate costs one 600K-iteration PBKDF2 derivation, so candidate lists stay short. The working key, which may be the composite, is what gets cached in the session and reused for companion vaults. Pinned by `tests/playwright/core/cloud-backup-restore.spec.js`.
+`vaultFindBackupKey(fileBytes, candidates)` rejects files over `VAULT_MAX_FILE_SIZE` first ("File exceeds 50MB limit."), then parses the header once. A structurally invalid file ("Not a valid .stvault file.") therefore still throws by name and is never mistaken for a wrong key. Each wrong candidate costs one 600K-iteration PBKDF2 derivation, so candidate lists stay short. It returns `{ key, payload }`, and the payload is passed to `vaultRestoreWithPreview` so a successful restore derives the key once. The working key, which may be the composite, is what gets cached in the session and reused for companion vaults. Pinned by `tests/playwright/core/cloud-backup-restore.spec.js`.
 
 ### Coverage Matrix
 
