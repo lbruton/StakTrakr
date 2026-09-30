@@ -135,8 +135,15 @@ async function stubCatalogLookup(page, result = NUMISTA_RESULT) {
 
 async function gotoApp(page) {
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // The function globals below are defined at script-parse time, long before the
+  // async init finishes. NumistaLookup.loadCustomRules() + seed rules run in init
+  // Phase 13, and appListenersReady flips in Phase 14 after them, so waiting on it
+  // guarantees persisted lookup rules are loaded before a test calls
+  // buildNumistaSearchQuery (without it, ~5-20% of runs saw 0 custom rules).
+  // Users cannot hit this window: the Numista search handlers are wired in Phase 14.
   await page.waitForFunction(
     () =>
+      window.appListenersReady === true &&
       typeof window.editItem === "function" &&
       typeof window.showViewModal === "function" &&
       typeof window.showNumistaResults === "function" &&
