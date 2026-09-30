@@ -99,7 +99,11 @@ test("scrape fails closed on an off-host fbp_url without fetching (SSRF guard)",
   let fetchCalled = false;
   const context = {
     provider: { id: "jmbullion", url: FBP_URL },
-    coin: { fbp_url: "https://evil.example.com/p/2026-american-silver-eagle/", metal: "silver", weight_oz: 1 },
+    coin: {
+      fbp_url: "https://evil.example.com/p/2026-american-silver-eagle/",
+      metal: "silver",
+      weight_oz: 1,
+    },
     url: FBP_URL,
     log: () => {},
     warn: () => {},

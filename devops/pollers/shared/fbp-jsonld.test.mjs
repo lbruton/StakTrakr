@@ -44,9 +44,7 @@ test("parseFbpItemList returns [] for malformed / missing-ItemList HTML without 
 
   assert.deepEqual(parseFbpItemList("<html><body>no json-ld here</body></html>"), []);
   assert.deepEqual(
-    parseFbpItemList(
-      '<script type="application/ld+json">{ this is : not valid json }</script>'
-    ),
+    parseFbpItemList('<script type="application/ld+json">{ this is : not valid json }</script>'),
     [],
     "a malformed ld+json block must be swallowed per-block, not thrown"
   );
