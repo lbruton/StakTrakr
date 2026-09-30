@@ -4,7 +4,7 @@ project: StakTrakr
 audience: agent
 canonical: .context/infrastructure.md
 migration_source: "DocVault/Projects/StakTrakr/Foundation/infrastructure.md" # historical provenance; migrated 2026-08-12
-updated: "2026-06-28"
+updated: "2026-09-29"
 ---
 
 # StakTrakr — Infrastructure
@@ -286,12 +286,42 @@ DR sync runs nightly at 03:00 UTC via `turso-backup-sync.js` on the home poller.
 
 ## Frontend Hosting
 
-| Component       | Platform                                      | URL                 |
-| --------------- | --------------------------------------------- | ------------------- |
-| Frontend app    | Cloudflare Pages                              | `staktrakr.com`     |
-| Static JSON API | GitHub Pages (`api` branch of `StakTrakrApi`) | `api.staktrakr.com` |
+Surveyed read-only 2026-09-29 (Cloudflare API, `gh api`, `curl -sI`).
 
-The `api` branch is force-pushed exclusively by `run-publish.sh` on Fly.io. The `Merge Poller Branches` GitHub Actions workflow is retired (manual-only).
+| Host                  | Serves                                                                | DNS (zone `staktrakr.com`, Cloudflare) |
+| --------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| `staktrakr.com`       | 301 to `https://www.staktrakr.com/` (dashboard redirect, not in repo) | CNAME `stacktrackr.pages.dev`, proxied |
+| `www.staktrakr.com`   | Cloudflare Pages project **`stacktrackr`**, production branch `main`  | CNAME `stacktrackr.pages.dev`, proxied |
+| `beta.staktrakr.com`  | **GitHub Pages** on `lbruton/StakTrakr`, branch `dev`, path `/`       | CNAME `lbruton.github.io`, proxied     |
+| `api.staktrakr.com`   | GitHub Pages on `StakTrakrApi`, branch `api`, HTTPS enforced          | CNAME `lbruton.github.io`, DNS-only    |
+| `api2.staktrakr.com`  | Fly.io `serve.js` (see Fly.io section)                                | A/AAAA to Fly, DNS-only                |
+| `staktrakr.pages.dev` | Cloudflare Pages project `staktrakr`, production branch `dev`         | pages.dev only, no custom domain       |
+
+The `api` branch is force-pushed exclusively by `run-publish.sh` on Fly.io. The `Merge Poller Branches` GitHub Actions workflow is retired (manual-only). The repo-root `CNAME` file (`beta.staktrakr.com`) exists for the GitHub Pages beta deploy.
+
+### Cloudflare Pages projects
+
+Two projects, both Git-connected to `lbruton/StakTrakr`. Both have **no build command, no output dir and no root dir**, so the whole repo root is published as-is, and both build preview deployments for **all** branches.
+
+| Project       | Created    | Production branch | Custom domains                                                                                                          | Deployments (prod / preview / total) |
+| ------------- | ---------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `stacktrackr` | 2026-02-07 | `main`            | `staktrakr.com`, `www.staktrakr.com` (active); `stackrtrackr.com` + `www` (active); `stackertrackr.com` + `www` (error) | 192 / 3,672 / 3,864                  |
+| `staktrakr`   | 2026-02-20 | `dev`             | none                                                                                                                    | 972 / 2,227 / 3,199                  |
+
+- **Despite the typo'd name, `stacktrackr` is the live production project.** Deleting it takes `www.staktrakr.com` down. Retiring it first requires attaching `staktrakr.com` and `www.staktrakr.com` to the `staktrakr` project, setting that project's production branch to `main` (it currently builds `dev` as production), and repointing both CNAMEs to `staktrakr.pages.dev`.
+- Every push to any branch builds in **both** projects (about 7,000 stored deployments combined). Restricting preview deployments on the surviving project (none, or a branch allowlist) stops the growth.
+- The typo domains `stackrtrackr.com` and `stackertrackr.com` do not resolve publicly and their zones are not in the account. `stacktrackr.com` is a Namecheap parking page and is not attached to any project.
+- Cloudflare refuses to delete a project with a large deployment history from the dashboard. The documented path is its delete-all-deployments script, which pages through `GET .../pages/projects/{name}/deployments` and calls `DELETE .../deployments/{id}?force=true` for each one except the live production deployment, then deletes the project.
+- `functions/api/token-exchange.js` (Dropbox OAuth token exchange) is a Pages Function served by both projects.
+
+### Repo-internal files are publicly served (STRK-410)
+
+Because the repo root is the published directory, repo-internal files are reachable on every frontend host. Verified 200s for `/.context/infrastructure.md`, `/CLAUDE.md` and `/package.json` on `www.staktrakr.com`, `staktrakr.pages.dev` and `beta.staktrakr.com`. Directory URLs such as `/devops/` and `/tests/` return the SPA `index.html` fallback on Cloudflare (404 on GitHub Pages), but individual files beneath them are served.
+
+Low-complexity fixes:
+
+- **Cloudflare Pages:** set the build command to `rm -rf .context .claude .agents devops tests docs CLAUDE.md AGENTS.md package.json package-lock.json` with output directory `.`. Pages still deploys `functions/` from the repo root. The alternative is a `functions/_middleware.js` that returns 404 for those prefixes, at the cost of a Function invocation per request.
+- **GitHub Pages (beta):** a legacy branch deploy cannot exclude files. Either serve beta from Cloudflare Pages (the `staktrakr` project already builds `dev`), or switch GitHub Pages to an Actions workflow that strips the same paths before `upload-pages-artifact`.
 
 ---
 
