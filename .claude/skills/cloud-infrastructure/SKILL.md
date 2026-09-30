@@ -143,13 +143,18 @@ no other concurrent writer. A stale feed means a failed publish on Fly, not a st
 
 ## Cloudflare Pages — StakTrakr Frontend
 
-StakTrakr frontend auto-deploys via Cloudflare Pages on push to `dev`.
+StakTrakr frontend auto-deploys via the Cloudflare Pages project **`stacktrackr`** (typo'd
+name, but it is the live one) on every push. Full detail: `.context/infrastructure.md` → Frontend Hosting.
 
-| Property | Value                                     |
-| -------- | ----------------------------------------- |
-| Branch   | `dev`                                     |
-| Domain   | `beta.staktrakr.com` (preview)            |
-| Deploy   | Automatic on push — no manual step needed |
+| Host                 | Branch | How it is wired                                                     |
+| -------------------- | ------ | ------------------------------------------------------------------- |
+| `www.staktrakr.com`  | `main` | Production custom domain; CNAME `stacktrackr.pages.dev`             |
+| `staktrakr.com`      | —      | 301 to www                                                          |
+| `beta.staktrakr.com` | `dev`  | Custom domain; CNAME **`dev.stacktrackr.pages.dev`** (branch alias) |
+
+- The CNAME target pins beta to `dev`. If it points at `stacktrackr.pages.dev`, beta silently serves `main`.
+- `functions/_middleware.js` + `_routes.json` 404 repo-internal paths (STRK-410); new public root files must be added to the `_routes.json` exclude list.
+- Beta was GitHub Pages (legacy, `dev`) until 2026-09-30.
 
 ---
 
