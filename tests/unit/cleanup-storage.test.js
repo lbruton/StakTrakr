@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
 
 const src = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
 const start = src.indexOf("const RETIRED_STORAGE_KEYS");
@@ -15,10 +16,12 @@ const load = (store) => {
     key: (i) => Object.keys(store)[i] ?? null,
     removeItem: (k) => delete store[k],
   };
-  return new Function(
-    "localStorage",
-    `${src.slice(start, end)}; return { cleanupStorage, RETIRED_STORAGE_KEYS };`
-  )(localStorage);
+  const context = vm.createContext({ localStorage });
+  vm.runInContext(
+    `${src.slice(start, end)}\nthis.cleanupStorage = cleanupStorage;\nthis.RETIRED_STORAGE_KEYS = RETIRED_STORAGE_KEYS;`,
+    context
+  );
+  return context;
 };
 
 test("cleanupStorage keeps allowlisted and unknown future keys, removes retired ones", () => {

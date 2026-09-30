@@ -60,7 +60,7 @@ storage and sync paths already use `saveDataSync()`.
 `cleanupStorage()` removes only `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`). Never make it
 delete keys "not in `ALLOWED_STORAGE_KEYS`": an older build (rolled-back `main`, beta alias
 pointed at the wrong branch, stale service worker) would wipe every newer-feature key on that
-origin. This wiped Collections on 2026-09-30 (builds ≤ 3.36.24 still do this). Retiring a key =
+origin. This wiped Collections on 2026-09-30 (every build through 3.36.34 still does this; 3.36.35 is the first safe one). Retiring a key =
 append it to `RETIRED_STORAGE_KEYS`.
 
 ## `check-release-sync` hook is a SUBSET

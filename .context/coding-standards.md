@@ -288,7 +288,7 @@ const theme = await loadData(THEME_KEY, "light");
 
 ### ALLOWED_STORAGE_KEYS guard
 
-`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) no longer uses it: since STRK-412 it deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognise, so an older build cannot wipe a newer build's data (downgrade safety). Retiring a key means adding it to `RETIRED_STORAGE_KEYS`.
+`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) no longer uses it: since STRK-412 it deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognise, so v3.36.35+ cannot wipe a newer build's data (downgrade safety; builds through 3.36.34 still run the old allowlist sweep). Retiring a key means adding it to `RETIRED_STORAGE_KEYS`.
 
 The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding. Automated reviewer flags on this pattern are false positives.
 

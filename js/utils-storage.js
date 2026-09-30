@@ -170,7 +170,9 @@ const RETIRED_STORAGE_KEYS = [
  *
  * Deletes ONLY keys listed in RETIRED_STORAGE_KEYS and never keys it does not recognise, so an
  * older build served on top of newer data (beta alias flip, main rollback, stale service
- * worker) cannot wipe features it predates. ALLOWED_STORAGE_KEYS still gates writes/imports.
+ * worker) cannot wipe features it predates. Protects only builds carrying this sweep (3.36.35+); older ones
+ * still run the allowlist sweep. ALLOWED_STORAGE_KEYS still gates cloud-sync apply and vault import
+ * (local writes are not allowlist-gated).
  */
 const cleanupStorage = () => {
   if (typeof localStorage === "undefined") return;
