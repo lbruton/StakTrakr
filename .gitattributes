@@ -23,7 +23,6 @@ package-lock.json     export-ignore
 
 # GitHub & hosting infrastructure
 .github/              export-ignore
-CNAME                 export-ignore
 
 # Git housekeeping (exclude themselves)
 .gitattributes        export-ignore
