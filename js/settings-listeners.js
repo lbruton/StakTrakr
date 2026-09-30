@@ -1082,26 +1082,47 @@ const _cloudBackupWithCachedPw = (provider, password, btn) =>
   );
 
 /**
- * Perform a cached-password cloud restore (decrypt + restore, no vault modal).
+ * Find a key that opens a downloaded backup without prompting (STRK-413): the
+ * session's cached restore key first, then this device's stored sync-key variants,
+ * which open pre-sync backups. Returns null when none works \u2014 including for a
+ * structurally invalid file, which the password prompt then reports by name.
+ * @param {string} provider - Cloud provider key (e.g. 'dropbox')
+ * @param {Uint8Array} fileBytes - Downloaded .stvault bytes
+ * @returns {Promise<string|null>}
  */
-const _cloudRestoreWithCachedPw = async (provider, password, fileBytes) => {
+const _cloudFindSilentRestoreKey = async (provider, fileBytes) => {
+  if (typeof vaultFindBackupKey !== "function") return null;
+  const cached =
+    typeof cloudGetCachedPassword === "function" ? cloudGetCachedPassword(provider) : null;
+  const stored = typeof getBackupKeyCandidates === "function" ? getBackupKeyCandidates(null) : [];
+  const candidates = (cached ? [cached] : []).concat(stored.filter((key) => key !== cached));
+  if (candidates.length === 0) return null;
+  try {
+    return await vaultFindBackupKey(fileBytes, candidates);
+  } catch (err) {
+    debugLog("[Cloud] Silent restore key lookup skipped:", err.message);
+    return null;
+  }
+};
+
+/**
+ * Restore a cloud backup with a key already known to decrypt it (no vault modal).
+ * A failure here is not a wrong key, so it is reported as-is instead of re-prompting.
+ */
+const _cloudRestoreWithKey = async (fileBytes, key) => {
   try {
     if (typeof vaultRestoreWithPreview === "function") {
-      await vaultRestoreWithPreview(fileBytes, password);
+      await vaultRestoreWithPreview(fileBytes, key);
       // DiffModal now showing (or fallback applied if unavailable)
     } else {
-      await vaultDecryptAndRestore(fileBytes, password);
+      await vaultDecryptAndRestore(fileBytes, key);
       if (typeof showCloudToast === "function") showCloudToast("Restore complete. Reloading\u2026");
       setTimeout(function () {
         location.reload();
       }, 1200);
     }
   } catch (err) {
-    appAlert("Decryption failed. Opening password prompt.");
-    openVaultModal("cloud-import", {
-      provider: provider,
-      fileBytes: fileBytes,
-    });
+    appAlert("Restore failed: " + (err.message || err));
   }
 };
 
@@ -1227,10 +1248,9 @@ const bindCloudStorageListeners = () => {
         "Downloading\u2026",
         async () => {
           var fileBytes = await cloudDownloadVaultByName(provider, filename);
-          var savedPw =
-            typeof cloudGetCachedPassword === "function" ? cloudGetCachedPassword(provider) : null;
-          if (savedPw) {
-            await _cloudRestoreWithCachedPw(provider, savedPw, fileBytes);
+          var silentKey = await _cloudFindSilentRestoreKey(provider, fileBytes);
+          if (silentKey) {
+            await _cloudRestoreWithKey(fileBytes, silentKey);
             return;
           }
           openVaultModal("cloud-import", {

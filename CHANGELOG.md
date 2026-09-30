@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.36] - 2026-09-30
+
+### Changed — STRK-413: Dropbox sync backups can be restored again
+
+- **Sync backups restore**: Pre-sync backups (`pre-sync-…` in Dropbox `/StakTrakr/backups/`) are encrypted with the combined Cloud Sync key, which nobody ever types, so no restore attempt could open them and every one reported "Incorrect password or corrupted file." Restoring from Settings › Cloud now tries this device's Cloud Sync key first and opens them without a prompt (STRK-413).
+- **Password prompt**: On a device without the saved vault password, typing the Cloud Sync vault password now opens pre-sync backups. Manual backups still open with the password chosen when they were made (STRK-413).
+- **Clearer error**: A password that fits no backup key now says which password each backup type expects, instead of suggesting the file is corrupted (STRK-413).
+
+---
+
 ## [3.36.35] - 2026-09-30
 
 ### Changed — STRK-412: Startup no longer deletes unrecognised storage keys

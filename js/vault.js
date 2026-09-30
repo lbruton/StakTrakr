@@ -403,6 +403,58 @@ async function vaultDecryptToData(fileBytes, password) {
 }
 
 /**
+ * Return the first candidate key that decrypts a backup, or null if none does (STRK-413).
+ * The file header is checked once up front, so a structurally invalid file
+ * ("Not a valid .stvault file.", "Created by a newer StakTrakr version") still
+ * throws instead of reading as a wrong key. Each wrong candidate costs one PBKDF2
+ * derivation, so callers keep the list short.
+ * @param {Uint8Array|ArrayBuffer} fileBytes
+ * @param {string[]} candidates - Keys to try, most likely first
+ * @returns {Promise<string|null>}
+ */
+async function vaultFindBackupKey(fileBytes, candidates) {
+  parseVaultFile(new Uint8Array(fileBytes));
+  for (var i = 0; i < candidates.length; i++) {
+    try {
+      await vaultDecryptToData(fileBytes, candidates[i]);
+      return candidates[i];
+    } catch (_) {
+      debugLog("[Vault] Backup key candidate", i + 1, "of", candidates.length, "did not decrypt");
+    }
+  }
+  return null;
+}
+
+/**
+ * Shown when a typed password opens a backup under none of its key forms.
+ * Replaces "Incorrect password or corrupted file." for this case, which read as a
+ * damaged file when the real problem was which password the backup expects (STRK-413).
+ */
+var VAULT_WRONG_BACKUP_KEY_MESSAGE =
+  "That password doesn't open this backup. " +
+  "Sync backups (pre-sync-…) open with your Cloud Sync vault password as it was when the backup was made. " +
+  "Manual backups open with the password you chose when you created them.";
+
+/**
+ * Resolve the key that opens a backup from the password typed at the vault prompt.
+ * Tries the typed password as-is (manual backups, local exports), then composed with
+ * this device's Dropbox account ID (pre-sync backups) via getBackupKeyCandidates().
+ * @param {Uint8Array} fileBytes
+ * @param {string} typedPassword
+ * @returns {Promise<string>} The key that decrypts the file
+ * @throws {Error} VAULT_WRONG_BACKUP_KEY_MESSAGE when no form of the password works
+ */
+async function _vaultResolveImportKey(fileBytes, typedPassword) {
+  var candidates =
+    typeof getBackupKeyCandidates === "function"
+      ? getBackupKeyCandidates(typedPassword)
+      : [typedPassword];
+  var key = await vaultFindBackupKey(fileBytes, candidates);
+  if (key === null) throw new Error(VAULT_WRONG_BACKUP_KEY_MESSAGE);
+  return key;
+}
+
+/**
  * Decrypt a .stvault file and show a DiffEngine + DiffModal preview instead
  * of silently overwriting all data.  Falls back to the legacy full-overwrite
  * path when DiffEngine or DiffModal are not loaded.
@@ -1464,9 +1516,12 @@ async function exportEncryptedBackup(password) {
 
 /**
  * Import and decrypt a vault backup.
+ * The typed password may be the backup's key itself or half of the composite sync
+ * key, so the working key is resolved first and returned for the caller to reuse
+ * on companion vaults and the session cache (STRK-413).
  * @param {Uint8Array} fileBytes
- * @param {string} password
- * @returns {Promise<void>}
+ * @param {string} password - Password typed at the vault prompt
+ * @returns {Promise<string>} The key that decrypted the backup
  */
 async function importEncryptedBackup(fileBytes, password) {
   var backend = getCryptoBackend();
@@ -1479,8 +1534,10 @@ async function importEncryptedBackup(fileBytes, password) {
   }
 
   debugLog("Vault: importing with", backend, "backend");
-  await vaultRestoreWithPreview(fileBytes, password);
+  var restoreKey = await _vaultResolveImportKey(fileBytes, password);
+  await vaultRestoreWithPreview(fileBytes, restoreKey);
   debugLog("Vault: import complete (preview shown or fallback applied)");
+  return restoreKey;
 }
 
 // =============================================================================
@@ -2091,10 +2148,12 @@ async function _vaultPerformImport(password, isCloudImport, actionBtn) {
     // Determine whether the diff preview path is available
     var hasDiffPreview = typeof DiffEngine !== "undefined" && typeof DiffModal !== "undefined";
 
-    await importEncryptedBackup(_vaultPendingFile, password);
-    // Cache password for this browser session
+    // importEncryptedBackup returns the key that actually opened the file, which may
+    // be the typed password composed with the account ID (STRK-413).
+    var restoreKey = (await importEncryptedBackup(_vaultPendingFile, password)) || password;
+    // Cache the working key for this browser session
     if (isCloudImport && _cloudContext && typeof cloudCachePassword === "function") {
-      cloudCachePassword(_cloudContext.provider, password);
+      cloudCachePassword(_cloudContext.provider, restoreKey);
     }
 
     if (hasDiffPreview) {
@@ -2103,7 +2162,7 @@ async function _vaultPerformImport(password, isCloudImport, actionBtn) {
       // inside vaultRestoreWithPreview handles save/render.
       closeVaultModal();
     } else {
-      await _vaultRestoreCompanionsAndReload(password);
+      await _vaultRestoreCompanionsAndReload(restoreKey);
     }
   } catch (err) {
     showVaultStatus("error", err.message || "Import failed.");
@@ -2389,6 +2448,7 @@ window.vaultEncryptToBytesScoped = vaultEncryptToBytesScoped;
 window.vaultDecryptAndRestore = vaultDecryptAndRestore;
 window.vaultRestoreWithPreview = vaultRestoreWithPreview;
 window.vaultDecryptToData = vaultDecryptToData;
+window.vaultFindBackupKey = vaultFindBackupKey;
 window.collectVaultData = collectVaultData;
 window.restoreVaultData = restoreVaultData;
 window.collectAndHashImageVault = collectAndHashImageVault;
