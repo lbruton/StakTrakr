@@ -317,9 +317,9 @@ One project, `stacktrackr`, Git-connected to `lbruton/StakTrakr`. It has **no bu
 
 Because the repo root is the published directory, repo-internal files are reachable on every frontend host. Verified 200s for `/.context/infrastructure.md`, `/CLAUDE.md` and `/package.json` on `www.staktrakr.com` and `beta.staktrakr.com` (and on the since-deleted `staktrakr.pages.dev`). Directory URLs such as `/devops/` and `/tests/` return the SPA `index.html` fallback on Cloudflare (404 on GitHub Pages), but individual files beneath them are served.
 
-Low-complexity fixes:
+Fixes:
 
-- **Cloudflare Pages:** set the build command to `rm -rf .context .claude .agents devops tests docs CLAUDE.md AGENTS.md package.json package-lock.json` with output directory `.`. Pages still deploys `functions/` from the repo root. The alternative is a `functions/_middleware.js` that returns 404 for those prefixes, at the cost of a Function invocation per request.
+- **Cloudflare Pages — fixed in-repo by PR #1535 (STRK-410), no build step.** `functions/_middleware.js` decodes and normalizes the path (percent-encoding, duplicate slashes, `..`, backslashes, case) and returns 404 for dot-segments (except `/.well-known/`), `artifacts/ devops/ docs/ DocVault/ functions/ playground/ tests/ ui-standards/`, root tooling files and any `*.md`. `_routes.json` includes `/*` but excludes the public static surface (page HTML and their pretty URLs, `sw.js`, `manifest.json`, `css/ data/ fonts/ images/ js/ ratios/ screenshots/ vendor/`, …), so ordinary page loads never invoke a Function. **When adding a new public top-level file or directory, add it to the `_routes.json` exclude list**; `tests/unit/pages-internal-paths.test.js` fails until every tracked top-level entry is classified as public or blocked. Takes effect on www once it ships to `main`.
 - **GitHub Pages (beta):** a legacy branch deploy cannot exclude files. Either serve beta from Cloudflare Pages (a `dev` branch alias on `stacktrackr`, e.g. `dev.stacktrackr.pages.dev`), or switch GitHub Pages to an Actions workflow that strips the same paths before `upload-pages-artifact`.
 
 ---
