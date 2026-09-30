@@ -7,7 +7,8 @@
 //
 // These tests import the REAL middleware module and read the REAL _routes.json, and assert
 // that every tracked top-level repo entry is classified as either public (excluded in
-// _routes.json) or blocked by the middleware, so a new root file cannot silently go public.
+// _routes.json) or blocked by the middleware, so a new root file cannot silently go public,
+// and that no tracked file beneath an excluded (public) directory looks internal.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -144,24 +145,64 @@ describe("_routes.json", () => {
     }
   });
 
-  test("classifies every tracked top-level repo entry as public or internal", () => {
-    let names;
-    try {
-      names = execFileSync("git", ["ls-tree", "--name-only", "HEAD"], {
-        cwd: new URL("../..", import.meta.url),
-        encoding: "utf-8",
-      })
-        .trim()
-        .split("\n");
-    } catch {
-      return; // not a git checkout (e.g. packaged run) — nothing to classify
-    }
+  test("classifies every tracked top-level repo entry as public or internal", (t) => {
+    const files = gitListFiles();
+    if (files === null) return t.skip(gitSkipReason());
+    const topLevel = [...new Set(files.map((f) => f.split("/")[0]))];
     const excluded = new Set(routes.exclude.map((r) => r.replace(/\/\*$/, "").replace(/^\//, "")));
-    const unclassified = names.filter((n) => !excluded.has(n) && !mw.isInternalPath(`/${n}`));
+    const unclassified = topLevel.filter((n) => !excluded.has(n) && !mw.isInternalPath(`/${n}`));
     assert.deepEqual(
       unclassified,
       [],
       "add to _routes.json exclude (public) or the middleware blocklist"
     );
   });
+
+  // Directory-wide excludes (e.g. "/js/*") bypass the middleware for every descendant, so a
+  // tracked internal-looking file beneath one (js/README.md, data/.env) would be served.
+  test("no tracked file under an excluded directory matches the internal-path rules", (t) => {
+    const files = gitListFiles();
+    if (files === null) return t.skip(gitSkipReason());
+    const prefixes = routes.exclude.filter((r) => r.endsWith("/*")).map((r) => r.slice(1, -1));
+    const leaked = files.filter(
+      (f) => prefixes.some((p) => f.startsWith(p)) && mw.isInternalPath(`/${f}`)
+    );
+    assert.deepEqual(
+      leaked,
+      [],
+      "these would bypass the middleware; move them out of the public directory or narrow the exclude"
+    );
+  });
 });
+
+let gitSkipCause = "";
+/**
+ * Builds the visible skip reason reported when `git ls-files` is unavailable.
+ * @returns {string} Skip reason including the underlying cause.
+ */
+function gitSkipReason() {
+  return `not a git checkout — STRK-410 route guard needs "git ls-files" (${gitSkipCause})`;
+}
+
+/**
+ * Lists tracked and staged repo paths via `git ls-files`. A filesystem walk is deliberately
+ * not used as a fallback (it would include gitignored output). When git is unavailable the
+ * guards are reported as SKIPPED with the cause — visible in the run, never a silent pass;
+ * CI and local runs are always git checkouts, so the guards execute there.
+ * @returns {string[]|null} Repo-relative paths, or null when git cannot list files.
+ */
+function gitListFiles() {
+  try {
+    return execFileSync("git", ["ls-files", "-z"], {
+      cwd: new URL("../..", import.meta.url),
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+      .toString("utf8")
+      .split("\0")
+      .filter(Boolean);
+  } catch (error) {
+    gitSkipCause = error.message.split("\n")[0];
+    return null;
+  }
+}
