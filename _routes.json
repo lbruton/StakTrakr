@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/",
+    "/index.html",
+    "/about.html",
+    "/privacy.html",
+    "/preview.html",
+    "/oauth-callback.html",
+    "/manifest.json",
+    "/sw.js",
+    "/sw-router.js",
+    "/version.json",
+    "/favicon.png",
+    "/favicon.svg",
+    "/sample.csv",
+    "/LICENSE",
+    "/CNAME",
+    "/css/*",
+    "/data/*",
+    "/fonts/*",
+    "/images/*",
+    "/js/*",
+    "/ratios/*",
+    "/screenshots/*",
+    "/vendor/*"
+  ]
+}
