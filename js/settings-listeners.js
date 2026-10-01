@@ -1083,19 +1083,30 @@ const _cloudBackupWithCachedPw = (provider, password, btn) =>
 
 /**
  * Find a key that opens a downloaded backup without prompting (STRK-413): the
- * session's cached restore key first, then this device's stored sync-key variants,
- * which open pre-sync backups. Returns null when none works \u2014 including for a
- * structurally invalid file, which the password prompt then reports by name.
+ * session's cached restore key first, then this device's stored sync-key variants.
+ * The stored variants only open pre-sync backups (written under the composite sync
+ * key), so manual backups skip them: each wrong candidate costs a 600,000-iteration
+ * PBKDF2 derivation, which is synchronous under the file:// forge backend. Returns
+ * null when none works, including for a structurally invalid file, which the
+ * password prompt then reports by name.
  * @param {string} provider - Cloud provider key (e.g. 'dropbox')
  * @param {Uint8Array} fileBytes - Downloaded .stvault bytes
+ * @param {string} filename - Backup filename; its prefix tells pre-sync from manual
  * @returns {Promise<{key: string, payload: object}|null>} The matching key and the
  *   payload it decrypted, or null
  */
-const _cloudFindSilentRestoreKey = async (provider, fileBytes) => {
+const _cloudFindSilentRestoreKey = async (provider, fileBytes, filename) => {
   if (typeof vaultFindBackupKey !== "function") return null;
   const cached =
     typeof cloudGetCachedPassword === "function" ? cloudGetCachedPassword(provider) : null;
-  const stored = typeof getBackupKeyCandidates === "function" ? getBackupKeyCandidates(null) : [];
+  const isSyncBackup =
+    typeof filename === "string" &&
+    typeof SYNC_BACKUP_PREFIX !== "undefined" &&
+    filename.indexOf(SYNC_BACKUP_PREFIX) === 0;
+  const stored =
+    isSyncBackup && typeof getBackupKeyCandidates === "function"
+      ? getBackupKeyCandidates(null)
+      : [];
   const candidates = (cached ? [cached] : []).concat(stored.filter((key) => key !== cached));
   if (candidates.length === 0) return null;
   try {
@@ -1251,7 +1262,7 @@ const bindCloudStorageListeners = () => {
         "Downloading\u2026",
         async () => {
           var fileBytes = await cloudDownloadVaultByName(provider, filename);
-          var silentMatch = await _cloudFindSilentRestoreKey(provider, fileBytes);
+          var silentMatch = await _cloudFindSilentRestoreKey(provider, fileBytes, filename);
           if (silentMatch) {
             await _cloudRestoreWithKey(fileBytes, silentMatch);
             return;

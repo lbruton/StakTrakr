@@ -465,7 +465,7 @@ The two backup types in `/StakTrakr/backups/` are encrypted with **different key
 
 The user never types the composite key. Before STRK-413 the restore click tried only the session cache, then the prompt, so **no pre-sync backup could be restored through the UI**. Every attempt failed with "Incorrect password or corrupted file." Restore now resolves the key in two tiers:
 
-1. **Silent** (`_cloudFindSilentRestoreKey`, `js/settings-listeners.js`): tries the session-cached restore key first, then `getBackupKeyCandidates(null)`. That returns this device's stored variants, the same set as `_getSyncKeyCandidates()`, so pre-sync backups open with no prompt on a device holding `cloud_vault_password`.
+1. **Silent** (`_cloudFindSilentRestoreKey`, `js/settings-listeners.js`): tries the session-cached restore key first, then `getBackupKeyCandidates(null)`. That returns this device's stored variants, the same set as `_getSyncKeyCandidates()`, so pre-sync backups open with no prompt on a device holding `cloud_vault_password`. The stored variants are tried only for `pre-sync-` files; manual backups go straight to the prompt unless a session key is cached.
 2. **Prompted** (`importEncryptedBackup` → `_vaultResolveImportKey`, `js/vault.js`): tries the typed password as-is, then `typed:accountId`. The second form opens pre-sync backups on a device that has not stored the vault password. It also opens backups written before a vault-password change, if the user types the old password.
    - The stored variants are **deliberately not** added to a typed attempt, so a wrong typed password still fails.
    - When every form fails, the modal shows `VAULT_WRONG_BACKUP_KEY_MESSAGE`, which names the password each backup type expects.

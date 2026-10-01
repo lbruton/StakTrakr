@@ -120,6 +120,21 @@ async function restoreListedBackup(page, name) {
   await page.locator("#appDialogOk").click();
 }
 
+/**
+ * Wrap window.vaultDeriveKey with a counter exposed as window.__deriveCount.
+ * @param {import('@playwright/test').Page} page - Booted app page
+ */
+async function countKeyDerivations(page) {
+  await page.evaluate(() => {
+    const original = window.vaultDeriveKey;
+    window.__deriveCount = 0;
+    window.vaultDeriveKey = async (...args) => {
+      window.__deriveCount++;
+      return original(...args);
+    };
+  });
+}
+
 async function submitVaultPassword(page, password) {
   await expect(page.locator("#vaultModal")).toBeVisible();
   await page.locator("#vaultPassword").fill(password);
@@ -228,18 +243,26 @@ test.describe("core/cloud-backup-restore (STRK-413)", () => {
     const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, `${VAULT_PHRASE}:${ACCOUNT_ID}`);
     await routeBackupFolder(page, PRE_SYNC_NAME, bytes);
     // Installed after encryption so only the restore's derivations are counted.
-    await page.evaluate(() => {
-      const original = window.vaultDeriveKey;
-      window.__deriveCount = 0;
-      window.vaultDeriveKey = async (...args) => {
-        window.__deriveCount++;
-        return original(...args);
-      };
-    });
+    await countKeyDerivations(page);
 
     await restoreListedBackup(page, PRE_SYNC_NAME);
 
     await expect(page.locator("#diffReviewModal")).toBeVisible({ timeout: 15000 });
     expect(await page.evaluate(() => window.__deriveCount)).toBe(1);
+  });
+
+  test("a manual backup goes straight to the prompt without probing sync keys", async ({
+    page,
+  }) => {
+    await seedConnectedDevice(page, VAULT_PHRASE);
+    await bootApp(page);
+    const bytes = await encryptVaultPayload(page, BACKUP_PAYLOAD, MANUAL_PHRASE);
+    await routeBackupFolder(page, MANUAL_NAME, bytes);
+    await countKeyDerivations(page);
+
+    await restoreListedBackup(page, MANUAL_NAME);
+
+    await expect(page.locator("#vaultModal")).toBeVisible();
+    expect(await page.evaluate(() => window.__deriveCount)).toBe(0);
   });
 });
