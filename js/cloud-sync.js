@@ -1211,6 +1211,39 @@ function _getSyncKeyCandidates() {
 }
 
 /**
+ * Ordered, de-duplicated keys to try when restoring a `/backups/` file (STRK-413).
+ *
+ * The two backup types use different keys. Pre-sync backups are written by
+ * pushSyncVault() under the composite sync key (`vaultPassword:accountId`, or the
+ * simple-mode key). Manual backups use whatever password the user typed when
+ * making them. A typed password can therefore stand for either, so it is tried
+ * as-is and then composed with this device's account ID — the second form also
+ * opens pre-sync backups written before a vault-password change.
+ *
+ * With no typed password, returns this device's stored sync-key variants so a
+ * restore can open pre-sync backups without prompting. The stored variants are
+ * deliberately NOT added to a typed attempt: a wrong typed password must fail.
+ *
+ * @param {string|null} typedPassword - Password entered at the restore prompt, or null
+ * @returns {string[]} Keys to try, most likely first
+ */
+function getBackupKeyCandidates(typedPassword) {
+  var keys = [];
+  if (typedPassword) {
+    var accountId = localStorage.getItem("cloud_dropbox_account_id");
+    keys.push(typedPassword);
+    if (accountId) keys.push(typedPassword + ":" + accountId);
+  } else {
+    _getSyncKeyCandidates().forEach(function (c) {
+      keys.push(c.key);
+    });
+  }
+  return keys.filter(function (key, i) {
+    return keys.indexOf(key) === i;
+  });
+}
+
+/**
  * Try to decrypt a parsed .stvault structure using all known key variants.
  * Returns { meta, keyUsed } on success, throws on total failure.
  * @param {Object} parsed - Output of parseVaultFile (salt, iv, iterations, ciphertext)
@@ -6317,6 +6350,7 @@ window.updateSyncStatusIndicator = updateSyncStatusIndicator;
 // removed with the header button they served (STRK-287).
 window.getSyncDeviceId = getSyncDeviceId;
 window.getSyncPasswordSilent = getSyncPasswordSilent;
+window.getBackupKeyCandidates = getBackupKeyCandidates;
 window.syncIsEnabled = syncIsEnabled;
 window.syncSaveOverrideBackup = syncSaveOverrideBackup;
 window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;

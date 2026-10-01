@@ -441,18 +441,36 @@ No single mechanism backs up everything. Full recovery requires combining mechan
 
 ### Manual Cloud Backup vs Auto-Sync
 
-| Aspect                      | Manual Backup                        | Auto-Sync                                  |
-| --------------------------- | ------------------------------------ | ------------------------------------------ |
-| Vault scope                 | Full (`ALLOWED_STORAGE_KEYS`)        | Sync-scope (`SYNC_SCOPE_KEYS`) only        |
-| Pointer file                | None (`skipLatestUpdate: true`)      | `staktrakr-sync.json`                      |
-| `cloud_last_backup` written | No                                   | Yes                                        |
-| Password caching            | Disabled — always prompts            | Cached via `cloudCachePassword`            |
-| Auto-pruning                | Never                                | `cloudPruneBackups(provider, max, 'sync')` |
-| Image vault                 | Optional ("Include photos" checkbox) | Pushed when `userImages` hash changes      |
+| Aspect                      | Manual Backup                                                            | Auto-Sync                                  |
+| --------------------------- | ------------------------------------------------------------------------ | ------------------------------------------ |
+| Vault scope                 | Full (`ALLOWED_STORAGE_KEYS`)                                            | Sync-scope (`SYNC_SCOPE_KEYS`) only        |
+| Pointer file                | None (`skipLatestUpdate: true`)                                          | `staktrakr-sync.json`                      |
+| `cloud_last_backup` written | No                                                                       | Yes                                        |
+| Password caching            | Export always prompts; a successful cloud restore caches its working key | Cached via `cloudCachePassword`            |
+| Auto-pruning                | Never                                                                    | `cloudPruneBackups(provider, max, 'sync')` |
+| Image vault                 | Optional ("Include photos" checkbox)                                     | Pushed when `userImages` hash changes      |
 
 ### Backup Isolation (STAK-419)
 
 Manual backups (`staktrakr-backup-` prefix) and sync snapshots (`pre-sync-` prefix) share the `/StakTrakr/backups/` folder but are distinguished by filename prefix. `cloudListBackups(provider, type)` filters by prefix. `cloudPruneBackups` defaults to `type='sync'` — manual backups are never auto-pruned.
+
+### Backup Keys — which key opens which file (STRK-413)
+
+The two backup types in `/StakTrakr/backups/` are encrypted with **different keys**, and nothing in the file records which one:
+
+| Backup                       | Written by                                       | Key                                                                                                       |
+| ---------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `pre-sync-<ts>.stvault`      | `pushSyncVault()` (full vault, before each push) | The composite sync key from `getSyncPasswordSilent()`: `vaultPassword:accountId` (or the simple-mode key) |
+| `staktrakr-backup-*.stvault` | Settings › Cloud › Backup (`_vaultCloudExport`)  | The password typed into the cloud-export modal, used as-is                                                |
+
+The user never types the composite key. Before STRK-413 the restore click tried only the session cache, then the prompt, so **no pre-sync backup could be restored through the UI**. Every attempt failed with "Incorrect password or corrupted file." Restore now resolves the key in two tiers:
+
+1. **Silent** (`_cloudFindSilentRestoreKey`, `js/settings-listeners.js`): tries the session-cached restore key first, then `getBackupKeyCandidates(null)`. That returns this device's stored variants, the same set as `_getSyncKeyCandidates()`, so pre-sync backups open with no prompt on a device holding `cloud_vault_password`. The stored variants are tried only for `pre-sync-` files; manual backups go straight to the prompt unless a session key is cached.
+2. **Prompted** (`importEncryptedBackup` → `_vaultResolveImportKey`, `js/vault.js`): tries the typed password as-is, then `typed:accountId`. The second form opens pre-sync backups on a device that has not stored the vault password. It also opens backups written before a vault-password change, if the user types the old password.
+   - The stored variants are **deliberately not** added to a typed attempt, so a wrong typed password still fails.
+   - When every form fails, the modal shows `VAULT_WRONG_BACKUP_KEY_MESSAGE`, which names the password each backup type expects.
+
+`vaultFindBackupKey(fileBytes, candidates)` rejects files over `VAULT_MAX_FILE_SIZE` first ("File exceeds 50MB limit."), then parses the header once. A structurally invalid file ("Not a valid .stvault file.") therefore still throws by name and is never mistaken for a wrong key. Each wrong candidate costs one 600K-iteration PBKDF2 derivation, so candidate lists stay short. It returns `{ key, payload }`, and the payload is passed to `vaultRestoreWithPreview` so a successful restore derives the key once. The working key, which may be the composite, is what gets cached in the session and reused for companion vaults. Pinned by `tests/playwright/core/cloud-backup-restore.spec.js`.
 
 ### Coverage Matrix
 
