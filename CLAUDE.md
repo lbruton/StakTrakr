@@ -77,7 +77,7 @@ If the test itself is flawed, the spec was wrong — stop and restart the spec (
 ## Issue Tracking
 
 Plane project: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`.
-Create issues via `/issue` or `mcp__plane__create_issue`. State UUIDs, epic conventions,
+Create issues via `/issue` or `mcp__plane__workitem` (`action: "create"`). State UUIDs, epic conventions,
 and the pre-Plane archive path: `.context/issue-tracking.md`.
 
 ## Git Topology
