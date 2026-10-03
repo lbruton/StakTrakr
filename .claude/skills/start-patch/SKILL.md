@@ -181,7 +181,9 @@ Context from /start-patch:
               STRK-201 — Memory sync command
 ```
 
-The release skill takes full ownership from here — sync gate, lock claim, worktree, seed-sync, version bump, PR.
+The release skill takes full ownership from here — sync gate, lock claim, worktree, version bump, PR.
+
+The release skill does **not** refresh the spot bundle. Run `/update-spot-bundle` before the version-bump PR is opened, then copy the refreshed bundle and year JSON files into the worktree and stage them — see "Spot Bundle" in `.context/git-topology.md`.
 
 ---
 

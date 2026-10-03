@@ -50,10 +50,11 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 ## Spot Bundle
 
 - **Run `/update-spot-bundle` before every version-bump PR** whether it targets `dev` or `main`.
-- The command queries sqld and rebuilds `data/spot-history-bundle.js`.
+- The command queries sqld, merges new days into the `data/spot-history-<year>.json` files, and rebuilds `data/spot-history-bundle.js`.
 - Copilot's reminder is correct, not a false positive.
 - **Worktree note:** the script writes to the **main checkout**, not the active worktree.
-- After running it, copy the bundle into the worktree from the worktree root: `cp ../../data/spot-history-bundle.js data/ && cp ../../data/spot-history-bundle-*.js data/`.
+- The script updates two kinds of file: `data/spot-history-bundle.js` and the `data/spot-history-<year>.json` files it merged new days into. Both must ship in the PR.
+- After running it, copy both into the worktree from the worktree root and stage them: `cp ../../data/spot-history-bundle.js ../../data/spot-history-*.json data/ && git add data/spot-history-bundle.js data/spot-history-*.json`.
 
 ## Spec Branch Overrides
 

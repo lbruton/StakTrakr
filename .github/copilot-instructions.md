@@ -2,7 +2,7 @@
 
 Custom review instructions for GitHub Copilot PR reviews.
 
-> **Routing (2026-06-13):** Copilot is now an **on-demand** reviewer. CodeRabbit is the automatic primary reviewer on PRs to `dev`, with Codacy AI (gated by the `codacy-review` label) as the security layer. Request a Copilot review explicitly when you want one; it no longer runs on every PR.
+> **Routing (2026-10-03):** Copilot reviews every PR automatically once it leaves draft, at **Balanced** effort. CodeRabbit (label-gated, `coderabbit-review`) does the first pass while the PR is a draft, and Codacy AI runs with the static-analysis check. The review procedure, cross-file invariants, and do-not-flag list live in the `code-review` skill at `.github/skills/code-review/SKILL.md`.
 
 ## Project Context
 
@@ -14,7 +14,7 @@ For full codebase context, see `AGENTS.md` in the repository root.
 
 ### 1. DOM Access -- Always use `safeGetElement()`
 
-Direct `document.getElementById()` calls are **not allowed**. The codebase uses `safeGetElement(id)` (defined in `js/init.js:30`) which returns a dummy element on null to prevent reference errors.
+Direct `document.getElementById()` calls are **not allowed** outside the exceptions below. The codebase uses `safeGetElement(id)` (defined in `js/init.js`) which returns a dummy element on null to prevent reference errors.
 
 ```js
 // BAD -- flag this
@@ -24,7 +24,7 @@ const el = document.getElementById("myElement");
 const el = safeGetElement("myElement");
 ```
 
-**Exception**: Code inside `about.js`, `init.js`, and event setup functions that run once at startup may use `document.getElementById()` for elements that are guaranteed to exist.
+**Exceptions**: `document.getElementById()` followed by an `if` guard is correct in three cases -- an existence check that needs a real `null` (the `safeGetElement()` dummy is always truthy), an early-init function in `about.js` (it loads before `init.js` defines `safeGetElement`), and top-level wiring in `events.js`. `init.js` is not exempt.
 
 ### 2. localStorage -- Whitelist Required
 
@@ -34,7 +34,7 @@ Prefer `saveData()`/`loadData()` (async) or `saveDataSync()`/`loadDataSync()` fr
 
 ### 3. Script Loading Order & Global Scope Architecture
 
-Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a new script file, verify it's placed correctly in `index.html`.
+Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a script loaded by the main app, verify it's placed correctly in `index.html` and listed in `sw.js` `CORE_ASSETS`. A page-specific script (such as `js/ratios-page.js`, loaded only by `ratios/index.html`) is registered in the page that loads it, and a file not loaded at runtime (such as `js/types.js`) is registered nowhere.
 
 **CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 70+ JS files. The following globals are defined in other files and are intentionally available throughout the app:
 
@@ -195,7 +195,7 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 
 - Plus many others across 70+ JS files
 
-**IMPORTANT: Do NOT flag any variable as "not defined" in PR reviews.** This is a vanilla JS app with global scope across 70+ JS files. The `no-undef` ESLint rule is intentionally OFF. Every "X is not defined" comment is a false positive. If you are uncertain whether a variable exists, check the other script files before flagging -- it will be defined in another file loaded earlier in the script order.
+**IMPORTANT: Do NOT flag a variable as "not defined" without searching for it first.** This is a vanilla JS app with global scope across 70+ JS files, and the `no-undef` ESLint rule is intentionally OFF, so a name missing from the current file is almost always declared in another script loaded earlier. Search the other script files before flagging. Report it only when no script loaded by that page declares the name -- that is a real `ReferenceError`, not a false positive.
 
 ### 4. Service Worker -- respondWith() Must Always Resolve to a Response
 
@@ -242,7 +242,7 @@ diff, that is a bug -- it should never be committed.
 
 ### 6. XSS Prevention
 
-All user-supplied strings rendered into the DOM must go through `sanitizeHtml()` from `js/utils.js`. Flag any direct `innerHTML` assignment with unsanitized input. Existing `// nosemgrep:` comments indicate reviewed exceptions -- do not flag those.
+All user-supplied strings interpolated into an HTML-parsing sink (`innerHTML`, `insertAdjacentHTML`, HTML template literals) must go through `sanitizeHtml()` from `js/utils.js`. Do not ask for `sanitizeHtml()` on `textContent` or `value` assignments -- it would display entities literally. Flag any direct `innerHTML` assignment with unsanitized input. Existing `// nosemgrep:` comments indicate reviewed exceptions -- do not flag those.
 
 ### 7. CACHE_NAME and APP_VERSION Drift
 
@@ -256,7 +256,7 @@ If `sw.js` CACHE_NAME does not match the version in `js/constants.js`, the servi
 
 Files matching `data/spot-history-*.json` are generated by an external Docker poller that runs continuously. Do not flag formatting, line count changes, or large diffs in these files -- they are machine-generated price data.
 
-**Important**: If a PR modifies version files (`js/constants.js`, `sw.js`, `version.json`, `CHANGELOG.md`) but does **not** include any changes to `data/spot-history-*.json`, leave a reminder comment: "No spot price seed data included -- did you run `/seed-sync` before committing? The Docker poller may have new price data that should ship with this release." This is a soft reminder, not a blocking issue.
+**Important**: If a PR modifies version files (`js/constants.js`, `sw.js`, `version.json`, `CHANGELOG.md`) but does **not** include any changes to `data/spot-history-*.json`, leave a reminder comment: "No spot price seed data included -- did you run `/update-spot-bundle` before committing? The Docker poller may have new price data that should ship with this release." This is a soft reminder, not a blocking issue.
 
 ### 10. Encrypted Vault Backup
 
@@ -340,15 +340,15 @@ These patterns fire regularly on this codebase but are false positives given Sta
 
 **Why it's a false positive here:** Node.js `console.error` does not perform `%s`/`%d` printf-style substitution when the first argument is a string. Template literals that interpolate user values produce a plain string argument — there is no injection surface. Only flag if user input is passed as the _first positional argument to a function that does perform format substitution_ (e.g., `sprintf`, `util.format`).
 
-### Copilot: `document.getElementById` in `about.js` and `init.js`
+### Copilot: `document.getElementById` existence checks and early-init code
 
 **Pattern:** Flags raw `document.getElementById()` calls as violating the `safeGetElement()` convention.
 
-**Why it's acceptable:** Startup code in `about.js` and `init.js` runs once before the app is fully initialized and operates on elements guaranteed to exist at DOM-ready. The `safeGetElement()` convention applies to all other files. See Section 1 above.
+**Why it's acceptable:** An existence check needs a real `null`, and `about.js` early-init functions and top-level `events.js` wiring run before `safeGetElement` is defined. Those three cases are the only exemptions; a direct lookup anywhere else, including `init.js`, should be flagged. See Section 1 above.
 
 ### Copilot: "undefined variable" in any JS file
 
-Already covered in Section 3. Do not re-flag here.
+Covered in Section 3: search for the declaration before flagging, and report only a name that no loaded script declares.
 
 ---
 
