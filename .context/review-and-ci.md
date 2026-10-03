@@ -13,8 +13,11 @@ Routing differs per reviewer. Do not generalize from one bot to the others.
 - **Codacy AI runs as part of the Codacy static-analysis stage.** This is a change on
   Codacy's side (observed 2026-08-13), not a config change here — the AI review now arrives
   bundled with the required check rather than as a separate opt-in pass.
-- **Copilot is automatic, in "lite" mode.** Lite is a GitHub-side structure change; observed
-  cadence is roughly unchanged, but review depth is bounded by the mode.
+- **Copilot is automatic, at "Balanced" review effort** (verified 2026-10-03 — every review
+  body on #1535–#1546 reads `Review effort: Balanced`; it was "lite" on 2026-08-13). The
+  effort level is printed in each review's overview, so read it there rather than trusting
+  this line. Copilot also loads the repo's `code-review` agent skill
+  (`.github/skills/code-review/SKILL.md`) — see "Copilot review inputs" below.
 - **Codex is on "dynamic"** — it may or may not weigh in on any given PR. **A missing Codex
   review means nothing.** Do not treat its silence as a signal either way.
 
@@ -27,7 +30,7 @@ This is the durable part. Current **behavior** drifts whenever a vendor ships a 
 | -------------- | ---------------------------- | ---------------------------------------------------------------------- |
 | **CodeRabbit** | label (`coderabbit-review`)  | CodeRabbit Repository/Organization **UI** — **not** `.coderabbit.yaml` |
 | **Codacy AI**  | bundled into the check stage | Codacy product behavior + dashboard settings                           |
-| **Copilot**    | mode setting (**lite**)      | GitHub repo/org Copilot settings                                       |
+| **Copilot**    | review effort (**Balanced**) | GitHub repo settings → Copilot → Code review → Review effort level     |
 | **Codex**      | dynamic policy               | Codex cloud settings (`chatgpt.com/codex`)                             |
 
 A repo-only audit sees none of these and will conclude every bot is ungated. That inference
@@ -56,8 +59,24 @@ is what produced the false correction described below.
 | -------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **CodeRabbit** | **Label-gated** — requires `coderabbit-review`  | Gate is set in the CodeRabbit UI/org config, not `.coderabbit.yaml`. Add the label at PR creation for review-worthy PRs. Auto re-review is **paused after the first review** (incremental disabled) — follow-up commits don't trigger a fresh review; re-trigger manually. `request_changes_workflow: true` → a `CHANGES_REQUESTED` clears only on a clean re-review (a `COMMENTED` re-review does not flip it). ~4–8 reviews/hr throttle → 5–10 min lag. |
 | **Codacy AI**  | Automatic — runs with the static-analysis stage | Security layer, now bundled into the Codacy check rather than opt-in (Codacy-side change, observed 2026-08-13). Posts on untagged PRs (#1436, #1437, #1440, #1445). No reply-learning system, so recurring false positives must be re-triaged each time — see "Known Reviewer False Positives" below.                                                                                                                                                     |
-| **Copilot**    | Automatic — mode: **lite**                      | `copilot-pull-request-reviewer` posts on every recent PR, including unlabeled #1440/#1444/#1445. "Lite" is a GitHub-side structure change; cadence looks unchanged but depth is bounded by the mode. Its check run can sit `in_progress` for minutes and will hold `mergeStateStatus` at `BLOCKED` until it completes.                                                                                                                                    |
+| **Copilot**    | Automatic — effort: **Balanced**                | `copilot-pull-request-reviewer` posts on every recent PR, including unlabeled #1440/#1444/#1445. It does not post on drafts, so it lands after CodeRabbit's draft-stage pass. Its check run can sit `in_progress` for minutes and will hold `mergeStateStatus` at `BLOCKED` until it completes.                                                                                                                                                           |
 | **Codex**      | **Dynamic** — may or may not run                | `chatgpt-codex-connector`. Configured on a dynamic policy, so participation is not guaranteed on any given PR — **its absence is not a signal.** When it does run it tends to catch nonexistent-identifier and stale-contract claims the others miss (it caught both the `isGoldbackRetailLookup` and `TURSO_*`-environment errors).                                                                                                                      |
+
+### Copilot review inputs
+
+Copilot code review reads its customization from the PR's **head branch**, so a change to
+any of these takes effect on the PR that makes it:
+
+| Input                                 | Role                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `.github/copilot-instructions.md`     | Repo-wide rules, the globals list, known false positives                |
+| `AGENTS.md`, `CLAUDE.md`              | Read as standing repo context (this is how it finds `.context/`)        |
+| `.github/skills/code-review/SKILL.md` | Review procedure: path → `.context/` doc routing, cross-file invariants |
+
+The skill directory is named `code-review` on purpose — GitHub's docs say a review-focused
+directory name is what makes code review select a skill. It has no `.claude/` or `.agents/`
+twin: it is Copilot-only, and the twin rule covers the workflow skills. No MCP servers are
+configured for Copilot beyond GitHub's defaults (GitHub + Playwright); Plane is not wired in.
 
 ### Required checks differ by branch
 

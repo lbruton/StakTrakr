@@ -121,7 +121,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - After modifying instruction files, run `npx agentlinter --local`.
 - CodeRabbit is **label-gated**: it reviews only a PR carrying the `coderabbit-review` label. Untagged, it still flags and approves but omits the full review — that is expected.
 - Codacy AI is **automatic**, now running as part of the Codacy static-analysis stage.
-- Copilot is **automatic** in **lite** mode.
+- Copilot is **automatic** at **Balanced** review effort, and loads `.github/skills/code-review/SKILL.md`.
 - Codex is **dynamic** — it may or may not weigh in; its absence is not a signal.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
