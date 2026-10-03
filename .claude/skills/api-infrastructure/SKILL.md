@@ -32,10 +32,10 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 
 ## Fly.io Container (`staktrakr`) — Thin Publisher (STAK-478)
 
-- **App:** `staktrakr` — region `dfw`, 1024MB RAM (raised from 512MB 2026-07-25 per STRK-277; pending a 512MB re-scale once STRK-402 proves 7 OOM-free days), 1 shared CPU, 3GB volume (`/data`)
+- **App:** `staktrakr` — region `dfw`, 1024MB RAM (raised from 512MB 2026-07-25 per STRK-277; kept at 1024MB by choice — measured peak ~406MB in use, so 768MB is the safe drop and 512MB is not; see "Memory floor" in `.context/infrastructure.md`), 1 shared CPU, 3GB volume (`/data`)
 - **Uncapped git history OOMs (signal 9).** Repo config in `/data/staktrakr-api-export` caps pack memory (`pack.threads=1`, `pack.windowMemory=32m`, `gc.auto=0`); re-apply after any re-clone. Self-cleaning publisher work tracked in STRK-187. **STRK-402 (2026-09-26):** `--window-memory` only caps the delta window, not the object list `git repack -a` must enumerate — years of full history still OOM'd a repack after 86 min and wedged the machine. `cleanup-export.sh` now re-shallows (fresh depth-1 clone of the tip) instead of repacking full history; `run-publish.sh` re-shallows on bootstrap if `.git/shallow` is missing. Every cron job also carries its own `flock -n <job>.flock timeout -k 30 <N>` (see `docker-entrypoint-slim.sh`), and the cross-script publish/cleanup lock is `flock` on `/tmp/retail-publish.flock` (fd 9) — not a `noclobber` file, which stranded on SIGKILL and needed a manual `rm -f`.
 - **Config:** `StakTrakr/devops/pollers/remote-poller/fly.toml` + `Dockerfile`
-- **Runs:** Spot cron (`0,30`), publish cron (`8,23,38,53`), provider export (`*/5`), serve.js. Retail/goldback disabled — handled by home poller.
+- **Runs:** Spot cron (`0,30`), publish cron (`8,23,38,53`), provider export (`*/5`), daily cleanup (`17 3 * * *`), serve.js. Retail/goldback disabled — handled by home poller.
 - **Deploy:** From StakTrakr repo: `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`
 - **NEVER deploy from StakTrakrApi** (code migrated to StakTrakr)
 - **Logs:** `fly logs --app staktrakr`

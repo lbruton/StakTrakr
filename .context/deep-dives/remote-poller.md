@@ -21,15 +21,15 @@ Single Cloud - Fly.io app (`staktrakr`) that runs **spot price polling** and **d
 
 ## App Config
 
-| Key       | Value                                                                                                                                   |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| App name  | `staktrakr`                                                                                                                             |
-| Region    | `dfw`                                                                                                                                   |
-| Memory    | 1024 MB (raised from 512 on 2026-07-25 after the STRK-277 VM wedge; profiled at 512 on 2026-04-11 — idle ~250 MB, publish peak <400 MB) |
-| CPUs      | 1 shared                                                                                                                                |
-| Volume    | `staktrakr_data` mounted at `/data`                                                                                                     |
-| HTTP port | 8080 (proxied by Fly, force HTTPS)                                                                                                      |
-| Mode      | Thin publisher (spot + publish + serve.js)                                                                                              |
+| Key       | Value                                                                                                                                                       |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App name  | `staktrakr`                                                                                                                                                 |
+| Region    | `dfw`                                                                                                                                                       |
+| Memory    | 1024 MB (raised from 512 on 2026-07-25 after the STRK-277 VM wedge). Measured 2026-10-03: peak ~406 MB in use — floor notes in `.context/infrastructure.md` |
+| CPUs      | 1 shared                                                                                                                                                    |
+| Volume    | `staktrakr_data` mounted at `/data`                                                                                                                         |
+| HTTP port | 8080 (proxied by Fly, force HTTPS)                                                                                                                          |
+| Mode      | Thin publisher (spot + publish + serve.js)                                                                                                                  |
 
 **Persistent volume** (`/data`) holds the cloned `StakTrakrApi` repo at `/data/staktrakr-api-export` and Tailscale state at `/data/tailscale/tailscaled.state`.
 
@@ -43,7 +43,7 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 | -------------- | ---------------------------------------------------- | -------- | ------------------------------------------------------------ |
 | `tailscaled`   | `tailscaled --state=/data/tailscale/...`             | 4        | Active — provides subnet routing to home LAN for sqld access |
 | `tailscale-up` | `tailscale up --authkey=... --accept-routes --reset` | 5        | Active — one-shot Tailscale auth                             |
-| `cron`         | `cron -f`                                            | 10       | Active — runs spot + publish + provider export               |
+| `cron`         | `cron -f`                                            | 10       | Active — runs spot + publish + provider export + cleanup     |
 | `http-server`  | `node /app/serve.js` on port 8080                    | 10       | Active — health/proxy endpoint                               |
 
 > **Rollback:** `cp Dockerfile.full Dockerfile && fly deploy` from `devops/pollers/` with `--config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`.
@@ -52,7 +52,7 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 
 ## Cron Schedule
 
-Written by `docker-entrypoint-slim.sh` at container start. Slim image has no retail/goldback toggles — only spot, publish, and provider export.
+Written by `docker-entrypoint-slim.sh` at container start. Slim image has no retail/goldback toggles — only spot, publish, provider export, and the daily cleanup.
 
 **Current state** (slim publisher):
 
@@ -61,6 +61,7 @@ Written by `docker-entrypoint-slim.sh` at container start. Slim image has no ret
 | `0,30 * * * *`              | `/app/run-spot.sh`              | `/var/log/spot-poller.log`         | **Active**                      |
 | `8,23,38,53 * * * *`        | `/app/run-publish.sh`           | `/var/log/publish.log`             | **Active**                      |
 | `*/5 * * * *`               | `node export-providers-json.js` | `/var/log/provider-export.log`     | **Active**                      |
+| `17 3 * * *`                | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`             | **Active** (daily, STRK-402)    |
 | ~~`CRON_SCHEDULE * * * *`~~ | ~~`/app/run-local.sh`~~         | ~~`/var/log/retail-poller.log`~~   | Disabled (`RETAIL_ENABLED=0`)   |
 | ~~`15 * * * *`~~            | ~~`/app/run-retry.sh`~~         | ~~`/var/log/retail-retry.log`~~    | Disabled (follows retail)       |
 | ~~`1 * * * *`~~             | ~~`/app/run-goldback.sh`~~      | ~~`/var/log/goldback-poller.log`~~ | Disabled (`GOLDBACK_ENABLED=0`) |
@@ -131,8 +132,8 @@ deployed secret names, values, or network endpoints. For a self-hosted deploymen
 enabled scripts and container configuration to identify the required categories: database access,
 publisher access, external price-feed access, and network identity.
 
-The former full retail-and-goldback image is historical. The slim image schedules only spot and
-publishing work; retail and Goldback scraping run on the home poller. Do not restore retired
+The former full retail-and-goldback image is historical. The slim image schedules only spot,
+publishing, and export-repo cleanup work; retail and Goldback scraping run on the home poller. Do not restore retired
 browser, proxy, or retail configuration merely because it appears in historical source.
 
 See `.context/deep-dives/secret-keys.md` for store ownership and safe troubleshooting.
