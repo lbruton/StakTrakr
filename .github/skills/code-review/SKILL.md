@@ -39,10 +39,11 @@ the whole repository, not only the changed lines.
   the `index.html` load order, after every script whose globals it uses at parse time. A
   page-specific script (such as `js/ratios-page.js`) is registered in the page that loads it and
   still belongs in `sw.js`. A file not loaded at runtime (such as `js/types.js`) needs neither.
-- **New top-level declaration in `js/`.** A second top-level `const` or `let` with the same name
-  stops the later script from loading only when both scripts are loaded by the same HTML page.
-  Search for the name among the scripts that page loads. Names in files not loaded at runtime
-  do not collide.
+- **New top-level declaration in `js/`.** When two scripts loaded by the same HTML page declare
+  the same top-level name, a second `const`, `let`, or `class` stops the later script from
+  loading, and a second `var` silently overwrites the earlier value. Search for the name among
+  the scripts that page loads. Names in files not loaded at runtime do not collide. See
+  `.context/implementation-gotchas.md`.
 - **New storage key.** It must be listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`.
 - **Config stores.** Spot configuration (`metalApiConfig`) and catalog configuration
   (`catalog_api_config`) are separate stores. Code that reads one and writes the other loses data.
@@ -78,8 +79,10 @@ the whole repository, not only the changed lines.
 - Any "X is not defined" finding in `js/`. Globals come from other script files; `no-undef` is off.
 - The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard. It is intentional.
 - A missing `contrast` theme. It does not exist.
-- `document.getElementById()` in `js/about.js`, `js/init.js`, or top-level `js/events.js` wiring.
-  `safeGetElement` is not yet available at parse time there.
+- `document.getElementById()` followed by an `if` guard in one of three cases: an existence check
+  that needs a real `null`, an early-init function in `js/about.js`, or top-level wiring in
+  `js/events.js` (`safeGetElement` is not defined yet in the last two). Any other direct lookup,
+  including in `js/init.js`, should use `safeGetElement()`; see `.context/coding-standards.md`.
 - Size, formatting, or churn in `data/spot-history-*` files. They are machine-generated.
 - Older entries removed from `getEmbeddedWhatsNew()` in `js/about.js`. The cap is five entries.
 - A missing `docs/announcements.md`, or a missing version field in `manifest.json`.

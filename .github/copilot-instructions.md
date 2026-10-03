@@ -14,7 +14,7 @@ For full codebase context, see `AGENTS.md` in the repository root.
 
 ### 1. DOM Access -- Always use `safeGetElement()`
 
-Direct `document.getElementById()` calls are **not allowed**. The codebase uses `safeGetElement(id)` (defined in `js/init.js:30`) which returns a dummy element on null to prevent reference errors.
+Direct `document.getElementById()` calls are **not allowed** outside the exceptions below. The codebase uses `safeGetElement(id)` (defined in `js/init.js`) which returns a dummy element on null to prevent reference errors.
 
 ```js
 // BAD -- flag this
@@ -24,7 +24,7 @@ const el = document.getElementById("myElement");
 const el = safeGetElement("myElement");
 ```
 
-**Exception**: Code inside `about.js`, `init.js`, and event setup functions that run once at startup may use `document.getElementById()` for elements that are guaranteed to exist.
+**Exceptions**: `document.getElementById()` followed by an `if` guard is correct in three cases -- an existence check that needs a real `null` (the `safeGetElement()` dummy is always truthy), an early-init function in `about.js` (it loads before `init.js` defines `safeGetElement`), and top-level wiring in `events.js`. `init.js` is not exempt.
 
 ### 2. localStorage -- Whitelist Required
 
@@ -340,11 +340,11 @@ These patterns fire regularly on this codebase but are false positives given Sta
 
 **Why it's a false positive here:** Node.js `console.error` does not perform `%s`/`%d` printf-style substitution when the first argument is a string. Template literals that interpolate user values produce a plain string argument — there is no injection surface. Only flag if user input is passed as the _first positional argument to a function that does perform format substitution_ (e.g., `sprintf`, `util.format`).
 
-### Copilot: `document.getElementById` in `about.js` and `init.js`
+### Copilot: `document.getElementById` existence checks and early-init code
 
 **Pattern:** Flags raw `document.getElementById()` calls as violating the `safeGetElement()` convention.
 
-**Why it's acceptable:** Startup code in `about.js` and `init.js` runs once before the app is fully initialized and operates on elements guaranteed to exist at DOM-ready. The `safeGetElement()` convention applies to all other files. See Section 1 above.
+**Why it's acceptable:** An existence check needs a real `null`, and `about.js` early-init functions and top-level `events.js` wiring run before `safeGetElement` is defined. Those three cases are the only exemptions; a direct lookup anywhere else, including `init.js`, should be flagged. See Section 1 above.
 
 ### Copilot: "undefined variable" in any JS file
 
