@@ -29,6 +29,11 @@ truth and the doc is the defect.
 A diff shows what changed, not what should have changed with it. Check each of these against
 the whole repository, not only the changed lines.
 
+Each check below is a summary. The `.context/` doc named in section 1 is the rule: where a
+summary and the doc differ, follow the doc. Checks about `js/` describe scripts loaded by the
+main app's `index.html`. Judge any other browser surface (for example `ratios/index.html` or
+`devops/pollers/home-poller/dashboard.js`) against the scripts that surface loads.
+
 - **Doc drift.** A behavior change needs its `.context/` doc updated in the same pull request.
   When a `.context/` statement changes, search for the same claim restated in other `.context/`
   files, `CLAUDE.md`, `AGENTS.md`, and skill files, and report the copies left stale.
@@ -41,8 +46,8 @@ the whole repository, not only the changed lines.
   still belongs in `sw.js`. A file not loaded at runtime (such as `js/types.js`) needs neither.
 - **New top-level declaration in `js/`.** When two scripts loaded by the same HTML page declare
   the same top-level name, a second `const`, `let`, or `class` stops the later script from
-  loading, and a second `var` silently overwrites the earlier value. Search for the name among
-  the scripts that page loads. Names in files not loaded at runtime do not collide. See
+  loading, and a second `var` with an initializer silently overwrites the earlier value. Search
+  for the name among the scripts that page loads. Names in files not loaded at runtime do not collide. See
   `.context/implementation-gotchas.md`.
 - **New storage key.** It must be listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`.
 - **Config stores.** Spot configuration (`metalApiConfig`) and catalog configuration
@@ -55,9 +60,11 @@ the whole repository, not only the changed lines.
 - **Rendered user input.** User-supplied strings interpolated into an HTML-parsing sink
   (`innerHTML`, `insertAdjacentHTML`, HTML template literals) go through `sanitizeHtml()`. Do not
   sanitize `textContent` or `value` assignments (entities would show literally) or static markup.
-- **Dialogs.** Native `alert`, `confirm`, and `prompt` are banned; use `showAppAlert`,
-  `showAppConfirm`, and `showAppPrompt`. The one exception is the `window.alert` fallback in
-  `js/init.js` that reports a boot failure when the custom dialog is unavailable.
+- **Dialogs.** In scripts loaded by the main app, native `alert`, `confirm`, and `prompt` are
+  banned; use `showAppAlert`, `showAppConfirm`, and `showAppPrompt`. The one exception there is
+  the `window.alert` fallback in `js/init.js` that reports a boot failure when the custom dialog
+  is unavailable. A surface that does not load the dialog component, such as the home poller
+  dashboard, uses native dialogs.
 - **Themes.** There are four: `light`, `dark`, `slate`, `sepia`. Colors come from CSS custom
   properties. A color that works in one theme must be checked in the other three.
 - **Tests.** A TDD test written for the change under review and then loosened to make the
@@ -76,7 +83,10 @@ the whole repository, not only the changed lines.
 
 ## 3. Do not report these
 
-- Any "X is not defined" finding in `js/`. Globals come from other script files; `no-undef` is off.
+- An "X is not defined" finding for a name that another script loaded by the same page declares.
+  Globals cross files and `no-undef` is off, so search the repository for the declaration first.
+  Report the finding only when no loaded script declares the name, or when it is used at parse
+  time before the declaring script loads.
 - The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard. It is intentional.
 - A missing `contrast` theme. It does not exist.
 - `document.getElementById()` followed by an `if` guard in one of three cases: an existence check

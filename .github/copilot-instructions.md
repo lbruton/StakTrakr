@@ -195,7 +195,7 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 
 - Plus many others across 70+ JS files
 
-**IMPORTANT: Do NOT flag any variable as "not defined" in PR reviews.** This is a vanilla JS app with global scope across 70+ JS files. The `no-undef` ESLint rule is intentionally OFF. Every "X is not defined" comment is a false positive. If you are uncertain whether a variable exists, check the other script files before flagging -- it will be defined in another file loaded earlier in the script order.
+**IMPORTANT: Do NOT flag a variable as "not defined" without searching for it first.** This is a vanilla JS app with global scope across 70+ JS files, and the `no-undef` ESLint rule is intentionally OFF, so a name missing from the current file is almost always declared in another script loaded earlier. Search the other script files before flagging. Report it only when no script loaded by that page declares the name -- that is a real `ReferenceError`, not a false positive.
 
 ### 4. Service Worker -- respondWith() Must Always Resolve to a Response
 
@@ -348,7 +348,7 @@ These patterns fire regularly on this codebase but are false positives given Sta
 
 ### Copilot: "undefined variable" in any JS file
 
-Already covered in Section 3. Do not re-flag here.
+Covered in Section 3: search for the declaration before flagging, and report only a name that no loaded script declares.
 
 ---
 
