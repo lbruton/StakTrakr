@@ -5,9 +5,10 @@ description: Review a StakTrakr pull request. Use on every pull request review i
 
 # StakTrakr Code Review
 
-StakTrakr is a zero-build, vanilla JavaScript single-page app. Every file in `js/` shares one
-global scope through `<script>` tags in `index.html`. The canonical rules live in `.context/`;
-on any conflict between a doc and source code, the code is truth and the doc is the defect.
+StakTrakr is a zero-build, vanilla JavaScript single-page app. Scripts loaded by the same HTML
+page share one global scope through `<script>` tags; the main app's page is `index.html`. The
+canonical rules live in `.context/`; on any conflict between a doc and source code, the code is
+truth and the doc is the defect.
 
 ## 1. Read the governing doc before judging a changed path
 
@@ -38,8 +39,10 @@ the whole repository, not only the changed lines.
   the `index.html` load order, after every script whose globals it uses at parse time. A
   page-specific script (such as `js/ratios-page.js`) is registered in the page that loads it and
   still belongs in `sw.js`. A file not loaded at runtime (such as `js/types.js`) needs neither.
-- **New top-level declaration in `js/`.** A second top-level `const` or `let` with a name that
-  already exists in another `js/` file stops the later script from loading. Search for the name.
+- **New top-level declaration in `js/`.** A second top-level `const` or `let` with the same name
+  stops the later script from loading only when both scripts are loaded by the same HTML page.
+  Search for the name among the scripts that page loads. Names in files not loaded at runtime
+  do not collide.
 - **New storage key.** It must be listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`.
 - **Config stores.** Spot configuration (`metalApiConfig`) and catalog configuration
   (`catalog_api_config`) are separate stores. Code that reads one and writes the other loses data.
