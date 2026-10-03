@@ -1,0 +1,111 @@
+# Firecrawl scraping stack — self-hosted Firecrawl with all backing services.
+# Shared by home-poller and any other project that needs web scraping.
+#
+# Usage:  cd devops/firecrawl-docker && docker compose up -d
+# API:    http://localhost:3002
+# Bull UI: http://localhost:3002/admin (auth: BULL_AUTH_KEY in .env)
+#
+# Two access paths: other compose stacks on the staktrakr-net bridge
+# (e.g. home-poller) reach firecrawl-api:3002 by container name, and the
+# host publishes port 3002 for LAN clients such as the Firecrawl MCP.
+#
+# Deployed as Portainer stack 4, which reads this path from the dev branch.
+# Stack 4 has no auto-update: after a merge, redeploy it by hand (with prune,
+# when a service was removed).
+#
+# There is no separate worker service: the api container runs the whole
+# harness (api, worker, extract-worker, nuq-workers), as upstream does.
+
+services:
+  api:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    container_name: firecrawl-api
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3002"
+      REDIS_URL: redis://redis:6379
+      REDIS_RATE_LIMIT_URL: redis://redis:6379
+      PLAYWRIGHT_MICROSERVICE_URL: http://playwright-service:3003/scrape
+      POSTGRES_HOST: nuq-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      NUQ_RABBITMQ_URL: amqp://rabbitmq:5672
+      USE_DB_AUTHENTICATION: ${USE_DB_AUTHENTICATION:-false}
+      BULL_AUTH_KEY: ${BULL_AUTH_KEY:-changeme}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENV: local
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      playwright-service:
+        condition: service_started
+      nuq-postgres:
+        condition: service_healthy
+
+  playwright-service:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    container_name: firecrawl-playwright
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: firecrawl-redis
+    restart: unless-stopped
+    command: redis-server --bind 0.0.0.0
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: firecrawl-rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  nuq-postgres:
+    build: nuq-postgres
+    container_name: firecrawl-postgres
+    restart: unless-stopped
+    # pg_cron logs every run of the NuQ jobs (several every 15 s) to
+    # cron.job_run_details and never prunes it (3.4 GB in 5 months, STRK-417).
+    # cron.database_name follows POSTGRES_DB: nuq.sql creates the pg_cron
+    # extension in that database, and pg_cron only allows its configured one.
+    command: >-
+      postgres
+      -c cron.log_run=off
+      -c cron.database_name=${POSTGRES_DB:-postgres}
+    volumes:
+      - firecrawl-pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  # Named so a stack recreate reuses the data dir, not a new anonymous volume.
+  firecrawl-pgdata:
+
+networks:
+  default:
+    name: staktrakr-net
