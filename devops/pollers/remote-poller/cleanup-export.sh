@@ -34,6 +34,9 @@
 # a failure mid-swap leaves the old repo recoverable rather than gone. No
 # `git gc` (it OOMs on the 512MB machine; gc.auto=0 in repo config). GNU date
 # required.
+#
+# STRK-406: after the re-shallow, squash-api-history.sh collapses the remote
+# `api` history to one orphan commit once per UTC month (see that script).
 
 set -e
 
@@ -147,5 +150,12 @@ git count-objects -v | sed 's/^/[cleanup]   /'
 log "df after:"
 df -P /data
 df -Pi /data
+
+# ── Monthly api-history squash (STRK-406) ───────────────────────────────
+# Runs after the re-shallow so it operates on the fresh depth-1 repo, and under
+# the publish flock held above (or inherited via CLEANUP_SKIP_LOCK=1), so it
+# cannot race a publish. Non-fatal by design: `set -e` is active, so the `||`
+# is what keeps a failed squash from failing cleanup (it retries next run).
+/app/squash-api-history.sh || log "WARN: squash-api-history.sh failed (non-fatal)"
 
 log "Done."

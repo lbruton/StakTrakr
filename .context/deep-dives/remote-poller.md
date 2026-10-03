@@ -56,15 +56,15 @@ Written by `docker-entrypoint-slim.sh` at container start. Slim image has no ret
 
 **Current state** (slim publisher):
 
-| Schedule                    | Script                          | Log                                | Status                          |
-| --------------------------- | ------------------------------- | ---------------------------------- | ------------------------------- |
-| `0,30 * * * *`              | `/app/run-spot.sh`              | `/var/log/spot-poller.log`         | **Active**                      |
-| `8,23,38,53 * * * *`        | `/app/run-publish.sh`           | `/var/log/publish.log`             | **Active**                      |
-| `*/5 * * * *`               | `node export-providers-json.js` | `/var/log/provider-export.log`     | **Active**                      |
-| `17 3 * * *`                | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`             | **Active** (daily, STRK-402)    |
-| ~~`CRON_SCHEDULE * * * *`~~ | ~~`/app/run-local.sh`~~         | ~~`/var/log/retail-poller.log`~~   | Disabled (`RETAIL_ENABLED=0`)   |
-| ~~`15 * * * *`~~            | ~~`/app/run-retry.sh`~~         | ~~`/var/log/retail-retry.log`~~    | Disabled (follows retail)       |
-| ~~`1 * * * *`~~             | ~~`/app/run-goldback.sh`~~      | ~~`/var/log/goldback-poller.log`~~ | Disabled (`GOLDBACK_ENABLED=0`) |
+| Schedule                    | Script                          | Log                                | Status                                                       |
+| --------------------------- | ------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
+| `0,30 * * * *`              | `/app/run-spot.sh`              | `/var/log/spot-poller.log`         | **Active**                                                   |
+| `8,23,38,53 * * * *`        | `/app/run-publish.sh`           | `/var/log/publish.log`             | **Active**                                                   |
+| `*/5 * * * *`               | `node export-providers-json.js` | `/var/log/provider-export.log`     | **Active**                                                   |
+| `17 3 * * *`                | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`             | **Active** (daily, STRK-402; monthly `api` squash, STRK-406) |
+| ~~`CRON_SCHEDULE * * * *`~~ | ~~`/app/run-local.sh`~~         | ~~`/var/log/retail-poller.log`~~   | Disabled (`RETAIL_ENABLED=0`)                                |
+| ~~`15 * * * *`~~            | ~~`/app/run-retry.sh`~~         | ~~`/var/log/retail-retry.log`~~    | Disabled (follows retail)                                    |
+| ~~`1 * * * *`~~             | ~~`/app/run-goldback.sh`~~      | ~~`/var/log/goldback-poller.log`~~ | Disabled (`GOLDBACK_ENABLED=0`)                              |
 
 **Data flow:**
 

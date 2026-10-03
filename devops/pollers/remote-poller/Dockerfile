@@ -56,8 +56,8 @@ COPY shared/*.js ./
 COPY shared/*.sh ./
 
 # Remote-specific scripts (spot + publish + cleanup)
-COPY remote-poller/run-spot.sh remote-poller/run-publish.sh remote-poller/cleanup-export.sh ./
-RUN chmod +x run-spot.sh run-publish.sh cleanup-export.sh
+COPY remote-poller/run-spot.sh remote-poller/run-publish.sh remote-poller/cleanup-export.sh remote-poller/squash-api-history.sh ./
+RUN chmod +x run-spot.sh run-publish.sh cleanup-export.sh squash-api-history.sh
 
 # Git config for committing to api branch
 RUN git config --global user.name "StakTrakr Poller" \
