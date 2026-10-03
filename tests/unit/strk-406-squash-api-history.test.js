@@ -213,6 +213,14 @@ describe("STRK-406 squash-api-history.sh", () => {
     assert.match(out, /\*\*\*/);
   });
 
+  it("redacts URL credentials supplied through REMOTE even when GITHUB_TOKEN is unset", () => {
+    // Nothing listens on port 1, so git fails to connect and echoes the URL.
+    const { out } = runSquash({ REMOTE: "https://s3cr3tuser@127.0.0.1:1/x.git", GITHUB_TOKEN: "" });
+
+    assert.match(out, /WARN.*squash push/i);
+    assert.doesNotMatch(out, /s3cr3tuser/, "REMOTE credentials must never appear in the log");
+  });
+
   it("skips with a warning when there is no GITHUB_TOKEN and no REMOTE override", () => {
     const tipBefore = remoteTip();
 

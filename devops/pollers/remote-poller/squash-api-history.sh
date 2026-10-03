@@ -80,7 +80,10 @@ if ! PUSH_OUT=$(git push --force-with-lease="${PUBLISH_BRANCH}:${OLD}" "$REMOTE"
   "${NEW}:refs/heads/${PUBLISH_BRANCH}" 2>&1); then
   log "WARN: squash push rejected or failed — local repo unchanged, will retry next run"
   if [ -n "${GITHUB_TOKEN:-}" ]; then PUSH_OUT=${PUSH_OUT//"$GITHUB_TOKEN"/***}; fi
-  printf '%s\n' "$PUSH_OUT" | sed 's/^/[squash]   /'
+  # Also strip userinfo from any URL, so a credential supplied through a REMOTE
+  # override (which differs from GITHUB_TOKEN) cannot reach the log. Current git
+  # already anonymizes the URLs it echoes; this guards against that changing.
+  printf '%s\n' "$PUSH_OUT" | sed -E -e 's#(://)[^/@[:space:]]+@#\1***@#g' -e 's/^/[squash]   /'
   exit 0
 fi
 
