@@ -5,8 +5,9 @@
 # API:    http://localhost:3002
 # Bull UI: http://localhost:3002/admin (auth: BULL_AUTH_KEY in .env)
 #
-# The staktrakr-net bridge lets other compose stacks (e.g. home-poller)
-# reach firecrawl-api:3002 without exposing ports to the host.
+# Two access paths: other compose stacks on the staktrakr-net bridge
+# (e.g. home-poller) reach firecrawl-api:3002 by container name, and the
+# host publishes port 3002 for LAN clients such as the Firecrawl MCP.
 #
 # Deployed as Portainer stack 4, which reads this path from the dev branch.
 # Stack 4 has no auto-update: after a merge, redeploy it by hand (with prune,
@@ -82,7 +83,12 @@ services:
     restart: unless-stopped
     # pg_cron logs every run of the NuQ jobs (several every 15 s) to
     # cron.job_run_details and never prunes it (3.4 GB in 5 months, STRK-417).
-    command: postgres -c cron.log_run=off
+    # cron.database_name follows POSTGRES_DB: nuq.sql creates the pg_cron
+    # extension in that database, and pg_cron only allows its configured one.
+    command: >-
+      postgres
+      -c cron.log_run=off
+      -c cron.database_name=${POSTGRES_DB:-postgres}
     volumes:
       - firecrawl-pgdata:/var/lib/postgresql/data
     environment:
