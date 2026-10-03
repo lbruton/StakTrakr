@@ -34,8 +34,10 @@ the whole repository, not only the changed lines.
 - **Skill twins.** Every `.claude/skills/<name>/SKILL.md` has a twin at
   `.agents/skills/<name>/SKILL.md`. A change to one without the identical change to the other
   is a defect.
-- **New script file.** It must be registered in both `sw.js` `CORE_ASSETS` and the `index.html`
-  script load order, placed after every script whose globals it uses at parse time.
+- **New script file.** A script loaded by the main app must be in both `sw.js` `CORE_ASSETS` and
+  the `index.html` load order, after every script whose globals it uses at parse time. A
+  page-specific script (such as `js/ratios-page.js`) is registered in the page that loads it and
+  still belongs in `sw.js`. A file not loaded at runtime (such as `js/types.js`) needs neither.
 - **New top-level declaration in `js/`.** A second top-level `const` or `let` with a name that
   already exists in another `js/` file stops the later script from loading. Search for the name.
 - **New storage key.** It must be listed in `ALLOWED_STORAGE_KEYS` in `js/constants.js`.
@@ -44,15 +46,20 @@ the whole repository, not only the changed lines.
 - **Sync changes.** Any change to compare, merge, or hash logic must keep the convergence
   invariant in `.context/cloud-sync-convergence.md`.
 - **Date frames.** User-facing dates use the local `en-CA` frame; feed-keyed values use UTC.
-  Flag code that mixes the two or slices an ISO string to get a day.
-- **Rendered user input.** Strings rendered into the DOM go through `sanitizeHtml()`.
+  Flag code that mixes the two, or that uses `toISOString().slice(0, 10)` for a local user-facing
+  day. Taking the UTC day from a feed row's own ISO timestamp is correct.
+- **Rendered user input.** User-supplied strings interpolated into an HTML-parsing sink
+  (`innerHTML`, `insertAdjacentHTML`, HTML template literals) go through `sanitizeHtml()`. Do not
+  sanitize `textContent` or `value` assignments (entities would show literally) or static markup.
 - **Dialogs.** Native `alert`, `confirm`, and `prompt` are banned; use `showAppAlert`,
-  `showAppConfirm`, and `showAppPrompt`.
+  `showAppConfirm`, and `showAppPrompt`. The one exception is the `window.alert` fallback in
+  `js/init.js` that reports a boot failure when the custom dialog is unavailable.
 - **Themes.** There are four: `light`, `dark`, `slate`, `sepia`. Colors come from CSS custom
   properties. A color that works in one theme must be checked in the other three.
-- **Tests.** A test edited in the same pull request as the implementation it covers, in a way
-  that loosens an assertion, is a defect: tests are the specification. A change to the
-  Playwright test inventory needs `tests/playwright/coverage-map.csv` updated.
+- **Tests.** A TDD test written for the change under review and then loosened to make the
+  implementation pass is a defect. For an existing test updated with an intentional behavior
+  change, check the new assertion against the changed requirement instead of flagging the edit.
+  A change to the Playwright test inventory needs `tests/playwright/coverage-map.csv` updated.
 - **Version bump.** `js/constants.js`, `package.json`, `package-lock.json`, `version.json`,
   `sw.js` `CACHE_NAME`, `CHANGELOG.md`, and the `js/about.js` What's New entry must agree, and
   the spot bundle should be refreshed (`/update-spot-bundle`). `devops/version.lock` must never
