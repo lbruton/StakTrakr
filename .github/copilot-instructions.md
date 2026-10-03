@@ -34,7 +34,7 @@ Prefer `saveData()`/`loadData()` (async) or `saveDataSync()`/`loadDataSync()` fr
 
 ### 3. Script Loading Order & Global Scope Architecture
 
-Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a new script file, verify it's placed correctly in `index.html`.
+Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a script loaded by the main app, verify it's placed correctly in `index.html` and listed in `sw.js` `CORE_ASSETS`. A page-specific script (such as `js/ratios-page.js`, loaded only by `ratios/index.html`) is registered in the page that loads it, and a file not loaded at runtime (such as `js/types.js`) is registered nowhere.
 
 **CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 70+ JS files. The following globals are defined in other files and are intentionally available throughout the app:
 
@@ -242,7 +242,7 @@ diff, that is a bug -- it should never be committed.
 
 ### 6. XSS Prevention
 
-All user-supplied strings rendered into the DOM must go through `sanitizeHtml()` from `js/utils.js`. Flag any direct `innerHTML` assignment with unsanitized input. Existing `// nosemgrep:` comments indicate reviewed exceptions -- do not flag those.
+All user-supplied strings interpolated into an HTML-parsing sink (`innerHTML`, `insertAdjacentHTML`, HTML template literals) must go through `sanitizeHtml()` from `js/utils.js`. Do not ask for `sanitizeHtml()` on `textContent` or `value` assignments -- it would display entities literally. Flag any direct `innerHTML` assignment with unsanitized input. Existing `// nosemgrep:` comments indicate reviewed exceptions -- do not flag those.
 
 ### 7. CACHE_NAME and APP_VERSION Drift
 
