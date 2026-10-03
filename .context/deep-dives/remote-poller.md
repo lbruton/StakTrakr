@@ -43,7 +43,7 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 | -------------- | ---------------------------------------------------- | -------- | ------------------------------------------------------------ |
 | `tailscaled`   | `tailscaled --state=/data/tailscale/...`             | 4        | Active — provides subnet routing to home LAN for sqld access |
 | `tailscale-up` | `tailscale up --authkey=... --accept-routes --reset` | 5        | Active — one-shot Tailscale auth                             |
-| `cron`         | `cron -f`                                            | 10       | Active — runs spot + publish + provider export               |
+| `cron`         | `cron -f`                                            | 10       | Active — runs spot + publish + provider export + cleanup     |
 | `http-server`  | `node /app/serve.js` on port 8080                    | 10       | Active — health/proxy endpoint                               |
 
 > **Rollback:** `cp Dockerfile.full Dockerfile && fly deploy` from `devops/pollers/` with `--config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`.
@@ -52,7 +52,7 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 
 ## Cron Schedule
 
-Written by `docker-entrypoint-slim.sh` at container start. Slim image has no retail/goldback toggles — only spot, publish, and provider export.
+Written by `docker-entrypoint-slim.sh` at container start. Slim image has no retail/goldback toggles — only spot, publish, provider export, and the daily cleanup.
 
 **Current state** (slim publisher):
 
@@ -132,8 +132,8 @@ deployed secret names, values, or network endpoints. For a self-hosted deploymen
 enabled scripts and container configuration to identify the required categories: database access,
 publisher access, external price-feed access, and network identity.
 
-The former full retail-and-goldback image is historical. The slim image schedules only spot and
-publishing work; retail and Goldback scraping run on the home poller. Do not restore retired
+The former full retail-and-goldback image is historical. The slim image schedules only spot,
+publishing, and export-repo cleanup work; retail and Goldback scraping run on the home poller. Do not restore retired
 browser, proxy, or retail configuration merely because it appears in historical source.
 
 See `.context/deep-dives/secret-keys.md` for store ownership and safe troubleshooting.

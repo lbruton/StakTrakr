@@ -52,11 +52,12 @@ if [ ! -f .git/shallow ]; then
 fi
 
 # ── Pre-flight space backstop (STRK-187) ────────────────────────────────
-# Backstop for a daily cleanup cron that has stopped running. Measured growth
+# Backstop for when the daily cleanup cron is not keeping up (not running,
+# failing, or skipping on a held publish lock). Measured growth
 # (STRK-402 soak, 2026-09-27 → 10-02) is ~31k inodes/day of loose git objects
 # on the 3GB / 195,840-inode volume, on top of a ~16.5k-inode clean baseline.
 # With the daily cron healthy, usage peaks near 48k and never approaches the
-# floor; with it dead, the floor trips after ~5 days and the cleanup runs here
+# floor; without it, the floor trips after ~5 days and the cleanup runs here
 # instead, inside the publish slot (~83s at that size, well under the 720s
 # publish timeout). Below floor → clean now, then publish.
 INODE_FLOOR=25000
