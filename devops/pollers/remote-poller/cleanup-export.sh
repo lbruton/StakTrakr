@@ -5,7 +5,7 @@
 # (2026-09-26 outage — see below).
 #
 # Callers:
-#   - Weekly cron (Sunday 03:17 UTC) — standalone, takes the publish lock
+#   - Daily cron (03:17 UTC) — standalone, takes the publish lock
 #   - run-publish.sh pre-flight backstop — CLEANUP_SKIP_LOCK=1 (lock already held)
 #   - Manual via `fly ssh console --app staktrakr`
 #

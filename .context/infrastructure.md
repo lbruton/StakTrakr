@@ -69,21 +69,21 @@ Source: .context/deep-dives/remote-poller.md
 
 Values verified against `devops/pollers/remote-poller/fly.toml` (authoritative):
 
-| Property                    | Value                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| App name                    | `staktrakr`                                                                                                                     |
-| Region                      | `dfw` (machine + volume pinned; `primary_region` is decorative)                                                                 |
-| Memory                      | `1024` MB (raised from 512 on 2026-07-25, STRK-277 — see below. Profiled 2026-04-11 at 512: idle ~250 MB, publish peak <400 MB) |
-| CPU                         | 1 shared                                                                                                                        |
-| Volume name                 | `staktrakr_data`                                                                                                                |
-| Volume size                 | `3` GB (extended 1→3 GB 2026-06-11 after inode exhaustion outage, STRK-187)                                                     |
-| Volume mountpoint           | `/data`                                                                                                                         |
-| Internal HTTP port          | `8080` (force HTTPS via Fly proxy)                                                                                              |
-| HTTP concurrency soft limit | `200` requests                                                                                                                  |
-| HTTP concurrency hard limit | `250` requests                                                                                                                  |
-| `auto_stop_machines`        | `off`                                                                                                                           |
-| `min_machines_running`      | `1`                                                                                                                             |
-| `POLLER_ID`                 | `api`                                                                                                                           |
+| Property                    | Value                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| App name                    | `staktrakr`                                                                                                                    |
+| Region                      | `dfw` (machine + volume pinned; `primary_region` is decorative)                                                                |
+| Memory                      | `1024` MB (raised from 512 on 2026-07-25, STRK-277. Kept at 1024 by choice — see "Memory floor" below for what it can drop to) |
+| CPU                         | 1 shared                                                                                                                       |
+| Volume name                 | `staktrakr_data`                                                                                                               |
+| Volume size                 | `3` GB (extended 1→3 GB 2026-06-11 after inode exhaustion outage, STRK-187)                                                    |
+| Volume mountpoint           | `/data`                                                                                                                        |
+| Internal HTTP port          | `8080` (force HTTPS via Fly proxy)                                                                                             |
+| HTTP concurrency soft limit | `200` requests                                                                                                                 |
+| HTTP concurrency hard limit | `250` requests                                                                                                                 |
+| `auto_stop_machines`        | `off`                                                                                                                          |
+| `min_machines_running`      | `1`                                                                                                                            |
+| `POLLER_ID`                 | `api`                                                                                                                          |
 
 ### Persistent Volume Contents
 
@@ -94,36 +94,48 @@ Values verified against `devops/pollers/remote-poller/fly.toml` (authoritative):
 
 The Git repo at `/data/staktrakr-api-export` must be seeded manually on first deploy. It persists across subsequent deploys on the same volume.
 
-**Git memory caps (2026-06-11, STRK-187 incident):** uncapped git OOM-dies on the machine (gc, fetch, and push pack-objects were all killed with signal 9). The repo config in `/data/staktrakr-api-export` sets `pack.threads=1`, `pack.windowMemory=32m`, `pack.deltaCacheSize=16m`, and `gc.auto=0`. Re-apply these after any re-clone or volume re-seed. History was reset to an orphan commit on 2026-06-11. **Self-cleaning shipped in STRK-187 (2026-06-13):** a weekly `cleanup-export.sh` (Sun 03:17 UTC) runs a retention sweep — pruning `data/15min` day-dirs older than 90 days and `data/hourly` day-dirs older than 365 days (path-derived dates, not mtime, so a re-clone can't defeat it). `run-publish.sh` runs the same `cleanup-export.sh` inline as a pre-flight backstop when the volume drops below 25000 free inodes or 300 MB free.
+**Git memory caps (2026-06-11, STRK-187 incident):** uncapped git OOM-dies on the machine (gc, fetch, and push pack-objects were all killed with signal 9). The repo config in `/data/staktrakr-api-export` sets `pack.threads=1`, `pack.windowMemory=32m`, `pack.deltaCacheSize=16m`, and `gc.auto=0`. Re-apply these after any re-clone or volume re-seed. History was reset to an orphan commit on 2026-06-11. **Self-cleaning shipped in STRK-187 (2026-06-13):** a scheduled `cleanup-export.sh` (03:17 UTC — weekly at first, daily since STRK-402) runs a retention sweep — pruning `data/15min` day-dirs older than 90 days and `data/hourly` day-dirs older than 365 days (path-derived dates, not mtime, so a re-clone can't defeat it). `run-publish.sh` runs the same `cleanup-export.sh` inline as a pre-flight backstop when the volume drops below 25000 free inodes or 300 MB free.
 
-**Full-history OOM loop (2026-09-26, STRK-402 incident):** `--window-memory` only caps `git repack -a`'s per-delta window, not the object list it must enumerate first — years of 4x/hour publish commits (10k+ commits, ~3M objects) made that enumeration itself OOM the machine, 86 minutes into a repack that then never reached `prune`, leaving the low-inode condition in place so the _next_ publish re-entered the same repack forever. A plain `fly machine restart` did not break the loop. **Fixed in STRK-402:** `cleanup-export.sh`'s git maintenance is no longer `git reflog expire --all → git repack -a -d --threads=1 --window-memory=32m → git prune → git pack-refs` against full history. It now re-shallows first — builds a fresh depth-1 `git init --bare` clone of the current tip in a sibling directory, and only swaps it in as `.git` (atomic rename) after `fetch` + `reset FETCH_HEAD` both succeed, so a transient network failure during cleanup leaves the existing repo completely untouched — then repacks the now-tiny (~16k object) result. `run-publish.sh` also re-shallows on bootstrap if `.git/shallow` is missing, rather than waiting for the weekly cron.
+**Full-history OOM loop (2026-09-26, STRK-402 incident):** `--window-memory` only caps `git repack -a`'s per-delta window, not the object list it must enumerate first — years of 4x/hour publish commits (10k+ commits, ~3M objects) made that enumeration itself OOM the machine, 86 minutes into a repack that then never reached `prune`, leaving the low-inode condition in place so the _next_ publish re-entered the same repack forever. A plain `fly machine restart` did not break the loop. **Fixed in STRK-402:** `cleanup-export.sh`'s git maintenance is no longer `git reflog expire --all → git repack -a -d --threads=1 --window-memory=32m → git prune → git pack-refs` against full history. It now re-shallows first — builds a fresh depth-1 `git init --bare` clone of the current tip in a sibling directory, and only swaps it in as `.git` (atomic rename) after `fetch` + `reset FETCH_HEAD` both succeed, so a transient network failure during cleanup leaves the existing repo completely untouched — then repacks the now-tiny (~16k object) result. `run-publish.sh` also re-shallows on bootstrap if `.git/shallow` is missing, rather than waiting for the scheduled cron.
+
+**Inode growth rate → daily cleanup (STRK-402 soak, 2026-10-02):** each publish leaves ~325 loose git objects, so the export repo grows by ~31k inodes/day on top of a ~16.5k-inode clean baseline. On the 195,840-inode volume that reaches the 25000-free-inode floor in ~5 days — sooner than the original weekly cron — so on 2026-10-02 01:23 UTC the `run-publish.sh` pre-flight backstop ran the cleanup inside a publish slot (153,757 loose objects, 83 s, inodes 88% → 9%, that publish landed ~1 min late, none skipped). The cron is now daily (`17 3 * * *`), which keeps each run near ~31k loose objects (~15 s) and peak usage near 48k inodes (~25%). If the pre-flight `WARN: low space` line appears in `/var/log/publish.log` again, the daily cron has stopped running — check `/var/log/cleanup.log` first.
 
 **VM wedge → 1024 MB (2026-07-25, STRK-277 incident):** the machine wedged with `fly machine status` still reporting `State: started, HostStatus: ok` while HTTP _and_ `fly ssh console` both hung and logs went silent. The machine event log is the discriminator — `oom_killed=false, requested_stop=true` proves the VM itself never crashed, only a process inside it. Logs showed `monitor: time jump detected (slept 28s)` as the freeze marker. The publish cron stalled 00:53–02:15 UTC. Recovery required `fly machine stop --signal SIGKILL` then `start`; a plain restart held for only ~6 minutes. Memory was raised 512 → 1024 MB as mitigation on the strongest available hypothesis (~100 MB headroom left no room for git pack spikes). **This is a mitigation, not a confirmed root cause** — SSH was dead, so actual memory pressure was never observed directly. Evidence since: 5 consecutive on-schedule publish cycles at 1024 MB vs. a re-wedge within ~6 minutes at 512 MB. If it wedges again at 1024 MB, the cause is something else.
+
+**Memory floor (STRK-402, measured 2026-10-03):** the machine stays at 1024 MB by owner decision — usage sits inside Fly's free allowance, so there is no cost pressure to shrink it. If that changes, these are the numbers to size against. At 1024 MB the guest sees 962 MB. Sampled every 2 s for 31 minutes (926 samples) across two publish cycles and one spot poll, with the export repo shallow: idle ~350 MB in use, peak ~406 MB in use (556 MB still available). The largest processes are `serve.js` (~85 MB) and the export `node` (~80–85 MB).
+
+| Size    | Verdict                                                                                                                                                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1024 MB | Current. ~556 MB free at peak.                                                                                                                                   |
+| 768 MB  | Safe drop on these numbers (~300 MB headroom at peak). Not trialled; confirm Fly accepts the size when scaling.                                                  |
+| 512 MB  | **Not a safe floor.** ~450 MB visible against a ~406 MB peak leaves ~45 MB — the same margin as the STRK-277 wedge, and the 2026-04-11 profile agrees (<400 MB). |
+
+Not measured: the `cleanup-export.sh` peak (the 2026-10-02 backstop run over 153,757 loose objects completed at 1024 MB with no OOM, but its RSS was not recorded), and 2 s sampling can miss short spikes. Re-measure before dropping, and change `memory` in `fly.toml` in the same step — a live `fly machine update` alone is reverted by the next `fly deploy`.
 
 **Deploy window:** with crons at spot `0,30`, publish `8,23,38,53`, and provider-export `*/5`, the `:08:30 → :23:00` gap is the only 15-minute stretch per hour containing no spot cron — deploy there. A full `fly deploy` takes ~2 minutes. The `app is not listening on 0.0.0.0:8080` warning Fly prints at the end is a benign race (it checks before supervisord starts `serve.js`); verify with a real `curl`, not the warning.
 
 ### Supervisord Services (slim image)
 
-| Service        | Command                                              | Notes                                                  |
-| -------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| `tailscaled`   | `tailscaled --state=/data/tailscale/...`             | Provides subnet routing to home LAN for sqld access    |
-| `tailscale-up` | `tailscale up --authkey=... --accept-routes --reset` | One-shot auth at startup                               |
-| `cron`         | `cron -f`                                            | Runs spot + publish + provider export + weekly cleanup |
-| `http-server`  | `node /app/serve.js` on port 8080                    | Health/proxy endpoint                                  |
+| Service        | Command                                              | Notes                                                 |
+| -------------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| `tailscaled`   | `tailscaled --state=/data/tailscale/...`             | Provides subnet routing to home LAN for sqld access   |
+| `tailscale-up` | `tailscale up --authkey=... --accept-routes --reset` | One-shot auth at startup                              |
+| `cron`         | `cron -f`                                            | Runs spot + publish + provider export + daily cleanup |
+| `http-server`  | `node /app/serve.js` on port 8080                    | Health/proxy endpoint                                 |
 
 ### Cron Schedule (Remote Poller)
 
 Written by `docker-entrypoint-slim.sh` at container start:
 
-| Schedule             | Script                          | Log                            | Status                                       |
-| -------------------- | ------------------------------- | ------------------------------ | -------------------------------------------- |
-| `0,30 * * * *`       | `/app/run-spot.sh`              | `/var/log/spot-poller.log`     | Active                                       |
-| `8,23,38,53 * * * *` | `/app/run-publish.sh`           | `/var/log/publish.log`         | Active                                       |
-| `*/5 * * * *`        | `node export-providers-json.js` | `/var/log/provider-export.log` | Active                                       |
-| `17 3 * * 0`         | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`         | Active (weekly, Sun 03:17 UTC, STRK-187/402) |
-| ~~`CRON_SCHEDULE`~~  | ~~`run-local.sh`~~              | —                              | Disabled (`RETAIL_ENABLED=0`)                |
-| ~~`15 * * * *`~~     | ~~`run-retry.sh`~~              | —                              | Disabled                                     |
-| ~~`1 * * * *`~~      | ~~`run-goldback.sh`~~           | —                              | Disabled (`GOLDBACK_ENABLED=0`)              |
+| Schedule             | Script                          | Log                            | Status                                  |
+| -------------------- | ------------------------------- | ------------------------------ | --------------------------------------- |
+| `0,30 * * * *`       | `/app/run-spot.sh`              | `/var/log/spot-poller.log`     | Active                                  |
+| `8,23,38,53 * * * *` | `/app/run-publish.sh`           | `/var/log/publish.log`         | Active                                  |
+| `*/5 * * * *`        | `node export-providers-json.js` | `/var/log/provider-export.log` | Active                                  |
+| `17 3 * * *`         | `/app/cleanup-export.sh`        | `/var/log/cleanup.log`         | Active (daily, 03:17 UTC, STRK-187/402) |
+| ~~`CRON_SCHEDULE`~~  | ~~`run-local.sh`~~              | —                              | Disabled (`RETAIL_ENABLED=0`)           |
+| ~~`15 * * * *`~~     | ~~`run-retry.sh`~~              | —                              | Disabled                                |
+| ~~`1 * * * *`~~      | ~~`run-goldback.sh`~~           | —                              | Disabled (`GOLDBACK_ENABLED=0`)         |
 
 ### Publish Pipeline (`run-publish.sh`)
 

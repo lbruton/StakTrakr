@@ -30,12 +30,12 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 ### Fly.io (thin publisher — spot + publish only, `staktrakr` app, dfw)
 
-| Script                     | Cron                 | Purpose                                                                          |
-| -------------------------- | -------------------- | -------------------------------------------------------------------------------- |
-| `run-spot.sh`              | `0,30 * * * *`       | Spot price poll (MetalPriceAPI → sqld + JSON), `POLLER_ID=fly-spot`              |
-| `run-publish.sh`           | `8,23,38,53 * * * *` | Export sqld → JSON, verify-then-push to `api` branch                             |
-| `export-providers-json.js` | `*/5 * * * *`        | Sync providers.json from sqld                                                    |
-| `cleanup-export.sh`        | `17 3 * * 0`         | Weekly retention sweep + memory-capped git maintenance (Sun 03:17 UTC, STRK-187) |
+| Script                     | Cron                 | Purpose                                                                      |
+| -------------------------- | -------------------- | ---------------------------------------------------------------------------- |
+| `run-spot.sh`              | `0,30 * * * *`       | Spot price poll (MetalPriceAPI → sqld + JSON), `POLLER_ID=fly-spot`          |
+| `run-publish.sh`           | `8,23,38,53 * * * *` | Export sqld → JSON, verify-then-push to `api` branch                         |
+| `export-providers-json.js` | `*/5 * * * *`        | Sync providers.json from sqld                                                |
+| `cleanup-export.sh`        | `17 3 * * *`         | Daily retention sweep + re-shallow git maintenance (03:17 UTC, STRK-187/402) |
 
 > Retail (`run-local.sh`), retry (`run-retry.sh`), and goldback (`run-goldback.sh`) are **disabled** on Fly.io since STAK-478 (2026-03-21). Fly.io is a thin publisher only.
 
