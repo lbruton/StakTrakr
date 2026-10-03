@@ -50,7 +50,7 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 | `spot-poller.yml`       | `StakTrakr`    | **RETIRED 2026-02-23** — `workflow_dispatch` only | Was Python→MetalPriceAPI; now Fly.io `run-spot.sh` |
 | `Merge Poller Branches` | `StakTrakrApi` | **RETIRED** — repo has no workflows               | GH Pages serves the `api` branch directly          |
 
-**StakTrakrApi branch model:** `api` is the default and _only_ branch — there is no `main`. GH Pages (legacy build) serves `api` at `api.staktrakr.com`; each force-push triggers `pages-build-deployment` directly. The `No Delete` ruleset on `refs/heads/api` blocks deletion and non-fast-forward pushes (routine publishes are effective fast-forwards; a history rewrite requires temporarily disabling the ruleset via API).
+**StakTrakrApi branch model:** `api` is the default and _only_ branch — there is no `main`. GH Pages (legacy build) serves `api` at `api.staktrakr.com`; each force-push triggers `pages-build-deployment` directly. The `No Delete` ruleset on `refs/heads/api` blocks deletion and non-fast-forward pushes (routine publishes are effective fast-forwards; a history rewrite does not need the ruleset disabled: the repository Admin role is an `always` bypass actor on it since 2026-10-03, which is how `squash-api-history.sh` force-pushes; never disable the ruleset, and see `.context/infrastructure.md` for the details).
 
 ---
 

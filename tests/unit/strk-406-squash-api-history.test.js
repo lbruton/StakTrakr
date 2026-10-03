@@ -194,6 +194,33 @@ describe("STRK-406 squash-api-history.sh", () => {
     assert.equal(existsSync(markerFile), false, "marker must not be written so it retries");
   });
 
+  it("logs git's push error so a rejected squash is diagnosable (STRK-406 first run: GH013)", () => {
+    publish(seedDir, "data-concurrent.json", "x\n");
+
+    const { out } = runSquash();
+
+    assert.match(out, /WARN.*squash push/i);
+    assert.match(out, /failed to push some refs/, "git's own error must reach the log");
+  });
+
+  it("redacts GITHUB_TOKEN from the logged push error", () => {
+    publish(seedDir, "data-concurrent.json", "x\n");
+    // The token is a substring of the remote path, which git echoes in its error.
+    const { out } = runSquash({ GITHUB_TOKEN: "remote.git" });
+
+    assert.match(out, /failed to push some refs/);
+    assert.doesNotMatch(out, /remote\.git/, "token must never appear in the log");
+    assert.match(out, /\*\*\*/);
+  });
+
+  it("redacts URL credentials supplied through REMOTE even when GITHUB_TOKEN is unset", () => {
+    // Nothing listens on port 1, so git fails to connect and echoes the URL.
+    const { out } = runSquash({ REMOTE: "https://s3cr3tuser@127.0.0.1:1/x.git", GITHUB_TOKEN: "" });
+
+    assert.match(out, /WARN.*squash push/i);
+    assert.doesNotMatch(out, /s3cr3tuser/, "REMOTE credentials must never appear in the log");
+  });
+
   it("skips with a warning when there is no GITHUB_TOKEN and no REMOTE override", () => {
     const tipBefore = remoteTip();
 
