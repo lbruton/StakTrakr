@@ -1108,6 +1108,63 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.locator("#item-constitutional-face")).toHaveValue("5");
   });
 
+  test("a denomination Item type keeps its metal and weight unit in the builder and Item prefill", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Type").selectOption("Goldback");
+    await expect(builder.getByLabel("Metal")).toHaveValue("Gold");
+    await expect(builder.getByLabel("Weight unit")).toHaveValue("gb");
+    await builder.getByRole("button", { name: "Cancel" }).click();
+
+    // Stored or imported data can still carry a mismatched unit; the Item form must win.
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Mismatched Goldbacks",
+        metal: "Silver",
+        itemType: "Goldback",
+        weight: 1,
+        weightUnit: "oz",
+        slots: [{ label: "Utah" }],
+      });
+      return created.collection.id;
+    });
+    await page.evaluate(
+      (collectionId) => window.collectionsStore.requestNewItem(collectionId, "utah"),
+      id
+    );
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("gb");
+    await expect(page.locator("#itemMetal")).toHaveValue("Gold");
+  });
+
+  test("editing a Custom Collection saved without purity does not invent one", async ({ page }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Legacy mixed",
+        metal: "Mixed",
+        slots: [{ label: "One" }],
+      });
+      window.collectionsPicker.openBuilder({ editId: created.collection.id });
+      return created.collection.id;
+    });
+    const builder = builderModal(page);
+    await expect(builder.getByLabel("Purity", { exact: true })).toHaveValue("");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    const definition = await page.evaluate(
+      (collectionId) => window.collectionsStore.getState().collections[collectionId].definition,
+      id
+    );
+    expect(Object.hasOwn(definition, "purity")).toBe(false);
+  });
+
   test("a Custom Collection side choice persists and drives reverse images plus Slot notes", async ({
     page,
   }) => {

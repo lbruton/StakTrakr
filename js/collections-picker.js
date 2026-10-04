@@ -878,7 +878,11 @@
       weightUnit:
         definition.weightUnit || (context.template && context.template.weightUnit) || "oz",
       itemType,
-      purity: definition.purity ?? (context.template && context.template.purity) ?? 0.9999,
+      // An edit never invents a purity the Collection did not have; only a new one defaults.
+      purity:
+        definition.purity ??
+        (context.template && context.template.purity) ??
+        (request.editId ? null : 0.9999),
       specs: definition.specs || (context.template && context.template.specs) || {},
       imageShape:
         definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
@@ -1002,12 +1006,18 @@
     });
     weightUnit.value = seed.weightUnit;
     const itemType = el("select");
-    Array.from(document.getElementById("itemType")?.options || [])
+    Array.from(elements.itemType instanceof HTMLSelectElement ? elements.itemType.options : [])
       .filter((option) => option.value)
       .forEach((option) => itemType.appendChild(option.cloneNode(true)));
     itemType.value = seed.itemType;
     const puritySelect =
-      document.getElementById("itemPuritySelect")?.cloneNode(true) || el("select");
+      elements.itemPuritySelect instanceof HTMLSelectElement
+        ? elements.itemPuritySelect.cloneNode(true)
+        : el("select");
+    // Legacy and Mixed-metal Collections have no purity; "Not set" keeps that true on save.
+    const unsetPurity = el("option", "", "Not set");
+    unsetPurity.value = "";
+    puritySelect.insertBefore(unsetPurity, puritySelect.firstChild);
     const purityCustom = el("input");
     purityCustom.type = "number";
     purityCustom.min = "0.001";
@@ -1018,11 +1028,14 @@
     const updatePurity = () => {
       purityCustomField.hidden = puritySelect.value !== "custom";
     };
-    puritySelect.value = Array.from(puritySelect.options).some(
-      (option) => Number(option.value) === Number(seed.purity)
-    )
-      ? String(seed.purity)
-      : "custom";
+    puritySelect.value =
+      seed.purity == null
+        ? ""
+        : Array.from(puritySelect.options).some(
+              (option) => option.value !== "" && Number(option.value) === Number(seed.purity)
+            )
+          ? String(seed.purity)
+          : "custom";
     if (puritySelect.value === "custom") purityCustom.value = String(seed.purity ?? "");
     puritySelect.addEventListener("change", updatePurity);
     updatePurity();
@@ -1031,9 +1044,10 @@
       const value =
         puritySelect.value === "custom" ? Number(purityCustom.value) : Number(puritySelect.value);
       const metalName = metal.value.toLowerCase();
-      purityCaption.textContent = Number.isFinite(value)
-        ? `${value >= 1 ? "pure" : `.${String(value).split(".")[1] || ""}`} fine ${metalName}`
-        : "Fineness is shown from purity and metal.";
+      purityCaption.textContent =
+        puritySelect.value !== "" && Number.isFinite(value)
+          ? `${value >= 1 ? "pure" : `.${String(value).split(".")[1] || ""}`} fine ${metalName}`
+          : "Fineness is shown from purity and metal.";
     };
     puritySelect.addEventListener("change", updatePurityCaption);
     purityCustom.addEventListener("input", updatePurityCaption);
@@ -1098,6 +1112,13 @@
           : "round";
     itemType.addEventListener("change", () => {
       if (!imageShapeTouched) imageShape.value = suggestedShape(itemType.value);
+      // Mirror the Add Item form: these Item types force their metal and weight unit.
+      const lock = window.collectionsCore.typeLockFor(itemType.value);
+      if (lock) {
+        metal.value = lock.metal;
+        weightUnit.value = lock.weightUnit;
+        metal.dispatchEvent(new Event("change"));
+      }
     });
     const about = el("textarea");
     about.value = seed.about;
@@ -1265,9 +1286,16 @@
 
     const submit = async () => {
       const purityValue =
-        puritySelect.value === "custom" ? Number(purityCustom.value) : Number(puritySelect.value);
+        puritySelect.value === ""
+          ? null
+          : puritySelect.value === "custom"
+            ? Number(purityCustom.value)
+            : Number(puritySelect.value);
       const weightValue = weight.value === "" ? null : Number(weight.value);
-      if (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1) {
+      if (
+        purityValue != null &&
+        (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1)
+      ) {
         purityCustom.setAttribute("aria-invalid", "true");
         purityCustom.focus();
         toast("Enter a purity greater than 0 and no greater than 1.");

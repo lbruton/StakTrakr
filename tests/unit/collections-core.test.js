@@ -730,6 +730,44 @@ describe("custom collections", () => {
     });
   });
 
+  test("an edit keeps weight and purity when omitted and clears them when sent as null", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "custom-1",
+      name: "Weighed set",
+      weight: 2,
+      weightUnit: "oz",
+      purity: 0.999,
+      slots: [{ label: "Alpha" }],
+      now: T1,
+    });
+    const slots = [{ id: "alpha", label: "Alpha" }];
+
+    core.updateCustomDefinition(state, "custom-1", { name: "Weighed set", slots, now: T2 });
+    assert.equal(state.collections["custom-1"].definition.weight, 2);
+    assert.equal(state.collections["custom-1"].definition.purity, 0.999);
+
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Weighed set",
+      weight: null,
+      purity: null,
+      slots,
+      now: "2026-03-03T00:00:00.000Z",
+    });
+    assert.equal(state.collections["custom-1"].definition.weight, null);
+    assert.equal(Object.hasOwn(state.collections["custom-1"].definition, "purity"), false);
+  });
+
+  test("typeLockFor names the metal and weight unit an Item type forces", () => {
+    assert.deepEqual(plain(core.typeLockFor("Goldback")), { metal: "Gold", weightUnit: "gb" });
+    assert.deepEqual(plain(core.typeLockFor("Silverback")), { metal: "Silver", weightUnit: "sb" });
+    assert.deepEqual(plain(core.typeLockFor("Constitutional")), {
+      metal: "Silver",
+      weightUnit: "cu",
+    });
+    assert.equal(core.typeLockFor("Coin"), null);
+  });
+
   test("migrates legacy description, rejects unknown metadata, and normalizes shape defaults", () => {
     const restored = core.normalizeState({
       version: 1,

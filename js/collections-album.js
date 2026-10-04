@@ -57,7 +57,6 @@
      * @returns {string[]} Parts, e.g. ["1 oz", ".999 fine silver", "40.6 mm", "$1 face value"]
      */
     const specParts = (entry) => {
-      const template = entry.isCustom ? entry.collection.definition : entry.template;
       const specs = entry.specs || {};
       const purity = Number(entry.purity);
       const fineness = Number.isFinite(purity)

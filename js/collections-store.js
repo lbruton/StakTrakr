@@ -563,12 +563,17 @@
     const year = slot.year == null ? "" : String(slot.year);
     if (!template) {
       const definition = (collection && collection.definition) || {};
+      // Goldback / Silverback / Constitutional force their metal and unit on the Item form;
+      // a stored mismatch (import, older edit) must not overwrite that, and its weight is in
+      // another unit, so it is dropped rather than reinterpreted.
+      const lock = core().typeLockFor(definition.itemType);
+      const unitFits = !lock || definition.weightUnit === lock.weightUnit;
       return {
         name: slot.label || "",
-        metal: definition.metal || "",
+        metal: lock ? lock.metal : definition.metal || "",
         type: definition.itemType || "Coin",
-        weight: definition.weight == null ? undefined : definition.weight,
-        weightUnit: definition.weightUnit || "oz",
+        weight: definition.weight == null || !unitFits ? undefined : definition.weight,
+        weightUnit: lock ? lock.weightUnit : definition.weightUnit || "oz",
         // A constitutional Custom Collection's weight is the defined face value, not a coin count.
         constitutionalEntryMode:
           definition.itemType === "Constitutional" && definition.weightUnit === "cu"

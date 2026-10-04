@@ -233,6 +233,17 @@
     if (["Note", "Aurum", "Goldback", "Silverback"].includes(type)) return "note";
     return "round";
   };
+  /**
+   * The metal and weight unit the Add Item form forces for a denomination Item type.
+   * @param {string} type - Item type
+   * @returns {{metal: string, weightUnit: string}|null} The forced pair, or null when unconstrained
+   */
+  const typeLockFor = (type) => {
+    if (type === "Goldback") return { metal: "Gold", weightUnit: "gb" };
+    if (type === "Silverback") return { metal: "Silver", weightUnit: "sb" };
+    if (type === "Constitutional") return { metal: "Silver", weightUnit: "cu" };
+    return null;
+  };
   const normalizeSpecs = (raw) => {
     const source = isPlainObject(raw) ? raw : {};
     const specs = Object.create(null);
@@ -662,10 +673,14 @@
       variant: spec.variant == null ? previous.variant || "" : text(spec.variant),
       subtitle: spec.subtitle == null ? previous.subtitle || "" : text(spec.subtitle),
       issuer: spec.issuer == null ? previous.issuer || "" : text(spec.issuer),
+      // undefined keeps the stored value; null (a cleared field) removes it.
       weight:
-        spec.weight == null
+        spec.weight === undefined
           ? (previous.weight ?? null)
-          : Number.isFinite(Number(spec.weight)) && Number(spec.weight) >= 0
+          : spec.weight !== null &&
+              spec.weight !== "" &&
+              Number.isFinite(Number(spec.weight)) &&
+              Number(spec.weight) >= 0
             ? Number(spec.weight)
             : null,
       weightUnit:
@@ -680,11 +695,13 @@
           : ITEM_TYPES.includes(spec.itemType)
             ? spec.itemType
             : "Coin",
-      ...(spec.purity == null
+      ...(spec.purity === undefined
         ? Number.isFinite(Number(previous.purity))
           ? { purity: Number(previous.purity) }
           : {}
-        : Number.isFinite(Number(spec.purity)) &&
+        : spec.purity !== null &&
+            spec.purity !== "" &&
+            Number.isFinite(Number(spec.purity)) &&
             Number(spec.purity) > 0 &&
             Number(spec.purity) <= 1
           ? { purity: Number(spec.purity) }
@@ -1226,6 +1243,7 @@
     setArtwork,
     isCurrentArtwork,
     defaultImageShapeForType,
+    typeLockFor,
     listCollections,
     slugifySlotId,
     createCustomCollection,
