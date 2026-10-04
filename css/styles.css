@@ -19525,7 +19525,7 @@ input[type="number"] {
 
 .collections-builder-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1.1fr) 84px minmax(0, 1.4fr) 32px;
+  grid-template-columns: 44px minmax(0, 1.1fr) 84px minmax(0, 1.4fr) auto;
   gap: var(--spacing-sm);
   align-items: center;
   margin-bottom: var(--spacing-sm);
@@ -19533,6 +19533,45 @@ input[type="number"] {
 
 .collections-builder-row input {
   width: 100%;
+}
+
+.collections-builder-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.collections-builder-move,
+.collections-builder-insert {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.collections-builder-insert {
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.collections-builder-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.collections-builder-move:hover:not(:disabled),
+.collections-builder-insert:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.collections-builder-row-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .collections-builder-remove {
@@ -19570,7 +19609,17 @@ input[type="number"] {
   }
 
   .collections-builder-row {
-    grid-template-columns: 44px minmax(0, 1fr) 64px 32px;
+    grid-template-columns: 44px minmax(0, 1fr) 64px;
+  }
+
+  .collections-builder-row-actions {
+    grid-column: 2 / -1;
+    justify-content: flex-end;
+  }
+
+  .collections-builder-row-actions button {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .collections-builder-note {

@@ -444,9 +444,14 @@
    * @returns {Object[]} Definition slots: { id, label, year, note }
    */
   const buildDefinitionSlots = (inputSlots, keepIds) => {
-    const taken = new Set();
-    return inputSlots.filter(isPlainObject).map((input) => {
-      const carried = isId(input.id) && keepIds.has(input.id) && !taken.has(input.id);
+    const inputs = inputSlots.filter(isPlainObject);
+    const taken = new Set(
+      inputs.filter((input) => isId(input.id) && keepIds.has(input.id)).map((input) => input.id)
+    );
+    const carriedIds = new Set();
+    return inputs.map((input) => {
+      const carried = isId(input.id) && keepIds.has(input.id) && !carriedIds.has(input.id);
+      if (carried) carriedIds.add(input.id);
       const id = carried ? input.id : slugifySlotId(input.label, taken);
       taken.add(id);
       return { id, label: text(input.label), year: text(input.year), note: text(input.note) };

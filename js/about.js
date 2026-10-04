@@ -134,11 +134,12 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.37 &ndash; Arrange Custom Collection Slots</strong>: Insert a Slot after any row or use the up/down arrows to place variants beside their issue years. Album and Ledger follow the saved Collection order, while linked Items, Spares and artwork stay with their Slots. Cancel or close discards unsaved arrangement changes (STRK-389).</li>
     <li><strong>v3.36.36 &ndash; Dropbox sync backups restore again</strong>: The automatic pre-sync backups in Dropbox could not be restored before this release, and every attempt reported a wrong password or a corrupted file. Restoring from Settings &rsaquo; Cloud now opens them with this device&rsquo;s Cloud Sync key, and on another device your Cloud Sync vault password opens them. A password that fits no backup now says which password each backup type expects (STRK-413).</li>
     <li><strong>v3.36.35 &ndash; Safer startup cleanup</strong>: StakTrakr no longer deletes storage entries it does not recognise when it starts. Opening an older copy of the app on top of newer data, for example after a rolled-back deploy or a stale cached page, can no longer wipe newer features such as Collections. Only keys the app has explicitly retired are cleaned up. Versions before 3.36.35 still do the old cleanup, so 3.36.35 is the first build with this protection (STRK-412).</li>
     <li><strong>v3.36.34 &ndash; Spot history accuracy</strong>: 2026 daily spot prices are now full-day averages. Some days had been recorded before the trading day finished, and a gap from late February to early March is filled in, so ratio statistics and history charts may shift slightly. The public daily spot-history feed updates daily again (STRK-403).</li>
     <li><strong>v3.36.25 &ndash; Collections (beta)</strong>: Track Series like Silver Eagle Type 1 and Type 2 date runs, or build your own Custom Collections, then link Items to Slots and follow progress in Album and Ledger views. Collections sync between devices, survive ZIP, vault, JSON and CSV backups, and can be turned off in Settings (STRK-368).</li>
-    <li><strong>v3.36.32&ndash;33 &ndash; Organize the Collections hub</strong>: A Settings &rsaquo; Collections panel shows each Collection&rsquo;s progress, hides empty ones, and sets My order for templates and your own Collections together. In the Ledger, click a column to sort by Progress, Owned, Value or To complete, or use Arrange to drag rows; the Album follows (STRK-392, STRK-393, STRK-378).</li>  `;
+      `;
 };
 
 // Expose globally for access from other modules

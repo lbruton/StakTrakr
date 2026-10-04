@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.37] - 2026-10-04
+
+### Changed — STRK-389: Insert and reorder Custom Collection Slots
+
+- **Slot arrangement**: Insert a blank Slot after any row, or move a Slot with up/down arrows. Saved order appears in Album and Ledger; existing linked Items, Spares and artwork stay with their Slots (STRK-389).
+- **Collection order**: Custom Collections now label their view choices Collection order and Reverse. Cancel or close discards unsaved arrangement changes (STRK-389).
+
+---
+
 ## [3.36.36] - 2026-09-30
 
 ### Changed — STRK-413: Dropbox sync backups can be restored again
