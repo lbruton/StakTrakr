@@ -1,0 +1,1625 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>STRK-421 · Collection builder modal variants</title>
+  <script>
+    // Theme must be set before first paint; the host passes it to each embedded frame.
+    document.documentElement.dataset.theme =
+      new URLSearchParams(location.search).get("theme") || "dark";
+  </script>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <style>
+    /* =========================================================================
+       PROPOSED SHARED FORM SYSTEM (the Phase 2 CSS delta)
+       Every rule in this block is a verbatim copy of an #itemModal / #inventoryForm
+       rule in css/styles.css (STAK-173 block, ~L10816-11017, and the mobile block
+       ~L14518-14560), re-scoped from the IDs to .cb-modal / .cb-form. Phase 2 does
+       the same re-scope in styles.css (one shared selector list) instead of adding
+       builder-only sizing. The only additions are marked NEW.
+       ========================================================================= */
+    .cb-modal .modal-content {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+      width: 90%;
+      max-width: 700px;
+    }
+    .cb-modal.is-wide .modal-content {
+      max-width: 860px;
+    }
+    .cb-modal .modal-header {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      padding: var(--spacing) var(--spacing-xl);
+      position: relative;
+      border-bottom: 1px solid var(--border);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      box-shadow: none;
+    }
+    .cb-modal .modal-header h2 {
+      margin: 0;
+      color: var(--text-primary);
+      text-align: center;
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .cb-modal .modal-close {
+      color: var(--text-secondary);
+    }
+    .cb-modal .modal-close:hover {
+      color: var(--text-primary);
+    }
+    .cb-modal .modal-body {
+      padding: var(--spacing);
+      overflow: auto;
+      flex: 1;
+    }
+    .cb-form {
+      --inventory-control-height: 34px;
+      display: grid;
+      gap: var(--spacing-md);
+    }
+    :is([data-theme="dark"], [data-theme="slate"]) .cb-modal {
+      --glass-input-bg: rgba(255, 255, 255, 0.05);
+      --glass-input-border: rgba(255, 255, 255, 0.1);
+      --glass-input-focus-bg: rgba(255, 255, 255, 0.08);
+    }
+    [data-theme="sepia"] .cb-modal {
+      --glass-input-bg: rgba(139, 69, 19, 0.04);
+      --glass-input-border: rgba(139, 69, 19, 0.15);
+      --glass-input-focus-bg: rgba(139, 69, 19, 0.07);
+    }
+    /* NEW: textarea joins the themed control rule (it is in no shared rule today). */
+    .cb-form input:not([type="radio"]):not([type="file"]),
+    .cb-form select,
+    .cb-form textarea {
+      width: 100%;
+      background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
+      border: 1.5px solid var(--glass-input-border, var(--border));
+      border-radius: var(--radius);
+      padding: 0.4rem 0.6rem;
+      font-family: inherit;
+      font-size: var(--font-size-md);
+      line-height: 1.2;
+      color: var(--text-primary);
+      min-height: var(--inventory-control-height);
+      height: var(--inventory-control-height);
+      box-sizing: border-box;
+      transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+    .cb-form textarea {
+      height: auto;
+      min-height: 4.5rem;
+      line-height: 1.4;
+      resize: vertical;
+    }
+    .cb-form select option {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    .cb-form input:focus,
+    .cb-form select:focus,
+    .cb-form textarea:focus,
+    .cb-form .sim-focus {
+      outline: none;
+      background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.05));
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 2px var(--focus-ring);
+    }
+    /* NEW: invalid + disabled states, token-based so all four themes resolve. */
+    .cb-form [aria-invalid="true"] {
+      border-color: var(--danger) !important;
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 22%, transparent);
+    }
+    .cb-form .cb-error {
+      margin-top: 0.2rem;
+      color: var(--danger);
+      font-size: var(--font-size-sm);
+    }
+    .cb-form input:disabled,
+    .cb-form select:disabled,
+    .cb-form textarea:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .cb-form label,
+    .cb-form .cb-label {
+      display: block;
+      font-size: var(--font-size-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin-bottom: 0.2rem;
+    }
+    .cb-form .grid {
+      gap: var(--spacing-md);
+      margin-bottom: 0.4rem;
+    }
+    .cb-form .form-section {
+      border: 1px solid var(--glass-input-border, var(--border));
+      border-radius: var(--radius);
+      margin-bottom: 0.5rem;
+      background: transparent;
+    }
+    .cb-form .form-section-header {
+      background: transparent;
+      padding: 0.55rem 0.7rem;
+      font-size: var(--font-size-sm);
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .cb-form .form-section-icon {
+      color: var(--primary);
+    }
+    /* Footer = the item modal's action bar. It is a flex child of .modal-content,
+       not a sticky overlay, so it can never cover content. */
+    .cb-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.4rem;
+      padding: 0.75rem var(--spacing) 0.65rem;
+      padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    }
+    .cb-footer .btn,
+    .cb-form .cb-pill {
+      border-radius: var(--radius-pill);
+      padding: 0.3rem 0.75rem;
+      font-size: var(--font-size-sm);
+      font-weight: 700;
+      min-height: auto;
+    }
+    .cb-footer .cb-cancel {
+      background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
+      border: 1px solid var(--glass-input-border, var(--border));
+      color: var(--text-secondary);
+    }
+    .cb-form .cb-pill {
+      background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
+      border: 1px solid var(--glass-input-border, var(--border));
+      color: var(--text-primary);
+    }
+    .cb-footer .cb-cancel:hover,
+    .cb-form .cb-pill:hover {
+      background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
+      border-color: var(--primary);
+    }
+    .cb-footer .btn.premium {
+      padding: 0.3rem 0.85rem;
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--warning) 20%, transparent);
+    }
+    .cb-footer [role="status"] {
+      margin-right: auto;
+      font-size: var(--font-size-sm);
+      color: var(--text-muted);
+    }
+    @media (max-width: 768px) {
+      .cb-form input:not([type="radio"]):not([type="file"]),
+      .cb-form select,
+      .cb-form textarea {
+        min-height: 44px;
+        font-size: var(--font-size-lg);
+        padding: 0.45rem 0.65rem;
+      }
+      .cb-form input:not([type="radio"]):not([type="file"]),
+      .cb-form select {
+        height: 44px;
+      }
+      .cb-footer .btn {
+        flex: 1;
+        min-height: 44px;
+        font-size: var(--font-size-md);
+      }
+      .cb-form .cb-pill,
+      .cb-form .form-section-header {
+        min-height: 44px;
+      }
+      .cb-footer [role="status"]:empty {
+        display: none;
+      }
+    }
+
+    /* =========================================================================
+       BUILDER-SPECIFIC LAYOUT (small, layout only — no control sizing)
+       ========================================================================= */
+    .cb-grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+    .cb-grid-quad {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .cb-hint {
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+    }
+    .cb-form .collections-segmented {
+      flex-wrap: wrap;
+      padding: 2px;
+    }
+    .cb-form .collections-segmented-option {
+      margin: 0;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .cb-form .collections-segmented-option span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.8rem;
+      font-size: var(--font-size-md);
+      line-height: 1.2;
+    }
+    .cb-covers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-lg);
+      align-items: flex-end;
+    }
+    .cb-covers .collections-image-pick {
+      width: auto;
+      height: 72px;
+      font-size: var(--font-size-xl);
+    }
+    .cb-covers[data-shape="bar"] .collections-image-pick {
+      aspect-ratio: 3 / 5;
+      border-radius: 6px;
+    }
+    .cb-covers[data-shape="note"] .collections-image-pick {
+      aspect-ratio: 5 / 3;
+      border-radius: 4px;
+    }
+    .cb-covers[data-shape="slab"] .collections-image-pick {
+      aspect-ratio: 3 / 4;
+      border-radius: 8px;
+    }
+    .cb-media {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing) var(--spacing-xl);
+      align-items: flex-end;
+      margin-bottom: 0.4rem;
+    }
+    /* Round 3 (variant C): large centred title images, shape picker centred beneath. */
+    .cb-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--spacing);
+      padding: var(--spacing-sm) 0 var(--spacing);
+      text-align: center;
+    }
+    .cb-hero .cb-covers {
+      --cover: 128px;
+      justify-content: center;
+      align-items: flex-end;
+      gap: var(--spacing-xl);
+    }
+    .cb-hero .cb-covers > div {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .cb-hero .cb-covers .collections-image-pick {
+      width: var(--cover);
+      height: auto;
+      font-size: var(--font-size-2xl);
+    }
+    .cb-hero .cb-covers[data-shape="bar"] {
+      --cover: 80px;
+    }
+    .cb-hero .cb-covers[data-shape="note"] {
+      --cover: 160px;
+    }
+    .cb-hero .cb-covers[data-shape="slab"] {
+      --cover: 100px;
+    }
+    .cb-hero .collections-segmented {
+      justify-content: center;
+    }
+    .cb-hero select {
+      min-width: 200px;
+    }
+    .cb-slots-head {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      margin: 0.35rem 0 0.1rem;
+    }
+    .cb-slots-head .cb-label {
+      margin: 0;
+      color: var(--primary);
+    }
+    .cb-form .collections-builder-row {
+      margin-bottom: 0.35rem;
+    }
+    .cb-form .collections-builder-actions {
+      margin-top: 0.15rem;
+    }
+    .cb-summary {
+      margin-left: auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--font-size-xs);
+      font-weight: 400;
+      letter-spacing: 0;
+      color: var(--text-muted);
+    }
+    .cb-form summary.form-section-header:has(.cb-summary)::after {
+      margin-left: 0;
+    }
+    .cb-divider {
+      margin: 0.5rem 0 0.1rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--glass-input-border, var(--border));
+    }
+    /* Round 2: Slot rows as cards with a drag handle (replaces the arrow pair
+       and "+ Slot after"). Two-line card in narrow hosts (mobile, variant E). */
+    .cb-form .collections-builder-row.is-card {
+      --card-end: 64px;
+      grid-template-columns:
+        24px 44px minmax(0, 1.1fr) 70px minmax(100px, 0.8fr) minmax(0, 1fr)
+        auto;
+      padding: 5px 6px 5px 2px;
+      border: 1px solid var(--glass-input-border, var(--border));
+      border-radius: var(--radius);
+      background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
+      transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+    }
+    .cb-form .is-card.is-dragging {
+      border-color: var(--primary);
+      background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
+      box-shadow:
+        0 0 0 2px var(--focus-ring),
+        var(--shadow-lg);
+    }
+    .cb-grip {
+      display: grid;
+      place-items: center;
+      align-self: stretch;
+      min-height: 34px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: grab !important;
+      touch-action: none;
+    }
+    .cb-grip:hover,
+    .is-dragging .cb-grip {
+      color: var(--primary);
+    }
+    .is-dragging .cb-grip {
+      cursor: grabbing !important;
+    }
+    .cb-grip:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+    .cb-form .is-card .collections-builder-insert {
+      min-width: 30px;
+      padding: 0;
+      font-size: var(--font-size-lg);
+    }
+    .cb-form .is-card .collections-builder-remove {
+      min-width: 30px;
+    }
+    .cb-panes .collections-builder-row.is-card {
+      grid-template-columns: 24px 44px minmax(0, 1fr) var(--card-end);
+    }
+    .cb-panes .is-card .cb-grip {
+      grid-row: 1 / 3;
+    }
+    .cb-panes .is-card .collections-builder-mintage {
+      grid-column: 2 / 4;
+    }
+    .cb-panes .is-card .collections-builder-row-actions {
+      grid-column: 4;
+      gap: 2px;
+    }
+    @media (max-width: 768px) {
+      .cb-form .is-card .collections-builder-insert,
+      .cb-form .is-card .collections-builder-remove {
+        min-width: 44px;
+      }
+      .cb-form .collections-builder-row.is-card {
+        --card-end: 96px;
+        grid-template-columns: 44px 44px minmax(0, 1fr) var(--card-end);
+        padding: 6px;
+      }
+      .cb-form .is-card .cb-grip {
+        grid-row: 1 / 3;
+      }
+      .cb-form .is-card .collections-builder-mintage {
+        grid-column: 2 / 4;
+      }
+      .cb-form .is-card .collections-builder-row-actions {
+        grid-column: 4;
+      }
+    }
+
+    /* Variant E: two panes on desktop, stacked on mobile. */
+    .cb-panes {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+    .cb-panes > * {
+      min-width: 0;
+      display: grid;
+      gap: var(--spacing-md);
+    }
+    .cb-panes .collections-builder-row {
+      grid-template-columns: 44px minmax(0, 1fr) 64px 104px;
+    }
+    .cb-panes .collections-builder-row-actions {
+      grid-column: 2 / -1;
+    }
+    .cb-panes .collections-builder-row-actions {
+      justify-content: flex-end;
+    }
+    .cb-panes .collections-builder-note {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .cb-panes {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .cb-panes .collections-builder-row {
+        grid-template-columns: 44px minmax(0, 1fr) 64px;
+      }
+      .cb-panes .collections-builder-mintage {
+        grid-column: 2 / -1;
+      }
+    }
+
+    /* =========================================================================
+       PLAYGROUND HOST CHROME (not part of the design)
+       ========================================================================= */
+    body.host {
+      margin: 0;
+      padding: 20px 24px 60px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    .host h1 {
+      font-size: var(--font-size-2xl);
+      margin: 0 0 4px;
+    }
+    .host p,
+    .host li {
+      color: var(--text-secondary);
+      font-size: var(--font-size-md);
+    }
+    .host-bar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      align-items: center;
+      margin: 14px -24px 18px;
+      padding: 10px 24px;
+      background: var(--bg-secondary);
+      border-block: 1px solid var(--border);
+    }
+    .host-bar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+    }
+    .host-bar select {
+      width: auto;
+      padding: 4px 8px;
+      border-width: 1px;
+      font-size: var(--font-size-md);
+    }
+    .host-bar input[type="checkbox"] {
+      width: auto;
+    }
+    .host-tabs {
+      display: inline-flex;
+      gap: 4px;
+    }
+    .host-tabs button {
+      min-width: 38px;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: var(--font-size-md);
+      font-weight: 700;
+    }
+    .host-tabs button[aria-pressed="true"] {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--text-inverse);
+    }
+    .host-card {
+      max-width: 1100px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+    }
+    .host-card h2 {
+      margin: 0 0 6px;
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+    }
+    .host-card ul {
+      margin: 6px 0 0;
+      padding-left: 18px;
+    }
+    .host-stage {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .host-stage figure {
+      margin: 0;
+    }
+    .host-stage figcaption {
+      margin-bottom: 6px;
+      font-size: var(--font-size-xs);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .host-stage iframe,
+    .host-stage img {
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-primary);
+    }
+    .host-stage img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+  <body>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const EMBED = params.has("embed");
+      const THEMES = ["dark", "light", "slate", "sepia"];
+
+      /**
+       * Tiny element factory.
+       * @param {string} tag - Tag name
+       * @param {Object} [attrs] - Attributes; `class`, `text` and `html` are special-cased
+       * @param {...(Node|string|null)} kids - Children
+       * @returns {HTMLElement} Element
+       */
+      function h(tag, attrs, ...kids) {
+        const node = document.createElement(tag);
+        Object.entries(attrs || {}).forEach(([key, value]) => {
+          if (value == null || value === false) return;
+          if (key === "class") node.className = value;
+          else if (key === "text") node.textContent = value;
+          else if (key === "html") node.innerHTML = value;
+          else node.setAttribute(key, value === true ? "" : value);
+        });
+        kids.flat().forEach((kid) => kid != null && node.append(kid));
+        return node;
+      }
+
+      const VARIANTS = {
+        A: {
+          title: "A · Add Item mirror (type-first)",
+          lead: "The closest structural copy of the Add Item modal: a collapsed images section on top, then Type | Metal, then Name | Image shape, then one collapsible per field group.",
+          points: [
+            "Primary rows: Type | Metal (grid-2, STRK-235 order), then Collection name | Image shape (the item modal's 3fr/2fr Name | Year row).",
+            "Six independent sections, all collapsed: Title images, Identity, Metal content, Specifications, Display, About. Count badges show filled fields.",
+            "Slots sit after the sections. Trade-off: five section headers (about 200px) sit between the primary rows and the Slot list.",
+          ],
+        },
+        B: {
+          title: "B · Identity-first, three merged sections",
+          lead: "Name leads on its own row, then Type | Metal | Image shape in one three-up row. Secondary fields collapse into three larger sections instead of six.",
+          points: [
+            "Primary rows: Collection name (full width), then Type | Metal | Image shape.",
+            "Three sections: Details (Variant, Issuer, Subtitle, About), Metal content & specs, Artwork & display (title images, Coin side, Item images).",
+            "Shortest collapsed form, so Slots start highest. Trade-off: the specs section is long when opened.",
+          ],
+        },
+        C: {
+          title: "C · Round 3 · Single column, large title images",
+          lead: "Type | Metal, Collection name, then the two title images large and centred with the Image shape picker centred beneath them. Slot cards with drag handles come next, and the optional sections close the form.",
+          points: [
+            "Round 3: the obverse and reverse title images are 128px (was 72px) and centred; the shape picker sits under them and reshapes both live.",
+            "Round 2: each Slot is a card with a drag handle on the left. Drag to reorder, or focus the handle and press Arrow Up / Arrow Down.",
+            "The arrow pair and '+ Slot after' are gone; a single + at the end of the card inserts a blank Slot after it, next to the × remove.",
+            "Optional sections (Identity, Metal content, Specifications, Display, About) sit under the Slot list, all collapsed.",
+          ],
+        },
+        D: {
+          title: "D · One-at-a-time accordion with summaries",
+          lead: "A 2×2 primary grid, then an exclusive accordion: opening a section closes the others, so the modal keeps one stable height. Collapsed headers show a summary of their values.",
+          points: [
+            "Primary grid: Collection name | Type over Metal | Image shape.",
+            "Slots are an accordion section too, open by default. Opening Identity, Metal content, Specifications, Artwork & display or About swaps it out.",
+            "Headers read like '0.7734 oz · .900 fine silver'. Trade-off: Slots and a metadata section are never visible together.",
+          ],
+        },
+        E: {
+          title: "E · Round 2 · Two-pane workbench (860px)",
+          lead: "The form on the left, the Slot cards on the right, in the builder's wider 860px shell. On mobile the panes stack into the Add Item single column.",
+          points: [
+            "Round 2: the title images left their collapsible and now sit in the always-visible block with Type, Metal, Collection name and Image shape. The shape control is the same one C uses.",
+            "Round 2: the same drag-handle Slot cards as C, in a two-line card (label and Year, then Mintage with + and ×).",
+            "Left pane sections: Identity, Metal content, Specifications, Display, About, all collapsed. Trade-off: wider than the Add Item modal (700px), and the Note field leaves the Slot card.",
+          ],
+        },
+      };
+
+      if (EMBED) renderEmbed();
+      else renderHost();
+
+      // -----------------------------------------------------------------------
+      // Host page: toolbar, variant notes, and the embedded frames
+      // -----------------------------------------------------------------------
+      function renderHost() {
+        document.body.className = "host";
+        const state = {
+          variant: params.get("variant") || "C",
+          theme: params.get("theme") || "dark",
+          mode: "edit",
+          state: "default",
+          view: "pair",
+          slots: "drag",
+          shape: "seg",
+          reference: true,
+        };
+        const picker = (label, key, options) => {
+          const select = h(
+            "select",
+            { "aria-label": label },
+            options.map(([value, text]) => h("option", { value, text }))
+          );
+          select.value = state[key];
+          select.addEventListener("change", () => {
+            state[key] = select.value;
+            draw();
+          });
+          return h("label", {}, label, select);
+        };
+        const tabs = h(
+          "div",
+          { class: "host-tabs", role: "group", "aria-label": "Variant" },
+          Object.keys(VARIANTS).map((key) => {
+            const tab = h("button", { type: "button", text: key, "data-variant": key });
+            tab.addEventListener("click", () => {
+              state.variant = key;
+              draw();
+            });
+            return tab;
+          })
+        );
+        const reference = h("input", { type: "checkbox", checked: true });
+        reference.addEventListener("change", () => {
+          state.reference = reference.checked;
+          draw();
+        });
+        const bar = h(
+          "div",
+          { class: "host-bar" },
+          tabs,
+          picker(
+            "Theme",
+            "theme",
+            THEMES.map((theme) => [theme, theme])
+          ),
+          picker("Mode", "mode", [
+            ["edit", "Edit collection (populated)"],
+            ["new", "New collection (empty)"],
+          ]),
+          picker("State", "state", [
+            ["default", "Default (sections collapsed)"],
+            ["expanded", "Sections expanded"],
+            ["focus", "Focus"],
+            ["invalid", "Invalid"],
+            ["locked", "Type lock (disabled Metal)"],
+          ]),
+          picker("Slot controls (C, E)", "slots", [
+            ["drag", "Drag handle + insert (round 2)"],
+            ["arrows", "Arrows + Slot after (round 1)"],
+          ]),
+          picker("Shape control (C, E)", "shape", [
+            ["seg", "Segmented with glyphs"],
+            ["select", "Dropdown"],
+          ]),
+          picker("View", "view", [
+            ["pair", "Desktop + 390px"],
+            ["themes", "All four themes (390px)"],
+            ["themes-desktop", "All four themes (desktop)"],
+          ]),
+          h("label", {}, reference, "Add Item reference")
+        );
+        const card = h("div", { class: "host-card" });
+        const stage = h("div", { class: "host-stage" });
+        const frame = (caption, theme, width, height) =>
+          h(
+            "figure",
+            {},
+            h("figcaption", { text: caption }),
+            h("iframe", {
+              title: caption,
+              width,
+              height,
+              src: `?embed=1&variant=${state.variant}&theme=${theme}&mode=${state.mode}&state=${state.state}&slots=${state.slots}&shape=${state.shape}`,
+            })
+          );
+        const shot = (caption, theme, size, width) => {
+          const img = h("img", {
+            alt: `Add Item modal, ${theme} theme, ${size}`,
+            width,
+            src: `images/STRK-421-add-item-${theme}-${size}.png`,
+          });
+          const figure = h("figure", {}, h("figcaption", { text: caption }), img);
+          img.addEventListener("error", () => figure.remove());
+          return figure;
+        };
+        function draw() {
+          document.documentElement.dataset.theme = state.theme;
+          tabs
+            .querySelectorAll("button")
+            .forEach((tab) =>
+              tab.setAttribute("aria-pressed", String(tab.dataset.variant === state.variant))
+            );
+          const variant = VARIANTS[state.variant];
+          card.replaceChildren(
+            h("h2", { text: variant.title }),
+            h("p", { text: variant.lead }),
+            h(
+              "ul",
+              {},
+              variant.points.map((text) => h("li", { text }))
+            )
+          );
+          const desktop = state.variant === "E" ? 920 : 820;
+          if (state.view === "pair") {
+            stage.replaceChildren(
+              frame(`Variant ${state.variant} · desktop`, state.theme, desktop, 720),
+              frame(`Variant ${state.variant} · 390px`, state.theme, 390, 720)
+            );
+            if (state.reference) {
+              stage.append(
+                shot("Reference · Add Item · desktop", state.theme, "desktop", 820),
+                shot("Reference · Add Item · 390px", state.theme, "mobile", 390)
+              );
+            }
+          } else {
+            const wide = state.view === "themes-desktop";
+            stage.replaceChildren(
+              ...THEMES.map((theme) =>
+                frame(`Variant ${state.variant} · ${theme}`, theme, wide ? desktop : 390, 720)
+              )
+            );
+          }
+        }
+        document.body.append(
+          h(
+            "main",
+            {},
+            h("h1", { text: "Custom Collection builder · modal variants (round 2: C and E)" }),
+            h("p", {
+              text: "STRK-421 Phase 1. Every variant uses the Add Item modal's form system (34px glass controls, uppercase micro-labels, details.form-section collapsibles, pill footer). They differ in primary-row layout, section grouping and order. Everything is live: change Type to Goldback to see the lock, move Slots, press Create with an empty name.",
+            }),
+            bar,
+            card,
+            stage
+          )
+        );
+        draw();
+      }
+
+      // -----------------------------------------------------------------------
+      // Embedded frame: one variant rendered as the real modal
+      // -----------------------------------------------------------------------
+      function renderEmbed() {
+        const variant = params.get("variant") || "A";
+        const mode = params.get("mode") || "edit";
+        const uiState = params.get("state") || "default";
+        const round2 = variant === "C" || variant === "E";
+        const dragSlots = round2 && params.get("slots") !== "arrows";
+        const shapeDropdown = !round2 || params.get("shape") === "select";
+        const TYPES = [
+          "Coin",
+          "Bar",
+          "Round",
+          "Note",
+          "Aurum",
+          "Goldback",
+          "Silverback",
+          "Constitutional",
+          "Set",
+          "Other",
+        ];
+        const METALS = ["Silver", "Gold", "Platinum", "Palladium", "Copper", "Mixed"];
+        const SHAPES = [
+          ["round", "Round", '<circle cx="8" cy="8" r="6"/>'],
+          ["bar", "Bar", '<rect x="4.5" y="1.5" width="7" height="13" rx="1"/>'],
+          ["note", "Note", '<rect x="1.5" y="4" width="13" height="8" rx="1"/>'],
+          [
+            "slab",
+            "Slab",
+            '<rect x="3" y="1.5" width="10" height="13" rx="2"/><circle cx="8" cy="9" r="2.6"/>',
+          ],
+        ];
+        const UNITS = [
+          ["oz", "oz"],
+          ["g", "g"],
+          ["mg", "mg"],
+          ["kg", "kg"],
+          ["lb", "lb"],
+          ["avdp", "avoirdupois oz"],
+          ["gb", "goldback"],
+          ["sb", "silverback"],
+          ["cu", "constitutional"],
+        ];
+        const PURITIES = [
+          ["", "Not set"],
+          ["0.9999", ".9999"],
+          ["0.999", ".999"],
+          ["0.925", ".925"],
+          ["0.9", ".900"],
+          ["0.4", ".400"],
+          ["custom", "Custom…"],
+        ];
+        const LOCKS = {
+          Goldback: { metal: "Gold", unit: "gb" },
+          Silverback: { metal: "Silver", unit: "sb" },
+          Constitutional: { metal: "Silver", unit: "cu" },
+        };
+        const data =
+          mode === "new"
+            ? { type: "Coin", metal: "Silver", shape: "round", unit: "oz", slots: [{}] }
+            : {
+                name: "Morgan Dollars · Carson City",
+                type: "Coin",
+                metal: "Silver",
+                shape: "round",
+                variant: "Carson City Mint",
+                subtitle: "Every CC-mint Morgan, 1878 to 1893",
+                issuer: "United States Mint",
+                weight: "0.7734",
+                unit: "oz",
+                purity: "0.9",
+                diameter: "38.1",
+                gross: "26.73",
+                thickness: "2.4",
+                face: "$1",
+                composition: "90% silver, 10% copper",
+                edge: "Reeded",
+                mintMark: "CC",
+                authorization: "Bland-Allison Act (1878)",
+                about:
+                  "Carson City struck Morgan dollars from 1878 to 1885 and again from 1889 to 1893. Low mintages make the CC run the classic short set.",
+                slots: [
+                  { label: "1878-CC", year: "1878", mintage: "2212000" },
+                  { label: "1879-CC", year: "1879", mintage: "756000", note: "Key date" },
+                  { label: "1880-CC", year: "1880", mintage: "591000" },
+                  { label: "1881-CC", year: "1881", mintage: "296000" },
+                ],
+              };
+
+        let uid = 0;
+        const icon = (paths) =>
+          h("span", {
+            class: "form-section-icon",
+            html: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`,
+          });
+        const ICONS = {
+          images:
+            '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+          identity:
+            '<path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+          content:
+            '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7a4 4 0 0 0 6 0z"/><path d="M19 7l-3 7a4 4 0 0 0 6 0z"/>',
+          specs:
+            '<circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/>',
+          display:
+            '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+          about:
+            '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+          slots:
+            '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
+        };
+        const input = (value, placeholder, type) => {
+          const node = h("input", { type: type || "text", placeholder });
+          if (type === "number") node.step = "any";
+          node.value = value || "";
+          return node;
+        };
+        const select = (options, value) => {
+          const node = h(
+            "select",
+            {},
+            options.map((option) => {
+              const [optionValue, text] = Array.isArray(option) ? option : [option, option];
+              return h("option", { value: optionValue, text });
+            })
+          );
+          node.value = value || "";
+          return node;
+        };
+        /** Label-above-control field, the item modal's row cell. */
+        const field = (labelText, control, extra) => {
+          control.id = `cb${++uid}`;
+          const label = h("label", { for: control.id, text: labelText });
+          return h("div", {}, label, control, extra);
+        };
+        /** Radio-backed segmented control (existing .collections-segmented component). */
+        const segmented = (labelText, options, value, onChange) => {
+          const id = `cb${++uid}`;
+          const group = h(
+            "div",
+            { class: "collections-segmented", role: "radiogroup", "aria-labelledby": id },
+            options.map(([optionValue, text, glyph]) => {
+              const radio = h("input", { type: "radio", name: id, value: optionValue });
+              radio.checked = optionValue === value;
+              radio.addEventListener("change", () => onChange && onChange(optionValue));
+              const face = h("span", {
+                html: glyph
+                  ? `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">${glyph}</svg>`
+                  : "",
+              });
+              face.append(text);
+              return h("label", { class: "collections-segmented-option" }, radio, face);
+            })
+          );
+          const set = (next) =>
+            group.querySelectorAll("input").forEach((radio) => {
+              radio.checked = radio.value === next;
+            });
+          return {
+            node: h("div", {}, h("span", { class: "cb-label", id, text: labelText }), group),
+            set,
+          };
+        };
+        const chooser = (labelText) => {
+          const file = h("input", { type: "file", accept: "image/*", hidden: true });
+          const pick = h("button", {
+            type: "button",
+            class: "collections-image-pick",
+            "aria-label": labelText,
+            title: labelText,
+            text: "+",
+          });
+          pick.addEventListener("click", () => file.click());
+          file.addEventListener("change", () => {
+            if (!file.files[0]) return;
+            pick.replaceChildren(h("img", { alt: "", src: URL.createObjectURL(file.files[0]) }));
+          });
+          return h("span", { class: "collections-image-chooser" }, pick, file);
+        };
+
+        // ---- Controls (one set per frame; behaviour is shared by all variants) ----
+        const c = {
+          name: input(data.name, "e.g. Goldback state set"),
+          type: select(TYPES, data.type),
+          metal: select(METALS, data.metal),
+          shape: select(
+            SHAPES.map(([value, text]) => [value, text]),
+            data.shape
+          ),
+          variant: input(data.variant, "e.g. Proof, Type 2"),
+          subtitle: input(data.subtitle, "One line under the title"),
+          issuer: input(data.issuer, "Mint or issuer"),
+          weight: input(data.weight, "", "number"),
+          unit: select(UNITS, data.unit),
+          purity: select(PURITIES, data.purity),
+          purityCustom: input("", "0.001 to 1", "number"),
+          diameter: input(data.diameter, "mm", "number"),
+          gross: input(data.gross, "g", "number"),
+          thickness: input(data.thickness, "mm", "number"),
+          face: input(data.face),
+          composition: input(data.composition),
+          edge: input(data.edge),
+          mintMark: input(data.mintMark),
+          authorization: input(data.authorization),
+          dimensions: input(data.dimensions, "Bars and notes, e.g. 50 × 28 mm"),
+          about: h("textarea", { rows: 3, placeholder: "What makes this set worth completing?" }),
+        };
+        c.about.value = data.about || "";
+        const lockPill = h("span", { class: "lock-pill", text: "auto", hidden: true });
+        const nameError = h("div", {
+          class: "cb-error",
+          role: "alert",
+          text: "Give the collection a name.",
+          hidden: true,
+        });
+        const purityHint = h("div", { class: "cb-hint" });
+        const customPurity = field("Custom purity", c.purityCustom);
+        const covers = h(
+          "div",
+          { class: "cb-covers", "data-shape": data.shape },
+          h(
+            "div",
+            {},
+            h("span", { class: "cb-label", text: "Obverse title image" }),
+            chooser("Obverse title image")
+          ),
+          h(
+            "div",
+            {},
+            h("span", { class: "cb-label", text: "Reverse title image" }),
+            chooser("Reverse title image")
+          )
+        );
+        let shapeTouched = false;
+        const shapeSegmented = segmented("Image shape", SHAPES, data.shape, (value) =>
+          setShape(value, true)
+        );
+        function setShape(value, touched) {
+          if (touched) shapeTouched = true;
+          c.shape.value = value;
+          shapeSegmented.set(value);
+          covers.dataset.shape = value;
+          refreshSummaries();
+        }
+        c.shape.addEventListener("change", () => setShape(c.shape.value, true));
+        const suggestedShape = (type) =>
+          type === "Bar" || type === "Set"
+            ? "bar"
+            : ["Note", "Aurum", "Goldback", "Silverback"].includes(type)
+              ? "note"
+              : "round";
+        c.type.addEventListener("change", () => {
+          // An explicit Image shape choice sticks; otherwise it follows the Type.
+          if (!shapeTouched) setShape(suggestedShape(c.type.value), false);
+          const lock = LOCKS[c.type.value];
+          if (lock) {
+            c.metal.value = lock.metal;
+            c.unit.value = lock.unit;
+          }
+          c.metal.disabled = c.unit.disabled = Boolean(lock);
+          lockPill.hidden = !lock;
+          refreshPurity();
+        });
+        function refreshPurity() {
+          customPurity.hidden = c.purity.value !== "custom";
+          const value = Number(c.purity.value === "custom" ? c.purityCustom.value : c.purity.value);
+          purityHint.textContent =
+            c.purity.value !== "" && Number.isFinite(value) && value > 0
+              ? `${value >= 1 ? "pure" : `.${String(value).split(".")[1] || ""}`} fine ${c.metal.value.toLowerCase()}`
+              : "Fineness is shown from purity and metal.";
+          refreshSummaries();
+        }
+        [c.purity, c.purityCustom, c.metal].forEach((node) =>
+          node.addEventListener("input", refreshPurity)
+        );
+        c.name.addEventListener("input", () => {
+          c.name.removeAttribute("aria-invalid");
+          nameError.hidden = true;
+        });
+        const side = segmented(
+          "Coin side",
+          [
+            ["obverse", "Obverse"],
+            ["reverse", "Reverse"],
+          ],
+          "obverse"
+        );
+        const itemImages = segmented(
+          "Item images",
+          [
+            ["show", "Show"],
+            ["hide", "Hide"],
+          ],
+          "show"
+        );
+
+        // ---- Field groups ----
+        const metalField = () => {
+          const cell = field("Metal", c.metal);
+          cell.querySelector("label").append(" ", lockPill);
+          return cell;
+        };
+        const nameField = () => field("Collection name", c.name, nameError);
+        const groups = {
+          covers: () => [covers],
+          identity: () => [
+            h(
+              "div",
+              { class: "grid grid-2" },
+              field("Variant", c.variant),
+              field("Issuer", c.issuer)
+            ),
+            field("Subtitle", c.subtitle),
+          ],
+          content: () => [
+            h(
+              "div",
+              { class: "grid cb-grid-3" },
+              field("Weight", c.weight),
+              field("Weight unit", c.unit),
+              field("Purity", c.purity),
+              customPurity
+            ),
+            purityHint,
+          ],
+          specs: () => [
+            h(
+              "div",
+              { class: "grid cb-grid-3" },
+              field("Diameter", c.diameter),
+              field("Gross weight (g)", c.gross),
+              field("Thickness", c.thickness),
+              field("Face value", c.face),
+              field("Composition", c.composition),
+              field("Edge", c.edge),
+              field("Mint mark", c.mintMark),
+              field("Authorization", c.authorization),
+              field("Dimensions", c.dimensions)
+            ),
+          ],
+          display: () => [h("div", { class: "grid grid-2" }, side.node, itemImages.node)],
+          about: () => [field("About this collection", c.about)],
+        };
+        const sections = [];
+        /** A details.form-section collapsible, exactly the Add Item chrome. */
+        const section = (key, title, body, options) => {
+          const opts = options || {};
+          const count = h("span", { class: "form-section-count", hidden: true });
+          const summaryText = opts.summary ? h("span", { class: "cb-summary" }) : null;
+          const node = h(
+            "details",
+            { class: "form-section", "data-section": key, name: opts.exclusive, open: opts.open },
+            h(
+              "summary",
+              { class: "form-section-header" },
+              icon(ICONS[opts.icon || key]),
+              title,
+              count,
+              summaryText
+            ),
+            h("div", { class: "form-section-body" }, body)
+          );
+          sections.push({ node, count, summaryText, summary: opts.summary, noCount: opts.noCount });
+          return node;
+        };
+        function refreshSummaries() {
+          sections.forEach(({ node, count, summaryText, summary, noCount }) => {
+            if (summaryText) summaryText.textContent = summary();
+            if (summaryText || noCount) return;
+            const filled = Array.from(
+              node.querySelectorAll("input:not([type=radio]):not([type=file]), textarea")
+            ).filter((control) => control.value.trim()).length;
+            count.hidden = filled === 0;
+            count.textContent = String(filled);
+          });
+        }
+
+        // ---- Slots (STRK-389 / STRK-391 controls, existing row classes) ----
+        const rows = h("div", { class: "collections-builder-rows" });
+        const slotCount = h("span", { class: "form-section-count" });
+        const status = h("span", { role: "status", "aria-live": "polite" });
+        const labelOf = (row) => row.querySelector(".collections-builder-label");
+        function refreshRows() {
+          Array.from(rows.children).forEach((row, index, all) => {
+            const label = labelOf(row).value.trim() || `Slot ${index + 1}`;
+            const up = row.querySelector('[data-action="up"]');
+            if (up) {
+              up.disabled = index === 0;
+              row.querySelector('[data-action="down"]').disabled = index === all.length - 1;
+            }
+            const names = {
+              grip: `Reorder ${label}: drag, or press Arrow Up or Arrow Down`,
+              up: `Move ${label} up`,
+              down: `Move ${label} down`,
+              insert: `Add Slot after ${label}`,
+              remove: `Remove Slot ${label}`,
+            };
+            row.querySelectorAll("[data-action]").forEach((control) => {
+              control.setAttribute("aria-label", names[control.dataset.action]);
+              control.title = names[control.dataset.action];
+            });
+          });
+          slotCount.textContent = String(rows.children.length);
+          refreshSummaries();
+        }
+        function addRow(slot, after) {
+          const text = (className, value, placeholder, label, numeric) => {
+            const node = h("input", {
+              type: "text",
+              class: className,
+              placeholder,
+              "aria-label": label,
+              inputmode: numeric ? "numeric" : null,
+            });
+            node.value = value || "";
+            return node;
+          };
+          const mintage = text(
+            "collections-builder-mintage",
+            slot.mintage,
+            "Mintage (optional)",
+            "Mintage",
+            true
+          );
+          const error = h("span", {
+            class: "collections-builder-mintage-error",
+            role: "alert",
+            hidden: true,
+          });
+          mintage.addEventListener("input", () => {
+            mintage.removeAttribute("aria-invalid");
+            error.hidden = true;
+          });
+          const action = (className, textContent, name) =>
+            h("button", {
+              type: "button",
+              class: className,
+              text: textContent,
+              "data-action": name,
+            });
+          const grip = dragSlots
+            ? h("button", {
+                type: "button",
+                class: "cb-grip",
+                "data-action": "grip",
+                html: '<svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/></svg>',
+              })
+            : null;
+          const row = h(
+            "div",
+            { class: `collections-builder-row${dragSlots ? " is-card" : ""}` },
+            grip,
+            chooser("Slot image"),
+            text("collections-builder-label", slot.label, "Slot label, e.g. 1881-CC", "Slot label"),
+            text("collections-builder-year", slot.year, "Year", "Year", true),
+            mintage,
+            text("collections-builder-note", slot.note, "Note (optional)", "Note"),
+            h(
+              "div",
+              { class: "collections-builder-row-actions" },
+              dragSlots ? null : action("collections-builder-move", "↑", "up"),
+              dragSlots ? null : action("collections-builder-move", "↓", "down"),
+              action("collections-builder-insert", dragSlots ? "+" : "+ Slot after", "insert"),
+              action("collections-builder-remove", "×", "remove")
+            ),
+            error
+          );
+          row.addEventListener("input", refreshRows);
+          if (grip) {
+            // Reorder by moving the NEIGHBOUR across the dragged card: re-inserting the
+            // dragged card itself would drop its pointer capture and its focus.
+            const announce = () => {
+              refreshRows();
+              status.textContent = `${labelOf(row).value.trim() || "Slot"} moved to position ${Array.from(rows.children).indexOf(row) + 1} of ${rows.children.length}.`;
+            };
+            const step = (direction) => {
+              const adjacent = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+              if (!adjacent) return false;
+              rows.insertBefore(adjacent, direction < 0 ? row.nextElementSibling : row);
+              return true;
+            };
+            let dragging = false;
+            let moved = false;
+            grip.addEventListener("pointerdown", (event) => {
+              if (event.button) return;
+              event.preventDefault();
+              grip.setPointerCapture(event.pointerId);
+              grip.focus();
+              dragging = true;
+              moved = false;
+              row.classList.add("is-dragging");
+            });
+            grip.addEventListener("pointermove", (event) => {
+              if (!dragging) return;
+              const scroller = row.closest(".modal-body");
+              const bounds = scroller.getBoundingClientRect();
+              if (event.clientY < bounds.top + 36) scroller.scrollTop -= 12;
+              if (event.clientY > bounds.bottom - 36) scroller.scrollTop += 12;
+              const middle = (node) => {
+                const rect = node.getBoundingClientRect();
+                return rect.top + rect.height / 2;
+              };
+              const previous = row.previousElementSibling;
+              const next = row.nextElementSibling;
+              if (previous && event.clientY < middle(previous)) moved = step(-1) || moved;
+              else if (next && event.clientY > middle(next)) moved = step(1) || moved;
+            });
+            const drop = () => {
+              if (!dragging) return;
+              dragging = false;
+              row.classList.remove("is-dragging");
+              if (moved) announce();
+            };
+            grip.addEventListener("pointerup", drop);
+            grip.addEventListener("pointercancel", drop);
+            grip.addEventListener("keydown", (event) => {
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              event.preventDefault();
+              if (step(event.key === "ArrowUp" ? -1 : 1)) announce();
+            });
+          }
+          row.addEventListener("click", (event) => {
+            const control = event.target.closest("[data-action]");
+            if (!control || control.dataset.action === "grip") return;
+            const kind = control.dataset.action;
+            if (kind === "insert") {
+              labelOf(addRow({}, row)).focus();
+              status.textContent = "Blank Slot inserted.";
+              return;
+            }
+            if (kind === "remove") {
+              if (rows.children.length === 1) {
+                status.textContent = "A collection needs at least one Slot.";
+                return;
+              }
+              const next = row.nextElementSibling || row.previousElementSibling;
+              row.remove();
+              refreshRows();
+              labelOf(next).focus();
+              return;
+            }
+            const adjacent = kind === "up" ? row.previousElementSibling : row.nextElementSibling;
+            if (!adjacent) return;
+            rows.insertBefore(row, kind === "up" ? adjacent : adjacent.nextElementSibling);
+            refreshRows();
+            (control.disabled ? labelOf(row) : control).focus();
+            status.textContent = `${labelOf(row).value.trim() || "Slot"} moved to position ${Array.from(rows.children).indexOf(row) + 1} of ${rows.children.length}.`;
+          });
+          rows.insertBefore(row, after ? after.nextElementSibling : null);
+          refreshRows();
+          return row;
+        }
+        const pill = (text, onClick) => {
+          const node = h("button", { type: "button", class: "btn cb-pill", text });
+          node.addEventListener("click", onClick);
+          return node;
+        };
+        const slotActions = h(
+          "div",
+          { class: "collections-builder-actions" },
+          pill("+ Add slot", () => labelOf(addRow({})).focus()),
+          pill("+ Add year range…", () => {
+            const last = Number(
+              rows.lastElementChild.querySelector(".collections-builder-year").value
+            );
+            const start = Number.isFinite(last) && last > 0 ? last + 1 : 1986;
+            for (let year = start; year < start + 3; year += 1) {
+              addRow({ label: String(year), year: String(year) });
+            }
+            status.textContent = `Added ${start} to ${start + 2} (the app asks for the range).`;
+          })
+        );
+        const slotsBlock = () => [
+          h(
+            "div",
+            { class: "cb-slots-head" },
+            h("span", { class: "cb-label", text: "Slots" }),
+            slotCount
+          ),
+          rows,
+          slotActions,
+        ];
+
+        // ---- Variant layouts ----
+        const row2 = (...cells) => h("div", { class: "grid grid-2" }, cells);
+        const six = () => [
+          section("identity", "Identity", groups.identity()),
+          section("content", "Metal content", groups.content()),
+          section("specs", "Specifications", groups.specs()),
+          section("display", "Display", groups.display(), { noCount: true }),
+          section("about", "About", groups.about()),
+        ];
+        const metalSummary = () =>
+          [
+            c.weight.value && `${c.weight.value} ${c.unit.selectedOptions[0].text}`,
+            c.purity.value && purityHint.textContent,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "Not set";
+        const shapeField = () =>
+          shapeDropdown ? field("Image shape", c.shape) : shapeSegmented.node;
+        const layouts = {
+          A: () => [
+            section("covers", "Title images", groups.covers(), { icon: "images", noCount: true }),
+            row2(field("Type", c.type), metalField()),
+            h("div", { class: "grid grid-name-year" }, nameField(), field("Image shape", c.shape)),
+            ...six(),
+            ...slotsBlock(),
+          ],
+          B: () => [
+            nameField(),
+            h(
+              "div",
+              { class: "grid cb-grid-3" },
+              field("Type", c.type),
+              metalField(),
+              field("Image shape", c.shape)
+            ),
+            section("identity", "Details", [...groups.identity(), ...groups.about()]),
+            section("content", "Metal content & specs", [...groups.content(), ...groups.specs()]),
+            section("display", "Artwork & display", [...groups.covers(), ...groups.display()], {
+              icon: "images",
+              noCount: true,
+            }),
+            ...slotsBlock(),
+          ],
+          C: () => [
+            row2(field("Type", c.type), metalField()),
+            nameField(),
+            h("div", { class: "cb-hero" }, covers, shapeField()),
+            ...slotsBlock(),
+            h("div", { class: "cb-divider cb-label", text: "Optional details" }),
+            ...six(),
+          ],
+          D: () => {
+            const exclusive = "cb-accordion";
+            return [
+              h(
+                "div",
+                { class: "grid cb-grid-quad" },
+                nameField(),
+                field("Type", c.type),
+                metalField(),
+                field("Image shape", c.shape)
+              ),
+              section("slots", "Slots", [rows, slotActions], {
+                exclusive,
+                open: true,
+                summary: () => {
+                  const labels = Array.from(rows.children).map(
+                    (row, index) => labelOf(row).value.trim() || `Slot ${index + 1}`
+                  );
+                  return `${labels.length} · ${labels.slice(0, 3).join(", ")}${labels.length > 3 ? "…" : ""}`;
+                },
+              }),
+              section("display", "Artwork & display", [...groups.covers(), ...groups.display()], {
+                icon: "images",
+                exclusive,
+                summary: () => `${c.shape.selectedOptions[0].text} · obverse`,
+              }),
+              section("identity", "Identity", groups.identity(), {
+                exclusive,
+                summary: () =>
+                  [c.variant.value, c.issuer.value].filter(Boolean).join(" · ") || "Not set",
+              }),
+              section("content", "Metal content", groups.content(), {
+                exclusive,
+                summary: metalSummary,
+              }),
+              section("specs", "Specifications", groups.specs(), {
+                exclusive,
+                summary: () =>
+                  [c.diameter.value && `${c.diameter.value} mm`, c.face.value, c.edge.value]
+                    .filter(Boolean)
+                    .join(" · ") || "Not set",
+              }),
+              section("about", "About", groups.about(), {
+                exclusive,
+                summary: () => c.about.value.trim() || "Not set",
+              }),
+            ];
+          },
+          E: () => [
+            h(
+              "div",
+              { class: "cb-panes" },
+              h(
+                "div",
+                {},
+                row2(field("Type", c.type), metalField()),
+                nameField(),
+                h("div", { class: "cb-media" }, shapeField(), covers),
+                ...six()
+              ),
+              h("div", {}, ...slotsBlock())
+            ),
+          ],
+        };
+
+        // ---- Modal shell (same DOM shape as #itemModal) ----
+        const form = h("div", { class: "cb-form" }, layouts[variant]());
+        const submit = h("button", {
+          type: "button",
+          class: "btn premium",
+          text: mode === "new" ? "Create collection" : "Save changes",
+        });
+        submit.addEventListener("click", () => {
+          const missing = !c.name.value.trim();
+          nameError.hidden = !missing;
+          if (missing) {
+            c.name.setAttribute("aria-invalid", "true");
+            c.name.focus();
+            return;
+          }
+          status.textContent = "Saved (playground only).";
+        });
+        document.body.append(
+          h(
+            "div",
+            {
+              class: `modal cb-modal${variant === "E" ? " is-wide" : ""}`,
+              style: "display: flex",
+              role: "dialog",
+              "aria-modal": "true",
+              "aria-labelledby": "cbTitle",
+            },
+            h(
+              "div",
+              { class: "modal-content" },
+              h(
+                "div",
+                { class: "modal-header" },
+                h("h2", {
+                  id: "cbTitle",
+                  text: mode === "new" ? "New collection" : "Edit collection",
+                }),
+                h("button", { class: "modal-close", "aria-label": "Close modal", text: "×" })
+              ),
+              h("div", { class: "modal-body" }, form),
+              h(
+                "div",
+                { class: "cb-footer" },
+                status,
+                h("button", { type: "button", class: "btn cb-cancel", text: "Cancel" }),
+                submit
+              )
+            )
+          )
+        );
+        data.slots.forEach((slot) => addRow(slot));
+        refreshPurity();
+
+        // ---- Review states driven by the host toolbar ----
+        if (uiState === "expanded") {
+          sections.forEach(({ node }) => {
+            if (!node.name) node.open = true;
+          });
+        }
+        if (uiState === "focus") c.name.classList.add("sim-focus");
+        if (uiState === "invalid") {
+          c.name.value = "";
+          c.name.setAttribute("aria-invalid", "true");
+          nameError.hidden = false;
+          const row = rows.children[Math.min(1, rows.children.length - 1)];
+          const mintage = row.querySelector(".collections-builder-mintage");
+          const error = row.querySelector(".collections-builder-mintage-error");
+          mintage.value = "756k";
+          mintage.setAttribute("aria-invalid", "true");
+          error.textContent = "Mintage must be a whole number.";
+          error.hidden = false;
+        }
+        if (uiState === "locked") {
+          c.type.value = "Goldback";
+          c.type.dispatchEvent(new Event("change"));
+          sections
+            .filter(({ node }) => node.dataset.section === "content" && !node.name)
+            .forEach(({ node }) => {
+              node.open = true;
+            });
+        }
+      }
+    </script>
+  </body>
+</html>
