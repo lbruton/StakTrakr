@@ -297,7 +297,7 @@ test.describe("core/collections-data-paths — standalone Collections file", () 
       window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
       return window.collectionsStore.createCustom({
         name: "Carson City Morgans",
-        slots: [{ label: "1881-CC" }],
+        slots: [{ label: "1881-CC", mintage: 296000 }],
       }).collection.id;
     });
 
@@ -327,6 +327,12 @@ test.describe("core/collections-data-paths — standalone Collections file", () 
       customId
     );
     expect(custom).toBe("Carson City Morgans");
+    expect(
+      await page.evaluate(
+        (id) => window.collectionsStore.getState().collections[id].definition.slots[0].mintage,
+        customId
+      )
+    ).toBe(296000);
   });
 
   test("importing a file that is not a Collections export changes nothing and reports why", async ({

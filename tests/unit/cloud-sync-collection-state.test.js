@@ -430,3 +430,41 @@ describe("STRK-393 post-apply populated Collection reconciliation", () => {
     assert.doesNotMatch(syncSrc.slice(cancelStart, cancelEnd), /reconcilePopulated|\.reload\(\)/);
   });
 });
+
+test("STRK-391 managed sync detects, merges and converges after Mintage edits and clearing", () => {
+  const local = core.createEmptyState();
+  core.createCustomCollection(local, {
+    id: "mintage",
+    name: "Tuvalu",
+    slots: [{ label: "2024", mintage: 25 }],
+    now: T1,
+  });
+  const remote = core.normalizeState(JSON.parse(JSON.stringify(local)));
+  core.updateCustomDefinition(remote, "mintage", {
+    name: "Tuvalu",
+    slots: [{ id: "2024", label: "2024", mintage: 0 }],
+    now: T2,
+  });
+  const sync = loadSync({
+    local,
+    mergeIn: (incoming) => {
+      const merged = core.mergeStates(local, incoming);
+      Object.assign(local, merged);
+      return { ok: true, changed: true };
+    },
+  });
+  assert.equal(sync._hasCollectionStateChange({ collectionState: JSON.stringify(remote) }), true);
+  sync._mergeCollectionState({ collectionState: JSON.stringify(remote) });
+  assert.equal(local.collections.mintage.definition.slots[0].mintage, 0);
+  assert.equal(
+    loadSync({ local })._hasCollectionStateChange({ collectionState: JSON.stringify(remote) }),
+    false
+  );
+  core.updateCustomDefinition(remote, "mintage", {
+    name: "Tuvalu",
+    slots: [{ id: "2024", label: "2024" }],
+    now: T3,
+  });
+  sync._mergeCollectionState({ collectionState: JSON.stringify(remote) });
+  assert.equal(Object.hasOwn(local.collections.mintage.definition.slots[0], "mintage"), false);
+});

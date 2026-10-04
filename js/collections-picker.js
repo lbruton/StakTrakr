@@ -711,6 +711,8 @@
     };
   };
 
+  let mintageErrorId = 0;
+
   /**
    * One editable slot row in the builder.
    * @param {{id?: string, label?: string, year?: string|number, note?: string}} slot - Slot values
@@ -736,6 +738,23 @@
     year.placeholder = "Year";
     year.value = slot.year == null ? "" : String(slot.year);
     year.setAttribute("aria-label", "Year");
+    const mintage = el("input", "collections-builder-mintage");
+    mintage.type = "text";
+    mintage.inputMode = "numeric";
+    mintage.placeholder = "Mintage (optional)";
+    mintage.value =
+      Number.isSafeInteger(slot.mintage) && slot.mintage >= 0 ? String(slot.mintage) : "";
+    mintage.setAttribute("aria-label", "Mintage");
+    const error = el("span", "collections-builder-mintage-error");
+    error.id = `collections-mintage-error-${++mintageErrorId}`;
+    error.hidden = true;
+    error.setAttribute("role", "alert");
+    mintage.setAttribute("aria-describedby", error.id);
+    mintage.addEventListener("input", () => {
+      mintage.removeAttribute("aria-invalid");
+      error.hidden = true;
+      error.textContent = "";
+    });
     const note = el("input", "collections-builder-note");
     note.type = "text";
     note.placeholder = "Note (optional)";
@@ -753,7 +772,7 @@
     remove.dataset.action = "remove";
     actions.append(up, down, insert, remove);
     label.addEventListener("input", onLabelChange);
-    row.append(chooser.node, label, year, note, actions);
+    row.append(chooser.node, label, year, mintage, note, actions, error);
     return row;
   };
 
@@ -799,6 +818,7 @@
       id: request.editId ? slot.id : undefined,
       label: `${slot.label || slot.year || ""}${slot.tag ? ` ${slot.tag}` : ""}`.trim(),
       year: slot.year,
+      mintage: slot.mintage,
       note: request.editId ? slot.note : "",
     }));
     return {
@@ -994,6 +1014,26 @@
       const rows = Array.from(rowsHost.children).filter((row) =>
         row.querySelector(".collections-builder-label").value.trim()
       );
+      let firstInvalid = null;
+      const counts = new Map();
+      Array.from(rowsHost.children).forEach((row) => {
+        const input = row.querySelector(".collections-builder-mintage");
+        const raw = input.value.trim();
+        const value = raw === "" ? undefined : Number(raw);
+        const valid = raw === "" || (/^\d+$/.test(raw) && Number.isSafeInteger(value));
+        const error = row.querySelector(".collections-builder-mintage-error");
+        input.setAttribute("aria-invalid", String(!valid));
+        error.hidden = valid;
+        error.textContent = valid
+          ? ""
+          : "Mintage must be a whole number from 0 to 9,007,199,254,740,991.";
+        if (!valid && !firstInvalid) firstInvalid = input;
+        counts.set(row, value);
+      });
+      if (firstInvalid) {
+        firstInvalid.focus();
+        return;
+      }
       const spec = {
         name: name.value,
         metal: metal.value,
@@ -1006,6 +1046,7 @@
           label: row.querySelector(".collections-builder-label").value,
           year: row.querySelector(".collections-builder-year").value,
           note: row.querySelector(".collections-builder-note").value,
+          ...(counts.get(row) === undefined ? {} : { mintage: counts.get(row) }),
         })),
       };
       const previousSlots = seed.editId ? seed.slots.map((slot) => slot.id).filter(Boolean) : [];
@@ -1014,6 +1055,7 @@
         const reasons = {
           "invalid-name": "Give the collection a name.",
           "no-slots": "Add at least one labelled slot.",
+          "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
         };
         toast(reasons[result.reason] || "Could not save the collection.");
         return;

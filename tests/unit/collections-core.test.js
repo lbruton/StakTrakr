@@ -1329,3 +1329,93 @@ test("STRK-389 never reuses a removed Slot id for a same-labelled replacement ro
   assert.equal(collection.artwork["slot:2020"].present, false);
   assert.equal(collection.artwork["slot:2020-2"], undefined);
 });
+
+describe("STRK-391 Slot Mintage", () => {
+  const spec = (mintage) => ({
+    id: "mintages",
+    name: "Tuvalu",
+    slots: [{ label: "2024", mintage }],
+    now: T1,
+  });
+  test("optional counts survive normalization and JSON round trips", () => {
+    for (const value of [undefined, 0, 25000, Number.MAX_SAFE_INTEGER]) {
+      const state = core.createEmptyState();
+      assert.equal(core.createCustomCollection(state, spec(value)).ok, true);
+      const slot = core.normalizeState(plain(state)).collections.mintages.definition.slots[0];
+      assert.equal(slot.mintage, value);
+      assert.equal(Object.hasOwn(slot, "mintage"), value !== undefined);
+    }
+  });
+  test("invalid create and update values are rejected without mutation", () => {
+    for (const value of [
+      -1,
+      1.5,
+      NaN,
+      Infinity,
+      Number.MAX_SAFE_INTEGER + 1,
+      "25",
+      "",
+      null,
+      true,
+    ]) {
+      const state = core.createEmptyState();
+      assert.deepEqual(core.createCustomCollection(state, spec(value)), {
+        ok: false,
+        reason: "invalid-mintage",
+      });
+      core.createCustomCollection(state, spec(25));
+      const before = plain(state);
+      assert.deepEqual(core.updateCustomDefinition(state, "mintages", spec(value)), {
+        ok: false,
+        reason: "invalid-mintage",
+      });
+      assert.deepEqual(plain(state), before);
+    }
+  });
+  test("malformed imported counts become unknown without fabricated numbers", () => {
+    for (const value of [
+      -1,
+      1.5,
+      NaN,
+      Infinity,
+      Number.MAX_SAFE_INTEGER + 1,
+      "25",
+      null,
+      true,
+      {},
+    ]) {
+      const state = core.createEmptyState();
+      core.createCustomCollection(state, spec(25));
+      state.collections.mintages.definition.slots[0].mintage = value;
+      const slot = core.normalizeState(state).collections.mintages.definition.slots[0];
+      assert.equal(Object.hasOwn(slot, "mintage"), false);
+    }
+  });
+  test("change and clear preserve Slot identity, links, Spares and artwork through merge", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, spec(25));
+    core.linkItem(state, "mintages", "2024", U.a, { now: T1 });
+    core.linkItem(state, "mintages", "2024", U.b, { now: T1 });
+    core.setArtwork(state, "mintages", "2024", true, { now: T1 });
+    const old = plain(state);
+    const links = plain(state.collections.mintages.slots);
+    const art = plain(state.collections.mintages.artwork);
+    core.updateCustomDefinition(state, "mintages", {
+      name: "Tuvalu",
+      slots: [{ id: "2024", label: "2024", mintage: 0 }],
+      now: T2,
+    });
+    assert.equal(state.collections.mintages.definition.slots[0].mintage, 0);
+    core.updateCustomDefinition(state, "mintages", {
+      name: "Tuvalu",
+      slots: [{ id: "2024", label: "2024" }],
+      now: T3,
+    });
+    assert.deepEqual(plain(state.collections.mintages.slots), links);
+    assert.deepEqual(plain(state.collections.mintages.artwork), art);
+    const merged = core.mergeStates(old, state);
+    assert.equal(Object.hasOwn(merged.collections.mintages.definition.slots[0], "mintage"), false);
+    assert.deepEqual(plain(merged), plain(core.mergeStates(state, old)));
+    assert.deepEqual(plain(merged), plain(core.mergeStates(merged, merged)));
+  });
+});

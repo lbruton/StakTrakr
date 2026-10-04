@@ -1535,7 +1535,7 @@ test.describe("core/collections — ZIP backup round trip", () => {
       const made = store.createCustom({
         name: "Backup set",
         metal: "Silver",
-        slots: [{ label: "Only" }],
+        slots: [{ label: "Only", mintage: 25000 }],
       });
       store.link(made.collection.id, "only", "col-maple-2024");
       const blob = await window.createBackupZip();
@@ -1569,9 +1569,15 @@ test.describe("core/collections — ZIP backup round trip", () => {
     expect(await readSlot(page, "2022")).toEqual({ primary: "col-ase-2022-a", spares: [] });
     const custom = await page.evaluate((id) => {
       const collection = window.collectionsStore.getState().collections[id];
-      return collection ? { name: collection.name, linked: collection.slots.only.primary } : null;
+      return collection
+        ? {
+            name: collection.name,
+            linked: collection.slots.only.primary,
+            mintage: collection.definition.slots[0].mintage,
+          }
+        : null;
     }, exported.customId);
-    expect(custom).toEqual({ name: "Backup set", linked: "col-maple-2024" });
+    expect(custom).toEqual({ name: "Backup set", linked: "col-maple-2024", mintage: 25000 });
 
     // Phase 4 — it is durable, not just in memory.
     await reloadCollections(page);
@@ -3302,6 +3308,178 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
           true
         );
         await closeSettingsCollections(page);
+      }
+    }
+  });
+});
+
+test.describe("STRK-391 Slot Mintage", () => {
+  const builder = (page) => page.locator("#collectionsBuilderModal");
+  const openBuilder = async (page, request = {}) => {
+    await page.evaluate((value) => window.collectionsPicker.openBuilder(value), request);
+    await expect(builder(page)).toBeVisible();
+  };
+  test("create, edit and clear Mintage in Album and Ledger after reload", async ({
+    page,
+  }, testInfo) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openBuilder(page);
+    await builder(page).getByLabel("Collection name").fill("Tuvalu variants");
+    await builder(page).getByLabel("Slot label").nth(0).fill("2024 Proof");
+    await builder(page).getByLabel("Mintage", { exact: true }).nth(0).fill(" 25000 ");
+    await builder(page).getByLabel("Slot label").nth(1).fill("2024 BU");
+    await builder(page).getByLabel("Mintage", { exact: true }).nth(1).fill("0");
+    await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+    await expect(builder(page)).toBeHidden();
+    await expect(panel(page)).toContainText("25,000 minted");
+    await expect(panel(page)).toContainText("0 minted");
+    await panel(page).screenshot({ path: testInfo.outputPath("mintage-album.png") });
+    const id = await page.evaluate(
+      () =>
+        window.collectionsCore
+          .listCollections(window.collectionsStore.getState())
+          .find((c) => c.name === "Tuvalu variants").id
+    );
+    await page.evaluate((id) => {
+      window.collectionsStore.link(id, "2024-proof", "col-ase-2024");
+      window.collectionsStore.link(id, "2024-proof", "col-ase-2022-a");
+    }, id);
+    const before = await page.evaluate(
+      (id) => window.collectionsStore.getState().collections[id].slots,
+      id
+    );
+    await reloadCollections(page);
+    await page.evaluate((id) => window.collectionsUI.openCollection(id), id);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(panel(page)).toContainText("25,000");
+    await panel(page).screenshot({ path: testInfo.outputPath("mintage-ledger.png") });
+    await openBuilder(page, { editId: id });
+    await expect(builder(page).getByLabel("Mintage", { exact: true }).nth(0)).toHaveValue("25000");
+    await builder(page).getByLabel("Mintage", { exact: true }).nth(0).fill("12000");
+    await builder(page).getByRole("button", { name: "Save changes" }).click();
+    await expect(panel(page)).toContainText("12,000");
+    await openBuilder(page, { editId: id });
+    await builder(page).getByLabel("Mintage", { exact: true }).nth(0).fill("");
+    await builder(page).getByRole("button", { name: "Save changes" }).click();
+    await expect(panel(page)).not.toContainText("12,000");
+    expect(
+      await page.evaluate((id) => window.collectionsStore.getState().collections[id].slots, id)
+    ).toEqual(before);
+    await reloadCollections(page);
+    await openBuilder(page, { editId: id });
+    await expect(builder(page).getByLabel("Mintage", { exact: true }).nth(0)).toHaveValue("");
+    await expect(builder(page).getByLabel("Mintage", { exact: true }).nth(1)).toHaveValue("0");
+  });
+  test("invalid Mintage keeps Save open, identifies the field and preserves state", async ({
+    page,
+  }, testInfo) => {
+    await seedAndGoto(page);
+    await openBuilder(page);
+    await builder(page).getByLabel("Collection name").fill("Invalid counts");
+    await builder(page).getByLabel("Slot label").first().fill("2024");
+    const input = builder(page).getByLabel("Mintage", { exact: true }).first();
+    const before = await page.evaluate(() => window.collectionsStore.getState());
+    for (const value of ["-1", "1.5", "abc", "9007199254740992", "1e3", "0x10"]) {
+      await input.fill(value);
+      await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+      await expect(builder(page)).toBeVisible();
+      await expect(input).toBeFocused();
+      await expect(input).toHaveAttribute("aria-invalid", "true");
+      await expect(builder(page).getByRole("alert")).toContainText(
+        "Mintage must be a whole number"
+      );
+      expect(await page.evaluate(() => window.collectionsStore.getState())).toEqual(before);
+    }
+    await builder(page).screenshot({ path: testInfo.outputPath("mintage-validation.png") });
+    await input.fill("9007199254740991");
+    await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+    await expect(builder(page)).toBeHidden();
+  });
+  test("template and Custom clones retain editable counts through reorder and insertion", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openBuilder(page, { cloneFrom: "ase-type2" });
+    const source = await page.evaluate(() =>
+      window.__COLLECTIONS_BUNDLE.templates["ase-type2"].slots.map((s) => s.mintage)
+    );
+    const inputs = builder(page).getByLabel("Mintage", { exact: true });
+    for (let i = 0; i < source.length; i++)
+      await expect(inputs.nth(i)).toHaveValue(
+        Number.isSafeInteger(source[i]) ? String(source[i]) : ""
+      );
+    await inputs.nth(0).fill("25000");
+    await builder(page).getByLabel("Collection name").fill("Clone Mintage");
+    await builder(page).getByRole("button", { name: "Move 2022 up", exact: true }).click();
+    await expect(inputs.nth(1)).toHaveValue("25000");
+    await builder(page)
+      .getByRole("button", { name: /Add Slot after/ })
+      .first()
+      .click();
+    await expect(inputs.nth(1)).toHaveValue("");
+    await builder(page).getByLabel("Slot label").nth(1).fill("Variant");
+    await inputs.nth(1).fill("500");
+    await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+    const id = await page.evaluate(
+      () =>
+        window.collectionsCore
+          .listCollections(window.collectionsStore.getState())
+          .find((c) => c.name === "Clone Mintage").id
+    );
+    await openBuilder(page, { cloneFrom: id });
+    await expect(inputs.nth(1)).toHaveValue("500");
+    await expect(inputs.nth(2)).toHaveValue("25000");
+    await inputs.nth(1).fill("600");
+    await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+    expect(
+      await page.evaluate(
+        (id) => window.collectionsStore.getState().collections[id].definition.slots[1].mintage,
+        id
+      )
+    ).toBe(500);
+    expect(
+      await page.evaluate(() =>
+        window.__COLLECTIONS_BUNDLE.templates["ase-type2"].slots.map((s) => s.mintage)
+      )
+    ).toEqual(source);
+  });
+  test("Mintage fits desktop and 375px in four themes", async ({ page }, testInfo) => {
+    await seedAndGoto(page);
+    await openBuilder(page);
+    await builder(page).getByLabel("Collection name").fill("Tuvalu variants");
+    await builder(page).getByLabel("Slot label").first().fill("2024 Proof");
+    await builder(page).getByLabel("Mintage", { exact: true }).first().fill("25000");
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of ["light", "dark", "slate", "sepia"]) {
+        await page.evaluate((theme) => window.setTheme(theme), theme);
+        const input = builder(page).getByLabel("Mintage", { exact: true }).first();
+        await expect(input).toBeVisible();
+        const box = await input.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        expect(box.width).toBeGreaterThan(75);
+        expect(
+          await builder(page).evaluate((modal) => modal.scrollWidth <= modal.clientWidth)
+        ).toBe(true);
+        if (width === 1280) {
+          // Sample both positions in one frame: modal opening transforms can move
+          // between two separate browser calls without changing row alignment.
+          const offset = await input.evaluate((node) => {
+            const year = node
+              .closest(".collections-builder-row")
+              .querySelector(".collections-builder-year");
+            return Math.abs(node.getBoundingClientRect().y - year.getBoundingClientRect().y);
+          });
+          expect(offset).toBeLessThan(2);
+        }
+        const screenshotPath = testInfo.outputPath(`mintage-${width}-${theme}.png`);
+        await builder(page).screenshot({ path: screenshotPath, animations: "disabled" });
+        await testInfo.attach(`mintage-${width}-${theme}`, {
+          path: screenshotPath,
+          contentType: "image/png",
+        });
       }
     }
   });
