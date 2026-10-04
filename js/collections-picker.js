@@ -633,8 +633,8 @@
    * @param {string} [className] - Extra wrapper class
    * @returns {HTMLElement} Field wrapper
    */
-  const field = (labelText, control, className) => {
-    const wrap = el("div", `collections-field ${className || ""}`.trim());
+  const field = (labelText, control) => {
+    const wrap = el("div");
     const label = el("label", "", labelText);
     const id = `collectionsField${Math.random().toString(36).slice(2, 9)}`;
     control.id = id;
@@ -643,15 +643,81 @@
     return wrap;
   };
 
+  /** Static icon markup for the builder: section headers, shape glyphs and the Slot grip. */
+  const BUILDER_ICONS = Object.freeze({
+    identity:
+      '<path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+    content:
+      '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7a4 4 0 0 0 6 0z"/><path d="M19 7l-3 7a4 4 0 0 0 6 0z"/>',
+    specs:
+      '<circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/>',
+    display:
+      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+    about:
+      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
+    round: '<circle cx="12" cy="12" r="9"/>',
+    bar: '<rect x="7" y="2.5" width="10" height="19" rx="1.5"/>',
+    note: '<rect x="2.5" y="6" width="19" height="12" rx="1.5"/>',
+    slab: '<rect x="4.5" y="2.5" width="15" height="19" rx="3"/><circle cx="12" cy="13.5" r="4"/>',
+  });
+
+  /**
+   * A decorative 16px line icon from BUILDER_ICONS.
+   * @param {string} name - BUILDER_ICONS key
+   * @param {string} [className] - Wrapper class
+   * @returns {HTMLSpanElement} Icon wrapper
+   */
+  const builderIcon = (name, className) => {
+    const wrap = el("span", className || "collections-builder-icon");
+    wrap.setAttribute("aria-hidden", "true");
+    // Static developer markup only — BUILDER_ICONS is a frozen literal, never user text.
+    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+    wrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${BUILDER_ICONS[name] || ""}</svg>`;
+    return wrap;
+  };
+
+  /**
+   * A collapsed-by-default form section using the Add Item modal's details.form-section
+   * chrome. It deliberately carries no data-section attribute: that is the Add Item form's
+   * persistence hook (js/form-sections.js), and builder sections remember nothing.
+   * @param {string} key - BUILDER_ICONS key, also the section's data-builder-section
+   * @param {string} title - Header text
+   * @param {...HTMLElement} children - Section body content
+   * @returns {HTMLDetailsElement} The section; `_refreshCount()` updates its filled-field badge
+   */
+  const builderSection = (key, title, ...children) => {
+    const node = el("details", "form-section");
+    node.dataset.builderSection = key;
+    const summary = el("summary", "form-section-header");
+    const count = el("span", "form-section-count");
+    count.hidden = true;
+    summary.append(builderIcon(key, "form-section-icon"), title, count);
+    const body = el("div", "form-section-body");
+    body.append(...children);
+    node.append(summary, body);
+    node._refreshCount = () => {
+      const filled = Array.from(
+        body.querySelectorAll("input:not([type=radio]):not([type=file]), textarea")
+      ).filter((control) => control.value.trim()).length;
+      count.hidden = filled === 0;
+      count.textContent = String(filled);
+    };
+    node.addEventListener("input", node._refreshCount);
+    return node;
+  };
+
   /**
    * A labelled segmented control backed by radio inputs, for small either/or choices.
    * @param {string} labelText - Group label
-   * @param {{value: string, label: string}[]} options - Choices, in display order
+   * @param {{value: string, label: string, glyph?: string}[]} options - Choices, in display
+   *   order; glyph is a BUILDER_ICONS key drawn before the label
    * @param {string} value - Initially selected value
-   * @returns {{node: HTMLElement, getValue: () => string}} Control
+   * @param {(value: string) => void} [onChange] - Called when the user picks an option
+   * @returns {{node: HTMLElement, getValue: () => string, setValue: (value: string) => void}} Control
    */
-  const segmented = (labelText, options, value) => {
-    const wrap = el("div", "collections-field");
+  const segmented = (labelText, options, value, onChange) => {
+    const wrap = el("div", "collections-builder-choice");
     const caption = el("span", "collections-builder-caption", labelText);
     caption.id = `collectionsSeg${Math.random().toString(36).slice(2, 9)}`;
     const group = el("div", "collections-segmented");
@@ -664,7 +730,11 @@
       input.name = caption.id;
       input.value = option.value;
       input.checked = option.value === value;
-      choice.append(input, el("span", "", option.label));
+      if (onChange) input.addEventListener("change", () => onChange(option.value));
+      const face = el("span");
+      if (option.glyph) face.appendChild(builderIcon(option.glyph));
+      face.append(option.label);
+      choice.append(input, face);
       group.appendChild(choice);
       return input;
     });
@@ -672,6 +742,10 @@
     return {
       node: wrap,
       getValue: () => (inputs.find((input) => input.checked) || inputs[0]).value,
+      setValue: (next) =>
+        inputs.forEach((input) => {
+          input.checked = input.value === next;
+        }),
     };
   };
 
@@ -756,11 +830,23 @@
    * @param {Function} onMove - Moves the row and restores focus to its control
    * @param {Function} onInsert - Inserts a blank row after this row
    * @param {Function} onLabelChange - Refreshes accessible names after label edits
+   * @param {Function} wireDrag - Wires pointer dragging onto the row's handle
    * @returns {HTMLElement} Row element (carries its slot id in dataset.slotId when carried over)
    */
-  const builderRow = (slot, onRemove, onMove, onInsert, onLabelChange) => {
+  const builderRow = (slot, onRemove, onMove, onInsert, onLabelChange, wireDrag) => {
     const row = el("div", "collections-builder-row");
     if (slot.id) row.dataset.slotId = slot.id;
+    // STRK-421: one handle per Slot card. Drag it, or focus it and press Arrow Up / Down.
+    const grip = el("button", "collections-builder-grip");
+    grip.type = "button";
+    grip.dataset.action = "grip";
+    grip.appendChild(builderIcon("grip"));
+    grip.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      event.preventDefault();
+      onMove(row, event.key === "ArrowUp" ? -1 : 1, grip);
+    });
+    wireDrag(grip, row);
     const chooser = imageChooser("Slot image");
     row._chooser = chooser;
     const label = el("input", "collections-builder-label");
@@ -799,16 +885,12 @@
     const remove = button("collections-builder-remove", "×", () => onRemove(row));
     remove.setAttribute("aria-label", "Remove slot");
     const actions = el("div", "collections-builder-row-actions");
-    const up = button("collections-builder-move", "↑", () => onMove(row, -1, up));
-    const down = button("collections-builder-move", "↓", () => onMove(row, 1, down));
-    up.dataset.action = "up";
-    down.dataset.action = "down";
-    const insert = button("collections-builder-insert", "+ Slot after", () => onInsert(row));
+    const insert = button("collections-builder-insert", "+", () => onInsert(row));
     insert.dataset.action = "insert";
     remove.dataset.action = "remove";
-    actions.append(up, down, insert, remove);
+    actions.append(insert, remove);
     label.addEventListener("input", onLabelChange);
-    row.append(chooser.node, label, year, mintage, note, actions, error);
+    row.append(grip, chooser.node, label, year, mintage, note, actions, error);
     return row;
   };
 
@@ -949,12 +1031,23 @@
       : seed.clonedFrom
         ? "Clone & customize"
         : "New collection";
-    shell.subtitle.textContent = "Build any checklist — states, mint marks, varieties, a type set.";
+    // STRK-421: the builder mirrors the Add Item modal, whose header is the title alone.
+    shell.subtitle.textContent = "";
+    shell.subtitle.hidden = true;
 
     const name = el("input");
     name.type = "text";
     name.placeholder = "e.g. Goldback state set";
     name.value = seed.name;
+    const nameError = el("div", "collections-builder-error", "Give the collection a name.");
+    nameError.id = "collectionsBuilderNameError";
+    nameError.hidden = true;
+    nameError.setAttribute("role", "alert");
+    name.setAttribute("aria-describedby", nameError.id);
+    name.addEventListener("input", () => {
+      name.removeAttribute("aria-invalid");
+      nameError.hidden = true;
+    });
     const metal = el("select");
     METALS.forEach((option) => metal.appendChild(el("option", "", option)));
     metal.value = METALS.includes(seed.metal) ? seed.metal : "Mixed";
@@ -1085,18 +1178,25 @@
     authorization.value = seed.specs.authorization || "";
     const dimensions = el("input");
     dimensions.value = seed.specs.dimensions || "";
-    const imageShape = el("select");
-    [
-      ["round", "Round"],
-      ["bar", "Bar"],
-      ["note", "Note"],
-      ["slab", "Slab"],
-    ].forEach(([value, label]) => {
-      const option = el("option", "", label);
-      option.value = value;
-      imageShape.appendChild(option);
-    });
-    imageShape.value = seed.imageShape;
+    // The title images take the chosen outline live, so the picker previews its own effect.
+    const covers = el("div", "collections-builder-covers");
+    covers.dataset.shape = seed.imageShape;
+    const imageShape = segmented(
+      "Image shape",
+      [
+        { value: "round", label: "Round", glyph: "round" },
+        { value: "bar", label: "Bar", glyph: "bar" },
+        { value: "note", label: "Note", glyph: "note" },
+        { value: "slab", label: "Slab", glyph: "slab" },
+      ],
+      seed.imageShape,
+      (value) => {
+        imageShapeTouched = true;
+        covers.dataset.shape = value;
+      }
+    );
+    const lockPill = el("span", "lock-pill", "auto");
+    lockPill.hidden = true;
     let imageShapeTouched =
       seed.imageShape !==
       (seed.itemType === "Bar" || seed.itemType === "Set"
@@ -1104,18 +1204,18 @@
         : ["Note", "Aurum", "Goldback", "Silverback"].includes(seed.itemType)
           ? "note"
           : "round");
-    imageShape.addEventListener("change", () => {
-      imageShapeTouched = true;
-    });
     const suggestedShape = (type) =>
       type === "Bar" || type === "Set"
         ? "bar"
         : ["Note", "Aurum", "Goldback", "Silverback"].includes(type)
           ? "note"
           : "round";
-    itemType.addEventListener("change", () => {
-      if (!imageShapeTouched) imageShape.value = suggestedShape(itemType.value);
-      // Mirror the Add Item form: these Item types force their metal and weight unit.
+    /**
+     * Shows a forced Metal and Weight unit as locked, like the Add Item form's "auto" pill.
+     * The save path re-applies the lock as well, so a stale value can never be stored.
+     * @returns {void}
+     */
+    const applyTypeLock = () => {
       const lock = window.collectionsCore.typeLockFor(itemType.value);
       if (lock) {
         metal.value = lock.metal;
@@ -1125,6 +1225,16 @@
         // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit.
         weightUnit.value = "oz";
       }
+      metal.disabled = Boolean(lock);
+      weightUnit.disabled = Boolean(lock);
+      lockPill.hidden = !lock;
+    };
+    itemType.addEventListener("change", () => {
+      if (!imageShapeTouched) {
+        imageShape.setValue(suggestedShape(itemType.value));
+        covers.dataset.shape = imageShape.getValue();
+      }
+      applyTypeLock();
     });
     const about = el("textarea");
     about.value = seed.about;
@@ -1133,10 +1243,6 @@
     const cover = imageChooser("Cover image");
     const reverseTitle = imageChooser("Reverse title image");
     chooserDisposers.push(cover.dispose, reverseTitle.dispose);
-    // The media row groups the cover art with the display controls. Its two columns are
-    // built to grow: a reverse cover joins the covers strip, a shape control joins the
-    // display stack, without reflowing the rest of the form.
-    const covers = el("div", "collections-builder-covers");
     const obverseTitleWrap = el("div", "collections-builder-title-option");
     obverseTitleWrap.append(
       el("span", "collections-builder-caption", "Obverse title image"),
@@ -1148,41 +1254,81 @@
       reverseTitle.node
     );
     covers.append(obverseTitleWrap, reverseTitleWrap);
-    const coverWrap = el("div", "collections-builder-cover");
-    coverWrap.append(el("span", "collections-builder-caption", "Cover Image (Optional)"), covers);
+    // STRK-421 hero: large centred title images with the Image shape picker beneath them.
+    const hero = el("div", "collections-builder-hero");
+    hero.appendChild(covers);
     if (!imagesAvailable()) {
-      coverWrap.appendChild(
+      hero.appendChild(
         el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
       );
     }
+    hero.appendChild(imageShape.node);
     if (seed.editId) {
       getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
       getImageUrl(seed.editId, "title:reverse").then((url) => url && reverseTitle.setPreview(url));
     }
-    const display = el("div", "collections-builder-display");
-    display.append(side.node, itemImages.node);
-    const media = el("div", "collections-builder-media");
-    media.append(coverWrap, display);
-
     const rowsHost = el("div", "collections-builder-rows");
+    const slotCount = el("span", "form-section-count");
     const orderStatus = el("div", "sr-only");
     orderStatus.setAttribute("role", "status");
     const refreshRowActions = () => {
-      Array.from(rowsHost.children).forEach((row, index, rows) => {
+      Array.from(rowsHost.children).forEach((row, index) => {
         const label =
           row.querySelector(".collections-builder-label").value.trim() || `Slot ${index + 1}`;
-        row.querySelector('[data-action="up"]').disabled = index === 0;
-        row.querySelector('[data-action="down"]').disabled = index === rows.length - 1;
         const names = {
-          up: `Move ${label} up`,
-          down: `Move ${label} down`,
+          grip: `Reorder ${label}`,
           insert: `Add Slot after ${label}`,
           remove: `Remove Slot ${label}`,
         };
         row.querySelectorAll("[data-action]").forEach((control) => {
           control.setAttribute("aria-label", names[control.dataset.action]);
-          control.title = names[control.dataset.action];
+          control.title =
+            control.dataset.action === "grip"
+              ? "Drag to reorder, or press Arrow Up or Arrow Down"
+              : names[control.dataset.action];
         });
+      });
+      slotCount.textContent = String(rowsHost.children.length);
+    };
+    const announceMove = (row) => {
+      const position = Array.from(rowsHost.children).indexOf(row) + 1;
+      const label = row.querySelector(".collections-builder-label").value.trim() || "Slot";
+      orderStatus.textContent = `${label} moved to position ${position} of ${rowsHost.children.length}.`;
+    };
+    let dragRowId = 0;
+    /**
+     * Pointer dragging for a Slot card's handle, through the same helper the Settings
+     * My order list uses, so every reorderable list in Collections drags the same way.
+     * @param {HTMLButtonElement} grip - The card's handle
+     * @param {HTMLElement} row - The Slot card
+     * @returns {void}
+     */
+    const wireDrag = (grip, row) => {
+      row.dataset.dragId = String(++dragRowId);
+      const ui = window.collectionsUI;
+      if (!ui || typeof ui.wireReorderHandle !== "function") return;
+      // A long Slot list scrolls inside the modal: nudge it while a drag nears an edge,
+      // so a card can be carried past the visible rows.
+      grip.addEventListener("pointermove", (event) => {
+        if (!row.classList.contains("is-dragging")) return;
+        const bounds = shell.body.getBoundingClientRect();
+        if (event.clientY < bounds.top + 36) shell.body.scrollTop -= 12;
+        else if (event.clientY > bounds.bottom - 36) shell.body.scrollTop += 12;
+      });
+      ui.wireReorderHandle(grip, {
+        id: row.dataset.dragId,
+        itemSelector: `#${BUILDER_MODAL_ID} .collections-builder-row`,
+        idOf: (node) => node.dataset.dragId,
+        onDrop: (targetId, after) => {
+          const target = Array.from(rowsHost.children).find(
+            (node) => node.dataset.dragId === targetId
+          );
+          if (!target) return;
+          rowsHost.insertBefore(row, after ? target.nextElementSibling : target);
+          refreshRowActions();
+          grip.focus();
+          announceMove(row);
+        },
       });
     };
     const removeRow = (row) => {
@@ -1198,10 +1344,8 @@
       if (!adjacent) return;
       rowsHost.insertBefore(row, direction < 0 ? adjacent : adjacent.nextElementSibling);
       refreshRowActions();
-      (control.disabled ? row.querySelector(".collections-builder-label") : control).focus();
-      const position = Array.from(rowsHost.children).indexOf(row) + 1;
-      const label = row.querySelector(".collections-builder-label").value.trim() || "Slot";
-      orderStatus.textContent = `${label} moved to position ${position} of ${rowsHost.children.length}.`;
+      control.focus();
+      announceMove(row);
     };
     const insertRow = (after) => {
       const row = addRow({}, after);
@@ -1209,7 +1353,14 @@
       orderStatus.textContent = "Blank Slot inserted.";
     };
     const addRow = (slot, after) => {
-      const row = builderRow(slot || {}, removeRow, moveRow, insertRow, refreshRowActions);
+      const row = builderRow(
+        slot || {},
+        removeRow,
+        moveRow,
+        insertRow,
+        refreshRowActions,
+        wireDrag
+      );
       chooserDisposers.push(row._chooser.dispose);
       rowsHost.insertBefore(row, after ? after.nextElementSibling : null);
       refreshRowActions();
@@ -1220,52 +1371,76 @@
     };
     seed.slots.forEach((slot) => addRow(slot));
 
+    // STRK-421 layout (approved playground variant C): Type | Metal, the name, the title
+    // images with the shape picker, the Slot cards, then every optional field collapsed.
     const form = el("div", "collections-builder-form");
-    const section = (title, ...children) => {
-      const group = el("section", "collections-builder-section");
-      group.append(el("h3", "", title));
-      const fields = el("div", "collections-builder-fields");
-      fields.append(...children);
-      group.appendChild(fields);
-      return group;
+    const grid = (className, ...children) => {
+      const node = el("div", `grid ${className}`);
+      node.append(...children);
+      return node;
     };
-    form.append(
-      section(
+    const metalField = field("Metal", metal);
+    metalField.querySelector("label").append(" ", lockPill);
+    const nameField = field("Collection name", name);
+    nameField.appendChild(nameError);
+    const sections = [
+      builderSection(
+        "identity",
         "Identity",
-        field("Collection name", name),
-        field("Variant", variant),
-        field("Subtitle", subtitle, "is-wide"),
-        field("Issuer", issuer),
-        field("Metal", metal),
-        field("Type", itemType)
+        grid("grid-2", field("Variant", variant), field("Issuer", issuer)),
+        field("Subtitle", subtitle)
       ),
-      section(
-        "Specs",
-        field("Weight", weight),
-        field("Weight unit", weightUnit),
-        field("Purity", puritySelect),
-        purityCustomField,
-        purityCaption,
-        field("Diameter", diameter),
-        field("Gross weight (g)", grossWeightGrams),
-        field("Thickness", thickness),
-        field("Face value", faceValue),
-        field("Composition", composition),
-        field("Edge", edge),
-        field("Mint mark", mintMark),
-        field("Authorization", authorization),
-        field("Dimensions", dimensions)
+      builderSection(
+        "content",
+        "Metal content",
+        grid(
+          "collections-builder-grid-3",
+          field("Weight", weight),
+          field("Weight unit", weightUnit),
+          field("Purity", puritySelect),
+          purityCustomField
+        ),
+        purityCaption
       ),
-      section("Appearance", field("Image shape", imageShape), media),
-      section("About", field("About this collection", about, "is-wide"))
-    );
-    const slotsHeading = el("div", "collections-pick-group", "Slots");
+      builderSection(
+        "specs",
+        "Specifications",
+        grid(
+          "collections-builder-grid-3",
+          field("Diameter", diameter),
+          field("Gross weight (g)", grossWeightGrams),
+          field("Thickness", thickness),
+          field("Face value", faceValue),
+          field("Composition", composition),
+          field("Edge", edge),
+          field("Mint mark", mintMark),
+          field("Authorization", authorization),
+          field("Dimensions", dimensions)
+        )
+      ),
+      builderSection("display", "Display", grid("grid-2", side.node, itemImages.node)),
+      builderSection("about", "About", field("About this collection", about)),
+    ];
+    sections.forEach((section) => section._refreshCount());
+    /**
+     * Opens the collapsed section holding a control, so a validation message never
+     * points at a field the user cannot see.
+     * @param {HTMLElement} control - The invalid control
+     * @returns {void}
+     */
+    const reveal = (control) => {
+      const section = control.closest("details.form-section");
+      if (section) section.open = true;
+      control.focus();
+    };
+    const slotsHeading = el("div", "collections-builder-slots-head");
+    slotsHeading.append(el("span", "collections-builder-caption", "Slots"), slotCount);
     const rowActions = el("div", "collections-builder-actions");
     rowActions.append(
-      button("btn secondary collections-btn-pill", "+ Add slot", () =>
+      button("btn secondary", "+ Add slot", () =>
         addRow({}).querySelector(".collections-builder-label").focus()
       ),
-      button("btn secondary collections-btn-pill", "+ Add year range…", async () => {
+      button("btn secondary", "+ Add year range…", async () => {
         const answer = await showAppPrompt(
           "Enter a year range, e.g. 1986-2005",
           "",
@@ -1280,7 +1455,20 @@
         years.forEach((year) => addRow({ label: String(year), year }));
       })
     );
-    shell.body.replaceChildren(form, slotsHeading, rowsHost, rowActions, orderStatus);
+    form.append(
+      grid("grid-2", field("Type", itemType), metalField),
+      nameField,
+      hero,
+      slotsHeading,
+      rowsHost,
+      rowActions,
+      el("div", "collections-builder-divider collections-builder-caption", "Optional details"),
+      ...sections
+    );
+    shell.body.replaceChildren(form, orderStatus);
+    // A reopened builder starts at the top; the modal element is reused between opens.
+    shell.body.scrollTop = 0;
+    applyTypeLock();
 
     const modalObserver = new MutationObserver(() => {
       if (shell.modal.style.display === "none") {
@@ -1303,14 +1491,14 @@
         (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1)
       ) {
         purityCustom.setAttribute("aria-invalid", "true");
-        purityCustom.focus();
+        reveal(purityCustom);
         toast("Enter a purity greater than 0 and no greater than 1.");
         return;
       }
       purityCustom.removeAttribute("aria-invalid");
       if (weightValue != null && (!Number.isFinite(weightValue) || weightValue < 0)) {
         weight.setAttribute("aria-invalid", "true");
-        weight.focus();
+        reveal(weight);
         toast("Weight must be a non-negative number.");
         return;
       }
@@ -1363,7 +1551,7 @@
           authorization: authorization.value,
           dimensions: dimensions.value,
         },
-        imageShape: imageShape.value,
+        imageShape: imageShape.getValue(),
         about: about.value,
         side: side.getValue(),
         showItemImages: itemImages.getValue() === "show",
@@ -1385,6 +1573,11 @@
           "no-slots": "Add at least one labelled slot.",
           "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
         };
+        if (result.reason === "invalid-name") {
+          name.setAttribute("aria-invalid", "true");
+          nameError.hidden = false;
+          name.focus();
+        }
         toast(reasons[result.reason] || "Could not save the collection.");
         return;
       }
@@ -1407,14 +1600,16 @@
       }
     };
 
+    // Footer mirrors the Add Item action bar: an outlined Cancel and the premium submit.
     const footerActions = el("span", "collections-modal-footer-actions");
     footerActions.append(
-      button("btn secondary collections-btn-pill", "Cancel", () =>
-        closeModalById(BUILDER_MODAL_ID)
-      ),
-      button("btn collections-btn-pill", seed.editId ? "Save changes" : "Create collection", submit)
+      button("btn collections-builder-cancel", "Cancel", () => closeModalById(BUILDER_MODAL_ID)),
+      button("btn premium", seed.editId ? "Save changes" : "Create collection", submit)
     );
-    shell.footer.classList.add("collections-modal-footer--actions-only");
+    shell.footer.classList.add(
+      "collections-modal-footer--actions-only",
+      "collections-builder-footer"
+    );
     shell.footer.replaceChildren(footerActions);
     openModalById(BUILDER_MODAL_ID);
   };
