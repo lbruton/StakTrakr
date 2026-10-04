@@ -57,14 +57,27 @@
      * @returns {string[]} Parts, e.g. ["1 oz", ".999 fine silver", "40.6 mm", "$1 face value"]
      */
     const specParts = (entry) => {
-      if (entry.isCustom) return [entry.metal].filter(Boolean);
-      const template = entry.template;
-      const specs = template.specs || {};
+      const template = entry.isCustom ? entry.collection.definition : entry.template;
+      const specs = entry.specs || {};
+      const purity = Number(entry.purity);
+      const fineness = Number.isFinite(purity)
+        ? `${purity >= 1 ? "pure" : `.${String(purity).split(".")[1] || ""}`} fine ${String(entry.metal || "metal").toLowerCase()}`
+        : "";
+      const collectionDetails = entry.isCustom
+        ? [
+            specs.edge ? text(specs.edge) : "",
+            specs.mintMark ? `Mint mark: ${text(specs.mintMark)}` : "",
+            specs.dimensions ? text(specs.dimensions) : "",
+            specs.authorization ? text(specs.authorization) : "",
+          ]
+        : [];
       return [
-        template.weight ? `${template.weight} ${text(template.weightUnit) || "oz"}` : "",
-        text(specs.fineness),
+        entry.weight ? `${entry.weight} ${text(entry.weightUnit) || "oz"}` : "",
+        fineness || text(specs.fineness),
         specs.diameterMm ? `${specs.diameterMm} mm` : "",
         specs.faceValue ? `${text(specs.faceValue)} face value` : "",
+        specs.composition ? text(specs.composition) : "",
+        ...collectionDetails,
       ].filter(Boolean);
     };
 
@@ -76,7 +89,34 @@
     const buildAlbumHead = (entry) => {
       const head = el("div", "collections-album-head");
       const pair = el("div", "collections-pair");
-      if (entry.obverse) {
+      if (entry.isCustom) {
+        const artwork = entry.collection.artwork || {};
+        const titleSides = [];
+        const hasTitleStamps =
+          Object.hasOwn(artwork, "cover") || Object.hasOwn(artwork, "title:reverse");
+        // An unstamped legacy cover may exist, so retain it as obverse while allowing a
+        // cloned Collection to show its source Template's reverse until art is customized.
+        if (artwork.cover ? artwork.cover.present : !hasTitleStamps) titleSides.push("obverse");
+        if (artwork["title:reverse"]?.present || (!hasTitleStamps && entry.reverse))
+          titleSides.push("reverse");
+        if (!titleSides.length && entry.obverse) titleSides.push("obverse");
+        if (!titleSides.length)
+          titleSides.push(entry.collection.definition.side === "reverse" ? "reverse" : "obverse");
+        titleSides.forEach((side) =>
+          pair.appendChild(
+            buildCoin({
+              src: entry[side] || entry.obverse,
+              monogram: entry.monogram,
+              size: "lg",
+              imageSide: side,
+              resolvedImageSide: entry[side] ? side : entry.obverse ? "obverse" : side,
+              stockImageSide: entry[side] ? side : entry.obverse ? "obverse" : "",
+              imageShape: entry.imageShape,
+              artwork: { collectionId: entry.id, titleFallback: true },
+            })
+          )
+        );
+      } else if (entry.obverse) {
         pair.appendChild(buildCoin({ src: entry.obverse, size: "lg" }));
         if (entry.reverse) pair.appendChild(buildCoin({ src: entry.reverse, size: "lg" }));
       } else {
@@ -84,7 +124,7 @@
           buildCoin({
             monogram: entry.monogram,
             size: "lg",
-            artwork: entry.isCustom ? { collectionId: entry.id } : null,
+            artwork: null,
           })
         );
       }
@@ -93,12 +133,12 @@
       const info = el("div", "collections-album-info");
       const heading = el("h2", "", entry.name);
       if (entry.variant) heading.appendChild(buildTag(entry.variant, "is-variant"));
-      if (entry.isCustom) heading.appendChild(buildTag("Custom"));
       info.appendChild(heading);
       const definition = entry.collection.definition || {};
       const subParts = entry.isCustom
         ? [
-            "Custom collection",
+            text(definition.subtitle),
+            text(definition.issuer),
             `${entry.slotDefs.length} slot${entry.slotDefs.length === 1 ? "" : "s"}`,
           ]
         : [
@@ -106,11 +146,14 @@
             runLabel(entry.template.run),
             text(entry.template.issuer),
           ];
+      if (entry.isCustom) subParts.push(text(definition.itemType));
       info.appendChild(el("p", "collections-sub", subParts.filter(Boolean).join(" · ")));
       const spec = el("div", "collections-spec");
       specParts(entry).forEach((part) => spec.appendChild(el("span", "", part)));
       if (spec.childElementCount) info.appendChild(spec);
-      const about = entry.isCustom ? text(definition.description) : text(entry.template.about);
+      const about = entry.isCustom
+        ? text(definition.about || definition.description)
+        : text(entry.template.about);
       if (about) info.appendChild(el("p", "collections-about", about));
       head.appendChild(info);
 
@@ -528,6 +571,7 @@
         ghost: !slot.item,
         owned: Boolean(slot.item),
         size,
+        imageShape: entry.imageShape,
         alt: `${displayedSide} of ${slot.label}`,
         imageLabel: slot.label,
         imageSide: side,
@@ -539,6 +583,7 @@
               collectionId: entry.id,
               slotId: slot.def.id,
               coverFallback: Boolean(slot.item) && !showItemImage,
+              titleFallback: true,
             }
           : null,
       });

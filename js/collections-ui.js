@@ -588,6 +588,23 @@
     return file ? `${text(template.basePath)}${file}` : "";
   };
 
+  /** Finds the original Series Template used by a Custom Collection clone, if any. */
+  const templateArtworkFor = (collection) => {
+    const state = store().getState();
+    const seen = new Set();
+    let source = collection;
+    while (source && source.kind === "custom" && source.clonedFrom && !seen.has(source.id)) {
+      seen.add(source.id);
+      const parent = state.collections[source.clonedFrom];
+      if (parent && !parent.deletedAt) {
+        source = parent;
+        continue;
+      }
+      return store().getTemplate(source.clonedFrom);
+    }
+    return source && source.kind === "template" ? store().templateFor(source) : null;
+  };
+
   /**
    * Status bucket for the hub filter.
    * @param {{owned: number, total: number}} progress - Collection progress
@@ -619,6 +636,7 @@
     };
     const isCustom = collection.kind === "custom";
     const definition = collection.definition || {};
+    const artworkTemplate = isCustom ? templateArtworkFor(collection) : template;
     const slotDefs = core().slotDefsFor(collection, template);
     const progress = core().collectionProgress(collection, slotDefs, store().isActiveUuid);
     let paid = 0;
@@ -639,9 +657,28 @@
     });
     const best = template ? bestPriceFor(text(template.retailSlug)) : null;
     const name = isCustom ? text(collection.name) : text(template && template.name);
-    const variant = isCustom ? "" : text(template && template.variant);
+    const variant = isCustom ? text(definition.variant) : text(template && template.variant);
+    const customWeight = definition.weight
+      ? `${definition.weight} ${text(definition.weightUnit)}`.trim()
+      : "";
+    const customPurity = Number.isFinite(Number(definition.purity))
+      ? `${Number(definition.purity) >= 1 ? "pure" : `.${String(Number(definition.purity)).split(".")[1] || ""}`} fine ${text(definition.metal).toLowerCase()}`
+      : "";
+    const customSpecs = Object.values(definition.specs || {})
+      .filter(Boolean)
+      .join(" · ");
     const hubParts = isCustom
-      ? ["Custom collection", `${slotDefs.length} slot${slotDefs.length === 1 ? "" : "s"}`]
+      ? [
+          variant,
+          text(definition.subtitle),
+          text(definition.issuer),
+          text(definition.metal),
+          customWeight,
+          customPurity,
+          text(definition.itemType),
+          customSpecs,
+          `${slotDefs.length} slot${slotDefs.length === 1 ? "" : "s"}`,
+        ]
       : [variant, text(template.subtitle), runLabel(template.run)];
     return {
       id,
@@ -652,6 +689,19 @@
       variant,
       hubLine: hubParts.filter(Boolean).join(" · "),
       metal: isCustom ? text(definition.metal) : text(template && template.metal),
+      subtitle: isCustom ? text(definition.subtitle) : text(template && template.subtitle),
+      issuer: isCustom ? text(definition.issuer) : text(template && template.issuer),
+      weight: isCustom ? definition.weight : template && template.weight,
+      weightUnit: isCustom ? definition.weightUnit : template && template.weightUnit,
+      itemType: isCustom ? definition.itemType : template && (template.itemType || template.type),
+      purity: isCustom ? definition.purity : template && template.purity,
+      specs: isCustom ? definition.specs || {} : (template && template.specs) || {},
+      about: isCustom
+        ? text(definition.about || definition.description)
+        : text(template && template.about),
+      imageShape: isCustom
+        ? definition.imageShape || core().defaultImageShapeForType(definition.itemType)
+        : core().defaultImageShapeForType(template && (template.itemType || template.type)),
       slotDefs,
       progress,
       status: statusOf(progress),
@@ -660,8 +710,8 @@
       ledgerMelt: hasMelt ? melt : null,
       best,
       costToComplete: best && progress.missing > 0 ? best.price * progress.missing : null,
-      obverse: stockImage(template, "obverse"),
-      reverse: stockImage(template, "reverse"),
+      obverse: stockImage(artworkTemplate, "obverse"),
+      reverse: stockImage(artworkTemplate, "reverse"),
       monogram: monogramOf(name || id),
     };
   };
@@ -1148,13 +1198,14 @@
    * Coin medallion: a stock / item photo, or a monogram when there is no image.
    * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string, alt?: string,
    *   imageLabel?: string, imageSide?: string, resolvedImageSide?: string, stockImageSide?: string,
-   *   itemUuid?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean}}} spec -
+   *   itemUuid?: string, imageShape?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean, titleFallback?: boolean}}} spec -
    *   Medallion spec. itemUuid marks it for the async item-photo pass; artwork for custom collection
    *   art, with coverFallback retrying the collection cover when the Slot has no image of its own.
    * @returns {HTMLElement} The medallion
    */
   const buildCoin = (spec) => {
     const coin = el("span", "collections-coin");
+    if (spec.imageShape) coin.classList.add(`collections-coin--shape-${spec.imageShape}`);
     if (spec.size) coin.classList.add(`collections-coin--${spec.size}`);
     if (spec.ghost) coin.classList.add("collections-coin--ghost");
     if (spec.owned) coin.classList.add("collections-coin--owned");
@@ -1168,6 +1219,7 @@
       coin.dataset.artCollection = spec.artwork.collectionId;
       if (spec.artwork.slotId) coin.dataset.artSlot = spec.artwork.slotId;
       if (spec.artwork.coverFallback) coin.dataset.artCoverFallback = "true";
+      if (spec.artwork.titleFallback) coin.dataset.artTitleFallback = "true";
     }
     coin.dataset.monogram = spec.monogram || "?";
     if (spec.src) {
@@ -1475,9 +1527,19 @@
     if (!coin.dataset.artCollection || !picker || typeof picker.getImageUrl !== "function")
       return null;
     const collectionId = coin.dataset.artCollection;
-    const slotUrl = await picker.getImageUrl(collectionId, coin.dataset.artSlot || undefined);
-    if (slotUrl || !coin.dataset.artSlot || !coin.dataset.artCoverFallback) return slotUrl;
-    return picker.getImageUrl(collectionId, undefined);
+    const slotUrl = coin.dataset.artSlot
+      ? await picker.getImageUrl(collectionId, coin.dataset.artSlot)
+      : null;
+    if (slotUrl) return { url: slotUrl, side: coin.dataset.imageSide || "obverse" };
+    if (!coin.dataset.artSlot || coin.dataset.artTitleFallback) {
+      const title = await picker.getTitleImage(collectionId, coin.dataset.imageSide || "obverse");
+      if (title) return title;
+    }
+    if (coin.dataset.artSlot && coin.dataset.artCoverFallback) {
+      const title = await picker.getTitleImage(collectionId, coin.dataset.imageSide || "obverse");
+      if (title) return title;
+    }
+    return null;
   };
 
   /**
@@ -1544,10 +1606,10 @@
       const item = coin.dataset.itemUuid ? store().findItem(coin.dataset.itemUuid) : null;
       const requestedSide = coin.dataset.imageSide || "obverse";
       const itemImage = item ? await resolveItemImage(item, requestedSide) : null;
-      const artworkUrl = itemImage ? null : await resolveArtworkUrl(coin);
-      const url = itemImage ? itemImage.url : artworkUrl;
+      const artwork = itemImage ? null : await resolveArtworkUrl(coin);
+      const url = itemImage ? itemImage.url : artwork && artwork.url;
       if (!url) return;
-      const resolvedSide = itemImage ? itemImage.side : requestedSide;
+      const resolvedSide = itemImage ? itemImage.side : artwork.side;
       const isBlob = url.startsWith("blob:");
       if (generation !== renderGeneration || !coin.isConnected) {
         if (isBlob) URL.revokeObjectURL(url);

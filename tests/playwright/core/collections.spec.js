@@ -752,7 +752,6 @@ test.describe("core/collections — link picker, builder, item view", () => {
     // The third starter row is left blank on purpose: unlabelled rows are dropped, not saved.
     await builderModal(page).getByRole("button", { name: "Create collection" }).click();
     await expect(builderModal(page)).toBeHidden();
-
     const created = await page.evaluate(() => {
       const list = window.collectionsCore.listCollections(window.collectionsStore.getState());
       const custom = list.find((entry) => entry.kind === "custom");
@@ -946,10 +945,24 @@ test.describe("core/collections — link picker, builder, item view", () => {
       const list = window.collectionsCore.listCollections(window.collectionsStore.getState());
       const custom = list.find((entry) => entry.kind === "custom");
       return custom
-        ? { clonedFrom: custom.clonedFrom, slots: custom.definition.slots.length }
+        ? {
+            clonedFrom: custom.clonedFrom,
+            slots: custom.definition.slots.length,
+            variant: custom.definition.variant,
+            itemType: custom.definition.itemType,
+            purity: custom.definition.purity,
+            imageShape: custom.definition.imageShape,
+          }
         : null;
     });
-    expect(clone).toEqual({ clonedFrom: "ase-type2", slots: 6 });
+    expect(clone).toEqual({
+      clonedFrom: "ase-type2",
+      slots: 6,
+      variant: "Type 2",
+      itemType: "Coin",
+      purity: 0.999,
+      imageShape: "round",
+    });
   });
 
   test("editing a custom collection renames a slot without dropping its link", async ({ page }) => {
@@ -980,6 +993,97 @@ test.describe("core/collections — link picker, builder, item view", () => {
     }, id);
     expect(after.first).toMatchObject({ id: "alpha", label: "Alpha (renamed)" });
     expect(after.linked).toBe("col-maple-2024");
+  });
+
+  test("Custom Collection metadata drives shape defaults, Item prefill, and visible details", async ({
+    page,
+  }, testInfo) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((value) => window.setTheme(value), theme);
+      await expect(builder.getByRole("heading", { name: "Identity" })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        390
+      );
+    }
+    await builder.screenshot({
+      path: testInfo.outputPath("strk-395-builder-390.png"),
+      animations: "disabled",
+    });
+    await builder.getByLabel("Collection name").fill("Graded Eagles");
+    await builder.getByLabel("Variant").fill("MS-70");
+    await builder.getByLabel("Subtitle").fill("Early releases");
+    await builder.getByLabel("Issuer").fill("United States Mint");
+    await builder.getByLabel("Metal").selectOption("Gold");
+    await builder.getByLabel("Type").selectOption("Bar");
+    await expect(builder.getByLabel("Image shape")).toHaveValue("bar");
+    await builder.getByLabel("Type").selectOption("Coin");
+    await expect(builder.getByLabel("Image shape")).toHaveValue("round");
+    await builder.getByLabel("Image shape").selectOption("slab");
+    await builder.getByLabel("Weight", { exact: true }).fill("1");
+    await builder.getByLabel("Purity", { exact: true }).selectOption("0.9167");
+    await builder.getByLabel("Diameter").fill("40.6");
+    await builder.getByLabel("Face value").fill("$1");
+    await builder.getByLabel("Dimensions").fill("40.6 mm diameter");
+    await builder.getByLabel("About this collection").fill("A graded run.");
+    await builder.getByLabel("Slot label").first().fill("2024 Eagle");
+    await builder.getByRole("button", { name: "Create collection" }).click();
+
+    const album = panel(page);
+    await expect(album.locator(".collections-album-head .collections-tag.is-variant")).toHaveText(
+      "MS-70"
+    );
+    await expect(album.locator(".collections-sub")).toContainText("Early releases");
+    await expect(album.locator(".collections-sub")).toContainText("United States Mint");
+    await expect(album.locator(".collections-spec")).toContainText(".9167 fine gold");
+    await expect(album.locator(".collections-spec")).toContainText("40.6 mm diameter");
+    await expect(album.locator(".collections-about")).toHaveText("A graded run.");
+    await expect(
+      album.locator(".collections-album-head .collections-coin--shape-slab")
+    ).toHaveCount(1);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(() => window.setTheme("light"));
+    await panel(page).screenshot({
+      path: testInfo.outputPath("strk-395-album-metadata.png"),
+      animations: "disabled",
+    });
+
+    const customId = await page.evaluate(
+      () =>
+        window.collectionsCore
+          .listCollections(window.collectionsStore.getState())
+          .find((entry) => entry.kind === "custom").id
+    );
+    await page.evaluate((id) => window.collectionsPicker.openBuilder({ editId: id }), customId);
+    await expect(builder.getByLabel("Variant")).toHaveValue("MS-70");
+    await expect(builder.getByLabel("Type")).toHaveValue("Coin");
+    await expect(builder.getByLabel("Image shape")).toHaveValue("slab");
+    await expect(builder.getByLabel("About this collection")).toHaveValue("A graded run.");
+    await expect(builder.getByLabel("Dimensions")).toHaveValue("40.6 mm diameter");
+    await builder.getByRole("button", { name: "Cancel" }).click();
+    await page.evaluate((id) => window.collectionsStore.requestNewItem(id, "2024-eagle"), customId);
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemType")).toHaveValue("Coin");
+    await expect(page.locator("#itemMetal")).toHaveValue("Gold");
+    await expect(page.locator("#itemWeight")).toHaveValue("1");
+    await expect(page.locator("#itemPuritySelect")).toHaveValue("0.9167");
+
+    await page.locator("#cancelItem").click();
+    await panel(page).getByRole("button", { name: "Collections" }).click();
+    const card = panel(page).locator(".collections-card").filter({ hasText: "Graded Eagles" });
+    await expect(card.locator(".collections-card-name .collections-tag")).toHaveCount(0);
+    await expect(card.locator(".collections-card-name")).toContainText("Graded Eagles");
+    await expect(card.locator(".collections-card-sub")).toContainText("MS-70");
+    await expect(card.locator(".collections-card-sub")).toContainText("Gold");
+    await expect(card.locator(".collections-card-sub")).toContainText("1 oz");
+    await expect(card.locator(".collections-card-sub")).toContainText(".9167 fine gold");
   });
 
   test("a Custom Collection side choice persists and drives reverse images plus Slot notes", async ({
@@ -1119,16 +1223,15 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(coin().locator("img")).toHaveAttribute("src", /images\.test\/maple\.png$/);
   });
 
-  test("hidden Item images fall back to the collection cover in filled Slots only", async ({
-    page,
-  }) => {
+  test("hidden Item images use Slot art first and title art for empty Slots", async ({ page }) => {
     const id = await openMaplePhotoCollection(page, ["Open"]);
     await page.evaluate((collectionId) => {
       window.collectionsPicker.openBuilder({ editId: collectionId });
     }, id);
     const builder = builderModal(page);
     await builder
-      .locator(".collections-builder-cover input[type=file]")
+      .locator(".collections-builder-title-option input[type=file]")
+      .first()
       .setInputFiles("tests/playwright/helpers/test-reverse.png");
     await builder.getByRole("radiogroup", { name: "Item images" }).getByLabel("Hide").check();
     await builder.getByRole("button", { name: "Save changes" }).click();
@@ -1140,8 +1243,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
     await expect(filled.locator("img")).toHaveAttribute("src", /^blob:/);
 
-    // Empty Slots keep their existing cascade (no cover tier — that is STRK-396's scope).
-    await expect(slotOf(page, "open").locator(".collections-coin img")).toHaveCount(0);
+    // Empty Slots show the ghosted title image after their own Slot artwork.
+    const emptyCoin = slotOf(page, "open").locator(".collections-coin");
+    await expect(emptyCoin).toHaveClass(/collections-coin--ghost/);
+    await expect(emptyCoin.locator("img")).toHaveAttribute("src", /^blob:/);
   });
 
   test("image fallbacks keep displayed side metadata aligned with the actual art", async ({
@@ -1342,6 +1447,22 @@ test.describe("core/collections — link picker, builder, item view", () => {
   test("cover upload and removal change the visible album and old image vaults cannot revive it", async ({
     page,
   }) => {
+    await page.addInitScript(() => {
+      const createObjectUrl = URL.createObjectURL.bind(URL);
+      const revokeObjectUrl = URL.revokeObjectURL.bind(URL);
+      window.__collectionUrls = { created: [], revoked: [], doubleRevokes: [] };
+      URL.createObjectURL = (blob) => {
+        const url = createObjectUrl(blob);
+        window.__collectionUrls.created.push(url);
+        return url;
+      };
+      URL.revokeObjectURL = (url) => {
+        if (window.__collectionUrls.revoked.includes(url))
+          window.__collectionUrls.doubleRevokes.push(url);
+        window.__collectionUrls.revoked.push(url);
+        revokeObjectUrl(url);
+      };
+    });
     await seedAndGoto(page);
     await openCollectionsTab(page);
     const id = await page.evaluate(() => {
@@ -1355,11 +1476,78 @@ test.describe("core/collections — link picker, builder, item view", () => {
     });
     const builder = builderModal(page);
     await builder
-      .locator(".collections-builder-cover input[type=file]")
+      .locator(".collections-builder-title-option input[type=file]")
+      .first()
       .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await builder
+      .locator(".collections-builder-title-option")
+      .filter({ hasText: "Reverse title image" })
+      .locator("input[type=file]")
+      .setInputFiles("tests/playwright/helpers/test-reverse.png");
     await builder.getByRole("button", { name: "Save changes" }).click();
-    const cover = panel(page).locator(".collections-album-head .collections-coin img");
-    await expect(cover).toHaveAttribute("src", /^blob:/);
+    const chooserUrlAudit = await page.evaluate(() => {
+      const urls = Array.from(document.querySelectorAll("#collectionsBuilderModal img"))
+        .map((image) => image.src)
+        .filter((url) => url.startsWith("blob:"));
+      return {
+        urls,
+        revoked: window.__collectionUrls.revoked,
+        doubleRevokes: window.__collectionUrls.doubleRevokes,
+      };
+    });
+    expect(chooserUrlAudit.urls.length).toBeGreaterThanOrEqual(2);
+    expect(chooserUrlAudit.urls.every((url) => chooserUrlAudit.revoked.includes(url))).toBe(true);
+    expect(chooserUrlAudit.doubleRevokes).toEqual([]);
+    const titleImages = panel(page).locator(".collections-album-head .collections-coin img");
+    await expect(titleImages).toHaveCount(2);
+    await expect(titleImages.nth(0)).toHaveAttribute("src", /^blob:/);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      /^blob:/
+    );
+    await expect(slotOf(page, "first").locator(".collections-coin")).toHaveAttribute(
+      "data-resolved-image-side",
+      "obverse"
+    );
+    await reloadApp(page);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      /^blob:/
+    );
+
+    await page.evaluate(
+      (collectionId) => window.collectionsPicker.openBuilder({ editId: collectionId }),
+      id
+    );
+    await builder.getByRole("radiogroup", { name: "Coin side" }).getByLabel("Reverse").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(slotOf(page, "first").locator(".collections-coin")).toHaveAttribute(
+      "data-resolved-image-side",
+      "reverse"
+    );
+    await page.evaluate(
+      (collectionId) => window.collectionsPicker.openBuilder({ editId: collectionId }),
+      id
+    );
+    await builder.getByRole("button", { name: "Remove cover image" }).click();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(panel(page).locator(".collections-album-head .collections-coin img")).toHaveCount(
+      1
+    );
+    await expect(slotOf(page, "first").locator(".collections-coin")).toHaveAttribute(
+      "data-resolved-image-side",
+      "reverse"
+    );
+    await page.evaluate(
+      (collectionId) => window.collectionsPicker.openBuilder({ editId: collectionId }),
+      id
+    );
+    await builder.getByRole("radiogroup", { name: "Coin side" }).getByLabel("Obverse").check();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(slotOf(page, "first").locator(".collections-coin")).toHaveAttribute(
+      "data-resolved-image-side",
+      "reverse"
+    );
     const staleVault = await page.evaluate(async () => {
       const images = await window.collectAndHashImageVault();
       return Array.from(await window.vaultEncryptImageVault("artwork-test", images.payload));
@@ -1369,9 +1557,17 @@ test.describe("core/collections — link picker, builder, item view", () => {
       (collectionId) => window.collectionsPicker.openBuilder({ editId: collectionId }),
       id
     );
-    await builder.getByRole("button", { name: "Remove cover image" }).click();
+    await builder.getByRole("button", { name: "Remove reverse title image" }).click();
     await builder.getByRole("button", { name: "Save changes" }).click();
-    await expect(cover).toHaveCount(0);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        (collectionId) =>
+          window.imageCache.getPatternImage(`collection--${collectionId}--@title-reverse`),
+        id
+      )
+    ).toBeNull();
+
     expect(
       await page.evaluate(
         (collectionId) =>
@@ -1385,9 +1581,9 @@ test.describe("core/collections — link picker, builder, item view", () => {
       staleVault
     );
     await page.evaluate(() => window.collectionsUI.render());
-    await expect(cover).toHaveCount(0);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
     await reloadApp(page);
-    await expect(cover).toHaveCount(0);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
   });
 
   test("the year-range shortcut accepts sane ranges only", async ({ page }) => {

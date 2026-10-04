@@ -17939,8 +17939,34 @@ input[type="number"] {
 .collections-coin img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transform: scale(1.035);
+  object-fit: contain;
+  transform: none;
+}
+
+.collections-coin--shape-round {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.collections-coin--shape-bar {
+  aspect-ratio: 1.6;
+  border-radius: var(--radius-md);
+}
+
+.collections-coin--shape-note {
+  aspect-ratio: 2.05;
+  border-radius: var(--radius-sm);
+}
+
+.collections-coin--shape-slab {
+  aspect-ratio: 0.68;
+  border-radius: 10px;
+  border: 4px solid var(--border-hover);
+  background: var(--bg-secondary);
+}
+
+.collections-coin--shape-slab img {
+  padding: 3px;
 }
 
 .collections-coin--mono {
@@ -19365,6 +19391,35 @@ input[type="number"] {
   gap: var(--spacing) var(--spacing-lg);
 }
 
+.collections-builder-section {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: var(--spacing) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.collections-builder-section h3 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--font-size-md);
+}
+
+.collections-builder-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing) var(--spacing-lg);
+  align-items: end;
+}
+
+.collections-builder-fields textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.collections-builder-hint {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
 .collections-field.is-wide {
   grid-column: 1 / -1;
 }
@@ -19616,6 +19671,10 @@ input[type="number"] {
   .collections-builder-form,
   .collections-builder-media {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .collections-builder-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .collections-builder-row {

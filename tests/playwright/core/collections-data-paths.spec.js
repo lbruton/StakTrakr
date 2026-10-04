@@ -199,7 +199,12 @@ const captureDownload = async (page, trigger) => {
   const stream = await download.createReadStream();
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
-  return { name: download.suggestedFilename(), text: Buffer.concat(chunks).toString("utf-8") };
+  const bytes = Buffer.concat(chunks);
+  return {
+    name: download.suggestedFilename(),
+    text: bytes.toString("utf-8"),
+    bytes: Array.from(bytes),
+  };
 };
 
 /**
@@ -1552,6 +1557,80 @@ const restoreBackupZipAndAccept = async (page, zipBytes) => {
 };
 
 test.describe("core/collections-data-paths — hidden Collections persistence and restore", () => {
+  test("ZIP backup restores Custom Collection metadata and paired title artwork", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const id = await page.evaluate(async () => {
+      const created = window.collectionsStore.createCustom({
+        name: "Graded Eagles",
+        metal: "Gold",
+        itemType: "Coin",
+        imageShape: "slab",
+        variant: "MS-70",
+        subtitle: "Early releases",
+        issuer: "US Mint",
+        weight: 1,
+        weightUnit: "oz",
+        purity: 0.9167,
+        about: "ZIP round trip",
+        slots: [{ label: "First" }],
+      });
+      const collectionId = created.collection.id;
+      const response = await fetch("/tests/playwright/helpers/test-obverse.png");
+      const file = new File([await response.blob()], "art.png", { type: "image/png" });
+      if (!(await window.collectionsPicker.saveImage(collectionId, null, file)))
+        throw new Error("obverse upload failed");
+      if (!(await window.collectionsPicker.saveImage(collectionId, "title:reverse", file)))
+        throw new Error("reverse upload failed");
+      return collectionId;
+    });
+    const exported = await captureDownload(page, "createBackupZip");
+    const zipInventory = await page.evaluate(async (bytes) => {
+      const zip = await window.JSZip.loadAsync(new Uint8Array(bytes));
+      const definition = JSON.parse(await zip.file("collection_state.json").async("string")).state
+        .collections;
+      const manifest = JSON.parse(await zip.file("pattern_image_manifest.json").async("string"));
+      return {
+        definition:
+          definition[
+            Object.keys(definition).find((key) => definition[key].name === "Graded Eagles")
+          ].definition,
+        images: manifest.map((entry) => entry.ruleId),
+      };
+    }, exported.bytes);
+    expect(zipInventory.definition).toMatchObject({
+      variant: "MS-70",
+      imageShape: "slab",
+      about: "ZIP round trip",
+    });
+    expect(zipInventory.images).toContain(`collection--${id}`);
+    expect(zipInventory.images).toContain(`collection--${id}--@title-reverse`);
+
+    await page.evaluate(async (collectionId) => {
+      await window.imageCache.deletePatternImage(`collection--${collectionId}`);
+      await window.imageCache.deletePatternImage(`collection--${collectionId}--@title-reverse`);
+    }, id);
+    await wipeCollections(page);
+    const toasts = await restoreBackupZipAndAccept(page, exported.bytes);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    const restored = await page.evaluate(async (collectionId) => {
+      const definition = window.collectionsStore.getState().collections[collectionId].definition;
+      const obverse = await window.collectionsPicker.getTitleImage(collectionId, "obverse");
+      const reverse = await window.collectionsPicker.getTitleImage(collectionId, "reverse");
+      if (obverse) URL.revokeObjectURL(obverse.url);
+      if (reverse) URL.revokeObjectURL(reverse.url);
+      return { definition, obverse: !!obverse, reverse: !!reverse };
+    }, id);
+    expect(restored.definition).toMatchObject({
+      variant: "MS-70",
+      imageShape: "slab",
+      about: "ZIP round trip",
+    });
+    expect(restored).toMatchObject({ obverse: true, reverse: true });
+  });
+
   test("ZIP backup round-trips the disabled list", async ({ page }) => {
     await seedAndGoto(page);
     await page.waitForFunction(() => typeof window.createBackupZip === "function");

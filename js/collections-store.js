@@ -563,7 +563,15 @@
     const year = slot.year == null ? "" : String(slot.year);
     if (!template) {
       const definition = (collection && collection.definition) || {};
-      return { name: slot.label || "", metal: definition.metal || "", year };
+      return {
+        name: slot.label || "",
+        metal: definition.metal || "",
+        type: definition.itemType || "Coin",
+        weight: definition.weight == null ? undefined : definition.weight,
+        weightUnit: definition.weightUnit || "oz",
+        purity: definition.purity,
+        year,
+      };
     }
     const defaults = template.itemDefaults || {};
     return {

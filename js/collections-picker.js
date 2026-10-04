@@ -464,7 +464,11 @@
    * @returns {string} patternImages record id
    */
   const imageId = (collectionId, slotId) =>
-    slotId ? `collection--${collectionId}--${slotId}` : `collection--${collectionId}`;
+    slotId === "title:reverse"
+      ? `collection--${collectionId}--@title-reverse`
+      : slotId
+        ? `collection--${collectionId}--${slotId}`
+        : `collection--${collectionId}`;
 
   /** Stable content token for equal-time artwork edits on separate devices. */
   const imageDigest = async (blob) => {
@@ -503,7 +507,8 @@
       const digest = await imageDigest(processed.blob);
       const id = imageId(collectionId, slotId);
       const collection = window.collectionsStore.getState().collections[collectionId];
-      const key = slotId == null ? "cover" : `slot:${slotId}`;
+      const key =
+        slotId == null ? "cover" : slotId === "title:reverse" ? "title:reverse" : `slot:${slotId}`;
       const prior = collection && collection.artwork[key];
       const priorTime = prior ? Date.parse(prior.modified) : 0;
       const cachedAt = Math.max(Date.now(), Number.isFinite(priorTime) ? priorTime + 1 : 0);
@@ -566,6 +571,23 @@
     }
   };
 
+  /** Returns the selected title side, falling back to the other side when needed. */
+  const getTitleImage = async (collectionId, side) => {
+    const requested = side === "reverse" ? "reverse" : "obverse";
+    const first = await getImageUrl(
+      collectionId,
+      requested === "reverse" ? "title:reverse" : undefined
+    );
+    if (first) return { url: first, side: requested };
+    const fallback = await getImageUrl(
+      collectionId,
+      requested === "reverse" ? undefined : "title:reverse"
+    );
+    return fallback
+      ? { url: fallback, side: requested === "reverse" ? "obverse" : "reverse" }
+      : null;
+  };
+
   /**
    * Deletes a stored collection image.
    * @param {string} collectionId - Collection id
@@ -590,7 +612,7 @@
   /** Removes IndexedDB blobs once a Collection tombstone has been saved. */
   const cleanupCollectionImages = async (collectionId, slotIds) => {
     if (!window.imageCache || !window.imageCache.isAvailable()) return;
-    const ids = [imageId(collectionId)].concat(
+    const ids = [imageId(collectionId), imageId(collectionId, "title:reverse")].concat(
       (slotIds || []).map((slotId) => imageId(collectionId, slotId))
     );
     await Promise.all(ids.map((id) => window.imageCache.deletePatternImage(id)));
@@ -661,6 +683,7 @@
     let previewUrl = null;
     let removed = false;
     let hadStoredImage = false;
+    let disposed = false;
     // The file input is a SIBLING of the button, never a child: a nested input's click would
     // bubble back into the button's handler, and swapping the preview would detach it.
     const input = el("input");
@@ -682,6 +705,10 @@
     remove.hidden = true;
     node.append(trigger, remove, input);
     const setPreview = (url) => {
+      if (disposed) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
       if (previewUrl && previewUrl !== url) URL.revokeObjectURL(previewUrl);
       previewUrl = url;
       trigger.replaceChildren();
@@ -696,6 +723,7 @@
       trigger.appendChild(img);
     };
     input.addEventListener("change", () => {
+      if (disposed) return;
       chosen = input.files && input.files[0] ? input.files[0] : null;
       removed = false;
       if (chosen) setPreview(URL.createObjectURL(chosen));
@@ -707,6 +735,11 @@
       setPreview: (url) => {
         if (url) hadStoredImage = true;
         setPreview(url);
+      },
+      dispose: () => {
+        disposed = true;
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
       },
     };
   };
@@ -801,6 +834,16 @@
     const blank = {
       name: "",
       metal: "Silver",
+      variant: "",
+      subtitle: "",
+      issuer: "",
+      weight: "",
+      weightUnit: "oz",
+      itemType: "Coin",
+      purity: 0.9999,
+      specs: {},
+      imageShape: "round",
+      about: "",
       description: "",
       side: "obverse",
       showItemImages: true,
@@ -813,6 +856,10 @@
     const context = contextFor(sourceId);
     if (!context.collection && !context.template) return blank;
     const definition = (context.collection && context.collection.definition) || {};
+    const itemType =
+      definition.itemType ||
+      (context.template && (context.template.itemType || context.template.type)) ||
+      "Coin";
     const slots = context.slots.map((slot) => ({
       // Ids carry over only when EDITING; a clone is a new collection and mints its own.
       id: request.editId ? slot.id : undefined,
@@ -824,7 +871,23 @@
     return {
       name: request.editId ? context.title : `${context.title} — my set`,
       metal: definition.metal || (context.template && context.template.metal) || "Silver",
-      description: definition.description || "",
+      variant: definition.variant || (context.template && context.template.variant) || "",
+      subtitle: definition.subtitle || (context.template && context.template.subtitle) || "",
+      issuer: definition.issuer || (context.template && context.template.issuer) || "",
+      weight: definition.weight ?? (context.template && context.template.weight) ?? "",
+      weightUnit:
+        definition.weightUnit || (context.template && context.template.weightUnit) || "oz",
+      itemType,
+      purity: definition.purity ?? (context.template && context.template.purity) ?? 0.9999,
+      specs: definition.specs || (context.template && context.template.specs) || {},
+      imageShape:
+        definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
+      about:
+        definition.about ||
+        definition.description ||
+        (context.template && context.template.about) ||
+        "",
+      description: definition.about || definition.description || "",
       side: definition.side === "reverse" ? "reverse" : "obverse",
       showItemImages: definition.showItemImages !== false,
       slots,
@@ -840,12 +903,15 @@
    * @param {HTMLElement[]} rows - Builder rows, in the same order as the saved definition
    * @returns {Promise<void>}
    */
-  const persistChosenImages = async (collectionId, cover, rows, removedSlotIds) => {
+  const persistChosenImages = async (collectionId, cover, reverseTitle, rows, removedSlotIds) => {
     const collection = window.collectionsStore.getState().collections[collectionId];
     const slots = (collection && collection.definition && collection.definition.slots) || [];
     const jobs = [];
     if (cover.getFile()) jobs.push(saveImage(collectionId, null, cover.getFile()));
     else if (cover.isRemoved()) jobs.push(deleteImage(collectionId, null));
+    if (reverseTitle.getFile())
+      jobs.push(saveImage(collectionId, "title:reverse", reverseTitle.getFile()));
+    else if (reverseTitle.isRemoved()) jobs.push(deleteImage(collectionId, "title:reverse"));
     rows.forEach((row, index) => {
       const file = row._chooser.getFile();
       if (file && slots[index]) jobs.push(saveImage(collectionId, slots[index].id, file));
@@ -869,6 +935,7 @@
   const openBuilder = (request) => {
     const store = window.collectionsStore;
     const seed = builderSeed(request || {});
+    const chooserDisposers = [];
     const shell = ensureModal(BUILDER_MODAL_ID, "collections-modal-content--builder");
     shell.title.textContent = seed.editId
       ? "Edit collection"
@@ -906,12 +973,154 @@
     description.placeholder = "Notes about this set (optional)";
     description.value = seed.description;
 
+    const variant = el("input");
+    variant.value = seed.variant;
+    const subtitle = el("input");
+    subtitle.value = seed.subtitle;
+    const issuer = el("input");
+    issuer.value = seed.issuer;
+    const weight = el("input");
+    weight.type = "number";
+    weight.min = "0";
+    weight.step = "any";
+    weight.value = seed.weight;
+    const weightUnit = el("select");
+    [
+      ["oz", "oz"],
+      ["g", "g"],
+      ["mg", "mg"],
+      ["kg", "kg"],
+      ["lb", "lb"],
+      ["avdp", "avoirdupois oz"],
+      ["gb", "goldback"],
+      ["sb", "silverback"],
+      ["cu", "constitutional"],
+    ].forEach(([value, label]) => {
+      const option = el("option", "", label);
+      option.value = value;
+      weightUnit.appendChild(option);
+    });
+    weightUnit.value = seed.weightUnit;
+    const itemType = el("select");
+    Array.from(document.getElementById("itemType")?.options || [])
+      .filter((option) => option.value)
+      .forEach((option) => itemType.appendChild(option.cloneNode(true)));
+    itemType.value = seed.itemType;
+    const puritySelect =
+      document.getElementById("itemPuritySelect")?.cloneNode(true) || el("select");
+    const purityCustom = el("input");
+    purityCustom.type = "number";
+    purityCustom.min = "0.001";
+    purityCustom.max = "1";
+    purityCustom.step = "any";
+    purityCustom.value = String(seed.purity ?? "");
+    const purityCustomField = field("Custom purity", purityCustom);
+    const updatePurity = () => {
+      purityCustomField.hidden = puritySelect.value !== "custom";
+    };
+    puritySelect.value = Array.from(puritySelect.options).some(
+      (option) => Number(option.value) === Number(seed.purity)
+    )
+      ? String(seed.purity)
+      : "custom";
+    if (puritySelect.value === "custom") purityCustom.value = String(seed.purity ?? "");
+    puritySelect.addEventListener("change", updatePurity);
+    updatePurity();
+    const purityCaption = el("span", "collections-builder-hint");
+    const updatePurityCaption = () => {
+      const value =
+        puritySelect.value === "custom" ? Number(purityCustom.value) : Number(puritySelect.value);
+      const metalName = metal.value.toLowerCase();
+      purityCaption.textContent = Number.isFinite(value)
+        ? `${value >= 1 ? "pure" : `.${String(value).split(".")[1] || ""}`} fine ${metalName}`
+        : "Fineness is shown from purity and metal.";
+    };
+    puritySelect.addEventListener("change", updatePurityCaption);
+    purityCustom.addEventListener("input", updatePurityCaption);
+    metal.addEventListener("change", updatePurityCaption);
+    updatePurityCaption();
+    const diameter = el("input");
+    diameter.type = "number";
+    diameter.min = "0";
+    diameter.step = "any";
+    diameter.value = seed.specs.diameterMm || "";
+    diameter.placeholder = "mm";
+    const grossWeightGrams = el("input");
+    grossWeightGrams.type = "number";
+    grossWeightGrams.min = "0";
+    grossWeightGrams.step = "any";
+    grossWeightGrams.value = seed.specs.grossWeightGrams || "";
+    const thickness = el("input");
+    thickness.type = "number";
+    thickness.min = "0";
+    thickness.step = "any";
+    thickness.value = seed.specs.thicknessMm || "";
+    thickness.placeholder = "mm";
+    const faceValue = el("input");
+    faceValue.value = seed.specs.faceValue || "";
+    const composition = el("input");
+    composition.value = seed.specs.composition || "";
+    const edge = el("input");
+    edge.value = seed.specs.edge || "";
+    const mintMark = el("input");
+    mintMark.value = seed.specs.mintMark || "";
+    const authorization = el("input");
+    authorization.value = seed.specs.authorization || "";
+    const dimensions = el("input");
+    dimensions.value = seed.specs.dimensions || "";
+    const imageShape = el("select");
+    [
+      ["round", "Round"],
+      ["bar", "Bar"],
+      ["note", "Note"],
+      ["slab", "Slab"],
+    ].forEach(([value, label]) => {
+      const option = el("option", "", label);
+      option.value = value;
+      imageShape.appendChild(option);
+    });
+    imageShape.value = seed.imageShape;
+    let imageShapeTouched =
+      seed.imageShape !==
+      (seed.itemType === "Bar" || seed.itemType === "Set"
+        ? "bar"
+        : ["Note", "Aurum", "Goldback", "Silverback"].includes(seed.itemType)
+          ? "note"
+          : "round");
+    imageShape.addEventListener("change", () => {
+      imageShapeTouched = true;
+    });
+    const suggestedShape = (type) =>
+      type === "Bar" || type === "Set"
+        ? "bar"
+        : ["Note", "Aurum", "Goldback", "Silverback"].includes(type)
+          ? "note"
+          : "round";
+    itemType.addEventListener("change", () => {
+      if (!imageShapeTouched) imageShape.value = suggestedShape(itemType.value);
+    });
+    const about = el("textarea");
+    about.value = seed.about;
+    about.rows = 3;
+
     const cover = imageChooser("Cover image");
+    const reverseTitle = imageChooser("Reverse title image");
+    chooserDisposers.push(cover.dispose, reverseTitle.dispose);
     // The media row groups the cover art with the display controls. Its two columns are
     // built to grow: a reverse cover joins the covers strip, a shape control joins the
     // display stack, without reflowing the rest of the form.
     const covers = el("div", "collections-builder-covers");
-    covers.appendChild(cover.node);
+    const obverseTitleWrap = el("div", "collections-builder-title-option");
+    obverseTitleWrap.append(
+      el("span", "collections-builder-caption", "Obverse title image"),
+      cover.node
+    );
+    const reverseTitleWrap = el("div", "collections-builder-title-option");
+    reverseTitleWrap.append(
+      el("span", "collections-builder-caption", "Reverse title image"),
+      reverseTitle.node
+    );
+    covers.append(obverseTitleWrap, reverseTitleWrap);
     const coverWrap = el("div", "collections-builder-cover");
     coverWrap.append(el("span", "collections-builder-caption", "Cover Image (Optional)"), covers);
     if (!imagesAvailable()) {
@@ -919,7 +1128,10 @@
         el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
       );
     }
-    if (seed.editId) getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
+    if (seed.editId) {
+      getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
+      getImageUrl(seed.editId, "title:reverse").then((url) => url && reverseTitle.setPreview(url));
+    }
     const display = el("div", "collections-builder-display");
     display.append(side.node, itemImages.node);
     const media = el("div", "collections-builder-media");
@@ -971,6 +1183,7 @@
     };
     const addRow = (slot, after) => {
       const row = builderRow(slot || {}, removeRow, moveRow, insertRow, refreshRowActions);
+      chooserDisposers.push(row._chooser.dispose);
       rowsHost.insertBefore(row, after ? after.nextElementSibling : null);
       refreshRowActions();
       if (seed.editId && slot && slot.id) {
@@ -981,11 +1194,43 @@
     seed.slots.forEach((slot) => addRow(slot));
 
     const form = el("div", "collections-builder-form");
+    const section = (title, ...children) => {
+      const group = el("section", "collections-builder-section");
+      group.append(el("h3", "", title));
+      const fields = el("div", "collections-builder-fields");
+      fields.append(...children);
+      group.appendChild(fields);
+      return group;
+    };
     form.append(
-      field("Collection name", name),
-      field("Metal", metal),
-      field("Description", description, "is-wide"),
-      media
+      section(
+        "Identity",
+        field("Collection name", name),
+        field("Variant", variant),
+        field("Subtitle", subtitle, "is-wide"),
+        field("Issuer", issuer),
+        field("Metal", metal),
+        field("Type", itemType)
+      ),
+      section(
+        "Specs",
+        field("Weight", weight),
+        field("Weight unit", weightUnit),
+        field("Purity", puritySelect),
+        purityCustomField,
+        purityCaption,
+        field("Diameter", diameter),
+        field("Gross weight (g)", grossWeightGrams),
+        field("Thickness", thickness),
+        field("Face value", faceValue),
+        field("Composition", composition),
+        field("Edge", edge),
+        field("Mint mark", mintMark),
+        field("Authorization", authorization),
+        field("Dimensions", dimensions)
+      ),
+      section("Appearance", field("Image shape", imageShape), media),
+      section("About", field("About this collection", about, "is-wide"))
     );
     const slotsHeading = el("div", "collections-pick-group", "Slots");
     const rowActions = el("div", "collections-builder-actions");
@@ -1010,7 +1255,32 @@
     );
     shell.body.replaceChildren(form, slotsHeading, rowsHost, rowActions, orderStatus);
 
+    const modalObserver = new MutationObserver(() => {
+      if (shell.modal.style.display === "none") {
+        chooserDisposers.forEach((dispose) => dispose());
+        modalObserver.disconnect();
+      }
+    });
+    modalObserver.observe(shell.modal, { attributes: true, attributeFilter: ["style"] });
+
     const submit = async () => {
+      const purityValue =
+        puritySelect.value === "custom" ? Number(purityCustom.value) : Number(puritySelect.value);
+      const weightValue = weight.value === "" ? null : Number(weight.value);
+      if (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1) {
+        purityCustom.setAttribute("aria-invalid", "true");
+        purityCustom.focus();
+        toast("Enter a purity greater than 0 and no greater than 1.");
+        return;
+      }
+      purityCustom.removeAttribute("aria-invalid");
+      if (weightValue != null && (!Number.isFinite(weightValue) || weightValue < 0)) {
+        weight.setAttribute("aria-invalid", "true");
+        weight.focus();
+        toast("Weight must be a non-negative number.");
+        return;
+      }
+      weight.removeAttribute("aria-invalid");
       const rows = Array.from(rowsHost.children).filter((row) =>
         row.querySelector(".collections-builder-label").value.trim()
       );
@@ -1037,9 +1307,29 @@
       const spec = {
         name: name.value,
         metal: metal.value,
+        variant: variant.value,
+        subtitle: subtitle.value,
+        issuer: issuer.value,
+        weight: weightValue,
+        weightUnit: weightUnit.value,
+        itemType: itemType.value,
+        purity: purityValue,
+        specs: {
+          diameterMm: diameter.value === "" ? "" : Number(diameter.value),
+          grossWeightGrams: grossWeightGrams.value === "" ? "" : Number(grossWeightGrams.value),
+          thicknessMm: thickness.value === "" ? "" : Number(thickness.value),
+          faceValue: faceValue.value,
+          composition: composition.value,
+          edge: edge.value,
+          mintMark: mintMark.value,
+          authorization: authorization.value,
+          dimensions: dimensions.value,
+        },
+        imageShape: imageShape.value,
+        about: about.value,
         side: side.getValue(),
         showItemImages: itemImages.getValue() === "show",
-        description: description.value,
+        description: about.value,
         clonedFrom: seed.clonedFrom,
         slots: rows.map((row) => ({
           id: row.dataset.slotId,
@@ -1069,7 +1359,7 @@
       const removedSlotIds = previousSlots.filter((id) => !currentSlots.has(id));
       closeModalById(BUILDER_MODAL_ID);
       toast(seed.editId ? "Collection updated." : "Collection created.");
-      await persistChosenImages(savedId, cover, rows, removedSlotIds);
+      await persistChosenImages(savedId, cover, reverseTitle, rows, removedSlotIds);
       if (
         !seed.editId &&
         window.collectionsUI &&
@@ -1099,6 +1389,7 @@
     openBuilder,
     parseYearRange,
     getImageUrl,
+    getTitleImage,
     saveImage,
     deleteImage,
     cleanupCollectionImages,

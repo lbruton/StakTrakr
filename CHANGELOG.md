@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.39] - 2026-10-04
+
+### Changed — STRK-395: Custom Collection definition and image shapes
+
+- **Collection metadata**: Custom Collections now carry template-aligned identity, specifications, image shape and About details through create, edit, clone, JSON backup and sync (STRK-395).
+- **Shape and display**: Round, Bar, Note and Slab frames follow Item type defaults, with user overrides retained and redundant Custom/Complete tags removed (STRK-395).
+
+### Changed — STRK-396: Paired title artwork and empty-Slot fallback
+
+- **Title images**: Add independently managed obverse and reverse title images, selected by the Collection side setting and preserved through ZIP backup and restore (STRK-396).
+- **Empty Slots**: Show the selected title artwork as a ghosted fallback after Slot artwork; keep linked Item photos first and templates unchanged (STRK-396).
+
+---
+
 ## [3.36.38] - 2026-10-04
 
 ### Changed — STRK-391: Mintage per Custom Collection Slot

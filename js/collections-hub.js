@@ -353,7 +353,7 @@
     };
 
     /**
-     * Name line for a hub entry: name plus its Custom / Complete tags.
+     * Name line for a hub entry.
      * @param {Object} entry - Entry view model
      * @param {string} className - Class for the wrapper
      * @returns {HTMLElement} The name line
@@ -361,8 +361,6 @@
     const buildEntryName = (entry, className) => {
       const line = el("span", className);
       line.appendChild(el("b", "", entry.name));
-      if (entry.isCustom) line.appendChild(buildTag("Custom"));
-      if (entry.status === STATUS_COMPLETE) line.appendChild(buildTag("Complete", "is-done"));
       return line;
     };
 
@@ -381,20 +379,30 @@
     };
 
     /**
-     * Medallion for a hub entry: the template's stock obverse (ghosted until started),
-     * or a monogram for a Custom Collection (its own cover art resolves afterwards).
+     * Medallion for a hub entry using the collection's selected image side.
      * @param {Object} entry - Entry view model
      * @param {string} [size] - Medallion size modifier
      * @returns {HTMLElement} The medallion
      */
-    const buildEntryCoin = (entry, size) =>
-      buildCoin({
-        src: entry.obverse,
+    const buildEntryCoin = (entry, size) => {
+      const definition = entry.isCustom ? entry.collection.definition : null;
+      const side = definition?.side === "reverse" ? "reverse" : "obverse";
+      const shownSide = entry[side] ? side : "obverse";
+      const src = entry[shownSide];
+      return buildCoin({
+        src,
         monogram: entry.monogram,
         ghost: entry.progress.owned === 0,
         size,
-        artwork: entry.isCustom ? { collectionId: entry.id } : null,
+        imageSide: side,
+        resolvedImageSide: shownSide,
+        stockImageSide: shownSide,
+        imageLabel: entry.name,
+        alt: `${shownSide} of ${entry.name}`,
+        imageShape: entry.imageShape,
+        artwork: entry.isCustom ? { collectionId: entry.id, titleFallback: true } : null,
       });
+    };
 
     /**
      * Applies one pointer or button move to the current draft and announces its position.
