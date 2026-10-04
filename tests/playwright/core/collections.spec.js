@@ -1144,6 +1144,57 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.locator("#itemMetal")).toHaveValue("Gold");
   });
 
+  test("the builder re-applies the denomination lock on save and drops a stale unit", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Type").selectOption("Goldback");
+    await builder.getByLabel("Type").selectOption("Coin");
+    await expect(builder.getByLabel("Weight unit")).toHaveValue("oz");
+
+    await builder.getByLabel("Type").selectOption("Goldback");
+    await builder.getByLabel("Metal").selectOption("Silver");
+    await builder.getByLabel("Weight unit").selectOption("oz");
+    await builder.getByLabel("Collection name").fill("Locked Goldbacks");
+    await builder.getByLabel("Slot label").first().fill("Utah");
+    await builder.getByRole("button", { name: "Create collection" }).click();
+    const definition = await page.evaluate(() => {
+      const state = window.collectionsStore.getState();
+      return Object.values(state.collections).find((c) => c.name === "Locked Goldbacks").definition;
+    });
+    expect(definition).toMatchObject({ itemType: "Goldback", metal: "Gold", weightUnit: "gb" });
+  });
+
+  test("Gross weight and Thickness render labelled in the album and hub", async ({ page }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Measured set",
+        metal: "Silver",
+        specs: { grossWeightGrams: 31.1, thicknessMm: 3 },
+        slots: [{ label: "One" }],
+      });
+      window.collectionsUI.openCollection(created.collection.id);
+      return created.collection.id;
+    });
+    await expect(panel(page).locator(".collections-spec")).toContainText("31.1 g");
+    await expect(panel(page).locator(".collections-spec")).toContainText("3 mm thick");
+    await panel(page).getByRole("button", { name: "Collections" }).click();
+    const sub = panel(page)
+      .locator(".collections-card")
+      .filter({ hasText: "Measured set" })
+      .locator(".collections-card-sub");
+    await expect(sub).toContainText("31.1 g");
+    await expect(sub).toContainText("3 mm thick");
+    expect(id).toBeTruthy();
+  });
+
   test("editing a Custom Collection saved without purity does not invent one", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {

@@ -64,6 +64,8 @@
         : "";
       const collectionDetails = entry.isCustom
         ? [
+            specs.grossWeightGrams ? `${specs.grossWeightGrams} g` : "",
+            specs.thicknessMm ? `${specs.thicknessMm} mm thick` : "",
             specs.edge ? text(specs.edge) : "",
             specs.mintMark ? `Mint mark: ${text(specs.mintMark)}` : "",
             specs.dimensions ? text(specs.dimensions) : "",

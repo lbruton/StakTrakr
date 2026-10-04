@@ -623,6 +623,9 @@
   // Builder
   // ---------------------------------------------------------------------------
 
+  /** Weight units that are Goldback / Silverback / Constitutional denominations. */
+  const DENOMINATION_UNITS = ["gb", "sb", "cu"];
+
   /**
    * A labelled form field wrapper.
    * @param {string} labelText - Label
@@ -1118,6 +1121,9 @@
         metal.value = lock.metal;
         weightUnit.value = lock.weightUnit;
         metal.dispatchEvent(new Event("change"));
+      } else if (DENOMINATION_UNITS.includes(weightUnit.value)) {
+        // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit.
+        weightUnit.value = "oz";
       }
     });
     const about = el("textarea");
@@ -1332,14 +1338,18 @@
         firstInvalid.focus();
         return;
       }
+      // Metal and unit stay editable after a type is chosen, so re-apply the lock here.
+      const lock = window.collectionsCore.typeLockFor(itemType.value);
+      const savedUnit =
+        lock || !DENOMINATION_UNITS.includes(weightUnit.value) ? weightUnit.value : "oz";
       const spec = {
         name: name.value,
-        metal: metal.value,
+        metal: lock ? lock.metal : metal.value,
         variant: variant.value,
         subtitle: subtitle.value,
         issuer: issuer.value,
         weight: weightValue,
-        weightUnit: weightUnit.value,
+        weightUnit: lock ? lock.weightUnit : savedUnit,
         itemType: itemType.value,
         purity: purityValue,
         specs: {

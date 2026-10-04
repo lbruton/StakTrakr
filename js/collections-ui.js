@@ -664,7 +664,18 @@
     const customPurity = Number.isFinite(Number(definition.purity))
       ? `${Number(definition.purity) >= 1 ? "pure" : `.${String(Number(definition.purity)).split(".")[1] || ""}`} fine ${text(definition.metal).toLowerCase()}`
       : "";
-    const customSpecs = Object.values(definition.specs || {})
+    const customSpecsSource = definition.specs || {};
+    const customSpecs = [
+      customSpecsSource.diameterMm ? `${customSpecsSource.diameterMm} mm` : "",
+      customSpecsSource.grossWeightGrams ? `${customSpecsSource.grossWeightGrams} g` : "",
+      customSpecsSource.thicknessMm ? `${customSpecsSource.thicknessMm} mm thick` : "",
+      text(customSpecsSource.faceValue),
+      text(customSpecsSource.composition),
+      text(customSpecsSource.dimensions),
+      text(customSpecsSource.edge),
+      customSpecsSource.mintMark ? `Mint mark: ${text(customSpecsSource.mintMark)}` : "",
+      text(customSpecsSource.authorization),
+    ]
       .filter(Boolean)
       .join(" · ");
     const hubParts = isCustom
