@@ -430,19 +430,35 @@ A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Seri
 | Template bundle  | `data/collections-bundle.js` (generated, committed)                        | `window.__COLLECTIONS_BUNDLE`. Exists because `file://` cannot `fetch()` local JSON — the same split as `spot-history-bundle.js`. Rebuild with `npm run build:collections`; a unit test fails on drift.                                       |
 | Bundle builder   | `devops/collections/build-collections-bundle.mjs`                          | JSON → bundle. `data/` is Prettier-ignored on purpose: the drift test is byte-exact.                                                                                                                                                          |
 
-**Custom Collection Slot order (STRK-389):** The editor in `js/collections-picker.js`
-uses per-row Move up/Move down and Add Slot after buttons. Moves retain each row node,
+**Custom Collection Slot order (STRK-389, STRK-421):** The editor in
+`js/collections-picker.js` renders each Slot as a card with a drag handle, one `+` button
+that inserts a blank Slot after it, and a remove button. Pointer dragging goes through
+`collectionsUI.wireReorderHandle`; the handle is also the keyboard path (Arrow Up / Arrow
+Down), because the builder has no move buttons. Moves retain each row node,
 Slot id and image chooser; Save writes DOM order to `definition.slots`, while Cancel
 or close discards pending changes. The core reserves carried Slot ids before assigning
 new ids, so duplicate-label insertions cannot steal links or artwork. Album and Ledger
 use the saved Collection order; Reverse is only a view reversal. Series Template Slots
 remain immutable.
 
+**Custom Collection builder form (STRK-421):** The New/Edit collection modal shares the
+Add Item form system instead of carrying its own control sizing: `.collections-builder-form`
+joins the `#inventoryForm` selector lists in `css/styles.css` (search "Glass-style form
+inputs") for inputs, selects, textareas, labels, `details.form-section` chrome and footer
+buttons. A new modal that should look like Add Item extends those lists; it does not copy
+sizes. `textarea` is part of the global themed form-control rule. Type, Metal, Collection
+name, the two title images and the Image shape radiogroup are always visible; every other
+field sits in a collapsed section that is rebuilt closed on each open. Builder sections
+carry `data-builder-section`, never `data-section`, which is the Add Item form's
+open-state persistence hook (`js/form-sections.js`). A Type that forces the metal disables
+Metal and Weight unit, and Save re-applies the lock. Approved mockup:
+`playground/STRK-421-collection-modal-variants.html` (variant C).
+
 **Custom Collection Slot Mintage (STRK-391):** Each Slot definition may carry a numeric `mintage`: a whole, non-negative safe integer. Unknown omits the field; zero is distinct. Create/Edit and Clone & customize preserve editable counts, while malformed imported counts are dropped. Album and Ledger reuse the existing formatted Mintage display. Counts belong to Slots and merge with the whole definition under `metaModified`, independently of Item links and artwork.
 
 **Hub sorting and My order (STRK-392, STRK-378):** `js/collections-sort.js` loads before the hub renderer and exposes pure typed sorting and ordering through `window.collectionsSort` (`orderEntries`, `sortHubEntries`, `moveVisibleId`). The sort and the user's **My order** persist device-locally in `collectionsHubPreferences` `{ order, sortKey, direction }`, read and written only through `collectionsUI.getHubPreferences` / `saveHubSort` / `saveHubOrder`. Sorts are applied on top of My order, so equal keys keep My order and unknown values stay last in either direction. Recently updated compares parsed timestamps, not text. A fresh profile's My order is chronological by run start; ids missing from the saved order are appended in that fallback order.
 
-Controls live in three places, and the hub toolbar has none. **Settings → Collections** (`js/collections-settings.js`) shows one My order list for templates and Custom Collections; drag handles and move arrows save immediately, and a hidden Collection keeps its position. **Ledger header** column buttons sort, and an icon-only Arrange Collections control (under the All filter only) opens a draft arrange mode with Cancel / Done. Done saves the draft as My order and makes it the active sort. At phone width the header row is hidden, so a compact Sort select (My order plus every column in both directions) and the Arrange control render in the toolbar instead. **Album** has no sort controls; it follows the active sort and shows a `Sorted by <Ledger column label>` hint with Show My order. Pointer reordering in the Ledger and in Settings shares `collectionsUI.wireReorderHandle`; drag handles are out of the tab order because the move buttons are the keyboard path. Slot order inside a Collection is untouched, and Slot Ledger header sorting remains deferred.
+Controls live in three places, and the hub toolbar has none. **Settings → Collections** (`js/collections-settings.js`) shows one My order list for templates and Custom Collections; drag handles and move arrows save immediately, and a hidden Collection keeps its position. **Ledger header** column buttons sort, and an icon-only Arrange Collections control (under the All filter only) opens a draft arrange mode with Cancel / Done. Done saves the draft as My order and makes it the active sort. At phone width the header row is hidden, so a compact Sort select (My order plus every column in both directions) and the Arrange control render in the toolbar instead. **Album** has no sort controls; it follows the active sort and shows a `Sorted by <Ledger column label>` hint with Show My order. Pointer reordering in the Ledger, in Settings and in the Custom Collection builder shares `collectionsUI.wireReorderHandle`; the Ledger and Settings drag handles are out of the tab order because the move buttons are the keyboard path there. Slot order inside a Collection is untouched, and Slot Ledger header sorting remains deferred.
 
 **State shape** (`collectionState`): `{ schema, collections: { id → { id, kind: "template"|"custom", templateSlug, name, createdAt, metaModified, lastModified, deletedAt, clonedFrom, definition, slots: { slotId → { primary, spares[], modified } }, artwork: { cover|title:reverse|slot:<slotId> → { present, modified, digest } } } } }`. A Custom Collection definition whitelists `metal`, `variant`, `subtitle`, `issuer`, `weight`, `weightUnit`, `itemType`, numeric `purity`, known `specs`, `imageShape`, `about`, `side`, `showItemImages`, and Slots. Legacy `description` is normalized into `about`; unrecognized fields and invalid values are discarded. Type-derived image shapes default Bar/Set to Bar, Note/Aurum/Goldback/Silverback to Note, and other Item Types to Round; Slab is an image shape for graded coins, not an Item Type. `showItemImages` is sparse (STRK-401): only an explicit `false` is stored and any other value is dropped. Every runtime-string-keyed map is null-prototype. Artwork stamps are optional for older states; removals are tombstones and win timestamp ties. Whole-definition sync continues to select by `metaModified`.
 
