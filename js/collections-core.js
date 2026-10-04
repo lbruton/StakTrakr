@@ -214,12 +214,56 @@
   const mintageField = (value) =>
     Number.isSafeInteger(value) && value >= 0 ? { mintage: value } : {};
 
+  const IMAGE_SHAPES = ["round", "bar", "note", "slab"];
+  const ITEM_TYPES = [
+    "Coin",
+    "Bar",
+    "Round",
+    "Note",
+    "Aurum",
+    "Goldback",
+    "Silverback",
+    "Constitutional",
+    "Set",
+    "Other",
+  ];
+  const WEIGHT_UNITS = ["oz", "g", "mg", "kg", "lb", "avdp", "gb", "sb", "cu"];
+  const defaultImageShapeForType = (type) => {
+    if (type === "Bar" || type === "Set") return "bar";
+    if (["Note", "Aurum", "Goldback", "Silverback"].includes(type)) return "note";
+    return "round";
+  };
   /**
-   * Normalizes a custom collection's definition (metal, description, side, item-image
-   * setting, slot list).
+   * The metal and weight unit the Add Item form forces for a denomination Item type.
+   * @param {string} type - Item type
+   * @returns {{metal: string, weightUnit: string}|null} The forced pair, or null when unconstrained
+   */
+  const typeLockFor = (type) => {
+    if (type === "Goldback") return { metal: "Gold", weightUnit: "gb" };
+    if (type === "Silverback") return { metal: "Silver", weightUnit: "sb" };
+    if (type === "Constitutional") return { metal: "Silver", weightUnit: "cu" };
+    return null;
+  };
+  const normalizeSpecs = (raw) => {
+    const source = isPlainObject(raw) ? raw : {};
+    const specs = Object.create(null);
+    ["diameterMm", "thicknessMm", "grossWeightGrams"].forEach((key) => {
+      const value = source[key];
+      if (value != null && value !== "" && Number.isFinite(Number(value)) && Number(value) >= 0)
+        specs[key] = Number(value);
+    });
+    ["faceValue", "composition", "dimensions", "edge", "mintMark", "authorization"].forEach(
+      (key) => {
+        if (source[key] != null && text(source[key])) specs[key] = text(source[key]);
+      }
+    );
+    return specs;
+  };
+
+  /**
+   * Normalizes a custom collection definition and drops fields outside its schema.
    * @param {*} raw - Persisted definition
-   * @returns {{metal: string, description: string, side: string, showItemImages?: false,
-   *   slots: Object[]}} Clean definition
+   * @returns {Object} Clean definition
    */
   const normalizeDefinition = (raw) => {
     const source = isPlainObject(raw) ? raw : {};
@@ -236,9 +280,29 @@
         ...mintageField(slot.mintage),
       });
     });
+    const legacyAbout = source.about == null ? source.description : source.about;
+    const type = ITEM_TYPES.includes(source.itemType) ? source.itemType : "Coin";
+    const purity = Number(source.purity);
     return {
       metal: text(source.metal),
-      description: text(source.description),
+      variant: text(source.variant),
+      subtitle: text(source.subtitle),
+      issuer: text(source.issuer),
+      weight:
+        source.weight != null &&
+        source.weight !== "" &&
+        Number.isFinite(Number(source.weight)) &&
+        Number(source.weight) >= 0
+          ? Number(source.weight)
+          : null,
+      weightUnit: WEIGHT_UNITS.includes(source.weightUnit) ? source.weightUnit : "oz",
+      itemType: type,
+      ...(Number.isFinite(purity) && purity > 0 && purity <= 1 ? { purity } : {}),
+      specs: normalizeSpecs(source.specs),
+      imageShape: IMAGE_SHAPES.includes(source.imageShape)
+        ? source.imageShape
+        : defaultImageShapeForType(type),
+      about: text(legacyAbout),
       side: source.side === "reverse" ? "reverse" : "obverse",
       ...showItemImagesField(source.showItemImages),
       slots,
@@ -297,7 +361,8 @@
   const setArtwork = (state, collectionId, slotId, present, opts) => {
     const collection = liveCollection(state, collectionId);
     if (!collection) return { ok: false, changed: false, reason: "no-collection" };
-    const key = slotId == null ? "cover" : `slot:${slotId}`;
+    const key =
+      slotId == null ? "cover" : slotId === "title:reverse" ? "title:reverse" : `slot:${slotId}`;
     const previous = collection.artwork[key];
     const modified = nextStamp(previous ? previous.modified : "", nowIso(opts));
     collection.artwork[key] = {
@@ -317,7 +382,13 @@
       if (ruleId !== prefix && !ruleId.startsWith(`${prefix}--`)) continue;
       const collection = state.collections[collectionId];
       if (collection.deletedAt) return false;
-      const key = ruleId === prefix ? "cover" : `slot:${ruleId.slice(prefix.length + 2)}`;
+      const suffix = ruleId.slice(prefix.length + 2);
+      const key =
+        ruleId === prefix
+          ? "cover"
+          : suffix === "@title-reverse"
+            ? "title:reverse"
+            : `slot:${suffix}`;
       const entry = collection.artwork[key];
       if (!entry) return true; // pre-stamp beta images
       if (!entry.present) return false;
@@ -519,7 +590,29 @@
       clonedFrom: isId(spec.clonedFrom) ? spec.clonedFrom : null,
       definition: {
         metal: text(spec.metal),
-        description: text(spec.description),
+        variant: text(spec.variant),
+        subtitle: text(spec.subtitle),
+        issuer: text(spec.issuer),
+        weight:
+          spec.weight != null &&
+          spec.weight !== "" &&
+          Number.isFinite(Number(spec.weight)) &&
+          Number(spec.weight) >= 0
+            ? Number(spec.weight)
+            : null,
+        weightUnit: WEIGHT_UNITS.includes(spec.weightUnit) ? spec.weightUnit : "oz",
+        itemType: ITEM_TYPES.includes(spec.itemType) ? spec.itemType : "Coin",
+        ...(Number.isFinite(Number(spec.purity)) &&
+        spec.purity !== "" &&
+        Number(spec.purity) > 0 &&
+        Number(spec.purity) <= 1
+          ? { purity: Number(spec.purity) }
+          : {}),
+        specs: normalizeSpecs(spec.specs),
+        imageShape: IMAGE_SHAPES.includes(spec.imageShape)
+          ? spec.imageShape
+          : defaultImageShapeForType(spec.itemType),
+        about: text(spec.about == null ? spec.description : spec.about),
         side: spec.side === "reverse" ? "reverse" : "obverse",
         ...showItemImagesField(spec.showItemImages),
         slots: buildDefinitionSlots(spec.slots, new Set()),
@@ -547,7 +640,15 @@
 
     const previous = collection.definition || {
       metal: "",
-      description: "",
+      about: "",
+      variant: "",
+      subtitle: "",
+      issuer: "",
+      weight: null,
+      weightUnit: "oz",
+      itemType: "Coin",
+      specs: Object.create(null),
+      imageShape: "round",
       side: "obverse",
       slots: [],
     };
@@ -569,7 +670,55 @@
     collection.name = text(spec.name);
     collection.definition = {
       metal: spec.metal == null ? previous.metal : text(spec.metal),
-      description: spec.description == null ? previous.description : text(spec.description),
+      variant: spec.variant == null ? previous.variant || "" : text(spec.variant),
+      subtitle: spec.subtitle == null ? previous.subtitle || "" : text(spec.subtitle),
+      issuer: spec.issuer == null ? previous.issuer || "" : text(spec.issuer),
+      // undefined keeps the stored value; null (a cleared field) removes it.
+      weight:
+        spec.weight === undefined
+          ? (previous.weight ?? null)
+          : spec.weight !== null &&
+              spec.weight !== "" &&
+              Number.isFinite(Number(spec.weight)) &&
+              Number(spec.weight) >= 0
+            ? Number(spec.weight)
+            : null,
+      weightUnit:
+        spec.weightUnit == null
+          ? previous.weightUnit || "oz"
+          : WEIGHT_UNITS.includes(spec.weightUnit)
+            ? spec.weightUnit
+            : "oz",
+      itemType:
+        spec.itemType == null
+          ? previous.itemType || "Coin"
+          : ITEM_TYPES.includes(spec.itemType)
+            ? spec.itemType
+            : "Coin",
+      ...(spec.purity === undefined
+        ? Number.isFinite(Number(previous.purity))
+          ? { purity: Number(previous.purity) }
+          : {}
+        : spec.purity !== null &&
+            spec.purity !== "" &&
+            Number.isFinite(Number(spec.purity)) &&
+            Number(spec.purity) > 0 &&
+            Number(spec.purity) <= 1
+          ? { purity: Number(spec.purity) }
+          : {}),
+      specs: spec.specs == null ? normalizeSpecs(previous.specs) : normalizeSpecs(spec.specs),
+      imageShape: IMAGE_SHAPES.includes(spec.imageShape)
+        ? spec.imageShape
+        : spec.imageShape == null
+          ? spec.itemType != null &&
+            previous.imageShape === defaultImageShapeForType(previous.itemType)
+            ? defaultImageShapeForType(spec.itemType)
+            : previous.imageShape || defaultImageShapeForType(spec.itemType || previous.itemType)
+          : defaultImageShapeForType(spec.itemType || previous.itemType),
+      about:
+        spec.about == null && spec.description == null
+          ? previous.about || previous.description || ""
+          : text(spec.about == null ? spec.description : spec.about),
       side:
         spec.side == null
           ? previous.side || "obverse"
@@ -1093,6 +1242,8 @@
     removeCollection,
     setArtwork,
     isCurrentArtwork,
+    defaultImageShapeForType,
+    typeLockFor,
     listCollections,
     slugifySlotId,
     createCustomCollection,

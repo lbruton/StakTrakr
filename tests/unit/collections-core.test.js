@@ -161,16 +161,28 @@ describe("state shape", () => {
 });
 
 describe("Custom Collection artwork convergence", () => {
-  test("cover and Slot stamps survive normalization and merge in either device order", () => {
+  test("paired title and Slot stamps survive normalization and merge in either device order", () => {
     const left = seeded();
     const right = seeded();
     core.setArtwork(left, "ase-type2", null, true, { now: T1 });
     core.setArtwork(right, "ase-type2", "2024", true, { now: T2 });
+    core.setArtwork(right, "ase-type2", "title:reverse", true, { now: T2 });
+    core.setArtwork(right, "ase-type2", "title-reverse", false, { now: T1 });
 
     const merged = core.mergeStates(left, right);
     assert.deepEqual(plain(merged), plain(core.mergeStates(right, left)));
     assert.equal(merged.collections["ase-type2"].artwork.cover.present, true);
     assert.equal(merged.collections["ase-type2"].artwork["slot:2024"].present, true);
+    assert.equal(merged.collections["ase-type2"].artwork["title:reverse"].present, true);
+    assert.equal(merged.collections["ase-type2"].artwork["slot:title-reverse"].present, false);
+    assert.equal(
+      core.isCurrentArtwork(merged, "collection--ase-type2--title-reverse", Date.parse(T2)),
+      false
+    );
+    assert.equal(
+      core.isCurrentArtwork(merged, "collection--ase-type2--@title-reverse", Date.parse(T2)),
+      true
+    );
     assert.equal(Object.getPrototypeOf(merged.collections["ase-type2"].artwork), null);
   });
 
@@ -650,7 +662,15 @@ describe("custom collections", () => {
     assert.equal(c.name, "Morgan Dollars — Carson City");
     assert.deepEqual(plain(c.definition), {
       metal: "Silver",
-      description: "GSA hoard set",
+      variant: "",
+      subtitle: "",
+      issuer: "",
+      weight: null,
+      weightUnit: "oz",
+      itemType: "Coin",
+      specs: {},
+      imageShape: "round",
+      about: "GSA hoard set",
       side: "obverse",
       slots: [
         { id: "1881-cc", label: "1881-CC", year: "1881", note: "" },
@@ -696,10 +716,164 @@ describe("custom collections", () => {
     });
     assert.deepEqual(plain(restored.collections["custom-2"].definition), {
       metal: "",
-      description: "",
+      variant: "",
+      subtitle: "",
+      issuer: "",
+      weight: null,
+      weightUnit: "oz",
+      itemType: "Coin",
+      specs: {},
+      imageShape: "round",
+      about: "",
       side: "obverse",
       slots: [{ id: "slot", label: "Slot", year: "", note: "" }],
     });
+  });
+
+  test("an edit keeps weight and purity when omitted and clears them when sent as null", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "custom-1",
+      name: "Weighed set",
+      weight: 2,
+      weightUnit: "oz",
+      purity: 0.999,
+      slots: [{ label: "Alpha" }],
+      now: T1,
+    });
+    const slots = [{ id: "alpha", label: "Alpha" }];
+
+    core.updateCustomDefinition(state, "custom-1", { name: "Weighed set", slots, now: T2 });
+    assert.equal(state.collections["custom-1"].definition.weight, 2);
+    assert.equal(state.collections["custom-1"].definition.purity, 0.999);
+
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Weighed set",
+      weight: null,
+      purity: null,
+      slots,
+      now: "2026-03-03T00:00:00.000Z",
+    });
+    assert.equal(state.collections["custom-1"].definition.weight, null);
+    assert.equal(Object.hasOwn(state.collections["custom-1"].definition, "purity"), false);
+  });
+
+  test("typeLockFor names the metal and weight unit an Item type forces", () => {
+    assert.deepEqual(plain(core.typeLockFor("Goldback")), { metal: "Gold", weightUnit: "gb" });
+    assert.deepEqual(plain(core.typeLockFor("Silverback")), { metal: "Silver", weightUnit: "sb" });
+    assert.deepEqual(plain(core.typeLockFor("Constitutional")), {
+      metal: "Silver",
+      weightUnit: "cu",
+    });
+    assert.equal(core.typeLockFor("Coin"), null);
+  });
+
+  test("migrates legacy description, rejects unknown metadata, and normalizes shape defaults", () => {
+    const restored = core.normalizeState({
+      version: 1,
+      collections: {
+        "custom-1": {
+          id: "custom-1",
+          kind: "custom",
+          createdAt: T1,
+          metaModified: T1,
+          lastModified: T1,
+          definition: {
+            metal: "Gold",
+            description: "Legacy about",
+            itemType: "Bar",
+            weight: "10",
+            purity: "0.999",
+            specs: { diameterMm: "12", unknownSpec: "drop" },
+            unknown: true,
+            slots: [{ id: "slot", label: "Bar" }],
+          },
+          slots: {},
+          artwork: {},
+        },
+      },
+    });
+    const definition = restored.collections["custom-1"].definition;
+    assert.equal(definition.about, "Legacy about");
+    assert.equal("description" in definition, false);
+    assert.equal(definition.imageShape, "bar");
+    assert.equal(definition.itemType, "Bar");
+    assert.equal(definition.weight, 10);
+    assert.equal(definition.purity, 0.999);
+    assert.deepEqual(plain(definition.specs), { diameterMm: 12 });
+    assert.equal("unknown" in definition, false);
+  });
+
+  test("metadata round trips through edits and derives type defaults unless shape was overridden", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "custom-1",
+      name: "Slabbed coins",
+      itemType: "Coin",
+      imageShape: "slab",
+      weight: 1,
+      weightUnit: "oz",
+      purity: 0.999,
+      about: "About text",
+      specs: { faceValue: "$1", unknown: "drop" },
+      slots: [{ label: "One" }],
+      now: T1,
+    });
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Slabbed coins",
+      itemType: "Bar",
+      slots: [{ id: "one", label: "One" }],
+      now: T2,
+    });
+    const definition = state.collections["custom-1"].definition;
+    assert.equal(definition.imageShape, "slab");
+    assert.equal(definition.about, "About text");
+    assert.deepEqual(plain(definition.specs), { faceValue: "$1" });
+
+    core.createCustomCollection(state, {
+      id: "custom-2",
+      name: "Bars",
+      itemType: "Coin",
+      slots: [{ label: "One" }],
+      now: T1,
+    });
+    core.updateCustomDefinition(state, "custom-2", {
+      name: "Bars",
+      itemType: "Bar",
+      slots: [{ id: "one", label: "One" }],
+      now: T2,
+    });
+    assert.equal(state.collections["custom-2"].definition.imageShape, "bar");
+  });
+
+  test("newer whole-definition metadata converges with the existing metaModified rule", () => {
+    const base = core.createEmptyState();
+    core.createCustomCollection(base, {
+      id: "custom-1",
+      name: "Set",
+      slots: [{ label: "One" }],
+      now: T1,
+    });
+    const left = core.normalizeState(plain(base));
+    const right = core.normalizeState(plain(base));
+    core.updateCustomDefinition(left, "custom-1", {
+      name: "Set",
+      variant: "Proof",
+      about: "Left",
+      slots: [{ id: "one", label: "One" }],
+      now: T2,
+    });
+    core.updateCustomDefinition(right, "custom-1", {
+      name: "Set",
+      variant: "Mint",
+      about: "Right",
+      slots: [{ id: "one", label: "One" }],
+      now: T3,
+    });
+    const merged = core.mergeStates(left, right);
+    assert.equal(merged.collections["custom-1"].definition.variant, "Mint");
+    assert.equal(merged.collections["custom-1"].definition.about, "Right");
+    assert.deepEqual(plain(merged), plain(core.mergeStates(right, left)));
   });
 
   // STRK-401: "Show item images" is stored sparsely — only an explicit false is persisted;

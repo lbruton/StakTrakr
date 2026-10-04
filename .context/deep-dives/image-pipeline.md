@@ -174,6 +174,16 @@ Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is han
 | `imageCache.importUserImageRecord(record)`                         | Restore one user image record from ZIP.                                                    |
 | `imageCache.importPatternImageRecord(record)`                      | Restore one pattern image record from ZIP.                                                 |
 
+### Custom Collection title artwork
+
+Custom Collection art uses the existing `patternImages` store and image-vault / ZIP paths.
+The legacy obverse title image remains `collection--<id>`; reverse title art uses the
+reserved `collection--<id>--@title-reverse` id so it cannot collide with a Slot id; Slot
+art remains `collection--<id>--<slotId>`. The
+Collection artwork stamps use `cover`, `title:reverse`, and `slot:<slotId>` keys. Image
+lookups validate those stamps after sync merge, and collection removal deletes both title
+records and all current Slot records. Renderers own and revoke returned `blob:` URLs.
+
 ### Internal resize/compress path
 
 When storing a blob (not a URL), `_resizeAndCompress(source)` delegates to `imageProcessor.processFile()` when available. If `ImageProcessor` throws (e.g. WebP encoding failure), it falls back to an inline Canvas JPEG resize using the same `_maxDim` and `_quality` constants.

@@ -171,8 +171,12 @@ A Series Template whose Slots are the successive issue years of one coin series 
 _Avoid_: year set, series run, date set
 
 **Custom Collection**:
-A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (metal, description, coin side, Item images choice, Slot list). Its coin-side declaration selects the linked Item image side and labels single-image Slot artwork; it defaults to obverse. Its Item images choice (Show by default) can hide linked Item photos so filled Slots display the collection's artwork instead.
+A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (identity, specifications, Image Shape, About, coin side, Item images choice, Slot list). Its coin-side declaration selects title art and linked Item image side; it defaults to obverse. Its Item images choice (Show by default) can hide linked Item photos so filled Slots display the collection's artwork instead. Older Description text is retained in About.
 _Avoid_: user collection, custom list, custom set
+
+**Image Shape**:
+The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin.
+_Avoid_: graded type, slabbed type
 
 **Tombstone**:
 A Slot link emptied to `{ primary: null }`, or a Collection stamped `deletedAt`, kept in storage instead of being deleted. A missing key cannot say "unlinked", so without Tombstones an unlink could never win a cross-device merge against an older link.

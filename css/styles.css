@@ -1679,8 +1679,11 @@ form {
   gap: var(--spacing);
 }
 
+/* textarea is part of the shared themed control rules (STRK-421): left out, it kept the
+   browser's light background and dark text in the dark, slate and sepia themes. */
 input,
 select,
+textarea,
 button {
   font-family: inherit;
   font-size: var(--font-size-lg);
@@ -1688,7 +1691,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid var(--border);
@@ -1698,7 +1702,8 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
@@ -10837,9 +10842,14 @@ th {
   color: var(--text-primary);
 }
 
-/* --- Glass-style form inputs -------------------------------------------- */
+/* --- Glass-style form inputs --------------------------------------------
+   Shared by the Add Item form and the Custom Collection builder (STRK-421): the builder
+   joins these selector lists instead of carrying its own control sizing. */
 #inventoryForm input,
-#inventoryForm select {
+#inventoryForm select,
+.collections-builder-form input:not([type="radio"]):not([type="file"]),
+.collections-builder-form select,
+.collections-builder-form textarea {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
   border: 1.5px solid var(--glass-input-border, var(--border));
   border-radius: var(--radius);
@@ -10855,28 +10865,42 @@ th {
     box-shadow 0.2s ease;
 }
 
+/* A textarea keeps the shared surface but grows with its rows. */
+.collections-builder-form textarea {
+  height: auto;
+  min-height: 4.5rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+
 /* Solid backgrounds for OS-native <option> popups (STAK-353) */
-#inventoryForm select option {
+#inventoryForm select option,
+.collections-builder-form select option {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
 #inventoryForm input:focus,
-#inventoryForm select:focus {
+#inventoryForm select:focus,
+.collections-builder-form input:not([type="radio"]):not([type="file"]):focus,
+.collections-builder-form select:focus,
+.collections-builder-form textarea:focus {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.05));
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 /* Dark theme glass tokens */
-:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm {
+:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm,
+:is([data-theme="dark"], [data-theme="slate"]) .collections-modal-content--builder {
   --glass-input-bg: rgba(255, 255, 255, 0.05);
   --glass-input-border: rgba(255, 255, 255, 0.1);
   --glass-input-focus-bg: rgba(255, 255, 255, 0.08);
 }
 
 /* Sepia theme glass tokens */
-[data-theme="sepia"] #inventoryForm {
+[data-theme="sepia"] #inventoryForm,
+[data-theme="sepia"] .collections-modal-content--builder {
   --glass-input-bg: rgba(139, 69, 19, 0.04);
   --glass-input-border: rgba(139, 69, 19, 0.15);
   --glass-input-focus-bg: rgba(139, 69, 19, 0.07);
@@ -10884,7 +10908,9 @@ th {
 
 /* --- Uppercase micro-labels --------------------------------------------- */
 #inventoryForm label,
-#inventoryForm .form-section-label {
+#inventoryForm .form-section-label,
+.collections-builder-form label,
+.collections-builder-form .collections-builder-caption {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -10902,12 +10928,14 @@ th {
 }
 
 /* --- Refined field group spacing ---------------------------------------- */
-#inventoryForm .grid {
+#inventoryForm .grid,
+.collections-builder-form .grid {
   gap: var(--spacing-md);
   margin-bottom: 0.4rem;
 }
 
-#inventoryForm {
+#inventoryForm,
+.collections-builder-form {
   --inventory-control-height: 34px;
   gap: var(--spacing-md);
 }
@@ -10940,14 +10968,16 @@ th {
 }
 
 /* --- Collapsible sections — refined for prototype look ------------------ */
-#inventoryForm .form-section {
+#inventoryForm .form-section,
+.collections-builder-form .form-section {
   border: 1px solid var(--glass-input-border, var(--border));
   border-radius: var(--radius);
   margin-bottom: 0.5rem;
   background: transparent;
 }
 
-#inventoryForm .form-section-header {
+#inventoryForm .form-section-header,
+.collections-builder-form .form-section-header {
   background: transparent;
   padding: 0.55rem 0.7rem;
   font-size: var(--font-size-sm);
@@ -10955,7 +10985,8 @@ th {
   letter-spacing: 0.03em;
 }
 
-#inventoryForm .form-section-icon {
+#inventoryForm .form-section-icon,
+.collections-builder-form .form-section-icon {
   color: var(--primary);
 }
 
@@ -10977,7 +11008,9 @@ th {
 }
 
 #inventoryForm .item-modal-actions-left .btn,
-#inventoryForm .item-modal-actions-right .btn {
+#inventoryForm .item-modal-actions-right .btn,
+.collections-builder-footer .btn,
+.collections-builder-actions .btn {
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.75rem;
   font-size: var(--font-size-sm);
@@ -10986,7 +11019,8 @@ th {
 }
 
 #inventoryForm .item-modal-actions-left .btn.secondary,
-#inventoryForm .item-modal-actions-right .btn.secondary {
+#inventoryForm .item-modal-actions-right .btn.secondary,
+.collections-builder-actions .btn.secondary {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
   border: 1px solid var(--glass-input-border, var(--border));
   color: var(--text-primary);
@@ -10996,20 +11030,24 @@ th {
 }
 
 #inventoryForm .item-modal-actions-left .btn.secondary:hover,
-#inventoryForm .item-modal-actions-right .btn.secondary:hover {
+#inventoryForm .item-modal-actions-right .btn.secondary:hover,
+.collections-builder-actions .btn.secondary:hover,
+.collections-builder-footer .collections-builder-cancel:hover {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
   border-color: var(--primary);
 }
 
 /* Cancel button */
-#inventoryForm #cancelItem {
+#inventoryForm #cancelItem,
+.collections-builder-footer .collections-builder-cancel {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
   border: 1px solid var(--glass-input-border, var(--border));
   color: var(--text-secondary);
 }
 
 /* Submit button — premium gold/accent treatment */
-#inventoryForm #itemModalSubmit.premium {
+#inventoryForm #itemModalSubmit.premium,
+.collections-builder-footer .btn.premium {
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.85rem;
   min-height: auto;
@@ -14529,13 +14567,18 @@ th {
   /* Touch-sized inputs: 44px min height (Apple HIG) */
   #itemModal input,
   #itemModal select,
-  #itemModal textarea {
+  #itemModal textarea,
+  .collections-builder-form input:not([type="radio"]):not([type="file"]),
+  .collections-builder-form select,
+  .collections-builder-form textarea {
     min-height: 44px;
     font-size: var(--font-size-lg);
     padding: 0.45rem 0.65rem;
   }
 
-  #itemModal .btn {
+  #itemModal .btn,
+  .collections-builder-footer .btn,
+  .collections-builder-actions .btn {
     min-height: 44px;
     font-size: var(--font-size-md);
   }
@@ -14554,7 +14597,8 @@ th {
   .item-modal-actions-right {
     width: 100%;
   }
-  .item-modal-actions-right .btn {
+  .item-modal-actions-right .btn,
+  .collections-builder-footer .btn {
     flex: 1;
   }
 
@@ -17939,8 +17983,34 @@ input[type="number"] {
 .collections-coin img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transform: scale(1.035);
+  object-fit: contain;
+  transform: none;
+}
+
+.collections-coin--shape-round {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.collections-coin--shape-bar {
+  aspect-ratio: 1.6;
+  border-radius: var(--radius);
+}
+
+.collections-coin--shape-note {
+  aspect-ratio: 2.05;
+  border-radius: var(--radius-sm);
+}
+
+.collections-coin--shape-slab {
+  aspect-ratio: 0.68;
+  border-radius: 10px;
+  border: 4px solid var(--border-hover);
+  background: var(--bg-secondary);
+}
+
+.collections-coin--shape-slab img {
+  padding: 3px;
 }
 
 .collections-coin--mono {
@@ -19205,10 +19275,6 @@ input[type="number"] {
   max-width: 640px;
 }
 
-.collections-modal .collections-modal-content--builder {
-  max-width: 860px;
-}
-
 .collections-modal-header {
   position: relative;
   padding: var(--spacing-lg) var(--spacing-xl) var(--spacing);
@@ -19359,50 +19425,139 @@ input[type="number"] {
   color: var(--text-muted);
 }
 
+/* Custom Collection builder (STRK-421). Control sizing, labels, sections and footer
+   buttons come from the shared Add Item rules (search "Glass-style form inputs"); this
+   block is layout only. Approved mockup: playground/STRK-421-collection-modal-variants.html,
+   variant C. */
+.collections-modal .collections-modal-content--builder {
+  width: 90%;
+  max-width: 700px;
+}
+
+.collections-modal-content--builder .collections-modal-header {
+  padding: var(--spacing) calc(var(--spacing-xl) + 32px);
+}
+
+.collections-modal-content--builder .collections-modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.collections-modal-content--builder .collections-modal-body {
+  flex: 1;
+  padding: var(--spacing);
+}
+
+.collections-modal-footer.collections-builder-footer {
+  gap: 0.4rem;
+  padding: 0.75rem var(--spacing) 0.65rem;
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+}
+
+.collections-builder-footer .collections-modal-footer-actions {
+  gap: 0.4rem;
+}
+
 .collections-builder-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing) var(--spacing-lg);
 }
 
-.collections-field.is-wide {
-  grid-column: 1 / -1;
-}
-
-.collections-field input,
-.collections-field select {
-  width: 100%;
-}
-
-/* Media row: cover art on the left, display controls on the right. Sized to grow —
-   a reverse cover joins .collections-builder-covers, a shape control joins
-   .collections-builder-display — without reflowing the rest of the form. */
-.collections-builder-media {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing) var(--spacing-lg);
-  align-items: start;
-}
-
-.collections-builder-cover,
-.collections-builder-display {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
+.collections-builder-form > * {
   min-width: 0;
 }
 
+.collections-builder-grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.collections-builder-form .collections-builder-caption {
+  display: block;
+}
+
+.collections-builder-error {
+  margin-top: 0.2rem;
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.collections-builder-error[hidden] {
+  display: none;
+}
+
+.collections-builder-form input[aria-invalid="true"]:not([type="radio"]):not([type="file"]) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+.collections-builder-form input:disabled,
+.collections-builder-form select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.collections-builder-form .lock-pill[hidden] {
+  display: none;
+}
+
+/* Hero: the two title images, large and centred, with the Image shape picker beneath.
+   The images take the chosen outline, so the picker previews its own effect. */
+.collections-builder-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing);
+  padding: var(--spacing-sm) 0 var(--spacing);
+  text-align: center;
+}
+
 .collections-builder-covers {
+  --collections-cover-size: 128px;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing);
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--spacing-xl);
+}
+
+.collections-builder-covers[data-shape="bar"] {
+  --collections-cover-size: 80px;
+}
+
+.collections-builder-covers[data-shape="note"] {
+  --collections-cover-size: 160px;
+}
+
+.collections-builder-covers[data-shape="slab"] {
+  --collections-cover-size: 100px;
+}
+
+.collections-builder-title-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .collections-builder-covers .collections-image-pick {
-  width: 104px;
-  font-size: var(--font-size-xl);
+  width: var(--collections-cover-size);
+  font-size: var(--font-size-2xl);
+}
+
+.collections-builder-covers[data-shape="bar"] .collections-image-pick {
+  aspect-ratio: 3 / 5;
+  border-radius: 6px;
+}
+
+.collections-builder-covers[data-shape="note"] .collections-image-pick {
+  aspect-ratio: 5 / 3;
+  border-radius: 4px;
+}
+
+.collections-builder-covers[data-shape="slab"] .collections-image-pick {
+  aspect-ratio: 3 / 4;
+  border-radius: 8px;
 }
 
 .collections-builder-covers .collections-image-remove {
@@ -19410,12 +19565,50 @@ input[type="number"] {
   right: 2px;
 }
 
-.collections-builder-caption {
-  display: block;
+.collections-builder-form .collections-segmented {
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 2px;
+}
+
+/* Segmented options are <label>s: undo the form's uppercase micro-label treatment. */
+.collections-builder-form .collections-segmented-option {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.collections-builder-form .collections-segmented-option span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
   font-size: var(--font-size-md);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.collections-builder-form .collections-segmented-option span.collections-builder-icon,
+.collections-builder-icon {
+  display: inline-flex;
+  padding: 0;
+}
+
+.collections-builder-slots-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: 0.35rem;
+}
+
+.collections-builder-slots-head .collections-builder-caption {
+  margin: 0;
+  color: var(--primary);
+}
+
+.collections-builder-divider {
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--glass-input-border, var(--border));
 }
 
 /* Segmented either/or control — radios styled as a pill pair. */
@@ -19523,16 +19716,47 @@ input[type="number"] {
   object-fit: cover;
 }
 
+/* Slot card (STRK-421): drag handle, image, fields, then insert-after and remove. */
 .collections-builder-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1.1fr) 70px minmax(100px, 0.8fr) minmax(0, 1fr) auto;
+  grid-template-columns: 24px 44px minmax(0, 1.1fr) 70px minmax(100px, 0.8fr) minmax(0, 1fr) auto;
   gap: var(--spacing-sm);
   align-items: center;
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: 0.35rem;
+  padding: 5px 6px 5px 2px;
+  border: 1px solid var(--glass-input-border, var(--border));
+  border-radius: var(--radius);
+  background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
 }
 
-.collections-builder-row input {
-  width: 100%;
+.collections-builder-row.is-dragging {
+  opacity: 0.45;
+}
+
+.collections-builder-row.is-drop-target {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+
+.collections-builder-grip {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  touch-action: none;
+  cursor: grab !important;
+}
+
+.collections-builder-grip:active {
+  cursor: grabbing !important;
+}
+
+.collections-builder-grip:hover {
+  color: var(--primary);
 }
 
 .collections-builder-mintage-error {
@@ -19541,67 +19765,49 @@ input[type="number"] {
   font-size: var(--font-size-sm);
 }
 
-.collections-builder-mintage[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-
 .collections-builder-row-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
-.collections-builder-move,
-.collections-builder-insert {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0 var(--spacing-sm);
-  border: 1px solid var(--border);
+.collections-builder-insert,
+.collections-builder-remove {
+  min-width: 30px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-lg);
   cursor: pointer;
 }
 
 .collections-builder-insert {
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
+  border-color: var(--glass-input-border, var(--border));
+  color: var(--text-secondary);
 }
 
-.collections-builder-move:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.collections-builder-move:hover:not(:disabled),
 .collections-builder-insert:hover {
   color: var(--primary);
   border-color: var(--primary);
-}
-
-.collections-builder-row-actions button:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.collections-builder-remove {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--font-size-lg);
-  color: var(--text-muted);
-  min-height: 32px;
 }
 
 .collections-builder-remove:hover {
   color: var(--danger);
 }
 
+.collections-builder-grip:focus-visible,
+.collections-builder-row-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
 .collections-builder-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
 }
 
 @media (max-width: 640px) {
@@ -19613,31 +19819,42 @@ input[type="number"] {
     display: none;
   }
 
-  .collections-builder-form,
-  .collections-builder-media {
-    grid-template-columns: minmax(0, 1fr);
+  /* Two-line Slot card: handle | image, label, Year / Mintage, insert + remove. */
+  .collections-builder-row {
+    grid-template-columns: 44px 44px minmax(0, 1fr) 96px;
+    padding: 6px;
   }
 
-  .collections-builder-row {
-    grid-template-columns: 44px minmax(0, 1fr) 64px;
+  .collections-builder-grip {
+    grid-row: 1 / 3;
+  }
+
+  .collections-builder-mintage {
+    grid-column: 2 / 4;
   }
 
   .collections-builder-row-actions {
-    grid-column: 2 / -1;
+    grid-column: 4;
     justify-content: flex-end;
   }
 
+  .collections-builder-grip,
   .collections-builder-row-actions button {
     min-width: 44px;
     min-height: 44px;
   }
 
-  .collections-builder-mintage {
-    grid-column: 2 / -1;
-  }
-
   .collections-builder-note {
     display: none;
+  }
+
+  .collections-builder-form .form-section-header {
+    min-height: 44px;
+  }
+
+  .collections-builder-footer .collections-modal-footer-actions {
+    display: flex;
+    flex: 1;
   }
 }
 
