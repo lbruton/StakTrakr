@@ -438,15 +438,21 @@
 
   /**
    * Builds definition slots from user input, keeping any id that already exists in
-   * `keepIds` (so a rename keeps its links) and minting ids for the rest.
+   * `keepIds` (so a rename keeps its links) and minting ids for the rest. Every id in
+   * `keepIds` is reserved up front, so a new row can never reuse the id of an existing
+   * Slot, whether that Slot is still present or was removed in the same save — the new
+   * row would otherwise inherit its links and artwork.
    * @param {Object[]} inputSlots - Raw slot inputs: { id?, label, year?, note? }
    * @param {Set<string>} keepIds - Ids that may be carried over unchanged
    * @returns {Object[]} Definition slots: { id, label, year, note }
    */
   const buildDefinitionSlots = (inputSlots, keepIds) => {
-    const taken = new Set();
-    return inputSlots.filter(isPlainObject).map((input) => {
-      const carried = isId(input.id) && keepIds.has(input.id) && !taken.has(input.id);
+    const inputs = inputSlots.filter(isPlainObject);
+    const taken = new Set(keepIds);
+    const carriedIds = new Set();
+    return inputs.map((input) => {
+      const carried = isId(input.id) && keepIds.has(input.id) && !carriedIds.has(input.id);
+      if (carried) carriedIds.add(input.id);
       const id = carried ? input.id : slugifySlotId(input.label, taken);
       taken.add(id);
       return { id, label: text(input.label), year: text(input.year), note: text(input.note) };

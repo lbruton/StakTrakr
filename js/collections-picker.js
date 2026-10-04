@@ -715,9 +715,12 @@
    * One editable slot row in the builder.
    * @param {{id?: string, label?: string, year?: string|number, note?: string}} slot - Slot values
    * @param {Function} onRemove - Called with the row element to remove it
+   * @param {Function} onMove - Moves the row and restores focus to its control
+   * @param {Function} onInsert - Inserts a blank row after this row
+   * @param {Function} onLabelChange - Refreshes accessible names after label edits
    * @returns {HTMLElement} Row element (carries its slot id in dataset.slotId when carried over)
    */
-  const builderRow = (slot, onRemove) => {
+  const builderRow = (slot, onRemove, onMove, onInsert, onLabelChange) => {
     const row = el("div", "collections-builder-row");
     if (slot.id) row.dataset.slotId = slot.id;
     const chooser = imageChooser("Slot image");
@@ -740,7 +743,17 @@
     note.setAttribute("aria-label", "Note");
     const remove = button("collections-builder-remove", "×", () => onRemove(row));
     remove.setAttribute("aria-label", "Remove slot");
-    row.append(chooser.node, label, year, note, remove);
+    const actions = el("div", "collections-builder-row-actions");
+    const up = button("collections-builder-move", "↑", () => onMove(row, -1, up));
+    const down = button("collections-builder-move", "↓", () => onMove(row, 1, down));
+    up.dataset.action = "up";
+    down.dataset.action = "down";
+    const insert = button("collections-builder-insert", "+ Slot after", () => onInsert(row));
+    insert.dataset.action = "insert";
+    remove.dataset.action = "remove";
+    actions.append(up, down, insert, remove);
+    label.addEventListener("input", onLabelChange);
+    row.append(chooser.node, label, year, note, actions);
     return row;
   };
 
@@ -893,19 +906,59 @@
     media.append(coverWrap, display);
 
     const rowsHost = el("div", "collections-builder-rows");
-    const removeRow = (row) => {
-      if (rowsHost.children.length > 1) row.remove();
-      else toast("A collection needs at least one slot.");
+    const orderStatus = el("div", "sr-only");
+    orderStatus.setAttribute("role", "status");
+    const refreshRowActions = () => {
+      Array.from(rowsHost.children).forEach((row, index, rows) => {
+        const label =
+          row.querySelector(".collections-builder-label").value.trim() || `Slot ${index + 1}`;
+        row.querySelector('[data-action="up"]').disabled = index === 0;
+        row.querySelector('[data-action="down"]').disabled = index === rows.length - 1;
+        const names = {
+          up: `Move ${label} up`,
+          down: `Move ${label} down`,
+          insert: `Add Slot after ${label}`,
+          remove: `Remove Slot ${label}`,
+        };
+        row.querySelectorAll("[data-action]").forEach((control) => {
+          control.setAttribute("aria-label", names[control.dataset.action]);
+          control.title = names[control.dataset.action];
+        });
+      });
     };
-    const addRow = (slot) => {
-      const row = builderRow(slot || {}, removeRow);
-      rowsHost.appendChild(row);
+    const removeRow = (row) => {
+      if (rowsHost.children.length > 1) {
+        const next = row.nextElementSibling || row.previousElementSibling;
+        row.remove();
+        refreshRowActions();
+        next.querySelector(".collections-builder-label").focus();
+      } else toast("A collection needs at least one slot.");
+    };
+    const moveRow = (row, direction, control) => {
+      const adjacent = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+      if (!adjacent) return;
+      rowsHost.insertBefore(row, direction < 0 ? adjacent : adjacent.nextElementSibling);
+      refreshRowActions();
+      (control.disabled ? row.querySelector(".collections-builder-label") : control).focus();
+      const position = Array.from(rowsHost.children).indexOf(row) + 1;
+      const label = row.querySelector(".collections-builder-label").value.trim() || "Slot";
+      orderStatus.textContent = `${label} moved to position ${position} of ${rowsHost.children.length}.`;
+    };
+    const insertRow = (after) => {
+      const row = addRow({}, after);
+      row.querySelector(".collections-builder-label").focus();
+      orderStatus.textContent = "Blank Slot inserted.";
+    };
+    const addRow = (slot, after) => {
+      const row = builderRow(slot || {}, removeRow, moveRow, insertRow, refreshRowActions);
+      rowsHost.insertBefore(row, after ? after.nextElementSibling : null);
+      refreshRowActions();
       if (seed.editId && slot && slot.id) {
         getImageUrl(seed.editId, slot.id).then((url) => url && row._chooser.setPreview(url));
       }
       return row;
     };
-    seed.slots.forEach(addRow);
+    seed.slots.forEach((slot) => addRow(slot));
 
     const form = el("div", "collections-builder-form");
     form.append(
@@ -935,7 +988,7 @@
         years.forEach((year) => addRow({ label: String(year), year }));
       })
     );
-    shell.body.replaceChildren(form, slotsHeading, rowsHost, rowActions);
+    shell.body.replaceChildren(form, slotsHeading, rowsHost, rowActions, orderStatus);
 
     const submit = async () => {
       const rows = Array.from(rowsHost.children).filter((row) =>

@@ -1250,3 +1250,82 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
     assert.deepEqual(plain(core.mergeStates("junk", undefined)), plain(core.createEmptyState()));
   });
 });
+
+test("STRK-389 reserves existing ids before duplicate-label insertion and preserves reordered links", () => {
+  const state = core.createEmptyState();
+  core.createCustomCollection(state, {
+    id: "custom-order",
+    name: "Black Flag",
+    now: T1,
+    slots: [
+      { label: "2020", year: "2020", note: "Original" },
+      { label: "2021", year: "2021" },
+    ],
+  });
+  core.linkItem(state, "custom-order", "2020", U.a, { now: T1 });
+  core.linkItem(state, "custom-order", "2020", U.b, { asSpare: true, now: T1 });
+  const original = plain(state.collections["custom-order"].definition.slots);
+  const before = core.normalizeState(plain(state));
+  assert.equal(
+    core.updateCustomDefinition(state, "custom-order", {
+      name: "Black Flag",
+      now: T2,
+      slots: [{ label: "2020" }, original[1], original[0]],
+    }).ok,
+    true
+  );
+  const collection = state.collections["custom-order"];
+  assert.deepEqual(
+    collection.definition.slots.map((slot) => slot.id),
+    ["2020-2", "2021", "2020"]
+  );
+  assert.deepEqual(plain(collection.definition.slots[2]), original[0]);
+  assert.equal(collection.slots["2020"].primary, U.a);
+  assert.deepEqual(plain(collection.slots["2020"].spares), [U.b]);
+  const restored = core.normalizeState(JSON.parse(JSON.stringify(state)));
+  assert.deepEqual(
+    plain(restored.collections["custom-order"].definition.slots),
+    plain(collection.definition.slots)
+  );
+  for (const merged of [core.mergeStates(before, restored), core.mergeStates(restored, before)]) {
+    assert.deepEqual(
+      plain(merged.collections["custom-order"].definition.slots),
+      plain(collection.definition.slots)
+    );
+  }
+});
+
+test("STRK-389 never reuses a removed Slot id for a same-labelled replacement row", () => {
+  const state = core.createEmptyState();
+  core.createCustomCollection(state, {
+    id: "custom-replace",
+    name: "Black Flag",
+    now: T1,
+    slots: [
+      { label: "2020", year: "2020" },
+      { label: "2021", year: "2021" },
+    ],
+  });
+  core.linkItem(state, "custom-replace", "2020", U.a, { now: T1 });
+  core.linkItem(state, "custom-replace", "2020", U.b, { asSpare: true, now: T1 });
+  core.setArtwork(state, "custom-replace", "2020", true, { now: T1, digest: "art-2020" });
+  const kept = plain(state.collections["custom-replace"].definition.slots[1]);
+  assert.equal(
+    core.updateCustomDefinition(state, "custom-replace", {
+      name: "Black Flag",
+      now: T2,
+      slots: [{ label: "2020" }, kept],
+    }).ok,
+    true
+  );
+  const collection = state.collections["custom-replace"];
+  assert.deepEqual(
+    collection.definition.slots.map((slot) => slot.id),
+    ["2020-2", "2021"]
+  );
+  assert.equal(collection.slots["2020"].primary, null);
+  assert.deepEqual(plain(collection.slots["2020"].spares), []);
+  assert.equal(collection.slots["2020-2"], undefined);
+  assert.equal(collection.artwork["slot:2020"].present, false);
+  assert.equal(collection.artwork["slot:2020-2"], undefined);
+});

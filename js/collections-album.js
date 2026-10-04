@@ -196,8 +196,8 @@
           "Sort slots",
           state.albumSort,
           [
-            [SORT_OLDEST, "Oldest"],
-            [SORT_NEWEST, "Newest"],
+            [SORT_OLDEST, entry.isCustom ? "Collection order" : "Oldest"],
+            [SORT_NEWEST, entry.isCustom ? "Reverse" : "Newest"],
           ],
           (value) => {
             state.albumSort = value;

@@ -2,7 +2,6 @@
 name: start-patch
 description: Use when starting a new patch session and needing to pick a Plane issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, mcp__mem0__search_memories, mcp__plane__workitem, mcp__plane__state
 ---
 
 # Start Patch
@@ -67,12 +66,11 @@ Do not query Linear and do not read DocVault issue files for active work.
 
 ### mem0 — session continuity
 
-```text
-mcp__mem0__search_memories
-  query: "recent session handoff in progress"
-  filters: { "AND": [{ "agent_id": "<project agent_id>" }] }
-  limit: 5
-```
+Resolve the hosted `search_memories` tool dynamically from the current catalog.
+Use `user_id: lbruton` and `metadata.project: staktrakr` filters; never filter on
+`agent_id`. Run one project-scoped query for recent handoffs and one user-only
+query for cross-project workflow decisions. Match the current tool schema.
+Do not retry an HTTP 429 or quota-exceeded response.
 
 Note which issue IDs appear in the mem0 results — these get a continuity boost in ranking.
 

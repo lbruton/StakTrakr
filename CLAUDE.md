@@ -180,3 +180,10 @@ Users span casual stackers → serious investors → preppers. Primary context: 
 Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy.
 Full design system, four-theme rules (light, dark, slate, sepia), and anti-references in `.context/design-philosophy.md`.
 Anti-references: not generic fintech, not crypto/Web3, not spreadsheet clone.
+
+## Documentation locations
+
+Project documentation lives in `.context/` and `docs/`, with active specs in `docs/specs/`.
+The project `DocVault/` and the old global DocVault repository are retired; do not use
+`DocVault/Overview.md` as an entry point. Cross-project knowledge remains in the
+Devops repository's `DocVault/`. These project locations override stale paths in shared skills.

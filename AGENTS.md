@@ -147,3 +147,10 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Versioned release commits use `v<major>.<minor>.<patch> — STRK-###: <summary>`.
 - Keep commits scoped to one logical change.
 - PRs should include summary/rationale, linked STRK issue, test evidence, and screenshots/GIFs for UI changes.
+
+## Documentation locations
+
+Project documentation lives in `.context/` and `docs/`, with active specs in `docs/specs/`.
+The project `DocVault/` and the old global DocVault repository are retired; do not use
+`DocVault/Overview.md` as an entry point. Cross-project knowledge remains in the
+Devops repository's `DocVault/`. These project locations override stale paths in shared skills.

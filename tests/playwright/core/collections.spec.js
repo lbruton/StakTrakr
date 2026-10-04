@@ -744,6 +744,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
       .click();
     await expect(builderModal(page)).toBeVisible();
 
+    await expect(builderModal(page).locator(".collections-builder-move")).toHaveCount(6);
     await builderModal(page).getByLabel("Collection name").fill("Morgan Dollars — Carson City");
     const labels = builderModal(page).getByLabel("Slot label");
     await labels.nth(0).fill("1881-CC");
@@ -767,6 +768,138 @@ test.describe("core/collections — link picker, builder, item view", () => {
       panel(page).getByRole("heading", { name: /Morgan Dollars — Carson City/ })
     ).toBeVisible();
     await expect(panel(page)).toContainText("1881-CC");
+  });
+
+  test("STRK-389 inserts and moves Slots with stable links and saved Album/Ledger order", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await page.evaluate(() => {
+      const store = window.collectionsStore;
+      const made = store.createCustom({
+        name: "Black Flag",
+        slots: [
+          { label: "2019", year: "2019" },
+          { label: "2020", year: "2020", note: "Original" },
+          { label: "2021", year: "2021" },
+        ],
+      });
+      store.link(made.collection.id, "2020", "col-ase-2022-a");
+      store.link(made.collection.id, "2020", "col-ase-2022-b", { asSpare: true });
+      window.collectionsUI.openCollection(made.collection.id);
+      window.collectionsPicker.openBuilder({ editId: made.collection.id });
+      return made.collection.id;
+    });
+    const builder = builderModal(page);
+    await builder
+      .locator(".collections-builder-row")
+      .nth(1)
+      .locator("input[type=file]")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await builder.getByRole("button", { name: "Add Slot after 2020", exact: true }).click();
+    await expect(builder.getByLabel("Slot label").nth(2)).toBeFocused();
+    await builder.getByLabel("Slot label").nth(2).fill("2020 Antiqued");
+    await builder
+      .getByRole("button", { name: "Move 2020 Antiqued up", exact: true })
+      .press("Enter");
+    await expect(
+      builder.getByRole("button", { name: "Move 2020 Antiqued up", exact: true })
+    ).toBeFocused();
+    await builder.getByLabel("Slot label").nth(1).fill("2020");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(builder).toBeHidden();
+    const saved = await page.evaluate(
+      (id) => window.collectionsStore.getState().collections[id],
+      id
+    );
+    expect(saved.definition.slots.map((slot) => slot.id)).toEqual([
+      "2019",
+      "2020-2",
+      "2020",
+      "2021",
+    ]);
+    expect(saved.definition.slots[2].note).toBe("Original");
+    expect(saved.slots["2020"].primary).toBe("col-ase-2022-a");
+    expect(saved.slots["2020"].spares).toEqual(["col-ase-2022-b"]);
+    await expect
+      .poll(() =>
+        page.evaluate(async (id) => {
+          const record = await window.imageCache.getPatternImage(`collection--${id}--2020`);
+          return !!record;
+        }, id)
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(
+        async (id) => !!(await window.imageCache.getPatternImage(`collection--${id}--2020-2`)),
+        id
+      )
+    ).toBe(false);
+    const displayed = () =>
+      panel(page)
+        .locator("[data-slot-id]")
+        .evaluateAll((rows) => rows.map((row) => row.dataset.slotId));
+    await expect.poll(displayed).toEqual(["2019", "2020-2", "2020", "2021"]);
+    await panel(page).getByRole("button", { name: "Reverse", exact: true }).click();
+    await expect.poll(displayed).toEqual(["2021", "2020", "2020-2", "2019"]);
+    await panel(page).getByRole("button", { name: "Collection order", exact: true }).click();
+    await panel(page)
+      .getByRole("button", { name: /Ledger/ })
+      .click();
+    await expect.poll(displayed).toEqual(["2019", "2020-2", "2020", "2021"]);
+    await reloadCollections(page);
+    await page.evaluate((id) => window.collectionsUI.openCollection(id), id);
+    await expect.poll(displayed).toEqual(["2019", "2020-2", "2020", "2021"]);
+    await panel(page).getByRole("button", { name: "Edit collection", exact: true }).click();
+    await expect(builder.getByLabel("Slot label").nth(2)).toHaveValue("2020");
+  });
+
+  test("STRK-389 arrow boundaries, mobile themes, Cancel and close preserve saved Slots", async ({
+    page,
+  }, testInfo) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    const id = await page.evaluate(() => {
+      const made = window.collectionsStore.createCustom({
+        name: "Black Flag",
+        slots: [{ label: "2019" }, { label: "2020" }],
+      });
+      window.collectionsPicker.openBuilder({ editId: made.collection.id });
+      return made.collection.id;
+    });
+    const builder = builderModal(page);
+    for (const theme of ["dark", "light", "slate", "sepia"]) {
+      await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
+      await expect(
+        builder.getByRole("button", { name: "Move 2019 up", exact: true })
+      ).toBeDisabled();
+      await expect(
+        builder.getByRole("button", { name: "Move 2020 down", exact: true })
+      ).toBeDisabled();
+      const arrows = builder.locator(".collections-builder-move");
+      await arrows.first().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`editor-${theme}.png`) });
+      for (const arrow of await arrows.all()) {
+        const box = await arrow.boundingBox();
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.x + box.width).toBeLessThanOrEqual(375);
+      }
+    }
+    await builder.getByRole("button", { name: "Move 2020 up", exact: true }).press("Space");
+    await expect(builder.getByLabel("Slot label").first()).toHaveValue("2020");
+    await expect(builder.getByLabel("Slot label").first()).toBeFocused();
+    await builder.getByRole("button", { name: "Add Slot after 2020", exact: true }).click();
+    await builder.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.evaluate((id) => window.collectionsPicker.openBuilder({ editId: id }), id);
+    await expect(builder.getByLabel("Slot label")).toHaveCount(2);
+    await expect(builder.getByLabel("Slot label").first()).toHaveValue("2019");
+    await builder.getByRole("button", { name: "Move 2020 up", exact: true }).click();
+    await builder.getByRole("button", { name: /Close/ }).click();
+    await page.evaluate((id) => window.collectionsPicker.openBuilder({ editId: id }), id);
+    await expect(builder.getByLabel("Slot label").first()).toHaveValue("2019");
   });
 
   test("the Custom Collection builder media row stacks at a 375px viewport", async ({ page }) => {
@@ -804,6 +937,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builderModal(page)).toBeVisible();
     await expect(builderModal(page).getByLabel("Slot label")).toHaveCount(6);
     await expect(builderModal(page).getByLabel("Slot label").first()).toHaveValue("2021 T2");
+    await builderModal(page).getByRole("button", { name: "Move 2022 up", exact: true }).click();
+    await expect(builderModal(page).getByLabel("Slot label").first()).toHaveValue("2022");
 
     await builderModal(page).getByRole("button", { name: "Create collection" }).click();
     await expect(builderModal(page)).toBeHidden();

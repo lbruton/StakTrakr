@@ -39,6 +39,18 @@ const primaryOf = (page, slotId) =>
     return link ? link.primary : null;
   }, slotId);
 
+/**
+ * Read a Custom Collection's Slot ids in their saved order from the in-memory store.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} collectionId - Custom Collection id.
+ * @returns {Promise<string[]>} Slot ids, first to last.
+ */
+const slotOrderOf = (page, collectionId) =>
+  page.evaluate(
+    (id) => window.collectionsStore.getState().collections[id].definition.slots.map((s) => s.id),
+    collectionId
+  );
+
 test.describe("core/collections-data-paths — encrypted vault", () => {
   test("a vault restore refreshes the in-memory store, so the next edit cannot erase the restored Collections", async ({
     page,
@@ -1137,6 +1149,91 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
       );
       expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
       expect(await primaryOf(page, "2022")).toBeNull();
+    });
+  });
+
+  test("STRK-389 an inserted and reordered Custom Slot list reaches a second device with its links, by manifest and by vault", async ({
+    browser,
+    page,
+  }) => {
+    await withDevices(browser, page, async (deviceA) => {
+      const id = await deviceA.evaluate(() => {
+        const store = window.collectionsStore;
+        const made = store.createCustom({
+          name: "Black Flag",
+          slots: [{ label: "2019" }, { label: "2020" }, { label: "2021" }],
+        });
+        store.link(made.collection.id, "2020", "cdp-ase-2022");
+        return made.collection.id;
+      });
+      await page.evaluate(
+        (raw) => window.collectionsStore.mergeIn(JSON.parse(raw)),
+        await deviceA.evaluate(() => localStorage.getItem("collectionState"))
+      );
+      expect(await slotOrderOf(page, id)).toEqual(["2019", "2020", "2021"]);
+
+      const arrange = (slots) =>
+        deviceA.evaluate(
+          ({ id, slots }) =>
+            window.collectionsStore.updateCustom(id, { name: "Black Flag", slots }).ok,
+          { id, slots }
+        );
+      const files = {};
+      await routeCollectionDropbox(page, files);
+      await page.evaluate(() => {
+        window.DiffModal.show = () => {
+          throw new Error("Collections-only pull opened a modal");
+        };
+      });
+      const pull = (syncId) =>
+        page.evaluate((remote) => window.pullWithPreview(remote), remoteCollectionMeta(syncId));
+      const arrangedOnB = async (order) => {
+        expect(await slotOrderOf(page, id)).toEqual(order);
+        const stored = await page.evaluate(
+          (id) => JSON.parse(localStorage.getItem("collectionState")).collections[id],
+          id
+        );
+        expect(stored.definition.slots.map((slot) => slot.id)).toEqual(order);
+        expect(stored.slots["2020"].primary).toBe("cdp-ase-2022");
+      };
+
+      // Manifest path: insert after 2020, which also moves the 2020 row down one place.
+      expect(
+        await arrange([
+          { id: "2019", label: "2019" },
+          { id: "2020", label: "2020" },
+          { label: "2020 Antiqued" },
+          { id: "2021", label: "2021" },
+        ])
+      ).toBe(true);
+      const inserted = ["2019", "2020", "2020-antiqued", "2021"];
+      expect(await slotOrderOf(deviceA, id)).toEqual(inserted);
+      files.manifest = await deviceManifest(deviceA);
+      await pull("slot-order-manifest");
+      await arrangedOnB(inserted);
+
+      // Vault-first path: move the new Slot above 2020. No manifest is served.
+      const moved = ["2019", "2020-antiqued", "2020", "2021"];
+      expect(
+        await arrange([
+          { id: "2019", label: "2019" },
+          { id: "2020-antiqued", label: "2020 Antiqued" },
+          { id: "2020", label: "2020" },
+          { id: "2021", label: "2021" },
+        ])
+      ).toBe(true);
+      files.manifest = null;
+      files.vault = await deviceVault(deviceA);
+      await page.evaluate(() => {
+        window.DiffModal.show = (options) => options.onApply([]);
+      });
+      await pull("slot-order-vault");
+      await arrangedOnB(moved);
+
+      // Re-pulling the same state changes nothing.
+      const settled = await page.evaluate(() => localStorage.getItem("collectionState"));
+      await pull("slot-order-vault-again");
+      expect(await page.evaluate(() => localStorage.getItem("collectionState"))).toBe(settled);
     });
   });
 
