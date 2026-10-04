@@ -181,7 +181,7 @@ Context from /start-patch:
 
 The release skill takes full ownership from here — sync gate, lock claim, worktree, version bump, PR.
 
-The release skill does **not** refresh the spot bundle. Run `/update-spot-bundle` before the version-bump PR is opened, then copy the refreshed bundle and year JSON files into the worktree and stage them — see "Spot Bundle" in `.context/git-topology.md`.
+The release skill does **not** refresh the spot bundle. Before the version-bump PR is opened, run the worktree's own copy of `/update-spot-bundle` (it writes into that worktree) and stage the bundle and year JSON files in place — see "Spot Bundle" in `.context/git-topology.md`.
 
 ---
 
