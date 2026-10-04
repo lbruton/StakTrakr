@@ -17950,7 +17950,7 @@ input[type="number"] {
 
 .collections-coin--shape-bar {
   aspect-ratio: 1.6;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
 }
 
 .collections-coin--shape-note {

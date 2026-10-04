@@ -1531,11 +1531,7 @@
       ? await picker.getImageUrl(collectionId, coin.dataset.artSlot)
       : null;
     if (slotUrl) return { url: slotUrl, side: coin.dataset.imageSide || "obverse" };
-    if (!coin.dataset.artSlot || coin.dataset.artTitleFallback) {
-      const title = await picker.getTitleImage(collectionId, coin.dataset.imageSide || "obverse");
-      if (title) return title;
-    }
-    if (coin.dataset.artSlot && coin.dataset.artCoverFallback) {
+    if (!coin.dataset.artSlot || coin.dataset.artTitleFallback || coin.dataset.artCoverFallback) {
       const title = await picker.getTitleImage(collectionId, coin.dataset.imageSide || "obverse");
       if (title) return title;
     }

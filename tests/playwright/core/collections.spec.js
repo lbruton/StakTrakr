@@ -1086,6 +1086,28 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(card.locator(".collections-card-sub")).toContainText(".9167 fine gold");
   });
 
+  test("a Constitutional Custom Collection prefills its defined face value", async ({ page }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Junk silver",
+        metal: "Silver",
+        itemType: "Constitutional",
+        weight: 5,
+        weightUnit: "cu",
+        slots: [{ label: "Roll" }],
+      });
+      return created.collection.id;
+    });
+    await page.evaluate(
+      (collectionId) => window.collectionsStore.requestNewItem(collectionId, "roll"),
+      id
+    );
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#itemWeightUnit")).toHaveValue("cu");
+    await expect(page.locator("#item-constitutional-face")).toHaveValue("5");
+  });
+
   test("a Custom Collection side choice persists and drives reverse images plus Slot notes", async ({
     page,
   }) => {

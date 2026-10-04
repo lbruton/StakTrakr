@@ -569,6 +569,11 @@
         type: definition.itemType || "Coin",
         weight: definition.weight == null ? undefined : definition.weight,
         weightUnit: definition.weightUnit || "oz",
+        // A constitutional Custom Collection's weight is the defined face value, not a coin count.
+        constitutionalEntryMode:
+          definition.itemType === "Constitutional" && definition.weightUnit === "cu"
+            ? "face"
+            : undefined,
         purity: definition.purity,
         year,
       };
@@ -593,7 +598,7 @@
    * Prefills weight + unit. Plain units are written as the bare number a user would
    * type in add mode. Denomination units (Goldback, Silverback, constitutional) carry
    * picker state that only the form's own populate logic knows how to restore.
-   * @param {{weight?: number, weightUnit?: string}} prefill - Values from prefillFor
+   * @param {{weight?: number, weightUnit?: string, constitutionalEntryMode?: string}} prefill - Values from prefillFor
    * @returns {void}
    */
   const applyWeightPrefill = (prefill) => {
@@ -601,7 +606,11 @@
     const unit = prefill.weightUnit || "oz";
     if (DENOMINATION_UNITS.includes(unit)) {
       if (typeof _editPopulateWeightFields === "function") {
-        _editPopulateWeightFields({ weight: prefill.weight, weightUnit: unit });
+        _editPopulateWeightFields({
+          weight: prefill.weight,
+          weightUnit: unit,
+          constitutionalEntryMode: prefill.constitutionalEntryMode,
+        });
       }
       return;
     }
