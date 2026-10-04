@@ -15,10 +15,10 @@ Rapid session-start triage: fetch Plane issues, rank by priority + session conti
 
 ## Step 0: Project Detection
 
-Read `.codex/project.json` (in the current working directory):
+Read `.claude/project.json` (in the current working directory):
 
 ```bash
-cat .codex/project.json
+cat .claude/project.json
 ```
 
 Extract:
@@ -50,7 +50,7 @@ git status --short
 
 ### Plane query
 
-Use the Plane MCP project ID from `.codex/project.json` (`plane.projectId`). This needs **two** calls —
+Use the Plane MCP project ID from `.claude/project.json` (`plane.projectId`). This needs **two** calls —
 Pass `expand: "state"` so each issue carries `state.name` and `state.group` (without it,
 `state` is a bare UUID string). Always pass `project_id` and never pass `pql` — Community
 Edition returns an `{"error": ...}` payload instead of results.
