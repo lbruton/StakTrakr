@@ -382,7 +382,9 @@ Per-Item price history (`item-price-history` — shape `{ [uuid]: [{ ts, itemNam
 
 **Restore paths** that rewrite the key behind the store's back — `restoreVaultData` and `syncRestoreOverrideBackup` — call `collectionsStore.reload()`; otherwise the stale in-memory state overwrites the restored one on the next mutation.
 
-**Test depth:** the contract is pinned by `tests/unit/cloud-sync-collection-state.test.js`, `tests/unit/collections-core.test.js`, and two-device mock Dropbox browser cases in `tests/playwright/core/collections-data-paths.spec.js` for all three apply paths, artwork, rollback, quota retry, and older links versus newer unlinks.
+**Custom Collection Slot order (STRK-389):** the ordered Slot list is `definition.slots`, and `mergeCollection` merges the whole `definition` as one unit — the side with the later `metaModified` wins (a tie falls to the `stableStringify` comparison), alongside name, metal and description. So an inserted or reordered Slot list reaches every device by cloud sync, ZIP, `.stvault`, JSON and the standalone Collections file (all merge through `mergeStates`; CSV carries membership cells only). Links and artwork merge per Slot, independently of the list. Consequence: two devices that both change the Slot list before syncing keep only the later edit — the other device's inserted Slot disappears from the list, and a link made to it stays in `slots` but is not shown. Restoring an older backup never reverts a newer order. A per-Slot list merge would change this and is not built.
+
+**Test depth:** the contract is pinned by `tests/unit/cloud-sync-collection-state.test.js`, `tests/unit/collections-core.test.js`, and two-device mock Dropbox browser cases in `tests/playwright/core/collections-data-paths.spec.js` for all three apply paths, artwork, rollback, quota retry, older links versus newer unlinks, and an inserted and reordered Slot list by manifest and vault-first pulls.
 
 ### Hidden Collections Preference (STRK-393)
 
