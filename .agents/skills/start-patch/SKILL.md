@@ -2,7 +2,6 @@
 name: start-patch
 description: Use when starting a new patch session and needing to pick a Plane issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, hosted mem0 search_memories, mcp__plane__workitem, mcp__plane__state
 ---
 
 # Start Patch

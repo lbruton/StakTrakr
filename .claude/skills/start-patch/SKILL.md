@@ -2,7 +2,6 @@
 name: start-patch
 description: Use when starting a new patch session and needing to pick a Plane issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, mcp__mem0__search_memories, mcp__plane__workitem, mcp__plane__state
 ---
 
 # Start Patch
@@ -16,10 +15,10 @@ Rapid session-start triage: fetch Plane issues, rank by priority + session conti
 
 ## Step 0: Project Detection
 
-Read `.claude/project.json` (in the current working directory):
+Read `.codex/project.json` (in the current working directory):
 
 ```bash
-cat .claude/project.json
+cat .codex/project.json
 ```
 
 Extract:
@@ -51,7 +50,7 @@ git status --short
 
 ### Plane query
 
-Use the Plane MCP project ID from `.claude/project.json` (`plane.projectId`). This needs **two** calls —
+Use the Plane MCP project ID from `.codex/project.json` (`plane.projectId`). This needs **two** calls —
 Pass `expand: "state"` so each issue carries `state.name` and `state.group` (without it,
 `state` is a bare UUID string). Always pass `project_id` and never pass `pql` — Community
 Edition returns an `{"error": ...}` payload instead of results.
@@ -67,12 +66,11 @@ Do not query Linear and do not read DocVault issue files for active work.
 
 ### mem0 — session continuity
 
-```text
-mcp__mem0__search_memories
-  query: "recent session handoff in progress"
-  filters: { "AND": [{ "agent_id": "<project agent_id>" }] }
-  limit: 5
-```
+Resolve the hosted `search_memories` tool dynamically from the current catalog.
+Use `user_id: lbruton` and `metadata.project: staktrakr` filters; never filter on
+`agent_id`. Run one project-scoped query for recent handoffs and one user-only
+query for cross-project workflow decisions. Match the current tool schema.
+Do not retry an HTTP 429 or quota-exceeded response.
 
 Note which issue IDs appear in the mem0 results — these get a continuity boost in ranking.
 
@@ -86,7 +84,7 @@ Note which issue IDs appear in the mem0 results — these get a continuity boost
 
 ```text
 ⚠️  Active version claims:
-    - v3.32.29 — claude / STRK-315 (expires 10:30Z)
+    - v3.32.29 — Codex / STRK-315 (expires 10:30Z)
     - v3.32.30 — user / hotfix (expires 10:35Z)
     Next available version: v3.32.31
     (Claims expire after 30 min and are pruned automatically on next lock read.)
