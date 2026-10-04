@@ -207,6 +207,14 @@
   const showItemImagesField = (value) => (value === false ? { showItemImages: false } : {});
 
   /**
+   * Retains only a whole, non-negative safe numeric Mintage; unknown omits the field.
+   * @param {*} value - Stored or submitted count
+   * @returns {Object} Optional Mintage field
+   */
+  const mintageField = (value) =>
+    Number.isSafeInteger(value) && value >= 0 ? { mintage: value } : {};
+
+  /**
    * Normalizes a custom collection's definition (metal, description, side, item-image
    * setting, slot list).
    * @param {*} raw - Persisted definition
@@ -225,6 +233,7 @@
         label: text(slot.label),
         year: text(slot.year),
         note: text(slot.note),
+        ...mintageField(slot.mintage),
       });
     });
     return {
@@ -455,7 +464,13 @@
       if (carried) carriedIds.add(input.id);
       const id = carried ? input.id : slugifySlotId(input.label, taken);
       taken.add(id);
-      return { id, label: text(input.label), year: text(input.year), note: text(input.note) };
+      return {
+        id,
+        label: text(input.label),
+        year: text(input.year),
+        note: text(input.note),
+        ...mintageField(input.mintage),
+      };
     });
   };
 
@@ -468,6 +483,15 @@
     if (!text(spec && spec.name)) return "invalid-name";
     if (!spec || !Array.isArray(spec.slots) || !spec.slots.filter(isPlainObject).length)
       return "no-slots";
+    if (
+      spec.slots
+        .filter(isPlainObject)
+        .some(
+          (slot) =>
+            slot.mintage !== undefined && (!Number.isSafeInteger(slot.mintage) || slot.mintage < 0)
+        )
+    )
+      return "invalid-mintage";
     return null;
   };
 

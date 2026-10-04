@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.38] - 2026-10-04
+
+### Changed — STRK-391: Mintage per Custom Collection Slot
+
+- **Slot Mintage**: Enter, change or clear an optional Mintage in Create/Edit Custom Collection. Counts carry into editable clones and appear in Album and Ledger after reload; zero remains distinct from unknown (STRK-391).
+- **Safe counts**: Invalid counts keep the editor open with field-level feedback. Mintage survives export, backup restore and managed Collections sync (STRK-391).
+
+---
+
 ## [3.36.37] - 2026-10-04
 
 ### Changed — STRK-389: Insert and reorder Custom Collection Slots

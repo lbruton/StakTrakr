@@ -19525,7 +19525,7 @@ input[type="number"] {
 
 .collections-builder-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1.1fr) 84px minmax(0, 1.4fr) auto;
+  grid-template-columns: 44px minmax(0, 1.1fr) 70px minmax(100px, 0.8fr) minmax(0, 1fr) auto;
   gap: var(--spacing-sm);
   align-items: center;
   margin-bottom: var(--spacing-sm);
@@ -19533,6 +19533,16 @@ input[type="number"] {
 
 .collections-builder-row input {
   width: 100%;
+}
+
+.collections-builder-mintage-error {
+  grid-column: 2 / -1;
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.collections-builder-mintage[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
 .collections-builder-row-actions {
@@ -19620,6 +19630,10 @@ input[type="number"] {
   .collections-builder-row-actions button {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .collections-builder-mintage {
+    grid-column: 2 / -1;
   }
 
   .collections-builder-note {
