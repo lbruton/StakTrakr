@@ -27,6 +27,7 @@
       canMutate,
       unitPaid,
       unitMelt,
+      unitValuation,
       PERCENT,
       quantityOf,
       viewItem,
@@ -451,7 +452,7 @@
     };
 
     /**
-     * "paid → melt (+x%)" for one unit of a linked Item.
+     * "paid → retail (+x%)" for one unit of a linked Item.
      * @param {Object} item - Linked inventory item
      * @param {string} className - Wrapper class
      * @returns {HTMLElement} The money line
@@ -459,12 +460,13 @@
     const buildMoneyLine = (item, className) => {
       const line = el("span", className);
       const paid = unitPaid(item);
-      const melt = unitMelt(item);
+      const valuation = unitValuation(item);
+      const retail = valuation && valuation.hasRetailSignal ? valuation.retailUnitPrice : null;
       line.appendChild(document.createTextNode(money(paid)));
-      if (!melt) return line;
-      line.appendChild(document.createTextNode(` → ${money(melt)}`));
-      if (paid > 0) {
-        const pct = Math.round(((melt - paid) / paid) * PERCENT);
+      if (retail === null) return line;
+      line.appendChild(document.createTextNode(` → ${money(retail)}`));
+      if (paid > 0 && valuation.gainLossUnit !== null) {
+        const pct = Math.round((valuation.gainLossUnit / paid) * PERCENT);
         line.appendChild(document.createTextNode(" "));
         line.appendChild(
           el(
@@ -708,6 +710,7 @@
         row.appendChild(numeric(mintageCell(slot.def), "collections-muted collections-hide-md"));
         row.appendChild(numeric(DASH, "collections-muted"));
         row.appendChild(numeric(DASH, "collections-muted"));
+        row.appendChild(numeric(DASH, "collections-muted"));
         row.appendChild(numeric(entry.best ? `from ${money(entry.best.price)}` : DASH));
         const act = el("span", "collections-lrow-act");
         if (canMutate()) act.appendChild(buildAddButton(entry, slot));
@@ -733,12 +736,17 @@
 
       const paid = unitPaid(item);
       const melt = unitMelt(item);
+      const valuation = unitValuation(item);
       row.appendChild(numeric(mintageCell(slot.def), "collections-muted collections-hide-md"));
       row.appendChild(numeric(money(paid)));
       row.appendChild(numeric(melt ? money(melt) : DASH));
-      const delta = melt - paid;
+      const retail = valuation && valuation.hasRetailSignal ? valuation.retailUnitPrice : null;
       row.appendChild(
-        melt
+        numeric(retail === null ? DASH : money(retail), retail === null ? "collections-muted" : "")
+      );
+      const delta = valuation ? valuation.gainLossUnit : null;
+      row.appendChild(
+        delta !== null
           ? numeric(
               `${delta >= 0 ? "+" : "−"}${money(Math.abs(delta))}`,
               delta >= 0 ? "collections-up" : "collections-down"
@@ -787,6 +795,7 @@
             ["Mintage", "collections-num collections-hide-md"],
             ["Paid", "collections-num"],
             ["Melt", "collections-num"],
+            ["Retail", "collections-num collections-hide-sm"],
             ["G/L · Best price", "collections-num"],
             ["", ""],
           ])

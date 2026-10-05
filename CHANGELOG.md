@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.40] - 2026-10-04
+
+### Changed — STRK-382: Retail value in the Collections Ledger
+
+- **Retail and gain/loss**: The Ledger now shows per-unit Retail between Melt and G/L, using the same valuation rules as Inventory. G/L reflects Retail when available and falls back to Melt when it is not (STRK-382).
+
 ## [3.36.39] - 2026-10-04
 
 ### Changed — STRK-395: Custom Collection definition and image shapes

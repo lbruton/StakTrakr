@@ -523,6 +523,16 @@
   };
 
   /**
+   * Inventory's retail hierarchy and gain/loss for the single unit a Slot holds.
+   * @param {Object} item - Linked inventory item
+   * @returns {Object|null} Per-unit valuation, or null when the shared helper is unavailable
+   */
+  const unitValuation = (item) => {
+    if (typeof computeItemUnitValuation !== "function") return null;
+    return computeItemUnitValuation(item, spotFor(item.metal));
+  };
+
+  /**
    * Best current in-stock vendor price for a retail slug — the SAME derivation as the
    * Best Price Ticker (js/market-data.js): _getRetailCoins() for the cached feed,
    * _findCheapestTickerVendor() for the winner (fresh v2 detail preferred, user-hidden
@@ -1461,6 +1471,7 @@
     canMutate,
     unitPaid,
     unitMelt,
+    unitValuation,
     PERCENT,
     quantityOf,
     viewItem,
@@ -1746,6 +1757,8 @@
   document.addEventListener(changedEvent, render);
   document.addEventListener("retail:updated", render);
   document.addEventListener("spot:updated", render);
+  // Goldback denomination pricing feeds the Retail / G-L valuation (Settings, API fetch).
+  document.addEventListener("goldback:updated", render);
   // Money is shown in the display currency (precedent: inventory-table / market-data).
   window.addEventListener("currencychange", render);
   window.addEventListener("resize", () => closeMenu());
