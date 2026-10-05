@@ -2296,6 +2296,48 @@ test.describe("core/collections — tab UI", () => {
     ).toBeVisible();
   });
 
+  test("the ledger shows per-unit Retail and retail-aware G/L from inventory valuation", async ({
+    page,
+  }, testInfo) => {
+    const belowMelt = {
+      ...baseItem("col-retail-below-melt", "Retail below melt", "2022", 11),
+      qty: 2,
+      price: 30,
+      marketValue: 20,
+    };
+    const noSignal = {
+      ...baseItem("col-retail-no-signal", "No valuation signal", "2023", 12),
+      metal: "Unknownium",
+      composition: "Unknownium",
+      marketValue: 0,
+    };
+    await seedAndGoto(page, [belowMelt, noSignal]);
+    await openCollectionsTab(page);
+    await linkItems(page, [
+      ["2022", belowMelt.uuid],
+      ["2023", noSignal.uuid],
+    ]);
+    await openAseAlbum(page);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+
+    const manualRow = slotOf(page, "2022");
+    const manualValues = manualRow.locator(":scope > .collections-num");
+    await expect(manualValues.nth(1)).toHaveText("$30.00");
+    await expect(manualValues.nth(2)).toHaveText("$24.98");
+    await expect(manualValues.nth(3)).toHaveText("$20.00");
+    await expect(manualValues.nth(4)).toHaveText("−$10.00");
+    await page.screenshot({ path: testInfo.outputPath("strk-382-retail-ledger.png") });
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(manualValues.nth(3)).toBeVisible();
+      await expect(manualValues.nth(4)).toBeVisible();
+    }
+    const noSignalRow = slotOf(page, "2023");
+    await expect(noSignalRow.locator(":scope > .collections-num").nth(3)).toHaveText("—");
+    await expect(noSignalRow.locator(":scope > .collections-num").nth(4)).toHaveText("—");
+    await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toHaveText("—");
+  });
+
   test("the Owned and Missing filters show the matching slots", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
@@ -2388,6 +2430,7 @@ test.describe("core/collections — tab UI", () => {
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
     await expect(panel(page).locator(".collections-lrow[data-slot-id]")).toHaveCount(6);
     await expect(slotOf(page, "2024")).toContainText("2024 American Silver Eagle BU");
+    await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toBeHidden();
     expect(await overflow()).toBeLessThanOrEqual(0);
 
     // The hub table collapses the same way.

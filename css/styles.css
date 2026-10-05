@@ -18753,7 +18753,7 @@ input[type="number"] {
 .collections-lrow {
   display: grid;
   grid-template-columns:
-    52px 128px minmax(0, 1.4fr) 116px 84px 84px
+    52px 128px minmax(0, 1.4fr) 116px 84px 84px 84px 84px
     minmax(120px, 0.8fr) 116px;
   align-items: center;
   gap: var(--spacing);
@@ -19011,11 +19011,11 @@ input[type="number"] {
 @media (max-width: 1024px) {
   .collections-lrow {
     grid-template-columns:
-      44px 76px minmax(0, 1fr) 84px 84px
+      44px 76px minmax(0, 1fr) 84px 84px 84px
       minmax(96px, auto) 116px;
   }
 
-  /* Mintage is reference data; paid / melt / G-L are why the ledger exists. */
+  /* Mintage is reference data; paid / melt / retail / G-L are why the ledger exists. */
   .collections-hide-md {
     display: none;
   }

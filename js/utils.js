@@ -1133,6 +1133,26 @@ const computeItemValuation = (item, currentSpot) => {
 };
 
 /**
+ * Computes the canonical inventory valuation for one unit of an Item.
+ * Collection Slots hold one Item even when that Item row represents a quantity,
+ * so retail and gain/loss totals must use the inventory hierarchy and then be
+ * divided by the same normalized quantity.
+ *
+ * @param {Object} item - Inventory item
+ * @param {number} currentSpot - Current spot price for the item's metal
+ * @returns {{qty: number, retailUnitPrice: number, gainLossUnit: number|null,
+ *   hasRetailSignal: boolean, isManualRetail: boolean, gbDenomPrice: number|null}}
+ */
+const computeItemUnitValuation = (item, currentSpot) => {
+  const valuation = computeItemValuation(item, currentSpot);
+  return {
+    ...valuation,
+    retailUnitPrice: valuation.retailTotal / valuation.qty,
+    gainLossUnit: valuation.gainLoss === null ? null : valuation.gainLoss / valuation.qty,
+  };
+};
+
+/**
  * Builds the 13 leading value cells (Date..Gain/Loss) of a CSV row for one item.
  *
  * Single source of truth shared by the full inventory CSV export (csv-export.js) and
@@ -1582,6 +1602,7 @@ if (typeof window !== "undefined") {
   window.computeTradeValue = computeTradeValue;
   window.calculateRetailPrice = calculateRetailPrice;
   window.computeItemValuation = computeItemValuation;
+  window.computeItemUnitValuation = computeItemUnitValuation;
   window.buildCsvValueCells = buildCsvValueCells;
   window.setButtonLoading = setButtonLoading;
   window.escapeHtml = escapeHtml;
@@ -1602,6 +1623,7 @@ if (typeof module !== "undefined" && module.exports) {
     computeTradeValue,
     calculateRetailPrice,
     computeItemValuation,
+    computeItemUnitValuation,
     buildCsvValueCells,
     getContrastColor,
     debounce,
