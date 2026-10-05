@@ -1757,6 +1757,8 @@
   document.addEventListener(changedEvent, render);
   document.addEventListener("retail:updated", render);
   document.addEventListener("spot:updated", render);
+  // Goldback denomination pricing feeds the Retail / G-L valuation (Settings, API fetch).
+  document.addEventListener("goldback:updated", render);
   // Money is shown in the display currency (precedent: inventory-table / market-data).
   window.addEventListener("currencychange", render);
   window.addEventListener("resize", () => closeMenu());

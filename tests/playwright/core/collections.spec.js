@@ -2338,6 +2338,88 @@ test.describe("core/collections — tab UI", () => {
     await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toHaveText("—");
   });
 
+  test("the ledger keeps its actions inside the visible table at every width", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+
+    // 700 sits between the 640px compact row and the 1024px tablet grid; 1025 is the first
+    // desktop width. Both are where an over-wide track list clips the right-hand actions.
+    for (const width of [700, 1025, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      const fit = await page.evaluate(() => {
+        const ledger = document.querySelector(".collections-ledger");
+        const edge = ledger.getBoundingClientRect().right;
+        const rows = [...ledger.querySelectorAll(".collections-lrow[data-slot-id]")];
+        return {
+          clipped: ledger.scrollWidth - ledger.clientWidth,
+          actionsOutside: rows.filter(
+            (row) => row.querySelector(".collections-lrow-act").getBoundingClientRect().right > edge
+          ).length,
+          rows: rows.length,
+        };
+      });
+      expect(fit.rows, `rows at ${width}px`).toBe(6);
+      expect(fit.clipped, `ledger clipping at ${width}px`).toBeLessThanOrEqual(0);
+      expect(fit.actionsOutside, `actions outside the ledger at ${width}px`).toBe(0);
+    }
+  });
+
+  test("the ledger Retail follows Goldback pricing changes made in Settings", async ({ page }) => {
+    const goldback = {
+      ...baseItem("col-goldback-utah", "Utah Goldback", "2024", 21),
+      metal: "Gold",
+      composition: "Gold",
+      type: "Goldback",
+      weight: 1,
+      weightUnit: "gb",
+      price: 5,
+      purity: 0.9999,
+    };
+    await seedAndGoto(page, [goldback]);
+    await openCollectionsTab(page);
+    await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Goldback ledger",
+        metal: "Gold",
+        itemType: "Goldback",
+        weight: 1,
+        weightUnit: "gb",
+        slots: [{ label: "Utah" }],
+      });
+      if (!created.ok) throw new Error(`Fixture creation failed: ${created.reason}`);
+      const [slot] = created.collection.definition.slots;
+      window.collectionsStore.link(created.collection.id, slot.id, "col-goldback-utah");
+      window.collectionsUI.openCollection(created.collection.id);
+    });
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    const retail = panel(page)
+      .locator(".collections-lrow[data-slot-id]")
+      .first()
+      .locator(":scope > .collections-num")
+      .nth(3);
+
+    await page.evaluate(() => window.showSettingsModal("currency"));
+    const sources = page.locator("#settingsPanel_currency #settingsGoldbackSource");
+    await sources.locator('.gb-source-btn[data-val="manual"]').click();
+    await page.locator("#goldbackManualRateInput").fill("10");
+    await page.locator("#settingsCloseBtn").click();
+    await expect(page.locator("#settingsModal")).toBeHidden();
+    await expect(retail).toHaveText("$10.00");
+
+    await page.evaluate(() => window.showSettingsModal("currency"));
+    await page.locator("#goldbackManualRateInput").fill("12");
+    await page.locator("#settingsCloseBtn").click();
+    await expect(retail).toHaveText("$12.00");
+
+    await page.evaluate(() => window.showSettingsModal("currency"));
+    await sources.locator('.gb-source-btn[data-val="off"]').click();
+    await page.locator("#settingsCloseBtn").click();
+    await expect(retail).not.toHaveText("$12.00");
+  });
+
   test("the Owned and Missing filters show the matching slots", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
