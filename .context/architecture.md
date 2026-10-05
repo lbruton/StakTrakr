@@ -447,8 +447,10 @@ joins the `#inventoryForm` selector lists in `css/styles.css` (search "Glass-sty
 inputs") for inputs, selects, textareas, labels, `details.form-section` chrome and footer
 buttons. A new modal that should look like Add Item extends those lists; it does not copy
 sizes. `textarea` is part of the global themed form-control rule. Type, Metal, Collection
-name, the two title images and the Image shape radiogroup are always visible; every other
-field sits in a collapsed section that is rebuilt closed on each open. Builder sections
+name, the two title images, the Image shape radiogroup and the Slot cards (with the Add
+slot actions) are always visible; the remaining collection metadata fields (Identity, Metal
+content, Specifications, Display, About) sit in collapsed sections that are rebuilt closed
+on each open. Builder sections
 carry `data-builder-section`, never `data-section`, which is the Add Item form's
 open-state persistence hook (`js/form-sections.js`). A Type that forces the metal disables
 Metal and Weight unit, and Save re-applies the lock. Approved mockup:
