@@ -2338,6 +2338,76 @@ test.describe("core/collections — tab UI", () => {
     await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toHaveText("—");
   });
 
+  test("the narrow tablet ledger keeps Item names and valuation columns readable", async ({
+    page,
+  }, testInfo) => {
+    const longItemName =
+      "2024 American Silver Eagle BU with a long collector description that must wrap across several lines";
+    const items = SEED.map((item) =>
+      item.uuid === "col-ase-2024" ? { ...item, name: longItemName } : item
+    );
+    await seedAndGoto(page, items);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await openAseAlbum(page);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+
+    for (const width of [641, 670, 700]) {
+      for (const theme of ["dark", "light", "slate", "sepia"]) {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await page.setViewportSize({ width, height: 900 });
+        const row = slotOf(page, "2024");
+        await expect(row).toContainText(longItemName);
+        const itemNameButton = row.locator(".collections-linkbtn");
+        const itemNameLineCount = await itemNameButton.evaluate((button) => {
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          return range.getClientRects().length;
+        });
+        expect(itemNameLineCount, `rendered Item name lines at ${width}px`).toBeGreaterThan(1);
+        const layout = await row.evaluate((element) => {
+          const name = element.querySelector(".collections-lrow-name");
+          const cells = [...element.children].filter(
+            (cell) => getComputedStyle(cell).display !== "none"
+          );
+          const bounds = cells.map((cell) => cell.getBoundingClientRect());
+          return {
+            nameWidth: name.getBoundingClientRect().width,
+            clipped: cells.filter((cell) => cell.scrollWidth > cell.clientWidth + 1).length,
+            overlapping: bounds.some((a, index) =>
+              bounds
+                .slice(index + 1)
+                .some(
+                  (b) =>
+                    a.left < b.right - 1 &&
+                    a.right > b.left + 1 &&
+                    a.top < b.bottom - 1 &&
+                    a.bottom > b.top + 1
+                )
+            ),
+          };
+        });
+        expect(layout.nameWidth, `Item name at ${width}px`).toBeGreaterThan(200);
+        expect(layout.clipped, `clipped cells at ${width}px`).toBe(0);
+        expect(layout.overlapping, `overlapping columns at ${width}px`).toBe(false);
+        await panel(page)
+          .locator(".collections-ledger")
+          .screenshot({ path: testInfo.outputPath(`ledger-${width}-${theme}.png`) });
+      }
+    }
+
+    // The hub shares `.collections-lrow` but keeps its seven-column layout at tablet widths.
+    await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+    for (const width of [641, 700, 800]) {
+      await page.setViewportSize({ width, height: 900 });
+      const hubRow = panel(page).locator(`.collections-hubrow[data-collection-id="${ASE}"]`);
+      const columns = await hubRow.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length
+      );
+      expect(columns, `hub grid columns at ${width}px`).toBe(7);
+    }
+  });
+
   test("the ledger keeps its actions inside the visible table at every width", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
@@ -2347,7 +2417,7 @@ test.describe("core/collections — tab UI", () => {
 
     // 700 sits between the 640px compact row and the 1024px tablet grid; 1025 is the first
     // desktop width. Both are where an over-wide track list clips the right-hand actions.
-    for (const width of [700, 1025, 1280]) {
+    for (const width of [390, 640, 641, 700, 800, 801, 1024, 1025, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       const fit = await page.evaluate(() => {
         const ledger = document.querySelector(".collections-ledger");

@@ -19030,6 +19030,51 @@ input[type="number"] {
   }
 }
 
+/* STRK-423: narrow tablets need two rows to preserve Item names and every value. */
+@media (min-width: 641px) and (max-width: 800px) {
+  .collections-album .collections-lrow {
+    grid-template-columns: 40px 84px repeat(2, minmax(0, 1fr)) 84px 104px;
+  }
+
+  .collections-album .collections-lrow > :nth-child(1) {
+    grid-area: 1 / 1;
+  }
+
+  .collections-album .collections-lrow > :nth-child(2) {
+    grid-area: 1 / 2;
+  }
+
+  .collections-album .collections-lrow > :nth-child(3) {
+    grid-area: 1 / 3 / 2 / 6;
+  }
+
+  .collections-album .collections-lrow > :nth-child(5) {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+
+  .collections-album .collections-lrow > :nth-child(6) {
+    grid-area: 2 / 3;
+  }
+
+  .collections-album .collections-lrow > :nth-child(7) {
+    grid-area: 2 / 4;
+  }
+
+  .collections-album .collections-lrow > :nth-child(8) {
+    grid-area: 2 / 5 / 3 / 7;
+  }
+
+  .collections-album .collections-lrow > :nth-child(9) {
+    grid-area: 1 / 6;
+  }
+
+  .collections-album .collections-lrow-name,
+  .collections-album .collections-lrow-name .collections-linkbtn {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* ---- Phone: 2-col stats + tiles, two-line ledger rows, 44px touch targets ---- */
 @media (max-width: 640px) {
   /* The global section padding (--spacing-xl a side) costs a phone 48px of width. */
