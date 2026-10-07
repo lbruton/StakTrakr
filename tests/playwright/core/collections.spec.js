@@ -2383,6 +2383,17 @@ test.describe("core/collections — tab UI", () => {
           .screenshot({ path: testInfo.outputPath(`ledger-${width}-${theme}.png`) });
       }
     }
+
+    // The hub shares `.collections-lrow` but keeps its seven-column layout at tablet widths.
+    await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+    for (const width of [641, 700, 800]) {
+      await page.setViewportSize({ width, height: 900 });
+      const hubRow = panel(page).locator(`.collections-hubrow[data-collection-id="${ASE}"]`);
+      const columns = await hubRow.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length
+      );
+      expect(columns, `hub grid columns at ${width}px`).toBe(7);
+    }
   });
 
   test("the ledger keeps its actions inside the visible table at every width", async ({ page }) => {

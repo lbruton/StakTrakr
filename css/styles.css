@@ -19032,44 +19032,44 @@ input[type="number"] {
 
 /* STRK-423: narrow tablets need two rows to preserve Item names and every value. */
 @media (min-width: 641px) and (max-width: 800px) {
-  .collections-lrow {
+  .collections-album .collections-lrow {
     grid-template-columns: 40px 84px repeat(2, minmax(0, 1fr)) 84px 104px;
   }
 
-  .collections-lrow > :nth-child(1) {
+  .collections-album .collections-lrow > :nth-child(1) {
     grid-area: 1 / 1;
   }
 
-  .collections-lrow > :nth-child(2) {
+  .collections-album .collections-lrow > :nth-child(2) {
     grid-area: 1 / 2;
   }
 
-  .collections-lrow > :nth-child(3) {
+  .collections-album .collections-lrow > :nth-child(3) {
     grid-area: 1 / 3 / 2 / 6;
   }
 
-  .collections-lrow > :nth-child(5) {
+  .collections-album .collections-lrow > :nth-child(5) {
     grid-area: 2 / 1 / 3 / 3;
   }
 
-  .collections-lrow > :nth-child(6) {
+  .collections-album .collections-lrow > :nth-child(6) {
     grid-area: 2 / 3;
   }
 
-  .collections-lrow > :nth-child(7) {
+  .collections-album .collections-lrow > :nth-child(7) {
     grid-area: 2 / 4;
   }
 
-  .collections-lrow > :nth-child(8) {
+  .collections-album .collections-lrow > :nth-child(8) {
     grid-area: 2 / 5 / 3 / 7;
   }
 
-  .collections-lrow > :nth-child(9) {
+  .collections-album .collections-lrow > :nth-child(9) {
     grid-area: 1 / 6;
   }
 
-  .collections-lrow-name,
-  .collections-lrow-name .collections-linkbtn {
+  .collections-album .collections-lrow-name,
+  .collections-album .collections-lrow-name .collections-linkbtn {
     white-space: normal;
     overflow-wrap: anywhere;
   }
