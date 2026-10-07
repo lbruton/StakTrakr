@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.41 &ndash; Readable Collections Ledger on narrow tablets</strong>: Item names now have room to wrap in the Collections Ledger at narrow tablet widths. Slot identity and actions sit above aligned Paid, Melt, Retail and G/L values, so every column remains usable (STRK-423).</li>
     <li><strong>v3.36.40 &ndash; Retail value in the Collections Ledger</strong>: The Collections Ledger now shows per-unit Retail between Melt and G/L, using the same valuation rules as Inventory. G/L uses Retail when available and falls back to Melt otherwise, so the column shows the same per-item gain or loss as Inventory (STRK-382).</li>
     <li><strong>v3.36.39 &ndash; Custom Collection details and artwork</strong>: Custom Collections now support template-style metadata, Item types, overridable image shapes including Slab, and paired obverse/reverse title images. The selected title image also fills the empty-Slot artwork gap, while metadata and images survive editing, sync and backup restore (STRK-395, STRK-396).</li>
     <li><strong>v3.36.38 &ndash; Mintage per Custom Collection Slot</strong>: Enter an optional Mintage for each Slot when creating or editing a Custom Collection. Counts appear in Album and Ledger, carry into editable clones and survive backups and sync. Blank means unknown, while zero remains a distinct count (STRK-391).</li>
     <li><strong>v3.36.37 &ndash; Arrange Custom Collection Slots</strong>: Insert a Slot after any row or use the up/down arrows to place variants beside their issue years. Album and Ledger follow the saved Collection order, while linked Items, Spares and artwork stay with their Slots. Cancel or close discards unsaved arrangement changes (STRK-389).</li>
-    <li><strong>v3.36.36 &ndash; Dropbox sync backups restore again</strong>: The automatic pre-sync backups in Dropbox could not be restored before this release, and every attempt reported a wrong password or a corrupted file. Restoring from Settings &rsaquo; Cloud now opens them with this device&rsquo;s Cloud Sync key, and on another device your Cloud Sync vault password opens them. A password that fits no backup now says which password each backup type expects (STRK-413).</li>
       `;
 };
 

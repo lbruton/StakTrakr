@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.41] - 2026-10-06
+
+### Changed — STRK-423: Readable Collections Ledger on narrow tablets
+
+- **Ledger layout**: Keep Collections Ledger Item names readable on narrow tablets, with aligned valuation columns. At 641–800px, Slot identity, Item names and actions sit above Paid, Melt, Retail and G/L / best price (STRK-423).
+
+---
+
 ## [3.36.40] - 2026-10-04
 
 ### Changed — STRK-382: Retail value in the Collections Ledger
