@@ -2341,7 +2341,12 @@ test.describe("core/collections — tab UI", () => {
   test("the narrow tablet ledger keeps Item names and valuation columns readable", async ({
     page,
   }, testInfo) => {
-    await seedAndGoto(page);
+    const longItemName =
+      "2024 American Silver Eagle BU with a long collector description that must wrap across several lines";
+    const items = SEED.map((item) =>
+      item.uuid === "col-ase-2024" ? { ...item, name: longItemName } : item
+    );
+    await seedAndGoto(page, items);
     await openCollectionsTab(page);
     await linkItems(page, [["2024", "col-ase-2024"]]);
     await openAseAlbum(page);
@@ -2352,7 +2357,14 @@ test.describe("core/collections — tab UI", () => {
         await page.evaluate((name) => window.setTheme(name), theme);
         await page.setViewportSize({ width, height: 900 });
         const row = slotOf(page, "2024");
-        await expect(row).toContainText("2024 American Silver Eagle BU");
+        await expect(row).toContainText(longItemName);
+        const itemNameButton = row.locator(".collections-linkbtn");
+        const itemNameLineCount = await itemNameButton.evaluate((button) => {
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          return range.getClientRects().length;
+        });
+        expect(itemNameLineCount, `rendered Item name lines at ${width}px`).toBeGreaterThan(1);
         const layout = await row.evaluate((element) => {
           const name = element.querySelector(".collections-lrow-name");
           const cells = [...element.children].filter(
