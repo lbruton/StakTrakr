@@ -2119,7 +2119,7 @@ test.describe("core/collections — tab UI", () => {
     await openAseAlbum(page);
 
     const meltValue = panel(page)
-      .locator(".collections-stat", { hasText: "Melt value" })
+      .locator(".collections-stat", { hasText: "Value" })
       .locator(".collections-stat-value");
     const before = await meltValue.textContent();
 
@@ -2336,6 +2336,62 @@ test.describe("core/collections — tab UI", () => {
     await expect(noSignalRow.locator(":scope > .collections-num").nth(3)).toHaveText("—");
     await expect(noSignalRow.locator(":scope > .collections-num").nth(4)).toHaveText("—");
     await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toHaveText("—");
+  });
+
+  test("STRK-382 collection totals show retail value with melt, using the inventory rule", async ({
+    page,
+  }) => {
+    // Silver spot is 25 and purity 1, so unit melt is a clean $25.00.
+    const years = ["2021", "2022", "2023", "2024", "2025", "2026"];
+    const marketValues = { 2021: 60, 2022: 20 };
+    const items = years.map((year, index) => ({
+      ...baseItem(`col-value-${year}`, `${year} value item`, year, 40 + index),
+      purity: 1,
+      marketValue: marketValues[year] || 0,
+    }));
+    await seedAndGoto(page, items);
+    await openCollectionsTab(page);
+    await linkItems(
+      page,
+      years.map((year) => [year === "2021" ? "2021-t2" : year, `col-value-${year}`])
+    );
+
+    // Retail above melt wins (60), retail below melt is honoured (20), no retail falls back
+    // to melt (4 x 25): 180.00 value, 150.00 melt, 180.00 paid.
+    const hubStat = panel(page).locator(".collections-stat", { hasText: "Collected value" });
+    await expect(hubStat.locator(".collections-stat-value")).toHaveText("$180.00");
+    await expect(hubStat.locator(".collections-stat-note")).toHaveText(
+      "melt $150.00 · paid $180.00"
+    );
+    await expect(
+      panel(page).locator(`.collections-card[data-collection-id="${ASE}"] .collections-card-foot`)
+    ).toHaveText("Set complete · $180.00 value · $150.00 melt");
+
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    const hubRow = panel(page).locator(`.collections-hubrow[data-collection-id="${ASE}"]`);
+    await expect(hubRow).toContainText("$180.00");
+    await expect(hubRow).toContainText("$150.00");
+    await panel(page).getByRole("button", { name: "Album view" }).click();
+
+    await openAseAlbum(page);
+    const albumStat = panel(page).locator(".collections-stat", { hasText: "Value" }).first();
+    await expect(albumStat.locator(".collections-stat-label")).toHaveText("Value");
+    await expect(albumStat.locator(".collections-stat-value")).toHaveText("$180.00");
+    await expect(albumStat.locator(".collections-stat-note")).toContainText("melt $150.00");
+
+    // The total is the sum of the Slot rows' own per-unit Retail (inventory's retail ÷ qty).
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    const retailCells = await panel(page)
+      .locator(".collections-lrow[data-slot-id]")
+      .evaluateAll((rows) =>
+        rows.map((row) => row.querySelectorAll(":scope > .collections-num")[3].textContent)
+      );
+    expect(retailCells).toHaveLength(6);
+    const slotSum = retailCells.reduce(
+      (sum, text) => sum + Number(text.replace(/[^0-9.]/g, "")),
+      0
+    );
+    expect(slotSum).toBe(180);
   });
 
   test("the narrow tablet ledger keeps Item names and valuation columns readable", async ({
@@ -3297,7 +3353,7 @@ const hubSortCases = [
     ["Alpha", "Zeta", "Beta", "Unknown", "Delta"],
   ],
   [
-    "Value (melt)",
+    "Value",
     ["Delta", "Zeta", "Beta", "Alpha", "Unknown"],
     ["Alpha", "Beta", "Zeta", "Delta", "Unknown"],
   ],
@@ -3311,7 +3367,7 @@ const hubSortCases = [
 test.describe("hub Ledger sorting", () => {
   for (const [label, ascending, descending] of hubSortCases) {
     const defaultDirection =
-      label === "Progress" || label === "Owned" || label === "Value (melt)" ? "desc" : "asc";
+      label === "Progress" || label === "Owned" || label === "Value" ? "desc" : "asc";
     const presetOrder = defaultDirection === "asc" ? ascending : descending;
     const reversedOrder = defaultDirection === "asc" ? descending : ascending;
     test(`${label} header selects its preset direction and then reverses`, async ({ page }) => {
@@ -3384,7 +3440,7 @@ test.describe("hub Ledger sorting", () => {
       "My order",
       ...columns.flatMap((label) => [`${label} — ascending`, `${label} — descending`]),
     ]);
-    const keys = ["name", "percent-complete", "owned", "value-melt", "to-complete"];
+    const keys = ["name", "percent-complete", "owned", "value", "to-complete"];
     for (let i = 0; i < hubSortCases.length; i++) {
       await select.selectOption(`${keys[i]}:asc`);
       await expect(ledgerNames(page)).toHaveText(hubSortCases[i][1]);

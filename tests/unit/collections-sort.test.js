@@ -215,3 +215,26 @@ test("preference persistence reports write failures without accepting the new va
     }
   );
 });
+
+test("the value sort orders by retail value and keeps the legacy melt key valid (STRK-382)", () => {
+  const entries = [
+    { id: "none", ledgerRetail: null, ledgerMelt: 5 },
+    { id: "low", ledgerRetail: 10, ledgerMelt: 90 },
+    { id: "high", ledgerRetail: 80, ledgerMelt: 20 },
+  ];
+  const order = entries.map((entry) => entry.id);
+  assert.deepEqual(ids(sortHubEntries(entries, { order, sortKey: "value", direction: "desc" })), [
+    "high",
+    "low",
+    "none",
+  ]);
+  assert.deepEqual(ids(sortHubEntries(entries, { order, sortKey: "value", direction: "asc" })), [
+    "low",
+    "high",
+    "none",
+  ]);
+  assert.equal(
+    normalizeHubPreferences({ sortKey: "value-melt", direction: "asc" }).sortKey,
+    "value-melt"
+  );
+});

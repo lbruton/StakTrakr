@@ -60,6 +60,7 @@
 
   const PICKER_FALLBACK_MESSAGE = "Coming in the next build";
   const DASH = "—";
+  const CENT = 0.005;
   const PERCENT = 100;
   const MONOGRAM_MAX_LETTERS = 2;
 
@@ -651,13 +652,20 @@
     const progress = core().collectionProgress(collection, slotDefs, store().isActiveUuid);
     let paid = 0;
     let melt = 0;
+    let retail = 0;
     let hasMelt = true;
+    let hasRetail = true;
     slotDefs.forEach((def) => {
       const primary = store().resolveSlot(collection, def.id).primary;
       const item = primary ? store().findItem(primary) : null;
       if (!item) return;
       paid += unitPaid(item);
       melt += unitMelt(item);
+      // Inventory's own hierarchy (retail when set, else melt) via the shared helper.
+      const valuation = unitValuation(item);
+      if (valuation && valuation.hasRetailSignal && Number.isFinite(valuation.retailUnitPrice))
+        retail += valuation.retailUnitPrice;
+      else hasRetail = false;
       if (
         !spotFor(item.metal) ||
         typeof computeMeltValue !== "function" ||
@@ -728,7 +736,11 @@
       status: statusOf(progress),
       paid,
       melt,
+      retail,
+      // True when retail value adds something over melt, so surfaces can avoid saying it twice.
+      retailAboveMelt: retail > 0 && Math.abs(retail - melt) >= CENT,
       ledgerMelt: hasMelt ? melt : null,
+      ledgerRetail: hasRetail ? retail : null,
       best,
       costToComplete: best && progress.missing > 0 ? best.price * progress.missing : null,
       obverse: stockImage(artworkTemplate, "obverse"),

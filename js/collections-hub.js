@@ -49,7 +49,7 @@
       ["name", "Collection"],
       ["percent-complete", "Progress"],
       ["owned", "Owned"],
-      ["value-melt", "Value (melt)"],
+      ["value", "Value"],
       ["to-complete", "To complete"],
     ];
 
@@ -264,6 +264,7 @@
       const total = sum((entry) => entry.progress.total);
       const paid = sum((entry) => entry.paid);
       const melt = sum((entry) => entry.melt);
+      const retail = sum((entry) => entry.retail);
       const cost = sum((entry) => entry.costToComplete || 0);
       const idle = entries.length - active.length;
       return buildStats([
@@ -281,8 +282,8 @@
         },
         {
           label: "Collected value",
-          value: melt ? money(melt) : DASH,
-          note: `melt · paid ${money(paid)}`,
+          value: retail ? money(retail) : DASH,
+          note: `melt ${melt ? money(melt) : DASH} · paid ${money(paid)}`,
         },
         {
           label: "Cost to complete",
@@ -371,8 +372,11 @@
      */
     const cardFootText = (entry) => {
       const { missing } = entry.progress;
-      if (entry.status === STATUS_COMPLETE)
+      if (entry.status === STATUS_COMPLETE) {
+        if (entry.retailAboveMelt)
+          return `Set complete · ${money(entry.retail)} value · ${money(entry.melt)} melt`;
         return entry.melt ? `Set complete · ${money(entry.melt)} melt` : "Set complete";
+      }
       if (entry.costToComplete)
         return `${missing} missing ≈ ${money(entry.costToComplete)} to finish`;
       return `${missing} missing`;
@@ -551,9 +555,14 @@
       const owned = el("span", "collections-num collections-hide-sm");
       owned.appendChild(buildCount(entry.progress));
       row.appendChild(owned);
-      row.appendChild(
-        el("span", "collections-num collections-hide-sm", entry.melt ? money(entry.melt) : DASH)
+      const valueCell = el(
+        "span",
+        "collections-num collections-hide-sm",
+        entry.retail ? money(entry.retail) : DASH
       );
+      if (entry.retailAboveMelt && entry.melt)
+        valueCell.appendChild(el("small", "collections-value-melt", `${money(entry.melt)} melt`));
+      row.appendChild(valueCell);
       row.appendChild(
         el("span", "collections-num collections-hide-sm", costLabel(entry.costToComplete))
       );

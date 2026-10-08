@@ -18862,6 +18862,13 @@ input[type="number"] {
   color: var(--text-muted);
 }
 
+/* Hub Value cell: retail on top, melt as a quiet second line (STRK-382). */
+.collections-value-melt {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
 .collections-lrow-act {
   display: flex;
   align-items: center;

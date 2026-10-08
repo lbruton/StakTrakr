@@ -199,7 +199,11 @@
           value: entry.paid ? money(entry.paid) : DASH,
           note: "primary items only · per unit",
         },
-        { label: "Melt value", value: entry.melt ? money(entry.melt) : DASH, note: spotNote },
+        {
+          label: "Value",
+          value: entry.retail ? money(entry.retail) : DASH,
+          note: entry.retailAboveMelt ? `melt ${money(entry.melt)} · ${spotNote}` : spotNote,
+        },
         {
           label: "Cost to complete",
           value: costValue,
