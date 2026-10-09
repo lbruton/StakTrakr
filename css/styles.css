@@ -19777,7 +19777,9 @@ input[type="number"] {
   height: 20px;
   border: 1px solid var(--border-hover);
   border-radius: 50%;
-  background: var(--surface);
+  /* --bg-card, not --surface: only the light :root defines --surface, so the dark themes kept a
+     near-white badge under their light text (STRK-426). In light the two tokens are equal. */
+  background: var(--bg-card);
   color: var(--text-primary);
   cursor: pointer;
 }
