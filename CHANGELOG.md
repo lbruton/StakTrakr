@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.43] - 2026-10-08
+
+### Changed — STRK-422: Custom Collection builder fixes
+
+- **Denomination weight**: Opening a Goldback, Silverback or Constitutional Collection whose stored unit does not match its type no longer relabels the weight ("1 oz" becoming "1 gb"); the weight is cleared with the unit (STRK-422).
+- **Spec validation**: A negative Diameter, Gross weight or Thickness now blocks the save with a message and keeps the builder open instead of being silently dropped (STRK-422).
+
+---
+
 ## [3.36.42] - 2026-10-08
 
 ### Changed — STRK-382: Collection value shows retail and melt

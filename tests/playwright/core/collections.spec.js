@@ -1289,6 +1289,115 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition).toMatchObject({ itemType: "Goldback", metal: "Gold", weightUnit: "gb" });
   });
 
+  test("STRK-422 opening and saving a mismatched denomination Collection never relabels its weight", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Mismatched Goldbacks",
+        metal: "Silver",
+        itemType: "Goldback",
+        weight: 1,
+        weightUnit: "oz",
+        slots: [{ label: "Utah" }],
+      });
+      window.collectionsPicker.openBuilder({ editId: created.collection.id });
+      return created.collection.id;
+    });
+    const builder = builderModal(page);
+    await expect(builder.getByLabel("Weight unit")).toHaveValue("gb");
+    // "1 oz" must not silently become "1 gb": the stored weight is dropped with the unit.
+    await builder
+      .locator("details.form-section")
+      .filter({ hasText: "Metal content" })
+      .locator("summary")
+      .click();
+    await expect(builder.getByLabel("Weight", { exact: true })).toHaveValue("");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    const definition = await page.evaluate(
+      (collectionId) => window.collectionsStore.getState().collections[collectionId].definition,
+      id
+    );
+    expect(definition.weightUnit).toBe("gb");
+    expect(definition.weight || null).toBeNull();
+  });
+
+  test("STRK-422 a matching denomination Collection keeps its weight on open and save", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Matched Goldbacks",
+        metal: "Gold",
+        itemType: "Goldback",
+        weight: 2,
+        weightUnit: "gb",
+        slots: [{ label: "Utah" }],
+      });
+      window.collectionsPicker.openBuilder({ editId: created.collection.id });
+      return created.collection.id;
+    });
+    const builder = builderModal(page);
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    const definition = await page.evaluate(
+      (collectionId) => window.collectionsStore.getState().collections[collectionId].definition,
+      id
+    );
+    expect(definition).toMatchObject({ weight: 2, weightUnit: "gb" });
+  });
+
+  test("STRK-422 a negative Diameter, Gross weight or Thickness blocks the save and keeps the builder open", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Collection name").fill("Bad specs");
+    await builder.getByLabel("Slot label").first().fill("One");
+    await builder
+      .locator("details.form-section")
+      .filter({ hasText: "Specifications" })
+      .locator("summary")
+      .click();
+    for (const [label, message] of [
+      ["Diameter", /Diameter must be a non-negative number/],
+      ["Gross weight (g)", /Gross weight must be a non-negative number/],
+      ["Thickness", /Thickness must be a non-negative number/],
+    ]) {
+      const input = builder.getByLabel(label);
+      await input.fill("-1");
+      await builder.getByRole("button", { name: "Create collection" }).click();
+      await expect(builder).toBeVisible();
+      await expect(input).toHaveAttribute("aria-invalid", "true");
+      await expect(input).toBeFocused();
+      await expect(page.locator("body")).toContainText(message);
+      expect(
+        await page.evaluate(() =>
+          Object.values(window.collectionsStore.getState().collections).some(
+            (c) => c.name === "Bad specs"
+          )
+        )
+      ).toBe(false);
+      await input.fill("");
+    }
+    await builder.getByLabel("Diameter").fill("32");
+    await builder.getByRole("button", { name: "Create collection" }).click();
+    await expect(builder).toBeHidden();
+    const specs = await page.evaluate(
+      () =>
+        Object.values(window.collectionsStore.getState().collections).find(
+          (c) => c.name === "Bad specs"
+        ).definition.specs
+    );
+    expect(specs.diameterMm).toBe(32);
+  });
+
   test("Gross weight and Thickness render labelled in the album and hub", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {
