@@ -376,6 +376,8 @@
       if (entry.status === STATUS_COMPLETE) {
         if (entry.retailDiffers)
           return `Set complete · ${money(entry.retail)} value · ${money(entry.melt)} melt`;
+        // Known retail with no usable melt (no spot price) still shows its value.
+        if (entry.retail && !entry.melt) return `Set complete · ${money(entry.retail)} value`;
         return entry.melt ? `Set complete · ${money(entry.melt)} melt` : "Set complete";
       }
       if (entry.costToComplete)
