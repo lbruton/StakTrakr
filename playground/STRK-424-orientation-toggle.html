@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>STRK-424 · Bar / Note orientation control</title>
+  <script>
+    // Theme must be set before first paint. Try ?theme=light|dark|slate|sepia.
+    document.documentElement.dataset.theme =
+      new URLSearchParams(location.search).get("theme") || "dark";
+  </script>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <style>
+    /* Mockup chrome only. Real controls reuse .collections-segmented and the builder hero. */
+    body {
+      padding: 1.5rem;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-family, system-ui, sans-serif);
+    }
+    h1 {
+      font-size: var(--font-size-xl, 1.25rem);
+      margin: 0 0 0.25rem;
+    }
+    .lede {
+      color: var(--text-secondary);
+      margin: 0 0 1.25rem;
+      max-width: 62ch;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+    .variant {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .variant h2 {
+      align-self: flex-start;
+      font-size: var(--font-size-md, 1rem);
+      margin: 0;
+    }
+    .variant p {
+      align-self: flex-start;
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm, 0.85rem);
+      margin: 0;
+    }
+    .pros {
+      align-self: flex-start;
+      color: var(--text-secondary);
+      font-size: var(--font-size-xs, 0.78rem);
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+    .stage {
+      --collections-cover-size: 76px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      min-height: 210px;
+      justify-content: flex-end;
+      width: 100%;
+    }
+    .pair {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+      justify-content: center;
+      position: relative;
+    }
+    /* NEW ratio tokens: the real patch defines these once and both the builder preview and
+       the Album/Ledger renderer read them. Bar landscape reuses today's 1.6. */
+    .stage {
+      --frame-bar-portrait: 3 / 5;
+      --frame-bar-landscape: 1.6;
+      --frame-note-portrait: 3 / 5;
+      --frame-note-landscape: 5 / 3;
+    }
+    .stage .pick {
+      width: var(--collections-cover-size);
+      border: 2px dashed var(--border-hover, var(--border));
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: var(--text-secondary);
+      font-size: var(--font-size-2xl, 1.5rem);
+      aspect-ratio: 1;
+      transition: aspect-ratio 0.15s;
+    }
+    .stage[data-shape="round"] .pick {
+      border-radius: 50%;
+    }
+    .stage[data-shape="slab"] .pick {
+      aspect-ratio: 0.68;
+    }
+    .stage[data-shape="bar"][data-orientation="portrait"] .pick {
+      aspect-ratio: var(--frame-bar-portrait);
+    }
+    .stage[data-shape="bar"][data-orientation="landscape"] .pick {
+      aspect-ratio: var(--frame-bar-landscape);
+      width: calc(var(--collections-cover-size) * 1.35);
+    }
+    .stage[data-shape="note"][data-orientation="portrait"] .pick {
+      aspect-ratio: var(--frame-note-portrait);
+    }
+    .stage[data-shape="note"][data-orientation="landscape"] .pick {
+      aspect-ratio: var(--frame-note-landscape);
+      width: calc(var(--collections-cover-size) * 1.35);
+    }
+    .caption {
+      color: var(--text-secondary);
+      font-size: var(--font-size-xs, 0.78rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    /* Candidate orientation controls. Hidden for Round and Slab, which never rotate. */
+    [data-shape="round"] .rot,
+    [data-shape="slab"] .rot {
+      display: none !important;
+    }
+    .rot-icon-btn,
+    .rot-text-btn,
+    .rot-chip {
+      font: inherit;
+      color: var(--text-primary);
+      background: var(--bg-tertiary, var(--bg-primary));
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .rot-icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+    }
+    .rot-text-btn {
+      min-height: 44px;
+      padding: 0 0.9rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .rot-chip {
+      position: absolute;
+      right: -14px;
+      top: -14px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+    }
+    .rot-icon-btn:hover,
+    .rot-text-btn:hover,
+    .rot-chip:hover {
+      border-color: var(--primary, var(--border-hover));
+    }
+    .rot-icon-btn:focus-visible,
+    .rot-text-btn:focus-visible,
+    .rot-chip:focus-visible,
+    .collections-segmented-option input:focus-visible + span {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    .row {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    svg {
+      display: block;
+    }
+  </style>
+
+  <body>
+    <h1>STRK-424 · Bar / Note orientation control</h1>
+    <p class="lede">
+      Five ways to flip a Bar or Note frame between portrait and landscape. Click a shape, then the
+      control. It appears only for Bar and Note. Round and Slab never show it. Bar defaults to
+      portrait, Note to landscape.
+    </p>
+    <div class="grid" id="grid"></div>
+
+    <script>
+      const SHAPES = [
+        { value: "round", label: "Round", icon: '<circle cx="12" cy="12" r="8"/>' },
+        { value: "bar", label: "Bar", icon: '<rect x="8" y="3" width="8" height="18" rx="1.5"/>' },
+        {
+          value: "note",
+          label: "Note",
+          icon: '<rect x="3" y="8" width="18" height="8" rx="1.5"/>',
+        },
+        {
+          value: "slab",
+          label: "Slab",
+          icon: '<rect x="6" y="3" width="12" height="18" rx="2"/><rect x="9" y="7" width="6" height="6" rx="3"/>',
+        },
+      ];
+      const ICONS = {
+        // Curved arrow around a frame.
+        rotate: '<path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/>',
+        // Two arrows, a quarter-turn.
+        turn: '<path d="M4 9V5h4"/><path d="M4 5a9 9 0 0 1 14 3"/><path d="M20 15v4h-4"/><path d="M20 19a9 9 0 0 1-14-3"/>',
+        // Frame with a diagonal double arrow.
+        swap: '<rect x="3" y="7" width="12" height="10" rx="1.5"/><path d="M17 4l4 4-4 4"/><path d="M21 8h-5"/>',
+        // Portrait / landscape glyphs.
+        portrait: '<rect x="7" y="3" width="10" height="18" rx="1.5"/>',
+        landscape: '<rect x="3" y="7" width="18" height="10" rx="1.5"/>',
+      };
+      const svg = (inner, size = 18) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+      const DEFAULT_ORIENTATION = { bar: "portrait", note: "landscape" };
+
+      const VARIANTS = [
+        {
+          id: "A",
+          title: "A · Round icon button beside the shapes",
+          blurb: "One 44px circle after the pill. Tooltip and aria-label name the target state.",
+          pros: ["Smallest footprint", "Icon alone must read as rotate"],
+          control: (api) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "rot rot-icon-btn";
+            b.innerHTML = svg(ICONS.rotate);
+            b.addEventListener("click", api.flip);
+            api.onChange(() => {
+              const next = api.state.orientation === "portrait" ? "landscape" : "portrait";
+              b.setAttribute("aria-label", `Rotate frame to ${next}`);
+              b.title = `Rotate to ${next}`;
+            });
+            return { node: b, inline: true };
+          },
+        },
+        {
+          id: "B",
+          title: "B · Text pill that names the state",
+          blurb:
+            "“Portrait ↻” or “Landscape ↻” on a pill under the shapes. Always says what you have.",
+          pros: ["Self-explanatory", "Widest control, wraps at 375px"],
+          control: (api) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "rot rot-text-btn";
+            api.onChange(() => {
+              const label = api.state.orientation === "portrait" ? "Portrait" : "Landscape";
+              b.innerHTML = `${svg(ICONS[api.state.orientation], 16)}<span>${label}</span>${svg(ICONS.turn, 16)}`;
+              b.setAttribute("aria-label", `${label} frame. Activate to rotate.`);
+            });
+            b.addEventListener("click", api.flip);
+            return { node: b, inline: false };
+          },
+        },
+        {
+          id: "C",
+          title: "C · Two-option segmented “Orientation”",
+          blurb:
+            "Same radiogroup component as Image shape, with portrait and landscape frame glyphs.",
+          pros: ["Consistent with Image shape", "Two taps to see it, one row more height"],
+          control: (api) => {
+            const wrap = document.createElement("div");
+            wrap.className = "rot";
+            wrap.style.display = "flex";
+            wrap.style.flexDirection = "column";
+            wrap.style.alignItems = "center";
+            wrap.style.gap = "0.35rem";
+            const cap = document.createElement("span");
+            cap.className = "caption";
+            cap.id = `orient-${api.uid}`;
+            cap.textContent = "Orientation";
+            const group = document.createElement("div");
+            group.className = "collections-segmented";
+            group.setAttribute("role", "radiogroup");
+            group.setAttribute("aria-labelledby", cap.id);
+            const inputs = ["portrait", "landscape"].map((value) => {
+              const label = document.createElement("label");
+              label.className = "collections-segmented-option";
+              const input = document.createElement("input");
+              input.type = "radio";
+              input.name = `orient-${api.uid}`;
+              input.value = value;
+              input.addEventListener("change", () => api.set(value));
+              const face = document.createElement("span");
+              face.innerHTML = `${svg(ICONS[value], 16)}${value[0].toUpperCase()}${value.slice(1)}`;
+              label.append(input, face);
+              group.append(label);
+              return input;
+            });
+            api.onChange(() =>
+              inputs.forEach((i) => (i.checked = i.value === api.state.orientation))
+            );
+            wrap.append(cap, group);
+            return { node: wrap, inline: false };
+          },
+        },
+        {
+          id: "D",
+          title: "D · Re-tap the selected shape",
+          blurb:
+            "The Bar or Note pill's own glyph turns. Tapping it again flips. No extra control.",
+          pros: ["Zero added chrome", "Hidden affordance; needs a hint line"],
+          control: (api) => {
+            const hint = document.createElement("span");
+            hint.className = "rot caption";
+            api.onChange(() => (hint.textContent = "Tap the selected shape again to rotate"));
+            return { node: hint, inline: false, retap: true };
+          },
+        },
+        {
+          id: "E",
+          title: "E · Chip on the preview frame",
+          blurb: "A 32px rotate chip pinned to the frame corner, where the effect is visible.",
+          pros: ["Acts on what you are looking at", "32px is under the 44px touch target"],
+          control: (api) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "rot rot-chip";
+            b.innerHTML = svg(ICONS.rotate, 16);
+            api.onChange(() => {
+              const next = api.state.orientation === "portrait" ? "landscape" : "portrait";
+              b.setAttribute("aria-label", `Rotate frame to ${next}`);
+              b.title = `Rotate to ${next}`;
+            });
+            b.addEventListener("click", api.flip);
+            return { node: b, inline: false, onFrame: true };
+          },
+        },
+      ];
+
+      let uidCounter = 0;
+      const grid = document.getElementById("grid");
+      VARIANTS.forEach((variant) => {
+        const uid = ++uidCounter;
+        const state = { shape: "bar", orientation: "portrait" };
+        const listeners = [];
+        const card = document.createElement("section");
+        card.className = "variant";
+        card.innerHTML = `<h2>${variant.title}</h2><p>${variant.blurb}</p><ul class="pros">${variant.pros.map((p) => `<li>${p}</li>`).join("")}</ul>`;
+
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const pair = document.createElement("div");
+        pair.className = "pair";
+        pair.innerHTML = '<div class="pick">+</div><div class="pick">+</div>';
+        const caption = document.createElement("span");
+        caption.className = "caption";
+        caption.textContent = "Image shape";
+
+        const paint = () => {
+          stage.dataset.shape = state.shape;
+          stage.dataset.orientation = state.orientation;
+          listeners.forEach((fn) => fn());
+        };
+        const api = {
+          uid,
+          state,
+          onChange: (fn) => {
+            listeners.push(fn);
+            fn();
+          },
+          set: (value) => {
+            state.orientation = value;
+            paint();
+          },
+          flip: () => api.set(state.orientation === "portrait" ? "landscape" : "portrait"),
+        };
+        const built = variant.control(api);
+
+        const group = document.createElement("div");
+        group.className = "collections-segmented";
+        group.setAttribute("role", "radiogroup");
+        group.setAttribute("aria-label", "Image shape");
+        SHAPES.forEach((shape) => {
+          const label = document.createElement("label");
+          label.className = "collections-segmented-option";
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = `shape-${uid}`;
+          input.value = shape.value;
+          input.checked = shape.value === state.shape;
+          input.addEventListener("change", () => {
+            state.shape = shape.value;
+            state.orientation = DEFAULT_ORIENTATION[shape.value] || state.orientation;
+            paint();
+          });
+          if (built.retap) {
+            label.addEventListener("click", () => {
+              if (state.shape === shape.value && DEFAULT_ORIENTATION[shape.value]) api.flip();
+            });
+          }
+          const face = document.createElement("span");
+          face.innerHTML = `${svg(shape.icon, 16)}${shape.label}`;
+          label.append(input, face);
+          group.append(label);
+        });
+
+        const shapeRow = document.createElement("div");
+        shapeRow.className = "row";
+        shapeRow.append(group);
+        if (built.inline) shapeRow.append(built.node);
+        stage.append(pair);
+        if (built.onFrame) pair.append(built.node);
+        stage.append(caption, shapeRow);
+        if (!built.inline && !built.onFrame) stage.append(built.node);
+        card.append(stage);
+        grid.append(card);
+        paint();
+      });
+    </script>
+  </body>
+</html>
