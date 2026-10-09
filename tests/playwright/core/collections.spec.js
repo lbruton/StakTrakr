@@ -964,6 +964,51 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(note.width).toBeGreaterThan(note.height);
   });
 
+  test("STRK-426 the title image remove badge is legible in every theme", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder
+      .locator(".collections-builder-title-option")
+      .first()
+      .locator("input[type=file]")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    const remove = builder.getByRole("button", { name: "Remove cover image" });
+    await expect(remove).toBeVisible();
+    await expect(remove).toHaveText("×");
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((value) => window.setTheme(value), theme);
+      // Resolve both computed colors through a canvas so oklch() and rgb() compare alike,
+      // then measure the WCAG contrast between the × glyph and the badge it sits on.
+      const ratio = await remove.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const ctx = document.createElement("canvas").getContext("2d", {
+          willReadFrequently: true,
+        });
+        const luminance = (color) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = color;
+          ctx.fillRect(0, 0, 1, 1);
+          const [r, g, b] = Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)).map((c) => {
+            const v = c / 255;
+            return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+        const [hi, lo] = [luminance(style.color), luminance(style.backgroundColor)].sort(
+          (a, b) => b - a
+        );
+        return (hi + 0.05) / (lo + 0.05);
+      });
+      expect(ratio, `${theme} theme × badge contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+    await page.evaluate(() => window.setTheme("light"));
+  });
+
   test("STRK-421 dragging a Slot handle reorders the cards and the order is saved", async ({
     page,
   }) => {

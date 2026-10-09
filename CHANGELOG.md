@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.45] - 2026-10-08
+
+### Changed — STRK-426: Readable image remove badge in dark themes
+
+- **Remove badge**: The × that removes a Custom Collection title or Slot image is now readable in the dark, slate and sepia themes; it used to show as a blank white circle (STRK-426).
+
+---
+
 ## [3.36.44] - 2026-10-08
 
 ### Changed — STRK-424: Bar and Note orientation
