@@ -19682,6 +19682,13 @@ input[type="number"] {
   padding: 0;
 }
 
+/* Phone touch targets: text options (Orientation) meet the 44px baseline. */
+@media (max-width: 767px) {
+  .collections-builder-form .collections-segmented-option span:not(.collections-builder-icon) {
+    min-height: 44px;
+  }
+}
+
 .collections-builder-slots-head {
   display: flex;
   align-items: center;

@@ -1491,6 +1491,29 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect.poll(frameRatio).toBeCloseTo(1 / 2.05, 1);
   });
 
+  test("STRK-424 a Type change that keeps the derived shape keeps the chosen orientation", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    const orientation = builder.getByRole("radiogroup", { name: "Orientation" });
+    await builder.getByLabel("Type").selectOption("Note");
+    await orientation.getByLabel("Portrait").check();
+    // Goldback derives the same Note shape, so the explicit choice must survive.
+    await builder.getByLabel("Type").selectOption("Goldback");
+    await expect(orientation.getByLabel("Portrait")).toBeChecked();
+    // A Type that derives a different shape restarts at that shape's default.
+    await builder.getByLabel("Type").selectOption("Bar");
+    await expect(orientation.getByLabel("Portrait")).toBeChecked();
+    await builder.getByLabel("Type").selectOption("Note");
+    await expect(orientation.getByLabel("Landscape")).toBeChecked();
+  });
+
   test("STRK-424 a saved orientation reaches the Album frame, the editor, and survives a reload", async ({
     page,
   }) => {
@@ -1538,6 +1561,22 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await builderModal(page).getByRole("button", { name: "Save changes" }).click();
     expect((await read(id)).imageOrientation).toBe("portrait");
     expect(await coinRatio()).toBeCloseTo(0.6, 1);
+
+    // The Hub card and both Ledger levels read the same saved orientation as the Album.
+    const ratioIn = (scope) =>
+      panel(page)
+        .locator(`${scope} .collections-coin--shape-bar`)
+        .first()
+        .evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return box.width / box.height;
+        });
+    await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+    expect(await ratioIn(`.collections-card[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
+    await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    expect(await ratioIn(`.collections-hubrow[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
+    await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
+    expect(await ratioIn(".collections-lrow[data-slot-id]")).toBeCloseTo(0.6, 1);
 
     await page.reload();
     await page.waitForFunction(() => window.appListenersReady);

@@ -1271,9 +1271,12 @@
     };
     itemType.addEventListener("change", () => {
       if (!imageShapeTouched) {
+        // Only restart the orientation when the derived shape really changed; a Type change that
+        // lands on the same shape (Note -> Goldback) keeps the user's explicit choice.
+        const shapeChanged = imageShape.getValue() !== suggestedShape(itemType.value);
         imageShape.setValue(suggestedShape(itemType.value));
         covers.dataset.shape = imageShape.getValue();
-        syncOrientation(imageShape.getValue(), true);
+        syncOrientation(imageShape.getValue(), shapeChanged);
       }
       applyTypeLock();
     });
