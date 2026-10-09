@@ -407,6 +407,7 @@
         imageLabel: entry.name,
         alt: `${shownSide} of ${entry.name}`,
         imageShape: entry.imageShape,
+        imageOrientation: entry.imageOrientation,
         artwork: entry.isCustom ? { collectionId: entry.id, titleFallback: true } : null,
       });
     };

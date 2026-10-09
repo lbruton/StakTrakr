@@ -114,6 +114,7 @@
               resolvedImageSide: entry[side] ? side : entry.obverse ? "obverse" : side,
               stockImageSide: entry[side] ? side : entry.obverse ? "obverse" : "",
               imageShape: entry.imageShape,
+              imageOrientation: entry.imageOrientation,
               artwork: { collectionId: entry.id, titleFallback: true },
             })
           )
@@ -579,6 +580,7 @@
         owned: Boolean(slot.item),
         size,
         imageShape: entry.imageShape,
+        imageOrientation: entry.imageOrientation,
         alt: `${displayedSide} of ${slot.label}`,
         imageLabel: slot.label,
         imageSide: side,

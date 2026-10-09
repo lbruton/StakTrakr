@@ -696,6 +696,9 @@
     ]
       .filter(Boolean)
       .join(" · ");
+    const entryShape = isCustom
+      ? definition.imageShape || core().defaultImageShapeForType(definition.itemType)
+      : core().defaultImageShapeForType(template && (template.itemType || template.type));
     const hubParts = isCustom
       ? [
           variant,
@@ -728,9 +731,11 @@
       about: isCustom
         ? text(definition.about || definition.description)
         : text(template && template.about),
-      imageShape: isCustom
-        ? definition.imageShape || core().defaultImageShapeForType(definition.itemType)
-        : core().defaultImageShapeForType(template && (template.itemType || template.type)),
+      imageShape: entryShape,
+      imageOrientation: core().imageOrientationFor(
+        entryShape,
+        isCustom ? definition.imageOrientation : undefined
+      ),
       slotDefs,
       progress,
       status: statusOf(progress),
@@ -1233,7 +1238,7 @@
    * Coin medallion: a stock / item photo, or a monogram when there is no image.
    * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string, alt?: string,
    *   imageLabel?: string, imageSide?: string, resolvedImageSide?: string, stockImageSide?: string,
-   *   itemUuid?: string, imageShape?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean, titleFallback?: boolean}}} spec -
+   *   itemUuid?: string, imageShape?: string, imageOrientation?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean, titleFallback?: boolean}}} spec -
    *   Medallion spec. itemUuid marks it for the async item-photo pass; artwork for custom collection
    *   art, with coverFallback retrying the collection cover when the Slot has no image of its own.
    * @returns {HTMLElement} The medallion
@@ -1241,6 +1246,7 @@
   const buildCoin = (spec) => {
     const coin = el("span", "collections-coin");
     if (spec.imageShape) coin.classList.add(`collections-coin--shape-${spec.imageShape}`);
+    if (spec.imageOrientation) coin.classList.add(`collections-coin--${spec.imageOrientation}`);
     if (spec.size) coin.classList.add(`collections-coin--${spec.size}`);
     if (spec.ghost) coin.classList.add("collections-coin--ghost");
     if (spec.owned) coin.classList.add("collections-coin--owned");

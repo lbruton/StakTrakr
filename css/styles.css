@@ -17992,14 +17992,32 @@ input[type="number"] {
   border-radius: 50%;
 }
 
+/* STRK-424: one ratio per shape and orientation, shared with the builder preview below.
+   A Bar or Note with no orientation class keeps the landscape frame it always had. */
+.collections-coin,
+.collections-builder-covers {
+  --collections-frame-bar-portrait: 3 / 5;
+  --collections-frame-bar-landscape: 1.6;
+  --collections-frame-note-portrait: 1 / 2.05;
+  --collections-frame-note-landscape: 2.05;
+}
+
 .collections-coin--shape-bar {
-  aspect-ratio: 1.6;
+  aspect-ratio: var(--collections-frame-bar-landscape);
   border-radius: var(--radius);
 }
 
+.collections-coin--shape-bar.collections-coin--portrait {
+  aspect-ratio: var(--collections-frame-bar-portrait);
+}
+
 .collections-coin--shape-note {
-  aspect-ratio: 2.05;
+  aspect-ratio: var(--collections-frame-note-landscape);
   border-radius: var(--radius-sm);
+}
+
+.collections-coin--shape-note.collections-coin--portrait {
+  aspect-ratio: var(--collections-frame-note-portrait);
 }
 
 .collections-coin--shape-slab {
@@ -19550,7 +19568,8 @@ input[type="number"] {
   cursor: not-allowed;
 }
 
-.collections-builder-form .lock-pill[hidden] {
+.collections-builder-form .lock-pill[hidden],
+.collections-builder-hero .collections-builder-choice[hidden] {
   display: none;
 }
 
@@ -19575,11 +19594,19 @@ input[type="number"] {
 }
 
 .collections-builder-covers[data-shape="bar"] {
+  --collections-cover-size: 108px;
+}
+
+.collections-builder-covers[data-shape="bar"][data-orientation="portrait"] {
   --collections-cover-size: 80px;
 }
 
 .collections-builder-covers[data-shape="note"] {
   --collections-cover-size: 160px;
+}
+
+.collections-builder-covers[data-shape="note"][data-orientation="portrait"] {
+  --collections-cover-size: 80px;
 }
 
 .collections-builder-covers[data-shape="slab"] {
@@ -19599,13 +19626,22 @@ input[type="number"] {
 }
 
 .collections-builder-covers[data-shape="bar"] .collections-image-pick {
-  aspect-ratio: 3 / 5;
+  aspect-ratio: var(--collections-frame-bar-landscape);
   border-radius: 6px;
 }
 
+.collections-builder-covers[data-shape="bar"][data-orientation="portrait"] .collections-image-pick {
+  aspect-ratio: var(--collections-frame-bar-portrait);
+}
+
 .collections-builder-covers[data-shape="note"] .collections-image-pick {
-  aspect-ratio: 5 / 3;
+  aspect-ratio: var(--collections-frame-note-landscape);
   border-radius: 4px;
+}
+
+.collections-builder-covers[data-shape="note"][data-orientation="portrait"]
+  .collections-image-pick {
+  aspect-ratio: var(--collections-frame-note-portrait);
 }
 
 .collections-builder-covers[data-shape="slab"] .collections-image-pick {
@@ -19644,6 +19680,13 @@ input[type="number"] {
 .collections-builder-icon {
   display: inline-flex;
   padding: 0;
+}
+
+/* Phone touch targets: text options (Orientation) meet the 44px baseline. */
+@media (max-width: 767px) {
+  .collections-builder-form .collections-segmented-option span:not(.collections-builder-icon) {
+    min-height: 44px;
+  }
 }
 
 .collections-builder-slots-head {
