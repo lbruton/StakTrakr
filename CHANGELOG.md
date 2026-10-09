@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.44] - 2026-10-08
+
+### Changed — STRK-424: Bar and Note orientation
+
+- **Orientation choice**: The Custom Collection builder offers Portrait or Landscape for Bar and Note image shapes (Bar starts portrait, Note landscape); Round and Slab have one frame and show no choice (STRK-424).
+- **One frame ratio**: The builder preview and the Album, Ledger and Hub now read the same ratio per shape and orientation, so a saved image no longer flips on save. Bars and Notes saved before this change keep their landscape frame (STRK-424).
+
+---
+
 ## [3.36.43] - 2026-10-08
 
 ### Changed — STRK-422: Custom Collection builder fixes
