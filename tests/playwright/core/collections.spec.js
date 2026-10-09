@@ -1398,6 +1398,33 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(specs.diameterMm).toBe(32);
   });
 
+  test("STRK-422 an incomplete number such as a lone minus blocks the save instead of reading as blank", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Collection name").fill("Half typed");
+    await builder.getByLabel("Slot label").first().fill("One");
+    await builder
+      .locator("details.form-section")
+      .filter({ hasText: "Specifications" })
+      .locator("summary")
+      .click();
+    const diameter = builder.getByLabel("Diameter");
+    // A number input exposes "-" as an empty value; only validity.badInput reveals it.
+    await diameter.pressSequentially("-");
+    expect(await diameter.inputValue()).toBe("");
+    await builder.getByRole("button", { name: "Create collection" }).click();
+    await expect(builder).toBeVisible();
+    await expect(diameter).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("body")).toContainText(/Diameter must be a non-negative number/);
+  });
+
   test("Gross weight and Thickness render labelled in the album and hub", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {

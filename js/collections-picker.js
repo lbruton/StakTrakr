@@ -1488,7 +1488,11 @@
           : puritySelect.value === "custom"
             ? Number(purityCustom.value)
             : Number(puritySelect.value);
-      const weightValue = weight.value === "" ? null : Number(weight.value);
+      const weightValue = weight.validity.badInput
+        ? NaN
+        : weight.value === ""
+          ? null
+          : Number(weight.value);
       if (
         purityValue != null &&
         (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1)
@@ -1515,7 +1519,9 @@
       ].map(([control, label]) => ({
         control,
         label,
-        value: control.value === "" ? "" : Number(control.value),
+        // A half-typed token such as "-" reads as "" with validity.badInput set; that is an
+        // invalid entry (NaN), not a blank optional field.
+        value: control.validity.badInput ? NaN : control.value === "" ? "" : Number(control.value),
       }));
       specNumbers.forEach(({ control }) => control.removeAttribute("aria-invalid"));
       const badSpec = specNumbers.find(
