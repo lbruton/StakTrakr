@@ -971,11 +971,17 @@
       specs: definition.specs || (context.template && context.template.specs) || {},
       imageShape:
         definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
-      // A stored Bar or Note with no orientation edits as the landscape frame it always had.
-      imageOrientation: window.collectionsCore.imageOrientationFor(
-        definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
-        definition.imageOrientation
-      ),
+      // A stored Bar or Note with no orientation edits as the landscape frame it always had; a
+      // new Collection (or a clone of a Series Template) starts at the shape's own default.
+      imageOrientation:
+        request.editId || definition.imageOrientation
+          ? window.collectionsCore.imageOrientationFor(
+              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
+              definition.imageOrientation
+            )
+          : window.collectionsCore.defaultImageOrientationForShape(
+              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType)
+            ),
       about:
         definition.about ||
         definition.description ||

@@ -1593,12 +1593,16 @@ test.describe("core/collections — link picker, builder, item view", () => {
         itemType: "Bar",
         slots: [{ label: "One" }],
       });
-      // Simulate a definition written by an older build: a Bar with no orientation.
+      // Simulate a definition written by an older build: a Bar with no orientation, persisted.
       delete window.collectionsStore.getState().collections[created.collection.id].definition
         .imageOrientation;
-      window.collectionsUI.openCollection(created.collection.id);
+      saveDataSync(COLLECTION_STATE_KEY, window.collectionsStore.getState());
       return created.collection.id;
     });
+    // Reload so the legacy definition goes through the real load path, not the live store.
+    await page.reload();
+    await page.waitForFunction(() => window.appListenersReady);
+    await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
     const ratio = await panel(page)
       .locator(".collections-coin--shape-bar")
       .first()
@@ -1608,6 +1612,27 @@ test.describe("core/collections — link picker, builder, item view", () => {
       });
     expect(ratio).toBeCloseTo(1.6, 1);
     expect(id).toBeTruthy();
+  });
+
+  test("STRK-424 a clone without a stored orientation starts at the shape default", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    // A source with no stored orientation stands in for a Series Template Bar: cloning it is a
+    // NEW Collection, so it starts at the Bar default, not the legacy landscape frame.
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Template bars",
+        itemType: "Bar",
+        slots: [{ label: "One" }],
+      });
+      delete window.collectionsStore.getState().collections[created.collection.id].definition
+        .imageOrientation;
+      return created.collection.id;
+    });
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ cloneFrom: key }), id);
+    const orientation = builderModal(page).getByRole("radiogroup", { name: "Orientation" });
+    await expect(orientation.getByLabel("Portrait")).toBeChecked();
   });
 
   test("Gross weight and Thickness render labelled in the album and hub", async ({ page }) => {
