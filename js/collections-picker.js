@@ -1219,10 +1219,15 @@
       const lock = window.collectionsCore.typeLockFor(itemType.value);
       if (lock) {
         metal.value = lock.metal;
+        // A weight typed in another unit is meaningless in the forced one ("1 oz" is not
+        // "1 gb"), so drop it with the unit, as prefillFor does for the Item form.
+        if (weightUnit.value !== lock.weightUnit) weight.value = "";
         weightUnit.value = lock.weightUnit;
         metal.dispatchEvent(new Event("change"));
       } else if (DENOMINATION_UNITS.includes(weightUnit.value)) {
-        // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit.
+        // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit, and the
+        // weight with it ("5 gb" is not "5 oz").
+        weight.value = "";
         weightUnit.value = "oz";
       }
       metal.disabled = Boolean(lock);
@@ -1485,7 +1490,11 @@
           : puritySelect.value === "custom"
             ? Number(purityCustom.value)
             : Number(puritySelect.value);
-      const weightValue = weight.value === "" ? null : Number(weight.value);
+      const weightValue = weight.validity.badInput
+        ? NaN
+        : weight.value === ""
+          ? null
+          : Number(weight.value);
       if (
         purityValue != null &&
         (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1)
@@ -1503,6 +1512,29 @@
         return;
       }
       weight.removeAttribute("aria-invalid");
+      // The builder is not a native form, so min="0" never validates; normalizeSpecs would
+      // otherwise drop a negative silently while the modal closes as if it had saved.
+      const specNumbers = [
+        [diameter, "Diameter"],
+        [grossWeightGrams, "Gross weight"],
+        [thickness, "Thickness"],
+      ].map(([control, label]) => ({
+        control,
+        label,
+        // A half-typed token such as "-" reads as "" with validity.badInput set; that is an
+        // invalid entry (NaN), not a blank optional field.
+        value: control.validity.badInput ? NaN : control.value === "" ? "" : Number(control.value),
+      }));
+      specNumbers.forEach(({ control }) => control.removeAttribute("aria-invalid"));
+      const badSpec = specNumbers.find(
+        ({ value }) => value !== "" && (!Number.isFinite(value) || value < 0)
+      );
+      if (badSpec) {
+        badSpec.control.setAttribute("aria-invalid", "true");
+        reveal(badSpec.control);
+        toast(`${badSpec.label} must be a non-negative number.`);
+        return;
+      }
       const rows = Array.from(rowsHost.children).filter((row) =>
         row.querySelector(".collections-builder-label").value.trim()
       );
@@ -1541,9 +1573,9 @@
         itemType: itemType.value,
         purity: purityValue,
         specs: {
-          diameterMm: diameter.value === "" ? "" : Number(diameter.value),
-          grossWeightGrams: grossWeightGrams.value === "" ? "" : Number(grossWeightGrams.value),
-          thicknessMm: thickness.value === "" ? "" : Number(thickness.value),
+          diameterMm: specNumbers[0].value,
+          grossWeightGrams: specNumbers[1].value,
+          thicknessMm: specNumbers[2].value,
           faceValue: faceValue.value,
           composition: composition.value,
           edge: edge.value,

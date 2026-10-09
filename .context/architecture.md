@@ -453,7 +453,12 @@ content, Specifications, Display, About) sit in collapsed sections that are rebu
 on each open. Builder sections
 carry `data-builder-section`, never `data-section`, which is the Add Item form's
 open-state persistence hook (`js/form-sections.js`). A Type that forces the metal disables
-Metal and Weight unit, and Save re-applies the lock. Approved mockup:
+Metal and Weight unit, and Save re-applies the lock. When the lock rewrites the unit
+(on open or on a Type change), the Weight field is cleared with it, so a stored "1 oz" never
+becomes "1 gb" (STRK-422); `prefillFor()` drops the weight in the same mismatch. Save also
+rejects a negative or non-numeric Diameter, Gross weight or Thickness with `aria-invalid`,
+focus and a toast, and keeps the builder open, because the builder is not a native form and
+`min="0"` never validates. Approved mockup:
 `playground/STRK-421-collection-modal-variants.html` (variant C).
 
 **Custom Collection Slot Mintage (STRK-391):** Each Slot definition may carry a numeric `mintage`: a whole, non-negative safe integer. Unknown omits the field; zero is distinct. Create/Edit and Clone & customize preserve editable counts, while malformed imported counts are dropped. Album and Ledger reuse the existing formatted Mintage display. Counts belong to Slots and merge with the whole definition under `metaModified`, independently of Item links and artwork.
