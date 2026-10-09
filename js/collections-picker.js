@@ -1225,7 +1225,9 @@
         weightUnit.value = lock.weightUnit;
         metal.dispatchEvent(new Event("change"));
       } else if (DENOMINATION_UNITS.includes(weightUnit.value)) {
-        // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit.
+        // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit, and the
+        // weight with it ("5 gb" is not "5 oz").
+        weight.value = "";
         weightUnit.value = "oz";
       }
       metal.disabled = Boolean(lock);

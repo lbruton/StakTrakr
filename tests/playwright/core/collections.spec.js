@@ -1323,6 +1323,30 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition.weight || null).toBeNull();
   });
 
+  test("STRK-422 leaving a denomination type clears the weight along with the rewritten unit", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Type").selectOption("Goldback");
+    await builder
+      .locator("details.form-section")
+      .filter({ hasText: "Metal content" })
+      .locator("summary")
+      .click();
+    await builder.getByLabel("Weight", { exact: true }).fill("5");
+    await expect(builder.getByLabel("Weight unit")).toHaveValue("gb");
+    // "5 gb" must not silently become "5 oz" when the lock is released.
+    await builder.getByLabel("Type").selectOption("Coin");
+    await expect(builder.getByLabel("Weight unit")).toHaveValue("oz");
+    await expect(builder.getByLabel("Weight", { exact: true })).toHaveValue("");
+  });
+
   test("STRK-422 a matching denomination Collection keeps its weight on open and save", async ({
     page,
   }) => {
