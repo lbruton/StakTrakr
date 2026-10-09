@@ -971,6 +971,11 @@
       specs: definition.specs || (context.template && context.template.specs) || {},
       imageShape:
         definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
+      // A stored Bar or Note with no orientation edits as the landscape frame it always had.
+      imageOrientation: window.collectionsCore.imageOrientationFor(
+        definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
+        definition.imageOrientation
+      ),
       about:
         definition.about ||
         definition.description ||
@@ -1193,8 +1198,38 @@
       (value) => {
         imageShapeTouched = true;
         covers.dataset.shape = value;
+        syncOrientation(value, true);
       }
     );
+    // Bar and Note rotate; Round and Slab have one frame, so the control hides for them.
+    const orientation = segmented(
+      "Orientation",
+      [
+        { value: "portrait", label: "Portrait", glyph: "bar" },
+        { value: "landscape", label: "Landscape", glyph: "note" },
+      ],
+      seed.imageOrientation || "portrait",
+      (value) => {
+        covers.dataset.orientation = value;
+      }
+    );
+    /**
+     * Shows or hides the orientation control for a shape and keeps the preview frame in step.
+     * @param {string} shape - The chosen image shape
+     * @param {boolean} fresh - True when the shape just changed, so the orientation restarts at
+     *   that shape's default instead of carrying the previous shape's choice
+     * @returns {void}
+     */
+    const syncOrientation = (shape, fresh) => {
+      const initial = window.collectionsCore.defaultImageOrientationForShape(shape);
+      orientation.node.hidden = !initial;
+      if (!initial) {
+        delete covers.dataset.orientation;
+        return;
+      }
+      if (fresh) orientation.setValue(initial);
+      covers.dataset.orientation = orientation.getValue();
+    };
     const lockPill = el("span", "lock-pill", "auto");
     lockPill.hidden = true;
     let imageShapeTouched =
@@ -1238,6 +1273,7 @@
       if (!imageShapeTouched) {
         imageShape.setValue(suggestedShape(itemType.value));
         covers.dataset.shape = imageShape.getValue();
+        syncOrientation(imageShape.getValue(), true);
       }
       applyTypeLock();
     });
@@ -1268,6 +1304,8 @@
       );
     }
     hero.appendChild(imageShape.node);
+    hero.appendChild(orientation.node);
+    syncOrientation(seed.imageShape, false);
     if (seed.editId) {
       getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
       getImageUrl(seed.editId, "title:reverse").then((url) => url && reverseTitle.setPreview(url));
@@ -1584,6 +1622,7 @@
           dimensions: dimensions.value,
         },
         imageShape: imageShape.getValue(),
+        imageOrientation: orientation.node.hidden ? undefined : orientation.getValue(),
         about: about.value,
         side: side.getValue(),
         showItemImages: itemImages.getValue() === "show",

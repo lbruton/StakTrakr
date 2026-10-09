@@ -846,6 +846,137 @@ describe("custom collections", () => {
     assert.equal(state.collections["custom-2"].definition.imageShape, "bar");
   });
 
+  test("STRK-424 Bar and Note carry an image orientation; Round and Slab never do", () => {
+    const state = core.createEmptyState();
+    const made = (id, spec) => {
+      core.createCustomCollection(state, {
+        id,
+        name: id,
+        slots: [{ label: "One" }],
+        now: T1,
+        ...spec,
+      });
+      return state.collections[id].definition;
+    };
+    assert.equal(made("bar-default", { itemType: "Bar" }).imageOrientation, "portrait");
+    assert.equal(made("note-default", { itemType: "Note" }).imageOrientation, "landscape");
+    assert.equal(
+      made("bar-landscape", { itemType: "Bar", imageOrientation: "landscape" }).imageOrientation,
+      "landscape"
+    );
+    assert.equal(
+      made("note-portrait", { itemType: "Note", imageOrientation: "portrait" }).imageOrientation,
+      "portrait"
+    );
+    assert.equal(
+      made("bar-bogus", { itemType: "Bar", imageOrientation: "sideways" }).imageOrientation,
+      "portrait"
+    );
+    for (const imageShape of ["round", "slab"]) {
+      const definition = made(`${imageShape}-shape`, { imageShape, imageOrientation: "landscape" });
+      assert.equal(Object.hasOwn(definition, "imageOrientation"), false);
+    }
+  });
+
+  test("STRK-424 a stored Bar or Note with no orientation is pinned to landscape", () => {
+    const restored = core.normalizeState({
+      version: 1,
+      collections: {
+        "legacy-bar": {
+          id: "legacy-bar",
+          kind: "custom",
+          createdAt: T1,
+          metaModified: T1,
+          lastModified: T1,
+          definition: { itemType: "Bar", imageShape: "bar", slots: [{ id: "one", label: "One" }] },
+          slots: {},
+          artwork: {},
+        },
+        "legacy-round": {
+          id: "legacy-round",
+          kind: "custom",
+          createdAt: T1,
+          metaModified: T1,
+          lastModified: T1,
+          definition: { itemType: "Coin", slots: [{ id: "one", label: "One" }] },
+          slots: {},
+          artwork: {},
+        },
+      },
+    });
+    assert.equal(restored.collections["legacy-bar"].definition.imageOrientation, "landscape");
+    assert.equal(
+      Object.hasOwn(restored.collections["legacy-round"].definition, "imageOrientation"),
+      false
+    );
+    // An explicit choice survives a restore, import or sync merge (all go through normalizeState).
+    const explicit = core.normalizeState({
+      version: 1,
+      collections: {
+        "kept-bar": {
+          id: "kept-bar",
+          kind: "custom",
+          createdAt: T1,
+          metaModified: T1,
+          lastModified: T1,
+          definition: {
+            itemType: "Bar",
+            imageShape: "bar",
+            imageOrientation: "portrait",
+            slots: [{ id: "one", label: "One" }],
+          },
+          slots: {},
+          artwork: {},
+        },
+      },
+    });
+    assert.equal(explicit.collections["kept-bar"].definition.imageOrientation, "portrait");
+    assert.equal(core.imageOrientationFor("bar", undefined), "landscape");
+    assert.equal(core.imageOrientationFor("bar", "portrait"), "portrait");
+    assert.equal(core.imageOrientationFor("note", "bogus"), "landscape");
+    assert.equal(core.imageOrientationFor("round", "portrait"), "");
+    assert.equal(core.defaultImageOrientationForShape("bar"), "portrait");
+    assert.equal(core.defaultImageOrientationForShape("note"), "landscape");
+    assert.equal(core.defaultImageOrientationForShape("slab"), "");
+  });
+
+  test("STRK-424 an edit keeps, changes or drops the orientation with the shape", () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "custom-1",
+      name: "Bars",
+      itemType: "Bar",
+      imageOrientation: "landscape",
+      slots: [{ label: "One" }],
+      now: T1,
+    });
+    const slots = [{ id: "one", label: "One" }];
+    const read = () => state.collections["custom-1"].definition;
+    core.updateCustomDefinition(state, "custom-1", { name: "Bars", slots, now: T2 });
+    assert.equal(read().imageOrientation, "landscape", "omitted orientation is kept");
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Bars",
+      imageOrientation: "portrait",
+      slots,
+      now: T3,
+    });
+    assert.equal(read().imageOrientation, "portrait");
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Bars",
+      imageShape: "slab",
+      slots,
+      now: "2026-09-18T13:00:00.000Z",
+    });
+    assert.equal(Object.hasOwn(read(), "imageOrientation"), false, "Slab drops it");
+    core.updateCustomDefinition(state, "custom-1", {
+      name: "Bars",
+      imageShape: "bar",
+      slots,
+      now: "2026-09-18T14:00:00.000Z",
+    });
+    assert.equal(read().imageOrientation, "portrait", "a Bar chosen again defaults to portrait");
+  });
+
   test("newer whole-definition metadata converges with the existing metaModified rule", () => {
     const base = core.createEmptyState();
     core.createCustomCollection(base, {

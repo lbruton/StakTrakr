@@ -1449,6 +1449,128 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.locator("body")).toContainText(/Diameter must be a non-negative number/);
   });
 
+  test("STRK-424 the builder offers Portrait / Landscape only for Bar and Note and previews it", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    const orientation = builder.getByRole("radiogroup", { name: "Orientation" });
+    const frameRatio = () =>
+      builder
+        .locator(".collections-builder-covers .collections-image-pick")
+        .first()
+        .evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return box.width / box.height;
+        });
+    await expect(orientation).toBeHidden();
+
+    await builder.getByLabel("Type").selectOption("Bar");
+    await expect(orientation).toBeVisible();
+    await expect(orientation.getByLabel("Portrait")).toBeChecked();
+    expect(await frameRatio()).toBeCloseTo(0.6, 1);
+    await orientation.getByLabel("Landscape").check();
+    await expect(orientation.getByLabel("Landscape")).toBeChecked();
+    await expect.poll(frameRatio).toBeCloseTo(1.6, 1);
+
+    await builder.getByRole("radiogroup", { name: "Image shape" }).getByLabel("Slab").check();
+    await expect(orientation).toBeHidden();
+    await builder.getByRole("radiogroup", { name: "Image shape" }).getByLabel("Round").check();
+    await expect(orientation).toBeHidden();
+    await builder.getByRole("radiogroup", { name: "Image shape" }).getByLabel("Note").check();
+    await expect(orientation).toBeVisible();
+    // Choosing a shape starts from that shape's default, not the previous shape's choice.
+    await expect(orientation.getByLabel("Landscape")).toBeChecked();
+    await expect.poll(frameRatio).toBeCloseTo(2.05, 1);
+    await orientation.getByLabel("Portrait").check();
+    await expect.poll(frameRatio).toBeCloseTo(1 / 2.05, 1);
+  });
+
+  test("STRK-424 a saved orientation reaches the Album frame, the editor, and survives a reload", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Collection name").fill("Landscape bars");
+    await builder.getByLabel("Type").selectOption("Bar");
+    await builder.getByRole("radiogroup", { name: "Orientation" }).getByLabel("Landscape").check();
+    await builder.getByLabel("Slot label").first().fill("One");
+    await builder.getByRole("button", { name: "Create collection" }).click();
+    const id = await page.evaluate(
+      () =>
+        Object.values(window.collectionsStore.getState().collections).find(
+          (c) => c.name === "Landscape bars"
+        ).id
+    );
+    const read = (collectionId) =>
+      page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition,
+        collectionId
+      );
+    expect(await read(id)).toMatchObject({ imageShape: "bar", imageOrientation: "landscape" });
+
+    const coinRatio = async () => {
+      await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
+      return panel(page)
+        .locator(".collections-coin--shape-bar")
+        .first()
+        .evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return box.width / box.height;
+        });
+    };
+    expect(await coinRatio()).toBeCloseTo(1.6, 1);
+
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const orientation = builderModal(page).getByRole("radiogroup", { name: "Orientation" });
+    await expect(orientation.getByLabel("Landscape")).toBeChecked();
+    await orientation.getByLabel("Portrait").check();
+    await builderModal(page).getByRole("button", { name: "Save changes" }).click();
+    expect((await read(id)).imageOrientation).toBe("portrait");
+    expect(await coinRatio()).toBeCloseTo(0.6, 1);
+
+    await page.reload();
+    await page.waitForFunction(() => window.appListenersReady);
+    expect((await read(id)).imageOrientation).toBe("portrait");
+  });
+
+  test("STRK-424 a Bar saved before the choice existed keeps its landscape frame", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Old bars",
+        itemType: "Bar",
+        slots: [{ label: "One" }],
+      });
+      // Simulate a definition written by an older build: a Bar with no orientation.
+      delete window.collectionsStore.getState().collections[created.collection.id].definition
+        .imageOrientation;
+      window.collectionsUI.openCollection(created.collection.id);
+      return created.collection.id;
+    });
+    const ratio = await panel(page)
+      .locator(".collections-coin--shape-bar")
+      .first()
+      .evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return box.width / box.height;
+      });
+    expect(ratio).toBeCloseTo(1.6, 1);
+    expect(id).toBeTruthy();
+  });
+
   test("Gross weight and Thickness render labelled in the album and hub", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {

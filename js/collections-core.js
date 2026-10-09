@@ -233,6 +233,41 @@
     if (["Note", "Aurum", "Goldback", "Silverback"].includes(type)) return "note";
     return "round";
   };
+  const IMAGE_ORIENTATIONS = ["portrait", "landscape"];
+  /**
+   * The frame orientation a newly chosen shape starts with. Only Bar and Note rotate.
+   * @param {string} shape - Image shape
+   * @returns {string} "portrait" for Bar, "landscape" for Note, "" for a shape that never rotates
+   */
+  const defaultImageOrientationForShape = (shape) =>
+    shape === "bar" ? "portrait" : shape === "note" ? "landscape" : "";
+  /**
+   * The orientation a stored shape renders with. A Bar or Note saved before the choice existed
+   * had a landscape frame, so a missing or invalid value is pinned to landscape rather than
+   * re-framed to the new Bar default.
+   * @param {string} shape - Image shape
+   * @param {*} orientation - Stored orientation, possibly absent
+   * @returns {string} "portrait" or "landscape", or "" for a shape that never rotates
+   */
+  const imageOrientationFor = (shape, orientation) => {
+    if (!defaultImageOrientationForShape(shape)) return "";
+    return IMAGE_ORIENTATIONS.includes(orientation) ? orientation : "landscape";
+  };
+  /**
+   * Optional definition field: the orientation only exists for shapes that rotate.
+   * @param {string} orientation - Resolved orientation, or "" for none
+   * @returns {Object} Spreadable field
+   */
+  const orientationField = (orientation) => (orientation ? { imageOrientation: orientation } : {});
+  /**
+   * The orientation to save for a shape: the submitted choice, else the shape's default.
+   * @param {string} shape - Image shape being saved
+   * @param {*} submitted - Submitted orientation
+   * @returns {string} The orientation, or "" when the shape never rotates
+   */
+  const newImageOrientation = (shape, submitted) =>
+    defaultImageOrientationForShape(shape) &&
+    (IMAGE_ORIENTATIONS.includes(submitted) ? submitted : defaultImageOrientationForShape(shape));
   /**
    * The metal and weight unit the Add Item form forces for a denomination Item type.
    * @param {string} type - Item type
@@ -283,6 +318,9 @@
     const legacyAbout = source.about == null ? source.description : source.about;
     const type = ITEM_TYPES.includes(source.itemType) ? source.itemType : "Coin";
     const purity = Number(source.purity);
+    const shape = IMAGE_SHAPES.includes(source.imageShape)
+      ? source.imageShape
+      : defaultImageShapeForType(type);
     return {
       metal: text(source.metal),
       variant: text(source.variant),
@@ -299,9 +337,8 @@
       itemType: type,
       ...(Number.isFinite(purity) && purity > 0 && purity <= 1 ? { purity } : {}),
       specs: normalizeSpecs(source.specs),
-      imageShape: IMAGE_SHAPES.includes(source.imageShape)
-        ? source.imageShape
-        : defaultImageShapeForType(type),
+      imageShape: shape,
+      ...orientationField(imageOrientationFor(shape, source.imageOrientation)),
       about: text(legacyAbout),
       side: source.side === "reverse" ? "reverse" : "obverse",
       ...showItemImagesField(source.showItemImages),
@@ -579,6 +616,9 @@
     if (!isId(spec.id)) return { ok: false, reason: "invalid" };
     if (state.collections[spec.id]) return { ok: false, reason: "exists" };
     const now = nowIso(spec);
+    const shape = IMAGE_SHAPES.includes(spec.imageShape)
+      ? spec.imageShape
+      : defaultImageShapeForType(spec.itemType);
     const collection = makeCollection({
       id: spec.id,
       kind: "custom",
@@ -609,9 +649,8 @@
           ? { purity: Number(spec.purity) }
           : {}),
         specs: normalizeSpecs(spec.specs),
-        imageShape: IMAGE_SHAPES.includes(spec.imageShape)
-          ? spec.imageShape
-          : defaultImageShapeForType(spec.itemType),
+        imageShape: shape,
+        ...orientationField(newImageOrientation(shape, spec.imageOrientation)),
         about: text(spec.about == null ? spec.description : spec.about),
         side: spec.side === "reverse" ? "reverse" : "obverse",
         ...showItemImagesField(spec.showItemImages),
@@ -654,6 +693,21 @@
     };
     const slots = buildDefinitionSlots(spec.slots, new Set(previous.slots.map((slot) => slot.id)));
     const stamp = nextStamp(collection.metaModified, nowIso(spec));
+    const shape = IMAGE_SHAPES.includes(spec.imageShape)
+      ? spec.imageShape
+      : spec.imageShape == null
+        ? spec.itemType != null &&
+          previous.imageShape === defaultImageShapeForType(previous.itemType)
+          ? defaultImageShapeForType(spec.itemType)
+          : previous.imageShape || defaultImageShapeForType(spec.itemType || previous.itemType)
+        : defaultImageShapeForType(spec.itemType || previous.itemType);
+    // An omitted orientation is kept while the shape stays a rotating one; a shape change
+    // (or a first Bar/Note) starts from that shape's default.
+    const orientation = IMAGE_ORIENTATIONS.includes(spec.imageOrientation)
+      ? newImageOrientation(shape, spec.imageOrientation)
+      : shape === previous.imageShape && IMAGE_ORIENTATIONS.includes(previous.imageOrientation)
+        ? newImageOrientation(shape, previous.imageOrientation)
+        : newImageOrientation(shape);
     const kept = new Set(slots.map((slot) => slot.id));
     Object.keys(collection.slots).forEach((slotId) => {
       const link = collection.slots[slotId];
@@ -707,14 +761,8 @@
           ? { purity: Number(spec.purity) }
           : {}),
       specs: spec.specs == null ? normalizeSpecs(previous.specs) : normalizeSpecs(spec.specs),
-      imageShape: IMAGE_SHAPES.includes(spec.imageShape)
-        ? spec.imageShape
-        : spec.imageShape == null
-          ? spec.itemType != null &&
-            previous.imageShape === defaultImageShapeForType(previous.itemType)
-            ? defaultImageShapeForType(spec.itemType)
-            : previous.imageShape || defaultImageShapeForType(spec.itemType || previous.itemType)
-          : defaultImageShapeForType(spec.itemType || previous.itemType),
+      imageShape: shape,
+      ...orientationField(orientation),
       about:
         spec.about == null && spec.description == null
           ? previous.about || previous.description || ""
@@ -1243,6 +1291,8 @@
     setArtwork,
     isCurrentArtwork,
     defaultImageShapeForType,
+    defaultImageOrientationForShape,
+    imageOrientationFor,
     typeLockFor,
     listCollections,
     slugifySlotId,
