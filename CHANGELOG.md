@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.42] - 2026-10-08
+
+### Changed — STRK-382: Collection value shows retail and melt
+
+- **Collection totals**: The Collections Hub "Collected value" and each collection's "Value" tile now total each owned Slot's retail value, using the same rule as Inventory (retail when set, otherwise melt), with melt shown alongside (STRK-382).
+- **Hub cards and Ledger**: A completed collection's card and the Hub Ledger Value column show retail first with melt as the secondary figure, and the Hub sort-by-Value follows retail (STRK-382).
+
+---
+
 ## [3.36.41] - 2026-10-06
 
 ### Changed — STRK-423: Readable Collections Ledger on narrow tablets

@@ -9,9 +9,11 @@
     ["percent-complete", "Progress"],
     ["recently-updated", "Recently updated"],
     ["owned", "Owned"],
-    ["value-melt", "Value (melt)"],
+    ["value", "Value"],
     ["to-complete", "To complete"],
   ]);
+  // "value-melt" is the pre-STRK-382 key; saved preferences are migrated to the replacement.
+  const legacySortKeys = Object.freeze({ "value-melt": "value" });
   const sortKeys = new Set(sortChoices.map(([key]) => key));
   const defaultDirections = Object.freeze({
     "my-order": "asc",
@@ -20,6 +22,7 @@
     "percent-complete": "desc",
     "recently-updated": "desc",
     owned: "desc",
+    value: "desc",
     "value-melt": "desc",
     "to-complete": "asc",
   });
@@ -38,7 +41,8 @@
       seen.add(id);
       order.push(id);
     });
-    const sortKey = sortKeys.has(source.sortKey) ? source.sortKey : "my-order";
+    const requestedKey = legacySortKeys[source.sortKey] || source.sortKey;
+    const sortKey = sortKeys.has(requestedKey) ? requestedKey : "my-order";
     const direction =
       source.direction === "asc" || source.direction === "desc"
         ? source.direction
@@ -124,6 +128,8 @@
         const timestamp = typeof updated === "string" ? Date.parse(updated) : NaN;
         return Number.isFinite(timestamp) ? timestamp : null;
       }
+      case "value":
+        return entry.ledgerRetail;
       case "value-melt":
       case "melt":
         return entry.ledgerMelt;

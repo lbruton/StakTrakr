@@ -114,6 +114,7 @@ test("preset ties retain My order and missing run dates, updates, and values sta
       template: null,
       collection: { lastModified: "2026-02-01T00:00:00.000Z" },
       ledgerMelt: 0,
+      ledgerRetail: 0,
       progress: { owned: 0, total: 0, missing: 0 },
       costToComplete: null,
     },
@@ -123,6 +124,7 @@ test("preset ties retain My order and missing run dates, updates, and values sta
       template: { run: { start: 2024 } },
       collection: { lastModified: "2026-03-01T00:00:00.000Z" },
       ledgerMelt: 12,
+      ledgerRetail: 12,
       progress: { owned: 1, total: 2, missing: 1 },
       costToComplete: 24,
     },
@@ -132,6 +134,7 @@ test("preset ties retain My order and missing run dates, updates, and values sta
       template: { run: { start: 2022 } },
       collection: { lastModified: "" },
       ledgerMelt: null,
+      ledgerRetail: null,
       progress: { owned: 0, total: 1, missing: 1 },
       costToComplete: null,
     },
@@ -152,7 +155,7 @@ test("preset ties retain My order and missing run dates, updates, and values sta
     ["template-later", "custom", "template-earlier"]
   );
   assert.deepEqual(
-    ids(sortHubEntries(entries, { order: myOrder, sortKey: "value-melt", direction: "desc" })),
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "value", direction: "desc" })),
     ["template-later", "custom", "template-earlier"]
   );
   assert.deepEqual(
@@ -160,7 +163,7 @@ test("preset ties retain My order and missing run dates, updates, and values sta
     ["custom", "template-later", "template-earlier"]
   );
   assert.deepEqual(
-    ids(sortHubEntries(entries, { order: myOrder, sortKey: "value-melt", direction: "asc" })),
+    ids(sortHubEntries(entries, { order: myOrder, sortKey: "value", direction: "asc" })),
     ["custom", "template-later", "template-earlier"]
   );
   assert.deepEqual(
@@ -214,4 +217,28 @@ test("preference persistence reports write failures without accepting the new va
       error: null,
     }
   );
+});
+
+test("the value sort orders by retail value and migrates the legacy melt key to Value (STRK-382)", () => {
+  const entries = [
+    { id: "none", ledgerRetail: null, ledgerMelt: 5 },
+    { id: "low", ledgerRetail: 10, ledgerMelt: 90 },
+    { id: "high", ledgerRetail: 80, ledgerMelt: 20 },
+  ];
+  const order = entries.map((entry) => entry.id);
+  assert.deepEqual(ids(sortHubEntries(entries, { order, sortKey: "value", direction: "desc" })), [
+    "high",
+    "low",
+    "none",
+  ]);
+  assert.deepEqual(ids(sortHubEntries(entries, { order, sortKey: "value", direction: "asc" })), [
+    "low",
+    "high",
+    "none",
+  ]);
+  assert.deepEqual(normalizeHubPreferences({ sortKey: "value-melt", direction: "asc" }), {
+    order: [],
+    sortKey: "value",
+    direction: "asc",
+  });
 });
