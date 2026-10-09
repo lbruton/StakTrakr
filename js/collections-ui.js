@@ -736,9 +736,11 @@
       status: statusOf(progress),
       paid,
       melt,
-      retail,
-      // True when retail value adds something over melt, so surfaces can avoid saying it twice.
-      retailAboveMelt: retail > 0 && Math.abs(retail - melt) >= CENT,
+      // Only a complete total is shown: a partial sum would read as the whole collection.
+      retail: hasRetail ? retail : 0,
+      retailAvailable: hasRetail,
+      // True when both figures are known and differ, so surfaces can avoid saying it twice.
+      retailDiffers: hasRetail && hasMelt && retail > 0 && Math.abs(retail - melt) >= CENT,
       ledgerMelt: hasMelt ? melt : null,
       ledgerRetail: hasRetail ? retail : null,
       best,

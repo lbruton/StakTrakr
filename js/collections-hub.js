@@ -265,6 +265,7 @@
       const paid = sum((entry) => entry.paid);
       const melt = sum((entry) => entry.melt);
       const retail = sum((entry) => entry.retail);
+      const unpriced = active.filter((entry) => !entry.retailAvailable).length;
       const cost = sum((entry) => entry.costToComplete || 0);
       const idle = entries.length - active.length;
       return buildStats([
@@ -283,7 +284,7 @@
         {
           label: "Collected value",
           value: retail ? money(retail) : DASH,
-          note: `melt ${melt ? money(melt) : DASH} · paid ${money(paid)}`,
+          note: `melt ${melt ? money(melt) : DASH} · paid ${money(paid)}${unpriced ? ` · ${unpriced} unpriced` : ""}`,
         },
         {
           label: "Cost to complete",
@@ -373,7 +374,7 @@
     const cardFootText = (entry) => {
       const { missing } = entry.progress;
       if (entry.status === STATUS_COMPLETE) {
-        if (entry.retailAboveMelt)
+        if (entry.retailDiffers)
           return `Set complete · ${money(entry.retail)} value · ${money(entry.melt)} melt`;
         return entry.melt ? `Set complete · ${money(entry.melt)} melt` : "Set complete";
       }
@@ -560,7 +561,7 @@
         "collections-num collections-hide-sm",
         entry.retail ? money(entry.retail) : DASH
       );
-      if (entry.retailAboveMelt && entry.melt)
+      if (entry.retailDiffers && entry.melt)
         valueCell.appendChild(el("small", "collections-value-melt", `${money(entry.melt)} melt`));
       row.appendChild(valueCell);
       row.appendChild(

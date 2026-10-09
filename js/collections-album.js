@@ -202,7 +202,7 @@
         {
           label: "Value",
           value: entry.retail ? money(entry.retail) : DASH,
-          note: entry.retailAboveMelt ? `melt ${money(entry.melt)} · ${spotNote}` : spotNote,
+          note: entry.retailDiffers ? `melt ${money(entry.melt)} · ${spotNote}` : spotNote,
         },
         {
           label: "Cost to complete",
