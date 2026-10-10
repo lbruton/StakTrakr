@@ -947,7 +947,7 @@ historical CSS class names remain, but current modal behavior uses `openModalByI
 
 ### Living reference
 
-Open `ui-standards/style.html` in a browser to see all components rendered with CSS variable labels. It references the same `css/styles.css` the app uses and is the single source of truth for visual patterns.
+Open `.context/style.html` in a browser to see all components rendered with CSS variable labels. It references the same `css/styles.css` the app uses and is the single source of truth for visual patterns.
 
 ### Token usage (mandatory)
 

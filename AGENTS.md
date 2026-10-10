@@ -28,7 +28,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 
 ## Project Structure
 
-- **Should** treat app entry points as `index.html`, `preview.html`, `about.html`
+- **Should** treat app entry points as `index.html`, `about.html`
 - **Should** keep core logic in `js/` feature modules such as `inventory.js`, `market-data.js`, `settings.js`
 - **Should** keep styling in `css/styles.css`
 - **Should** keep static data/assets in `data/`, `images/`, `vendor/`
@@ -91,7 +91,7 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
 - Read `.context/design-philosophy.md`.
-- Check `ui-standards/style.html` for live component and token patterns.
+- Check `.context/style.html` for live component and token patterns.
 - Search the issue/spec and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
 - Use existing StakTrakr design tokens and components.

@@ -9,7 +9,7 @@ updated: "2026-08-28"
 
 # StakTrakr — Design Philosophy
 
-Design system and brand identity reference for StakTrakr. Source of truth for all UI and redesign work. See `ui-standards/style.html` for live component demos.
+Design system and brand identity reference for StakTrakr. Source of truth for all UI and redesign work. See `.context/style.html` for live component demos.
 
 ---
 
@@ -273,9 +273,11 @@ Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `
 
 ## Design System Demo
 
-Interactive reference: `ui-standards/style.html` (references `../css/styles.css` for live token resolution).
+Interactive reference: `.context/style.html` (references `../css/styles.css` for live token resolution).
 
 Covers: color swatches, typography scale, spacing demos, button states, form inputs, toggles and chips, cards, tables, modal headers, collapsible sections, image uploads, badges and indicators, and a migration checklist.
+
+Design-system catalog: `.context/preview.html` — a self-contained page with its own copy of the theme tokens (extracted from `css/styles.css`, so it can drift; `css/styles.css` wins on any conflict).
 
 ---
 
@@ -305,4 +307,5 @@ All action buttons use pill shape (`.btn` + `border-radius: 999px`); History but
 - Frontend Overview (deprecated DocVault page)
 - .context/deep-dives/dom-patterns.md
 - Brand assets: `/Users/lbruton/CoWork/StakTrakr-Branding/final/`
-- Demo: `ui-standards/style.html`
+- Demo: `.context/style.html`
+- Catalog: `.context/preview.html`

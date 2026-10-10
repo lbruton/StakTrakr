@@ -61,7 +61,6 @@ design-preview.html   export-ignore
 preview.html          export-ignore
 style.html            export-ignore
 playground/           export-ignore
-ui-standards/         export-ignore
 sample.csv            export-ignore
 
 # Data files not needed at runtime (bundle.js is the runtime artifact)
