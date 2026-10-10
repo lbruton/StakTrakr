@@ -13,3 +13,6 @@ test-results
 
 # Spec records (STRK-411) — historical artifacts, not held to the repo markdownlint config
 docs/specs
+
+# Retired files kept verbatim for reference — not held to the repo markdownlint config
+.archive
