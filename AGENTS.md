@@ -91,7 +91,7 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
 - Read `.context/design-philosophy.md`.
-- Check `ui-standards/style.html` for live component and token patterns.
+- Check `.context/style.html` for live component and token patterns.
 - Search the issue/spec and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
 - Use existing StakTrakr design tokens and components.
