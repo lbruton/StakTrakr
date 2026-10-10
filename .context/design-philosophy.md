@@ -277,6 +277,8 @@ Interactive reference: `.context/style.html` (references `../css/styles.css` for
 
 Covers: color swatches, typography scale, spacing demos, button states, form inputs, toggles and chips, cards, tables, modal headers, collapsible sections, image uploads, badges and indicators, and a migration checklist.
 
+Design-system catalog: `.context/preview.html` — a self-contained page with its own copy of the theme tokens (extracted from `css/styles.css`, so it can drift; `css/styles.css` wins on any conflict).
+
 ---
 
 ## Settings Redesign (STAK-432–447)
@@ -306,3 +308,4 @@ All action buttons use pill shape (`.btn` + `border-radius: 999px`); History but
 - .context/deep-dives/dom-patterns.md
 - Brand assets: `/Users/lbruton/CoWork/StakTrakr-Branding/final/`
 - Demo: `.context/style.html`
+- Catalog: `.context/preview.html`
