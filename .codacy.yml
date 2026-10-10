@@ -19,4 +19,4 @@ exclude_paths:
   - "deprecated/**"
   - "vendor/**"
   - "playground/**"
-  - ".context/style.html"
+  - ".context/*.html"

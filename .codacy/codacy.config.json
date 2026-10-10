@@ -4159,6 +4159,6 @@
     "vendor/**",
     "playground/**",
     "screenshots/**",
-    "ui-standards/**"
+    ".context/*.html"
   ]
 }
