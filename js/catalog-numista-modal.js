@@ -1095,7 +1095,13 @@ const fillFormFromNumistaResult = () => {
       }
       case "shape": {
         const el = safeGetElement("numistaShape");
-        if (el) el.value = val;
+        if (el) {
+          el.value = val;
+          // STRK-427: a programmatic set fires no event, so tell the frame editor (D-6).
+          if (typeof window.notifyImageFrameSignals === "function") {
+            window.notifyImageFrameSignals("numista");
+          }
+        }
         break;
       }
       case "diameter": {

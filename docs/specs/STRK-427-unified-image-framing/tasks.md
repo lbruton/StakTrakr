@@ -259,7 +259,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Leverage:** `js/collections-picker.js` `segmented()` (pattern only; leave it in place); `builderIcon` glyphs; STRK-424 Option C.
   - **Maps to:** AC-1.2, AC-2.1, AC-2.3, AC-4.3–AC-4.8, AC-5.1, AC-1.4
 
-- [ ] **C.4** — Mount the editor in the Add/Edit Item modal
+- [x] **C.4** — Mount the editor in the Add/Edit Item modal
   - **File(s):** `index.html`, `js/events.js`, `js/inventory.js`, `js/pcgs-api.js`, `js/catalog-numista-modal.js`, `css/styles.css`
   - **Acceptance:**
     - `index.html`: slot hooks added to the image section (`:1865-2038`), the two `.frame-toggle` buttons removed, and every pinned id kept.

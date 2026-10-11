@@ -3774,6 +3774,12 @@ input[type="submit"] {
   flex: 0 0 auto;
   padding-top: 1.2rem;
 }
+/* STRK-427: `d-none` has no global rule and `.image-swap-wrapper` sets its own display, so the
+   hidden state needs an explicit rule or Swap shows with zero or one image. */
+.image-swap-wrapper[hidden],
+.image-swap-wrapper.d-none {
+  display: none;
+}
 .image-swap-wrapper .btn-icon {
   font-size: var(--font-size-xl);
   padding: 0.2rem 0.4rem;
@@ -3825,47 +3831,6 @@ input[type="submit"] {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   object-fit: contain;
-}
-
-.frame-toggle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  z-index: 2;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: color-mix(in oklch, var(--bg-primary), transparent 8%);
-  color: var(--text-muted);
-  box-shadow: 0 2px 8px color-mix(in oklch, #000, transparent 82%);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  font-weight: 800;
-  line-height: 1;
-  padding: 0;
-}
-
-.frame-toggle::before {
-  content: "";
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-}
-
-.frame-toggle[data-frame-state="circle"],
-.frame-toggle[data-frame-state="rectangle"] {
-  color: var(--metal-gold, var(--gold));
-  border-color: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 45%);
-  background: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 88%);
-}
-
-.frame-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 .image-card-actions {
@@ -4063,6 +4028,12 @@ input[type="submit"] {
   padding: 0;
 }
 
+/* The item modal keeps its legacy preview container (ids and display toggles) inside the frame. */
+.ife .ife-frame .image-upload-preview {
+  width: 100%;
+  height: 100%;
+}
+
 .ife .ife-frame:not(.has-image)::before {
   content: "+";
   font-size: var(--font-size-2xl);
@@ -4084,10 +4055,12 @@ input[type="submit"] {
   display: none;
 }
 
-/* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). */
+/* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). The card
+   spans its side, so the 200px stage is not squeezed by shrink-to-fit sizing. */
 .ife .image-card {
   flex-direction: column;
   align-items: center;
+  align-self: stretch;
   gap: 0.5rem;
 }
 

@@ -400,10 +400,8 @@ let _deleteObverseOnSave = false;
 /** @type {boolean} User clicked Remove on reverse — delete on save */
 let _deleteReverseOnSave = false;
 
-/** @type {"auto"|"circle"|"rectangle"} Pending obverse frame override */
-let _pendingObverseFrame = "auto";
-/** @type {"auto"|"circle"|"rectangle"} Pending reverse frame override */
-let _pendingReverseFrame = "auto";
+/** @type {Object|null} Item-modal adapter for the shared image-frame editor (STRK-427) */
+let _imageFrameHost = null;
 /** @type {number} Obverse URL preview generation token */
 let _urlPreviewGenObv = 0;
 /** @type {number} Reverse URL preview generation token */
@@ -465,61 +463,58 @@ const processUploadedImage = async (file, side = "obverse") => {
   updateSwapButtonVisibility();
 };
 
-/** Show/hide swap button based on whether both image sides have previews (STAK-341) */
+/**
+ * Show or hide Swap from ACTUAL per-side image presence (STAK-341, STRK-427). Both empty
+ * frames are always visible, so a visible preview frame no longer implies an image: a side
+ * holds an image only while its preview is shown and its <img> has a source. The shared
+ * image-frame editor is told the same facts, so its Swap slot follows them too.
+ */
 const updateSwapButtonVisibility = () => {
+  const holdsImage = (suffix) => {
+    const preview = document.getElementById("itemImagePreview" + suffix);
+    const img = document.getElementById("itemImagePreviewImg" + suffix);
+    return Boolean(preview && preview.style.display !== "none" && img && img.getAttribute("src"));
+  };
+  const obverse = holdsImage("Obv");
+  const reverse = holdsImage("Rev");
+  if (_imageFrameHost) _imageFrameHost.setPresence(obverse, reverse);
   const wrapper = document.getElementById("swapImagesBtnWrapper");
-  if (!wrapper) return;
-  const obvPreview = document.getElementById("itemImagePreviewObv");
-  const revPreview = document.getElementById("itemImagePreviewRev");
-  const isVisible = (el) => el && !el.classList.contains("d-none") && el.style.display !== "none";
-  const bothVisible = isVisible(obvPreview) && isVisible(revPreview);
-  wrapper.classList.toggle("d-none", !bothVisible);
+  if (wrapper) wrapper.classList.toggle("d-none", !(obverse && reverse));
 };
 
 const _frameSuffix = (side) => (side === "reverse" ? "Rev" : "Obv");
-const _getPendingFrame = (side) =>
-  side === "reverse" ? _pendingReverseFrame : _pendingObverseFrame;
-const _setPendingFrame = (side, value) => {
-  const normalized =
-    typeof normalizeImageFrame === "function" ? normalizeImageFrame(value) : value || "auto";
-  if (side === "reverse") {
-    _pendingReverseFrame = normalized;
-  } else {
-    _pendingObverseFrame = normalized;
-  }
-};
 
-const _frameToggleLabel = (state) => {
-  if (state === "circle") return "Image frame: circle. Press to set rectangle.";
-  if (state === "rectangle") return "Image frame: rectangle. Press to reset to auto.";
-  return "Image frame: auto (default). Press to set circle.";
-};
+/**
+ * The derivation signals the shared image-frame editor reads from the item form.
+ * @returns {{type: string, gradingAuthority: string, numistaShape: string}}
+ */
+const readImageFrameSignals = () => ({
+  type: elements.itemType?.value || "",
+  gradingAuthority: elements.itemGradingAuthority?.value || "",
+  numistaShape: document.getElementById("numistaShape")?.value || "",
+});
 
-const _renderFrameToggle = (side = "obverse") => {
-  const suffix = _frameSuffix(side);
-  const button = document.getElementById("frameToggle" + suffix);
-  if (!button) return;
-  const state = _getPendingFrame(side);
-  const glyph = state === "circle" ? "\u25cb" : state === "rectangle" ? "\u25ad" : "A";
-  button.dataset.frameState = state;
-  button.setAttribute(
-    "aria-pressed",
-    state === "rectangle" || state === "circle" ? "true" : "false"
-  );
-  button.setAttribute("aria-label", _frameToggleLabel(state));
-  const label = button.querySelector("span") || button;
-  label.textContent = glyph;
+// STRK-427: thin delegates to the item-modal adapter in js/image-frame-editor.js. Programmatic
+// `.value =` sets fire no event, so the PCGS lookup and the Numista picker call
+// notifyImageFrameSignals after they write (D-6).
+const notifyImageFrameSignals = (kind) => _imageFrameHost?.notify(kind);
+const seedImageFrameEditor = (item) => {
+  _imageFrameHost?.seed(item);
+  updateSwapButtonVisibility();
 };
+const resetImageFrameEditor = () => _imageFrameHost?.reset();
+const collectImageFraming = (isEditing) => _imageFrameHost?.collect(isEditing) ?? null;
 
-const renderFrameToggles = () => {
-  _renderFrameToggle("obverse");
-  _renderFrameToggle("reverse");
-};
-
-const setPendingImageFrames = (obverse = "auto", reverse = "auto") => {
-  _setPendingFrame("obverse", obverse);
-  _setPendingFrame("reverse", reverse);
-  renderFrameToggles();
+/**
+ * Mount the shared image-frame editor into the item modal's image section (once).
+ */
+const mountImageFrameEditor = () => {
+  if (_imageFrameHost || !window.imageFrameEditor) return;
+  _imageFrameHost = window.imageFrameEditor.createItemHost({
+    root: () => document.querySelector("#imageUploadGroup .form-section-body"),
+    readSignals: readImageFrameSignals,
+  });
+  _imageFrameHost.mount();
 };
 
 const _setUrlPreviewGeneration = (side) => {
@@ -618,8 +613,6 @@ const clearUploadState = () => {
   _pendingReverseBlob = null;
   _deleteObverseOnSave = false;
   _deleteReverseOnSave = false;
-  _pendingObverseFrame = "auto";
-  _pendingReverseFrame = "auto";
   _urlPreviewGenObv++;
   _urlPreviewGenRev++;
   if (_urlPreviewTimers.obverse) clearTimeout(_urlPreviewTimers.obverse);
@@ -672,7 +665,7 @@ const clearUploadState = () => {
     imageGroup.inert = false;
     imageGroup.removeAttribute("aria-busy");
   }
-  renderFrameToggles();
+  resetImageFrameEditor();
 
   // Reset pattern toggle state
   const patternToggle = document.getElementById("imagePatternToggle");
@@ -1685,8 +1678,8 @@ const parseItemFormFields = (isEditing, existingItem) => {
         ? 0.999
         : parsePurity(isEditing, existingItem),
     currency: displayCurrency,
-    obverseImageFrame: _pendingObverseFrame,
-    reverseImageFrame: _pendingReverseFrame,
+    // STRK-427: the sparse frame fields to store (or null to leave an edit's untouched).
+    imageFraming: collectImageFraming(isEditing),
     obverseImageUrl: elements.itemObverseImageUrl?.value?.trim() ?? "",
     reverseImageUrl: elements.itemReverseImageUrl?.value?.trim() ?? "",
     ignorePatternImages: document.getElementById("itemIgnorePatternImages")?.checked || false,
@@ -1832,12 +1825,8 @@ const buildItemFields = (f) => {
     fields.constitutionalEntryMode = f.constitutionalEntryMode || "denom";
     fields.constitutionalVariant = f.constitutionalVariant || "con-90-subsidiary";
   }
-  if (f.obverseImageFrame && f.obverseImageFrame !== "auto") {
-    fields.obverseImageFrame = f.obverseImageFrame;
-  }
-  if (f.reverseImageFrame && f.reverseImageFrame !== "auto") {
-    fields.reverseImageFrame = f.reverseImageFrame;
-  }
+  // STRK-427: sparse imageShape / per-side orientation plus the legacy frame projection.
+  if (f.imageFraming) Object.assign(fields, f.imageFraming.set);
 
   return fields;
 };
@@ -1927,8 +1916,8 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       reverseSharedImageId: oldItem.reverseSharedImageId || null,
       ignorePatternImages: f.ignorePatternImages || false,
     };
-    if (f.obverseImageFrame === "auto") delete inventory[editIdx].obverseImageFrame;
-    if (f.reverseImageFrame === "auto") delete inventory[editIdx].reverseImageFrame;
+    // STRK-427: a sparse result deletes the keys the spread above would otherwise keep (D-4).
+    if (f.imageFraming) f.imageFraming.remove.forEach((key) => delete inventory[editIdx][key]);
     if (!f.paymentMethod) delete inventory[editIdx].paymentMethod;
 
     // Track user-modified fields by comparing old vs new values
@@ -2418,6 +2407,8 @@ window.setupConstitutionalControls = setupConstitutionalControls;
  */
 const handleTypeChange = () => {
   const selectedType = elements.itemType?.value || "";
+  // STRK-427: every Type change, user or programmatic, re-derives an untouched frame shape.
+  notifyImageFrameSignals("type");
   const unitSelect = elements.itemWeightUnit;
   if (!(unitSelect instanceof HTMLElement)) return;
 
@@ -2644,6 +2635,7 @@ const wirePendingAddItemTags = () => {
 
 window.updateDenomLabels = updateDenomLabels;
 window.handleTypeChange = handleTypeChange;
+window.notifyImageFrameSignals = notifyImageFrameSignals;
 window.filterTypesByMetal = filterTypesByMetal;
 // STAK-580: exposed so Playwright can exercise the validator without going through DOM submit.
 window.validateItemFields = validateItemFields;
@@ -3077,6 +3069,15 @@ const setupItemFormListeners = () => {
 
   if (imageUploadGroup && featureFlags.isEnabled("COIN_IMAGES")) {
     imageUploadGroup.style.display = "";
+    mountImageFrameEditor();
+    // Selecting a grade or Numista shape re-derives an untouched frame shape (AC-4.5).
+    [
+      ["itemGradingAuthority", "grading"],
+      ["numistaShape", "numista"],
+    ].forEach(([id, kind]) => {
+      const field = document.getElementById(id);
+      if (field) field.addEventListener("change", () => notifyImageFrameSignals(kind));
+    });
 
     const isSecure = location.protocol === "https:" || location.hostname === "localhost";
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
@@ -3088,19 +3089,8 @@ const setupItemFormListeners = () => {
       const uploadBtn = document.getElementById("itemImageUploadBtn" + suffix);
       const cameraBtn = document.getElementById("itemImageCameraBtn" + suffix);
       const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
-      const frameBtn = document.getElementById("frameToggle" + suffix);
       const urlField =
         side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
-
-      if (frameBtn) {
-        frameBtn.addEventListener("click", () => {
-          _setPendingFrame(
-            side,
-            typeof cycleFrame === "function" ? cycleFrame(_getPendingFrame(side)) : "auto"
-          );
-          _renderFrameToggle(side);
-        });
-      }
 
       if (urlField) {
         urlField.addEventListener("input", () => scheduleUrlPreview(side));
@@ -3134,7 +3124,6 @@ const setupItemFormListeners = () => {
           if (side === "reverse") {
             _pendingReverseBlob = null;
             _deleteReverseOnSave = true;
-            _pendingReverseFrame = "auto";
             if (_pendingReversePreviewUrl) {
               URL.revokeObjectURL(_pendingReversePreviewUrl);
               _pendingReversePreviewUrl = null;
@@ -3142,7 +3131,6 @@ const setupItemFormListeners = () => {
           } else {
             _pendingObverseBlob = null;
             _deleteObverseOnSave = true;
-            _pendingObverseFrame = "auto";
             if (_pendingObversePreviewUrl) {
               URL.revokeObjectURL(_pendingObversePreviewUrl);
               _pendingObversePreviewUrl = null;
@@ -3163,7 +3151,8 @@ const setupItemFormListeners = () => {
           // STAK-332: Flag item to ignore pattern rule images after explicit removal
           const ignorePatternCheckbox = document.getElementById("itemIgnorePatternImages");
           if (ignorePatternCheckbox) ignorePatternCheckbox.checked = true;
-          _renderFrameToggle(side);
+          // STRK-427: Remove resets that side's orientation and keeps the shared shape (AC-3.3)
+          if (_imageFrameHost) _imageFrameHost.resetSide(side);
           updateSwapButtonVisibility();
 
           // STAK-244: Also clear Numista image cache if user is removing a catalog-synced image
@@ -3255,10 +3244,8 @@ const setupItemFormListeners = () => {
         const ignorePattern = safeGetElement("itemIgnorePatternImages");
         if (ignorePattern) ignorePattern.checked = true;
 
-        // Swap frame override state with the images it describes
-        const tmpFrame = _pendingObverseFrame;
-        _pendingObverseFrame = _pendingReverseFrame;
-        _pendingReverseFrame = tmpFrame;
+        // Swap per-side orientation with the images it describes; the shape is shared (AC-3.1)
+        if (_imageFrameHost) _imageFrameHost.swapSides();
 
         // Swap visible preview images
         if (imgObv && imgRev) {
@@ -3289,7 +3276,7 @@ const setupItemFormListeners = () => {
         const fileRev = document.getElementById("itemImageFileRev");
         if (fileObv) fileObv.value = "";
         if (fileRev) fileRev.value = "";
-        renderFrameToggles();
+        updateSwapButtonVisibility();
         return true;
       };
 

@@ -334,6 +334,9 @@
      */
     const signalsChanged = (kind) => {
       const next = derive(currentSignals());
+      // A call that derives the same shape is a no-op (D-6): the host also notifies at
+      // edit-open and prefill, and that must not move a legacy or pinned shape.
+      if (next === previousDerived) return;
       if (kind === "type") {
         if (state.shape === previousDerived) applyShape(next, false);
       } else if (!state.shapeChosen) {
@@ -404,11 +407,25 @@
         commit();
       }
     };
+    /**
+     * Clicking a shape pins it even when it is already the selected one: a radio fires no
+     * `change` for that, but the user did choose it (AC-4.5).
+     * @param {Event} event
+     */
+    const onClick = (event) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement && shapeGroup.inputs.includes(target)) {
+        applyShape(target.value, true);
+        commit();
+      }
+    };
     root.addEventListener("change", onChange);
+    root.addEventListener("click", onClick);
 
     /** Remove listeners and every node and attribute the editor added. */
     const dispose = () => {
       root.removeEventListener("change", onChange);
+      root.removeEventListener("click", onClick);
       shapeSlot.replaceChildren();
       SIDES.forEach((side) => {
         orientationSlots[side].replaceChildren();
@@ -441,7 +458,133 @@
     };
   };
 
+  /**
+   * Adapter for the Add/Edit Item modal. It owns the item-specific glue around one mounted
+   * editor: seeding from a stored record, the edit-save gate, and presence/swap forwarding. The
+   * host (events.js) supplies only DOM reads, so its own file stays small.
+   * @param {{root: function(): (HTMLElement|null), readSignals: function(): ImageFrameSignals}} config
+   * @returns {Object} mount, isMounted, seed, reset, notify, collect, setPresence, swapSides, resetSide
+   */
+  const createItemHost = (config) => {
+    let controller = null;
+    let seedSnapshot = null;
+
+    /**
+     * Remember the editor's state right after a seed or reset, for the edit-save gate (D-4).
+     * @param {ImageFrameSignals} signals - The signals the state was derived from
+     */
+    const snapshot = (signals) => {
+      if (!controller) {
+        seedSnapshot = null;
+        return;
+      }
+      const state = controller.getState();
+      seedSnapshot = {
+        shape: state.shape,
+        obverse: state.obverseOrientation,
+        reverse: state.reverseOrientation,
+        derived: window.deriveImageShape(signals),
+      };
+    };
+
+    return {
+      /** Mount the editor into the host root, once. Failure leaves the host unmounted. */
+      mount: () => {
+        if (controller) return;
+        const root = config.root();
+        if (!root) return;
+        try {
+          controller = mount(root, { getSignals: config.readSignals });
+          snapshot(config.readSignals());
+        } catch (error) {
+          controller = null;
+          console.warn("[image-frame-editor] failed to mount:", error.message);
+        }
+      },
+      isMounted: () => Boolean(controller),
+      /**
+       * Seed from a stored item (edit and clone). Signals are explicit because the Numista
+       * fields fill after the seed (D-6); a valid stored imageShape marks the shape chosen.
+       * @param {Object} item - The inventory item being edited or cloned
+       */
+      seed: (item) => {
+        if (!controller) return;
+        const record = item || {};
+        const framing = window.readImageFraming(record);
+        const signals = {
+          type: record.type || "",
+          gradingAuthority: record.gradingAuthority || "",
+          numistaShape: record.numistaData?.shape || "",
+        };
+        controller.seed({
+          signals,
+          shape: framing.shape,
+          shapeChosen: Boolean(window.normalizeImageShape(record.imageShape)),
+          orientation: { obverse: framing.obverseOrientation, reverse: framing.reverseOrientation },
+        });
+        snapshot(signals);
+      },
+      /** Reset to an empty, derived state (a fresh add, or the start of every edit). */
+      reset: () => {
+        if (!controller) return;
+        controller.reset();
+        snapshot(config.readSignals());
+      },
+      /**
+       * A derivation signal changed.
+       * @param {"type"|"grading"|"numista"} kind
+       */
+      notify: (kind) => {
+        if (controller) controller.signalsChanged(kind);
+      },
+      /**
+       * The frame fields to write for this save, or null to leave the stored ones untouched. An
+       * add or clone always applies the writer; an edit applies it only when the user changed
+       * the framing or a derivation signal moved the derived default, so an untouched edit
+       * keeps a legacy mixed circle/rectangle pair byte-identical (D-4, AC-8.5).
+       * @param {boolean} isEditing - True for an edit of an existing item
+       * @returns {{set: Object, remove: string[]}|null}
+       */
+      collect: (isEditing) => {
+        if (!controller) return null;
+        const result = controller.getResult();
+        if (!isEditing) return result;
+        const state = controller.getState();
+        const seeded = seedSnapshot;
+        const dirty =
+          !seeded ||
+          state.shape !== seeded.shape ||
+          state.obverseOrientation !== seeded.obverse ||
+          state.reverseOrientation !== seeded.reverse;
+        const signalsMoved =
+          !seeded || window.deriveImageShape(config.readSignals()) !== seeded.derived;
+        return dirty || signalsMoved ? result : null;
+      },
+      /**
+       * Tell the editor which sides currently hold an image.
+       * @param {boolean} obverse
+       * @param {boolean} reverse
+       */
+      setPresence: (obverse, reverse) => {
+        if (!controller) return;
+        controller.setSideHasImage("obverse", obverse);
+        controller.setSideHasImage("reverse", reverse);
+      },
+      /** Exchange per-side orientation after the host swapped the images. */
+      swapSides: () => {
+        if (controller) controller.swapSides();
+      },
+      /**
+       * Reset one side's orientation after the host removed its image.
+       * @param {"obverse"|"reverse"} side
+       */
+      resetSide: (side) => {
+        if (controller) controller.resetSide(side);
+      },
+    };
+  };
+
   if (typeof window !== "undefined") {
-    window.imageFrameEditor = { mount };
+    window.imageFrameEditor = { mount, createItemHost };
   }
 })();

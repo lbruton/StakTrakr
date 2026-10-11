@@ -1819,11 +1819,18 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
     }
   };
 
+  // STRK-427: these writes fire no event, so tell the image-frame editor the Numista shape may
+  // have moved. A call that derives the same shape is a no-op there.
+  const notifyShape = () => {
+    if (typeof notifyImageFrameSignals === "function") notifyImageFrameSignals("numista");
+  };
+
   // Layer 1 (highest rank): Item's stored numistaData (user edits persist here)
   if (itemData && Object.keys(itemData).length > 0) {
     applySource((f) => itemData[f.itemKey] || "");
     refreshCapsuleSuggestion();
   }
+  notifyShape();
 
   // Layer 2 (fallback): IndexedDB cache from API
   if (catalogId && window.imageCache?.isAvailable()) {
@@ -1852,6 +1859,7 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
           return meta[f.cacheKey] || "";
         });
         refreshCapsuleSuggestion();
+        notifyShape();
       })
       .catch(() => {});
   }
@@ -2092,9 +2100,8 @@ const _editApplyEditModeChrome = (item, logIdx) => {
 
   // Preload user images (obverse + reverse) into upload previews (STACK-32)
   if (typeof clearUploadState === "function") clearUploadState();
-  if (typeof setPendingImageFrames === "function") {
-    setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
-  }
+  // STRK-427: seed the shared image-frame editor from the record (replaces the frame toggles).
+  if (typeof seedImageFrameEditor === "function") seedImageFrameEditor(item);
 };
 
 /**
