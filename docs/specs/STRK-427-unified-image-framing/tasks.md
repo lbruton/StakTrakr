@@ -369,7 +369,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **MUST invoke `/vault-update`** as a skill. Project docs are in `.context/` (updated in C.9); the skill audits for anything missed, and zero changes is a clean N/A by audit. StakTrakr has no in-repo `DocVault/`.
   - Documentation audit only. Do **not** touch STRK-427's Plane state or post a "P1 shipped" comment here: the PR is not open yet. The P1-shipped comment is posted in 0P2.1 after the merge is verified, and the issue closes in CLOSE-P2-8 (`.context/implementation-gotchas.md` §Closing task ordering).
 
-- [ ] **CLOSE-P1-6. Open PR**
+- [x] **CLOSE-P1-6. Open PR** — [lbruton/StakTrakr#1572](https://github.com/lbruton/StakTrakr/pull/1572)
   - Branch `patch/<version>` → `dev`. Title: `v<version> — STRK-427: shared image-frame editor (P1)`.
   - Body: link to STRK-427, link to `docs/specs/STRK-427-unified-image-framing/`, test plan checklist, test inventory delta (`+N -M tests, +X -Y files`), the Tradeoff 10 locator re-baseline called out, and the C.10 screenshots.
   - Labels: `codacy-review` and `coderabbit-review` (patch PR).
