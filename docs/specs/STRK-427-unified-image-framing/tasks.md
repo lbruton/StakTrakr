@@ -483,7 +483,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **MUST invoke `/vault-update`** as a skill. `.context/style.html` and `.context/deep-dives/data-model.md` should reflect the renderer frames; the skill audits for this.
   - Documentation audit only. Do **not** change STRK-427's Plane state here: the Done transition moves to CLOSE-P2-8, after the verified merge and the archive (`.context/implementation-gotchas.md` §Closing task ordering).
 
-- [ ] **CLOSE-P2-6. Open PR**
+- [x] **CLOSE-P2-6. Open PR** — [lbruton/StakTrakr#1573](https://github.com/lbruton/StakTrakr/pull/1573)
   - Branch `patch/<version>` → `dev`. Title: `v<version> — STRK-427: renderers adopt shared image frames (P2)`.
   - Body: links to the issue and the spec folder, test plan, inventory delta, F.4 screenshots. Labels `codacy-review` and `coderabbit-review`.
 
