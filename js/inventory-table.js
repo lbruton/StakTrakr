@@ -347,9 +347,21 @@
 
   const _thumbPlaceholders = {};
 
-  function _getThumbPlaceholder(metal, type, shape) {
-    const resolvedShape = shape || "round";
-    const key = (metal || "Silver") + ":" + (type || "Coin") + ":" + resolvedShape;
+  /**
+   * The generated placeholder for a thumbnail without an image. The SVG is drawn at the
+   * thumb's frame size (28px tall, ratio-derived clamped width), so it letterboxes like a real
+   * image would and follows the same shape and orientation (STRK-427 P2, AC-9.2).
+   * @param {string} metal - Item metal
+   * @param {string} type - Item type
+   * @param {string} [shape] - "round" | "bar" | "note" | "slab"
+   * @param {string} [orientation] - "portrait" | "landscape" (Bar and Note only)
+   * @returns {string} A data: URI for the placeholder SVG
+   */
+  function _getThumbPlaceholder(metal, type, shape, orientation) {
+    const frameShape = shape || "round";
+    const frameOrientation = orientation || "";
+    const key =
+      (metal || "Silver") + ":" + (type || "Coin") + ":" + frameShape + ":" + frameOrientation;
     if (_thumbPlaceholders[key]) return _thumbPlaceholders[key];
 
     const silver = getThemeColor("silver");
@@ -366,17 +378,25 @@
     };
     const c = colors[metal] || colors.Silver;
 
-    const isBar = /bar|ingot/i.test(type || "") || resolvedShape === "rect";
-    const icon = isBar
-      ? `<rect x="11" y="7" width="10" height="18" rx="1.5" fill="none" stroke="${c.text}" stroke-width="1.5" opacity="0.5"/><line x1="13" y1="12" x2="19" y2="12" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="15" x2="19" y2="15" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="13" y1="18" x2="19" y2="18" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/>`
-      : `<circle cx="16" cy="16" r="8" fill="none" stroke="${c.text}" stroke-width="1.2" opacity="0.45"/><circle cx="16" cy="16" r="5" fill="none" stroke="${c.text}" stroke-width="0.8" opacity="0.3" stroke-dasharray="2 2"/>`;
+    const height = 28;
+    const width =
+      typeof imageFrameThumbWidth === "function"
+        ? imageFrameThumbWidth(frameShape, frameOrientation)
+        : height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const isRound = frameShape === "round";
+    // A frame's glyph: a coin for Round, an ingot outline for every fixed-ratio frame.
+    const glyphW = Math.max(6, Math.min(10, width - 8));
+    const icon = isRound
+      ? `<circle cx="${centerX}" cy="${centerY}" r="7" fill="none" stroke="${c.text}" stroke-width="1.2" opacity="0.45"/><circle cx="${centerX}" cy="${centerY}" r="4.5" fill="none" stroke="${c.text}" stroke-width="0.8" opacity="0.3" stroke-dasharray="2 2"/>`
+      : `<rect x="${centerX - glyphW / 2}" y="${centerY - 8}" width="${glyphW}" height="16" rx="1.5" fill="none" stroke="${c.text}" stroke-width="1.5" opacity="0.5"/><line x1="${centerX - glyphW / 2 + 2}" y1="${centerY - 3}" x2="${centerX + glyphW / 2 - 2}" y2="${centerY - 3}" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="${centerX - glyphW / 2 + 2}" y1="${centerY}" x2="${centerX + glyphW / 2 - 2}" y2="${centerY}" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/><line x1="${centerX - glyphW / 2 + 2}" y1="${centerY + 3}" x2="${centerX + glyphW / 2 - 2}" y2="${centerY + 3}" stroke="${c.text}" stroke-width="0.8" opacity="0.4"/>`;
 
-    const outerShape =
-      resolvedShape === "rect"
-        ? `<rect x="1" y="1" width="30" height="30" rx="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" opacity="0.25"/>`
-        : `<circle cx="16" cy="16" r="15" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>`;
+    const outerShape = isRound
+      ? `<circle cx="${centerX}" cy="${centerY}" r="13.5" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" opacity="0.25"/>`
+      : `<rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="4" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" opacity="0.25"/>`;
 
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     ${outerShape}
     ${icon}
   </svg>`;
@@ -434,10 +454,14 @@
             invItem[urlKey] && /^https?:\/\/.+\..+/i.test(invItem[urlKey]) ? invItem[urlKey] : "";
         }
       }
-      const resolvedShape =
-        typeof resolveImageFrame === "function" && resolveImageFrame(invItem, side) === "rect"
-          ? "rect"
-          : "round";
+      // STRK-427 P2: the placeholder follows the same shape and orientation as the thumb frame;
+      // the record is authoritative, the attributes the row was rendered with are the fallback.
+      const frameSpec =
+        invItem && typeof resolveImageFrameSpec === "function"
+          ? resolveImageFrameSpec(invItem, side)
+          : { shape: img.dataset.shape || "round", orientation: img.dataset.orientation || "" };
+      const frameShape = frameSpec.shape;
+      const frameOrientation = frameSpec.orientation;
 
       const blobUrl = await imageCache.resolveImageUrlForItem(item, side);
       if (blobUrl) {
@@ -447,7 +471,7 @@
           if (cdnUrl) {
             img.src = cdnUrl;
           } else {
-            img.src = _getThumbPlaceholder(item.metal, item.type, resolvedShape);
+            img.src = _getThumbPlaceholder(item.metal, item.type, frameShape, frameOrientation);
             img.classList.add("table-thumb-placeholder");
           }
         };
@@ -462,7 +486,7 @@
         return;
       }
 
-      img.src = _getThumbPlaceholder(item.metal, item.type, resolvedShape);
+      img.src = _getThumbPlaceholder(item.metal, item.type, frameShape, frameOrientation);
       img.style.visibility = "";
       img.classList.add("table-thumb-placeholder");
     } catch {
@@ -1453,6 +1477,12 @@
     const { tableImagesOnSetting, tableImageSidesSetting, hasImageFrameResolver } = imgCtx;
     const _thumbShapeClass = (side) =>
       hasImageFrameResolver && resolveImageFrame(item, side) === "rect" ? " table-thumb-rect" : "";
+    // STRK-427 P2: data-shape / data-orientation drive the token-ratio thumb frame in the CSS
+    // (28px tall, width clamped) and the placeholder SVG; table-thumb-rect stays beside them.
+    const _thumbFrameAttrs = (side) =>
+      hasImageFrameResolver && typeof imageFrameAttrHtml === "function"
+        ? imageFrameAttrHtml(item, side)
+        : "";
     const _validUrl = (u) => u && /^https?:\/\/.+\..+/i.test(u);
     const obvUrl = _validUrl(item.obverseImageUrl) ? item.obverseImageUrl : "";
     const revUrl = _validUrl(item.reverseImageUrl) ? item.reverseImageUrl : "";
@@ -1467,12 +1497,12 @@
     const _showRev = tableImageSidesSetting === "both" || tableImageSidesSetting === "reverse";
     return tableImagesOnSetting && featureFlags.isEnabled("COIN_IMAGES")
       ? (_showObv
-          ? `<img class="table-thumb${_thumbShapeClass("obverse")}"${obvSrcAttr}
+          ? `<img class="table-thumb${_thumbShapeClass("obverse")}"${_thumbFrameAttrs("obverse")}${obvSrcAttr}
                  ${_sharedThumbAttrs} data-side="obverse"
                  alt="" loading="lazy" />`
           : "") +
           (_showRev
-            ? `<img class="table-thumb${_thumbShapeClass("reverse")}"${revSrcAttr}
+            ? `<img class="table-thumb${_thumbShapeClass("reverse")}"${_thumbFrameAttrs("reverse")}${revSrcAttr}
                  ${_sharedThumbAttrs} data-side="reverse"
                  alt="" loading="lazy" />`
             : "")

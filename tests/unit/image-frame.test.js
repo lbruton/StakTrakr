@@ -390,3 +390,162 @@ describe("enum values survive the item sanitizer (risk note: sanitizeObjectField
     }
   });
 });
+
+describe("resolveImageFrame is a thin wrapper over the shared reader (P2: AC-9.1, AC-9.3, D-17, D-18)", () => {
+  const resolve = (item, side) => api.resolveImageFrame(item, side);
+
+  describe("it delegates to readImageFraming, so every non-round shape is rect (D-17)", () => {
+    test("a stored Bar, Note or Slab is rect, a stored Round is round, whatever the Type", () => {
+      for (const shape of ["bar", "note", "slab"]) {
+        assert.equal(resolve({ type: "Coin", imageShape: shape }), "rect", shape);
+      }
+      assert.equal(resolve({ type: "Coin", imageShape: "round" }), "round");
+      // A stored Round beats a Type that derives Bar (the old Type switch ignored the new field).
+      assert.equal(resolve({ type: "Bar", imageShape: "round" }), "round");
+      assert.equal(resolve({ type: "Note", imageShape: "round" }), "round");
+    });
+
+    test("a stored shape wins over a legacy frame (AC-8.2)", () => {
+      assert.equal(
+        resolve({ type: "Coin", imageShape: "round", obverseImageFrame: "rectangle" }),
+        "round"
+      );
+      assert.equal(
+        resolve({ type: "Coin", imageShape: "bar", obverseImageFrame: "circle" }),
+        "rect"
+      );
+    });
+
+    test("a legacy frame still resolves when no new field is stored", () => {
+      assert.equal(resolve({ type: "Coin", obverseImageFrame: "rectangle" }), "rect");
+      assert.equal(resolve({ type: "Bar", obverseImageFrame: "circle" }), "round");
+    });
+
+    test("one item has one frame: the side argument no longer picks a different binary (AC-8.4)", () => {
+      const mixed = { type: "Coin", obverseImageFrame: "circle", reverseImageFrame: "rectangle" };
+      assert.equal(resolve(mixed, "obverse"), "round");
+      assert.equal(resolve(mixed, "reverse"), "round");
+    });
+
+    test("a missing or empty record reads as round", () => {
+      assert.equal(resolve(null), "round");
+      assert.equal(resolve(undefined, "reverse"), "round");
+      assert.equal(resolve({}), "round");
+    });
+  });
+
+  describe("the two accepted resolver differences (D-18)", () => {
+    test("a non-Coin Type with a non-round Numista shape follows its Type", () => {
+      assert.equal(resolve({ type: "Round", numistaData: { shape: "Rectangular" } }), "round");
+      assert.equal(resolve({ type: "Medallion", numistaData: { shape: "Square" } }), "round");
+      // The Coin rule is unchanged.
+      assert.equal(resolve({ type: "Coin", numistaData: { shape: "Rectangular" } }), "rect");
+    });
+
+    test("weightUnit gb or sb alone no longer forces rect", () => {
+      assert.equal(resolve({ type: "Coin", weightUnit: "gb" }), "round");
+      assert.equal(resolve({ type: "Coin", weightUnit: "sb" }), "round");
+      // Goldback and Silverback are Types, so the Type rule still frames real items.
+      assert.equal(resolve({ type: "Goldback", weightUnit: "gb" }), "rect");
+      assert.equal(resolve({ type: "Silverback", weightUnit: "sb" }), "rect");
+    });
+  });
+
+  describe("resolveImageFrameSpec gives the renderers one shape and one orientation per side (D-17)", () => {
+    const spec = (item, side) => api.resolveImageFrameSpec(item, side);
+
+    test("a legacy rectangle on a plain Coin is a portrait Bar frame (AC-9.3)", () => {
+      assert.deepEqual(spec({ type: "Coin", obverseImageFrame: "rectangle" }), {
+        shape: "bar",
+        orientation: "portrait",
+        frame: "rect",
+      });
+    });
+
+    test("orientation is per side, defaulting to the shape's own", () => {
+      const item = { type: "Coin", imageShape: "note", reverseImageOrientation: "portrait" };
+      assert.deepEqual(spec(item, "obverse"), {
+        shape: "note",
+        orientation: "landscape",
+        frame: "rect",
+      });
+      assert.deepEqual(spec(item, "reverse"), {
+        shape: "note",
+        orientation: "portrait",
+        frame: "rect",
+      });
+    });
+
+    test("Round and Slab have no orientation, and a stale one is ignored", () => {
+      assert.deepEqual(spec({ type: "Coin" }), { shape: "round", orientation: "", frame: "round" });
+      assert.deepEqual(
+        spec({ type: "Coin", gradingAuthority: "PCGS", obverseImageOrientation: "landscape" }),
+        {
+          shape: "slab",
+          orientation: "",
+          frame: "rect",
+        }
+      );
+    });
+
+    test("a missing record is a Round frame, and the side argument defaults to obverse", () => {
+      assert.deepEqual(spec(null), { shape: "round", orientation: "", frame: "round" });
+      assert.deepEqual(spec(undefined, "reverse"), {
+        shape: "round",
+        orientation: "",
+        frame: "round",
+      });
+    });
+  });
+
+  describe("renderer helpers: attribute fragment, token ratio and thumb width", () => {
+    test("imageFrameAttrHtml writes data-shape, and data-orientation only for Bar and Note", () => {
+      assert.equal(api.imageFrameAttrHtml({ type: "Coin" }), ' data-shape="round"');
+      assert.equal(
+        api.imageFrameAttrHtml({ type: "Bar" }, "obverse"),
+        ' data-shape="bar" data-orientation="portrait"'
+      );
+      assert.equal(
+        api.imageFrameAttrHtml(
+          { type: "Coin", imageShape: "note", reverseImageOrientation: "portrait" },
+          "reverse"
+        ),
+        ' data-shape="note" data-orientation="portrait"'
+      );
+      assert.equal(
+        api.imageFrameAttrHtml({ type: "Coin", gradingAuthority: "PCGS" }),
+        ' data-shape="slab"'
+      );
+    });
+
+    test("imageFrameRatio returns the token ratio for each shape and orientation", () => {
+      assert.equal(api.imageFrameRatio("round", ""), 1);
+      assert.equal(api.imageFrameRatio("slab", ""), 0.68);
+      assert.equal(api.imageFrameRatio("bar", "portrait"), 0.6);
+      assert.equal(api.imageFrameRatio("bar", "landscape"), 1.6);
+      assert.equal(api.imageFrameRatio("note", "landscape"), 2.05);
+      assert.ok(Math.abs(api.imageFrameRatio("note", "portrait") - 1 / 2.05) < 1e-9);
+      assert.equal(api.imageFrameRatio("nonsense", "portrait"), 1);
+    });
+
+    test("imageFrameThumbWidth is ratio-derived at 28px tall and clamped to 16..40px", () => {
+      assert.equal(api.imageFrameThumbWidth("round", ""), 28);
+      assert.equal(api.imageFrameThumbWidth("bar", "portrait"), 17);
+      assert.equal(api.imageFrameThumbWidth("slab", ""), 19);
+      assert.equal(api.imageFrameThumbWidth("bar", "landscape"), 40);
+      assert.equal(api.imageFrameThumbWidth("note", "landscape"), 40);
+      assert.equal(api.imageFrameThumbWidth("note", "portrait"), 16);
+    });
+  });
+
+  describe("grading first changes the shape name, not the round/rect binary", () => {
+    test("a graded item is rect whichever Type it has, until the user picks Round", () => {
+      assert.equal(resolve({ type: "Coin", gradingAuthority: "PCGS" }), "rect");
+      assert.equal(resolve({ type: "Bar", gradingAuthority: "NGC" }), "rect");
+      assert.equal(
+        resolve({ type: "Coin", gradingAuthority: "PCGS", imageShape: "round" }),
+        "round"
+      );
+    });
+  });
+});

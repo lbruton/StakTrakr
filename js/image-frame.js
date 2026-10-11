@@ -21,55 +21,11 @@ function cycleFrame(value) {
   return "auto";
 }
 
-/**
- * Resolve the effective image frame for one item side.
- * @param {Object|null|undefined} item
- * @param {"obverse"|"reverse"} [side="obverse"]
- * @returns {"round"|"rect"}
- */
-function resolveImageFrame(item, side = "obverse") {
-  const record = item || {};
-  const frameKey = side === "reverse" ? "reverseImageFrame" : "obverseImageFrame";
-  const override = normalizeImageFrame(record[frameKey]);
-
-  if (override === "circle") return "round";
-  if (override === "rectangle") return "rect";
-
-  const itemType = String(record.type || "").toLowerCase();
-  const weightUnit = String(record.weightUnit || "").toLowerCase();
-  if (
-    itemType === "bar" ||
-    itemType === "note" ||
-    itemType === "aurum" ||
-    itemType === "set" ||
-    weightUnit === "gb" ||
-    weightUnit === "sb"
-  ) {
-    return "rect";
-  }
-
-  if (String(record.gradingAuthority || "").trim()) {
-    return "rect";
-  }
-
-  const rawShape = record.numistaData?.shape;
-  const rawShapeText = String(rawShape || "").toLowerCase();
-  const shape =
-    typeof window !== "undefined" && typeof window.classifyShape === "function"
-      ? window.classifyShape(rawShape)
-      : typeof classifyShape === "function"
-        ? classifyShape(rawShape)
-        : rawShapeText.startsWith("round") || rawShapeText.startsWith("circular")
-          ? "round"
-          : rawShapeText;
-  return shape && shape !== "round" ? "rect" : "round";
-}
-
 // ---------------------------------------------------------------------------
 // STRK-427: one shape model for items and Custom Collections.
 //
-// The functions below are pure. `resolveImageFrame` above is deliberately unchanged in P1, so
-// renderers keep reading the legacy round/rect binary until P2 moves them onto this reader.
+// The functions below are pure. The renderers (table, cards, view modal) read them through
+// `resolveImageFrameSpec` and `resolveImageFrame` (P2, approach D-17).
 // ---------------------------------------------------------------------------
 
 const IMAGE_FRAME_SHAPES = ["round", "bar", "note", "slab"];
@@ -172,6 +128,106 @@ function readImageFraming(item) {
     obverseOrientation: orientationOf(record.obverseImageOrientation),
     reverseOrientation: orientationOf(record.reverseImageOrientation),
   };
+}
+
+/**
+ * The frame one renderer draws for one side of an item: the shared reader's shape, that side's
+ * orientation, and the legacy round/rect binary the existing classes still key off (P2, D-17).
+ * One item has one shape; only the orientation differs per side (AC-8.4).
+ * @param {Object|null|undefined} item
+ * @param {"obverse"|"reverse"} [side="obverse"]
+ * @returns {{shape: "round"|"bar"|"note"|"slab", orientation: "portrait"|"landscape"|"", frame: "round"|"rect"}}
+ *   `orientation` is "" for a shape that never rotates.
+ */
+function resolveImageFrameSpec(item, side = "obverse") {
+  const framing = readImageFraming(item);
+  const orientation =
+    (side === "reverse" ? framing.reverseOrientation : framing.obverseOrientation) || "";
+  return {
+    shape: framing.shape,
+    orientation,
+    frame: framing.shape === "round" ? "round" : "rect",
+  };
+}
+
+/**
+ * Resolve the effective round/rect frame for one item side. A thin wrapper over the shared
+ * reader (P2): every non-round shape is `rect`, so the `bar-shape`, `table-thumb-rect` and
+ * `view-shape-rect` hooks keep working beside the new `data-shape` attributes (D-17, D-18).
+ * @param {Object|null|undefined} item
+ * @param {"obverse"|"reverse"} [side="obverse"]
+ * @returns {"round"|"rect"}
+ */
+function resolveImageFrame(item, side = "obverse") {
+  return resolveImageFrameSpec(item, side).frame;
+}
+
+/**
+ * The attribute fragment the HTML-string renderers (table thumbs, cards) put on a frame
+ * wrapper: `data-shape`, plus `data-orientation` only for a shape that rotates. Both values
+ * come from fixed enums, so the fragment is safe to concatenate into markup.
+ * @param {Object|null|undefined} item
+ * @param {"obverse"|"reverse"} [side="obverse"]
+ * @returns {string} Leading-space attribute text, e.g. ` data-shape="bar" data-orientation="portrait"`
+ */
+function imageFrameAttrHtml(item, side = "obverse") {
+  const spec = resolveImageFrameSpec(item, side);
+  return ` data-shape="${spec.shape}"${spec.orientation ? ` data-orientation="${spec.orientation}"` : ""}`;
+}
+
+// Mirrors the `:root` --frame-* tokens in css/styles.css; the live token wins when readable.
+const IMAGE_FRAME_RATIO_FALLBACK = {
+  round: 1,
+  slab: 0.68,
+  "bar:portrait": 0.6,
+  "bar:landscape": 1.6,
+  "note:portrait": 1 / 2.05,
+  "note:landscape": 2.05,
+};
+const IMAGE_FRAME_RATIO_TOKENS = {
+  slab: "--frame-slab",
+  "bar:portrait": "--frame-bar-portrait",
+  "bar:landscape": "--frame-bar-landscape",
+  "note:portrait": "--frame-note-portrait",
+  "note:landscape": "--frame-note-landscape",
+};
+
+/**
+ * The width/height ratio of a frame, read from the shared CSS tokens (so the renderers and the
+ * generated placeholder SVG cannot drift from the stylesheet), with the token values as the
+ * fallback when no stylesheet is present.
+ * @param {string} shape - "round" | "bar" | "note" | "slab"
+ * @param {string} [orientation] - "portrait" | "landscape" (Bar and Note only)
+ * @returns {number} Width divided by height; 1 for an unknown shape
+ */
+function imageFrameRatio(shape, orientation) {
+  const key = shape === "bar" || shape === "note" ? `${shape}:${orientation}` : shape;
+  const fallback = IMAGE_FRAME_RATIO_FALLBACK[key];
+  if (!fallback) return 1;
+  const token = IMAGE_FRAME_RATIO_TOKENS[key];
+  if (token && typeof document !== "undefined" && document.documentElement) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    const fraction = /^calc\(\s*([\d.]+)\s*\/\s*([\d.]+)\s*\)$/.exec(raw);
+    const live = fraction ? Number(fraction[1]) / Number(fraction[2]) : Number(raw);
+    if (Number.isFinite(live) && live > 0) return live;
+  }
+  return fallback;
+}
+
+const IMAGE_FRAME_THUMB_HEIGHT = 28;
+const IMAGE_FRAME_THUMB_MIN_WIDTH = 16;
+const IMAGE_FRAME_THUMB_MAX_WIDTH = 40;
+
+/**
+ * The table thumbnail's width for a frame: 28px tall, ratio-derived, clamped to 16..40px (the
+ * approved P2 table-thumb clamp). The stylesheet applies the same clamp to `.table-thumb`.
+ * @param {string} shape
+ * @param {string} [orientation]
+ * @returns {number} Width in CSS pixels
+ */
+function imageFrameThumbWidth(shape, orientation) {
+  const width = Math.round(IMAGE_FRAME_THUMB_HEIGHT * imageFrameRatio(shape, orientation));
+  return Math.min(IMAGE_FRAME_THUMB_MAX_WIDTH, Math.max(IMAGE_FRAME_THUMB_MIN_WIDTH, width));
 }
 
 /**
@@ -302,6 +358,10 @@ if (typeof window !== "undefined") {
   window.normalizeImageFrame = normalizeImageFrame;
   window.cycleFrame = cycleFrame;
   window.resolveImageFrame = resolveImageFrame;
+  window.resolveImageFrameSpec = resolveImageFrameSpec;
+  window.imageFrameAttrHtml = imageFrameAttrHtml;
+  window.imageFrameRatio = imageFrameRatio;
+  window.imageFrameThumbWidth = imageFrameThumbWidth;
   window.normalizeImageShape = normalizeImageShape;
   window.normalizeImageOrientation = normalizeImageOrientation;
   window.defaultImageOrientation = defaultImageOrientation;

@@ -119,6 +119,9 @@ Defined via JSDoc typedef in `js/types.js`. All fields persist on the item objec
   reverseImageOrientation: String,       // optional — same vocabulary, per side
   obverseImageFrame:       String,       // optional legacy projection — "circle" (Round) | "rectangle" (anything else); written with an explicit imageShape so older builds render round/rect. Reader precedence: imageShape, else this (obverse only), else derived
   reverseImageFrame:       String,       // optional legacy projection (reverse); ignored by the reader, kept for older builds
+  // Renderers (P2): the table thumb, card A/B/C and view modal read ONE shape per item and one orientation per side through
+  // resolveImageFrameSpec(item, side) in js/image-frame.js -> { shape, orientation, frame }; resolveImageFrame(item, side) is its
+  // round/rect wrapper, so legacy `*ImageFrame`, Type, grading and a Coin's non-round Numista shape all resolve in one place.
 
   // --- Trade provenance (v3.34.100 / STRK-123) ---
   tradedFromUuid:        String,         // optional — disposed item UUID that acquired this active item via trade

@@ -387,7 +387,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort 0 — Setup, P2 (sequential)
 
-- [ ] **0P2.1** — Ensure the P2 patch worktree exists
+- [x] **0P2.1** — Ensure the P2 patch worktree exists — _P1 merge verified (PR #1572, `40374d93`, v3.36.46); P1-shipped comment posted on STRK-427 (state stays In Progress); P1 worktree and branch removed after the merge check; `patch/3.36.47` created from `origin/dev` with its own `npm ci`, version-lock claim for 3.36.47 (STRK-427 P2) written._
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** The P1 PR merge has been verified (`gh pr view --json state,mergeCommit`), and its worktree has been cleaned up only after that. After the verified merge, a comment on STRK-427 records that P1 shipped (version, PR link); the issue stays open. A fresh `patch/<version>` worktree from `origin/dev` holds a STRK-427 (P2) version-lock claim and has its own `npm ci`.
   - **If the worktree does not exist yet:** run `/start-patch` → `/release patch`.
@@ -396,14 +396,14 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort D — Foundation, P2
 
-- [ ] **D.1** — Confirm the P2 mockup section is approved
+- [x] **D.1** — Confirm the P2 mockup section is approved — _the mockup header (`playground/STRK-427-image-frame-editor.html` lines 5-17) carries the approval record: approved 2026-10-10 by lbruton in chat, with decision 6 "P2: table thumb 28px tall with width clamped to 40px (approved); images use object-fit: contain", which is the letterboxing of Tradeoff 5. The user's 2026-10-11 review of v3.36.46 confirmed the bigger images and shape options are wanted and asked to finish P2 first._
   - **File(s):** _no file changes — verification only_ (`playground/STRK-427-image-frame-editor.html`)
   - **Acceptance:** The A.1 playground's P2 section (P2-table, P2-card A/B/C, P2-view, legacy-rect) carries the user's approval note. If it does not, get approval (or a revision via `/ui-mockup`) before Cohort F. The approval covers the table-thumb width clamp and the letterboxing of landscape photos in a portrait Bar (Tradeoff 5).
   - **Maps to:** AC-9.1, AC-9.3
 
 ## Sprint Cohort E — Tests · RED, P2 (sequential)
 
-- [ ] **E.1** — Unit RED: the `resolveImageFrame` wrapper
+- [x] **E.1** — Unit RED: the `resolveImageFrame` wrapper — _12 cases added in `tests/unit/image-frame.test.js`: 10 red (stored Bar/Note/Slab/Round beats Type, stored shape beats legacy frame, one frame per item so the side argument no longer differs, D-18 non-Coin Numista and `gb`/`sb`, graded-but-chosen-Round, and the new `resolveImageFrameSpec` renderer helper: legacy rectangle = portrait Bar, per-side orientation, no orientation for Round/Slab, null record) and 2 compatibility pins that already pass (legacy circle/rectangle still resolve, a missing record is round)._
   - **File(s):** `tests/unit/image-frame.test.js` (additive)
   - **Acceptance:** Failing cases:
     - `resolveImageFrame` delegates to the shared reader, so every non-round shape returns `rect`.
@@ -411,7 +411,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
     - Grading-first changes the name but not the round/rect binary.
   - **Maps to:** AC-9.1, AC-9.3
 
-- [ ] **E.2** — Playwright RED: renderer frames
+- [x] **E.2** — Playwright RED: renderer frames — _11 cases in `tests/playwright/core/image-frame-renderers.spec.js`: 9 red on the intended assertion (missing `data-shape`/`data-orientation`, the 28px/16–40px thumb width, placeholder ratio, card A/B/C frame at the token ratio inside the 44 / 80 / 80×56 boxes, per-side view-modal orientation, Numista re-apply, four-theme legacy rectangle) and 2 regression pins that already pass (legacy `bar-shape`/`table-thumb-rect`/`view-shape-rect` classes remain; a Custom Collection Slot keeps the collection's Bar frame for a linked round Coin's photo, AC-9.4)._
   - **File(s):** `tests/playwright/core/image-frame-renderers.spec.js` (new)
   - **Acceptance:** Failing cases:
     - The table thumb, card A/B/C image and view-modal slots carry `data-shape`/`data-orientation` and render the token ratio inside their bounding box with `object-fit: contain` (AC-9.1).
@@ -424,7 +424,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Leverage:** `tests/playwright/core/mobile-and-layout.spec.js:166-222`; archived `strk-121-rect-image-card-table.spec.js`; A.1 P2 mockup states.
   - **Maps to:** AC-9.1–AC-9.4
 
-- [ ] **E.3** — Confirm RED (P2)
+- [x] **E.3** — Confirm RED (P2) — _unit 1151 tests: 1141 pass, 10 fail, all in the new E.1 block; the 1139 pre-existing tests are green. Core lists 898 tests (887 + 11); the 9 red are all in the new spec, no pre-existing core file was changed and the protected `mobile-and-layout.spec.js` is untouched._
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** Only the E.1/E.2 cases fail. Every pre-existing unit and core case is green, and the counts are recorded.
   - **Depends on:** E.2
@@ -432,13 +432,13 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort F — Implementation · GREEN, P2 (sequential)
 
-- [ ] **F.1** — Make `resolveImageFrame` a thin wrapper
+- [x] **F.1** — Make `resolveImageFrame` a thin wrapper — _`resolveImageFrame` now delegates to the new `resolveImageFrameSpec` (shape, per-side orientation, round/rect frame) over `readImageFraming`; helpers `imageFrameAttrHtml`, `imageFrameRatio` (reads the `:root` --frame-* tokens, fallback constants) and `imageFrameThumbWidth` (28px tall, clamp 16..40) carry the renderer plumbing; 3 extra unit cases for them; unit 1154/1154._
   - **File(s):** `js/image-frame.js`
   - **Acceptance:** `resolveImageFrame` returns `round` for a Round shape and `rect` otherwise, using the shared reader. E.1 is green.
   - **Depends on:** E.3
   - **Maps to:** AC-9.1, AC-9.3
 
-- [ ] **F.2** — Renderers adopt the shared frames
+- [x] **F.2** — Renderers adopt the shared frames — _`js/card-view.js` (`_cardImageHTML`), `js/inventory-table.js` (`_buildThumbHtml`, placeholder SVG drawn at the thumb's frame size with shape and orientation in its cache key, `_loadThumbImage`) and `js/viewModal.js` (`_applyViewSlotFrame`, re-applied after Numista enrichment) set `data-shape`/`data-orientation` beside the kept legacy classes; one CSS block at the end of `css/styles.css` fits the largest token-ratio rectangle in each wrapper box with `object-fit: contain` (cards 44 / 80 / 80×56, table 28px tall clamp 16..40, view 180 / 200×260). `image-frame-renderers.spec.js` 11/11 and the protected `mobile-and-layout.spec.js` 7/7 unedited._
   - **File(s):** `js/card-view.js`, `js/inventory-table.js`, `js/viewModal.js`, `css/styles.css`
   - **Acceptance:**
     - `card-view.js:563-593`, `inventory-table.js:350-385, 408-468, 1448-1482` and `viewModal.js:2996-3017, 1963-1977` set `data-shape`/`data-orientation` on their existing wrappers (`.coin-img`, `.table-thumb`, `.view-image-slot`) next to the kept legacy classes.
@@ -449,13 +449,13 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Depends on:** F.1
   - **Maps to:** AC-9.1–AC-9.3
 
-- [ ] **F.3** — P2 inventory
+- [x] **F.3** — P2 inventory — _`tests/playwright/coverage-map.csv` row for `core/image-frame-renderers.spec.js` (11 cases, rationale and the tableImageSides trap)._
   - **File(s):** `tests/playwright/coverage-map.csv`
   - **Acceptance:** A new row for `core/image-frame-renderers.spec.js` with its count and rationale.
   - **Depends on:** F.2
   - **Maps to:** AC-10.3
 
-- [ ] **F.4** — P2 visual verification
+- [x] **F.4** — P2 visual verification — _evidence: `playground/images/STRK-427-evidence/P2-*.png`, 48 files: `P2-table-<theme>-<1280|390>`, `P2-card-<A|B|C>-<theme>-<width>`, `P2-view-legacy-…` and `P2-view-mixed-…`, each in light, dark, slate and sepia. The fixture set holds a round Coin, a Bar, a chosen Note, a graded Slab, a legacy rectangle Coin, a Bar with landscape obverse, a D-18 anomaly (Coin with a `gb` unit and a Rectangular Numista shape) and a Bar without an image. Compared with the approved P2 mockup section: Bar and Note thumbs are narrower or wider within the 28px row (16..40px clamp), photos letterbox inside their frames, the placeholder follows the frame, card A/B/C images fit their existing boxes, and the view modal shows per-side orientation. Deviation to disclose: the card and table frames are transparent (protected `bar-shape` / `table-thumb-rect` rules keep a transparent background), so a letterboxed photo shows no frame outline except in the view modal._
   - **File(s):** _no file changes — screenshots attached to the PR_
   - **Acceptance:** P2-table, P2-card (A/B/C) and P2-view are captured, including a legacy-rect item and an anomalous D-18 item, in all four themes at 1280 and 390, and compared with the approved P2 mockup section. The screenshots go in the PR.
   - **Depends on:** F.3
@@ -463,34 +463,35 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Standard Closing Tasks — P2
 
-- [ ] **CLOSE-P2-1. Run full test suite** — zero regressions
+- [x] **CLOSE-P2-1. Run full test suite** — zero regressions — _unit 1154/1154 (1139 before P2 + 15 new); core Playwright 898/898 (887 + 11 in `image-frame-renderers.spec.js`), the protected `mobile-and-layout.spec.js` unedited and green; `npm run lint` and `npm run lint:md:all` clean. Archived matrix `strk-121-rect-image-card-table.spec.js` (not a CI gate): 3 placeholder cases already fail on `origin/dev`; 3 more fail on this branch, the card A/B/C container-size cases (44x44 / 80x80 / 80x56 box assertions), which D-17 supersedes on purpose (the wrapper box is now the bounding box of a token-ratio frame, so a portrait Bar is 26x44 in card A). Disclosed, not edited._
   - **File:** _no file changes — verification only_
   - `npm test`, `npm run test:unit` and `npm run lint`, with counts checked. Fix the implementation, not the test.
 
-- [ ] **CLOSE-P2-2. Codacy CLI scan** — security + quality
+- [x] **CLOSE-P2-2. Codacy CLI scan** — security + quality — _scanned file by file (the `--diff` form exhausts the heap in Stylelint on `css/styles.css`, as in P1): `js/image-frame.js`, `js/inventory-table.js`, `tests/unit/image-frame.test.js` and `tests/playwright/core/image-frame-renderers.spec.js` have 0 findings. `js/card-view.js` and `js/viewModal.js` report only Lizard Medium findings on functions this PR did not touch (`generateSparklineSVG`, `_buildInventorySection`, `_buildValuationSection`, `_buildDispositionSection`, `loadViewNumistaData`); a Lizard comparison against `origin/dev` shows no CCN or NLOC change, only two unrelated functions' line length moved. 0 Critical/High, 0 security. Duplication: the new tests share the `frameOf`, `thumbOf`, `cardCoinOf` and `boot` helpers; JSDoc on every new production function._
   - **File:** _no file changes — scan only_
   - `codacy-analysis analyze --diff`. Same triage rules as P1.
 
-- [ ] **CLOSE-P2-3. Generate verification stamp**
+- [x] **CLOSE-P2-3. Generate verification stamp** — _`## Verification Stamp — P2` at the bottom: 45 lines, one per AC, 0 open `[ ]`; AC-9.1 to AC-9.4 use the test + screenshot form._
   - **File:** Append to the bottom of `tasks.md` under heading `## Verification Stamp — P2`.
   - One line for **every** AC in `requirements.md`. P1 ACs may cite their P1 stamp line (`- [x] AC-N — verified in P1 stamp, re-run green in CLOSE-P2-1`). AC-9.1–AC-9.4 need the full UI verification form (test + mockup state or screenshot).
   - Refuse to proceed to CLOSE-P2-4 if any `[ ]` remains.
 
-- [ ] **CLOSE-P2-4. Version bump**
+- [x] **CLOSE-P2-4. Version bump** — _spot bundle refreshed from this worktree's own script (sqld reachable over Tailscale; no new complete UTC day since P1, so the year JSON and bundle were already current); version lock re-claimed for 3.36.47 (the first claim had expired); six release files bumped, What's New trimmed to 5, sw.js stamped by the hook; commit `v3.36.47 — STRK-427: renderers adopt shared image frames (P2)`._
   - Run **`/update-spot-bundle`**, then **MUST invoke `/release patch`** as a skill.
 
-- [ ] **CLOSE-P2-5. Vault update + close issue**
+- [x] **CLOSE-P2-5. Vault update + close issue** — _documentation audit only, no Plane change: `.context/style.html` (renderer frames block), `.context/deep-dives/data-model.md` (renderer reader note) and `.context/GLOSSARY.md` were updated in `522f1120`; StakTrakr has no in-repo `DocVault/` (`vault-path project` exits 2); the private companion holds only the archived STRK-67 spec, which is historical and left as written; the shared KnowledgeBase has no renderer-frame page. STRK-427 stays In Progress (closes after STRK-434)._
   - **MUST invoke `/vault-update`** as a skill. `.context/style.html` and `.context/deep-dives/data-model.md` should reflect the renderer frames; the skill audits for this.
   - Documentation audit only. Do **not** change STRK-427's Plane state here: the Done transition moves to CLOSE-P2-8, after the verified merge and the archive (`.context/implementation-gotchas.md` §Closing task ordering).
 
-- [ ] **CLOSE-P2-6. Open PR**
+- [x] **CLOSE-P2-6. Open PR** — [lbruton/StakTrakr#1573](https://github.com/lbruton/StakTrakr/pull/1573)
   - Branch `patch/<version>` → `dev`. Title: `v<version> — STRK-427: renderers adopt shared image frames (P2)`.
   - Body: links to the issue and the spec folder, test plan, inventory delta, F.4 screenshots. Labels `codacy-review` and `coderabbit-review`.
 
-- [ ] **CLOSE-P2-7. Resolve PR review threads**
+- [x] **CLOSE-P2-7. Resolve PR review threads** — _PR #1573: 1 review thread (Copilot: the release copy overstated letterboxing for Round frames), fixed as copy-only changes in the What's New entry, CHANGELOG, glossary and style guide and resolved; checks green (Codacy 0 issues, CodeQL, Analyze, Cloudflare Pages), CodeRabbit skipped by design, Codex out of review credit; merge state CLEAN, 0 unresolved threads. Waiting on the merge click; STRK-427 stays open for STRK-434._
   - **MUST invoke `/pr-resolve`** as a skill, covering inline and review-body findings and scanner re-posts. Drive to CLEAN, then report and wait for the user's merge.
 
 - [ ] **CLOSE-P2-8. Archive spec** (after the P2 PR merges)
+  - **Re-scoped 2026-10-11 (Lonnie):** STRK-427 does not close with P2. The item-modal vs Edit-collection visual parity work is filed as **STRK-434** and must land on `dev` before any `dev` → `main` ship. After the P2 merge is verified, this task only verifies the merge and records it; the archive and the Done transition below run when STRK-434 has merged and Lonnie has signed off its screenshots. Do not archive the spec folder before then (STRK-434 reuses it).
   - Verify the P2 merge first (`gh pr view --json state,mergeCommit`).
   - **MUST invoke `/spec archive STRK-427`** as a skill.
   - Then mark STRK-427 Done in Plane: `mcp__plane__workitem` (`action: "update"`) to state "Done" (list states this session; never cache UUIDs), with the follow-ups from 0.2 cross-linked.
@@ -655,3 +656,60 @@ _Shorthand: **EDITOR** = `tests/playwright/core/image-frame-editor.spec.js`; **C
 - [x] AC-10.1 — verified by COLL "STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios" and "STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio" + visually verified against mockup state "B-builder" and the STRK-421 baseline (`B-builder-*`)
 - [x] AC-10.2 — verified at `css/styles.css` (`git diff origin/dev...HEAD -- css/styles.css` adds 0 `var(--surface)`; the editor's own surfaces use `--bg-card`, and the STRK-426 badge rules are untouched) and EDITOR "AC-6.3: the editor is legible in light, dark, slate and sepia at desktop and 390px"
 - [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv:164-167` (EDITOR new, 32 cases; COLL +10, DATA +3, IMPEXP +5); inventory delta `+92 unit tests, +50 Playwright tests (32+10+3+5), +3 files` goes in the PR body (CLOSE-P1-6)
+
+---
+
+## Verification Stamp — P2
+
+_Shorthand: **REND** = `tests/playwright/core/image-frame-renderers.spec.js`; **UNIT-IF** = `tests/unit/image-frame.test.js`. Screenshots: `playground/images/STRK-427-evidence/P2-<state>-<theme>-<1280|390>.png`, compared with the approved P2 section of `playground/STRK-427-image-frame-editor.html` (table thumb 28px tall with the width clamped to 40px, images `object-fit: contain`). P1 ACs cite their P1 stamp line; the full core (898/898), unit (1154/1154) and lint gates were re-run green in CLOSE-P2-1 on the P2 tree._
+
+### AC-1 to AC-8 and AC-10 (P1)
+
+- [x] AC-1.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-2.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-2.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-2.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-3.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-3.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-3.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.6 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.7 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.8 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-6.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-6.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-6.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-7.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-7.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-7.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.6 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.7 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.8 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-10.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-10.2 — verified in P1 stamp, re-run green in CLOSE-P2-1 (this PR adds 0 `var(--surface)` to `css/styles.css`; its new block uses only tokens)
+- [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv` (new row for `core/image-frame-renderers.spec.js`, 11 cases); inventory delta `+15 unit tests, +11 Playwright tests, +1 file` goes in the PR body (CLOSE-P2-6)
+
+### AC-9 Table, card and view modal (P2)
+
+- [x] AC-9.1 — verified by REND "table thumbs carry shape and orientation, stay 28px tall and clamp their width (AC-9.1)", "the reverse thumb follows the same shape with its own orientation (AC-9.1)", "card A / B / C: the wrapper frame fits its box at the token ratio (AC-9.1)", "the view modal frames each side from the shared reader (AC-9.1)" and "the view modal re-applies the frame after Numista enrichment (AC-9.1)", UNIT-IF "resolveImageFrame is a thin wrapper over the shared reader" (and the `resolveImageFrameSpec` / `imageFrameAttrHtml` / `imageFrameThumbWidth` helpers) + screenshot compared: `P2-table-light-1280.png`, `P2-table-dark-390.png`, `P2-card-A-dark-1280.png`, `P2-card-B-light-1280.png`, `P2-card-C-sepia-390.png`, `P2-view-mixed-dark-1280.png` against the approved P2 mockup section
+- [x] AC-9.2 — verified by REND "the placeholder SVG follows the frame (AC-9.2)" (natural ratio of the 16..40px clamped thumb box, distinct SVG per shape) and the 28px-height assertions in "table thumbs carry shape and orientation…" + screenshot compared: `P2-table-light-1280.png` and `P2-table-sepia-1280.png`, the "Bar without an image" row against the approved P2-table state
+- [x] AC-9.3 — verified by REND "a legacy rectangle item is a portrait Bar in every theme (AC-9.3)" (card A frame and view modal slot in light, dark, slate and sepia) and UNIT-IF "a legacy rectangle on a plain Coin is a portrait Bar frame (AC-9.3)" + screenshot compared: `P2-view-legacy-<light|dark|slate|sepia>-1280.png` and `-390.png`, `P2-card-A-<theme>-1280.png` (legacy rectangle Coin and the D-18 anomaly row) against the approved P2-view and P2-card states
+- [x] AC-9.4 — verified by REND "a Custom Collection Slot keeps the collection's shape for a linked Item photo (AC-9.4)" (regression pin: a Bar collection keeps `collections-coin--shape-bar` / `--portrait` for a linked round Coin's photo; P2 changes no Collections code) and the existing Slot-photo cases in `tests/playwright/core/collections.spec.js`, green in CLOSE-P2-1
