@@ -463,15 +463,15 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Standard Closing Tasks — P2
 
-- [ ] **CLOSE-P2-1. Run full test suite** — zero regressions
+- [x] **CLOSE-P2-1. Run full test suite** — zero regressions — _unit 1154/1154 (1139 before P2 + 15 new); core Playwright 898/898 (887 + 11 in `image-frame-renderers.spec.js`), the protected `mobile-and-layout.spec.js` unedited and green; `npm run lint` and `npm run lint:md:all` clean. Archived matrix `strk-121-rect-image-card-table.spec.js` (not a CI gate): 3 placeholder cases already fail on `origin/dev`; 3 more fail on this branch, the card A/B/C container-size cases (44x44 / 80x80 / 80x56 box assertions), which D-17 supersedes on purpose (the wrapper box is now the bounding box of a token-ratio frame, so a portrait Bar is 26x44 in card A). Disclosed, not edited._
   - **File:** _no file changes — verification only_
   - `npm test`, `npm run test:unit` and `npm run lint`, with counts checked. Fix the implementation, not the test.
 
-- [ ] **CLOSE-P2-2. Codacy CLI scan** — security + quality
+- [x] **CLOSE-P2-2. Codacy CLI scan** — security + quality — _scanned file by file (the `--diff` form exhausts the heap in Stylelint on `css/styles.css`, as in P1): `js/image-frame.js`, `js/inventory-table.js`, `tests/unit/image-frame.test.js` and `tests/playwright/core/image-frame-renderers.spec.js` have 0 findings. `js/card-view.js` and `js/viewModal.js` report only Lizard Medium findings on functions this PR did not touch (`generateSparklineSVG`, `_buildInventorySection`, `_buildValuationSection`, `_buildDispositionSection`, `loadViewNumistaData`); a Lizard comparison against `origin/dev` shows no CCN or NLOC change, only two unrelated functions' line length moved. 0 Critical/High, 0 security. Duplication: the new tests share the `frameOf`, `thumbOf`, `cardCoinOf` and `boot` helpers; JSDoc on every new production function._
   - **File:** _no file changes — scan only_
   - `codacy-analysis analyze --diff`. Same triage rules as P1.
 
-- [ ] **CLOSE-P2-3. Generate verification stamp**
+- [x] **CLOSE-P2-3. Generate verification stamp** — _`## Verification Stamp — P2` at the bottom: 45 lines, one per AC, 0 open `[ ]`; AC-9.1 to AC-9.4 use the test + screenshot form._
   - **File:** Append to the bottom of `tasks.md` under heading `## Verification Stamp — P2`.
   - One line for **every** AC in `requirements.md`. P1 ACs may cite their P1 stamp line (`- [x] AC-N — verified in P1 stamp, re-run green in CLOSE-P2-1`). AC-9.1–AC-9.4 need the full UI verification form (test + mockup state or screenshot).
   - Refuse to proceed to CLOSE-P2-4 if any `[ ]` remains.
@@ -656,3 +656,60 @@ _Shorthand: **EDITOR** = `tests/playwright/core/image-frame-editor.spec.js`; **C
 - [x] AC-10.1 — verified by COLL "STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios" and "STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio" + visually verified against mockup state "B-builder" and the STRK-421 baseline (`B-builder-*`)
 - [x] AC-10.2 — verified at `css/styles.css` (`git diff origin/dev...HEAD -- css/styles.css` adds 0 `var(--surface)`; the editor's own surfaces use `--bg-card`, and the STRK-426 badge rules are untouched) and EDITOR "AC-6.3: the editor is legible in light, dark, slate and sepia at desktop and 390px"
 - [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv:164-167` (EDITOR new, 32 cases; COLL +10, DATA +3, IMPEXP +5); inventory delta `+92 unit tests, +50 Playwright tests (32+10+3+5), +3 files` goes in the PR body (CLOSE-P1-6)
+
+---
+
+## Verification Stamp — P2
+
+_Shorthand: **REND** = `tests/playwright/core/image-frame-renderers.spec.js`; **UNIT-IF** = `tests/unit/image-frame.test.js`. Screenshots: `playground/images/STRK-427-evidence/P2-<state>-<theme>-<1280|390>.png`, compared with the approved P2 section of `playground/STRK-427-image-frame-editor.html` (table thumb 28px tall with the width clamped to 40px, images `object-fit: contain`). P1 ACs cite their P1 stamp line; the full core (898/898), unit (1154/1154) and lint gates were re-run green in CLOSE-P2-1 on the P2 tree._
+
+### AC-1 to AC-8 and AC-10 (P1)
+
+- [x] AC-1.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-1.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-2.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-2.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-2.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-3.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-3.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-3.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.6 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.7 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-4.8 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-5.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-6.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-6.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-6.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-7.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-7.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-7.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.2 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.3 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.4 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.5 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.6 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.7 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-8.8 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-10.1 — verified in P1 stamp, re-run green in CLOSE-P2-1
+- [x] AC-10.2 — verified in P1 stamp, re-run green in CLOSE-P2-1 (this PR adds 0 `var(--surface)` to `css/styles.css`; its new block uses only tokens)
+- [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv` (new row for `core/image-frame-renderers.spec.js`, 11 cases); inventory delta `+15 unit tests, +11 Playwright tests, +1 file` goes in the PR body (CLOSE-P2-6)
+
+### AC-9 Table, card and view modal (P2)
+
+- [x] AC-9.1 — verified by REND "table thumbs carry shape and orientation, stay 28px tall and clamp their width (AC-9.1)", "the reverse thumb follows the same shape with its own orientation (AC-9.1)", "card A / B / C: the wrapper frame fits its box at the token ratio (AC-9.1)", "the view modal frames each side from the shared reader (AC-9.1)" and "the view modal re-applies the frame after Numista enrichment (AC-9.1)", UNIT-IF "resolveImageFrame is a thin wrapper over the shared reader" (and the `resolveImageFrameSpec` / `imageFrameAttrHtml` / `imageFrameThumbWidth` helpers) + screenshot compared: `P2-table-light-1280.png`, `P2-table-dark-390.png`, `P2-card-A-dark-1280.png`, `P2-card-B-light-1280.png`, `P2-card-C-sepia-390.png`, `P2-view-mixed-dark-1280.png` against the approved P2 mockup section
+- [x] AC-9.2 — verified by REND "the placeholder SVG follows the frame (AC-9.2)" (natural ratio of the 16..40px clamped thumb box, distinct SVG per shape) and the 28px-height assertions in "table thumbs carry shape and orientation…" + screenshot compared: `P2-table-light-1280.png` and `P2-table-sepia-1280.png`, the "Bar without an image" row against the approved P2-table state
+- [x] AC-9.3 — verified by REND "a legacy rectangle item is a portrait Bar in every theme (AC-9.3)" (card A frame and view modal slot in light, dark, slate and sepia) and UNIT-IF "a legacy rectangle on a plain Coin is a portrait Bar frame (AC-9.3)" + screenshot compared: `P2-view-legacy-<light|dark|slate|sepia>-1280.png` and `-390.png`, `P2-card-A-<theme>-1280.png` (legacy rectangle Coin and the D-18 anomaly row) against the approved P2-view and P2-card states
+- [x] AC-9.4 — verified by REND "a Custom Collection Slot keeps the collection's shape for a linked Item photo (AC-9.4)" (regression pin: a Bar collection keeps `collections-coin--shape-bar` / `--portrait` for a linked round Coin's photo; P2 changes no Collections code) and the existing Slot-photo cases in `tests/playwright/core/collections.spec.js`, green in CLOSE-P2-1
