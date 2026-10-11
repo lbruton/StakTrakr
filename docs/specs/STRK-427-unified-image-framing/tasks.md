@@ -109,7 +109,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** existing shape/orientation and `metaModified` cases (`:771-1008`, `:1451-1462`).
   - **Maps to:** AC-4.1, AC-5.2, AC-5.3, AC-5.5
 
-- [ ] **B.3** — Unit RED: hash gate, sync registration and the cross-version matrix
+- [x] **B.3** — Unit RED: hash gate, sync registration and the cross-version matrix
   - **File(s):** `tests/unit/cloud-sync-image-frame-hash.test.js` (new)
   - **Acceptance:** Cases using `tests/unit/helpers/source-extract.js`, the way the STRK-241 hash test does:
     - **Old-build (O) functions pinned in the test file.** During Cohort B, before any Cohort C task touches the sources, pin O's `resolveImageFrame`, `computeInventoryHash`, the `DIFF_FIELDS` modify-apply path (`js/diff-engine.js:839-894`), the JSON/CSV import readers and `normalizeDefinition` as source literals inside this test file (captured from the current worktree, which is still O). No new helper or fixture file.
