@@ -403,7 +403,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort E — Tests · RED, P2 (sequential)
 
-- [ ] **E.1** — Unit RED: the `resolveImageFrame` wrapper
+- [x] **E.1** — Unit RED: the `resolveImageFrame` wrapper — _12 cases added in `tests/unit/image-frame.test.js`: 10 red (stored Bar/Note/Slab/Round beats Type, stored shape beats legacy frame, one frame per item so the side argument no longer differs, D-18 non-Coin Numista and `gb`/`sb`, graded-but-chosen-Round, and the new `resolveImageFrameSpec` renderer helper: legacy rectangle = portrait Bar, per-side orientation, no orientation for Round/Slab, null record) and 2 compatibility pins that already pass (legacy circle/rectangle still resolve, a missing record is round)._
   - **File(s):** `tests/unit/image-frame.test.js` (additive)
   - **Acceptance:** Failing cases:
     - `resolveImageFrame` delegates to the shared reader, so every non-round shape returns `rect`.
@@ -411,7 +411,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
     - Grading-first changes the name but not the round/rect binary.
   - **Maps to:** AC-9.1, AC-9.3
 
-- [ ] **E.2** — Playwright RED: renderer frames
+- [x] **E.2** — Playwright RED: renderer frames — _11 cases in `tests/playwright/core/image-frame-renderers.spec.js`: 9 red on the intended assertion (missing `data-shape`/`data-orientation`, the 28px/16–40px thumb width, placeholder ratio, card A/B/C frame at the token ratio inside the 44 / 80 / 80×56 boxes, per-side view-modal orientation, Numista re-apply, four-theme legacy rectangle) and 2 regression pins that already pass (legacy `bar-shape`/`table-thumb-rect`/`view-shape-rect` classes remain; a Custom Collection Slot keeps the collection's Bar frame for a linked round Coin's photo, AC-9.4)._
   - **File(s):** `tests/playwright/core/image-frame-renderers.spec.js` (new)
   - **Acceptance:** Failing cases:
     - The table thumb, card A/B/C image and view-modal slots carry `data-shape`/`data-orientation` and render the token ratio inside their bounding box with `object-fit: contain` (AC-9.1).
@@ -424,7 +424,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Leverage:** `tests/playwright/core/mobile-and-layout.spec.js:166-222`; archived `strk-121-rect-image-card-table.spec.js`; A.1 P2 mockup states.
   - **Maps to:** AC-9.1–AC-9.4
 
-- [ ] **E.3** — Confirm RED (P2)
+- [x] **E.3** — Confirm RED (P2) — _unit 1151 tests: 1141 pass, 10 fail, all in the new E.1 block; the 1139 pre-existing tests are green. Core lists 898 tests (887 + 11); the 9 red are all in the new spec, no pre-existing core file was changed and the protected `mobile-and-layout.spec.js` is untouched._
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** Only the E.1/E.2 cases fail. Every pre-existing unit and core case is green, and the counts are recorded.
   - **Depends on:** E.2
