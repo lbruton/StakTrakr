@@ -329,7 +329,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Depends on:** C.8
   - **Maps to:** AC-10.3
 
-- [ ] **C.10** — P1 visual verification against the mockup
+- [x] **C.10** — P1 visual verification against the mockup — _evidence: `playground/images/STRK-427-evidence/` (E-empty, E-one, E-follow, E-pinned, E-round, E-mixed, E-slab for the item modal, B-builder for the builder; each in light, dark, slate and sepia at 1280 and 390; the 390 shots show the icon-only orientation options and buttons under the preview of option M-B). No deviation from the approved mockup other than the builder's captions top-aligning per side, which the builder already did._
   - **File(s):** _no file changes — screenshots attached to the PR_
   - **Acceptance:** In the browser preview (launch.json in the **main** checkout with `--directory` pointing at this worktree; memory "Preview server for a worktree"), each UI Contract state (E-empty, E-one, E-mixed, E-round, E-slab, E-follow, E-pinned, B-builder, M-390) is captured in all four themes at 1280 and 390 and compared side by side with the approved A.1 mockup. Any deviation is fixed or explicitly accepted by the user. The screenshots go in the PR.
   - **Depends on:** C.9
