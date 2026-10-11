@@ -317,7 +317,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Leverage:** `discovery.md` §E; the STRK-235/242 enumeration rule; the STRK-371 column note.
   - **Maps to:** AC-8.7, AC-8.8
 
-- [ ] **C.9** — P1 inventory, docs and component catalog
+- [x] **C.9** — P1 inventory, docs and component catalog
   - **File(s):** `tests/playwright/coverage-map.csv`, `.context/GLOSSARY.md`, `.context/deep-dives/data-model.md`, `.context/cloud-sync-convergence.md`, `.context/style.html`
   - **Acceptance:**
     - `coverage-map.csv` gets a new row for `core/image-frame-editor.spec.js`, updated `test_count` and rationale for `collections.spec.js`, `collections-data-paths.spec.js` and `import-export.spec.js` (noting the Tradeoff 10 re-baseline), and the archived `strk-121-image-frame-override` rows marked superseded for the three-state toggle (Tradeoff 6).

@@ -175,11 +175,11 @@ A Collection whose Slots the user defines — built blank or cloned from a Serie
 _Avoid_: user collection, custom list, custom set
 
 **Image Shape**:
-The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin.
+The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin. One shape covers both sides. For an Item it is **derived** from Type, grading and the Numista shape (grading wins; Bar and Set are Bar; Note, Aurum, Goldback and Silverback are Note; a Coin with a non-round Numista shape is Bar; else Round) and **stored only when the user chose a different one** (`imageShape`, written sparsely with the legacy `*ImageFrame` projection for older builds). The shared image-frame editor follows Type while the shape is untouched and leaves a chosen shape alone (STRK-427).
 _Avoid_: graded type, slabbed type
 
 **Image Orientation**:
-Portrait or Landscape, chosen for a Custom Collection whose Image Shape is Bar or Note (Bar starts portrait, Note landscape); Round and Slab have one frame and no orientation. Builder preview and Album/Ledger/Hub share one ratio per shape and orientation. A Bar or Note saved before the choice existed renders landscape.
+Portrait or Landscape, chosen **per side** (obverse and reverse) for an Item or Custom Collection whose Image Shape is Bar or Note (Bar starts portrait, Note landscape); Round and Slab have one frame and no orientation. Items store `obverseImageOrientation` / `reverseImageOrientation` only when they differ from the shape default; a Custom Collection stores `imageOrientation` (obverse/shared) plus `reverseImageOrientation` only when the reverse differs. The builder preview and Album/Ledger/Hub share one ratio per shape and orientation. A Bar or Note saved in a Collection before the choice existed renders landscape.
 _Avoid_: rotation, flip
 
 **Tombstone**:
