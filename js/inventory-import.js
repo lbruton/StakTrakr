@@ -1596,13 +1596,13 @@
             uuid,
             obverseImageUrl,
             reverseImageUrl,
-            // STRK-427: frame shape, per-side orientation and the legacy frames (enum-validated).
-            ...window.readImportedImageFraming(raw),
             ...(constitutionalVariant ? { constitutionalVariant } : {}),
             ...(constitutionalEntryMode ? { constitutionalEntryMode } : {}),
             ...(pricingType ? { pricingType } : {}),
             ...(numistaData ? { numistaData } : {}),
             ...(fieldMeta ? { fieldMeta } : {}),
+            // STRK-427: frame shape, per-side orientation and the legacy frames (enum-validated).
+            ...window.readImportedImageFraming(raw),
           });
 
           const validation = validateInventoryItem(processedItem);

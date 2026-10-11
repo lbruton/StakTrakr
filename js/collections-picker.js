@@ -957,6 +957,33 @@
   };
 
   /**
+   * Image framing seed for the builder: the Collection's shape and each side's orientation.
+   * A stored Bar or Note with no orientation edits as the landscape frame it always had; a new
+   * Collection (or a clone of a Series Template) starts at the shape's own default, and the
+   * reverse follows the obverse unless a different value is stored (STRK-427).
+   * @param {{editId?: string}} request - Builder request
+   * @param {Object} definition - Stored collection definition ({} when none)
+   * @param {string} itemType - Resolved item type
+   * @returns {{imageShape: string, imageOrientation: string, reverseImageOrientation: string}}
+   *   Framing seed values
+   */
+  const builderSeedFraming = (request, definition, itemType) => {
+    const core = window.collectionsCore;
+    const shape = definition.imageShape || core.defaultImageShapeForType(itemType);
+    const storedObverse = request.editId || definition.imageOrientation;
+    const storedReverse = storedObverse || definition.reverseImageOrientation;
+    return {
+      imageShape: shape,
+      imageOrientation: storedObverse
+        ? core.imageOrientationFor(shape, definition.imageOrientation)
+        : core.defaultImageOrientationForShape(shape),
+      reverseImageOrientation: storedReverse
+        ? core.reverseImageOrientationFor(shape, definition)
+        : core.defaultImageOrientationForShape(shape),
+    };
+  };
+
+  /**
    * Starting values for the builder: an existing custom collection, a clone of a
    * template (or of a custom collection), or a blank three-slot checklist.
    * @param {{cloneFrom?: string, editId?: string}} request - Builder request
@@ -1017,29 +1044,7 @@
         (context.template && context.template.purity) ??
         (request.editId ? null : 0.9999),
       specs: definition.specs || (context.template && context.template.specs) || {},
-      imageShape:
-        definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
-      // A stored Bar or Note with no orientation edits as the landscape frame it always had; a
-      // new Collection (or a clone of a Series Template) starts at the shape's own default.
-      imageOrientation:
-        request.editId || definition.imageOrientation
-          ? window.collectionsCore.imageOrientationFor(
-              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
-              definition.imageOrientation
-            )
-          : window.collectionsCore.defaultImageOrientationForShape(
-              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType)
-            ),
-      // The reverse follows the obverse unless a different value is stored (STRK-427).
-      reverseImageOrientation:
-        request.editId || definition.imageOrientation || definition.reverseImageOrientation
-          ? window.collectionsCore.reverseImageOrientationFor(
-              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
-              definition
-            )
-          : window.collectionsCore.defaultImageOrientationForShape(
-              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType)
-            ),
+      ...builderSeedFraming(request, definition, itemType),
       about:
         definition.about ||
         definition.description ||
