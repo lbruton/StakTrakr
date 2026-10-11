@@ -1821,6 +1821,7 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
 
   // STRK-427: these writes fire no event, so tell the image-frame editor the Numista shape may
   // have moved. A call that derives the same shape is a no-op there.
+  /** Tell the image-frame editor the Numista shape may have changed. */
   const notifyShape = () => {
     if (typeof notifyImageFrameSignals === "function") notifyImageFrameSignals("numista");
   };

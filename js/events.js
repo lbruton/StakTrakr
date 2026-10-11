@@ -470,6 +470,11 @@ const processUploadedImage = async (file, side = "obverse") => {
  * image-frame editor is told the same facts, so its Swap slot follows them too.
  */
 const updateSwapButtonVisibility = () => {
+  /**
+   * Whether a side's preview is shown and its image has a source.
+   * @param {string} suffix - "Obv" or "Rev"
+   * @returns {boolean} True when the side holds an image
+   */
   const holdsImage = (suffix) => {
     const preview = document.getElementById("itemImagePreview" + suffix);
     const img = document.getElementById("itemImagePreviewImg" + suffix);
@@ -482,6 +487,11 @@ const updateSwapButtonVisibility = () => {
   if (wrapper) wrapper.classList.toggle("d-none", !(obverse && reverse));
 };
 
+/**
+ * The element-id suffix of an image side in the item modal.
+ * @param {string} side - "obverse" or "reverse"
+ * @returns {string} "Rev" or "Obv"
+ */
 const _frameSuffix = (side) => (side === "reverse" ? "Rev" : "Obv");
 
 /**
@@ -497,12 +507,31 @@ const readImageFrameSignals = () => ({
 // STRK-427: thin delegates to the item-modal adapter in js/image-frame-editor.js. Programmatic
 // `.value =` sets fire no event, so the PCGS lookup and the Numista picker call
 // notifyImageFrameSignals after they write (D-6).
+
+/**
+ * Tell the image-frame editor that a derivation signal moved (Type, grading or Numista shape).
+ * @param {string} [kind] - Which signal changed: "type", "grading" or "numista"
+ */
 const notifyImageFrameSignals = (kind) => _imageFrameHost?.notify(kind);
+
+/**
+ * Load an Item's stored framing into the editor when the edit modal opens.
+ * @param {Object} item - Inventory item being edited
+ */
 const seedImageFrameEditor = (item) => {
   _imageFrameHost?.seed(item);
   updateSwapButtonVisibility();
 };
+
+/** Return the editor to its derived defaults for a new Item. */
 const resetImageFrameEditor = () => _imageFrameHost?.reset();
+
+/**
+ * Read the editor's result for the save path.
+ * @param {boolean} isEditing - True when saving an existing Item
+ * @returns {{set: Object, remove: string[]}|null} Fields to write and to delete, or null when
+ *   nothing is to be written
+ */
 const collectImageFraming = (isEditing) => _imageFrameHost?.collect(isEditing) ?? null;
 
 /**
