@@ -2137,6 +2137,44 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(await chooserImageHash(page, 1)).toBe(obverse);
   });
 
+  test("STRK-427 a throwing stored preview is logged, not unhandled, and Swap still settles", async ({
+    page,
+  }) => {
+    const errors = [];
+    const warnings = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "warning" && message.text().includes("Title preview failed")) {
+        warnings.push(message.text());
+      }
+    });
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Throwing preview", "obverse");
+    // Make the presence hook that setPreview() calls throw, so the stored-preview chain rejects
+    // after getImageUrl has already resolved.
+    await page.evaluate(() => {
+      const mount = window.imageFrameEditor.mount;
+      window.imageFrameEditor.mount = (...args) => {
+        const controller = mount(...args);
+        controller.setSideHasImage = () => {
+          throw new Error("forced preview failure");
+        };
+        return controller;
+      };
+    });
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const builder = builderModal(page);
+
+    // Both reads settle: each rejection is caught and logged, and the pending count still drains
+    // (finally runs), so Swap is offered rather than staying hidden forever.
+    await expect.poll(() => warnings.length).toBe(2);
+    await expect(builder).toBeVisible();
+    await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeVisible();
+    await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeEnabled();
+    expect(errors).toEqual([]);
+  });
+
   test("STRK-427 Save right after Swap waits for the stored swap and saves the swapped pair", async ({
     page,
   }) => {

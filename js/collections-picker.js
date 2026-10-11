@@ -1414,7 +1414,8 @@
           .finally(() => {
             storedReadsPending -= 1;
             syncSwap();
-          });
+          })
+          .catch((error) => console.warn("[collections] Title preview failed:", error));
       loadStoredTitle(cover);
       loadStoredTitle(reverseTitle, "title:reverse");
     }
