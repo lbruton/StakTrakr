@@ -3088,7 +3088,20 @@ const setupItemFormListeners = () => {
           `Link ${sideName} image`
         );
         if (entered === null || entered === undefined) return;
-        field.value = String(entered).trim();
+        const trimmed = String(entered).trim();
+        // The URL field is hidden but still takes part in native form validation, so a malformed
+        // link must never reach it: it would silently block Save with nothing to fix on screen.
+        const link = trimmed ? _normalizeHttpImageUrl(trimmed) : "";
+        if (trimmed && !link) {
+          if (typeof showAppAlert === "function") {
+            await showAppAlert(
+              "That doesn't look like a web link. Use a full address that starts with http:// or https://.",
+              `Link ${sideName} image`
+            );
+          }
+          return;
+        }
+        field.value = link;
         field.dispatchEvent(new Event("input", { bubbles: true }));
       });
     });
@@ -3284,6 +3297,18 @@ const setupItemFormListeners = () => {
           imgObv.src = reverseSrc;
           imgRev.src = obverseSrc;
         }
+
+        // Move the rest of each side's state with its image: the preview wrapper's visibility and
+        // the Remove badge's. Swap works with ONE image (STRK-434), and without this the image
+        // lands in a still-hidden wrapper while the emptied side stays shown.
+        ["itemImagePreview", "itemImageRemoveBtn"].forEach((prefix) => {
+          const obverseEl = document.getElementById(prefix + "Obv");
+          const reverseEl = document.getElementById(prefix + "Rev");
+          if (!obverseEl || !reverseEl) return;
+          const shown = obverseEl.style.display;
+          obverseEl.style.display = reverseEl.style.display;
+          reverseEl.style.display = shown;
+        });
 
         // Swap URL fields
         const urlObv = elements.itemObverseImageUrl;

@@ -1294,6 +1294,65 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     await expect(page.locator("#itemReverseImageUrl")).toBeHidden();
   });
 
+  // Review findings on PR 1574 (Codex P1, Copilot): Swap now works with ONE image, so the host
+  // swap must move the whole per-side UI state, not only the <img> sources.
+  test("row 5: swapping a lone image moves it, its preview and its Remove badge to the other side", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, { items: [{ ...SEED_ITEM, reverseImageUrl: "" }] });
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await page.locator("#swapImagesBtn").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+    await expect(page.locator("#itemImagePreviewImgRev")).toHaveAttribute(
+      "src",
+      "https://images.example/obv.png"
+    );
+    await expect(page.locator("#itemImageRemoveBtnObv")).toBeHidden();
+    await expect(page.locator("#itemImageRemoveBtnRev")).toBeVisible();
+    // Swap stays available (the image moved, it did not vanish) and the swap saves.
+    await expect(page.locator("#swapImagesBtn")).toBeEnabled();
+    await submit(page);
+    const stored = await storedItem(page);
+    expect(stored.reverseImageUrl).toBe("https://images.example/obv.png");
+    expect(stored.obverseImageUrl || "").toBe("");
+  });
+
+  // Review findings on PR 1574 (Codex P2, CodeRabbit): the URL field is permanently hidden but
+  // still takes part in native validation, so an invalid link must never reach it.
+  test("row 8: a malformed link is rejected with a message and never reaches the hidden field", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openAddModal(page);
+    await page.locator("#itemImageUrlBtnObv").click();
+    await page.locator("#appDialogInput").fill("not a link");
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#appDialogMessage")).toContainText(/http/i);
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemObverseImageUrl")).toHaveValue("");
+    await expect(page.locator("#itemObverseImageUrl")).toHaveJSProperty("validity.valid", true);
+  });
+
+  test("row 8: a valid link is stored trimmed; an empty entry clears an existing link", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    await page.locator("#itemImageUrlBtnObv").click();
+    await page.locator("#appDialogInput").fill("  https://images.example/other.png  ");
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemObverseImageUrl")).toHaveValue(
+      "https://images.example/other.png"
+    );
+    await page.locator("#itemImageUrlBtnObv").click();
+    await page.locator("#appDialogInput").fill("");
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemObverseImageUrl")).toHaveValue("");
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+  });
+
   // The × badge's cross must sit on the centre of its circle (Lonnie's 2026-10-11 review: the text
   // glyph sat low). Measured on rendered pixels, so it holds whichever way the cross is drawn.
   for (const kind of ["item", "builder"]) {
