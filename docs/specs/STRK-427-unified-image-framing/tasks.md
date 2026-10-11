@@ -359,11 +359,13 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **UI verification requirement:** `approach.md` has a `## UI Contract`, so every AC mapped to a named UI state or interaction there (see UI Contract Traceability below) needs `verified by <test name> + visually verified against mockup state "<state>"` or `+ screenshot compared: <path>`. Otherwise it is `- [ ] AC-N — gap: test passes but UI not visually verified against mockup`.
   - Refuse to proceed to CLOSE-P1-4 if any `[ ]` remains in the stamp block.
 
-- [ ] **CLOSE-P1-4. Version bump**
+- [x] **CLOSE-P1-4. Version bump**
   - **File:** project version files (enumerated by the skill)
   - Run **`/update-spot-bundle`** first (Tailscale active; the worktree's own script copy with `/usr/bin/python3`), then **MUST invoke `/release patch`** as a skill. Paraphrasing the bump inline is not equivalent. The What's New entry is editorial, in `js/about.js`.
+  - _Result: spot bundle refreshed from the worktree's own copy (+10 days, coverage to 2026-10-10); version lock re-claimed for 3.36.46 (the earlier claim had expired; `origin/dev` still at 3.36.45, merge-base == `origin/dev`); six release files bumped, What's New trimmed to 5, sw.js stamped by the hook; commit `v3.36.46 — STRK-427: shared image-frame editor (P1)`._
 
-- [ ] **CLOSE-P1-5. Vault update + close issue**
+- [x] **CLOSE-P1-5. Vault update + close issue**
+  - _Result (documentation audit, no Plane change): StakTrakr has no in-repo `DocVault/` (`vault-path project` exits 2); the private companion holds only archived specs that mention the old frame toggle (STRK-67, STRK-78), which are historical and left as written; the shared KnowledgeBase has no image-framing page. The `.context/` updates from C.9 stand, and a final grep for the removed identifiers (`frame-toggle`, `cycleFrame`, `suggestedShape`, `imageShapeTouched`, `pendingObverseFrame`) found only one stale code comment, fixed in the release commit. Zero vault changes: clean N/A by audit._
   - **MUST invoke `/vault-update`** as a skill. Project docs are in `.context/` (updated in C.9); the skill audits for anything missed, and zero changes is a clean N/A by audit. StakTrakr has no in-repo `DocVault/`.
   - Documentation audit only. Do **not** touch STRK-427's Plane state or post a "P1 shipped" comment here: the PR is not open yet. The P1-shipped comment is posted in 0P2.1 after the merge is verified, and the issue closes in CLOSE-P2-8 (`.context/implementation-gotchas.md` §Closing task ordering).
 
