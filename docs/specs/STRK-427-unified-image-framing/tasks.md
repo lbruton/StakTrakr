@@ -374,7 +374,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - Body: link to STRK-427, link to `docs/specs/STRK-427-unified-image-framing/`, test plan checklist, test inventory delta (`+N -M tests, +X -Y files`), the Tradeoff 10 locator re-baseline called out, and the C.10 screenshots.
   - Labels: `codacy-review` and `coderabbit-review` (patch PR).
 
-- [ ] **CLOSE-P1-7. Resolve PR review threads**
+- [x] **CLOSE-P1-7. Resolve PR review threads** — _PR #1572: 13 review threads (Codex ×8, Copilot ×4, CodeRabbit ×1), all fixed or answered with evidence and resolved; CodeRabbit APPROVED on `e831169`; checks green; merge state CLEAN, 0 unresolved threads. The review rounds found real defects the C-cohort tests had not pinned (clone-mode clearing, duplicate seeding, builder swap races, legacy-rectangle Type following, edit-save gate), each now has a regression test. Waiting on the merge click._
   - **MUST invoke `/pr-resolve`** as a skill. It must scan both inline diff threads and review-body findings. Critical/High fixed or marked false-positive with reasoning, Medium fixed or waived, Low/Info advisory.
   - After `/pr-resolve`, check for threads re-posted by scanners on new commits. Drive the PR to CLEAN with 0 threads, then report and wait: **the merge click is the user's**.
 
