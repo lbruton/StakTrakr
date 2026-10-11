@@ -131,7 +131,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** the existing STRK-241 hash test in `tests/unit/` (find it with `grep -l computeInventoryHash tests/unit`); `js/cloud-sync.js:123-165`; `js/diff-engine.js:30-94, 839-894`; `js/changeLog.js:142-197`; `js/inventory-import.js` readers; `js/collections-core.js` `normalizeDefinition`.
   - **Maps to:** AC-5.3, AC-8.2, AC-8.3 (I, H, E-2 and C-1 rows), AC-8.6
 
-- [ ] **B.4** — Playwright RED: item-modal editor interaction
+- [x] **B.4** — Playwright RED: item-modal editor interaction
   - **File(s):** `tests/playwright/core/image-frame-editor.spec.js` (new)
   - **Acceptance:** Failing cases at desktop width:
     - **E-empty**: on a new item with no images, the "Image shape" radiogroup and both frames are visible (AC-1.5), and the `COIN_IMAGES` flag off still hides `#imageUploadGroup` (D-16).
@@ -151,7 +151,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** `tests/playwright/helpers/seed.js`; `tests/playwright/helpers/test-obverse.png` / `test-reverse.png`; the swap cases in `tests/playwright/core/collections.spec.js:349-540` (`_pendingItemImageSwap` pattern); the archived `strk-121-image-frame-override.spec.js:76-223` for item-modal flows; mockup states from A.1.
   - **Maps to:** AC-1.3, AC-1.5, AC-2.1, AC-2.3, AC-3.1, AC-3.3, AC-4.3–AC-4.8, AC-5.1, AC-5.4, AC-7.1–AC-7.3, AC-8.1, AC-8.4, AC-8.5
 
-- [ ] **B.5** — Playwright RED: item-modal layout, themes and builder parity
+- [x] **B.5** — Playwright RED: item-modal layout, themes and builder parity
   - **File(s):** `tests/playwright/core/image-frame-editor.spec.js` (same file as B.4, so sequential)
   - **Acceptance:** Failing cases:
     - At 1280px each preview frame is larger than 140px, at the size the A.1 mockup sets (AC-6.1).
