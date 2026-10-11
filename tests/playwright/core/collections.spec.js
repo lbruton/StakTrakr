@@ -1839,19 +1839,20 @@ test.describe("core/collections — link picker, builder, item view", () => {
     }
   });
 
-  test("STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios", async ({
+  test("STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame ratios and take the shared 200px box (STRK-434)", async ({
     page,
   }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
-    // [shape, orientation, builder frame width in px, width / height] as shipped today: the
-    // --collections-cover-size tokens, measured after the entrance animation settles.
+    // [shape, orientation, builder frame width in px, width / height]. STRK-434 replaced the
+    // per-shape STRK-421/424 widths with the item modal's 200px box: the longest side is 200 and
+    // the other side follows the unchanged ratio, measured after the entrance animation settles.
     const legacy = [
-      ["bar", "portrait", 80, 0.6],
-      ["bar", "landscape", 108, 1.6],
-      ["note", "portrait", 80, 0.4878],
-      ["note", "landscape", 160, 2.05],
-      ["round", null, 128, 1],
+      ["bar", "portrait", 120, 0.6],
+      ["bar", "landscape", 200, 1.6],
+      ["note", "portrait", 97.56, 0.4878],
+      ["note", "landscape", 200, 2.05],
+      ["round", null, 200, 1],
     ];
     for (const [shape, orientation, width, ratio] of legacy) {
       const id = await page.evaluate(
@@ -1896,11 +1897,11 @@ test.describe("core/collections — link picker, builder, item view", () => {
     const old = await frameOf(
       builderModal(page).locator(".collections-builder-covers .collections-image-pick")
     );
-    expect(old.width).toBeCloseTo(108, 0);
+    expect(old.width).toBeCloseTo(200, 0);
     expect(old.ratio).toBeCloseTo(1.6, 1);
   });
 
-  test("STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio", async ({
+  test("STRK-427 the builder Slab box moves to the shared 0.68 ratio inside the shared 200px box (STRK-434)", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1915,8 +1916,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
     const frame = await frameOf(
       builder.locator(".collections-builder-covers .collections-image-pick")
     );
-    // Width is today's (the 100px Slab token); only the ratio changes, from 3:4 to 0.68.
-    expect(frame.width).toBeCloseTo(100, 0);
+    // The longest side is the shared 200px box, so a 0.68-ratio Slab is 136px wide.
+    expect(frame.width).toBeCloseTo(136, 0);
     expect(frame.ratio).toBeCloseTo(0.68, 2);
   });
 
@@ -2120,9 +2121,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
 
     await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
     // The cover has landed but the reverse has not: an early swap would treat the reverse as
-    // empty, so the control is not offered yet.
+    // empty, so the control is rendered but held disabled (STRK-434) until both have loaded.
     expect(await chooserImageHash(page, 1)).toBeNull();
-    await expect(swap).toBeHidden();
+    await expect(swap).toBeVisible();
+    await expect(swap).toBeDisabled();
     const obverse = await chooserImageHash(page, 0);
 
     await releaseStoredReads(page);
@@ -2152,12 +2154,15 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await openCollectionsTab(page);
     const id = await createMixedBars(page, "Throwing preview", "obverse");
     // Make the presence hook that setPreview() calls throw, so the stored-preview chain rejects
-    // after getImageUrl has already resolved.
+    // after getImageUrl has already resolved. The real hook runs first: the editor now owns
+    // Swap's enabled state (STRK-434), so it must still learn that the sides hold images.
     await page.evaluate(() => {
       const mount = window.imageFrameEditor.mount;
       window.imageFrameEditor.mount = (...args) => {
         const controller = mount(...args);
-        controller.setSideHasImage = () => {
+        const setSideHasImage = controller.setSideHasImage;
+        controller.setSideHasImage = (...presence) => {
+          setSideHasImage(...presence);
           throw new Error("forced preview failure");
         };
         return controller;
@@ -2167,7 +2172,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     const builder = builderModal(page);
 
     // Both reads settle: each rejection is caught and logged, and the pending count still drains
-    // (finally runs), so Swap is offered rather than staying hidden forever.
+    // (finally runs), so Swap is enabled rather than staying disabled forever.
     await expect.poll(() => warnings.length).toBe(2);
     await expect(builder).toBeVisible();
     await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeVisible();

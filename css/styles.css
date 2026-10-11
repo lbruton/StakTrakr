@@ -3785,6 +3785,35 @@ input[type="submit"] {
   padding: 0.2rem 0.4rem;
   line-height: 1;
 }
+/* STRK-434: the swap control is a transparent line icon in both modals (the item modal's
+   #swapImagesBtn and the builder's), readable in every theme through the text token. */
+.ife [data-ife-swap] .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.ife [data-ife-swap] .btn-icon:hover:not(:disabled),
+.ife [data-ife-swap] .btn-icon:focus-visible {
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+.ife [data-ife-swap] .btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 768px) {
+  .ife [data-ife-swap] .btn-icon {
+    min-width: 44px;
+    min-height: 44px; /* 44px touch target (design philosophy) */
+  }
+}
 .image-side-label {
   display: block;
   font-size: var(--font-size-sm);
@@ -4011,8 +4040,16 @@ input[type="submit"] {
   --ife-r: var(--frame-note-portrait);
 }
 
+/* STRK-434: neither modal crops. A frame holding an image draws no fill or border of its own, so
+   the bands left by a photo whose ratio differs from the frame's are invisible and the photo
+   reads as if the frame were sized to it; the photo is scaled to fit whole, never filled. */
 .ife-frame.has-image {
-  border: 1px solid var(--border);
+  border: 0;
+  background: transparent;
+}
+
+.ife .ife-frame img {
+  object-fit: contain;
 }
 
 /* Item modal: both frames are always visible (AC-1.5). The stage is a square bounding box so
@@ -4063,6 +4100,105 @@ input[type="submit"] {
   display: none;
 }
 
+/* STRK-434: the item frame is the upload target, as in the Edit collection builder. The frame no
+   longer clips (its corner badge and link icon sit on the edge); the preview container keeps the
+   shape's clip instead. A transparent full-frame button carries the click and the focus ring. */
+.ife .ife-stage .ife-frame {
+  overflow: visible;
+}
+
+.ife .ife-stage .ife-frame .image-upload-preview {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.ife-upload {
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ife-upload:hover {
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+}
+
+.ife-upload:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The × badge is the builder's own .collections-image-remove (same look in every theme). */
+.ife .ife-stage .collections-image-remove {
+  top: 2px;
+  right: 2px;
+}
+
+/* Link icon at the frame's lower right; it opens the small URL dialog. */
+.ife-link {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-hover);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ife-link:hover,
+.ife-link:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Touch targets: a true 44px square centred on the icon or badge, without growing either. It is
+   centred with top/left 50% and a translate, not an inset, because an inset is measured from the
+   padding box and the 1px border shifted it off centre and 2px short of 44px. The builder's
+   badge shares the rule (it also sits inside .ife). */
+@media (max-width: 768px) {
+  .ife-link::after,
+  .ife .collections-image-remove::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* The landscape Note frame is only ~63px tall on a phone (the 140px box, narrowed to half the modal), so the centred 44px targets of
+   the upper-right × and the lower-right link would overlap by a few pixels (a tap on the bottom of
+   the destructive × would open the link dialog). Lifting the badge to straddle the frame's top edge
+   keeps the two targets apart on the item modal, where both exist. */
+@media (max-width: 768px) {
+  .ife
+    .ife-stage
+    .ife-frame[data-shape="note"]:not([data-orientation="portrait"])
+    .collections-image-remove {
+    top: -10px;
+  }
+}
+
+/* The URL fields only hold the value the link dialog edits; they are never shown inline. They are
+   type="text", not "url": a hidden control still takes part in native validation, and an item
+   imported with a malformed link must still Save (the link stays editable through the dialog). */
+#imageUploadGroup .image-url-input {
+  display: none !important;
+}
+
 /* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). The card
    spans its side, so the 200px stage is not squeezed by shrink-to-fit sizing. */
 .ife .image-card {
@@ -4104,14 +4240,25 @@ input[type="submit"] {
 /* Narrow phones: orientation options go icon-only (the text stays for assistive tech) so the
    two-option pill never wraps into two rows. */
 @media (max-width: 560px) {
-  .ife [data-ife-orientation] .collections-segmented-option span {
+  /* The :is() prefix keeps this ahead of the shared builder/item segmented-option rule
+     (STRK-434), which would otherwise restore the text labels. */
+  :is(.collections-builder-form, #inventoryForm)
+    .ife
+    [data-ife-orientation]
+    .collections-segmented-option
+    span {
     font-size: 0;
     gap: 0;
     min-width: 44px;
     justify-content: center;
   }
 
-  .ife [data-ife-orientation] .collections-segmented-option span svg {
+  :is(.collections-builder-form, #inventoryForm)
+    .ife
+    [data-ife-orientation]
+    .collections-segmented-option
+    span
+    svg {
     width: 20px;
     height: 20px;
   }
@@ -11115,31 +11262,21 @@ th {
   gap: var(--spacing-md);
 }
 
-/* --- Image upload slots — dashed drop-zone style ------------------------ */
+/* --- Image upload slots ------------------------------------------------------------
+   STRK-434: no dashed drop-zone box. The Edit collection builder draws none, and the two
+   modals share one image look. */
 #inventoryForm .image-upload-side {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
   padding: 0.5rem;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease;
 }
 
-#inventoryForm .image-upload-side:hover {
-  border-color: var(--primary);
-  background: color-mix(in oklch, var(--primary), transparent 97%);
-}
-
-:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm .image-upload-side:hover {
-  background: color-mix(in oklch, var(--primary), transparent 94%);
-}
-
+/* STRK-434: the side captions share the form's micro-label style with the builder's
+   "Obverse title image" captions (same size, weight, casing, tracking and colour). */
 #inventoryForm .image-side-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted, var(--text-secondary));
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
 /* --- Collapsible sections — refined for prototype look ------------------ */
@@ -19780,35 +19917,22 @@ input[type="number"] {
   gap: 0.3rem;
 }
 
-/* STRK-427: every frame chooses its width from ITS OWN shape and orientation (set on the frame by
-   the shared image-frame editor), so a portrait obverse and a landscape reverse size
-   independently. The values are the STRK-421/424 widths, unchanged; ratio and radius come from
-   the shared .ife-frame rules, and the Slab ratio is the shared --frame-slab. */
+/* STRK-434: two 140px medallions plus the 44px Swap need 324px of the ~352px a phone gives the
+   row, so the wide desktop gap would wrap the pair onto two lines. */
+@media (max-width: 768px) {
+  .collections-builder-covers {
+    gap: 0.5rem;
+  }
+}
+
+/* STRK-427 / STRK-434: every frame sizes itself from ITS OWN shape and orientation (set on the
+   frame by the shared image-frame editor), so a portrait obverse and a landscape reverse size
+   independently. The longest side is the shared --ife-box (200px; 140px at 768px and below), the
+   same box the item modal's preview stage uses, so the two modals show the same medallion. Ratio
+   and radius come from the shared .ife-frame rules. */
 .collections-builder-covers .collections-image-pick {
-  --collections-cover-size: 128px;
-  width: var(--collections-cover-size);
+  width: calc(var(--ife-box) * min(1, var(--ife-r)));
   font-size: var(--font-size-2xl);
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="bar"] {
-  --collections-cover-size: 108px;
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="bar"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="note"] {
-  --collections-cover-size: 160px;
-}
-
-.collections-builder-covers
-  .collections-image-pick[data-shape="note"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="slab"] {
-  --collections-cover-size: 100px;
 }
 
 .collections-builder-swap {
@@ -19824,20 +19948,22 @@ input[type="number"] {
   right: 2px;
 }
 
-.collections-builder-form .collections-segmented {
+/* STRK-434: the item modal's shared image-frame editor (#inventoryForm .ife) takes the same
+   segmented look as the builder, so the Image shape selector is identical in both modals. */
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented {
   flex-wrap: wrap;
   justify-content: center;
   padding: 2px;
 }
 
 /* Segmented options are <label>s: undo the form's uppercase micro-label treatment. */
-.collections-builder-form .collections-segmented-option {
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option {
   margin: 0;
   text-transform: none;
   letter-spacing: 0;
 }
 
-.collections-builder-form .collections-segmented-option span {
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -19854,7 +19980,9 @@ input[type="number"] {
 
 /* Phone touch targets: text options (Orientation) meet the 44px baseline. */
 @media (max-width: 767px) {
-  .collections-builder-form .collections-segmented-option span:not(.collections-builder-icon) {
+  :is(.collections-builder-form, #inventoryForm .ife)
+    .collections-segmented-option
+    span:not(.collections-builder-icon) {
     min-height: 44px;
   }
 }
@@ -19949,9 +20077,32 @@ input[type="number"] {
   border-radius: 50%;
   /* --bg-card, not --surface: only the light :root defines --surface, so the dark themes kept a
      near-white badge under their light text (STRK-426). In light the two tokens are equal. */
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   color: var(--text-primary);
   cursor: pointer;
+  /* STRK-434: the cross is drawn, not typed. A "×" glyph sits low in its line box and the offset
+     varies by font, so two 1.5px diagonals centred in the circle (in the badge's own colour)
+     replace the text; the label stays for assistive tech through aria-label. */
+  font-size: 0;
+  line-height: 0;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    );
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 9px 9px;
 }
 
 .collections-image-remove[hidden] {

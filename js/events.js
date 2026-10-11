@@ -464,10 +464,10 @@ const processUploadedImage = async (file, side = "obverse") => {
 };
 
 /**
- * Show or hide Swap from ACTUAL per-side image presence (STAK-341, STRK-427). Both empty
- * frames are always visible, so a visible preview frame no longer implies an image: a side
- * holds an image only while its preview is shown and its <img> has a source. The shared
- * image-frame editor is told the same facts, so its Swap slot follows them too.
+ * Report ACTUAL per-side image presence to the shared image-frame editor (STAK-341, STRK-427).
+ * Both empty frames are always visible, so a visible preview frame no longer implies an image:
+ * a side holds an image only while its preview is shown and its <img> has a source. The editor
+ * keeps Swap rendered and enables it once either side holds an image (STRK-434).
  */
 const updateSwapButtonVisibility = () => {
   /**
@@ -483,8 +483,6 @@ const updateSwapButtonVisibility = () => {
   const obverse = holdsImage("Obv");
   const reverse = holdsImage("Rev");
   if (_imageFrameHost) _imageFrameHost.setPresence(obverse, reverse);
-  const wrapper = document.getElementById("swapImagesBtnWrapper");
-  if (wrapper) wrapper.classList.toggle("d-none", !(obverse && reverse));
 };
 
 /**
@@ -546,6 +544,22 @@ const mountImageFrameEditor = () => {
   _imageFrameHost.mount();
 };
 
+// A linked image reports as present the moment its preview starts, but its onload/onerror handlers
+// are bound to that side's <img>. Swapping before it settles would leave a failed load behind on
+// the wrong side, so Swap stays busy while either side is still loading a link (STRK-434).
+const _urlPreviewLoading = { obverse: false, reverse: false };
+
+/**
+ * Hold the shared editor's Swap busy while a swap is running or a linked image is still loading.
+ * @param {boolean} [swapRunning] - Whether a swap is in flight (defaults to the pending swap)
+ */
+const _syncItemSwapBusy = (swapRunning = Boolean(_pendingItemImageSwap)) => {
+  if (!_imageFrameHost) return;
+  _imageFrameHost.setSwapBusy(
+    swapRunning || _urlPreviewLoading.obverse || _urlPreviewLoading.reverse
+  );
+};
+
 const _setUrlPreviewGeneration = (side) => {
   if (side === "reverse") return ++_urlPreviewGenRev;
   return ++_urlPreviewGenObv;
@@ -581,6 +595,8 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
     if (sizeInfo) sizeInfo.textContent = "";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
     return;
   }
@@ -590,6 +606,8 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     preview.style.display = "block";
     if (removeBtn) removeBtn.style.display = "";
     if (sizeInfo) sizeInfo.textContent = "";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
   };
   img.onerror = () => {
@@ -598,8 +616,12 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
     if (sizeInfo) sizeInfo.textContent = "Couldn't load image - check the URL";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
   };
+  _urlPreviewLoading[side] = true;
+  _syncItemSwapBusy();
   img.src = imageUrl;
   preview.style.display = "block";
   if (removeBtn) removeBtn.style.display = "";
@@ -684,11 +706,10 @@ const clearUploadState = () => {
   if (removeRev) removeRev.style.display = "none";
   if (fileRev) fileRev.value = "";
 
-  // Hide swap button (STAK-341)
-  const swapWrapper = document.getElementById("swapImagesBtnWrapper");
-  if (swapWrapper) swapWrapper.classList.add("d-none");
-  const swapButton = document.getElementById("swapImagesBtn");
-  if (swapButton) swapButton.disabled = false;
+  // Swap stays rendered; the editor disables it again once reset clears both sides (STRK-434)
+  _urlPreviewLoading.obverse = false;
+  _urlPreviewLoading.reverse = false;
+  _syncItemSwapBusy(false);
   const imageGroup = document.getElementById("imageUploadGroup");
   if (imageGroup) {
     imageGroup.inert = false;
@@ -3074,22 +3095,41 @@ const setupItemFormListeners = () => {
     });
   }
 
-  // IMAGE URL FIELDS — show URL buttons + refresh when COIN_IMAGES enabled
+  // IMAGE URL LINK ICONS — one small icon per frame (STRK-434). It opens the shared prompt
+  // dialog with the current URL; the (always hidden) URL field keeps the value, so the save
+  // and preview paths are unchanged. Cancel changes nothing; an empty entry clears the link.
   if (featureFlags.isEnabled("COIN_IMAGES")) {
-    // Show URL toggle buttons and refresh button inline
     ["Obv", "Rev"].forEach((suffix) => {
       const urlBtn = document.getElementById("itemImageUrlBtn" + suffix);
-      const urlInput = document.getElementById("itemImageUrlInput" + suffix);
-      if (urlBtn) {
-        urlBtn.style.display = "";
-        urlBtn.addEventListener("click", () => {
-          if (urlInput) {
-            const isHidden = urlInput.style.display === "none";
-            urlInput.style.display = isHidden ? "" : "none";
-            urlBtn.classList.toggle("active", isHidden);
+      if (!urlBtn) return;
+      urlBtn.style.display = "";
+      urlBtn.addEventListener("click", async () => {
+        const field =
+          suffix === "Rev" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+        if (!field || typeof showAppPrompt !== "function") return;
+        const sideName = suffix === "Rev" ? "reverse" : "obverse";
+        const entered = await showAppPrompt(
+          "Paste a link to the image, for example from imgur.",
+          field.value,
+          `Link ${sideName} image`
+        );
+        if (entered === null || entered === undefined) return;
+        const trimmed = String(entered).trim();
+        // The URL field is hidden but still takes part in native form validation, so a malformed
+        // link must never reach it: it would silently block Save with nothing to fix on screen.
+        const link = trimmed ? _normalizeHttpImageUrl(trimmed) : "";
+        if (trimmed && !link) {
+          if (typeof showAppAlert === "function") {
+            await showAppAlert(
+              "That doesn't look like a web link. Use a full address that starts with http:// or https://.",
+              `Link ${sideName} image`
+            );
           }
-        });
-      }
+          return;
+        }
+        field.value = link;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      });
     });
   }
 
@@ -3127,6 +3167,8 @@ const setupItemFormListeners = () => {
 
       if (isMobile && isSecure && cameraBtn && fileInput) {
         cameraBtn.style.display = "";
+        // The row holding Camera stays hidden everywhere the button is unavailable (STRK-434).
+        if (cameraBtn.parentElement) cameraBtn.parentElement.style.display = "";
         cameraBtn.addEventListener("click", () => {
           fileInput.setAttribute("capture", "environment");
           fileInput.click();
@@ -3282,6 +3324,18 @@ const setupItemFormListeners = () => {
           imgRev.src = obverseSrc;
         }
 
+        // Move the rest of each side's state with its image: the preview wrapper's visibility and
+        // the Remove badge's. Swap works with ONE image (STRK-434), and without this the image
+        // lands in a still-hidden wrapper while the emptied side stays shown.
+        ["itemImagePreview", "itemImageRemoveBtn"].forEach((prefix) => {
+          const obverseEl = document.getElementById(prefix + "Obv");
+          const reverseEl = document.getElementById(prefix + "Rev");
+          if (!obverseEl || !reverseEl) return;
+          const shown = obverseEl.style.display;
+          obverseEl.style.display = reverseEl.style.display;
+          reverseEl.style.display = shown;
+        });
+
         // Swap URL fields
         const urlObv = elements.itemObverseImageUrl;
         const urlRev = elements.itemReverseImageUrl;
@@ -3312,7 +3366,7 @@ const setupItemFormListeners = () => {
       const imageGroup = safeGetElement("imageUploadGroup");
       imageGroup.inert = true;
       imageGroup.setAttribute("aria-busy", "true");
-      swapBtn.disabled = true;
+      _syncItemSwapBusy(true);
       const operation = swap()
         .catch((error) => {
           if (generation === _itemImageEditGeneration) {
@@ -3325,7 +3379,7 @@ const setupItemFormListeners = () => {
         .finally(() => {
           if (_pendingItemImageSwap === operation) _pendingItemImageSwap = null;
           if (generation === _itemImageEditGeneration) {
-            swapBtn.disabled = false;
+            _syncItemSwapBusy();
             imageGroup.inert = false;
             imageGroup.removeAttribute("aria-busy");
           }

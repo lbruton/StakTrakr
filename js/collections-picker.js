@@ -1295,8 +1295,10 @@
 
     // Swap is offered while EITHER side holds an image: with one side empty (or removed) it moves
     // the lone image across, and a pending Remove travels with the empty side (D-9).
+    // The shared image-frame editor owns the button: it is always rendered, carries the shared
+    // swap icon, and is disabled with an explanatory title until a side holds an image (STRK-434).
     const swapSlot = el("div", "collections-builder-swap");
-    swapSlot.hidden = true;
+    swapSlot.dataset.ifeSwap = "";
     const holds = { obverse: false, reverse: false };
     // Stored title previews still loading. Until both settle a chooser can read as empty while
     // its image is on the way, so Swap is held back (an early swap would drop that image).
@@ -1343,7 +1345,7 @@
      */
     const performSwap = async () => {
       swapping = true;
-      swapButton.disabled = true;
+      syncSwap();
       covers.inert = true;
       covers.setAttribute("aria-busy", "true");
       try {
@@ -1362,21 +1364,20 @@
         syncSwap();
       }
     };
-    const swapButton = button("btn btn-icon", "⇄", () => {
+    // The label is empty on purpose: the editor injects the swap icon when it mounts.
+    const swapButton = button("btn btn-icon", "", () => {
       if (swapping || storedReadsPending > 0) return;
       swapPromise = performSwap();
     });
     /**
-     * Show Swap only once every stored preview has settled and a side holds an image, and keep
-     * it disabled while a swap or a stored read is in flight.
+     * Hold Swap disabled while a swap or a stored preview read is in flight; the editor adds the
+     * rule that a side must hold an image.
      * @returns {void}
      */
     const syncSwap = () => {
-      swapSlot.hidden = storedReadsPending > 0 || !(holds.obverse || holds.reverse);
-      swapButton.disabled = swapping || storedReadsPending > 0;
+      if (frameEditor) frameEditor.setSwapBusy(swapping || storedReadsPending > 0);
     };
     swapButton.setAttribute("aria-label", "Swap obverse and reverse images");
-    swapButton.title = "Swap obverse & reverse";
     swapSlot.append(swapButton);
     covers.append(obverseTitleWrap, swapSlot, reverseTitleWrap);
     // STRK-421 hero: large centred title images with the Image shape picker beneath them.
@@ -1400,6 +1401,8 @@
       orientation: { obverse: seed.imageOrientation, reverse: seed.reverseImageOrientation },
     });
     chooserDisposers.push(() => frameEditor && frameEditor.dispose());
+    // An edit starts with its stored previews still loading, so Swap starts held.
+    syncSwap();
     if (seed.editId) {
       /**
        * Show one stored title preview, then count its read as settled (loaded, empty or failed)
