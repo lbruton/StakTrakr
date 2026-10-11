@@ -564,6 +564,9 @@ const _cardImageHTML = (item, extraClass = "", side = "obverse") => {
   const isRect =
     typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect";
   const shape = isRect ? " bar-shape" : "";
+  // STRK-427 P2: the wrapper box is the bounding box; data-shape/data-orientation drive the
+  // token-ratio frame in css/styles.css, while bar-shape stays for the legacy hooks.
+  const frameAttrs = typeof imageFrameAttrHtml === "function" ? imageFrameAttrHtml(item, side) : "";
   const uuid = item.uuid || "";
   const catalogId = item.numistaId || "";
   const metalKey = (item.metal || "").toLowerCase();
@@ -577,7 +580,7 @@ const _cardImageHTML = (item, extraClass = "", side = "obverse") => {
   const fitStyle = isRect ? "object-fit:contain;" : "object-fit:cover;";
 
   return (
-    `<div class="coin-img${shape}${extraClass}" data-metal="${_cvEscapeAttr(metalKey)}">` +
+    `<div class="coin-img${shape}${extraClass}"${frameAttrs} data-metal="${_cvEscapeAttr(metalKey)}">` +
     `<img class="cv-thumb" data-side="${side}"${srcAttr}` +
     ` data-catalog-id="${_cvEscapeAttr(catalogId)}"` +
     ` data-item-uuid="${_cvEscapeAttr(uuid)}"` +

@@ -498,6 +498,46 @@ describe("resolveImageFrame is a thin wrapper over the shared reader (P2: AC-9.1
     });
   });
 
+  describe("renderer helpers: attribute fragment, token ratio and thumb width", () => {
+    test("imageFrameAttrHtml writes data-shape, and data-orientation only for Bar and Note", () => {
+      assert.equal(api.imageFrameAttrHtml({ type: "Coin" }), ' data-shape="round"');
+      assert.equal(
+        api.imageFrameAttrHtml({ type: "Bar" }, "obverse"),
+        ' data-shape="bar" data-orientation="portrait"'
+      );
+      assert.equal(
+        api.imageFrameAttrHtml(
+          { type: "Coin", imageShape: "note", reverseImageOrientation: "portrait" },
+          "reverse"
+        ),
+        ' data-shape="note" data-orientation="portrait"'
+      );
+      assert.equal(
+        api.imageFrameAttrHtml({ type: "Coin", gradingAuthority: "PCGS" }),
+        ' data-shape="slab"'
+      );
+    });
+
+    test("imageFrameRatio returns the token ratio for each shape and orientation", () => {
+      assert.equal(api.imageFrameRatio("round", ""), 1);
+      assert.equal(api.imageFrameRatio("slab", ""), 0.68);
+      assert.equal(api.imageFrameRatio("bar", "portrait"), 0.6);
+      assert.equal(api.imageFrameRatio("bar", "landscape"), 1.6);
+      assert.equal(api.imageFrameRatio("note", "landscape"), 2.05);
+      assert.ok(Math.abs(api.imageFrameRatio("note", "portrait") - 1 / 2.05) < 1e-9);
+      assert.equal(api.imageFrameRatio("nonsense", "portrait"), 1);
+    });
+
+    test("imageFrameThumbWidth is ratio-derived at 28px tall and clamped to 16..40px", () => {
+      assert.equal(api.imageFrameThumbWidth("round", ""), 28);
+      assert.equal(api.imageFrameThumbWidth("bar", "portrait"), 17);
+      assert.equal(api.imageFrameThumbWidth("slab", ""), 19);
+      assert.equal(api.imageFrameThumbWidth("bar", "landscape"), 40);
+      assert.equal(api.imageFrameThumbWidth("note", "landscape"), 40);
+      assert.equal(api.imageFrameThumbWidth("note", "portrait"), 16);
+    });
+  });
+
   describe("grading first changes the shape name, not the round/rect binary", () => {
     test("a graded item is rect whichever Type it has, until the user picks Round", () => {
       assert.equal(resolve({ type: "Coin", gradingAuthority: "PCGS" }), "rect");

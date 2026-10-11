@@ -20477,3 +20477,122 @@ input[type="number"] {
     min-width: 56px;
   }
 }
+
+/* ==========================================================================
+   STRK-427 P2: renderer frames (table thumb, card A/B/C, view modal)
+   --------------------------------------------------------------------------
+   Each renderer wrapper carries data-shape ("round"|"bar"|"note"|"slab") and, for Bar and
+   Note only, data-orientation. The wrapper's existing box is the BOUNDING box: the frame is
+   the largest rectangle of the token ratio that fits it (width = min(box-w, box-h * ratio),
+   height from aspect-ratio), and every non-round frame uses object-fit: contain so a photo is
+   letterboxed, never cropped. The legacy bar-shape / table-thumb-rect / view-shape-rect
+   classes stay on the elements; this block is later in the file than their rules on purpose.
+   Ratios come from the shared :root --frame-* tokens, never literals.
+   ========================================================================== */
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape] {
+  --frame-r: 1;
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="slab"] {
+  --frame-r: var(--frame-slab);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="portrait"] {
+  --frame-r: var(--frame-bar-portrait);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="landscape"] {
+  --frame-r: var(--frame-bar-landscape);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="portrait"] {
+  --frame-r: var(--frame-note-portrait);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="landscape"] {
+  --frame-r: var(--frame-note-landscape);
+}
+
+/* Cards: the box each style already gave its image wrapper. */
+.card-a .cv-images-sm .coin-img[data-shape] {
+  --frame-box-w: 44px;
+  --frame-box-h: 44px;
+}
+.card-b .coin-img[data-shape] {
+  --frame-box-w: 80px;
+  --frame-box-h: 80px;
+}
+.card-c .coin-img[data-shape] {
+  --frame-box-w: 80px;
+  --frame-box-h: 56px;
+}
+.card-a .cv-images-sm .coin-img[data-shape],
+.card-b .coin-img[data-shape],
+.card-c .coin-img[data-shape] {
+  width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  height: auto;
+  aspect-ratio: var(--frame-r);
+}
+.card-a .cv-images-sm .coin-img[data-shape="round"],
+.card-b .coin-img[data-shape="round"],
+.card-c .coin-img[data-shape="round"] {
+  border-radius: 50%;
+}
+.card-a .cv-images-sm .coin-img[data-shape]:not([data-shape="round"]),
+.card-b .coin-img[data-shape]:not([data-shape="round"]),
+.card-c .coin-img[data-shape]:not([data-shape="round"]) {
+  border-radius: var(--radius);
+  background: transparent;
+}
+
+/* Table thumbs: 28px tall, ratio-derived width clamped to 16..40px (approved P2 clamp). */
+.table-thumb[data-shape] {
+  height: 28px;
+  width: clamp(16px, calc(28px * var(--frame-r)), 40px);
+}
+.table-thumb[data-shape="round"] {
+  border-radius: 50%;
+}
+.table-thumb[data-shape]:not([data-shape="round"]) {
+  border-radius: var(--radius);
+  object-fit: contain;
+  background: transparent;
+}
+
+/* View modal: the slot's image box is 180px (Round) or 200x260 (every other frame). */
+.view-image-slot[data-shape][data-side] {
+  --frame-box-w: 180px;
+  --frame-box-h: 180px;
+}
+.view-image-slot[data-shape]:not([data-shape="round"])[data-side] {
+  --frame-box-w: 200px;
+  --frame-box-h: 260px;
+}
+.view-image-slot[data-shape][data-side] img {
+  width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  height: auto;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: var(--frame-r);
+  object-fit: contain;
+}
+.view-image-slot[data-shape][data-side] .view-image-placeholder {
+  width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  height: auto;
+  aspect-ratio: var(--frame-r);
+}
+.view-image-slot[data-shape="round"][data-side] img,
+.view-image-slot[data-shape="round"][data-side] .view-image-placeholder {
+  border-radius: 50%;
+}
+.view-image-slot[data-shape]:not([data-shape="round"])[data-side] img,
+.view-image-slot[data-shape]:not([data-shape="round"])[data-side] .view-image-placeholder {
+  border-radius: var(--radius);
+}
+
+@media (max-width: 768px) {
+  /* The slots share the row, so the width limit is the slot itself; only the height caps. */
+  .view-image-slot[data-shape][data-side] {
+    --frame-box-w: 100%;
+    --frame-box-h: 160px;
+  }
+  .view-image-slot[data-shape]:not([data-shape="round"])[data-side] {
+    --frame-box-w: 100%;
+    --frame-box-h: 200px;
+  }
+}

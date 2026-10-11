@@ -432,13 +432,13 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort F — Implementation · GREEN, P2 (sequential)
 
-- [ ] **F.1** — Make `resolveImageFrame` a thin wrapper
+- [x] **F.1** — Make `resolveImageFrame` a thin wrapper — _`resolveImageFrame` now delegates to the new `resolveImageFrameSpec` (shape, per-side orientation, round/rect frame) over `readImageFraming`; helpers `imageFrameAttrHtml`, `imageFrameRatio` (reads the `:root` --frame-* tokens, fallback constants) and `imageFrameThumbWidth` (28px tall, clamp 16..40) carry the renderer plumbing; 3 extra unit cases for them; unit 1154/1154._
   - **File(s):** `js/image-frame.js`
   - **Acceptance:** `resolveImageFrame` returns `round` for a Round shape and `rect` otherwise, using the shared reader. E.1 is green.
   - **Depends on:** E.3
   - **Maps to:** AC-9.1, AC-9.3
 
-- [ ] **F.2** — Renderers adopt the shared frames
+- [x] **F.2** — Renderers adopt the shared frames — _`js/card-view.js` (`_cardImageHTML`), `js/inventory-table.js` (`_buildThumbHtml`, placeholder SVG drawn at the thumb's frame size with shape and orientation in its cache key, `_loadThumbImage`) and `js/viewModal.js` (`_applyViewSlotFrame`, re-applied after Numista enrichment) set `data-shape`/`data-orientation` beside the kept legacy classes; one CSS block at the end of `css/styles.css` fits the largest token-ratio rectangle in each wrapper box with `object-fit: contain` (cards 44 / 80 / 80×56, table 28px tall clamp 16..40, view 180 / 200×260). `image-frame-renderers.spec.js` 11/11 and the protected `mobile-and-layout.spec.js` 7/7 unedited._
   - **File(s):** `js/card-view.js`, `js/inventory-table.js`, `js/viewModal.js`, `css/styles.css`
   - **Acceptance:**
     - `card-view.js:563-593`, `inventory-table.js:350-385, 408-468, 1448-1482` and `viewModal.js:2996-3017, 1963-1977` set `data-shape`/`data-orientation` on their existing wrappers (`.coin-img`, `.table-thumb`, `.view-image-slot`) next to the kept legacy classes.
