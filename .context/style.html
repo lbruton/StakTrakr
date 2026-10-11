@@ -1694,9 +1694,12 @@
                 at that size and its cache key includes shape and orientation.
               </li>
               <li>
-                <strong>Photos:</strong> <code>object-fit: contain</code> for every non-round frame
-                (letterboxed, never cropped); Round keeps <code>cover</code>. Card and table frames
-                keep a transparent background (protected by <code>mobile-and-layout.spec.js</code>).
+                <strong>Photos:</strong> every non-round frame uses <code>object-fit: contain</code>
+                everywhere (letterboxed, never cropped). Round is per renderer: table thumbs
+                (<code>.table-thumb</code>) and cards (<code>.coin-img</code>) keep
+                <code>cover</code>, while the view modal uses <code>contain</code> for every frame
+                including Round. Card and table frames keep a transparent background (protected by
+                <code>mobile-and-layout.spec.js</code>).
               </li>
             </ul>
           </div>
