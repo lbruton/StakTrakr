@@ -4133,14 +4133,25 @@ input[type="submit"] {
 /* Narrow phones: orientation options go icon-only (the text stays for assistive tech) so the
    two-option pill never wraps into two rows. */
 @media (max-width: 560px) {
-  .ife [data-ife-orientation] .collections-segmented-option span {
+  /* The :is() prefix keeps this ahead of the shared builder/item segmented-option rule
+     (STRK-434), which would otherwise restore the text labels. */
+  :is(.collections-builder-form, #inventoryForm)
+    .ife
+    [data-ife-orientation]
+    .collections-segmented-option
+    span {
     font-size: 0;
     gap: 0;
     min-width: 44px;
     justify-content: center;
   }
 
-  .ife [data-ife-orientation] .collections-segmented-option span svg {
+  :is(.collections-builder-form, #inventoryForm)
+    .ife
+    [data-ife-orientation]
+    .collections-segmented-option
+    span
+    svg {
     width: 20px;
     height: 20px;
   }
