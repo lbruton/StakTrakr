@@ -487,7 +487,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - Branch `patch/<version>` → `dev`. Title: `v<version> — STRK-427: renderers adopt shared image frames (P2)`.
   - Body: links to the issue and the spec folder, test plan, inventory delta, F.4 screenshots. Labels `codacy-review` and `coderabbit-review`.
 
-- [ ] **CLOSE-P2-7. Resolve PR review threads**
+- [x] **CLOSE-P2-7. Resolve PR review threads** — _PR #1573: 1 review thread (Copilot: the release copy overstated letterboxing for Round frames), fixed as copy-only changes in the What's New entry, CHANGELOG, glossary and style guide and resolved; checks green (Codacy 0 issues, CodeQL, Analyze, Cloudflare Pages), CodeRabbit skipped by design, Codex out of review credit; merge state CLEAN, 0 unresolved threads. Waiting on the merge click; STRK-427 stays open for STRK-434._
   - **MUST invoke `/pr-resolve`** as a skill, covering inline and review-body findings and scanner re-posts. Drive to CLEAN, then report and wait for the user's merge.
 
 - [ ] **CLOSE-P2-8. Archive spec** (after the P2 PR merges)
