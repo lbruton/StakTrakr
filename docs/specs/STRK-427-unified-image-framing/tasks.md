@@ -387,7 +387,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort 0 — Setup, P2 (sequential)
 
-- [ ] **0P2.1** — Ensure the P2 patch worktree exists
+- [x] **0P2.1** — Ensure the P2 patch worktree exists — _P1 merge verified (PR #1572, `40374d93`, v3.36.46); P1-shipped comment posted on STRK-427 (state stays In Progress); P1 worktree and branch removed after the merge check; `patch/3.36.47` created from `origin/dev` with its own `npm ci`, version-lock claim for 3.36.47 (STRK-427 P2) written._
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** The P1 PR merge has been verified (`gh pr view --json state,mergeCommit`), and its worktree has been cleaned up only after that. After the verified merge, a comment on STRK-427 records that P1 shipped (version, PR link); the issue stays open. A fresh `patch/<version>` worktree from `origin/dev` holds a STRK-427 (P2) version-lock claim and has its own `npm ci`.
   - **If the worktree does not exist yet:** run `/start-patch` → `/release patch`.
