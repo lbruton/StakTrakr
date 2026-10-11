@@ -2,17 +2,19 @@
 <!--
   STRK-427 · Shared image-frame editor — A.1 mockup (implementation gate)
 
-  STATUS: PENDING USER APPROVAL.
-  Approval record (fill in on sign-off):  approved: ____-__-__  by: lbruton
-  Decisions to confirm (also listed in the page header):
+  STATUS: APPROVED.
+  Approval record:  approved: 2026-10-10  by: lbruton  (in chat; "approved, M-B for mobile, 40px clamp is fine")
+  Approved decisions (also listed in the page header):
     1. Desktop preview bounding box = 200px square (was 140px max-height). Fits the 700px dialog; no widening.
     2. Desktop layout: Upload/URL/Camera/Remove sit in a row UNDER each preview (they stack to its right today).
-       At <=768px the existing preview-left / buttons-right arrangement is kept untouched.
+       MOBILE = M-B (approved): at <=768px the buttons ALSO stack under a full-size preview (140px cap).
+       M-A (today's preview-left / buttons-right) was rejected: it leaves ~34px-wide previews at 390px.
+       This is a disclosed departure from AC-6.2's "mobile unchanged" wording.
     3. Orientation groups are one per side, "Obverse orientation" / "Reverse orientation" (STRK-424 Option C).
     4. Frame ratio tokens become unitless numbers (0.6, 1.6, 0.4878, 2.05, 0.68) so they work in both
        aspect-ratio and calc(). Rendered ratios are identical to today's `3 / 5`, `1 / 2.05`, ... values.
     5. Empty frames stay visible with a dashed "+" (AC-1.5); Swap appears only when BOTH sides hold an image.
-    6. P2: table thumb 28px tall with width clamped to 18-40px; images use object-fit: contain.
+    6. P2: table thumb 28px tall with width clamped to 40px (approved); images use object-fit: contain.
 
   This file reuses the real css/styles.css (tokens, four themes, .collections-segmented*, .btn.img-btn*).
   Only the `.ife*` and mock-chrome rules below are new; the `.ife*` block is what task C.3 ships.

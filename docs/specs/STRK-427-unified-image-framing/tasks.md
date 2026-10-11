@@ -47,7 +47,7 @@ _Cohort 0 ensures the worktree exists before implementation begins. If the workt
 
 _Independent files, so these can be dispatched concurrently. Scaffolding, data structures and the mockup gate. No behavioral logic yet._
 
-- [ ] **A.1 [P]** — Build the STRK-427 mockup and get it approved (**implementation gate**)
+- [x] **A.1 [P]** — Build the STRK-427 mockup and get it approved (**implementation gate**) — _approved 2026-10-10 by lbruton: 200px desktop box, buttons under the preview on desktop and mobile (M-B), 40px thumb clamp; recorded in the playground header_
   - **File(s):** `playground/STRK-427-image-frame-editor.html` (new)
   - **Acceptance:** Built with `/ui-mockup`. It shows every named state in the UI Contract (E-empty, E-one, E-mixed, E-round, E-slab, E-follow, E-pinned, B-builder, M-390) for the item modal and the builder side by side, in light, dark, slate and sepia, at desktop width (1280px) and 390px, plus a P2 section (P2-table, P2-card A/B/C, P2-view, including the legacy-rect case). It sets the **exact** desktop preview size inside the 700px dialog (D-16, AC-6.1) or explicitly shows that the dialog must widen. Widening is a scope escalation (Tradeoff 4) that needs the user's sign-off before C.4. Orientation controls follow Option C, one group per side, named "Obverse orientation" / "Reverse orientation". The user has **explicitly approved** the mockup in chat; record the date and any decisions as a comment at the top of the file. **No task in Cohort C may start before this approval.**
   - **Leverage:** `/ui-mockup`; `playground/STRK-424-orientation-toggle.html` (Option C, ~228-262); `playground/STRK-421-collection-modal-variants.html` (builder hero baseline); `.context/design-philosophy.md`; `.context/style.html` (tokens: `--bg-card`, `--bg-secondary`, `--bg-tertiary`, `--border`, `--border-hover`; never `--surface`). Memory: compare against the Add Item modal in dark at 390px; theme every control.
@@ -155,7 +155,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **File(s):** `tests/playwright/core/image-frame-editor.spec.js` (same file as B.4, so sequential)
   - **Acceptance:** Failing cases:
     - At 1280px each preview frame is larger than 140px, at the size the A.1 mockup sets (AC-6.1).
-    - At 768px and 390px the existing elements of the image section keep today's size and stacking, measured against values captured from `dev` before C.4, and the new radio options are ≥44px tall (AC-6.2, D-8).
+    - At 768px and 390px each preview keeps the 140px cap and the existing ids, the Upload/URL/Camera/Remove buttons stack **under** the preview (approved departure from AC-6.2's "unchanged", mockup option M-B, 2026-10-10), and the new radio options are ≥44px tall (D-8). Size values are compared with those captured from `dev` before C.4 for the elements that did not move (labels, size info, URL input).
     - In light, dark, slate and sepia at 1280 and 390, the editor background, borders and remove badge use per-theme tokens, with canvas-sampled contrast against the modal background (AC-6.3, AC-10.2, no `--surface`).
     - Settings → Images `.image-upload-preview img` keeps its 140px cap (AC-1.4).
     - The builder mounts the **same** editor: the `.ife` root and the same radiogroup names and frame `data-shape`/`data-orientation` contract in both modals (AC-1.1, B-builder).
@@ -249,7 +249,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
     - `inventory.js` `editItem` seeds the editor from the record (replaces `setPendingImageFrames`, `:2095-2097`).
     - Replace the swap-visibility predicate: `updateSwapButtonVisibility` (`events.js:468-477`) currently treats both preview elements being visible as proof that both images exist, which is false once empty frames stay visible (D-16). Drive it from actual per-side image presence, and feed `setSideHasImage` on seed, upload/URL/camera, Remove and swap completion. The async race guards stay unchanged; visibility is a separate condition.
     - `pcgs-api.js:618-621` and `catalog-numista-modal.js:1097` (plus after `populateNumistaDataFields`) notify the editor.
-    - Desktop preview sizing in `@media (min-width: 769px)`, scoped under `#inventoryForm .ife`, with the base `.image-upload-preview img` rule (`:3822-3828`) not edited.
+    - Desktop preview sizing in `@media (min-width: 769px)`, scoped under `#inventoryForm .ife`, with the base `.image-upload-preview img` rule (`:3822-3828`) not edited. The preview bounding box is the approved 200px square. At `max-width: 768px` the box stays at the 140px cap and the buttons stack under it (mockup M-B, same arrangement as desktop).
     - `events.js` net line count falls.
     - **Gate:** B.4 is green, and B.5 is green except the builder-mount parity case (stays RED until C.5).
   - **Depends on:** C.3
