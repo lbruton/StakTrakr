@@ -1298,12 +1298,18 @@
     const swapSlot = el("div", "collections-builder-swap");
     swapSlot.hidden = true;
     const holds = { obverse: false, reverse: false };
+    // Stored title previews still loading. Until both settle a chooser can read as empty while
+    // its image is on the way, so Swap is held back (an early swap would drop that image).
+    let storedReadsPending = seed.editId ? 2 : 0;
+    // Set while a swap is in flight; Save awaits it so the swapped pair is what persists.
+    let swapPromise = null;
+    let swapping = false;
     const chooserHooks = (side, slotId) => ({
       side,
       read: () => readStoredBlob(seed.editId, slotId),
       onPresence: (present) => {
         holds[side] = present;
-        swapSlot.hidden = !(holds.obverse || holds.reverse);
+        syncSwap();
         if (frameEditor) frameEditor.setSideHasImage(side, present);
       },
       onRemove: () => frameEditor && frameEditor.resetSide(side),
@@ -1330,9 +1336,12 @@
     const reverseTitleWrap = titleOption("Reverse title image", reverseTitle, "reverse");
     // Swap exchanges the two images AND their orientations, atomically: both stored reads must
     // succeed first, so a failure moves nothing (D-9).
-    let swapping = false;
-    const swapButton = button("btn btn-icon", "⇄", async () => {
-      if (swapping) return;
+    /**
+     * Exchange the two title images and their orientations. Never rejects: a failed stored read
+     * is reported with a toast and leaves the builder untouched.
+     * @returns {Promise<void>}
+     */
+    const performSwap = async () => {
       swapping = true;
       swapButton.disabled = true;
       covers.inert = true;
@@ -1347,11 +1356,25 @@
         toast("Images could not be swapped. Please try again.");
       } finally {
         swapping = false;
-        swapButton.disabled = false;
+        swapPromise = null;
         covers.inert = false;
         covers.removeAttribute("aria-busy");
+        syncSwap();
       }
+    };
+    const swapButton = button("btn btn-icon", "⇄", () => {
+      if (swapping || storedReadsPending > 0) return;
+      swapPromise = performSwap();
     });
+    /**
+     * Show Swap only once every stored preview has settled and a side holds an image, and keep
+     * it disabled while a swap or a stored read is in flight.
+     * @returns {void}
+     */
+    const syncSwap = () => {
+      swapSlot.hidden = storedReadsPending > 0 || !(holds.obverse || holds.reverse);
+      swapButton.disabled = swapping || storedReadsPending > 0;
+    };
     swapButton.setAttribute("aria-label", "Swap obverse and reverse images");
     swapButton.title = "Swap obverse & reverse";
     swapSlot.append(swapButton);
@@ -1378,8 +1401,22 @@
     });
     chooserDisposers.push(() => frameEditor && frameEditor.dispose());
     if (seed.editId) {
-      getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
-      getImageUrl(seed.editId, "title:reverse").then((url) => url && reverseTitle.setPreview(url));
+      /**
+       * Show one stored title preview, then count its read as settled (loaded, empty or failed)
+       * so Swap is offered only after BOTH sides have loaded.
+       * @param {{setPreview: (url: string) => void}} chooser - The title chooser to fill
+       * @param {string} [slotId] - "title:reverse" for the reverse title; omit for the cover
+       * @returns {Promise<void>}
+       */
+      const loadStoredTitle = (chooser, slotId) =>
+        getImageUrl(seed.editId, slotId)
+          .then((url) => url && chooser.setPreview(url))
+          .finally(() => {
+            storedReadsPending -= 1;
+            syncSwap();
+          });
+      loadStoredTitle(cover);
+      loadStoredTitle(reverseTitle, "title:reverse");
     }
     const rowsHost = el("div", "collections-builder-rows");
     const slotCount = el("span", "form-section-count");
@@ -1584,15 +1621,31 @@
     shell.body.scrollTop = 0;
     applyTypeLock();
 
+    let builderClosed = false;
     const modalObserver = new MutationObserver(() => {
       if (shell.modal.style.display === "none") {
+        builderClosed = true;
         chooserDisposers.forEach((dispose) => dispose());
         modalObserver.disconnect();
       }
     });
     modalObserver.observe(shell.modal, { attributes: true, attributeFilter: ["style"] });
 
+    let awaitingSwap = false;
     const submit = async () => {
+      // A swap still reading its stored images lands first, so Save persists the post-swap
+      // images and orientations (STRK-427). A failed swap leaves the builder unchanged and Save
+      // goes on; a second Save click while waiting, or a Cancel meanwhile, ends this call.
+      if (swapPromise) {
+        if (awaitingSwap) return;
+        awaitingSwap = true;
+        try {
+          await swapPromise;
+        } finally {
+          awaitingSwap = false;
+        }
+        if (builderClosed) return;
+      }
       const purityValue =
         puritySelect.value === ""
           ? null

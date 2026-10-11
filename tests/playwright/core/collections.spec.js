@@ -2080,6 +2080,124 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeEnabled();
   });
 
+  /**
+   * Hold stored title-image reads behind a gate the test releases (STRK-427 review). Wraps
+   * `imageCache.getPatternImage`, so each read whose record id matches waits for the gate.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string|null} idSuffix - Hold only ids ending with this; null holds every read.
+   * @returns {Promise<void>}
+   */
+  const holdStoredReads = (page, idSuffix) =>
+    page.evaluate((suffix) => {
+      const original = window.imageCache.getPatternImage.bind(window.imageCache);
+      const gate = new Promise((resolve) => {
+        window.__releaseStoredReads = resolve;
+      });
+      window.imageCache.getPatternImage = async (id) => {
+        if (suffix === null || String(id).endsWith(suffix)) await gate;
+        return original(id);
+      };
+    }, idSuffix);
+
+  /**
+   * Release the reads held by {@link holdStoredReads}.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<void>}
+   */
+  const releaseStoredReads = (page) => page.evaluate(() => window.__releaseStoredReads());
+
+  test("STRK-427 Swap stays unavailable until both stored previews have loaded", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Swap waits for previews", "obverse");
+    // The reverse title image is the slow read; the cover resolves at once.
+    await holdStoredReads(page, "--@title-reverse");
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const builder = builderModal(page);
+    const swap = builder.getByRole("button", { name: /Swap obverse and reverse/ });
+
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    // The cover has landed but the reverse has not: an early swap would treat the reverse as
+    // empty, so the control is not offered yet.
+    expect(await chooserImageHash(page, 1)).toBeNull();
+    await expect(swap).toBeHidden();
+    const obverse = await chooserImageHash(page, 0);
+
+    await releaseStoredReads(page);
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    await expect(swap).toBeVisible();
+    await expect(swap).toBeEnabled();
+    const reverse = await chooserImageHash(page, 1);
+    expect(obverse).not.toBe(reverse);
+
+    await swap.click();
+    await expect.poll(() => chooserImageHash(page, 0)).toBe(reverse);
+    expect(await chooserImageHash(page, 1)).toBe(obverse);
+  });
+
+  test("STRK-427 Save right after Swap waits for the stored swap and saves the swapped pair", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Save waits for swap", "obverse");
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    const obverseColor = await chooserImageColor(page, 0);
+    const reverseColor = await chooserImageColor(page, 1);
+    const distance = (a, b) => Math.max(...a.map((value, i) => Math.abs(value - b[i])));
+    expect(
+      distance(obverseColor, reverseColor),
+      "the two fixtures must look different"
+    ).toBeGreaterThan(40);
+    const before = await page.evaluate((key) => {
+      const artwork = window.collectionsStore.getState().collections[key].artwork;
+      return { cover: artwork.cover.digest, reverse: artwork["title:reverse"].digest };
+    }, id);
+
+    // Both previews are loaded; from here every stored read (the swap's) is held.
+    await holdStoredReads(page, null);
+    const builder = builderModal(page);
+    await builder.getByRole("button", { name: /Swap obverse and reverse/ }).click();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await releaseStoredReads(page);
+    await expect(builder).toBeHidden();
+
+    // Save persisted the swapped pair (both images re-written), not the pre-swap one.
+    await page.waitForFunction(
+      ({ key, digests }) => {
+        const artwork = window.collectionsStore.getState().collections[key].artwork || {};
+        const [cover, reverse] = [artwork.cover, artwork["title:reverse"]];
+        return Boolean(
+          cover?.present &&
+          reverse?.present &&
+          cover.digest !== digests.cover &&
+          reverse.digest !== digests.reverse
+        );
+      },
+      { key: id, digests: before },
+      { timeout: 10000 }
+    );
+    const definition = await page.evaluate(
+      (key) => window.collectionsStore.getState().collections[key].definition,
+      id
+    );
+    expect(definition).toMatchObject({
+      imageOrientation: "landscape",
+      reverseImageOrientation: "portrait",
+    });
+
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    // Save re-encodes the images, so compare how they look rather than their bytes.
+    await expect.poll(() => chooserImageColor(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageColor(page, 1)).not.toBeNull();
+    expect(distance(await chooserImageColor(page, 0), reverseColor)).toBeLessThan(12);
+    expect(distance(await chooserImageColor(page, 1), obverseColor)).toBeLessThan(12);
+  });
+
   test("STRK-427 a Collection with no grading still follows Type while the shape is derived", async ({
     page,
   }) => {
