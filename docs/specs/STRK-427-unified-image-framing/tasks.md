@@ -571,3 +571,84 @@ In CLOSE-P2-5:
 - No implementation, browser tests or cross-version experiment ran for this document-only review. The proposed STRK-427 mockup and its approval remain future gates; desktop size and four-theme geometry are not validated here.
 - Remote Plane state/relations and PR status were not queried. Findings use the reconciled local spec and current worktree source, not older memory summaries, as authority.
 - Only `tasks.md` was edited. No approval stamp, reconciliation, implementation or phase advancement was performed.
+
+---
+
+## Verification Stamp — P1
+
+_Shorthand: **EDITOR** = `tests/playwright/core/image-frame-editor.spec.js`; **COLL** = `tests/playwright/core/collections.spec.js`; **DATA** = `tests/playwright/core/collections-data-paths.spec.js`; **IMPEXP** = `tests/playwright/core/import-export.spec.js`; **UNIT-IF** = `tests/unit/image-frame.test.js`; **CORE-U** = `tests/unit/collections-core.test.js`; **HASH** = `tests/unit/cloud-sync-image-frame-hash.test.js`. Screenshots: `playground/images/STRK-427-evidence/<state>-<light|dark|slate|sepia>-<1280|390>.png`, compared side by side with the approved A.1 mockup `playground/STRK-427-image-frame-editor.html` (approved in chat: 200px desktop box, buttons under the preview on desktop and mobile = M-B, 40px table-thumb clamp for P2). "Visually verified" below means those eight states were captured in all four themes at both widths and matched the mockup, with no deviation other than the builder's captions top-aligning per side, which the builder already did._
+
+### AC-1 Shared editor
+
+- [x] AC-1.1 — verified by EDITOR "B-builder: the Edit Collection builder mounts the same editor contract", and at `index.html:8958` + `sw.js:89` (registered in both, after `image-frame.js`, before its consumers) + visually verified against mockup state "B-builder" (`B-builder-*-1280.png`, `B-builder-*-390.png`)
+- [x] AC-1.2 — verified at `js/image-frame-editor.js:152` (`mount` owns presentation, shape and per-side orientation; Upload/URL/Camera/size/Remove stay in the host callbacks wired in `js/events.js`, `createItemHost` at `js/image-frame-editor.js:468`) + EDITOR "the swap guards are unchanged: the group is busy and inert while a swap is pending"
+- [x] AC-1.3 — verified by EDITOR "the swap guards are unchanged: the group is busy and inert while a swap is pending" and "Swap shows only when both sides hold an image, across seed, upload, Remove and swap"; the pre-existing item-modal specs in the core suite stay green
+- [x] AC-1.4 — verified by EDITOR "AC-1.4: Settings → Images keeps its 140px preview cap"
+- [x] AC-1.5 — verified by EDITOR "E-empty: shape control and both empty frames show before any image exists, flag off hides the group" + visually verified against mockup state "E-empty" (`E-empty-*-1280.png`, `E-empty-*-390.png`)
+
+### AC-2 Live preview
+
+- [x] AC-2.1 — verified by EDITOR "choosing a shape reshapes both frames immediately, with no save" + visually verified against mockup states "E-round" and "E-slab" (`E-round-*`, `E-slab-*`)
+- [x] AC-2.2 — verified at `css/styles.css:18174-18180` (the shared `:root` ratio tokens, one `--frame-slab: 0.68`) and by COLL "STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio" + visually verified against mockup state "E-slab" (`E-slab-*`)
+- [x] AC-2.3 — verified by EDITOR "Round and Slab show no orientation controls; Bar and Note show one group per side at their default" + visually verified against mockup states "E-round" and "E-slab" (`E-round-*`, `E-slab-*`)
+
+### AC-3 Swap and Remove
+
+- [x] AC-3.1 — verified by EDITOR "E-mixed: Swap exchanges the images and their orientations and leaves the shape alone" + visually verified against mockup state "E-mixed" (`E-mixed-*`)
+- [x] AC-3.2 — verified by COLL "STRK-427 Swap in the builder exchanges the images and their orientations" and "STRK-427 a stored pair, Remove one side, Swap, Save and reopen keeps the image on the swapped side only" + visually verified against mockup state "B-builder" (`B-builder-*`)
+- [x] AC-3.3 — verified by EDITOR "Remove resets that side's orientation to its default and keeps the shape (AC-3.3)" + visually verified against mockup state "E-one" (`E-one-*`)
+
+### AC-4 Shape derivation
+
+- [x] AC-4.1 — verified by UNIT-IF "deriveImageShape — the one resolver (AC-4.1, AC-4.2)" and CORE-U "defaultImageShapeForType delegates to the one resolver (AC-4.1)"; `suggestedShape` and `imageShapeTouched` no longer appear in `js/` (grep empty)
+- [x] AC-4.2 — verified by UNIT-IF "deriveImageShape — the one resolver (AC-4.1, AC-4.2)" (table of Type × grade × Numista shape) at `js/image-frame.js:132`
+- [x] AC-4.3 — verified by EDITOR "E-follow: an untouched shape follows Type, Coin to Goldback shows Note" + visually verified against mockup state "E-follow" (`E-follow-*`)
+- [x] AC-4.4 — verified by EDITOR "E-pinned: a chosen shape survives a Type change" + visually verified against mockup state "E-pinned" (`E-pinned-*`)
+- [x] AC-4.5 — verified by EDITOR "a grade re-derives an untouched shape and never moves a chosen one (AC-4.5)" and "a programmatic grading or Numista-shape set followed by the notify call re-derives an untouched shape" + visually verified against mockup states "E-follow" and "E-pinned"
+- [x] AC-4.6 — verified by EDITOR "E-follow: an untouched shape follows Type, Coin to Goldback shows Note" + visually verified against mockup state "E-follow" (`E-follow-*`)
+- [x] AC-4.7 — verified by EDITOR "all four shapes are selectable for Coin, Bar and Goldback"
+- [x] AC-4.8 — verified by UNIT-IF "Bar defaults to portrait and Note to landscape" and EDITOR "Round and Slab show no orientation controls; Bar and Note show one group per side at their default" + visually verified against mockup state "E-mixed" (`E-mixed-*`)
+
+### AC-5 Per-side orientation
+
+- [x] AC-5.1 — verified by EDITOR "Round and Slab show no orientation controls; Bar and Note show one group per side at their default" + visually verified against mockup state "E-mixed" (`E-mixed-*`), whose toggle follows `playground/STRK-424-orientation-toggle.html` Option C
+- [x] AC-5.2 — verified by CORE-U "reverseImageOrientation on the definition (AC-5.2, D-10)" and "reverseImageOrientationFor (D-10)", and COLL "STRK-427 a mixed pair saved in the builder reopens with both orientations and renders per side everywhere" (Album title pair, Slot tiles, Ledger rows, Hub cards and rows) at `js/collections-core.js:290`, + visually verified against mockup state "B-builder" (`B-builder-*`)
+- [x] AC-5.3 — verified by CORE-U "create and update mirror the obverse rules (AC-5.3)" and "merge convergence with the reverse key (C-1, C-2)", HASH "C-1: O's normalizeDefinition drops reverseImageOrientation and the reverse falls back to the obverse", DATA "STRK-427 a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)"
+- [x] AC-5.4 — verified by UNIT-IF "an orientation that differs from the default is stored; the default is not" and EDITOR "save and reopen shows exactly the chosen ${label} (AC-7.2) and stores only deviations" (Bar and Note)
+- [x] AC-5.5 — verified by CORE-U "save and reopen stability (AC-5.5)" ("a new Bar or Note saved at its default reopens at that default" and "a legacy Bar saved before STRK-424 with no orientation still reopens landscape") and COLL "STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios"
+
+### AC-6 Size and themes
+
+- [x] AC-6.1 — verified by EDITOR "AC-6.1: desktop previews are larger than the old 140px cap and fit the 700px dialog" + screenshot compared: `playground/images/STRK-427-evidence/E-empty-light-1280.png` against mockup state "E-empty" (200px preview box)
+- [x] AC-6.2 — verified by EDITOR "AC-6.2: at ${width}px previews keep the 140px cap, buttons stack under them and options are 44px" + screenshot compared: `playground/images/STRK-427-evidence/E-mixed-light-390.png` against mockup state "M-390"
+- [x] AC-6.3 — verified by EDITOR "AC-6.3: the editor is legible in light, dark, slate and sepia at desktop and 390px" + screenshot compared: all 64 `playground/images/STRK-427-evidence/*.png` (8 states × 4 themes × 2 widths). Caveat, disclosed: the shipped `.collections-segmented` selected-state contrast (about 2.4–3.7:1) is the existing control, reused unchanged, and is not asserted by this test
+
+### AC-7 Item storage
+
+- [x] AC-7.1 — verified by UNIT-IF "the derived shape at default orientation writes nothing and removes all five keys" and IMPEXP "STRK-427 a sparse item exports no new keys and never writes empty legacy frames"
+- [x] AC-7.2 — verified by EDITOR "save and reopen shows exactly the chosen ${label} (AC-7.2) and stores only deviations" (Round, Bar, Note, Slab) and "D-4: a stored note on a Coin that becomes Goldback saves as sparse, with no legacy frames" + visually verified against mockup states "E-round", "E-slab", "E-mixed" (`E-*`)
+- [x] AC-7.3 — verified by UNIT-IF "a non-derived shape stores imageShape and projects the legacy pair (AC-7.3)" and "Round chosen on a rectangular Type projects circle"
+
+### AC-8 Compatibility and migration
+
+- [x] AC-8.1 — verified by UNIT-IF "a legacy circle reads as Round, whatever the Type", "a legacy rectangle reads as the shape the item derives" and "a legacy rectangle on a plain round Coin reads as Bar, not Round (D-3)"; EDITOR "D-3: a legacy rectangle on a plain Coin opens as a Bar"
+- [x] AC-8.2 — verified by UNIT-IF "a stored imageShape wins over the derived shape and over a legacy frame" and HASH "I-4: O cycles the frame toggle on a migrated item; N ignores the legacy value (accepted loss)"; limitation documented at `.context/cloud-sync-convergence.md` § Image framing fields (STRK-427)
+- [x] AC-8.3 — verified by HASH `describe` blocks "STRK-427 matrix — items (I-1 … I-10)", "STRK-427 matrix — sync, hash and diff (H-1 … H-5)" and "STRK-427 matrix — import/export and Custom Collections" (O = pinned v3.36.45 source literals, N = live; expected losses asserted, including H-3 and I-4)
+- [x] AC-8.4 — verified by UNIT-IF "only the obverse legacy frame counts; the reverse value is ignored (AC-8.4)" and HASH "I-8: legacy mixed sides read as the obverse mapping"
+- [x] AC-8.5 — verified by EDITOR "I-8: an untouched edit of a legacy mixed circle/rectangle item leaves both legacy fields byte-identical" (the edit-save gate; nothing is rewritten at load or on an untouched edit)
+- [x] AC-8.6 — verified by HASH "STRK-427 registration at the enumeration sites (AC-8.6)", "H-1: absent and empty new fields hash the same and produce no diff on N" and "H-4: an inventory with none of the new fields hashes byte-identically on O and N"; registered at `js/diff-engine.js:78`, `js/changeLog.js:183`, `js/cloud-sync.js:171`
+- [x] AC-8.7 — verified by IMPEXP "STRK-427 item framing round-trips through JSON export and JSON import", "… through the standard CSV export and import" and "… through the ZIP backup JSON, ZIP CSV and restore parse"
+- [x] AC-8.8 — verified by IMPEXP "STRK-427 item framing round-trips through the standard CSV export and import" (real exported file: `Obverse Frame`/`Reverse Frame` stay after `Reverse Image URL`, the three new columns sit immediately before `Collections`) at `js/csv-export.js:131-146` and `js/inventory-backup.js:38-47`
+
+### AC-9 Table, card and view modal (P2)
+
+- [-] AC-9.1 — deferred: P2, stamped in CLOSE-P2-3
+- [-] AC-9.2 — deferred: P2, stamped in CLOSE-P2-3
+- [-] AC-9.3 — deferred: P2, stamped in CLOSE-P2-3
+- [-] AC-9.4 — deferred: P2 pin, stamped in CLOSE-P2-3 (P1 leaves the Slot frame unchanged)
+
+### AC-10 Compatibility and coverage
+
+- [x] AC-10.1 — verified by COLL "STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios" and "STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio" + visually verified against mockup state "B-builder" and the STRK-421 baseline (`B-builder-*`)
+- [x] AC-10.2 — verified at `css/styles.css` (`git diff origin/dev...HEAD -- css/styles.css` adds 0 `var(--surface)`; the editor's own surfaces use `--bg-card`, and the STRK-426 badge rules are untouched) and EDITOR "AC-6.3: the editor is legible in light, dark, slate and sepia at desktop and 390px"
+- [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv:164-167` (EDITOR new, COLL +7, DATA +3, IMPEXP +5); inventory delta `+91 unit tests, +41 Playwright tests (26+7+3+5), +3 files` goes in the PR body (CLOSE-P1-6)
