@@ -1437,6 +1437,73 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     for (const hit of hits) expect(hit).toContain("ife-link");
   });
 
+  // Review findings on PR 1574 (Codex P2, round 3).
+  test("row 5: Swap waits for a linked image to finish loading, and a failed link leaves nothing to swap", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.route("https://images.example/slow.png", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG });
+    });
+    await page.route("https://images.example/broken.png", (route) => route.abort());
+    await openAddModal(page);
+    const swap = page.locator("#swapImagesBtn");
+    const link = async (url) => {
+      await page.locator("#itemImageUrlBtnObv").click();
+      await page.locator("#appDialogInput").fill(url);
+      await page.locator("#appDialogOk").click();
+    };
+
+    await link("https://images.example/slow.png");
+    // The preview is up but the image has not loaded: swapping now would strand its load
+    // handlers on the wrong <img>.
+    await expect(page.locator("#itemImagePreviewObv")).toBeVisible();
+    await expect(swap).toBeDisabled();
+    await expect(swap).toBeEnabled({ timeout: 8000 });
+
+    // A link that fails to load hides the preview and leaves nothing to swap.
+    await link("https://images.example/broken.png");
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(swap).toBeDisabled();
+  });
+
+  test("row 8: on a phone the Remove and link hit areas stay apart, even on the short Note frame", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await seedAndGoto(page);
+    await openAddModal(page);
+    await page
+      .locator("#itemImageFileObv")
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    const ife = editor(page);
+    await ife.shape.getByLabel("Note").check();
+    const badge = page.locator("#itemImageRemoveBtnObv");
+    const link = page.locator("#itemImageUrlBtnObv");
+    await expect(badge).toBeVisible();
+    await badge.scrollIntoViewIfNeeded();
+    const claimed = async (locator) => {
+      const box = await locator.boundingBox();
+      return page.evaluate(
+        ({ cx, cy }) =>
+          [
+            [-21, -21],
+            [21, -21],
+            [-21, 21],
+            [21, 21],
+          ].map(([dx, dy]) => {
+            const hit = document.elementFromPoint(cx + dx, cy + dy);
+            return hit && hit.closest("button") ? hit.closest("button").id : "";
+          }),
+        { cx: box.x + box.width / 2, cy: box.y + box.height / 2 }
+      );
+    };
+    // Every corner of each 44px target must reach its own control, so the two never overlap.
+    for (const hit of await claimed(badge)) expect(hit).toBe("itemImageRemoveBtnObv");
+    for (const hit of await claimed(link)) expect(hit).toBe("itemImageUrlBtnObv");
+  });
+
   // The × badge's cross must sit on the centre of its circle (Lonnie's 2026-10-11 review: the text
   // glyph sat low). Measured on rendered pixels, so it holds whichever way the cross is drawn.
   for (const kind of ["item", "builder"]) {

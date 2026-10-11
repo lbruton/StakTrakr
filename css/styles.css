@@ -4179,6 +4179,19 @@ input[type="submit"] {
   }
 }
 
+/* The landscape Note frame is only ~63px tall on a phone (the 140px box, narrowed to half the modal), so the centred 44px targets of
+   the upper-right × and the lower-right link would overlap by a few pixels (a tap on the bottom of
+   the destructive × would open the link dialog). Lifting the badge to straddle the frame's top edge
+   keeps the two targets apart on the item modal, where both exist. */
+@media (max-width: 768px) {
+  .ife
+    .ife-stage
+    .ife-frame[data-shape="note"]:not([data-orientation="portrait"])
+    .collections-image-remove {
+    top: -10px;
+  }
+}
+
 /* The URL fields only hold the value the link dialog edits; they are never shown inline. They are
    type="text", not "url": a hidden control still takes part in native validation, and an item
    imported with a malformed link must still Save (the link stays editable through the dialog). */

@@ -544,6 +544,22 @@ const mountImageFrameEditor = () => {
   _imageFrameHost.mount();
 };
 
+// A linked image reports as present the moment its preview starts, but its onload/onerror handlers
+// are bound to that side's <img>. Swapping before it settles would leave a failed load behind on
+// the wrong side, so Swap stays busy while either side is still loading a link (STRK-434).
+const _urlPreviewLoading = { obverse: false, reverse: false };
+
+/**
+ * Hold the shared editor's Swap busy while a swap is running or a linked image is still loading.
+ * @param {boolean} [swapRunning] - Whether a swap is in flight (defaults to the pending swap)
+ */
+const _syncItemSwapBusy = (swapRunning = Boolean(_pendingItemImageSwap)) => {
+  if (!_imageFrameHost) return;
+  _imageFrameHost.setSwapBusy(
+    swapRunning || _urlPreviewLoading.obverse || _urlPreviewLoading.reverse
+  );
+};
+
 const _setUrlPreviewGeneration = (side) => {
   if (side === "reverse") return ++_urlPreviewGenRev;
   return ++_urlPreviewGenObv;
@@ -579,6 +595,8 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
     if (sizeInfo) sizeInfo.textContent = "";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
     return;
   }
@@ -588,6 +606,8 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     preview.style.display = "block";
     if (removeBtn) removeBtn.style.display = "";
     if (sizeInfo) sizeInfo.textContent = "";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
   };
   img.onerror = () => {
@@ -596,8 +616,12 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
     if (sizeInfo) sizeInfo.textContent = "Couldn't load image - check the URL";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
   };
+  _urlPreviewLoading[side] = true;
+  _syncItemSwapBusy();
   img.src = imageUrl;
   preview.style.display = "block";
   if (removeBtn) removeBtn.style.display = "";
@@ -683,7 +707,9 @@ const clearUploadState = () => {
   if (fileRev) fileRev.value = "";
 
   // Swap stays rendered; the editor disables it again once reset clears both sides (STRK-434)
-  if (_imageFrameHost) _imageFrameHost.setSwapBusy(false);
+  _urlPreviewLoading.obverse = false;
+  _urlPreviewLoading.reverse = false;
+  _syncItemSwapBusy(false);
   const imageGroup = document.getElementById("imageUploadGroup");
   if (imageGroup) {
     imageGroup.inert = false;
@@ -3340,7 +3366,7 @@ const setupItemFormListeners = () => {
       const imageGroup = safeGetElement("imageUploadGroup");
       imageGroup.inert = true;
       imageGroup.setAttribute("aria-busy", "true");
-      if (_imageFrameHost) _imageFrameHost.setSwapBusy(true);
+      _syncItemSwapBusy(true);
       const operation = swap()
         .catch((error) => {
           if (generation === _itemImageEditGeneration) {
@@ -3353,7 +3379,7 @@ const setupItemFormListeners = () => {
         .finally(() => {
           if (_pendingItemImageSwap === operation) _pendingItemImageSwap = null;
           if (generation === _itemImageEditGeneration) {
-            if (_imageFrameHost) _imageFrameHost.setSwapBusy(false);
+            _syncItemSwapBusy();
             imageGroup.inert = false;
             imageGroup.removeAttribute("aria-busy");
           }
