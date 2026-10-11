@@ -476,10 +476,10 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - One line for **every** AC in `requirements.md`. P1 ACs may cite their P1 stamp line (`- [x] AC-N — verified in P1 stamp, re-run green in CLOSE-P2-1`). AC-9.1–AC-9.4 need the full UI verification form (test + mockup state or screenshot).
   - Refuse to proceed to CLOSE-P2-4 if any `[ ]` remains.
 
-- [ ] **CLOSE-P2-4. Version bump**
+- [x] **CLOSE-P2-4. Version bump** — _spot bundle refreshed from this worktree's own script (sqld reachable over Tailscale; no new complete UTC day since P1, so the year JSON and bundle were already current); version lock re-claimed for 3.36.47 (the first claim had expired); six release files bumped, What's New trimmed to 5, sw.js stamped by the hook; commit `v3.36.47 — STRK-427: renderers adopt shared image frames (P2)`._
   - Run **`/update-spot-bundle`**, then **MUST invoke `/release patch`** as a skill.
 
-- [ ] **CLOSE-P2-5. Vault update + close issue**
+- [x] **CLOSE-P2-5. Vault update + close issue** — _documentation audit only, no Plane change: `.context/style.html` (renderer frames block), `.context/deep-dives/data-model.md` (renderer reader note) and `.context/GLOSSARY.md` were updated in `522f1120`; StakTrakr has no in-repo `DocVault/` (`vault-path project` exits 2); the private companion holds only the archived STRK-67 spec, which is historical and left as written; the shared KnowledgeBase has no renderer-frame page. STRK-427 stays In Progress (closes after STRK-434)._
   - **MUST invoke `/vault-update`** as a skill. `.context/style.html` and `.context/deep-dives/data-model.md` should reflect the renderer frames; the skill audits for this.
   - Documentation audit only. Do **not** change STRK-427's Plane state here: the Done transition moves to CLOSE-P2-8, after the verified merge and the archive (`.context/implementation-gotchas.md` §Closing task ordering).
 
