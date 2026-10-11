@@ -175,7 +175,7 @@ A Collection whose Slots the user defines — built blank or cloned from a Serie
 _Avoid_: user collection, custom list, custom set
 
 **Image Shape**:
-The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin. One shape covers both sides. For an Item it is **derived** from Type, grading and the Numista shape (grading wins; Bar and Set are Bar; Note, Aurum, Goldback and Silverback are Note; a Coin with a non-round Numista shape is Bar; else Round) and **stored only when the user chose a different one** (`imageShape`, written sparsely with the legacy `*ImageFrame` projection for older builds). The shared image-frame editor follows Type while the shape is untouched and leaves a chosen shape alone (STRK-427).
+The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin. One shape covers both sides. For an Item it is **derived** from Type, grading and the Numista shape (grading wins; Bar and Set are Bar; Note, Aurum, Goldback and Silverback are Note; a Coin with a non-round Numista shape is Bar; else Round) and **stored only when the user chose a different one** (`imageShape`, written sparsely with the legacy `*ImageFrame` projection for older builds). The shared image-frame editor re-derives on a Type change while the shape still equals the previous Type's default, and leaves a shape that differs from it alone; a grade or Numista change moves only a shape the user has not chosen, so clicking the already-selected shape pins it against those two but not against Type (STRK-427).
 _Avoid_: graded type, slabbed type
 
 **Image Orientation**:
