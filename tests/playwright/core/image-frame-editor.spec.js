@@ -142,6 +142,33 @@ async function openEditModal(page, uuid = SEED_ITEM.uuid) {
 }
 
 /**
+ * Opens the Duplicate modal for a seeded item through the production entry point.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} [uuid] - Source item uuid
+ * @returns {Promise<void>}
+ */
+async function openDuplicateModal(page, uuid = SEED_ITEM.uuid) {
+  await page.evaluate(
+    (id) => window.duplicateItem(window.inventory.findIndex((item) => item.uuid === id)),
+    uuid
+  );
+  await expect(page.locator("#itemModal")).toBeVisible();
+  await settleModal(page);
+}
+
+/**
+ * Reads the record a save created next to the seeded source item.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} [sourceUuid] - Source item uuid
+ * @returns {Promise<object>} The newly created copy
+ */
+const copyOf = (page, sourceUuid = SEED_ITEM.uuid) =>
+  page.evaluate(
+    (id) => JSON.parse(JSON.stringify(window.inventory.find((item) => item.uuid !== id))),
+    sourceUuid
+  );
+
+/**
  * Locators for the editor inside the item modal.
  * @param {import('@playwright/test').Page} page - Page under test
  * @returns {{root: import('@playwright/test').Locator, frames: import('@playwright/test').Locator,
@@ -418,6 +445,54 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
       '.clone-section-cb[data-clone-section="numistaData"]'
     );
     for (const key of FRAME_KEYS) expect(clone[key], `${key} derives Round`).toBeUndefined();
+  });
+
+  test("duplicate: a Bar item opens with Bar selected and saves the copy sparse (Codex P2)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, { items: [{ ...SEED_ITEM, type: "Bar" }] });
+    await openDuplicateModal(page);
+    const ife = editor(page);
+    // duplicateItem stays in add mode and never opens through the edit seed, so the editor
+    // must be seeded from the source record or it keeps the fresh-page Round.
+    await expect(ife.shape.getByLabel("Bar")).toBeChecked();
+    await expectFrame(ife.frames.nth(0), "bar", "portrait");
+
+    await submit(page);
+    const copy = await copyOf(page);
+    expect(copy.name).toBe(SEED_ITEM.name);
+    for (const key of FRAME_KEYS) expect(copy[key], `${key} derives Bar`).toBeUndefined();
+  });
+
+  test("duplicate: an explicitly framed item keeps its shape and orientation (Codex P2)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [
+        {
+          ...SEED_ITEM,
+          imageShape: "note",
+          obverseImageOrientation: "portrait",
+          obverseImageFrame: "rectangle",
+          reverseImageFrame: "rectangle",
+        },
+      ],
+    });
+    await openDuplicateModal(page);
+    const ife = editor(page);
+    await expect(ife.shape.getByLabel("Note")).toBeChecked();
+    await expect(ife.orient("Obverse").getByLabel("Portrait")).toBeChecked();
+    await expect(ife.orient("Reverse").getByLabel("Landscape")).toBeChecked();
+    await expectFrame(ife.frames.nth(0), "note", "portrait");
+    await expectFrame(ife.frames.nth(1), "note", "landscape");
+
+    await submit(page);
+    const copy = await copyOf(page);
+    expect(copy.imageShape).toBe("note");
+    expect(copy.obverseImageOrientation).toBe("portrait");
+    expect(copy.reverseImageOrientation).toBeUndefined();
+    expect(copy.obverseImageFrame).toBe("rectangle");
+    expect(copy.reverseImageFrame).toBe("rectangle");
   });
 
   test("E-mixed: Swap exchanges the images and their orientations and leaves the shape alone", async ({

@@ -225,7 +225,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
 
 Totals: 75 unit + 23 + 10 + 2 + 5 = 115 RED assertions-by-test; every pre-existing test is green except the five re-baselined locators.
 
-**Test inventory delta for the P1 PR:** `+91 unit tests, +28 +9 +3 +5 = +45 Playwright tests, +3 files (image-frame.test.js, cloud-sync-image-frame-hash.test.js, image-frame-editor.spec.js)` (26 editor cases at C.10 plus 2 clone-clearing cases, and 7 Collections cases plus 2 builder-swap race cases, added for the Codex findings on PR #1572); no test removed or edited (five locator strings re-baselined, Tradeoff 10).
+**Test inventory delta for the P1 PR:** `+91 unit tests, +30 +9 +3 +5 = +47 Playwright tests, +3 files (image-frame.test.js, cloud-sync-image-frame-hash.test.js, image-frame-editor.spec.js)` (26 editor cases at C.10 plus 2 clone-clearing and 2 duplicate-framing cases, and 7 Collections cases plus 2 builder-swap race cases, added for the Codex findings on PR #1572); no test removed or edited (five locator strings re-baselined, Tradeoff 10).
 
 ## Sprint Cohort C — Implementation · GREEN (sequential)
 
@@ -341,7 +341,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **File:** _no file changes — verification only_
   - Run `npm test` (core Playwright PR gate), plus `npm run test:unit` and `npm run lint`, with counts compared to the pre-change inventory plus the B delta. `npm run test:legacy` is expected to fail only on the superseded `strk-121` toggle cases (Tradeoff 6); record that.
   - If anything else fails: fix the implementation, not the test.
-  - _Result (final tree, after the CLOSE-P1-2 refactor): unit 1138/1138; core Playwright 878/878 (837 on `dev` + 41 new: 26 + 7 + 3 + 5; the review fixes on PR #1572 added 2 clone cases and 2 builder-swap race cases, so the gate is now 882/882, re-run green after the fixes); `npm run lint` and `npm run lint:md:all` clean. `npm run test:legacy` (604 archived tests): `origin/dev` already fails 235 of them (archive rot, not a CI gate); this branch fails 234. The one failure only this branch has is `strk-121-image-frame-override` "edit modal cycles, swaps, removes, previews URL images, and clears explicit overrides back to absent auto", the superseded three-state toggle (Tradeoff 6). Two tests that fail on `dev` pass here. No other regression._
+  - _Result (final tree, after the CLOSE-P1-2 refactor): unit 1138/1138; core Playwright 878/878 (837 on `dev` + 41 new: 26 + 7 + 3 + 5; the review fixes on PR #1572 added 2 clone cases, 2 builder-swap race cases and 2 duplicate-framing cases, so the gate is now 884/884, re-run green after the fixes); `npm run lint` and `npm run lint:md:all` clean. `npm run test:legacy` (604 archived tests): `origin/dev` already fails 235 of them (archive rot, not a CI gate); this branch fails 234. The one failure only this branch has is `strk-121-image-frame-override` "edit modal cycles, swaps, removes, previews URL images, and clears explicit overrides back to absent auto", the superseded three-state toggle (Tradeoff 6). Two tests that fail on `dev` pass here. No other regression._
 
 - [x] **CLOSE-P1-2. Codacy CLI scan** — security + quality
   - **File:** _no file changes — scan only_
@@ -654,4 +654,4 @@ _Shorthand: **EDITOR** = `tests/playwright/core/image-frame-editor.spec.js`; **C
 
 - [x] AC-10.1 — verified by COLL "STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios" and "STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio" + visually verified against mockup state "B-builder" and the STRK-421 baseline (`B-builder-*`)
 - [x] AC-10.2 — verified at `css/styles.css` (`git diff origin/dev...HEAD -- css/styles.css` adds 0 `var(--surface)`; the editor's own surfaces use `--bg-card`, and the STRK-426 badge rules are untouched) and EDITOR "AC-6.3: the editor is legible in light, dark, slate and sepia at desktop and 390px"
-- [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv:164-167` (EDITOR new, 28 cases; COLL +9, DATA +3, IMPEXP +5); inventory delta `+91 unit tests, +45 Playwright tests (28+9+3+5), +3 files` goes in the PR body (CLOSE-P1-6)
+- [x] AC-10.3 — verified at `tests/playwright/coverage-map.csv:164-167` (EDITOR new, 30 cases; COLL +9, DATA +3, IMPEXP +5); inventory delta `+91 unit tests, +47 Playwright tests (30+9+3+5), +3 files` goes in the PR body (CLOSE-P1-6)
