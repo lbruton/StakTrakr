@@ -4040,8 +4040,16 @@ input[type="submit"] {
   --ife-r: var(--frame-note-portrait);
 }
 
+/* STRK-434: neither modal crops. A frame holding an image draws no fill or border of its own, so
+   the bands left by a photo whose ratio differs from the frame's are invisible and the photo
+   reads as if the frame were sized to it; the photo is scaled to fit whole, never filled. */
 .ife-frame.has-image {
-  border: 1px solid var(--border);
+  border: 0;
+  background: transparent;
+}
+
+.ife .ife-frame img {
+  object-fit: contain;
 }
 
 /* Item modal: both frames are always visible (AC-1.5). The stage is a square bounding box so

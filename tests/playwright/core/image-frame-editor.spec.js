@@ -1293,4 +1293,39 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     await expect(page.locator("#itemObverseImageUrl")).toBeHidden();
     await expect(page.locator("#itemReverseImageUrl")).toBeHidden();
   });
+
+  // Neither modal crops (decided by Lonnie, 2026-10-11): a photo is scaled to fit whole inside
+  // the fixed-ratio frame, and a frame holding an image draws no fill or border of its own, so
+  // the bands left by a mismatched photo are invisible.
+  for (const kind of ["item", "builder"]) {
+    for (const shape of ["Round", "Bar", "Note", "Slab"]) {
+      test(`row 11: the ${kind} modal fits a photo whole in a ${shape} frame, with no fill or border`, async ({
+        page,
+      }) => {
+        const host = await openParityHost(page, kind);
+        await host.file(page).setInputFiles("tests/playwright/helpers/test-obverse.png");
+        const root = page.locator(`${host.modal} .ife`);
+        await root.getByRole("radiogroup", { name: "Image shape" }).getByLabel(shape).check();
+        const frame = root.locator(".ife-frame").first();
+        await expect(frame).toHaveClass(/has-image/);
+        const report = await frame.evaluate((node) => {
+          const style = getComputedStyle(node);
+          const ctx = document.createElement("canvas").getContext("2d", {
+            willReadFrequently: true,
+          });
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = style.backgroundColor;
+          ctx.fillRect(0, 0, 1, 1);
+          return {
+            fit: getComputedStyle(node.querySelector("img")).objectFit,
+            border: parseFloat(style.borderTopWidth) || 0,
+            backgroundAlpha: ctx.getImageData(0, 0, 1, 1).data[3],
+          };
+        });
+        expect(report.fit).toBe("contain");
+        expect(report.border).toBe(0);
+        expect(report.backgroundAlpha).toBe(0);
+      });
+    }
+  }
 });
