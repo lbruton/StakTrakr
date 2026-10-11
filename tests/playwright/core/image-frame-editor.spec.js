@@ -214,6 +214,24 @@ async function openGrading(page) {
   if (!(await section.evaluate((el) => el.open))) await section.locator("summary").click();
 }
 
+/**
+ * From the open edit modal, enters clone mode, unchecks one clone control, and saves.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} controlSelector - The clone checkbox to uncheck
+ * @param {{grading?: boolean}} [options] - Open the collapsed Grading section first
+ * @returns {Promise<object>} The newly created clone record
+ */
+async function saveCloneWithout(page, controlSelector, { grading = false } = {}) {
+  await page.locator("#cloneItemBtn").click();
+  if (grading) await openGrading(page);
+  await page.locator(controlSelector).uncheck();
+  await submit(page);
+  return page.evaluate(
+    (id) => JSON.parse(JSON.stringify(window.inventory.find((item) => item.uuid !== id))),
+    SEED_ITEM.uuid
+  );
+}
+
 test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
   test("E-empty: shape control and both empty frames show before any image exists, flag off hides the group", async ({
     page,
@@ -364,6 +382,42 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
       window.notifyImageFrameSignals("numista");
     });
     await expectFrame(ife.frames.nth(0), "bar", "portrait");
+  });
+
+  test("clone: unchecking Grading Authority re-derives an untouched Slab to Round, stored sparse (Codex P2)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, grade: "MS 69", gradingAuthority: "PCGS" }],
+    });
+    await openEditModal(page);
+    await expectFrame(editor(page).frames.nth(0), "slab");
+
+    // clearUncheckedCloneFields() clears the select programmatically (no change event) just
+    // before parseItemFormFields, so the editor must be told before the frame is collected.
+    const clone = await saveCloneWithout(
+      page,
+      '.clone-field-cb[data-clone-field="gradingAuthority"]',
+      { grading: true }
+    );
+    expect(clone.gradingAuthority || "").toBe("");
+    for (const key of FRAME_KEYS) expect(clone[key], `${key} derives Round`).toBeUndefined();
+  });
+
+  test("clone: unchecking the Numista Data section re-derives an untouched Bar to Round, stored sparse (Codex P2)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, numistaData: { shape: "Rectangular" } }],
+    });
+    await openEditModal(page);
+    await expectFrame(editor(page).frames.nth(0), "bar", "portrait");
+
+    const clone = await saveCloneWithout(
+      page,
+      '.clone-section-cb[data-clone-section="numistaData"]'
+    );
+    for (const key of FRAME_KEYS) expect(clone[key], `${key} derives Round`).toBeUndefined();
   });
 
   test("E-mixed: Swap exchanges the images and their orientations and leaves the shape alone", async ({

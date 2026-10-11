@@ -279,8 +279,21 @@ function isCloneFieldChecked(key) {
 }
 
 /**
+ * Tell the image-frame editor that clone clearing may have moved a derivation signal (STRK-427).
+ * Clearing Grading Authority or the Numista Data section sets `.value`/`selectedIndex`
+ * directly, which fires no `change` event, so the editor must be notified explicitly (D-6).
+ * A notify that derives the same shape is a no-op, and a user-chosen shape is never moved.
+ */
+function notifyCloneImageFrameSignals() {
+  if (typeof window.notifyImageFrameSignals !== "function") return;
+  window.notifyImageFrameSignals("grading");
+  window.notifyImageFrameSignals("numista");
+}
+
+/**
  * Clear unchecked clone fields in the DOM BEFORE parseItemFormFields reads them.
- * This ensures the first clone respects checkbox state.
+ * This ensures the first clone respects checkbox state, and re-derives the image-frame
+ * shape from the cleared grading and Numista signals before the frame is collected.
  */
 function clearUncheckedCloneFields() {
   CLONE_FIELDS.forEach(({ labelFor, key }) => {
@@ -306,12 +319,15 @@ function clearUncheckedCloneFields() {
       else input.value = "";
     });
   });
+
+  notifyCloneImageFrameSignals();
 }
 
 /**
  * Reset unchecked fields after "Save & Clone Another".
  * Checked fields keep their values; unchecked fields are cleared.
- * Clone control checkboxes are preserved.
+ * Clone control checkboxes are preserved. The image-frame editor is re-derived from the
+ * cleared grading and Numista signals so the next clone starts from the right shape.
  */
 function resetUncheckedCloneFields() {
   CLONE_FIELDS.forEach(({ labelFor, key }) => {
@@ -338,6 +354,8 @@ function resetUncheckedCloneFields() {
         else input.value = "";
       });
   });
+
+  notifyCloneImageFrameSignals();
 }
 
 /**
