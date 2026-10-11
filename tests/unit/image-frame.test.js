@@ -69,6 +69,11 @@ describe("deriveImageShape — the one resolver (AC-4.1, AC-4.2)", () => {
       "bar",
     ],
     [
+      "a Coin with a whitespace-only Numista shape is Round (absent, not non-round)",
+      { type: "Coin", numistaShape: "   " },
+      "round",
+    ],
+    [
       "a Round-type with a non-round Numista shape stays Round (Coin only, D-18)",
       { type: "Round", numistaShape: "Rectangular" },
       "round",

@@ -692,6 +692,23 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
     expect(stored.obverseImageFrame).toBe("rectangle");
     expect(stored.reverseImageFrame).toBe("rectangle");
   });
+
+  test("edit: a legacy rectangle Coin keeps following Type when Type changes to Goldback (Codex P2)", async ({
+    page,
+  }) => {
+    // The Bar shown for a legacy rectangle on a plain Coin is a display fallback, not a choice
+    // (D-3): the shape was never chosen, so a Type change must still move it (AC-8.1).
+    await seedAndGoto(page, { items: [{ ...SEED_ITEM, obverseImageFrame: "rectangle" }] });
+    await openEditModal(page);
+    const ife = editor(page);
+    await expect(ife.shape.getByLabel("Bar")).toBeChecked();
+    await page.locator("#itemType").selectOption("Goldback");
+    await expect(ife.shape.getByLabel("Note")).toBeChecked();
+    await expectFrame(ife.frames.nth(0), "note", "landscape");
+    await submit(page);
+    const stored = await storedItem(page);
+    for (const key of FRAME_KEYS) expect(stored[key], `${key} follows Type`).toBeUndefined();
+  });
 });
 
 test.describe("core/image-frame-editor — layout, themes and builder parity (STRK-427)", () => {

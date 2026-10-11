@@ -327,9 +327,12 @@
     const reset = () => seed({});
 
     /**
-     * A derivation signal changed (D-5). A Type change re-derives only while the shape still
-     * equals what the previous signals derived; grading and Numista changes re-derive only
-     * while the user has not chosen a shape.
+     * A derivation signal changed (D-5). A Type change re-derives while the shape is unchosen
+     * or still equals what the previous signals derived; a chosen shape that differs from the
+     * previous Type's derived shape is left alone (AC-4.4). An unchosen shape can differ from
+     * the previous derived shape only through the legacy-rectangle display fallback (D-3), and
+     * it still follows Type (AC-8.1). Grading and Numista changes re-derive only while the user
+     * has not chosen a shape.
      * @param {string} kind - "type", "grading" or "numista"
      */
     const signalsChanged = (kind) => {
@@ -338,7 +341,7 @@
       // edit-open and prefill, and that must not move a legacy or pinned shape.
       if (next === previousDerived) return;
       if (kind === "type") {
-        if (state.shape === previousDerived) applyShape(next, false);
+        if (!state.shapeChosen || state.shape === previousDerived) applyShape(next, false);
       } else if (!state.shapeChosen) {
         applyShape(next, false);
       }

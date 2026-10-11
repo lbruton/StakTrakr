@@ -1284,8 +1284,8 @@
       lockPill.hidden = !lock;
     };
     itemType.addEventListener("change", () => {
-      // A Type change re-derives the shape only while it still equals the previous Type's
-      // derived shape (AC-4.3, AC-4.4); a chosen shape is left alone.
+      // A Type change re-derives the shape while it is unchosen or still equals the previous
+      // Type's derived shape (AC-4.3); a chosen shape that differs from it is left alone (AC-4.4).
       if (frameEditor) frameEditor.signalsChanged("type");
       applyTypeLock();
     });

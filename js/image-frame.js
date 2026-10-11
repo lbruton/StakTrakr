@@ -107,16 +107,18 @@ function defaultImageOrientation(shape) {
 
 /**
  * Whether a raw Numista shape describes something other than a round piece.
- * @param {*} rawShape - Numista shape text, possibly absent
+ * @param {*} rawShape - Numista shape text, possibly absent or whitespace-only (absent)
  * @returns {boolean} True for a present, non-round shape
  */
 function imageFrameIsNonRoundShape(rawShape) {
-  const rawText = String(rawShape || "").toLowerCase();
+  const trimmedShape = String(rawShape || "").trim();
+  if (!trimmedShape) return false;
+  const rawText = trimmedShape.toLowerCase();
   const category =
     typeof window !== "undefined" && typeof window.classifyShape === "function"
-      ? window.classifyShape(rawShape)
+      ? window.classifyShape(trimmedShape)
       : typeof classifyShape === "function"
-        ? classifyShape(rawShape)
+        ? classifyShape(trimmedShape)
         : rawText.startsWith("round") || rawText.startsWith("circular")
           ? "round"
           : rawText;
