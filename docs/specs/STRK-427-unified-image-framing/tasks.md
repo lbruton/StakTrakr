@@ -80,7 +80,7 @@ _Independent files, so these can be dispatched concurrently. Scaffolding, data s
 
 _TDD red phase. Each test encodes an acceptance criterion and **must fail** before Cohort C. Playwright cases assert the interaction flow and DOM structure (visible controls, checked state, rendered frame geometry, stored keys after reopen), never storage alone (`.context/testing.md`). Item-modal cases open the modal via `#newItemBtn` after `window.appListenersReady`, or with `window.editItem(idx)`, and switch themes with `window.setTheme(name)`._
 
-- [ ] **B.1** — Unit RED: resolver, reader, writer, normalizers
+- [x] **B.1** — Unit RED: resolver, reader, writer, normalizers
   - **File(s):** `tests/unit/image-frame.test.js` (new)
   - **Acceptance:** Failing cases for:
     - `deriveImageShape`: the AC-4.2 order (grading first → Slab; Bar/Set → Bar; Note/Aurum/Goldback/Silverback → Note; Coin + non-round Numista → Bar; else Round; non-Coin + non-round Numista → by Type, D-18).
@@ -96,7 +96,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** `js/image-frame.js:31-65` (current resolver); `tests/unit/helpers/source-extract.js`; the `utils.js` loading pattern in `tests/unit/collections-core.test.js`.
   - **Maps to:** AC-4.1, AC-4.2, AC-7.1, AC-7.3, AC-8.1, AC-8.2, AC-8.4, AC-8.5
 
-- [ ] **B.2** — Unit RED: Collections reverse key and the resolver seam
+- [x] **B.2** — Unit RED: Collections reverse key and the resolver seam
   - **File(s):** `tests/unit/collections-core.test.js` (additive cases only)
   - **Acceptance:** Failing cases for:
     - `defaultImageShapeForType` delegates to `window.deriveImageShape` (Goldback → Note), and **fails closed to Round** under the loader without `image-frame.js`.
