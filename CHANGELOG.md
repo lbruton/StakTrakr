@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.47] - 2026-10-11
+
+### Changed — STRK-427: Shared image frames in the table, cards and detail view (phase 2)
+
+- **Frames match the modal**: The inventory table, the card views and the item detail view now frame each image with the shape and orientation you chose in the item modal (Round, Bar, Note or Slab, with Portrait or Landscape for Bars and Notes), so what you set is what you see (STRK-427).
+- **Photos are never cropped**: Bar, Note and Slab photos are letterboxed inside their frame instead of being stretched or cut. Table thumbnails stay 28px tall and widen or narrow with the frame, and the placeholder for an item without a photo follows the same frame (STRK-427).
+- **Older rectangle items**: Items saved with the old rectangular frame show as a portrait Bar until you pick Landscape or another shape (STRK-427).
+
+---
+
 ## [3.36.46] - 2026-10-11
 
 ### Changed — STRK-427: Shared image-frame editor (phase 1)
