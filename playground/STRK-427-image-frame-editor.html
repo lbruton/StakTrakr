@@ -1,0 +1,1216 @@
+<!doctype html>
+<!--
+  STRK-427 · Shared image-frame editor — A.1 mockup (implementation gate)
+
+  STATUS: PENDING USER APPROVAL.
+  Approval record (fill in on sign-off):  approved: ____-__-__  by: lbruton
+  Decisions to confirm (also listed in the page header):
+    1. Desktop preview bounding box = 200px square (was 140px max-height). Fits the 700px dialog; no widening.
+    2. Desktop layout: Upload/URL/Camera/Remove sit in a row UNDER each preview (they stack to its right today).
+       At <=768px the existing preview-left / buttons-right arrangement is kept untouched.
+    3. Orientation groups are one per side, "Obverse orientation" / "Reverse orientation" (STRK-424 Option C).
+    4. Frame ratio tokens become unitless numbers (0.6, 1.6, 0.4878, 2.05, 0.68) so they work in both
+       aspect-ratio and calc(). Rendered ratios are identical to today's `3 / 5`, `1 / 2.05`, ... values.
+    5. Empty frames stay visible with a dashed "+" (AC-1.5); Swap appears only when BOTH sides hold an image.
+    6. P2: table thumb 28px tall with width clamped to 18-40px; images use object-fit: contain.
+
+  This file reuses the real css/styles.css (tokens, four themes, .collections-segmented*, .btn.img-btn*).
+  Only the `.ife*` and mock-chrome rules below are new; the `.ife*` block is what task C.3 ships.
+-->
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>STRK-427 · Shared image-frame editor</title>
+    <script>
+      // Theme before first paint: ?theme=light|dark|slate|sepia
+      document.documentElement.dataset.theme =
+        new URLSearchParams(location.search).get("theme") || "dark";
+    </script>
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      /* ───────────── Mock chrome (not shipped) ───────────── */
+      body {
+        margin: 0;
+        padding: 1.25rem;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-family, system-ui, sans-serif);
+      }
+      body[data-embed] {
+        padding: 0.75rem;
+      }
+      h1 {
+        font-size: var(--font-size-xl, 1.25rem);
+        margin: 0 0 0.25rem;
+      }
+      h2.sec {
+        font-size: var(--font-size-lg, 1.1rem);
+        margin: 2rem 0 0.25rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+      }
+      .lede,
+      .note {
+        color: var(--text-secondary);
+        max-width: 78ch;
+        margin: 0.25rem 0 0.75rem;
+        font-size: var(--font-size-sm, 0.9rem);
+      }
+      .note b {
+        color: var(--text-primary);
+      }
+      .decisions {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-secondary);
+        padding: 0.75rem 1rem 0.75rem 2rem;
+        font-size: var(--font-size-sm, 0.9rem);
+        color: var(--text-secondary);
+        max-width: 90ch;
+      }
+      .decisions li {
+        margin: 0.25rem 0;
+      }
+      .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 0.75rem 0;
+      }
+      .toolbar a {
+        padding: 0.35rem 0.9rem;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: var(--font-size-sm, 0.9rem);
+      }
+      .toolbar a[aria-current="true"] {
+        background: var(--primary);
+        color: var(--text-inverse);
+        border-color: var(--primary);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(740px, 1fr));
+        gap: 1.25rem;
+        align-items: start;
+      }
+      .state-card {
+        min-width: 0;
+      }
+      .state-card > h3 {
+        font-size: var(--font-size-md, 1rem);
+        margin: 0 0 0.15rem;
+      }
+      .state-card > h3 code {
+        font-size: 0.8em;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+      }
+      .state-card > p {
+        margin: 0 0 0.5rem;
+        font-size: var(--font-size-sm, 0.85rem);
+        color: var(--text-secondary);
+      }
+      /* 700px dialog stand-in (desktop) */
+      .mock-modal {
+        width: 700px;
+        max-width: 100%;
+        box-sizing: border-box;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
+        padding: 1rem 1.25rem 1.25rem;
+      }
+      .mock-modal-title {
+        font-weight: 700;
+        margin: 0 0 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .mock-field {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 0 0 0.75rem;
+        font-size: var(--font-size-sm, 0.9rem);
+        color: var(--text-secondary);
+      }
+      .mock-field label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        font-size: var(--font-size-xs, 0.75rem);
+      }
+      .mock-field select,
+      .mock-field input {
+        min-height: 36px;
+        padding: 0.3rem 0.5rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font: inherit;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
+      }
+      .mock-host-tag {
+        font-size: var(--font-size-xs, 0.72rem);
+        color: var(--text-muted, var(--text-secondary));
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0 0 0.35rem;
+      }
+      .mock-shell-m {
+        width: 390px;
+      }
+      iframe.shell {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-primary);
+        max-width: 100%;
+      }
+      .matrix {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+      .matrix figure {
+        margin: 0;
+      }
+      .matrix figcaption {
+        font-size: var(--font-size-xs, 0.78rem);
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0 0 0.25rem;
+      }
+      .ife-stored {
+        margin: 0.75rem 0 0;
+        padding: 0.5rem 0.7rem;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font:
+          0.75rem/1.45 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        white-space: pre-wrap;
+      }
+      .ife-stored b {
+        color: var(--text-primary);
+      }
+      svg {
+        display: block;
+      }
+
+      /* ═════════════ SHIPPED BLOCK: what C.3 adds to css/styles.css (.ife-scoped) ═════════════ */
+      :root {
+        /* A.3: tokens move to :root. Unitless numbers work in aspect-ratio AND calc(). */
+        --frame-bar-portrait: 0.6; /* was 3 / 5 */
+        --frame-bar-landscape: 1.6;
+        --frame-note-portrait: 0.4878; /* was 1 / 2.05 */
+        --frame-note-landscape: 2.05;
+        --frame-slab: 0.68; /* builder Slab was 3 / 4 (0.75): AC-10.1 intended change */
+      }
+      .ife {
+        --ife-box: 200px; /* AC-6.1: was max-height 140px. Decision 1. */
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+      }
+      .ife-shape {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .ife-cap {
+        font-size: var(--font-size-xs, 0.75rem);
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .ife-sides {
+        display: flex;
+        gap: var(--spacing-md, 1rem);
+        align-items: flex-start;
+        justify-content: center;
+      }
+      .ife-side {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .ife-swap {
+        flex: 0 0 auto;
+        align-self: center;
+        padding-top: 0.5rem;
+      }
+      .ife-swap[hidden] {
+        display: none;
+      }
+      .ife-stage {
+        position: relative;
+        width: min(100%, var(--ife-box));
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+      }
+      /* Fit the largest ratio rectangle inside the square stage. --r is a number per shape. */
+      .ife-frame {
+        --r: 1;
+        position: relative;
+        width: calc(100% * min(1, var(--r)));
+        aspect-ratio: var(--r);
+        box-sizing: border-box;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border: 2px dashed var(--border-hover, var(--border));
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        font-size: var(--font-size-2xl, 1.5rem);
+        cursor: pointer;
+        padding: 0;
+        font-family: inherit;
+        transition:
+          width 0.15s,
+          aspect-ratio 0.15s,
+          border-radius 0.15s;
+      }
+      .ife-frame[data-shape="round"] {
+        --r: 1;
+        border-radius: 50%;
+      }
+      .ife-frame[data-shape="slab"] {
+        --r: var(--frame-slab);
+        border-radius: 8px;
+      }
+      .ife-frame[data-shape="bar"] {
+        border-radius: 6px;
+        --r: var(--frame-bar-landscape);
+      }
+      .ife-frame[data-shape="bar"][data-orientation="portrait"] {
+        --r: var(--frame-bar-portrait);
+      }
+      .ife-frame[data-shape="note"] {
+        border-radius: 4px;
+        --r: var(--frame-note-landscape);
+      }
+      .ife-frame[data-shape="note"][data-orientation="portrait"] {
+        --r: var(--frame-note-portrait);
+      }
+      .ife-frame.has-image {
+        border: 1px solid var(--border);
+        cursor: default;
+      }
+      .ife-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* bullion photos are never cropped (D-17) */
+        display: block;
+      }
+      .ife-frame:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      /* Remove badge keeps its shipped STRK-426 tokens (--bg-card, never --surface). */
+      .ife-remove {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        z-index: 1;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--border-hover);
+        border-radius: 50%;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        cursor: pointer;
+        line-height: 1;
+      }
+      .ife-remove[hidden] {
+        display: none;
+      }
+      .ife-orient {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .ife-orient[hidden] {
+        display: none;
+      }
+      .ife .collections-segmented {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .ife .collections-segmented-option span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.4rem 0.9rem;
+        font-size: var(--font-size-sm, 0.9rem);
+      }
+      .ife-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .ife-actions .btn[hidden] {
+        display: none;
+      }
+      .ife-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+      }
+      @media (max-width: 768px) {
+        .ife {
+          --ife-box: 140px; /* existing mobile cap: unchanged */
+        }
+        .ife-side {
+          gap: 0.4rem;
+        }
+        /* Existing mobile arrangement kept: preview left, buttons stacked right. */
+        .ife-card {
+          flex-direction: row;
+          align-items: stretch;
+          gap: var(--spacing-md, 0.75rem);
+        }
+        .ife-card .ife-stage {
+          flex: 1;
+          width: auto;
+          min-width: 0;
+          max-width: var(--ife-box);
+        }
+        .ife-card .ife-actions {
+          flex-direction: column;
+          flex-shrink: 0;
+          justify-content: center;
+        }
+        .ife .collections-segmented-option span {
+          min-height: 44px; /* 44px touch target (design philosophy) */
+          padding: 0.4rem 0.6rem;
+          box-sizing: border-box;
+        }
+        .ife .collections-segmented-option {
+          flex: 1 1 auto;
+        }
+        .ife-remove {
+          width: 32px;
+          height: 32px;
+        }
+      }
+      /* Option M-B (for approval): stack the buttons under a full-size preview on mobile too.
+         Departs from "existing elements unchanged" (AC-6.2) but gives a 140px preview, not ~60px. */
+      @media (max-width: 768px) {
+        .ife.ife--stack .ife-card {
+          flex-direction: column;
+          align-items: center;
+        }
+        .ife.ife--stack .ife-card .ife-stage {
+          flex: none;
+          width: min(100%, var(--ife-box));
+        }
+        .ife.ife--stack .ife-card .ife-actions {
+          flex-direction: row;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+      }
+      /* Narrow phones: orientation options become icon-only (text stays for assistive tech)
+         so the two-option pill never wraps into two rows. */
+      @media (max-width: 560px) {
+        .ife-orient .collections-segmented-option span {
+          font-size: 0;
+          gap: 0;
+          min-width: 44px;
+          justify-content: center;
+        }
+        .ife-orient .collections-segmented-option span svg {
+          width: 20px;
+          height: 20px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ife-frame {
+          transition: none;
+        }
+      }
+      @media (max-width: 768px) {
+        .mock-modal {
+          width: auto;
+          padding: 0.75rem;
+        }
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ═════════════ P2 mock surfaces (renderer frames) ═════════════ */
+      .p2-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+        gap: 1rem;
+      }
+      .p2-panel {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-card);
+        padding: 0.75rem 1rem;
+      }
+      .p2-panel h4 {
+        margin: 0 0 0.5rem;
+        font-size: var(--font-size-sm, 0.9rem);
+      }
+      .p2-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.3rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: var(--font-size-sm, 0.9rem);
+      }
+      .p2-row:last-child {
+        border-bottom: 0;
+      }
+      .p2-thumbbox {
+        flex: 0 0 40px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+      }
+      .p2-frame {
+        --r: 1;
+        --bh: 28px; /* bounding box height, per surface */
+        --bw: 40px; /* bounding box width, per surface */
+        width: min(var(--bw), calc(var(--bh) * var(--r)));
+        aspect-ratio: var(--r);
+        box-sizing: border-box;
+        overflow: hidden;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        display: grid;
+        place-items: center;
+      }
+      .p2-frame[data-shape="round"] {
+        --r: 1;
+        border-radius: 50%;
+      }
+      .p2-frame[data-shape="slab"] {
+        --r: var(--frame-slab);
+        border-radius: 4px;
+      }
+      .p2-frame[data-shape="bar"] {
+        --r: var(--frame-bar-landscape);
+        border-radius: 4px;
+      }
+      .p2-frame[data-shape="bar"][data-orientation="portrait"] {
+        --r: var(--frame-bar-portrait);
+      }
+      .p2-frame[data-shape="note"] {
+        --r: var(--frame-note-landscape);
+        border-radius: 3px;
+      }
+      .p2-frame[data-shape="note"][data-orientation="portrait"] {
+        --r: var(--frame-note-portrait);
+      }
+      .p2-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .p2-table-thumb {
+        --bh: 28px;
+        --bw: 40px; /* clamp: ratio-derived width capped at 40px (Note landscape would be 57px) */
+      }
+      .p2-cardA {
+        --bh: 44px;
+        --bw: 44px;
+      }
+      .p2-cardB {
+        --bh: 80px;
+        --bw: 80px;
+      }
+      .p2-cardC {
+        --bh: 56px;
+        --bw: 80px;
+      }
+      .p2-view {
+        --bh: 220px;
+        --bw: 200px;
+      }
+      .p2-legacy {
+        background: transparent;
+        border: 1px dashed var(--border);
+        width: auto;
+        max-width: 60px;
+        max-height: 28px;
+        aspect-ratio: auto;
+        overflow: visible;
+      }
+      .p2-legacy img {
+        width: auto;
+        height: auto;
+        max-width: 60px;
+        max-height: 28px;
+        object-fit: contain;
+      }
+      .p2-cards {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+      .p2-cardwrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: var(--font-size-xs, 0.75rem);
+        color: var(--text-secondary);
+      }
+      .p2-box {
+        outline: 1px dotted var(--border-hover);
+        outline-offset: 2px;
+        display: grid;
+        place-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script>
+      /* ═════════ Sample art (inline SVG, real coin / bar / note names) ═════════ */
+      const uri = (svg) => "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+      const ART = {
+        coin: (side) =>
+          uri(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><radialGradient id="g" cx=".35" cy=".3"><stop offset="0" stop-color="#f6f6f8"/><stop offset="1" stop-color="#8d929b"/></radialGradient></defs><circle cx="100" cy="100" r="97" fill="url(#g)" stroke="#5d626a" stroke-width="3"/><circle cx="100" cy="100" r="82" fill="none" stroke="#5d626a" stroke-width="1.5"/><text x="100" y="86" text-anchor="middle" font-family="Georgia,serif" font-size="15" font-weight="700" fill="#3c4048">${side === "obv" ? "LIBERTY" : "UNITED STATES"}</text><text x="100" y="118" text-anchor="middle" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#3c4048">${side === "obv" ? "2024" : "1 OZ"}</text><text x="100" y="146" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#3c4048">.999 FINE SILVER</text></svg>`
+          ),
+        bar: (side) =>
+          uri(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eceef2"/><stop offset="1" stop-color="#9aa0aa"/></linearGradient></defs><rect x="4" y="4" width="312" height="192" rx="12" fill="url(#b)" stroke="#5d626a" stroke-width="3"/><text x="160" y="84" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="800" fill="#33373e">${side === "obv" ? "1 OZ" : "SERIAL"}</text><text x="160" y="118" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#33373e">${side === "obv" ? ".999 FINE SILVER" : "SB-004217"}</text><text x="160" y="150" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#33373e">SunShine Minting</text></svg>`
+          ),
+        note: (side) =>
+          uri(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 410 200"><rect x="3" y="3" width="404" height="194" rx="8" fill="#2f6d3d" stroke="#d6b04a" stroke-width="4"/><rect x="16" y="16" width="378" height="168" rx="5" fill="none" stroke="#d6b04a" stroke-width="2"/><text x="205" y="92" text-anchor="middle" font-family="Georgia,serif" font-size="30" font-weight="700" fill="#e9c860">${side === "obv" ? "GOLDBACK" : "ONE"}</text><text x="205" y="128" text-anchor="middle" font-family="Georgia,serif" font-size="16" fill="#e9c860">${side === "obv" ? "1/1000 OZ 24K" : "UTAH 2024"}</text></svg>`
+          ),
+        slab: (side) =>
+          uri(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 136 200"><rect x="3" y="3" width="130" height="194" rx="8" fill="#f1f1ee" stroke="#6b7078" stroke-width="3"/><rect x="12" y="12" width="112" height="34" rx="3" fill="#143d8f"/><text x="68" y="26" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#fff">PCGS</text><text x="68" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#fff">${side === "obv" ? "MS70 ASE 2024" : "CERT 82114471"}</text><circle cx="68" cy="122" r="46" fill="#c7cbd2" stroke="#6b7078" stroke-width="2"/></svg>`
+          ),
+      };
+      const KIND_FOR_TYPE = {
+        Coin: "coin",
+        Bar: "bar",
+        Set: "bar",
+        Note: "note",
+        Aurum: "note",
+        Goldback: "note",
+        Silverback: "note",
+      };
+      const NAME_FOR_TYPE = {
+        Coin: "2024 American Silver Eagle",
+        Bar: "1 oz Silver Bar, SunShine",
+        Set: "2024 Proof Set",
+        Note: "Series 1957 Silver Certificate",
+        Aurum: "Aurum 1 g Note",
+        Goldback: "Utah 1 Goldback",
+        Silverback: "Silverback 1/2 oz",
+      };
+
+      /* ═════════ Pure rules (mirrors js/image-frame.js tasks C.1; D-1…D-6) ═════════ */
+      const DEFAULT_ORIENT = { bar: "portrait", note: "landscape" };
+      const ROTATES = (shape) => shape === "bar" || shape === "note";
+      function derive({ type, grading, numista }) {
+        if (grading && grading !== "none") return "slab"; // grading first (AC-4.2)
+        if (type === "Bar" || type === "Set") return "bar";
+        if (["Note", "Aurum", "Goldback", "Silverback"].includes(type)) return "note";
+        if (type === "Coin" && numista === "rect") return "bar"; // Coin-only Numista rule
+        return "round";
+      }
+      /** D-2/D-4: store only deviations + legacy projection. */
+      function writer(state) {
+        const d = derive(state.signals);
+        const out = {};
+        const del = [];
+        if (state.shape !== d) {
+          out.imageShape = state.shape;
+          out.obverseImageFrame = out.reverseImageFrame =
+            state.shape === "round" ? "circle" : "rectangle";
+        } else {
+          del.push("imageShape", "obverseImageFrame", "reverseImageFrame");
+        }
+        ["obv", "rev"].forEach((s) => {
+          const key = s === "obv" ? "obverseImageOrientation" : "reverseImageOrientation";
+          if (ROTATES(state.shape) && state.orient[s] !== DEFAULT_ORIENT[state.shape])
+            out[key] = state.orient[s];
+          else del.push(key);
+        });
+        return { out, del };
+      }
+
+      /* ═════════ Editor prototype (mirrors the D-7 controller) ═════════ */
+      let UID = 0;
+      const SHAPES = [
+        ["round", "Round", '<circle cx="12" cy="12" r="8"/>'],
+        ["bar", "Bar", '<rect x="8" y="3" width="8" height="18" rx="1.5"/>'],
+        ["note", "Note", '<rect x="3" y="8" width="18" height="8" rx="1.5"/>'],
+        [
+          "slab",
+          "Slab",
+          '<rect x="6" y="3" width="12" height="18" rx="2"/><rect x="9" y="7" width="6" height="6" rx="3"/>',
+        ],
+      ];
+      const ICON = (inner, s = 16) =>
+        `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+      const GLYPH = {
+        portrait: '<rect x="7" y="3" width="10" height="18" rx="1.5"/>',
+        landscape: '<rect x="3" y="7" width="18" height="10" rx="1.5"/>',
+      };
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+
+      /**
+       * @param {HTMLElement} host
+       * @param {{kind:'item'|'builder', type?:string, grading?:string, numista?:string, shape?:string,
+       *   shapeChosen?:boolean, orient?:{obv:string,rev:string}, images?:{obv:boolean,rev:boolean},
+       *   artKind?:string, storedFrom?:object, signalsUi?:boolean}} o
+       */
+      function mount(host, o) {
+        const uid = ++UID;
+        const st = {
+          signals: {
+            type: o.type || "Coin",
+            grading: o.grading || "none",
+            numista: o.numista || "round",
+          },
+          shape: o.shape || null,
+          shapeChosen: !!o.shapeChosen,
+          orient: { obv: "portrait", rev: "portrait", ...(o.orient || {}) },
+          has: { obv: !!(o.images && o.images.obv), rev: !!(o.images && o.images.rev) },
+          art: o.artKind || null,
+        };
+        st.prevDerived = derive(st.signals);
+        if (!st.shape) st.shape = st.prevDerived;
+        if (!o.orient) {
+          st.orient.obv = st.orient.rev = DEFAULT_ORIENT[st.shape] || "portrait";
+        }
+        const isItem = o.kind === "item";
+        const typeOptions = isItem
+          ? ["Coin", "Bar", "Set", "Note", "Aurum", "Goldback", "Silverback"]
+          : ["Coin", "Bar", "Note", "Goldback"];
+
+        host.innerHTML = `
+          <div class="ife${o.stackMobile ? " ife--stack" : ""}" data-ife-kind="${o.kind}">
+            ${
+              o.signalsUi === false
+                ? ""
+                : `<div class="mock-host-tag">Host form fields (not part of the editor)</div>
+            <div class="mock-field">
+              <label>${isItem ? "Type" : "Item type"}<select data-sig="type">${typeOptions
+                .map((t) => `<option ${t === st.signals.type ? "selected" : ""}>${t}</option>`)
+                .join("")}</select></label>
+              ${
+                isItem
+                  ? `<label>Grading authority<select data-sig="grading"><option value="none">None</option><option value="PCGS">PCGS</option><option value="NGC">NGC</option></select></label>
+              <label>Numista shape<select data-sig="numista"><option value="round">round</option><option value="rect">rect</option></select></label>`
+                  : ""
+              }
+            </div>`
+            }
+            <div class="ife-shape">
+              <span class="ife-cap" id="cap-shape-${uid}">Image shape</span>
+              <div class="collections-segmented" role="radiogroup" aria-labelledby="cap-shape-${uid}">
+                ${SHAPES.map(
+                  ([v, l, ic]) =>
+                    `<label class="collections-segmented-option"><input type="radio" name="shape-${uid}" value="${v}" /><span>${ICON(ic)}${l}</span></label>`
+                ).join("")}
+              </div>
+            </div>
+            <div class="ife-sides">
+              ${side("obv", "Obverse")}
+              <div class="ife-swap" hidden>
+                <button type="button" class="btn btn-icon" data-act="swap" title="Swap obverse &amp; reverse" aria-label="Swap obverse and reverse images">⇄</button>
+              </div>
+              ${side("rev", "Reverse")}
+            </div>
+            <pre class="ife-stored" aria-label="Stored record preview"></pre>
+          </div>`;
+
+        function side(k, label) {
+          return `<div class="ife-side" data-side="${k}">
+            <span class="image-side-label">${label}</span>
+            <div class="ife-card">
+            <div class="ife-stage">
+              <button type="button" class="ife-frame" data-act="pick" aria-label="${label} image: add"></button>
+              ${isItem ? "" : `<button type="button" class="ife-remove" data-act="remove" aria-label="Remove ${label.toLowerCase()} image" hidden>×</button>`}
+            </div>
+            ${
+              isItem
+                ? `<div class="ife-actions"><button type="button" class="btn img-btn img-btn-upload" data-act="pick">Upload</button><button type="button" class="btn img-btn img-btn-remove" data-act="remove" hidden>Remove</button></div>`
+                : ""
+            }
+            </div>
+            <div class="ife-orient" hidden>
+              <span class="ife-cap" id="cap-${k}-${uid}">${label} orientation</span>
+              <div class="collections-segmented" role="radiogroup" aria-labelledby="cap-${k}-${uid}">
+                ${["portrait", "landscape"]
+                  .map(
+                    (v) =>
+                      `<label class="collections-segmented-option"><input type="radio" name="orient-${k}-${uid}" value="${v}" /><span>${ICON(GLYPH[v])}${v[0].toUpperCase() + v.slice(1)}</span></label>`
+                  )
+                  .join("")}
+              </div>
+            </div>
+          </div>`;
+        }
+
+        const $ = (s, r = host) => r.querySelector(s);
+        const $$ = (s, r = host) => [...r.querySelectorAll(s)];
+
+        function artFor(k) {
+          const kind = st.art || KIND_FOR_TYPE[st.signals.type] || "coin";
+          return ART[kind](k);
+        }
+        function paint() {
+          $$('input[name^="shape-"]').forEach((i) => (i.checked = i.value === st.shape));
+          ["obv", "rev"].forEach((k) => {
+            const sd = $(`.ife-side[data-side="${k}"]`);
+            const fr = $(".ife-frame", sd);
+            fr.dataset.shape = st.shape;
+            if (ROTATES(st.shape)) fr.dataset.orientation = st.orient[k];
+            else delete fr.dataset.orientation;
+            fr.classList.toggle("has-image", st.has[k]);
+            fr.innerHTML = st.has[k]
+              ? `<img alt="${k === "obv" ? "Obverse" : "Reverse"} preview" src="${artFor(k)}">`
+              : "+";
+            fr.setAttribute(
+              "aria-label",
+              `${k === "obv" ? "Obverse" : "Reverse"} image: ${st.has[k] ? "filled" : "add"}`
+            );
+            const badge = $(".ife-remove", sd);
+            if (badge) badge.hidden = !st.has[k]; // builder only: the item modal has a text Remove button
+            const act = $('.ife-actions [data-act="remove"]', sd);
+            if (act) act.hidden = !st.has[k];
+            const up = $('.ife-actions [data-act="pick"]', sd);
+            if (up) up.textContent = st.has[k] ? "Replace" : "Upload";
+            const og = $(".ife-orient", sd);
+            og.hidden = !ROTATES(st.shape);
+            $$("input", og).forEach((i) => (i.checked = i.value === st.orient[k]));
+          });
+          $(".ife-swap").hidden = !(st.has.obv && st.has.rev); // real image presence, not frame visibility
+          $$("[data-sig]").forEach((s) => (s.value = st.signals[s.dataset.sig]));
+          const { out, del } = writer(st);
+          const keys = Object.keys(out);
+          $(".ife-stored").innerHTML =
+            `<b>derived shape</b> ${derive(st.signals)}   <b>chosen</b> ${st.shapeChosen ? "yes" : "no"}\n` +
+            `<b>save writes</b> ${keys.length ? keys.map((k) => `${k}: "${out[k]}"`).join(", ") : "(nothing: sparse, follows Type)"}\n` +
+            `<b>save deletes</b> ${del.length ? del.join(", ") : "(nothing)"}`;
+        }
+
+        /* Interaction contract (D-5) */
+        function setShape(v, chosen) {
+          const changed = v !== st.shape;
+          st.shape = v;
+          if (chosen) st.shapeChosen = true;
+          if (changed) st.orient.obv = st.orient.rev = DEFAULT_ORIENT[v] || "portrait"; // AC-4.8
+        }
+        function signalsChanged(kind) {
+          const nd = derive(st.signals);
+          if (kind === "type") {
+            if (st.shape === st.prevDerived) setShape(nd, false); // value equality (AC-4.3/4.4)
+          } else if (!st.shapeChosen) setShape(nd, false); // grading / Numista (AC-4.5)
+          st.prevDerived = nd;
+          paint();
+        }
+
+        host.addEventListener("change", (e) => {
+          const t = e.target;
+          if (t.matches('input[name^="shape-"]')) {
+            setShape(t.value, true);
+            paint();
+          } else if (t.matches('input[name^="orient-"]')) {
+            const k = t.name.startsWith("orient-obv") ? "obv" : "rev";
+            st.orient[k] = t.value;
+            paint();
+          } else if (t.matches("[data-sig]")) {
+            st.signals[t.dataset.sig] = t.value;
+            signalsChanged(t.dataset.sig);
+          }
+        });
+        host.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-act]");
+          if (!b) return;
+          const k = b.closest(".ife-side") && b.closest(".ife-side").dataset.side;
+          if (b.dataset.act === "pick" && k) {
+            if (!st.has[k]) st.has[k] = true;
+          } else if (b.dataset.act === "remove" && k) {
+            st.has[k] = false;
+            st.orient[k] = DEFAULT_ORIENT[st.shape] || "portrait"; // AC-3.3: reset side, keep shape
+          } else if (b.dataset.act === "swap") {
+            [st.has.obv, st.has.rev] = [st.has.rev, st.has.obv];
+            [st.orient.obv, st.orient.rev] = [st.orient.rev, st.orient.obv]; // AC-3.1: shape untouched
+          }
+          paint();
+        });
+        paint();
+        return { st, paint };
+      }
+
+      /* ═════════ Page assembly ═════════ */
+      const THEMES = ["light", "dark", "slate", "sepia"];
+      const P = new URLSearchParams(location.search);
+      const EMBED = P.get("embed");
+      const THEME = P.get("theme") || "dark";
+      const app = document.getElementById("app");
+      if (EMBED) document.body.dataset.embed = EMBED;
+
+      const itemModal = (id, mount_opts, title) => {
+        const w = document.createElement("div");
+        w.className = "mock-modal";
+        w.innerHTML = `<div class="mock-modal-title">Edit Item · ${esc(NAME_FOR_TYPE[mount_opts.type || "Coin"])}</div>
+          <details open class="form-section image-upload-group"><summary class="form-section-header">Images</summary><div class="form-section-body" id="${id}"></div></details>`;
+        return { node: w, body: w.querySelector(`#${id}`) };
+      };
+      const builderModal = (id, mount_opts) => {
+        const w = document.createElement("div");
+        w.className = "mock-modal";
+        w.innerHTML = `<div class="mock-modal-title">Edit Collection · Silver Rounds Set</div>
+          <div class="mock-field"><label>Name<input value="Silver Rounds Set" /></label></div>
+          <div id="${id}"></div>`;
+        return { node: w, body: w.querySelector(`#${id}`) };
+      };
+      const card = (title, tag, blurb, node) => {
+        const c = document.createElement("section");
+        c.className = "state-card";
+        c.innerHTML = `<h3>${title} <code>${tag}</code></h3><p>${blurb}</p>`;
+        c.append(node);
+        return c;
+      };
+
+      const STATES = [
+        {
+          tag: "E-empty",
+          title: "New item, no images",
+          blurb:
+            "Shape row and both frames are visible before any image exists (AC-1.5). Frames show a dashed +.",
+          o: { kind: "item", type: "Coin" },
+        },
+        {
+          tag: "E-one",
+          title: "One side filled",
+          blurb:
+            "Obverse has an image, reverse is an empty frame of the same shape. Swap stays hidden.",
+          o: { kind: "item", type: "Bar", images: { obv: true, rev: false } },
+        },
+        {
+          tag: "E-mixed",
+          title: "Mixed orientations",
+          blurb:
+            "Portrait obverse, landscape reverse (AC-5.1). Swap exchanges images AND orientations; the shape stays.",
+          o: {
+            kind: "item",
+            type: "Bar",
+            images: { obv: true, rev: true },
+            orient: { obv: "portrait", rev: "landscape" },
+          },
+        },
+        {
+          tag: "E-round",
+          title: "Round selected",
+          blurb: "Circular frames, no orientation controls (AC-2.3).",
+          o: { kind: "item", type: "Coin", images: { obv: true, rev: true } },
+        },
+        {
+          tag: "E-slab",
+          title: "Slab (graded)",
+          blurb: "Grading authority PCGS derives Slab: 0.68 frames, no orientation controls.",
+          o: { kind: "item", type: "Coin", grading: "PCGS", images: { obv: true, rev: true } },
+        },
+        {
+          tag: "E-follow",
+          title: "Type follows while the shape is derived",
+          blurb:
+            "Change Type to Goldback: both frames reshape to Note immediately, no save (AC-4.6). Try Bar, then Coin.",
+          o: { kind: "item", type: "Coin", images: { obv: true, rev: true } },
+        },
+        {
+          tag: "E-pinned",
+          title: "A chosen shape is left alone",
+          blurb:
+            "Slab was chosen on an ungraded Coin. Change Type or apply a grade: it stays (AC-4.4/4.5). Pick Round to reset.",
+          o: {
+            kind: "item",
+            type: "Coin",
+            shape: "slab",
+            shapeChosen: true,
+            images: { obv: true, rev: true },
+          },
+        },
+      ];
+
+      function header() {
+        const h = document.createElement("div");
+        h.innerHTML = `<h1>STRK-427 · Shared image-frame editor <small style="font-weight:400;color:var(--text-secondary)">(A.1 mockup, pending approval)</small></h1>
+        <p class="lede">One editor, two hosts: the Add/Edit Item modal and the Edit Collection builder. Everything below is interactive. It reuses the real <code>css/styles.css</code>, so tokens and the four themes are the app's own. The dashed readout under each editor shows exactly what a save would store (sparse; AC-7.1).</p>
+        <ol class="decisions">
+          <li><b>Preview size:</b> a 200px square bounding box on desktop (was 140px max-height). Fits the 700px dialog, so no widening.</li>
+          <li><b>Desktop layout:</b> Upload / Replace / Remove sit in a row under each preview (they stack to its right today).</li>
+          <li><b>Mobile layout (needs your pick):</b> <b>M-A</b> keeps today's arrangement (preview left, buttons right, 140px cap) as AC-6.2 reads, but leaves previews only about 60px wide at 390px. <b>M-B</b> stacks the buttons under a full-size preview like the desktop and the builder. See section 3.</li>
+          <li><b>Orientation:</b> one segmented group per side, "Obverse orientation" and "Reverse orientation", only for Bar and Note (STRK-424 Option C).</li>
+          <li><b>Tokens:</b> ratios become unitless numbers (0.6, 1.6, 0.4878, 2.05, 0.68). Rendered ratios are unchanged except the builder Slab (3:4 becomes 0.68, intended).</li>
+          <li><b>Frames:</b> empty frames stay visible (dashed +). Swap appears only when both sides hold an image. Images use <code>object-fit: contain</code>.</li>
+          <li><b>P2 (bottom):</b> table thumb stays 28px tall, width clamped; photos are letterboxed, never cropped.</li>
+        </ol>
+        <div class="toolbar" role="navigation" aria-label="Theme">
+          <span class="note" style="margin:0">Theme:</span>
+          ${THEMES.map((t) => `<a href="?theme=${t}" ${t === THEME ? 'aria-current="true"' : ""}>${t}</a>`).join("")}
+        </div>`;
+        return h;
+      }
+
+      function iframeFor(embed, theme, w, h) {
+        const f = document.createElement("iframe");
+        f.className = "shell";
+        f.loading = "lazy";
+        f.width = w;
+        f.height = h;
+        f.title = `${embed} ${theme}`;
+        f.src = `?embed=${embed}&theme=${theme}`;
+        return f;
+      }
+
+      function p2Section() {
+        const wrap = document.createElement("div");
+        const img = (kind, side = "obv") => ART[kind](side);
+        const frame = (cls, shape, orient, kind, extra = "") =>
+          `<span class="p2-frame ${cls}" data-shape="${shape}"${orient ? ` data-orientation="${orient}"` : ""}${extra}><img alt="" src="${img(kind)}"></span>`;
+        const rows = [
+          ["2024 American Silver Eagle", "round", null, "coin"],
+          ["1 oz Silver Bar, SunShine", "bar", "portrait", "bar"],
+          ["Utah 1 Goldback", "note", "landscape", "note"],
+          ["2024 ASE PCGS MS70", "slab", null, "slab"],
+        ];
+        wrap.innerHTML = `
+          <div class="p2-grid">
+            <div class="p2-panel"><h4>P2-table · thumb (28px tall, width clamped to 40px)</h4>
+              ${rows
+                .map(
+                  ([n, s, o, k]) =>
+                    `<div class="p2-row"><span class="p2-thumbbox">${frame("p2-table-thumb", s, o, k)}</span><span>${n}</span><span style="margin-left:auto;color:var(--text-secondary)">${s}${o ? " · " + o : ""}</span></div>`
+                )
+                .join("")}
+              <div class="p2-row"><span class="p2-thumbbox">${frame("p2-table-thumb", "bar", "landscape", "bar")}</span><span>Bar photo in <i>landscape</i> frame</span><span style="margin-left:auto;color:var(--text-secondary)">bar · landscape</span></div>
+              <div class="p2-row"><span class="p2-thumbbox">${frame("p2-table-thumb", "bar", "portrait", "bar")}</span><span>Same photo, default <i>portrait</i> Bar: letterboxed (Tradeoff 5)</span><span style="margin-left:auto;color:var(--text-secondary)">bar · portrait</span></div>
+              <div class="p2-row"><span class="p2-thumbbox"><span class="p2-frame p2-legacy"><img alt="" src="${img("bar")}"></span></span><span>Legacy <code>rectangle</code> today: natural aspect, no fixed ratio</span><span style="margin-left:auto;color:var(--text-secondary)">before</span></div>
+            </div>
+            <div class="p2-panel"><h4>P2-card · A (44px) · B (80px) · C (80×56)</h4>
+              <div class="p2-cards">
+                ${[
+                  ["A", "p2-cardA"],
+                  ["B", "p2-cardB"],
+                  ["C", "p2-cardC"],
+                ]
+                  .map(
+                    ([lab, cls]) =>
+                      `<div class="p2-cardwrap"><div class="p2-box" style="width:${lab === "A" ? 44 : lab === "B" ? 80 : 80}px;height:${lab === "A" ? 44 : lab === "B" ? 80 : 56}px">${frame(cls, "bar", "portrait", "bar")}</div>Card ${lab} · Bar portrait</div>`
+                  )
+                  .join("")}
+              </div>
+              <div class="p2-cards" style="margin-top:0.75rem">
+                ${[
+                  ["round", null, "coin", "Round"],
+                  ["note", "landscape", "note", "Note landscape"],
+                  ["slab", null, "slab", "Slab"],
+                ]
+                  .map(
+                    ([s, o, k, l]) =>
+                      `<div class="p2-cardwrap"><div class="p2-box" style="width:80px;height:80px">${frame("p2-cardB", s, o, k)}</div>Card B · ${l}</div>`
+                  )
+                  .join("")}
+              </div>
+              <p class="note" style="margin-top:0.6rem">Dotted outline = the existing wrapper box (the bounding box). The frame is the largest ratio rectangle that fits it.</p>
+            </div>
+            <div class="p2-panel"><h4>P2-view · view modal image slot (200 × 220 box)</h4>
+              <div class="p2-cards">
+                ${[
+                  ["round", null, "coin", "Round"],
+                  ["bar", "portrait", "bar", "Bar portrait"],
+                  ["note", "landscape", "note", "Note landscape"],
+                  ["slab", null, "slab", "Slab"],
+                ]
+                  .map(
+                    ([s, o, k, l]) =>
+                      `<div class="p2-cardwrap"><div class="p2-box" style="width:200px;height:220px">${frame("p2-view", s, o, k)}</div>${l}</div>`
+                  )
+                  .join("")}
+              </div>
+              <p class="note" style="margin-top:0.6rem">Legacy <code>rectangle</code> Coin opens as <b>Bar portrait</b> (D-3); the view modal re-applies the frame after Numista enrichment.</p>
+            </div>
+          </div>`;
+        return wrap;
+      }
+
+      function build() {
+        /* Embedded single-host views (used by the 390px and four-theme iframes) */
+        if (EMBED) {
+          const m = EMBED.startsWith("builder")
+            ? builderModal("emb", {})
+            : itemModal("emb", { type: "Bar" });
+          m.node.style.width = EMBED.endsWith("-m") ? "auto" : "700px";
+          app.append(m.node);
+          const mixed = {
+            images: { obv: true, rev: true },
+            orient: { obv: "portrait", rev: "landscape" },
+          };
+          mount(m.body, {
+            kind: EMBED.startsWith("builder") ? "builder" : "item",
+            type: "Bar",
+            ...mixed,
+            signalsUi: !EMBED.includes("nosig"),
+            stackMobile: EMBED.includes("stack"),
+          });
+          return;
+        }
+
+        app.append(header());
+
+        const s1 = document.createElement("h2");
+        s1.className = "sec";
+        s1.textContent = "1 · Add/Edit Item modal, desktop (700px dialog)";
+        app.append(s1);
+        const cards = document.createElement("div");
+        cards.className = "cards";
+        STATES.forEach((s, i) => {
+          const m = itemModal(`item-${i}`, s.o);
+          cards.append(card(s.title, s.tag, s.blurb, m.node));
+          mount(m.body, s.o);
+        });
+        app.append(cards);
+
+        const s2 = document.createElement("h2");
+        s2.className = "sec";
+        s2.textContent = "2 · Edit Collection builder (same editor, hero layout preserved)";
+        app.append(s2);
+        const bc = document.createElement("div");
+        bc.className = "cards";
+        const bm = builderModal("builder-0", {});
+        bc.append(
+          card(
+            "Builder with mixed orientations",
+            "B-builder",
+            "Same component, same radiogroup names. Obverse and reverse can differ (AC-5.1/5.2). Clicking a frame adds a sample image; × removes it. Swap exchanges images and orientations (AC-3.2).",
+            bm.node
+          )
+        );
+        mount(bm.body, {
+          kind: "builder",
+          type: "Bar",
+          images: { obv: true, rev: true },
+          orient: { obv: "portrait", rev: "landscape" },
+        });
+        const bm2 = builderModal("builder-1", {});
+        bc.append(
+          card(
+            "Builder, new collection (empty)",
+            "B-builder",
+            "Empty state: both frames visible, Round default for a Coin collection.",
+            bm2.node
+          )
+        );
+        mount(bm2.body, { kind: "builder", type: "Coin" });
+        app.append(bc);
+
+        const s3 = document.createElement("h2");
+        s3.className = "sec";
+        s3.textContent = "3 · Mobile, 390px viewport (real viewport, so the ≤768px rules apply)";
+        app.append(s3);
+        const mp = document.createElement("p");
+        mp.className = "note";
+        mp.innerHTML =
+          "Existing elements keep today's size and stacking (AC-6.2). The shape row and the per-side orientation groups are the only new elements; options are 44px tall and wrap.";
+        app.append(mp);
+        const mrow = document.createElement("div");
+        mrow.className = "matrix";
+        [
+          ["item-mixed-m", "Item modal · M-A today's arrangement (preview left, buttons right)"],
+          ["item-mixed-m-stack", "Item modal · M-B buttons under a full-size preview"],
+          ["builder-mixed-m", "Builder · B-builder"],
+        ].forEach(([e, c]) => {
+          const f = document.createElement("figure");
+          f.innerHTML = `<figcaption>${c} · M-390 · ${THEME}</figcaption>`;
+          f.append(iframeFor(e, THEME, 390, 760));
+          mrow.append(f);
+        });
+        app.append(mrow);
+
+        const s4 = document.createElement("h2");
+        s4.className = "sec";
+        s4.textContent = "4 · Four themes (T-4): item modal E-mixed and builder, 390px";
+        app.append(s4);
+        const tm = document.createElement("div");
+        tm.className = "matrix";
+        THEMES.forEach((t) => {
+          const f = document.createElement("figure");
+          f.innerHTML = `<figcaption>Item · ${t} · 390</figcaption>`;
+          f.append(iframeFor("item-mixed-m", t, 390, 760));
+          tm.append(f);
+        });
+        THEMES.forEach((t) => {
+          const f = document.createElement("figure");
+          f.innerHTML = `<figcaption>Builder · ${t} · 390</figcaption>`;
+          f.append(iframeFor("builder-mixed-m", t, 390, 760));
+          tm.append(f);
+        });
+        app.append(tm);
+        const s4b = document.createElement("h2");
+        s4b.className = "sec";
+        s4b.textContent = "4b · Four themes, desktop dialog";
+        app.append(s4b);
+        const tm2 = document.createElement("div");
+        tm2.className = "matrix";
+        THEMES.forEach((t) => {
+          const f = document.createElement("figure");
+          f.innerHTML = `<figcaption>Item · ${t} · 800</figcaption>`;
+          f.append(iframeFor("item-mixed", t, 800, 640));
+          tm2.append(f);
+        });
+        app.append(tm2);
+
+        const s5 = document.createElement("h2");
+        s5.className = "sec";
+        s5.textContent = "5 · P2 renderers (second PR): table, card A/B/C, view modal";
+        app.append(s5);
+        app.append(p2Section());
+      }
+      build();
+    </script>
+  </body>
+</html>
