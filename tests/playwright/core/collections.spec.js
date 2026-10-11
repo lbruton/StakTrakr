@@ -1704,6 +1704,17 @@ test.describe("core/collections — link picker, builder, item view", () => {
     });
 
   /**
+   * Wait for the builder's entrance animation. The modal runs `modalSlideIn`, a `scale(0.95)`
+   * transform, so a rect read mid-animation is 5% smaller than the CSS width.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<void>}
+   */
+  const settleBuilder = (page) =>
+    builderModal(page).evaluate((node) =>
+      Promise.all(node.getAnimations({ subtree: true }).map((animation) => animation.finished))
+    );
+
+  /**
    * Create a Bar collection through the real builder with a portrait obverse, a landscape
    * reverse and both title images, optionally showing the reverse face (STRK-427).
    * @param {import('@playwright/test').Page} page - Browser page.
@@ -1712,6 +1723,9 @@ test.describe("core/collections — link picker, builder, item view", () => {
    * @returns {Promise<string>} The new collection id.
    */
   const createMixedBars = async (page, name, coinSide) => {
+    // Creating a collection opens its album; the hub holds the New collection button.
+    const hubLink = panel(page).getByRole("button", { name: "Collections", exact: true });
+    if (await hubLink.isVisible()) await hubLink.click();
     await panel(page)
       .getByRole("button", { name: /New collection/ })
       .first()
@@ -1733,12 +1747,18 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await builder.getByLabel("Slot label").first().fill("One");
     await builder.getByRole("button", { name: "Create collection" }).click();
     await expect(builder).toBeHidden();
-    return page.evaluate(
+    const id = await page.evaluate(
       (key) =>
         Object.values(window.collectionsStore.getState().collections).find((c) => c.name === key)
           .id,
       name
     );
+    // The title images are written after the modal closes; wait until both are stamped.
+    await page.waitForFunction((key) => {
+      const artwork = window.collectionsStore.getState().collections[key].artwork || {};
+      return Boolean(artwork.cover?.present && artwork["title:reverse"]?.present);
+    }, id);
+    return id;
   };
 
   test("STRK-427 a mixed pair saved in the builder reopens with both orientations and renders per side everywhere", async ({
@@ -1824,14 +1844,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
   }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
-    // [shape, orientation, rendered builder frame width in px, width / height] as shipped today.
-    // The frame renders at 95% of its --collections-cover-size token (80 / 108 / 160 / 128).
+    // [shape, orientation, builder frame width in px, width / height] as shipped today: the
+    // --collections-cover-size tokens, measured after the entrance animation settles.
     const legacy = [
-      ["bar", "portrait", 76, 0.6],
-      ["bar", "landscape", 102.6, 1.6],
-      ["note", "portrait", 76, 0.4878],
-      ["note", "landscape", 152, 2.05],
-      ["round", null, 121.6, 1],
+      ["bar", "portrait", 80, 0.6],
+      ["bar", "landscape", 108, 1.6],
+      ["note", "portrait", 80, 0.4878],
+      ["note", "landscape", 160, 2.05],
+      ["round", null, 128, 1],
     ];
     for (const [shape, orientation, width, ratio] of legacy) {
       const id = await page.evaluate(
@@ -1845,6 +1865,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
         { imageShape: shape, imageOrientation: orientation }
       );
       await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+      await settleBuilder(page);
       const frames = builderModal(page).locator(
         ".collections-builder-covers .collections-image-pick"
       );
@@ -1871,10 +1892,11 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await page.reload();
     await page.waitForFunction(() => window.appListenersReady && !!window.collectionsUI);
     await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), oldId);
+    await settleBuilder(page);
     const old = await frameOf(
       builderModal(page).locator(".collections-builder-covers .collections-image-pick")
     );
-    expect(old.width).toBeCloseTo(102.6, 0);
+    expect(old.width).toBeCloseTo(108, 0);
     expect(old.ratio).toBeCloseTo(1.6, 1);
   });
 
@@ -1888,12 +1910,13 @@ test.describe("core/collections — link picker, builder, item view", () => {
       .first()
       .click();
     const builder = builderModal(page);
+    await settleBuilder(page);
     await builder.getByRole("radiogroup", { name: "Image shape" }).getByLabel("Slab").check();
     const frame = await frameOf(
       builder.locator(".collections-builder-covers .collections-image-pick")
     );
-    // Width is today's (95% of the 100px Slab token); only the ratio changes, from 3:4 to 0.68.
-    expect(frame.width).toBeCloseTo(95, 0);
+    // Width is today's (the 100px Slab token); only the ratio changes, from 3:4 to 0.68.
+    expect(frame.width).toBeCloseTo(100, 0);
     expect(frame.ratio).toBeCloseTo(0.68, 2);
   });
 
@@ -1903,13 +1926,38 @@ test.describe("core/collections — link picker, builder, item view", () => {
    * @param {number} index - 0 for the obverse chooser, 1 for the reverse one.
    * @returns {Promise<string|null>} SHA-256 hex, or null when the chooser is empty.
    */
-  const chooserImageHash = (page, index) =>
-    displayedImageHash(
-      builderModal(page)
-        .locator(".collections-builder-title-option")
-        .nth(index)
-        .locator(".collections-image-pick img")
-    ).catch(() => null);
+  const chooserImageHash = async (page, index) => {
+    const image = builderModal(page)
+      .locator(".collections-builder-title-option")
+      .nth(index)
+      .locator(".collections-image-pick img");
+    // An empty chooser has no <img>; reading its hash would otherwise wait out the locator timeout.
+    if ((await image.count()) === 0) return null;
+    return displayedImageHash(image);
+  };
+
+  /**
+   * Average color of the image shown in one of the builder's title choosers. Used where a Save
+   * re-encodes the image, so its bytes (and hash) legitimately change but its look does not.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {number} index - 0 for the obverse chooser, 1 for the reverse one.
+   * @returns {Promise<number[]|null>} [r, g, b], or null when the chooser is empty.
+   */
+  const chooserImageColor = async (page, index) => {
+    const image = builderModal(page)
+      .locator(".collections-builder-title-option")
+      .nth(index)
+      .locator(".collections-image-pick img");
+    if ((await image.count()) === 0) return null;
+    return image.evaluate((img) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(img, 0, 0, 1, 1);
+      return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+    });
+  };
 
   test("STRK-427 Swap in the builder exchanges the images and their orientations", async ({
     page,
@@ -1959,6 +2007,13 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
     await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
     const obverse = await chooserImageHash(page, 0);
+    const obverseColor = await chooserImageColor(page, 0);
+    const reverseColor = await chooserImageColor(page, 1);
+    const distance = (a, b) => Math.max(...a.map((value, i) => Math.abs(value - b[i])));
+    expect(
+      distance(obverseColor, reverseColor),
+      "the two fixtures must look different"
+    ).toBeGreaterThan(40);
 
     // Remove the reverse image, then swap: the obverse image moves to the reverse side and the
     // pending removal travels with the (now empty) obverse side.
@@ -1968,11 +2023,28 @@ test.describe("core/collections — link picker, builder, item view", () => {
       .click();
     await expect.poll(() => chooserImageHash(page, 1)).toBe(obverse);
     expect(await chooserImageHash(page, 0)).toBeNull();
+    const digestBefore = await page.evaluate(
+      (key) => window.collectionsStore.getState().collections[key].artwork["title:reverse"].digest,
+      id
+    );
     await builderModal(page).getByRole("button", { name: "Save changes" }).click();
     await expect(builderModal(page)).toBeHidden();
+    // Images are written after the modal closes: wait for the new reverse and the deleted cover.
+    await page.waitForFunction(
+      ({ key, before }) => {
+        const artwork = window.collectionsStore.getState().collections[key].artwork || {};
+        const reverse = artwork["title:reverse"];
+        return Boolean(
+          artwork.cover && !artwork.cover.present && reverse?.present && reverse.digest !== before
+        );
+      },
+      { key: id, before: digestBefore }
+    );
 
     await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
-    await expect.poll(() => chooserImageHash(page, 1)).toBe(obverse);
+    // Save re-encodes the image, so compare how it looks rather than its bytes.
+    await expect.poll(() => chooserImageColor(page, 1)).not.toBeNull();
+    expect(distance(await chooserImageColor(page, 1), obverseColor)).toBeLessThan(12);
     expect(await chooserImageHash(page, 0)).toBeNull();
     await expect(
       builderModal(page).getByRole("button", { name: "Remove cover image" })

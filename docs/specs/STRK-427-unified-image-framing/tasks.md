@@ -169,8 +169,8 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
     - **Re-baseline (Tradeoff 10):** the five `getByRole("radiogroup", { name: "Orientation" })` locators (`:1507, :1549, :1574, :1603, :1679`) become `{ name: "Obverse orientation" }`, with **no assertion edited**. This is a disclosed contract change, not an edit to make a test pass.
     - Additive failing cases:
       - A mixed pair (portrait obverse, landscape reverse) saved in the builder reopens with both orientations, and renders per side in the builder preview, the Album title pair, Album Slot tiles and Ledger rows (reverse-side Collection), and Hub card and Ledger-row medallions. Each frame's **width and ratio** are pinned (AC-5.2, D-11, D-15).
-      - Legacy uniform Bar/Note pairs and a pre-STRK-424 Collection keep today's rendered widths and ratios (AC-10.1, AC-5.5). Measured on `dev`: the builder frame renders at 95% of its `--collections-cover-size` token, so the size tokens 108/80/160/80/100/128px render as 102.6/76/152/76/95/121.6px; the Album title medallion is 92px, the Slot tile 112px, the Hub card 84px and Ledger rows 40px for every shape, with the ratio doing the shaping.
-      - Builder Slab box is 0.68 at its current 95px width (AC-10.1, AC-2.2).
+      - Legacy uniform Bar/Note pairs and a pre-STRK-424 Collection keep today's rendered widths and ratios (AC-10.1, AC-5.5). Measured on `dev` once the modal's `scale(0.95)` entrance animation has settled (a rect read mid-animation is 5% small): the builder frames render at their `--collections-cover-size` tokens, 80/108/80/160/128px for Bar portrait, Bar landscape, Note portrait, Note landscape and Round; the Album title medallion is 92px, the Slot tile 112px, the Hub card 84px and Ledger rows 40px for every shape, with the ratio doing the shaping.
+      - Builder Slab box is 0.68 at its current 100px width (AC-10.1, AC-2.2).
       - Builder swap exchanges images and orientations (AC-3.2).
       - **Stored pair → Remove one side → Swap → Save → reopen**: the remaining image is on the swapped side and the removed side is empty (D-9).
       - A forced failed blob read swaps nothing.
@@ -274,7 +274,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Leverage:** `discovery.md` §B; the STRK-67 D-11 delete discipline; memory "safeGetElement returns a partial dummy".
   - **Maps to:** AC-1.1–AC-1.5, AC-2.1, AC-3.1, AC-3.3, AC-4.3–AC-4.8, AC-5.4, AC-6.1, AC-6.2, AC-7.1–AC-7.3, AC-8.5
 
-- [ ] **C.5** — Mount the editor in the Edit Collection builder
+- [x] **C.5** — Mount the editor in the Edit Collection builder
   - **File(s):** `js/collections-picker.js`, `css/styles.css`
   - **Acceptance:**
     - `collections-picker.js` mounts the editor in collection mode. It removes the old shape/orientation controls, `imageShapeTouched`, `suggestedShape` and the inline map (`:1193-1288`), and the shape glyph entries from `BUILDER_ICONS` if no other reference remains (grep first). `builderSeed` and save carry `reverseImageOrientation` (`:1612-1681`).

@@ -571,6 +571,20 @@
     }
   };
 
+  /**
+   * The stored Blob for a collection image, for a swap that must carry it to the other side
+   * (STRK-427). Unlike getImageUrl a failed read REJECTS, so the caller can abort the whole swap
+   * instead of moving only half of it.
+   * @param {string} collectionId - Collection id
+   * @param {string} [slotId] - Slot id; omit for the cover
+   * @returns {Promise<Blob|null>} The stored image, or null when there is none
+   */
+  const readStoredBlob = async (collectionId, slotId) => {
+    if (!window.imageCache || !window.imageCache.isAvailable()) return null;
+    const record = await window.imageCache.getPatternImage(imageId(collectionId, slotId));
+    return record && record.obverse ? record.obverse : null;
+  };
+
   /** Returns the selected title side, falling back to the other side when needed. */
   const getTitleImage = async (collectionId, side) => {
     const requested = side === "reverse" ? "reverse" : "obverse";
@@ -643,7 +657,7 @@
     return wrap;
   };
 
-  /** Static icon markup for the builder: section headers, shape glyphs and the Slot grip. */
+  /** Static icon markup for the builder: section headers and the Slot grip. */
   const BUILDER_ICONS = Object.freeze({
     identity:
       '<path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
@@ -656,10 +670,6 @@
     about:
       '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
     grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
-    round: '<circle cx="12" cy="12" r="9"/>',
-    bar: '<rect x="7" y="2.5" width="10" height="19" rx="1.5"/>',
-    note: '<rect x="2.5" y="6" width="19" height="12" rx="1.5"/>',
-    slab: '<rect x="4.5" y="2.5" width="15" height="19" rx="3"/><circle cx="12" cy="13.5" r="4"/>',
   });
 
   /**
@@ -755,7 +765,11 @@
    * @param {string} label - Accessible label
    * @returns {{node: HTMLElement, getFile: () => File|null, setPreview: (url: string|null) => void}} Chooser
    */
-  const imageChooser = (label) => {
+  const imageChooser = (label, options = {}) => {
+    // STRK-427 options: `side` marks the trigger as that side's frame for the shared image-frame
+    // editor; `read` loads the stored Blob for a swap; `onPresence(bool)` reports whether the
+    // chooser holds an image; `onRemove()` fires when the user removes it.
+    const { side, read, onPresence, onRemove } = options;
     let chosen = null;
     let previewUrl = null;
     let removed = false;
@@ -770,12 +784,14 @@
     const trigger = button("collections-image-pick", "+", () => input.click());
     trigger.setAttribute("aria-label", label);
     trigger.title = label;
+    if (side) trigger.dataset.ifeFrame = side;
     const node = el("span", "collections-image-chooser");
     const remove = button("collections-image-remove", "×", () => {
       chosen = null;
       removed = true;
       input.value = "";
       setPreview(null);
+      if (onRemove) onRemove();
     });
     remove.setAttribute("aria-label", `Remove ${label.toLowerCase()}`);
     remove.title = `Remove ${label.toLowerCase()}`;
@@ -790,6 +806,7 @@
       previewUrl = url;
       trigger.replaceChildren();
       remove.hidden = !url;
+      if (onPresence) onPresence(Boolean(url));
       if (!url) {
         trigger.textContent = "+";
         return;
@@ -809,6 +826,37 @@
       node,
       getFile: () => chosen,
       isRemoved: () => removed && hadStoredImage,
+      /**
+       * The image this side would save: a chosen file, nothing once removed (a pending Remove is
+       * never resurrected), otherwise the stored blob. A failed stored read rejects (D-9).
+       * @returns {Promise<Blob|null>}
+       */
+      effective: async () => {
+        if (chosen) return chosen;
+        if (removed || !hadStoredImage || !read) return null;
+        return read();
+      },
+      /**
+       * Show a swapped-in image as this side's chosen file, or empty the side. Emptying a side
+       * that held a stored image marks it removed, so Save deletes the image and its stamp.
+       * @param {Blob|null} blob
+       */
+      adopt: (blob) => {
+        if (disposed) return;
+        input.value = "";
+        if (blob) {
+          chosen =
+            blob instanceof File
+              ? blob
+              : new File([blob], "swapped-image", { type: blob.type || "image/png" });
+          removed = false;
+          setPreview(URL.createObjectURL(chosen));
+        } else {
+          chosen = null;
+          removed = hadStoredImage;
+          setPreview(null);
+        }
+      },
       setPreview: (url) => {
         if (url) hadStoredImage = true;
         setPreview(url);
@@ -978,6 +1026,16 @@
           ? window.collectionsCore.imageOrientationFor(
               definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
               definition.imageOrientation
+            )
+          : window.collectionsCore.defaultImageOrientationForShape(
+              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType)
+            ),
+      // The reverse follows the obverse unless a different value is stored (STRK-427).
+      reverseImageOrientation:
+        request.editId || definition.imageOrientation || definition.reverseImageOrientation
+          ? window.collectionsCore.reverseImageOrientationFor(
+              definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType),
+              definition
             )
           : window.collectionsCore.defaultImageOrientationForShape(
               definition.imageShape || window.collectionsCore.defaultImageShapeForType(itemType)
@@ -1189,68 +1247,13 @@
     authorization.value = seed.specs.authorization || "";
     const dimensions = el("input");
     dimensions.value = seed.specs.dimensions || "";
-    // The title images take the chosen outline live, so the picker previews its own effect.
+    // The title images take the chosen outline live, so the picker previews its own effect. The
+    // shared image-frame editor (STRK-427) owns the shape and per-side orientation controls and
+    // the frame attributes; this builder keeps its own image I/O and sizing.
     const covers = el("div", "collections-builder-covers");
-    covers.dataset.shape = seed.imageShape;
-    const imageShape = segmented(
-      "Image shape",
-      [
-        { value: "round", label: "Round", glyph: "round" },
-        { value: "bar", label: "Bar", glyph: "bar" },
-        { value: "note", label: "Note", glyph: "note" },
-        { value: "slab", label: "Slab", glyph: "slab" },
-      ],
-      seed.imageShape,
-      (value) => {
-        imageShapeTouched = true;
-        covers.dataset.shape = value;
-        syncOrientation(value, true);
-      }
-    );
-    // Bar and Note rotate; Round and Slab have one frame, so the control hides for them.
-    const orientation = segmented(
-      "Orientation",
-      [
-        { value: "portrait", label: "Portrait", glyph: "bar" },
-        { value: "landscape", label: "Landscape", glyph: "note" },
-      ],
-      seed.imageOrientation || "portrait",
-      (value) => {
-        covers.dataset.orientation = value;
-      }
-    );
-    /**
-     * Shows or hides the orientation control for a shape and keeps the preview frame in step.
-     * @param {string} shape - The chosen image shape
-     * @param {boolean} fresh - True when the shape just changed, so the orientation restarts at
-     *   that shape's default instead of carrying the previous shape's choice
-     * @returns {void}
-     */
-    const syncOrientation = (shape, fresh) => {
-      const initial = window.collectionsCore.defaultImageOrientationForShape(shape);
-      orientation.node.hidden = !initial;
-      if (!initial) {
-        delete covers.dataset.orientation;
-        return;
-      }
-      if (fresh) orientation.setValue(initial);
-      covers.dataset.orientation = orientation.getValue();
-    };
+    let frameEditor = null;
     const lockPill = el("span", "lock-pill", "auto");
     lockPill.hidden = true;
-    let imageShapeTouched =
-      seed.imageShape !==
-      (seed.itemType === "Bar" || seed.itemType === "Set"
-        ? "bar"
-        : ["Note", "Aurum", "Goldback", "Silverback"].includes(seed.itemType)
-          ? "note"
-          : "round");
-    const suggestedShape = (type) =>
-      type === "Bar" || type === "Set"
-        ? "bar"
-        : ["Note", "Aurum", "Goldback", "Silverback"].includes(type)
-          ? "note"
-          : "round";
     /**
      * Shows a forced Metal and Weight unit as locked, like the Add Item form's "auto" pill.
      * The save path re-applies the lock as well, so a stale value can never be stored.
@@ -1276,34 +1279,78 @@
       lockPill.hidden = !lock;
     };
     itemType.addEventListener("change", () => {
-      if (!imageShapeTouched) {
-        // Only restart the orientation when the derived shape really changed; a Type change that
-        // lands on the same shape (Note -> Goldback) keeps the user's explicit choice.
-        const shapeChanged = imageShape.getValue() !== suggestedShape(itemType.value);
-        imageShape.setValue(suggestedShape(itemType.value));
-        covers.dataset.shape = imageShape.getValue();
-        syncOrientation(imageShape.getValue(), shapeChanged);
-      }
+      // A Type change re-derives the shape only while it still equals the previous Type's
+      // derived shape (AC-4.3, AC-4.4); a chosen shape is left alone.
+      if (frameEditor) frameEditor.signalsChanged("type");
       applyTypeLock();
     });
     const about = el("textarea");
     about.value = seed.about;
     about.rows = 3;
 
-    const cover = imageChooser("Cover image");
-    const reverseTitle = imageChooser("Reverse title image");
+    // Swap is offered while EITHER side holds an image: with one side empty (or removed) it moves
+    // the lone image across, and a pending Remove travels with the empty side (D-9).
+    const swapSlot = el("div", "collections-builder-swap");
+    swapSlot.hidden = true;
+    const holds = { obverse: false, reverse: false };
+    const chooserHooks = (side, slotId) => ({
+      side,
+      read: () => readStoredBlob(seed.editId, slotId),
+      onPresence: (present) => {
+        holds[side] = present;
+        swapSlot.hidden = !(holds.obverse || holds.reverse);
+        if (frameEditor) frameEditor.setSideHasImage(side, present);
+      },
+      onRemove: () => frameEditor && frameEditor.resetSide(side),
+    });
+    const cover = imageChooser("Cover image", chooserHooks("obverse", undefined));
+    const reverseTitle = imageChooser(
+      "Reverse title image",
+      chooserHooks("reverse", "title:reverse")
+    );
     chooserDisposers.push(cover.dispose, reverseTitle.dispose);
-    const obverseTitleWrap = el("div", "collections-builder-title-option");
-    obverseTitleWrap.append(
-      el("span", "collections-builder-caption", "Obverse title image"),
-      cover.node
-    );
-    const reverseTitleWrap = el("div", "collections-builder-title-option");
-    reverseTitleWrap.append(
-      el("span", "collections-builder-caption", "Reverse title image"),
-      reverseTitle.node
-    );
-    covers.append(obverseTitleWrap, reverseTitleWrap);
+    // Each title option carries its own orientation slot beneath the chooser (STRK-427).
+    const titleOption = (caption, chooser, side) => {
+      const wrap = el("div", "collections-builder-title-option");
+      const orientationSlot = el("div");
+      orientationSlot.dataset.ifeOrientation = side;
+      wrap.append(
+        el("span", "collections-builder-caption", caption),
+        chooser.node,
+        orientationSlot
+      );
+      return wrap;
+    };
+    const obverseTitleWrap = titleOption("Obverse title image", cover, "obverse");
+    const reverseTitleWrap = titleOption("Reverse title image", reverseTitle, "reverse");
+    // Swap exchanges the two images AND their orientations, atomically: both stored reads must
+    // succeed first, so a failure moves nothing (D-9).
+    let swapping = false;
+    const swapButton = button("btn btn-icon", "⇄", async () => {
+      if (swapping) return;
+      swapping = true;
+      swapButton.disabled = true;
+      covers.inert = true;
+      covers.setAttribute("aria-busy", "true");
+      try {
+        const [obverse, reverse] = await Promise.all([cover.effective(), reverseTitle.effective()]);
+        cover.adopt(reverse);
+        reverseTitle.adopt(obverse);
+        if (frameEditor) frameEditor.swapSides();
+      } catch (error) {
+        console.warn("[collections] Image swap failed:", error);
+        toast("Images could not be swapped. Please try again.");
+      } finally {
+        swapping = false;
+        swapButton.disabled = false;
+        covers.inert = false;
+        covers.removeAttribute("aria-busy");
+      }
+    });
+    swapButton.setAttribute("aria-label", "Swap obverse and reverse images");
+    swapButton.title = "Swap obverse & reverse";
+    swapSlot.append(swapButton);
+    covers.append(obverseTitleWrap, swapSlot, reverseTitleWrap);
     // STRK-421 hero: large centred title images with the Image shape picker beneath them.
     const hero = el("div", "collections-builder-hero");
     hero.appendChild(covers);
@@ -1312,9 +1359,19 @@
         el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
       );
     }
-    hero.appendChild(imageShape.node);
-    hero.appendChild(orientation.node);
-    syncOrientation(seed.imageShape, false);
+    const shapeSlot = el("div");
+    shapeSlot.dataset.ifeShape = "";
+    hero.appendChild(shapeSlot);
+    frameEditor = window.imageFrameEditor.mount(hero, {
+      getSignals: () => ({ type: itemType.value }),
+    });
+    frameEditor.seed({
+      signals: { type: seed.itemType },
+      shape: seed.imageShape,
+      shapeChosen: seed.imageShape !== window.deriveImageShape({ type: seed.itemType }),
+      orientation: { obverse: seed.imageOrientation, reverse: seed.reverseImageOrientation },
+    });
+    chooserDisposers.push(() => frameEditor && frameEditor.dispose());
     if (seed.editId) {
       getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
       getImageUrl(seed.editId, "title:reverse").then((url) => url && reverseTitle.setPreview(url));
@@ -1630,8 +1687,9 @@
           authorization: authorization.value,
           dimensions: dimensions.value,
         },
-        imageShape: imageShape.getValue(),
-        imageOrientation: orientation.node.hidden ? undefined : orientation.getValue(),
+        imageShape: frameEditor.getState().shape,
+        imageOrientation: frameEditor.getState().obverseOrientation || undefined,
+        reverseImageOrientation: frameEditor.getState().reverseOrientation || undefined,
         about: about.value,
         side: side.getValue(),
         showItemImages: itemImages.getValue() === "show",

@@ -3977,6 +3977,12 @@ input[type="submit"] {
   color: var(--text-secondary);
 }
 
+/* The shape attribute applies the ratio; the (0,2,0) selector beats a host's own frame class,
+   such as the builder's .collections-image-pick, which sets aspect-ratio: 1. */
+.ife-frame[data-shape] {
+  aspect-ratio: var(--ife-r);
+}
+
 .ife-frame[data-shape="round"] {
   --ife-r: 1;
   border-radius: 50%;
@@ -4028,19 +4034,21 @@ input[type="submit"] {
   padding: 0;
 }
 
-/* The item modal keeps its legacy preview container (ids and display toggles) inside the frame. */
-.ife .ife-frame .image-upload-preview {
+/* The item modal keeps its legacy preview container (ids and display toggles) inside the frame.
+   These rules are scoped to the item modal's .ife-stage: the builder's frames are buttons that
+   draw their own "+" and image. */
+.ife .ife-stage .ife-frame .image-upload-preview {
   width: 100%;
   height: 100%;
 }
 
-.ife .ife-frame:not(.has-image)::before {
+.ife .ife-stage .ife-frame:not(.has-image)::before {
   content: "+";
   font-size: var(--font-size-2xl);
   line-height: 1;
 }
 
-.ife .ife-frame img {
+.ife .ife-stage .ife-frame img {
   width: 100%;
   height: 100%;
   max-width: none;
@@ -4051,7 +4059,7 @@ input[type="submit"] {
   display: block;
 }
 
-.ife .ife-frame:not(.has-image) img {
+.ife .ife-stage .ife-frame:not(.has-image) img {
   display: none;
 }
 
@@ -19755,32 +19763,11 @@ input[type="number"] {
 }
 
 .collections-builder-covers {
-  --collections-cover-size: 128px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: center;
   gap: var(--spacing-xl);
-}
-
-.collections-builder-covers[data-shape="bar"] {
-  --collections-cover-size: 108px;
-}
-
-.collections-builder-covers[data-shape="bar"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers[data-shape="note"] {
-  --collections-cover-size: 160px;
-}
-
-.collections-builder-covers[data-shape="note"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers[data-shape="slab"] {
-  --collections-cover-size: 100px;
 }
 
 .collections-builder-title-option {
@@ -19790,33 +19777,43 @@ input[type="number"] {
   gap: 0.3rem;
 }
 
+/* STRK-427: every frame chooses its width from ITS OWN shape and orientation (set on the frame by
+   the shared image-frame editor), so a portrait obverse and a landscape reverse size
+   independently. The values are the STRK-421/424 widths, unchanged; ratio and radius come from
+   the shared .ife-frame rules, and the Slab ratio is the shared --frame-slab. */
 .collections-builder-covers .collections-image-pick {
+  --collections-cover-size: 128px;
   width: var(--collections-cover-size);
   font-size: var(--font-size-2xl);
 }
 
-.collections-builder-covers[data-shape="bar"] .collections-image-pick {
-  aspect-ratio: var(--frame-bar-landscape);
-  border-radius: 6px;
+.collections-builder-covers .collections-image-pick[data-shape="bar"] {
+  --collections-cover-size: 108px;
 }
 
-.collections-builder-covers[data-shape="bar"][data-orientation="portrait"] .collections-image-pick {
-  aspect-ratio: var(--frame-bar-portrait);
+.collections-builder-covers .collections-image-pick[data-shape="bar"][data-orientation="portrait"] {
+  --collections-cover-size: 80px;
 }
 
-.collections-builder-covers[data-shape="note"] .collections-image-pick {
-  aspect-ratio: var(--frame-note-landscape);
-  border-radius: 4px;
+.collections-builder-covers .collections-image-pick[data-shape="note"] {
+  --collections-cover-size: 160px;
 }
 
-.collections-builder-covers[data-shape="note"][data-orientation="portrait"]
-  .collections-image-pick {
-  aspect-ratio: var(--frame-note-portrait);
+.collections-builder-covers
+  .collections-image-pick[data-shape="note"][data-orientation="portrait"] {
+  --collections-cover-size: 80px;
 }
 
-.collections-builder-covers[data-shape="slab"] .collections-image-pick {
-  aspect-ratio: 3 / 4;
-  border-radius: 8px;
+.collections-builder-covers .collections-image-pick[data-shape="slab"] {
+  --collections-cover-size: 100px;
+}
+
+.collections-builder-swap {
+  align-self: center;
+}
+
+.collections-builder-swap[hidden] {
+  display: none;
 }
 
 .collections-builder-covers .collections-image-remove {
