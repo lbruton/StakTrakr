@@ -208,7 +208,95 @@ function writeImageFraming(state, signals) {
   return { set, remove };
 }
 
+// ---- Import / export helpers (STRK-427, D-13, D-14) ------------------------------------
+
+const IMAGE_FRAMING_STORED_KEYS = [
+  "imageShape",
+  "obverseImageOrientation",
+  "reverseImageOrientation",
+  "obverseImageFrame",
+  "reverseImageFrame",
+];
+// Appended after the last item column and before "Collections" in both CSV header lists.
+const IMAGE_FRAMING_CSV_HEADERS = [
+  "Image Shape",
+  "Obverse Image Orientation",
+  "Reverse Image Orientation",
+];
+
+/**
+ * The frame fields an item actually carries, for JSON and ZIP export. Absent keys are omitted,
+ * and `""` and the legacy `auto` value are never written (Tradeoff 8), so a sparse item exports
+ * no frame keys and a restored legacy item cannot look migrated.
+ * @param {Object|null|undefined} item
+ * @returns {Object} Only the present, non-empty frame fields
+ */
+function imageFramingFields(item) {
+  const record = item || {};
+  const fields = {};
+  IMAGE_FRAMING_STORED_KEYS.forEach((key) => {
+    const value = record[key];
+    if (typeof value === "string" && value !== "" && value !== "auto") fields[key] = value;
+  });
+  return fields;
+}
+
+/**
+ * The three new CSV cells for an item, in IMAGE_FRAMING_CSV_HEADERS order.
+ * @param {Object|null|undefined} item
+ * @returns {string[]} Image Shape, Obverse Image Orientation, Reverse Image Orientation
+ */
+function imageFramingCsvCells(item) {
+  const record = item || {};
+  return [
+    normalizeImageShape(record.imageShape) || "",
+    normalizeImageOrientation(record.obverseImageOrientation) || "",
+    normalizeImageOrientation(record.reverseImageOrientation) || "",
+  ];
+}
+
+/**
+ * Read the frame fields from an imported record (JSON item or CSV row, any header casing) into
+ * a sparse object. Enum values are validated, so an invalid value reads as absent (I-10); the
+ * legacy frames keep only `circle` and `rectangle` (AC-8.7).
+ * @param {Object} source - Raw record keyed by camelCase field or CSV header
+ * @returns {Object} Only the valid frame fields
+ */
+function readImportedImageFraming(source) {
+  const row = source || {};
+  const pick = (...names) => {
+    for (const name of names) {
+      const value = row[name];
+      if (value != null && String(value).trim() !== "") return String(value).trim().toLowerCase();
+    }
+    return "";
+  };
+  const out = {};
+  const shape = normalizeImageShape(pick("imageShape", "Image Shape"));
+  if (shape) out.imageShape = shape;
+  const obverse = normalizeImageOrientation(
+    pick("obverseImageOrientation", "Obverse Image Orientation")
+  );
+  if (obverse) out.obverseImageOrientation = obverse;
+  const reverse = normalizeImageOrientation(
+    pick("reverseImageOrientation", "Reverse Image Orientation")
+  );
+  if (reverse) out.reverseImageOrientation = reverse;
+  [
+    ["obverseImageFrame", "Obverse Frame"],
+    ["reverseImageFrame", "Reverse Frame"],
+  ].forEach(([key, header]) => {
+    const legacy = normalizeImageFrame(pick(key, header));
+    if (legacy !== "auto") out[key] = legacy;
+  });
+  return out;
+}
+
 if (typeof window !== "undefined") {
+  window.IMAGE_FRAMING_CSV_HEADERS = IMAGE_FRAMING_CSV_HEADERS;
+  window.imageFramingFields = imageFramingFields;
+  window.imageFramingCsvCells = imageFramingCsvCells;
+  window.readImportedImageFraming = readImportedImageFraming;
   window.normalizeImageFrame = normalizeImageFrame;
   window.cycleFrame = cycleFrame;
   window.resolveImageFrame = resolveImageFrame;

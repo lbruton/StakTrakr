@@ -2595,6 +2595,8 @@ const exportJson = () => {
     uuid: item.uuid,
     obverseImageUrl: item.obverseImageUrl || "",
     reverseImageUrl: item.reverseImageUrl || "",
+    // STRK-427: frame shape, per-side orientation and the legacy frames; sparse (absent = derived).
+    ...imageFramingFields(item),
     // Legacy fields preserved for backward compatibility
     spotPriceAtPurchase: item.spotPriceAtPurchase,
     composition: item.composition,

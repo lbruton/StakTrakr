@@ -751,6 +751,8 @@
       uuid: row["UUID"] || row["uuid"] || "",
       obverseImageUrl: row["Obverse Image URL"] || row["obverseImageUrl"] || "",
       reverseImageUrl: row["Reverse Image URL"] || row["reverseImageUrl"] || "",
+      // STRK-427: frame shape, per-side orientation and the legacy frames; enum-validated, sparse.
+      ...window.readImportedImageFraming(row),
     };
   };
 
@@ -1594,6 +1596,8 @@
             uuid,
             obverseImageUrl,
             reverseImageUrl,
+            // STRK-427: frame shape, per-side orientation and the legacy frames (enum-validated).
+            ...window.readImportedImageFraming(raw),
             ...(constitutionalVariant ? { constitutionalVariant } : {}),
             ...(constitutionalEntryMode ? { constitutionalEntryMode } : {}),
             ...(pricingType ? { pricingType } : {}),
@@ -1998,6 +2002,8 @@
         serialNumber,
         serial,
         uuid,
+        // STRK-427: this test-only parse path reads the frame fields like the real importer.
+        ...window.readImportedImageFraming(row),
         disposition,
         tradedFromUuid: tradedFromUuid || undefined,
       });

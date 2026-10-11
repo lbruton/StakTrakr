@@ -294,7 +294,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Depends on:** C.5
   - **Maps to:** AC-5.2, AC-9.4 (unchanged Slot rule)
 
-- [ ] **C.7** — Diff, change log and hash registration
+- [x] **C.7** — Diff, change log and hash registration
   - **File(s):** `js/diff-engine.js`, `js/changeLog.js`, `js/cloud-sync.js`
   - **Acceptance:**
     - `DIFF_FIELDS` Images group (`:75-76`) and the `changeLog.js` field array (`:181-182`) gain the three fields.
@@ -304,7 +304,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Leverage:** `.context/cloud-sync-convergence.md` (STRK-154 invariant).
   - **Maps to:** AC-8.3, AC-8.6
 
-- [ ] **C.8** — Import/export enumeration sites
+- [x] **C.8** — Import/export enumeration sites (disclosure: one existing fixture, the "older CSV" derivation in `collections-data-paths.spec.js`, now also drops the three new columns, since a pre-STRK-371 export has none; its assertions are unchanged)
   - **File(s):** `js/inventory.js`, `js/inventory-backup.js`, `js/csv-export.js`, `js/inventory-import.js`
   - **Acceptance:**
     - `exportJson` (`inventory.js:2554-2596`) projects all five fields sparsely.

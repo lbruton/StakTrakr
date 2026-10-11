@@ -599,7 +599,15 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
         skipEmptyLines: true,
         transformHeader: (header) => header.trim(),
       });
-      const fields = parsed.meta.fields.filter((field) => field !== "Collections");
+      // An older export predates Collections AND the STRK-427 image-framing columns, so the
+      // derived legacy file drops all four; the assertions below are unchanged.
+      const newerColumns = [
+        "Collections",
+        "Image Shape",
+        "Obverse Image Orientation",
+        "Reverse Image Orientation",
+      ];
+      const fields = parsed.meta.fields.filter((field) => !newerColumns.includes(field));
       return `# older export\n${window.Papa.unparse({ fields, data: parsed.data }, { newline: "\r\n" })}`;
     }, file.text);
     expect(legacyCsv).toContain("Traded From UUID\r\n");

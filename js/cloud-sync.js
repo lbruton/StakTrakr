@@ -162,6 +162,18 @@ async function computeInventoryHash(items) {
             (item.constitutionalEntryMode || "") +
             "|" +
             (item.pricingType || "")
+          : "") +
+        // STRK-427: the chosen frame shape and per-side orientation, ONLY for items that carry
+        // them, under a distinct "frame:" tag so it cannot be confused with the block above.
+        // An inventory with none of the fields keeps its existing hash (no spurious one-time
+        // sync prompt on upgrade); the legacy *ImageFrame fields stay out (D-12).
+        (item.imageShape || item.obverseImageOrientation || item.reverseImageOrientation
+          ? "|frame:" +
+            (item.imageShape || "") +
+            "|" +
+            (item.obverseImageOrientation || "") +
+            "|" +
+            (item.reverseImageOrientation || "")
           : "");
       keys.push(itemKey + "::" + contentSample);
     }
