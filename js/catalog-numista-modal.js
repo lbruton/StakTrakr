@@ -1055,7 +1055,7 @@ const fillFormFromNumistaResult = () => {
         if (el instanceof HTMLElement) {
           el.value = val;
           // Programmatic .value doesn't fire input events; dispatch one so
-          // scheduleUrlPreview() runs and the preview/frame-toggle UI updates
+          // scheduleUrlPreview() runs and the preview and frame UI update
           // without requiring the user to save and re-edit the item.
           el.dispatchEvent(new Event("input", { bubbles: true }));
         }

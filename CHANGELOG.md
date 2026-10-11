@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.46] - 2026-10-11
+
+### Changed — STRK-427: Shared image-frame editor (phase 1)
+
+- **One editor, two modals**: The Add/Edit Item modal and the Custom Collection builder now share one image-frame editor with an Image shape selector (Round, Bar, Note, Slab), a live preview that reshapes as you choose, and a Swap button for obverse and reverse (STRK-427).
+- **Per-side orientation**: Bar and Note images choose Portrait or Landscape for each side, so a mixed pair is possible on Items and in Collections; the Album, Ledger and Hub render each side with its own orientation (STRK-427).
+- **Type-driven defaults**: The shape follows the Type (Goldback and Note become Note, Bar and Set become Bar, a graded coin becomes Slab, a non-round Numista coin becomes Bar) until you choose one yourself (STRK-427).
+- **Larger preview, round trips**: The edit-modal preview is larger on desktop. Shape and orientation save with the Item and round-trip through JSON, CSV and ZIP backup, with older exports and older builds handled as documented (STRK-427).
+
+---
+
 ## [3.36.45] - 2026-10-08
 
 ### Changed — STRK-426: Readable image remove badge in dark themes
