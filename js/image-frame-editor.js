@@ -483,6 +483,7 @@
         shape: state.shape,
         obverse: state.obverseOrientation,
         reverse: state.reverseOrientation,
+        chosen: state.shapeChosen,
         derived: window.deriveImageShape(signals),
       };
     };
@@ -540,8 +541,9 @@
       /**
        * The frame fields to write for this save, or null to leave the stored ones untouched. An
        * add or clone always applies the writer; an edit applies it only when the user changed
-       * the framing or a derivation signal moved the derived default, so an untouched edit
-       * keeps a legacy mixed circle/rectangle pair byte-identical (D-4, AC-8.5).
+       * the framing (a different shape or orientation, or a click that pins the displayed
+       * shape of a legacy item) or a derivation signal moved the derived default, so an
+       * untouched edit keeps a legacy mixed circle/rectangle pair byte-identical (D-4, AC-8.5).
        * @param {boolean} isEditing - True for an edit of an existing item
        * @returns {{set: Object, remove: string[]}|null}
        */
@@ -554,6 +556,7 @@
         const dirty =
           !seeded ||
           state.shape !== seeded.shape ||
+          (state.shapeChosen && !seeded.chosen) ||
           state.obverseOrientation !== seeded.obverse ||
           state.reverseOrientation !== seeded.reverse;
         const signalsMoved =

@@ -675,6 +675,23 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
     await expect(ife.shape.getByLabel("Bar")).toBeChecked();
     await expectFrame(ife.frames.nth(0), "bar", "portrait");
   });
+
+  test("edit: clicking the displayed shape of a legacy rectangle item migrates it to an explicit imageShape (Codex P2)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, { items: [{ ...SEED_ITEM, obverseImageFrame: "rectangle" }] });
+    await openEditModal(page);
+    const bar = editor(page).shape.getByLabel("Bar");
+    await expect(bar).toBeChecked();
+    // A radio fires no change event for the option that is already selected; the click is the
+    // user's explicit choice and must be persisted rather than left as a bare legacy frame.
+    await bar.click();
+    await submit(page);
+    const stored = await storedItem(page);
+    expect(stored.imageShape).toBe("bar");
+    expect(stored.obverseImageFrame).toBe("rectangle");
+    expect(stored.reverseImageFrame).toBe("rectangle");
+  });
 });
 
 test.describe("core/image-frame-editor — layout, themes and builder parity (STRK-427)", () => {
