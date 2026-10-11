@@ -4162,17 +4162,26 @@ input[type="submit"] {
   color: var(--primary);
 }
 
-/* Touch targets: widen the hit area to 44px without growing the icon or badge. */
+/* Touch targets: a true 44px square centred on the icon or badge, without growing either. It is
+   centred with top/left 50% and a translate, not an inset, because an inset is measured from the
+   padding box and the 1px border shifted it off centre and 2px short of 44px. The builder's
+   badge shares the rule (it also sits inside .ife). */
 @media (max-width: 768px) {
   .ife-link::after,
-  .ife .ife-stage .collections-image-remove::after {
+  .ife .collections-image-remove::after {
     content: "";
     position: absolute;
-    inset: -8px;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 }
 
-/* The URL fields only hold the value the link dialog edits; they are never shown inline. */
+/* The URL fields only hold the value the link dialog edits; they are never shown inline. They are
+   type="text", not "url": a hidden control still takes part in native validation, and an item
+   imported with a malformed link must still Save (the link stays editable through the dialog). */
 #imageUploadGroup .image-url-input {
   display: none !important;
 }

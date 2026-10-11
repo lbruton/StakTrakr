@@ -1353,6 +1353,90 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
   });
 
+  // Review findings on PR 1574 (Codex P2, round 2).
+  test("row 8: an item imported with a malformed image link still saves, and the link stays editable", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "not a url", reverseImageUrl: "" }],
+    });
+    // A malformed link never previews, so wait on the modal itself, not on a preview.
+    const openEditUnpreviewed = async () => {
+      await page.evaluate(
+        (id) => window.editItem(window.inventory.findIndex((i) => i.uuid === id)),
+        SEED_ITEM.uuid
+      );
+      await expect(page.locator("#itemModal")).toBeVisible();
+      await settleModal(page);
+    };
+    await openEditUnpreviewed();
+    // Save must not be blocked by a hidden, invalid control.
+    await submit(page);
+    expect((await storedItem(page)).obverseImageUrl).toBe("not a url");
+    // The link icon shows the stored value, so the user can correct it.
+    await openEditUnpreviewed();
+    await page.locator("#itemImageUrlBtnObv").click();
+    await expect(page.locator("#appDialogInput")).toHaveValue("not a url");
+  });
+
+  for (const kind of ["item", "builder"]) {
+    test(`row 8: the ${kind} modal's remove badge has a true 44px touch target on phones`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 390, height: 900 });
+      const host = await openParityHost(page, kind);
+      await host.file(page).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      const badge =
+        kind === "item"
+          ? page.locator("#itemImageRemoveBtnObv")
+          : page
+              .locator("#collectionsBuilderModal .collections-image-remove:not([hidden])")
+              .first();
+      await expect(badge).toBeVisible();
+      await badge.scrollIntoViewIfNeeded();
+      const box = await badge.boundingBox();
+      const hits = await page.evaluate(
+        ({ cx, cy }) =>
+          [
+            [-21, -21],
+            [21, -21],
+            [-21, 21],
+            [21, 21],
+          ].map(([dx, dy]) => {
+            const hit = document.elementFromPoint(cx + dx, cy + dy);
+            return hit && hit.closest("button") ? hit.closest("button").className : "";
+          }),
+        { cx: box.x + box.width / 2, cy: box.y + box.height / 2 }
+      );
+      for (const hit of hits) expect(hit).toContain("collections-image-remove");
+    });
+  }
+
+  test("row 8: the item modal's link icon has a true 44px touch target on phones", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await seedAndGoto(page);
+    await openAddModal(page);
+    const link = page.locator("#itemImageUrlBtnObv");
+    await link.scrollIntoViewIfNeeded();
+    const box = await link.boundingBox();
+    const hits = await page.evaluate(
+      ({ cx, cy }) =>
+        [
+          [-21, -21],
+          [21, -21],
+          [-21, 21],
+          [21, 21],
+        ].map(([dx, dy]) => {
+          const hit = document.elementFromPoint(cx + dx, cy + dy);
+          return hit && hit.closest("button") ? hit.closest("button").className : "";
+        }),
+      { cx: box.x + box.width / 2, cy: box.y + box.height / 2 }
+    );
+    for (const hit of hits) expect(hit).toContain("ife-link");
+  });
+
   // The × badge's cross must sit on the centre of its circle (Lonnie's 2026-10-11 review: the text
   // glyph sat low). Measured on rendered pixels, so it holds whichever way the cross is drawn.
   for (const kind of ["item", "builder"]) {
