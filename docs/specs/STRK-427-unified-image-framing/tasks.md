@@ -396,7 +396,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Sprint Cohort D — Foundation, P2
 
-- [ ] **D.1** — Confirm the P2 mockup section is approved
+- [x] **D.1** — Confirm the P2 mockup section is approved — _the mockup header (`playground/STRK-427-image-frame-editor.html` lines 5-17) carries the approval record: approved 2026-10-10 by lbruton in chat, with decision 6 "P2: table thumb 28px tall with width clamped to 40px (approved); images use object-fit: contain", which is the letterboxing of Tradeoff 5. The user's 2026-10-11 review of v3.36.46 confirmed the bigger images and shape options are wanted and asked to finish P2 first._
   - **File(s):** _no file changes — verification only_ (`playground/STRK-427-image-frame-editor.html`)
   - **Acceptance:** The A.1 playground's P2 section (P2-table, P2-card A/B/C, P2-view, legacy-rect) carries the user's approval note. If it does not, get approval (or a revision via `/ui-mockup`) before Cohort F. The approval covers the table-thumb width clamp and the letterboxing of landscape photos in a portrait Bar (Tradeoff 5).
   - **Maps to:** AC-9.1, AC-9.3
@@ -491,6 +491,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **MUST invoke `/pr-resolve`** as a skill, covering inline and review-body findings and scanner re-posts. Drive to CLEAN, then report and wait for the user's merge.
 
 - [ ] **CLOSE-P2-8. Archive spec** (after the P2 PR merges)
+  - **Re-scoped 2026-10-11 (Lonnie):** STRK-427 does not close with P2. The item-modal vs Edit-collection visual parity work is filed as **STRK-434** and must land on `dev` before any `dev` → `main` ship. After the P2 merge is verified, this task only verifies the merge and records it; the archive and the Done transition below run when STRK-434 has merged and Lonnie has signed off its screenshots. Do not archive the spec folder before then (STRK-434 reuses it).
   - Verify the P2 merge first (`gh pr view --json state,mergeCommit`).
   - **MUST invoke `/spec archive STRK-427`** as a skill.
   - Then mark STRK-427 Done in Plane: `mcp__plane__workitem` (`action: "update"`) to state "Done" (list states this session; never cache UUIDs), with the follow-ups from 0.2 cross-linked.
