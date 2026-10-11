@@ -271,7 +271,9 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
     await expect(ife.frames.nth(0)).toBeVisible();
     await expect(ife.frames.nth(1)).toBeVisible();
     await expectFrame(ife.frames.nth(0), "round");
-    await expect(page.locator("#swapImagesBtn")).toBeHidden();
+    // STRK-434: Swap is always rendered, held disabled until a side holds an image.
+    await expect(page.locator("#swapImagesBtn")).toBeVisible();
+    await expect(page.locator("#swapImagesBtn")).toBeDisabled();
   });
 
   test("the COIN_IMAGES flag still hides the whole image group, editor included (D-16)", async ({
@@ -540,34 +542,44 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
     await expect(page.locator("#swapImagesBtn")).toBeEnabled();
   });
 
-  test("Swap shows only when both sides hold an image, across seed, upload, Remove and swap", async ({
+  test("Swap is enabled whenever a side holds an image and disabled with none, across seed, upload, Remove and swap", async ({
     page,
   }) => {
     await seedAndGoto(page, { items: [{ ...SEED_ITEM, reverseImageUrl: "" }] });
     await openEditModal(page);
     const ife = editor(page);
-    // One side filled: both frames stay visible, Swap does not.
+    const swap = page.locator("#swapImagesBtn");
+    // STRK-434: Swap is always rendered. One filled side is enough (it moves the lone image
+    // across), so it is enabled; both frames stay visible.
     await expect(ife.frames.nth(0)).toBeVisible();
     await expect(ife.frames.nth(1)).toBeVisible();
-    await expect(page.locator("#swapImagesBtn")).toBeHidden();
+    await expect(swap).toBeVisible();
+    await expect(swap).toBeEnabled();
 
     await page.setInputFiles("#itemImageFileRev", "tests/playwright/helpers/test-reverse.png");
-    await expect(page.locator("#swapImagesBtn")).toBeVisible();
+    await expect(swap).toBeEnabled();
 
+    // Removing the reverse leaves the obverse image, so Swap stays enabled.
     await page.locator("#itemImageRemoveBtnRev").click();
-    await expect(page.locator("#swapImagesBtn")).toBeHidden();
+    await expect(swap).toBeEnabled();
     await expect(ife.frames.nth(1)).toBeVisible();
 
-    await page.setInputFiles("#itemImageFileRev", "tests/playwright/helpers/test-reverse.png");
-    await expect(page.locator("#swapImagesBtn")).toBeVisible();
-    await page.locator("#swapImagesBtn").click();
-    await expect(page.locator("#swapImagesBtn")).toBeVisible();
+    // Removing the last image disables it, but it stays rendered.
+    await page.locator("#itemImageRemoveBtnObv").click();
+    await expect(swap).toBeVisible();
+    await expect(swap).toBeDisabled();
 
-    // A brand-new item with no images at all: both frames visible, no Swap.
+    await page.setInputFiles("#itemImageFileRev", "tests/playwright/helpers/test-reverse.png");
+    await expect(swap).toBeEnabled();
+    await swap.click();
+    await expect(swap).toBeEnabled();
+
+    // A brand-new item with no images at all: both frames visible, Swap rendered but disabled.
     await submit(page);
     await openAddModal(page);
     await expect(editor(page).frames.nth(0)).toBeVisible();
-    await expect(page.locator("#swapImagesBtn")).toBeHidden();
+    await expect(swap).toBeVisible();
+    await expect(swap).toBeDisabled();
   });
 
   test("Remove resets that side's orientation to its default and keeps the shape (AC-3.3)", async ({

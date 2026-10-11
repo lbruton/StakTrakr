@@ -3785,6 +3785,35 @@ input[type="submit"] {
   padding: 0.2rem 0.4rem;
   line-height: 1;
 }
+/* STRK-434: the swap control is a transparent line icon in both modals (the item modal's
+   #swapImagesBtn and the builder's), readable in every theme through the text token. */
+.ife [data-ife-swap] .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.ife [data-ife-swap] .btn-icon:hover:not(:disabled),
+.ife [data-ife-swap] .btn-icon:focus-visible {
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+.ife [data-ife-swap] .btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 768px) {
+  .ife [data-ife-swap] .btn-icon {
+    min-width: 44px;
+    min-height: 44px; /* 44px touch target (design philosophy) */
+  }
+}
 .image-side-label {
   display: block;
   font-size: var(--font-size-sm);
@@ -11115,31 +11144,21 @@ th {
   gap: var(--spacing-md);
 }
 
-/* --- Image upload slots — dashed drop-zone style ------------------------ */
+/* --- Image upload slots ------------------------------------------------------------
+   STRK-434: no dashed drop-zone box. The Edit collection builder draws none, and the two
+   modals share one image look. */
 #inventoryForm .image-upload-side {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
   padding: 0.5rem;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease;
 }
 
-#inventoryForm .image-upload-side:hover {
-  border-color: var(--primary);
-  background: color-mix(in oklch, var(--primary), transparent 97%);
-}
-
-:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm .image-upload-side:hover {
-  background: color-mix(in oklch, var(--primary), transparent 94%);
-}
-
+/* STRK-434: the side captions share the form's micro-label style with the builder's
+   "Obverse title image" captions (same size, weight, casing, tracking and colour). */
 #inventoryForm .image-side-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted, var(--text-secondary));
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
 /* --- Collapsible sections — refined for prototype look ------------------ */
@@ -19780,35 +19799,22 @@ input[type="number"] {
   gap: 0.3rem;
 }
 
-/* STRK-427: every frame chooses its width from ITS OWN shape and orientation (set on the frame by
-   the shared image-frame editor), so a portrait obverse and a landscape reverse size
-   independently. The values are the STRK-421/424 widths, unchanged; ratio and radius come from
-   the shared .ife-frame rules, and the Slab ratio is the shared --frame-slab. */
+/* STRK-434: two 140px medallions plus the 44px Swap need 324px of the ~352px a phone gives the
+   row, so the wide desktop gap would wrap the pair onto two lines. */
+@media (max-width: 768px) {
+  .collections-builder-covers {
+    gap: 0.5rem;
+  }
+}
+
+/* STRK-427 / STRK-434: every frame sizes itself from ITS OWN shape and orientation (set on the
+   frame by the shared image-frame editor), so a portrait obverse and a landscape reverse size
+   independently. The longest side is the shared --ife-box (200px; 140px at 768px and below), the
+   same box the item modal's preview stage uses, so the two modals show the same medallion. Ratio
+   and radius come from the shared .ife-frame rules. */
 .collections-builder-covers .collections-image-pick {
-  --collections-cover-size: 128px;
-  width: var(--collections-cover-size);
+  width: calc(var(--ife-box) * min(1, var(--ife-r)));
   font-size: var(--font-size-2xl);
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="bar"] {
-  --collections-cover-size: 108px;
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="bar"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="note"] {
-  --collections-cover-size: 160px;
-}
-
-.collections-builder-covers
-  .collections-image-pick[data-shape="note"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers .collections-image-pick[data-shape="slab"] {
-  --collections-cover-size: 100px;
 }
 
 .collections-builder-swap {
@@ -19824,20 +19830,22 @@ input[type="number"] {
   right: 2px;
 }
 
-.collections-builder-form .collections-segmented {
+/* STRK-434: the item modal's shared image-frame editor (#inventoryForm .ife) takes the same
+   segmented look as the builder, so the Image shape selector is identical in both modals. */
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented {
   flex-wrap: wrap;
   justify-content: center;
   padding: 2px;
 }
 
 /* Segmented options are <label>s: undo the form's uppercase micro-label treatment. */
-.collections-builder-form .collections-segmented-option {
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option {
   margin: 0;
   text-transform: none;
   letter-spacing: 0;
 }
 
-.collections-builder-form .collections-segmented-option span {
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -19854,7 +19862,9 @@ input[type="number"] {
 
 /* Phone touch targets: text options (Orientation) meet the 44px baseline. */
 @media (max-width: 767px) {
-  .collections-builder-form .collections-segmented-option span:not(.collections-builder-icon) {
+  :is(.collections-builder-form, #inventoryForm .ife)
+    .collections-segmented-option
+    span:not(.collections-builder-icon) {
     min-height: 44px;
   }
 }

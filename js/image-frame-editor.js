@@ -16,7 +16,9 @@
  *   [data-ife-orientation="obverse|reverse"]
  *                                      required, receives that side's orientation radiogroup,
  *                                      hidden while the shape does not rotate
- *   [data-ife-swap]                    optional, shown only while both sides hold an image
+ *   [data-ife-swap]                    optional, holds one <button>; the editor gives it the shared
+ *                                      swap icon and keeps it rendered, disabled with an
+ *                                      explanatory title until a side holds an image (STRK-434)
  *
  * Pure rules (derive, reader, writer) live in js/image-frame.js, which loads before this file.
  * Wrapped in an IIFE so no top-level name enters the shared script scope; the public surface
@@ -43,6 +45,15 @@
     ["portrait", "Portrait", [["rect", { x: 7, y: 3, width: 10, height: 18, rx: 1.5 }]]],
     ["landscape", "Landscape", [["rect", { x: 3, y: 7, width: 18, height: 10, rx: 1.5 }]]],
   ];
+  // Two opposing arrows (lucide arrow-left-right): the swap icon both modals share.
+  const SWAP_GLYPH = [
+    ["path", { d: "M8 3 4 7l4 4" }],
+    ["path", { d: "M4 7h16" }],
+    ["path", { d: "m16 21 4-4-4-4" }],
+    ["path", { d: "M20 17H4" }],
+  ];
+  const SWAP_TITLE = "Swap obverse & reverse";
+  const SWAP_IDLE_TITLE = "Add an image to swap obverse & reverse";
   let mountCount = 0;
 
   /**
@@ -112,20 +123,28 @@
   };
 
   /**
-   * Build a captioned segmented radiogroup with the shared `.collections-segmented` look.
-   * @param {string} caption - Visible group label (also the accessible name)
+   * Build a segmented radiogroup with the shared `.collections-segmented` look.
+   * @param {string} caption - Group label (the accessible name; visible unless suppressed)
    * @param {string} name - Radio group name
    * @param {string} idBase - Unique id prefix for the caption
    * @param {Array<[string, string, Array]>} options - [value, label, glyph parts]
+   * @param {{visibleCaption?: boolean}} [flags] - `visibleCaption: false` names the group with
+   *   aria-label and draws no caption
    * @returns {{node: HTMLElement, inputs: HTMLInputElement[]}}
    */
-  const radioGroup = (caption, name, idBase, options) => {
+  const radioGroup = (caption, name, idBase, options, { visibleCaption = true } = {}) => {
     const wrap = make("div", "ife-group");
-    const cap = make("span", "ife-cap", caption);
-    cap.id = idBase;
     const group = make("div", "collections-segmented");
     group.setAttribute("role", "radiogroup");
-    group.setAttribute("aria-labelledby", idBase);
+    // A self-explanatory group (the shape selector) has no visible caption but keeps its name.
+    if (visibleCaption) {
+      const cap = make("span", "ife-cap", caption);
+      cap.id = idBase;
+      group.setAttribute("aria-labelledby", idBase);
+      wrap.append(cap);
+    } else {
+      group.setAttribute("aria-label", caption);
+    }
     const inputs = options.map(([value, label, inner]) => {
       const option = make("label", "collections-segmented-option");
       const input = make("input");
@@ -138,7 +157,7 @@
       group.append(option);
       return input;
     });
-    wrap.append(cap, group);
+    wrap.append(group);
     return { node: wrap, inputs };
   };
 
@@ -177,6 +196,19 @@
       orientationSlots[side] = requireSlot(`[data-ife-orientation="${side}"]`);
     });
     const swapSlot = root.querySelector("[data-ife-swap]");
+    const swapButton = swapSlot ? swapSlot.querySelector("button") : null;
+    let swapBusy = false;
+    if (swapSlot) {
+      // Always rendered (STRK-434): the button's state, not its presence, says whether it can act.
+      swapSlot.hidden = false;
+      swapSlot.classList.remove("d-none");
+    }
+    if (swapButton) {
+      const icon = glyph(SWAP_GLYPH);
+      icon.setAttribute("width", "20");
+      icon.setAttribute("height", "20");
+      swapButton.replaceChildren(icon);
+    }
     const listeners = [];
     if (typeof options.onChange === "function") listeners.push(options.onChange);
 
@@ -219,7 +251,8 @@
       "Image shape",
       `ife-shape-${uid}`,
       `ife-shape-cap-${uid}`,
-      SHAPE_OPTIONS
+      SHAPE_OPTIONS,
+      { visibleCaption: false }
     );
     shapeSlot.append(shapeGroup.node);
     const orientationInputs = {};
@@ -254,10 +287,11 @@
           input.checked = rotates && input.value === state.orientation[side];
         });
       });
-      if (swapSlot) {
-        const visible = state.hasImage.obverse && state.hasImage.reverse;
-        swapSlot.hidden = !visible;
-        swapSlot.classList.toggle("d-none", !visible);
+      if (swapButton) {
+        // Swap moves a lone image across as well as exchanging two, so one image is enough.
+        const hasAny = state.hasImage.obverse || state.hasImage.reverse;
+        swapButton.disabled = swapBusy || !hasAny;
+        swapButton.title = hasAny ? SWAP_TITLE : SWAP_IDLE_TITLE;
       }
     };
 
@@ -367,7 +401,17 @@
     };
 
     /**
-     * Tell the editor whether a side holds an image; this alone drives Swap visibility.
+     * Hold Swap disabled while the host is mid-swap or still loading a stored preview, so an
+     * early swap cannot drop an image that is on its way.
+     * @param {boolean} busy
+     */
+    const setSwapBusy = (busy) => {
+      swapBusy = Boolean(busy);
+      paint();
+    };
+
+    /**
+     * Tell the editor whether a side holds an image; this, with the busy flag, drives Swap.
      * @param {"obverse"|"reverse"} side
      * @param {boolean} hasImage
      */
@@ -448,6 +492,7 @@
       swapSides,
       resetSide,
       setSideHasImage,
+      setSwapBusy,
       getState,
       getResult,
       dispose,
@@ -579,6 +624,13 @@
       /** Exchange per-side orientation after the host swapped the images. */
       swapSides: () => {
         if (controller) controller.swapSides();
+      },
+      /**
+       * Hold Swap disabled while the host's swap is in flight.
+       * @param {boolean} busy
+       */
+      setSwapBusy: (busy) => {
+        if (controller) controller.setSwapBusy(busy);
       },
       /**
        * Reset one side's orientation after the host removed its image.

@@ -464,10 +464,10 @@ const processUploadedImage = async (file, side = "obverse") => {
 };
 
 /**
- * Show or hide Swap from ACTUAL per-side image presence (STAK-341, STRK-427). Both empty
- * frames are always visible, so a visible preview frame no longer implies an image: a side
- * holds an image only while its preview is shown and its <img> has a source. The shared
- * image-frame editor is told the same facts, so its Swap slot follows them too.
+ * Report ACTUAL per-side image presence to the shared image-frame editor (STAK-341, STRK-427).
+ * Both empty frames are always visible, so a visible preview frame no longer implies an image:
+ * a side holds an image only while its preview is shown and its <img> has a source. The editor
+ * keeps Swap rendered and enables it once either side holds an image (STRK-434).
  */
 const updateSwapButtonVisibility = () => {
   /**
@@ -483,8 +483,6 @@ const updateSwapButtonVisibility = () => {
   const obverse = holdsImage("Obv");
   const reverse = holdsImage("Rev");
   if (_imageFrameHost) _imageFrameHost.setPresence(obverse, reverse);
-  const wrapper = document.getElementById("swapImagesBtnWrapper");
-  if (wrapper) wrapper.classList.toggle("d-none", !(obverse && reverse));
 };
 
 /**
@@ -684,11 +682,8 @@ const clearUploadState = () => {
   if (removeRev) removeRev.style.display = "none";
   if (fileRev) fileRev.value = "";
 
-  // Hide swap button (STAK-341)
-  const swapWrapper = document.getElementById("swapImagesBtnWrapper");
-  if (swapWrapper) swapWrapper.classList.add("d-none");
-  const swapButton = document.getElementById("swapImagesBtn");
-  if (swapButton) swapButton.disabled = false;
+  // Swap stays rendered; the editor disables it again once reset clears both sides (STRK-434)
+  if (_imageFrameHost) _imageFrameHost.setSwapBusy(false);
   const imageGroup = document.getElementById("imageUploadGroup");
   if (imageGroup) {
     imageGroup.inert = false;
@@ -3312,7 +3307,7 @@ const setupItemFormListeners = () => {
       const imageGroup = safeGetElement("imageUploadGroup");
       imageGroup.inert = true;
       imageGroup.setAttribute("aria-busy", "true");
-      swapBtn.disabled = true;
+      if (_imageFrameHost) _imageFrameHost.setSwapBusy(true);
       const operation = swap()
         .catch((error) => {
           if (generation === _itemImageEditGeneration) {
@@ -3325,7 +3320,7 @@ const setupItemFormListeners = () => {
         .finally(() => {
           if (_pendingItemImageSwap === operation) _pendingItemImageSwap = null;
           if (generation === _itemImageEditGeneration) {
-            swapBtn.disabled = false;
+            if (_imageFrameHost) _imageFrameHost.setSwapBusy(false);
             imageGroup.inert = false;
             imageGroup.removeAttribute("aria-busy");
           }
