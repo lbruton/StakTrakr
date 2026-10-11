@@ -1294,6 +1294,66 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     await expect(page.locator("#itemReverseImageUrl")).toBeHidden();
   });
 
+  // The × badge's cross must sit on the centre of its circle (Lonnie's 2026-10-11 review: the text
+  // glyph sat low). Measured on rendered pixels, so it holds whichever way the cross is drawn.
+  for (const kind of ["item", "builder"]) {
+    test(`row 12: the ${kind} modal's × badge draws its cross centred in the circle`, async ({
+      page,
+    }) => {
+      const host = await openParityHost(page, kind);
+      await host.file(page).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      const badge =
+        kind === "item"
+          ? page.locator("#itemImageRemoveBtnObv")
+          : page
+              .locator("#collectionsBuilderModal .collections-image-remove:not([hidden])")
+              .first();
+      await expect(badge).toBeVisible();
+      await page.mouse.move(0, 0);
+      const png = await badge.screenshot({ animations: "disabled" });
+      const offset = await page.evaluate(async (base64) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
+        const { width, height } = canvas;
+        const data = ctx.getImageData(0, 0, width, height).data;
+        // Background = a pixel inside the circle near the top edge; ink = clearly different pixels
+        // well inside the ring.
+        const at = (x, y) => (y * width + x) * 4;
+        const bg = at(Math.floor(width / 2), 3);
+        let sum = 0;
+        let sx = 0;
+        let sy = 0;
+        let ink = 0;
+        const radius = Math.min(width, height) / 2;
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            if (Math.hypot(x + 0.5 - width / 2, y + 0.5 - height / 2) > radius * 0.7) continue;
+            const i = at(x, y);
+            const diff =
+              Math.abs(data[i] - data[bg]) +
+              Math.abs(data[i + 1] - data[bg + 1]) +
+              Math.abs(data[i + 2] - data[bg + 2]);
+            if (diff < 120) continue;
+            sum += diff;
+            sx += diff * (x + 0.5);
+            sy += diff * (y + 0.5);
+            ink += 1;
+          }
+        }
+        return { ink, dx: sx / sum - width / 2, dy: sy / sum - height / 2 };
+      }, png.toString("base64"));
+      expect(offset.ink).toBeGreaterThan(8);
+      expect(Math.abs(offset.dx), "horizontal offset").toBeLessThanOrEqual(1);
+      expect(Math.abs(offset.dy), "vertical offset").toBeLessThanOrEqual(1);
+    });
+  }
+
   // Neither modal crops (decided by Lonnie, 2026-10-11): a photo is scaled to fit whole inside
   // the fixed-ratio frame, and a frame holding an image draws no fill or border of its own, so
   // the bands left by a mismatched photo are invisible.

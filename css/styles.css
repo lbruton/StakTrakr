@@ -20055,9 +20055,32 @@ input[type="number"] {
   border-radius: 50%;
   /* --bg-card, not --surface: only the light :root defines --surface, so the dark themes kept a
      near-white badge under their light text (STRK-426). In light the two tokens are equal. */
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   color: var(--text-primary);
   cursor: pointer;
+  /* STRK-434: the cross is drawn, not typed. A "×" glyph sits low in its line box and the offset
+     varies by font, so two 1.5px diagonals centred in the circle (in the badge's own colour)
+     replace the text; the label stays for assistive tech through aria-label. */
+  font-size: 0;
+  line-height: 0;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    );
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 9px 9px;
 }
 
 .collections-image-remove[hidden] {
