@@ -31,13 +31,13 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 _Cohort 0 ensures the worktree exists before implementation begins. If the worktree is missing, the executing agent creates it. This is setup work, not a stop-the-world gate._
 
-- [ ] **0.1** — Ensure the P1 patch worktree exists
+- [x] **0.1** — Ensure the P1 patch worktree exists
   - **File(s):** _no file changes — verification only_ (`/release patch` writes the version lock and the bump in its own flow)
   - **Acceptance:** `git worktree list` shows `.worktrees/patch-<version>/` on branch `patch/<version>`, based on `origin/dev`, with a version-lock claim naming STRK-427 (P1). The working directory is that worktree, not the main checkout. The spec folder `docs/specs/STRK-427-unified-image-framing/` is present in it: merge or cherry-pick the spec branch `chore/strk-427-spec` if it has not reached `dev` yet.
   - **If the worktree does not exist yet:** run `/start-patch` (issue pick → STRK-427), which hands off to **`/release patch`** for the lock and the `patch/<version>` worktree. Do not use the generic `spec/STRK-427-…` branch name (`.context/spec-conventions.md`). Run `npm ci` inside the new worktree; never symlink `node_modules`.
   - **Leverage:** `/start-patch`, `/release patch`, `.context/git-topology.md` §Worktrees.
 
-- [ ] **0.2** — File the approach's follow-up issues and fix the Plane brief drift
+- [x] **0.2** — File the approach's follow-up issues and fix the Plane brief drift
   - **File(s):** _no file changes — Plane only_
   - **Acceptance:** One STRK issue for each item in `approach.md` → Out of Scope (frame fields in `computeInventoryHash`; framing for the thumb popover, `bulk-row-images.js` and `diff-modal.js`; renaming `.collections-segmented*`; the stale JS count in `.github/copilot-instructions.md:9`). STRK-425, bulk-edit shape and older-build detection already exist as Non-Goals or issues and are linked, not re-filed. Each is related to STRK-427. A comment on STRK-427 says the brief's "three phases" and "hidden item orientation controls in P1" are superseded by `requirements.md` (two phases, per-side controls in P1).
   - **Leverage:** `/issue`, `mcp__plane__workitem`, `mcp__plane__workitem_relation`, `.context/issue-tracking.md` (list states each session; never cache UUIDs).
