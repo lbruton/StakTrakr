@@ -233,13 +233,13 @@ _TDD green phase. Write the minimum code that makes Cohort B pass. **C.3 onward 
 
 _**Scoped gates.** Each task's gate covers only the assertions it implements; the task names the cases that stay RED and the task that turns them green. The full-suite gate (every Cohort B case green) runs once, at the end of C.8. A case listed as "stays RED until C.N" does not block checking off an earlier task._
 
-- [ ] **C.1** — Pure rules in `image-frame.js`
+- [x] **C.1** — Pure rules in `image-frame.js`
   - **File(s):** `js/image-frame.js`
   - **Acceptance:** Adds `deriveImageShape`, the orientation default, the enum normalizers, the reader (D-3) and the writer (D-2/D-4, returning set and delete keys). `resolveImageFrame` is **unchanged** (D-18, P1). B.1 is green.
   - **Depends on:** B.9
   - **Maps to:** AC-4.1, AC-4.2, AC-7.1, AC-7.3, AC-8.1, AC-8.2, AC-8.4
 
-- [ ] **C.2** — `collections-core` seam and reverse key
+- [x] **C.2** — `collections-core` seam and reverse key
   - **File(s):** `js/collections-core.js`
   - **Acceptance:** `defaultImageShapeForType` calls `window.deriveImageShape({ type })` through the fail-closed seam (the `getUnitOztWeight` precedent). `normalizeDefinition` whitelists and canonicalises `reverseImageOrientation`. Adds `reverseImageOrientationFor`, and create and update mirror the obverse rules. The module stays DOM-free. B.2 is green.
   - **Depends on:** C.1

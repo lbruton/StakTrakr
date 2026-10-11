@@ -228,10 +228,19 @@
     "Other",
   ];
   const WEIGHT_UNITS = ["oz", "g", "mg", "kg", "lb", "avdp", "gb", "sb", "cu"];
+  /**
+   * The default shape for an Item type. The rule lives in one place, js/image-frame.js, which the
+   * Add/Edit Item modal shares (STRK-427). This core stays pure and DOM-free: it reaches the
+   * resolver through the same `window` seam it uses for `getUnitOztWeight`, and fails closed to
+   * Round when the seam is absent or answers with anything that is not a shape.
+   * @param {string} type - Item type
+   * @returns {string} One of IMAGE_SHAPES
+   */
   const defaultImageShapeForType = (type) => {
-    if (type === "Bar" || type === "Set") return "bar";
-    if (["Note", "Aurum", "Goldback", "Silverback"].includes(type)) return "note";
-    return "round";
+    const resolver = typeof window !== "undefined" ? window.deriveImageShape : undefined;
+    if (typeof resolver !== "function") return "round";
+    const shape = resolver({ type });
+    return IMAGE_SHAPES.includes(shape) ? shape : "round";
   };
   const IMAGE_ORIENTATIONS = ["portrait", "landscape"];
   /**
@@ -259,6 +268,32 @@
    * @returns {Object} Spreadable field
    */
   const orientationField = (orientation) => (orientation ? { imageOrientation: orientation } : {});
+  /**
+   * Optional definition field for a different reverse orientation (STRK-427). Canonical form: it
+   * exists only for a shape that rotates and only when it differs from the resolved obverse
+   * value, so a uniform pair is byte-identical to what a build without the key produces.
+   * @param {string} obverse - Resolved obverse orientation, or "" for a shape that never rotates
+   * @param {*} submitted - Candidate reverse orientation
+   * @returns {Object} Spreadable field
+   */
+  const reverseOrientationField = (obverse, submitted) =>
+    obverse && IMAGE_ORIENTATIONS.includes(submitted) && submitted !== obverse
+      ? { reverseImageOrientation: submitted }
+      : {};
+  /**
+   * The orientation the reverse face renders with: its own stored value, else the obverse
+   * value (including the legacy landscape pin for a Bar or Note saved before STRK-424).
+   * @param {string} shape - Image shape
+   * @param {{imageOrientation?: *, reverseImageOrientation?: *}} [definition] - Stored definition
+   * @returns {string} "portrait" or "landscape", or "" for a shape that never rotates
+   */
+  const reverseImageOrientationFor = (shape, definition) => {
+    const obverse = imageOrientationFor(shape, definition?.imageOrientation);
+    if (!obverse) return "";
+    return IMAGE_ORIENTATIONS.includes(definition?.reverseImageOrientation)
+      ? definition.reverseImageOrientation
+      : obverse;
+  };
   /**
    * The orientation to save for a shape: the submitted choice, else the shape's default.
    * @param {string} shape - Image shape being saved
@@ -321,6 +356,7 @@
     const shape = IMAGE_SHAPES.includes(source.imageShape)
       ? source.imageShape
       : defaultImageShapeForType(type);
+    const obverseOrientation = imageOrientationFor(shape, source.imageOrientation);
     return {
       metal: text(source.metal),
       variant: text(source.variant),
@@ -338,7 +374,8 @@
       ...(Number.isFinite(purity) && purity > 0 && purity <= 1 ? { purity } : {}),
       specs: normalizeSpecs(source.specs),
       imageShape: shape,
-      ...orientationField(imageOrientationFor(shape, source.imageOrientation)),
+      ...orientationField(obverseOrientation),
+      ...reverseOrientationField(obverseOrientation, source.reverseImageOrientation),
       about: text(legacyAbout),
       side: source.side === "reverse" ? "reverse" : "obverse",
       ...showItemImagesField(source.showItemImages),
@@ -651,6 +688,10 @@
         specs: normalizeSpecs(spec.specs),
         imageShape: shape,
         ...orientationField(newImageOrientation(shape, spec.imageOrientation)),
+        ...reverseOrientationField(
+          newImageOrientation(shape, spec.imageOrientation),
+          spec.reverseImageOrientation
+        ),
         about: text(spec.about == null ? spec.description : spec.about),
         side: spec.side === "reverse" ? "reverse" : "obverse",
         ...showItemImagesField(spec.showItemImages),
@@ -708,6 +749,13 @@
       : shape === previous.imageShape && IMAGE_ORIENTATIONS.includes(previous.imageOrientation)
         ? newImageOrientation(shape, previous.imageOrientation)
         : newImageOrientation(shape);
+    // The reverse follows the same rule: an omitted value is kept while the shape stays a
+    // rotating one, and it is dropped when it equals the obverse or the shape stops rotating.
+    const submittedReverse = IMAGE_ORIENTATIONS.includes(spec.reverseImageOrientation)
+      ? spec.reverseImageOrientation
+      : shape === previous.imageShape
+        ? previous.reverseImageOrientation
+        : undefined;
     const kept = new Set(slots.map((slot) => slot.id));
     Object.keys(collection.slots).forEach((slotId) => {
       const link = collection.slots[slotId];
@@ -763,6 +811,7 @@
       specs: spec.specs == null ? normalizeSpecs(previous.specs) : normalizeSpecs(spec.specs),
       imageShape: shape,
       ...orientationField(orientation),
+      ...reverseOrientationField(orientation, submittedReverse),
       about:
         spec.about == null && spec.description == null
           ? previous.about || previous.description || ""
@@ -1293,6 +1342,7 @@
     defaultImageShapeForType,
     defaultImageOrientationForShape,
     imageOrientationFor,
+    reverseImageOrientationFor,
     typeLockFor,
     listCollections,
     slugifySlotId,
