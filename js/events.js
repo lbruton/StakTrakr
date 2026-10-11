@@ -3069,22 +3069,28 @@ const setupItemFormListeners = () => {
     });
   }
 
-  // IMAGE URL FIELDS — show URL buttons + refresh when COIN_IMAGES enabled
+  // IMAGE URL LINK ICONS — one small icon per frame (STRK-434). It opens the shared prompt
+  // dialog with the current URL; the (always hidden) URL field keeps the value, so the save
+  // and preview paths are unchanged. Cancel changes nothing; an empty entry clears the link.
   if (featureFlags.isEnabled("COIN_IMAGES")) {
-    // Show URL toggle buttons and refresh button inline
     ["Obv", "Rev"].forEach((suffix) => {
       const urlBtn = document.getElementById("itemImageUrlBtn" + suffix);
-      const urlInput = document.getElementById("itemImageUrlInput" + suffix);
-      if (urlBtn) {
-        urlBtn.style.display = "";
-        urlBtn.addEventListener("click", () => {
-          if (urlInput) {
-            const isHidden = urlInput.style.display === "none";
-            urlInput.style.display = isHidden ? "" : "none";
-            urlBtn.classList.toggle("active", isHidden);
-          }
-        });
-      }
+      if (!urlBtn) return;
+      urlBtn.style.display = "";
+      urlBtn.addEventListener("click", async () => {
+        const field =
+          suffix === "Rev" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+        if (!field || typeof showAppPrompt !== "function") return;
+        const sideName = suffix === "Rev" ? "reverse" : "obverse";
+        const entered = await showAppPrompt(
+          "Paste a link to the image, for example from imgur.",
+          field.value,
+          `Link ${sideName} image`
+        );
+        if (entered === null || entered === undefined) return;
+        field.value = String(entered).trim();
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      });
     });
   }
 
@@ -3122,6 +3128,8 @@ const setupItemFormListeners = () => {
 
       if (isMobile && isSecure && cameraBtn && fileInput) {
         cameraBtn.style.display = "";
+        // The row holding Camera stays hidden everywhere the button is unavailable (STRK-434).
+        if (cameraBtn.parentElement) cameraBtn.parentElement.style.display = "";
         cameraBtn.addEventListener("click", () => {
           fileInput.setAttribute("capture", "environment");
           fileInput.click();

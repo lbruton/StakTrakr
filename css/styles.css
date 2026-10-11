@@ -4092,6 +4092,83 @@ input[type="submit"] {
   display: none;
 }
 
+/* STRK-434: the item frame is the upload target, as in the Edit collection builder. The frame no
+   longer clips (its corner badge and link icon sit on the edge); the preview container keeps the
+   shape's clip instead. A transparent full-frame button carries the click and the focus ring. */
+.ife .ife-stage .ife-frame {
+  overflow: visible;
+}
+
+.ife .ife-stage .ife-frame .image-upload-preview {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.ife-upload {
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ife-upload:hover {
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+}
+
+.ife-upload:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The × badge is the builder's own .collections-image-remove (same look in every theme). */
+.ife .ife-stage .collections-image-remove {
+  top: 2px;
+  right: 2px;
+}
+
+/* Link icon at the frame's lower right; it opens the small URL dialog. */
+.ife-link {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-hover);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ife-link:hover,
+.ife-link:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Touch targets: widen the hit area to 44px without growing the icon or badge. */
+@media (max-width: 768px) {
+  .ife-link::after,
+  .ife .ife-stage .collections-image-remove::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+}
+
+/* The URL fields only hold the value the link dialog edits; they are never shown inline. */
+#imageUploadGroup .image-url-input {
+  display: none !important;
+}
+
 /* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). The card
    spans its side, so the 200px stage is not squeezed by shrink-to-fit sizing. */
 .ife .image-card {

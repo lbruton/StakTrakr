@@ -1968,9 +1968,55 @@
                           >
                             <img id="itemImagePreviewImgObv" alt="Obverse preview" />
                           </div>
+                          <!-- STRK-434: the frame is the upload target; × removes, the link icon sets a URL -->
+                          <button
+                            class="ife-upload"
+                            id="itemImageUploadBtnObv"
+                            type="button"
+                            aria-label="Upload obverse image"
+                            title="Upload obverse image"
+                          ></button>
+                          <button
+                            class="collections-image-remove"
+                            id="itemImageRemoveBtnObv"
+                            type="button"
+                            aria-label="Remove obverse image"
+                            title="Remove obverse image"
+                            style="display: none"
+                          >
+                            &times;
+                          </button>
+                          <button
+                            class="ife-link"
+                            id="itemImageUrlBtnObv"
+                            type="button"
+                            aria-label="Link obverse image from a URL"
+                            title="Link obverse image from a URL"
+                            style="display: none"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                              />
+                              <path
+                                d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                              />
+                            </svg>
+                          </button>
                         </div>
                       </div>
-                      <div class="image-card-actions">
+                      <div class="image-card-actions" style="display: none">
                         <input
                           type="file"
                           id="itemImageFileObv"
@@ -1978,35 +2024,12 @@
                           style="display: none"
                         />
                         <button
-                          class="btn img-btn img-btn-upload"
-                          id="itemImageUploadBtnObv"
-                          type="button"
-                        >
-                          Upload
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-url"
-                          id="itemImageUrlBtnObv"
-                          type="button"
-                          style="display: none"
-                        >
-                          URL
-                        </button>
-                        <button
                           class="btn img-btn img-btn-camera"
                           id="itemImageCameraBtnObv"
                           type="button"
                           style="display: none"
                         >
                           Camera
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-remove"
-                          id="itemImageRemoveBtnObv"
-                          type="button"
-                          style="display: none"
-                        >
-                          Remove
                         </button>
                       </div>
                     </div>
@@ -2047,9 +2070,54 @@
                           >
                             <img id="itemImagePreviewImgRev" alt="Reverse preview" />
                           </div>
+                          <button
+                            class="ife-upload"
+                            id="itemImageUploadBtnRev"
+                            type="button"
+                            aria-label="Upload reverse image"
+                            title="Upload reverse image"
+                          ></button>
+                          <button
+                            class="collections-image-remove"
+                            id="itemImageRemoveBtnRev"
+                            type="button"
+                            aria-label="Remove reverse image"
+                            title="Remove reverse image"
+                            style="display: none"
+                          >
+                            &times;
+                          </button>
+                          <button
+                            class="ife-link"
+                            id="itemImageUrlBtnRev"
+                            type="button"
+                            aria-label="Link reverse image from a URL"
+                            title="Link reverse image from a URL"
+                            style="display: none"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                              />
+                              <path
+                                d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                              />
+                            </svg>
+                          </button>
                         </div>
                       </div>
-                      <div class="image-card-actions">
+                      <div class="image-card-actions" style="display: none">
                         <input
                           type="file"
                           id="itemImageFileRev"
@@ -2057,35 +2125,12 @@
                           style="display: none"
                         />
                         <button
-                          class="btn img-btn img-btn-upload"
-                          id="itemImageUploadBtnRev"
-                          type="button"
-                        >
-                          Upload
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-url"
-                          id="itemImageUrlBtnRev"
-                          type="button"
-                          style="display: none"
-                        >
-                          URL
-                        </button>
-                        <button
                           class="btn img-btn img-btn-camera"
                           id="itemImageCameraBtnRev"
                           type="button"
                           style="display: none"
                         >
                           Camera
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-remove"
-                          id="itemImageRemoveBtnRev"
-                          type="button"
-                          style="display: none"
-                        >
-                          Remove
                         </button>
                       </div>
                     </div>

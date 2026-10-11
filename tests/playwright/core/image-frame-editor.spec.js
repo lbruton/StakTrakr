@@ -747,7 +747,7 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
   });
 
   for (const width of [768, 390]) {
-    test(`AC-6.2: at ${width}px previews keep the 140px cap, buttons stack under them and options are 44px`, async ({
+    test(`AC-6.2: at ${width}px previews keep the 140px cap, the frame is the upload target and options are 44px`, async ({
       page,
     }) => {
       await page.setViewportSize({ width, height: 900 });
@@ -757,9 +757,13 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
       await ife.shape.getByLabel("Bar").check();
       const frame = await ife.frames.nth(0).boundingBox();
       expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(141);
-      // Approved mobile option M-B: the Upload button sits below the preview, not beside it.
+      // STRK-434 replaces mobile option M-B: no button row sits under the preview any more; the
+      // frame itself is the upload target, so its upload control covers the frame.
       const upload = await page.locator("#itemImageUploadBtnObv").boundingBox();
-      expect(upload.y).toBeGreaterThanOrEqual(frame.y + frame.height - 1);
+      expect(upload.x).toBeLessThanOrEqual(frame.x + 1);
+      expect(upload.y).toBeLessThanOrEqual(frame.y + 1);
+      expect(upload.x + upload.width).toBeGreaterThanOrEqual(frame.x + frame.width - 1);
+      expect(upload.y + upload.height).toBeGreaterThanOrEqual(frame.y + frame.height - 1);
       for (const label of ["Portrait", "Landscape"]) {
         const option = await ife.orient("Obverse").getByLabel(label).locator("..").boundingBox();
         expect(option.height, `${label} option height`).toBeGreaterThanOrEqual(44);
@@ -1170,5 +1174,123 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     await PARITY_HOSTS.builder.open(page);
     const builder = await read(PARITY_HOSTS.builder.caption(page));
     expect(builder).toEqual(item);
+  });
+
+  // Row 8 (decided by Lonnie, 2026-10-11): the item modal takes the builder's click-to-upload
+  // frame and corner × badge. External URLs stay reachable through a small link icon at the
+  // frame's lower right that opens a small dialog; the builder stays file-only until a
+  // follow-up issue adds URL support there.
+  for (const [index, suffix] of [
+    [0, "Obv"],
+    [1, "Rev"],
+  ]) {
+    test(`row 8: clicking the ${suffix} frame opens the file chooser`, async ({ page }) => {
+      await seedAndGoto(page);
+      await openAddModal(page);
+      const [chooser] = await Promise.all([
+        page.waitForEvent("filechooser"),
+        editor(page).frames.nth(index).click(),
+      ]);
+      expect(chooser).toBeTruthy();
+    });
+  }
+
+  test("row 8: no Upload, URL or Remove text buttons sit under the frames", async ({ page }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    const labels = await page
+      .locator("#imageUploadGroup .image-upload-side button")
+      .evaluateAll((buttons) =>
+        buttons
+          .filter((button) => button.getBoundingClientRect().width > 0)
+          .map((button) => button.textContent.trim())
+          .filter((text) => /^(upload|url|remove)$/i.test(text))
+      );
+    expect(labels).toEqual([]);
+  });
+
+  test("row 8: Remove is a small corner badge on the frame", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 });
+    await seedAndGoto(page);
+    await openEditModal(page);
+    for (const [index, suffix] of [
+      [0, "Obv"],
+      [1, "Rev"],
+    ]) {
+      const frame = await editor(page).frames.nth(index).boundingBox();
+      const badge = await page.locator(`#itemImageRemoveBtn${suffix}`).boundingBox();
+      expect(badge.width, `${suffix} badge width`).toBeLessThanOrEqual(32);
+      expect(badge.x, `${suffix} badge left`).toBeGreaterThanOrEqual(frame.x - 12);
+      expect(badge.x + badge.width, `${suffix} badge right`).toBeLessThanOrEqual(
+        frame.x + frame.width + 12
+      );
+      // Upper right quadrant of the frame.
+      expect(badge.x + badge.width / 2).toBeGreaterThan(frame.x + frame.width / 2);
+      expect(badge.y + badge.height / 2).toBeLessThan(frame.y + frame.height / 2);
+    }
+  });
+
+  test("row 8: the link icon sits at the frame's lower right, icon only", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 });
+    await seedAndGoto(page);
+    await openAddModal(page);
+    for (const [index, suffix] of [
+      [0, "Obv"],
+      [1, "Rev"],
+    ]) {
+      const link = page.locator(`#itemImageUrlBtn${suffix}`);
+      await expect(link).toBeVisible();
+      await expect(link.locator("svg")).toHaveCount(1);
+      expect(((await link.textContent()) || "").trim()).toBe("");
+      const frame = await editor(page).frames.nth(index).boundingBox();
+      const box = await link.boundingBox();
+      expect(box.width, `${suffix} link width`).toBeLessThanOrEqual(36);
+      expect(box.x + box.width / 2).toBeGreaterThan(frame.x + frame.width / 2);
+      expect(box.y + box.height / 2).toBeGreaterThan(frame.y + frame.height / 2);
+      expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width + 12);
+      expect(box.y + box.height).toBeLessThanOrEqual(frame.y + frame.height + 12);
+    }
+  });
+
+  test("row 8: the link icon opens a small dialog; a URL entered there fills the field and previews", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openAddModal(page);
+    await page.locator("#itemImageUrlBtnObv").click();
+    const dialog = page.locator("#appDialogModal");
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("#appDialogInput")).toHaveValue("");
+    await page.locator("#appDialogInput").fill("https://images.example/obv.png");
+    await page.locator("#appDialogOk").click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("#itemObverseImageUrl")).toHaveValue(
+      "https://images.example/obv.png"
+    );
+    await expect(page.locator("#itemImagePreviewImgObv")).toBeVisible();
+    await expect(page.locator("#swapImagesBtn")).toBeEnabled();
+  });
+
+  test("row 8: the link dialog starts from the current URL and Cancel changes nothing", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    await page.locator("#itemImageUrlBtnRev").click();
+    await expect(page.locator("#appDialogInput")).toHaveValue("https://images.example/rev.png");
+    await page.locator("#appDialogInput").fill("https://images.example/other.png");
+    await page.locator("#appDialogCancel").click();
+    await expect(page.locator("#itemReverseImageUrl")).toHaveValue(
+      "https://images.example/rev.png"
+    );
+  });
+
+  test("row 8: the inline URL fields stay out of sight, even when an item has URLs", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemObverseImageUrl")).toBeHidden();
+    await expect(page.locator("#itemReverseImageUrl")).toBeHidden();
   });
 });
