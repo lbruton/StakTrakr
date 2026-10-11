@@ -179,7 +179,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** existing STRK-421/424 cases (`:925-1010`, `:1497-1681`); `tests/playwright/helpers/collections-fixtures.js`; `seedAndGoto`, `openCollectionsTab`, `builderModal` helpers in the spec.
   - **Maps to:** AC-2.2, AC-3.2, AC-5.1, AC-5.2, AC-5.5, AC-10.1
 
-- [ ] **B.7** — Playwright RED: Collection definition data paths
+- [x] **B.7** — Playwright RED: Collection definition data paths
   - **File(s):** `tests/playwright/core/collections-data-paths.spec.js` (additive cases only)
   - **Acceptance:** Failing cases:
     - A mixed-pair definition's `reverseImageOrientation` round-trips through ZIP backup/restore and the standalone Collections export/import.
