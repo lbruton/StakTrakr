@@ -189,7 +189,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** existing definition round-trip cases in the spec; `discovery.md` §G persistence list.
   - **Maps to:** AC-5.2, AC-5.3
 
-- [ ] **B.8** — Playwright RED: item import/export round trips
+- [x] **B.8** — Playwright RED: item import/export round trips
   - **File(s):** `tests/playwright/core/import-export.spec.js` (additive cases only)
   - **Acceptance:** One checklist case per path (D-13). An item carrying all five fields (explicit shape, mixed orientations, legacy projection) round-trips through ZIP backup, JSON export → JSON import, standard CSV export → import, and ZIP CSV. Use **real exported files**, not hand-built CSVs, because of PapaParse's carriage return on the last header (E-1, AC-8.7).
     - A sparse item exports with no new keys and no `''` legacy frames (ZIP JSON omits absent keys, Tradeoff 8).
@@ -200,7 +200,7 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** `expectFrameColumns` (`:91-100`), ZIP JSON key checks (`:360-374`), the STRK-185 legacy-payload cases in the spec.
   - **Maps to:** AC-8.3 (E rows), AC-8.7, AC-8.8
 
-- [ ] **B.9** — Confirm RED
+- [x] **B.9** — Confirm RED
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** Run `npm run test:unit` and `npx playwright test tests/playwright/core/image-frame-editor.spec.js tests/playwright/core/collections.spec.js tests/playwright/core/collections-data-paths.spec.js tests/playwright/core/import-export.spec.js`, then record the expected failures **per assertion** in the PR notes, in two classes:
     - **New-behavior cases** must fail now. Any that passes is not testing new behavior: fix it before Cohort C.
@@ -208,6 +208,24 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
     - Every other pre-existing case is still green. **Exception:** the five re-baselined STRK-424 locator cases (Tradeoff 10, `collections.spec.js:1507, :1549, :1574, :1603, :1679`) are expected RED until C.5, because the current builder (`js/collections-picker.js:1211-1221`) has no "Obverse orientation" name.
   - **Depends on:** B.1–B.8
   - **Maps to:** AC-10.3
+
+### B.9 record — RED confirmation (2026-10-10, tree `patch/3.36.46` before any C task)
+
+**Unit (`npm run test:unit`):** 1138 tests, 75 fail, 1063 pass. The 1047 pre-existing tests all pass (baseline on `dev`: 1047/1047). The 91 new tests split as:
+
+- **New behavior, RED (75):** `image-frame.test.js` 46 (every `deriveImageShape`, `defaultImageOrientation`, normalizer, `readImageFraming` and `writeImageFraming` case: "is not a function"); `collections-core.test.js` 16 (resolver seam delegation and fail-closed, reverse key keep/drop/canonical form, `reverseImageOrientationFor`, create/update/`metaModified`, save/reopen, tie merge precondition); `cloud-sync-image-frame-hash.test.js` 13 (I-1…I-9/I-10, H-2, H-3, C-1 O side, changeLog registration).
+- **Compatibility pins, green and must stay green (16):** `image-frame.test.js` 2 (sanitizer survival); `collections-core.test.js` 6 (real resolver Goldback → Note, and the other cases that assert today's behavior); `cloud-sync-image-frame-hash.test.js` 8 (H-1, H-4, D-12, segment tag, H-5, E-2 ×2, legacy frames still diffed).
+
+**Playwright core:**
+
+- `image-frame-editor.spec.js` (new, 26): 23 RED at the editor assertions; 3 compatibility pins pass (`COIN_IMAGES` off hides the group, the item swap guards are unchanged, Settings → Images keeps its 140px cap).
+- `collections.spec.js` (117 existing + 7 new): 10 fail. Four are the **re-baselined STRK-424 locator cases** (`:1497, :1539, :1562, :1667`, five locators; expected RED until C.5 because "Obverse orientation" does not exist yet); six are new RED (mixed pair on every surface, builder Slab ratio 0.75 → 0.68, builder Swap, Remove-then-Swap-then-Save, failed stored-image read). Compatibility pins that pass: legacy uniform pairs and a pre-STRK-424 Bar keep their rendered builder widths and ratios; a Collection with no grading follows Type on a derived shape. All 113 other pre-existing cases pass.
+- `collections-data-paths.spec.js` (3 new): 2 RED (mixed pair through the standalone export/import and through ZIP backup); 1 compatibility pin passes (a uniform pair carries no reverse key).
+- `import-export.spec.js` (5 new): 5 RED (JSON export and import, standard CSV export and import, ZIP JSON/CSV/restore parse, sparse item, invalid enums). All pre-existing cases pass.
+
+Totals: 75 unit + 23 + 10 + 2 + 5 = 115 RED assertions-by-test; every pre-existing test is green except the five re-baselined locators.
+
+**Test inventory delta for the P1 PR:** `+91 unit tests, +26 +7 +3 +5 = +41 Playwright tests, +3 files (image-frame.test.js, cloud-sync-image-frame-hash.test.js, image-frame-editor.spec.js)`; no test removed or edited (five locator strings re-baselined, Tradeoff 10).
 
 ## Sprint Cohort C — Implementation · GREEN (sequential)
 
