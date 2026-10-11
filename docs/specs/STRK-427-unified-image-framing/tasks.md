@@ -337,17 +337,18 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
 
 ## Standard Closing Tasks — P1
 
-- [ ] **CLOSE-P1-1. Run full test suite** — zero regressions
+- [x] **CLOSE-P1-1. Run full test suite** — zero regressions
   - **File:** _no file changes — verification only_
   - Run `npm test` (core Playwright PR gate), plus `npm run test:unit` and `npm run lint`, with counts compared to the pre-change inventory plus the B delta. `npm run test:legacy` is expected to fail only on the superseded `strk-121` toggle cases (Tradeoff 6); record that.
   - If anything else fails: fix the implementation, not the test.
+  - _Result (final tree, after the CLOSE-P1-2 refactor): unit 1138/1138; core Playwright 878/878 (837 on `dev` + 41 new: 26 + 7 + 3 + 5); `npm run lint` and `npm run lint:md:all` clean. `npm run test:legacy` (604 archived tests): `origin/dev` already fails 235 of them (archive rot, not a CI gate); this branch fails 234. The one failure only this branch has is `strk-121-image-frame-override` "edit modal cycles, swaps, removes, previews URL images, and clears explicit overrides back to absent auto", the superseded three-state toggle (Tradeoff 6). Two tests that fail on `dev` pass here. No other regression._
 
 - [x] **CLOSE-P1-2. Codacy CLI scan** — security + quality
   - **File:** _no file changes — scan only_
   - Run `codacy-analysis analyze --diff`. Triage: Critical/High must fix, Medium fix-or-document, Low/Info advisory. Check duplication (shared test setup goes in existing helpers) and docstring coverage on new production code (`.context/review-and-ci.md`).
   - _Result: `--diff` exhausts the heap (exit 134) in the bundled Stylelint on `css/styles.css`, a 20k-line file; the unmodified `origin/dev` copy OOMs the same way, so it is a local-tool limit, not this branch. Scanned instead file by file (every changed `js/`, `sw.js` and `tests/` file): 0 Critical/High, 0 security, 0 ESLint, 0 Opengrep/Trivy findings, 0 findings in the 7 changed test files and in `js/image-frame.js`, `js/image-frame-editor.js`, `js/inventory-backup.js`, `js/pcgs-api.js`, `js/types.js`, `js/collections-hub.js`, `js/catalog-numista-modal.js`, `sw.js`. Only Lizard Medium (complexity/size) findings remained, all in functions and files already over threshold on `origin/dev`. Compared against `origin/dev` with Lizard: fixed the ones this branch could cleanly avoid (`builderSeed` CCN 55 → 50 via the new `builderSeedFraming`; the JSON-import spread moved last so Lizard does not re-attribute 155 CCN / 325 NLOC to a new `reader.onload`). Documented, not fixed: `monogramOf` 54 → 55 and `buildAlbumHead` 29 → 30 (one ternary each for the reverse-side orientation), `events.js` and `cloud-sync.js` no new function over threshold and no CCN change, `diff-engine.js`/`csv-export.js` unchanged. The 4-line added-CSS fragment could not be linted on its own (diff fragments do not parse); the cloud Codacy check covers `styles.css`. Duplication: the 7 test files share the existing helpers (`frameOf`, `settleBuilder`, `createMixedBars`, `chooserImageHash`, `chooserImageColor`); no cloned blocks introduced. Docstrings: every new production function in `image-frame.js`, `image-frame-editor.js`, `collections-core.js`, `collections-picker.js` carries JSDoc._
 
-- [ ] **CLOSE-P1-3. Generate verification stamp**
+- [x] **CLOSE-P1-3. Generate verification stamp**
   - **File:** Append to the bottom of `tasks.md` (this file) under heading `## Verification Stamp — P1`.
   - For EACH acceptance criterion in `requirements.md` (AC-1.1 … AC-10.3), write exactly one line in one of these formats:
     - `- [x] AC-N — verified at <relative/file/path>:<line>`, OR
