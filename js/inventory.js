@@ -1819,11 +1819,19 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
     }
   };
 
+  // STRK-427: these writes fire no event, so tell the image-frame editor the Numista shape may
+  // have moved. A call that derives the same shape is a no-op there.
+  /** Tell the image-frame editor the Numista shape may have changed. */
+  const notifyShape = () => {
+    if (typeof notifyImageFrameSignals === "function") notifyImageFrameSignals("numista");
+  };
+
   // Layer 1 (highest rank): Item's stored numistaData (user edits persist here)
   if (itemData && Object.keys(itemData).length > 0) {
     applySource((f) => itemData[f.itemKey] || "");
     refreshCapsuleSuggestion();
   }
+  notifyShape();
 
   // Layer 2 (fallback): IndexedDB cache from API
   if (catalogId && window.imageCache?.isAvailable()) {
@@ -1852,6 +1860,7 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
           return meta[f.cacheKey] || "";
         });
         refreshCapsuleSuggestion();
+        notifyShape();
       })
       .catch(() => {});
   }
@@ -2092,9 +2101,8 @@ const _editApplyEditModeChrome = (item, logIdx) => {
 
   // Preload user images (obverse + reverse) into upload previews (STACK-32)
   if (typeof clearUploadState === "function") clearUploadState();
-  if (typeof setPendingImageFrames === "function") {
-    setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
-  }
+  // STRK-427: seed the shared image-frame editor from the record (replaces the frame toggles).
+  if (typeof seedImageFrameEditor === "function") seedImageFrameEditor(item);
 };
 
 /**
@@ -2505,6 +2513,12 @@ const duplicateItem = (idx) => {
   _dupPopulateCatalogFields(item);
   _editPopulatePurityField(item);
 
+  // STRK-427: seed the shared image-frame editor from the source record. Add mode applies the
+  // sparse writer unconditionally (D-4), so an unseeded editor would persist whatever it held
+  // from the last session as an explicit override. Runs after Type and grading are populated
+  // and before openModalById, which does not touch the editor.
+  if (typeof seedImageFrameEditor === "function") seedImageFrameEditor(item);
+
   // Hide PCGS verified icon — duplicate is a new unverified item
   const certVerifiedIcon = safeGetElement("certVerifiedIcon");
   if (certVerifiedIcon) certVerifiedIcon.style.display = "none";
@@ -2588,6 +2602,8 @@ const exportJson = () => {
     uuid: item.uuid,
     obverseImageUrl: item.obverseImageUrl || "",
     reverseImageUrl: item.reverseImageUrl || "",
+    // STRK-427: frame shape, per-side orientation and the legacy frames; sparse (absent = derived).
+    ...imageFramingFields(item),
     // Legacy fields preserved for backward compatibility
     spotPriceAtPurchase: item.spotPriceAtPurchase,
     composition: item.composition,

@@ -3774,6 +3774,12 @@ input[type="submit"] {
   flex: 0 0 auto;
   padding-top: 1.2rem;
 }
+/* STRK-427: `d-none` has no global rule and `.image-swap-wrapper` sets its own display, so the
+   hidden state needs an explicit rule or Swap shows with zero or one image. */
+.image-swap-wrapper[hidden],
+.image-swap-wrapper.d-none {
+  display: none;
+}
 .image-swap-wrapper .btn-icon {
   font-size: var(--font-size-xl);
   padding: 0.2rem 0.4rem;
@@ -3825,47 +3831,6 @@ input[type="submit"] {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   object-fit: contain;
-}
-
-.frame-toggle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  z-index: 2;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: color-mix(in oklch, var(--bg-primary), transparent 8%);
-  color: var(--text-muted);
-  box-shadow: 0 2px 8px color-mix(in oklch, #000, transparent 82%);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  font-weight: 800;
-  line-height: 1;
-  padding: 0;
-}
-
-.frame-toggle::before {
-  content: "";
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-}
-
-.frame-toggle[data-frame-state="circle"],
-.frame-toggle[data-frame-state="rectangle"] {
-  color: var(--metal-gold, var(--gold));
-  border-color: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 45%);
-  background: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 88%);
-}
-
-.frame-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 .image-card-actions {
@@ -3948,6 +3913,216 @@ input[type="submit"] {
   margin-top: 0.2rem;
   display: block;
 }
+
+/* ── STRK-427: shared image-frame editor (.ife) ────────────────────────────────────────
+   Mounted by js/image-frame-editor.js in the Add/Edit Item modal and the Edit Collection
+   builder. Controls reuse the shipped .collections-segmented look; frames read the shared
+   --frame-* ratio tokens (Round is 1). Theme tokens only: --bg-tertiary, --border,
+   --border-hover (never --surface, which only the light :root defines — STRK-426). */
+.ife {
+  --ife-box: 200px; /* desktop preview bounding box inside the 700px dialog (A.1 mockup) */
+}
+
+[data-ife-shape] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-ife-orientation] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-ife-orientation][hidden] {
+  display: none;
+}
+
+.ife-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ife-cap {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ife .collections-segmented {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ife .collections-segmented-option span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  font-size: var(--font-size-sm);
+}
+
+/* One frame per side. Only ratio and shape live here; hosts size their own frames (the item
+   modal inside .ife-stage below, the builder per token width). */
+.ife-frame {
+  --ife-r: 1;
+  aspect-ratio: var(--ife-r);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 2px dashed var(--border-hover, var(--border));
+  color: var(--text-secondary);
+}
+
+/* The shape attribute applies the ratio; the (0,2,0) selector beats a host's own frame class,
+   such as the builder's .collections-image-pick, which sets aspect-ratio: 1. */
+.ife-frame[data-shape] {
+  aspect-ratio: var(--ife-r);
+}
+
+.ife-frame[data-shape="round"] {
+  --ife-r: 1;
+  border-radius: 50%;
+}
+
+.ife-frame[data-shape="slab"] {
+  --ife-r: var(--frame-slab);
+  border-radius: 8px;
+}
+
+.ife-frame[data-shape="bar"] {
+  --ife-r: var(--frame-bar-landscape);
+  border-radius: 6px;
+}
+
+.ife-frame[data-shape="bar"][data-orientation="portrait"] {
+  --ife-r: var(--frame-bar-portrait);
+}
+
+.ife-frame[data-shape="note"] {
+  --ife-r: var(--frame-note-landscape);
+  border-radius: 4px;
+}
+
+.ife-frame[data-shape="note"][data-orientation="portrait"] {
+  --ife-r: var(--frame-note-portrait);
+}
+
+.ife-frame.has-image {
+  border: 1px solid var(--border);
+}
+
+/* Item modal: both frames are always visible (AC-1.5). The stage is a square bounding box so
+   the buttons below never jump when the shape changes; the frame is the largest ratio
+   rectangle that fits it. Photos are letterboxed, never cropped. */
+.ife-stage {
+  width: var(--ife-box);
+  max-width: 100%;
+  height: var(--ife-box);
+  display: grid;
+  place-items: center;
+}
+
+.ife .ife-stage .ife-frame {
+  width: calc(100% * min(1, var(--ife-r)));
+  display: grid;
+  place-items: center;
+  position: relative;
+  padding: 0;
+}
+
+/* The item modal keeps its legacy preview container (ids and display toggles) inside the frame.
+   These rules are scoped to the item modal's .ife-stage: the builder's frames are buttons that
+   draw their own "+" and image. */
+.ife .ife-stage .ife-frame .image-upload-preview {
+  width: 100%;
+  height: 100%;
+}
+
+.ife .ife-stage .ife-frame:not(.has-image)::before {
+  content: "+";
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+}
+
+.ife .ife-stage .ife-frame img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  display: block;
+}
+
+.ife .ife-stage .ife-frame:not(.has-image) img {
+  display: none;
+}
+
+/* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). The card
+   spans its side, so the 200px stage is not squeezed by shrink-to-fit sizing. */
+.ife .image-card {
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  gap: 0.5rem;
+}
+
+.ife .image-card-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ife .image-upload-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .ife {
+    --ife-box: 140px; /* the existing mobile preview cap */
+  }
+
+  .ife .collections-segmented-option span {
+    min-height: 44px; /* 44px touch target (design philosophy) */
+    padding: 0.4rem 0.6rem;
+    box-sizing: border-box;
+  }
+
+  .ife .collections-segmented-option {
+    flex: 1 1 auto;
+  }
+}
+
+/* Narrow phones: orientation options go icon-only (the text stays for assistive tech) so the
+   two-option pill never wraps into two rows. */
+@media (max-width: 560px) {
+  .ife [data-ife-orientation] .collections-segmented-option span {
+    font-size: 0;
+    gap: 0;
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .ife [data-ife-orientation] .collections-segmented-option span svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ife-frame {
+    transition: none;
+  }
+}
+
 .btn-sm {
   padding: 0.25rem 0.6rem;
   font-size: var(--font-size-base);
@@ -17992,36 +18167,39 @@ input[type="number"] {
   border-radius: 50%;
 }
 
-/* STRK-424: one ratio per shape and orientation, shared with the builder preview below.
-   A Bar or Note with no orientation class keeps the landscape frame it always had. */
-.collections-coin,
-.collections-builder-covers {
-  --collections-frame-bar-portrait: 3 / 5;
-  --collections-frame-bar-landscape: 1.6;
-  --collections-frame-note-portrait: 1 / 2.05;
-  --collections-frame-note-landscape: 2.05;
+/* STRK-424 / STRK-427: one ratio per shape and orientation, global so the Collections
+   medallions, the builder preview and the shared image-frame editor read a single source.
+   A Bar or Note with no orientation class keeps the landscape frame it always had.
+   Values are STRK-424's, written as unitless numbers (3 / 5 = 0.6) so the same token works in
+   aspect-ratio and in calc() for the editor's fit math. --frame-slab is the medallion Slab ratio. */
+:root {
+  --frame-bar-portrait: 0.6;
+  --frame-bar-landscape: 1.6;
+  --frame-note-portrait: calc(1 / 2.05);
+  --frame-note-landscape: 2.05;
+  --frame-slab: 0.68;
 }
 
 .collections-coin--shape-bar {
-  aspect-ratio: var(--collections-frame-bar-landscape);
+  aspect-ratio: var(--frame-bar-landscape);
   border-radius: var(--radius);
 }
 
 .collections-coin--shape-bar.collections-coin--portrait {
-  aspect-ratio: var(--collections-frame-bar-portrait);
+  aspect-ratio: var(--frame-bar-portrait);
 }
 
 .collections-coin--shape-note {
-  aspect-ratio: var(--collections-frame-note-landscape);
+  aspect-ratio: var(--frame-note-landscape);
   border-radius: var(--radius-sm);
 }
 
 .collections-coin--shape-note.collections-coin--portrait {
-  aspect-ratio: var(--collections-frame-note-portrait);
+  aspect-ratio: var(--frame-note-portrait);
 }
 
 .collections-coin--shape-slab {
-  aspect-ratio: 0.68;
+  aspect-ratio: var(--frame-slab);
   border-radius: 10px;
   border: 4px solid var(--border-hover);
   background: var(--bg-secondary);
@@ -18062,6 +18240,9 @@ input[type="number"] {
 
 .collections-pair {
   display: flex;
+  /* STRK-427: a pair can mix orientations. The default stretch would pull the shorter frame to
+     the taller one's height and override its aspect-ratio; centring keeps each frame's own ratio. */
+  align-items: center;
 }
 
 .collections-pair .collections-coin + .collections-coin {
@@ -19585,32 +19766,11 @@ input[type="number"] {
 }
 
 .collections-builder-covers {
-  --collections-cover-size: 128px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: center;
   gap: var(--spacing-xl);
-}
-
-.collections-builder-covers[data-shape="bar"] {
-  --collections-cover-size: 108px;
-}
-
-.collections-builder-covers[data-shape="bar"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers[data-shape="note"] {
-  --collections-cover-size: 160px;
-}
-
-.collections-builder-covers[data-shape="note"][data-orientation="portrait"] {
-  --collections-cover-size: 80px;
-}
-
-.collections-builder-covers[data-shape="slab"] {
-  --collections-cover-size: 100px;
 }
 
 .collections-builder-title-option {
@@ -19620,33 +19780,43 @@ input[type="number"] {
   gap: 0.3rem;
 }
 
+/* STRK-427: every frame chooses its width from ITS OWN shape and orientation (set on the frame by
+   the shared image-frame editor), so a portrait obverse and a landscape reverse size
+   independently. The values are the STRK-421/424 widths, unchanged; ratio and radius come from
+   the shared .ife-frame rules, and the Slab ratio is the shared --frame-slab. */
 .collections-builder-covers .collections-image-pick {
+  --collections-cover-size: 128px;
   width: var(--collections-cover-size);
   font-size: var(--font-size-2xl);
 }
 
-.collections-builder-covers[data-shape="bar"] .collections-image-pick {
-  aspect-ratio: var(--collections-frame-bar-landscape);
-  border-radius: 6px;
+.collections-builder-covers .collections-image-pick[data-shape="bar"] {
+  --collections-cover-size: 108px;
 }
 
-.collections-builder-covers[data-shape="bar"][data-orientation="portrait"] .collections-image-pick {
-  aspect-ratio: var(--collections-frame-bar-portrait);
+.collections-builder-covers .collections-image-pick[data-shape="bar"][data-orientation="portrait"] {
+  --collections-cover-size: 80px;
 }
 
-.collections-builder-covers[data-shape="note"] .collections-image-pick {
-  aspect-ratio: var(--collections-frame-note-landscape);
-  border-radius: 4px;
+.collections-builder-covers .collections-image-pick[data-shape="note"] {
+  --collections-cover-size: 160px;
 }
 
-.collections-builder-covers[data-shape="note"][data-orientation="portrait"]
-  .collections-image-pick {
-  aspect-ratio: var(--collections-frame-note-portrait);
+.collections-builder-covers
+  .collections-image-pick[data-shape="note"][data-orientation="portrait"] {
+  --collections-cover-size: 80px;
 }
 
-.collections-builder-covers[data-shape="slab"] .collections-image-pick {
-  aspect-ratio: 3 / 4;
-  border-radius: 8px;
+.collections-builder-covers .collections-image-pick[data-shape="slab"] {
+  --collections-cover-size: 100px;
+}
+
+.collections-builder-swap {
+  align-self: center;
+}
+
+.collections-builder-swap[hidden] {
+  display: none;
 }
 
 .collections-builder-covers .collections-image-remove {

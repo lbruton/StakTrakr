@@ -599,7 +599,15 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
         skipEmptyLines: true,
         transformHeader: (header) => header.trim(),
       });
-      const fields = parsed.meta.fields.filter((field) => field !== "Collections");
+      // An older export predates Collections AND the STRK-427 image-framing columns, so the
+      // derived legacy file drops all four; the assertions below are unchanged.
+      const newerColumns = [
+        "Collections",
+        "Image Shape",
+        "Obverse Image Orientation",
+        "Reverse Image Orientation",
+      ];
+      const fields = parsed.meta.fields.filter((field) => !newerColumns.includes(field));
       return `# older export\n${window.Papa.unparse({ fields, data: parsed.data }, { newline: "\r\n" })}`;
     }, file.text);
     expect(legacyCsv).toContain("Traded From UUID\r\n");
@@ -1629,6 +1637,103 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
       about: "ZIP round trip",
     });
     expect(restored).toMatchObject({ obverse: true, reverse: true });
+  });
+
+  // STRK-427 (task B.7): the per-side reverse orientation is a definition key, so every path
+  // that carries a Custom Collection definition must carry it. Written before the implementation.
+  const MIXED_BARS = {
+    name: "Mixed orientation bars",
+    itemType: "Bar",
+    imageOrientation: "portrait",
+    reverseImageOrientation: "landscape",
+    slots: [{ label: "One" }],
+  };
+
+  test("STRK-427 a mixed pair round-trips through the standalone Collections export and import", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(
+      (spec) => window.collectionsStore.createCustom(spec).collection.id,
+      MIXED_BARS
+    );
+    const readDefinition = () =>
+      page.evaluate((key) => window.collectionsStore.getState().collections[key]?.definition, id);
+    expect(await readDefinition()).toMatchObject({
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+
+    const file = await captureDownload(page, "collectionsIO.exportFile");
+    expect(JSON.parse(file.text).state.collections[id].definition).toMatchObject({
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+
+    await wipeCollections(page);
+    expect(await readDefinition()).toBeUndefined();
+    const result = await page.evaluate(
+      (text) =>
+        window.collectionsIO.importFile(
+          new File([text], "collections.json", { type: "application/json" })
+        ),
+      file.text
+    );
+    expect(result).toEqual({ ok: true, changed: true });
+    expect(await readDefinition()).toMatchObject({
+      imageShape: "bar",
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+  });
+
+  test("STRK-427 a mixed pair round-trips through a ZIP backup and restore", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const id = await page.evaluate(
+      (spec) => window.collectionsStore.createCustom(spec).collection.id,
+      MIXED_BARS
+    );
+    const exported = await captureDownload(page, "createBackupZip");
+    const inZip = await page.evaluate(
+      async ({ bytes, key }) => {
+        const zip = await window.JSZip.loadAsync(new Uint8Array(bytes));
+        const state = JSON.parse(await zip.file("collection_state.json").async("string")).state;
+        return state.collections[key].definition;
+      },
+      { bytes: exported.bytes, key: id }
+    );
+    expect(inZip).toMatchObject({
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+
+    await wipeCollections(page);
+    const toasts = await restoreBackupZipAndAccept(page, exported.bytes);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition,
+        id
+      )
+    ).toMatchObject({ imageOrientation: "portrait", reverseImageOrientation: "landscape" });
+  });
+
+  test("STRK-427 a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const definition = await page.evaluate((spec) => {
+      const created = window.collectionsStore.createCustom({
+        ...spec,
+        name: "Uniform landscape bars",
+        imageOrientation: "landscape",
+        reverseImageOrientation: "landscape",
+      });
+      return window.collectionsStore.getState().collections[created.collection.id].definition;
+    }, MIXED_BARS);
+    expect(definition.imageOrientation).toBe("landscape");
+    expect(Object.hasOwn(definition, "reverseImageOrientation")).toBe(false);
   });
 
   test("ZIP backup round-trips the disabled list", async ({ page }) => {

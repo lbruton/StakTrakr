@@ -1626,6 +1626,47 @@
           </p>
 
           <div class="sg-subsection">
+            <h3>Shared image-frame editor (<code>.ife</code>, STRK-427)</h3>
+            <p class="sg-desc">
+              The Add/Edit Item modal and the Edit Collection builder mount the same editor
+              (<code>js/image-frame-editor.js</code>). It owns the shape control, one orientation
+              control per side and the live-shaped preview frames; hosts keep their own upload,
+              Remove and persistence code and provide the slots below.
+            </p>
+            <ul class="sg-desc">
+              <li>
+                <strong>Slots:</strong> <code>[data-ife-shape]</code> (the "Image shape"
+                radiogroup), <code>[data-ife-frame="obverse|reverse"]</code> (the editor sets
+                <code>data-shape</code>, <code>data-orientation</code> and <code>.has-image</code>),
+                <code>[data-ife-orientation="obverse|reverse"]</code> (the "Obverse orientation" /
+                "Reverse orientation" radiogroups, hidden for Round and Slab) and an optional
+                <code>[data-ife-swap]</code>.
+              </li>
+              <li>
+                <strong>Ratios:</strong> the shared tokens <code>--frame-bar-portrait</code> (0.6),
+                <code>--frame-bar-landscape</code> (1.6),
+                <code>--frame-note-portrait</code> (1/2.05),
+                <code>--frame-note-landscape</code> (2.05) and <code>--frame-slab</code> (0.68);
+                Round is 1. Unitless numbers, so they work in <code>aspect-ratio</code> and in
+                <code>calc()</code>.
+              </li>
+              <li>
+                <strong>Item modal sizing:</strong> each frame sits in a square
+                <code>.ife-stage</code> (<code>--ife-box</code>: 200px desktop, 140px at 768px and
+                narrower); the frame is the largest ratio rectangle that fits and photos are
+                letterboxed with <code>object-fit: contain</code>, never cropped. Buttons stack
+                under each preview on desktop and mobile. Settings → Images keeps its own 140px cap.
+              </li>
+              <li>
+                <strong>Controls:</strong> the shipped <code>.collections-segmented</code> pill (no
+                new control look), 44px options at 768px and narrower, icon-only orientation options
+                at 560px and narrower. Theme tokens only (<code>--bg-tertiary</code>,
+                <code>--border</code>, <code>--border-hover</code>); never <code>--surface</code>.
+              </li>
+            </ul>
+          </div>
+
+          <div class="sg-subsection">
             <h3>Upload Group</h3>
             <div class="sg-showcase">
               <div class="image-upload-group">

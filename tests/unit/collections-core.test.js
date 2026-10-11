@@ -40,7 +40,21 @@ assert.equal(
   "js/utils.js must publish window.getUnitOztWeight"
 );
 
+// STRK-427: defaultImageShapeForType delegates to the one resolver in js/image-frame.js through
+// window.deriveImageShape. Load the REAL file into the default surface for the same reason as
+// utils.js above: a double could drift from production. `loadCoreWithoutResolver` keeps the
+// pre-STRK-427 surface for the fail-closed case, where the seam is absent.
+const imageFrameSrc = readFileSync(new URL("../../js/image-frame.js", import.meta.url), "utf-8");
+
 function loadCore(surface = { getUnitOztWeight }) {
+  if (!("deriveImageShape" in surface)) new Function("window", imageFrameSrc)(surface);
+  new Function("window", src)(surface);
+  return surface.collectionsCore;
+}
+
+/** Load the core on a surface that lacks image-frame.js, so the resolver seam is missing. */
+function loadCoreWithoutResolver() {
+  const surface = { getUnitOztWeight };
   new Function("window", src)(surface);
   return surface.collectionsCore;
 }
@@ -1722,5 +1736,307 @@ describe("STRK-391 Slot Mintage", () => {
     assert.equal(Object.hasOwn(merged.collections.mintages.definition.slots[0], "mintage"), false);
     assert.deepEqual(plain(merged), plain(core.mergeStates(state, old)));
     assert.deepEqual(plain(merged), plain(core.mergeStates(merged, merged)));
+  });
+});
+
+// STRK-427 (task B.2): the shared resolver seam and the per-side reverse orientation key.
+// Written before the implementation; every case that exercises new behavior fails until C.2.
+describe("STRK-427 shared resolver seam and reverse image orientation", () => {
+  const SLOTS = [{ id: "one", label: "One" }];
+
+  /** Create one Custom Collection on a fresh state and return the state and its definition. */
+  const made = (id, spec) => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id,
+      name: id,
+      slots: [{ label: "One" }],
+      now: T1,
+      ...spec,
+    });
+    return { state, definition: state.collections[id].definition };
+  };
+
+  /** Normalize a one-collection state whose definition is given verbatim (a stored record). */
+  const restored = (definition) =>
+    core.normalizeState({
+      version: 1,
+      collections: {
+        stored: {
+          id: "stored",
+          kind: "custom",
+          createdAt: T1,
+          metaModified: T1,
+          lastModified: T1,
+          definition: { slots: SLOTS, ...definition },
+          slots: {},
+          artwork: {},
+        },
+      },
+    }).collections.stored.definition;
+
+  describe("defaultImageShapeForType delegates to the one resolver (AC-4.1)", () => {
+    test("it calls window.deriveImageShape with the Type and returns its answer", () => {
+      const calls = [];
+      const seamCore = loadCore({
+        getUnitOztWeight,
+        deriveImageShape: (signals) => {
+          calls.push(signals);
+          return "slab";
+        },
+      });
+      assert.equal(seamCore.defaultImageShapeForType("Coin"), "slab");
+      assert.deepEqual(plain(calls), [{ type: "Coin" }]);
+    });
+
+    test("with the real resolver loaded, Goldback derives Note and Bar derives Bar", () => {
+      assert.equal(core.defaultImageShapeForType("Goldback"), "note");
+      assert.equal(core.defaultImageShapeForType("Bar"), "bar");
+      assert.equal(core.defaultImageShapeForType("Coin"), "round");
+    });
+
+    test("it fails closed to Round when the seam is absent, so the core stays pure", () => {
+      const bare = loadCoreWithoutResolver();
+      assert.equal(bare.defaultImageShapeForType("Goldback"), "round");
+      assert.equal(bare.defaultImageShapeForType("Bar"), "round");
+    });
+
+    test("a resolver that returns something other than a shape also fails closed to Round", () => {
+      const rogue = loadCore({ getUnitOztWeight, deriveImageShape: () => "banana" });
+      assert.equal(rogue.defaultImageShapeForType("Bar"), "round");
+    });
+  });
+
+  describe("reverseImageOrientation on the definition (AC-5.2, D-10)", () => {
+    test("a rotating shape keeps a reverse orientation that differs from the obverse", () => {
+      const { definition } = made("mixed", {
+        itemType: "Bar",
+        imageOrientation: "portrait",
+        reverseImageOrientation: "landscape",
+      });
+      assert.equal(definition.imageOrientation, "portrait");
+      assert.equal(definition.reverseImageOrientation, "landscape");
+    });
+
+    test("it is dropped when it equals the obverse value, so uniform pairs stay canonical (C-5)", () => {
+      const { definition } = made("uniform", {
+        itemType: "Bar",
+        imageOrientation: "landscape",
+        reverseImageOrientation: "landscape",
+      });
+      assert.equal(Object.hasOwn(definition, "reverseImageOrientation"), false);
+    });
+
+    test("it is dropped for a shape that never rotates", () => {
+      for (const imageShape of ["round", "slab"]) {
+        const { definition } = made(`${imageShape}-reverse`, {
+          imageShape,
+          reverseImageOrientation: "landscape",
+        });
+        assert.equal(Object.hasOwn(definition, "reverseImageOrientation"), false);
+      }
+    });
+
+    test("an invalid reverse value reads as absent", () => {
+      const { definition } = made("bogus", {
+        itemType: "Bar",
+        reverseImageOrientation: "sideways",
+      });
+      assert.equal(Object.hasOwn(definition, "reverseImageOrientation"), false);
+    });
+
+    test("a stored reverse key survives a restore, import or sync normalization", () => {
+      const definition = restored({
+        itemType: "Note",
+        imageShape: "note",
+        imageOrientation: "landscape",
+        reverseImageOrientation: "portrait",
+      });
+      assert.equal(definition.reverseImageOrientation, "portrait");
+    });
+
+    test("a stored reverse key is compared with the resolved obverse, including the legacy pin", () => {
+      // No obverse orientation stored: a legacy Bar resolves landscape, so a stored landscape
+      // reverse is redundant and dropped, while a stored portrait reverse is a real difference.
+      assert.equal(
+        Object.hasOwn(
+          restored({ itemType: "Bar", imageShape: "bar", reverseImageOrientation: "landscape" }),
+          "reverseImageOrientation"
+        ),
+        false
+      );
+      assert.equal(
+        restored({ itemType: "Bar", imageShape: "bar", reverseImageOrientation: "portrait" })
+          .reverseImageOrientation,
+        "portrait"
+      );
+    });
+  });
+
+  describe("reverseImageOrientationFor (D-10)", () => {
+    test("it returns the reverse value when one is stored", () => {
+      assert.equal(
+        core.reverseImageOrientationFor("bar", {
+          imageOrientation: "portrait",
+          reverseImageOrientation: "landscape",
+        }),
+        "landscape"
+      );
+    });
+
+    test("it falls back to the obverse value when no reverse is stored (AC-5.2)", () => {
+      assert.equal(
+        core.reverseImageOrientationFor("bar", { imageOrientation: "portrait" }),
+        "portrait"
+      );
+      assert.equal(
+        core.reverseImageOrientationFor("note", { imageOrientation: "portrait" }),
+        "portrait"
+      );
+    });
+
+    test("a legacy Bar or Note with neither value keeps the landscape pin (AC-5.5)", () => {
+      assert.equal(core.reverseImageOrientationFor("bar", {}), "landscape");
+      assert.equal(core.reverseImageOrientationFor("note", {}), "landscape");
+    });
+
+    test("a shape that never rotates has no orientation", () => {
+      assert.equal(
+        core.reverseImageOrientationFor("round", { reverseImageOrientation: "portrait" }),
+        ""
+      );
+      assert.equal(core.reverseImageOrientationFor("slab", {}), "");
+    });
+  });
+
+  describe("create and update mirror the obverse rules (AC-5.3)", () => {
+    test("an update that only changes the reverse value is a change and bumps metaModified", () => {
+      const { state } = made("edit", {
+        itemType: "Bar",
+        imageOrientation: "portrait",
+      });
+      const before = state.collections.edit.metaModified;
+      const result = core.updateCustomDefinition(state, "edit", {
+        name: "edit",
+        reverseImageOrientation: "landscape",
+        slots: SLOTS,
+        now: T2,
+      });
+      assert.equal(result.ok, true);
+      assert.equal(state.collections.edit.definition.reverseImageOrientation, "landscape");
+      assert.ok(state.collections.edit.metaModified > before, "metaModified advances");
+    });
+
+    test("an omitted reverse value is kept while the shape stays a rotating one", () => {
+      const { state } = made("keep", {
+        itemType: "Bar",
+        imageOrientation: "portrait",
+        reverseImageOrientation: "landscape",
+      });
+      core.updateCustomDefinition(state, "keep", { name: "keep", slots: SLOTS, now: T2 });
+      assert.equal(state.collections.keep.definition.reverseImageOrientation, "landscape");
+    });
+
+    test("changing to a shape that never rotates drops it, and a Bar chosen again starts uniform", () => {
+      const { state } = made("shape", {
+        itemType: "Bar",
+        imageOrientation: "portrait",
+        reverseImageOrientation: "landscape",
+      });
+      const read = () => state.collections.shape.definition;
+      core.updateCustomDefinition(state, "shape", {
+        name: "shape",
+        imageShape: "slab",
+        slots: SLOTS,
+        now: T2,
+      });
+      assert.equal(Object.hasOwn(read(), "reverseImageOrientation"), false);
+      core.updateCustomDefinition(state, "shape", {
+        name: "shape",
+        imageShape: "bar",
+        slots: SLOTS,
+        now: T3,
+      });
+      assert.equal(Object.hasOwn(read(), "reverseImageOrientation"), false);
+      assert.equal(read().imageOrientation, "portrait");
+    });
+
+    test("setting the reverse equal to the obverse removes the key", () => {
+      const { state } = made("equalize", {
+        itemType: "Note",
+        imageOrientation: "landscape",
+        reverseImageOrientation: "portrait",
+      });
+      core.updateCustomDefinition(state, "equalize", {
+        name: "equalize",
+        reverseImageOrientation: "landscape",
+        slots: SLOTS,
+        now: T2,
+      });
+      assert.equal(
+        Object.hasOwn(state.collections.equalize.definition, "reverseImageOrientation"),
+        false
+      );
+    });
+  });
+
+  describe("save and reopen stability (AC-5.5)", () => {
+    test("a new Bar or Note saved at its default reopens at that default, not at the legacy pin", () => {
+      for (const [itemType, expected] of [
+        ["Bar", "portrait"],
+        ["Note", "landscape"],
+      ]) {
+        const { state } = made(`new-${itemType}`, { itemType });
+        const reopened = core.normalizeState(plain(state)).collections[`new-${itemType}`]
+          .definition;
+        assert.equal(reopened.imageOrientation, expected);
+        assert.equal(core.reverseImageOrientationFor(reopened.imageShape, reopened), expected);
+      }
+    });
+
+    test("a legacy Bar saved before STRK-424 with no orientation still reopens landscape", () => {
+      const definition = restored({ itemType: "Bar", imageShape: "bar" });
+      assert.equal(definition.imageOrientation, "landscape");
+      assert.equal(core.reverseImageOrientationFor("bar", definition), "landscape");
+    });
+  });
+
+  describe("merge convergence with the reverse key (C-1, C-2)", () => {
+    test("a stripped copy and a full copy tied on metaModified merge identically in either order", () => {
+      const { state: full } = made("tie", {
+        itemType: "Bar",
+        imageOrientation: "portrait",
+        reverseImageOrientation: "landscape",
+      });
+      assert.equal(
+        full.collections.tie.definition.reverseImageOrientation,
+        "landscape",
+        "the full copy must actually carry the reverse key"
+      );
+      // An older build normalizes the definition without the key but keeps the same stamp.
+      const stripped = plain(full);
+      delete stripped.collections.tie.definition.reverseImageOrientation;
+      assert.equal(stripped.collections.tie.metaModified, full.collections.tie.metaModified);
+
+      const ab = plain(core.mergeStates(plain(full), stripped));
+      const ba = plain(core.mergeStates(stripped, plain(full)));
+      assert.deepEqual(ab, ba, "merge(A,B) equals merge(B,A)");
+      assert.deepEqual(plain(core.mergeStates(ab, ab)), ab, "and the merge is idempotent");
+    });
+
+    test("a later edit of the reverse value wins over an older copy in either order", () => {
+      const { state: older } = made("later", { itemType: "Bar", imageOrientation: "portrait" });
+      const newer = core.normalizeState(plain(older));
+      core.updateCustomDefinition(newer, "later", {
+        name: "later",
+        reverseImageOrientation: "landscape",
+        slots: SLOTS,
+        now: T3,
+      });
+      const ab = plain(core.mergeStates(plain(older), newer));
+      const ba = plain(core.mergeStates(newer, plain(older)));
+      assert.deepEqual(ab, ba);
+      assert.equal(ab.collections.later.definition.reverseImageOrientation, "landscape");
+    });
   });
 });

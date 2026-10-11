@@ -113,6 +113,13 @@ Defined via JSDoc typedef in `js/types.js`. All fields persist on the item objec
   obverseSharedImageId:  String|null,    // optional — UUID of source item if obverse was tagged from shared library; null for original uploads
   reverseSharedImageId:  String|null,    // optional — UUID of source item if reverse was tagged from shared library; null for original uploads
 
+  // --- Image framing (STRK-427) — all optional and sparse; absent means "derived from Type/grade/Numista shape" ---
+  imageShape:              String,       // optional — "round" | "bar" | "note" | "slab"; stored ONLY when it differs from the derived shape
+  obverseImageOrientation: String,       // optional — "portrait" | "landscape"; Bar/Note only, stored only when it differs from the shape default (Bar portrait, Note landscape)
+  reverseImageOrientation: String,       // optional — same vocabulary, per side
+  obverseImageFrame:       String,       // optional legacy projection — "circle" (Round) | "rectangle" (anything else); written with an explicit imageShape so older builds render round/rect. Reader precedence: imageShape, else this (obverse only), else derived
+  reverseImageFrame:       String,       // optional legacy projection (reverse); ignored by the reader, kept for older builds
+
   // --- Trade provenance (v3.34.100 / STRK-123) ---
   tradedFromUuid:        String,         // optional — disposed item UUID that acquired this active item via trade
 

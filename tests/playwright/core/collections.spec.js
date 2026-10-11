@@ -1504,7 +1504,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
       .first()
       .click();
     const builder = builderModal(page);
-    const orientation = builder.getByRole("radiogroup", { name: "Orientation" });
+    const orientation = builder.getByRole("radiogroup", { name: "Obverse orientation" });
     const frameRatio = () =>
       builder
         .locator(".collections-builder-covers .collections-image-pick")
@@ -1546,7 +1546,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
       .first()
       .click();
     const builder = builderModal(page);
-    const orientation = builder.getByRole("radiogroup", { name: "Orientation" });
+    const orientation = builder.getByRole("radiogroup", { name: "Obverse orientation" });
     await builder.getByLabel("Type").selectOption("Note");
     await orientation.getByLabel("Portrait").check();
     // Goldback derives the same Note shape, so the explicit choice must survive.
@@ -1571,7 +1571,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
     const builder = builderModal(page);
     await builder.getByLabel("Collection name").fill("Landscape bars");
     await builder.getByLabel("Type").selectOption("Bar");
-    await builder.getByRole("radiogroup", { name: "Orientation" }).getByLabel("Landscape").check();
+    await builder
+      .getByRole("radiogroup", { name: "Obverse orientation" })
+      .getByLabel("Landscape")
+      .check();
     await builder.getByLabel("Slot label").first().fill("One");
     await builder.getByRole("button", { name: "Create collection" }).click();
     const id = await page.evaluate(
@@ -1600,7 +1603,9 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(await coinRatio()).toBeCloseTo(1.6, 1);
 
     await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
-    const orientation = builderModal(page).getByRole("radiogroup", { name: "Orientation" });
+    const orientation = builderModal(page).getByRole("radiogroup", {
+      name: "Obverse orientation",
+    });
     await expect(orientation.getByLabel("Landscape")).toBeChecked();
     await orientation.getByLabel("Portrait").check();
     await builderModal(page).getByRole("button", { name: "Save changes" }).click();
@@ -1676,8 +1681,582 @@ test.describe("core/collections — link picker, builder, item view", () => {
       return created.collection.id;
     });
     await page.evaluate((key) => window.collectionsPicker.openBuilder({ cloneFrom: key }), id);
-    const orientation = builderModal(page).getByRole("radiogroup", { name: "Orientation" });
+    const orientation = builderModal(page).getByRole("radiogroup", {
+      name: "Obverse orientation",
+    });
     await expect(orientation.getByLabel("Portrait")).toBeChecked();
+  });
+
+  // ---------------------------------------------------------------------------
+  // STRK-427 (task B.6): per-side orientation, builder swap and the shared Slab ratio.
+  // Written before the implementation; new-behavior cases fail until C.5 / C.6.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Rendered width and aspect ratio of the first element matching a locator.
+   * @param {import('@playwright/test').Locator} locator - Frame or medallion.
+   * @returns {Promise<{width: number, ratio: number}>} Rendered width and width / height.
+   */
+  const frameOf = (locator) =>
+    locator.first().evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: box.width, ratio: box.width / box.height };
+    });
+
+  /**
+   * Wait for the builder's entrance animation. The modal runs `modalSlideIn`, a `scale(0.95)`
+   * transform, so a rect read mid-animation is 5% smaller than the CSS width.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<void>}
+   */
+  const settleBuilder = (page) =>
+    builderModal(page).evaluate((node) =>
+      Promise.all(node.getAnimations({ subtree: true }).map((animation) => animation.finished))
+    );
+
+  /**
+   * Create a Bar collection through the real builder with a portrait obverse, a landscape
+   * reverse and both title images, optionally showing the reverse face (STRK-427).
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string} name - Collection name.
+   * @param {"obverse"|"reverse"} coinSide - Which face the Slots and Hub medallions show.
+   * @returns {Promise<string>} The new collection id.
+   */
+  const createMixedBars = async (page, name, coinSide) => {
+    // Creating a collection opens its album; the hub holds the New collection button.
+    const hubLink = panel(page).getByRole("button", { name: "Collections", exact: true });
+    if (await hubLink.isVisible()) await hubLink.click();
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Collection name").fill(name);
+    await builder.getByLabel("Type").selectOption("Bar");
+    await builder
+      .getByRole("radiogroup", { name: "Reverse orientation" })
+      .getByLabel("Landscape")
+      .check();
+    const files = builder.locator(".collections-builder-title-option input[type=file]");
+    await files.nth(0).setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await files.nth(1).setInputFiles("tests/playwright/helpers/test-reverse.png");
+    if (coinSide === "reverse") {
+      await openBuilderSection(page, "Display");
+      await builder.getByRole("radiogroup", { name: "Coin side" }).getByLabel("Reverse").check();
+    }
+    await builder.getByLabel("Slot label").first().fill("One");
+    await builder.getByRole("button", { name: "Create collection" }).click();
+    await expect(builder).toBeHidden();
+    const id = await page.evaluate(
+      (key) =>
+        Object.values(window.collectionsStore.getState().collections).find((c) => c.name === key)
+          .id,
+      name
+    );
+    // The title images are written after the modal closes; wait until both are stamped.
+    await page.waitForFunction((key) => {
+      const artwork = window.collectionsStore.getState().collections[key].artwork || {};
+      return Boolean(artwork.cover?.present && artwork["title:reverse"]?.present);
+    }, id);
+    return id;
+  };
+
+  test("STRK-427 a mixed pair saved in the builder reopens with both orientations and renders per side everywhere", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const obverseId = await createMixedBars(page, "Mixed obverse bars", "obverse");
+    const reverseId = await createMixedBars(page, "Mixed reverse bars", "reverse");
+    for (const id of [obverseId, reverseId]) {
+      const definition = await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition,
+        id
+      );
+      expect(definition).toMatchObject({
+        imageShape: "bar",
+        imageOrientation: "portrait",
+        reverseImageOrientation: "landscape",
+      });
+    }
+
+    // Reopening the builder shows both choices.
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), obverseId);
+    const builder = builderModal(page);
+    await expect(
+      builder.getByRole("radiogroup", { name: "Obverse orientation" }).getByLabel("Portrait")
+    ).toBeChecked();
+    await expect(
+      builder.getByRole("radiogroup", { name: "Reverse orientation" }).getByLabel("Landscape")
+    ).toBeChecked();
+    // The builder preview frames follow their own side's orientation.
+    const covers = builder.locator(".collections-builder-covers .collections-image-pick");
+    expect((await frameOf(covers.nth(0))).ratio).toBeCloseTo(0.6, 1);
+    expect((await frameOf(covers.nth(1))).ratio).toBeCloseTo(1.6, 1);
+    await builder.getByRole("button", { name: "Cancel" }).click();
+
+    // Album title pair: obverse portrait, reverse landscape; every medallion keeps its width.
+    await page.evaluate((key) => window.collectionsUI.openCollection(key), obverseId);
+    const pair = panel(page).locator(".collections-pair .collections-coin");
+    await expect(pair).toHaveCount(2);
+    for (const [index, ratio] of [
+      [0, 0.6],
+      [1, 1.6],
+    ]) {
+      const frame = await frameOf(pair.nth(index));
+      expect(frame.width).toBeCloseTo(92, 0);
+      expect(frame.ratio).toBeCloseTo(ratio, 1);
+    }
+
+    // Slot tiles and Ledger rows, Hub cards and Hub rows show the Collection's own coin side.
+    for (const [id, ratio] of [
+      [obverseId, 0.6],
+      [reverseId, 1.6],
+    ]) {
+      await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
+      await panel(page).getByRole("button", { name: "Album view" }).click();
+      const tile = await frameOf(panel(page).locator("[data-slot-id] .collections-coin"));
+      expect(tile.width).toBeCloseTo(112, 0);
+      expect(tile.ratio).toBeCloseTo(ratio, 1);
+      await panel(page).getByRole("button", { name: "Ledger view" }).click();
+      const row = await frameOf(panel(page).locator("[data-slot-id] .collections-coin"));
+      expect(row.width).toBeCloseTo(40, 0);
+      expect(row.ratio).toBeCloseTo(ratio, 1);
+      await panel(page).getByRole("button", { name: "Album view" }).click();
+      await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
+      const card = await frameOf(
+        panel(page).locator(`.collections-card[data-collection-id="${id}"] .collections-coin`)
+      );
+      expect(card.width).toBeCloseTo(84, 0);
+      expect(card.ratio).toBeCloseTo(ratio, 1);
+      await panel(page).getByRole("button", { name: "Ledger view" }).click();
+      const hubRow = await frameOf(
+        panel(page).locator(`.collections-hubrow[data-collection-id="${id}"] .collections-coin`)
+      );
+      expect(hubRow.width).toBeCloseTo(40, 0);
+      expect(hubRow.ratio).toBeCloseTo(ratio, 1);
+      await panel(page).getByRole("button", { name: "Album view" }).click();
+    }
+  });
+
+  test("STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame widths and ratios", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    // [shape, orientation, builder frame width in px, width / height] as shipped today: the
+    // --collections-cover-size tokens, measured after the entrance animation settles.
+    const legacy = [
+      ["bar", "portrait", 80, 0.6],
+      ["bar", "landscape", 108, 1.6],
+      ["note", "portrait", 80, 0.4878],
+      ["note", "landscape", 160, 2.05],
+      ["round", null, 128, 1],
+    ];
+    for (const [shape, orientation, width, ratio] of legacy) {
+      const id = await page.evaluate(
+        ({ imageShape, imageOrientation }) =>
+          window.collectionsStore.createCustom({
+            name: `Legacy ${imageShape} ${imageOrientation || "none"}`,
+            imageShape,
+            ...(imageOrientation ? { imageOrientation } : {}),
+            slots: [{ label: "One" }],
+          }).collection.id,
+        { imageShape: shape, imageOrientation: orientation }
+      );
+      await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+      await settleBuilder(page);
+      const frames = builderModal(page).locator(
+        ".collections-builder-covers .collections-image-pick"
+      );
+      for (const index of [0, 1]) {
+        const frame = await frameOf(frames.nth(index));
+        expect(frame.width, `${shape} ${orientation} frame ${index} width`).toBeCloseTo(width, 0);
+        expect(frame.ratio, `${shape} ${orientation} frame ${index} ratio`).toBeCloseTo(ratio, 1);
+      }
+      await builderModal(page).getByRole("button", { name: "Cancel" }).click();
+    }
+
+    // A Bar saved before STRK-424 has no orientation and keeps the landscape pin.
+    const oldId = await page.evaluate(() => {
+      const created = window.collectionsStore.createCustom({
+        name: "Pre-424 bars",
+        itemType: "Bar",
+        slots: [{ label: "One" }],
+      });
+      delete window.collectionsStore.getState().collections[created.collection.id].definition
+        .imageOrientation;
+      saveDataSync(COLLECTION_STATE_KEY, window.collectionsStore.getState());
+      return created.collection.id;
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.appListenersReady && !!window.collectionsUI);
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), oldId);
+    await settleBuilder(page);
+    const old = await frameOf(
+      builderModal(page).locator(".collections-builder-covers .collections-image-pick")
+    );
+    expect(old.width).toBeCloseTo(108, 0);
+    expect(old.ratio).toBeCloseTo(1.6, 1);
+  });
+
+  test("STRK-427 the builder Slab box keeps its width and moves to the shared 0.68 ratio", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await settleBuilder(page);
+    await builder.getByRole("radiogroup", { name: "Image shape" }).getByLabel("Slab").check();
+    const frame = await frameOf(
+      builder.locator(".collections-builder-covers .collections-image-pick")
+    );
+    // Width is today's (the 100px Slab token); only the ratio changes, from 3:4 to 0.68.
+    expect(frame.width).toBeCloseTo(100, 0);
+    expect(frame.ratio).toBeCloseTo(0.68, 2);
+  });
+
+  /**
+   * Hash of the image currently displayed in one of the builder's title choosers.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {number} index - 0 for the obverse chooser, 1 for the reverse one.
+   * @returns {Promise<string|null>} SHA-256 hex, or null when the chooser is empty.
+   */
+  const chooserImageHash = async (page, index) => {
+    const image = builderModal(page)
+      .locator(".collections-builder-title-option")
+      .nth(index)
+      .locator(".collections-image-pick img");
+    // An empty chooser has no <img>; reading its hash would otherwise wait out the locator timeout.
+    if ((await image.count()) === 0) return null;
+    return displayedImageHash(image);
+  };
+
+  /**
+   * Average color of the image shown in one of the builder's title choosers. Used where a Save
+   * re-encodes the image, so its bytes (and hash) legitimately change but its look does not.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {number} index - 0 for the obverse chooser, 1 for the reverse one.
+   * @returns {Promise<number[]|null>} [r, g, b], or null when the chooser is empty.
+   */
+  const chooserImageColor = async (page, index) => {
+    const image = builderModal(page)
+      .locator(".collections-builder-title-option")
+      .nth(index)
+      .locator(".collections-image-pick img");
+    if ((await image.count()) === 0) return null;
+    return image.evaluate((img) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(img, 0, 0, 1, 1);
+      return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+    });
+  };
+
+  test("STRK-427 Swap in the builder exchanges the images and their orientations", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    await builder.getByLabel("Type").selectOption("Bar");
+    await builder
+      .getByRole("radiogroup", { name: "Reverse orientation" })
+      .getByLabel("Landscape")
+      .check();
+    const files = builder.locator(".collections-builder-title-option input[type=file]");
+    await files.nth(0).setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await files.nth(1).setInputFiles("tests/playwright/helpers/test-reverse.png");
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    const [obverse, reverse] = [await chooserImageHash(page, 0), await chooserImageHash(page, 1)];
+    expect(obverse).not.toBe(reverse);
+
+    await builder.getByRole("button", { name: /Swap obverse and reverse/ }).click();
+    await expect.poll(() => chooserImageHash(page, 0)).toBe(reverse);
+    expect(await chooserImageHash(page, 1)).toBe(obverse);
+    await expect(
+      builder.getByRole("radiogroup", { name: "Obverse orientation" }).getByLabel("Landscape")
+    ).toBeChecked();
+    await expect(
+      builder.getByRole("radiogroup", { name: "Reverse orientation" }).getByLabel("Portrait")
+    ).toBeChecked();
+    // The shape is shared and untouched.
+    await expect(
+      builder.getByRole("radiogroup", { name: "Image shape" }).getByLabel("Bar")
+    ).toBeChecked();
+  });
+
+  test("STRK-427 a stored pair, Remove one side, Swap, Save and reopen keeps the image on the swapped side only", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Swap with removal", "obverse");
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    const obverse = await chooserImageHash(page, 0);
+    const obverseColor = await chooserImageColor(page, 0);
+    const reverseColor = await chooserImageColor(page, 1);
+    const distance = (a, b) => Math.max(...a.map((value, i) => Math.abs(value - b[i])));
+    expect(
+      distance(obverseColor, reverseColor),
+      "the two fixtures must look different"
+    ).toBeGreaterThan(40);
+
+    // Remove the reverse image, then swap: the obverse image moves to the reverse side and the
+    // pending removal travels with the (now empty) obverse side.
+    await builderModal(page).getByRole("button", { name: "Remove reverse title image" }).click();
+    await builderModal(page)
+      .getByRole("button", { name: /Swap obverse and reverse/ })
+      .click();
+    await expect.poll(() => chooserImageHash(page, 1)).toBe(obverse);
+    expect(await chooserImageHash(page, 0)).toBeNull();
+    const digestBefore = await page.evaluate(
+      (key) => window.collectionsStore.getState().collections[key].artwork["title:reverse"].digest,
+      id
+    );
+    await builderModal(page).getByRole("button", { name: "Save changes" }).click();
+    await expect(builderModal(page)).toBeHidden();
+    // Images are written after the modal closes: wait for the new reverse and the deleted cover.
+    await page.waitForFunction(
+      ({ key, before }) => {
+        const artwork = window.collectionsStore.getState().collections[key].artwork || {};
+        const reverse = artwork["title:reverse"];
+        return Boolean(
+          artwork.cover && !artwork.cover.present && reverse?.present && reverse.digest !== before
+        );
+      },
+      { key: id, before: digestBefore }
+    );
+
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    // Save re-encodes the image, so compare how it looks rather than its bytes.
+    await expect.poll(() => chooserImageColor(page, 1)).not.toBeNull();
+    expect(distance(await chooserImageColor(page, 1), obverseColor)).toBeLessThan(12);
+    expect(await chooserImageHash(page, 0)).toBeNull();
+    await expect(
+      builderModal(page).getByRole("button", { name: "Remove cover image" })
+    ).toBeHidden();
+  });
+
+  test("STRK-427 a failed stored-image read swaps nothing and says so", async ({ page }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Swap read failure", "obverse");
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    const before = [await chooserImageHash(page, 0), await chooserImageHash(page, 1)];
+
+    await page.evaluate(() => {
+      window.imageCache.getPatternImage = async () => {
+        throw new Error("forced stored-image read failure");
+      };
+    });
+    const builder = builderModal(page);
+    await builder.getByRole("button", { name: /Swap obverse and reverse/ }).click();
+    await expect(page.locator("body")).toContainText(/could not be swapped/i);
+    expect([await chooserImageHash(page, 0), await chooserImageHash(page, 1)]).toEqual(before);
+    // Orientations did not move without their images.
+    await expect(
+      builder.getByRole("radiogroup", { name: "Obverse orientation" }).getByLabel("Portrait")
+    ).toBeChecked();
+    await expect(
+      builder.getByRole("radiogroup", { name: "Reverse orientation" }).getByLabel("Landscape")
+    ).toBeChecked();
+    // The busy state cleared, so the control is usable again.
+    await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeEnabled();
+  });
+
+  /**
+   * Hold stored title-image reads behind a gate the test releases (STRK-427 review). Wraps
+   * `imageCache.getPatternImage`, so each read whose record id matches waits for the gate.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string|null} idSuffix - Hold only ids ending with this; null holds every read.
+   * @returns {Promise<void>}
+   */
+  const holdStoredReads = (page, idSuffix) =>
+    page.evaluate((suffix) => {
+      const original = window.imageCache.getPatternImage.bind(window.imageCache);
+      const gate = new Promise((resolve) => {
+        window.__releaseStoredReads = resolve;
+      });
+      window.imageCache.getPatternImage = async (id) => {
+        if (suffix === null || String(id).endsWith(suffix)) await gate;
+        return original(id);
+      };
+    }, idSuffix);
+
+  /**
+   * Release the reads held by {@link holdStoredReads}.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<void>}
+   */
+  const releaseStoredReads = (page) => page.evaluate(() => window.__releaseStoredReads());
+
+  test("STRK-427 Swap stays unavailable until both stored previews have loaded", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Swap waits for previews", "obverse");
+    // The reverse title image is the slow read; the cover resolves at once.
+    await holdStoredReads(page, "--@title-reverse");
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const builder = builderModal(page);
+    const swap = builder.getByRole("button", { name: /Swap obverse and reverse/ });
+
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    // The cover has landed but the reverse has not: an early swap would treat the reverse as
+    // empty, so the control is not offered yet.
+    expect(await chooserImageHash(page, 1)).toBeNull();
+    await expect(swap).toBeHidden();
+    const obverse = await chooserImageHash(page, 0);
+
+    await releaseStoredReads(page);
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    await expect(swap).toBeVisible();
+    await expect(swap).toBeEnabled();
+    const reverse = await chooserImageHash(page, 1);
+    expect(obverse).not.toBe(reverse);
+
+    await swap.click();
+    await expect.poll(() => chooserImageHash(page, 0)).toBe(reverse);
+    expect(await chooserImageHash(page, 1)).toBe(obverse);
+  });
+
+  test("STRK-427 a throwing stored preview is logged, not unhandled, and Swap still settles", async ({
+    page,
+  }) => {
+    const errors = [];
+    const warnings = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "warning" && message.text().includes("Title preview failed")) {
+        warnings.push(message.text());
+      }
+    });
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Throwing preview", "obverse");
+    // Make the presence hook that setPreview() calls throw, so the stored-preview chain rejects
+    // after getImageUrl has already resolved.
+    await page.evaluate(() => {
+      const mount = window.imageFrameEditor.mount;
+      window.imageFrameEditor.mount = (...args) => {
+        const controller = mount(...args);
+        controller.setSideHasImage = () => {
+          throw new Error("forced preview failure");
+        };
+        return controller;
+      };
+    });
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const builder = builderModal(page);
+
+    // Both reads settle: each rejection is caught and logged, and the pending count still drains
+    // (finally runs), so Swap is offered rather than staying hidden forever.
+    await expect.poll(() => warnings.length).toBe(2);
+    await expect(builder).toBeVisible();
+    await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeVisible();
+    await expect(builder.getByRole("button", { name: /Swap obverse and reverse/ })).toBeEnabled();
+    expect(errors).toEqual([]);
+  });
+
+  test("STRK-427 Save right after Swap waits for the stored swap and saves the swapped pair", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createMixedBars(page, "Save waits for swap", "obverse");
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await expect.poll(() => chooserImageHash(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageHash(page, 1)).not.toBeNull();
+    const obverseColor = await chooserImageColor(page, 0);
+    const reverseColor = await chooserImageColor(page, 1);
+    const distance = (a, b) => Math.max(...a.map((value, i) => Math.abs(value - b[i])));
+    expect(
+      distance(obverseColor, reverseColor),
+      "the two fixtures must look different"
+    ).toBeGreaterThan(40);
+    const before = await page.evaluate((key) => {
+      const artwork = window.collectionsStore.getState().collections[key].artwork;
+      return { cover: artwork.cover.digest, reverse: artwork["title:reverse"].digest };
+    }, id);
+
+    // Both previews are loaded; from here every stored read (the swap's) is held.
+    await holdStoredReads(page, null);
+    const builder = builderModal(page);
+    await builder.getByRole("button", { name: /Swap obverse and reverse/ }).click();
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await releaseStoredReads(page);
+    await expect(builder).toBeHidden();
+
+    // Save persisted the swapped pair (both images re-written), not the pre-swap one.
+    await page.waitForFunction(
+      ({ key, digests }) => {
+        const artwork = window.collectionsStore.getState().collections[key].artwork || {};
+        const [cover, reverse] = [artwork.cover, artwork["title:reverse"]];
+        return Boolean(
+          cover?.present &&
+          reverse?.present &&
+          cover.digest !== digests.cover &&
+          reverse.digest !== digests.reverse
+        );
+      },
+      { key: id, digests: before },
+      { timeout: 10000 }
+    );
+    const definition = await page.evaluate(
+      (key) => window.collectionsStore.getState().collections[key].definition,
+      id
+    );
+    expect(definition).toMatchObject({
+      imageOrientation: "landscape",
+      reverseImageOrientation: "portrait",
+    });
+
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    // Save re-encodes the images, so compare how they look rather than their bytes.
+    await expect.poll(() => chooserImageColor(page, 0)).not.toBeNull();
+    await expect.poll(() => chooserImageColor(page, 1)).not.toBeNull();
+    expect(distance(await chooserImageColor(page, 0), reverseColor)).toBeLessThan(12);
+    expect(distance(await chooserImageColor(page, 1), obverseColor)).toBeLessThan(12);
+  });
+
+  test("STRK-427 a Collection with no grading still follows Type while the shape is derived", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await panel(page)
+      .getByRole("button", { name: /New collection/ })
+      .first()
+      .click();
+    const builder = builderModal(page);
+    const shape = builder.getByRole("radiogroup", { name: "Image shape" });
+    await builder.getByLabel("Type").selectOption("Coin");
+    await expect(shape.getByLabel("Round")).toBeChecked();
+    await builder.getByLabel("Type").selectOption("Goldback");
+    await expect(shape.getByLabel("Note")).toBeChecked();
+    await builder.getByLabel("Type").selectOption("Bar");
+    await expect(shape.getByLabel("Bar")).toBeChecked();
+    // A chosen shape is left alone by a Type change.
+    await shape.getByLabel("Slab").check();
+    await builder.getByLabel("Type").selectOption("Coin");
+    await expect(shape.getByLabel("Slab")).toBeChecked();
   });
 
   test("Gross weight and Thickness render labelled in the album and hub", async ({ page }) => {

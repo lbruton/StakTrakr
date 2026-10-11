@@ -114,7 +114,9 @@
               resolvedImageSide: entry[side] ? side : entry.obverse ? "obverse" : side,
               stockImageSide: entry[side] ? side : entry.obverse ? "obverse" : "",
               imageShape: entry.imageShape,
-              imageOrientation: entry.imageOrientation,
+              // STRK-427: the frame belongs to the title side, not to whichever image fills it.
+              imageOrientation:
+                side === "reverse" ? entry.reverseImageOrientation : entry.imageOrientation,
               artwork: { collectionId: entry.id, titleFallback: true },
             })
           )
@@ -580,7 +582,9 @@
         owned: Boolean(slot.item),
         size,
         imageShape: entry.imageShape,
-        imageOrientation: entry.imageOrientation,
+        // STRK-427: a reverse-side Collection frames its Slots with the reverse orientation.
+        imageOrientation:
+          side === "reverse" ? entry.reverseImageOrientation : entry.imageOrientation,
         alt: `${displayedSide} of ${slot.label}`,
         imageLabel: slot.label,
         imageSide: side,
