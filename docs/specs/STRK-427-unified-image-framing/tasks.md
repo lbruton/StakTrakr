@@ -53,25 +53,25 @@ _Independent files, so these can be dispatched concurrently. Scaffolding, data s
   - **Leverage:** `/ui-mockup`; `playground/STRK-424-orientation-toggle.html` (Option C, ~228-262); `playground/STRK-421-collection-modal-variants.html` (builder hero baseline); `.context/design-philosophy.md`; `.context/style.html` (tokens: `--bg-card`, `--bg-secondary`, `--bg-tertiary`, `--border`, `--border-hover`; never `--surface`). Memory: compare against the Add Item modal in dark at 390px; theme every control.
   - **Maps to:** AC-6.1, AC-6.2, AC-6.3, AC-5.1, AC-1.5, AC-9.1 (P2 section)
 
-- [ ] **A.2 [P]** — Scaffold `image-frame-editor.js` and register it in load order
+- [x] **A.2 [P]** — Scaffold `image-frame-editor.js` and register it in load order
   - **File(s):** `js/image-frame-editor.js` (new), `index.html`, `sw.js`
   - **Acceptance:** The file defines the D-7 controller surface (`mount(root, options)` returning `seed`/`reset`, `signalsChanged`, `swapSides`, `resetSide`, `setSideHasImage`, `getState`, `getResult`, `dispose`, `onChange`). Each method is JSDoc'd and throws `Error("not implemented")`, and the surface is exposed on `window` under one non-colliding name. It is registered in `index.html` immediately after `js/image-frame.js` (`:8965`) and in `sw.js` `CORE_ASSETS` immediately after `./js/image-frame.js` (`:88`). Both positions come before `inventory.js` (8973), `events.js` (8989) and `collections-picker.js` (9026). `npm run test:unit` (including `script-global-scope-collisions.test.js`) and `npm run lint` pass. The app boots with no console error.
   - **Leverage:** `js/image-frame.js` (module style); the `sw.js` cache stamp hook stamps `CACHE_NAME` automatically.
   - **Maps to:** AC-1.1
 
-- [ ] **A.3 [P]** — Move the frame ratio tokens to `:root` (pure refactor)
+- [x] **A.3 [P]** — Move the frame ratio tokens to `:root` (pure refactor)
   - **File(s):** `css/styles.css`
   - **Acceptance:** `:root` declares `--frame-bar-portrait`, `--frame-bar-landscape`, `--frame-note-portrait`, `--frame-note-landscape` with today's values and `--frame-slab: 0.68` (D-15). The `--collections-frame-*` declarations at `:17997-18003` are removed, and every medallion, album and builder rule that read them reads the shared tokens. **No rendered value changes** in this task: the builder Slab stays 3:4 until C.5, and `npm run test:core` → `collections.spec.js` (STRK-421/424 ratio and width cases) is unchanged and green.
   - **Leverage:** `discovery.md` §D.
   - **Maps to:** AC-2.2 (foundation)
 
-- [ ] **A.4 [P]** — Unit harness loads the real `image-frame.js` into `collections-core`
+- [x] **A.4 [P]** — Unit harness loads the real `image-frame.js` into `collections-core`
   - **File(s):** `tests/unit/collections-core.test.js`
   - **Acceptance:** `loadCore` (`:28-45`) also evaluates the real `js/image-frame.js` into the surface, the way it loads `utils.js`. A variant loader without it stays available for the fail-closed test in B.2. **No existing assertion is edited** (Tradeoff 7), and all existing cases still pass.
   - **Leverage:** the existing `utils.js` load in `loadCore`.
   - **Maps to:** AC-4.1 (foundation)
 
-- [ ] **A.5 [P]** — Typedef the new item fields
+- [x] **A.5 [P]** — Typedef the new item fields
   - **File(s):** `js/types.js`
   - **Acceptance:** The `InventoryItem` typedef (`:38-39`) documents optional `imageShape` (`'round'|'bar'|'note'|'slab'`), `obverseImageOrientation` and `reverseImageOrientation` (`'portrait'|'landscape'`) as "absent = derived". Lint passes.
   - **Maps to:** AC-7.1

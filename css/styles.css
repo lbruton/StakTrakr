@@ -17992,36 +17992,38 @@ input[type="number"] {
   border-radius: 50%;
 }
 
-/* STRK-424: one ratio per shape and orientation, shared with the builder preview below.
-   A Bar or Note with no orientation class keeps the landscape frame it always had. */
-.collections-coin,
-.collections-builder-covers {
-  --collections-frame-bar-portrait: 3 / 5;
-  --collections-frame-bar-landscape: 1.6;
-  --collections-frame-note-portrait: 1 / 2.05;
-  --collections-frame-note-landscape: 2.05;
+/* STRK-424 / STRK-427: one ratio per shape and orientation, global so the Collections
+   medallions, the builder preview and the shared image-frame editor read a single source.
+   A Bar or Note with no orientation class keeps the landscape frame it always had.
+   Values are unchanged from STRK-424; --frame-slab is the existing medallion Slab ratio. */
+:root {
+  --frame-bar-portrait: 3 / 5;
+  --frame-bar-landscape: 1.6;
+  --frame-note-portrait: 1 / 2.05;
+  --frame-note-landscape: 2.05;
+  --frame-slab: 0.68;
 }
 
 .collections-coin--shape-bar {
-  aspect-ratio: var(--collections-frame-bar-landscape);
+  aspect-ratio: var(--frame-bar-landscape);
   border-radius: var(--radius);
 }
 
 .collections-coin--shape-bar.collections-coin--portrait {
-  aspect-ratio: var(--collections-frame-bar-portrait);
+  aspect-ratio: var(--frame-bar-portrait);
 }
 
 .collections-coin--shape-note {
-  aspect-ratio: var(--collections-frame-note-landscape);
+  aspect-ratio: var(--frame-note-landscape);
   border-radius: var(--radius-sm);
 }
 
 .collections-coin--shape-note.collections-coin--portrait {
-  aspect-ratio: var(--collections-frame-note-portrait);
+  aspect-ratio: var(--frame-note-portrait);
 }
 
 .collections-coin--shape-slab {
-  aspect-ratio: 0.68;
+  aspect-ratio: var(--frame-slab);
   border-radius: 10px;
   border: 4px solid var(--border-hover);
   background: var(--bg-secondary);
@@ -19626,22 +19628,22 @@ input[type="number"] {
 }
 
 .collections-builder-covers[data-shape="bar"] .collections-image-pick {
-  aspect-ratio: var(--collections-frame-bar-landscape);
+  aspect-ratio: var(--frame-bar-landscape);
   border-radius: 6px;
 }
 
 .collections-builder-covers[data-shape="bar"][data-orientation="portrait"] .collections-image-pick {
-  aspect-ratio: var(--collections-frame-bar-portrait);
+  aspect-ratio: var(--frame-bar-portrait);
 }
 
 .collections-builder-covers[data-shape="note"] .collections-image-pick {
-  aspect-ratio: var(--collections-frame-note-landscape);
+  aspect-ratio: var(--frame-note-landscape);
   border-radius: 4px;
 }
 
 .collections-builder-covers[data-shape="note"][data-orientation="portrait"]
   .collections-image-pick {
-  aspect-ratio: var(--collections-frame-note-portrait);
+  aspect-ratio: var(--frame-note-portrait);
 }
 
 .collections-builder-covers[data-shape="slab"] .collections-image-pick {

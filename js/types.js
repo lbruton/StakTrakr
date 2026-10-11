@@ -37,6 +37,9 @@
  * @property {string} [reverseImageUrl] - URL for reverse image
  * @property {"auto"|"circle"|"rectangle"} [obverseImageFrame] - Optional obverse image frame override
  * @property {"auto"|"circle"|"rectangle"} [reverseImageFrame] - Optional reverse image frame override
+ * @property {"round"|"bar"|"note"|"slab"} [imageShape] - Chosen image frame shape (STRK-427); absent = derived from Type, grading and Numista shape
+ * @property {"portrait"|"landscape"} [obverseImageOrientation] - Obverse frame orientation for Bar and Note (STRK-427); absent = shape default
+ * @property {"portrait"|"landscape"} [reverseImageOrientation] - Reverse frame orientation for Bar and Note (STRK-427); absent = shape default
  * @property {string|null} [obverseSharedImageId] - UUID of source item if obverse image was tagged from the shared library (null for original uploads)
  * @property {string|null} [reverseSharedImageId] - UUID of source item if reverse image was tagged from the shared library (null for original uploads)
  * @property {string|null} [tradedFromUuid] - UUID of the disposed item that was traded to acquire this item

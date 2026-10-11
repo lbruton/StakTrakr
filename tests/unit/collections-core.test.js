@@ -40,7 +40,21 @@ assert.equal(
   "js/utils.js must publish window.getUnitOztWeight"
 );
 
+// STRK-427: defaultImageShapeForType delegates to the one resolver in js/image-frame.js through
+// window.deriveImageShape. Load the REAL file into the default surface for the same reason as
+// utils.js above: a double could drift from production. `loadCoreWithoutResolver` keeps the
+// pre-STRK-427 surface for the fail-closed case, where the seam is absent.
+const imageFrameSrc = readFileSync(new URL("../../js/image-frame.js", import.meta.url), "utf-8");
+
 function loadCore(surface = { getUnitOztWeight }) {
+  if (!("deriveImageShape" in surface)) new Function("window", imageFrameSrc)(surface);
+  new Function("window", src)(surface);
+  return surface.collectionsCore;
+}
+
+/** Load the core on a surface that lacks image-frame.js, so the resolver seam is missing. */
+function loadCoreWithoutResolver() {
+  const surface = { getUnitOztWeight };
   new Function("window", src)(surface);
   return surface.collectionsCore;
 }
