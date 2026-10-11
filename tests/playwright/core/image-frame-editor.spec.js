@@ -860,3 +860,303 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
     await expectFrame(root.locator(".ife-frame").nth(0), "bar", "portrait");
   });
 });
+
+// STRK-434 — visual parity between the Add/Edit Item modal and the Edit collection builder.
+//
+// Written BEFORE the fixes (TDD red phase). The contract is measured on rendered geometry and
+// computed style, never on class names, so it holds whichever markup the two hosts end up with:
+//
+//   1. The Images section sits below Type, Metal and Name in both modals.
+//   2. The Image shape selector sits below the frames, carries no visible caption, and keeps
+//      its accessible name.
+//   3. The selector's options are the same size and casing in both modals, at 1280 and 390.
+//   4. Swap is always rendered, disabled with an explanatory title until a side holds an image,
+//      and is a transparent icon (not a filled block) readable in all four themes.
+//   5. No side card draws a dashed drop-zone box.
+//   6. The builder's preview medallions match the item modal's 200px box (140px cap at 390).
+//   7. The Images section remembers its open/collapsed choice across modal reopen.
+//   8. The side captions share one type style.
+//
+// CONTRACT CHANGE: Swap used to be hidden until two real images existed (STRK-427 P1) and the
+// builder hid it until one side held an image. STRK-434 (decided by Lonnie, 2026-10-11) replaces
+// both rules; the older "Swap is hidden" assertions above are updated in the GREEN commit.
+
+/**
+ * Waits for a modal's entrance animation so geometry is read at rest.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} modal - CSS selector of the modal root
+ * @returns {Promise<void>}
+ */
+async function settleDialog(page, modal) {
+  await page
+    .locator(`${modal} .modal-content`)
+    .first()
+    .evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
+}
+
+/**
+ * Opens the Edit collection builder on a blank collection through its production entry point.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function openBuilderModal(page) {
+  await page.waitForFunction(() => !!window.collectionsPicker);
+  await page.evaluate(() => window.collectionsPicker.openBuilder({}));
+  await expect(page.locator("#collectionsBuilderModal")).toBeVisible();
+  await settleDialog(page, "#collectionsBuilderModal");
+}
+
+/** Hooks that let one assertion run against both modals. */
+const PARITY_HOSTS = {
+  item: {
+    modal: "#itemModal",
+    open: openAddModal,
+    close: (page) => page.locator("#cancelItem").click(),
+    name: (page) => page.locator("#itemName"),
+    images: (page) => page.locator("#imageUploadGroup"),
+    swap: (page) => page.locator("#swapImagesBtn"),
+    file: (page) => page.locator("#itemImageFileObv"),
+    caption: (page) => page.locator("#imageUploadGroup").getByText(/^obverse$/i),
+  },
+  builder: {
+    modal: "#collectionsBuilderModal",
+    open: openBuilderModal,
+    close: (page) =>
+      page.locator("#collectionsBuilderModal").getByRole("button", { name: "Cancel" }).click(),
+    name: (page) => page.locator("#collectionsBuilderModal").getByLabel("Collection name"),
+    images: (page) => page.locator("#collectionsBuilderModal .ife"),
+    swap: (page) =>
+      page
+        .locator("#collectionsBuilderModal")
+        .getByRole("button", { name: "Swap obverse and reverse images" }),
+    file: (page) => page.locator("#collectionsBuilderModal input[type=file]").first(),
+    caption: (page) => page.locator("#collectionsBuilderModal").getByText(/^obverse title image$/i),
+  },
+};
+
+/**
+ * Seeds the app, opens one modal and returns the hooks for it.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {"item"|"builder"} kind - Which modal to open
+ * @returns {Promise<typeof PARITY_HOSTS.item>} Hooks for that modal
+ */
+async function openParityHost(page, kind) {
+  await seedAndGoto(page);
+  const host = PARITY_HOSTS[kind];
+  await host.open(page);
+  return host;
+}
+
+/**
+ * Computed style fields of the Bar option in the Image shape selector, plus the group height.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {string} modal - CSS selector of the modal root
+ * @returns {Promise<object>} Measured size and type style
+ */
+const measureShapeOption = (page, modal) =>
+  page.locator(`${modal} .ife`).evaluate((root) => {
+    // The shape selector is the radiogroup that offers Round; orientation groups do not.
+    const group = Array.from(root.querySelectorAll('[role="radiogroup"]')).find((el) =>
+      /round/i.test(el.textContent)
+    );
+    const label = Array.from(group.querySelectorAll("label")).find((el) =>
+      /bar/i.test(el.textContent)
+    );
+    const style = getComputedStyle(label);
+    return {
+      optionHeight: Math.round(label.getBoundingClientRect().height),
+      groupHeight: Math.round(group.getBoundingClientRect().height),
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      textTransform: style.textTransform,
+      letterSpacing: style.letterSpacing,
+    };
+  });
+
+test.describe("core/image-frame-editor — item modal vs builder visual parity (STRK-434)", () => {
+  for (const kind of ["item", "builder"]) {
+    test(`row 6: ${kind} modal puts the Images section below Type, Metal and Name`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1280, height: 1500 });
+      const host = await openParityHost(page, kind);
+      const name = await host.name(page).boundingBox();
+      const images = await host.images(page).boundingBox();
+      expect(images.y, "Images section top vs Name bottom").toBeGreaterThanOrEqual(
+        name.y + name.height - 1
+      );
+    });
+
+    test(`row 2: ${kind} modal puts the shape selector below the frames, with no visible caption`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1280, height: 1500 });
+      const host = await openParityHost(page, kind);
+      const root = page.locator(`${host.modal} .ife`);
+      const shape = root.getByRole("radiogroup", { name: "Image shape" });
+      const group = await shape.boundingBox();
+      for (const index of [0, 1]) {
+        const frame = await root.locator(".ife-frame").nth(index).boundingBox();
+        expect(group.y, `shape selector top vs frame ${index} bottom`).toBeGreaterThanOrEqual(
+          frame.y + frame.height - 1
+        );
+      }
+      // The selector is self-explanatory: no caption text, but screen readers still hear its name.
+      await expect(root.getByText(/^image shape$/i)).toHaveCount(0);
+      await expect(shape).toHaveAttribute("aria-label", "Image shape");
+    });
+
+    test(`row 5: ${kind} modal renders Swap with no image, disabled and explained, enabled once a side holds one`, async ({
+      page,
+    }) => {
+      const host = await openParityHost(page, kind);
+      const swap = host.swap(page);
+      await expect(swap).toBeVisible();
+      await expect(swap).toBeDisabled();
+      const idleTitle = (await swap.getAttribute("title")) || "";
+      expect(idleTitle).toMatch(/image/i);
+      await host.file(page).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      await expect(swap).toBeEnabled();
+      expect(await swap.getAttribute("title")).not.toBe(idleTitle);
+    });
+
+    test(`row 5: ${kind} modal Swap is a transparent icon, readable in all four themes`, async ({
+      page,
+    }) => {
+      const host = await openParityHost(page, kind);
+      const swap = host.swap(page);
+      await expect(swap.locator("svg")).toHaveCount(1);
+      expect(((await swap.textContent()) || "").trim()).toBe("");
+      for (const theme of ["light", "dark", "slate", "sepia"]) {
+        await page.evaluate((value) => window.setTheme(value), theme);
+        await page.waitForTimeout(300);
+        const report = await swap.evaluate((button) => {
+          const style = getComputedStyle(button);
+          const ctx = document.createElement("canvas").getContext("2d", {
+            willReadFrequently: true,
+          });
+          const rgba = (color) => {
+            ctx.clearRect(0, 0, 1, 1);
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 1, 1);
+            return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+          };
+          const luminance = (color) => {
+            const [r, g, b] = rgba(color)
+              .slice(0, 3)
+              .map((c) => {
+                const v = c / 255;
+                return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+              });
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          };
+          const surface = getComputedStyle(button.closest(".modal-content")).backgroundColor;
+          const [hi, lo] = [luminance(style.color), luminance(surface)].sort((x, y) => y - x);
+          return {
+            background: rgba(style.backgroundColor)[3],
+            border: parseFloat(style.borderTopWidth) || 0,
+            contrast: (hi + 0.05) / (lo + 0.05),
+          };
+        });
+        expect(report.background, `${theme} swap background alpha`).toBe(0);
+        expect(report.border, `${theme} swap border width`).toBe(0);
+        expect(report.contrast, `${theme} swap icon contrast`).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+
+  for (const width of [1280, 390]) {
+    test(`row 3: the shape selector options are the same size and casing in both modals at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 1500 });
+      await seedAndGoto(page);
+      await PARITY_HOSTS.item.open(page);
+      const item = await measureShapeOption(page, "#itemModal");
+      await PARITY_HOSTS.item.close(page);
+      await expect(page.locator("#itemModal")).toBeHidden();
+      await PARITY_HOSTS.builder.open(page);
+      const builder = await measureShapeOption(page, "#collectionsBuilderModal");
+      expect(builder).toEqual(item);
+    });
+  }
+
+  test("row 1: no side card in the item modal draws a dashed drop-zone box", async ({ page }) => {
+    await seedAndGoto(page);
+    await openAddModal(page);
+    const borders = await page
+      .locator("#imageUploadGroup .image-upload-side")
+      .evaluateAll((sides) => sides.map((side) => getComputedStyle(side).borderTopStyle));
+    expect(borders.length).toBeGreaterThan(0);
+    for (const style of borders) expect(style).not.toBe("dashed");
+  });
+
+  test("row 1: an edited item with two images shows no dashed box either", async ({ page }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    const borders = await page
+      .locator("#imageUploadGroup .image-upload-side")
+      .evaluateAll((sides) => sides.map((side) => getComputedStyle(side).borderTopStyle));
+    for (const style of borders) expect(style).not.toBe("dashed");
+  });
+
+  for (const [width, cap] of [
+    [1280, 200],
+    [390, 140],
+  ]) {
+    test(`row 4: builder medallions match the item modal's ${cap}px preview box at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 1500 });
+      await seedAndGoto(page);
+      await PARITY_HOSTS.builder.open(page);
+      const frames = page.locator("#collectionsBuilderModal .ife-frame");
+      for (const index of [0, 1]) {
+        const box = await frames.nth(index).boundingBox();
+        const longest = Math.max(box.width, box.height);
+        expect(longest, `builder frame ${index} at ${width}px`).toBeLessThanOrEqual(cap + 1);
+        expect(longest, `builder frame ${index} at ${width}px`).toBeGreaterThan(cap - 10);
+      }
+    });
+  }
+
+  test("row 10: the Images section remembers its open or collapsed choice across modal reopen", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openAddModal(page);
+    const group = page.locator("#imageUploadGroup");
+    await expect(group).toHaveJSProperty("open", true);
+    await group.locator("summary").click();
+    await expect(group).toHaveJSProperty("open", false);
+    await PARITY_HOSTS.item.close(page);
+    await openAddModal(page);
+    await expect(group).toHaveJSProperty("open", false);
+    await group.locator("summary").click();
+    await expect(group).toHaveJSProperty("open", true);
+    await PARITY_HOSTS.item.close(page);
+    await openAddModal(page);
+    await expect(group).toHaveJSProperty("open", true);
+  });
+
+  test("row 7: the side captions share one type style in both modals", async ({ page }) => {
+    await seedAndGoto(page);
+    const read = (locator) =>
+      locator.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          textTransform: style.textTransform,
+          letterSpacing: style.letterSpacing,
+        };
+      });
+    await PARITY_HOSTS.item.open(page);
+    const item = await read(PARITY_HOSTS.item.caption(page));
+    await PARITY_HOSTS.item.close(page);
+    await expect(page.locator("#itemModal")).toBeHidden();
+    await PARITY_HOSTS.builder.open(page);
+    const builder = await read(PARITY_HOSTS.builder.caption(page));
+    expect(builder).toEqual(item);
+  });
+});
