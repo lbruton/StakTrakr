@@ -449,13 +449,13 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Depends on:** F.1
   - **Maps to:** AC-9.1–AC-9.3
 
-- [ ] **F.3** — P2 inventory
+- [x] **F.3** — P2 inventory — _`tests/playwright/coverage-map.csv` row for `core/image-frame-renderers.spec.js` (11 cases, rationale and the tableImageSides trap)._
   - **File(s):** `tests/playwright/coverage-map.csv`
   - **Acceptance:** A new row for `core/image-frame-renderers.spec.js` with its count and rationale.
   - **Depends on:** F.2
   - **Maps to:** AC-10.3
 
-- [ ] **F.4** — P2 visual verification
+- [x] **F.4** — P2 visual verification — _evidence: `playground/images/STRK-427-evidence/P2-*.png`, 48 files: `P2-table-<theme>-<1280|390>`, `P2-card-<A|B|C>-<theme>-<width>`, `P2-view-legacy-…` and `P2-view-mixed-…`, each in light, dark, slate and sepia. The fixture set holds a round Coin, a Bar, a chosen Note, a graded Slab, a legacy rectangle Coin, a Bar with landscape obverse, a D-18 anomaly (Coin with a `gb` unit and a Rectangular Numista shape) and a Bar without an image. Compared with the approved P2 mockup section: Bar and Note thumbs are narrower or wider within the 28px row (16..40px clamp), photos letterbox inside their frames, the placeholder follows the frame, card A/B/C images fit their existing boxes, and the view modal shows per-side orientation. Deviation to disclose: the card and table frames are transparent (protected `bar-shape` / `table-thumb-rect` rules keep a transparent background), so a letterboxed photo shows no frame outline except in the view modal._
   - **File(s):** _no file changes — screenshots attached to the PR_
   - **Acceptance:** P2-table, P2-card (A/B/C) and P2-view are captured, including a legacy-rect item and an anomalous D-18 item, in all four themes at 1280 and 390, and compared with the approved P2 mockup section. The screenshots go in the PR.
   - **Depends on:** F.3
