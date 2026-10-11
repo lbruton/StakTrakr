@@ -163,14 +163,14 @@ _TDD red phase. Each test encodes an acceptance criterion and **must fail** befo
   - **Leverage:** memory "--surface is light-only" (canvas contrast pattern); `tests/playwright/core/collections.spec.js:925-1010` (STRK-421 width and STRK-426 badge-contrast cases); `tests/playwright/core/mobile-and-layout.spec.js`.
   - **Maps to:** AC-1.1, AC-1.4, AC-6.1, AC-6.2, AC-6.3, AC-10.2
 
-- [ ] **B.6** — Playwright RED: Collections surfaces, builder swap, locator re-baseline
+- [x] **B.6** — Playwright RED: Collections surfaces, builder swap, locator re-baseline
   - **File(s):** `tests/playwright/core/collections.spec.js`
   - **Acceptance:**
     - **Re-baseline (Tradeoff 10):** the five `getByRole("radiogroup", { name: "Orientation" })` locators (`:1507, :1549, :1574, :1603, :1679`) become `{ name: "Obverse orientation" }`, with **no assertion edited**. This is a disclosed contract change, not an edit to make a test pass.
     - Additive failing cases:
       - A mixed pair (portrait obverse, landscape reverse) saved in the builder reopens with both orientations, and renders per side in the builder preview, the Album title pair, Album Slot tiles and Ledger rows (reverse-side Collection), and Hub card and Ledger-row medallions. Each frame's **width and ratio** are pinned (AC-5.2, D-11, D-15).
-      - Legacy uniform Bar/Note pairs and a pre-STRK-424 Collection keep today's widths (108/80/160/80/100/128px) and ratios (AC-10.1, AC-5.5).
-      - Builder Slab box is 0.68 (AC-10.1, AC-2.2).
+      - Legacy uniform Bar/Note pairs and a pre-STRK-424 Collection keep today's rendered widths and ratios (AC-10.1, AC-5.5). Measured on `dev`: the builder frame renders at 95% of its `--collections-cover-size` token, so the size tokens 108/80/160/80/100/128px render as 102.6/76/152/76/95/121.6px; the Album title medallion is 92px, the Slot tile 112px, the Hub card 84px and Ledger rows 40px for every shape, with the ratio doing the shaping.
+      - Builder Slab box is 0.68 at its current 95px width (AC-10.1, AC-2.2).
       - Builder swap exchanges images and orientations (AC-3.2).
       - **Stored pair → Remove one side → Swap → Save → reopen**: the remaining image is on the swapped side and the removed side is empty (D-9).
       - A forced failed blob read swaps nothing.
