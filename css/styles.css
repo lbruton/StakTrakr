@@ -3948,6 +3948,200 @@ input[type="submit"] {
   margin-top: 0.2rem;
   display: block;
 }
+
+/* ── STRK-427: shared image-frame editor (.ife) ────────────────────────────────────────
+   Mounted by js/image-frame-editor.js in the Add/Edit Item modal and the Edit Collection
+   builder. Controls reuse the shipped .collections-segmented look; frames read the shared
+   --frame-* ratio tokens (Round is 1). Theme tokens only: --bg-tertiary, --border,
+   --border-hover (never --surface, which only the light :root defines — STRK-426). */
+.ife {
+  --ife-box: 200px; /* desktop preview bounding box inside the 700px dialog (A.1 mockup) */
+}
+
+[data-ife-shape] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-ife-orientation] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-ife-orientation][hidden] {
+  display: none;
+}
+
+.ife-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ife-cap {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ife .collections-segmented {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ife .collections-segmented-option span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  font-size: var(--font-size-sm);
+}
+
+/* One frame per side. Only ratio and shape live here; hosts size their own frames (the item
+   modal inside .ife-stage below, the builder per token width). */
+.ife-frame {
+  --ife-r: 1;
+  aspect-ratio: var(--ife-r);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 2px dashed var(--border-hover, var(--border));
+  color: var(--text-secondary);
+}
+
+.ife-frame[data-shape="round"] {
+  --ife-r: 1;
+  border-radius: 50%;
+}
+
+.ife-frame[data-shape="slab"] {
+  --ife-r: var(--frame-slab);
+  border-radius: 8px;
+}
+
+.ife-frame[data-shape="bar"] {
+  --ife-r: var(--frame-bar-landscape);
+  border-radius: 6px;
+}
+
+.ife-frame[data-shape="bar"][data-orientation="portrait"] {
+  --ife-r: var(--frame-bar-portrait);
+}
+
+.ife-frame[data-shape="note"] {
+  --ife-r: var(--frame-note-landscape);
+  border-radius: 4px;
+}
+
+.ife-frame[data-shape="note"][data-orientation="portrait"] {
+  --ife-r: var(--frame-note-portrait);
+}
+
+.ife-frame.has-image {
+  border: 1px solid var(--border);
+}
+
+/* Item modal: both frames are always visible (AC-1.5). The stage is a square bounding box so
+   the buttons below never jump when the shape changes; the frame is the largest ratio
+   rectangle that fits it. Photos are letterboxed, never cropped. */
+.ife-stage {
+  width: var(--ife-box);
+  max-width: 100%;
+  height: var(--ife-box);
+  display: grid;
+  place-items: center;
+}
+
+.ife .ife-stage .ife-frame {
+  width: calc(100% * min(1, var(--ife-r)));
+  display: grid;
+  place-items: center;
+  position: relative;
+  padding: 0;
+}
+
+.ife .ife-frame:not(.has-image)::before {
+  content: "+";
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+}
+
+.ife .ife-frame img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  display: block;
+}
+
+.ife .ife-frame:not(.has-image) img {
+  display: none;
+}
+
+/* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). */
+.ife .image-card {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ife .image-card-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ife .image-upload-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .ife {
+    --ife-box: 140px; /* the existing mobile preview cap */
+  }
+
+  .ife .collections-segmented-option span {
+    min-height: 44px; /* 44px touch target (design philosophy) */
+    padding: 0.4rem 0.6rem;
+    box-sizing: border-box;
+  }
+
+  .ife .collections-segmented-option {
+    flex: 1 1 auto;
+  }
+}
+
+/* Narrow phones: orientation options go icon-only (the text stays for assistive tech) so the
+   two-option pill never wraps into two rows. */
+@media (max-width: 560px) {
+  .ife [data-ife-orientation] .collections-segmented-option span {
+    font-size: 0;
+    gap: 0;
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .ife [data-ife-orientation] .collections-segmented-option span svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ife-frame {
+    transition: none;
+  }
+}
+
 .btn-sm {
   padding: 0.25rem 0.6rem;
   font-size: var(--font-size-base);
@@ -17995,11 +18189,12 @@ input[type="number"] {
 /* STRK-424 / STRK-427: one ratio per shape and orientation, global so the Collections
    medallions, the builder preview and the shared image-frame editor read a single source.
    A Bar or Note with no orientation class keeps the landscape frame it always had.
-   Values are unchanged from STRK-424; --frame-slab is the existing medallion Slab ratio. */
+   Values are STRK-424's, written as unitless numbers (3 / 5 = 0.6) so the same token works in
+   aspect-ratio and in calc() for the editor's fit math. --frame-slab is the medallion Slab ratio. */
 :root {
-  --frame-bar-portrait: 3 / 5;
+  --frame-bar-portrait: 0.6;
   --frame-bar-landscape: 1.6;
-  --frame-note-portrait: 1 / 2.05;
+  --frame-note-portrait: calc(1 / 2.05);
   --frame-note-landscape: 2.05;
   --frame-slab: 0.68;
 }

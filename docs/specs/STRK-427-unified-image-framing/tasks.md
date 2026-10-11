@@ -245,7 +245,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Depends on:** C.1
   - **Maps to:** AC-4.1, AC-5.2, AC-5.3, AC-5.5
 
-- [ ] **C.3** — The shared editor and its CSS
+- [x] **C.3** — The shared editor and its CSS
   - **File(s):** `js/image-frame-editor.js`, `css/styles.css`
   - **Acceptance:** Implements the D-7 controller:
     - Slot hooks (`data-ife-*`), throwing on a missing required slot.
