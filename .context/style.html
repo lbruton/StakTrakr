@@ -1667,6 +1667,41 @@
           </div>
 
           <div class="sg-subsection">
+            <h3>Renderer frames (table thumb, card A/B/C, view modal; STRK-427 P2)</h3>
+            <p class="sg-desc">
+              The read-only renderers frame an item image with the same shape and orientation the
+              editor saved. Each existing wrapper (<code>.coin-img</code>,
+              <code>.table-thumb</code>, <code>.view-image-slot</code>) carries
+              <code>data-shape</code> and, for Bar and Note, <code>data-orientation</code>, set from
+              <code>resolveImageFrameSpec</code> / <code>imageFrameAttrHtml</code> in
+              <code>js/image-frame.js</code>. The legacy <code>bar-shape</code>,
+              <code>table-thumb-rect</code> and <code>view-shape-rect</code>
+              classes stay beside them.
+            </p>
+            <ul class="sg-desc">
+              <li>
+                <strong>Bounding box:</strong> the wrapper's existing box is the limit and the frame
+                is the largest token-ratio rectangle that fits:
+                <code
+                  >width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)))</code
+                >
+                with <code>aspect-ratio: var(--frame-r)</code>. Boxes: card A 44px, card B 80px,
+                card C 80&times;56px, view modal 180px (Round) or 200&times;260px (other shapes).
+              </li>
+              <li>
+                <strong>Table thumb:</strong> 28px tall, width
+                <code>clamp(16px, 28px * ratio, 40px)</code>; the generated placeholder SVG is drawn
+                at that size and its cache key includes shape and orientation.
+              </li>
+              <li>
+                <strong>Photos:</strong> <code>object-fit: contain</code> for every non-round frame
+                (letterboxed, never cropped); Round keeps <code>cover</code>. Card and table frames
+                keep a transparent background (protected by <code>mobile-and-layout.spec.js</code>).
+              </li>
+            </ul>
+          </div>
+
+          <div class="sg-subsection">
             <h3>Upload Group</h3>
             <div class="sg-showcase">
               <div class="image-upload-group">
