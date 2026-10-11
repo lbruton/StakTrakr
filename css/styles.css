@@ -18240,6 +18240,9 @@ input[type="number"] {
 
 .collections-pair {
   display: flex;
+  /* STRK-427: a pair can mix orientations. The default stretch would pull the shorter frame to
+     the taller one's height and override its aspect-ratio; centring keeps each frame's own ratio. */
+  align-items: center;
 }
 
 .collections-pair .collections-coin + .collections-coin {

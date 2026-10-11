@@ -736,6 +736,12 @@
         entryShape,
         isCustom ? definition.imageOrientation : undefined
       ),
+      // STRK-427: the reverse face renders with its own orientation, falling back to the obverse
+      // value; a Series Template has none, so it keeps projecting the landscape frame.
+      reverseImageOrientation: core().reverseImageOrientationFor(
+        entryShape,
+        isCustom ? definition : undefined
+      ),
       slotDefs,
       progress,
       status: statusOf(progress),

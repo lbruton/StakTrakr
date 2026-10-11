@@ -284,7 +284,7 @@ _**Scoped gates.** Each task's gate covers only the assertions it implements; th
   - **Depends on:** C.2, C.4
   - **Maps to:** AC-3.2, AC-4.1, AC-5.1, AC-5.2, AC-10.1, AC-2.2
 
-- [ ] **C.6** — The other Collections surfaces read per side
+- [x] **C.6** — The other Collections surfaces read per side
   - **File(s):** `js/collections-ui.js`, `js/collections-album.js`, `js/collections-hub.js`
   - **Acceptance:**
     - The entry projection (`collections-ui.js:699-738`) carries `reverseImageOrientation`, and Series Template entries keep projecting landscape for Bar/Note.

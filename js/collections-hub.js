@@ -407,7 +407,9 @@
         imageLabel: entry.name,
         alt: `${shownSide} of ${entry.name}`,
         imageShape: entry.imageShape,
-        imageOrientation: entry.imageOrientation,
+        // STRK-427: a reverse-side Collection frames its medallion with the reverse orientation.
+        imageOrientation:
+          side === "reverse" ? entry.reverseImageOrientation : entry.imageOrientation,
         artwork: entry.isCustom ? { collectionId: entry.id, titleFallback: true } : null,
       });
     };
