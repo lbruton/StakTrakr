@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.48] - 2026-10-11
+
+### Changed — STRK-434: Item modal and Collection builder look the same
+
+- **Same layout**: The Add/Edit Item modal now puts the Images section below Type, Metal and Name, with the Image shape selector under the images and no caption, as in the Edit collection modal. The selector has the same size and casing in both (STRK-434).
+- **Click to upload**: Click an image frame to upload, use the small × badge to remove it, and use the small link icon at the lower right to paste an image URL in a small dialog. The Upload, URL and Remove button rows and the dashed boxes are gone (STRK-434).
+- **Swap is always there**: The swap control is a clean icon in both modals, shown from the start and enabled once an image is present (STRK-434).
+- **Bigger, uncropped Collection images**: Collection title images use the same 200px box as Items (140px on phones), and neither modal crops a photo any more; it is fitted whole inside its frame (STRK-434).
+- **Centred remove badge**: The × in the remove badge now sits in the middle of its circle (STRK-434).
+
+---
+
 ## [3.36.47] - 2026-10-11
 
 ### Changed — STRK-427: Shared image frames in the table, cards and detail view (phase 2)

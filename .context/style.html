@@ -1635,12 +1635,25 @@
             </p>
             <ul class="sg-desc">
               <li>
-                <strong>Slots:</strong> <code>[data-ife-shape]</code> (the "Image shape"
-                radiogroup), <code>[data-ife-frame="obverse|reverse"]</code> (the editor sets
+                <strong>Slots:</strong> <code>[data-ife-shape]</code> (the "Image shape" radiogroup,
+                named with <code>aria-label</code> and no visible caption; it sits below the frames
+                in both hosts), <code>[data-ife-frame="obverse|reverse"]</code> (the editor sets
                 <code>data-shape</code>, <code>data-orientation</code> and <code>.has-image</code>),
                 <code>[data-ife-orientation="obverse|reverse"]</code> (the "Obverse orientation" /
                 "Reverse orientation" radiogroups, hidden for Round and Slab) and an optional
-                <code>[data-ife-swap]</code>.
+                <code>[data-ife-swap]</code>: its button is always rendered, gets the shared swap
+                icon from the editor, and is disabled with an explanatory title until a side holds
+                an image (hosts report presence and a busy flag through
+                <code>setSideHasImage</code> and <code>setSwapBusy</code>).
+              </li>
+              <li>
+                <strong>Frame controls (STRK-434):</strong> in both modals the frame is the upload
+                target (item modal: a transparent <code>.ife-upload</code> button over the frame),
+                <code>.collections-image-remove</code> is the × badge (upper right, a CSS-drawn
+                cross), and the item modal alone has a lower-right <code>.ife-link</code> icon that
+                opens the shared prompt dialog for an external URL; the URL fields only hold the
+                value and stay hidden. A frame holding an image draws no fill or border, and photos
+                are fitted whole (<code>object-fit: contain</code>) in both modals.
               </li>
               <li>
                 <strong>Ratios:</strong> the shared tokens <code>--frame-bar-portrait</code> (0.6),
@@ -1654,8 +1667,9 @@
                 <strong>Item modal sizing:</strong> each frame sits in a square
                 <code>.ife-stage</code> (<code>--ife-box</code>: 200px desktop, 140px at 768px and
                 narrower); the frame is the largest ratio rectangle that fits and photos are
-                letterboxed with <code>object-fit: contain</code>, never cropped. Buttons stack
-                under each preview on desktop and mobile. Settings → Images keeps its own 140px cap.
+                letterboxed with <code>object-fit: contain</code>, never cropped. No button row sits
+                under a preview (only a mobile-only Camera row); the builder's title images use the
+                same <code>--ife-box</code> box. Settings → Images keeps its own 140px cap.
               </li>
               <li>
                 <strong>Controls:</strong> the shipped <code>.collections-segmented</code> pill (no
