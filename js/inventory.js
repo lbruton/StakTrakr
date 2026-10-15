@@ -2513,6 +2513,12 @@ const duplicateItem = (idx) => {
   _dupPopulateCatalogFields(item);
   _editPopulatePurityField(item);
 
+  // STRK-433: carry the Numista Data tab over (item data first, API cache fallback) — the
+  // add-mode submit reads these fields, so leaving them unseeded drops/leaks metadata.
+  if (typeof populateNumistaDataFields === "function") {
+    populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
+  }
+
   // STRK-427: seed the shared image-frame editor from the source record. Add mode applies the
   // sparse writer unconditionally (D-4), so an unseeded editor would persist whatever it held
   // from the last session as an explicit override. Runs after Type and grading are populated
