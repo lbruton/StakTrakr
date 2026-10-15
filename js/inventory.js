@@ -1758,6 +1758,34 @@ const invalidateNumistaMetadataLoads = () => {
 };
 
 /**
+ * Source-item field provenance carried by an open Duplicate form (STRK-437):
+ * `{ catalogId, fieldMeta }` or null. Set by duplicateItem, consumed by the add-mode submit,
+ * and cleared whenever the item form changes context so a later Add never inherits it.
+ */
+let pendingDuplicateProvenance = null;
+
+/** Drop any Duplicate provenance held for the item form (STRK-437). */
+const clearDuplicateProvenance = () => {
+  pendingDuplicateProvenance = null;
+};
+
+/**
+ * Take the Duplicate source's fieldMeta for an add-mode submit (STRK-437), then clear it.
+ * The source provenance applies only while the duplicate still points at the source catalog;
+ * a Numista lookup that re-pointed it at a different catalog makes the source flags stale.
+ *
+ * @param {string} catalogId - Catalog number being saved with the new item
+ * @returns {Object|undefined} Cloned source fieldMeta, or undefined when none applies
+ */
+const consumeDuplicateFieldMeta = (catalogId) => {
+  const pending = pendingDuplicateProvenance;
+  pendingDuplicateProvenance = null;
+  if (!pending?.fieldMeta) return undefined;
+  if (String(catalogId || "").trim() !== pending.catalogId) return undefined;
+  return structuredClone(pending.fieldMeta);
+};
+
+/**
  * Populate Numista Data form fields.
  * Priority: item.numistaData (user/saved) > IndexedDB cache (API) > empty.
  * When called from a fresh Numista search, itemData is null and cache is used.
@@ -2300,6 +2328,7 @@ const _editRestoreLotPricing = (item) => {
 };
 
 const editItem = (idx, logIdx = null) => {
+  clearDuplicateProvenance();
   editingIndex = idx;
   editingChangeLogIndex = logIdx;
   const item = inventory[idx];
@@ -2537,6 +2566,12 @@ const duplicateItem = (idx) => {
   if (typeof populateNumistaDataFields === "function") {
     populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
   }
+
+  // STRK-437: hold the source's field provenance so userModified fields stay protected from a
+  // later Numista re-sync. Keyed to the catalog number the form was seeded with.
+  pendingDuplicateProvenance = item.fieldMeta
+    ? { catalogId: String(item.numistaId || "").trim(), fieldMeta: structuredClone(item.fieldMeta) }
+    : null;
 
   // STRK-427: seed the shared image-frame editor from the source record. Add mode applies the
   // sparse writer unconditionally (D-4), so an unseeded editor would persist whatever it held
@@ -2868,6 +2903,8 @@ window.duplicateItem = duplicateItem;
 window.cloneItem = cloneItem;
 window.populateNumistaDataFields = populateNumistaDataFields;
 window.invalidateNumistaMetadataLoads = invalidateNumistaMetadataLoads;
+window.clearDuplicateProvenance = clearDuplicateProvenance;
+window.consumeDuplicateFieldMeta = consumeDuplicateFieldMeta;
 window.deleteItem = deleteItem;
 window.disposeItem = disposeItem;
 window.openRemoveItemModal = openRemoveItemModal;

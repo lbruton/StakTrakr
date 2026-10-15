@@ -2099,7 +2099,14 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       uuid: generateUUID(),
       numistaId: f.catalog,
       numistaData: f.numistaData,
-      fieldMeta: window.selectedNumistaResult?.fieldMeta || f.numistaData?.fieldMeta || undefined,
+      // STRK-437: a Duplicate keeps its source's provenance ahead of the lookup fallbacks.
+      fieldMeta:
+        (typeof consumeDuplicateFieldMeta === "function"
+          ? consumeDuplicateFieldMeta(f.catalog)
+          : undefined) ||
+        window.selectedNumistaResult?.fieldMeta ||
+        f.numistaData?.fieldMeta ||
+        undefined,
       currency: f.currency,
       lastModified: new Date().toISOString(),
       obverseImageUrl:
@@ -3025,6 +3032,8 @@ const setupItemFormListeners = () => {
     clearUploadState();
     // STRK-433: a pending Numista cache load must not write into a later form
     if (typeof invalidateNumistaMetadataLoads === "function") invalidateNumistaMetadataLoads();
+    // STRK-437: a cancelled Duplicate's source provenance must not reach a later Add
+    if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();
     try {
@@ -4828,6 +4837,8 @@ const setupSearch = () => {
           // STRK-433: Add mode never populates Numista fields, so drop any stale cache load
           if (typeof invalidateNumistaMetadataLoads === "function")
             invalidateNumistaMetadataLoads();
+          // STRK-437: a fresh Add starts with no Duplicate source provenance
+          if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");

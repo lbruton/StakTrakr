@@ -890,6 +890,85 @@ test.describe("payment-method", () => {
     });
   });
 
+  // STRK-437: a source item whose country the user customised (userModified provenance).
+  async function openDuplicateOfCustomisedItem(page) {
+    await seedData(page, [
+      makeItem({
+        serial: 1,
+        name: "STRK-437 Source",
+        numistaId: "1234",
+        numistaData: { country: "My Country", denomination: "5 Dollars" },
+        fieldMeta: {
+          country: { source: "manual", userModified: true },
+          denomination: { source: "numista", userModified: false },
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+  }
+
+  async function storedDuplicate(page) {
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+    return stored.find((i) => i.serial !== 1);
+  }
+
+  test("STRK-437: duplicate keeps the source item's fieldMeta provenance", async ({ page }) => {
+    await openDuplicateOfCustomisedItem(page);
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.fieldMeta).toEqual({
+      country: { source: "manual", userModified: true },
+      denomination: { source: "numista", userModified: false },
+    });
+    // The copy is independent: the source keeps its own object.
+    const shared = await page.evaluate(
+      () => window.inventory[0].fieldMeta === window.inventory[1].fieldMeta
+    );
+    expect(shared).toBe(false);
+  });
+
+  test("STRK-437: duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
+    page,
+  }) => {
+    await openDuplicateOfCustomisedItem(page);
+    // A Numista lookup during the duplicate rewrites the catalog number.
+    await page.evaluate(() => {
+      document.getElementById("itemCatalog").value = "9999";
+    });
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
+  });
+
+  test("STRK-437: Add after a cancelled duplicate does not inherit its fieldMeta", async ({
+    page,
+  }) => {
+    await openDuplicateOfCustomisedItem(page);
+    await page.click("#cancelItem");
+    await expect(page.locator("#itemModal")).toBeHidden();
+
+    await page.evaluate(() => document.getElementById("newItemBtn").click());
+    await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-437 Fresh Add");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "31");
+    await page.evaluate(() => {
+      document.getElementById("itemCatalog").value = "1234";
+    });
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.name).toBe("STRK-437 Fresh Add");
+    expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
+  });
+
   test("STRK-433: stale Numista cache load cannot write into a later form context", async ({
     page,
   }) => {
