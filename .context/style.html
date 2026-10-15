@@ -1623,9 +1623,11 @@
           <p class="sg-desc">
             Dual-slot obverse/reverse image upload patterns. The Add/Edit Item modal and the Edit
             collection builder use the click-to-upload frame of the shared image-frame editor
-            (below, STRK-434). The button-row "Upload Group" and "URL Input Group" showcases after
-            it are the legacy pattern, still used by the Settings &rarr; Images pattern-rule rows.
-            Visibility is controlled via <code>style.display</code> toggle in JS.
+            (below, STRK-434). The button-row "Upload Group" showcase after it is the legacy pattern
+            still used by the Settings &rarr; Images pattern-rule rows (Upload and Camera buttons).
+            The "URL Input Group" showcase is a legacy reference only: no surface shows inline URL
+            inputs any more. The item modal keeps hidden URL fields that the link-icon prompt edits,
+            and CSS forces them hidden.
           </p>
 
           <div class="sg-subsection">
@@ -1807,6 +1809,10 @@
 
           <div class="sg-subsection">
             <h3>URL Input Group</h3>
+            <p class="sg-desc">
+              Legacy reference, unused. Item image URLs are now edited through the link-icon prompt,
+              not inline inputs.
+            </p>
             <div class="sg-showcase">
               <div class="image-upload-group">
                 <label>Image URLs</label>
