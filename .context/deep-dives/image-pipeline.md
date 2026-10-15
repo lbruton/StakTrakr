@@ -160,6 +160,7 @@ Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is han
 | `imageCache.getPatternImage(ruleId)`                               | Read the full pattern image record.                                                        |
 | `imageCache.getPatternImageUrl(ruleId, side)`                      | Read and return an object URL for one side.                                                |
 | `imageCache.deletePatternImage(ruleId)`                            | Delete pattern image record.                                                               |
+| `imageCache.deletePatternImageIf(ruleId, shouldDelete)`            | Delete the record only if the predicate approves it, check + delete in one transaction.    |
 | `imageCache.cacheMetadata(catalogId, numistaResult)`               | Write Numista metadata.                                                                    |
 | `imageCache.getMetadata(catalogId)`                                | Read Numista metadata.                                                                     |
 | `imageCache.deleteMetadata(catalogId)`                             | Delete Numista metadata.                                                                   |
@@ -190,10 +191,11 @@ store, so it must not treat `collection--*` records as Numista orphans. `setting
 live Collections store (the check backup, vault and sync use) and **fails closed**: if
 `collectionsCore` / `collectionsStore` is missing or the check throws, a Collection record is
 never listed or deleted. Artwork of a removed or unknown Collection, and a record older than
-its stamp, is orphaned. The list is a snapshot, so each delete re-reads the record and
-re-runs the same check (`_deleteOrphanIfStillOrphaned`) immediately before removing it.
-Deleting an orphan never writes an artwork stamp: a tombstone stamped at delete time would
-out-rank newer art on another device in a merge.
+its stamp, is orphaned. The list is a snapshot, so each delete re-runs the same check
+(`_deleteOrphanIfStillOrphaned`) against the stored record inside the delete's own IndexedDB
+transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serialized around
+the delete rather than removed by it. Deleting an orphan never writes an artwork stamp: a
+tombstone stamped at delete time would out-rank newer art on another device in a merge.
 
 ### Internal resize/compress path
 

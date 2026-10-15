@@ -3108,15 +3108,19 @@ const _referencedPatternImageIds = () =>
  * Deletes a listed orphan only if it is still an orphan right now. The orphan
  * list is a snapshot: Collection artwork can become current between the scan and
  * the click (an upload, or a cloud pull restoring newer art), so the stored record
- * is re-read and re-judged immediately before it is removed (STRK-438).
+ * is re-judged immediately before it is removed (STRK-438). The re-check runs
+ * inside the same IndexedDB transaction as the delete (`deletePatternImageIf`), so
+ * a write that lands between check and delete is serialized around it instead of
+ * being removed.
  * @param {{ruleId: string}} rec - Record from the rendered orphan list.
  * @returns {Promise<boolean>} True when the record was deleted; false when it was
  *   already gone or is no longer an orphan.
  */
-const _deleteOrphanIfStillOrphaned = async (rec) => {
-  const current = await imageCache.getPatternImage(rec.ruleId);
-  if (!_isOrphanedPatternImage(current, _referencedPatternImageIds())) return false;
-  return imageCache.deletePatternImage(rec.ruleId);
+const _deleteOrphanIfStillOrphaned = (rec) => {
+  const referenced = _referencedPatternImageIds();
+  return imageCache.deletePatternImageIf(rec.ruleId, (current) =>
+    _isOrphanedPatternImage(current, referenced)
+  );
 };
 
 /**

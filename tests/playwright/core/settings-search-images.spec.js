@@ -550,4 +550,36 @@ test.describe("core/settings-search-images", () => {
       expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
     });
   }
+
+  // The re-check and the delete must be ONE IndexedDB transaction: a separate
+  // get-then-delete leaves a window in which a sync restore or another tab can
+  // replace the record, and the delete then removes the newer one (STRK-438).
+  test("deletePatternImageIf checks the stored record and deletes it in one step", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const result = await page.evaluate(async () => {
+      const cache = window.imageCache;
+      const id = "atomic-strk438";
+      await cache.cachePatternImage(id, new Blob(["a"], { type: "image/png" }), null);
+      const seen = [];
+      const kept = await cache.deletePatternImageIf(id, (rec) => {
+        seen.push(rec.ruleId);
+        return false;
+      });
+      const afterKeep = Boolean(await cache.getPatternImage(id));
+      const removed = await cache.deletePatternImageIf(id, () => true);
+      const afterRemove = Boolean(await cache.getPatternImage(id));
+      const missing = await cache.deletePatternImageIf(id, () => true);
+      return { seen, kept, afterKeep, removed, afterRemove, missing };
+    });
+    expect(result).toEqual({
+      seen: ["atomic-strk438"],
+      kept: false,
+      afterKeep: true,
+      removed: true,
+      afterRemove: false,
+      missing: false,
+    });
+  });
 });
