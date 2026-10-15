@@ -3127,11 +3127,41 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
 };
 
 /**
+ * Decides whether a patternImages record is an orphan (STRK-202, STRK-438).
+ * Numista pattern images are referenced by a custom rule's seedImageId.
+ * Collection cover and Slot artwork shares the store under `collection--<id>[--<slot>]`
+ * ids and is referenced by the Collections store instead, so it is judged by the
+ * same `collectionsCore.isCurrentArtwork` check backup, vault and sync use. A
+ * Collection record that cannot be verified (Collections modules missing or the
+ * check throwing) is never reported — it must not be offered for deletion.
+ * @param {{ruleId: string, cachedAt?: number|string, digest?: string}} rec - patternImages record.
+ * @param {Set<string>} referenced - seedImageIds of the current custom Numista rules.
+ * @returns {boolean} True when the record is safe to offer for deletion.
+ */
+const _isOrphanedPatternImage = (rec, referenced) => {
+  if (!rec || !rec.ruleId || referenced.has(rec.ruleId)) return false;
+  if (!String(rec.ruleId).startsWith("collection--")) return true;
+
+  const core = window.collectionsCore;
+  const store = window.collectionsStore;
+  if (!core || typeof core.isCurrentArtwork !== "function") return false;
+  if (!store || typeof store.getState !== "function") return false;
+  try {
+    return !core.isCurrentArtwork(store.getState(), rec.ruleId, rec.cachedAt, rec.digest);
+  } catch (err) {
+    console.warn("Settings: could not verify Collection artwork", rec.ruleId, err);
+    return false;
+  }
+};
+
+/**
  * Render orphaned pattern images — records in the patternImages store whose key
  * (seedImageId) is no longer referenced by any custom rule (STRK-202). These
  * accumulate when a pre-fix ZIP backup is restored (images came back but the
- * rules did not) or when a rule is removed without its image. The list lets the
- * user reclaim the space; it hides itself when there is nothing orphaned.
+ * rules did not) or when a rule is removed without its image. Live Collection
+ * artwork is never listed (STRK-438); artwork of a removed or unknown Collection,
+ * or a stale record behind its artwork stamp, is. The list lets the user reclaim
+ * the space; it hides itself when there is nothing orphaned.
  */
 const renderOrphanedPatternImages = async () => {
   const container = safeGetElement("orphanedPatternImages");
@@ -3158,7 +3188,7 @@ const renderOrphanedPatternImages = async () => {
       .map((r) => r.seedImageId)
       .filter(Boolean)
   );
-  const orphans = records.filter((rec) => rec && rec.ruleId && !referenced.has(rec.ruleId));
+  const orphans = records.filter((rec) => _isOrphanedPatternImage(rec, referenced));
 
   if (!orphans.length) {
     container.innerHTML = emptyMsg;

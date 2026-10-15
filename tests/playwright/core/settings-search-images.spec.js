@@ -12,6 +12,84 @@ const openSettingsSection = async (page, section, panelId) => {
   await expect(page.locator(panelId)).toBeVisible();
 };
 
+/**
+ * Re-boots the page with a deterministic pattern-image store: the demo seed
+ * (seed-images.js caches pattern rules + images on boot) is gated off so its
+ * writes cannot race clearAll(), Numista rules are emptied, and the image
+ * cache is cleared. Shared by every orphan-cleanup test.
+ * @param {import('@playwright/test').Page} page - Booted page.
+ * @returns {Promise<void>}
+ */
+const bootCleanPatternImageStore = async (page) => {
+  await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () =>
+      typeof window.imageCache !== "undefined" &&
+      Boolean(window.NumistaLookup) &&
+      Boolean(window.collectionsStore) &&
+      typeof window.showSettingsModal === "function"
+  );
+  await page.evaluate(async () => {
+    await window.imageCache.init();
+    await window.imageCache.clearAll();
+    localStorage.setItem("numistaLookupRules", JSON.stringify([]));
+    window.NumistaLookup.importRules([], false);
+  });
+};
+
+/**
+ * Creates a live Custom Collection with cover + Slot artwork stored the way the
+ * builder stores it: a patternImages record under `collection--<id>[--<slot>]`
+ * plus a matching artwork stamp in the Collections store.
+ * @param {import('@playwright/test').Page} page - Booted page.
+ * @param {{name: string, slotLabels: string[], recordAgeMs?: number}} spec -
+ *   `recordAgeMs` back-dates the stored image record behind its stamp (a stale record).
+ * @returns {Promise<{collectionId: string, imageIds: string[]}>} Ids of the stored images.
+ */
+const seedCollectionArtwork = (page, spec) =>
+  page.evaluate(async ({ name, slotLabels, recordAgeMs = 0 }) => {
+    const made = window.collectionsStore.createCustom({
+      name,
+      metal: "Silver",
+      slots: slotLabels.map((label) => ({ label })),
+    });
+    const collectionId = made.collection.id;
+    const slotIds = window.collectionsStore
+      .getState()
+      .collections[collectionId].definition.slots.map((slot) => slot.id);
+    const targets = [{ slotId: null }, ...slotIds.map((slotId) => ({ slotId }))];
+    const imageIds = [];
+    for (const { slotId } of targets) {
+      const ruleId = slotId
+        ? `collection--${collectionId}--${slotId}`
+        : `collection--${collectionId}`;
+      const stampedAt = Date.now();
+      const digest = `digest-${ruleId}`;
+      await window.imageCache.importPatternImageRecord({
+        ruleId,
+        obverse: new Blob(["art"], { type: "image/png" }),
+        reverse: null,
+        cachedAt: stampedAt - recordAgeMs,
+        size: 3,
+        digest,
+      });
+      window.collectionsStore.setArtwork(collectionId, slotId, true, stampedAt, digest);
+      imageIds.push(ruleId);
+    }
+    return { collectionId, imageIds };
+  }, spec);
+
+/**
+ * Reads the ids currently held in the patternImages IndexedDB store.
+ * @param {import('@playwright/test').Page} page - Booted page.
+ * @returns {Promise<string[]>} Sorted record ids.
+ */
+const storedPatternImageIds = (page) =>
+  page.evaluate(async () =>
+    (await window.imageCache.exportAllPatternImages()).map((rec) => rec.ruleId).sort()
+  );
+
 test.describe("core/settings-search-images", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
@@ -258,24 +336,9 @@ test.describe("core/settings-search-images", () => {
   // exists (orphans) and lets the user reclaim the space. "Delete all" routes
   // through the custom showAppConfirm modal, not a native dialog.
   test("Orphaned pattern images are listed and can be cleared", async ({ page }) => {
-    // Suppress the async demo seed (seed-images.js caches pattern rules+images on
-    // boot); otherwise its writes can race our clearAll() and leave referenced
-    // images behind. Re-boot with the seed gated off for a deterministic store.
-    await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () =>
-        typeof window.imageCache !== "undefined" &&
-        Boolean(window.NumistaLookup) &&
-        typeof window.showSettingsModal === "function"
-    );
-
     // Clean slate: no rules, two orphaned pattern-image records in IndexedDB.
+    await bootCleanPatternImageStore(page);
     await page.evaluate(async () => {
-      await window.imageCache.init();
-      await window.imageCache.clearAll();
-      localStorage.setItem("numistaLookupRules", JSON.stringify([]));
-      window.NumistaLookup.importRules([], false);
       await window.imageCache.cachePatternImage(
         "orphan-strk202-a",
         new Blob(["a-obv"], { type: "image/png" }),
@@ -308,5 +371,122 @@ test.describe("core/settings-search-images", () => {
       async () => (await window.imageCache.exportAllPatternImages()).length
     );
     expect(remaining).toBe(0);
+  });
+
+  // STRK-438: Collection cover + Slot artwork shares the patternImages store but
+  // is referenced by the Collections store, not by a Numista rule. The orphan
+  // scan used to know only about rules, so every Collection image was offered
+  // for deletion under "safe to delete".
+  test("Live Collection artwork is never listed as orphaned and survives Delete all", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Live Set",
+      slotLabels: ["Alpha", "Beta"],
+    });
+    expect(art.imageIds).toHaveLength(3); // cover + two Slots
+    await page.evaluate(() =>
+      window.imageCache.cachePatternImage(
+        "orphan-strk438-rule",
+        new Blob(["rule-obv"], { type: "image/png" }),
+        null
+      )
+    );
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("1 orphaned image");
+    await expect(container).toContainText("orphan-strk438-rule");
+    await expect(container).not.toContainText("collection--");
+
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await expect(page.locator("#appDialogModal")).toContainText("1 orphaned pattern image");
+    await page.locator("#appDialogOk").click();
+
+    await expect(container).toContainText("No orphaned pattern images");
+    expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
+  });
+
+  test("Artwork of a removed Collection is still listed as orphaned and can be deleted", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Removed Set",
+      slotLabels: ["Gamma"],
+    });
+    await page.evaluate((id) => window.collectionsStore.remove(id), art.collectionId);
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+    for (const imageId of art.imageIds) await expect(container).toContainText(imageId);
+
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+
+    await expect(container).toContainText("No orphaned pattern images");
+    expect(await storedPatternImageIds(page)).toEqual([]);
+  });
+
+  test("A stale Collection image is orphaned, and deleting it leaves the live artwork stamp alone", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    // Records are back-dated behind their stamps: the stamp is newer than the
+    // stored image, so another device holds the current art (isCurrentArtwork() false).
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Stale Set",
+      slotLabels: ["Delta"],
+      recordAgeMs: 60_000,
+    });
+    const stampsBefore = await page.evaluate(
+      (id) => JSON.stringify(window.collectionsStore.getState().collections[id].artwork),
+      art.collectionId
+    );
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+    await expect(container).toContainText("No orphaned pattern images");
+
+    // Reclaiming the stale local copy must not publish a removal: a tombstone
+    // stamped now would out-rank the newer art on the other device in a merge.
+    const stampsAfter = await page.evaluate(
+      (id) => JSON.stringify(window.collectionsStore.getState().collections[id].artwork),
+      art.collectionId
+    );
+    expect(stampsAfter).toBe(stampsBefore);
+  });
+
+  test("Collection artwork is never offered for deletion when Collections cannot be consulted", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await seedCollectionArtwork(page, { name: "STRK-438 Unverifiable Set", slotLabels: ["Eps"] });
+    // Fail-safe contract: with the Collections predicate unavailable, a
+    // collection-- record cannot be proven orphaned, so it must stay hidden.
+    await page.evaluate(() => {
+      delete window.collectionsCore;
+    });
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("No orphaned pattern images");
+    await expect(container).not.toContainText("collection--");
   });
 });
