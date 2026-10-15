@@ -139,7 +139,7 @@ const getEmbeddedWhatsNew = () => {
     <li><strong>v3.36.47 &ndash; Your image frame in the table, cards and detail view</strong>: The inventory table, the card views and the item detail view now frame each image with the shape and orientation you chose in the item modal &mdash; Round, Bar, Note or Slab, Portrait or Landscape for Bars and Notes. Bar, Note and Slab photos are letterboxed inside their frame instead of cropped, table thumbnails stay the same height and follow the frame&rsquo;s width, and items saved with the old rectangular frame show as a portrait Bar until you choose otherwise (STRK-427).</li>
     <li><strong>v3.36.46 &ndash; One image-frame editor for Items and Collections</strong>: The Add/Edit Item modal now has the same Image shape selector as the Custom Collection builder &mdash; Round, Bar, Note or Slab &mdash; with a live preview, a Swap button and a Portrait / Landscape choice for each side of a Bar or Note. The shape follows the Item&rsquo;s Type (a Goldback becomes a Note, a graded coin a Slab) until you pick a different one, and the previews are larger on desktop (STRK-427).</li>
     <li><strong>v3.36.45 &ndash; Readable image remove button in dark themes</strong>: The small &times; button that removes a Custom Collection title image or Slot image is legible again in the dark, slate and sepia themes. It used to render as a plain white circle with the &times; invisible against it; light theme is unchanged (STRK-426).</li>
-          `;
+      `;
 };
 
 // Expose globally for access from other modules
