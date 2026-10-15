@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.50] - 2026-10-15
+
+### Fixed — STRK-437: Duplicates keep your customised catalog fields
+
+- **Field provenance carried over**: Duplicating an item now copies which fields you customised (`fieldMeta` `userModified` flags), so a later Numista re-sync on the copy does not overwrite them. Fields you change on the Duplicate form are flagged as customised, as in Edit, and the Numista picker opened on a Duplicate already leaves the source's customised fields unticked. Re-pointing the duplicate at a different Numista number before saving drops the source flags, and a cancelled duplicate never leaks them into a later Add (STRK-437).
+
 ## [3.36.49] - 2026-10-15
 
 ### Fixed — STRK-433: Duplicate Item keeps its Numista Data

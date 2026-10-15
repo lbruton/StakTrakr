@@ -222,7 +222,14 @@ const renderNumistaFieldCheckboxes = (result) => {
     const idx = typeof editingIndex !== "undefined" && editingIndex !== null ? editingIndex : null;
     editingItem = idx !== null && Array.isArray(inventory) ? inventory[idx] : null;
   }
-  const fieldMetaMap = editingItem?.fieldMeta || {};
+  // STRK-437: a Duplicate runs in add mode, so its source provenance is held by the form.
+  const duplicateFieldMeta =
+    !isBulkEdit && !editingItem && typeof getDuplicateFieldMeta === "function"
+      ? getDuplicateFieldMeta(
+          (elements.itemCatalog || safeGetElement("itemCatalog"))?.value?.trim() || ""
+        )
+      : null;
+  const fieldMetaMap = editingItem?.fieldMeta || duplicateFieldMeta || {};
   const editingUuid = editingItem?.uuid || null;
 
   // Fields with userModified tracking (name, type, weight, year, metal)
@@ -1260,14 +1267,21 @@ const fillFormFromNumistaResult = () => {
   // Clear userModified for scalar fields the user chose to override.
   // Do NOT persist here — the save happens when the user confirms the edit modal.
   // If the user cancels, the next load restores the original in-memory state.
-  if (_fillItem && _fillItem.fieldMeta) {
+  // STRK-437: on a Duplicate (no _fillItem) the flags live in the form's pending provenance.
+  const _fillMeta =
+    _fillItem?.fieldMeta ||
+    (!_fillItem &&
+    typeof window._bulkEditNumistaCallback !== "function" &&
+    typeof getDuplicateFieldMeta === "function"
+      ? getDuplicateFieldMeta(
+          (elements.itemCatalog || safeGetElement("itemCatalog"))?.value?.trim() || ""
+        )
+      : null);
+  if (_fillMeta) {
     checkboxes.forEach((cb) => {
       if (!cb.checked) return;
-      if (
-        USER_MODIFIED_TRACKED_FIELDS.has(cb.value) &&
-        _fillItem.fieldMeta[cb.value]?.userModified
-      ) {
-        _fillItem.fieldMeta[cb.value].userModified = false;
+      if (USER_MODIFIED_TRACKED_FIELDS.has(cb.value) && _fillMeta[cb.value]?.userModified) {
+        _fillMeta[cb.value].userModified = false;
       }
     });
   }

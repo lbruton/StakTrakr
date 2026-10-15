@@ -1910,6 +1910,93 @@ const valuationFieldChanged = (oldItem, newItem) => {
   return fields.some((field) => oldItem?.[field] !== newItem?.[field]);
 };
 
+/** Top-level item fields whose saved change marks them userModified (Edit + Duplicate). */
+const USER_MODIFIED_ITEM_FIELDS = [
+  "metal",
+  "composition",
+  "name",
+  "qty",
+  "type",
+  "weight",
+  "weightUnit",
+  "constitutionalVariant",
+  "constitutionalEntryMode",
+  "price",
+  "marketValue",
+  "date",
+  "paymentMethod",
+  "purchaseLocation",
+  "storageLocation",
+  "serialNumber",
+  "notes",
+  "capsule",
+  "capsuleNotes",
+  "year",
+  "grade",
+  "gradingAuthority",
+  "certNumber",
+  "pcgsNumber",
+  "purity",
+  "country",
+  "denomination",
+  "shape",
+  "diameter",
+  "thickness",
+  "length",
+  "width",
+  "orientation",
+  "description",
+  "technique",
+];
+
+/** Numista Data tab fields whose saved change marks them userModified (STRK-51). */
+const USER_MODIFIED_NUMISTA_FIELDS = [
+  "country",
+  "denomination",
+  "composition",
+  "shape",
+  "diameter",
+  "length",
+  "width",
+  "thickness",
+  "orientation",
+  "technique",
+  "mintage",
+  "rarityIndex",
+  "kmRef",
+  "commemorative",
+  "commemorativeDesc",
+  "obverseDesc",
+  "reverseDesc",
+  "edgeDesc",
+];
+
+/**
+ * Mark every field whose saved value differs from its baseline as userModified, so a later
+ * Numista re-sync defaults it off. Edit diffs against the item before the save; Duplicate
+ * (STRK-437) diffs against the source the form was seeded from, limited to the picker's
+ * tracked fields because the form deliberately resets others (qty, serial).
+ *
+ * @param {Object} baseline - Values the form started from
+ * @param {Object} cur - The saved item (its fieldMeta is updated in place)
+ * @param {Set<string>} [onlyFields] - Restrict marking to these field keys
+ * @returns {void}
+ */
+const markUserModifiedChanges = (baseline, cur, onlyFields) => {
+  if (typeof window.markUserModified !== "function") return;
+  const tracked = (field) => !onlyFields || onlyFields.has(field);
+  for (const field of USER_MODIFIED_ITEM_FIELDS) {
+    if (tracked(field) && baseline[field] !== cur[field]) window.markUserModified(cur, field);
+  }
+  const oldNumista = baseline.numistaData || {};
+  const newNumista = cur.numistaData || {};
+  for (const field of USER_MODIFIED_NUMISTA_FIELDS) {
+    if (tracked(field) && oldNumista[field] !== newNumista[field]) {
+      window.markUserModified(cur, field);
+    }
+  }
+};
+
 /**
  * Commits a parsed item to inventory (add or edit mode).
  * @param {Object} f - Parsed fields from parseItemFormFields()
@@ -1971,79 +2058,7 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     if (!f.paymentMethod) delete inventory[editIdx].paymentMethod;
 
     // Track user-modified fields by comparing old vs new values
-    if (typeof window.markUserModified === "function") {
-      const cur = inventory[editIdx];
-      const trackedFields = [
-        "metal",
-        "composition",
-        "name",
-        "qty",
-        "type",
-        "weight",
-        "weightUnit",
-        "constitutionalVariant",
-        "constitutionalEntryMode",
-        "price",
-        "marketValue",
-        "date",
-        "paymentMethod",
-        "purchaseLocation",
-        "storageLocation",
-        "serialNumber",
-        "notes",
-        "capsule",
-        "capsuleNotes",
-        "year",
-        "grade",
-        "gradingAuthority",
-        "certNumber",
-        "pcgsNumber",
-        "purity",
-        "country",
-        "denomination",
-        "shape",
-        "diameter",
-        "thickness",
-        "length",
-        "width",
-        "orientation",
-        "description",
-        "technique",
-      ];
-      for (const field of trackedFields) {
-        if (oldItem[field] !== cur[field]) {
-          window.markUserModified(cur, field);
-        }
-      }
-      // Track user-edited Numista Data tab fields (STRK-51)
-      const numistaTrackedFields = [
-        "country",
-        "denomination",
-        "composition",
-        "shape",
-        "diameter",
-        "length",
-        "width",
-        "thickness",
-        "orientation",
-        "technique",
-        "mintage",
-        "rarityIndex",
-        "kmRef",
-        "commemorative",
-        "commemorativeDesc",
-        "obverseDesc",
-        "reverseDesc",
-        "edgeDesc",
-      ];
-      const oldNumista = oldItem.numistaData || {};
-      const newNumista = cur.numistaData || {};
-      for (const field of numistaTrackedFields) {
-        if (oldNumista[field] !== newNumista[field]) {
-          window.markUserModified(cur, field);
-        }
-      }
-    }
+    markUserModifiedChanges(oldItem, inventory[editIdx]);
 
     addCompositionOption(f.composition);
     if (typeof registerCapsule === "function") registerCapsule(f.capsule);
@@ -2088,6 +2103,15 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     const spotPriceAtPurchase =
       !isNaN(lookupSpot) && lookupSpot > 0 ? lookupSpot : (spotPrices[metalKey] ?? 0);
     const serial = getNextSerial();
+    // STRK-437: a Duplicate keeps its source's provenance ahead of the lookup fallbacks.
+    const duplicateProvenance =
+      typeof consumeDuplicateProvenance === "function"
+        ? consumeDuplicateProvenance(f.catalog)
+        : null;
+    const duplicateFieldMeta =
+      duplicateProvenance && Object.keys(duplicateProvenance.fieldMeta).length > 0
+        ? duplicateProvenance.fieldMeta
+        : undefined;
 
     inventory.push({
       ...buildItemFields(f),
@@ -2099,7 +2123,11 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       uuid: generateUUID(),
       numistaId: f.catalog,
       numistaData: f.numistaData,
-      fieldMeta: window.selectedNumistaResult?.fieldMeta || f.numistaData?.fieldMeta || undefined,
+      fieldMeta:
+        duplicateFieldMeta ||
+        window.selectedNumistaResult?.fieldMeta ||
+        f.numistaData?.fieldMeta ||
+        undefined,
       currency: f.currency,
       lastModified: new Date().toISOString(),
       obverseImageUrl:
@@ -2115,6 +2143,14 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       ignorePatternImages: f.ignorePatternImages || false,
     });
     if (!f.paymentMethod) delete inventory[inventory.length - 1].paymentMethod;
+    // STRK-437: fields changed on the Duplicate form are the user's own, as in Edit.
+    if (duplicateProvenance && typeof USER_MODIFIED_TRACKED_FIELDS !== "undefined") {
+      markUserModifiedChanges(
+        duplicateProvenance.source,
+        inventory[inventory.length - 1],
+        USER_MODIFIED_TRACKED_FIELDS
+      );
+    }
 
     typeof registerName === "function" && registerName(f.name);
     if (typeof registerCapsule === "function") registerCapsule(f.capsule);
@@ -3025,6 +3061,8 @@ const setupItemFormListeners = () => {
     clearUploadState();
     // STRK-433: a pending Numista cache load must not write into a later form
     if (typeof invalidateNumistaMetadataLoads === "function") invalidateNumistaMetadataLoads();
+    // STRK-437: a cancelled Duplicate's source provenance must not reach a later Add
+    if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();
     try {
@@ -4828,6 +4866,8 @@ const setupSearch = () => {
           // STRK-433: Add mode never populates Numista fields, so drop any stale cache load
           if (typeof invalidateNumistaMetadataLoads === "function")
             invalidateNumistaMetadataLoads();
+          // STRK-437: a fresh Add starts with no Duplicate source provenance
+          if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");

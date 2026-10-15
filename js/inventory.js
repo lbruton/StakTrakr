@@ -1758,6 +1758,55 @@ const invalidateNumistaMetadataLoads = () => {
 };
 
 /**
+ * Source-item field provenance carried by an open Duplicate form (STRK-437):
+ * `{ catalogId, fieldMeta, source }` or null. `fieldMeta` is a private clone of the source's
+ * flags (the Numista picker reads and clears it while the form is open); `source` is a
+ * snapshot of the source values the form was seeded from. Set by duplicateItem, consumed by
+ * the add-mode submit, and cleared whenever the item form changes context so a later Add
+ * never inherits it.
+ */
+let pendingDuplicateProvenance = null;
+
+/** Drop any Duplicate provenance held for the item form (STRK-437). */
+const clearDuplicateProvenance = () => {
+  pendingDuplicateProvenance = null;
+};
+
+/**
+ * Live fieldMeta of the open Duplicate form (STRK-437), for the Numista field picker. Duplicate
+ * runs in add mode (editingIndex is null), so the picker cannot reach it through the inventory.
+ * When `catalogId` is given, the flags apply only while it still matches the source catalog
+ * number (the same gate consumeDuplicateProvenance applies at submit).
+ *
+ * @param {string} [catalogId] - Catalog number currently in the form; omit to skip the gate
+ * @returns {Object|null} The pending fieldMeta map, or null when no Duplicate is open or the
+ *   form's catalog number no longer matches the source
+ */
+const getDuplicateFieldMeta = (catalogId) => {
+  const pending = pendingDuplicateProvenance;
+  if (!pending) return null;
+  if (catalogId !== undefined && String(catalogId || "").trim() !== pending.catalogId) return null;
+  return pending.fieldMeta || null;
+};
+
+/**
+ * Take the Duplicate provenance for an add-mode submit (STRK-437), then clear it.
+ * It applies only while the duplicate still points at the source catalog; a Numista lookup
+ * that re-pointed it at a different catalog makes the source flags stale.
+ *
+ * @param {string} catalogId - Catalog number being saved with the new item
+ * @returns {{fieldMeta: Object, source: Object}|null} Cloned flags plus the source snapshot to
+ *   diff the saved values against, or null when no provenance applies
+ */
+const consumeDuplicateProvenance = (catalogId) => {
+  const pending = pendingDuplicateProvenance;
+  pendingDuplicateProvenance = null;
+  if (!pending) return null;
+  if (String(catalogId || "").trim() !== pending.catalogId) return null;
+  return { fieldMeta: structuredClone(pending.fieldMeta), source: pending.source };
+};
+
+/**
  * Populate Numista Data form fields.
  * Priority: item.numistaData (user/saved) > IndexedDB cache (API) > empty.
  * When called from a fresh Numista search, itemData is null and cache is used.
@@ -2300,6 +2349,7 @@ const _editRestoreLotPricing = (item) => {
 };
 
 const editItem = (idx, logIdx = null) => {
+  clearDuplicateProvenance();
   editingIndex = idx;
   editingChangeLogIndex = logIdx;
   const item = inventory[idx];
@@ -2537,6 +2587,15 @@ const duplicateItem = (idx) => {
   if (typeof populateNumistaDataFields === "function") {
     populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
   }
+
+  // STRK-437: hold the source's field provenance so userModified fields stay protected from a
+  // later Numista re-sync, plus a snapshot of the seeded values so the submit can mark fields
+  // the user changes on this form, as Edit does. Keyed to the catalog number seeded above.
+  pendingDuplicateProvenance = {
+    catalogId: String(item.numistaId || "").trim(),
+    fieldMeta: item.fieldMeta ? structuredClone(item.fieldMeta) : {},
+    source: { ...item, numistaData: { ...(item.numistaData || {}) } },
+  };
 
   // STRK-427: seed the shared image-frame editor from the source record. Add mode applies the
   // sparse writer unconditionally (D-4), so an unseeded editor would persist whatever it held
@@ -2868,6 +2927,9 @@ window.duplicateItem = duplicateItem;
 window.cloneItem = cloneItem;
 window.populateNumistaDataFields = populateNumistaDataFields;
 window.invalidateNumistaMetadataLoads = invalidateNumistaMetadataLoads;
+window.clearDuplicateProvenance = clearDuplicateProvenance;
+window.getDuplicateFieldMeta = getDuplicateFieldMeta;
+window.consumeDuplicateProvenance = consumeDuplicateProvenance;
 window.deleteItem = deleteItem;
 window.disposeItem = disposeItem;
 window.openRemoveItemModal = openRemoveItemModal;
