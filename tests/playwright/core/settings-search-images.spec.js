@@ -489,4 +489,65 @@ test.describe("core/settings-search-images", () => {
     await expect(container).toContainText("No orphaned pattern images");
     await expect(container).not.toContainText("collection--");
   });
+
+  test("Collection artwork is never offered for deletion when the currency check throws", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await seedCollectionArtwork(page, { name: "STRK-438 Throwing Set", slotLabels: ["Zed"] });
+    // The check threw mid-scan: the record is unverifiable, so it stays hidden
+    // instead of leaking the exception or falling through to "orphaned".
+    await page.evaluate(() => {
+      window.collectionsCore = Object.assign({}, window.collectionsCore, {
+        isCurrentArtwork() {
+          throw new Error("isCurrentArtwork unavailable");
+        },
+      });
+    });
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("No orphaned pattern images");
+    await expect(container).not.toContainText("collection--");
+  });
+
+  // The orphan list is a snapshot. Artwork can become current between the scan and
+  // the click (an upload, or a cloud pull restoring the Collection's newer image),
+  // so each delete re-checks the record immediately before removing it.
+  for (const route of ["Delete all", "row Delete"]) {
+    test(`${route} skips a record that became current artwork after the scan`, async ({ page }) => {
+      await bootCleanPatternImageStore(page);
+      const art = await seedCollectionArtwork(page, {
+        name: "STRK-438 Revalidate Set",
+        slotLabels: ["Eta"],
+        recordAgeMs: 60_000,
+      });
+
+      await openSettingsModal(page);
+      await openSettingsSection(page, "images", "#settingsPanel_images");
+      const container = page.locator("#orphanedPatternImages");
+      await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+
+      // Newer art lands after the list rendered: every record is now current.
+      await page.evaluate(async (ids) => {
+        for (const id of ids) {
+          const rec = await window.imageCache.getPatternImage(id);
+          await window.imageCache.importPatternImageRecord({ ...rec, cachedAt: Date.now() + 1000 });
+        }
+      }, art.imageIds);
+
+      if (route === "Delete all") {
+        await container.getByRole("button", { name: "Delete all", exact: true }).click();
+        await page.waitForSelector("#appDialogModal", { state: "visible" });
+        await page.locator("#appDialogOk").click();
+      } else {
+        await container.getByRole("button", { name: "Delete", exact: true }).first().click();
+      }
+
+      await expect(container).toContainText("No orphaned pattern images");
+      expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
+    });
+  }
 });

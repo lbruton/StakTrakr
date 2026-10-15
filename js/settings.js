@@ -3066,6 +3066,60 @@ const createThumbEl = (src, alt) => {
 };
 
 /**
+ * Decides whether a patternImages record is an orphan (STRK-202, STRK-438).
+ * Numista pattern images are referenced by a custom rule's seedImageId.
+ * Collection cover and Slot artwork shares the store under `collection--<id>[--<slot>]`
+ * ids and is referenced by the Collections store instead, so it is judged by the
+ * same `collectionsCore.isCurrentArtwork` check backup, vault and sync use. A
+ * Collection record that cannot be verified (Collections modules missing or the
+ * check throwing) is never reported — it must not be offered for deletion.
+ * @param {{ruleId: string, cachedAt?: number|string, digest?: string}} rec - patternImages record.
+ * @param {Set<string>} referenced - seedImageIds of the current custom Numista rules.
+ * @returns {boolean} True when the record is safe to offer for deletion.
+ */
+const _isOrphanedPatternImage = (rec, referenced) => {
+  if (!rec || !rec.ruleId || referenced.has(rec.ruleId)) return false;
+  if (!String(rec.ruleId).startsWith("collection--")) return true;
+
+  const core = window.collectionsCore;
+  const store = window.collectionsStore;
+  if (!core || typeof core.isCurrentArtwork !== "function") return false;
+  if (!store || typeof store.getState !== "function") return false;
+  try {
+    return !core.isCurrentArtwork(store.getState(), rec.ruleId, rec.cachedAt, rec.digest);
+  } catch (err) {
+    console.warn("Settings: could not verify Collection artwork", rec.ruleId, err);
+    return false;
+  }
+};
+
+/**
+ * Collects the pattern image ids the current custom Numista rules point at.
+ * @returns {Set<string>} seedImageId of every custom rule that has one.
+ */
+const _referencedPatternImageIds = () =>
+  new Set(
+    NumistaLookup.getCustomRules()
+      .map((r) => r.seedImageId)
+      .filter(Boolean)
+  );
+
+/**
+ * Deletes a listed orphan only if it is still an orphan right now. The orphan
+ * list is a snapshot: Collection artwork can become current between the scan and
+ * the click (an upload, or a cloud pull restoring newer art), so the stored record
+ * is re-read and re-judged immediately before it is removed (STRK-438).
+ * @param {{ruleId: string}} rec - Record from the rendered orphan list.
+ * @returns {Promise<boolean>} True when the record was deleted; false when it was
+ *   already gone or is no longer an orphan.
+ */
+const _deleteOrphanIfStillOrphaned = async (rec) => {
+  const current = await imageCache.getPatternImage(rec.ruleId);
+  if (!_isOrphanedPatternImage(current, _referencedPatternImageIds())) return false;
+  return imageCache.deletePatternImage(rec.ruleId);
+};
+
+/**
  * Builds one orphaned-image row (dual thumbnails, key + size, delete button).
  * Extracted so renderOrphanedPatternImages stays under the complexity gate.
  * @param {{ruleId: string, size: number}} rec - patternImages record.
@@ -3115,7 +3169,7 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
   deleteBtn.textContent = "Delete";
   deleteBtn.addEventListener("click", async () => {
     try {
-      await imageCache.deletePatternImage(rec.ruleId);
+      await _deleteOrphanIfStillOrphaned(rec);
     } catch (err) {
       console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
     }
@@ -3124,34 +3178,6 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
   actions.appendChild(deleteBtn);
   row.appendChild(actions);
   return row;
-};
-
-/**
- * Decides whether a patternImages record is an orphan (STRK-202, STRK-438).
- * Numista pattern images are referenced by a custom rule's seedImageId.
- * Collection cover and Slot artwork shares the store under `collection--<id>[--<slot>]`
- * ids and is referenced by the Collections store instead, so it is judged by the
- * same `collectionsCore.isCurrentArtwork` check backup, vault and sync use. A
- * Collection record that cannot be verified (Collections modules missing or the
- * check throwing) is never reported — it must not be offered for deletion.
- * @param {{ruleId: string, cachedAt?: number|string, digest?: string}} rec - patternImages record.
- * @param {Set<string>} referenced - seedImageIds of the current custom Numista rules.
- * @returns {boolean} True when the record is safe to offer for deletion.
- */
-const _isOrphanedPatternImage = (rec, referenced) => {
-  if (!rec || !rec.ruleId || referenced.has(rec.ruleId)) return false;
-  if (!String(rec.ruleId).startsWith("collection--")) return true;
-
-  const core = window.collectionsCore;
-  const store = window.collectionsStore;
-  if (!core || typeof core.isCurrentArtwork !== "function") return false;
-  if (!store || typeof store.getState !== "function") return false;
-  try {
-    return !core.isCurrentArtwork(store.getState(), rec.ruleId, rec.cachedAt, rec.digest);
-  } catch (err) {
-    console.warn("Settings: could not verify Collection artwork", rec.ruleId, err);
-    return false;
-  }
 };
 
 /**
@@ -3183,11 +3209,7 @@ const renderOrphanedPatternImages = async () => {
     return;
   }
 
-  const referenced = new Set(
-    NumistaLookup.getCustomRules()
-      .map((r) => r.seedImageId)
-      .filter(Boolean)
-  );
+  const referenced = _referencedPatternImageIds();
   const orphans = records.filter((rec) => _isOrphanedPatternImage(rec, referenced));
 
   if (!orphans.length) {
@@ -3218,7 +3240,7 @@ const renderOrphanedPatternImages = async () => {
     if (!ok) return;
     for (const rec of orphans) {
       try {
-        await imageCache.deletePatternImage(rec.ruleId);
+        await _deleteOrphanIfStillOrphaned(rec);
       } catch (err) {
         console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
       }

@@ -184,6 +184,17 @@ Collection artwork stamps use `cover`, `title:reverse`, and `slot:<slotId>` keys
 lookups validate those stamps after sync merge, and collection removal deletes both title
 records and all current Slot records. Renderers own and revoke returned `blob:` URLs.
 
+**Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
+store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
+`_isOrphanedPatternImage` judges them with `collectionsCore.isCurrentArtwork` against the
+live Collections store (the check backup, vault and sync use) and **fails closed**: if
+`collectionsCore` / `collectionsStore` is missing or the check throws, a Collection record is
+never listed or deleted. Artwork of a removed or unknown Collection, and a record older than
+its stamp, is orphaned. The list is a snapshot, so each delete re-reads the record and
+re-runs the same check (`_deleteOrphanIfStillOrphaned`) immediately before removing it.
+Deleting an orphan never writes an artwork stamp: a tombstone stamped at delete time would
+out-rank newer art on another device in a merge.
+
 ### Internal resize/compress path
 
 When storing a blob (not a URL), `_resizeAndCompress(source)` delegates to `imageProcessor.processFile()` when available. If `ImageProcessor` throws (e.g. WebP encoding failure), it falls back to an inline Canvas JPEG resize using the same `_maxDim` and `_quality` constants.
