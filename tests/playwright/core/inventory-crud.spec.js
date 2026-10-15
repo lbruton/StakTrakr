@@ -890,6 +890,31 @@ test.describe("payment-method", () => {
     });
   });
 
+  test("STRK-433: stale Numista cache load cannot write into a later form context", async ({
+    page,
+  }) => {
+    await seedData(page, [makeItem({ serial: 1, name: "STRK-433 Stale", numistaId: "1234" })]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    const country = await page.evaluate(async () => {
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      window.imageCache.isAvailable = () => true;
+      window.imageCache.getMetadata = (id) =>
+        id === "1234" ? gate.then(() => ({ country: "Stale" })) : Promise.resolve(null);
+      // First open: slow cache load for catalog 1234. Second open supersedes it.
+      const first = window.populateNumistaDataFields("1234", null);
+      const second = window.populateNumistaDataFields("", null);
+      release();
+      await Promise.all([first, second]);
+      return document.getElementById("numistaCountry").value;
+    });
+    expect(country).toBe("");
+  });
+
   test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
     page,
   }) => {

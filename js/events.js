@@ -3023,6 +3023,8 @@ const setupItemFormListeners = () => {
       return;
     }
     clearUploadState();
+    // STRK-433: a pending Numista cache load must not write into a later form
+    if (typeof invalidateNumistaMetadataLoads === "function") invalidateNumistaMetadataLoads();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();
     try {
@@ -4823,6 +4825,9 @@ const setupSearch = () => {
           if (elements.itemDate) elements.itemDate.disabled = false;
           // STRK-301: apply remembered/default section disclosure to the reset form
           if (typeof prepareFormSections === "function") prepareFormSections();
+          // STRK-433: Add mode never populates Numista fields, so drop any stale cache load
+          if (typeof invalidateNumistaMetadataLoads === "function")
+            invalidateNumistaMetadataLoads();
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");
