@@ -332,6 +332,29 @@ test.describe("core/numista-catalog", () => {
     expect(state.removed[ITEM_UUID] || []).not.toContain("Eagle");
   });
 
+  test("STRK-437: picker on a Duplicate defaults the source's customised fields off", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      inventory: [
+        {
+          ...BASE_ITEM,
+          name: "My Custom Eagle Name",
+          fieldMeta: { name: { source: "manual", userModified: true } },
+        },
+      ],
+    });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await openNumistaPicker(page);
+
+    const fieldCb = (key) => page.locator(`input[name="numistaField"][value="${key}"]`);
+    await expect(fieldCb("name")).not.toBeChecked();
+    await expect(fieldCb("year")).toBeChecked();
+  });
+
   test("itemRemovedTags sync surface is exported and diffed as settings data", async ({ page }) => {
     await seedData(page, {
       itemRemovedTags: { [ITEM_UUID]: ["Investment"] },

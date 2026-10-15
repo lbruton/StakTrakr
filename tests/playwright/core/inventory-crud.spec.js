@@ -890,7 +890,12 @@ test.describe("payment-method", () => {
     });
   });
 
-  // STRK-437: a source item whose country the user customised (userModified provenance).
+  /**
+   * Seed one source item whose country the user customised (STRK-437 userModified
+   * provenance) and open the Duplicate form for it.
+   * @param {import("@playwright/test").Page} page - Playwright page
+   * @returns {Promise<void>} Resolves once the Duplicate modal is visible
+   */
   async function openDuplicateOfCustomisedItem(page) {
     await seedData(page, [
       makeItem({
@@ -910,6 +915,11 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemModal")).toBeVisible();
   }
 
+  /**
+   * Read the saved item that is not the seeded source (serial 1) from localStorage.
+   * @param {import("@playwright/test").Page} page - Playwright page
+   * @returns {Promise<Object|undefined>} The stored duplicate or added item
+   */
   async function storedDuplicate(page) {
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
     return stored.find((i) => i.serial !== 1);
@@ -931,14 +941,27 @@ test.describe("payment-method", () => {
     expect(shared).toBe(false);
   });
 
+  test("STRK-437: a field changed on the Duplicate form is marked userModified", async ({
+    page,
+  }) => {
+    await openDuplicateOfCustomisedItem(page);
+    await page.fill("#itemName", "STRK-437 Renamed Copy");
+    await page.fill("#numistaDenomination", "10 Dollars");
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.name).toBe("STRK-437 Renamed Copy");
+    expect(dup.fieldMeta.name?.userModified).toBe(true);
+    expect(dup.fieldMeta.denomination?.userModified).toBe(true);
+    expect(dup.fieldMeta.country).toEqual({ source: "manual", userModified: true });
+  });
+
   test("STRK-437: duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
     page,
   }) => {
     await openDuplicateOfCustomisedItem(page);
     // A Numista lookup during the duplicate rewrites the catalog number.
-    await page.evaluate(() => {
-      document.getElementById("itemCatalog").value = "9999";
-    });
+    await page.fill("#itemCatalog", "9999");
     await submitItemModal(page);
 
     const dup = await storedDuplicate(page);
@@ -952,16 +975,16 @@ test.describe("payment-method", () => {
     await page.click("#cancelItem");
     await expect(page.locator("#itemModal")).toBeHidden();
 
-    await page.evaluate(() => document.getElementById("newItemBtn").click());
+    await page.click("#newItemBtn");
     await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
     await page.selectOption("#itemMetal", "Silver");
     await page.selectOption("#itemType", "Coin");
     await page.fill("#itemName", "STRK-437 Fresh Add");
     await page.fill("#itemWeight", "1");
     await page.fill("#itemPrice", "31");
-    await page.evaluate(() => {
-      document.getElementById("itemCatalog").value = "1234";
-    });
+    // A fresh Add ships the Grading section (holding the Numista #) collapsed.
+    await page.click('details[data-section="grading"] > summary.form-section-header');
+    await page.fill("#itemCatalog", "1234");
     await submitItemModal(page);
 
     const dup = await storedDuplicate(page);

@@ -104,6 +104,8 @@ Defined via JSDoc typedef in `js/types.js`. All fields persist on the item objec
 
   // --- Catalog lookup ---
   numistaId:             String,         // optional — Numista ID for lookup
+  numistaData:           Object,         // optional — Numista Data tab values (country, denomination, dimensions, …)
+  fieldMeta:             Object,         // optional — per-field provenance: { [field]: { source, userModified } } (js/field-meta.js)
   marketValue:           Number,         // optional — manual retail override (else computed from retail API)
   collectable:           Boolean,        // optional — whether item is marked as collectable
 
@@ -139,6 +141,8 @@ Defined via JSDoc typedef in `js/types.js`. All fields persist on the item objec
 - Per-item tags are stored separately under the `itemTags` localStorage key (keyed by UUID), not on the inventory item object itself.
 - `tradedFromUuid` is a received-side provenance pointer. It is present only on items acquired through a linked trade and points to the disposed source item's `uuid`.
 - There is no `spotPrice` field on the item. Spot is always read from `spotPrices[item.metal]` at render time.
+- `fieldMeta` records per-field provenance. A field with `userModified: true` defaults to unticked in the Numista field picker, so a re-sync does not overwrite the user's own value. Edit marks every field whose saved value changed (`markUserModifiedChanges` in `js/events.js`), and ticking a field in the picker clears its in-memory flag. The save's diff then sets it again whenever the imported value differs from the old one, so an imported field still ends up flagged (current behaviour, not a contract).
+- Duplicate (STRK-437) runs in add mode (`editingIndex` is null), so `duplicateItem` holds the source's flags in a pending-duplicate provenance (`pendingDuplicateProvenance` in `js/inventory.js`): a cloned `fieldMeta`, a snapshot of the seeded values, and the source catalog number. The picker reads it through `getDuplicateFieldMeta()`. The add-mode submit takes it with `consumeDuplicateProvenance(catalog)`, but only while the catalog number still matches the source's (a different Numista number means a fresh start). It then marks the picker-tracked fields the user changed on the form. `closeItemModal`, the New Item opener and `editItem` clear it, so a cancelled duplicate never reaches a later Add.
 
 ### Disposition Record Shape (v3.33.17 — STAK-72; trade links v3.34.100 — STRK-123)
 
