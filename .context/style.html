@@ -1621,8 +1621,14 @@
             ><span class="sg-status-dot"></span> Current Standard</span
           >
           <p class="sg-desc">
-            Dual-slot obverse/reverse image upload pattern used in the Add/Edit Item modal.
-            Controlled via <code>style.display</code> toggle in JS.
+            Dual-slot obverse/reverse image upload patterns. The Add/Edit Item modal and the Edit
+            collection builder use the click-to-upload frame of the shared image-frame editor
+            (below, STRK-434). The button-row "Upload Group" showcase after it is the legacy pattern
+            still used by the Settings &rarr; Images pattern-rule rows (Upload and Camera buttons).
+            The grouped "URL Input Group" showcase is a legacy reference only and is unused. Bulk
+            Edit still renders plain Obverse URL / Reverse URL text fields (js/bulkEdit.js) as its
+            own field-panel rows, not this grouped pattern. The item modal keeps hidden URL fields
+            that the link-icon prompt edits, and CSS forces them hidden.
           </p>
 
           <div class="sg-subsection">
@@ -1804,6 +1810,10 @@
 
           <div class="sg-subsection">
             <h3>URL Input Group</h3>
+            <p class="sg-desc">
+              Legacy reference, this grouped showcase is unused. Item image URLs are edited through
+              the link-icon prompt; Bulk Edit has its own inline URL fields.
+            </p>
             <div class="sg-showcase">
               <div class="image-upload-group">
                 <label>Image URLs</label>
