@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.49] - 2026-10-15
+
+### Fixed — STRK-433: Duplicate Item keeps its Numista Data
+
+- **Numista Data carried over**: Duplicating an item now copies the Numista Data tab (country, denomination, dimensions, mintage and the rest) into the new item instead of dropping it (STRK-433).
+
 ## [3.36.48] - 2026-10-11
 
 ### Changed — STRK-434: Item modal and Collection builder look the same
