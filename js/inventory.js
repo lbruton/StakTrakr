@@ -1744,14 +1744,31 @@ const showNotes = (idx) => {
 };
 
 /**
+ * Monotonic token for in-flight Numista cache loads (STRK-433). Bumped whenever the item form
+ * context changes so a slow IndexedDB result cannot write into a different form.
+ */
+let numistaMetadataRequestSeq = 0;
+
+/**
+ * Invalidate any in-flight Numista cache load so its result is discarded.
+ * Called when the item form is reopened or closed.
+ */
+const invalidateNumistaMetadataLoads = () => {
+  numistaMetadataRequestSeq += 1;
+};
+
+/**
  * Populate Numista Data form fields.
  * Priority: item.numistaData (user/saved) > IndexedDB cache (API) > empty.
  * When called from a fresh Numista search, itemData is null and cache is used.
  *
  * @param {string} catalogId - Numista catalog ID (N#)
  * @param {Object} [itemData] - Stored numistaData from the inventory item
+ * @returns {Promise<void>} Resolves when the async cache fallback has been applied or discarded
  */
 const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set() } = {}) => {
+  invalidateNumistaMetadataLoads();
+  const requestSeq = numistaMetadataRequestSeq;
   const set = (id, val) => {
     const el = safeGetElement(id);
     if (el) el.value = val || "";
@@ -1835,10 +1852,11 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
 
   // Layer 2 (fallback): IndexedDB cache from API
   if (catalogId && window.imageCache?.isAvailable()) {
-    imageCache
+    return imageCache
       .getMetadata(catalogId)
       .then((meta) => {
-        if (!meta) return;
+        // STRK-433: the form moved on (reopened/closed/re-populated) while this load was pending.
+        if (!meta || requestSeq !== numistaMetadataRequestSeq) return;
         applySource((f) => {
           if (!f.cacheKey) {
             // Special handling for computed fields
@@ -1864,6 +1882,7 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
       })
       .catch(() => {});
   }
+  return Promise.resolve();
 };
 
 /**
@@ -2513,6 +2532,12 @@ const duplicateItem = (idx) => {
   _dupPopulateCatalogFields(item);
   _editPopulatePurityField(item);
 
+  // STRK-433: carry the Numista Data tab over (item data first, API cache fallback) — the
+  // add-mode submit reads these fields, so leaving them unseeded drops/leaks metadata.
+  if (typeof populateNumistaDataFields === "function") {
+    populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
+  }
+
   // STRK-427: seed the shared image-frame editor from the source record. Add mode applies the
   // sparse writer unconditionally (D-4), so an unseeded editor would persist whatever it held
   // from the last session as an explicit override. Runs after Type and grading are populated
@@ -2842,6 +2867,7 @@ window.editItem = editItem;
 window.duplicateItem = duplicateItem;
 window.cloneItem = cloneItem;
 window.populateNumistaDataFields = populateNumistaDataFields;
+window.invalidateNumistaMetadataLoads = invalidateNumistaMetadataLoads;
 window.deleteItem = deleteItem;
 window.disposeItem = disposeItem;
 window.openRemoveItemModal = openRemoveItemModal;

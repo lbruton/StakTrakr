@@ -855,6 +855,66 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemPaymentMethod")).toHaveValue("PayPal");
   });
 
+  test("STRK-433: duplicate carries the Numista Data tab into the new item", async ({ page }) => {
+    await seedData(page, [
+      makeItem({
+        serial: 1,
+        name: "STRK-433 Source",
+        numistaId: "1234",
+        numistaData: {
+          country: "Canada",
+          denomination: "5 Dollars",
+          diameter: "38",
+          shape: "Round",
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#numistaCountry")).toHaveValue("Canada");
+    await expect(page.locator("#numistaDenomination")).toHaveValue("5 Dollars");
+    await expect(page.locator("#numistaDiameter")).toHaveValue("38");
+
+    await submitItemModal(page);
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+    expect(stored).toHaveLength(2);
+    const dup = stored.find((i) => i.serial !== 1);
+    expect(dup.numistaData).toMatchObject({
+      country: "Canada",
+      denomination: "5 Dollars",
+      diameter: "38",
+      shape: "Round",
+    });
+  });
+
+  test("STRK-433: stale Numista cache load cannot write into a later form context", async ({
+    page,
+  }) => {
+    await seedData(page, [makeItem({ serial: 1, name: "STRK-433 Stale", numistaId: "1234" })]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    const country = await page.evaluate(async () => {
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      window.imageCache.isAvailable = () => true;
+      window.imageCache.getMetadata = (id) =>
+        id === "1234" ? gate.then(() => ({ country: "Stale" })) : Promise.resolve(null);
+      // First open: slow cache load for catalog 1234. Second open supersedes it.
+      const first = window.populateNumistaDataFields("1234", null);
+      const second = window.populateNumistaDataFields("", null);
+      release();
+      await Promise.all([first, second]);
+      return document.getElementById("numistaCountry").value;
+    });
+    expect(country).toBe("");
+  });
+
   test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
     page,
   }) => {
