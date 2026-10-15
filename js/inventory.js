@@ -1775,10 +1775,19 @@ const clearDuplicateProvenance = () => {
 /**
  * Live fieldMeta of the open Duplicate form (STRK-437), for the Numista field picker. Duplicate
  * runs in add mode (editingIndex is null), so the picker cannot reach it through the inventory.
+ * When `catalogId` is given, the flags apply only while it still matches the source catalog
+ * number (the same gate consumeDuplicateProvenance applies at submit).
  *
- * @returns {Object|null} The pending fieldMeta map, or null when no Duplicate is open
+ * @param {string} [catalogId] - Catalog number currently in the form; omit to skip the gate
+ * @returns {Object|null} The pending fieldMeta map, or null when no Duplicate is open or the
+ *   form's catalog number no longer matches the source
  */
-const getDuplicateFieldMeta = () => pendingDuplicateProvenance?.fieldMeta || null;
+const getDuplicateFieldMeta = (catalogId) => {
+  const pending = pendingDuplicateProvenance;
+  if (!pending) return null;
+  if (catalogId !== undefined && String(catalogId || "").trim() !== pending.catalogId) return null;
+  return pending.fieldMeta || null;
+};
 
 /**
  * Take the Duplicate provenance for an add-mode submit (STRK-437), then clear it.

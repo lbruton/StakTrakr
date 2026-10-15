@@ -225,7 +225,9 @@ const renderNumistaFieldCheckboxes = (result) => {
   // STRK-437: a Duplicate runs in add mode, so its source provenance is held by the form.
   const duplicateFieldMeta =
     !isBulkEdit && !editingItem && typeof getDuplicateFieldMeta === "function"
-      ? getDuplicateFieldMeta()
+      ? getDuplicateFieldMeta(
+          (elements.itemCatalog || safeGetElement("itemCatalog"))?.value?.trim() || ""
+        )
       : null;
   const fieldMetaMap = editingItem?.fieldMeta || duplicateFieldMeta || {};
   const editingUuid = editingItem?.uuid || null;
@@ -1271,7 +1273,9 @@ const fillFormFromNumistaResult = () => {
     (!_fillItem &&
     typeof window._bulkEditNumistaCallback !== "function" &&
     typeof getDuplicateFieldMeta === "function"
-      ? getDuplicateFieldMeta()
+      ? getDuplicateFieldMeta(
+          (elements.itemCatalog || safeGetElement("itemCatalog"))?.value?.trim() || ""
+        )
       : null);
   if (_fillMeta) {
     checkboxes.forEach((cb) => {

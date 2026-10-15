@@ -355,6 +355,31 @@ test.describe("core/numista-catalog", () => {
     await expect(fieldCb("year")).toBeChecked();
   });
 
+  test("STRK-437: picker on a Duplicate re-pointed at another catalog number ignores the source's flags", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      inventory: [
+        {
+          ...BASE_ITEM,
+          name: "My Custom Eagle Name",
+          fieldMeta: { name: { source: "manual", userModified: true } },
+        },
+      ],
+    });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await page.locator("#itemCatalog").fill("999999");
+    await openNumistaPicker(page);
+
+    const fieldCb = (key) => page.locator(`input[name="numistaField"][value="${key}"]`);
+    await expect(fieldCb("name")).toBeChecked();
+    const sourceFlagsLeft = await page.evaluate(() => window.getDuplicateFieldMeta("999999"));
+    expect(sourceFlagsLeft).toBeNull();
+  });
+
   test("itemRemovedTags sync surface is exported and diffed as settings data", async ({ page }) => {
     await seedData(page, {
       itemRemovedTags: { [ITEM_UUID]: ["Investment"] },
