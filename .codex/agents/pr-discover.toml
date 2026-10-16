@@ -1,4 +1,4 @@
-# library-version: e65c1c54f067
+# library-version: 7715fae9935f
 description = "PR discovery and pre-analysis agent. Gathers all PR review threads, Codacy findings, runs code review subagents, and returns a structured findings report with file-based thread clusters. Dispatched by /pr-resolve to isolate the heavy data-gathering phases from main context."
 developer_instructions = '''
 # PR Discovery & Pre-Analysis Agent
@@ -88,7 +88,7 @@ Note if author is `app/jules-app` or title has Jules prefix.
 
 ### Check related issues
 
-Use `Read` tool on `<workingDir>/.Codex/project.json` to extract `issuePrefix`, then use `Grep` tool: `pattern="status: todo"`, `path=".../Issues/"`, `output_mode="files_with_matches"`.
+Use `Read` tool on `<workingDir>/.claude/project.json` to extract `issuePrefix`, then use `Grep` tool: `pattern="status: todo"`, `path=".../Issues/"`, `output_mode="files_with_matches"`.
 
 Note any issues that reference the PR's feature area.
 

@@ -1,6 +1,6 @@
 # Managed by skills-deploy (DEVS-125). Entries here are overwritten or removed by --apply;
 # every other skill or agent in this repo is project-owned and never touched.
-# library-version: e65c1c54f067
+# library-version: 7715fae9935f
 skill start
 skill wrap
 skill issue
@@ -27,4 +27,5 @@ ext codacy-code-review
 agent pr-discover
 agent pr-thread-resolver
 agent firecrawl-scraper
+rule code-core
 skill ui-mockup
