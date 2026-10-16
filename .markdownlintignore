@@ -16,3 +16,8 @@ docs/specs
 
 # Retired files kept verbatim for reference — not held to the repo markdownlint config
 .archive
+
+# Library-managed skills (DEVS-126) are deployed verbatim from Devops/skill-library; fix them in the master, not here
+.claude/skills
+.agents/skills
+.claude/agents

@@ -1,0 +1,30 @@
+# Managed by skills-deploy (DEVS-125). Entries here are overwritten or removed by --apply;
+# every other skill or agent in this repo is project-owned and never touched.
+# library-version: e65c1c54f067
+skill start
+skill wrap
+skill issue
+skill pr-resolve
+skill pr-cleanup
+skill vault-update
+skill discover
+skill context-drift
+skill setup-foundation-context
+skill spec
+skill spec-requirements
+skill spec-discovery
+skill spec-approach
+skill spec-tasks
+skill spec-review
+skill spec-reconcile
+skill requesting-code-review
+skill receiving-code-review
+skill verification-before-completion
+ext code-review
+ext codacy-analysis-cli
+ext codacy-cloud-cli
+ext codacy-code-review
+agent pr-discover
+agent pr-thread-resolver
+agent firecrawl-scraper
+skill ui-mockup

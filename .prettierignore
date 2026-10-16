@@ -21,3 +21,9 @@ docs/specs/
 
 # Retired files kept verbatim for reference
 .archive/
+
+# Library-managed skills (DEVS-126) are deployed verbatim from Devops/skill-library; reformatting makes them "edited"
+.claude/skills/
+.agents/skills/
+.claude/agents/
+.codex/agents/
