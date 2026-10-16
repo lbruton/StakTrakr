@@ -4019,12 +4019,12 @@ input[type="submit"] {
 
 .ife-frame[data-shape="slab"] {
   --ife-r: var(--frame-slab);
-  border-radius: 8px;
+  border-radius: var(--frame-radius-slab);
 }
 
 .ife-frame[data-shape="bar"] {
   --ife-r: var(--frame-bar-landscape);
-  border-radius: 6px;
+  border-radius: var(--frame-radius-bar);
 }
 
 .ife-frame[data-shape="bar"][data-orientation="portrait"] {
@@ -4033,7 +4033,7 @@ input[type="submit"] {
 
 .ife-frame[data-shape="note"] {
   --ife-r: var(--frame-note-landscape);
-  border-radius: 4px;
+  border-radius: var(--frame-radius-note);
 }
 
 .ife-frame[data-shape="note"][data-orientation="portrait"] {
@@ -18315,6 +18315,17 @@ input[type="number"] {
   --frame-note-portrait: calc(1 / 2.05);
   --frame-note-landscape: 2.05;
   --frame-slab: 0.68;
+  /* STRK-436: corner radius per shape. These are the CEILINGS (the editor's look at full
+     size); small renderers scale the radius down to --frame-radius-scale of the frame's short
+     side so a 16-22px thumb never turns into a pill. */
+  --frame-radius-bar: 6px;
+  --frame-radius-note: 4px;
+  --frame-radius-slab: 8px;
+  --frame-radius-scale: 0.12;
+  /* STRK-436: table thumb heights. Portrait Bar/Note get the taller box so their area
+     matches a round coin's; the row is sized for the taller box so every row is one height. */
+  --table-thumb-h: 28px;
+  --table-thumb-h-portrait: 36px;
 }
 
 .collections-coin--shape-bar {
@@ -20645,6 +20656,13 @@ input[type="number"] {
 }
 :is(.coin-img, .table-thumb, .view-image-slot)[data-shape="slab"] {
   --frame-r: var(--frame-slab);
+  --frame-radius-max: var(--frame-radius-slab);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"] {
+  --frame-radius-max: var(--frame-radius-bar);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"] {
+  --frame-radius-max: var(--frame-radius-note);
 }
 :is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="portrait"] {
   --frame-r: var(--frame-bar-portrait);
@@ -20675,7 +20693,8 @@ input[type="number"] {
 .card-a .cv-images-sm .coin-img[data-shape],
 .card-b .coin-img[data-shape],
 .card-c .coin-img[data-shape] {
-  width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  --frame-w: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  width: var(--frame-w);
   height: auto;
   aspect-ratio: var(--frame-r);
 }
@@ -20687,22 +20706,50 @@ input[type="number"] {
 .card-a .cv-images-sm .coin-img[data-shape]:not([data-shape="round"]),
 .card-b .coin-img[data-shape]:not([data-shape="round"]),
 .card-c .coin-img[data-shape]:not([data-shape="round"]) {
-  border-radius: var(--radius);
+  /* STRK-436: the shape's radius ceiling, scaled down to a share of the short side
+     (min(w, w / ratio)) so small frames stay rectangles, not pills. */
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-w) / var(--frame-r)) * var(--frame-radius-scale))
+  );
   background: transparent;
 }
 
-/* Table thumbs: 28px tall, ratio-derived width clamped to 16..40px (approved P2 clamp). */
+/* Table thumbs: ratio-derived width clamped to 16..40px (approved P2 clamp). Round, Slab and
+   landscape thumbs are 28px tall; STRK-436 gives portrait Bar/Note a 36px box so their area
+   matches a round coin's. */
 .table-thumb[data-shape] {
-  height: 28px;
-  width: clamp(16px, calc(28px * var(--frame-r)), 40px);
+  --frame-h: var(--table-thumb-h);
+  --frame-w: clamp(16px, calc(var(--frame-h) * var(--frame-r)), 40px);
+  height: var(--frame-h);
+  width: var(--frame-w);
+}
+.table-thumb[data-shape="bar"][data-orientation="portrait"],
+.table-thumb[data-shape="note"][data-orientation="portrait"] {
+  --frame-h: var(--table-thumb-h-portrait);
 }
 .table-thumb[data-shape="round"] {
   border-radius: 50%;
 }
 .table-thumb[data-shape]:not([data-shape="round"]) {
-  border-radius: var(--radius);
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-h)) * var(--frame-radius-scale))
+  );
   object-fit: contain;
   background: transparent;
+}
+/* One whole-pixel row height for every inventory row (42px): the taller portrait thumb plus
+   3px above and 3px below, the last of which is the cell's 1px collapsed bottom border. Rows
+   with and without portrait items never zig-zag. The image cell's padding is pinned in whole
+   pixels because the global td padding is a fractional 0.2rem. */
+#inventoryTable tbody tr {
+  height: calc(var(--table-thumb-h-portrait) + 6px);
+}
+#inventoryTable td[data-column="image"] {
+  padding-block: 3px 2px;
+  /* The thumbs are inline images; a zero line box stops the text strut adding a pixel. */
+  line-height: 0;
 }
 
 /* View modal: the slot's image box is 180px (Round) or 200x260 (every other frame). */
@@ -20733,7 +20780,8 @@ input[type="number"] {
 }
 .view-image-slot[data-shape]:not([data-shape="round"])[data-side] img,
 .view-image-slot[data-shape]:not([data-shape="round"])[data-side] .view-image-placeholder {
-  border-radius: var(--radius);
+  /* STRK-436: the shape's radius ceiling; this box is large enough to never scale it down. */
+  border-radius: var(--frame-radius-max);
 }
 
 @media (max-width: 768px) {

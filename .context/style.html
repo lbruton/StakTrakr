@@ -1709,9 +1709,21 @@
                 card C 80&times;56px, view modal 180px (Round) or 200&times;260px (other shapes).
               </li>
               <li>
-                <strong>Table thumb:</strong> 28px tall, width
-                <code>clamp(16px, 28px * ratio, 40px)</code>; the generated placeholder SVG is drawn
-                at that size and its cache key includes shape and orientation.
+                <strong>Table thumb:</strong> <code>--table-thumb-h</code> (28px) tall, or
+                <code>--table-thumb-h-portrait</code> (36px) for portrait Bar and Note (STRK-436),
+                width <code>clamp(16px, height * ratio, 40px)</code>. Every inventory row is one
+                42px height. The generated placeholder SVG is drawn at the thumb's own height and
+                width (<code>imageFrameThumbHeight</code> / <code>imageFrameThumbWidth</code> in
+                <code>js/image-frame.js</code>), so it fills the frame with no letterbox band, and
+                its cache key includes shape and orientation.
+              </li>
+              <li>
+                <strong>Corner radius (STRK-436):</strong> non-round frames use the per-shape
+                ceilings <code>--frame-radius-bar</code> (6px),
+                <code>--frame-radius-note</code> (4px) and <code>--frame-radius-slab</code> (8px),
+                scaled down to <code>--frame-radius-scale</code> (12%) of the frame's short side in
+                the table and cards, so small thumbs never round into pills. Never use the fixed
+                <code>var(--radius)</code> on a frame.
               </li>
               <li>
                 <strong>Photos:</strong> every non-round frame uses <code>object-fit: contain</code>

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.52] - 2026-10-15
+
+### Fixed — STRK-436: Portrait Bar and Note thumbnails are rectangles at full size
+
+- **No more pills**: Bar, Note and Slab images in the inventory table, the card views, the detail view and the item modal now get corner radii that scale with the frame's short side (per-shape `--frame-radius-*` ceilings), so small portrait thumbnails stay rectangles instead of rounding into pills (STRK-436).
+- **Portrait thumbs match coin size**: Portrait Bar and Note thumbnails in the table are now 36px tall, so they look about as big as a round coin. Every table row is one 42px height, at desktop and mobile widths. Round, Slab and landscape thumbnails are unchanged (STRK-436).
+
 ## [3.36.51] - 2026-10-15
 
 ### Fixed — STRK-438: Collection artwork no longer listed as orphaned images
