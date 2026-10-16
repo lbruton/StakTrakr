@@ -1,6 +1,6 @@
 # Managed by skills-deploy (DEVS-125). Entries here are overwritten or removed by --apply;
 # every other skill or agent in this repo is project-owned and never touched.
-# library-version: 51a6fba8ce50
+# library-version: e4ef48071b45
 skill start
 skill wrap
 skill issue
@@ -28,4 +28,7 @@ agent pr-discover
 agent pr-thread-resolver
 agent firecrawl-scraper
 rule code-core
+hook worktree-safety
+hook docvault-lint
+hook block-pr-merge
 skill ui-mockup

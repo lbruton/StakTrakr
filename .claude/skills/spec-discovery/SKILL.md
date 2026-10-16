@@ -7,7 +7,7 @@ allowed-tools: >-
   mcp__claude-context__search_code,
   mcp__context7__resolve-library-id,
   mcp__brave-search__brave_web_search
-library-version: 7715fae9935f
+library-version: e4ef48071b45
 ---
 
 # /spec-discovery ISSUE
