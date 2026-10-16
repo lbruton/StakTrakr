@@ -3071,26 +3071,45 @@ const createThumbEl = (src, alt) => {
  * Collection cover and Slot artwork shares the store under `collection--<id>[--<slot>]`
  * ids and is referenced by the Collections store instead, so it is judged by the
  * same `collectionsCore.isCurrentArtwork` check backup, vault and sync use. A
- * Collection record that cannot be verified (Collections modules missing or the
- * check throwing) is never reported — it must not be offered for deletion.
+ * Collection record that cannot be verified (Collections modules missing, no
+ * state supplied, or the check throwing) is never reported — it must not be
+ * offered for deletion.
  * @param {{ruleId: string, cachedAt?: number|string, digest?: string}} rec - patternImages record.
  * @param {Set<string>} referenced - seedImageIds of the current custom Numista rules.
+ * @param {Object|null} collectionsState - Collections state read from storage by
+ *   `_persistedCollectionsState`; required to judge a `collection--` record.
  * @returns {boolean} True when the record is safe to offer for deletion.
  */
-const _isOrphanedPatternImage = (rec, referenced) => {
+const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
   if (!rec || !rec.ruleId || referenced.has(rec.ruleId)) return false;
   if (!String(rec.ruleId).startsWith("collection--")) return true;
 
   const core = window.collectionsCore;
-  const store = window.collectionsStore;
-  if (!core || typeof core.isCurrentArtwork !== "function") return false;
-  if (!store || typeof store.getState !== "function") return false;
+  if (!core || typeof core.isCurrentArtwork !== "function" || !collectionsState) return false;
   try {
-    return !core.isCurrentArtwork(store.getState(), rec.ruleId, rec.cachedAt, rec.digest);
+    return !core.isCurrentArtwork(collectionsState, rec.ruleId, rec.cachedAt, rec.digest);
   } catch (err) {
     console.warn("Settings: could not verify Collection artwork", rec.ruleId, err);
     return false;
   }
+};
+
+/**
+ * Reads the Collections state from storage rather than trusting this tab's
+ * memoized copy: the store has no cross-tab listener, so another tab's cloud pull
+ * or restore can change who owns an image without this tab noticing (STRK-438).
+ * Mutations persist synchronously, so storage is always the current authority.
+ * @returns {Object|null} Freshly hydrated state, or null when it cannot be read.
+ */
+const _persistedCollectionsState = () => {
+  const store = window.collectionsStore;
+  try {
+    if (store && typeof store.load === "function") return store.load();
+    if (store && typeof store.getState === "function") return store.getState();
+  } catch (err) {
+    console.warn("Settings: could not read Collections state", err);
+  }
+  return null;
 };
 
 /**
@@ -3112,9 +3131,10 @@ const _referencedPatternImageIds = () =>
  * inside the same IndexedDB transaction as the delete (`deletePatternImageIf`), so
  * a write that lands between check and delete is serialized around it instead of
  * being removed. The stored record must also be the exact record that was listed
- * (same `cachedAt`, `digest` and `size`): this tab's Collections state cannot see a
- * write from another tab, and an upload stores its image before its artwork stamp,
- * so a replacement is never reclassified here — it is left for the next scan.
+ * (same `cachedAt`, `digest` and `size`), so a replacement is never reclassified
+ * here — it is left for the next scan. Ownership is judged against Collections
+ * state read from storage immediately before the transaction opens, because a
+ * restore in another tab can change the owner without changing the record.
  * @param {{ruleId: string, cachedAt?: number|string, digest?: string, size?: number}} rec -
  *   Record from the rendered orphan list.
  * @returns {Promise<boolean>} True when the record was deleted; false when it was
@@ -3122,13 +3142,14 @@ const _referencedPatternImageIds = () =>
  */
 const _deleteOrphanIfStillOrphaned = (rec) => {
   const referenced = _referencedPatternImageIds();
+  const collectionsState = _persistedCollectionsState();
   return imageCache.deletePatternImageIf(
     rec.ruleId,
     (current) =>
       current.cachedAt === rec.cachedAt &&
       current.digest === rec.digest &&
       current.size === rec.size &&
-      _isOrphanedPatternImage(current, referenced)
+      _isOrphanedPatternImage(current, referenced, collectionsState)
   );
 };
 
@@ -3223,7 +3244,10 @@ const renderOrphanedPatternImages = async () => {
   }
 
   const referenced = _referencedPatternImageIds();
-  const orphans = records.filter((rec) => _isOrphanedPatternImage(rec, referenced));
+  const collectionsState = _persistedCollectionsState();
+  const orphans = records.filter((rec) =>
+    _isOrphanedPatternImage(rec, referenced, collectionsState)
+  );
 
   if (!orphans.length) {
     container.innerHTML = emptyMsg;

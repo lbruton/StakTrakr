@@ -588,6 +588,41 @@ test.describe("core/settings-search-images", () => {
     expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
   });
 
+  // Another tab can change who owns a listed record without touching the record
+  // itself (a cloud pull merges Collection state, then restores identical images).
+  // The Collections store has no cross-tab listener, so Delete reads the persisted
+  // state afresh instead of trusting this tab's memoized copy.
+  test("Delete all re-reads Collections state that another tab changed after the scan", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Restored Set",
+      slotLabels: ["Iota"],
+    });
+    await page.evaluate((id) => window.collectionsStore.remove(id), art.collectionId);
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+
+    // The other tab restores the Collection: persisted state changes, this tab's
+    // in-memory copy (and the image records) stay exactly as they were.
+    await page.evaluate((id) => {
+      const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
+      state.collections[id].deletedAt = null;
+      saveDataSync(COLLECTION_STATE_KEY, state);
+    }, art.collectionId);
+
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+
+    await expect(container).toContainText("No orphaned pattern images");
+    expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
+  });
+
   // The re-check and the delete must be ONE IndexedDB transaction: a separate
   // get-then-delete leaves a window in which a sync restore or another tab can
   // replace the record, and the delete then removes the newer one (STRK-438).

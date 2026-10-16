@@ -196,10 +196,12 @@ its stamp, is orphaned. The list is a snapshot, so each delete re-runs the same 
 transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serialized around
 the delete rather than removed by it. The stored record must also still match the listed one
 (`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
-reclassified, because this tab's Collections state cannot see other tabs' writes and an
-upload stores its image before its artwork stamp. Deleting an orphan never writes an artwork
-stamp: a tombstone stamped at delete time would out-rank newer art on another device in a
-merge.
+reclassified, because an upload stores its image before its artwork stamp. Ownership is read
+from persisted state (`collectionsStore.load()`, not the memoized `getState()`) at scan and
+at delete time, because the store has no cross-tab listener and another tab's cloud restore
+can change who owns an image without changing the record. Deleting an orphan never writes
+an artwork stamp: a tombstone stamped at delete time would out-rank newer art on another
+device in a merge.
 
 ### Internal resize/compress path
 
