@@ -1,7 +1,7 @@
 ---
 name: ui-mockup
 description: Playground prototype for new UI components where layout or visual hierarchy is uncertain.
-library-version: e65c1c54f067
+library-version: 7715fae9935f
 ---
 
 # UI Mockup — Playground Prototyping
