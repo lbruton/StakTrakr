@@ -623,23 +623,31 @@ test.describe("core/settings-search-images", () => {
     expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
   });
 
-  // loadDataSync swallows parse errors, so an unreadable collectionState looks like
-  // "no Collections at all". Reading it must preserve the failure and fail closed
-  // instead of presenting every Collection image as orphaned.
-  test("Collection artwork is never listed when the persisted Collections state is unreadable", async ({
-    page,
-  }) => {
-    await bootCleanPatternImageStore(page);
-    await seedCollectionArtwork(page, { name: "STRK-438 Corrupt Set", slotLabels: ["Kappa"] });
-    await page.evaluate(() => localStorage.setItem("collectionState", "{not valid json"));
+  // loadDataSync swallows parse errors, and normalizeState turns any wrong shape into
+  // an empty state, so a damaged collectionState looks like "no Collections at all".
+  // Every unusable persisted value must fail closed instead of presenting every
+  // Collection image as orphaned.
+  for (const [label, persisted] of [
+    ["is unreadable JSON", "{not valid json"],
+    ["is an empty object", "{}"],
+    ["is a bare array", "[]"],
+    ["has a non-map collections field", '{"collections":[]}'],
+  ]) {
+    test(`Collection artwork is never listed when the persisted Collections state ${label}`, async ({
+      page,
+    }) => {
+      await bootCleanPatternImageStore(page);
+      await seedCollectionArtwork(page, { name: "STRK-438 Damaged Set", slotLabels: ["Kappa"] });
+      await page.evaluate((value) => localStorage.setItem("collectionState", value), persisted);
 
-    await openSettingsModal(page);
-    await openSettingsSection(page, "images", "#settingsPanel_images");
+      await openSettingsModal(page);
+      await openSettingsSection(page, "images", "#settingsPanel_images");
 
-    const container = page.locator("#orphanedPatternImages");
-    await expect(container).toContainText("No orphaned pattern images");
-    await expect(container).not.toContainText("collection--");
-  });
+      const container = page.locator("#orphanedPatternImages");
+      await expect(container).toContainText("No orphaned pattern images");
+      await expect(container).not.toContainText("collection--");
+    });
+  }
 
   // Judging ownership must not swap the shared store's state under open views:
   // load() replaces it without a change event, so Collections screens would keep

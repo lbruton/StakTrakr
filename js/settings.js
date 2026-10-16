@@ -3119,7 +3119,10 @@ const _persistedCollectionsState = () => {
     if (localStorage.getItem(key) === null) return core.normalizeState(null);
     const unreadable = {};
     const parsed = loadDataSync(key, unreadable);
-    if (parsed === unreadable || parsed === null || typeof parsed !== "object") return null;
+    // normalizeState() turns ANY wrong shape into an empty state, so the shape is
+    // checked here first: a persisted state must be an object holding a `collections` map.
+    const isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    if (parsed === unreadable || !isMap(parsed) || !isMap(parsed.collections)) return null;
     return core.normalizeState(parsed);
   } catch (err) {
     console.warn("Settings: could not read Collections state", err);

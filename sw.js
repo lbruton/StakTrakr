@@ -25,7 +25,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 // base the relative "./" cache keys resolve against.
 const SW_SCOPE_PATH = new URL("./", self.location.href).pathname;
 
-const CACHE_NAME = "staktrakr-v3.36.51-b1792109939";
+const CACHE_NAME = "staktrakr-v3.36.51-b1792110219";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
