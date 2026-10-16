@@ -3111,15 +3111,24 @@ const _referencedPatternImageIds = () =>
  * is re-judged immediately before it is removed (STRK-438). The re-check runs
  * inside the same IndexedDB transaction as the delete (`deletePatternImageIf`), so
  * a write that lands between check and delete is serialized around it instead of
- * being removed.
- * @param {{ruleId: string}} rec - Record from the rendered orphan list.
+ * being removed. The stored record must also be the exact record that was listed
+ * (same `cachedAt`, `digest` and `size`): this tab's Collections state cannot see a
+ * write from another tab, and an upload stores its image before its artwork stamp,
+ * so a replacement is never reclassified here — it is left for the next scan.
+ * @param {{ruleId: string, cachedAt?: number|string, digest?: string, size?: number}} rec -
+ *   Record from the rendered orphan list.
  * @returns {Promise<boolean>} True when the record was deleted; false when it was
- *   already gone or is no longer an orphan.
+ *   already gone, was replaced since the scan, or is no longer an orphan.
  */
 const _deleteOrphanIfStillOrphaned = (rec) => {
   const referenced = _referencedPatternImageIds();
-  return imageCache.deletePatternImageIf(rec.ruleId, (current) =>
-    _isOrphanedPatternImage(current, referenced)
+  return imageCache.deletePatternImageIf(
+    rec.ruleId,
+    (current) =>
+      current.cachedAt === rec.cachedAt &&
+      current.digest === rec.digest &&
+      current.size === rec.size &&
+      _isOrphanedPatternImage(current, referenced)
   );
 };
 

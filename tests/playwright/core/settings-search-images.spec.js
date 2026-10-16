@@ -551,6 +551,43 @@ test.describe("core/settings-search-images", () => {
     });
   }
 
+  // A record replaced after the scan (another tab, a sync restore) must never be
+  // deleted on the strength of the old listing — even when this tab's Collections
+  // state would still classify the replacement as an orphan (the store does not see
+  // other tabs' writes, and an upload writes the image before its artwork stamp).
+  test("Delete all keeps a record that was replaced after the scan", async ({ page }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Replaced Set",
+      slotLabels: ["Theta"],
+    });
+    await page.evaluate((id) => window.collectionsStore.remove(id), art.collectionId);
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+
+    // Another tab replaces every listed record; this tab still calls them orphans.
+    await page.evaluate(async (ids) => {
+      for (const id of ids) {
+        const rec = await window.imageCache.getPatternImage(id);
+        await window.imageCache.importPatternImageRecord({
+          ...rec,
+          cachedAt: rec.cachedAt + 5000,
+          digest: `replaced-${id}`,
+        });
+      }
+    }, art.imageIds);
+
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+
+    await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+    expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
+  });
+
   // The re-check and the delete must be ONE IndexedDB transaction: a separate
   // get-then-delete leaves a window in which a sync restore or another tab can
   // replace the record, and the delete then removes the newer one (STRK-438).
