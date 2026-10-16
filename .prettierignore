@@ -78,3 +78,9 @@ docs/specs/
 .codex/agents/pr-thread-resolver.toml
 .claude/agents/firecrawl-scraper.md
 .codex/agents/firecrawl-scraper.toml
+
+# Library-managed rules (DEVS-127): deployed verbatim from Devops/skill-library; prettier reflow makes skills-deploy --check report them as edited/stale.
+.claude/rules/
+.agents/rules/
+# AGENTS.md carries the skills-deploy rules block, whose blank lines prettier strips
+AGENTS.md
