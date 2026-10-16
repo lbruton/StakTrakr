@@ -94,6 +94,8 @@ The Add/Edit Item modal and the Custom Collection builder frame images with two 
 
 ### AC-9 Renderers (US-7)
 - AC-9.1 [P2] The inventory table, card view and view modal SHALL frame item images with the shape and orientation classes on the shared ratio tokens instead of `=== "rect"` / natural aspect.
+
+  > **Amendment (STRK-436, v3.36.52, 2026-10-15):** the "table thumb stays 28px tall" pin is superseded for **portrait Bar and Note** frames only. Those thumbs are now 36px tall (`--table-thumb-h-portrait`), so their area matches a 28px round coin, and every inventory row is a single 42px height. Round, Slab and landscape thumbs stay 28px tall, and the 16..40px width clamp is unchanged. Non-round corner radii now scale with the frame's short side (`--frame-radius-*` ceilings × `--frame-radius-scale`) instead of the fixed `var(--radius)`. The `image-frame-renderers.spec.js` AC-9.1 assertion for the portrait Bar was re-baselined to 36px in the same PR.
 - AC-9.2 [P2] The table thumb placeholder SHALL follow the same frame.
 - AC-9.3 [P2] A legacy rect item SHALL render in the Bar or Note frame its resolver output implies, checked in all four themes.
 - AC-9.4 [P2, regression guard] WHERE a Custom Collection Slot shows a linked Item's photo, the collection's shape SHALL ~~govern~~ continue to govern the Slot frame (album grid stays uniform); P2 SHALL pin this with a test and SHALL NOT change it.

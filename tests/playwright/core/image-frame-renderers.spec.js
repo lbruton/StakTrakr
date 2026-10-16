@@ -119,11 +119,13 @@ test.describe("core/image-frame-renderers (STRK-427 P2)", () => {
     expect(Math.round(round.h)).toBe(28);
     expect(Math.round(round.w)).toBe(28);
 
+    // STRK-436 re-baseline (supersedes AC-9.1 for portrait frames only): a portrait Bar is
+    // 36px tall so its area matches a 28px coin; width stays ratio-derived (36 * 0.6 = 21.6).
     const bar = await frameOf(thumbOf(page, "fr-bar"));
     expect(bar).toMatchObject({ shape: "bar", orientation: "portrait", fit: "contain" });
-    expect(Math.round(bar.h)).toBe(28);
-    expect(bar.w).toBeGreaterThanOrEqual(16);
-    expect(bar.w).toBeLessThanOrEqual(18);
+    expect(Math.round(bar.h)).toBe(36);
+    expect(bar.w).toBeGreaterThanOrEqual(21);
+    expect(bar.w).toBeLessThanOrEqual(22.5);
     expect(bar.className).toContain("table-thumb-rect");
 
     const note = await frameOf(thumbOf(page, "fr-note"));
@@ -314,5 +316,147 @@ test.describe("core/image-frame-renderers (STRK-427 P2)", () => {
     await expect(slotCoin.locator("img")).toBeVisible();
     await expect(slotCoin).toHaveClass(/collections-coin--shape-bar/);
     await expect(slotCoin).toHaveClass(/collections-coin--portrait/);
+  });
+});
+
+// STRK-436: corner radius scales with the frame's short side (no pills), portrait Bar/Note
+// table thumbs grow to 36px tall, and every inventory row keeps one height.
+const SIZE_ITEMS = {
+  round: coin("sz-round", 1),
+  barPortrait: coin("sz-bar", 2, { type: "Bar" }),
+  notePortrait: coin("sz-note-p", 3, { imageShape: "note", obverseImageOrientation: "portrait" }),
+  noteLandscape: coin("sz-note-l", 4, { imageShape: "note" }),
+  slab: coin("sz-slab", 5, { gradingAuthority: "PCGS", grade: "MS 70" }),
+};
+const NON_ROUND = ["sz-bar", "sz-note-p", "sz-note-l", "sz-slab"];
+const THEMES = ["light", "dark", "slate", "sepia"];
+
+/**
+ * Corner radius against the short side of an element's rendered box.
+ * @param {import('@playwright/test').Locator} locator - Framed element.
+ * @returns {Promise<{radius: number, short: number, w: number, h: number}>}
+ */
+const cornerOf = (locator) =>
+  locator.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return {
+      radius: parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0,
+      short: Math.min(box.width, box.height),
+      w: box.width,
+      h: box.height,
+    };
+  });
+
+/**
+ * Assert a non-round frame's radius is at most 15% of its short side.
+ * @param {import('@playwright/test').Locator} locator - Framed element.
+ * @param {string} label - Assertion label.
+ * @returns {Promise<void>}
+ */
+async function expectSquareish(locator, label) {
+  const corner = await cornerOf(locator);
+  expect(corner.short, `${label} rendered`).toBeGreaterThan(0);
+  expect(
+    corner.radius,
+    `${label} radius ${corner.radius} vs short ${corner.short}`
+  ).toBeLessThanOrEqual(corner.short * 0.15 + 0.01);
+}
+
+const setTheme = (page, theme) =>
+  page.evaluate((name) => document.documentElement.setAttribute("data-theme", name), theme);
+
+test.describe("core/image-frame-renderers sizing (STRK-436)", () => {
+  test("table: non-round thumbs are not pills and portrait Bar/Note grow to 36px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await boot(page, Object.values(SIZE_ITEMS).map(withImages), { style: "D", sides: "obverse" });
+    await expect(thumbOf(page, "sz-round")).toHaveCount(1);
+
+    for (const theme of THEMES) {
+      await setTheme(page, theme);
+      for (const uuid of NON_ROUND) await expectSquareish(thumbOf(page, uuid), `${theme} ${uuid}`);
+      const round = await cornerOf(thumbOf(page, "sz-round"));
+      expect(round.radius, `${theme} round stays a circle`).toBeGreaterThanOrEqual(
+        round.short / 2 - 0.5
+      );
+    }
+
+    const round = await frameOf(thumbOf(page, "sz-round"));
+    const bar = await frameOf(thumbOf(page, "sz-bar"));
+    const noteP = await frameOf(thumbOf(page, "sz-note-p"));
+    const noteL = await frameOf(thumbOf(page, "sz-note-l"));
+    const slab = await frameOf(thumbOf(page, "sz-slab"));
+    expect(Math.round(bar.h)).toBe(36);
+    expect(Math.round(noteP.h)).toBe(36);
+    expect(noteP.w).toBeCloseTo(36 / 2.05, 0);
+    expect(Math.round(noteL.h)).toBe(28);
+    expect(Math.round(slab.h)).toBe(28);
+    expect(Math.round(round.h)).toBe(28);
+    const areaRatio = (bar.w * bar.h) / (round.w * round.h);
+    expect(areaRatio).toBeGreaterThan(0.85);
+    expect(areaRatio).toBeLessThan(1.15);
+  });
+
+  test("table: every row is one height (≤42px at 1280px) and the image cell clips nothing", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // One item with no image at all, so a row without a portrait thumb is in the mix.
+    await boot(page, [...Object.values(SIZE_ITEMS).map(withImages), coin("sz-plain", 6)], {
+      style: "D",
+      sides: "obverse",
+    });
+    await expect(thumbOf(page, "sz-bar")).toHaveCount(1);
+    const report = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("#inventoryTable tbody tr")].filter(
+        (row) => row.offsetParent !== null
+      );
+      const heights = rows.map((row) => Math.round(row.getBoundingClientRect().height));
+      const clipped = [...document.querySelectorAll("#inventoryTable .table-thumb")].filter(
+        (img) => {
+          const cell = img.closest("td").getBoundingClientRect();
+          const box = img.getBoundingClientRect();
+          return box.top < cell.top - 0.5 || box.bottom > cell.bottom + 0.5;
+        }
+      ).length;
+      return { heights, clipped };
+    });
+    expect(report.heights.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(report.heights).size, `row heights ${report.heights}`).toBe(1);
+    expect(report.heights[0]).toBeLessThanOrEqual(42);
+    expect(report.clipped).toBe(0);
+  });
+
+  for (const style of ["A", "B", "C"]) {
+    test(`card ${style}: non-round frames keep square-ish corners in every theme`, async ({
+      page,
+    }) => {
+      await boot(page, Object.values(SIZE_ITEMS).map(withImages), { style });
+      await expect(cardCoinOf(page, style, "sz-bar")).toHaveCount(1);
+      for (const theme of THEMES) {
+        await setTheme(page, theme);
+        for (const uuid of NON_ROUND) {
+          await expectSquareish(cardCoinOf(page, style, uuid), `${style} ${theme} ${uuid}`);
+        }
+      }
+    });
+  }
+
+  test("view modal and item modal frames keep square-ish corners", async ({ page }) => {
+    await boot(page, [withImages(SIZE_ITEMS.notePortrait)], { style: "D" });
+    await page.evaluate(() => window.showViewModal(0));
+    const viewImg = page.locator('#viewItemModal .view-image-slot[data-side="obverse"] img');
+    await expect(viewImg).toBeVisible();
+    await expectSquareish(viewImg, "view modal note portrait");
+    await page.evaluate(() => window.closeModalById && window.closeModalById("viewItemModal"));
+    await page.evaluate(() => {
+      const modal = document.getElementById("viewItemModal");
+      if (modal) modal.style.display = "none";
+      window.editItem(0);
+    });
+    const frame = page.locator("#itemModal .ife .ife-frame").first();
+    await expect(frame).toBeVisible();
+    await expectSquareish(frame, "item modal note portrait");
   });
 });
