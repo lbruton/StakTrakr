@@ -138,7 +138,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Version-bump PRs: ensure Tailscale is active.
 - `dev → main` shipping: invoke `/ship` only on explicit user approval.
 - Cloud or infrastructure claims: read the matching `.context/` doc before speculating.
-- Fly.io or home poller secret claims: verify through Infisical with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken.
+- Fly.io or home poller secret claims: verify with `infisical-agent secrets get <KEY> --plain | shasum -a 256` (compare by hash, never print values); it reads `projectId`/env from `.claude/project.json` → `infisical`. Fallback: the Infisical MCP with that `projectId`, the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`).
 - Cron schedule claims: grep `devops/pollers/home-poller/docker-entrypoint.sh`.
 
 ## Commit And PR Style

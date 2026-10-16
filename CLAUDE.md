@@ -166,7 +166,7 @@ ESLint config all live there.
 - **Before writing any JavaScript** → read `.context/coding-standards.md`.
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` and `/retail-poller` first.
 - **Before speculating on infra failure mode** → read the matching `.context/` doc.
-- **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken, so discovery is unavailable.
+- **Before claiming what env/secret is set on Fly.io or home poller** → `infisical-agent secrets get <KEY> --plain | shasum -a 256` (compare by hash, never print values); it reads `projectId`/env from `.claude/project.json` → `infisical`. Fallback: `mcp__infisical__get-secret` with that `projectId`, the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`).
 - **Before any version-bump PR**:
   - Run `/update-spot-bundle`.
   - Ensure Tailscale is active.
