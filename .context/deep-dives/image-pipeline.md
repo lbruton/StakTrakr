@@ -199,15 +199,17 @@ the delete rather than removed by it. The stored record must also still match th
 reclassified, because an upload stores its image before its artwork stamp. Ownership is read
 from a private snapshot of the persisted state (`_persistedCollectionsState`, normalized with
 `collectionsCore.normalizeState`; never the memoized `getState()` and never
-`collectionsStore.load()`, which swaps the shared state without a change event) at scan and
-at delete time, because the store has no cross-tab listener and another tab's cloud restore
+`collectionsStore.load()`, which swaps the shared state without a change event) at scan time
+and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
+its transaction opens and the store has no cross-tab listener: another tab's cloud restore
 can change who owns an image without changing the record. `loadDataSync` swallows parse
 errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
-sentinel default and checks the shape (an object holding a `collections` map), and it also
-refuses a snapshot from which normalization dropped an entry (a null entry, or an `id` that
-differs from its key), because that Collection could still own stored artwork: an unreadable,
-wrongly shaped or partly damaged value returns `null` and fails closed instead of reading as
-"no Collections". Only an absent key means no Collections. Deleting an orphan never writes an artwork
+sentinel default and checks the shape (an object holding a `collections` map), refuses a
+snapshot from which normalization dropped an entry (a null entry, or an `id` that differs
+from its key), and refuses a retained artwork stamp whose `present` is not a boolean
+(`normalizeState` would coerce it to `false`). That Collection could still own stored
+artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
+closed instead of reading as "no Collections". Only an absent key means no Collections. Deleting an orphan never writes an artwork
 stamp: a tombstone stamped at delete time would out-rank newer art on another device in a
 merge.
 

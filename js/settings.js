@@ -3095,6 +3095,28 @@ const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
 };
 
 /**
+ * Whether any persisted artwork stamp is damaged in a way `normalizeState` would
+ * quietly repair. A stamp that still carries a `modified` time but whose `present`
+ * is not a boolean (for example the string "true") is coerced to `present: false`,
+ * which would turn a recoverable live stamp into an "orphaned" blob (STRK-438).
+ * @param {Object} collections - Raw persisted `collections` map.
+ * @returns {boolean} True when any retained stamp has a non-boolean `present`.
+ */
+const _hasDamagedArtworkStamp = (collections) =>
+  Object.values(collections).some((collection) => {
+    const artwork = collection && typeof collection === "object" ? collection.artwork : null;
+    if (!artwork || typeof artwork !== "object" || Array.isArray(artwork)) return false;
+    return Object.values(artwork).some(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        typeof entry.modified === "string" &&
+        entry.modified !== "" &&
+        typeof entry.present !== "boolean"
+    );
+  });
+
+/**
  * Reads a private snapshot of the Collections state from storage rather than
  * trusting this tab's memoized copy: the store has no cross-tab listener, so
  * another tab's cloud pull or restore can change who owns an image without this
@@ -3123,6 +3145,7 @@ const _persistedCollectionsState = () => {
     // checked here first: a persisted state must be an object holding a `collections` map.
     const isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (parsed === unreadable || !isMap(parsed) || !isMap(parsed.collections)) return null;
+    if (_hasDamagedArtworkStamp(parsed.collections)) return null;
     // Normalization also drops a damaged entry (not an object, or an id that differs
     // from its key). That Collection could still own stored artwork, so a dropped
     // entry makes the whole snapshot unusable rather than quietly "unknown".
@@ -3155,26 +3178,25 @@ const _referencedPatternImageIds = () =>
  * a write that lands between check and delete is serialized around it instead of
  * being removed. The stored record must also be the exact record that was listed
  * (same `cachedAt`, `digest` and `size`), so a replacement is never reclassified
- * here — it is left for the next scan. Ownership is judged against Collections
- * state read from storage immediately before the transaction opens, because a
- * restore in another tab can change the owner without changing the record.
+ * here — it is left for the next scan. Ownership and the Numista rule references
+ * are read from storage INSIDE the predicate, at the moment the delete is decided:
+ * `deletePatternImageIf` awaits the database before its transaction opens, so a
+ * snapshot taken before the call can be stale, and a restore in another tab can
+ * change the owner without changing the record.
  * @param {{ruleId: string, cachedAt?: number|string, digest?: string, size?: number}} rec -
  *   Record from the rendered orphan list.
  * @returns {Promise<boolean>} True when the record was deleted; false when it was
  *   already gone, was replaced since the scan, or is no longer an orphan.
  */
-const _deleteOrphanIfStillOrphaned = (rec) => {
-  const referenced = _referencedPatternImageIds();
-  const collectionsState = _persistedCollectionsState();
-  return imageCache.deletePatternImageIf(
+const _deleteOrphanIfStillOrphaned = (rec) =>
+  imageCache.deletePatternImageIf(
     rec.ruleId,
     (current) =>
       current.cachedAt === rec.cachedAt &&
       current.digest === rec.digest &&
       current.size === rec.size &&
-      _isOrphanedPatternImage(current, referenced, collectionsState)
+      _isOrphanedPatternImage(current, _referencedPatternImageIds(), _persistedCollectionsState())
   );
-};
 
 /**
  * Builds one orphaned-image row (dual thumbnails, key + size, delete button).

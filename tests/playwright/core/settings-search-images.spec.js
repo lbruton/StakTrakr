@@ -655,6 +655,73 @@ test.describe("core/settings-search-images", () => {
     });
   }
 
+  // normalizeState() keeps a Collection whose artwork entry is damaged and coerces a
+  // non-boolean `present` to false, which would turn a recoverable live stamp into an
+  // "orphaned" blob. A damaged ownership-bearing entry must fail closed too.
+  test("Collection artwork is never listed when a persisted artwork stamp has a non-boolean present", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Coerced Set",
+      slotLabels: ["Mu"],
+    });
+    await page.evaluate((id) => {
+      const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
+      for (const entry of Object.values(state.collections[id].artwork)) entry.present = "true";
+      saveDataSync(COLLECTION_STATE_KEY, state);
+    }, art.collectionId);
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("No orphaned pattern images");
+    await expect(container).not.toContainText("collection--");
+  });
+
+  // deletePatternImageIf() awaits the database before its transaction opens, so a
+  // snapshot taken before that call can be stale by the time the predicate runs.
+  // Ownership is read inside the predicate, at the moment the delete is decided.
+  test("Delete all reads ownership at the moment of the delete, not before opening the transaction", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Late Restore Set",
+      slotLabels: ["Nu"],
+    });
+    await page.evaluate((id) => window.collectionsStore.remove(id), art.collectionId);
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText(`${art.imageIds.length} orphaned images`);
+
+    // Another tab restores the Collection while the delete is waiting on the database.
+    await page.evaluate((id) => {
+      const cache = window.imageCache;
+      const original = cache._ensureDb.bind(cache);
+      let restored = false;
+      cache._ensureDb = async (...args) => {
+        if (!restored) {
+          restored = true;
+          const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
+          state.collections[id].deletedAt = null;
+          saveDataSync(COLLECTION_STATE_KEY, state);
+        }
+        return original(...args);
+      };
+    }, art.collectionId);
+
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+
+    await expect(container).toContainText("No orphaned pattern images");
+    expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
+  });
+
   // Judging ownership must not swap the shared store's state under open views:
   // load() replaces it without a change event, so Collections screens would keep
   // painting the old state while later interactions read the new one.
