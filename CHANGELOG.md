@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.51] - 2026-10-15
+
+### Fixed — STRK-438: Collection artwork no longer listed as orphaned images
+
+- **Live Collection art is left alone**: Settings ▸ Images ▸ Orphaned Pattern Images no longer lists the cover and Slot artwork of your Custom Collections as orphans, so "Delete" and "Delete all" can no longer remove it. Artwork that belongs to a removed Collection, or a stale local copy superseded by newer art, is still listed and can be cleared. If the Collections data cannot be consulted, no Collection artwork is offered for deletion (STRK-438).
+
 ## [3.36.50] - 2026-10-15
 
 ### Fixed — STRK-437: Duplicates keep your customised catalog fields
