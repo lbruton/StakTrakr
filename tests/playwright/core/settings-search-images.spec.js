@@ -655,30 +655,39 @@ test.describe("core/settings-search-images", () => {
     });
   }
 
-  // normalizeState() keeps a Collection whose artwork entry is damaged and coerces a
-  // non-boolean `present` to false, which would turn a recoverable live stamp into an
-  // "orphaned" blob. A damaged ownership-bearing entry must fail closed too.
-  test("Collection artwork is never listed when a persisted artwork stamp has a non-boolean present", async ({
-    page,
-  }) => {
-    await bootCleanPatternImageStore(page);
-    const art = await seedCollectionArtwork(page, {
-      name: "STRK-438 Coerced Set",
-      slotLabels: ["Mu"],
+  // normalizeState() keeps a Collection whose artwork entry is damaged: it coerces a
+  // non-boolean `present` to false and keeps any non-empty `modified` string as is,
+  // which turns a recoverable live stamp into an "orphaned" blob. A damaged
+  // ownership-bearing entry must fail closed too.
+  for (const [label, field, damaged] of [
+    ["a non-boolean present", "present", "true"],
+    ["a malformed modified timestamp", "modified", "corrupt"],
+  ]) {
+    test(`Collection artwork is never listed when a persisted artwork stamp has ${label}`, async ({
+      page,
+    }) => {
+      await bootCleanPatternImageStore(page);
+      const art = await seedCollectionArtwork(page, {
+        name: "STRK-438 Coerced Set",
+        slotLabels: ["Mu"],
+      });
+      await page.evaluate(
+        ({ id, key, value }) => {
+          const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
+          for (const entry of Object.values(state.collections[id].artwork)) entry[key] = value;
+          saveDataSync(COLLECTION_STATE_KEY, state);
+        },
+        { id: art.collectionId, key: field, value: damaged }
+      );
+
+      await openSettingsModal(page);
+      await openSettingsSection(page, "images", "#settingsPanel_images");
+
+      const container = page.locator("#orphanedPatternImages");
+      await expect(container).toContainText("No orphaned pattern images");
+      await expect(container).not.toContainText("collection--");
     });
-    await page.evaluate((id) => {
-      const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
-      for (const entry of Object.values(state.collections[id].artwork)) entry.present = "true";
-      saveDataSync(COLLECTION_STATE_KEY, state);
-    }, art.collectionId);
-
-    await openSettingsModal(page);
-    await openSettingsSection(page, "images", "#settingsPanel_images");
-
-    const container = page.locator("#orphanedPatternImages");
-    await expect(container).toContainText("No orphaned pattern images");
-    await expect(container).not.toContainText("collection--");
-  });
+  }
 
   // deletePatternImageIf() awaits the database before its transaction opens, so a
   // snapshot taken before that call can be stale by the time the predicate runs.

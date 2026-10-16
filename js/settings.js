@@ -3096,11 +3096,15 @@ const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
 
 /**
  * Whether any persisted artwork stamp is damaged in a way `normalizeState` would
- * quietly repair. A stamp that still carries a `modified` time but whose `present`
- * is not a boolean (for example the string "true") is coerced to `present: false`,
- * which would turn a recoverable live stamp into an "orphaned" blob (STRK-438).
+ * quietly repair or keep. A stamp that still carries a `modified` string is
+ * retained by normalization, so it is checked here: a `present` that is not a
+ * boolean (for example the string "true") is coerced to `present: false`, and a
+ * `modified` that is not a parseable timestamp (for example "corrupt") is compared
+ * lexically by `isCurrentArtwork`. Either would turn a recoverable live stamp into
+ * an "orphaned" blob (STRK-438).
  * @param {Object} collections - Raw persisted `collections` map.
- * @returns {boolean} True when any retained stamp has a non-boolean `present`.
+ * @returns {boolean} True when any retained stamp has a non-boolean `present` or a
+ *   `modified` value that is not a finite timestamp.
  */
 const _hasDamagedArtworkStamp = (collections) =>
   Object.values(collections).some((collection) => {
@@ -3112,7 +3116,7 @@ const _hasDamagedArtworkStamp = (collections) =>
         typeof entry === "object" &&
         typeof entry.modified === "string" &&
         entry.modified !== "" &&
-        typeof entry.present !== "boolean"
+        (typeof entry.present !== "boolean" || !Number.isFinite(Date.parse(entry.modified)))
     );
   });
 
