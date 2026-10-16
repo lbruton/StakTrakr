@@ -626,12 +626,18 @@ test.describe("core/settings-search-images", () => {
   // loadDataSync swallows parse errors, and normalizeState turns any wrong shape into
   // an empty state, so a damaged collectionState looks like "no Collections at all".
   // Every unusable persisted value must fail closed instead of presenting every
-  // Collection image as orphaned.
+  // Collection image as orphaned — including a well-shaped map holding an entry that
+  // normalization would silently drop (null, or an id that differs from its key).
   for (const [label, persisted] of [
     ["is unreadable JSON", "{not valid json"],
     ["is an empty object", "{}"],
     ["is a bare array", "[]"],
     ["has a non-map collections field", '{"collections":[]}'],
+    ["holds a null Collection entry", '{"schema":1,"collections":{"custom-damaged":null}}'],
+    [
+      "holds a Collection whose id differs from its key",
+      '{"schema":1,"collections":{"custom-damaged":{"id":"custom-other","kind":"custom"}}}',
+    ],
   ]) {
     test(`Collection artwork is never listed when the persisted Collections state ${label}`, async ({
       page,

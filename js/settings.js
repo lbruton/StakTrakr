@@ -3123,7 +3123,12 @@ const _persistedCollectionsState = () => {
     // checked here first: a persisted state must be an object holding a `collections` map.
     const isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (parsed === unreadable || !isMap(parsed) || !isMap(parsed.collections)) return null;
-    return core.normalizeState(parsed);
+    // Normalization also drops a damaged entry (not an object, or an id that differs
+    // from its key). That Collection could still own stored artwork, so a dropped
+    // entry makes the whole snapshot unusable rather than quietly "unknown".
+    const normalized = core.normalizeState(parsed);
+    const kept = Object.keys(normalized.collections).length;
+    return kept === Object.keys(parsed.collections).length ? normalized : null;
   } catch (err) {
     console.warn("Settings: could not read Collections state", err);
     return null;

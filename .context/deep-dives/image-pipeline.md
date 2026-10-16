@@ -203,9 +203,11 @@ from a private snapshot of the persisted state (`_persistedCollectionsState`, no
 at delete time, because the store has no cross-tab listener and another tab's cloud restore
 can change who owns an image without changing the record. `loadDataSync` swallows parse
 errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
-sentinel default and checks the shape (an object holding a `collections` map): an unreadable
-or wrongly shaped value returns `null` and fails closed instead of reading as "no
-Collections". Only an absent key means no Collections. Deleting an orphan never writes an artwork
+sentinel default and checks the shape (an object holding a `collections` map), and it also
+refuses a snapshot from which normalization dropped an entry (a null entry, or an `id` that
+differs from its key), because that Collection could still own stored artwork: an unreadable,
+wrongly shaped or partly damaged value returns `null` and fails closed instead of reading as
+"no Collections". Only an absent key means no Collections. Deleting an orphan never writes an artwork
 stamp: a tombstone stamped at delete time would out-rank newer art on another device in a
 merge.
 
