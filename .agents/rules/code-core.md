@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: 66a73672147f
+library-version: 51a6fba8ce50
 ---
 
 # Code-core rules
@@ -15,11 +15,11 @@ detail lives in the private vault (see DocVault below).
 Documentation is split across three places (DEVS-78). Resolve paths with `vault-path`
 (`~/.local/bin/vault-path`):
 
-| Vault                 | Path                                                   | Holds                                                                                                                    | Edits land via                                     |
-| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| **Project**           | `<repo>/DocVault/` (`vault-path project`)              | Overview, `specs/`, research, runbooks for that project                                                                  | the current worktree branch + PR                   |
-| **Shared**            | `Devops/DocVault/` (`vault-path shared`)               | KnowledgeBase (infra, architecture, matrices), cross-project research, runbooks, clippings, reports                      | direct commit to Devops `main`, `DocVault/**` only |
-| **Private companion** | `Devops/DocVault/Projects/<P>/` (`vault-path private`) | anything from a **public** repo that can't be public: LAN IPs, internal hosts, security reviews, dated audits and sweeps | same as shared                                     |
+| Vault | Path | Holds | Edits land via |
+|---|---|---|---|
+| **Project** | `<repo>/DocVault/` (`vault-path project`) | Overview, `specs/`, research, runbooks for that project | the current worktree branch + PR |
+| **Shared** | `Devops/DocVault/` (`vault-path shared`) | KnowledgeBase (infra, architecture, matrices), cross-project research, runbooks, clippings, reports | direct commit to Devops `main`, `DocVault/**` only |
+| **Private companion** | `Devops/DocVault/Projects/<P>/` (`vault-path private`) | anything from a **public** repo that can't be public: LAN IPs, internal hosts, security reviews, dated audits and sweeps | same as shared |
 
 Agent-facing foundation docs live in the repo's `.context/`. The old central
 `/Volumes/DATA/GitHub/DocVault` is a **frozen, read-only archive**: never write to it, never link to it
@@ -106,13 +106,13 @@ needs no secrets. Never hard-code an Infisical project ID anywhere else; read it
 Several systems hold memory and state, and they coexist. Treating any one as the whole picture is a known
 failure mode. Each has a distinct job:
 
-| Layer                                                                | Scope                           | Role                                                                                                                                         |
-| -------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layer | Scope | Role |
+|---|---|---|
 | **mem0** (hosted MCP connector; the tool prefix is account-specific) | cross-session and cross-harness | **The bigger picture**: one `/wrap` session summary per session (what, when, files, issues, decisions), plus explicit decisions and handoffs |
-| **local Codex memory** (`~/.codex/memories/`)                        | Codex only                      | **Day-to-day operating memory**: preferences, corrections, gotchas                                                                           |
-| **`.context/`** (in-repo)                                            | per-project, all harnesses      | **Long-term foundations** needed for implementation work: architecture, conventions, standards                                               |
-| **sessionflow** (`mcp__sessionflow__*`)                              | all harnesses, all projects     | Transcript search over verbatim past turns; the session-start recall tier                                                                    |
-| **Plane** (`mcp__plane__*`)                                          | per-project issues              | Issue and planning state, not a memory store                                                                                                 |
+| **local Codex memory** (`~/.codex/memories/`) | Codex only | **Day-to-day operating memory**: preferences, corrections, gotchas |
+| **`.context/`** (in-repo) | per-project, all harnesses | **Long-term foundations** needed for implementation work: architecture, conventions, standards |
+| **sessionflow** (`mcp__sessionflow__*`) | all harnesses, all projects | Transcript search over verbatim past turns; the session-start recall tier |
+| **Plane** (`mcp__plane__*`) | per-project issues | Issue and planning state, not a memory store |
 
 mem0 + sessionflow + git history together give the full picture of past work. Lessons ("when X, do Y") go
 to local memory, not mem0. Durable foundations go to `.context/`.
@@ -122,28 +122,25 @@ to local memory, not mem0. Durable foundations go to `.context/`.
 1. **sessionflow**: verbatim past turns, semantic search:
 
    ```javascript
-   mcp__sessionflow__search_all_sessions({ query: "last session work decisions <project>", n: 5 });
+   mcp__sessionflow__search_all_sessions({ query: "last session work decisions <project>", n: 5 })
    ```
 
 2. **mem0**: session summaries, decisions, handoffs. The tool prefix is not fixed.
    Resolve the hosted mem0 `search_memories` tool from the current tool catalog.
 
    ```javascript
-   search_memories({
-     query: "last session work decisions for <project>",
-     limit: 10,
+   search_memories({ query: "last session work decisions for <project>", limit: 10,
      filters: { AND: [{ user_id: "lbruton" }, { metadata: { project: "<project>" } }] },
-     enable_graph: false,
-   });
+     enable_graph: false })
    ```
 
 **mem0 standard (DEVS-92)**: three keys on every record.
 
-| Key                | Value                                                                                                                                    | Source                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `user_id`          | `lbruton`, always                                                                                                                        | `project.json` → `mem0.userId`                                 |
-| `agent_id`         | the harness writing: `codex` here (other harnesses write `claude-code`, `claude-cowork`, `codex`, `gemini`, `opencode` or `antigravity`) | the harness itself; never `project.json`, never a project name |
-| `metadata.project` | lowercase project slug (`staktrakr`, `devops`)                                                                                           | `project.json` → `mem0.project`, else the lowercase `tag`      |
+| Key | Value | Source |
+|---|---|---|
+| `user_id` | `lbruton`, always | `project.json` → `mem0.userId` |
+| `agent_id` | the harness writing: `codex` here (other harnesses write `claude-code`, `claude-cowork`, `codex`, `gemini`, `opencode` or `antigravity`) | the harness itself; never `project.json`, never a project name |
+| `metadata.project` | lowercase project slug (`staktrakr`, `devops`) | `project.json` → `mem0.project`, else the lowercase `tag` |
 
 - **Writes:** set all three plus `metadata.type` ∈ `session-summary` / `decision` / `handoff`. Routine
   writes come from `/wrap` only (one paragraph `session-summary`). Use a direct `add_memory` call
@@ -167,16 +164,16 @@ across the repo and reading the hits, not by a graph index. `code-graph-context`
 
 ## MCP servers
 
-| Server                    | Use for                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `mem0` (hosted connector) | Cross-session memory, sole backend                                                               |
-| `sessionflow`             | Session history search: semantic retrieval over past conversation turns                          |
-| `claude-context`          | Semantic code search                                                                             |
-| `context7`                | Library documentation lookup                                                                     |
-| `chrome-devtools`         | Browser-page inspection and debugging                                                            |
-| `infisical`               | Secret inventory; fallback only, use the `infisical-agent` CLI first                             |
-| `plane`                   | Active issue and planning system (`mcp__plane__*`)                                               |
-| `nautobot`                | Home network inventory and cabling, read only. Changes go through the seed script in HomeNetwork |
+| Server | Use for |
+|---|---|
+| `mem0` (hosted connector) | Cross-session memory, sole backend |
+| `sessionflow` | Session history search: semantic retrieval over past conversation turns |
+| `claude-context` | Semantic code search |
+| `context7` | Library documentation lookup |
+| `chrome-devtools` | Browser-page inspection and debugging |
+| `infisical` | Secret inventory; fallback only, use the `infisical-agent` CLI first |
+| `plane` | Active issue and planning system (`mcp__plane__*`) |
+| `nautobot` | Home network inventory and cabling, read only. Changes go through the seed script in HomeNetwork |
 
 Query `context7` before writing code that uses a library or API; do not rely on training knowledge for
 library APIs.
@@ -198,7 +195,8 @@ library APIs.
   spans multiple files or affects runtime. Instruction-file-only changes need none.
 - Work in a worktree branch under `.worktrees/`, with every worktree in `.worktrees/`. Version-locked
   projects (StakTrakr, HexTrackr) read `devops/version.lock` and use `.worktrees/patch-VERSION`; main-only
-  projects use `git worktree add .worktrees/fix-desc fix/desc`. Push and merge rules are in "Push rules"
+  projects use `git worktree add -b fix/desc .worktrees/fix-desc` (new branch) or
+  `git worktree add .worktrees/fix-desc fix/desc` (branch already exists). Push and merge rules are in "Push rules"
   below. Verify the repo root with `git rev-parse --show-toplevel` before committing.
 - Issue scan: use `mcp__plane__workitem` (`action: "list"`) scoped to the current project. Do not use
   cross-project globs unless the user asks for a cross-project view.
