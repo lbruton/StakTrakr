@@ -211,9 +211,13 @@ from its key), and refuses a retained artwork stamp whose `present` is not a boo
 `Date#toISOString()` output (`isCurrentArtwork` compares it lexically, so even a valid
 `...:00Z` without fractional seconds reads as newer than its own image). That Collection could still own stored
 artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
-closed instead of reading as "no Collections". Only an absent key means no Collections. Deleting an orphan never writes an artwork
-stamp: a tombstone stamped at delete time would out-rank newer art on another device in a
-merge.
+closed instead of reading as "no Collections". Only an absent key means no Collections.
+Numista rule references get the same treatment: `NumistaLookup` hydrates its rule cache once
+at boot and has no cross-tab listener, so `_referencedPatternImageIds` reads the persisted
+`numistaLookupRules` value at scan time and inside the delete predicate, and returns `null`
+(nothing orphaned, nothing deletable) when it is not an array of rule objects with string or
+absent `seedImageId`. Deleting an orphan never writes an artwork stamp: a tombstone stamped
+at delete time would out-rank newer art on another device in a merge.
 
 ### Internal resize/compress path
 

@@ -738,6 +738,71 @@ test.describe("core/settings-search-images", () => {
     expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
   });
 
+  // NumistaLookup keeps its rules in a module-level cache that is hydrated once at
+  // boot, so a rule another tab restored or imported is invisible to it. Numista
+  // image ownership is read from the persisted rules at the moment of the delete.
+  test("Delete all keeps an image that a rule persisted by another tab now references", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await page.evaluate(() =>
+      window.imageCache.cachePatternImage(
+        "rule-owned-strk438",
+        new Blob(["obv"], { type: "image/png" }),
+        null
+      )
+    );
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("rule-owned-strk438");
+
+    // Another tab persists a rule bound to the listed image; this tab's cache is stale.
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "numistaLookupRules",
+        JSON.stringify([
+          {
+            id: "rule-strk438",
+            pattern: "strk438",
+            replacement: "STRK 438",
+            numistaId: null,
+            seedImageId: "rule-owned-strk438",
+            builtIn: false,
+          },
+        ])
+      )
+    );
+
+    await container.getByRole("button", { name: "Delete all", exact: true }).click();
+    await page.waitForSelector("#appDialogModal", { state: "visible" });
+    await page.locator("#appDialogOk").click();
+
+    expect(await storedPatternImageIds(page)).toEqual(["rule-owned-strk438"]);
+  });
+
+  test("No pattern image is offered for deletion when the persisted Numista rules are unreadable", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await page.evaluate(async () => {
+      await window.imageCache.cachePatternImage(
+        "unverifiable-strk438",
+        new Blob(["obv"], { type: "image/png" }),
+        null
+      );
+      localStorage.setItem("numistaLookupRules", "{not valid json");
+    });
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("No orphaned pattern images");
+    await expect(container).not.toContainText("unverifiable-strk438");
+  });
+
   // Judging ownership must not swap the shared store's state under open views:
   // load() replaces it without a change event, so Collections screens would keep
   // painting the old state while later interactions read the new one.

@@ -3075,13 +3075,14 @@ const createThumbEl = (src, alt) => {
  * state supplied, or the check throwing) is never reported — it must not be
  * offered for deletion.
  * @param {{ruleId: string, cachedAt?: number|string, digest?: string}} rec - patternImages record.
- * @param {Set<string>} referenced - seedImageIds of the current custom Numista rules.
+ * @param {Set<string>|null} referenced - seedImageIds of the persisted custom Numista
+ *   rules from `_referencedPatternImageIds`; null (unreadable) judges nothing orphaned.
  * @param {Object|null} collectionsState - Collections state read from storage by
  *   `_persistedCollectionsState`; required to judge a `collection--` record.
  * @returns {boolean} True when the record is safe to offer for deletion.
  */
 const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
-  if (!rec || !rec.ruleId || referenced.has(rec.ruleId)) return false;
+  if (!rec || !rec.ruleId || !referenced || referenced.has(rec.ruleId)) return false;
   if (!String(rec.ruleId).startsWith("collection--")) return true;
 
   const core = window.collectionsCore;
@@ -3170,15 +3171,34 @@ const _persistedCollectionsState = () => {
 };
 
 /**
- * Collects the pattern image ids the current custom Numista rules point at.
- * @returns {Set<string>} seedImageId of every custom rule that has one.
+ * Collects the pattern image ids the persisted custom Numista rules point at.
+ * `NumistaLookup` hydrates its rule cache once at boot and has no cross-tab
+ * listener, so a rule another tab restored or imported is invisible to it; the
+ * persisted `numistaLookupRules` value is read instead (STRK-438). An absent key
+ * means no rules; anything that cannot be read as an array of rule objects returns
+ * null so the caller fails closed rather than treating every image as unreferenced.
+ * @returns {Set<string>|null} seedImageId of every persisted rule that has one, or
+ *   null when the persisted rules cannot be read reliably.
  */
-const _referencedPatternImageIds = () =>
-  new Set(
-    NumistaLookup.getCustomRules()
-      .map((r) => r.seedImageId)
-      .filter(Boolean)
-  );
+const _referencedPatternImageIds = () => {
+  try {
+    const raw = localStorage.getItem("numistaLookupRules");
+    if (raw === null || raw === "") return new Set();
+    const rules = JSON.parse(raw);
+    if (!Array.isArray(rules)) return null;
+    const ids = new Set();
+    for (const rule of rules) {
+      if (rule === null || typeof rule !== "object" || Array.isArray(rule)) return null;
+      const seedImageId = rule.seedImageId;
+      if (seedImageId === undefined || seedImageId === null || seedImageId === "") continue;
+      if (typeof seedImageId !== "string") return null;
+      ids.add(seedImageId);
+    }
+    return ids;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Deletes a listed orphan only if it is still an orphan right now. The orphan
