@@ -657,11 +657,14 @@ test.describe("core/settings-search-images", () => {
 
   // normalizeState() keeps a Collection whose artwork entry is damaged: it coerces a
   // non-boolean `present` to false and keeps any non-empty `modified` string as is,
-  // which turns a recoverable live stamp into an "orphaned" blob. A damaged
-  // ownership-bearing entry must fail closed too.
+  // which turns a recoverable live stamp into an "orphaned" blob. isCurrentArtwork()
+  // also compares the stamp LEXICALLY against a canonical ISO string, so a parseable
+  // but non-canonical stamp (no fractional seconds) reads as newer than its own image.
+  // A damaged ownership-bearing entry must fail closed too.
   for (const [label, field, damaged] of [
     ["a non-boolean present", "present", "true"],
     ["a malformed modified timestamp", "modified", "corrupt"],
+    ["a non-canonical modified timestamp", "modified", "@strip-milliseconds"],
   ]) {
     test(`Collection artwork is never listed when a persisted artwork stamp has ${label}`, async ({
       page,
@@ -674,7 +677,11 @@ test.describe("core/settings-search-images", () => {
       await page.evaluate(
         ({ id, key, value }) => {
           const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
-          for (const entry of Object.values(state.collections[id].artwork)) entry[key] = value;
+          for (const entry of Object.values(state.collections[id].artwork)) {
+            // Same instant as the stored image, written without fractional seconds.
+            entry[key] =
+              value === "@strip-milliseconds" ? entry.modified.replace(/\.\d{3}Z$/, "Z") : value;
+          }
           saveDataSync(COLLECTION_STATE_KEY, state);
         },
         { id: art.collectionId, key: field, value: damaged }

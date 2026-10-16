@@ -3099,15 +3099,21 @@ const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
  * quietly repair or keep. A stamp that still carries a `modified` string is
  * retained by normalization, so it is checked here: a `present` that is not a
  * boolean (for example the string "true") is coerced to `present: false`, and a
- * `modified` that is not a parseable timestamp (for example "corrupt") is compared
- * lexically by `isCurrentArtwork`. Either would turn a recoverable live stamp into
- * an "orphaned" blob (STRK-438).
+ * `modified` that is not a canonical ISO timestamp is compared LEXICALLY by
+ * `isCurrentArtwork` against `new Date(cachedAt).toISOString()`, so "corrupt" and
+ * even a valid but non-canonical "2020-09-01T00:00:00Z" (no fractional seconds)
+ * read as newer than the image they stamp. Any of these would turn a recoverable
+ * live stamp into an "orphaned" blob (STRK-438).
  * @param {Object} collections - Raw persisted `collections` map.
  * @returns {boolean} True when any retained stamp has a non-boolean `present` or a
- *   `modified` value that is not a finite timestamp.
+ *   `modified` value that is not exactly `Date#toISOString()` output.
  */
-const _hasDamagedArtworkStamp = (collections) =>
-  Object.values(collections).some((collection) => {
+const _hasDamagedArtworkStamp = (collections) => {
+  const isCanonicalIso = (value) => {
+    const time = Date.parse(value);
+    return Number.isFinite(time) && new Date(time).toISOString() === value;
+  };
+  return Object.values(collections).some((collection) => {
     const artwork = collection && typeof collection === "object" ? collection.artwork : null;
     if (!artwork || typeof artwork !== "object" || Array.isArray(artwork)) return false;
     return Object.values(artwork).some(
@@ -3116,9 +3122,10 @@ const _hasDamagedArtworkStamp = (collections) =>
         typeof entry === "object" &&
         typeof entry.modified === "string" &&
         entry.modified !== "" &&
-        (typeof entry.present !== "boolean" || !Number.isFinite(Date.parse(entry.modified)))
+        (typeof entry.present !== "boolean" || !isCanonicalIso(entry.modified))
     );
   });
+};
 
 /**
  * Reads a private snapshot of the Collections state from storage rather than
