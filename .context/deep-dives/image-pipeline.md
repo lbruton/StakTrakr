@@ -197,11 +197,15 @@ transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serial
 the delete rather than removed by it. The stored record must also still match the listed one
 (`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
 reclassified, because an upload stores its image before its artwork stamp. Ownership is read
-from persisted state (`collectionsStore.load()`, not the memoized `getState()`) at scan and
+from a private snapshot of the persisted state (`_persistedCollectionsState`, normalized with
+`collectionsCore.normalizeState`; never the memoized `getState()` and never
+`collectionsStore.load()`, which swaps the shared state without a change event) at scan and
 at delete time, because the store has no cross-tab listener and another tab's cloud restore
-can change who owns an image without changing the record. Deleting an orphan never writes
-an artwork stamp: a tombstone stamped at delete time would out-rank newer art on another
-device in a merge.
+can change who owns an image without changing the record. `loadDataSync` swallows parse
+errors, so the reader uses a sentinel default: an unreadable value returns `null` and fails
+closed instead of reading as "no Collections". Deleting an orphan never writes an artwork
+stamp: a tombstone stamped at delete time would out-rank newer art on another device in a
+merge.
 
 ### Internal resize/compress path
 

@@ -623,6 +623,55 @@ test.describe("core/settings-search-images", () => {
     expect(await storedPatternImageIds(page)).toEqual([...art.imageIds].sort());
   });
 
+  // loadDataSync swallows parse errors, so an unreadable collectionState looks like
+  // "no Collections at all". Reading it must preserve the failure and fail closed
+  // instead of presenting every Collection image as orphaned.
+  test("Collection artwork is never listed when the persisted Collections state is unreadable", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await seedCollectionArtwork(page, { name: "STRK-438 Corrupt Set", slotLabels: ["Kappa"] });
+    await page.evaluate(() => localStorage.setItem("collectionState", "{not valid json"));
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+
+    const container = page.locator("#orphanedPatternImages");
+    await expect(container).toContainText("No orphaned pattern images");
+    await expect(container).not.toContainText("collection--");
+  });
+
+  // Judging ownership must not swap the shared store's state under open views:
+  // load() replaces it without a change event, so Collections screens would keep
+  // painting the old state while later interactions read the new one.
+  test("Opening the orphan list does not replace the shared Collections store state", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    const art = await seedCollectionArtwork(page, {
+      name: "STRK-438 Snapshot Set",
+      slotLabels: ["Lambda"],
+    });
+    await page.evaluate((id) => {
+      window.__collectionsBefore = window.collectionsStore.getState();
+      // Another tab renames the Collection in persisted state.
+      const state = JSON.parse(JSON.stringify(window.collectionsStore.getState()));
+      state.collections[id].name = "Renamed elsewhere";
+      saveDataSync(COLLECTION_STATE_KEY, state);
+    }, art.collectionId);
+
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    await expect(page.locator("#orphanedPatternImages")).toContainText(
+      "No orphaned pattern images"
+    );
+
+    const sameObject = await page.evaluate(
+      () => window.collectionsStore.getState() === window.__collectionsBefore
+    );
+    expect(sameObject).toBe(true);
+  });
+
   // The re-check and the delete must be ONE IndexedDB transaction: a separate
   // get-then-delete leaves a window in which a sync restore or another tab can
   // replace the record, and the delete then removes the newer one (STRK-438).

@@ -3095,21 +3095,36 @@ const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
 };
 
 /**
- * Reads the Collections state from storage rather than trusting this tab's
- * memoized copy: the store has no cross-tab listener, so another tab's cloud pull
- * or restore can change who owns an image without this tab noticing (STRK-438).
- * Mutations persist synchronously, so storage is always the current authority.
- * @returns {Object|null} Freshly hydrated state, or null when it cannot be read.
+ * Reads a private snapshot of the Collections state from storage rather than
+ * trusting this tab's memoized copy: the store has no cross-tab listener, so
+ * another tab's cloud pull or restore can change who owns an image without this
+ * tab noticing (STRK-438). Mutations persist synchronously, so storage is always
+ * the current authority. The snapshot is normalized locally and never handed to
+ * `collectionsStore.load()`, which would swap the shared state under open views
+ * without a change event.
+ *
+ * `loadDataSync` swallows parse and decompression errors and returns its default,
+ * which would be indistinguishable from "no Collections". A unique sentinel default
+ * preserves the failure so an unreadable value returns null (fail closed) instead
+ * of an empty state that would classify every Collection image as orphaned.
+ * @returns {Object|null} Normalized state; null when it cannot be read reliably.
  */
 const _persistedCollectionsState = () => {
-  const store = window.collectionsStore;
+  const core = window.collectionsCore;
+  if (!core || typeof core.normalizeState !== "function") return null;
+  if (typeof loadDataSync !== "function") return null;
+  const key =
+    typeof COLLECTION_STATE_KEY !== "undefined" ? COLLECTION_STATE_KEY : "collectionState";
   try {
-    if (store && typeof store.load === "function") return store.load();
-    if (store && typeof store.getState === "function") return store.getState();
+    if (localStorage.getItem(key) === null) return core.normalizeState(null);
+    const unreadable = {};
+    const parsed = loadDataSync(key, unreadable);
+    if (parsed === unreadable || parsed === null || typeof parsed !== "object") return null;
+    return core.normalizeState(parsed);
   } catch (err) {
     console.warn("Settings: could not read Collections state", err);
+    return null;
   }
-  return null;
 };
 
 /**
