@@ -13,8 +13,9 @@ import {
 //     (bar-shape, table-thumb-rect, view-shape-rect), which stay;
 //   - the existing wrapper box is the BOUNDING box: the frame is the largest token-ratio
 //     rectangle that fits it, with object-fit: contain (never a crop) for every non-round shape;
-//   - the table thumb stays 28px tall and its width is ratio-derived, clamped to 16..40px;
-//   - the placeholder SVG follows the same frame;
+//   - the table thumb is 28px tall (STRK-436: 36px for portrait Bar and Note) and its width is
+//     ratio-derived from that height, clamped to 16..40px;
+//   - the placeholder SVG follows the same frame, drawn at the same height;
 //   - the view modal re-applies the frame after late Numista enrichment;
 //   - a Custom Collection Slot keeps the COLLECTION's shape even when it shows a linked photo.
 
@@ -443,20 +444,60 @@ test.describe("core/image-frame-renderers sizing (STRK-436)", () => {
     });
   }
 
-  test("view modal and item modal frames keep square-ish corners", async ({ page }) => {
-    await boot(page, [withImages(SIZE_ITEMS.notePortrait)], { style: "D" });
-    await page.evaluate(() => window.showViewModal(0));
-    const viewImg = page.locator('#viewItemModal .view-image-slot[data-side="obverse"] img');
-    await expect(viewImg).toBeVisible();
-    await expectSquareish(viewImg, "view modal note portrait");
-    await page.evaluate(() => window.closeModalById && window.closeModalById("viewItemModal"));
-    await page.evaluate(() => {
-      const modal = document.getElementById("viewItemModal");
-      if (modal) modal.style.display = "none";
-      window.editItem(0);
+  test("view modal and item modal frames keep square-ish corners for every shape and theme", async ({
+    page,
+  }) => {
+    await boot(page, Object.values(SIZE_ITEMS).map(withImages), { style: "D" });
+    const indexOf = (uuid) =>
+      page.evaluate((id) => window.inventory.findIndex((item) => item.uuid === id), uuid);
+    const hide = (id) =>
+      page.evaluate((modalId) => {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.style.display = "none";
+      }, id);
+    for (const uuid of NON_ROUND) {
+      const index = await indexOf(uuid);
+      await page.evaluate((i) => window.showViewModal(i), index);
+      const viewImg = page.locator('#viewItemModal .view-image-slot[data-side="obverse"] img');
+      await expect(viewImg).toBeVisible();
+      for (const theme of THEMES) {
+        await setTheme(page, theme);
+        await expectSquareish(viewImg, `view modal ${theme} ${uuid}`);
+      }
+      await hide("viewItemModal");
+
+      await page.evaluate((i) => window.editItem(i), index);
+      const frame = page.locator("#itemModal .ife .ife-frame").first();
+      await expect(frame).toBeVisible();
+      for (const theme of THEMES) {
+        await setTheme(page, theme);
+        await expectSquareish(frame, `item modal ${theme} ${uuid}`);
+      }
+      await hide("itemModal");
+    }
+  });
+
+  test("a portrait Note placeholder fills its 36px frame without letterboxing", async ({
+    page,
+  }) => {
+    // No image URLs: the thumbs fall back to the generated placeholder SVG.
+    await boot(page, [SIZE_ITEMS.notePortrait, SIZE_ITEMS.barPortrait], {
+      style: "D",
+      sides: "obverse",
     });
-    const frame = page.locator("#itemModal .ife .ife-frame").first();
-    await expect(frame).toBeVisible();
-    await expectSquareish(frame, "item modal note portrait");
+    await expect(page.locator("#inventoryTable img.table-thumb-placeholder")).toHaveCount(2);
+    for (const uuid of ["sz-note-p", "sz-bar"]) {
+      const fit = await thumbOf(page, uuid).evaluate((img) => {
+        const box = img.getBoundingClientRect();
+        return {
+          naturalH: img.naturalHeight,
+          naturalRatio: img.naturalWidth / img.naturalHeight,
+          boxRatio: box.width / box.height,
+        };
+      });
+      expect(fit.naturalH, `${uuid} placeholder drawn at the frame height`).toBe(36);
+      // Within 5%: the SVG's own ratio matches the CSS box, so contain leaves no visible band.
+      expect(Math.abs(fit.naturalRatio / fit.boxRatio - 1), uuid).toBeLessThan(0.05);
+    }
   });
 });

@@ -378,10 +378,15 @@
     };
     const c = colors[metal] || colors.Silver;
 
-    const height = 28;
+    // STRK-436: drawn at the thumb's own height (36px for portrait Bar/Note), so the SVG's ratio
+    // matches the CSS frame and object-fit: contain leaves no letterbox band.
+    const height =
+      typeof imageFrameThumbHeight === "function"
+        ? imageFrameThumbHeight(frameShape, frameOrientation)
+        : 28;
     const width =
       typeof imageFrameThumbWidth === "function"
-        ? imageFrameThumbWidth(frameShape, frameOrientation)
+        ? imageFrameThumbWidth(frameShape, frameOrientation, height)
         : height;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -1478,7 +1483,8 @@
     const _thumbShapeClass = (side) =>
       hasImageFrameResolver && resolveImageFrame(item, side) === "rect" ? " table-thumb-rect" : "";
     // STRK-427 P2: data-shape / data-orientation drive the token-ratio thumb frame in the CSS
-    // (28px tall, width clamped) and the placeholder SVG; table-thumb-rect stays beside them.
+    // (28px tall, 36px for portrait Bar/Note per STRK-436; width clamped) and the placeholder
+    // SVG; table-thumb-rect stays beside them.
     const _thumbFrameAttrs = (side) =>
       hasImageFrameResolver && typeof imageFrameAttrHtml === "function"
         ? imageFrameAttrHtml(item, side)

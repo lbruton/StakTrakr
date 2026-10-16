@@ -1712,8 +1712,10 @@
                 <strong>Table thumb:</strong> <code>--table-thumb-h</code> (28px) tall, or
                 <code>--table-thumb-h-portrait</code> (36px) for portrait Bar and Note (STRK-436),
                 width <code>clamp(16px, height * ratio, 40px)</code>. Every inventory row is one
-                42px height. The generated placeholder SVG is drawn at the 28px size (object-fit
-                contain scales it into the box) and its cache key includes shape and orientation.
+                42px height. The generated placeholder SVG is drawn at the thumb's own height and
+                width (<code>imageFrameThumbHeight</code> / <code>imageFrameThumbWidth</code> in
+                <code>js/image-frame.js</code>), so it fills the frame with no letterbox band, and
+                its cache key includes shape and orientation.
               </li>
               <li>
                 <strong>Corner radius (STRK-436):</strong> non-round frames use the per-shape

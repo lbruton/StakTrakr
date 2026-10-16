@@ -215,18 +215,34 @@ function imageFrameRatio(shape, orientation) {
 }
 
 const IMAGE_FRAME_THUMB_HEIGHT = 28;
+const IMAGE_FRAME_THUMB_HEIGHT_PORTRAIT = 36;
 const IMAGE_FRAME_THUMB_MIN_WIDTH = 16;
 const IMAGE_FRAME_THUMB_MAX_WIDTH = 40;
 
 /**
- * The table thumbnail's width for a frame: 28px tall, ratio-derived, clamped to 16..40px (the
- * approved P2 table-thumb clamp). The stylesheet applies the same clamp to `.table-thumb`.
+ * The table thumbnail's height for a frame (STRK-436): 36px for a portrait Bar or Note, so its
+ * area matches a round coin's, 28px for every other frame. Mirrors the stylesheet's
+ * `--table-thumb-h` / `--table-thumb-h-portrait` tokens.
  * @param {string} shape
  * @param {string} [orientation]
+ * @returns {number} Height in CSS pixels
+ */
+function imageFrameThumbHeight(shape, orientation) {
+  const portrait = (shape === "bar" || shape === "note") && orientation === "portrait";
+  return portrait ? IMAGE_FRAME_THUMB_HEIGHT_PORTRAIT : IMAGE_FRAME_THUMB_HEIGHT;
+}
+
+/**
+ * The table thumbnail's width for a frame: ratio-derived from the given height (28px when
+ * omitted), clamped to 16..40px (the approved P2 table-thumb clamp). The stylesheet applies the
+ * same clamp to `.table-thumb`.
+ * @param {string} shape
+ * @param {string} [orientation]
+ * @param {number} [height] - Thumb height in CSS pixels (default 28)
  * @returns {number} Width in CSS pixels
  */
-function imageFrameThumbWidth(shape, orientation) {
-  const width = Math.round(IMAGE_FRAME_THUMB_HEIGHT * imageFrameRatio(shape, orientation));
+function imageFrameThumbWidth(shape, orientation, height = IMAGE_FRAME_THUMB_HEIGHT) {
+  const width = Math.round(height * imageFrameRatio(shape, orientation));
   return Math.min(IMAGE_FRAME_THUMB_MAX_WIDTH, Math.max(IMAGE_FRAME_THUMB_MIN_WIDTH, width));
 }
 
@@ -362,6 +378,7 @@ if (typeof window !== "undefined") {
   window.imageFrameAttrHtml = imageFrameAttrHtml;
   window.imageFrameRatio = imageFrameRatio;
   window.imageFrameThumbWidth = imageFrameThumbWidth;
+  window.imageFrameThumbHeight = imageFrameThumbHeight;
   window.normalizeImageShape = normalizeImageShape;
   window.normalizeImageOrientation = normalizeImageOrientation;
   window.defaultImageOrientation = defaultImageOrientation;
