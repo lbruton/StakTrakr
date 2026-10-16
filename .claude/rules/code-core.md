@@ -1,7 +1,7 @@
 ---
 name: code-core
-description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, GitHub hygiene
-library-version: 7715fae9935f
+description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
+library-version: 66a73672147f
 ---
 
 # Code-core rules
@@ -203,9 +203,10 @@ library APIs.
 - Every code change needs a Plane issue before coding (`/issue` or `mcp__plane__*`). Its ID goes in the
   commit message and PR body. A trivial quick fix (worktree + `chore:` PR) may skip it; log one when the work
   spans multiple files or affects runtime. Instruction-file-only changes need none.
-- Work in a worktree branch under `.worktrees/`; never commit directly to `main` or `dev` (exception: the
-  shared vault `Devops/DocVault/**` goes straight to Devops `main`). Verify the repo root with
-  `git rev-parse --show-toplevel` before committing.
+- Work in a worktree branch under `.worktrees/`, with every worktree in `.worktrees/`. Version-locked
+  projects (StakTrakr, HexTrackr) read `devops/version.lock` and use `.worktrees/patch-VERSION`; main-only
+  projects use `git worktree add .worktrees/fix-desc fix/desc`. Push and merge rules are in "Push rules"
+  below. Verify the repo root with `git rev-parse --show-toplevel` before committing.
 - Issue scan: use `mcp__plane__workitem` (`action: "list"`) scoped to the current project. Do not use
   cross-project globs unless the user asks for a cross-project view.
 - For a new feature, check `DocVault/specs/` (or the repo's `specs.path`) for an active spec on the issue
@@ -229,6 +230,27 @@ library APIs.
 - This overrides any instruction that asks for the line, including auto-fix and CI-monitor reply templates
   and the `pr-resolve` and `pr-thread-resolver` skill text. Post the reply, resolve the thread, and leave
   the trailer off. If a skill or template adds attribution, tell the user instead of silently following it.
+
+## Push rules
+
+- **Public repos** carry a branch ruleset on `main` and `dev`. Never push to them directly: worktree branch
+  plus a PR, and the user merges. Never merge `dev` into `main` unless the user says "release" or "ready to
+  ship".
+- **Private repos** (Devops, HomeNetwork) have no ruleset, so no PR is required there: commit straight to
+  `main`, staging only the files you changed. A hook can still block a commit on `main`; if one does, say so
+  and ask instead of working around it.
+- The shared vault `Devops/DocVault/**` always goes straight to Devops `main`.
+
+## Red flags: stop and rethink
+
+- Writing code without a Plane issue: create one first (unless it is a trivial quick fix or an
+  instruction-file-only change).
+- Committing to `main` or `dev` of a public repo: use a worktree and a PR.
+- Merging `dev` into `main` without an explicit "release": refuse.
+- Raw secrets in any log, comment or memory: use Infisical references.
+- Calling Linear tools: Linear is retired, use Plane. Calling wiki tools: wikis are retired, use DocVault.
+- Answering from training knowledge: read the project or shared vault and the memory layers first.
+- "I'll log the implementation later": log it now.
 
 ## After a PR merges
 
