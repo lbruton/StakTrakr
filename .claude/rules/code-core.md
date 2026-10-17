@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: e4ef48071b45
+library-version: 5834a2dcd445
 ---
 
 # Code-core rules
@@ -234,9 +234,10 @@ library APIs.
 - **Public repos** carry a branch ruleset on `main` and `dev`. Never push to them directly: worktree branch
   plus a PR, and the user merges. Never merge `dev` into `main` unless the user says "release" or "ready to
   ship".
-- **Private repos** (Devops, HomeNetwork) have no ruleset, so no PR is required there: commit straight to
-  `main`, staging only the files you changed. A hook can still block a commit on `main`; if one does, say so
-  and ask instead of working around it.
+- **Devops and HomeNetwork live on the home Gitea, not GitHub** (`origin` = `gitea:homelab/<repo>.git`; the
+  GitHub copies are archived, so never push to the `github` remote). They have no ruleset and no PRs:
+  commit straight to `main`, staging only the files you changed. A hook can still block a commit on `main`;
+  if one does, say so and ask instead of working around it.
 - The shared vault `Devops/DocVault/**` always goes straight to Devops `main`.
 
 ## Red flags: stop and rethink
