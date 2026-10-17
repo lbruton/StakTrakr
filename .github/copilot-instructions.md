@@ -6,7 +6,7 @@ Custom review instructions for GitHub Copilot PR reviews.
 
 ## Project Context
 
-StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. 71 JS files in `js/` (70 loaded via `index.html`) plus 8 vendor libs and 1 data bundle load in strict dependency order via `<script>` tags.
+StakTrakr is a single-page vanilla JavaScript app (no framework, no build step). It runs on both `file://` protocol and HTTP servers. The runtime artifact is `index.html` plus JS/CSS assets -- no bundler, no transpiler. Feature modules in `js/` (one file per feature), vendor libs, and a data bundle load in strict dependency order via `<script>` tags.
 
 For full codebase context, see `AGENTS.md` in the repository root.
 
@@ -36,7 +36,7 @@ Prefer `saveData()`/`loadData()` (async) or `saveDataSync()`/`loadDataSync()` fr
 
 Scripts load via `<script>` tags in `index.html` in strict dependency order. `file-protocol-fix.js` loads first (no `defer`), `init.js` loads last. If a PR adds a script loaded by the main app, verify it's placed correctly in `index.html` and listed in `sw.js` `CORE_ASSETS`. A page-specific script (such as `js/ratios-page.js`, loaded only by `ratios/index.html`) is registered in the page that loads it, and a file not loaded at runtime (such as `js/types.js`) is registered nowhere.
 
-**CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across 70+ JS files. The following globals are defined in other files and are intentionally available throughout the app:
+**CRITICAL: Do not flag "undefined" globals** -- this is a vanilla JS app with global scope across ~100 JS files. The following globals are defined in other files and are intentionally available throughout the app:
 
 **From `js/state.js`:**
 
@@ -193,9 +193,9 @@ Scripts load via `<script>` tags in `index.html` in strict dependency order. `fi
 
 - `loadSeedImages()` -- first-run seed image loader
 
-- Plus many others across 70+ JS files
+- Plus many others across ~100 JS files
 
-**IMPORTANT: Do NOT flag a variable as "not defined" without searching for it first.** This is a vanilla JS app with global scope across 70+ JS files, and the `no-undef` ESLint rule is intentionally OFF, so a name missing from the current file is almost always declared in another script loaded earlier. Search the other script files before flagging. Report it only when no script loaded by that page declares the name -- that is a real `ReferenceError`, not a false positive.
+**IMPORTANT: Do NOT flag a variable as "not defined" without searching for it first.** This is a vanilla JS app with global scope across ~100 JS files, and the `no-undef` ESLint rule is intentionally OFF, so a name missing from the current file is almost always declared in another script loaded earlier. Search the other script files before flagging. Report it only when no script loaded by that page declares the name -- that is a real `ReferenceError`, not a false positive.
 
 ### 4. Service Worker -- respondWith() Must Always Resolve to a Response
 
