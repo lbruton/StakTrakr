@@ -433,16 +433,14 @@
 
     const patternImgFolder = zip.folder("pattern_images");
     const manifest = [];
+    // STRK-440: judge against what storage holds, so artwork another tab stamped a moment
+    // ago is not left out of the backup (falls back to memory when storage is unreadable).
+    const artworkState = window.collectionsStore ? window.collectionsStore.exportState() : null;
     for (const rec of allPatternImages) {
       if (
         window.collectionsCore &&
-        window.collectionsStore &&
-        !window.collectionsCore.isCurrentArtwork(
-          window.collectionsStore.getState(),
-          rec.ruleId,
-          rec.cachedAt,
-          rec.digest
-        )
+        artworkState &&
+        !window.collectionsCore.isCurrentArtwork(artworkState, rec.ruleId, rec.cachedAt, rec.digest)
       )
         continue;
       if (rec.obverse) patternImgFolder.file(`${rec.ruleId}_obverse.jpg`, rec.obverse);

@@ -931,7 +931,9 @@ async function collectAndHashImageVault() {
       ? (await imageCache.exportAllPatternImages()) || []
       : [];
   if (window.collectionsCore && window.collectionsStore) {
-    var artworkState = window.collectionsStore.getState();
+    // STRK-440: judge against what storage holds, so artwork another tab stamped a moment
+    // ago is not left out of the push (falls back to memory when storage is unreadable).
+    var artworkState = window.collectionsStore.exportState();
     patternSource = patternSource.filter(function (record) {
       return window.collectionsCore.isCurrentArtwork(
         artworkState,

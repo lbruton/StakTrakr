@@ -188,12 +188,24 @@ records and all current Slot records. Renderers own and revoke returned `blob:` 
 **Rendering never deletes artwork (STRK-439).** `collectionsPicker.getImageUrl` is
 read-only: a record that is not current is hidden (null), never removed. It checks this
 tab's in-memory stamps first and, when they say stale, re-judges against the persisted
-state (`collectionsStore.readPersisted()`), because the store hydrates once and another tab
-may have uploaded, replaced or restored the artwork since; an unreadable persisted state
+state (`collectionsStore.readPersisted()`), because another tab may have uploaded, replaced
+or restored the artwork before its `storage` event reached this tab; an unreadable persisted state
 hides the record. Deleting there was unsafe even with a fresh read, since `saveImage`
 stores the IndexedDB record before it persists the stamp. Stale records are removed only
 by the explicit paths — `deleteImage`, `cleanupCollectionImages` on Collection delete, and
 the Settings orphan cleanup below — and backup, vault and sync already leave them out.
+
+**Cross-tab Collections state (STRK-440).** `collectionsStore` listens for `storage` events
+on `collectionState` and `disabledCollections` (and a `null` key, a storage clear) and calls
+`reload()`, so another tab's write re-hydrates this tab and repaints open views; before it
+this tab's next save wrote its stale copy over the other tab's links, Custom Collections and
+artwork stamps. The browser never delivers `storage` to the writing tab, so it cannot echo.
+An open builder keeps its draft (it lives only in the form) and Save applies it to the
+re-hydrated state; a Collection the other tab deleted fails Save with "This collection was
+deleted in another tab." The event is asynchronous, so backup (`_addPatternImagesToBackup`)
+and image-vault export (`collectAndHashImageVault`) judge artwork with
+`collectionsStore.exportState()`: the persisted snapshot (`readPersisted()`), falling back
+to the in-memory state when it is unreadable.
 
 **Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
 store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
@@ -212,8 +224,8 @@ with `getImageUrl` since STRK-439 and wrapped by `settings.js` `_persistedCollec
 normalized with `collectionsCore.normalizeState`; never the memoized `getState()` and never
 `collectionsStore.load()`, which swaps the shared state without a change event) at scan time
 and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
-its transaction opens and the store has no cross-tab listener: another tab's cloud restore
-can change who owns an image without changing the record. `loadDataSync` swallows parse
+its transaction opens and the store's cross-tab listener (STRK-440) is asynchronous: another
+tab's cloud restore can change who owns an image without changing the record. `loadDataSync` swallows parse
 errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
 sentinel default and checks the shape (an object holding a `collections` map), refuses a
 snapshot from which normalization dropped an entry (a null entry, or an `id` that differs

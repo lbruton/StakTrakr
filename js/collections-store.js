@@ -106,9 +106,10 @@
 
   /**
    * Reads a private snapshot of the PERSISTED state, for callers that must judge artwork
-   * ownership against what another tab wrote. This store hydrates once and has no
-   * cross-tab listener, so another tab's upload, cloud pull or restore can change who
-   * owns an image without this tab noticing (STRK-438, STRK-439). Mutations persist
+   * ownership against what another tab wrote. The cross-tab `storage` listener (STRK-440)
+   * re-hydrates memory after another tab's write, but that event is delivered
+   * asynchronously, so between the other tab's upload, cloud pull or restore and the event
+   * this tab can still hold older stamps (STRK-438, STRK-439). Mutations persist
    * synchronously, so storage is always the current authority. The snapshot is
    * normalized locally: it never replaces the in-memory state (which would swap it
    * under open views) and never fires a change event.
@@ -142,6 +143,38 @@
       return null;
     }
   };
+
+  /**
+   * The state backup and image-vault export judge artwork against (STRK-440): the
+   * persisted snapshot when it reads cleanly, so an export never leaves out artwork
+   * another tab stamped a moment ago, else this tab's in-memory state. Falling back keeps
+   * export working on a damaged key exactly as it did before.
+   * @returns {Object} Normalized Collections state
+   */
+  const exportState = () => readPersisted() || getState();
+
+  /**
+   * Re-hydrates when ANOTHER tab writes the Collections state or the hidden-Collections
+   * preference (STRK-440). Without it this tab keeps a stale copy: its next save writes
+   * that copy whole over the other tab's links, Custom Collections and artwork stamps.
+   * The browser never delivers `storage` to the tab that wrote, so a reload cannot echo.
+   * A null key means another tab cleared storage. An open builder keeps its draft (it
+   * lives only in the form) and Save applies it to the re-hydrated state.
+   * @param {{key: (string|null), storageArea?: Storage}} event - Browser storage event
+   * @returns {void}
+   */
+  const onStorage = (event) => {
+    if (!event || (event.storageArea && event.storageArea !== localStorage)) return;
+    const { key } = event;
+    if (key !== null && key !== COLLECTION_STATE_KEY && key !== DISABLED_COLLECTIONS_KEY) return;
+    try {
+      reload();
+    } catch (err) {
+      console.warn("[collections] Could not re-read Collections after another tab saved:", err);
+    }
+  };
+
+  if (typeof window.addEventListener === "function") window.addEventListener("storage", onStorage);
 
   /**
    * The normalized IDs of Collections hidden from the hub.
@@ -770,6 +803,7 @@
     reload,
     getState,
     readPersisted,
+    exportState,
     save,
     getDisabledIds,
     linkedItemIds,
