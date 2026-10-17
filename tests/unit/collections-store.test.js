@@ -65,8 +65,18 @@ function makeHarness(seedState, options = {}) {
     }
     disk.set(key, JSON.stringify(value));
   };
-  const loadDataSync = (key, fallback) =>
-    disk.has(key) ? JSON.parse(disk.get(key)) : fallback === undefined ? [] : fallback;
+  // Mirrors js/utils.js loadDataSync: an absent key AND an unparsable value both yield
+  // the fallback, so only localStorage.getItem can tell the two apart.
+  const loadDataSync = (key, fallback) => {
+    const missing = fallback === undefined ? [] : fallback;
+    if (!disk.has(key)) return missing;
+    try {
+      return JSON.parse(disk.get(key));
+    } catch {
+      return missing;
+    }
+  };
+  const localStorageDouble = { getItem: (key) => (disk.has(key) ? disk.get(key) : null) };
 
   const events = [];
   const documentDouble = {
@@ -93,6 +103,7 @@ function makeHarness(seedState, options = {}) {
     "isDisposed",
     "generateUUID",
     "saveInventory",
+    "localStorage",
     storeSrc
   )(
     surface,
@@ -106,7 +117,8 @@ function makeHarness(seedState, options = {}) {
     inventory,
     (item) => Boolean(item && item.disposed),
     () => `00000000-0000-4000-8000-00000000000${(minted += 1)}`,
-    () => undefined
+    () => undefined,
+    localStorageDouble
   );
 
   return {
@@ -431,5 +443,95 @@ describe("collections store — disabled Collections preference (STRK-393)", () 
     merged.store.reload();
     assert.deepEqual(merged.store.getDisabledIds(), []);
     assert.deepEqual(merged.events, ["collections:changed", "collections:changed"]);
+  });
+});
+
+// STRK-439: the store hydrates once and has no cross-tab listener, so callers that must
+// judge artwork ownership against what another tab persisted read a private snapshot.
+describe("readPersisted — fail-closed snapshot of the stored Collections state", () => {
+  const T2 = "2026-09-19T10:00:00.000Z";
+
+  /** A harness holding one Custom Collection whose Slot "one" has artwork stamped at T1. */
+  const artworkHarness = () => {
+    const h = makeHarness();
+    const id = h.store.createCustom({ name: "Second tab", slots: [{ label: "One" }] }).collection
+      .id;
+    assert.equal(h.store.setArtwork(id, "one", true, T1, "digest-a").ok, true);
+    h.events.length = 0;
+    return { ...h, id };
+  };
+
+  /** Rewrites the persisted state the way another tab's save would. */
+  const rewriteDisk = (h, mutate) => {
+    const raw = JSON.parse(h.disk.get(STATE_KEY));
+    mutate(raw);
+    h.disk.set(STATE_KEY, JSON.stringify(raw));
+  };
+
+  test("an absent key reads as an empty state, not as unreadable", () => {
+    const h = makeHarness();
+    const snapshot = h.store.readPersisted();
+    assert.notEqual(snapshot, null);
+    assert.deepEqual(Object.keys(snapshot.collections), []);
+  });
+
+  test("returns what another tab persisted without touching memory or firing events", () => {
+    const h = artworkHarness();
+    rewriteDisk(h, (raw) => {
+      raw.collections[h.id].artwork["slot:one"] = {
+        present: true,
+        modified: T2,
+        digest: "digest-b",
+      };
+    });
+
+    const snapshot = h.store.readPersisted();
+
+    assert.equal(snapshot.collections[h.id].artwork["slot:one"].digest, "digest-b");
+    assert.equal(h.store.getState().collections[h.id].artwork["slot:one"].digest, "digest-a");
+    assert.deepEqual(h.events, []);
+    assert.equal(
+      h.core.isCurrentArtwork(snapshot, `collection--${h.id}--one`, Date.parse(T2), "digest-b"),
+      true
+    );
+  });
+
+  test("an unparsable value is unreadable (null), never an empty state", () => {
+    const h = artworkHarness();
+    h.disk.set(STATE_KEY, "{not json");
+    assert.equal(h.store.readPersisted(), null);
+  });
+
+  for (const [label, value] of [
+    ["is an array", []],
+    ["has no collections map", {}],
+    ["has an array for collections", { collections: [] }],
+  ]) {
+    test(`a persisted value that ${label} is unreadable (null)`, () => {
+      const h = artworkHarness();
+      h.disk.set(STATE_KEY, JSON.stringify(value));
+      assert.equal(h.store.readPersisted(), null);
+    });
+  }
+
+  for (const [label, entry] of [
+    ["a non-boolean present", { present: "true", modified: T2, digest: "" }],
+    ["a non-canonical modified", { present: true, modified: "2026-09-19T10:00:00Z", digest: "" }],
+  ]) {
+    test(`a stamp with ${label} makes the snapshot unreadable (null)`, () => {
+      const h = artworkHarness();
+      rewriteDisk(h, (raw) => {
+        raw.collections[h.id].artwork["slot:one"] = entry;
+      });
+      assert.equal(h.store.readPersisted(), null);
+    });
+  }
+
+  test("a Collection entry that normalization would drop makes the snapshot unreadable (null)", () => {
+    const h = artworkHarness();
+    rewriteDisk(h, (raw) => {
+      raw.collections["damaged-entry"] = 42;
+    });
+    assert.equal(h.store.readPersisted(), null);
   });
 });

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.53] - 2026-10-17
+
+### Fixed — STRK-439: A second tab no longer deletes Collection artwork
+
+- **Rendering is read-only**: Showing a Collection cover, title image or Slot never deletes stored artwork. A record that looks stale against this tab's in-memory Collections state is re-checked against the saved state, so artwork another tab uploaded, replaced or restored is shown instead of deleted; a record that is really stale is hidden and left for Remove, Collection delete or Settings ▸ Images to clear (STRK-439).
+- **One fail-closed reader**: The saved-state reader Settings ▸ Images uses (STRK-438) moved into the Collections store as `collectionsStore.readPersisted()`, so the orphan cleanup and the artwork renderer judge ownership the same way (STRK-439).
+
 ## [3.36.52] - 2026-10-15
 
 ### Fixed — STRK-436: Portrait Bar and Note thumbnails are rectangles at full size

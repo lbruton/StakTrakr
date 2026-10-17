@@ -5160,3 +5160,141 @@ test.describe("STRK-391 Slot Mintage", () => {
     }
   });
 });
+
+// STRK-439: the Collections store hydrates once and has no cross-tab listener, so a tab
+// can hold artwork stamps older than the record another tab wrote to the shared
+// IndexedDB store. Rendering must never delete stored artwork: a record that looks stale
+// against memory is re-judged against the persisted state, and is never removed here.
+test.describe("core/collections — STRK-439 rendering never deletes artwork", () => {
+  const ART_SLOT = "2020";
+  const OBVERSE_BYTES = Array.from(readFileSync("tests/playwright/helpers/test-obverse.png"));
+  const T_THIS_TAB = Date.parse("2026-10-01T10:00:00.000Z");
+  const T_OTHER_TAB = Date.parse("2026-10-02T10:00:00.000Z");
+
+  /**
+   * Seeds a Custom Collection whose Slot artwork this tab uploaded at T_THIS_TAB.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<string>} Collection id.
+   */
+  const seedTabArtwork = async (page) => {
+    await seedAndGoto(page);
+    await waitForApp(page);
+    return page.evaluate(
+      async ({ bytes, slotId, cachedAt }) => {
+        const made = window.collectionsStore.createCustom({
+          name: "Second tab art",
+          slots: [{ label: slotId, year: slotId }],
+        });
+        const id = made.collection.id;
+        await window.imageCache.importPatternImageRecord({
+          ruleId: `collection--${id}--${slotId}`,
+          obverse: new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+          reverse: null,
+          cachedAt,
+          size: bytes.length,
+          digest: "this-tab",
+        });
+        window.collectionsStore.setArtwork(id, slotId, true, cachedAt, "this-tab");
+        return id;
+      },
+      { bytes: OBVERSE_BYTES, slotId: ART_SLOT, cachedAt: T_THIS_TAB }
+    );
+  };
+
+  /**
+   * Plays another tab replacing the Slot artwork: it writes a newer IndexedDB record and,
+   * unless `persistStamp` is false (the window between an upload's two writes), persists
+   * the matching stamp. This tab's in-memory store is left untouched, as it would be.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string} id - Collection id.
+   * @param {{persistStamp?: boolean}} [opts] - Whether the other tab's stamp has landed.
+   * @returns {Promise<void>}
+   */
+  const otherTabReplacesArtwork = (page, id, { persistStamp = true } = {}) =>
+    page.evaluate(
+      async ({ collectionId, bytes, slotId, cachedAt, persist }) => {
+        await window.imageCache.importPatternImageRecord({
+          ruleId: `collection--${collectionId}--${slotId}`,
+          obverse: new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+          reverse: null,
+          cachedAt,
+          size: bytes.length,
+          digest: "other-tab",
+        });
+        if (!persist) return;
+        const other = window.collectionsCore.normalizeState(
+          loadDataSync(COLLECTION_STATE_KEY, null)
+        );
+        window.collectionsCore.setArtwork(other, collectionId, slotId, true, {
+          now: new Date(cachedAt).toISOString(),
+          digest: "other-tab",
+        });
+        saveDataSync(COLLECTION_STATE_KEY, other);
+      },
+      {
+        collectionId: id,
+        bytes: OBVERSE_BYTES,
+        slotId: ART_SLOT,
+        cachedAt: T_OTHER_TAB,
+        persist: persistStamp,
+      }
+    );
+
+  /**
+   * Resolves the Slot artwork through the render path and reports what survived.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string} id - Collection id.
+   * @returns {Promise<{shown: boolean, storedDigest: string|null}>} Render result + record.
+   */
+  const renderAndInspect = (page, id) =>
+    page.evaluate(
+      async ({ collectionId, slotId }) => {
+        const url = await window.collectionsPicker.getImageUrl(collectionId, slotId);
+        if (url) URL.revokeObjectURL(url);
+        const record = await window.imageCache.getPatternImage(
+          `collection--${collectionId}--${slotId}`
+        );
+        return { shown: Boolean(url), storedDigest: record ? record.digest : null };
+      },
+      { collectionId: id, slotId: ART_SLOT }
+    );
+
+  test("artwork another tab replaced is shown in the album and stays stored", async ({ page }) => {
+    const id = await seedTabArtwork(page);
+    await otherTabReplacesArtwork(page, id);
+
+    await openCollectionsTab(page);
+    await page.evaluate((collectionId) => window.collectionsUI.openCollection(collectionId), id);
+
+    await expect(slotOf(page, ART_SLOT).locator(".collections-coin img")).toHaveCount(1);
+    expect(await renderAndInspect(page, id)).toEqual({ shown: true, storedDigest: "other-tab" });
+  });
+
+  test("an upload whose stamp has not landed yet is not shown and is not deleted", async ({
+    page,
+  }) => {
+    const id = await seedTabArtwork(page);
+    await otherTabReplacesArtwork(page, id, { persistStamp: false });
+
+    expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "other-tab" });
+  });
+
+  test("a stale record is hidden but left for the explicit cleanup paths", async ({ page }) => {
+    const id = await seedTabArtwork(page);
+    // A removal tombstone (as a merged remote removal leaves it) without the blob delete.
+    await page.evaluate(
+      ({ collectionId, slotId }) => window.collectionsStore.setArtwork(collectionId, slotId, false),
+      { collectionId: id, slotId: ART_SLOT }
+    );
+
+    expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "this-tab" });
+  });
+
+  test("an unreadable persisted state hides the record and never deletes it", async ({ page }) => {
+    const id = await seedTabArtwork(page);
+    await otherTabReplacesArtwork(page, id, { persistStamp: false });
+    await page.evaluate(() => localStorage.setItem(COLLECTION_STATE_KEY, "{not json"));
+
+    expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "other-tab" });
+  });
+});
