@@ -135,8 +135,15 @@ async function stubCatalogLookup(page, result = NUMISTA_RESULT) {
 
 async function gotoApp(page) {
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  // The function globals below are defined at script-parse time, long before the
+  // async init finishes. NumistaLookup.loadCustomRules() + seed rules run in init
+  // Phase 13, and appListenersReady flips in Phase 14 after them, so waiting on it
+  // guarantees persisted lookup rules are loaded before a test calls
+  // buildNumistaSearchQuery (without it, ~5-20% of runs saw 0 custom rules).
+  // Users cannot hit this window: the Numista search handlers are wired in Phase 14.
   await page.waitForFunction(
     () =>
+      window.appListenersReady === true &&
       typeof window.editItem === "function" &&
       typeof window.showViewModal === "function" &&
       typeof window.showNumistaResults === "function" &&
@@ -323,6 +330,54 @@ test.describe("core/numista-catalog", () => {
     expect(state.tags).toEqual(expect.arrayContaining(["Bullion", "Eagle"]));
     expect(state.tags).not.toContain("Investment");
     expect(state.removed[ITEM_UUID] || []).not.toContain("Eagle");
+  });
+
+  test("STRK-437: picker on a Duplicate defaults the source's customised fields off", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      inventory: [
+        {
+          ...BASE_ITEM,
+          name: "My Custom Eagle Name",
+          fieldMeta: { name: { source: "manual", userModified: true } },
+        },
+      ],
+    });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await openNumistaPicker(page);
+
+    const fieldCb = (key) => page.locator(`input[name="numistaField"][value="${key}"]`);
+    await expect(fieldCb("name")).not.toBeChecked();
+    await expect(fieldCb("year")).toBeChecked();
+  });
+
+  test("STRK-437: picker on a Duplicate re-pointed at another catalog number ignores the source's flags", async ({
+    page,
+  }) => {
+    await seedData(page, {
+      inventory: [
+        {
+          ...BASE_ITEM,
+          name: "My Custom Eagle Name",
+          fieldMeta: { name: { source: "manual", userModified: true } },
+        },
+      ],
+    });
+    await stubCatalogLookup(page);
+    await gotoApp(page);
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await page.locator("#itemCatalog").fill("999999");
+    await openNumistaPicker(page);
+
+    const fieldCb = (key) => page.locator(`input[name="numistaField"][value="${key}"]`);
+    await expect(fieldCb("name")).toBeChecked();
+    const sourceFlagsLeft = await page.evaluate(() => window.getDuplicateFieldMeta("999999"));
+    expect(sourceFlagsLeft).toBeNull();
   });
 
   test("itemRemovedTags sync surface is exported and diffed as settings data", async ({ page }) => {

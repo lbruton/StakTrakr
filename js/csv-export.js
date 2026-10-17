@@ -141,6 +141,9 @@
     "Disposition Split From UUID",
     "Traded For UUIDs",
     "Traded From UUID",
+    // STRK-427: image shape and per-side orientation, appended so every positional group above
+    // stays intact; "Collections" stays last (STRK-371).
+    ...window.IMAGE_FRAMING_CSV_HEADERS,
     // STRK-371: LAST on purpose — appending keeps every positional group above intact.
     "Collections",
   ];
@@ -209,6 +212,7 @@
     ...buildCsvValueCells(i),
     ...buildCsvCatalogColumns(i, removedTagsMap),
     ...buildCsvDispositionColumns(i),
+    ...window.imageFramingCsvCells(i),
     buildCsvCollectionsCell(i),
   ];
 

@@ -25,12 +25,20 @@ fi
 # 86 minutes with nothing to stop it). Budgets: spot 600s, publish 720s,
 # provider-export 240s, cleanup 1800s — all comfortably above observed normal
 # run time, tight enough to guarantee eventual recovery.
-echo "[entrypoint] Writing cron schedule (spot + publish + provider-export + weekly cleanup)..."
+#
+# Cleanup runs DAILY (03:17 UTC, between the :08 and :23 publish slots). It
+# was weekly until the STRK-402 soak measured the real growth rate: each
+# publish leaves ~325 loose git objects, ~31k inodes/day, so the volume
+# (195,840 inodes) hit run-publish.sh's INODE_FLOOR after ~5 days — before the
+# Sunday cron ever ran — and the cleanup executed inside a publish slot
+# instead (2026-10-02 01:23 UTC, 83s). Daily keeps each run to ~31k loose
+# objects (~15s) and leaves the pre-flight floor as a true backstop.
+echo "[entrypoint] Writing cron schedule (spot + publish + provider-export + daily cleanup)..."
 : > /etc/cron.d/retail-poller
 echo "0,30 * * * * root . /etc/environment; flock -n /tmp/spot.flock timeout -k 30 600 /app/run-spot.sh >> /var/log/spot-poller.log 2>&1" >> /etc/cron.d/retail-poller
 echo "8,23,38,53 * * * * root . /etc/environment; flock -n /tmp/publish-cron.flock timeout -k 30 720 /app/run-publish.sh >> /var/log/publish.log 2>&1" >> /etc/cron.d/retail-poller
 echo "*/5 * * * * root . /etc/environment; cd /app && flock -n /tmp/provider-export.flock timeout -k 30 240 node export-providers-json.js >> /var/log/provider-export.log 2>&1" >> /etc/cron.d/retail-poller
-echo "17 3 * * 0 root . /etc/environment; flock -n /tmp/cleanup-cron.flock timeout -k 30 1800 /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1" >> /etc/cron.d/retail-poller
+echo "17 3 * * * root . /etc/environment; flock -n /tmp/cleanup-cron.flock timeout -k 30 1800 /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1" >> /etc/cron.d/retail-poller
 chmod 0644 /etc/cron.d/retail-poller
 
 # ── 4. Tailscale state directory (on persistent /data volume) ──────────

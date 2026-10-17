@@ -3009,11 +3009,24 @@ function _imageSlot(side, label) {
   return slot;
 }
 
+/**
+ * Apply an item's frame to one view-modal image slot: the shared reader's `data-shape` and
+ * `data-orientation` (STRK-427 P2) next to the legacy `view-shape-rect` class. Called at first
+ * render and again after late Numista enrichment, so it must fully re-state the frame.
+ * @param {HTMLElement|null} slot - `.view-image-slot` element
+ * @param {Object} item - Inventory item (with any merged Numista data)
+ * @param {"obverse"|"reverse"} side - Which side the slot shows
+ */
 function _applyViewSlotFrame(slot, item, side) {
   if (!slot) return;
   const isRect =
     typeof resolveImageFrame === "function" && resolveImageFrame(item, side) === "rect";
   slot.classList.toggle("view-shape-rect", isRect);
+  if (typeof resolveImageFrameSpec !== "function") return;
+  const frame = resolveImageFrameSpec(item, side);
+  slot.dataset.shape = frame.shape;
+  if (frame.orientation) slot.dataset.orientation = frame.orientation;
+  else delete slot.dataset.orientation;
 }
 
 /** Replace placeholder with actual image in a slot */

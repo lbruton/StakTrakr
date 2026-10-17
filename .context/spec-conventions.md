@@ -15,7 +15,7 @@ Per-project overrides for the `/spec-*` family. Pairs with the universal mechani
 ## Version & release
 
 - **`/release patch` is the only valid version-bump path** — never hand-edit release artifacts.
-- **Run `/update-spot-bundle` before every version-bump PR** (dev or main). The script writes to the main checkout; copy the bundle into the worktree afterward (see `git-topology.md` §Spot Bundle).
+- **Run `/update-spot-bundle` before every version-bump PR** (dev or main). Run the worktree's own copy of the script so it writes into the worktree (see `git-topology.md` §Spot Bundle).
 - Version-lock high-water mark: derive the next version from `max(all version.lock entries incl. expired, APP_VERSION on origin/dev)`.
 
 ## Standard Closing Tasks roster

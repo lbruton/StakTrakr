@@ -39,6 +39,18 @@ const primaryOf = (page, slotId) =>
     return link ? link.primary : null;
   }, slotId);
 
+/**
+ * Read a Custom Collection's Slot ids in their saved order from the in-memory store.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {string} collectionId - Custom Collection id.
+ * @returns {Promise<string[]>} Slot ids, first to last.
+ */
+const slotOrderOf = (page, collectionId) =>
+  page.evaluate(
+    (id) => window.collectionsStore.getState().collections[id].definition.slots.map((s) => s.id),
+    collectionId
+  );
+
 test.describe("core/collections-data-paths — encrypted vault", () => {
   test("a vault restore refreshes the in-memory store, so the next edit cannot erase the restored Collections", async ({
     page,
@@ -187,7 +199,12 @@ const captureDownload = async (page, trigger) => {
   const stream = await download.createReadStream();
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
-  return { name: download.suggestedFilename(), text: Buffer.concat(chunks).toString("utf-8") };
+  const bytes = Buffer.concat(chunks);
+  return {
+    name: download.suggestedFilename(),
+    text: bytes.toString("utf-8"),
+    bytes: Array.from(bytes),
+  };
 };
 
 /**
@@ -285,7 +302,7 @@ test.describe("core/collections-data-paths — standalone Collections file", () 
       window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
       return window.collectionsStore.createCustom({
         name: "Carson City Morgans",
-        slots: [{ label: "1881-CC" }],
+        slots: [{ label: "1881-CC", mintage: 296000 }],
       }).collection.id;
     });
 
@@ -315,6 +332,12 @@ test.describe("core/collections-data-paths — standalone Collections file", () 
       customId
     );
     expect(custom).toBe("Carson City Morgans");
+    expect(
+      await page.evaluate(
+        (id) => window.collectionsStore.getState().collections[id].definition.slots[0].mintage,
+        customId
+      )
+    ).toBe(296000);
   });
 
   test("importing a file that is not a Collections export changes nothing and reports why", async ({
@@ -576,7 +599,15 @@ test.describe("core/collections-data-paths — CSV export and import", () => {
         skipEmptyLines: true,
         transformHeader: (header) => header.trim(),
       });
-      const fields = parsed.meta.fields.filter((field) => field !== "Collections");
+      // An older export predates Collections AND the STRK-427 image-framing columns, so the
+      // derived legacy file drops all four; the assertions below are unchanged.
+      const newerColumns = [
+        "Collections",
+        "Image Shape",
+        "Obverse Image Orientation",
+        "Reverse Image Orientation",
+      ];
+      const fields = parsed.meta.fields.filter((field) => !newerColumns.includes(field));
       return `# older export\n${window.Papa.unparse({ fields, data: parsed.data }, { newline: "\r\n" })}`;
     }, file.text);
     expect(legacyCsv).toContain("Traded From UUID\r\n");
@@ -1140,6 +1171,91 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
     });
   });
 
+  test("STRK-389 an inserted and reordered Custom Slot list reaches a second device with its links, by manifest and by vault", async ({
+    browser,
+    page,
+  }) => {
+    await withDevices(browser, page, async (deviceA) => {
+      const id = await deviceA.evaluate(() => {
+        const store = window.collectionsStore;
+        const made = store.createCustom({
+          name: "Black Flag",
+          slots: [{ label: "2019" }, { label: "2020" }, { label: "2021" }],
+        });
+        store.link(made.collection.id, "2020", "cdp-ase-2022");
+        return made.collection.id;
+      });
+      await page.evaluate(
+        (raw) => window.collectionsStore.mergeIn(JSON.parse(raw)),
+        await deviceA.evaluate(() => localStorage.getItem("collectionState"))
+      );
+      expect(await slotOrderOf(page, id)).toEqual(["2019", "2020", "2021"]);
+
+      const arrange = (slots) =>
+        deviceA.evaluate(
+          ({ id, slots }) =>
+            window.collectionsStore.updateCustom(id, { name: "Black Flag", slots }).ok,
+          { id, slots }
+        );
+      const files = {};
+      await routeCollectionDropbox(page, files);
+      await page.evaluate(() => {
+        window.DiffModal.show = () => {
+          throw new Error("Collections-only pull opened a modal");
+        };
+      });
+      const pull = (syncId) =>
+        page.evaluate((remote) => window.pullWithPreview(remote), remoteCollectionMeta(syncId));
+      const arrangedOnB = async (order) => {
+        expect(await slotOrderOf(page, id)).toEqual(order);
+        const stored = await page.evaluate(
+          (id) => JSON.parse(localStorage.getItem("collectionState")).collections[id],
+          id
+        );
+        expect(stored.definition.slots.map((slot) => slot.id)).toEqual(order);
+        expect(stored.slots["2020"].primary).toBe("cdp-ase-2022");
+      };
+
+      // Manifest path: insert after 2020, which also moves the 2020 row down one place.
+      expect(
+        await arrange([
+          { id: "2019", label: "2019" },
+          { id: "2020", label: "2020" },
+          { label: "2020 Antiqued" },
+          { id: "2021", label: "2021" },
+        ])
+      ).toBe(true);
+      const inserted = ["2019", "2020", "2020-antiqued", "2021"];
+      expect(await slotOrderOf(deviceA, id)).toEqual(inserted);
+      files.manifest = await deviceManifest(deviceA);
+      await pull("slot-order-manifest");
+      await arrangedOnB(inserted);
+
+      // Vault-first path: move the new Slot above 2020. No manifest is served.
+      const moved = ["2019", "2020-antiqued", "2020", "2021"];
+      expect(
+        await arrange([
+          { id: "2019", label: "2019" },
+          { id: "2020-antiqued", label: "2020 Antiqued" },
+          { id: "2020", label: "2020" },
+          { id: "2021", label: "2021" },
+        ])
+      ).toBe(true);
+      files.manifest = null;
+      files.vault = await deviceVault(deviceA);
+      await page.evaluate(() => {
+        window.DiffModal.show = (options) => options.onApply([]);
+      });
+      await pull("slot-order-vault");
+      await arrangedOnB(moved);
+
+      // Re-pulling the same state changes nothing.
+      const settled = await page.evaluate(() => localStorage.getItem("collectionState"));
+      await pull("slot-order-vault-again");
+      expect(await page.evaluate(() => localStorage.getItem("collectionState"))).toBe(settled);
+    });
+  });
+
   test("manifest deferred apply stops on rollback, then retries without losing either device's Slot", async ({
     browser,
     page,
@@ -1449,6 +1565,177 @@ const restoreBackupZipAndAccept = async (page, zipBytes) => {
 };
 
 test.describe("core/collections-data-paths — hidden Collections persistence and restore", () => {
+  test("ZIP backup restores Custom Collection metadata and paired title artwork", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const id = await page.evaluate(async () => {
+      const created = window.collectionsStore.createCustom({
+        name: "Graded Eagles",
+        metal: "Gold",
+        itemType: "Coin",
+        imageShape: "slab",
+        variant: "MS-70",
+        subtitle: "Early releases",
+        issuer: "US Mint",
+        weight: 1,
+        weightUnit: "oz",
+        purity: 0.9167,
+        about: "ZIP round trip",
+        slots: [{ label: "First" }],
+      });
+      const collectionId = created.collection.id;
+      const response = await fetch("/tests/playwright/helpers/test-obverse.png");
+      const file = new File([await response.blob()], "art.png", { type: "image/png" });
+      if (!(await window.collectionsPicker.saveImage(collectionId, null, file)))
+        throw new Error("obverse upload failed");
+      if (!(await window.collectionsPicker.saveImage(collectionId, "title:reverse", file)))
+        throw new Error("reverse upload failed");
+      return collectionId;
+    });
+    const exported = await captureDownload(page, "createBackupZip");
+    const zipInventory = await page.evaluate(async (bytes) => {
+      const zip = await window.JSZip.loadAsync(new Uint8Array(bytes));
+      const definition = JSON.parse(await zip.file("collection_state.json").async("string")).state
+        .collections;
+      const manifest = JSON.parse(await zip.file("pattern_image_manifest.json").async("string"));
+      return {
+        definition:
+          definition[
+            Object.keys(definition).find((key) => definition[key].name === "Graded Eagles")
+          ].definition,
+        images: manifest.map((entry) => entry.ruleId),
+      };
+    }, exported.bytes);
+    expect(zipInventory.definition).toMatchObject({
+      variant: "MS-70",
+      imageShape: "slab",
+      about: "ZIP round trip",
+    });
+    expect(zipInventory.images).toContain(`collection--${id}`);
+    expect(zipInventory.images).toContain(`collection--${id}--@title-reverse`);
+
+    await page.evaluate(async (collectionId) => {
+      await window.imageCache.deletePatternImage(`collection--${collectionId}`);
+      await window.imageCache.deletePatternImage(`collection--${collectionId}--@title-reverse`);
+    }, id);
+    await wipeCollections(page);
+    const toasts = await restoreBackupZipAndAccept(page, exported.bytes);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    const restored = await page.evaluate(async (collectionId) => {
+      const definition = window.collectionsStore.getState().collections[collectionId].definition;
+      const obverse = await window.collectionsPicker.getTitleImage(collectionId, "obverse");
+      const reverse = await window.collectionsPicker.getTitleImage(collectionId, "reverse");
+      if (obverse) URL.revokeObjectURL(obverse.url);
+      if (reverse) URL.revokeObjectURL(reverse.url);
+      return { definition, obverse: !!obverse, reverse: !!reverse };
+    }, id);
+    expect(restored.definition).toMatchObject({
+      variant: "MS-70",
+      imageShape: "slab",
+      about: "ZIP round trip",
+    });
+    expect(restored).toMatchObject({ obverse: true, reverse: true });
+  });
+
+  // STRK-427 (task B.7): the per-side reverse orientation is a definition key, so every path
+  // that carries a Custom Collection definition must carry it. Written before the implementation.
+  const MIXED_BARS = {
+    name: "Mixed orientation bars",
+    itemType: "Bar",
+    imageOrientation: "portrait",
+    reverseImageOrientation: "landscape",
+    slots: [{ label: "One" }],
+  };
+
+  test("STRK-427 a mixed pair round-trips through the standalone Collections export and import", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const id = await page.evaluate(
+      (spec) => window.collectionsStore.createCustom(spec).collection.id,
+      MIXED_BARS
+    );
+    const readDefinition = () =>
+      page.evaluate((key) => window.collectionsStore.getState().collections[key]?.definition, id);
+    expect(await readDefinition()).toMatchObject({
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+
+    const file = await captureDownload(page, "collectionsIO.exportFile");
+    expect(JSON.parse(file.text).state.collections[id].definition).toMatchObject({
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+
+    await wipeCollections(page);
+    expect(await readDefinition()).toBeUndefined();
+    const result = await page.evaluate(
+      (text) =>
+        window.collectionsIO.importFile(
+          new File([text], "collections.json", { type: "application/json" })
+        ),
+      file.text
+    );
+    expect(result).toEqual({ ok: true, changed: true });
+    expect(await readDefinition()).toMatchObject({
+      imageShape: "bar",
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+  });
+
+  test("STRK-427 a mixed pair round-trips through a ZIP backup and restore", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.waitForFunction(() => typeof window.createBackupZip === "function");
+    const id = await page.evaluate(
+      (spec) => window.collectionsStore.createCustom(spec).collection.id,
+      MIXED_BARS
+    );
+    const exported = await captureDownload(page, "createBackupZip");
+    const inZip = await page.evaluate(
+      async ({ bytes, key }) => {
+        const zip = await window.JSZip.loadAsync(new Uint8Array(bytes));
+        const state = JSON.parse(await zip.file("collection_state.json").async("string")).state;
+        return state.collections[key].definition;
+      },
+      { bytes: exported.bytes, key: id }
+    );
+    expect(inZip).toMatchObject({
+      imageOrientation: "portrait",
+      reverseImageOrientation: "landscape",
+    });
+
+    await wipeCollections(page);
+    const toasts = await restoreBackupZipAndAccept(page, exported.bytes);
+    expect(toasts).toContain("ZIP backup restored successfully");
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition,
+        id
+      )
+    ).toMatchObject({ imageOrientation: "portrait", reverseImageOrientation: "landscape" });
+  });
+
+  test("STRK-427 a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    const definition = await page.evaluate((spec) => {
+      const created = window.collectionsStore.createCustom({
+        ...spec,
+        name: "Uniform landscape bars",
+        imageOrientation: "landscape",
+        reverseImageOrientation: "landscape",
+      });
+      return window.collectionsStore.getState().collections[created.collection.id].definition;
+    }, MIXED_BARS);
+    expect(definition.imageOrientation).toBe("landscape");
+    expect(Object.hasOwn(definition, "reverseImageOrientation")).toBe(false);
+  });
+
   test("ZIP backup round-trips the disabled list", async ({ page }) => {
     await seedAndGoto(page);
     await page.waitForFunction(() => typeof window.createBackupZip === "function");

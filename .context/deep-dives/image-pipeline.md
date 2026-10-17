@@ -160,6 +160,7 @@ Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is han
 | `imageCache.getPatternImage(ruleId)`                               | Read the full pattern image record.                                                        |
 | `imageCache.getPatternImageUrl(ruleId, side)`                      | Read and return an object URL for one side.                                                |
 | `imageCache.deletePatternImage(ruleId)`                            | Delete pattern image record.                                                               |
+| `imageCache.deletePatternImageIf(ruleId, shouldDelete)`            | Delete the record only if the predicate approves it, check + delete in one transaction.    |
 | `imageCache.cacheMetadata(catalogId, numistaResult)`               | Write Numista metadata.                                                                    |
 | `imageCache.getMetadata(catalogId)`                                | Read Numista metadata.                                                                     |
 | `imageCache.deleteMetadata(catalogId)`                             | Delete Numista metadata.                                                                   |
@@ -173,6 +174,50 @@ Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is han
 | `imageCache.importMetadataRecord(record)`                          | Restore one metadata record from ZIP.                                                      |
 | `imageCache.importUserImageRecord(record)`                         | Restore one user image record from ZIP.                                                    |
 | `imageCache.importPatternImageRecord(record)`                      | Restore one pattern image record from ZIP.                                                 |
+
+### Custom Collection title artwork
+
+Custom Collection art uses the existing `patternImages` store and image-vault / ZIP paths.
+The legacy obverse title image remains `collection--<id>`; reverse title art uses the
+reserved `collection--<id>--@title-reverse` id so it cannot collide with a Slot id; Slot
+art remains `collection--<id>--<slotId>`. The
+Collection artwork stamps use `cover`, `title:reverse`, and `slot:<slotId>` keys. Image
+lookups validate those stamps after sync merge, and collection removal deletes both title
+records and all current Slot records. Renderers own and revoke returned `blob:` URLs.
+
+**Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
+store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
+`_isOrphanedPatternImage` judges them with `collectionsCore.isCurrentArtwork` against the
+live Collections store (the check backup, vault and sync use) and **fails closed**: if
+`collectionsCore` / `collectionsStore` is missing or the check throws, a Collection record is
+never listed or deleted. Artwork of a removed or unknown Collection, and a record older than
+its stamp, is orphaned. The list is a snapshot, so each delete re-runs the same check
+(`_deleteOrphanIfStillOrphaned`) against the stored record inside the delete's own IndexedDB
+transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serialized around
+the delete rather than removed by it. The stored record must also still match the listed one
+(`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
+reclassified, because an upload stores its image before its artwork stamp. Ownership is read
+from a private snapshot of the persisted state (`_persistedCollectionsState`, normalized with
+`collectionsCore.normalizeState`; never the memoized `getState()` and never
+`collectionsStore.load()`, which swaps the shared state without a change event) at scan time
+and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
+its transaction opens and the store has no cross-tab listener: another tab's cloud restore
+can change who owns an image without changing the record. `loadDataSync` swallows parse
+errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
+sentinel default and checks the shape (an object holding a `collections` map), refuses a
+snapshot from which normalization dropped an entry (a null entry, or an `id` that differs
+from its key), and refuses a retained artwork stamp whose `present` is not a boolean
+(`normalizeState` would coerce it to `false`) or whose `modified` is not exactly
+`Date#toISOString()` output (`isCurrentArtwork` compares it lexically, so even a valid
+`...:00Z` without fractional seconds reads as newer than its own image). That Collection could still own stored
+artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
+closed instead of reading as "no Collections". Only an absent key means no Collections.
+Numista rule references get the same treatment: `NumistaLookup` hydrates its rule cache once
+at boot and has no cross-tab listener, so `_referencedPatternImageIds` reads the persisted
+`numistaLookupRules` value at scan time and inside the delete predicate, and returns `null`
+(nothing orphaned, nothing deletable) when it is not an array of rule objects with string or
+absent `seedImageId`. Deleting an orphan never writes an artwork stamp: a tombstone stamped
+at delete time would out-rank newer art on another device in a merge.
 
 ### Internal resize/compress path
 

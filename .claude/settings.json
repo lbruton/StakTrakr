@@ -67,6 +67,35 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-lint.py\""
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/docvault-lint.py"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/worktree-safety.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|mcp__github__merge_pull_request",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-pr-merge.py"
+          }
+        ]
       }
     ]
   }

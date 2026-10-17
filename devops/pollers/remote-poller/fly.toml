@@ -55,6 +55,19 @@ primary_region = 'dfw'
   # for git pack spikes in the publisher. The machine was scaled live via
   # `fly machine update --vm-memory 1024`; this value keeps a future
   # `fly deploy` from silently reverting it to 512.
+  #
+  # Memory floor (STRK-402, measured 2026-10-03 at 1024, shallow export repo):
+  # the guest sees 962MB. Sampled every 2s for 31 min across two publish
+  # cycles and a spot poll: idle ~350MB in use, peak ~406MB in use (556MB
+  # still available). Staying at 1024 by choice — usage is inside Fly's free
+  # allowance. If that changes:
+  #   - 768  — safe drop on these numbers (~300MB headroom at peak). Not
+  #            trialled; confirm Fly accepts the size when scaling.
+  #   - 512  — NOT a safe floor. Peak ~406MB against ~450MB visible leaves
+  #            ~45MB, the same margin as the STRK-277 wedge. Trial only while
+  #            watching, never as a blind deploy.
+  # Unmeasured: cleanup-export.sh peak (2s sampling can also miss short
+  # spikes). Re-measure before dropping.
   memory = '1024'
   cpu_kind = 'shared'
   cpus = 1

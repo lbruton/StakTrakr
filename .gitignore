@@ -41,7 +41,6 @@ devops/screenshots/
 devops/node_modules/
 devops/docs/
 devops/claude-backup/
-devops/firecrawl-docker/
 
 # Version lock — main-checkout-only mutex for version claims.
 # Must NOT follow worktrees: copies would conflict every bump and break the claim.

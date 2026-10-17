@@ -60,7 +60,7 @@ const codecBlock = sliceBlock(
 const wrapperBlock = sliceBlock(
   storageSrc,
   "const __wouldClobberCompressed",
-  "/**\n * Removes unknown localStorage keys",
+  "/**\n * Keys that earlier builds wrote",
   "save/load wrapper"
 );
 

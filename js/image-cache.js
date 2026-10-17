@@ -749,6 +749,42 @@ class ImageCache {
   }
 
   /**
+   * Delete a pattern image record only if `shouldDelete` approves the record as it is
+   * stored at that instant. The read, the check and the delete share ONE readwrite
+   * transaction, so a concurrent write of the same key (another tab, a sync restore)
+   * is serialized before or after it and can never have its newer record removed by a
+   * decision made about the older one (STRK-438).
+   * @param {string} ruleId
+   * @param {(record: Object) => boolean} shouldDelete - Synchronous predicate over the stored record.
+   * @returns {Promise<boolean>} True only when the record existed, was approved and was deleted.
+   */
+  async deletePatternImageIf(ruleId, shouldDelete) {
+    if (!ruleId || typeof shouldDelete !== "function") return false;
+    if (!(await this._ensureDb())) return false;
+    if (!this._db.objectStoreNames.contains("patternImages")) return false;
+    return new Promise((resolve) => {
+      let deleted = false;
+      try {
+        const tx = this._db.transaction("patternImages", "readwrite");
+        const store = tx.objectStore("patternImages");
+        const req = store.get(ruleId);
+        req.onsuccess = () => {
+          const record = req.result;
+          if (record && shouldDelete(record)) {
+            store.delete(ruleId);
+            deleted = true;
+          }
+        };
+        tx.oncomplete = () => resolve(deleted);
+        tx.onerror = () => resolve(false);
+        tx.onabort = () => resolve(false);
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+
+  /**
    * Export all pattern image records for backup.
    * @returns {Promise<Array>}
    */

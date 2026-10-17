@@ -162,6 +162,18 @@ async function computeInventoryHash(items) {
             (item.constitutionalEntryMode || "") +
             "|" +
             (item.pricingType || "")
+          : "") +
+        // STRK-427: the chosen frame shape and per-side orientation, ONLY for items that carry
+        // them, under a distinct "frame:" tag so it cannot be confused with the block above.
+        // An inventory with none of the fields keeps its existing hash (no spurious one-time
+        // sync prompt on upgrade); the legacy *ImageFrame fields stay out (D-12).
+        (item.imageShape || item.obverseImageOrientation || item.reverseImageOrientation
+          ? "|frame:" +
+            (item.imageShape || "") +
+            "|" +
+            (item.obverseImageOrientation || "") +
+            "|" +
+            (item.reverseImageOrientation || "")
           : "");
       keys.push(itemKey + "::" + contentSample);
     }
@@ -1208,6 +1220,39 @@ function _getSyncKeyCandidates() {
   if (accountId)
     candidates.push({ key: STAKTRAKR_SIMPLE_SALT + ":" + accountId, label: "simple-mode" });
   return candidates;
+}
+
+/**
+ * Ordered, de-duplicated keys to try when restoring a `/backups/` file (STRK-413).
+ *
+ * The two backup types use different keys. Pre-sync backups are written by
+ * pushSyncVault() under the composite sync key (`vaultPassword:accountId`, or the
+ * simple-mode key). Manual backups use whatever password the user typed when
+ * making them. A typed password can therefore stand for either, so it is tried
+ * as-is and then composed with this device's account ID — the second form also
+ * opens pre-sync backups written before a vault-password change.
+ *
+ * With no typed password, returns this device's stored sync-key variants so a
+ * restore can open pre-sync backups without prompting. The stored variants are
+ * deliberately NOT added to a typed attempt: a wrong typed password must fail.
+ *
+ * @param {string|null} typedPassword - Password entered at the restore prompt, or null
+ * @returns {string[]} Keys to try, most likely first
+ */
+function getBackupKeyCandidates(typedPassword) {
+  var keys = [];
+  if (typedPassword) {
+    var accountId = localStorage.getItem("cloud_dropbox_account_id");
+    keys.push(typedPassword);
+    if (accountId) keys.push(typedPassword + ":" + accountId);
+  } else {
+    _getSyncKeyCandidates().forEach(function (c) {
+      keys.push(c.key);
+    });
+  }
+  return keys.filter(function (key, i) {
+    return keys.indexOf(key) === i;
+  });
 }
 
 /**
@@ -6317,6 +6362,7 @@ window.updateSyncStatusIndicator = updateSyncStatusIndicator;
 // removed with the header button they served (STRK-287).
 window.getSyncDeviceId = getSyncDeviceId;
 window.getSyncPasswordSilent = getSyncPasswordSilent;
+window.getBackupKeyCandidates = getBackupKeyCandidates;
 window.syncIsEnabled = syncIsEnabled;
 window.syncSaveOverrideBackup = syncSaveOverrideBackup;
 window.syncRestoreOverrideBackup = syncRestoreOverrideBackup;

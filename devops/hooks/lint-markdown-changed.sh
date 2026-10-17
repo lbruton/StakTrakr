@@ -14,7 +14,8 @@ fi
 # docs/specs/ holds spec records (STRK-411): historical artifacts not held to the repo
 # markdownlint config (see .markdownlintignore). markdownlint-cli
 # does not apply .markdownlintignore to explicitly passed files, so exclude it here.
-SPECS_EXCLUDE=(":(exclude)docs/specs/**")
+# .archive/ holds retired files kept verbatim for reference; same treatment.
+SPECS_EXCLUDE=(":(exclude)docs/specs/**" ":(exclude).archive/**")
 
 candidate_files=()
 append_unique_files() {

@@ -1679,8 +1679,11 @@ form {
   gap: var(--spacing);
 }
 
+/* textarea is part of the shared themed control rules (STRK-421): left out, it kept the
+   browser's light background and dark text in the dark, slate and sepia themes. */
 input,
 select,
+textarea,
 button {
   font-family: inherit;
   font-size: var(--font-size-lg);
@@ -1688,7 +1691,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid var(--border);
@@ -1698,7 +1702,8 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
@@ -3769,10 +3774,45 @@ input[type="submit"] {
   flex: 0 0 auto;
   padding-top: 1.2rem;
 }
+/* STRK-427: `d-none` has no global rule and `.image-swap-wrapper` sets its own display, so the
+   hidden state needs an explicit rule or Swap shows with zero or one image. */
+.image-swap-wrapper[hidden],
+.image-swap-wrapper.d-none {
+  display: none;
+}
 .image-swap-wrapper .btn-icon {
   font-size: var(--font-size-xl);
   padding: 0.2rem 0.4rem;
   line-height: 1;
+}
+/* STRK-434: the swap control is a transparent line icon in both modals (the item modal's
+   #swapImagesBtn and the builder's), readable in every theme through the text token. */
+.ife [data-ife-swap] .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.ife [data-ife-swap] .btn-icon:hover:not(:disabled),
+.ife [data-ife-swap] .btn-icon:focus-visible {
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+.ife [data-ife-swap] .btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 768px) {
+  .ife [data-ife-swap] .btn-icon {
+    min-width: 44px;
+    min-height: 44px; /* 44px touch target (design philosophy) */
+  }
 }
 .image-side-label {
   display: block;
@@ -3820,47 +3860,6 @@ input[type="submit"] {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   object-fit: contain;
-}
-
-.frame-toggle {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  z-index: 2;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: color-mix(in oklch, var(--bg-primary), transparent 8%);
-  color: var(--text-muted);
-  box-shadow: 0 2px 8px color-mix(in oklch, #000, transparent 82%);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  font-weight: 800;
-  line-height: 1;
-  padding: 0;
-}
-
-.frame-toggle::before {
-  content: "";
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-}
-
-.frame-toggle[data-frame-state="circle"],
-.frame-toggle[data-frame-state="rectangle"] {
-  color: var(--metal-gold, var(--gold));
-  border-color: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 45%);
-  background: color-mix(in oklch, var(--metal-gold, var(--gold)), transparent 88%);
-}
-
-.frame-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 .image-card-actions {
@@ -3943,6 +3942,334 @@ input[type="submit"] {
   margin-top: 0.2rem;
   display: block;
 }
+
+/* ── STRK-427: shared image-frame editor (.ife) ────────────────────────────────────────
+   Mounted by js/image-frame-editor.js in the Add/Edit Item modal and the Edit Collection
+   builder. Controls reuse the shipped .collections-segmented look; frames read the shared
+   --frame-* ratio tokens (Round is 1). Theme tokens only: --bg-tertiary, --border,
+   --border-hover (never --surface, which only the light :root defines — STRK-426). */
+.ife {
+  --ife-box: 200px; /* desktop preview bounding box inside the 700px dialog (A.1 mockup) */
+}
+
+[data-ife-shape] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-ife-orientation] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-ife-orientation][hidden] {
+  display: none;
+}
+
+.ife-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ife-cap {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ife .collections-segmented {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ife .collections-segmented-option span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  font-size: var(--font-size-sm);
+}
+
+/* One frame per side. Only ratio and shape live here; hosts size their own frames (the item
+   modal inside .ife-stage below, the builder per token width). */
+.ife-frame {
+  --ife-r: 1;
+  aspect-ratio: var(--ife-r);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 2px dashed var(--border-hover, var(--border));
+  color: var(--text-secondary);
+}
+
+/* The shape attribute applies the ratio; the (0,2,0) selector beats a host's own frame class,
+   such as the builder's .collections-image-pick, which sets aspect-ratio: 1. */
+.ife-frame[data-shape] {
+  aspect-ratio: var(--ife-r);
+}
+
+.ife-frame[data-shape="round"] {
+  --ife-r: 1;
+  border-radius: 50%;
+}
+
+.ife-frame[data-shape="slab"] {
+  --ife-r: var(--frame-slab);
+  border-radius: var(--frame-radius-slab);
+}
+
+.ife-frame[data-shape="bar"] {
+  --ife-r: var(--frame-bar-landscape);
+  border-radius: var(--frame-radius-bar);
+}
+
+.ife-frame[data-shape="bar"][data-orientation="portrait"] {
+  --ife-r: var(--frame-bar-portrait);
+}
+
+.ife-frame[data-shape="note"] {
+  --ife-r: var(--frame-note-landscape);
+  border-radius: var(--frame-radius-note);
+}
+
+.ife-frame[data-shape="note"][data-orientation="portrait"] {
+  --ife-r: var(--frame-note-portrait);
+}
+
+/* STRK-434: neither modal crops. A frame holding an image draws no fill or border of its own, so
+   the bands left by a photo whose ratio differs from the frame's are invisible and the photo
+   reads as if the frame were sized to it; the photo is scaled to fit whole, never filled. */
+.ife-frame.has-image {
+  border: 0;
+  background: transparent;
+}
+
+.ife .ife-frame img {
+  object-fit: contain;
+}
+
+/* Item modal: both frames are always visible (AC-1.5). The stage is a square bounding box so
+   the buttons below never jump when the shape changes; the frame is the largest ratio
+   rectangle that fits it. Photos are letterboxed, never cropped. */
+.ife-stage {
+  width: var(--ife-box);
+  max-width: 100%;
+  height: var(--ife-box);
+  display: grid;
+  place-items: center;
+}
+
+.ife .ife-stage .ife-frame {
+  width: calc(100% * min(1, var(--ife-r)));
+  display: grid;
+  place-items: center;
+  position: relative;
+  padding: 0;
+}
+
+/* The item modal keeps its legacy preview container (ids and display toggles) inside the frame.
+   These rules are scoped to the item modal's .ife-stage: the builder's frames are buttons that
+   draw their own "+" and image. */
+.ife .ife-stage .ife-frame .image-upload-preview {
+  width: 100%;
+  height: 100%;
+}
+
+.ife .ife-stage .ife-frame:not(.has-image)::before {
+  content: "+";
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+}
+
+.ife .ife-stage .ife-frame img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  display: block;
+}
+
+.ife .ife-stage .ife-frame:not(.has-image) img {
+  display: none;
+}
+
+/* STRK-434: the item frame is the upload target, as in the Edit collection builder. The frame no
+   longer clips (its corner badge and link icon sit on the edge); the preview container keeps the
+   shape's clip instead. A transparent full-frame button carries the click and the focus ring. */
+.ife .ife-stage .ife-frame {
+  overflow: visible;
+}
+
+.ife .ife-stage .ife-frame .image-upload-preview {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.ife-upload {
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ife-upload:hover {
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+}
+
+.ife-upload:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The × badge is the builder's own .collections-image-remove (same look in every theme). */
+.ife .ife-stage .collections-image-remove {
+  top: 2px;
+  right: 2px;
+}
+
+/* Link icon at the frame's lower right; it opens the small URL dialog. */
+.ife-link {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-hover);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ife-link:hover,
+.ife-link:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Touch targets: a true 44px square centred on the icon or badge, without growing either. It is
+   centred with top/left 50% and a translate, not an inset, because an inset is measured from the
+   padding box and the 1px border shifted it off centre and 2px short of 44px. The builder's
+   badge shares the rule (it also sits inside .ife). */
+@media (max-width: 768px) {
+  .ife-link::after,
+  .ife .collections-image-remove::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* The landscape Note frame is only ~63px tall on a phone (the 140px box, narrowed to half the modal), so the centred 44px targets of
+   the upper-right × and the lower-right link would overlap by a few pixels (a tap on the bottom of
+   the destructive × would open the link dialog). Lifting the badge to straddle the frame's top edge
+   keeps the two targets apart on the item modal, where both exist. */
+@media (max-width: 768px) {
+  .ife
+    .ife-stage
+    .ife-frame[data-shape="note"]:not([data-orientation="portrait"])
+    .collections-image-remove {
+    top: -10px;
+  }
+}
+
+/* The URL fields only hold the value the link dialog edits; they are never shown inline. They are
+   type="text", not "url": a hidden control still takes part in native validation, and an item
+   imported with a malformed link must still Save (the link stays editable through the dialog). */
+#imageUploadGroup .image-url-input {
+  display: none !important;
+}
+
+/* Buttons sit under each preview on desktop and mobile alike (mockup option M-B). The card
+   spans its side, so the 200px stage is not squeezed by shrink-to-fit sizing. */
+.ife .image-card {
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  gap: 0.5rem;
+}
+
+.ife .image-card-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ife .image-upload-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .ife {
+    --ife-box: 140px; /* the existing mobile preview cap */
+  }
+
+  .ife .collections-segmented-option span {
+    min-height: 44px; /* 44px touch target (design philosophy) */
+    padding: 0.4rem 0.6rem;
+    box-sizing: border-box;
+  }
+
+  .ife .collections-segmented-option {
+    flex: 1 1 auto;
+  }
+}
+
+/* Narrow phones: orientation options go icon-only (the text stays for assistive tech) so the
+   two-option pill never wraps into two rows. */
+@media (max-width: 560px) {
+  /* The :is() prefix keeps this ahead of the shared builder/item segmented-option rule
+     (STRK-434), which would otherwise restore the text labels. */
+  :is(.collections-builder-form, #inventoryForm)
+    .ife
+    [data-ife-orientation]
+    .collections-segmented-option
+    span {
+    font-size: 0;
+    gap: 0;
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  :is(.collections-builder-form, #inventoryForm)
+    .ife
+    [data-ife-orientation]
+    .collections-segmented-option
+    span
+    svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ife-frame {
+    transition: none;
+  }
+}
+
 .btn-sm {
   padding: 0.25rem 0.6rem;
   font-size: var(--font-size-base);
@@ -10837,9 +11164,14 @@ th {
   color: var(--text-primary);
 }
 
-/* --- Glass-style form inputs -------------------------------------------- */
+/* --- Glass-style form inputs --------------------------------------------
+   Shared by the Add Item form and the Custom Collection builder (STRK-421): the builder
+   joins these selector lists instead of carrying its own control sizing. */
 #inventoryForm input,
-#inventoryForm select {
+#inventoryForm select,
+.collections-builder-form input:not([type="radio"]):not([type="file"]),
+.collections-builder-form select,
+.collections-builder-form textarea {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
   border: 1.5px solid var(--glass-input-border, var(--border));
   border-radius: var(--radius);
@@ -10855,28 +11187,42 @@ th {
     box-shadow 0.2s ease;
 }
 
+/* A textarea keeps the shared surface but grows with its rows. */
+.collections-builder-form textarea {
+  height: auto;
+  min-height: 4.5rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+
 /* Solid backgrounds for OS-native <option> popups (STAK-353) */
-#inventoryForm select option {
+#inventoryForm select option,
+.collections-builder-form select option {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
 #inventoryForm input:focus,
-#inventoryForm select:focus {
+#inventoryForm select:focus,
+.collections-builder-form input:not([type="radio"]):not([type="file"]):focus,
+.collections-builder-form select:focus,
+.collections-builder-form textarea:focus {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.05));
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 /* Dark theme glass tokens */
-:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm {
+:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm,
+:is([data-theme="dark"], [data-theme="slate"]) .collections-modal-content--builder {
   --glass-input-bg: rgba(255, 255, 255, 0.05);
   --glass-input-border: rgba(255, 255, 255, 0.1);
   --glass-input-focus-bg: rgba(255, 255, 255, 0.08);
 }
 
 /* Sepia theme glass tokens */
-[data-theme="sepia"] #inventoryForm {
+[data-theme="sepia"] #inventoryForm,
+[data-theme="sepia"] .collections-modal-content--builder {
   --glass-input-bg: rgba(139, 69, 19, 0.04);
   --glass-input-border: rgba(139, 69, 19, 0.15);
   --glass-input-focus-bg: rgba(139, 69, 19, 0.07);
@@ -10884,7 +11230,9 @@ th {
 
 /* --- Uppercase micro-labels --------------------------------------------- */
 #inventoryForm label,
-#inventoryForm .form-section-label {
+#inventoryForm .form-section-label,
+.collections-builder-form label,
+.collections-builder-form .collections-builder-caption {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -10902,52 +11250,46 @@ th {
 }
 
 /* --- Refined field group spacing ---------------------------------------- */
-#inventoryForm .grid {
+#inventoryForm .grid,
+.collections-builder-form .grid {
   gap: var(--spacing-md);
   margin-bottom: 0.4rem;
 }
 
-#inventoryForm {
+#inventoryForm,
+.collections-builder-form {
   --inventory-control-height: 34px;
   gap: var(--spacing-md);
 }
 
-/* --- Image upload slots — dashed drop-zone style ------------------------ */
+/* --- Image upload slots ------------------------------------------------------------
+   STRK-434: no dashed drop-zone box. The Edit collection builder draws none, and the two
+   modals share one image look. */
 #inventoryForm .image-upload-side {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius);
   padding: 0.5rem;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease;
 }
 
-#inventoryForm .image-upload-side:hover {
-  border-color: var(--primary);
-  background: color-mix(in oklch, var(--primary), transparent 97%);
-}
-
-:is([data-theme="dark"], [data-theme="slate"]) #inventoryForm .image-upload-side:hover {
-  background: color-mix(in oklch, var(--primary), transparent 94%);
-}
-
+/* STRK-434: the side captions share the form's micro-label style with the builder's
+   "Obverse title image" captions (same size, weight, casing, tracking and colour). */
 #inventoryForm .image-side-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted, var(--text-secondary));
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
 }
 
 /* --- Collapsible sections — refined for prototype look ------------------ */
-#inventoryForm .form-section {
+#inventoryForm .form-section,
+.collections-builder-form .form-section {
   border: 1px solid var(--glass-input-border, var(--border));
   border-radius: var(--radius);
   margin-bottom: 0.5rem;
   background: transparent;
 }
 
-#inventoryForm .form-section-header {
+#inventoryForm .form-section-header,
+.collections-builder-form .form-section-header {
   background: transparent;
   padding: 0.55rem 0.7rem;
   font-size: var(--font-size-sm);
@@ -10955,7 +11297,8 @@ th {
   letter-spacing: 0.03em;
 }
 
-#inventoryForm .form-section-icon {
+#inventoryForm .form-section-icon,
+.collections-builder-form .form-section-icon {
   color: var(--primary);
 }
 
@@ -10977,7 +11320,9 @@ th {
 }
 
 #inventoryForm .item-modal-actions-left .btn,
-#inventoryForm .item-modal-actions-right .btn {
+#inventoryForm .item-modal-actions-right .btn,
+.collections-builder-footer .btn,
+.collections-builder-actions .btn {
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.75rem;
   font-size: var(--font-size-sm);
@@ -10986,7 +11331,8 @@ th {
 }
 
 #inventoryForm .item-modal-actions-left .btn.secondary,
-#inventoryForm .item-modal-actions-right .btn.secondary {
+#inventoryForm .item-modal-actions-right .btn.secondary,
+.collections-builder-actions .btn.secondary {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
   border: 1px solid var(--glass-input-border, var(--border));
   color: var(--text-primary);
@@ -10996,20 +11342,24 @@ th {
 }
 
 #inventoryForm .item-modal-actions-left .btn.secondary:hover,
-#inventoryForm .item-modal-actions-right .btn.secondary:hover {
+#inventoryForm .item-modal-actions-right .btn.secondary:hover,
+.collections-builder-actions .btn.secondary:hover,
+.collections-builder-footer .collections-builder-cancel:hover {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
   border-color: var(--primary);
 }
 
 /* Cancel button */
-#inventoryForm #cancelItem {
+#inventoryForm #cancelItem,
+.collections-builder-footer .collections-builder-cancel {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
   border: 1px solid var(--glass-input-border, var(--border));
   color: var(--text-secondary);
 }
 
 /* Submit button — premium gold/accent treatment */
-#inventoryForm #itemModalSubmit.premium {
+#inventoryForm #itemModalSubmit.premium,
+.collections-builder-footer .btn.premium {
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.85rem;
   min-height: auto;
@@ -14529,13 +14879,18 @@ th {
   /* Touch-sized inputs: 44px min height (Apple HIG) */
   #itemModal input,
   #itemModal select,
-  #itemModal textarea {
+  #itemModal textarea,
+  .collections-builder-form input:not([type="radio"]):not([type="file"]),
+  .collections-builder-form select,
+  .collections-builder-form textarea {
     min-height: 44px;
     font-size: var(--font-size-lg);
     padding: 0.45rem 0.65rem;
   }
 
-  #itemModal .btn {
+  #itemModal .btn,
+  .collections-builder-footer .btn,
+  .collections-builder-actions .btn {
     min-height: 44px;
     font-size: var(--font-size-md);
   }
@@ -14554,7 +14909,8 @@ th {
   .item-modal-actions-right {
     width: 100%;
   }
-  .item-modal-actions-right .btn {
+  .item-modal-actions-right .btn,
+  .collections-builder-footer .btn {
     flex: 1;
   }
 
@@ -17939,8 +18295,66 @@ input[type="number"] {
 .collections-coin img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transform: scale(1.035);
+  object-fit: contain;
+  transform: none;
+}
+
+.collections-coin--shape-round {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+/* STRK-424 / STRK-427: one ratio per shape and orientation, global so the Collections
+   medallions, the builder preview and the shared image-frame editor read a single source.
+   A Bar or Note with no orientation class keeps the landscape frame it always had.
+   Values are STRK-424's, written as unitless numbers (3 / 5 = 0.6) so the same token works in
+   aspect-ratio and in calc() for the editor's fit math. --frame-slab is the medallion Slab ratio. */
+:root {
+  --frame-bar-portrait: 0.6;
+  --frame-bar-landscape: 1.6;
+  --frame-note-portrait: calc(1 / 2.05);
+  --frame-note-landscape: 2.05;
+  --frame-slab: 0.68;
+  /* STRK-436: corner radius per shape. These are the CEILINGS (the editor's look at full
+     size); small renderers scale the radius down to --frame-radius-scale of the frame's short
+     side so a 16-22px thumb never turns into a pill. */
+  --frame-radius-bar: 6px;
+  --frame-radius-note: 4px;
+  --frame-radius-slab: 8px;
+  --frame-radius-scale: 0.12;
+  /* STRK-436: table thumb heights. Portrait Bar/Note get the taller box so their area
+     matches a round coin's; the row is sized for the taller box so every row is one height. */
+  --table-thumb-h: 28px;
+  --table-thumb-h-portrait: 36px;
+}
+
+.collections-coin--shape-bar {
+  aspect-ratio: var(--frame-bar-landscape);
+  border-radius: var(--radius);
+}
+
+.collections-coin--shape-bar.collections-coin--portrait {
+  aspect-ratio: var(--frame-bar-portrait);
+}
+
+.collections-coin--shape-note {
+  aspect-ratio: var(--frame-note-landscape);
+  border-radius: var(--radius-sm);
+}
+
+.collections-coin--shape-note.collections-coin--portrait {
+  aspect-ratio: var(--frame-note-portrait);
+}
+
+.collections-coin--shape-slab {
+  aspect-ratio: var(--frame-slab);
+  border-radius: 10px;
+  border: 4px solid var(--border-hover);
+  background: var(--bg-secondary);
+}
+
+.collections-coin--shape-slab img {
+  padding: 3px;
 }
 
 .collections-coin--mono {
@@ -17974,6 +18388,9 @@ input[type="number"] {
 
 .collections-pair {
   display: flex;
+  /* STRK-427: a pair can mix orientations. The default stretch would pull the shorter frame to
+     the taller one's height and override its aspect-ratio; centring keeps each frame's own ratio. */
+  align-items: center;
 }
 
 .collections-pair .collections-coin + .collections-coin {
@@ -18683,7 +19100,7 @@ input[type="number"] {
 .collections-lrow {
   display: grid;
   grid-template-columns:
-    52px 128px minmax(0, 1.4fr) 116px 84px 84px
+    52px 128px minmax(0, 1.4fr) 116px 84px 84px 84px
     minmax(120px, 0.8fr) 116px;
   align-items: center;
   gap: var(--spacing);
@@ -18789,6 +19206,13 @@ input[type="number"] {
 }
 
 .collections-muted {
+  color: var(--text-muted);
+}
+
+/* Hub Value cell: retail on top, melt as a quiet second line (STRK-382). */
+.collections-value-melt {
+  display: block;
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
 
@@ -18941,11 +19365,12 @@ input[type="number"] {
 @media (max-width: 1024px) {
   .collections-lrow {
     grid-template-columns:
-      44px 76px minmax(0, 1fr) 84px 84px
-      minmax(96px, auto) 116px;
+      40px 64px minmax(0, 1fr) 76px 76px 76px
+      minmax(84px, auto) 104px;
+    gap: var(--spacing-md);
   }
 
-  /* Mintage is reference data; paid / melt / G-L are why the ledger exists. */
+  /* Mintage is reference data; paid / melt / retail / G-L are why the ledger exists. */
   .collections-hide-md {
     display: none;
   }
@@ -18956,6 +19381,51 @@ input[type="number"] {
 
   .collections-hubrow.is-arranging {
     grid-template-columns: 44px minmax(0, 1.4fr) minmax(90px, 1fr) 84px 110px 110px;
+  }
+}
+
+/* STRK-423: narrow tablets need two rows to preserve Item names and every value. */
+@media (min-width: 641px) and (max-width: 800px) {
+  .collections-album .collections-lrow {
+    grid-template-columns: 40px 84px repeat(2, minmax(0, 1fr)) 84px 104px;
+  }
+
+  .collections-album .collections-lrow > :nth-child(1) {
+    grid-area: 1 / 1;
+  }
+
+  .collections-album .collections-lrow > :nth-child(2) {
+    grid-area: 1 / 2;
+  }
+
+  .collections-album .collections-lrow > :nth-child(3) {
+    grid-area: 1 / 3 / 2 / 6;
+  }
+
+  .collections-album .collections-lrow > :nth-child(5) {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+
+  .collections-album .collections-lrow > :nth-child(6) {
+    grid-area: 2 / 3;
+  }
+
+  .collections-album .collections-lrow > :nth-child(7) {
+    grid-area: 2 / 4;
+  }
+
+  .collections-album .collections-lrow > :nth-child(8) {
+    grid-area: 2 / 5 / 3 / 7;
+  }
+
+  .collections-album .collections-lrow > :nth-child(9) {
+    grid-area: 1 / 6;
+  }
+
+  .collections-album .collections-lrow-name,
+  .collections-album .collections-lrow-name .collections-linkbtn {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -19205,10 +19675,6 @@ input[type="number"] {
   max-width: 640px;
 }
 
-.collections-modal .collections-modal-content--builder {
-  max-width: 860px;
-}
-
 .collections-modal-header {
   position: relative;
   padding: var(--spacing-lg) var(--spacing-xl) var(--spacing);
@@ -19359,50 +19825,133 @@ input[type="number"] {
   color: var(--text-muted);
 }
 
+/* Custom Collection builder (STRK-421). Control sizing, labels, sections and footer
+   buttons come from the shared Add Item rules (search "Glass-style form inputs"); this
+   block is layout only. Approved mockup: playground/STRK-421-collection-modal-variants.html,
+   variant C. */
+.collections-modal .collections-modal-content--builder {
+  width: 90%;
+  max-width: 700px;
+}
+
+.collections-modal-content--builder .collections-modal-header {
+  padding: var(--spacing) calc(var(--spacing-xl) + 32px);
+}
+
+.collections-modal-content--builder .collections-modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.collections-modal-content--builder .collections-modal-body {
+  flex: 1;
+  padding: var(--spacing);
+}
+
+.collections-modal-footer.collections-builder-footer {
+  gap: 0.4rem;
+  padding: 0.75rem var(--spacing) 0.65rem;
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+}
+
+.collections-builder-footer .collections-modal-footer-actions {
+  gap: 0.4rem;
+}
+
 .collections-builder-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing) var(--spacing-lg);
 }
 
-.collections-field.is-wide {
-  grid-column: 1 / -1;
+.collections-builder-form > * {
+  min-width: 0;
 }
 
-.collections-field input,
-.collections-field select {
-  width: 100%;
+.collections-builder-grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
-/* Media row: cover art on the left, display controls on the right. Sized to grow —
-   a reverse cover joins .collections-builder-covers, a shape control joins
-   .collections-builder-display — without reflowing the rest of the form. */
-.collections-builder-media {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing) var(--spacing-lg);
-  align-items: start;
+.collections-builder-form .collections-builder-caption {
+  display: block;
 }
 
-.collections-builder-cover,
-.collections-builder-display {
+.collections-builder-error {
+  margin-top: 0.2rem;
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.collections-builder-error[hidden] {
+  display: none;
+}
+
+.collections-builder-form input[aria-invalid="true"]:not([type="radio"]):not([type="file"]) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+.collections-builder-form input:disabled,
+.collections-builder-form select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.collections-builder-form .lock-pill[hidden],
+.collections-builder-hero .collections-builder-choice[hidden] {
+  display: none;
+}
+
+/* Hero: the two title images, large and centred, with the Image shape picker beneath.
+   The images take the chosen outline, so the picker previews its own effect. */
+.collections-builder-hero {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-  min-width: 0;
+  align-items: center;
+  gap: var(--spacing);
+  padding: var(--spacing-sm) 0 var(--spacing);
+  text-align: center;
 }
 
 .collections-builder-covers {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing);
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--spacing-xl);
 }
 
+.collections-builder-title-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* STRK-434: two 140px medallions plus the 44px Swap need 324px of the ~352px a phone gives the
+   row, so the wide desktop gap would wrap the pair onto two lines. */
+@media (max-width: 768px) {
+  .collections-builder-covers {
+    gap: 0.5rem;
+  }
+}
+
+/* STRK-427 / STRK-434: every frame sizes itself from ITS OWN shape and orientation (set on the
+   frame by the shared image-frame editor), so a portrait obverse and a landscape reverse size
+   independently. The longest side is the shared --ife-box (200px; 140px at 768px and below), the
+   same box the item modal's preview stage uses, so the two modals show the same medallion. Ratio
+   and radius come from the shared .ife-frame rules. */
 .collections-builder-covers .collections-image-pick {
-  width: 104px;
-  font-size: var(--font-size-xl);
+  width: calc(var(--ife-box) * min(1, var(--ife-r)));
+  font-size: var(--font-size-2xl);
+}
+
+.collections-builder-swap {
+  align-self: center;
+}
+
+.collections-builder-swap[hidden] {
+  display: none;
 }
 
 .collections-builder-covers .collections-image-remove {
@@ -19410,12 +19959,61 @@ input[type="number"] {
   right: 2px;
 }
 
-.collections-builder-caption {
-  display: block;
+/* STRK-434: the item modal's shared image-frame editor (#inventoryForm .ife) takes the same
+   segmented look as the builder, so the Image shape selector is identical in both modals. */
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented {
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 2px;
+}
+
+/* Segmented options are <label>s: undo the form's uppercase micro-label treatment. */
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
   font-size: var(--font-size-md);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.collections-builder-form .collections-segmented-option span.collections-builder-icon,
+.collections-builder-icon {
+  display: inline-flex;
+  padding: 0;
+}
+
+/* Phone touch targets: text options (Orientation) meet the 44px baseline. */
+@media (max-width: 767px) {
+  :is(.collections-builder-form, #inventoryForm .ife)
+    .collections-segmented-option
+    span:not(.collections-builder-icon) {
+    min-height: 44px;
+  }
+}
+
+.collections-builder-slots-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: 0.35rem;
+}
+
+.collections-builder-slots-head .collections-builder-caption {
+  margin: 0;
+  color: var(--primary);
+}
+
+.collections-builder-divider {
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--glass-input-border, var(--border));
 }
 
 /* Segmented either/or control — radios styled as a pill pair. */
@@ -19488,9 +20086,34 @@ input[type="number"] {
   height: 20px;
   border: 1px solid var(--border-hover);
   border-radius: 50%;
-  background: var(--surface);
+  /* --bg-card, not --surface: only the light :root defines --surface, so the dark themes kept a
+     near-white badge under their light text (STRK-426). In light the two tokens are equal. */
+  background-color: var(--bg-card);
   color: var(--text-primary);
   cursor: pointer;
+  /* STRK-434: the cross is drawn, not typed. A "×" glyph sits low in its line box and the offset
+     varies by font, so two 1.5px diagonals centred in the circle (in the badge's own colour)
+     replace the text; the label stays for assistive tech through aria-label. */
+  font-size: 0;
+  line-height: 0;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 0.75px),
+      currentColor calc(50% - 0.75px),
+      currentColor calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    );
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 9px 9px;
 }
 
 .collections-image-remove[hidden] {
@@ -19523,36 +20146,98 @@ input[type="number"] {
   object-fit: cover;
 }
 
+/* Slot card (STRK-421): drag handle, image, fields, then insert-after and remove. */
 .collections-builder-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1.1fr) 84px minmax(0, 1.4fr) 32px;
+  grid-template-columns: 24px 44px minmax(0, 1.1fr) 70px minmax(100px, 0.8fr) minmax(0, 1fr) auto;
   gap: var(--spacing-sm);
   align-items: center;
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: 0.35rem;
+  padding: 5px 6px 5px 2px;
+  border: 1px solid var(--glass-input-border, var(--border));
+  border-radius: var(--radius);
+  background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
 }
 
-.collections-builder-row input {
-  width: 100%;
+.collections-builder-row.is-dragging {
+  opacity: 0.45;
 }
 
-.collections-builder-remove {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--font-size-lg);
+.collections-builder-row.is-drop-target {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+
+.collections-builder-grip {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-muted);
-  min-height: 32px;
+  touch-action: none;
+  cursor: grab !important;
+}
+
+.collections-builder-grip:active {
+  cursor: grabbing !important;
+}
+
+.collections-builder-grip:hover {
+  color: var(--primary);
+}
+
+.collections-builder-mintage-error {
+  grid-column: 2 / -1;
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.collections-builder-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.collections-builder-insert,
+.collections-builder-remove {
+  min-width: 30px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+}
+
+.collections-builder-insert {
+  border-color: var(--glass-input-border, var(--border));
+  color: var(--text-secondary);
+}
+
+.collections-builder-insert:hover {
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .collections-builder-remove:hover {
   color: var(--danger);
 }
 
+.collections-builder-grip:focus-visible,
+.collections-builder-row-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
 .collections-builder-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
 }
 
 @media (max-width: 640px) {
@@ -19564,17 +20249,42 @@ input[type="number"] {
     display: none;
   }
 
-  .collections-builder-form,
-  .collections-builder-media {
-    grid-template-columns: minmax(0, 1fr);
+  /* Two-line Slot card: handle | image, label, Year / Mintage, insert + remove. */
+  .collections-builder-row {
+    grid-template-columns: 44px 44px minmax(0, 1fr) 96px;
+    padding: 6px;
   }
 
-  .collections-builder-row {
-    grid-template-columns: 44px minmax(0, 1fr) 64px 32px;
+  .collections-builder-grip {
+    grid-row: 1 / 3;
+  }
+
+  .collections-builder-mintage {
+    grid-column: 2 / 4;
+  }
+
+  .collections-builder-row-actions {
+    grid-column: 4;
+    justify-content: flex-end;
+  }
+
+  .collections-builder-grip,
+  .collections-builder-row-actions button {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .collections-builder-note {
     display: none;
+  }
+
+  .collections-builder-form .form-section-header {
+    min-height: 44px;
+  }
+
+  .collections-builder-footer .collections-modal-footer-actions {
+    display: flex;
+    flex: 1;
   }
 }
 
@@ -19927,5 +20637,161 @@ input[type="number"] {
 
   .collections-settings-toggle .chip-sort-btn {
     min-width: 56px;
+  }
+}
+
+/* ==========================================================================
+   STRK-427 P2: renderer frames (table thumb, card A/B/C, view modal)
+   --------------------------------------------------------------------------
+   Each renderer wrapper carries data-shape ("round"|"bar"|"note"|"slab") and, for Bar and
+   Note only, data-orientation. The wrapper's existing box is the BOUNDING box: the frame is
+   the largest rectangle of the token ratio that fits it (width = min(box-w, box-h * ratio),
+   height from aspect-ratio), and every non-round frame uses object-fit: contain so a photo is
+   letterboxed, never cropped. The legacy bar-shape / table-thumb-rect / view-shape-rect
+   classes stay on the elements; this block is later in the file than their rules on purpose.
+   Ratios come from the shared :root --frame-* tokens, never literals.
+   ========================================================================== */
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape] {
+  --frame-r: 1;
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="slab"] {
+  --frame-r: var(--frame-slab);
+  --frame-radius-max: var(--frame-radius-slab);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"] {
+  --frame-radius-max: var(--frame-radius-bar);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"] {
+  --frame-radius-max: var(--frame-radius-note);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="portrait"] {
+  --frame-r: var(--frame-bar-portrait);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="landscape"] {
+  --frame-r: var(--frame-bar-landscape);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="portrait"] {
+  --frame-r: var(--frame-note-portrait);
+}
+:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="landscape"] {
+  --frame-r: var(--frame-note-landscape);
+}
+
+/* Cards: the box each style already gave its image wrapper. */
+.card-a .cv-images-sm .coin-img[data-shape] {
+  --frame-box-w: 44px;
+  --frame-box-h: 44px;
+}
+.card-b .coin-img[data-shape] {
+  --frame-box-w: 80px;
+  --frame-box-h: 80px;
+}
+.card-c .coin-img[data-shape] {
+  --frame-box-w: 80px;
+  --frame-box-h: 56px;
+}
+.card-a .cv-images-sm .coin-img[data-shape],
+.card-b .coin-img[data-shape],
+.card-c .coin-img[data-shape] {
+  --frame-w: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  width: var(--frame-w);
+  height: auto;
+  aspect-ratio: var(--frame-r);
+}
+.card-a .cv-images-sm .coin-img[data-shape="round"],
+.card-b .coin-img[data-shape="round"],
+.card-c .coin-img[data-shape="round"] {
+  border-radius: 50%;
+}
+.card-a .cv-images-sm .coin-img[data-shape]:not([data-shape="round"]),
+.card-b .coin-img[data-shape]:not([data-shape="round"]),
+.card-c .coin-img[data-shape]:not([data-shape="round"]) {
+  /* STRK-436: the shape's radius ceiling, scaled down to a share of the short side
+     (min(w, w / ratio)) so small frames stay rectangles, not pills. */
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-w) / var(--frame-r)) * var(--frame-radius-scale))
+  );
+  background: transparent;
+}
+
+/* Table thumbs: ratio-derived width clamped to 16..40px (approved P2 clamp). Round, Slab and
+   landscape thumbs are 28px tall; STRK-436 gives portrait Bar/Note a 36px box so their area
+   matches a round coin's. */
+.table-thumb[data-shape] {
+  --frame-h: var(--table-thumb-h);
+  --frame-w: clamp(16px, calc(var(--frame-h) * var(--frame-r)), 40px);
+  height: var(--frame-h);
+  width: var(--frame-w);
+}
+.table-thumb[data-shape="bar"][data-orientation="portrait"],
+.table-thumb[data-shape="note"][data-orientation="portrait"] {
+  --frame-h: var(--table-thumb-h-portrait);
+}
+.table-thumb[data-shape="round"] {
+  border-radius: 50%;
+}
+.table-thumb[data-shape]:not([data-shape="round"]) {
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-h)) * var(--frame-radius-scale))
+  );
+  object-fit: contain;
+  background: transparent;
+}
+/* One whole-pixel row height for every inventory row (42px): the taller portrait thumb plus
+   3px above and 3px below, the last of which is the cell's 1px collapsed bottom border. Rows
+   with and without portrait items never zig-zag. The image cell's padding is pinned in whole
+   pixels because the global td padding is a fractional 0.2rem. */
+#inventoryTable tbody tr {
+  height: calc(var(--table-thumb-h-portrait) + 6px);
+}
+#inventoryTable td[data-column="image"] {
+  padding-block: 3px 2px;
+  /* The thumbs are inline images; a zero line box stops the text strut adding a pixel. */
+  line-height: 0;
+}
+
+/* View modal: the slot's image box is 180px (Round) or 200x260 (every other frame). */
+.view-image-slot[data-shape][data-side] {
+  --frame-box-w: 180px;
+  --frame-box-h: 180px;
+}
+.view-image-slot[data-shape]:not([data-shape="round"])[data-side] {
+  --frame-box-w: 200px;
+  --frame-box-h: 260px;
+}
+.view-image-slot[data-shape][data-side] img {
+  width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  height: auto;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: var(--frame-r);
+  object-fit: contain;
+}
+.view-image-slot[data-shape][data-side] .view-image-placeholder {
+  width: min(var(--frame-box-w), calc(var(--frame-box-h) * var(--frame-r)));
+  height: auto;
+  aspect-ratio: var(--frame-r);
+}
+.view-image-slot[data-shape="round"][data-side] img,
+.view-image-slot[data-shape="round"][data-side] .view-image-placeholder {
+  border-radius: 50%;
+}
+.view-image-slot[data-shape]:not([data-shape="round"])[data-side] img,
+.view-image-slot[data-shape]:not([data-shape="round"])[data-side] .view-image-placeholder {
+  /* STRK-436: the shape's radius ceiling; this box is large enough to never scale it down. */
+  border-radius: var(--frame-radius-max);
+}
+
+@media (max-width: 768px) {
+  /* The slots share the row, so the width limit is the slot itself; only the height caps. */
+  .view-image-slot[data-shape][data-side] {
+    --frame-box-w: 100%;
+    --frame-box-h: 160px;
+  }
+  .view-image-slot[data-shape]:not([data-shape="round"])[data-side] {
+    --frame-box-w: 100%;
+    --frame-box-h: 200px;
   }
 }

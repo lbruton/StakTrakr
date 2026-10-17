@@ -14,5 +14,21 @@
   },
   "specs": {
     "path": "docs/specs"
+  },
+  "infisical": {
+    "host": "https://infisical.lbruton.cc",
+    "projectId": "319a1db5-207d-49d0-a61d-3f3e6b440ded",
+    "defaultEnv": "dev",
+    "secretPath": "/"
+  },
+  "kind": "code",
+  "harnesses": {
+    "claude": true,
+    "codex": true
+  },
+  "skills": {
+    "profiles": ["code-core", "web"],
+    "extra": [],
+    "exclude": ["release"]
   }
 }

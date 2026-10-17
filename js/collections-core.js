@@ -207,11 +207,133 @@
   const showItemImagesField = (value) => (value === false ? { showItemImages: false } : {});
 
   /**
-   * Normalizes a custom collection's definition (metal, description, side, item-image
-   * setting, slot list).
+   * Retains only a whole, non-negative safe numeric Mintage; unknown omits the field.
+   * @param {*} value - Stored or submitted count
+   * @returns {Object} Optional Mintage field
+   */
+  const mintageField = (value) =>
+    Number.isSafeInteger(value) && value >= 0 ? { mintage: value } : {};
+
+  const IMAGE_SHAPES = ["round", "bar", "note", "slab"];
+  const ITEM_TYPES = [
+    "Coin",
+    "Bar",
+    "Round",
+    "Note",
+    "Aurum",
+    "Goldback",
+    "Silverback",
+    "Constitutional",
+    "Set",
+    "Other",
+  ];
+  const WEIGHT_UNITS = ["oz", "g", "mg", "kg", "lb", "avdp", "gb", "sb", "cu"];
+  /**
+   * The default shape for an Item type. The rule lives in one place, js/image-frame.js, which the
+   * Add/Edit Item modal shares (STRK-427). This core stays pure and DOM-free: it reaches the
+   * resolver through the same `window` seam it uses for `getUnitOztWeight`, and fails closed to
+   * Round when the seam is absent or answers with anything that is not a shape.
+   * @param {string} type - Item type
+   * @returns {string} One of IMAGE_SHAPES
+   */
+  const defaultImageShapeForType = (type) => {
+    const resolver = typeof window !== "undefined" ? window.deriveImageShape : undefined;
+    if (typeof resolver !== "function") return "round";
+    const shape = resolver({ type });
+    return IMAGE_SHAPES.includes(shape) ? shape : "round";
+  };
+  const IMAGE_ORIENTATIONS = ["portrait", "landscape"];
+  /**
+   * The frame orientation a newly chosen shape starts with. Only Bar and Note rotate.
+   * @param {string} shape - Image shape
+   * @returns {string} "portrait" for Bar, "landscape" for Note, "" for a shape that never rotates
+   */
+  const defaultImageOrientationForShape = (shape) =>
+    shape === "bar" ? "portrait" : shape === "note" ? "landscape" : "";
+  /**
+   * The orientation a stored shape renders with. A Bar or Note saved before the choice existed
+   * had a landscape frame, so a missing or invalid value is pinned to landscape rather than
+   * re-framed to the new Bar default.
+   * @param {string} shape - Image shape
+   * @param {*} orientation - Stored orientation, possibly absent
+   * @returns {string} "portrait" or "landscape", or "" for a shape that never rotates
+   */
+  const imageOrientationFor = (shape, orientation) => {
+    if (!defaultImageOrientationForShape(shape)) return "";
+    return IMAGE_ORIENTATIONS.includes(orientation) ? orientation : "landscape";
+  };
+  /**
+   * Optional definition field: the orientation only exists for shapes that rotate.
+   * @param {string} orientation - Resolved orientation, or "" for none
+   * @returns {Object} Spreadable field
+   */
+  const orientationField = (orientation) => (orientation ? { imageOrientation: orientation } : {});
+  /**
+   * Optional definition field for a different reverse orientation (STRK-427). Canonical form: it
+   * exists only for a shape that rotates and only when it differs from the resolved obverse
+   * value, so a uniform pair is byte-identical to what a build without the key produces.
+   * @param {string} obverse - Resolved obverse orientation, or "" for a shape that never rotates
+   * @param {*} submitted - Candidate reverse orientation
+   * @returns {Object} Spreadable field
+   */
+  const reverseOrientationField = (obverse, submitted) =>
+    obverse && IMAGE_ORIENTATIONS.includes(submitted) && submitted !== obverse
+      ? { reverseImageOrientation: submitted }
+      : {};
+  /**
+   * The orientation the reverse face renders with: its own stored value, else the obverse
+   * value (including the legacy landscape pin for a Bar or Note saved before STRK-424).
+   * @param {string} shape - Image shape
+   * @param {{imageOrientation?: *, reverseImageOrientation?: *}} [definition] - Stored definition
+   * @returns {string} "portrait" or "landscape", or "" for a shape that never rotates
+   */
+  const reverseImageOrientationFor = (shape, definition) => {
+    const obverse = imageOrientationFor(shape, definition?.imageOrientation);
+    if (!obverse) return "";
+    return IMAGE_ORIENTATIONS.includes(definition?.reverseImageOrientation)
+      ? definition.reverseImageOrientation
+      : obverse;
+  };
+  /**
+   * The orientation to save for a shape: the submitted choice, else the shape's default.
+   * @param {string} shape - Image shape being saved
+   * @param {*} submitted - Submitted orientation
+   * @returns {string} The orientation, or "" when the shape never rotates
+   */
+  const newImageOrientation = (shape, submitted) =>
+    defaultImageOrientationForShape(shape) &&
+    (IMAGE_ORIENTATIONS.includes(submitted) ? submitted : defaultImageOrientationForShape(shape));
+  /**
+   * The metal and weight unit the Add Item form forces for a denomination Item type.
+   * @param {string} type - Item type
+   * @returns {{metal: string, weightUnit: string}|null} The forced pair, or null when unconstrained
+   */
+  const typeLockFor = (type) => {
+    if (type === "Goldback") return { metal: "Gold", weightUnit: "gb" };
+    if (type === "Silverback") return { metal: "Silver", weightUnit: "sb" };
+    if (type === "Constitutional") return { metal: "Silver", weightUnit: "cu" };
+    return null;
+  };
+  const normalizeSpecs = (raw) => {
+    const source = isPlainObject(raw) ? raw : {};
+    const specs = Object.create(null);
+    ["diameterMm", "thicknessMm", "grossWeightGrams"].forEach((key) => {
+      const value = source[key];
+      if (value != null && value !== "" && Number.isFinite(Number(value)) && Number(value) >= 0)
+        specs[key] = Number(value);
+    });
+    ["faceValue", "composition", "dimensions", "edge", "mintMark", "authorization"].forEach(
+      (key) => {
+        if (source[key] != null && text(source[key])) specs[key] = text(source[key]);
+      }
+    );
+    return specs;
+  };
+
+  /**
+   * Normalizes a custom collection definition and drops fields outside its schema.
    * @param {*} raw - Persisted definition
-   * @returns {{metal: string, description: string, side: string, showItemImages?: false,
-   *   slots: Object[]}} Clean definition
+   * @returns {Object} Clean definition
    */
   const normalizeDefinition = (raw) => {
     const source = isPlainObject(raw) ? raw : {};
@@ -225,11 +347,36 @@
         label: text(slot.label),
         year: text(slot.year),
         note: text(slot.note),
+        ...mintageField(slot.mintage),
       });
     });
+    const legacyAbout = source.about == null ? source.description : source.about;
+    const type = ITEM_TYPES.includes(source.itemType) ? source.itemType : "Coin";
+    const purity = Number(source.purity);
+    const shape = IMAGE_SHAPES.includes(source.imageShape)
+      ? source.imageShape
+      : defaultImageShapeForType(type);
+    const obverseOrientation = imageOrientationFor(shape, source.imageOrientation);
     return {
       metal: text(source.metal),
-      description: text(source.description),
+      variant: text(source.variant),
+      subtitle: text(source.subtitle),
+      issuer: text(source.issuer),
+      weight:
+        source.weight != null &&
+        source.weight !== "" &&
+        Number.isFinite(Number(source.weight)) &&
+        Number(source.weight) >= 0
+          ? Number(source.weight)
+          : null,
+      weightUnit: WEIGHT_UNITS.includes(source.weightUnit) ? source.weightUnit : "oz",
+      itemType: type,
+      ...(Number.isFinite(purity) && purity > 0 && purity <= 1 ? { purity } : {}),
+      specs: normalizeSpecs(source.specs),
+      imageShape: shape,
+      ...orientationField(obverseOrientation),
+      ...reverseOrientationField(obverseOrientation, source.reverseImageOrientation),
+      about: text(legacyAbout),
       side: source.side === "reverse" ? "reverse" : "obverse",
       ...showItemImagesField(source.showItemImages),
       slots,
@@ -288,7 +435,8 @@
   const setArtwork = (state, collectionId, slotId, present, opts) => {
     const collection = liveCollection(state, collectionId);
     if (!collection) return { ok: false, changed: false, reason: "no-collection" };
-    const key = slotId == null ? "cover" : `slot:${slotId}`;
+    const key =
+      slotId == null ? "cover" : slotId === "title:reverse" ? "title:reverse" : `slot:${slotId}`;
     const previous = collection.artwork[key];
     const modified = nextStamp(previous ? previous.modified : "", nowIso(opts));
     collection.artwork[key] = {
@@ -308,7 +456,13 @@
       if (ruleId !== prefix && !ruleId.startsWith(`${prefix}--`)) continue;
       const collection = state.collections[collectionId];
       if (collection.deletedAt) return false;
-      const key = ruleId === prefix ? "cover" : `slot:${ruleId.slice(prefix.length + 2)}`;
+      const suffix = ruleId.slice(prefix.length + 2);
+      const key =
+        ruleId === prefix
+          ? "cover"
+          : suffix === "@title-reverse"
+            ? "title:reverse"
+            : `slot:${suffix}`;
       const entry = collection.artwork[key];
       if (!entry) return true; // pre-stamp beta images
       if (!entry.present) return false;
@@ -438,18 +592,30 @@
 
   /**
    * Builds definition slots from user input, keeping any id that already exists in
-   * `keepIds` (so a rename keeps its links) and minting ids for the rest.
+   * `keepIds` (so a rename keeps its links) and minting ids for the rest. Every id in
+   * `keepIds` is reserved up front, so a new row can never reuse the id of an existing
+   * Slot, whether that Slot is still present or was removed in the same save — the new
+   * row would otherwise inherit its links and artwork.
    * @param {Object[]} inputSlots - Raw slot inputs: { id?, label, year?, note? }
    * @param {Set<string>} keepIds - Ids that may be carried over unchanged
    * @returns {Object[]} Definition slots: { id, label, year, note }
    */
   const buildDefinitionSlots = (inputSlots, keepIds) => {
-    const taken = new Set();
-    return inputSlots.filter(isPlainObject).map((input) => {
-      const carried = isId(input.id) && keepIds.has(input.id) && !taken.has(input.id);
+    const inputs = inputSlots.filter(isPlainObject);
+    const taken = new Set(keepIds);
+    const carriedIds = new Set();
+    return inputs.map((input) => {
+      const carried = isId(input.id) && keepIds.has(input.id) && !carriedIds.has(input.id);
+      if (carried) carriedIds.add(input.id);
       const id = carried ? input.id : slugifySlotId(input.label, taken);
       taken.add(id);
-      return { id, label: text(input.label), year: text(input.year), note: text(input.note) };
+      return {
+        id,
+        label: text(input.label),
+        year: text(input.year),
+        note: text(input.note),
+        ...mintageField(input.mintage),
+      };
     });
   };
 
@@ -462,6 +628,15 @@
     if (!text(spec && spec.name)) return "invalid-name";
     if (!spec || !Array.isArray(spec.slots) || !spec.slots.filter(isPlainObject).length)
       return "no-slots";
+    if (
+      spec.slots
+        .filter(isPlainObject)
+        .some(
+          (slot) =>
+            slot.mintage !== undefined && (!Number.isSafeInteger(slot.mintage) || slot.mintage < 0)
+        )
+    )
+      return "invalid-mintage";
     return null;
   };
 
@@ -478,6 +653,9 @@
     if (!isId(spec.id)) return { ok: false, reason: "invalid" };
     if (state.collections[spec.id]) return { ok: false, reason: "exists" };
     const now = nowIso(spec);
+    const shape = IMAGE_SHAPES.includes(spec.imageShape)
+      ? spec.imageShape
+      : defaultImageShapeForType(spec.itemType);
     const collection = makeCollection({
       id: spec.id,
       kind: "custom",
@@ -489,7 +667,32 @@
       clonedFrom: isId(spec.clonedFrom) ? spec.clonedFrom : null,
       definition: {
         metal: text(spec.metal),
-        description: text(spec.description),
+        variant: text(spec.variant),
+        subtitle: text(spec.subtitle),
+        issuer: text(spec.issuer),
+        weight:
+          spec.weight != null &&
+          spec.weight !== "" &&
+          Number.isFinite(Number(spec.weight)) &&
+          Number(spec.weight) >= 0
+            ? Number(spec.weight)
+            : null,
+        weightUnit: WEIGHT_UNITS.includes(spec.weightUnit) ? spec.weightUnit : "oz",
+        itemType: ITEM_TYPES.includes(spec.itemType) ? spec.itemType : "Coin",
+        ...(Number.isFinite(Number(spec.purity)) &&
+        spec.purity !== "" &&
+        Number(spec.purity) > 0 &&
+        Number(spec.purity) <= 1
+          ? { purity: Number(spec.purity) }
+          : {}),
+        specs: normalizeSpecs(spec.specs),
+        imageShape: shape,
+        ...orientationField(newImageOrientation(shape, spec.imageOrientation)),
+        ...reverseOrientationField(
+          newImageOrientation(shape, spec.imageOrientation),
+          spec.reverseImageOrientation
+        ),
+        about: text(spec.about == null ? spec.description : spec.about),
         side: spec.side === "reverse" ? "reverse" : "obverse",
         ...showItemImagesField(spec.showItemImages),
         slots: buildDefinitionSlots(spec.slots, new Set()),
@@ -517,12 +720,42 @@
 
     const previous = collection.definition || {
       metal: "",
-      description: "",
+      about: "",
+      variant: "",
+      subtitle: "",
+      issuer: "",
+      weight: null,
+      weightUnit: "oz",
+      itemType: "Coin",
+      specs: Object.create(null),
+      imageShape: "round",
       side: "obverse",
       slots: [],
     };
     const slots = buildDefinitionSlots(spec.slots, new Set(previous.slots.map((slot) => slot.id)));
     const stamp = nextStamp(collection.metaModified, nowIso(spec));
+    const shape = IMAGE_SHAPES.includes(spec.imageShape)
+      ? spec.imageShape
+      : spec.imageShape == null
+        ? spec.itemType != null &&
+          previous.imageShape === defaultImageShapeForType(previous.itemType)
+          ? defaultImageShapeForType(spec.itemType)
+          : previous.imageShape || defaultImageShapeForType(spec.itemType || previous.itemType)
+        : defaultImageShapeForType(spec.itemType || previous.itemType);
+    // An omitted orientation is kept while the shape stays a rotating one; a shape change
+    // (or a first Bar/Note) starts from that shape's default.
+    const orientation = IMAGE_ORIENTATIONS.includes(spec.imageOrientation)
+      ? newImageOrientation(shape, spec.imageOrientation)
+      : shape === previous.imageShape && IMAGE_ORIENTATIONS.includes(previous.imageOrientation)
+        ? newImageOrientation(shape, previous.imageOrientation)
+        : newImageOrientation(shape);
+    // The reverse follows the same rule: an omitted value is kept while the shape stays a
+    // rotating one, and it is dropped when it equals the obverse or the shape stops rotating.
+    const submittedReverse = IMAGE_ORIENTATIONS.includes(spec.reverseImageOrientation)
+      ? spec.reverseImageOrientation
+      : shape === previous.imageShape
+        ? previous.reverseImageOrientation
+        : undefined;
     const kept = new Set(slots.map((slot) => slot.id));
     Object.keys(collection.slots).forEach((slotId) => {
       const link = collection.slots[slotId];
@@ -539,7 +772,50 @@
     collection.name = text(spec.name);
     collection.definition = {
       metal: spec.metal == null ? previous.metal : text(spec.metal),
-      description: spec.description == null ? previous.description : text(spec.description),
+      variant: spec.variant == null ? previous.variant || "" : text(spec.variant),
+      subtitle: spec.subtitle == null ? previous.subtitle || "" : text(spec.subtitle),
+      issuer: spec.issuer == null ? previous.issuer || "" : text(spec.issuer),
+      // undefined keeps the stored value; null (a cleared field) removes it.
+      weight:
+        spec.weight === undefined
+          ? (previous.weight ?? null)
+          : spec.weight !== null &&
+              spec.weight !== "" &&
+              Number.isFinite(Number(spec.weight)) &&
+              Number(spec.weight) >= 0
+            ? Number(spec.weight)
+            : null,
+      weightUnit:
+        spec.weightUnit == null
+          ? previous.weightUnit || "oz"
+          : WEIGHT_UNITS.includes(spec.weightUnit)
+            ? spec.weightUnit
+            : "oz",
+      itemType:
+        spec.itemType == null
+          ? previous.itemType || "Coin"
+          : ITEM_TYPES.includes(spec.itemType)
+            ? spec.itemType
+            : "Coin",
+      ...(spec.purity === undefined
+        ? Number.isFinite(Number(previous.purity))
+          ? { purity: Number(previous.purity) }
+          : {}
+        : spec.purity !== null &&
+            spec.purity !== "" &&
+            Number.isFinite(Number(spec.purity)) &&
+            Number(spec.purity) > 0 &&
+            Number(spec.purity) <= 1
+          ? { purity: Number(spec.purity) }
+          : {}),
+      specs: spec.specs == null ? normalizeSpecs(previous.specs) : normalizeSpecs(spec.specs),
+      imageShape: shape,
+      ...orientationField(orientation),
+      ...reverseOrientationField(orientation, submittedReverse),
+      about:
+        spec.about == null && spec.description == null
+          ? previous.about || previous.description || ""
+          : text(spec.about == null ? spec.description : spec.about),
       side:
         spec.side == null
           ? previous.side || "obverse"
@@ -1063,6 +1339,11 @@
     removeCollection,
     setArtwork,
     isCurrentArtwork,
+    defaultImageShapeForType,
+    defaultImageOrientationForShape,
+    imageOrientationFor,
+    reverseImageOrientationFor,
+    typeLockFor,
     listCollections,
     slugifySlotId,
     createCustomCollection,

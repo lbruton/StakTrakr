@@ -168,8 +168,9 @@ test.describe("core/mobile-and-layout", () => {
         purityQtyWeight: indexOf("#inventoryForm > .grid-purity-row"),
       };
     });
-    expect(order.image).toBeLessThan(order.nameYear);
-    expect(order.nameYear).toBeLessThan(order.purityQtyWeight);
+    // STRK-434: the Images section sits below Type, Metal and Name, as in the Edit collection builder.
+    expect(order.nameYear).toBeLessThan(order.image);
+    expect(order.image).toBeLessThan(order.purityQtyWeight);
 
     await page.waitForFunction(
       () =>

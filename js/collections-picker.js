@@ -464,7 +464,11 @@
    * @returns {string} patternImages record id
    */
   const imageId = (collectionId, slotId) =>
-    slotId ? `collection--${collectionId}--${slotId}` : `collection--${collectionId}`;
+    slotId === "title:reverse"
+      ? `collection--${collectionId}--@title-reverse`
+      : slotId
+        ? `collection--${collectionId}--${slotId}`
+        : `collection--${collectionId}`;
 
   /** Stable content token for equal-time artwork edits on separate devices. */
   const imageDigest = async (blob) => {
@@ -503,7 +507,8 @@
       const digest = await imageDigest(processed.blob);
       const id = imageId(collectionId, slotId);
       const collection = window.collectionsStore.getState().collections[collectionId];
-      const key = slotId == null ? "cover" : `slot:${slotId}`;
+      const key =
+        slotId == null ? "cover" : slotId === "title:reverse" ? "title:reverse" : `slot:${slotId}`;
       const prior = collection && collection.artwork[key];
       const priorTime = prior ? Date.parse(prior.modified) : 0;
       const cachedAt = Math.max(Date.now(), Number.isFinite(priorTime) ? priorTime + 1 : 0);
@@ -567,6 +572,37 @@
   };
 
   /**
+   * The stored Blob for a collection image, for a swap that must carry it to the other side
+   * (STRK-427). Unlike getImageUrl a failed read REJECTS, so the caller can abort the whole swap
+   * instead of moving only half of it.
+   * @param {string} collectionId - Collection id
+   * @param {string} [slotId] - Slot id; omit for the cover
+   * @returns {Promise<Blob|null>} The stored image, or null when there is none
+   */
+  const readStoredBlob = async (collectionId, slotId) => {
+    if (!window.imageCache || !window.imageCache.isAvailable()) return null;
+    const record = await window.imageCache.getPatternImage(imageId(collectionId, slotId));
+    return record && record.obverse ? record.obverse : null;
+  };
+
+  /** Returns the selected title side, falling back to the other side when needed. */
+  const getTitleImage = async (collectionId, side) => {
+    const requested = side === "reverse" ? "reverse" : "obverse";
+    const first = await getImageUrl(
+      collectionId,
+      requested === "reverse" ? "title:reverse" : undefined
+    );
+    if (first) return { url: first, side: requested };
+    const fallback = await getImageUrl(
+      collectionId,
+      requested === "reverse" ? undefined : "title:reverse"
+    );
+    return fallback
+      ? { url: fallback, side: requested === "reverse" ? "obverse" : "reverse" }
+      : null;
+  };
+
+  /**
    * Deletes a stored collection image.
    * @param {string} collectionId - Collection id
    * @param {string} [slotId] - Slot id; omit for the cover
@@ -590,7 +626,7 @@
   /** Removes IndexedDB blobs once a Collection tombstone has been saved. */
   const cleanupCollectionImages = async (collectionId, slotIds) => {
     if (!window.imageCache || !window.imageCache.isAvailable()) return;
-    const ids = [imageId(collectionId)].concat(
+    const ids = [imageId(collectionId), imageId(collectionId, "title:reverse")].concat(
       (slotIds || []).map((slotId) => imageId(collectionId, slotId))
     );
     await Promise.all(ids.map((id) => window.imageCache.deletePatternImage(id)));
@@ -601,6 +637,9 @@
   // Builder
   // ---------------------------------------------------------------------------
 
+  /** Weight units that are Goldback / Silverback / Constitutional denominations. */
+  const DENOMINATION_UNITS = ["gb", "sb", "cu"];
+
   /**
    * A labelled form field wrapper.
    * @param {string} labelText - Label
@@ -608,8 +647,8 @@
    * @param {string} [className] - Extra wrapper class
    * @returns {HTMLElement} Field wrapper
    */
-  const field = (labelText, control, className) => {
-    const wrap = el("div", `collections-field ${className || ""}`.trim());
+  const field = (labelText, control) => {
+    const wrap = el("div");
     const label = el("label", "", labelText);
     const id = `collectionsField${Math.random().toString(36).slice(2, 9)}`;
     control.id = id;
@@ -618,15 +657,77 @@
     return wrap;
   };
 
+  /** Static icon markup for the builder: section headers and the Slot grip. */
+  const BUILDER_ICONS = Object.freeze({
+    identity:
+      '<path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+    content:
+      '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7a4 4 0 0 0 6 0z"/><path d="M19 7l-3 7a4 4 0 0 0 6 0z"/>',
+    specs:
+      '<circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/>',
+    display:
+      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+    about:
+      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
+  });
+
+  /**
+   * A decorative 16px line icon from BUILDER_ICONS.
+   * @param {string} name - BUILDER_ICONS key
+   * @param {string} [className] - Wrapper class
+   * @returns {HTMLSpanElement} Icon wrapper
+   */
+  const builderIcon = (name, className) => {
+    const wrap = el("span", className || "collections-builder-icon");
+    wrap.setAttribute("aria-hidden", "true");
+    // Static developer markup only — BUILDER_ICONS is a frozen literal, never user text.
+    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+    wrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${BUILDER_ICONS[name] || ""}</svg>`;
+    return wrap;
+  };
+
+  /**
+   * A collapsed-by-default form section using the Add Item modal's details.form-section
+   * chrome. It deliberately carries no data-section attribute: that is the Add Item form's
+   * persistence hook (js/form-sections.js), and builder sections remember nothing.
+   * @param {string} key - BUILDER_ICONS key, also the section's data-builder-section
+   * @param {string} title - Header text
+   * @param {...HTMLElement} children - Section body content
+   * @returns {HTMLDetailsElement} The section; `_refreshCount()` updates its filled-field badge
+   */
+  const builderSection = (key, title, ...children) => {
+    const node = el("details", "form-section");
+    node.dataset.builderSection = key;
+    const summary = el("summary", "form-section-header");
+    const count = el("span", "form-section-count");
+    count.hidden = true;
+    summary.append(builderIcon(key, "form-section-icon"), title, count);
+    const body = el("div", "form-section-body");
+    body.append(...children);
+    node.append(summary, body);
+    node._refreshCount = () => {
+      const filled = Array.from(
+        body.querySelectorAll("input:not([type=radio]):not([type=file]), textarea")
+      ).filter((control) => control.value.trim()).length;
+      count.hidden = filled === 0;
+      count.textContent = String(filled);
+    };
+    node.addEventListener("input", node._refreshCount);
+    return node;
+  };
+
   /**
    * A labelled segmented control backed by radio inputs, for small either/or choices.
    * @param {string} labelText - Group label
-   * @param {{value: string, label: string}[]} options - Choices, in display order
+   * @param {{value: string, label: string, glyph?: string}[]} options - Choices, in display
+   *   order; glyph is a BUILDER_ICONS key drawn before the label
    * @param {string} value - Initially selected value
-   * @returns {{node: HTMLElement, getValue: () => string}} Control
+   * @param {(value: string) => void} [onChange] - Called when the user picks an option
+   * @returns {{node: HTMLElement, getValue: () => string, setValue: (value: string) => void}} Control
    */
-  const segmented = (labelText, options, value) => {
-    const wrap = el("div", "collections-field");
+  const segmented = (labelText, options, value, onChange) => {
+    const wrap = el("div", "collections-builder-choice");
     const caption = el("span", "collections-builder-caption", labelText);
     caption.id = `collectionsSeg${Math.random().toString(36).slice(2, 9)}`;
     const group = el("div", "collections-segmented");
@@ -639,7 +740,11 @@
       input.name = caption.id;
       input.value = option.value;
       input.checked = option.value === value;
-      choice.append(input, el("span", "", option.label));
+      if (onChange) input.addEventListener("change", () => onChange(option.value));
+      const face = el("span");
+      if (option.glyph) face.appendChild(builderIcon(option.glyph));
+      face.append(option.label);
+      choice.append(input, face);
       group.appendChild(choice);
       return input;
     });
@@ -647,6 +752,10 @@
     return {
       node: wrap,
       getValue: () => (inputs.find((input) => input.checked) || inputs[0]).value,
+      setValue: (next) =>
+        inputs.forEach((input) => {
+          input.checked = input.value === next;
+        }),
     };
   };
 
@@ -656,11 +765,16 @@
    * @param {string} label - Accessible label
    * @returns {{node: HTMLElement, getFile: () => File|null, setPreview: (url: string|null) => void}} Chooser
    */
-  const imageChooser = (label) => {
+  const imageChooser = (label, options = {}) => {
+    // STRK-427 options: `side` marks the trigger as that side's frame for the shared image-frame
+    // editor; `read` loads the stored Blob for a swap; `onPresence(bool)` reports whether the
+    // chooser holds an image; `onRemove()` fires when the user removes it.
+    const { side, read, onPresence, onRemove } = options;
     let chosen = null;
     let previewUrl = null;
     let removed = false;
     let hadStoredImage = false;
+    let disposed = false;
     // The file input is a SIBLING of the button, never a child: a nested input's click would
     // bubble back into the button's handler, and swapping the preview would detach it.
     const input = el("input");
@@ -670,22 +784,29 @@
     const trigger = button("collections-image-pick", "+", () => input.click());
     trigger.setAttribute("aria-label", label);
     trigger.title = label;
+    if (side) trigger.dataset.ifeFrame = side;
     const node = el("span", "collections-image-chooser");
     const remove = button("collections-image-remove", "×", () => {
       chosen = null;
       removed = true;
       input.value = "";
       setPreview(null);
+      if (onRemove) onRemove();
     });
     remove.setAttribute("aria-label", `Remove ${label.toLowerCase()}`);
     remove.title = `Remove ${label.toLowerCase()}`;
     remove.hidden = true;
     node.append(trigger, remove, input);
     const setPreview = (url) => {
+      if (disposed) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
       if (previewUrl && previewUrl !== url) URL.revokeObjectURL(previewUrl);
       previewUrl = url;
       trigger.replaceChildren();
       remove.hidden = !url;
+      if (onPresence) onPresence(Boolean(url));
       if (!url) {
         trigger.textContent = "+";
         return;
@@ -696,6 +817,7 @@
       trigger.appendChild(img);
     };
     input.addEventListener("change", () => {
+      if (disposed) return;
       chosen = input.files && input.files[0] ? input.files[0] : null;
       removed = false;
       if (chosen) setPreview(URL.createObjectURL(chosen));
@@ -704,22 +826,75 @@
       node,
       getFile: () => chosen,
       isRemoved: () => removed && hadStoredImage,
+      /**
+       * The image this side would save: a chosen file, nothing once removed (a pending Remove is
+       * never resurrected), otherwise the stored blob. A failed stored read rejects (D-9).
+       * @returns {Promise<Blob|null>}
+       */
+      effective: async () => {
+        if (chosen) return chosen;
+        if (removed || !hadStoredImage || !read) return null;
+        return read();
+      },
+      /**
+       * Show a swapped-in image as this side's chosen file, or empty the side. Emptying a side
+       * that held a stored image marks it removed, so Save deletes the image and its stamp.
+       * @param {Blob|null} blob
+       */
+      adopt: (blob) => {
+        if (disposed) return;
+        input.value = "";
+        if (blob) {
+          chosen =
+            blob instanceof File
+              ? blob
+              : new File([blob], "swapped-image", { type: blob.type || "image/png" });
+          removed = false;
+          setPreview(URL.createObjectURL(chosen));
+        } else {
+          chosen = null;
+          removed = hadStoredImage;
+          setPreview(null);
+        }
+      },
       setPreview: (url) => {
         if (url) hadStoredImage = true;
         setPreview(url);
       },
+      dispose: () => {
+        disposed = true;
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+      },
     };
   };
+
+  let mintageErrorId = 0;
 
   /**
    * One editable slot row in the builder.
    * @param {{id?: string, label?: string, year?: string|number, note?: string}} slot - Slot values
    * @param {Function} onRemove - Called with the row element to remove it
+   * @param {Function} onMove - Moves the row and restores focus to its control
+   * @param {Function} onInsert - Inserts a blank row after this row
+   * @param {Function} onLabelChange - Refreshes accessible names after label edits
+   * @param {Function} wireDrag - Wires pointer dragging onto the row's handle
    * @returns {HTMLElement} Row element (carries its slot id in dataset.slotId when carried over)
    */
-  const builderRow = (slot, onRemove) => {
+  const builderRow = (slot, onRemove, onMove, onInsert, onLabelChange, wireDrag) => {
     const row = el("div", "collections-builder-row");
     if (slot.id) row.dataset.slotId = slot.id;
+    // STRK-421: one handle per Slot card. Drag it, or focus it and press Arrow Up / Down.
+    const grip = el("button", "collections-builder-grip");
+    grip.type = "button";
+    grip.dataset.action = "grip";
+    grip.appendChild(builderIcon("grip"));
+    grip.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      event.preventDefault();
+      onMove(row, event.key === "ArrowUp" ? -1 : 1, grip);
+    });
+    wireDrag(grip, row);
     const chooser = imageChooser("Slot image");
     row._chooser = chooser;
     const label = el("input", "collections-builder-label");
@@ -733,6 +908,23 @@
     year.placeholder = "Year";
     year.value = slot.year == null ? "" : String(slot.year);
     year.setAttribute("aria-label", "Year");
+    const mintage = el("input", "collections-builder-mintage");
+    mintage.type = "text";
+    mintage.inputMode = "numeric";
+    mintage.placeholder = "Mintage (optional)";
+    mintage.value =
+      Number.isSafeInteger(slot.mintage) && slot.mintage >= 0 ? String(slot.mintage) : "";
+    mintage.setAttribute("aria-label", "Mintage");
+    const error = el("span", "collections-builder-mintage-error");
+    error.id = `collections-mintage-error-${++mintageErrorId}`;
+    error.hidden = true;
+    error.setAttribute("role", "alert");
+    mintage.setAttribute("aria-describedby", error.id);
+    mintage.addEventListener("input", () => {
+      mintage.removeAttribute("aria-invalid");
+      error.hidden = true;
+      error.textContent = "";
+    });
     const note = el("input", "collections-builder-note");
     note.type = "text";
     note.placeholder = "Note (optional)";
@@ -740,7 +932,13 @@
     note.setAttribute("aria-label", "Note");
     const remove = button("collections-builder-remove", "×", () => onRemove(row));
     remove.setAttribute("aria-label", "Remove slot");
-    row.append(chooser.node, label, year, note, remove);
+    const actions = el("div", "collections-builder-row-actions");
+    const insert = button("collections-builder-insert", "+", () => onInsert(row));
+    insert.dataset.action = "insert";
+    remove.dataset.action = "remove";
+    actions.append(insert, remove);
+    label.addEventListener("input", onLabelChange);
+    row.append(grip, chooser.node, label, year, mintage, note, actions, error);
     return row;
   };
 
@@ -759,6 +957,33 @@
   };
 
   /**
+   * Image framing seed for the builder: the Collection's shape and each side's orientation.
+   * A stored Bar or Note with no orientation edits as the landscape frame it always had; a new
+   * Collection (or a clone of a Series Template) starts at the shape's own default, and the
+   * reverse follows the obverse unless a different value is stored (STRK-427).
+   * @param {{editId?: string}} request - Builder request
+   * @param {Object} definition - Stored collection definition ({} when none)
+   * @param {string} itemType - Resolved item type
+   * @returns {{imageShape: string, imageOrientation: string, reverseImageOrientation: string}}
+   *   Framing seed values
+   */
+  const builderSeedFraming = (request, definition, itemType) => {
+    const core = window.collectionsCore;
+    const shape = definition.imageShape || core.defaultImageShapeForType(itemType);
+    const storedObverse = request.editId || definition.imageOrientation;
+    const storedReverse = storedObverse || definition.reverseImageOrientation;
+    return {
+      imageShape: shape,
+      imageOrientation: storedObverse
+        ? core.imageOrientationFor(shape, definition.imageOrientation)
+        : core.defaultImageOrientationForShape(shape),
+      reverseImageOrientation: storedReverse
+        ? core.reverseImageOrientationFor(shape, definition)
+        : core.defaultImageOrientationForShape(shape),
+    };
+  };
+
+  /**
    * Starting values for the builder: an existing custom collection, a clone of a
    * template (or of a custom collection), or a blank three-slot checklist.
    * @param {{cloneFrom?: string, editId?: string}} request - Builder request
@@ -769,6 +994,16 @@
     const blank = {
       name: "",
       metal: "Silver",
+      variant: "",
+      subtitle: "",
+      issuer: "",
+      weight: "",
+      weightUnit: "oz",
+      itemType: "Coin",
+      purity: 0.9999,
+      specs: {},
+      imageShape: "round",
+      about: "",
       description: "",
       side: "obverse",
       showItemImages: true,
@@ -781,17 +1016,41 @@
     const context = contextFor(sourceId);
     if (!context.collection && !context.template) return blank;
     const definition = (context.collection && context.collection.definition) || {};
+    const itemType =
+      definition.itemType ||
+      (context.template && (context.template.itemType || context.template.type)) ||
+      "Coin";
     const slots = context.slots.map((slot) => ({
       // Ids carry over only when EDITING; a clone is a new collection and mints its own.
       id: request.editId ? slot.id : undefined,
       label: `${slot.label || slot.year || ""}${slot.tag ? ` ${slot.tag}` : ""}`.trim(),
       year: slot.year,
+      mintage: slot.mintage,
       note: request.editId ? slot.note : "",
     }));
     return {
       name: request.editId ? context.title : `${context.title} — my set`,
       metal: definition.metal || (context.template && context.template.metal) || "Silver",
-      description: definition.description || "",
+      variant: definition.variant || (context.template && context.template.variant) || "",
+      subtitle: definition.subtitle || (context.template && context.template.subtitle) || "",
+      issuer: definition.issuer || (context.template && context.template.issuer) || "",
+      weight: definition.weight ?? (context.template && context.template.weight) ?? "",
+      weightUnit:
+        definition.weightUnit || (context.template && context.template.weightUnit) || "oz",
+      itemType,
+      // An edit never invents a purity the Collection did not have; only a new one defaults.
+      purity:
+        definition.purity ??
+        (context.template && context.template.purity) ??
+        (request.editId ? null : 0.9999),
+      specs: definition.specs || (context.template && context.template.specs) || {},
+      ...builderSeedFraming(request, definition, itemType),
+      about:
+        definition.about ||
+        definition.description ||
+        (context.template && context.template.about) ||
+        "",
+      description: definition.about || definition.description || "",
       side: definition.side === "reverse" ? "reverse" : "obverse",
       showItemImages: definition.showItemImages !== false,
       slots,
@@ -807,12 +1066,15 @@
    * @param {HTMLElement[]} rows - Builder rows, in the same order as the saved definition
    * @returns {Promise<void>}
    */
-  const persistChosenImages = async (collectionId, cover, rows, removedSlotIds) => {
+  const persistChosenImages = async (collectionId, cover, reverseTitle, rows, removedSlotIds) => {
     const collection = window.collectionsStore.getState().collections[collectionId];
     const slots = (collection && collection.definition && collection.definition.slots) || [];
     const jobs = [];
     if (cover.getFile()) jobs.push(saveImage(collectionId, null, cover.getFile()));
     else if (cover.isRemoved()) jobs.push(deleteImage(collectionId, null));
+    if (reverseTitle.getFile())
+      jobs.push(saveImage(collectionId, "title:reverse", reverseTitle.getFile()));
+    else if (reverseTitle.isRemoved()) jobs.push(deleteImage(collectionId, "title:reverse"));
     rows.forEach((row, index) => {
       const file = row._chooser.getFile();
       if (file && slots[index]) jobs.push(saveImage(collectionId, slots[index].id, file));
@@ -836,18 +1098,30 @@
   const openBuilder = (request) => {
     const store = window.collectionsStore;
     const seed = builderSeed(request || {});
+    const chooserDisposers = [];
     const shell = ensureModal(BUILDER_MODAL_ID, "collections-modal-content--builder");
     shell.title.textContent = seed.editId
       ? "Edit collection"
       : seed.clonedFrom
         ? "Clone & customize"
         : "New collection";
-    shell.subtitle.textContent = "Build any checklist — states, mint marks, varieties, a type set.";
+    // STRK-421: the builder mirrors the Add Item modal, whose header is the title alone.
+    shell.subtitle.textContent = "";
+    shell.subtitle.hidden = true;
 
     const name = el("input");
     name.type = "text";
     name.placeholder = "e.g. Goldback state set";
     name.value = seed.name;
+    const nameError = el("div", "collections-builder-error", "Give the collection a name.");
+    nameError.id = "collectionsBuilderNameError";
+    nameError.hidden = true;
+    nameError.setAttribute("role", "alert");
+    name.setAttribute("aria-describedby", nameError.id);
+    name.addEventListener("input", () => {
+      name.removeAttribute("aria-invalid");
+      nameError.hidden = true;
+    });
     const metal = el("select");
     METALS.forEach((option) => metal.appendChild(el("option", "", option)));
     metal.value = METALS.includes(seed.metal) ? seed.metal : "Mixed";
@@ -873,54 +1147,455 @@
     description.placeholder = "Notes about this set (optional)";
     description.value = seed.description;
 
-    const cover = imageChooser("Cover image");
-    // The media row groups the cover art with the display controls. Its two columns are
-    // built to grow: a reverse cover joins the covers strip, a shape control joins the
-    // display stack, without reflowing the rest of the form.
+    const variant = el("input");
+    variant.value = seed.variant;
+    const subtitle = el("input");
+    subtitle.value = seed.subtitle;
+    const issuer = el("input");
+    issuer.value = seed.issuer;
+    const weight = el("input");
+    weight.type = "number";
+    weight.min = "0";
+    weight.step = "any";
+    weight.value = seed.weight;
+    const weightUnit = el("select");
+    [
+      ["oz", "oz"],
+      ["g", "g"],
+      ["mg", "mg"],
+      ["kg", "kg"],
+      ["lb", "lb"],
+      ["avdp", "avoirdupois oz"],
+      ["gb", "goldback"],
+      ["sb", "silverback"],
+      ["cu", "constitutional"],
+    ].forEach(([value, label]) => {
+      const option = el("option", "", label);
+      option.value = value;
+      weightUnit.appendChild(option);
+    });
+    weightUnit.value = seed.weightUnit;
+    const itemType = el("select");
+    Array.from(elements.itemType instanceof HTMLSelectElement ? elements.itemType.options : [])
+      .filter((option) => option.value)
+      .forEach((option) => itemType.appendChild(option.cloneNode(true)));
+    itemType.value = seed.itemType;
+    const puritySelect =
+      elements.itemPuritySelect instanceof HTMLSelectElement
+        ? elements.itemPuritySelect.cloneNode(true)
+        : el("select");
+    // Legacy and Mixed-metal Collections have no purity; "Not set" keeps that true on save.
+    const unsetPurity = el("option", "", "Not set");
+    unsetPurity.value = "";
+    puritySelect.insertBefore(unsetPurity, puritySelect.firstChild);
+    const purityCustom = el("input");
+    purityCustom.type = "number";
+    purityCustom.min = "0.001";
+    purityCustom.max = "1";
+    purityCustom.step = "any";
+    purityCustom.value = String(seed.purity ?? "");
+    const purityCustomField = field("Custom purity", purityCustom);
+    const updatePurity = () => {
+      purityCustomField.hidden = puritySelect.value !== "custom";
+    };
+    puritySelect.value =
+      seed.purity == null
+        ? ""
+        : Array.from(puritySelect.options).some(
+              (option) => option.value !== "" && Number(option.value) === Number(seed.purity)
+            )
+          ? String(seed.purity)
+          : "custom";
+    if (puritySelect.value === "custom") purityCustom.value = String(seed.purity ?? "");
+    puritySelect.addEventListener("change", updatePurity);
+    updatePurity();
+    const purityCaption = el("span", "collections-builder-hint");
+    const updatePurityCaption = () => {
+      const value =
+        puritySelect.value === "custom" ? Number(purityCustom.value) : Number(puritySelect.value);
+      const metalName = metal.value.toLowerCase();
+      purityCaption.textContent =
+        puritySelect.value !== "" && Number.isFinite(value)
+          ? `${value >= 1 ? "pure" : `.${String(value).split(".")[1] || ""}`} fine ${metalName}`
+          : "Fineness is shown from purity and metal.";
+    };
+    puritySelect.addEventListener("change", updatePurityCaption);
+    purityCustom.addEventListener("input", updatePurityCaption);
+    metal.addEventListener("change", updatePurityCaption);
+    updatePurityCaption();
+    const diameter = el("input");
+    diameter.type = "number";
+    diameter.min = "0";
+    diameter.step = "any";
+    diameter.value = seed.specs.diameterMm || "";
+    diameter.placeholder = "mm";
+    const grossWeightGrams = el("input");
+    grossWeightGrams.type = "number";
+    grossWeightGrams.min = "0";
+    grossWeightGrams.step = "any";
+    grossWeightGrams.value = seed.specs.grossWeightGrams || "";
+    const thickness = el("input");
+    thickness.type = "number";
+    thickness.min = "0";
+    thickness.step = "any";
+    thickness.value = seed.specs.thicknessMm || "";
+    thickness.placeholder = "mm";
+    const faceValue = el("input");
+    faceValue.value = seed.specs.faceValue || "";
+    const composition = el("input");
+    composition.value = seed.specs.composition || "";
+    const edge = el("input");
+    edge.value = seed.specs.edge || "";
+    const mintMark = el("input");
+    mintMark.value = seed.specs.mintMark || "";
+    const authorization = el("input");
+    authorization.value = seed.specs.authorization || "";
+    const dimensions = el("input");
+    dimensions.value = seed.specs.dimensions || "";
+    // The title images take the chosen outline live, so the picker previews its own effect. The
+    // shared image-frame editor (STRK-427) owns the shape and per-side orientation controls and
+    // the frame attributes; this builder keeps its own image I/O and sizing.
     const covers = el("div", "collections-builder-covers");
-    covers.appendChild(cover.node);
-    const coverWrap = el("div", "collections-builder-cover");
-    coverWrap.append(el("span", "collections-builder-caption", "Cover Image (Optional)"), covers);
+    let frameEditor = null;
+    const lockPill = el("span", "lock-pill", "auto");
+    lockPill.hidden = true;
+    /**
+     * Shows a forced Metal and Weight unit as locked, like the Add Item form's "auto" pill.
+     * The save path re-applies the lock as well, so a stale value can never be stored.
+     * @returns {void}
+     */
+    const applyTypeLock = () => {
+      const lock = window.collectionsCore.typeLockFor(itemType.value);
+      if (lock) {
+        metal.value = lock.metal;
+        // A weight typed in another unit is meaningless in the forced one ("1 oz" is not
+        // "1 gb"), so drop it with the unit, as prefillFor does for the Item form.
+        if (weightUnit.value !== lock.weightUnit) weight.value = "";
+        weightUnit.value = lock.weightUnit;
+        metal.dispatchEvent(new Event("change"));
+      } else if (DENOMINATION_UNITS.includes(weightUnit.value)) {
+        // Like handleTypeChange: leaving a denomination type drops its gb/sb/cu unit, and the
+        // weight with it ("5 gb" is not "5 oz").
+        weight.value = "";
+        weightUnit.value = "oz";
+      }
+      metal.disabled = Boolean(lock);
+      weightUnit.disabled = Boolean(lock);
+      lockPill.hidden = !lock;
+    };
+    itemType.addEventListener("change", () => {
+      // A Type change re-derives the shape while it is unchosen or still equals the previous
+      // Type's derived shape (AC-4.3); a chosen shape that differs from it is left alone (AC-4.4).
+      if (frameEditor) frameEditor.signalsChanged("type");
+      applyTypeLock();
+    });
+    const about = el("textarea");
+    about.value = seed.about;
+    about.rows = 3;
+
+    // Swap is offered while EITHER side holds an image: with one side empty (or removed) it moves
+    // the lone image across, and a pending Remove travels with the empty side (D-9).
+    // The shared image-frame editor owns the button: it is always rendered, carries the shared
+    // swap icon, and is disabled with an explanatory title until a side holds an image (STRK-434).
+    const swapSlot = el("div", "collections-builder-swap");
+    swapSlot.dataset.ifeSwap = "";
+    const holds = { obverse: false, reverse: false };
+    // Stored title previews still loading. Until both settle a chooser can read as empty while
+    // its image is on the way, so Swap is held back (an early swap would drop that image).
+    let storedReadsPending = seed.editId ? 2 : 0;
+    // Set while a swap is in flight; Save awaits it so the swapped pair is what persists.
+    let swapPromise = null;
+    let swapping = false;
+    const chooserHooks = (side, slotId) => ({
+      side,
+      read: () => readStoredBlob(seed.editId, slotId),
+      onPresence: (present) => {
+        holds[side] = present;
+        syncSwap();
+        if (frameEditor) frameEditor.setSideHasImage(side, present);
+      },
+      onRemove: () => frameEditor && frameEditor.resetSide(side),
+    });
+    const cover = imageChooser("Cover image", chooserHooks("obverse", undefined));
+    const reverseTitle = imageChooser(
+      "Reverse title image",
+      chooserHooks("reverse", "title:reverse")
+    );
+    chooserDisposers.push(cover.dispose, reverseTitle.dispose);
+    // Each title option carries its own orientation slot beneath the chooser (STRK-427).
+    const titleOption = (caption, chooser, side) => {
+      const wrap = el("div", "collections-builder-title-option");
+      const orientationSlot = el("div");
+      orientationSlot.dataset.ifeOrientation = side;
+      wrap.append(
+        el("span", "collections-builder-caption", caption),
+        chooser.node,
+        orientationSlot
+      );
+      return wrap;
+    };
+    const obverseTitleWrap = titleOption("Obverse title image", cover, "obverse");
+    const reverseTitleWrap = titleOption("Reverse title image", reverseTitle, "reverse");
+    // Swap exchanges the two images AND their orientations, atomically: both stored reads must
+    // succeed first, so a failure moves nothing (D-9).
+    /**
+     * Exchange the two title images and their orientations. Never rejects: a failed stored read
+     * is reported with a toast and leaves the builder untouched.
+     * @returns {Promise<void>}
+     */
+    const performSwap = async () => {
+      swapping = true;
+      syncSwap();
+      covers.inert = true;
+      covers.setAttribute("aria-busy", "true");
+      try {
+        const [obverse, reverse] = await Promise.all([cover.effective(), reverseTitle.effective()]);
+        cover.adopt(reverse);
+        reverseTitle.adopt(obverse);
+        if (frameEditor) frameEditor.swapSides();
+      } catch (error) {
+        console.warn("[collections] Image swap failed:", error);
+        toast("Images could not be swapped. Please try again.");
+      } finally {
+        swapping = false;
+        swapPromise = null;
+        covers.inert = false;
+        covers.removeAttribute("aria-busy");
+        syncSwap();
+      }
+    };
+    // The label is empty on purpose: the editor injects the swap icon when it mounts.
+    const swapButton = button("btn btn-icon", "", () => {
+      if (swapping || storedReadsPending > 0) return;
+      swapPromise = performSwap();
+    });
+    /**
+     * Hold Swap disabled while a swap or a stored preview read is in flight; the editor adds the
+     * rule that a side must hold an image.
+     * @returns {void}
+     */
+    const syncSwap = () => {
+      if (frameEditor) frameEditor.setSwapBusy(swapping || storedReadsPending > 0);
+    };
+    swapButton.setAttribute("aria-label", "Swap obverse and reverse images");
+    swapSlot.append(swapButton);
+    covers.append(obverseTitleWrap, swapSlot, reverseTitleWrap);
+    // STRK-421 hero: large centred title images with the Image shape picker beneath them.
+    const hero = el("div", "collections-builder-hero");
+    hero.appendChild(covers);
     if (!imagesAvailable()) {
-      coverWrap.appendChild(
+      hero.appendChild(
         el("span", "collections-builder-hint", "Images are unavailable in this browser session.")
       );
     }
-    if (seed.editId) getImageUrl(seed.editId).then((url) => url && cover.setPreview(url));
-    const display = el("div", "collections-builder-display");
-    display.append(side.node, itemImages.node);
-    const media = el("div", "collections-builder-media");
-    media.append(coverWrap, display);
-
+    const shapeSlot = el("div");
+    shapeSlot.dataset.ifeShape = "";
+    hero.appendChild(shapeSlot);
+    frameEditor = window.imageFrameEditor.mount(hero, {
+      getSignals: () => ({ type: itemType.value }),
+    });
+    frameEditor.seed({
+      signals: { type: seed.itemType },
+      shape: seed.imageShape,
+      shapeChosen: seed.imageShape !== window.deriveImageShape({ type: seed.itemType }),
+      orientation: { obverse: seed.imageOrientation, reverse: seed.reverseImageOrientation },
+    });
+    chooserDisposers.push(() => frameEditor && frameEditor.dispose());
+    // An edit starts with its stored previews still loading, so Swap starts held.
+    syncSwap();
+    if (seed.editId) {
+      /**
+       * Show one stored title preview, then count its read as settled (loaded, empty or failed)
+       * so Swap is offered only after BOTH sides have loaded.
+       * @param {{setPreview: (url: string) => void}} chooser - The title chooser to fill
+       * @param {string} [slotId] - "title:reverse" for the reverse title; omit for the cover
+       * @returns {Promise<void>}
+       */
+      const loadStoredTitle = (chooser, slotId) =>
+        getImageUrl(seed.editId, slotId)
+          .then((url) => url && chooser.setPreview(url))
+          .finally(() => {
+            storedReadsPending -= 1;
+            syncSwap();
+          })
+          .catch((error) => console.warn("[collections] Title preview failed:", error));
+      loadStoredTitle(cover);
+      loadStoredTitle(reverseTitle, "title:reverse");
+    }
     const rowsHost = el("div", "collections-builder-rows");
-    const removeRow = (row) => {
-      if (rowsHost.children.length > 1) row.remove();
-      else toast("A collection needs at least one slot.");
+    const slotCount = el("span", "form-section-count");
+    const orderStatus = el("div", "sr-only");
+    orderStatus.setAttribute("role", "status");
+    const refreshRowActions = () => {
+      Array.from(rowsHost.children).forEach((row, index) => {
+        const label =
+          row.querySelector(".collections-builder-label").value.trim() || `Slot ${index + 1}`;
+        const names = {
+          grip: `Reorder ${label}`,
+          insert: `Add Slot after ${label}`,
+          remove: `Remove Slot ${label}`,
+        };
+        row.querySelectorAll("[data-action]").forEach((control) => {
+          control.setAttribute("aria-label", names[control.dataset.action]);
+          control.title =
+            control.dataset.action === "grip"
+              ? "Drag to reorder, or press Arrow Up or Arrow Down"
+              : names[control.dataset.action];
+        });
+      });
+      slotCount.textContent = String(rowsHost.children.length);
     };
-    const addRow = (slot) => {
-      const row = builderRow(slot || {}, removeRow);
-      rowsHost.appendChild(row);
+    const announceMove = (row) => {
+      const position = Array.from(rowsHost.children).indexOf(row) + 1;
+      const label = row.querySelector(".collections-builder-label").value.trim() || "Slot";
+      orderStatus.textContent = `${label} moved to position ${position} of ${rowsHost.children.length}.`;
+    };
+    let dragRowId = 0;
+    /**
+     * Pointer dragging for a Slot card's handle, through the same helper the Settings
+     * My order list uses, so every reorderable list in Collections drags the same way.
+     * @param {HTMLButtonElement} grip - The card's handle
+     * @param {HTMLElement} row - The Slot card
+     * @returns {void}
+     */
+    const wireDrag = (grip, row) => {
+      row.dataset.dragId = String(++dragRowId);
+      const ui = window.collectionsUI;
+      if (!ui || typeof ui.wireReorderHandle !== "function") return;
+      // A long Slot list scrolls inside the modal: nudge it while a drag nears an edge,
+      // so a card can be carried past the visible rows.
+      grip.addEventListener("pointermove", (event) => {
+        if (!row.classList.contains("is-dragging")) return;
+        const bounds = shell.body.getBoundingClientRect();
+        if (event.clientY < bounds.top + 36) shell.body.scrollTop -= 12;
+        else if (event.clientY > bounds.bottom - 36) shell.body.scrollTop += 12;
+      });
+      ui.wireReorderHandle(grip, {
+        id: row.dataset.dragId,
+        itemSelector: `#${BUILDER_MODAL_ID} .collections-builder-row`,
+        idOf: (node) => node.dataset.dragId,
+        onDrop: (targetId, after) => {
+          const target = Array.from(rowsHost.children).find(
+            (node) => node.dataset.dragId === targetId
+          );
+          if (!target) return;
+          rowsHost.insertBefore(row, after ? target.nextElementSibling : target);
+          refreshRowActions();
+          grip.focus();
+          announceMove(row);
+        },
+      });
+    };
+    const removeRow = (row) => {
+      if (rowsHost.children.length > 1) {
+        const next = row.nextElementSibling || row.previousElementSibling;
+        row.remove();
+        refreshRowActions();
+        next.querySelector(".collections-builder-label").focus();
+      } else toast("A collection needs at least one slot.");
+    };
+    const moveRow = (row, direction, control) => {
+      const adjacent = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+      if (!adjacent) return;
+      rowsHost.insertBefore(row, direction < 0 ? adjacent : adjacent.nextElementSibling);
+      refreshRowActions();
+      control.focus();
+      announceMove(row);
+    };
+    const insertRow = (after) => {
+      const row = addRow({}, after);
+      row.querySelector(".collections-builder-label").focus();
+      orderStatus.textContent = "Blank Slot inserted.";
+    };
+    const addRow = (slot, after) => {
+      const row = builderRow(
+        slot || {},
+        removeRow,
+        moveRow,
+        insertRow,
+        refreshRowActions,
+        wireDrag
+      );
+      chooserDisposers.push(row._chooser.dispose);
+      rowsHost.insertBefore(row, after ? after.nextElementSibling : null);
+      refreshRowActions();
       if (seed.editId && slot && slot.id) {
         getImageUrl(seed.editId, slot.id).then((url) => url && row._chooser.setPreview(url));
       }
       return row;
     };
-    seed.slots.forEach(addRow);
+    seed.slots.forEach((slot) => addRow(slot));
 
+    // STRK-421 layout (approved playground variant C): Type | Metal, the name, the title
+    // images with the shape picker, the Slot cards, then every optional field collapsed.
     const form = el("div", "collections-builder-form");
-    form.append(
-      field("Collection name", name),
-      field("Metal", metal),
-      field("Description", description, "is-wide"),
-      media
-    );
-    const slotsHeading = el("div", "collections-pick-group", "Slots");
+    const grid = (className, ...children) => {
+      const node = el("div", `grid ${className}`);
+      node.append(...children);
+      return node;
+    };
+    const metalField = field("Metal", metal);
+    metalField.querySelector("label").append(" ", lockPill);
+    const nameField = field("Collection name", name);
+    nameField.appendChild(nameError);
+    const sections = [
+      builderSection(
+        "identity",
+        "Identity",
+        grid("grid-2", field("Variant", variant), field("Issuer", issuer)),
+        field("Subtitle", subtitle)
+      ),
+      builderSection(
+        "content",
+        "Metal content",
+        grid(
+          "collections-builder-grid-3",
+          field("Weight", weight),
+          field("Weight unit", weightUnit),
+          field("Purity", puritySelect),
+          purityCustomField
+        ),
+        purityCaption
+      ),
+      builderSection(
+        "specs",
+        "Specifications",
+        grid(
+          "collections-builder-grid-3",
+          field("Diameter", diameter),
+          field("Gross weight (g)", grossWeightGrams),
+          field("Thickness", thickness),
+          field("Face value", faceValue),
+          field("Composition", composition),
+          field("Edge", edge),
+          field("Mint mark", mintMark),
+          field("Authorization", authorization),
+          field("Dimensions", dimensions)
+        )
+      ),
+      builderSection("display", "Display", grid("grid-2", side.node, itemImages.node)),
+      builderSection("about", "About", field("About this collection", about)),
+    ];
+    sections.forEach((section) => section._refreshCount());
+    /**
+     * Opens the collapsed section holding a control, so a validation message never
+     * points at a field the user cannot see.
+     * @param {HTMLElement} control - The invalid control
+     * @returns {void}
+     */
+    const reveal = (control) => {
+      const section = control.closest("details.form-section");
+      if (section) section.open = true;
+      control.focus();
+    };
+    const slotsHeading = el("div", "collections-builder-slots-head");
+    slotsHeading.append(el("span", "collections-builder-caption", "Slots"), slotCount);
     const rowActions = el("div", "collections-builder-actions");
     rowActions.append(
-      button("btn secondary collections-btn-pill", "+ Add slot", () =>
+      button("btn secondary", "+ Add slot", () =>
         addRow({}).querySelector(".collections-builder-label").focus()
       ),
-      button("btn secondary collections-btn-pill", "+ Add year range…", async () => {
+      button("btn secondary", "+ Add year range…", async () => {
         const answer = await showAppPrompt(
           "Enter a year range, e.g. 1986-2005",
           "",
@@ -935,24 +1610,159 @@
         years.forEach((year) => addRow({ label: String(year), year }));
       })
     );
-    shell.body.replaceChildren(form, slotsHeading, rowsHost, rowActions);
+    form.append(
+      grid("grid-2", field("Type", itemType), metalField),
+      nameField,
+      hero,
+      slotsHeading,
+      rowsHost,
+      rowActions,
+      el("div", "collections-builder-divider collections-builder-caption", "Optional details"),
+      ...sections
+    );
+    shell.body.replaceChildren(form, orderStatus);
+    // A reopened builder starts at the top; the modal element is reused between opens.
+    shell.body.scrollTop = 0;
+    applyTypeLock();
 
+    let builderClosed = false;
+    const modalObserver = new MutationObserver(() => {
+      if (shell.modal.style.display === "none") {
+        builderClosed = true;
+        chooserDisposers.forEach((dispose) => dispose());
+        modalObserver.disconnect();
+      }
+    });
+    modalObserver.observe(shell.modal, { attributes: true, attributeFilter: ["style"] });
+
+    let awaitingSwap = false;
     const submit = async () => {
+      // A swap still reading its stored images lands first, so Save persists the post-swap
+      // images and orientations (STRK-427). A failed swap leaves the builder unchanged and Save
+      // goes on; a second Save click while waiting, or a Cancel meanwhile, ends this call.
+      if (swapPromise) {
+        if (awaitingSwap) return;
+        awaitingSwap = true;
+        try {
+          await swapPromise;
+        } finally {
+          awaitingSwap = false;
+        }
+        if (builderClosed) return;
+      }
+      const purityValue =
+        puritySelect.value === ""
+          ? null
+          : puritySelect.value === "custom"
+            ? Number(purityCustom.value)
+            : Number(puritySelect.value);
+      const weightValue = weight.validity.badInput
+        ? NaN
+        : weight.value === ""
+          ? null
+          : Number(weight.value);
+      if (
+        purityValue != null &&
+        (!Number.isFinite(purityValue) || purityValue <= 0 || purityValue > 1)
+      ) {
+        purityCustom.setAttribute("aria-invalid", "true");
+        reveal(purityCustom);
+        toast("Enter a purity greater than 0 and no greater than 1.");
+        return;
+      }
+      purityCustom.removeAttribute("aria-invalid");
+      if (weightValue != null && (!Number.isFinite(weightValue) || weightValue < 0)) {
+        weight.setAttribute("aria-invalid", "true");
+        reveal(weight);
+        toast("Weight must be a non-negative number.");
+        return;
+      }
+      weight.removeAttribute("aria-invalid");
+      // The builder is not a native form, so min="0" never validates; normalizeSpecs would
+      // otherwise drop a negative silently while the modal closes as if it had saved.
+      const specNumbers = [
+        [diameter, "Diameter"],
+        [grossWeightGrams, "Gross weight"],
+        [thickness, "Thickness"],
+      ].map(([control, label]) => ({
+        control,
+        label,
+        // A half-typed token such as "-" reads as "" with validity.badInput set; that is an
+        // invalid entry (NaN), not a blank optional field.
+        value: control.validity.badInput ? NaN : control.value === "" ? "" : Number(control.value),
+      }));
+      specNumbers.forEach(({ control }) => control.removeAttribute("aria-invalid"));
+      const badSpec = specNumbers.find(
+        ({ value }) => value !== "" && (!Number.isFinite(value) || value < 0)
+      );
+      if (badSpec) {
+        badSpec.control.setAttribute("aria-invalid", "true");
+        reveal(badSpec.control);
+        toast(`${badSpec.label} must be a non-negative number.`);
+        return;
+      }
       const rows = Array.from(rowsHost.children).filter((row) =>
         row.querySelector(".collections-builder-label").value.trim()
       );
+      let firstInvalid = null;
+      const counts = new Map();
+      Array.from(rowsHost.children).forEach((row) => {
+        const input = row.querySelector(".collections-builder-mintage");
+        const raw = input.value.trim();
+        const value = raw === "" ? undefined : Number(raw);
+        const valid = raw === "" || (/^\d+$/.test(raw) && Number.isSafeInteger(value));
+        const error = row.querySelector(".collections-builder-mintage-error");
+        input.setAttribute("aria-invalid", String(!valid));
+        error.hidden = valid;
+        error.textContent = valid
+          ? ""
+          : "Mintage must be a whole number from 0 to 9,007,199,254,740,991.";
+        if (!valid && !firstInvalid) firstInvalid = input;
+        counts.set(row, value);
+      });
+      if (firstInvalid) {
+        firstInvalid.focus();
+        return;
+      }
+      // Metal and unit stay editable after a type is chosen, so re-apply the lock here.
+      const lock = window.collectionsCore.typeLockFor(itemType.value);
+      const savedUnit =
+        lock || !DENOMINATION_UNITS.includes(weightUnit.value) ? weightUnit.value : "oz";
       const spec = {
         name: name.value,
-        metal: metal.value,
+        metal: lock ? lock.metal : metal.value,
+        variant: variant.value,
+        subtitle: subtitle.value,
+        issuer: issuer.value,
+        weight: weightValue,
+        weightUnit: lock ? lock.weightUnit : savedUnit,
+        itemType: itemType.value,
+        purity: purityValue,
+        specs: {
+          diameterMm: specNumbers[0].value,
+          grossWeightGrams: specNumbers[1].value,
+          thicknessMm: specNumbers[2].value,
+          faceValue: faceValue.value,
+          composition: composition.value,
+          edge: edge.value,
+          mintMark: mintMark.value,
+          authorization: authorization.value,
+          dimensions: dimensions.value,
+        },
+        imageShape: frameEditor.getState().shape,
+        imageOrientation: frameEditor.getState().obverseOrientation || undefined,
+        reverseImageOrientation: frameEditor.getState().reverseOrientation || undefined,
+        about: about.value,
         side: side.getValue(),
         showItemImages: itemImages.getValue() === "show",
-        description: description.value,
+        description: about.value,
         clonedFrom: seed.clonedFrom,
         slots: rows.map((row) => ({
           id: row.dataset.slotId,
           label: row.querySelector(".collections-builder-label").value,
           year: row.querySelector(".collections-builder-year").value,
           note: row.querySelector(".collections-builder-note").value,
+          ...(counts.get(row) === undefined ? {} : { mintage: counts.get(row) }),
         })),
       };
       const previousSlots = seed.editId ? seed.slots.map((slot) => slot.id).filter(Boolean) : [];
@@ -961,7 +1771,13 @@
         const reasons = {
           "invalid-name": "Give the collection a name.",
           "no-slots": "Add at least one labelled slot.",
+          "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
         };
+        if (result.reason === "invalid-name") {
+          name.setAttribute("aria-invalid", "true");
+          nameError.hidden = false;
+          name.focus();
+        }
         toast(reasons[result.reason] || "Could not save the collection.");
         return;
       }
@@ -974,7 +1790,7 @@
       const removedSlotIds = previousSlots.filter((id) => !currentSlots.has(id));
       closeModalById(BUILDER_MODAL_ID);
       toast(seed.editId ? "Collection updated." : "Collection created.");
-      await persistChosenImages(savedId, cover, rows, removedSlotIds);
+      await persistChosenImages(savedId, cover, reverseTitle, rows, removedSlotIds);
       if (
         !seed.editId &&
         window.collectionsUI &&
@@ -984,14 +1800,16 @@
       }
     };
 
+    // Footer mirrors the Add Item action bar: an outlined Cancel and the premium submit.
     const footerActions = el("span", "collections-modal-footer-actions");
     footerActions.append(
-      button("btn secondary collections-btn-pill", "Cancel", () =>
-        closeModalById(BUILDER_MODAL_ID)
-      ),
-      button("btn collections-btn-pill", seed.editId ? "Save changes" : "Create collection", submit)
+      button("btn collections-builder-cancel", "Cancel", () => closeModalById(BUILDER_MODAL_ID)),
+      button("btn premium", seed.editId ? "Save changes" : "Create collection", submit)
     );
-    shell.footer.classList.add("collections-modal-footer--actions-only");
+    shell.footer.classList.add(
+      "collections-modal-footer--actions-only",
+      "collections-builder-footer"
+    );
     shell.footer.replaceChildren(footerActions);
     openModalById(BUILDER_MODAL_ID);
   };
@@ -1004,6 +1822,7 @@
     openBuilder,
     parseYearRange,
     getImageUrl,
+    getTitleImage,
     saveImage,
     deleteImage,
     cleanupCollectionImages,

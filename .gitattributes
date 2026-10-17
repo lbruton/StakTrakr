@@ -23,7 +23,6 @@ package-lock.json     export-ignore
 
 # GitHub & hosting infrastructure
 .github/              export-ignore
-CNAME                 export-ignore
 
 # Git housekeeping (exclude themselves)
 .gitattributes        export-ignore
@@ -62,7 +61,6 @@ design-preview.html   export-ignore
 preview.html          export-ignore
 style.html            export-ignore
 playground/           export-ignore
-ui-standards/         export-ignore
 sample.csv            export-ignore
 
 # Data files not needed at runtime (bundle.js is the runtime artifact)
@@ -71,6 +69,7 @@ data/retail/          export-ignore
 
 # Deprecated / archived
 deprecated/           export-ignore
+.archive/             export-ignore
 
 # Wiki (internal documentation)
 wiki/                 export-ignore

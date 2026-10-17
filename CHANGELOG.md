@@ -7,6 +7,163 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.52] - 2026-10-15
+
+### Fixed — STRK-436: Portrait Bar and Note thumbnails are rectangles at full size
+
+- **No more pills**: Bar, Note and Slab images in the inventory table, the card views, the detail view and the item modal now get corner radii that scale with the frame's short side (per-shape `--frame-radius-*` ceilings), so small portrait thumbnails stay rectangles instead of rounding into pills (STRK-436).
+- **Portrait thumbs match coin size**: Portrait Bar and Note thumbnails in the table are now 36px tall, so they look about as big as a round coin. Every table row is one 42px height, at desktop and mobile widths. Round, Slab and landscape thumbnails are unchanged (STRK-436).
+
+## [3.36.51] - 2026-10-15
+
+### Fixed — STRK-438: Collection artwork no longer listed as orphaned images
+
+- **Live Collection art is left alone**: Settings ▸ Images ▸ Orphaned Pattern Images no longer lists the cover and Slot artwork of your Custom Collections as orphans, so "Delete" and "Delete all" can no longer remove it. Artwork that belongs to a removed Collection, or a stale local copy superseded by newer art, is still listed and can be cleared. If the Collections data cannot be consulted, no Collection artwork is offered for deletion (STRK-438).
+
+## [3.36.50] - 2026-10-15
+
+### Fixed — STRK-437: Duplicates keep your customised catalog fields
+
+- **Field provenance carried over**: Duplicating an item now copies which fields you customised (`fieldMeta` `userModified` flags), so a later Numista re-sync on the copy does not overwrite them. Fields you change on the Duplicate form are flagged as customised, as in Edit, and the Numista picker opened on a Duplicate already leaves the source's customised fields unticked. Re-pointing the duplicate at a different Numista number before saving drops the source flags, and a cancelled duplicate never leaks them into a later Add (STRK-437).
+
+## [3.36.49] - 2026-10-15
+
+### Fixed — STRK-433: Duplicate Item keeps its Numista Data
+
+- **Numista Data carried over**: Duplicating an item now copies the Numista Data tab (country, denomination, dimensions, mintage and the rest) into the new item instead of dropping it (STRK-433).
+
+## [3.36.48] - 2026-10-11
+
+### Changed — STRK-434: Item modal and Collection builder look the same
+
+- **Same layout**: The Add/Edit Item modal now puts the Images section below Type, Metal and Name, with the Image shape selector under the images and no caption, as in the Edit collection modal. The selector has the same size and casing in both (STRK-434).
+- **Click to upload**: Click an image frame to upload, use the small × badge to remove it, and use the small link icon at the lower right to paste an image URL in a small dialog. The Upload, URL and Remove button rows and the dashed boxes are gone (STRK-434).
+- **Swap is always there**: The swap control is a clean icon in both modals, shown from the start and enabled once an image is present (STRK-434).
+- **Bigger, uncropped Collection images**: Collection title images use the same 200px box as Items (140px on phones), and neither modal crops a photo any more; it is fitted whole inside its frame (STRK-434).
+- **Centred remove badge**: The × in the remove badge now sits in the middle of its circle (STRK-434).
+
+---
+
+## [3.36.47] - 2026-10-11
+
+### Changed — STRK-427: Shared image frames in the table, cards and detail view (phase 2)
+
+- **Frames match the modal**: The inventory table, the card views and the item detail view now frame each image with the shape and orientation you chose in the item modal (Round, Bar, Note or Slab, with Portrait or Landscape for Bars and Notes), so what you set is what you see (STRK-427).
+- **Bar, Note and Slab photos are never cropped**: These photos are letterboxed inside their frame instead of being stretched or cut, while a Round photo still fills its circle in the table and cards. Table thumbnails stay 28px tall and widen or narrow with the frame, and the placeholder for an item without a photo follows the same frame (STRK-427).
+- **Older rectangle items**: Items saved with the old rectangular frame show as a portrait Bar until you pick Landscape or another shape (STRK-427).
+
+---
+
+## [3.36.46] - 2026-10-11
+
+### Changed — STRK-427: Shared image-frame editor (phase 1)
+
+- **One editor, two modals**: The Add/Edit Item modal and the Custom Collection builder now share one image-frame editor with an Image shape selector (Round, Bar, Note, Slab), a live preview that reshapes as you choose, and a Swap button for obverse and reverse (STRK-427).
+- **Per-side orientation**: Bar and Note images choose Portrait or Landscape for each side, so a mixed pair is possible on Items and in Collections; the Album, Ledger and Hub render each side with its own orientation (STRK-427).
+- **Type-driven defaults**: The shape follows the Type (Goldback and Note become Note, Bar and Set become Bar, a graded coin becomes Slab, a non-round Numista coin becomes Bar) until you pick a different shape, which a later Type change then leaves alone (STRK-427).
+- **Larger preview, round trips**: The edit-modal preview is larger on desktop. Shape and orientation save with the Item and round-trip through JSON, CSV and ZIP backup, with older exports and older builds handled as documented (STRK-427).
+
+---
+
+## [3.36.45] - 2026-10-08
+
+### Changed — STRK-426: Readable image remove badge in dark themes
+
+- **Remove badge**: The × that removes a Custom Collection title or Slot image is now readable in the dark, slate and sepia themes; it used to show as a blank white circle (STRK-426).
+
+---
+
+## [3.36.44] - 2026-10-08
+
+### Changed — STRK-424: Bar and Note orientation
+
+- **Orientation choice**: The Custom Collection builder offers Portrait or Landscape for Bar and Note image shapes (Bar starts portrait, Note landscape); Round and Slab have one frame and show no choice (STRK-424).
+- **One frame ratio**: The builder preview and the Album, Ledger and Hub now read the same ratio per shape and orientation, so a saved image no longer flips on save. Bars and Notes saved before this change keep their landscape frame (STRK-424).
+
+---
+
+## [3.36.43] - 2026-10-08
+
+### Changed — STRK-422: Custom Collection builder fixes
+
+- **Denomination weight**: Opening a Goldback, Silverback or Constitutional Collection whose stored unit does not match its type no longer relabels the weight ("1 oz" becoming "1 gb"); the weight is cleared with the unit (STRK-422).
+- **Spec validation**: A negative Diameter, Gross weight or Thickness now blocks the save with a message and keeps the builder open instead of being silently dropped (STRK-422).
+
+---
+
+## [3.36.42] - 2026-10-08
+
+### Changed — STRK-382: Collection value shows retail and melt
+
+- **Collection totals**: The Collections Hub "Collected value" and each collection's "Value" tile now total each owned Slot's retail value, using the same rule as Inventory (retail when set, otherwise melt), with melt shown alongside (STRK-382).
+- **Hub cards and Ledger**: A completed collection's card and the Hub Ledger Value column show retail first with melt as the secondary figure, and the Hub sort-by-Value follows retail (STRK-382).
+
+---
+
+## [3.36.41] - 2026-10-06
+
+### Changed — STRK-423: Readable Collections Ledger on narrow tablets
+
+- **Ledger layout**: Keep Collections Ledger Item names readable on narrow tablets, with aligned valuation columns. At 641–800px, Slot identity, Item names and actions sit above Paid, Melt, Retail and G/L / best price (STRK-423).
+
+---
+
+## [3.36.40] - 2026-10-04
+
+### Changed — STRK-382: Retail value in the Collections Ledger
+
+- **Retail and gain/loss**: The Ledger now shows per-unit Retail between Melt and G/L, using the same valuation rules as Inventory. G/L reflects Retail when available and falls back to Melt when it is not (STRK-382).
+
+## [3.36.39] - 2026-10-04
+
+### Changed — STRK-395: Custom Collection definition and image shapes
+
+- **Collection metadata**: Custom Collections now carry template-aligned identity, specifications, image shape and About details through create, edit, clone, JSON backup and sync (STRK-395).
+- **Shape and display**: Round, Bar, Note and Slab frames follow Item type defaults, with user overrides retained and redundant Custom/Complete tags removed (STRK-395).
+
+### Changed — STRK-396: Paired title artwork and empty-Slot fallback
+
+- **Title images**: Add independently managed obverse and reverse title images, selected by the Collection side setting and preserved through ZIP backup and restore (STRK-396).
+- **Empty Slots**: Show the selected title artwork as a ghosted fallback after Slot artwork; keep linked Item photos first and templates unchanged (STRK-396).
+
+---
+
+## [3.36.38] - 2026-10-04
+
+### Changed — STRK-391: Mintage per Custom Collection Slot
+
+- **Slot Mintage**: Enter, change or clear an optional Mintage in Create/Edit Custom Collection. Counts carry into editable clones and appear in Album and Ledger after reload; zero remains distinct from unknown (STRK-391).
+- **Safe counts**: Invalid counts keep the editor open with field-level feedback. Mintage survives export, backup restore and managed Collections sync (STRK-391).
+
+---
+
+## [3.36.37] - 2026-10-04
+
+### Changed — STRK-389: Insert and reorder Custom Collection Slots
+
+- **Slot arrangement**: Insert a blank Slot after any row, or move a Slot with up/down arrows. Saved order appears in Album and Ledger; existing linked Items, Spares and artwork stay with their Slots (STRK-389).
+- **Collection order**: Custom Collections now label their view choices Collection order and Reverse. Cancel or close discards unsaved arrangement changes (STRK-389).
+
+---
+
+## [3.36.36] - 2026-09-30
+
+### Changed — STRK-413: Dropbox sync backups can be restored again
+
+- **Sync backups restore**: Pre-sync backups (`pre-sync-…` in Dropbox `/StakTrakr/backups/`) are encrypted with the combined Cloud Sync key, which nobody ever types, so no restore attempt could open them and every one reported "Incorrect password or corrupted file." Restoring from Settings › Cloud now tries this device's Cloud Sync key first and opens them without a prompt (STRK-413).
+- **Password prompt**: On a device without the saved vault password, typing the Cloud Sync vault password now opens pre-sync backups. Manual backups still open with the password chosen when they were made (STRK-413).
+- **Clearer error**: A password that fits no backup key now says which password each backup type expects, instead of suggesting the file is corrupted (STRK-413).
+
+---
+
+## [3.36.35] - 2026-09-30
+
+### Changed — STRK-412: Startup no longer deletes unrecognised storage keys
+
+- **Downgrade safety**: The boot-time storage sweep now removes only an explicit list of retired keys. An older build opened on top of newer data (a rolled-back deploy or stale cached copy) no longer wipes features it predates, such as Collections. Builds through 3.36.34 keep the old behaviour, so 3.36.35 is the first safe build (STRK-412).
+
+---
+
 ## [3.36.34] - 2026-09-27
 
 ### Changed — STRK-403: Spot history accuracy

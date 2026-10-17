@@ -60,6 +60,7 @@
 
   const PICKER_FALLBACK_MESSAGE = "Coming in the next build";
   const DASH = "—";
+  const CENT = 0.005;
   const PERCENT = 100;
   const MONOGRAM_MAX_LETTERS = 2;
 
@@ -523,6 +524,16 @@
   };
 
   /**
+   * Inventory's retail hierarchy and gain/loss for the single unit a Slot holds.
+   * @param {Object} item - Linked inventory item
+   * @returns {Object|null} Per-unit valuation, or null when the shared helper is unavailable
+   */
+  const unitValuation = (item) => {
+    if (typeof computeItemUnitValuation !== "function") return null;
+    return computeItemUnitValuation(item, spotFor(item.metal));
+  };
+
+  /**
    * Best current in-stock vendor price for a retail slug — the SAME derivation as the
    * Best Price Ticker (js/market-data.js): _getRetailCoins() for the cached feed,
    * _findCheapestTickerVendor() for the winner (fresh v2 detail preferred, user-hidden
@@ -588,6 +599,23 @@
     return file ? `${text(template.basePath)}${file}` : "";
   };
 
+  /** Finds the original Series Template used by a Custom Collection clone, if any. */
+  const templateArtworkFor = (collection) => {
+    const state = store().getState();
+    const seen = new Set();
+    let source = collection;
+    while (source && source.kind === "custom" && source.clonedFrom && !seen.has(source.id)) {
+      seen.add(source.id);
+      const parent = state.collections[source.clonedFrom];
+      if (parent && !parent.deletedAt) {
+        source = parent;
+        continue;
+      }
+      return store().getTemplate(source.clonedFrom);
+    }
+    return source && source.kind === "template" ? store().templateFor(source) : null;
+  };
+
   /**
    * Status bucket for the hub filter.
    * @param {{owned: number, total: number}} progress - Collection progress
@@ -619,17 +647,25 @@
     };
     const isCustom = collection.kind === "custom";
     const definition = collection.definition || {};
+    const artworkTemplate = isCustom ? templateArtworkFor(collection) : template;
     const slotDefs = core().slotDefsFor(collection, template);
     const progress = core().collectionProgress(collection, slotDefs, store().isActiveUuid);
     let paid = 0;
     let melt = 0;
+    let retail = 0;
     let hasMelt = true;
+    let hasRetail = true;
     slotDefs.forEach((def) => {
       const primary = store().resolveSlot(collection, def.id).primary;
       const item = primary ? store().findItem(primary) : null;
       if (!item) return;
       paid += unitPaid(item);
       melt += unitMelt(item);
+      // Inventory's own hierarchy (retail when set, else melt) via the shared helper.
+      const valuation = unitValuation(item);
+      if (valuation && valuation.hasRetailSignal && Number.isFinite(valuation.retailUnitPrice))
+        retail += valuation.retailUnitPrice;
+      else hasRetail = false;
       if (
         !spotFor(item.metal) ||
         typeof computeMeltValue !== "function" ||
@@ -639,9 +675,42 @@
     });
     const best = template ? bestPriceFor(text(template.retailSlug)) : null;
     const name = isCustom ? text(collection.name) : text(template && template.name);
-    const variant = isCustom ? "" : text(template && template.variant);
+    const variant = isCustom ? text(definition.variant) : text(template && template.variant);
+    const customWeight = definition.weight
+      ? `${definition.weight} ${text(definition.weightUnit)}`.trim()
+      : "";
+    const customPurity = Number.isFinite(Number(definition.purity))
+      ? `${Number(definition.purity) >= 1 ? "pure" : `.${String(Number(definition.purity)).split(".")[1] || ""}`} fine ${text(definition.metal).toLowerCase()}`
+      : "";
+    const customSpecsSource = definition.specs || {};
+    const customSpecs = [
+      customSpecsSource.diameterMm ? `${customSpecsSource.diameterMm} mm` : "",
+      customSpecsSource.grossWeightGrams ? `${customSpecsSource.grossWeightGrams} g` : "",
+      customSpecsSource.thicknessMm ? `${customSpecsSource.thicknessMm} mm thick` : "",
+      text(customSpecsSource.faceValue),
+      text(customSpecsSource.composition),
+      text(customSpecsSource.dimensions),
+      text(customSpecsSource.edge),
+      customSpecsSource.mintMark ? `Mint mark: ${text(customSpecsSource.mintMark)}` : "",
+      text(customSpecsSource.authorization),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const entryShape = isCustom
+      ? definition.imageShape || core().defaultImageShapeForType(definition.itemType)
+      : core().defaultImageShapeForType(template && (template.itemType || template.type));
     const hubParts = isCustom
-      ? ["Custom collection", `${slotDefs.length} slot${slotDefs.length === 1 ? "" : "s"}`]
+      ? [
+          variant,
+          text(definition.subtitle),
+          text(definition.issuer),
+          text(definition.metal),
+          customWeight,
+          customPurity,
+          text(definition.itemType),
+          customSpecs,
+          `${slotDefs.length} slot${slotDefs.length === 1 ? "" : "s"}`,
+        ]
       : [variant, text(template.subtitle), runLabel(template.run)];
     return {
       id,
@@ -652,16 +721,43 @@
       variant,
       hubLine: hubParts.filter(Boolean).join(" · "),
       metal: isCustom ? text(definition.metal) : text(template && template.metal),
+      subtitle: isCustom ? text(definition.subtitle) : text(template && template.subtitle),
+      issuer: isCustom ? text(definition.issuer) : text(template && template.issuer),
+      weight: isCustom ? definition.weight : template && template.weight,
+      weightUnit: isCustom ? definition.weightUnit : template && template.weightUnit,
+      itemType: isCustom ? definition.itemType : template && (template.itemType || template.type),
+      purity: isCustom ? definition.purity : template && template.purity,
+      specs: isCustom ? definition.specs || {} : (template && template.specs) || {},
+      about: isCustom
+        ? text(definition.about || definition.description)
+        : text(template && template.about),
+      imageShape: entryShape,
+      imageOrientation: core().imageOrientationFor(
+        entryShape,
+        isCustom ? definition.imageOrientation : undefined
+      ),
+      // STRK-427: the reverse face renders with its own orientation, falling back to the obverse
+      // value; a Series Template has none, so it keeps projecting the landscape frame.
+      reverseImageOrientation: core().reverseImageOrientationFor(
+        entryShape,
+        isCustom ? definition : undefined
+      ),
       slotDefs,
       progress,
       status: statusOf(progress),
       paid,
       melt,
+      // Only a complete total is shown: a partial sum would read as the whole collection.
+      retail: hasRetail ? retail : 0,
+      retailAvailable: hasRetail,
+      // True when both figures are known and differ, so surfaces can avoid saying it twice.
+      retailDiffers: hasRetail && hasMelt && retail > 0 && Math.abs(retail - melt) >= CENT,
       ledgerMelt: hasMelt ? melt : null,
+      ledgerRetail: hasRetail ? retail : null,
       best,
       costToComplete: best && progress.missing > 0 ? best.price * progress.missing : null,
-      obverse: stockImage(template, "obverse"),
-      reverse: stockImage(template, "reverse"),
+      obverse: stockImage(artworkTemplate, "obverse"),
+      reverse: stockImage(artworkTemplate, "reverse"),
       monogram: monogramOf(name || id),
     };
   };
@@ -1148,13 +1244,15 @@
    * Coin medallion: a stock / item photo, or a monogram when there is no image.
    * @param {{src?: string, monogram?: string, ghost?: boolean, owned?: boolean, size?: string, alt?: string,
    *   imageLabel?: string, imageSide?: string, resolvedImageSide?: string, stockImageSide?: string,
-   *   itemUuid?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean}}} spec -
+   *   itemUuid?: string, imageShape?: string, imageOrientation?: string, artwork?: {collectionId: string, slotId?: string, coverFallback?: boolean, titleFallback?: boolean}}} spec -
    *   Medallion spec. itemUuid marks it for the async item-photo pass; artwork for custom collection
    *   art, with coverFallback retrying the collection cover when the Slot has no image of its own.
    * @returns {HTMLElement} The medallion
    */
   const buildCoin = (spec) => {
     const coin = el("span", "collections-coin");
+    if (spec.imageShape) coin.classList.add(`collections-coin--shape-${spec.imageShape}`);
+    if (spec.imageOrientation) coin.classList.add(`collections-coin--${spec.imageOrientation}`);
     if (spec.size) coin.classList.add(`collections-coin--${spec.size}`);
     if (spec.ghost) coin.classList.add("collections-coin--ghost");
     if (spec.owned) coin.classList.add("collections-coin--owned");
@@ -1168,6 +1266,7 @@
       coin.dataset.artCollection = spec.artwork.collectionId;
       if (spec.artwork.slotId) coin.dataset.artSlot = spec.artwork.slotId;
       if (spec.artwork.coverFallback) coin.dataset.artCoverFallback = "true";
+      if (spec.artwork.titleFallback) coin.dataset.artTitleFallback = "true";
     }
     coin.dataset.monogram = spec.monogram || "?";
     if (spec.src) {
@@ -1398,6 +1497,7 @@
     canMutate,
     unitPaid,
     unitMelt,
+    unitValuation,
     PERCENT,
     quantityOf,
     viewItem,
@@ -1475,9 +1575,15 @@
     if (!coin.dataset.artCollection || !picker || typeof picker.getImageUrl !== "function")
       return null;
     const collectionId = coin.dataset.artCollection;
-    const slotUrl = await picker.getImageUrl(collectionId, coin.dataset.artSlot || undefined);
-    if (slotUrl || !coin.dataset.artSlot || !coin.dataset.artCoverFallback) return slotUrl;
-    return picker.getImageUrl(collectionId, undefined);
+    const slotUrl = coin.dataset.artSlot
+      ? await picker.getImageUrl(collectionId, coin.dataset.artSlot)
+      : null;
+    if (slotUrl) return { url: slotUrl, side: coin.dataset.imageSide || "obverse" };
+    if (!coin.dataset.artSlot || coin.dataset.artTitleFallback || coin.dataset.artCoverFallback) {
+      const title = await picker.getTitleImage(collectionId, coin.dataset.imageSide || "obverse");
+      if (title) return title;
+    }
+    return null;
   };
 
   /**
@@ -1544,10 +1650,10 @@
       const item = coin.dataset.itemUuid ? store().findItem(coin.dataset.itemUuid) : null;
       const requestedSide = coin.dataset.imageSide || "obverse";
       const itemImage = item ? await resolveItemImage(item, requestedSide) : null;
-      const artworkUrl = itemImage ? null : await resolveArtworkUrl(coin);
-      const url = itemImage ? itemImage.url : artworkUrl;
+      const artwork = itemImage ? null : await resolveArtworkUrl(coin);
+      const url = itemImage ? itemImage.url : artwork && artwork.url;
       if (!url) return;
-      const resolvedSide = itemImage ? itemImage.side : requestedSide;
+      const resolvedSide = itemImage ? itemImage.side : artwork.side;
       const isBlob = url.startsWith("blob:");
       if (generation !== renderGeneration || !coin.isConnected) {
         if (isBlob) URL.revokeObjectURL(url);
@@ -1677,6 +1783,8 @@
   document.addEventListener(changedEvent, render);
   document.addEventListener("retail:updated", render);
   document.addEventListener("spot:updated", render);
+  // Goldback denomination pricing feeds the Retail / G-L valuation (Settings, API fetch).
+  document.addEventListener("goldback:updated", render);
   // Money is shown in the display currency (precedent: inventory-table / market-data).
   window.addEventListener("currencychange", render);
   window.addEventListener("resize", () => closeMenu());

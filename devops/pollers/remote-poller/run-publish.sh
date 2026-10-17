@@ -39,7 +39,7 @@ cd "$REPO_DIR"
 # ── Bootstrap re-shallow guard (STRK-402) ───────────────────────────────
 # A full (non-shallow) repo here means either a fresh full `git clone` or a
 # volume from before this fix landed. Re-shallow now instead of waiting for
-# the weekly cron or the inode floor below — a full-history repo is exactly
+# the daily cron or the inode floor below — a full-history repo is exactly
 # the condition that let `git repack -a` OOM the machine in the first place.
 # Continuing to publish below is deliberate, not an oversight: cleanup-export.sh
 # builds the new git-dir in a sibling directory and only swaps it in after
@@ -52,8 +52,14 @@ if [ ! -f .git/shallow ]; then
 fi
 
 # ── Pre-flight space backstop (STRK-187) ────────────────────────────────
-# Floors sized to absorb one inter-cleanup week of growth (~30k inodes) on
-# the 3GB / 195,840-inode volume. Below floor → clean now, then publish.
+# Backstop for when the daily cleanup cron is not keeping up (not running,
+# failing, or skipping on a held publish lock). Measured growth
+# (STRK-402 soak, 2026-09-27 → 10-02) is ~31k inodes/day of loose git objects
+# on the 3GB / 195,840-inode volume, on top of a ~16.5k-inode clean baseline.
+# With the daily cron healthy, usage peaks near 48k and never approaches the
+# floor; without it, the floor trips after ~5 days and the cleanup runs here
+# instead, inside the publish slot (~83s at that size, well under the 720s
+# publish timeout). Below floor → clean now, then publish.
 INODE_FLOOR=25000
 BLOCKS_FLOOR_KB=307200 # 300MB
 free_inodes=$(df -Pi /data | awk 'NR==2{print $4}')

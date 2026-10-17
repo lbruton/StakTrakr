@@ -400,10 +400,8 @@ let _deleteObverseOnSave = false;
 /** @type {boolean} User clicked Remove on reverse — delete on save */
 let _deleteReverseOnSave = false;
 
-/** @type {"auto"|"circle"|"rectangle"} Pending obverse frame override */
-let _pendingObverseFrame = "auto";
-/** @type {"auto"|"circle"|"rectangle"} Pending reverse frame override */
-let _pendingReverseFrame = "auto";
+/** @type {Object|null} Item-modal adapter for the shared image-frame editor (STRK-427) */
+let _imageFrameHost = null;
 /** @type {number} Obverse URL preview generation token */
 let _urlPreviewGenObv = 0;
 /** @type {number} Reverse URL preview generation token */
@@ -465,61 +463,101 @@ const processUploadedImage = async (file, side = "obverse") => {
   updateSwapButtonVisibility();
 };
 
-/** Show/hide swap button based on whether both image sides have previews (STAK-341) */
+/**
+ * Report ACTUAL per-side image presence to the shared image-frame editor (STAK-341, STRK-427).
+ * Both empty frames are always visible, so a visible preview frame no longer implies an image:
+ * a side holds an image only while its preview is shown and its <img> has a source. The editor
+ * keeps Swap rendered and enables it once either side holds an image (STRK-434).
+ */
 const updateSwapButtonVisibility = () => {
-  const wrapper = document.getElementById("swapImagesBtnWrapper");
-  if (!wrapper) return;
-  const obvPreview = document.getElementById("itemImagePreviewObv");
-  const revPreview = document.getElementById("itemImagePreviewRev");
-  const isVisible = (el) => el && !el.classList.contains("d-none") && el.style.display !== "none";
-  const bothVisible = isVisible(obvPreview) && isVisible(revPreview);
-  wrapper.classList.toggle("d-none", !bothVisible);
+  /**
+   * Whether a side's preview is shown and its image has a source.
+   * @param {string} suffix - "Obv" or "Rev"
+   * @returns {boolean} True when the side holds an image
+   */
+  const holdsImage = (suffix) => {
+    const preview = document.getElementById("itemImagePreview" + suffix);
+    const img = document.getElementById("itemImagePreviewImg" + suffix);
+    return Boolean(preview && preview.style.display !== "none" && img && img.getAttribute("src"));
+  };
+  const obverse = holdsImage("Obv");
+  const reverse = holdsImage("Rev");
+  if (_imageFrameHost) _imageFrameHost.setPresence(obverse, reverse);
 };
 
+/**
+ * The element-id suffix of an image side in the item modal.
+ * @param {string} side - "obverse" or "reverse"
+ * @returns {string} "Rev" or "Obv"
+ */
 const _frameSuffix = (side) => (side === "reverse" ? "Rev" : "Obv");
-const _getPendingFrame = (side) =>
-  side === "reverse" ? _pendingReverseFrame : _pendingObverseFrame;
-const _setPendingFrame = (side, value) => {
-  const normalized =
-    typeof normalizeImageFrame === "function" ? normalizeImageFrame(value) : value || "auto";
-  if (side === "reverse") {
-    _pendingReverseFrame = normalized;
-  } else {
-    _pendingObverseFrame = normalized;
-  }
+
+/**
+ * The derivation signals the shared image-frame editor reads from the item form.
+ * @returns {{type: string, gradingAuthority: string, numistaShape: string}}
+ */
+const readImageFrameSignals = () => ({
+  type: elements.itemType?.value || "",
+  gradingAuthority: elements.itemGradingAuthority?.value || "",
+  numistaShape: document.getElementById("numistaShape")?.value || "",
+});
+
+// STRK-427: thin delegates to the item-modal adapter in js/image-frame-editor.js. Programmatic
+// `.value =` sets fire no event, so the PCGS lookup and the Numista picker call
+// notifyImageFrameSignals after they write (D-6).
+
+/**
+ * Tell the image-frame editor that a derivation signal moved (Type, grading or Numista shape).
+ * @param {string} [kind] - Which signal changed: "type", "grading" or "numista"
+ */
+const notifyImageFrameSignals = (kind) => _imageFrameHost?.notify(kind);
+
+/**
+ * Load an Item's stored framing into the editor when the edit modal opens.
+ * @param {Object} item - Inventory item being edited
+ */
+const seedImageFrameEditor = (item) => {
+  _imageFrameHost?.seed(item);
+  updateSwapButtonVisibility();
 };
 
-const _frameToggleLabel = (state) => {
-  if (state === "circle") return "Image frame: circle. Press to set rectangle.";
-  if (state === "rectangle") return "Image frame: rectangle. Press to reset to auto.";
-  return "Image frame: auto (default). Press to set circle.";
+/** Return the editor to its derived defaults for a new Item. */
+const resetImageFrameEditor = () => _imageFrameHost?.reset();
+
+/**
+ * Read the editor's result for the save path.
+ * @param {boolean} isEditing - True when saving an existing Item
+ * @returns {{set: Object, remove: string[]}|null} Fields to write and to delete, or null when
+ *   nothing is to be written
+ */
+const collectImageFraming = (isEditing) => _imageFrameHost?.collect(isEditing) ?? null;
+
+/**
+ * Mount the shared image-frame editor into the item modal's image section (once).
+ */
+const mountImageFrameEditor = () => {
+  if (_imageFrameHost || !window.imageFrameEditor) return;
+  _imageFrameHost = window.imageFrameEditor.createItemHost({
+    root: () => document.querySelector("#imageUploadGroup .form-section-body"),
+    readSignals: readImageFrameSignals,
+  });
+  _imageFrameHost.mount();
 };
 
-const _renderFrameToggle = (side = "obverse") => {
-  const suffix = _frameSuffix(side);
-  const button = document.getElementById("frameToggle" + suffix);
-  if (!button) return;
-  const state = _getPendingFrame(side);
-  const glyph = state === "circle" ? "\u25cb" : state === "rectangle" ? "\u25ad" : "A";
-  button.dataset.frameState = state;
-  button.setAttribute(
-    "aria-pressed",
-    state === "rectangle" || state === "circle" ? "true" : "false"
+// A linked image reports as present the moment its preview starts, but its onload/onerror handlers
+// are bound to that side's <img>. Swapping before it settles would leave a failed load behind on
+// the wrong side, so Swap stays busy while either side is still loading a link (STRK-434).
+const _urlPreviewLoading = { obverse: false, reverse: false };
+
+/**
+ * Hold the shared editor's Swap busy while a swap is running or a linked image is still loading.
+ * @param {boolean} [swapRunning] - Whether a swap is in flight (defaults to the pending swap)
+ */
+const _syncItemSwapBusy = (swapRunning = Boolean(_pendingItemImageSwap)) => {
+  if (!_imageFrameHost) return;
+  _imageFrameHost.setSwapBusy(
+    swapRunning || _urlPreviewLoading.obverse || _urlPreviewLoading.reverse
   );
-  button.setAttribute("aria-label", _frameToggleLabel(state));
-  const label = button.querySelector("span") || button;
-  label.textContent = glyph;
-};
-
-const renderFrameToggles = () => {
-  _renderFrameToggle("obverse");
-  _renderFrameToggle("reverse");
-};
-
-const setPendingImageFrames = (obverse = "auto", reverse = "auto") => {
-  _setPendingFrame("obverse", obverse);
-  _setPendingFrame("reverse", reverse);
-  renderFrameToggles();
 };
 
 const _setUrlPreviewGeneration = (side) => {
@@ -557,6 +595,8 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
     if (sizeInfo) sizeInfo.textContent = "";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
     return;
   }
@@ -566,6 +606,8 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     preview.style.display = "block";
     if (removeBtn) removeBtn.style.display = "";
     if (sizeInfo) sizeInfo.textContent = "";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
   };
   img.onerror = () => {
@@ -574,8 +616,12 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
     img.removeAttribute("src");
     if (removeBtn) removeBtn.style.display = "none";
     if (sizeInfo) sizeInfo.textContent = "Couldn't load image - check the URL";
+    _urlPreviewLoading[side] = false;
+    _syncItemSwapBusy();
     updateSwapButtonVisibility();
   };
+  _urlPreviewLoading[side] = true;
+  _syncItemSwapBusy();
   img.src = imageUrl;
   preview.style.display = "block";
   if (removeBtn) removeBtn.style.display = "";
@@ -618,8 +664,6 @@ const clearUploadState = () => {
   _pendingReverseBlob = null;
   _deleteObverseOnSave = false;
   _deleteReverseOnSave = false;
-  _pendingObverseFrame = "auto";
-  _pendingReverseFrame = "auto";
   _urlPreviewGenObv++;
   _urlPreviewGenRev++;
   if (_urlPreviewTimers.obverse) clearTimeout(_urlPreviewTimers.obverse);
@@ -662,17 +706,16 @@ const clearUploadState = () => {
   if (removeRev) removeRev.style.display = "none";
   if (fileRev) fileRev.value = "";
 
-  // Hide swap button (STAK-341)
-  const swapWrapper = document.getElementById("swapImagesBtnWrapper");
-  if (swapWrapper) swapWrapper.classList.add("d-none");
-  const swapButton = document.getElementById("swapImagesBtn");
-  if (swapButton) swapButton.disabled = false;
+  // Swap stays rendered; the editor disables it again once reset clears both sides (STRK-434)
+  _urlPreviewLoading.obverse = false;
+  _urlPreviewLoading.reverse = false;
+  _syncItemSwapBusy(false);
   const imageGroup = document.getElementById("imageUploadGroup");
   if (imageGroup) {
     imageGroup.inert = false;
     imageGroup.removeAttribute("aria-busy");
   }
-  renderFrameToggles();
+  resetImageFrameEditor();
 
   // Reset pattern toggle state
   const patternToggle = document.getElementById("imagePatternToggle");
@@ -1685,8 +1728,8 @@ const parseItemFormFields = (isEditing, existingItem) => {
         ? 0.999
         : parsePurity(isEditing, existingItem),
     currency: displayCurrency,
-    obverseImageFrame: _pendingObverseFrame,
-    reverseImageFrame: _pendingReverseFrame,
+    // STRK-427: the sparse frame fields to store (or null to leave an edit's untouched).
+    imageFraming: collectImageFraming(isEditing),
     obverseImageUrl: elements.itemObverseImageUrl?.value?.trim() ?? "",
     reverseImageUrl: elements.itemReverseImageUrl?.value?.trim() ?? "",
     ignorePatternImages: document.getElementById("itemIgnorePatternImages")?.checked || false,
@@ -1832,12 +1875,8 @@ const buildItemFields = (f) => {
     fields.constitutionalEntryMode = f.constitutionalEntryMode || "denom";
     fields.constitutionalVariant = f.constitutionalVariant || "con-90-subsidiary";
   }
-  if (f.obverseImageFrame && f.obverseImageFrame !== "auto") {
-    fields.obverseImageFrame = f.obverseImageFrame;
-  }
-  if (f.reverseImageFrame && f.reverseImageFrame !== "auto") {
-    fields.reverseImageFrame = f.reverseImageFrame;
-  }
+  // STRK-427: sparse imageShape / per-side orientation plus the legacy frame projection.
+  if (f.imageFraming) Object.assign(fields, f.imageFraming.set);
 
   return fields;
 };
@@ -1869,6 +1908,93 @@ const valuationFieldChanged = (oldItem, newItem) => {
     "constitutionalEntryMode",
   ];
   return fields.some((field) => oldItem?.[field] !== newItem?.[field]);
+};
+
+/** Top-level item fields whose saved change marks them userModified (Edit + Duplicate). */
+const USER_MODIFIED_ITEM_FIELDS = [
+  "metal",
+  "composition",
+  "name",
+  "qty",
+  "type",
+  "weight",
+  "weightUnit",
+  "constitutionalVariant",
+  "constitutionalEntryMode",
+  "price",
+  "marketValue",
+  "date",
+  "paymentMethod",
+  "purchaseLocation",
+  "storageLocation",
+  "serialNumber",
+  "notes",
+  "capsule",
+  "capsuleNotes",
+  "year",
+  "grade",
+  "gradingAuthority",
+  "certNumber",
+  "pcgsNumber",
+  "purity",
+  "country",
+  "denomination",
+  "shape",
+  "diameter",
+  "thickness",
+  "length",
+  "width",
+  "orientation",
+  "description",
+  "technique",
+];
+
+/** Numista Data tab fields whose saved change marks them userModified (STRK-51). */
+const USER_MODIFIED_NUMISTA_FIELDS = [
+  "country",
+  "denomination",
+  "composition",
+  "shape",
+  "diameter",
+  "length",
+  "width",
+  "thickness",
+  "orientation",
+  "technique",
+  "mintage",
+  "rarityIndex",
+  "kmRef",
+  "commemorative",
+  "commemorativeDesc",
+  "obverseDesc",
+  "reverseDesc",
+  "edgeDesc",
+];
+
+/**
+ * Mark every field whose saved value differs from its baseline as userModified, so a later
+ * Numista re-sync defaults it off. Edit diffs against the item before the save; Duplicate
+ * (STRK-437) diffs against the source the form was seeded from, limited to the picker's
+ * tracked fields because the form deliberately resets others (qty, serial).
+ *
+ * @param {Object} baseline - Values the form started from
+ * @param {Object} cur - The saved item (its fieldMeta is updated in place)
+ * @param {Set<string>} [onlyFields] - Restrict marking to these field keys
+ * @returns {void}
+ */
+const markUserModifiedChanges = (baseline, cur, onlyFields) => {
+  if (typeof window.markUserModified !== "function") return;
+  const tracked = (field) => !onlyFields || onlyFields.has(field);
+  for (const field of USER_MODIFIED_ITEM_FIELDS) {
+    if (tracked(field) && baseline[field] !== cur[field]) window.markUserModified(cur, field);
+  }
+  const oldNumista = baseline.numistaData || {};
+  const newNumista = cur.numistaData || {};
+  for (const field of USER_MODIFIED_NUMISTA_FIELDS) {
+    if (tracked(field) && oldNumista[field] !== newNumista[field]) {
+      window.markUserModified(cur, field);
+    }
+  }
 };
 
 /**
@@ -1927,84 +2053,12 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       reverseSharedImageId: oldItem.reverseSharedImageId || null,
       ignorePatternImages: f.ignorePatternImages || false,
     };
-    if (f.obverseImageFrame === "auto") delete inventory[editIdx].obverseImageFrame;
-    if (f.reverseImageFrame === "auto") delete inventory[editIdx].reverseImageFrame;
+    // STRK-427: a sparse result deletes the keys the spread above would otherwise keep (D-4).
+    if (f.imageFraming) f.imageFraming.remove.forEach((key) => delete inventory[editIdx][key]);
     if (!f.paymentMethod) delete inventory[editIdx].paymentMethod;
 
     // Track user-modified fields by comparing old vs new values
-    if (typeof window.markUserModified === "function") {
-      const cur = inventory[editIdx];
-      const trackedFields = [
-        "metal",
-        "composition",
-        "name",
-        "qty",
-        "type",
-        "weight",
-        "weightUnit",
-        "constitutionalVariant",
-        "constitutionalEntryMode",
-        "price",
-        "marketValue",
-        "date",
-        "paymentMethod",
-        "purchaseLocation",
-        "storageLocation",
-        "serialNumber",
-        "notes",
-        "capsule",
-        "capsuleNotes",
-        "year",
-        "grade",
-        "gradingAuthority",
-        "certNumber",
-        "pcgsNumber",
-        "purity",
-        "country",
-        "denomination",
-        "shape",
-        "diameter",
-        "thickness",
-        "length",
-        "width",
-        "orientation",
-        "description",
-        "technique",
-      ];
-      for (const field of trackedFields) {
-        if (oldItem[field] !== cur[field]) {
-          window.markUserModified(cur, field);
-        }
-      }
-      // Track user-edited Numista Data tab fields (STRK-51)
-      const numistaTrackedFields = [
-        "country",
-        "denomination",
-        "composition",
-        "shape",
-        "diameter",
-        "length",
-        "width",
-        "thickness",
-        "orientation",
-        "technique",
-        "mintage",
-        "rarityIndex",
-        "kmRef",
-        "commemorative",
-        "commemorativeDesc",
-        "obverseDesc",
-        "reverseDesc",
-        "edgeDesc",
-      ];
-      const oldNumista = oldItem.numistaData || {};
-      const newNumista = cur.numistaData || {};
-      for (const field of numistaTrackedFields) {
-        if (oldNumista[field] !== newNumista[field]) {
-          window.markUserModified(cur, field);
-        }
-      }
-    }
+    markUserModifiedChanges(oldItem, inventory[editIdx]);
 
     addCompositionOption(f.composition);
     if (typeof registerCapsule === "function") registerCapsule(f.capsule);
@@ -2049,6 +2103,15 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
     const spotPriceAtPurchase =
       !isNaN(lookupSpot) && lookupSpot > 0 ? lookupSpot : (spotPrices[metalKey] ?? 0);
     const serial = getNextSerial();
+    // STRK-437: a Duplicate keeps its source's provenance ahead of the lookup fallbacks.
+    const duplicateProvenance =
+      typeof consumeDuplicateProvenance === "function"
+        ? consumeDuplicateProvenance(f.catalog)
+        : null;
+    const duplicateFieldMeta =
+      duplicateProvenance && Object.keys(duplicateProvenance.fieldMeta).length > 0
+        ? duplicateProvenance.fieldMeta
+        : undefined;
 
     inventory.push({
       ...buildItemFields(f),
@@ -2060,7 +2123,11 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       uuid: generateUUID(),
       numistaId: f.catalog,
       numistaData: f.numistaData,
-      fieldMeta: window.selectedNumistaResult?.fieldMeta || f.numistaData?.fieldMeta || undefined,
+      fieldMeta:
+        duplicateFieldMeta ||
+        window.selectedNumistaResult?.fieldMeta ||
+        f.numistaData?.fieldMeta ||
+        undefined,
       currency: f.currency,
       lastModified: new Date().toISOString(),
       obverseImageUrl:
@@ -2076,6 +2143,14 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
       ignorePatternImages: f.ignorePatternImages || false,
     });
     if (!f.paymentMethod) delete inventory[inventory.length - 1].paymentMethod;
+    // STRK-437: fields changed on the Duplicate form are the user's own, as in Edit.
+    if (duplicateProvenance && typeof USER_MODIFIED_TRACKED_FIELDS !== "undefined") {
+      markUserModifiedChanges(
+        duplicateProvenance.source,
+        inventory[inventory.length - 1],
+        USER_MODIFIED_TRACKED_FIELDS
+      );
+    }
 
     typeof registerName === "function" && registerName(f.name);
     if (typeof registerCapsule === "function") registerCapsule(f.capsule);
@@ -2418,6 +2493,8 @@ window.setupConstitutionalControls = setupConstitutionalControls;
  */
 const handleTypeChange = () => {
   const selectedType = elements.itemType?.value || "";
+  // STRK-427: every Type change, user or programmatic, re-derives an untouched frame shape.
+  notifyImageFrameSignals("type");
   const unitSelect = elements.itemWeightUnit;
   if (!(unitSelect instanceof HTMLElement)) return;
 
@@ -2644,6 +2721,7 @@ const wirePendingAddItemTags = () => {
 
 window.updateDenomLabels = updateDenomLabels;
 window.handleTypeChange = handleTypeChange;
+window.notifyImageFrameSignals = notifyImageFrameSignals;
 window.filterTypesByMetal = filterTypesByMetal;
 // STAK-580: exposed so Playwright can exercise the validator without going through DOM submit.
 window.validateItemFields = validateItemFields;
@@ -2981,6 +3059,10 @@ const setupItemFormListeners = () => {
       return;
     }
     clearUploadState();
+    // STRK-433: a pending Numista cache load must not write into a later form
+    if (typeof invalidateNumistaMetadataLoads === "function") invalidateNumistaMetadataLoads();
+    // STRK-437: a cancelled Duplicate's source provenance must not reach a later Add
+    if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();
     try {
@@ -3053,22 +3135,41 @@ const setupItemFormListeners = () => {
     });
   }
 
-  // IMAGE URL FIELDS — show URL buttons + refresh when COIN_IMAGES enabled
+  // IMAGE URL LINK ICONS — one small icon per frame (STRK-434). It opens the shared prompt
+  // dialog with the current URL; the (always hidden) URL field keeps the value, so the save
+  // and preview paths are unchanged. Cancel changes nothing; an empty entry clears the link.
   if (featureFlags.isEnabled("COIN_IMAGES")) {
-    // Show URL toggle buttons and refresh button inline
     ["Obv", "Rev"].forEach((suffix) => {
       const urlBtn = document.getElementById("itemImageUrlBtn" + suffix);
-      const urlInput = document.getElementById("itemImageUrlInput" + suffix);
-      if (urlBtn) {
-        urlBtn.style.display = "";
-        urlBtn.addEventListener("click", () => {
-          if (urlInput) {
-            const isHidden = urlInput.style.display === "none";
-            urlInput.style.display = isHidden ? "" : "none";
-            urlBtn.classList.toggle("active", isHidden);
+      if (!urlBtn) return;
+      urlBtn.style.display = "";
+      urlBtn.addEventListener("click", async () => {
+        const field =
+          suffix === "Rev" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+        if (!field || typeof showAppPrompt !== "function") return;
+        const sideName = suffix === "Rev" ? "reverse" : "obverse";
+        const entered = await showAppPrompt(
+          "Paste a link to the image, for example from imgur.",
+          field.value,
+          `Link ${sideName} image`
+        );
+        if (entered === null || entered === undefined) return;
+        const trimmed = String(entered).trim();
+        // The URL field is hidden but still takes part in native form validation, so a malformed
+        // link must never reach it: it would silently block Save with nothing to fix on screen.
+        const link = trimmed ? _normalizeHttpImageUrl(trimmed) : "";
+        if (trimmed && !link) {
+          if (typeof showAppAlert === "function") {
+            await showAppAlert(
+              "That doesn't look like a web link. Use a full address that starts with http:// or https://.",
+              `Link ${sideName} image`
+            );
           }
-        });
-      }
+          return;
+        }
+        field.value = link;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      });
     });
   }
 
@@ -3077,6 +3178,15 @@ const setupItemFormListeners = () => {
 
   if (imageUploadGroup && featureFlags.isEnabled("COIN_IMAGES")) {
     imageUploadGroup.style.display = "";
+    mountImageFrameEditor();
+    // Selecting a grade or Numista shape re-derives an untouched frame shape (AC-4.5).
+    [
+      ["itemGradingAuthority", "grading"],
+      ["numistaShape", "numista"],
+    ].forEach(([id, kind]) => {
+      const field = document.getElementById(id);
+      if (field) field.addEventListener("change", () => notifyImageFrameSignals(kind));
+    });
 
     const isSecure = location.protocol === "https:" || location.hostname === "localhost";
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
@@ -3088,19 +3198,8 @@ const setupItemFormListeners = () => {
       const uploadBtn = document.getElementById("itemImageUploadBtn" + suffix);
       const cameraBtn = document.getElementById("itemImageCameraBtn" + suffix);
       const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
-      const frameBtn = document.getElementById("frameToggle" + suffix);
       const urlField =
         side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
-
-      if (frameBtn) {
-        frameBtn.addEventListener("click", () => {
-          _setPendingFrame(
-            side,
-            typeof cycleFrame === "function" ? cycleFrame(_getPendingFrame(side)) : "auto"
-          );
-          _renderFrameToggle(side);
-        });
-      }
 
       if (urlField) {
         urlField.addEventListener("input", () => scheduleUrlPreview(side));
@@ -3108,6 +3207,8 @@ const setupItemFormListeners = () => {
 
       if (isMobile && isSecure && cameraBtn && fileInput) {
         cameraBtn.style.display = "";
+        // The row holding Camera stays hidden everywhere the button is unavailable (STRK-434).
+        if (cameraBtn.parentElement) cameraBtn.parentElement.style.display = "";
         cameraBtn.addEventListener("click", () => {
           fileInput.setAttribute("capture", "environment");
           fileInput.click();
@@ -3134,7 +3235,6 @@ const setupItemFormListeners = () => {
           if (side === "reverse") {
             _pendingReverseBlob = null;
             _deleteReverseOnSave = true;
-            _pendingReverseFrame = "auto";
             if (_pendingReversePreviewUrl) {
               URL.revokeObjectURL(_pendingReversePreviewUrl);
               _pendingReversePreviewUrl = null;
@@ -3142,7 +3242,6 @@ const setupItemFormListeners = () => {
           } else {
             _pendingObverseBlob = null;
             _deleteObverseOnSave = true;
-            _pendingObverseFrame = "auto";
             if (_pendingObversePreviewUrl) {
               URL.revokeObjectURL(_pendingObversePreviewUrl);
               _pendingObversePreviewUrl = null;
@@ -3163,7 +3262,8 @@ const setupItemFormListeners = () => {
           // STAK-332: Flag item to ignore pattern rule images after explicit removal
           const ignorePatternCheckbox = document.getElementById("itemIgnorePatternImages");
           if (ignorePatternCheckbox) ignorePatternCheckbox.checked = true;
-          _renderFrameToggle(side);
+          // STRK-427: Remove resets that side's orientation and keeps the shared shape (AC-3.3)
+          if (_imageFrameHost) _imageFrameHost.resetSide(side);
           updateSwapButtonVisibility();
 
           // STAK-244: Also clear Numista image cache if user is removing a catalog-synced image
@@ -3255,16 +3355,26 @@ const setupItemFormListeners = () => {
         const ignorePattern = safeGetElement("itemIgnorePatternImages");
         if (ignorePattern) ignorePattern.checked = true;
 
-        // Swap frame override state with the images it describes
-        const tmpFrame = _pendingObverseFrame;
-        _pendingObverseFrame = _pendingReverseFrame;
-        _pendingReverseFrame = tmpFrame;
+        // Swap per-side orientation with the images it describes; the shape is shared (AC-3.1)
+        if (_imageFrameHost) _imageFrameHost.swapSides();
 
         // Swap visible preview images
         if (imgObv && imgRev) {
           imgObv.src = reverseSrc;
           imgRev.src = obverseSrc;
         }
+
+        // Move the rest of each side's state with its image: the preview wrapper's visibility and
+        // the Remove badge's. Swap works with ONE image (STRK-434), and without this the image
+        // lands in a still-hidden wrapper while the emptied side stays shown.
+        ["itemImagePreview", "itemImageRemoveBtn"].forEach((prefix) => {
+          const obverseEl = document.getElementById(prefix + "Obv");
+          const reverseEl = document.getElementById(prefix + "Rev");
+          if (!obverseEl || !reverseEl) return;
+          const shown = obverseEl.style.display;
+          obverseEl.style.display = reverseEl.style.display;
+          reverseEl.style.display = shown;
+        });
 
         // Swap URL fields
         const urlObv = elements.itemObverseImageUrl;
@@ -3289,14 +3399,14 @@ const setupItemFormListeners = () => {
         const fileRev = document.getElementById("itemImageFileRev");
         if (fileObv) fileObv.value = "";
         if (fileRev) fileRev.value = "";
-        renderFrameToggles();
+        updateSwapButtonVisibility();
         return true;
       };
 
       const imageGroup = safeGetElement("imageUploadGroup");
       imageGroup.inert = true;
       imageGroup.setAttribute("aria-busy", "true");
-      swapBtn.disabled = true;
+      _syncItemSwapBusy(true);
       const operation = swap()
         .catch((error) => {
           if (generation === _itemImageEditGeneration) {
@@ -3309,7 +3419,7 @@ const setupItemFormListeners = () => {
         .finally(() => {
           if (_pendingItemImageSwap === operation) _pendingItemImageSwap = null;
           if (generation === _itemImageEditGeneration) {
-            swapBtn.disabled = false;
+            _syncItemSwapBusy();
             imageGroup.inert = false;
             imageGroup.removeAttribute("aria-busy");
           }
@@ -4753,6 +4863,11 @@ const setupSearch = () => {
           if (elements.itemDate) elements.itemDate.disabled = false;
           // STRK-301: apply remembered/default section disclosure to the reset form
           if (typeof prepareFormSections === "function") prepareFormSections();
+          // STRK-433: Add mode never populates Numista fields, so drop any stale cache load
+          if (typeof invalidateNumistaMetadataLoads === "function")
+            invalidateNumistaMetadataLoads();
+          // STRK-437: a fresh Add starts with no Duplicate source provenance
+          if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
           // Open modal
           if (elements.itemModal) {
             if (window.openModalById) openModalById("itemModal");

@@ -55,6 +55,14 @@ from sync, restore, diff, or Storage:
 `chipBlacklist`; a new hidden-list key still needs all seven registrations even when its
 storage and sync paths already use `saveDataSync()`.
 
+## Boot storage sweep is downgrade-safe — never delete unknown keys (STRK-412)
+
+`cleanupStorage()` removes only `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`). Never make it
+delete keys "not in `ALLOWED_STORAGE_KEYS`": an older build (rolled-back `main`, beta alias
+pointed at the wrong branch, stale service worker) would wipe every newer-feature key on that
+origin. This wiped Collections on 2026-09-30 (every build through 3.36.34 still does this; 3.36.35 is the first safe one). Retiring a key =
+append it to `RETIRED_STORAGE_KEYS`.
+
 ## `check-release-sync` hook is a SUBSET
 
 Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the

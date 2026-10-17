@@ -171,8 +171,16 @@ A Series Template whose Slots are the successive issue years of one coin series 
 _Avoid_: year set, series run, date set
 
 **Custom Collection**:
-A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (metal, description, coin side, Item images choice, Slot list). Its coin-side declaration selects the linked Item image side and labels single-image Slot artwork; it defaults to obverse. Its Item images choice (Show by default) can hide linked Item photos so filled Slots display the collection's artwork instead.
+A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (identity, specifications, Image Shape and Orientation, About, coin side, Item images choice, Slot list). Its coin-side declaration selects title art and linked Item image side; it defaults to obverse. Its Item images choice (Show by default) can hide linked Item photos so filled Slots display the collection's artwork instead. Older Description text is retained in About.
 _Avoid_: user collection, custom list, custom set
+
+**Image Shape**:
+The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin. One shape covers both sides. For an Item it is **derived** from Type, grading and the Numista shape (grading wins; Bar and Set are Bar; Note, Aurum, Goldback and Silverback are Note; a Coin with a non-round Numista shape is Bar; else Round) and **stored only when the user chose a different one** (`imageShape`, written sparsely with the legacy `*ImageFrame` projection for older builds). The shared image-frame editor re-derives on a Type change while the shape is unchosen (a legacy rectangle item shows its mapped shape but keeps following Type) or still equals the previous Type's default, and leaves a chosen shape that differs from it alone; a grade or Numista change moves only a shape the user has not chosen, so clicking the already-selected shape pins it against those two but not against Type (STRK-427). The inventory table, card views and view modal draw the same shape and per-side orientation. Non-round frames letterbox the photo (`contain`) inside a token-ratio frame; a Round photo still fills its circle (`cover`) in the table and cards, while the view modal letterboxes every frame including Round. A legacy rectangle item reads as a portrait Bar (STRK-427 P2).
+_Avoid_: graded type, slabbed type
+
+**Image Orientation**:
+Portrait or Landscape, chosen **per side** (obverse and reverse) for an Item or Custom Collection whose Image Shape is Bar or Note (Bar starts portrait, Note landscape); Round and Slab have one frame and no orientation. Items store `obverseImageOrientation` / `reverseImageOrientation` only when they differ from the shape default; a Custom Collection stores `imageOrientation` (obverse/shared) plus `reverseImageOrientation` only when the reverse differs. The builder preview and Album/Ledger/Hub share one ratio per shape and orientation. A Bar or Note saved in a Collection before the choice existed renders landscape.
+_Avoid_: rotation, flip
 
 **Tombstone**:
 A Slot link emptied to `{ primary: null }`, or a Collection stamped `deletedAt`, kept in storage instead of being deleted. A missing key cannot say "unlinked", so without Tombstones an unlink could never win a cross-device merge against an older link.

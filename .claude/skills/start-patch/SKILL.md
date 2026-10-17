@@ -2,7 +2,6 @@
 name: start-patch
 description: Use when starting a new patch session and needing to pick a Plane issue to work on before claiming a version lock and creating a worktree.
 user-invocable: true
-allowed-tools: Bash, Read, mcp__mem0__search_memories, mcp__plane__list_project_issues, mcp__plane__list_states
 ---
 
 # Start Patch
@@ -52,32 +51,26 @@ git status --short
 ### Plane query
 
 Use the Plane MCP project ID from `.claude/project.json` (`plane.projectId`). This needs **two** calls —
-`mcp__plane__list_project_issues` returns each issue's `state` as an object whose
-`state.id` is the UUID but whose `state.name` is `null`; `mcp__plane__get_issue_using_readable_identifier`
-returns `state` as a bare UUID string. The MCP never populates the state name in either
-response, so the human-readable name has to come from a separate `mcp__plane__list_states` join.
+Pass `expand: "state"` so each issue carries `state.name` and `state.group` (without it,
+`state` is a bare UUID string). Always pass `project_id` and never pass `pql` — Community
+Edition returns an `{"error": ...}` payload instead of results.
 
 ```text
-mcp__plane__list_states(project_id: "<plane_project_id>")
-mcp__plane__list_project_issues(project_id: "<plane_project_id>")
+mcp__plane__workitem(action: "list", project_id: "<plane_project_id>", expand: "state", per_page: 100)
 ```
 
-Build a `{state_id → state_name}` map from `list_states` once, then resolve each issue's
-`state.id` against it to recover the readable state (`In Progress`, `Todo`, `Backlog`, …).
-Priority needs no such join — it already comes back readable on `priority.id` (`urgent`,
-`high`, `medium`, `low`, `none`).
+Priority is a plain string (`urgent`, `high`, `medium`, `low`, `none`).
 
 Filter out completed and cancelled states, then keep In Progress, Todo, and Backlog items.
 Do not query Linear and do not read DocVault issue files for active work.
 
 ### mem0 — session continuity
 
-```text
-mcp__mem0__search_memories
-  query: "recent session handoff in progress"
-  filters: { "AND": [{ "agent_id": "<project agent_id>" }] }
-  limit: 5
-```
+Resolve the hosted `search_memories` tool dynamically from the current catalog.
+Use `user_id: lbruton` and `metadata.project: staktrakr` filters; never filter on
+`agent_id`. Run one project-scoped query for recent handoffs and one user-only
+query for cross-project workflow decisions. Match the current tool schema.
+Do not retry an HTTP 429 or quota-exceeded response.
 
 Note which issue IDs appear in the mem0 results — these get a continuity boost in ranking.
 
@@ -91,7 +84,7 @@ Note which issue IDs appear in the mem0 results — these get a continuity boost
 
 ```text
 ⚠️  Active version claims:
-    - v3.32.29 — claude / STRK-315 (expires 10:30Z)
+    - v3.32.29 — Codex / STRK-315 (expires 10:30Z)
     - v3.32.30 — user / hotfix (expires 10:35Z)
     Next available version: v3.32.31
     (Claims expire after 30 min and are pruned automatically on next lock read.)
@@ -186,7 +179,9 @@ Context from /start-patch:
               STRK-201 — Memory sync command
 ```
 
-The release skill takes full ownership from here — sync gate, lock claim, worktree, seed-sync, version bump, PR.
+The release skill takes full ownership from here — sync gate, lock claim, worktree, version bump, PR.
+
+The release skill does **not** refresh the spot bundle. Before the version-bump PR is opened, run the worktree's own copy of `/update-spot-bundle` (it writes into that worktree) and stage the bundle and year JSON files in place — see "Spot Bundle" in `.context/git-topology.md`.
 
 ---
 

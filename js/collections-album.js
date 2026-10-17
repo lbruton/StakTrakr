@@ -27,6 +27,7 @@
       canMutate,
       unitPaid,
       unitMelt,
+      unitValuation,
       PERCENT,
       quantityOf,
       viewItem,
@@ -57,14 +58,28 @@
      * @returns {string[]} Parts, e.g. ["1 oz", ".999 fine silver", "40.6 mm", "$1 face value"]
      */
     const specParts = (entry) => {
-      if (entry.isCustom) return [entry.metal].filter(Boolean);
-      const template = entry.template;
-      const specs = template.specs || {};
+      const specs = entry.specs || {};
+      const purity = Number(entry.purity);
+      const fineness = Number.isFinite(purity)
+        ? `${purity >= 1 ? "pure" : `.${String(purity).split(".")[1] || ""}`} fine ${String(entry.metal || "metal").toLowerCase()}`
+        : "";
+      const collectionDetails = entry.isCustom
+        ? [
+            specs.grossWeightGrams ? `${specs.grossWeightGrams} g` : "",
+            specs.thicknessMm ? `${specs.thicknessMm} mm thick` : "",
+            specs.edge ? text(specs.edge) : "",
+            specs.mintMark ? `Mint mark: ${text(specs.mintMark)}` : "",
+            specs.dimensions ? text(specs.dimensions) : "",
+            specs.authorization ? text(specs.authorization) : "",
+          ]
+        : [];
       return [
-        template.weight ? `${template.weight} ${text(template.weightUnit) || "oz"}` : "",
-        text(specs.fineness),
+        entry.weight ? `${entry.weight} ${text(entry.weightUnit) || "oz"}` : "",
+        fineness || text(specs.fineness),
         specs.diameterMm ? `${specs.diameterMm} mm` : "",
         specs.faceValue ? `${text(specs.faceValue)} face value` : "",
+        specs.composition ? text(specs.composition) : "",
+        ...collectionDetails,
       ].filter(Boolean);
     };
 
@@ -76,7 +91,37 @@
     const buildAlbumHead = (entry) => {
       const head = el("div", "collections-album-head");
       const pair = el("div", "collections-pair");
-      if (entry.obverse) {
+      if (entry.isCustom) {
+        const artwork = entry.collection.artwork || {};
+        const titleSides = [];
+        const hasTitleStamps =
+          Object.hasOwn(artwork, "cover") || Object.hasOwn(artwork, "title:reverse");
+        // An unstamped legacy cover may exist, so retain it as obverse while allowing a
+        // cloned Collection to show its source Template's reverse until art is customized.
+        if (artwork.cover ? artwork.cover.present : !hasTitleStamps) titleSides.push("obverse");
+        if (artwork["title:reverse"]?.present || (!hasTitleStamps && entry.reverse))
+          titleSides.push("reverse");
+        if (!titleSides.length && entry.obverse) titleSides.push("obverse");
+        if (!titleSides.length)
+          titleSides.push(entry.collection.definition.side === "reverse" ? "reverse" : "obverse");
+        titleSides.forEach((side) =>
+          pair.appendChild(
+            buildCoin({
+              src: entry[side] || entry.obverse,
+              monogram: entry.monogram,
+              size: "lg",
+              imageSide: side,
+              resolvedImageSide: entry[side] ? side : entry.obverse ? "obverse" : side,
+              stockImageSide: entry[side] ? side : entry.obverse ? "obverse" : "",
+              imageShape: entry.imageShape,
+              // STRK-427: the frame belongs to the title side, not to whichever image fills it.
+              imageOrientation:
+                side === "reverse" ? entry.reverseImageOrientation : entry.imageOrientation,
+              artwork: { collectionId: entry.id, titleFallback: true },
+            })
+          )
+        );
+      } else if (entry.obverse) {
         pair.appendChild(buildCoin({ src: entry.obverse, size: "lg" }));
         if (entry.reverse) pair.appendChild(buildCoin({ src: entry.reverse, size: "lg" }));
       } else {
@@ -84,7 +129,7 @@
           buildCoin({
             monogram: entry.monogram,
             size: "lg",
-            artwork: entry.isCustom ? { collectionId: entry.id } : null,
+            artwork: null,
           })
         );
       }
@@ -93,12 +138,12 @@
       const info = el("div", "collections-album-info");
       const heading = el("h2", "", entry.name);
       if (entry.variant) heading.appendChild(buildTag(entry.variant, "is-variant"));
-      if (entry.isCustom) heading.appendChild(buildTag("Custom"));
       info.appendChild(heading);
       const definition = entry.collection.definition || {};
       const subParts = entry.isCustom
         ? [
-            "Custom collection",
+            text(definition.subtitle),
+            text(definition.issuer),
             `${entry.slotDefs.length} slot${entry.slotDefs.length === 1 ? "" : "s"}`,
           ]
         : [
@@ -106,11 +151,14 @@
             runLabel(entry.template.run),
             text(entry.template.issuer),
           ];
+      if (entry.isCustom) subParts.push(text(definition.itemType));
       info.appendChild(el("p", "collections-sub", subParts.filter(Boolean).join(" · ")));
       const spec = el("div", "collections-spec");
       specParts(entry).forEach((part) => spec.appendChild(el("span", "", part)));
       if (spec.childElementCount) info.appendChild(spec);
-      const about = entry.isCustom ? text(definition.description) : text(entry.template.about);
+      const about = entry.isCustom
+        ? text(definition.about || definition.description)
+        : text(entry.template.about);
       if (about) info.appendChild(el("p", "collections-about", about));
       head.appendChild(info);
 
@@ -154,7 +202,11 @@
           value: entry.paid ? money(entry.paid) : DASH,
           note: "primary items only · per unit",
         },
-        { label: "Melt value", value: entry.melt ? money(entry.melt) : DASH, note: spotNote },
+        {
+          label: "Value",
+          value: entry.retail ? money(entry.retail) : DASH,
+          note: entry.retailDiffers ? `melt ${money(entry.melt)} · ${spotNote}` : spotNote,
+        },
         {
           label: "Cost to complete",
           value: costValue,
@@ -196,8 +248,8 @@
           "Sort slots",
           state.albumSort,
           [
-            [SORT_OLDEST, "Oldest"],
-            [SORT_NEWEST, "Newest"],
+            [SORT_OLDEST, entry.isCustom ? "Collection order" : "Oldest"],
+            [SORT_NEWEST, entry.isCustom ? "Reverse" : "Newest"],
           ],
           (value) => {
             state.albumSort = value;
@@ -407,7 +459,7 @@
     };
 
     /**
-     * "paid → melt (+x%)" for one unit of a linked Item.
+     * "paid → retail (+x%)" for one unit of a linked Item.
      * @param {Object} item - Linked inventory item
      * @param {string} className - Wrapper class
      * @returns {HTMLElement} The money line
@@ -415,12 +467,13 @@
     const buildMoneyLine = (item, className) => {
       const line = el("span", className);
       const paid = unitPaid(item);
-      const melt = unitMelt(item);
+      const valuation = unitValuation(item);
+      const retail = valuation && valuation.hasRetailSignal ? valuation.retailUnitPrice : null;
       line.appendChild(document.createTextNode(money(paid)));
-      if (!melt) return line;
-      line.appendChild(document.createTextNode(` → ${money(melt)}`));
-      if (paid > 0) {
-        const pct = Math.round(((melt - paid) / paid) * PERCENT);
+      if (retail === null) return line;
+      line.appendChild(document.createTextNode(` → ${money(retail)}`));
+      if (paid > 0 && valuation.gainLossUnit !== null) {
+        const pct = Math.round((valuation.gainLossUnit / paid) * PERCENT);
         line.appendChild(document.createTextNode(" "));
         line.appendChild(
           el(
@@ -528,6 +581,10 @@
         ghost: !slot.item,
         owned: Boolean(slot.item),
         size,
+        imageShape: entry.imageShape,
+        // STRK-427: a reverse-side Collection frames its Slots with the reverse orientation.
+        imageOrientation:
+          side === "reverse" ? entry.reverseImageOrientation : entry.imageOrientation,
         alt: `${displayedSide} of ${slot.label}`,
         imageLabel: slot.label,
         imageSide: side,
@@ -539,6 +596,7 @@
               collectionId: entry.id,
               slotId: slot.def.id,
               coverFallback: Boolean(slot.item) && !showItemImage,
+              titleFallback: true,
             }
           : null,
       });
@@ -662,6 +720,7 @@
         row.appendChild(numeric(mintageCell(slot.def), "collections-muted collections-hide-md"));
         row.appendChild(numeric(DASH, "collections-muted"));
         row.appendChild(numeric(DASH, "collections-muted"));
+        row.appendChild(numeric(DASH, "collections-muted"));
         row.appendChild(numeric(entry.best ? `from ${money(entry.best.price)}` : DASH));
         const act = el("span", "collections-lrow-act");
         if (canMutate()) act.appendChild(buildAddButton(entry, slot));
@@ -687,12 +746,17 @@
 
       const paid = unitPaid(item);
       const melt = unitMelt(item);
+      const valuation = unitValuation(item);
       row.appendChild(numeric(mintageCell(slot.def), "collections-muted collections-hide-md"));
       row.appendChild(numeric(money(paid)));
       row.appendChild(numeric(melt ? money(melt) : DASH));
-      const delta = melt - paid;
+      const retail = valuation && valuation.hasRetailSignal ? valuation.retailUnitPrice : null;
       row.appendChild(
-        melt
+        numeric(retail === null ? DASH : money(retail), retail === null ? "collections-muted" : "")
+      );
+      const delta = valuation ? valuation.gainLossUnit : null;
+      row.appendChild(
+        delta !== null
           ? numeric(
               `${delta >= 0 ? "+" : "−"}${money(Math.abs(delta))}`,
               delta >= 0 ? "collections-up" : "collections-down"
@@ -741,6 +805,7 @@
             ["Mintage", "collections-num collections-hide-md"],
             ["Paid", "collections-num"],
             ["Melt", "collections-num"],
+            ["Retail", "collections-num collections-hide-sm"],
             ["G/L · Best price", "collections-num"],
             ["", ""],
           ])

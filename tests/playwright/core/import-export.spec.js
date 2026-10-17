@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 
@@ -64,7 +65,7 @@ const TRADE_RECEIVED_ITEM = {
   tradedFromUuid: "strk123-trade-source",
 };
 
-async function seedFrameInventory(page) {
+async function seedFrameInventory(page, frameItem = FRAME_ITEM) {
   await page.addInitScript((item) => {
     localStorage.setItem("metalInventory", JSON.stringify([item]));
     localStorage.setItem("itemTags", JSON.stringify({}));
@@ -75,7 +76,7 @@ async function seedFrameInventory(page) {
       },
       { once: true }
     );
-  }, FRAME_ITEM);
+  }, frameItem);
 }
 
 async function parseCsvRow(page, csvText) {
@@ -397,6 +398,237 @@ test.describe("core/import-export", () => {
 
     expectFrameColumns(await parseCsvRow(page, zipCsv));
     expectFrameColumns(await parseCsvRow(page, standaloneCsv));
+  });
+
+  // -------------------------------------------------------------------------------------
+  // STRK-427 (task B.8): the three new item fields and the legacy frames round-trip through
+  // every item path, using REAL exported files (a hand-built CSV hides PapaParse's carriage
+  // return on the last header). Written before the implementation.
+  // -------------------------------------------------------------------------------------
+
+  const FRAMED_ITEM = {
+    ...FRAME_ITEM,
+    uuid: "strk427-framed",
+    name: "STRK-427 Framed Bar",
+    type: "Bar",
+    imageShape: "note",
+    obverseImageOrientation: "portrait",
+    reverseImageOrientation: "landscape",
+    obverseImageFrame: "rectangle",
+    reverseImageFrame: "rectangle",
+  };
+  const FRAME_FIELDS = [
+    "imageShape",
+    "obverseImageOrientation",
+    "reverseImageOrientation",
+    "obverseImageFrame",
+    "reverseImageFrame",
+  ];
+  const NEW_COLUMNS = ["Image Shape", "Obverse Image Orientation", "Reverse Image Orientation"];
+
+  /**
+   * Boots the app with one seeded item and waits for the export and import entry points.
+   * @param {import('@playwright/test').Page} page - Playwright page instance.
+   * @param {object} [item] - Seeded item.
+   * @returns {Promise<void>}
+   */
+  const bootFramed = async (page, item = FRAMED_ITEM) => {
+    await seedFrameInventory(page, item);
+    await page.route("https://images.example/**", (route) => route.abort());
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        typeof window.createBackupZip === "function" &&
+        typeof window.exportInventoryCSV === "function" &&
+        typeof window.exportJson === "function" &&
+        typeof window.importCsvFromText === "function" &&
+        typeof window.importJsonFromText === "function" &&
+        typeof window.Papa !== "undefined" &&
+        Array.isArray(window.inventory) &&
+        window.inventory.length === 1
+    );
+  };
+
+  /**
+   * Reads the stored item's frame fields as a plain object (absent keys omitted).
+   * @param {import('@playwright/test').Page} page - Playwright page instance.
+   * @returns {Promise<object>} The five frame fields that are present.
+   */
+  const frameFieldsOf = (page) =>
+    page.evaluate((keys) => {
+      const item = window.inventory[0] || {};
+      return Object.fromEntries(keys.filter((k) => k in item).map((k) => [k, item[k]]));
+    }, FRAME_FIELDS);
+
+  /**
+   * Replaces the inventory with nothing, ready for an import to restore it.
+   * @param {import('@playwright/test').Page} page - Playwright page instance.
+   * @returns {Promise<void>}
+   */
+  const clearInventory = (page) =>
+    page.evaluate(() => {
+      window.inventory = [];
+      localStorage.setItem("metalInventory", "[]");
+    });
+
+  /**
+   * Asserts the new columns sit right before Collections and the legacy frames stay put.
+   * @param {string[]} headers - CSV header names in order.
+   */
+  const expectColumnLayout = (headers) => {
+    const clean = headers.map((h) => h.trim());
+    expect(clean.at(-1)).toBe("Collections");
+    expect(clean.slice(-4, -1)).toEqual(NEW_COLUMNS);
+    const reverseUrl = clean.indexOf("Reverse Image URL");
+    expect(clean.slice(reverseUrl + 1, reverseUrl + 3)).toEqual(["Obverse Frame", "Reverse Frame"]);
+  };
+
+  test("STRK-427 item framing round-trips through JSON export and JSON import", async ({
+    page,
+  }) => {
+    await bootFramed(page);
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.evaluate(() => window.exportJson()),
+    ]);
+    const text = readFileSync(await download.path(), "utf8");
+    const exported = JSON.parse(text).items[0];
+    for (const key of FRAME_FIELDS)
+      expect(exported[key], `${key} in the JSON export`).toBe(FRAMED_ITEM[key]);
+
+    await clearInventory(page);
+    await page.evaluate((json) => window.importJsonFromText(json, true), text);
+    await page.waitForFunction(() => window.inventory.length === 1);
+    expect(await frameFieldsOf(page)).toEqual(
+      Object.fromEntries(FRAME_FIELDS.map((k) => [k, FRAMED_ITEM[k]]))
+    );
+    // The values survive the loadInventory sanitizer on the next boot.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () => Array.isArray(window.inventory) && window.inventory.length === 1
+    );
+    expect(await frameFieldsOf(page)).toMatchObject({ imageShape: "note" });
+  });
+
+  test("STRK-427 item framing round-trips through the standard CSV export and import", async ({
+    page,
+  }) => {
+    await bootFramed(page);
+    const csv = await page.evaluate(() => window.exportInventoryCSV());
+    const headers = await page.evaluate((text) => {
+      const body = text
+        .split("\n")
+        .filter((line) => !line.startsWith("# exportOrigin:"))
+        .join("\n");
+      return window.Papa.parse(body, { header: true, skipEmptyLines: true }).meta.fields;
+    }, csv);
+    expectColumnLayout(headers);
+
+    await clearInventory(page);
+    await page.evaluate((text) => window.importCsvFromText(text, true), csv);
+    await page.waitForFunction(() => window.inventory.length === 1);
+    expect(await frameFieldsOf(page)).toEqual(
+      Object.fromEntries(FRAME_FIELDS.map((k) => [k, FRAMED_ITEM[k]]))
+    );
+  });
+
+  test("STRK-427 item framing round-trips through the ZIP backup JSON, ZIP CSV and restore parse", async ({
+    page,
+  }) => {
+    await bootFramed(page);
+    const zip = await page.evaluate(async () => {
+      const blob = await window.createBackupZip();
+      const archive = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      return {
+        item: JSON.parse(await archive.file("inventory_data.json").async("string")).inventory[0],
+        csv: await archive.file("inventory_export.csv").async("string"),
+        bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+      };
+    });
+    for (const key of FRAME_FIELDS)
+      expect(zip.item[key], `${key} in the ZIP JSON`).toBe(FRAMED_ITEM[key]);
+
+    const headers = await page.evaluate(
+      (text) => window.Papa.parse(text, { header: true, skipEmptyLines: true }).meta.fields,
+      zip.csv
+    );
+    expectColumnLayout(headers);
+
+    // ZIP CSV import.
+    await clearInventory(page);
+    await page.evaluate((text) => window.importCsvFromText(text, true), zip.csv);
+    await page.waitForFunction(() => window.inventory.length === 1);
+    expect(await frameFieldsOf(page)).toEqual(
+      Object.fromEntries(FRAME_FIELDS.map((k) => [k, FRAMED_ITEM[k]]))
+    );
+
+    // ZIP restore hands the parsed items, verbatim, to the review step.
+    const parsed = await page.evaluate(async (bytes) => {
+      let captured = null;
+      window.showImportDiffReview = (items, _meta, _options, onDone) => {
+        captured = items;
+        onDone({ added: 0, modified: 0, deleted: 0 });
+      };
+      await window.restoreBackupZip(
+        new File([new Uint8Array(bytes)], "strk427.zip", { type: "application/zip" })
+      );
+      return captured && captured[0];
+    }, zip.bytes);
+    for (const key of FRAME_FIELDS)
+      expect(parsed[key], `${key} in the restore parse`).toBe(FRAMED_ITEM[key]);
+  });
+
+  test("STRK-427 a sparse item exports no new keys and never writes empty legacy frames", async ({
+    page,
+  }) => {
+    const sparse = { ...FRAME_ITEM, uuid: "strk427-sparse" };
+    delete sparse.obverseImageFrame;
+    delete sparse.reverseImageFrame;
+    await bootFramed(page, sparse);
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.evaluate(() => window.exportJson()),
+    ]);
+    const exported = JSON.parse(readFileSync(await download.path(), "utf8")).items[0];
+    for (const key of FRAME_FIELDS)
+      expect(key in exported, `${key} absent from JSON export`).toBe(false);
+
+    const zipItem = await page.evaluate(async () => {
+      const blob = await window.createBackupZip();
+      const archive = await window.JSZip.loadAsync(await blob.arrayBuffer());
+      return JSON.parse(await archive.file("inventory_data.json").async("string")).inventory[0];
+    });
+    for (const key of FRAME_FIELDS) {
+      expect(key in zipItem, `${key} absent from the ZIP JSON, never an empty string`).toBe(false);
+    }
+  });
+
+  test("STRK-427 invalid enum values in an imported CSV read as absent", async ({ page }) => {
+    await bootFramed(page);
+    const csv = await page.evaluate(
+      (text) => {
+        const body = text
+          .split("\n")
+          .filter((line) => !line.startsWith("# exportOrigin:"))
+          .join("\n");
+        const parsed = window.Papa.parse(body, { header: true, skipEmptyLines: true });
+        const row = parsed.data[0];
+        row["Image Shape"] = "banana";
+        row["Obverse Image Orientation"] = "sideways";
+        row["Reverse Image Orientation"] = "Auto";
+        return window.Papa.unparse({ fields: parsed.meta.fields, data: [row] });
+      },
+      await page.evaluate(() => window.exportInventoryCSV())
+    );
+    await clearInventory(page);
+    await page.evaluate((text) => window.importCsvFromText(text, true), csv);
+    await page.waitForFunction(() => window.inventory.length === 1);
+    const fields = await frameFieldsOf(page);
+    for (const key of ["imageShape", "obverseImageOrientation", "reverseImageOrientation"]) {
+      expect(["", undefined], `${key} reads as absent`).toContain(fields[key]);
+    }
+    // The legacy frames are untouched by the bad enum values.
+    expect(fields.obverseImageFrame).toBe("rectangle");
   });
 
   test("CSV and ZIP exports survive items missing metal/weight (STRK-211, STRK-212)", async ({

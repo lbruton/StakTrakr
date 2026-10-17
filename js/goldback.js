@@ -55,6 +55,15 @@ const loadGoldbackPricingSource = () => {
 };
 
 /**
+ * Announces that the Goldback source or denomination prices changed, so views that value
+ * Goldback Items outside Inventory (the Collections ledger) can repaint.
+ * @returns {void}
+ */
+const notifyGoldbackPricingChanged = () => {
+  if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent("goldback:updated"));
+};
+
+/**
  * Saves the active Goldback pricing source to localStorage.
  * @param {"off"|"api"|"spot"|"manual"} value - Selected source identifier
  * @returns {"off"|"api"|"spot"|"manual"}
@@ -70,6 +79,7 @@ const saveGoldbackPricingSource = (value) => {
     console.error("Error saving Goldback pricing source:", error);
   }
 
+  notifyGoldbackPricingChanged();
   return goldbackPricingSource;
 };
 
@@ -82,6 +92,7 @@ const saveGoldbackPrices = () => {
   } catch (error) {
     console.error("Error saving Goldback prices:", error);
   }
+  notifyGoldbackPricingChanged();
 };
 
 /**

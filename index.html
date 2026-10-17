@@ -1861,181 +1861,6 @@
             <input type="hidden" id="itemSerial" value="" />
             <input type="hidden" id="itemSpotPrice" value="" />
 
-            <!-- Images — Unified upload / camera / URL per slot -->
-            <details
-              id="imageUploadGroup"
-              class="form-section image-upload-group"
-              data-section="images"
-              open
-              style="display: none"
-            >
-              <summary class="form-section-header">
-                Images
-                <span class="form-section-count" hidden></span>
-              </summary>
-              <div class="form-section-body">
-                <div class="image-upload-sides">
-                  <!-- Obverse -->
-                  <div class="image-upload-side">
-                    <span class="image-side-label">Obverse</span>
-                    <div class="image-card">
-                      <div
-                        id="itemImagePreviewObv"
-                        class="image-upload-preview"
-                        style="display: none"
-                      >
-                        <img id="itemImagePreviewImgObv" alt="Obverse preview" />
-                        <button
-                          type="button"
-                          id="frameToggleObv"
-                          class="frame-toggle"
-                          data-frame-state="auto"
-                          aria-pressed="false"
-                          aria-label="Image frame: auto (default)"
-                        >
-                          <span aria-hidden="true">A</span>
-                        </button>
-                      </div>
-                      <div class="image-card-actions">
-                        <input
-                          type="file"
-                          id="itemImageFileObv"
-                          accept="image/jpeg,image/png,image/webp"
-                          style="display: none"
-                        />
-                        <button
-                          class="btn img-btn img-btn-upload"
-                          id="itemImageUploadBtnObv"
-                          type="button"
-                        >
-                          Upload
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-url"
-                          id="itemImageUrlBtnObv"
-                          type="button"
-                          style="display: none"
-                        >
-                          URL
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-camera"
-                          id="itemImageCameraBtnObv"
-                          type="button"
-                          style="display: none"
-                        >
-                          Camera
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-remove"
-                          id="itemImageRemoveBtnObv"
-                          type="button"
-                          style="display: none"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                    <span id="itemImageSizeInfoObv" class="image-size-info"></span>
-                    <div id="itemImageUrlInputObv" class="image-url-input" style="display: none">
-                      <input
-                        id="itemObverseImageUrl"
-                        type="url"
-                        class="form-control"
-                        placeholder="https://example.com/obverse.jpg"
-                      />
-                    </div>
-                  </div>
-                  <!-- Swap obverse/reverse button (STAK-341) -->
-                  <div class="image-swap-wrapper d-none" id="swapImagesBtnWrapper">
-                    <button
-                      type="button"
-                      class="btn btn-icon"
-                      id="swapImagesBtn"
-                      title="Swap obverse &amp; reverse"
-                      aria-label="Swap obverse and reverse images"
-                    >
-                      ⇄
-                    </button>
-                  </div>
-                  <!-- Reverse -->
-                  <div class="image-upload-side">
-                    <span class="image-side-label">Reverse</span>
-                    <div class="image-card">
-                      <div
-                        id="itemImagePreviewRev"
-                        class="image-upload-preview"
-                        style="display: none"
-                      >
-                        <img id="itemImagePreviewImgRev" alt="Reverse preview" />
-                        <button
-                          type="button"
-                          id="frameToggleRev"
-                          class="frame-toggle"
-                          data-frame-state="auto"
-                          aria-pressed="false"
-                          aria-label="Image frame: auto (default)"
-                        >
-                          <span aria-hidden="true">A</span>
-                        </button>
-                      </div>
-                      <div class="image-card-actions">
-                        <input
-                          type="file"
-                          id="itemImageFileRev"
-                          accept="image/jpeg,image/png,image/webp"
-                          style="display: none"
-                        />
-                        <button
-                          class="btn img-btn img-btn-upload"
-                          id="itemImageUploadBtnRev"
-                          type="button"
-                        >
-                          Upload
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-url"
-                          id="itemImageUrlBtnRev"
-                          type="button"
-                          style="display: none"
-                        >
-                          URL
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-camera"
-                          id="itemImageCameraBtnRev"
-                          type="button"
-                          style="display: none"
-                        >
-                          Camera
-                        </button>
-                        <button
-                          class="btn img-btn img-btn-remove"
-                          id="itemImageRemoveBtnRev"
-                          type="button"
-                          style="display: none"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                    <span id="itemImageSizeInfoRev" class="image-size-info"></span>
-                    <div id="itemImageUrlInputRev" class="image-url-input" style="display: none">
-                      <input
-                        id="itemReverseImageUrl"
-                        type="url"
-                        class="form-control"
-                        placeholder="https://example.com/reverse.jpg"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <!-- Hidden wrappers preserved for JS compatibility -->
-                <div id="imageUrlGroup" style="display: none">
-                  <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
-                </div>
-              </div>
-            </details>
             <!-- ═══════════════════════════════════════════════════════
                  CORE FIELDS — Always visible
                  ═══════════════════════════════════════════════════════ -->
@@ -2115,6 +1940,220 @@
                 <input id="itemYear" type="text" placeholder="e.g. 2024" />
               </div>
             </div>
+            <!-- Images — Unified upload / camera / URL per slot -->
+            <details
+              id="imageUploadGroup"
+              class="form-section image-upload-group"
+              data-section="images"
+              open
+              style="display: none"
+            >
+              <summary class="form-section-header">
+                Images
+                <span class="form-section-count" hidden></span>
+              </summary>
+              <div class="form-section-body">
+                <!-- STRK-427: slots for the shared image-frame editor (js/image-frame-editor.js) -->
+                <div class="image-upload-sides">
+                  <!-- Obverse -->
+                  <div class="image-upload-side">
+                    <span class="image-side-label">Obverse</span>
+                    <div class="image-card">
+                      <div class="ife-stage">
+                        <div class="ife-frame" data-ife-frame="obverse">
+                          <div
+                            id="itemImagePreviewObv"
+                            class="image-upload-preview"
+                            style="display: none"
+                          >
+                            <img id="itemImagePreviewImgObv" alt="Obverse preview" />
+                          </div>
+                          <!-- STRK-434: the frame is the upload target; × removes, the link icon sets a URL -->
+                          <button
+                            class="ife-upload"
+                            id="itemImageUploadBtnObv"
+                            type="button"
+                            aria-label="Upload obverse image"
+                            title="Upload obverse image"
+                          ></button>
+                          <button
+                            class="collections-image-remove"
+                            id="itemImageRemoveBtnObv"
+                            type="button"
+                            aria-label="Remove obverse image"
+                            title="Remove obverse image"
+                            style="display: none"
+                          >
+                            &times;
+                          </button>
+                          <button
+                            class="ife-link"
+                            id="itemImageUrlBtnObv"
+                            type="button"
+                            aria-label="Link obverse image from a URL"
+                            title="Link obverse image from a URL"
+                            style="display: none"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                              />
+                              <path
+                                d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="image-card-actions" style="display: none">
+                        <input
+                          type="file"
+                          id="itemImageFileObv"
+                          accept="image/jpeg,image/png,image/webp"
+                          style="display: none"
+                        />
+                        <button
+                          class="btn img-btn img-btn-camera"
+                          id="itemImageCameraBtnObv"
+                          type="button"
+                          style="display: none"
+                        >
+                          Camera
+                        </button>
+                      </div>
+                    </div>
+                    <div data-ife-orientation="obverse"></div>
+                    <span id="itemImageSizeInfoObv" class="image-size-info"></span>
+                    <div id="itemImageUrlInputObv" class="image-url-input" style="display: none">
+                      <input
+                        id="itemObverseImageUrl"
+                        type="text"
+                        class="form-control"
+                        placeholder="https://example.com/obverse.jpg"
+                      />
+                    </div>
+                  </div>
+                  <!-- Swap obverse/reverse button (STAK-341) -->
+                  <div class="image-swap-wrapper" id="swapImagesBtnWrapper" data-ife-swap>
+                    <button
+                      type="button"
+                      class="btn btn-icon"
+                      id="swapImagesBtn"
+                      title="Add an image to swap obverse &amp; reverse"
+                      aria-label="Swap obverse and reverse images"
+                      disabled
+                    >
+                      <!-- the shared swap icon is injected by js/image-frame-editor.js -->
+                    </button>
+                  </div>
+                  <!-- Reverse -->
+                  <div class="image-upload-side">
+                    <span class="image-side-label">Reverse</span>
+                    <div class="image-card">
+                      <div class="ife-stage">
+                        <div class="ife-frame" data-ife-frame="reverse">
+                          <div
+                            id="itemImagePreviewRev"
+                            class="image-upload-preview"
+                            style="display: none"
+                          >
+                            <img id="itemImagePreviewImgRev" alt="Reverse preview" />
+                          </div>
+                          <button
+                            class="ife-upload"
+                            id="itemImageUploadBtnRev"
+                            type="button"
+                            aria-label="Upload reverse image"
+                            title="Upload reverse image"
+                          ></button>
+                          <button
+                            class="collections-image-remove"
+                            id="itemImageRemoveBtnRev"
+                            type="button"
+                            aria-label="Remove reverse image"
+                            title="Remove reverse image"
+                            style="display: none"
+                          >
+                            &times;
+                          </button>
+                          <button
+                            class="ife-link"
+                            id="itemImageUrlBtnRev"
+                            type="button"
+                            aria-label="Link reverse image from a URL"
+                            title="Link reverse image from a URL"
+                            style="display: none"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                              />
+                              <path
+                                d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="image-card-actions" style="display: none">
+                        <input
+                          type="file"
+                          id="itemImageFileRev"
+                          accept="image/jpeg,image/png,image/webp"
+                          style="display: none"
+                        />
+                        <button
+                          class="btn img-btn img-btn-camera"
+                          id="itemImageCameraBtnRev"
+                          type="button"
+                          style="display: none"
+                        >
+                          Camera
+                        </button>
+                      </div>
+                    </div>
+                    <div data-ife-orientation="reverse"></div>
+                    <span id="itemImageSizeInfoRev" class="image-size-info"></span>
+                    <div id="itemImageUrlInputRev" class="image-url-input" style="display: none">
+                      <input
+                        id="itemReverseImageUrl"
+                        type="text"
+                        class="form-control"
+                        placeholder="https://example.com/reverse.jpg"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <!-- STRK-434: the shape selector sits below the frames, as in the Edit collection builder -->
+                <div data-ife-shape></div>
+                <!-- Hidden wrappers preserved for JS compatibility -->
+                <div id="imageUrlGroup" style="display: none">
+                  <input id="itemIgnorePatternImages" type="checkbox" style="display: none" />
+                </div>
+              </div>
+            </details>
             <!-- Row: Purity, Quantity, Weight, Unit — replaced wholesale by the Constitutional card (STRK-235) -->
             <div class="grid grid-purity-row" id="standardMeasureRow">
               <div>
@@ -8963,6 +9002,7 @@
     <script defer src="./js/catalog-api.js"></script>
     <script defer src="./js/catalog-numista-modal.js"></script>
     <script defer src="./js/image-frame.js"></script>
+    <script defer src="./js/image-frame-editor.js"></script>
     <script defer src="./js/pcgs-api.js"></script>
     <script defer src="./js/catalog-providers.js"></script>
     <script defer src="./js/catalog-manager.js"></script>

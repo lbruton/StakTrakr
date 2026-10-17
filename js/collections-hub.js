@@ -49,7 +49,7 @@
       ["name", "Collection"],
       ["percent-complete", "Progress"],
       ["owned", "Owned"],
-      ["value-melt", "Value (melt)"],
+      ["value", "Value"],
       ["to-complete", "To complete"],
     ];
 
@@ -264,6 +264,8 @@
       const total = sum((entry) => entry.progress.total);
       const paid = sum((entry) => entry.paid);
       const melt = sum((entry) => entry.melt);
+      const retail = sum((entry) => entry.retail);
+      const unpriced = active.filter((entry) => !entry.retailAvailable).length;
       const cost = sum((entry) => entry.costToComplete || 0);
       const idle = entries.length - active.length;
       return buildStats([
@@ -281,8 +283,8 @@
         },
         {
           label: "Collected value",
-          value: melt ? money(melt) : DASH,
-          note: `melt · paid ${money(paid)}`,
+          value: retail ? money(retail) : DASH,
+          note: `melt ${melt ? money(melt) : DASH} · paid ${money(paid)}${unpriced ? ` · ${unpriced} unpriced` : ""}`,
         },
         {
           label: "Cost to complete",
@@ -353,7 +355,7 @@
     };
 
     /**
-     * Name line for a hub entry: name plus its Custom / Complete tags.
+     * Name line for a hub entry.
      * @param {Object} entry - Entry view model
      * @param {string} className - Class for the wrapper
      * @returns {HTMLElement} The name line
@@ -361,8 +363,6 @@
     const buildEntryName = (entry, className) => {
       const line = el("span", className);
       line.appendChild(el("b", "", entry.name));
-      if (entry.isCustom) line.appendChild(buildTag("Custom"));
-      if (entry.status === STATUS_COMPLETE) line.appendChild(buildTag("Complete", "is-done"));
       return line;
     };
 
@@ -373,28 +373,46 @@
      */
     const cardFootText = (entry) => {
       const { missing } = entry.progress;
-      if (entry.status === STATUS_COMPLETE)
+      if (entry.status === STATUS_COMPLETE) {
+        if (entry.retailDiffers)
+          return `Set complete · ${money(entry.retail)} value · ${money(entry.melt)} melt`;
+        // Known retail with no usable melt (no spot price) still shows its value.
+        if (entry.retail && !entry.melt) return `Set complete · ${money(entry.retail)} value`;
         return entry.melt ? `Set complete · ${money(entry.melt)} melt` : "Set complete";
+      }
       if (entry.costToComplete)
         return `${missing} missing ≈ ${money(entry.costToComplete)} to finish`;
       return `${missing} missing`;
     };
 
     /**
-     * Medallion for a hub entry: the template's stock obverse (ghosted until started),
-     * or a monogram for a Custom Collection (its own cover art resolves afterwards).
+     * Medallion for a hub entry using the collection's selected image side.
      * @param {Object} entry - Entry view model
      * @param {string} [size] - Medallion size modifier
      * @returns {HTMLElement} The medallion
      */
-    const buildEntryCoin = (entry, size) =>
-      buildCoin({
-        src: entry.obverse,
+    const buildEntryCoin = (entry, size) => {
+      const definition = entry.isCustom ? entry.collection.definition : null;
+      const side = definition?.side === "reverse" ? "reverse" : "obverse";
+      const shownSide = entry[side] ? side : "obverse";
+      const src = entry[shownSide];
+      return buildCoin({
+        src,
         monogram: entry.monogram,
         ghost: entry.progress.owned === 0,
         size,
-        artwork: entry.isCustom ? { collectionId: entry.id } : null,
+        imageSide: side,
+        resolvedImageSide: shownSide,
+        stockImageSide: shownSide,
+        imageLabel: entry.name,
+        alt: `${shownSide} of ${entry.name}`,
+        imageShape: entry.imageShape,
+        // STRK-427: a reverse-side Collection frames its medallion with the reverse orientation.
+        imageOrientation:
+          side === "reverse" ? entry.reverseImageOrientation : entry.imageOrientation,
+        artwork: entry.isCustom ? { collectionId: entry.id, titleFallback: true } : null,
       });
+    };
 
     /**
      * Applies one pointer or button move to the current draft and announces its position.
@@ -543,9 +561,14 @@
       const owned = el("span", "collections-num collections-hide-sm");
       owned.appendChild(buildCount(entry.progress));
       row.appendChild(owned);
-      row.appendChild(
-        el("span", "collections-num collections-hide-sm", entry.melt ? money(entry.melt) : DASH)
+      const valueCell = el(
+        "span",
+        "collections-num collections-hide-sm",
+        entry.retail ? money(entry.retail) : DASH
       );
+      if (entry.retailDiffers && entry.melt)
+        valueCell.appendChild(el("small", "collections-value-melt", `${money(entry.melt)} melt`));
+      row.appendChild(valueCell);
       row.appendChild(
         el("span", "collections-num collections-hide-sm", costLabel(entry.costToComplete))
       );

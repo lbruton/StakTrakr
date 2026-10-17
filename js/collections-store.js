@@ -563,7 +563,25 @@
     const year = slot.year == null ? "" : String(slot.year);
     if (!template) {
       const definition = (collection && collection.definition) || {};
-      return { name: slot.label || "", metal: definition.metal || "", year };
+      // Goldback / Silverback / Constitutional force their metal and unit on the Item form;
+      // a stored mismatch (import, older edit) must not overwrite that, and its weight is in
+      // another unit, so it is dropped rather than reinterpreted.
+      const lock = core().typeLockFor(definition.itemType);
+      const unitFits = !lock || definition.weightUnit === lock.weightUnit;
+      return {
+        name: slot.label || "",
+        metal: lock ? lock.metal : definition.metal || "",
+        type: definition.itemType || "Coin",
+        weight: definition.weight == null || !unitFits ? undefined : definition.weight,
+        weightUnit: lock ? lock.weightUnit : definition.weightUnit || "oz",
+        // A constitutional Custom Collection's weight is the defined face value, not a coin count.
+        constitutionalEntryMode:
+          definition.itemType === "Constitutional" && definition.weightUnit === "cu"
+            ? "face"
+            : undefined,
+        purity: definition.purity,
+        year,
+      };
     }
     const defaults = template.itemDefaults || {};
     return {
@@ -585,7 +603,7 @@
    * Prefills weight + unit. Plain units are written as the bare number a user would
    * type in add mode. Denomination units (Goldback, Silverback, constitutional) carry
    * picker state that only the form's own populate logic knows how to restore.
-   * @param {{weight?: number, weightUnit?: string}} prefill - Values from prefillFor
+   * @param {{weight?: number, weightUnit?: string, constitutionalEntryMode?: string}} prefill - Values from prefillFor
    * @returns {void}
    */
   const applyWeightPrefill = (prefill) => {
@@ -593,7 +611,11 @@
     const unit = prefill.weightUnit || "oz";
     if (DENOMINATION_UNITS.includes(unit)) {
       if (typeof _editPopulateWeightFields === "function") {
-        _editPopulateWeightFields({ weight: prefill.weight, weightUnit: unit });
+        _editPopulateWeightFields({
+          weight: prefill.weight,
+          weightUnit: unit,
+          constitutionalEntryMode: prefill.constitutionalEntryMode,
+        });
       }
       return;
     }

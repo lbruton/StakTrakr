@@ -77,7 +77,7 @@ If the test itself is flawed, the spec was wrong — stop and restart the spec (
 ## Issue Tracking
 
 Plane project: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`.
-Create issues via `/issue` or `mcp__plane__create_issue`. State UUIDs, epic conventions,
+Create issues via `/issue` or `mcp__plane__workitem` (`action: "create"`). State UUIDs, epic conventions,
 and the pre-Plane archive path: `.context/issue-tracking.md`.
 
 ## Git Topology
@@ -157,7 +157,7 @@ listed here. One hook line each:
 
 **Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
 pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-gated,
-Codacy AI bundled with the static-analysis stage, Copilot on lite, Codex dynamic), where each gate is
+Codacy AI bundled with the static-analysis stage, Copilot on Balanced, Codex dynamic), where each gate is
 configured, per-branch required checks, the invisible 75% docstring gate, and the dual
 ESLint config all live there.
 
@@ -166,7 +166,7 @@ ESLint config all live there.
 - **Before writing any JavaScript** → read `.context/coding-standards.md`.
 - **Before any feed/poller/API/data-path diagnosis** → invoke `/api-infrastructure` and `/retail-poller` first.
 - **Before speculating on infra failure mode** → read the matching `.context/` doc.
-- **Before claiming what env/secret is set on Fly.io or home poller** → `mcp__infisical__get-secret` with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken, so discovery is unavailable.
+- **Before claiming what env/secret is set on Fly.io or home poller** → `infisical-agent secrets get <KEY> --plain | shasum -a 256` (compare by hash, never print values); it reads `projectId`/env from `.claude/project.json` → `infisical`. Fallback: `mcp__infisical__get-secret` with that `projectId`, the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`).
 - **Before any version-bump PR**:
   - Run `/update-spot-bundle`.
   - Ensure Tailscale is active.
@@ -180,3 +180,10 @@ Users span casual stackers → serious investors → preppers. Primary context: 
 Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy.
 Full design system, four-theme rules (light, dark, slate, sepia), and anti-references in `.context/design-philosophy.md`.
 Anti-references: not generic fintech, not crypto/Web3, not spreadsheet clone.
+
+## Documentation locations
+
+Project documentation lives in `.context/` and `docs/`, with active specs in `docs/specs/`.
+The project `DocVault/` and the old global DocVault repository are retired; do not use
+`DocVault/Overview.md` as an entry point. Cross-project knowledge remains in the
+Devops repository's `DocVault/`. These project locations override stale paths in shared skills.

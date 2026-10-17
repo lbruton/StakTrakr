@@ -42,6 +42,9 @@
     "Disposition Amount",
     "Realized Gain/Loss",
     "Attachments",
+    // STRK-427: image shape and per-side orientation, appended so every positional group above
+    // stays intact; "Collections" stays last (STRK-371), mirroring js/csv-export.js.
+    ...window.IMAGE_FRAMING_CSV_HEADERS,
     // STRK-371: LAST on purpose, mirroring buildStandardHeaders in js/csv-export.js.
     "Collections",
   ];
@@ -121,8 +124,8 @@
   const _backupItemImaging = (item) => ({
     obverseImageUrl: item.obverseImageUrl || "",
     reverseImageUrl: item.reverseImageUrl || "",
-    obverseImageFrame: item.obverseImageFrame || "",
-    reverseImageFrame: item.reverseImageFrame || "",
+    // STRK-427: sparse frame fields; an absent key is omitted, never written as "" (Tradeoff 8).
+    ...window.imageFramingFields(item),
     obverseSharedImageId: item.obverseSharedImageId || null,
     reverseSharedImageId: item.reverseSharedImageId || null,
     tradedFromUuid: item.tradedFromUuid || null,
@@ -504,6 +507,7 @@
         ...buildCsvValueCells(item),
         ..._backupCsvIdentityCells(item),
         ..._backupCsvDispositionCells(item),
+        ...window.imageFramingCsvCells(item),
         window.collectionsIO ? window.collectionsIO.membershipCell(item.uuid) : "",
       ]);
       const csvContent = Papa.unparse([BACKUP_CSV_HEADERS, ...csvRows]);

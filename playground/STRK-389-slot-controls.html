@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>STRK-389 · Slot controls</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    main {
+      max-width: 1000px;
+      margin: auto;
+    }
+    h1 {
+      font-size: var(--font-size-2xl);
+    }
+    h2 {
+      font-size: var(--font-size-lg);
+      margin: 0 0 8px;
+    }
+    p {
+      color: var(--text-secondary);
+    }
+    section {
+      padding: 20px;
+      margin: 18px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-secondary);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 44px minmax(120px, 1fr) 72px minmax(100px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 0;
+      border-top: 1px solid var(--border);
+    }
+    .row input {
+      width: 100%;
+      min-width: 0;
+    }
+    .coin {
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--border-hover);
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      color: var(--text-muted);
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .move {
+      display: flex;
+      gap: 2px;
+    }
+    .vertical .move {
+      flex-direction: column;
+    }
+    .vertical .move button {
+      height: 28px;
+    }
+    button {
+      cursor: pointer;
+    }
+    .actions button {
+      min-width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      padding: 0 8px;
+    }
+    .actions .delete {
+      border-color: transparent;
+      background: transparent;
+    }
+    .actions .insert {
+      font-size: var(--font-size-sm);
+    }
+    button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    button:hover:not(:disabled) {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .actions .delete:hover {
+      color: var(--danger);
+    }
+    .below .actions {
+      grid-column: 2/-1;
+      justify-content: flex-end;
+    }
+    .below .row {
+      grid-template-columns: 44px minmax(120px, 1fr) 72px minmax(100px, 1fr);
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #status {
+      min-height: 24px;
+    }
+    @media (max-width: 640px) {
+      body {
+        padding: 12px;
+      }
+      section {
+        padding: 12px;
+      }
+      .row,
+      .below .row {
+        grid-template-columns: 44px minmax(0, 1fr) 64px;
+      }
+      .note {
+        grid-column: 2/-1;
+      }
+      .actions,
+      .below .actions {
+        grid-column: 2/-1;
+        justify-content: flex-end;
+      }
+      .actions button,
+      .vertical .move button {
+        height: 44px;
+        min-width: 44px;
+      }
+      .vertical .move {
+        flex-direction: row;
+      }
+    }
+  </style>
+  <main>
+    <h1>Custom Collection · Slot controls</h1>
+    <p>Three arrow-button arrangements. Try moving a Slot or inserting one after it.</p>
+    <div class="toolbar">
+      <label for="theme">Theme</label
+      ><select id="theme">
+        <option>dark</option>
+        <option>light</option>
+        <option>slate</option>
+        <option>sepia</option></select
+      ><button class="btn secondary" id="reset">Reset examples</button>
+    </div>
+    <section class="horizontal" data-option="A">
+      <h2>A · Inline arrow pair — recommended</h2>
+      <p>Arrows beside Add Slot after; actions wrap below the fields on mobile.</p>
+      <div class="rows"></div>
+    </section>
+    <section class="vertical" data-option="B">
+      <h2>B · Stacked arrows</h2>
+      <p>A narrow vertical pair on desktop; a horizontal pair on mobile.</p>
+      <div class="rows"></div>
+    </section>
+    <section class="below" data-option="C">
+      <h2>C · Separate action line</h2>
+      <p>More room for fields, with a second line of actions on every screen.</p>
+      <div class="rows"></div>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script>
+    const status = document.querySelector("#status");
+    function refresh(host) {
+      [...host.children].forEach((row, index) => {
+        const label = row.querySelector(".label").value || `Slot ${index + 1}`;
+        row.querySelector('[data-action="up"]').disabled = index === 0;
+        row.querySelector('[data-action="down"]').disabled = index === host.children.length - 1;
+        row
+          .querySelectorAll("[data-action]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-label",
+              `${button.dataset.action === "insert" ? "Add Slot after" : button.dataset.action === "delete" ? "Remove Slot" : `Move ${button.dataset.action}`} ${label}`
+            )
+          );
+      });
+    }
+    function makeRow(label = "", year = "") {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML =
+        '<button class="coin" type="button" aria-label="Choose Slot image">+</button><input class="label" aria-label="Slot label" placeholder="Slot label"><input aria-label="Year" placeholder="Year"><input class="note" aria-label="Note" placeholder="Note (optional)"><div class="actions"><div class="move"><button type="button" data-action="up">↑</button><button type="button" data-action="down">↓</button></div><button type="button" class="insert" data-action="insert">+ Slot after</button><button type="button" class="delete" data-action="delete">×</button></div>';
+      row.querySelector(".label").value = label;
+      row.querySelector('[aria-label="Year"]').value = year;
+      row.addEventListener("input", () => refresh(row.parentElement));
+      row.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const host = row.parentElement;
+        const action = button.dataset.action;
+        if (action === "insert") {
+          const added = makeRow();
+          host.insertBefore(added, row.nextElementSibling);
+          refresh(host);
+          added.querySelector(".label").focus();
+          status.textContent = "Blank Slot inserted.";
+          return;
+        }
+        if (action === "delete") {
+          if (host.children.length > 1) {
+            const next = row.nextElementSibling || row.previousElementSibling;
+            row.remove();
+            refresh(host);
+            next.querySelector(".label").focus();
+          }
+          return;
+        }
+        if (action === "up" && row.previousElementSibling)
+          host.insertBefore(row, row.previousElementSibling);
+        if (action === "down" && row.nextElementSibling)
+          host.insertBefore(row, row.nextElementSibling.nextElementSibling);
+        refresh(host);
+        (button.disabled ? row.querySelector(".label") : button).focus();
+        status.textContent = `${row.querySelector(".label").value || "Slot"} moved to position ${[...host.children].indexOf(row) + 1} of ${host.children.length}.`;
+      });
+      return row;
+    }
+    function reset() {
+      document.querySelectorAll(".rows").forEach((host) => {
+        host.replaceChildren(
+          ...[
+            ["2019", "2019"],
+            ["2020", "2020"],
+            ["2020 Antiqued", "2020"],
+          ].map((values) => makeRow(...values))
+        );
+        refresh(host);
+      });
+      status.textContent = "";
+    }
+    document
+      .querySelector("#theme")
+      .addEventListener(
+        "change",
+        (event) => (document.documentElement.dataset.theme = event.target.value)
+      );
+    document.querySelector("#reset").addEventListener("click", reset);
+    reset();
+  </script>
+</html>

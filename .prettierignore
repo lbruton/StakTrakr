@@ -18,3 +18,69 @@ test-results/
 
 # Spec records (STRK-411) — historical artifacts; prettier would reflow tables/frontmatter
 docs/specs/
+
+# Retired files kept verbatim for reference
+.archive/
+
+# Library-managed skills and agents (DEVS-126) are deployed verbatim from Devops/skill-library; fix them in the master, not here.
+# Generated from .claude/skills/.library-manifest; project-owned entries are intentionally not listed.
+.claude/skills/start/
+.agents/skills/start/
+.claude/skills/wrap/
+.agents/skills/wrap/
+.claude/skills/issue/
+.agents/skills/issue/
+.claude/skills/pr-resolve/
+.agents/skills/pr-resolve/
+.claude/skills/pr-cleanup/
+.agents/skills/pr-cleanup/
+.claude/skills/vault-update/
+.agents/skills/vault-update/
+.claude/skills/discover/
+.agents/skills/discover/
+.claude/skills/context-drift/
+.agents/skills/context-drift/
+.claude/skills/setup-foundation-context/
+.agents/skills/setup-foundation-context/
+.claude/skills/spec/
+.agents/skills/spec/
+.claude/skills/spec-requirements/
+.agents/skills/spec-requirements/
+.claude/skills/spec-discovery/
+.agents/skills/spec-discovery/
+.claude/skills/spec-approach/
+.agents/skills/spec-approach/
+.claude/skills/spec-tasks/
+.agents/skills/spec-tasks/
+.claude/skills/spec-review/
+.agents/skills/spec-review/
+.claude/skills/spec-reconcile/
+.agents/skills/spec-reconcile/
+.claude/skills/requesting-code-review/
+.agents/skills/requesting-code-review/
+.claude/skills/receiving-code-review/
+.agents/skills/receiving-code-review/
+.claude/skills/verification-before-completion/
+.agents/skills/verification-before-completion/
+.claude/skills/code-review/
+.agents/skills/code-review/
+.claude/skills/codacy-analysis-cli/
+.agents/skills/codacy-analysis-cli/
+.claude/skills/codacy-cloud-cli/
+.agents/skills/codacy-cloud-cli/
+.claude/skills/codacy-code-review/
+.agents/skills/codacy-code-review/
+.claude/skills/ui-mockup/
+.agents/skills/ui-mockup/
+.claude/agents/pr-discover.md
+.codex/agents/pr-discover.toml
+.claude/agents/pr-thread-resolver.md
+.codex/agents/pr-thread-resolver.toml
+.claude/agents/firecrawl-scraper.md
+.codex/agents/firecrawl-scraper.toml
+
+# Library-managed rules (DEVS-127): deployed verbatim from Devops/skill-library; prettier reflow makes skills-deploy --check report them as edited/stale.
+.claude/rules/
+.agents/rules/
+# AGENTS.md carries the skills-deploy rules block, whose blank lines prettier strips
+AGENTS.md

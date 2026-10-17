@@ -1,7 +1,7 @@
 ---
 name: ship
 description: Ship dev→main — PR, resolve threads, GitHub Release. Only on explicit user "ready to ship".
-allowed-tools: Bash, Read, Task, mcp__github__create_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status, mcp__plane__get_issue_using_readable_identifier, mcp__plane__list_states, mcp__plane__update_issue
+allowed-tools: Bash, Read, Task, mcp__github__create_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status, mcp__plane__workitem, mcp__plane__state
 ---
 
 # Ship — StakTrakr (`dev → main`)
@@ -140,7 +140,8 @@ For each `STRK-###` reference found across tag names and commit messages, fetch
 the issue from Plane to get the current title and status:
 
 ```text
-mcp__plane__get_issue_using_readable_identifier  identifier: "STRK-###"
+mcp__plane__workitem  action: "retrieve_by_identifier"  workitem_identifier: "STRK-###"  expand: "state"
+# → keep the returned `id` (UUID) for the Done update below
 ```
 
 This ensures the PR description uses accurate titles, not just commit messages.
@@ -241,11 +242,11 @@ For each issue:
 
 ```text
 # Resolve the Done state UUID once (UUIDs are session-volatile — do not cache)
-mcp__plane__list_states  project_id: "026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb"
+mcp__plane__state  action: "list"  project_id: "026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb"
 # → find the state where group == "completed" and name == "Done"
 
 # For each STRK-### shipping in this release:
-mcp__plane__update_issue  identifier: "STRK-###"  state: "<Done UUID>"
+mcp__plane__workitem  action: "update"  project_id: "026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb"  workitem_id: "<issue UUID>"  state: "<Done UUID>"
 ```
 
 > **Legacy:** if any `STAK-###` references appear in commit messages, those are

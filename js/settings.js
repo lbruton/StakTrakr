@@ -3066,6 +3066,170 @@ const createThumbEl = (src, alt) => {
 };
 
 /**
+ * Decides whether a patternImages record is an orphan (STRK-202, STRK-438).
+ * Numista pattern images are referenced by a custom rule's seedImageId.
+ * Collection cover and Slot artwork shares the store under `collection--<id>[--<slot>]`
+ * ids and is referenced by the Collections store instead, so it is judged by the
+ * same `collectionsCore.isCurrentArtwork` check backup, vault and sync use. A
+ * Collection record that cannot be verified (Collections modules missing, no
+ * state supplied, or the check throwing) is never reported — it must not be
+ * offered for deletion.
+ * @param {{ruleId: string, cachedAt?: number|string, digest?: string}} rec - patternImages record.
+ * @param {Set<string>|null} referenced - seedImageIds of the persisted custom Numista
+ *   rules from `_referencedPatternImageIds`; null (unreadable) judges nothing orphaned.
+ * @param {Object|null} collectionsState - Collections state read from storage by
+ *   `_persistedCollectionsState`; required to judge a `collection--` record.
+ * @returns {boolean} True when the record is safe to offer for deletion.
+ */
+const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
+  if (!rec || !rec.ruleId || !referenced || referenced.has(rec.ruleId)) return false;
+  if (!String(rec.ruleId).startsWith("collection--")) return true;
+
+  const core = window.collectionsCore;
+  if (!core || typeof core.isCurrentArtwork !== "function" || !collectionsState) return false;
+  try {
+    return !core.isCurrentArtwork(collectionsState, rec.ruleId, rec.cachedAt, rec.digest);
+  } catch (err) {
+    console.warn("Settings: could not verify Collection artwork", rec.ruleId, err);
+    return false;
+  }
+};
+
+/**
+ * Whether any persisted artwork stamp is damaged in a way `normalizeState` would
+ * quietly repair or keep. A stamp that still carries a `modified` string is
+ * retained by normalization, so it is checked here: a `present` that is not a
+ * boolean (for example the string "true") is coerced to `present: false`, and a
+ * `modified` that is not a canonical ISO timestamp is compared LEXICALLY by
+ * `isCurrentArtwork` against `new Date(cachedAt).toISOString()`, so "corrupt" and
+ * even a valid but non-canonical "2020-09-01T00:00:00Z" (no fractional seconds)
+ * read as newer than the image they stamp. Any of these would turn a recoverable
+ * live stamp into an "orphaned" blob (STRK-438).
+ * @param {Object} collections - Raw persisted `collections` map.
+ * @returns {boolean} True when any retained stamp has a non-boolean `present` or a
+ *   `modified` value that is not exactly `Date#toISOString()` output.
+ */
+const _hasDamagedArtworkStamp = (collections) => {
+  const isCanonicalIso = (value) => {
+    const time = Date.parse(value);
+    return Number.isFinite(time) && new Date(time).toISOString() === value;
+  };
+  return Object.values(collections).some((collection) => {
+    const artwork = collection && typeof collection === "object" ? collection.artwork : null;
+    if (!artwork || typeof artwork !== "object" || Array.isArray(artwork)) return false;
+    return Object.values(artwork).some(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        typeof entry.modified === "string" &&
+        entry.modified !== "" &&
+        (typeof entry.present !== "boolean" || !isCanonicalIso(entry.modified))
+    );
+  });
+};
+
+/**
+ * Reads a private snapshot of the Collections state from storage rather than
+ * trusting this tab's memoized copy: the store has no cross-tab listener, so
+ * another tab's cloud pull or restore can change who owns an image without this
+ * tab noticing (STRK-438). Mutations persist synchronously, so storage is always
+ * the current authority. The snapshot is normalized locally and never handed to
+ * `collectionsStore.load()`, which would swap the shared state under open views
+ * without a change event.
+ *
+ * `loadDataSync` swallows parse and decompression errors and returns its default,
+ * which would be indistinguishable from "no Collections". A unique sentinel default
+ * preserves the failure so an unreadable value returns null (fail closed) instead
+ * of an empty state that would classify every Collection image as orphaned.
+ * @returns {Object|null} Normalized state; null when it cannot be read reliably.
+ */
+const _persistedCollectionsState = () => {
+  const core = window.collectionsCore;
+  if (!core || typeof core.normalizeState !== "function") return null;
+  if (typeof loadDataSync !== "function") return null;
+  const key =
+    typeof COLLECTION_STATE_KEY !== "undefined" ? COLLECTION_STATE_KEY : "collectionState";
+  try {
+    if (localStorage.getItem(key) === null) return core.normalizeState(null);
+    const unreadable = {};
+    const parsed = loadDataSync(key, unreadable);
+    // normalizeState() turns ANY wrong shape into an empty state, so the shape is
+    // checked here first: a persisted state must be an object holding a `collections` map.
+    const isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    if (parsed === unreadable || !isMap(parsed) || !isMap(parsed.collections)) return null;
+    if (_hasDamagedArtworkStamp(parsed.collections)) return null;
+    // Normalization also drops a damaged entry (not an object, or an id that differs
+    // from its key). That Collection could still own stored artwork, so a dropped
+    // entry makes the whole snapshot unusable rather than quietly "unknown".
+    const normalized = core.normalizeState(parsed);
+    const kept = Object.keys(normalized.collections).length;
+    return kept === Object.keys(parsed.collections).length ? normalized : null;
+  } catch (err) {
+    console.warn("Settings: could not read Collections state", err);
+    return null;
+  }
+};
+
+/**
+ * Collects the pattern image ids the persisted custom Numista rules point at.
+ * `NumistaLookup` hydrates its rule cache once at boot and has no cross-tab
+ * listener, so a rule another tab restored or imported is invisible to it; the
+ * persisted `numistaLookupRules` value is read instead (STRK-438). An absent key
+ * means no rules; anything that cannot be read as an array of rule objects returns
+ * null so the caller fails closed rather than treating every image as unreferenced.
+ * @returns {Set<string>|null} seedImageId of every persisted rule that has one, or
+ *   null when the persisted rules cannot be read reliably.
+ */
+const _referencedPatternImageIds = () => {
+  try {
+    const raw = localStorage.getItem("numistaLookupRules");
+    if (raw === null || raw === "") return new Set();
+    const rules = JSON.parse(raw);
+    if (!Array.isArray(rules)) return null;
+    const ids = new Set();
+    for (const rule of rules) {
+      if (rule === null || typeof rule !== "object" || Array.isArray(rule)) return null;
+      const seedImageId = rule.seedImageId;
+      if (seedImageId === undefined || seedImageId === null || seedImageId === "") continue;
+      if (typeof seedImageId !== "string") return null;
+      ids.add(seedImageId);
+    }
+    return ids;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Deletes a listed orphan only if it is still an orphan right now. The orphan
+ * list is a snapshot: Collection artwork can become current between the scan and
+ * the click (an upload, or a cloud pull restoring newer art), so the stored record
+ * is re-judged immediately before it is removed (STRK-438). The re-check runs
+ * inside the same IndexedDB transaction as the delete (`deletePatternImageIf`), so
+ * a write that lands between check and delete is serialized around it instead of
+ * being removed. The stored record must also be the exact record that was listed
+ * (same `cachedAt`, `digest` and `size`), so a replacement is never reclassified
+ * here — it is left for the next scan. Ownership and the Numista rule references
+ * are read from storage INSIDE the predicate, at the moment the delete is decided:
+ * `deletePatternImageIf` awaits the database before its transaction opens, so a
+ * snapshot taken before the call can be stale, and a restore in another tab can
+ * change the owner without changing the record.
+ * @param {{ruleId: string, cachedAt?: number|string, digest?: string, size?: number}} rec -
+ *   Record from the rendered orphan list.
+ * @returns {Promise<boolean>} True when the record was deleted; false when it was
+ *   already gone, was replaced since the scan, or is no longer an orphan.
+ */
+const _deleteOrphanIfStillOrphaned = (rec) =>
+  imageCache.deletePatternImageIf(
+    rec.ruleId,
+    (current) =>
+      current.cachedAt === rec.cachedAt &&
+      current.digest === rec.digest &&
+      current.size === rec.size &&
+      _isOrphanedPatternImage(current, _referencedPatternImageIds(), _persistedCollectionsState())
+  );
+
+/**
  * Builds one orphaned-image row (dual thumbnails, key + size, delete button).
  * Extracted so renderOrphanedPatternImages stays under the complexity gate.
  * @param {{ruleId: string, size: number}} rec - patternImages record.
@@ -3115,7 +3279,7 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
   deleteBtn.textContent = "Delete";
   deleteBtn.addEventListener("click", async () => {
     try {
-      await imageCache.deletePatternImage(rec.ruleId);
+      await _deleteOrphanIfStillOrphaned(rec);
     } catch (err) {
       console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
     }
@@ -3130,8 +3294,10 @@ const _buildOrphanImageRow = async (rec, onDelete) => {
  * Render orphaned pattern images — records in the patternImages store whose key
  * (seedImageId) is no longer referenced by any custom rule (STRK-202). These
  * accumulate when a pre-fix ZIP backup is restored (images came back but the
- * rules did not) or when a rule is removed without its image. The list lets the
- * user reclaim the space; it hides itself when there is nothing orphaned.
+ * rules did not) or when a rule is removed without its image. Live Collection
+ * artwork is never listed (STRK-438); artwork of a removed or unknown Collection,
+ * or a stale record behind its artwork stamp, is. The list lets the user reclaim
+ * the space; it hides itself when there is nothing orphaned.
  */
 const renderOrphanedPatternImages = async () => {
   const container = safeGetElement("orphanedPatternImages");
@@ -3153,12 +3319,11 @@ const renderOrphanedPatternImages = async () => {
     return;
   }
 
-  const referenced = new Set(
-    NumistaLookup.getCustomRules()
-      .map((r) => r.seedImageId)
-      .filter(Boolean)
+  const referenced = _referencedPatternImageIds();
+  const collectionsState = _persistedCollectionsState();
+  const orphans = records.filter((rec) =>
+    _isOrphanedPatternImage(rec, referenced, collectionsState)
   );
-  const orphans = records.filter((rec) => rec && rec.ruleId && !referenced.has(rec.ruleId));
 
   if (!orphans.length) {
     container.innerHTML = emptyMsg;
@@ -3188,7 +3353,7 @@ const renderOrphanedPatternImages = async () => {
     if (!ok) return;
     for (const rec of orphans) {
       try {
-        await imageCache.deletePatternImage(rec.ruleId);
+        await _deleteOrphanIfStillOrphaned(rec);
       } catch (err) {
         console.warn("Settings: failed to delete orphaned pattern image", rec.ruleId, err);
       }

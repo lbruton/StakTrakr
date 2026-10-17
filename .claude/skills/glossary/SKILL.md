@@ -75,7 +75,7 @@ Use for new or thin glossaries, or when the user asks for vocabulary discovery.
 Scan likely vocabulary sources with targeted shell commands:
 
 ```bash
-rg -n "<h[1-6]|<button|aria-label|title=|placeholder=|summary>|legend>|label" index.html preview.html about.html
+rg -n "<h[1-6]|<button|aria-label|title=|placeholder=|summary>|legend>|label" index.html about.html
 rg -n "function [A-Za-z0-9_]+|const [A-Z0-9_]+|let [A-Za-z0-9_]+|var [A-Za-z0-9_]+" js
 rg -n "class=|id=|data-|localStorage|saveData|loadData|catalog|spot|inventory|trade|tag|vendor|goldback" index.html js css data docs .context
 ```

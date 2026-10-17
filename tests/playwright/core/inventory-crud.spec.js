@@ -855,6 +855,168 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemPaymentMethod")).toHaveValue("PayPal");
   });
 
+  test("STRK-433: duplicate carries the Numista Data tab into the new item", async ({ page }) => {
+    await seedData(page, [
+      makeItem({
+        serial: 1,
+        name: "STRK-433 Source",
+        numistaId: "1234",
+        numistaData: {
+          country: "Canada",
+          denomination: "5 Dollars",
+          diameter: "38",
+          shape: "Round",
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await expect(page.locator("#numistaCountry")).toHaveValue("Canada");
+    await expect(page.locator("#numistaDenomination")).toHaveValue("5 Dollars");
+    await expect(page.locator("#numistaDiameter")).toHaveValue("38");
+
+    await submitItemModal(page);
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+    expect(stored).toHaveLength(2);
+    const dup = stored.find((i) => i.serial !== 1);
+    expect(dup.numistaData).toMatchObject({
+      country: "Canada",
+      denomination: "5 Dollars",
+      diameter: "38",
+      shape: "Round",
+    });
+  });
+
+  /**
+   * Seed one source item whose country the user customised (STRK-437 userModified
+   * provenance) and open the Duplicate form for it.
+   * @param {import("@playwright/test").Page} page - Playwright page
+   * @returns {Promise<void>} Resolves once the Duplicate modal is visible
+   */
+  async function openDuplicateOfCustomisedItem(page) {
+    await seedData(page, [
+      makeItem({
+        serial: 1,
+        name: "STRK-437 Source",
+        numistaId: "1234",
+        numistaData: { country: "My Country", denomination: "5 Dollars" },
+        fieldMeta: {
+          country: { source: "manual", userModified: true },
+          denomination: { source: "numista", userModified: false },
+        },
+      }),
+    ]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await page.evaluate(() => window.duplicateItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+  }
+
+  /**
+   * Read the saved item that is not the seeded source (serial 1) from localStorage.
+   * @param {import("@playwright/test").Page} page - Playwright page
+   * @returns {Promise<Object|undefined>} The stored duplicate or added item
+   */
+  async function storedDuplicate(page) {
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+    return stored.find((i) => i.serial !== 1);
+  }
+
+  test("STRK-437: duplicate keeps the source item's fieldMeta provenance", async ({ page }) => {
+    await openDuplicateOfCustomisedItem(page);
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.fieldMeta).toEqual({
+      country: { source: "manual", userModified: true },
+      denomination: { source: "numista", userModified: false },
+    });
+    // The copy is independent: the source keeps its own object.
+    const shared = await page.evaluate(
+      () => window.inventory[0].fieldMeta === window.inventory[1].fieldMeta
+    );
+    expect(shared).toBe(false);
+  });
+
+  test("STRK-437: a field changed on the Duplicate form is marked userModified", async ({
+    page,
+  }) => {
+    await openDuplicateOfCustomisedItem(page);
+    await page.fill("#itemName", "STRK-437 Renamed Copy");
+    await page.fill("#numistaDenomination", "10 Dollars");
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.name).toBe("STRK-437 Renamed Copy");
+    expect(dup.fieldMeta.name?.userModified).toBe(true);
+    expect(dup.fieldMeta.denomination?.userModified).toBe(true);
+    expect(dup.fieldMeta.country).toEqual({ source: "manual", userModified: true });
+  });
+
+  test("STRK-437: duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
+    page,
+  }) => {
+    await openDuplicateOfCustomisedItem(page);
+    // A Numista lookup during the duplicate rewrites the catalog number.
+    await page.fill("#itemCatalog", "9999");
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
+  });
+
+  test("STRK-437: Add after a cancelled duplicate does not inherit its fieldMeta", async ({
+    page,
+  }) => {
+    await openDuplicateOfCustomisedItem(page);
+    await page.click("#cancelItem");
+    await expect(page.locator("#itemModal")).toBeHidden();
+
+    await page.click("#newItemBtn");
+    await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+    await page.selectOption("#itemMetal", "Silver");
+    await page.selectOption("#itemType", "Coin");
+    await page.fill("#itemName", "STRK-437 Fresh Add");
+    await page.fill("#itemWeight", "1");
+    await page.fill("#itemPrice", "31");
+    // A fresh Add ships the Grading section (holding the Numista #) collapsed.
+    await page.click('details[data-section="grading"] > summary.form-section-header');
+    await page.fill("#itemCatalog", "1234");
+    await submitItemModal(page);
+
+    const dup = await storedDuplicate(page);
+    expect(dup.name).toBe("STRK-437 Fresh Add");
+    expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
+  });
+
+  test("STRK-433: stale Numista cache load cannot write into a later form context", async ({
+    page,
+  }) => {
+    await seedData(page, [makeItem({ serial: 1, name: "STRK-433 Stale", numistaId: "1234" })]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+
+    const country = await page.evaluate(async () => {
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      window.imageCache.isAvailable = () => true;
+      window.imageCache.getMetadata = (id) =>
+        id === "1234" ? gate.then(() => ({ country: "Stale" })) : Promise.resolve(null);
+      // First open: slow cache load for catalog 1234. Second open supersedes it.
+      const first = window.populateNumistaDataFields("1234", null);
+      const second = window.populateNumistaDataFields("", null);
+      release();
+      await Promise.all([first, second]);
+      return document.getElementById("numistaCountry").value;
+    });
+    expect(country).toBe("");
+  });
+
   test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
     page,
   }) => {

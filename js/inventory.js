@@ -1744,14 +1744,80 @@ const showNotes = (idx) => {
 };
 
 /**
+ * Monotonic token for in-flight Numista cache loads (STRK-433). Bumped whenever the item form
+ * context changes so a slow IndexedDB result cannot write into a different form.
+ */
+let numistaMetadataRequestSeq = 0;
+
+/**
+ * Invalidate any in-flight Numista cache load so its result is discarded.
+ * Called when the item form is reopened or closed.
+ */
+const invalidateNumistaMetadataLoads = () => {
+  numistaMetadataRequestSeq += 1;
+};
+
+/**
+ * Source-item field provenance carried by an open Duplicate form (STRK-437):
+ * `{ catalogId, fieldMeta, source }` or null. `fieldMeta` is a private clone of the source's
+ * flags (the Numista picker reads and clears it while the form is open); `source` is a
+ * snapshot of the source values the form was seeded from. Set by duplicateItem, consumed by
+ * the add-mode submit, and cleared whenever the item form changes context so a later Add
+ * never inherits it.
+ */
+let pendingDuplicateProvenance = null;
+
+/** Drop any Duplicate provenance held for the item form (STRK-437). */
+const clearDuplicateProvenance = () => {
+  pendingDuplicateProvenance = null;
+};
+
+/**
+ * Live fieldMeta of the open Duplicate form (STRK-437), for the Numista field picker. Duplicate
+ * runs in add mode (editingIndex is null), so the picker cannot reach it through the inventory.
+ * When `catalogId` is given, the flags apply only while it still matches the source catalog
+ * number (the same gate consumeDuplicateProvenance applies at submit).
+ *
+ * @param {string} [catalogId] - Catalog number currently in the form; omit to skip the gate
+ * @returns {Object|null} The pending fieldMeta map, or null when no Duplicate is open or the
+ *   form's catalog number no longer matches the source
+ */
+const getDuplicateFieldMeta = (catalogId) => {
+  const pending = pendingDuplicateProvenance;
+  if (!pending) return null;
+  if (catalogId !== undefined && String(catalogId || "").trim() !== pending.catalogId) return null;
+  return pending.fieldMeta || null;
+};
+
+/**
+ * Take the Duplicate provenance for an add-mode submit (STRK-437), then clear it.
+ * It applies only while the duplicate still points at the source catalog; a Numista lookup
+ * that re-pointed it at a different catalog makes the source flags stale.
+ *
+ * @param {string} catalogId - Catalog number being saved with the new item
+ * @returns {{fieldMeta: Object, source: Object}|null} Cloned flags plus the source snapshot to
+ *   diff the saved values against, or null when no provenance applies
+ */
+const consumeDuplicateProvenance = (catalogId) => {
+  const pending = pendingDuplicateProvenance;
+  pendingDuplicateProvenance = null;
+  if (!pending) return null;
+  if (String(catalogId || "").trim() !== pending.catalogId) return null;
+  return { fieldMeta: structuredClone(pending.fieldMeta), source: pending.source };
+};
+
+/**
  * Populate Numista Data form fields.
  * Priority: item.numistaData (user/saved) > IndexedDB cache (API) > empty.
  * When called from a fresh Numista search, itemData is null and cache is used.
  *
  * @param {string} catalogId - Numista catalog ID (N#)
  * @param {Object} [itemData] - Stored numistaData from the inventory item
+ * @returns {Promise<void>} Resolves when the async cache fallback has been applied or discarded
  */
 const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set() } = {}) => {
+  invalidateNumistaMetadataLoads();
+  const requestSeq = numistaMetadataRequestSeq;
   const set = (id, val) => {
     const el = safeGetElement(id);
     if (el) el.value = val || "";
@@ -1819,18 +1885,27 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
     }
   };
 
+  // STRK-427: these writes fire no event, so tell the image-frame editor the Numista shape may
+  // have moved. A call that derives the same shape is a no-op there.
+  /** Tell the image-frame editor the Numista shape may have changed. */
+  const notifyShape = () => {
+    if (typeof notifyImageFrameSignals === "function") notifyImageFrameSignals("numista");
+  };
+
   // Layer 1 (highest rank): Item's stored numistaData (user edits persist here)
   if (itemData && Object.keys(itemData).length > 0) {
     applySource((f) => itemData[f.itemKey] || "");
     refreshCapsuleSuggestion();
   }
+  notifyShape();
 
   // Layer 2 (fallback): IndexedDB cache from API
   if (catalogId && window.imageCache?.isAvailable()) {
-    imageCache
+    return imageCache
       .getMetadata(catalogId)
       .then((meta) => {
-        if (!meta) return;
+        // STRK-433: the form moved on (reopened/closed/re-populated) while this load was pending.
+        if (!meta || requestSeq !== numistaMetadataRequestSeq) return;
         applySource((f) => {
           if (!f.cacheKey) {
             // Special handling for computed fields
@@ -1852,9 +1927,11 @@ const populateNumistaDataFields = (catalogId, itemData, { skipFields = new Set()
           return meta[f.cacheKey] || "";
         });
         refreshCapsuleSuggestion();
+        notifyShape();
       })
       .catch(() => {});
   }
+  return Promise.resolve();
 };
 
 /**
@@ -2092,9 +2169,8 @@ const _editApplyEditModeChrome = (item, logIdx) => {
 
   // Preload user images (obverse + reverse) into upload previews (STACK-32)
   if (typeof clearUploadState === "function") clearUploadState();
-  if (typeof setPendingImageFrames === "function") {
-    setPendingImageFrames(item.obverseImageFrame, item.reverseImageFrame);
-  }
+  // STRK-427: seed the shared image-frame editor from the record (replaces the frame toggles).
+  if (typeof seedImageFrameEditor === "function") seedImageFrameEditor(item);
 };
 
 /**
@@ -2273,6 +2349,7 @@ const _editRestoreLotPricing = (item) => {
 };
 
 const editItem = (idx, logIdx = null) => {
+  clearDuplicateProvenance();
   editingIndex = idx;
   editingChangeLogIndex = logIdx;
   const item = inventory[idx];
@@ -2505,6 +2582,27 @@ const duplicateItem = (idx) => {
   _dupPopulateCatalogFields(item);
   _editPopulatePurityField(item);
 
+  // STRK-433: carry the Numista Data tab over (item data first, API cache fallback) — the
+  // add-mode submit reads these fields, so leaving them unseeded drops/leaks metadata.
+  if (typeof populateNumistaDataFields === "function") {
+    populateNumistaDataFields(item.numistaId || item.catalog || "", item.numistaData);
+  }
+
+  // STRK-437: hold the source's field provenance so userModified fields stay protected from a
+  // later Numista re-sync, plus a snapshot of the seeded values so the submit can mark fields
+  // the user changes on this form, as Edit does. Keyed to the catalog number seeded above.
+  pendingDuplicateProvenance = {
+    catalogId: String(item.numistaId || "").trim(),
+    fieldMeta: item.fieldMeta ? structuredClone(item.fieldMeta) : {},
+    source: { ...item, numistaData: { ...(item.numistaData || {}) } },
+  };
+
+  // STRK-427: seed the shared image-frame editor from the source record. Add mode applies the
+  // sparse writer unconditionally (D-4), so an unseeded editor would persist whatever it held
+  // from the last session as an explicit override. Runs after Type and grading are populated
+  // and before openModalById, which does not touch the editor.
+  if (typeof seedImageFrameEditor === "function") seedImageFrameEditor(item);
+
   // Hide PCGS verified icon — duplicate is a new unverified item
   const certVerifiedIcon = safeGetElement("certVerifiedIcon");
   if (certVerifiedIcon) certVerifiedIcon.style.display = "none";
@@ -2588,6 +2686,8 @@ const exportJson = () => {
     uuid: item.uuid,
     obverseImageUrl: item.obverseImageUrl || "",
     reverseImageUrl: item.reverseImageUrl || "",
+    // STRK-427: frame shape, per-side orientation and the legacy frames; sparse (absent = derived).
+    ...imageFramingFields(item),
     // Legacy fields preserved for backward compatibility
     spotPriceAtPurchase: item.spotPriceAtPurchase,
     composition: item.composition,
@@ -2826,6 +2926,10 @@ window.editItem = editItem;
 window.duplicateItem = duplicateItem;
 window.cloneItem = cloneItem;
 window.populateNumistaDataFields = populateNumistaDataFields;
+window.invalidateNumistaMetadataLoads = invalidateNumistaMetadataLoads;
+window.clearDuplicateProvenance = clearDuplicateProvenance;
+window.getDuplicateFieldMeta = getDuplicateFieldMeta;
+window.consumeDuplicateProvenance = consumeDuplicateProvenance;
 window.deleteItem = deleteItem;
 window.disposeItem = disposeItem;
 window.openRemoveItemModal = openRemoveItemModal;

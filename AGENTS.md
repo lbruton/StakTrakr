@@ -28,7 +28,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 
 ## Project Structure
 
-- **Should** treat app entry points as `index.html`, `preview.html`, `about.html`
+- **Should** treat app entry points as `index.html`, `about.html`
 - **Should** keep core logic in `js/` feature modules such as `inventory.js`, `market-data.js`, `settings.js`
 - **Should** keep styling in `css/styles.css`
 - **Should** keep static data/assets in `data/`, `images/`, `vendor/`
@@ -91,7 +91,7 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
 - Read `.context/design-philosophy.md`.
-- Check `ui-standards/style.html` for live component and token patterns.
+- Check `.context/style.html` for live component and token patterns.
 - Search the issue/spec and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
 - Use existing StakTrakr design tokens and components.
@@ -121,7 +121,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - After modifying instruction files, run `npx agentlinter --local`.
 - CodeRabbit is **label-gated**: it reviews only a PR carrying the `coderabbit-review` label. Untagged, it still flags and approves but omits the full review — that is expected.
 - Codacy AI is **automatic**, now running as part of the Codacy static-analysis stage.
-- Copilot is **automatic** in **lite** mode.
+- Copilot is **automatic** at **Balanced** review effort, and loads `.github/skills/code-review/SKILL.md`.
 - Codex is **dynamic** — it may or may not weigh in; its absence is not a signal.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
@@ -138,7 +138,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Version-bump PRs: ensure Tailscale is active.
 - `dev → main` shipping: invoke `/ship` only on explicit user approval.
 - Cloud or infrastructure claims: read the matching `.context/` doc before speculating.
-- Fly.io or home poller secret claims: verify through Infisical with `projectId` = UUID `319a1db5-207d-49d0-a61d-3f3e6b440ded`, env `dev`. Pass the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`); `list-projects` is 422-broken.
+- Fly.io or home poller secret claims: verify with `infisical-agent secrets get <KEY> --plain | shasum -a 256` (compare by hash, never print values); the wrapper itself always reads `projectId`/env from `.claude/project.json` → `infisical`, whichever harness runs it (the same block is mirrored in `.codex/project.json`). Fallback: the Infisical MCP with that `projectId`, the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`).
 - Cron schedule claims: grep `devops/pollers/home-poller/docker-entrypoint.sh`.
 
 ## Commit And PR Style
@@ -147,3 +147,20 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Versioned release commits use `v<major>.<minor>.<patch> — STRK-###: <summary>`.
 - Keep commits scoped to one logical change.
 - PRs should include summary/rationale, linked STRK issue, test evidence, and screenshots/GIFs for UI changes.
+
+## Documentation locations
+
+Project documentation lives in `.context/` and `docs/`, with active specs in `docs/specs/`.
+The project `DocVault/` and the old global DocVault repository are retired; do not use
+`DocVault/Overview.md` as an entry point. Cross-project knowledge remains in the
+Devops repository's `DocVault/`. These project locations override stale paths in shared skills.
+
+<!-- skills-deploy:rules begin -->
+## Library rules (managed by skills-deploy)
+
+At the start of every session, read each of these files in full. They hold the rules that apply
+to all work in this repo. They are copies of the skill library masters; edit the master, not
+the copy, and do not edit this block (skills-deploy rewrites it).
+
+- `.agents/rules/code-core.md`
+<!-- skills-deploy:rules end -->

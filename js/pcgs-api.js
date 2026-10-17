@@ -617,7 +617,13 @@ const fillFormFromPcgsResult = () => {
         const el =
           (typeof elements !== "undefined" && elements.itemGradingAuthority) ||
           document.getElementById("itemGradingAuthority");
-        if (el) el.value = val;
+        if (el) {
+          el.value = val;
+          // STRK-427: a programmatic set fires no event, so tell the frame editor (D-6).
+          if (typeof window.notifyImageFrameSignals === "function") {
+            window.notifyImageFrameSignals("grading");
+          }
+        }
         break;
       }
       case "pcgsNumber": {

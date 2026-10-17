@@ -74,6 +74,10 @@ const DIFF_FIELDS = [
   "reverseImageUrl",
   "obverseImageFrame",
   "reverseImageFrame",
+  // STRK-427: chosen frame shape and per-side orientation (absent = derived).
+  "imageShape",
+  "obverseImageOrientation",
+  "reverseImageOrientation",
   "obverseSharedImageId",
   "reverseSharedImageId",
   "tradedFromUuid",
