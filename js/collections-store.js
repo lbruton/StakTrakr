@@ -69,33 +69,38 @@
 
   /**
    * Whether any persisted artwork stamp is damaged in a way `normalizeState` would
-   * quietly repair or keep. A stamp that still carries a `modified` string is retained
-   * by normalization, so it is checked here: a `present` that is not a boolean (for
-   * example the string "true") is coerced to `present: false`, and a `modified` that is
-   * not a canonical ISO timestamp is compared LEXICALLY by `isCurrentArtwork` against
-   * `new Date(cachedAt).toISOString()`, so "corrupt" and even a valid but non-canonical
-   * "2020-09-01T00:00:00Z" (no fractional seconds) read as newer than the image they
-   * stamp. Any of these would turn a live stamp into "stale" artwork (STRK-438).
+   * quietly repair, keep or drop. The core only ever writes plain-object stamps with a
+   * boolean `present` and a canonical ISO `modified`, so anything else is damage:
+   * - A `present` that is not a boolean (for example the string "true") is coerced to
+   *   `present: false`.
+   * - A `modified` that is not a canonical ISO timestamp is compared LEXICALLY by
+   *   `isCurrentArtwork` against `new Date(cachedAt).toISOString()`, so "corrupt" and even
+   *   a valid but non-canonical "2020-09-01T00:00:00Z" (no fractional seconds) read as
+   *   newer than the image they stamp (STRK-438).
+   * - An entry that is not an object, or whose `modified` is missing, empty or not a
+   *   string, is DROPPED by normalization, and `isCurrentArtwork` reads a missing entry as
+   *   pre-stamp art (current), so a damaged removal tombstone would revive stale art
+   *   (STRK-439 review).
    * @param {Object} collections - Raw persisted `collections` map
-   * @returns {boolean} True when any retained stamp has a non-boolean `present` or a
-   *   `modified` value that is not exactly `Date#toISOString()` output
+   * @returns {boolean} True when any artwork entry is not a plain object holding a
+   *   boolean `present` and a `modified` that is exactly `Date#toISOString()` output
    */
   const hasDamagedArtworkStamp = (collections) => {
     const isCanonicalIso = (value) => {
+      if (typeof value !== "string" || value === "") return false;
       const time = Date.parse(value);
       return Number.isFinite(time) && new Date(time).toISOString() === value;
     };
+    const isSoundStamp = (entry) =>
+      entry !== null &&
+      typeof entry === "object" &&
+      !Array.isArray(entry) &&
+      typeof entry.present === "boolean" &&
+      isCanonicalIso(entry.modified);
     return Object.values(collections).some((collection) => {
       const artwork = collection && typeof collection === "object" ? collection.artwork : null;
       if (!artwork || typeof artwork !== "object" || Array.isArray(artwork)) return false;
-      return Object.values(artwork).some(
-        (entry) =>
-          entry &&
-          typeof entry === "object" &&
-          typeof entry.modified === "string" &&
-          entry.modified !== "" &&
-          (typeof entry.present !== "boolean" || !isCanonicalIso(entry.modified))
-      );
+      return Object.values(artwork).some((entry) => !isSoundStamp(entry));
     });
   };
 

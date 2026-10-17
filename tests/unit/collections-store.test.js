@@ -517,6 +517,13 @@ describe("readPersisted — fail-closed snapshot of the stored Collections state
   for (const [label, entry] of [
     ["a non-boolean present", { present: "true", modified: T2, digest: "" }],
     ["a non-canonical modified", { present: true, modified: "2026-09-19T10:00:00Z", digest: "" }],
+    // Normalization DROPS these entries, and isCurrentArtwork reads a missing entry as
+    // pre-stamp art (current), so a damaged removal tombstone would revive stale art.
+    ["a missing modified", { present: false, digest: "" }],
+    ["an empty modified", { present: false, modified: "", digest: "" }],
+    ["a non-string modified", { present: false, modified: 1760000000000, digest: "" }],
+    ["a null entry", null],
+    ["a string entry", "present"],
   ]) {
     test(`a stamp with ${label} makes the snapshot unreadable (null)`, () => {
       const h = artworkHarness();

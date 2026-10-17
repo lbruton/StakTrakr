@@ -220,7 +220,11 @@ snapshot from which normalization dropped an entry (a null entry, or an `id` tha
 from its key), and refuses a retained artwork stamp whose `present` is not a boolean
 (`normalizeState` would coerce it to `false`) or whose `modified` is not exactly
 `Date#toISOString()` output (`isCurrentArtwork` compares it lexically, so even a valid
-`...:00Z` without fractional seconds reads as newer than its own image). That Collection could still own stored
+`...:00Z` without fractional seconds reads as newer than its own image). It also refuses an
+artwork entry that is not an object or whose `modified` is missing, empty or not a string:
+normalization drops such an entry and `isCurrentArtwork` reads a missing entry as pre-stamp
+art (current), so a damaged removal tombstone would otherwise revive stale art (STRK-439
+review). That Collection could still own stored
 artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
 closed instead of reading as "no Collections". Only an absent key means no Collections.
 Numista rule references get the same treatment: `NumistaLookup` hydrates its rule cache once
