@@ -23,6 +23,26 @@
   let collectionState = null;
 
   /**
+   * The raw stored value this tab last read or wrote (STRK-440). A different value at a
+   * mutation boundary means another tab saved and its `storage` event has not landed yet.
+   */
+  let lastStoredRaw = null;
+
+  /**
+   * The raw stored Collections value, or null when storage cannot be read.
+   * @returns {string|null} Raw localStorage value
+   */
+  const storedRaw = () => {
+    try {
+      return typeof localStorage === "undefined"
+        ? null
+        : localStorage.getItem(COLLECTION_STATE_KEY);
+    } catch (_err) {
+      return null;
+    }
+  };
+
+  /**
    * The pure core namespace (window.collectionsCore).
    * @returns {Object} Core API
    */
@@ -44,6 +64,7 @@
     const raw =
       typeof loadDataSync === "function" ? loadDataSync(COLLECTION_STATE_KEY, null) : null;
     collectionState = core().normalizeState(raw);
+    lastStoredRaw = storedRaw();
     return collectionState;
   };
 
@@ -106,9 +127,10 @@
 
   /**
    * Reads a private snapshot of the PERSISTED state, for callers that must judge artwork
-   * ownership against what another tab wrote. This store hydrates once and has no
-   * cross-tab listener, so another tab's upload, cloud pull or restore can change who
-   * owns an image without this tab noticing (STRK-438, STRK-439). Mutations persist
+   * ownership against what another tab wrote. The cross-tab `storage` listener (STRK-440)
+   * re-hydrates memory after another tab's write, but that event is delivered
+   * asynchronously, so between the other tab's upload, cloud pull or restore and the event
+   * this tab can still hold older stamps (STRK-438, STRK-439). Mutations persist
    * synchronously, so storage is always the current authority. The snapshot is
    * normalized locally: it never replaces the in-memory state (which would swap it
    * under open views) and never fires a change event.
@@ -142,6 +164,57 @@
       return null;
     }
   };
+
+  /**
+   * The state backup and image-vault export judge artwork against (STRK-440): the
+   * persisted snapshot when it reads cleanly, so an export never leaves out artwork
+   * another tab stamped a moment ago, else this tab's in-memory state. Falling back keeps
+   * export working on a damaged key exactly as it did before.
+   * @returns {Object} Normalized Collections state
+   */
+  const exportState = () => readPersisted() || getState();
+
+  /**
+   * Adopts another tab's save before this tab mutates (STRK-440 review). The `storage`
+   * event is queued, so a mutation can run after the other tab saved but before
+   * `onStorage` does; `transact` would then mutate the stale copy and `save` would write it
+   * whole over the other tab's links, Collections and artwork stamps. Every writer calls
+   * this first. It is silent: the mutation's own save announces the change, and the queued
+   * event still repaints. A stored value that does not read cleanly never replaces memory.
+   * @returns {void}
+   */
+  const syncWithStorage = () => {
+    if (collectionState === null) return; // getState() will hydrate from storage anyway
+    const raw = storedRaw();
+    if (raw === lastStoredRaw) return;
+    const persisted = readPersisted();
+    if (!persisted) return;
+    collectionState = persisted;
+    lastStoredRaw = raw;
+  };
+
+  /**
+   * Re-hydrates when ANOTHER tab writes the Collections state or the hidden-Collections
+   * preference (STRK-440). Without it this tab keeps a stale copy: its next save writes
+   * that copy whole over the other tab's links, Custom Collections and artwork stamps.
+   * The browser never delivers `storage` to the tab that wrote, so a reload cannot echo.
+   * A null key means another tab cleared storage. An open builder keeps its draft (it
+   * lives only in the form) and Save applies it to the re-hydrated state.
+   * @param {{key: (string|null), storageArea?: Storage}} event - Browser storage event
+   * @returns {void}
+   */
+  const onStorage = (event) => {
+    if (!event || (event.storageArea && event.storageArea !== localStorage)) return;
+    const { key } = event;
+    if (key !== null && key !== COLLECTION_STATE_KEY && key !== DISABLED_COLLECTIONS_KEY) return;
+    try {
+      reload();
+    } catch (err) {
+      console.warn("[collections] Could not re-read Collections after another tab saved:", err);
+    }
+  };
+
+  if (typeof window.addEventListener === "function") window.addEventListener("storage", onStorage);
 
   /**
    * The normalized IDs of Collections hidden from the hub.
@@ -209,6 +282,7 @@
   const save = (options) => {
     try {
       saveDataSync(COLLECTION_STATE_KEY, getState());
+      lastStoredRaw = storedRaw();
     } catch (error) {
       console.error("[collections] Failed to save collection state:", error);
       return false;
@@ -236,6 +310,7 @@
    * @returns {Object} The mutation result, with ok:false / save-failed when the write failed
    */
   const transact = (mutate, needsSave) => {
+    syncWithStorage();
     const snapshot = JSON.stringify(getState());
     const result = mutate(getState());
     const dirty = needsSave ? needsSave(result) : Boolean(result && result.changed);
@@ -401,6 +476,7 @@
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
   const link = (collectionId, slotId, uuid, opts) => {
+    syncWithStorage();
     const existing = getState().collections[collectionId];
     const mustStart = !existing || Boolean(existing.deletedAt);
     if (mustStart && !getTemplate(collectionId))
@@ -566,6 +642,7 @@
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
   const mergeIn = (incoming, options) => {
+    syncWithStorage();
     const before = JSON.stringify(getState());
     const merged = core().mergeStates(getState(), incoming);
     if (JSON.stringify(merged) === before) return { ok: true, changed: false };
@@ -770,6 +847,7 @@
     reload,
     getState,
     readPersisted,
+    exportState,
     save,
     getDisabledIds,
     linkedItemIds,

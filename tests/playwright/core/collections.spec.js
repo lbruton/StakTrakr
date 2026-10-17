@@ -5298,3 +5298,162 @@ test.describe("core/collections — STRK-439 rendering never deletes artwork", (
     expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "other-tab" });
   });
 });
+
+// STRK-440: two real tabs in one browser context share localStorage and IndexedDB, and the
+// browser tells each tab about the OTHER tab's writes only through a `storage` event. The
+// store must re-hydrate on it, or this tab overwrites the other tab's work on its next save
+// and leaves the other tab's newer artwork out of its exports.
+test.describe("core/collections — STRK-440 cross-tab Collections state", () => {
+  const ART_SLOT = "one";
+  const OBVERSE_BYTES = Array.from(readFileSync("tests/playwright/helpers/test-obverse.png"));
+
+  /**
+   * Runs `body` in a second tab of the same browser context, then closes it.
+   * @param {import('@playwright/test').Page} page - This tab.
+   * @param {(other: import('@playwright/test').Page) => Promise<*>} body - Other tab's work.
+   * @returns {Promise<*>} Whatever `body` returns.
+   */
+  const inOtherTab = async (page, body) => {
+    const other = await page.context().newPage();
+    await installStakTrakrNetworkMocks(other);
+    try {
+      await seedAndGoto(other);
+      return await body(other);
+    } finally {
+      await other.close();
+    }
+  };
+
+  /**
+   * Stores Slot artwork through the image cache and stamps it, the way an upload does.
+   * @param {import('@playwright/test').Page} tab - Tab doing the upload.
+   * @param {string} id - Collection id.
+   * @param {string} digest - Digest naming the upload.
+   * @param {number} cachedAt - Upload time (epoch ms).
+   * @returns {Promise<void>}
+   */
+  const uploadArtwork = (tab, id, digest, cachedAt) =>
+    tab.evaluate(
+      async ({ collectionId, slotId, bytes, tag, at }) => {
+        await window.imageCache.importPatternImageRecord({
+          ruleId: `collection--${collectionId}--${slotId}`,
+          obverse: new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+          reverse: null,
+          cachedAt: at,
+          size: bytes.length,
+          digest: tag,
+        });
+        window.collectionsStore.setArtwork(collectionId, slotId, true, at, tag);
+      },
+      { collectionId: id, slotId: ART_SLOT, bytes: OBVERSE_BYTES, tag: digest, at: cachedAt }
+    );
+
+  /**
+   * Creates a one-Slot Custom Collection in a tab.
+   * @param {import('@playwright/test').Page} tab - Tab doing the create.
+   * @param {string} name - Collection name.
+   * @returns {Promise<string>} Collection id.
+   */
+  const createCustomIn = (tab, name) =>
+    tab.evaluate(
+      (collectionName) =>
+        window.collectionsStore.createCustom({ name: collectionName, slots: [{ label: "One" }] })
+          .collection.id,
+      name
+    );
+
+  /**
+   * Reads the persisted Collections map, as a fresh boot would see it.
+   * @param {import('@playwright/test').Page} tab - Any tab of the context.
+   * @returns {Promise<Object>} Persisted `collections` map.
+   */
+  const persistedCollections = (tab) =>
+    tab.evaluate(() => loadDataSync(COLLECTION_STATE_KEY, null).collections);
+
+  test("a Slot another tab links shows here without a reload, and this tab's next change keeps it", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await expect(slotOf(page, "2024")).not.toHaveClass(/is-owned/);
+
+    await inOtherTab(page, (other) =>
+      other.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "col-ase-2024"))
+    );
+
+    await expect(slotOf(page, "2024")).toHaveClass(/is-owned/);
+    expect(await linkItems(page, [["2022", "col-ase-2022-a"]])).toEqual([
+      { ok: true, changed: true },
+    ]);
+    const slots = (await persistedCollections(page))[ASE].slots;
+    expect(slots["2024"].primary).toBe("col-ase-2024");
+    expect(slots["2022"].primary).toBe("col-ase-2022-a");
+  });
+
+  test("artwork another tab replaced goes into this tab's ZIP backup and image vault", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await waitForApp(page);
+    const id = await createCustomIn(page, "Two tab art");
+    await uploadArtwork(page, id, "this-tab", Date.parse("2026-10-01T10:00:00.000Z"));
+
+    await inOtherTab(page, (other) =>
+      uploadArtwork(other, id, "other-tab", Date.parse("2026-10-02T10:00:00.000Z"))
+    );
+
+    const exported = await page.evaluate(async (ruleId) => {
+      const zip = await window.JSZip.loadAsync(
+        await (await window.createBackupZip()).arrayBuffer()
+      );
+      const manifest = JSON.parse(await zip.file("pattern_image_manifest.json").async("string"));
+      const vault = await collectAndHashImageVault();
+      const pick = (records) =>
+        (records || []).filter((rec) => rec.ruleId === ruleId).map((rec) => rec.digest);
+      return { backup: pick(manifest), vault: pick(vault && vault.payload.patternRecords) };
+    }, `collection--${id}--${ART_SLOT}`);
+
+    expect(exported).toEqual({ backup: ["other-tab"], vault: ["other-tab"] });
+  });
+
+  test("a builder open here keeps its draft, and Save keeps the Collection another tab created", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createCustomIn(page, "Edited here");
+    await page.evaluate((editId) => window.collectionsPicker.openBuilder({ editId }), id);
+    const builder = page.locator("#collectionsBuilderModal");
+    const name = builder.getByPlaceholder("e.g. Goldback state set");
+    await name.fill("Renamed here");
+
+    await inOtherTab(page, (other) => createCustomIn(other, "Made in the other tab"));
+
+    await expect(name).toHaveValue("Renamed here");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(builder).toBeHidden();
+    const names = Object.values(await persistedCollections(page)).map((entry) => entry.name);
+    expect(names).toEqual(expect.arrayContaining(["Renamed here", "Made in the other tab"]));
+  });
+
+  test("Save on a Collection another tab deleted says so and keeps the builder open", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createCustomIn(page, "Deleted elsewhere");
+    await page.evaluate((editId) => window.collectionsPicker.openBuilder({ editId }), id);
+    const builder = page.locator("#collectionsBuilderModal");
+
+    await inOtherTab(page, (other) =>
+      other.evaluate((collectionId) => window.collectionsStore.remove(collectionId), id)
+    );
+
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      page.locator(".cloud-toast", { hasText: "This collection was deleted in another tab." })
+    ).toBeVisible();
+    await expect(builder).toBeVisible();
+  });
+});

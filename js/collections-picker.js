@@ -1784,6 +1784,9 @@
           "invalid-name": "Give the collection a name.",
           "no-slots": "Add at least one labelled slot.",
           "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
+          // STRK-440: the store re-hydrates when another tab saves, so an edit whose
+          // Collection that tab deleted fails here instead of silently reviving it.
+          "no-collection": "This collection was deleted in another tab.",
         };
         if (result.reason === "invalid-name") {
           name.setAttribute("aria-invalid", "true");
