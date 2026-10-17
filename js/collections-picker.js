@@ -542,28 +542,40 @@
   };
 
   /**
+   * Whether a stored record is the current artwork for its id. This tab's in-memory
+   * state is checked first; when it says stale, the PERSISTED state decides, because
+   * another tab may have uploaded, replaced or restored the artwork after this tab
+   * hydrated (STRK-439). An unreadable persisted state counts as not current.
+   * @param {string} id - patternImages record id
+   * @param {{cachedAt: number|string, digest?: string}} record - Stored record
+   * @returns {boolean} True when the record should be shown
+   */
+  const isShownArtwork = (id, record) => {
+    const isCurrent = (state) =>
+      Boolean(state) &&
+      window.collectionsCore.isCurrentArtwork(state, id, record.cachedAt, record.digest);
+    return (
+      isCurrent(window.collectionsStore.getState()) ||
+      isCurrent(window.collectionsStore.readPersisted())
+    );
+  };
+
+  /**
    * Object URL for a stored collection image. The CALLER owns the URL and must revoke it.
+   * Rendering is read-only: a record that is not current is hidden, never deleted
+   * (STRK-439). Stale records are removed only by the explicit paths (deleteImage,
+   * cleanupCollectionImages, Settings ▸ Images orphan cleanup), and backup and sync
+   * already leave them out.
    * @param {string} collectionId - Collection id
    * @param {string} [slotId] - Slot id; omit for the cover
-   * @returns {Promise<string|null>} blob: URL, or null when there is no image
+   * @returns {Promise<string|null>} blob: URL, or null when there is no current image
    */
   const getImageUrl = async (collectionId, slotId) => {
     if (!window.imageCache || !window.imageCache.isAvailable()) return null;
     try {
       const id = imageId(collectionId, slotId);
       const record = await window.imageCache.getPatternImage(id);
-      if (!record || !record.obverse) return null;
-      if (
-        !window.collectionsCore.isCurrentArtwork(
-          window.collectionsStore.getState(),
-          id,
-          record.cachedAt,
-          record.digest
-        )
-      ) {
-        await window.imageCache.deletePatternImage(id);
-        return null;
-      }
+      if (!record || !record.obverse || !isShownArtwork(id, record)) return null;
       return URL.createObjectURL(record.obverse);
     } catch (error) {
       console.warn("[collections] Failed to read collection image:", error);

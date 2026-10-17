@@ -185,6 +185,16 @@ Collection artwork stamps use `cover`, `title:reverse`, and `slot:<slotId>` keys
 lookups validate those stamps after sync merge, and collection removal deletes both title
 records and all current Slot records. Renderers own and revoke returned `blob:` URLs.
 
+**Rendering never deletes artwork (STRK-439).** `collectionsPicker.getImageUrl` is
+read-only: a record that is not current is hidden (null), never removed. It checks this
+tab's in-memory stamps first and, when they say stale, re-judges against the persisted
+state (`collectionsStore.readPersisted()`), because the store hydrates once and another tab
+may have uploaded, replaced or restored the artwork since; an unreadable persisted state
+hides the record. Deleting there was unsafe even with a fresh read, since `saveImage`
+stores the IndexedDB record before it persists the stamp. Stale records are removed only
+by the explicit paths — `deleteImage`, `cleanupCollectionImages` on Collection delete, and
+the Settings orphan cleanup below — and backup, vault and sync already leave them out.
+
 **Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
 store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
 `_isOrphanedPatternImage` judges them with `collectionsCore.isCurrentArtwork` against the
@@ -197,8 +207,9 @@ transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serial
 the delete rather than removed by it. The stored record must also still match the listed one
 (`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
 reclassified, because an upload stores its image before its artwork stamp. Ownership is read
-from a private snapshot of the persisted state (`_persistedCollectionsState`, normalized with
-`collectionsCore.normalizeState`; never the memoized `getState()` and never
+from a private snapshot of the persisted state (`collectionsStore.readPersisted()`, shared
+with `getImageUrl` since STRK-439 and wrapped by `settings.js` `_persistedCollectionsState`;
+normalized with `collectionsCore.normalizeState`; never the memoized `getState()` and never
 `collectionsStore.load()`, which swaps the shared state without a change event) at scan time
 and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
 its transaction opens and the store has no cross-tab listener: another tab's cloud restore
@@ -209,7 +220,11 @@ snapshot from which normalization dropped an entry (a null entry, or an `id` tha
 from its key), and refuses a retained artwork stamp whose `present` is not a boolean
 (`normalizeState` would coerce it to `false`) or whose `modified` is not exactly
 `Date#toISOString()` output (`isCurrentArtwork` compares it lexically, so even a valid
-`...:00Z` without fractional seconds reads as newer than its own image). That Collection could still own stored
+`...:00Z` without fractional seconds reads as newer than its own image). It also refuses an
+artwork entry that is not an object or whose `modified` is missing, empty or not a string:
+normalization drops such an entry and `isCurrentArtwork` reads a missing entry as pre-stamp
+art (current), so a damaged removal tombstone would otherwise revive stale art (STRK-439
+review). That Collection could still own stored
 artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
 closed instead of reading as "no Collections". Only an absent key means no Collections.
 Numista rule references get the same treatment: `NumistaLookup` hydrates its rule cache once

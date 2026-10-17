@@ -3096,78 +3096,16 @@ const _isOrphanedPatternImage = (rec, referenced, collectionsState) => {
 };
 
 /**
- * Whether any persisted artwork stamp is damaged in a way `normalizeState` would
- * quietly repair or keep. A stamp that still carries a `modified` string is
- * retained by normalization, so it is checked here: a `present` that is not a
- * boolean (for example the string "true") is coerced to `present: false`, and a
- * `modified` that is not a canonical ISO timestamp is compared LEXICALLY by
- * `isCurrentArtwork` against `new Date(cachedAt).toISOString()`, so "corrupt" and
- * even a valid but non-canonical "2020-09-01T00:00:00Z" (no fractional seconds)
- * read as newer than the image they stamp. Any of these would turn a recoverable
- * live stamp into an "orphaned" blob (STRK-438).
- * @param {Object} collections - Raw persisted `collections` map.
- * @returns {boolean} True when any retained stamp has a non-boolean `present` or a
- *   `modified` value that is not exactly `Date#toISOString()` output.
- */
-const _hasDamagedArtworkStamp = (collections) => {
-  const isCanonicalIso = (value) => {
-    const time = Date.parse(value);
-    return Number.isFinite(time) && new Date(time).toISOString() === value;
-  };
-  return Object.values(collections).some((collection) => {
-    const artwork = collection && typeof collection === "object" ? collection.artwork : null;
-    if (!artwork || typeof artwork !== "object" || Array.isArray(artwork)) return false;
-    return Object.values(artwork).some(
-      (entry) =>
-        entry &&
-        typeof entry === "object" &&
-        typeof entry.modified === "string" &&
-        entry.modified !== "" &&
-        (typeof entry.present !== "boolean" || !isCanonicalIso(entry.modified))
-    );
-  });
-};
-
-/**
- * Reads a private snapshot of the Collections state from storage rather than
- * trusting this tab's memoized copy: the store has no cross-tab listener, so
- * another tab's cloud pull or restore can change who owns an image without this
- * tab noticing (STRK-438). Mutations persist synchronously, so storage is always
- * the current authority. The snapshot is normalized locally and never handed to
- * `collectionsStore.load()`, which would swap the shared state under open views
- * without a change event.
- *
- * `loadDataSync` swallows parse and decompression errors and returns its default,
- * which would be indistinguishable from "no Collections". A unique sentinel default
- * preserves the failure so an unreadable value returns null (fail closed) instead
- * of an empty state that would classify every Collection image as orphaned.
+ * A private snapshot of the PERSISTED Collections state, read through the shared
+ * fail-closed reader `collectionsStore.readPersisted()` (STRK-438, lifted there by
+ * STRK-439) rather than this tab's memoized copy: the store has no cross-tab
+ * listener, so another tab's cloud pull or restore can change who owns an image
+ * without this tab noticing. A missing store also fails closed.
  * @returns {Object|null} Normalized state; null when it cannot be read reliably.
  */
 const _persistedCollectionsState = () => {
-  const core = window.collectionsCore;
-  if (!core || typeof core.normalizeState !== "function") return null;
-  if (typeof loadDataSync !== "function") return null;
-  const key =
-    typeof COLLECTION_STATE_KEY !== "undefined" ? COLLECTION_STATE_KEY : "collectionState";
-  try {
-    if (localStorage.getItem(key) === null) return core.normalizeState(null);
-    const unreadable = {};
-    const parsed = loadDataSync(key, unreadable);
-    // normalizeState() turns ANY wrong shape into an empty state, so the shape is
-    // checked here first: a persisted state must be an object holding a `collections` map.
-    const isMap = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-    if (parsed === unreadable || !isMap(parsed) || !isMap(parsed.collections)) return null;
-    if (_hasDamagedArtworkStamp(parsed.collections)) return null;
-    // Normalization also drops a damaged entry (not an object, or an id that differs
-    // from its key). That Collection could still own stored artwork, so a dropped
-    // entry makes the whole snapshot unusable rather than quietly "unknown".
-    const normalized = core.normalizeState(parsed);
-    const kept = Object.keys(normalized.collections).length;
-    return kept === Object.keys(parsed.collections).length ? normalized : null;
-  } catch (err) {
-    console.warn("Settings: could not read Collections state", err);
-    return null;
-  }
+  const store = window.collectionsStore;
+  return store && typeof store.readPersisted === "function" ? store.readPersisted() : null;
 };
 
 /**
