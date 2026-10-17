@@ -2,7 +2,7 @@
 name: spec-requirements
 description: "Spec Phase 1 — grill the issue, then draft requirements.md in EARS. Standalone, ISSUE-first. Reads universal conventions + per-project overrides."
 user-invocable: true
-library-version: e4ef48071b45
+library-version: 5834a2dcd445
 ---
 
 # /spec-requirements ISSUE

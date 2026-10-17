@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# library-version: e4ef48071b45
+# library-version: 5834a2dcd445
 """PreToolUse hook — warns when an Edit/Write targets a file outside the active worktree.
 
 Catches the common mistake of editing files in the main repo checkout when
