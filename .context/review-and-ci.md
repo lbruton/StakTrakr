@@ -10,6 +10,11 @@ Routing differs per reviewer. Do not generalize from one bot to the others.
 - **CodeRabbit is label-gated.** It reviews only a PR carrying the `coderabbit-review`
   label. Untagged, it still **flags and approves** but omits the full review — so it appears
   to have participated when it has not. That is expected, not a misconfiguration.
+  **The label is no longer sufficient on its own (observed 2026-10-17, ship PR #1591):**
+  CodeRabbit skipped a labelled PR with "fewer than 10 stars" / "manual review required for
+  this OSS repository". Its required `CodeRabbit` check still reports **pass**, so it does not
+  block merge, but no review happened. For a real pass, tick "Trigger review" in its comment
+  or comment `@coderabbitai review`.
 - **Codacy AI runs as part of the Codacy static-analysis stage.** This is a change on
   Codacy's side (observed 2026-08-13), not a config change here — the AI review now arrives
   bundled with the required check rather than as a separate opt-in pass.
