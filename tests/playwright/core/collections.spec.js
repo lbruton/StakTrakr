@@ -4016,7 +4016,10 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await cancel.focus();
     await page.keyboard.press("Enter");
     await expect(builder).toBeHidden();
-    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    // The background page stays scroll-locked. Assert the axis that locks it: index.html
+    // pins body overflow-x to clip (!important), and Chromium 156 serializes the shorthand
+    // as "clip hidden" where older builds said "hidden" (STRK-441).
+    await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
     await expect(editTrigger).toBeFocused();
     await expect(page.locator("#settingsModal")).toBeVisible();
     expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
@@ -4024,7 +4027,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await openEdit();
     await page.keyboard.press("Escape");
     await expect(builder).toBeHidden();
-    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
     await expect(editTrigger).toBeFocused();
     await expect(page.locator("#settingsModal")).toBeVisible();
     expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
@@ -4037,7 +4040,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await saveChanges.focus();
     await page.keyboard.press("Enter");
     await expect(builder).toBeHidden();
-    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
     const refreshedEdit = settings.getByRole("button", { name: "Edit After Edit" });
     await expect(refreshedEdit).toBeVisible();
     await expect(refreshedEdit).toBeFocused();
