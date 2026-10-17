@@ -229,9 +229,14 @@ Then mark draft → ready (no MCP equivalent — use `gh` CLI):
 
 ```bash
 gh pr ready PR_NUMBER
+gh pr comment PR_NUMBER --body "@coderabbitai review"
 ```
 
-Then run `/pr-resolve` to clear all open Codacy and Copilot review threads
+CodeRabbit runs only when asked (free OSS plan, 2026-10-17). Without the comment its
+required `CodeRabbit` check on `main` still **passes**, but nothing gets reviewed, so the
+label alone is not enough. Ask again after any follow-up push you want it to look at.
+
+Then run `/pr-resolve` to clear all open Codacy, Copilot and CodeRabbit review threads
 before the PR goes to final review.
 
 ## Step 6: Mark Plane issues Done
