@@ -205,7 +205,11 @@ re-hydrated state; a Collection the other tab deleted fails Save with "This coll
 deleted in another tab." The event is asynchronous, so backup (`_addPatternImagesToBackup`)
 and image-vault export (`collectAndHashImageVault`) judge artwork with
 `collectionsStore.exportState()`: the persisted snapshot (`readPersisted()`), falling back
-to the in-memory state when it is unreadable.
+to the in-memory state when it is unreadable. For the same reason every writer (`transact`,
+`link`, `mergeIn`) first calls `syncWithStorage()`: when the stored raw value differs from
+the one this tab last read or wrote, it adopts `readPersisted()` before mutating, so a
+change made in the gap before the event lands cannot overwrite the other tab's save. A
+stored value that does not read cleanly never replaces memory.
 
 **Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
 store, so it must not treat `collection--*` records as Numista orphans. `settings.js`

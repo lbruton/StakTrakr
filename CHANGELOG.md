@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — STRK-440: Two open tabs no longer overwrite each other's Collections
 
-- **Cross-tab listener**: The Collections store now re-reads its saved state when another tab saves Collections or the hidden-Collections preference (or clears storage), and repaints open views. Before, this tab kept a stale copy, and its next change wrote that copy over the other tab's links, Custom Collections and artwork (STRK-440).
+- **Cross-tab listener**: The Collections store now re-reads its saved state when another tab saves Collections or the hidden-Collections preference (or clears storage), and repaints open views. Before, this tab kept a stale copy, and its next change wrote that copy over the other tab's links, Custom Collections and artwork. Because that notice arrives a moment after the other tab saves, every change also re-checks the saved state first, so a change made in that gap cannot overwrite the other tab's save either (STRK-440).
 - **Builder open in both tabs**: An open Collection builder keeps what you typed while another tab saves, and Save applies it on top of the other tab's changes. If the other tab deleted that Collection, Save says "This collection was deleted in another tab." instead of bringing it back (STRK-440).
 - **Backups include the newest artwork**: Backup All Data and the image-vault push judge Collection artwork with the new `collectionsStore.exportState()`, which reads the saved state (falling back to this tab's state when the saved state is unreadable). Artwork another tab just replaced is no longer left out (STRK-440).
 

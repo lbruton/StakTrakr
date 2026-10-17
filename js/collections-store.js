@@ -23,6 +23,26 @@
   let collectionState = null;
 
   /**
+   * The raw stored value this tab last read or wrote (STRK-440). A different value at a
+   * mutation boundary means another tab saved and its `storage` event has not landed yet.
+   */
+  let lastStoredRaw = null;
+
+  /**
+   * The raw stored Collections value, or null when storage cannot be read.
+   * @returns {string|null} Raw localStorage value
+   */
+  const storedRaw = () => {
+    try {
+      return typeof localStorage === "undefined"
+        ? null
+        : localStorage.getItem(COLLECTION_STATE_KEY);
+    } catch (_err) {
+      return null;
+    }
+  };
+
+  /**
    * The pure core namespace (window.collectionsCore).
    * @returns {Object} Core API
    */
@@ -44,6 +64,7 @@
     const raw =
       typeof loadDataSync === "function" ? loadDataSync(COLLECTION_STATE_KEY, null) : null;
     collectionState = core().normalizeState(raw);
+    lastStoredRaw = storedRaw();
     return collectionState;
   };
 
@@ -154,6 +175,25 @@
   const exportState = () => readPersisted() || getState();
 
   /**
+   * Adopts another tab's save before this tab mutates (STRK-440 review). The `storage`
+   * event is queued, so a mutation can run after the other tab saved but before
+   * `onStorage` does; `transact` would then mutate the stale copy and `save` would write it
+   * whole over the other tab's links, Collections and artwork stamps. Every writer calls
+   * this first. It is silent: the mutation's own save announces the change, and the queued
+   * event still repaints. A stored value that does not read cleanly never replaces memory.
+   * @returns {void}
+   */
+  const syncWithStorage = () => {
+    if (collectionState === null) return; // getState() will hydrate from storage anyway
+    const raw = storedRaw();
+    if (raw === lastStoredRaw) return;
+    const persisted = readPersisted();
+    if (!persisted) return;
+    collectionState = persisted;
+    lastStoredRaw = raw;
+  };
+
+  /**
    * Re-hydrates when ANOTHER tab writes the Collections state or the hidden-Collections
    * preference (STRK-440). Without it this tab keeps a stale copy: its next save writes
    * that copy whole over the other tab's links, Custom Collections and artwork stamps.
@@ -242,6 +282,7 @@
   const save = (options) => {
     try {
       saveDataSync(COLLECTION_STATE_KEY, getState());
+      lastStoredRaw = storedRaw();
     } catch (error) {
       console.error("[collections] Failed to save collection state:", error);
       return false;
@@ -269,6 +310,7 @@
    * @returns {Object} The mutation result, with ok:false / save-failed when the write failed
    */
   const transact = (mutate, needsSave) => {
+    syncWithStorage();
     const snapshot = JSON.stringify(getState());
     const result = mutate(getState());
     const dirty = needsSave ? needsSave(result) : Boolean(result && result.changed);
@@ -434,6 +476,7 @@
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
   const link = (collectionId, slotId, uuid, opts) => {
+    syncWithStorage();
     const existing = getState().collections[collectionId];
     const mustStart = !existing || Boolean(existing.deletedAt);
     if (mustStart && !getTemplate(collectionId))
@@ -599,6 +642,7 @@
    * @returns {{ok: boolean, changed: boolean, reason?: string}} Result
    */
   const mergeIn = (incoming, options) => {
+    syncWithStorage();
     const before = JSON.stringify(getState());
     const merged = core().mergeStates(getState(), incoming);
     if (JSON.stringify(merged) === before) return { ok: true, changed: false };

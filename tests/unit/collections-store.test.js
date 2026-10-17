@@ -590,6 +590,53 @@ describe("cross-tab storage listener (STRK-440)", () => {
     assert.ok(Object.values(disk.collections).some((entry) => entry.name === "Mine"));
   });
 
+  // `storage` is delivered asynchronously, so a mutation here can run AFTER the other tab
+  // saved but BEFORE its event lands. Every writer must re-check storage synchronously.
+  test("a mutation before the other tab's storage event lands keeps that tab's link", () => {
+    const h = afterOtherTabLinks();
+
+    assert.equal(h.store.createCustom({ name: "Mine", slots: [{ label: "One" }] }).ok, true);
+
+    const disk = persisted(h.disk);
+    assert.equal(disk.collections[TEMPLATE].slots["2024"].primary, U.b);
+    assert.ok(Object.values(disk.collections).some((entry) => entry.name === "Mine"));
+  });
+
+  test("a link before the other tab's storage event lands sees that tab's link", () => {
+    const h = afterOtherTabLinks();
+
+    // U.b now fills 2024 in storage, so linking it again elsewhere must be refused.
+    const result = h.store.link(TEMPLATE, "2025", U.b);
+
+    assert.equal(result.reason, "already-linked");
+    assert.equal(persisted(h.disk).collections[TEMPLATE].slots["2024"].primary, U.b);
+  });
+
+  test("a merge before the other tab's storage event lands keeps that tab's link", () => {
+    const h = afterOtherTabLinks();
+    const incoming = makeHarness();
+    assert.equal(
+      incoming.store.createCustom({ name: "Restored", slots: [{ label: "One" }] }).ok,
+      true
+    );
+
+    assert.equal(h.store.mergeIn(persisted(incoming.disk)).ok, true);
+
+    const disk = persisted(h.disk);
+    assert.equal(disk.collections[TEMPLATE].slots["2024"].primary, U.b);
+    assert.ok(Object.values(disk.collections).some((entry) => entry.name === "Restored"));
+  });
+
+  test("an unreadable stored value never replaces this tab's state before a mutation", () => {
+    const h = startedHarness();
+    h.store.getState();
+    h.disk.set(STATE_KEY, "{not json");
+
+    assert.equal(h.store.createCustom({ name: "Mine", slots: [{ label: "One" }] }).ok, true);
+
+    assert.equal(persisted(h.disk).collections[TEMPLATE].slots["2023"].primary, U.a);
+  });
+
   test("a write to an unrelated key leaves memory alone and stays quiet", () => {
     const h = afterOtherTabLinks();
 
