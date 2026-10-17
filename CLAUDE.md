@@ -156,7 +156,7 @@ listed here. One hook line each:
   `// duplication-ok`, closing-task ordering.
 
 **Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
-pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-gated,
+pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit comment-triggered via `@coderabbitai review`,
 Codacy AI bundled with the static-analysis stage, Copilot on Balanced, Codex dynamic), where each gate is
 configured, per-branch required checks, the invisible 75% docstring gate, and the dual
 ESLint config all live there.

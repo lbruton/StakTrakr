@@ -2,7 +2,7 @@
 
 Custom review instructions for GitHub Copilot PR reviews.
 
-> **Routing (2026-10-03):** Copilot reviews every PR automatically once it leaves draft, at **Balanced** effort. CodeRabbit (label-gated, `coderabbit-review`) does the first pass while the PR is a draft, and Codacy AI runs with the static-analysis check. The review procedure, cross-file invariants, and do-not-flag list live in the `code-review` skill at `.github/skills/code-review/SKILL.md`.
+> **Routing (2026-10-03):** Copilot reviews every PR automatically once it leaves draft, at **Balanced** effort. CodeRabbit reviews only when asked with an `@coderabbitai review` comment, and Codacy AI runs with the static-analysis check. The review procedure, cross-file invariants, and do-not-flag list live in the `code-review` skill at `.github/skills/code-review/SKILL.md`.
 
 ## Project Context
 
