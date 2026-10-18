@@ -1879,6 +1879,50 @@ async function openImageOptions(page, side) {
 const patternOption = (page) =>
   page.locator("#appDialogModal").getByRole("checkbox", { name: /use a matching pattern image/i });
 
+/**
+ * Holds every pattern-image read open until `window.__releasePatternReads()` runs.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function holdPatternReads(page) {
+  await page.evaluate(() => {
+    const read = window.imageCache.getPatternImageUrl.bind(window.imageCache);
+    let release;
+    window.__patternGate = new Promise((resolve) => (release = resolve));
+    window.__releasePatternReads = release;
+    window.imageCache.getPatternImageUrl = async (...args) => {
+      await window.__patternGate;
+      return read(...args);
+    };
+  });
+}
+
+/**
+ * Sets the pattern option through the obverse frame's options dialog and confirms it.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {boolean} on - Whether to use a matching pattern image
+ * @returns {Promise<void>}
+ */
+async function setPatternOption(page, on) {
+  await openImageOptions(page, "Obverse");
+  await patternOption(page).setChecked(on);
+  await page.locator("#appDialogOk").click();
+}
+
+/**
+ * Releases the held reads and asserts that neither side ends up showing a pattern image.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function expectNoPatternAfterRelease(page) {
+  await page.evaluate(() => window.__releasePatternReads());
+  // Let the released reads settle before asserting the sides stayed empty.
+  await page.waitForTimeout(300);
+  await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+  await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+  await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+}
+
 test.describe("core/image-frame-editor — item image options (STRK-443)", () => {
   test("each item frame has an image options button that opens the link and pattern options", async ({
     page,
@@ -1997,29 +2041,29 @@ test.describe("core/image-frame-editor — item image options (STRK-443)", () =>
     await expect(page.locator("#itemModal")).toBeVisible();
     await settleModal(page);
     await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
-    // Hold every pattern-image read until the test releases it.
-    await page.evaluate(() => {
-      const read = window.imageCache.getPatternImageUrl.bind(window.imageCache);
-      let release;
-      window.__patternGate = new Promise((resolve) => (release = resolve));
-      window.__releasePatternReads = release;
-      window.imageCache.getPatternImageUrl = async (...args) => {
-        await window.__patternGate;
-        return read(...args);
-      };
-    });
+    await holdPatternReads(page);
     await openImageOptions(page, "Obverse");
     await patternOption(page).check();
     await page.locator("#appDialogOk").click();
-    await openImageOptions(page, "Obverse");
-    await patternOption(page).uncheck();
-    await page.locator("#appDialogOk").click();
-    await page.evaluate(() => window.__releasePatternReads());
-    // Let the released reads settle, then neither side may show a pattern image.
-    await page.waitForTimeout(300);
-    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
-    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
-    await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+    await setPatternOption(page, false);
+    await expectNoPatternAfterRelease(page);
+  });
+
+  // Review finding on PR 1598 (Codex P2, round 2): the same race in the modal's initial load,
+  // which resolved pattern images with the flag saved on the record.
+  test("a pattern image still loading when the modal opens never appears once the option is off", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await holdPatternReads(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await settleModal(page);
+    await setPatternOption(page, false);
+    await expectNoPatternAfterRelease(page);
   });
 
   test("the builder shows no image options button until it has an action", async ({ page }) => {

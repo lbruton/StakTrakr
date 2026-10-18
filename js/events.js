@@ -648,6 +648,35 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
 };
 
 /**
+ * A snapshot to check a pattern-image read against when it finishes (STRK-443).
+ * @returns {{edit: number, refresh: number}}
+ */
+const patternPreviewToken = () => ({
+  edit: _itemImageEditGeneration,
+  refresh: _patternRefreshGeneration,
+});
+
+/**
+ * Whether a pattern image read under `token` may still be shown on `side`. While it was read the
+ * modal may have closed or reopened, a pattern refresh started, the setting been turned off, or
+ * the side been filled; any of those makes the image stale (PR 1598 review). Used by both the
+ * edit-modal loader and refreshPatternPreviews.
+ * @param {{edit: number, refresh: number}} token - From patternPreviewToken() before the read
+ * @param {'obverse'|'reverse'} side
+ * @returns {boolean}
+ */
+const canShowPatternPreview = (token, side) => {
+  const preview = document.getElementById("itemImagePreview" + _frameSuffix(side));
+  return (
+    token.edit === _itemImageEditGeneration &&
+    token.refresh === _patternRefreshGeneration &&
+    !document.getElementById("itemIgnorePatternImages")?.checked &&
+    Boolean(preview) &&
+    preview.style.display === "none"
+  );
+};
+
+/**
  * Apply the Item's pattern-image setting to the open modal (STRK-443). With it off, every side
  * that shows a pattern image is cleared; with it on, each empty side is filled from the rule that
  * matches the current name. The Item's own uploads and links are never touched, and nothing is
@@ -657,10 +686,9 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
  * @returns {Promise<void>}
  */
 const refreshPatternPreviews = async () => {
-  const ignoreBox = document.getElementById("itemIgnorePatternImages");
-  const ignore = Boolean(ignoreBox?.checked);
-  const generation = _itemImageEditGeneration;
-  const refresh = ++_patternRefreshGeneration;
+  const ignore = Boolean(document.getElementById("itemIgnorePatternImages")?.checked);
+  ++_patternRefreshGeneration;
+  const token = patternPreviewToken();
   for (const side of ["obverse", "reverse"]) {
     const suffix = _frameSuffix(side);
     const preview = document.getElementById("itemImagePreview" + suffix);
@@ -688,14 +716,7 @@ const refreshPatternPreviews = async () => {
     if (!ruleImageId) continue;
     const url = await imageCache.getPatternImageUrl(ruleImageId, side).catch(() => null);
     if (!url) continue;
-    // While the image was read the modal may have closed, a later refresh started, the setting
-    // been turned off, or the side been filled.
-    if (
-      generation !== _itemImageEditGeneration ||
-      refresh !== _patternRefreshGeneration ||
-      Boolean(ignoreBox?.checked) ||
-      preview.style.display !== "none"
-    ) {
+    if (!canShowPatternPreview(token, side)) {
       URL.revokeObjectURL(url);
       continue;
     }

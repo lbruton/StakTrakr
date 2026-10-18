@@ -2248,24 +2248,23 @@ const _editLoadImages = (item) => {
             type: item.type || "",
             ignorePatternImages: !!item.ignorePatternImages,
           };
-          if (!loaded.obverse) {
-            const obvUrl = await imageCache
-              .resolveImageUrlForItem(itemMeta, "obverse")
-              .catch(() => null);
-            if (obvUrl && !item.obverseImageUrl) {
-              showPreview(obvUrl, "Obv", "obverse");
-              // STRK-443: a pattern-rule image, not the Item's own, for the options toggle.
-              if (typeof markPatternPreview === "function") markPatternPreview("obverse", true);
+          // STRK-443: the read can outlive a change to the Item's image options (or the modal);
+          // a pattern image that went stale meanwhile is dropped, not shown.
+          const token = typeof patternPreviewToken === "function" ? patternPreviewToken() : null;
+          for (const [side, suffix, ownUrl] of [
+            ["obverse", "Obv", item.obverseImageUrl],
+            ["reverse", "Rev", item.reverseImageUrl],
+          ]) {
+            if (loaded[side]) continue;
+            const url = await imageCache.resolveImageUrlForItem(itemMeta, side).catch(() => null);
+            if (!url) continue;
+            if (ownUrl || (token && !canShowPatternPreview(token, side))) {
+              URL.revokeObjectURL(url);
+              continue;
             }
-          }
-          if (!loaded.reverse) {
-            const revUrl = await imageCache
-              .resolveImageUrlForItem(itemMeta, "reverse")
-              .catch(() => null);
-            if (revUrl && !item.reverseImageUrl) {
-              showPreview(revUrl, "Rev", "reverse");
-              if (typeof markPatternPreview === "function") markPatternPreview("reverse", true);
-            }
+            showPreview(url, suffix, side);
+            // A pattern-rule image, not the Item's own, for the options toggle.
+            if (typeof markPatternPreview === "function") markPatternPreview(side, true);
           }
         }
       })

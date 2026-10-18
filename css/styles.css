@@ -1536,6 +1536,9 @@ section {
   width: 18px;
   height: 18px;
   margin: 0;
+  /* The global input rule's padding and 2px border would shrink the painted box (PR 1598). */
+  padding: 0;
+  border: 0;
   accent-color: var(--primary);
 }
 
