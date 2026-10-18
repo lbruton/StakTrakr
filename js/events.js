@@ -412,6 +412,8 @@ const _urlPreviewTimers = { obverse: null, reverse: null };
  * (STRK-443). The image options pattern toggle clears or refills only these sides.
  */
 const _patternPreviewSides = { obverse: false, reverse: false };
+/** Token for the latest pattern-preview refresh; an older one still reading an image yields. */
+let _patternRefreshGeneration = 0;
 
 /**
  * Record whether a side's preview is a pattern-rule image.
@@ -650,11 +652,15 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
  * that shows a pattern image is cleared; with it on, each empty side is filled from the rule that
  * matches the current name. The Item's own uploads and links are never touched, and nothing is
  * queued for save: a pattern image is resolved again whenever the Item is shown.
+ * Each call supersedes any earlier one still reading an image, so a slow read never lands after
+ * the setting changed again (PR 1598 review).
  * @returns {Promise<void>}
  */
 const refreshPatternPreviews = async () => {
-  const ignore = Boolean(document.getElementById("itemIgnorePatternImages")?.checked);
+  const ignoreBox = document.getElementById("itemIgnorePatternImages");
+  const ignore = Boolean(ignoreBox?.checked);
   const generation = _itemImageEditGeneration;
+  const refresh = ++_patternRefreshGeneration;
   for (const side of ["obverse", "reverse"]) {
     const suffix = _frameSuffix(side);
     const preview = document.getElementById("itemImagePreview" + suffix);
@@ -682,8 +688,14 @@ const refreshPatternPreviews = async () => {
     if (!ruleImageId) continue;
     const url = await imageCache.getPatternImageUrl(ruleImageId, side).catch(() => null);
     if (!url) continue;
-    // The modal may have closed, or the side been filled, while the image was read.
-    if (generation !== _itemImageEditGeneration || preview.style.display !== "none") {
+    // While the image was read the modal may have closed, a later refresh started, the setting
+    // been turned off, or the side been filled.
+    if (
+      generation !== _itemImageEditGeneration ||
+      refresh !== _patternRefreshGeneration ||
+      Boolean(ignoreBox?.checked) ||
+      preview.style.display !== "none"
+    ) {
       URL.revokeObjectURL(url);
       continue;
     }

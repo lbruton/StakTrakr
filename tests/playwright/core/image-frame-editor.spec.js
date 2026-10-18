@@ -1982,6 +1982,46 @@ test.describe("core/image-frame-editor — item image options (STRK-443)", () =>
     await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
   });
 
+  // Review finding on PR 1598 (Codex P2): a slow pattern-image read must not land after the user
+  // has turned the option off again.
+  test("a pattern image still loading when the option is turned off again never appears", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "", ignorePatternImages: true },
+      ],
+    });
+    await seedPatternRule(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await settleModal(page);
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    // Hold every pattern-image read until the test releases it.
+    await page.evaluate(() => {
+      const read = window.imageCache.getPatternImageUrl.bind(window.imageCache);
+      let release;
+      window.__patternGate = new Promise((resolve) => (release = resolve));
+      window.__releasePatternReads = release;
+      window.imageCache.getPatternImageUrl = async (...args) => {
+        await window.__patternGate;
+        return read(...args);
+      };
+    });
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    await page.evaluate(() => window.__releasePatternReads());
+    // Let the released reads settle, then neither side may show a pattern image.
+    await page.waitForTimeout(300);
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+  });
+
   test("the builder shows no image options button until it has an action", async ({ page }) => {
     await seedAndGoto(page);
     await openBuilderModal(page);
