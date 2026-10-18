@@ -182,11 +182,13 @@ async function gotoInventoryWithChips(page) {
 }
 
 /**
- * Measures every chip in #activeFilters. Runs in the page; returns one record
- * per chip with the WCAG ratio of its computed text over its computed background.
+ * Measures the chips in #activeFilters (or only chip `onlyIndex`). Runs in the page;
+ * returns one record per chip with the WCAG ratio of its text over its background AS
+ * SEEN: element opacity (own and inherited) fades both text and background toward the
+ * backdrop behind the chip bar, so both are composited before the ratio is taken.
  */
-function measureChips(page) {
-  return page.evaluate(() => {
+function measureChips(page, onlyIndex = -1) {
+  return page.evaluate((only) => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 1;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -200,38 +202,80 @@ function measureChips(page) {
     const lin = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const lum = ([r, g, b]) =>
       0.2126 * lin(r / 255) + 0.7152 * lin(g / 255) + 0.0722 * lin(b / 255);
-    return Array.from(document.querySelectorAll("#activeFilters .filter-chip")).map((chip) => {
-      const cs = getComputedStyle(chip);
-      const bg = rgba(cs.backgroundColor);
-      const fg = rgba(cs.color);
-      const [hi, lo] = [lum(bg), lum(fg)].sort((a, b) => b - a);
-      return {
-        label: chip.textContent.trim(),
-        bgAlpha: bg[3],
-        ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
-      };
-    });
-  });
+    const backdropOf = (el) => {
+      for (let node = el.parentElement; node; node = node.parentElement) {
+        const c = rgba(getComputedStyle(node).backgroundColor);
+        if (c[3] === 255) return c;
+      }
+      return [255, 255, 255, 255];
+    };
+    const opacityOf = (el) => {
+      let o = 1;
+      for (let node = el; node; node = node.parentElement) {
+        o *= Number(getComputedStyle(node).opacity);
+      }
+      return o;
+    };
+    const fade = (c, back, o) => c.slice(0, 3).map((v, i) => o * v + (1 - o) * back[i]);
+    const chips = Array.from(document.querySelectorAll("#activeFilters .filter-chip"));
+    return chips
+      .filter((_, i) => only < 0 || i === only)
+      .map((chip) => {
+        const cs = getComputedStyle(chip);
+        const bg = rgba(cs.backgroundColor);
+        const back = backdropOf(chip);
+        const o = opacityOf(chip);
+        const [hi, lo] = [lum(fade(bg, back, o)), lum(fade(rgba(cs.color), back, o))].sort(
+          (a, b) => b - a
+        );
+        return {
+          label: chip.textContent.trim(),
+          bgAlpha: bg[3],
+          opacity: Math.round(o * 1000) / 1000,
+          ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
+        };
+      });
+  }, onlyIndex);
+}
+
+/** Asserts one measured chip is opaque and meets AA; `state` labels the failure. */
+function expectChipAa(chip, state) {
+  expect(chip.bgAlpha, `${state} "${chip.label}" has an opaque background`).toBe(255);
+  expect(
+    chip.ratio,
+    `${state} "${chip.label}" contrast ${chip.ratio}:1 (opacity ${chip.opacity})`
+  ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
 }
 
 /**
  * Switches through all four themes in the same page (no reload, which also pins
- * "recolours on theme switch") and asserts every chip meets AA in each.
+ * "recolours on theme switch") and asserts every chip meets AA in each — at rest,
+ * and again while hovered (the hover state must not fade the chip).
  */
 async function expectAaChipsInEveryTheme(page) {
+  const chipLocator = page.locator("#activeFilters .filter-chip");
   for (const theme of THEMES) {
     await page.evaluate((name) => window.setTheme(name), theme);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     const chips = await measureChips(page);
-    expect(chips.length, `${theme}: chip bar rendered`).toBeGreaterThanOrEqual(10);
-    for (const chip of chips) {
-      expect(chip.bgAlpha, `${theme} "${chip.label}" has an opaque background`).toBe(255);
-      expect(
-        chip.ratio,
-        `${theme} "${chip.label}" contrast ${chip.ratio}:1`
-      ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    expect(chips.length, `${theme}: chip bar rendered`).toBeGreaterThanOrEqual(8);
+    for (const chip of chips) expectChipAa(chip, theme);
+    for (let i = 0; i < chips.length; i++) {
+      await chipLocator.nth(i).hover();
+      await chipLocator
+        .nth(i)
+        .evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+      const [hovered] = await measureChips(page, i);
+      expectChipAa(hovered, `${theme} hover`);
     }
+    await page.mouse.move(0, 0);
   }
+}
+
+/** Excludes one summary value so the sweep also covers the excluded-chip style. */
+async function excludeOneChip(page) {
+  await page.evaluate(() => window.applyQuickFilter("storageLocation", "Drawer", false, true));
+  await expect(page.locator("#activeFilters .filter-chip-excluded")).toHaveCount(1);
 }
 
 test.describe("STRK-446 filter chip contrast", () => {
@@ -239,6 +283,7 @@ test.describe("STRK-446 filter chip contrast", () => {
     page,
   }) => {
     await gotoInventoryWithChips(page);
+    await excludeOneChip(page);
     await expectAaChipsInEveryTheme(page);
   });
 
@@ -258,6 +303,7 @@ test.describe("STRK-446 filter chip contrast", () => {
       "style",
       /(^|;)\s*color:/
     );
+    await excludeOneChip(page);
     await expectAaChipsInEveryTheme(page);
   });
 

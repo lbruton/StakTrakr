@@ -983,6 +983,9 @@ theme-reactive expression and let the stylesheet do the rest:
 - **`getContrastColor(bg)`** (`js/utils.js`) accepts any CSS colour, including `var()`. It
   returns the black or white text colour with the higher WCAG 2.x ratio. The better of
   the two is always at least 4.58:1 on an opaque background.
+- **Never fade a chip with `opacity`** (excluded, hover, `×`). Opacity blends text and
+  background toward the page and breaks the 4.58:1 floor. Use an outline, shadow or lift
+  to show state instead.
 
 ### Toggle standard
 

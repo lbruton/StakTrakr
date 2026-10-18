@@ -9359,7 +9359,9 @@ table.dm-ledger {
 
 /* STRK-446: black or white text, whichever has the higher WCAG contrast over the chip.
    The better of the two is always >= 4.58:1, so every opaque chip colour meets AA.
-   Browsers without contrast-color() get an inline pick from getContrastColor() instead. */
+   Browsers without contrast-color() get an inline pick from getContrastColor() instead.
+   Never fade a chip with opacity (excluded, hover, ×): it blends text and background
+   toward the page and drops the pair below AA. Signal state with outline/shadow/lift. */
 @supports (color: contrast-color(red)) {
   .filter-chip {
     color: contrast-color(var(--chip-bg, var(--bg-card)));
@@ -9369,11 +9371,9 @@ table.dm-ledger {
 .filter-chip-excluded {
   outline: 1px dashed var(--text-muted);
   outline-offset: 1px;
-  opacity: 0.86;
 }
 
 .filter-chip:hover {
-  opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
@@ -9381,7 +9381,6 @@ table.dm-ledger {
 .chip-close {
   margin-left: 0.35rem;
   font-weight: 700;
-  opacity: 0.95;
   cursor: pointer;
 }
 
