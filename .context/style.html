@@ -1669,7 +1669,11 @@
                 below. Each Slot's <code>.collections-image-pick</code> is the largest frame of that
                 ratio inside a 44px box (the row keeps a 44px track minimum, so landscape Slots do
                 not shorten it), with the scaled corner radius and <code>object-fit: contain</code>.
-                A Slot holding a photo drops its dashed outline; an empty Slot keeps it.
+                A Slot holding a photo drops its dashed outline; an empty Slot keeps it. The button
+                does not clip (the photo rounds itself) so a transparent, centred 44px
+                <code>::after</code> keeps the full touch target in every shape, and
+                <code>min-height: 0</code> stops the visible-overflow box from growing past its
+                <code>aspect-ratio</code>.
               </li>
               <li>
                 <strong>Ratios:</strong> the shared tokens <code>--frame-bar-portrait</code> (0.6),

@@ -1688,6 +1688,19 @@ const measureSlotThumbs = (page) =>
           (parseFloat(style.borderTopWidth) || 0) > 0 && ctx.getImageData(0, 0, 1, 1).data[3] > 0,
         radius: parseFloat(style.borderTopLeftRadius) || 0,
         fit: img ? getComputedStyle(img).objectFit : null,
+        // How far the photo's box spills past the frame on any side (0 when it sits inside).
+        imgSpill: img
+          ? (() => {
+              const imgBox = img.getBoundingClientRect();
+              return Math.max(
+                0,
+                box.left - imgBox.left,
+                box.top - imgBox.top,
+                imgBox.right - box.right,
+                imgBox.bottom - box.bottom
+              );
+            })()
+          : null,
         rowHeight: row.getBoundingClientRect().height,
         badgeOffset: badgeBox
           ? Math.hypot(
@@ -1729,6 +1742,11 @@ test.describe("core/image-frame-editor — builder Slot thumbnails follow the Im
           }
         });
         expect(thumbs[0].fit, `${label}: photo fits whole`).toBe("contain");
+        // contain only fits the photo whole if the img box is the frame: a box that spills past
+        // the frame is either drawn outside it or clipped (a crop).
+        expect(thumbs[0].imgSpill, `${label}: photo stays inside the frame`).toBeLessThanOrEqual(
+          0.5
+        );
         // Like the title frames (STRK-434 row 11), a Slot holding a photo draws no outline around
         // the letterbox bands; an empty Slot keeps its dashed drop-zone outline.
         expect(thumbs[0].borderVisible, `${label}: filled Slot has no outline`).toBe(false);
@@ -1737,6 +1755,41 @@ test.describe("core/image-frame-editor — builder Slot thumbnails follow the Im
       }
     });
   }
+
+  // Review finding on PR 1597 (Codex P2): a shaped Slot button is narrower or shorter than 44px,
+  // so the tap target must stay a full 44px square around it.
+  test("every Slot thumbnail keeps a true 44px touch target in every shape on phones", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const root = await openBuilderWithSlots(page);
+    // The second Slot is empty, so no remove badge covers its corner.
+    const pick = page
+      .locator("#collectionsBuilderModal .collections-builder-row")
+      .nth(1)
+      .locator(".collections-image-pick");
+    for (const state of SLOT_SHAPES) {
+      await pickSlotShape(root, state);
+      await pick.scrollIntoViewIfNeeded();
+      const box = await pick.boundingBox();
+      const hits = await page.evaluate(
+        ({ cx, cy }) =>
+          [
+            [-21, -21],
+            [21, -21],
+            [-21, 21],
+            [21, 21],
+          ].map(([dx, dy]) => {
+            const hit = document.elementFromPoint(cx + dx, cy + dy);
+            return hit && hit.closest("button") ? hit.closest("button").className : "";
+          }),
+        { cx: box.x + box.width / 2, cy: box.y + box.height / 2 }
+      );
+      const label = `${state.shape}${state.orientation ? ` ${state.orientation}` : ""}`;
+      for (const hit of hits)
+        expect(hit, `${label}: corner of the 44px target`).toContain("collections-image-pick");
+    }
+  });
 
   test("a shape or orientation change re-shapes every Slot, and a new Slot takes the current shape", async ({
     page,
