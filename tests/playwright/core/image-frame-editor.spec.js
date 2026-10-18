@@ -1599,3 +1599,176 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
     }
   }
 });
+
+// STRK-442 (STRK-435 part 1) — the builder's Slot row thumbnails follow the collection's Image
+// shape and show the whole photo.
+//
+// Written BEFORE the fix (TDD red phase). Each Slot row's image is a 44px circle that crops
+// (object-fit cover) whatever the shape. The contract, measured on rendered geometry:
+//
+//   1. Every Slot thumbnail, empty or holding an image, renders the collection's shape at the
+//      shared ratio tokens, as the largest frame of that ratio inside the 44px box (its long
+//      side is 44px, neither side exceeds it), at 1280 and 390.
+//   2. Bar and Note follow the OBVERSE orientation; Round is a circle; the other shapes are
+//      rectangles with a small radius, not pills.
+//   3. A Slot photo is fit whole (object-fit contain), never cropped.
+//   4. The Slot row keeps its height in every shape, and the remove badge stays on the
+//      thumbnail's upper-right corner.
+//   5. Changing the shape or the obverse orientation re-shapes every Slot at once, and a Slot
+//      added afterwards takes the current shape.
+
+/** Shape and obverse orientation states a Slot thumbnail must render, keyed to RATIO. */
+const SLOT_SHAPES = [
+  { shape: "Round", orientation: null, ratio: "round" },
+  { shape: "Bar", orientation: "Portrait", ratio: "bar-portrait" },
+  { shape: "Bar", orientation: "Landscape", ratio: "bar-landscape" },
+  { shape: "Note", orientation: "Portrait", ratio: "note-portrait" },
+  { shape: "Note", orientation: "Landscape", ratio: "note-landscape" },
+  { shape: "Slab", orientation: null, ratio: "slab" },
+];
+
+/**
+ * Opens a blank builder (it starts with several empty Slot rows) and uploads a photo to the
+ * first Slot, so both a filled and an empty thumbnail are measured.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<import('@playwright/test').Locator>} The builder's frame-editor root
+ */
+async function openBuilderWithSlots(page) {
+  await seedAndGoto(page);
+  await openBuilderModal(page);
+  const builder = page.locator("#collectionsBuilderModal");
+  const rows = builder.locator(".collections-builder-row");
+  expect(await rows.count()).toBeGreaterThanOrEqual(2);
+  await rows
+    .first()
+    .locator("input[type=file]")
+    .setInputFiles("tests/playwright/helpers/test-obverse.png");
+  await expect(rows.first().locator(".collections-image-pick img")).toHaveCount(1);
+  return builder.locator(".ife");
+}
+
+/**
+ * Picks a shape and, for Bar and Note, the obverse orientation in the builder.
+ * @param {import('@playwright/test').Locator} root - The builder's frame-editor root
+ * @param {{shape: string, orientation: string|null}} state - Target shape state
+ * @returns {Promise<void>}
+ */
+async function pickSlotShape(root, { shape, orientation }) {
+  await root.getByRole("radiogroup", { name: "Image shape" }).getByLabel(shape).check();
+  if (orientation) {
+    await root
+      .getByRole("radiogroup", { name: "Obverse orientation" })
+      .getByLabel(orientation)
+      .check();
+  }
+}
+
+/**
+ * Rendered geometry of every Slot thumbnail in the builder.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<object[]>} One entry per Slot row
+ */
+const measureSlotThumbs = (page) =>
+  page.locator("#collectionsBuilderModal .collections-builder-row").evaluateAll((rows) =>
+    rows.map((row) => {
+      const pick = row.querySelector(".collections-image-pick");
+      const box = pick.getBoundingClientRect();
+      const img = pick.querySelector("img");
+      const badge = row.querySelector(".collections-image-remove");
+      const badgeBox = badge && !badge.hidden ? badge.getBoundingClientRect() : null;
+      const style = getComputedStyle(pick);
+      const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = style.borderTopColor;
+      ctx.fillRect(0, 0, 1, 1);
+      return {
+        width: box.width,
+        height: box.height,
+        borderVisible:
+          (parseFloat(style.borderTopWidth) || 0) > 0 && ctx.getImageData(0, 0, 1, 1).data[3] > 0,
+        radius: parseFloat(style.borderTopLeftRadius) || 0,
+        fit: img ? getComputedStyle(img).objectFit : null,
+        rowHeight: row.getBoundingClientRect().height,
+        badgeOffset: badgeBox
+          ? Math.hypot(
+              badgeBox.left + badgeBox.width / 2 - box.right,
+              badgeBox.top + badgeBox.height / 2 - box.top
+            )
+          : null,
+      };
+    })
+  );
+
+test.describe("core/image-frame-editor — builder Slot thumbnails follow the Image shape (STRK-442)", () => {
+  for (const width of [1280, 390]) {
+    test(`every Slot thumbnail takes the collection's shape inside the 44px box at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 1500 });
+      const root = await openBuilderWithSlots(page);
+      await pickSlotShape(root, SLOT_SHAPES[0]);
+      const [baseline] = await measureSlotThumbs(page);
+      for (const state of SLOT_SHAPES) {
+        await pickSlotShape(root, state);
+        const label = `${state.shape}${state.orientation ? ` ${state.orientation}` : ""} at ${width}px`;
+        const thumbs = await measureSlotThumbs(page);
+        thumbs.forEach((thumb, index) => {
+          const which = `${label}, Slot ${index + 1}`;
+          expect(thumb.width / thumb.height, `${which}: ratio`).toBeCloseTo(RATIO[state.ratio], 1);
+          expect(Math.max(thumb.width, thumb.height), `${which}: long side`).toBeGreaterThan(43);
+          expect(Math.max(thumb.width, thumb.height), `${which}: fits the box`).toBeLessThanOrEqual(
+            44.5
+          );
+          expect(thumb.rowHeight, `${which}: row height`).toBeCloseTo(baseline.rowHeight, 0);
+          if (state.ratio === "round") {
+            expect(thumb.radius, `${which}: circle`).toBeGreaterThanOrEqual(thumb.width / 2 - 0.5);
+          } else {
+            expect(thumb.radius, `${which}: not a pill`).toBeLessThan(
+              Math.min(thumb.width, thumb.height) / 4
+            );
+          }
+        });
+        expect(thumbs[0].fit, `${label}: photo fits whole`).toBe("contain");
+        // Like the title frames (STRK-434 row 11), a Slot holding a photo draws no outline around
+        // the letterbox bands; an empty Slot keeps its dashed drop-zone outline.
+        expect(thumbs[0].borderVisible, `${label}: filled Slot has no outline`).toBe(false);
+        expect(thumbs[1].borderVisible, `${label}: empty Slot keeps its outline`).toBe(true);
+        expect(thumbs[0].badgeOffset, `${label}: badge on the corner`).toBeLessThanOrEqual(12);
+      }
+    });
+  }
+
+  test("a shape or orientation change re-shapes every Slot, and a new Slot takes the current shape", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 });
+    const root = await openBuilderWithSlots(page);
+    const ratios = async () =>
+      (await measureSlotThumbs(page)).map((thumb) => thumb.width / thumb.height);
+
+    await pickSlotShape(root, { shape: "Bar", orientation: null });
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-portrait"], 1);
+
+    await pickSlotShape(root, { shape: "Bar", orientation: "Landscape" });
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-landscape"], 1);
+
+    // The reverse orientation never drives the Slot list.
+    await root
+      .getByRole("radiogroup", { name: "Reverse orientation" })
+      .getByLabel("Portrait")
+      .check();
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-landscape"], 1);
+
+    const rows = page.locator("#collectionsBuilderModal .collections-builder-row");
+    const before = await rows.count();
+    await rows
+      .last()
+      .getByRole("button", { name: /^Add Slot after/ })
+      .click();
+    await expect(rows).toHaveCount(before + 1);
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-landscape"], 1);
+
+    await pickSlotShape(root, { shape: "Round", orientation: null });
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO.round, 1);
+  });
+});

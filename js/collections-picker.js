@@ -1435,6 +1435,19 @@
       loadStoredTitle(reverseTitle, "title:reverse");
     }
     const rowsHost = el("div", "collections-builder-rows");
+    /**
+     * STRK-442: the Slot list carries the collection's shape and the OBVERSE orientation, so the
+     * CSS shapes every Slot thumbnail like the Album's Slots, including rows added later.
+     * @param {{shape: string, obverseOrientation: string|null}} state - Frame editor state
+     * @returns {void}
+     */
+    const shapeSlotList = ({ shape, obverseOrientation }) => {
+      rowsHost.dataset.shape = shape;
+      if (obverseOrientation) rowsHost.dataset.orientation = obverseOrientation;
+      else delete rowsHost.dataset.orientation;
+    };
+    shapeSlotList(frameEditor.getState());
+    frameEditor.onChange(shapeSlotList);
     const slotCount = el("span", "form-section-count");
     const orderStatus = el("div", "sr-only");
     orderStatus.setAttribute("role", "status");

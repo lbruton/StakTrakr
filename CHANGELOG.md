@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.55] - 2026-10-17
+
+### Changed — STRK-442: Builder Slot thumbnails follow the collection's Image shape
+
+- **Slot thumbnails take the shape**: In the Custom Collection builder, each Slot row's image now takes the collection's Image shape (Round, Bar, Note or Slab, with Bar and Note following the obverse orientation) instead of always being a circle. It re-shapes as soon as the shape or obverse orientation changes, including Slots added afterwards, and stays inside the 44px box so the rows keep their height (STRK-442).
+- **Whole photo, no crop**: A Slot photo is fit whole instead of cropped to a circle, and a Slot holding a photo drops its dashed drop-zone outline, matching the title images and the Add/Edit Item modal (STRK-442).
+
 ## [3.36.54] - 2026-10-17
 
 ### Fixed — STRK-440: Two open tabs no longer overwrite each other's Collections
