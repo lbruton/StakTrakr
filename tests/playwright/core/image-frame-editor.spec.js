@@ -1825,3 +1825,271 @@ test.describe("core/image-frame-editor — builder Slot thumbnails follow the Im
     for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO.round, 1);
   });
 });
+
+// STRK-443 (STRK-435 part 2) — the item modal's per-frame link icon becomes an Advanced (image
+// options) button. Written BEFORE the change (TDD red phase). Decided by Lonnie, 2026-10-17:
+//
+//   1. Each item frame's lower-right button is named "<Side> image options" and opens the shared
+//      app dialog titled "<Side> image": the image link field (today's flow, unchanged) plus a
+//      "Use a matching pattern image" checkbox. Plain prompts elsewhere show no checkbox.
+//   2. The checkbox is the Item's existing ignorePatternImages flag, inverted: it starts from the
+//      record, OK applies it, Cancel changes nothing, and Save stores it.
+//   3. Turning it off clears any side that shows a pattern image; turning it back on fills empty
+//      sides from the matching rule again, without reopening the modal.
+//   4. The builder shows no image options button until STRK-444 gives it an action.
+
+const PATTERN_IMAGE_ID = "custom-img-strk443";
+
+/**
+ * Adds a custom pattern rule matching the seed item's name, with a stored obverse and reverse.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function seedPatternRule(page) {
+  await page.waitForFunction(() => Boolean(window.NumistaLookup) && Boolean(window.imageCache));
+  await page.evaluate(
+    async ({ id, png }) => {
+      const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
+      await window.imageCache.init();
+      window.NumistaLookup.addRule("Frame Fixture", "Frame Fixture", null, id);
+      await window.imageCache.cachePatternImage(
+        id,
+        new Blob([bytes], { type: "image/png" }),
+        new Blob([bytes], { type: "image/png" })
+      );
+    },
+    { id: PATTERN_IMAGE_ID, png: TINY_PNG.toString("base64") }
+  );
+}
+
+/**
+ * Opens one item frame's image options dialog.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {"Obverse"|"Reverse"} side - Which frame
+ * @returns {Promise<import('@playwright/test').Locator>} The dialog
+ */
+async function openImageOptions(page, side) {
+  await page.getByRole("button", { name: `${side} image options` }).click();
+  const dialog = page.locator("#appDialogModal");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** The pattern image checkbox inside the open dialog. */
+const patternOption = (page) =>
+  page.locator("#appDialogModal").getByRole("checkbox", { name: /use a matching pattern image/i });
+
+/**
+ * Holds every pattern-image read open until `window.__releasePatternReads()` runs.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function holdPatternReads(page) {
+  await page.evaluate(() => {
+    const read = window.imageCache.getPatternImageUrl.bind(window.imageCache);
+    let release;
+    window.__patternGate = new Promise((resolve) => (release = resolve));
+    window.__releasePatternReads = release;
+    window.imageCache.getPatternImageUrl = async (...args) => {
+      await window.__patternGate;
+      return read(...args);
+    };
+  });
+}
+
+/**
+ * Sets the pattern option through the obverse frame's options dialog and confirms it.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {boolean} on - Whether to use a matching pattern image
+ * @returns {Promise<void>}
+ */
+async function setPatternOption(page, on) {
+  await openImageOptions(page, "Obverse");
+  await patternOption(page).setChecked(on);
+  await page.locator("#appDialogOk").click();
+}
+
+/**
+ * Releases the held reads and asserts that neither side ends up showing a pattern image.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function expectNoPatternAfterRelease(page) {
+  await page.evaluate(() => window.__releasePatternReads());
+  // Let the released reads settle before asserting the sides stayed empty.
+  await page.waitForTimeout(300);
+  await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+  await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+  await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+}
+
+test.describe("core/image-frame-editor — item image options (STRK-443)", () => {
+  test("each item frame has an image options button that opens the link and pattern options", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openAddModal(page);
+    for (const side of ["Obverse", "Reverse"]) {
+      const button = page.getByRole("button", { name: `${side} image options` });
+      await expect(button).toBeVisible();
+      const dialog = await openImageOptions(page, side);
+      await expect(dialog.locator("#appDialogTitle")).toHaveText(`${side} image`);
+      await expect(page.locator("#appDialogInput")).toBeVisible();
+      await expect(patternOption(page)).toBeVisible();
+      await expect(patternOption(page)).toBeChecked();
+      await page.locator("#appDialogCancel").click();
+      await expect(dialog).toBeHidden();
+    }
+    // A plain prompt elsewhere in the app never shows the checkbox.
+    const pending = page.evaluate(() => window.showAppPrompt("Plain prompt", "", "Plain"));
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+    await expect(patternOption(page)).toBeHidden();
+    await page.locator("#appDialogCancel").click();
+    await pending;
+  });
+
+  test("the pattern option starts from the record, Cancel changes nothing, and Save stores it", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    await openImageOptions(page, "Obverse");
+    await expect(patternOption(page)).toBeChecked();
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogCancel").click();
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page), "Cancel kept the flag").toBeChecked();
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    // The link was left as it was.
+    await expect(page.locator("#itemReverseImageUrl")).toHaveValue(
+      "https://images.example/rev.png"
+    );
+    await submit(page);
+    expect((await storedItem(page)).ignorePatternImages).toBe(true);
+
+    await openEditModal(page);
+    await openImageOptions(page, "Obverse");
+    await expect(patternOption(page), "reopened from the record").not.toBeChecked();
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await submit(page);
+    expect((await storedItem(page)).ignorePatternImages).toBe(false);
+  });
+
+  test("turning the pattern option off clears pattern sides, and on fills them again", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await expect(page.locator("#itemImageRemoveBtnObv")).toBeHidden();
+
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page)).not.toBeChecked();
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeVisible();
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+
+    // A pattern image is not the Item's own: turning it back on stores no link or upload.
+    await submit(page);
+    const stored = await storedItem(page);
+    expect(stored.ignorePatternImages).toBe(false);
+    expect(stored.obverseImageUrl || "").toBe("");
+    expect(stored.reverseImageUrl || "").toBe("");
+  });
+
+  // Review finding on PR 1598 (Codex P2, round 3): Remove turns the Item-wide setting off, so the
+  // other side's pattern image must go too, matching what the options dialog then reports.
+  test("Remove on one pattern side clears the other pattern side and turns the option off", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+    await page.locator("#itemImageRemoveBtnObv").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page)).not.toBeChecked();
+    await page.locator("#appDialogCancel").click();
+  });
+
+  test("turning the pattern option off keeps an Item's own link", async ({ page }) => {
+    await seedAndGoto(page, { items: [{ ...SEED_ITEM, reverseImageUrl: "" }] });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    // The obverse is the Item's own link and stays; the pattern reverse goes.
+    await expect(page.locator("#itemImagePreviewObv")).toBeVisible();
+    await expect(page.locator("#itemImagePreviewImgObv")).toHaveAttribute(
+      "src",
+      "https://images.example/obv.png"
+    );
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+  });
+
+  // Review finding on PR 1598 (Codex P2): a slow pattern-image read must not land after the user
+  // has turned the option off again.
+  test("a pattern image still loading when the option is turned off again never appears", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "", ignorePatternImages: true },
+      ],
+    });
+    await seedPatternRule(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await settleModal(page);
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await holdPatternReads(page);
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await setPatternOption(page, false);
+    await expectNoPatternAfterRelease(page);
+  });
+
+  // Review finding on PR 1598 (Codex P2, round 2): the same race in the modal's initial load,
+  // which resolved pattern images with the flag saved on the record.
+  test("a pattern image still loading when the modal opens never appears once the option is off", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await holdPatternReads(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await settleModal(page);
+    await setPatternOption(page, false);
+    await expectNoPatternAfterRelease(page);
+  });
+
+  test("the builder shows no image options button until it has an action", async ({ page }) => {
+    await seedAndGoto(page);
+    await openBuilderModal(page);
+    await expect(
+      page.locator("#collectionsBuilderModal").getByRole("button", { name: /image options/i })
+    ).toHaveCount(0);
+  });
+});

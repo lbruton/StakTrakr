@@ -778,7 +778,7 @@ Reference: `_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSl
 
 ### Custom dialog testing — `showAppConfirm` is NOT `window.confirm`
 
-`showAppConfirm`, `showAppAlert`, `showAppPrompt` are custom DOM modals (`#appDialogModal`), **not** native `window.confirm`. `page.on("dialog", ...)` does not intercept them. Pattern:
+`showAppConfirm`, `showAppAlert`, `showAppPrompt` (and `showAppPromptWithOption`, a prompt with one `#appDialogOption` checkbox that resolves `{value, checked}`; STRK-443) are custom DOM modals (`#appDialogModal`), **not** native `window.confirm`. `page.on("dialog", ...)` does not intercept them. Pattern:
 
 1. Fire-and-forget the async function via `page.evaluate`
 2. `await page.waitForSelector("#appDialogModal", { state: "visible" })`
