@@ -82,6 +82,9 @@
   --text-primary: var(--text);
   --text-secondary: var(--text-muted);
   --chip-text: oklch(0.252 0.021 251.6);
+  /* Hashed colours (name/location/tag chips + table filter links): JS supplies only the hue */
+  --hashed-color-s: 70%;
+  --hashed-color-l: 35%;
   --chip-active-outline: oklch(0 0 0 / 0.75);
   --chip-search-outline: oklch(0.723 0.192 149.6 / 0.75);
 
@@ -277,6 +280,8 @@
   --text-secondary: oklch(0.8 0.008 85);
   --text-muted: oklch(0.65 0.012 85);
   --chip-text: oklch(0.95 0.005 85);
+  --hashed-color-s: 70%;
+  --hashed-color-l: 65%;
   --chip-active-outline: oklch(0.95 0.005 85 / 0.9);
   --chip-search-outline: oklch(0.7 0.18 150 / 0.8);
 
@@ -405,6 +410,8 @@
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   --chip-text: #f8fafc;
+  --hashed-color-s: 70%;
+  --hashed-color-l: 65%;
   --chip-active-outline: rgba(255, 255, 255, 0.9);
   --chip-search-outline: rgba(34, 197, 94, 0.8);
 
@@ -529,6 +536,8 @@
   --text-secondary: oklch(0.403 0.039 85.2);
   --text-muted: oklch(0.514 0.033 84.5);
   --chip-text: oklch(0.314 0.039 86.7);
+  --hashed-color-s: 70%;
+  --hashed-color-l: 35%;
   --chip-active-outline: oklch(0.314 0.039 86.7 / 0.8);
   --chip-search-outline: oklch(0.526 0.109 133.6 / 0.75);
 
@@ -1516,6 +1525,30 @@ section {
 }
 .modal-footer .btn.danger {
   border: 1px solid var(--danger);
+}
+
+/* STRK-443: the one optional checkbox a shared app prompt can carry (image options). The row is
+   a 44px-tall label so the whole line is the touch target. Theme tokens only. */
+.app-dialog-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  margin-top: var(--spacing-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.app-dialog-option input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  /* The global input rule's padding and 2px border would shrink the painted box (PR 1598). */
+  padding: 0;
+  border: 0;
+  accent-color: var(--primary);
 }
 
 /* --- Toggle switch (iOS-style) ------------------------------------------- */
@@ -9303,6 +9336,8 @@ table.dm-ledger {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
+  /* --chip-bg is set per chip by JS (a theme token or a hashed hsl on theme tokens) */
+  background-color: var(--chip-bg, transparent);
   color: var(--chip-text);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius);
@@ -9322,14 +9357,23 @@ table.dm-ledger {
   box-sizing: border-box;
 }
 
+/* STRK-446: black or white text, whichever has the higher WCAG contrast over the chip.
+   The better of the two is always >= 4.58:1, so every opaque chip colour meets AA.
+   Browsers without contrast-color() get an inline pick from getContrastColor() instead.
+   Never fade a chip with opacity (excluded, hover, ×): it blends text and background
+   toward the page and drops the pair below AA. Signal state with outline/shadow/lift. */
+@supports (color: contrast-color(red)) {
+  .filter-chip {
+    color: contrast-color(var(--chip-bg, var(--bg-card)));
+  }
+}
+
 .filter-chip-excluded {
-  outline: 1px dashed rgba(0, 0, 0, 0.35);
+  outline: 1px dashed var(--text-muted);
   outline-offset: 1px;
-  opacity: 0.86;
 }
 
 .filter-chip:hover {
-  opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
@@ -9337,7 +9381,6 @@ table.dm-ledger {
 .chip-close {
   margin-left: 0.35rem;
   font-weight: 700;
-  opacity: 0.95;
   cursor: pointer;
 }
 

@@ -2,7 +2,7 @@
 name: spec-approach
 description: "Spec Phase 3 — architecture, key decisions, file map (+ UI Contract) into approach.md. Standalone, ISSUE-first. Reads universal + per-project conventions."
 user-invocable: true
-library-version: 5834a2dcd445
+library-version: c1f149d0652e
 ---
 
 # /spec-approach ISSUE

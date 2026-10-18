@@ -47,6 +47,10 @@
         <div class="modal-body">
           <p id="appDialogMessage" style="margin:0 0 1rem 0; line-height:1.5"></p>
           <input id="appDialogInput" type="text" class="form-control" style="display:none; width:100%" />
+          <label id="appDialogOptionRow" class="app-dialog-option" style="display:none">
+            <input id="appDialogOption" type="checkbox" />
+            <span id="appDialogOptionLabel"></span>
+          </label>
         </div>
         <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:.5rem">
           <button type="button" id="appDialogCancel" class="btn secondary" style="display:none">Cancel</button>
@@ -76,6 +80,7 @@
       primaryLabel = "OK",
       primaryAction,
       secondaryLabel = "Cancel",
+      option = null,
     },
     resolve
   ) => {
@@ -84,6 +89,9 @@
     const titleEl = document.getElementById("appDialogTitle");
     const messageEl = document.getElementById("appDialogMessage");
     const inputEl = document.getElementById("appDialogInput");
+    const optionRow = document.getElementById("appDialogOptionRow");
+    const optionEl = document.getElementById("appDialogOption");
+    const optionLabelEl = document.getElementById("appDialogOptionLabel");
     const closeBtn = document.getElementById("appDialogClose");
     const cancelBtn = document.getElementById("appDialogCancel");
     const okBtn = document.getElementById("appDialogOk");
@@ -106,6 +114,16 @@
     if (mode === "prompt") {
       inputEl.value = defaultValue || "";
     }
+    // STRK-443: a prompt may carry one checkbox; it then resolves {value, checked} instead of the
+    // bare string. Every other dialog hides the row.
+    const hasOption = mode === "prompt" && Boolean(option) && Boolean(optionRow && optionEl);
+    if (optionRow) optionRow.style.display = hasOption ? "" : "none";
+    if (hasOption) {
+      optionEl.checked = Boolean(option.checked);
+      if (optionLabelEl) optionLabelEl.textContent = option.label || "";
+    }
+    const promptResult = () =>
+      hasOption ? { value: inputEl.value, checked: optionEl.checked } : inputEl.value;
 
     const cleanup = () => {
       if (typeof window.releaseFocus === "function") window.releaseFocus(modal);
@@ -153,7 +171,7 @@
       if (actionInFlight) return;
       if (event.key === "Escape") finish(dismissValue());
       if (event.key === "Enter" && document.activeElement !== cancelBtn) {
-        if (mode === "prompt") finish(inputEl.value);
+        if (mode === "prompt") finish(promptResult());
         else if (mode === "confirm") finish(true);
         else if (mode === "action") void finishPrimaryAction();
         else finish(undefined);
@@ -169,7 +187,7 @@
     okBtn.onclick = () => {
       if (actionInFlight) return;
       if (mode === "action") void finishPrimaryAction();
-      else finish(mode === "prompt" ? inputEl.value : mode === "confirm" ? true : undefined);
+      else finish(mode === "prompt" ? promptResult() : mode === "confirm" ? true : undefined);
     };
     modal.onclick = (event) => {
       if (!actionInFlight && event.target === modal && mode !== "alert") {
@@ -220,6 +238,18 @@
    */
   window.showAppPrompt = (message, defaultValue, title) =>
     showDialog({ mode: "prompt", message, defaultValue, title });
+  /**
+   * Displays an application-styled prompt dialog with one checkbox under the field (STRK-443).
+   * @global
+   * @function showAppPromptWithOption
+   * @param {string} message
+   * @param {string} [defaultValue]
+   * @param {string} [title]
+   * @param {{label: string, checked?: boolean}} option - The checkbox's label and starting state
+   * @returns {Promise<?{value: string, checked: boolean}>} null when dismissed
+   */
+  window.showAppPromptWithOption = (message, defaultValue, title, option) =>
+    showDialog({ mode: "prompt", message, defaultValue, title, option });
   /**
    * Displays an application-styled action dialog.
    * @global

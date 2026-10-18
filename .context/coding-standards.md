@@ -778,7 +778,7 @@ Reference: `_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSl
 
 ### Custom dialog testing — `showAppConfirm` is NOT `window.confirm`
 
-`showAppConfirm`, `showAppAlert`, `showAppPrompt` are custom DOM modals (`#appDialogModal`), **not** native `window.confirm`. `page.on("dialog", ...)` does not intercept them. Pattern:
+`showAppConfirm`, `showAppAlert`, `showAppPrompt` (and `showAppPromptWithOption`, a prompt with one `#appDialogOption` checkbox that resolves `{value, checked}`; STRK-443) are custom DOM modals (`#appDialogModal`), **not** native `window.confirm`. `page.on("dialog", ...)` does not intercept them. Pattern:
 
 1. Fire-and-forget the async function via `page.evaluate`
 2. `await page.waitForSelector("#appDialogModal", { state: "visible" })`
@@ -966,6 +966,26 @@ background: #ffffff;
 border-radius: 8px;
 padding: 0.75rem;
 ```
+
+### Colours computed in JS: hand CSS the data, not the colour (STRK-446)
+
+When JS must choose a colour (a per-value hue, a token picked by item type), pass a
+theme-reactive expression and let the stylesheet do the rest:
+
+- **Filter chips:** `_buildFilterChipElement` (`js/filters.js`) sets only the `--chip-bg`
+  custom property. `.filter-chip` paints it and picks the text with
+  `contrast-color(var(--chip-bg))`. Never write `chip.style.color` or
+  `style.backgroundColor` for a chip. The only exception is the `CHIP_CONTRAST_IN_CSS`
+  fallback for browsers without `contrast-color()`.
+- **Hashed colours:** `getColor()` (`js/inventory-table.js`) returns
+  `hsl(<hue>, var(--hashed-color-s), var(--hashed-color-l))`. Only the hue is data; the
+  saturation and lightness are per-theme tokens. Do not branch on `data-theme` in JS.
+- **`getContrastColor(bg)`** (`js/utils.js`) accepts any CSS colour, including `var()`. It
+  returns the black or white text colour with the higher WCAG 2.x ratio. The better of
+  the two is always at least 4.58:1 on an opaque background.
+- **Never fade a chip with `opacity`** (excluded, hover, `×`). Opacity blends text and
+  background toward the page and breaks the 4.58:1 floor. Use an outline, shadow or lift
+  to show state instead.
 
 ### Toggle standard
 

@@ -132,16 +132,23 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 
 ## CF-Clearance-Scraper Sidecar
 
-`staktrakr-byparr` runs `ghcr.io/thephaseless/byparr:latest` — a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
+`staktrakr-byparr` runs Byparr (production: upstream 2.1.0 via `BYPARR_IMAGE`; compose default: upstream 3.0.4) — a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
 
 | Property      | Value                                                                                                                 |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Image         | `ghcr.io/thephaseless/byparr:latest`                                                                                  |
+| Image         | `${BYPARR_IMAGE:-ghcr.io/thephaseless/byparr:3.0.4}` (pinned; bump deliberately — see below)                          |
+| Init          | `init: true` (Docker's init as PID 1 reaps orphaned browser processes)                                                |
 | Internal URL  | `http://staktrakr-byparr:8191` (Docker DNS via container name)                                                        |
 | Host URL      | `http://192.168.1.81:8191` (host-exposed on port 8191 for debugging and Fly.io → Tailscale → Byparr CF bypass access) |
 | Purpose       | Phase 2 fallback for CF-protected vendors (Bullion Exchanges, JM Bullion)                                             |
 | Network       | `staktrakr-net` bridge, port 8191 exposed to host                                                                     |
-| Shared memory | `/dev/shm` mounted from host (required by Camoufox Firefox)                                                           |
+| Shared memory | `shm_size: "1g"` (required by Camoufox Firefox)                                                                       |
+
+**Image source.** The compose default is upstream `ghcr.io/thephaseless/byparr:3.0.4`, so self-hosters need no extra config and get a maintained image with `tini`. Production overrides it: stack 7's env sets `BYPARR_IMAGE` to upstream 2.1.0 (image ID `sha256:ac7e6554…`) in the private homelab Gitea registry, and Portainer pulls that with a read-only (`read:package`) registry credential. If the stack env is ever lost (for example by an API redeploy), prod falls back to 3.0.4. Byparr keeps running, but Bullion Exchanges degrades to mostly un-hydrated pages; restore `BYPARR_IMAGE` and redeploy. Once an upstream release passes the side-by-side test below, bump the compose default and remove the override.
+
+> **Failure mode: zombie leak → silent hang (STRK-448).** Each Byparr request leaves Firefox `Socket`/`RDD`/`Utility Process` children behind. If nothing at PID 1 reaps them, they pile up as zombies (~2,000/day on our load) until the container's cgroup task cap (systemd `DefaultTasksMax`, 15% of `kernel.threads-max`, ~11.8k here) is full. Byparr can then start no browser, every Phase 2 call fails, and Bullion Exchanges reads all-OOS. The container stays `Up (unhealthy)`, and `restart: unless-stopped` never restarts an unhealthy container. Signs: `docker exec` fails with `Resource temporarily unavailable`; on the host, `ps -eo ppid,stat | awk '$2 ~ /Z/' | wc -l` runs into the thousands. The 2.1.0 image has this bug (its PID 1 is `uv run main.py`). The fix is `init: true`, which makes Docker's init PID 1. Verified 2026-10-18: 0 zombies after repeated requests, versus 27 in 20 minutes without it. A restart clears the zombies as a stopgap.
+
+**Why not upstream 3.x yet (STRK-448).** 3.0.4 runs `tini` and fixes the timeout-0 hang (ThePhaseless/Byparr#405), but for pages with no Cloudflare challenge it returns the HTML captured at `domcontentloaded`. For Bullion Exchanges that is the un-hydrated React shell: 1 of 8 fetches had prices, versus 6 of 6 on 2.1.0 with init. Upstream fixed this on `main` in `c653b10` ("read the page after the idle wait"), but no release carries it yet. The `:main` image, meanwhile, returned HTTP 500 (`Browser.new_context: the pipe is closed`) on every second back-to-back request. Before bumping, re-run the side-by-side comparison against a real Bullion Exchanges product page on a spare port.
 
 ### 3-Phase Scraping Pipeline
 
