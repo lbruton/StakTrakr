@@ -72,7 +72,10 @@ services:
     # domcontentloaded for unchallenged pages, i.e. the un-hydrated
     # Bullion Exchanges shell (1/8 usable in testing vs 6/6 here). Move to
     # upstream once a release contains ThePhaseless/Byparr c653b10. STRK-448.
-    image: ghcr.io/lbruton/byparr:2.1.0
+    # BYPARR_IMAGE lets a deployment pull the same image from its own
+    # registry (production sets it in the Portainer stack env); the default
+    # stays public so self-hosters need no extra config.
+    image: ${BYPARR_IMAGE:-ghcr.io/lbruton/byparr:2.1.0}
     container_name: staktrakr-byparr
     restart: unless-stopped
     # Docker's init runs as PID 1 and reaps orphaned Camoufox processes.
