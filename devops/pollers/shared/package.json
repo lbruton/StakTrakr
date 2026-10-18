@@ -7,9 +7,9 @@
   "dependencies": {
     "@libsql/client": "^0.18.0",
     "better-sqlite3": "^11.0.0",
-    "dotenv": "^18.0.6",
-    "playwright": "1.64.0",
-    "playwright-core": "1.64.0"
+    "dotenv": "^18.0.8",
+    "playwright": "1.64.1",
+    "playwright-core": "1.64.1"
   },
   "overrides": {
     "ws": "^8.20.1"
