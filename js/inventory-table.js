@@ -133,29 +133,6 @@
     Copper: "var(--copper)",
   };
 
-  const METAL_TEXT_COLORS = {
-    Silver: () =>
-      getContrastColor(
-        getComputedStyle(document.documentElement).getPropertyValue("--silver").trim()
-      ),
-    Gold: () =>
-      getContrastColor(
-        getComputedStyle(document.documentElement).getPropertyValue("--gold").trim()
-      ),
-    Platinum: () =>
-      getContrastColor(
-        getComputedStyle(document.documentElement).getPropertyValue("--platinum").trim()
-      ),
-    Palladium: () =>
-      getContrastColor(
-        getComputedStyle(document.documentElement).getPropertyValue("--palladium").trim()
-      ),
-    Copper: () =>
-      getContrastColor(
-        getComputedStyle(document.documentElement).getPropertyValue("--copper").trim()
-      ),
-  };
-
   const typeColors = {
     Coin: "var(--type-coin-bg)",
     Round: "var(--type-round-bg)",
@@ -183,9 +160,9 @@
       }
       map[key] = Math.abs(hash) % 360;
     }
-    const isDark = ["dark", "slate"].includes(document.documentElement.getAttribute("data-theme"));
-    const lightness = isDark ? 65 : 35;
-    return `hsl(${map[key]}, 70%, ${lightness}%)`;
+    // Only the hue is data; saturation and lightness are per-theme tokens in css/styles.css,
+    // so the colour follows a theme switch through the cascade (STRK-446).
+    return `hsl(${map[key]}, var(--hashed-color-s), var(--hashed-color-l))`;
   };
 
   const escapeAttribute = escapeHtml;
@@ -1445,7 +1422,6 @@
   // ---------------------------------------------------------------------------
 
   window.METAL_COLORS = METAL_COLORS;
-  window.METAL_TEXT_COLORS = METAL_TEXT_COLORS;
   window.renderTable = renderTable;
   window.updateSummary = updateSummary;
   window.hideEmptyColumns = hideEmptyColumns;
