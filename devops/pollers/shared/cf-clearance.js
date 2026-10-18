@@ -1,6 +1,6 @@
 // Byparr sidecar client — FlareSolverr-compatible API
 // =====================================================
-// Communicates with ghcr.io/thephaseless/byparr:latest.
+// Communicates with the Byparr sidecar (image pinned in docker-compose.home.yml).
 // Container name: staktrakr-byparr (set in docker-compose.home.yml).
 //
 // Endpoint (verified 2026-03-10 against live bullionexchanges.com):
