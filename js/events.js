@@ -3392,7 +3392,9 @@ const setupItemFormListeners = () => {
           markPatternPreview(side, false);
           // STRK-427: Remove resets that side's orientation and keeps the shared shape (AC-3.3)
           if (_imageFrameHost) _imageFrameHost.resetSide(side);
-          updateSwapButtonVisibility();
+          // The flag is Item-wide, so a pattern image on the other side goes too (PR 1598 review);
+          // the refresh also supersedes any pattern read still in flight.
+          await refreshPatternPreviews();
 
           // STAK-244: Also clear Numista image cache if user is removing a catalog-synced image
           const catalogId = elements.itemCatalog?.value?.trim() || "";

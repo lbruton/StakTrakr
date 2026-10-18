@@ -2009,6 +2009,25 @@ test.describe("core/image-frame-editor — item image options (STRK-443)", () =>
     expect(stored.reverseImageUrl || "").toBe("");
   });
 
+  // Review finding on PR 1598 (Codex P2, round 3): Remove turns the Item-wide setting off, so the
+  // other side's pattern image must go too, matching what the options dialog then reports.
+  test("Remove on one pattern side clears the other pattern side and turns the option off", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+    await page.locator("#itemImageRemoveBtnObv").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page)).not.toBeChecked();
+    await page.locator("#appDialogCancel").click();
+  });
+
   test("turning the pattern option off keeps an Item's own link", async ({ page }) => {
     await seedAndGoto(page, { items: [{ ...SEED_ITEM, reverseImageUrl: "" }] });
     await seedPatternRule(page);
