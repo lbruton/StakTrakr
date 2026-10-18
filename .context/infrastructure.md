@@ -535,7 +535,7 @@ All poller code was consolidated into `StakTrakr/devops/pollers/` as of 2026-03-
 | Git push rejected on publish   | `git fetch origin api && git rebase origin/api` inside `/data/staktrakr-api-export`                                                                                                                       |
 | Stuck lockfile (Fly.io)        | Should self-clear (STRK-402 — `flock` releases on process death, unlike the old `noclobber` lockfile). If still wedged: `fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/*.flock"` |
 | Stuck lockfile (home)          | Portainer web UI Console: `rm -f /tmp/retail-poller.lock`                                                                                                                                                 |
-| CF vendor failures             | Check `CF_CLEARANCE_ENABLED=1`; check `docker logs staktrakr-byparr`                                                                                                                                      |
+| CF vendor failures             | Check `CF_CLEARANCE_ENABLED=1`; `docker logs staktrakr-byparr`. `Up (unhealthy)` + exec `Resource temporarily unavailable` = zombie leak (home-poller deep-dive)                                          |
 | Deploy context error           | Run `fly deploy` from `devops/pollers/` dir, not `remote-poller/`                                                                                                                                         |
 
 ---

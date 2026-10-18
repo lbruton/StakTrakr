@@ -68,9 +68,17 @@ services:
         max-file: "3"
 
   byparr:
+    # Stay on 2.1.0 for now. Upstream 3.0.4 returns the HTML it captured at
+    # domcontentloaded for unchallenged pages, i.e. the un-hydrated
+    # Bullion Exchanges shell (1/8 usable in testing vs 6/6 here). Move to
+    # upstream once a release contains ThePhaseless/Byparr c653b10. STRK-448.
     image: ghcr.io/lbruton/byparr:2.1.0
     container_name: staktrakr-byparr
     restart: unless-stopped
+    # Docker's init runs as PID 1 and reaps orphaned Camoufox processes.
+    # Without it, 2.1.0 leaks ~2,000 zombies/day until the cgroup task cap
+    # (~11.8k) is hit and Byparr hangs (ThePhaseless/Byparr#379). STRK-448.
+    init: true
     shm_size: "1g"
     environment:
       LOG_LEVEL: info
