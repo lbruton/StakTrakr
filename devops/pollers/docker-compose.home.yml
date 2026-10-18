@@ -68,14 +68,14 @@ services:
         max-file: "3"
 
   byparr:
-    # Stay on 2.1.0 for now. Upstream 3.0.4 returns the HTML it captured at
+    # Default: upstream release, pinned. Production overrides it with
+    # BYPARR_IMAGE (Portainer stack env) to keep running 2.1.0 from its own
+    # registry, because 3.0.4 returns the HTML it captured at
     # domcontentloaded for unchallenged pages, i.e. the un-hydrated
-    # Bullion Exchanges shell (1/8 usable in testing vs 6/6 here). Move to
-    # upstream once a release contains ThePhaseless/Byparr c653b10. STRK-448.
-    # BYPARR_IMAGE lets a deployment pull the same image from its own
-    # registry (production sets it in the Portainer stack env); the default
-    # stays public so self-hosters need no extra config.
-    image: ${BYPARR_IMAGE:-ghcr.io/lbruton/byparr:2.1.0}
+    # Bullion Exchanges shell (1/8 usable in testing vs 6/6 on 2.1.0).
+    # Once an upstream release contains ThePhaseless/Byparr c653b10, bump
+    # this default and drop the override. STRK-448.
+    image: ${BYPARR_IMAGE:-ghcr.io/thephaseless/byparr:3.0.4}
     container_name: staktrakr-byparr
     restart: unless-stopped
     # Docker's init runs as PID 1 and reaps orphaned Camoufox processes.
