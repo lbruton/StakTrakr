@@ -2252,13 +2252,20 @@ const _editLoadImages = (item) => {
             const obvUrl = await imageCache
               .resolveImageUrlForItem(itemMeta, "obverse")
               .catch(() => null);
-            if (obvUrl && !item.obverseImageUrl) showPreview(obvUrl, "Obv", "obverse");
+            if (obvUrl && !item.obverseImageUrl) {
+              showPreview(obvUrl, "Obv", "obverse");
+              // STRK-443: a pattern-rule image, not the Item's own, for the options toggle.
+              if (typeof markPatternPreview === "function") markPatternPreview("obverse", true);
+            }
           }
           if (!loaded.reverse) {
             const revUrl = await imageCache
               .resolveImageUrlForItem(itemMeta, "reverse")
               .catch(() => null);
-            if (revUrl && !item.reverseImageUrl) showPreview(revUrl, "Rev", "reverse");
+            if (revUrl && !item.reverseImageUrl) {
+              showPreview(revUrl, "Rev", "reverse");
+              if (typeof markPatternPreview === "function") markPatternPreview("reverse", true);
+            }
           }
         }
       })

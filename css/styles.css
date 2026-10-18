@@ -1518,6 +1518,27 @@ section {
   border: 1px solid var(--danger);
 }
 
+/* STRK-443: the one optional checkbox a shared app prompt can carry (image options). The row is
+   a 44px-tall label so the whole line is the touch target. Theme tokens only. */
+.app-dialog-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  margin-top: var(--spacing-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.app-dialog-option input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
 /* --- Toggle switch (iOS-style) ------------------------------------------- */
 .toggle-switch {
   position: relative;

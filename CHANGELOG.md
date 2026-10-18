@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.56] - 2026-10-17
+
+### Changed — STRK-443: Image options button in the Add/Edit Item modal
+
+- **Image options**: The small link icon on each Item image frame is now an image options button. It opens one dialog with the image link (unchanged: paste a URL, leave it empty to clear it, a malformed link is rejected) and a new "Use a matching pattern image" checkbox (STRK-443).
+- **Pattern image on/off per Item**: The checkbox is the Item's existing pattern-image setting, which until now only Remove and Swap could change. Turning it off clears any side showing a pattern-rule image right away; turning it back on fills empty sides from the matching rule again. The Item's own uploads and links are never touched, and Save stores the setting (STRK-443).
+- **Scope note**: The planned "Clear image cache" action was dropped: catalog images are no longer cached per Item, so it would have had no visible effect. The Collection builder gets its options button with its first action, the title-image URL, in STRK-444 (STRK-443).
+
 ## [3.36.55] - 2026-10-17
 
 ### Changed — STRK-442: Builder Slot thumbnails follow the collection's Image shape
