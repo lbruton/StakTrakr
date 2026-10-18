@@ -7,12 +7,12 @@ description: >
   architecture decisions are made, or project docs need updating. Triggers on: "update vault",
   "vault update", "docvault", "update docs", "add to vault", "vault"
 user-invocable: true
-library-version: 5834a2dcd445
+library-version: c1f149d0652e
 ---
 
 # Vault Update
 
-Since DEVS-78 (2026-09-28), docs are split across three vaults. There is no central repo to commit to anymore. The old `lbruton/DocVault` is a frozen archive.
+Since DEVS-78 (2026-09-28), docs are split across three vaults. There is no central repo to commit to anymore. The old central vault is a frozen, read-only archive on the home Gitea (`homelab/DocVault`), not cloned locally by default.
 
 ## Vault locations
 

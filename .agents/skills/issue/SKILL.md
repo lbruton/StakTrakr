@@ -6,7 +6,7 @@ description: >
   Triggers on: "create issue", "issue", "new issue", "new bug", "file a bug",
   "track this".
 user-invocable: false
-library-version: 5834a2dcd445
+library-version: c1f149d0652e
 ---
 
 # Issue Management

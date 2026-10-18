@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: 5834a2dcd445
+library-version: c1f149d0652e
 ---
 
 # Code-core rules
@@ -21,9 +21,9 @@ Documentation is split across three places (DEVS-78). Resolve paths with `vault-
 | **Shared** | `Devops/DocVault/` (`vault-path shared`) | KnowledgeBase (infra, architecture, matrices), cross-project research, runbooks, clippings, reports | direct commit to Devops `main`, `DocVault/**` only |
 | **Private companion** | `Devops/DocVault/Projects/<P>/` (`vault-path private`) | anything from a **public** repo that can't be public: LAN IPs, internal hosts, security reviews, dated audits and sweeps | same as shared |
 
-Agent-facing foundation docs live in the repo's `.context/`. The old central
-`/Volumes/DATA/GitHub/DocVault` is a **frozen, read-only archive**: never write to it, never link to it
-from new pages.
+Agent-facing foundation docs live in the repo's `.context/`. The old central vault is a **frozen,
+read-only archive** on the home Gitea (`homelab/DocVault`) and is not cloned locally by default: never
+write to it, never link to it from new pages.
 
 Treat DocVault as the primary long-form knowledge base for project and infrastructure documentation,
 development practices, procedures and runbooks, specs and approvals, research and architecture notes.
