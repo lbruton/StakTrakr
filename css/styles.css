@@ -20651,30 +20651,108 @@ input[type="number"] {
    classes stay on the elements; this block is later in the file than their rules on purpose.
    Ratios come from the shared :root --frame-* tokens, never literals.
    ========================================================================== */
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape] {
+/* STRK-442: the builder's Slot list (.collections-builder-rows) carries the same attributes, set
+   from the collection's shape and the obverse orientation; its Slot thumbnails inherit the ratio. */
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape] {
   --frame-r: 1;
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="slab"] {
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="slab"] {
   --frame-r: var(--frame-slab);
   --frame-radius-max: var(--frame-radius-slab);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"] {
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="bar"] {
   --frame-radius-max: var(--frame-radius-bar);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"] {
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="note"] {
   --frame-radius-max: var(--frame-radius-note);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="portrait"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="bar"][data-orientation="portrait"] {
   --frame-r: var(--frame-bar-portrait);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="landscape"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="bar"][data-orientation="landscape"] {
   --frame-r: var(--frame-bar-landscape);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="portrait"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="note"][data-orientation="portrait"] {
   --frame-r: var(--frame-note-portrait);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="landscape"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="note"][data-orientation="landscape"] {
   --frame-r: var(--frame-note-landscape);
+}
+
+/* STRK-442: a Slot thumbnail is the largest frame of the collection's ratio inside the row's
+   44px box (so the row keeps its height), centred in its grid column, and fits the photo whole
+   like the title images and the item modal: neither modal crops (STRK-434). */
+.collections-builder-rows[data-shape] .collections-builder-row {
+  /* A landscape thumbnail is shorter than 44px; the track minimum keeps every row the height a
+     round one gives it, while the chooser (and its remove badge) stays the thumbnail's size. */
+  grid-auto-rows: minmax(44px, auto);
+}
+.collections-builder-rows[data-shape] .collections-builder-row > .collections-image-chooser {
+  justify-self: center;
+}
+.collections-builder-rows[data-shape] .collections-image-pick {
+  --frame-w: min(44px, calc(44px * var(--frame-r)));
+  width: var(--frame-w);
+  aspect-ratio: var(--frame-r);
+  /* Lets the 44px touch target below overflow the shaped button. A visible-overflow box gets an
+     automatic content minimum height that would override aspect-ratio, so zero it. */
+  position: relative;
+  overflow: visible;
+  min-height: 0;
+}
+.collections-builder-rows[data-shape]:not([data-shape="round"]) .collections-image-pick {
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-w) / var(--frame-r)) * var(--frame-radius-scale))
+  );
+}
+.collections-builder-rows[data-shape] .collections-image-pick img {
+  /* Pinned to the frame: as a grid child its auto track would grow to the photo's own height and
+     spill past a landscape frame, so contain would fit it to the wrong box. */
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+  /* The button no longer clips (see the touch target below), so the photo rounds itself. */
+  border-radius: inherit;
+}
+/* A shaped Slot button is narrower (portrait) or shorter (landscape) than 44px, and the rounded
+   corners of any shape are not hit-tested, so a transparent 44px square centred on it keeps the
+   full touch target (the item modal's .ife-link pattern). */
+.collections-builder-rows[data-shape] .collections-image-pick::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+/* A Slot holding a photo drops the dashed drop-zone outline, as the title frames do
+   (.ife-frame.has-image), so the letterbox bands read as part of the photo. The border keeps its
+   width so the frame's size does not change. */
+.collections-builder-rows[data-shape] .collections-image-pick:has(img) {
+  border-color: transparent;
+  background: transparent;
 }
 
 /* Cards: the box each style already gave its image wrapper. */
