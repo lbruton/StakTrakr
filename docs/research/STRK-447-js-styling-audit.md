@@ -164,8 +164,10 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
   `color-mix(` don't match.
 - **The 148 CSS named colours only**, not any keyword. All 148 were validated with
   `CSS.supports("color", name)` in Chromium. Named colours are matched as a `var()` fallback
-  anywhere (`var(--success-color, green)`). They are also matched anywhere inside a string
-  literal or template written to a colour-bearing `.style` property: `color`, any `*Color`
+  anywhere (`var(--success-color, green)`). They are also matched in any string literal or
+  template part anywhere on the right-hand side of an assignment to a colour-bearing `.style`
+  property, including conditionals and concatenations (`failed ? "red" : "green"`). The
+  properties are `color`, any `*Color`
   including multiword names (`backgroundColor`, `caretColor`, `textDecorationColor`,
   `borderInlineStartColor`, …), `background`, every `border*`,
   `outline*`, `boxShadow`, `textShadow`, `fill` and `stroke`. Examples: `"orange"`,
@@ -182,13 +184,16 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
   it stays within one declaration. A colour name elsewhere in a string isn't flagged:
   prose such as `"Red alert"` and metal keys such as `METALS.GOLD.color = "gold"` in
   `js/constants.js` (token names, not CSS colours) pass.
-- **Nothing inside `url(…)`.** Asset paths such as `url(/icons/red/status.svg)` and SVG
-  references such as `url(#fade)` (whose id reads as 4-digit hex) are skipped. A colour after
-  the closing parenthesis still matches.
+- **Nothing inside `url(…)`.** This applies to hex, colour functions and named colours alike.
+  Asset paths such as `url(/icons/red/status.svg)`, SVG references such as `url(#fade)`
+  (whose id reads as 4-digit hex) and inline SVG data URLs such as
+  `url("data:image/svg+xml,<svg fill=rgb(1 2 3)>")` are skipped. A colour after the closing
+  parenthesis still matches.
 - **One report per node.** Selectors run from most to least specific, and each skips values
   an earlier one already reports.
 
-A labelled fixture checked the rule. It hits each of these exactly once (27 hits):
+A labelled fixture checked the rule. It reports each of these exactly once, with no node
+reported twice (30 hits):
 
 - `"Orange"` written to `.style.color`
 - `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`
@@ -203,6 +208,7 @@ A labelled fixture checked the rule. It hits each of these exactly once (27 hits
   `.style.caretColor = "orange"`, `.style.textDecorationColor = "red"`,
   `.style.borderInlineStartColor = "Teal"`
 - `style="background: url(/a.svg) red"` (the colour after the URL)
+- `.style.color = failed ? "red" : "green"` (both branches), `.style.borderColor = "solid " + "navy"`
 
 It passes:
 
@@ -214,7 +220,10 @@ It passes:
   `contrast-color(red)`
 - `style="background: url(/icons/red/status.svg) no-repeat"`,
   `cssText = "background-image: url(/img/gold-bar.png)"`,
-  `.style.background = "url(/icons/red/x.svg)"`, `.style.filter = "url(#fade)"`
+  `.style.background = "url(/icons/red/x.svg)"`, `.style.filter = "url(#fade)"`,
+  `url("data:image/svg+xml,<svg fill=rgb(1 2 3)>")`, and an `hsl()` inside a
+  `backgroundImage` data URL
+- `.style.color = failed ? "var(--danger)" : "var(--success)"`
 - the prose `"Red alert: the color is wrong"`, and `"red"` assigned to a plain variable
 
 ```js
@@ -231,7 +240,8 @@ const NAMED_COLORS =
 const NOT_IN_URL = "(?<!url\\([^)]*)";
 // Hex (only the CSS lengths 3, 4, 6, 8) and every CSS colour function, case-insensitive.
 // HTML entities (&#128196;) and hyphenated names (contrast-color(, color-mix() are excluded.
-const LITERAL = `/${NOT_IN_URL}(?<![&\\w])#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![0-9a-z])|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i`;
+// The url() guard applies to both alternatives (data:image/svg+xml,…fill=rgb(…) is skipped).
+const LITERAL = `/${NOT_IN_URL}(?:(?<![&\\w])#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![0-9a-z])|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\()/i`;
 // A named colour used as a var() fallback, e.g. var(--success-color, green).
 const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
 // A named colour inside a CSS declaration in any string: style="color:red", cssText
@@ -283,11 +293,13 @@ module.exports = [
             "Named colour in a generated inline style — use a CSS token or a class (STRK-447).",
         },
         {
-          selector: `${COLOR_ASSIGN} > Literal.right[value=${NAMED_IN_VALUE}]${NOT_EARLIER}${NOT_DECL}`,
+          // Descendant (space) selectors: any literal or template part anywhere under the
+          // assignment, so conditionals and concatenations (failed ? "red" : "green") are covered.
+          selector: `${COLOR_ASSIGN} Literal[value=${NAMED_IN_VALUE}]${NOT_EARLIER}${NOT_DECL}`,
           message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
         },
         {
-          selector: `${COLOR_ASSIGN} > TemplateLiteral.right > TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_EARLIER_RAW}${NOT_DECL_RAW}`,
+          selector: `${COLOR_ASSIGN} TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_EARLIER_RAW}${NOT_DECL_RAW}`,
           message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
         },
       ],
