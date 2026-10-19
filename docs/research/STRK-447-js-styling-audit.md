@@ -147,23 +147,39 @@ grep -rnoE 'var\(--[a-zA-Z0-9-]+' js/*.js | sed -E 's/var\(//' |
 ## Proposed ESLint guard (STRK-455)
 
 Prototyped against `dev` with `npx eslint --no-config-lookup -c <file> "js/**/*.js"`. It
-reports 50 hits in 15 files and zero parse errors, one hit per node. The lookbehind keeps HTML
-entities such as `&#128196;` from matching. Named colours are matched in two shapes: as a
-`var()` fallback anywhere (`var(--success-color, green)`), and as a bare keyword written to a
-colour `.style` property (`el.style.color = "orange"`). `inherit`, `currentColor`,
-`transparent`, `initial` and `unset` are allowed. A bare word in any other string isn't
-flagged: metal keys such as `METALS.GOLD.color = "gold"` in `js/constants.js` are token
-names, not CSS colours.
+reports 50 hits in 15 files and zero parse errors, one hit per node. What it matches:
+
+- **Hex and every CSS colour function**: `rgb`/`rgba`, `hsl`/`hsla`, `hwb`, `lab`, `lch`,
+  `oklab`, `oklch` and `color()`, case-insensitive. Chromium accepts each one through
+  `CSS.supports("color", …)`. The lookbehinds skip HTML entities such as `&#128196;` and
+  hyphenated names, so `contrast-color(red)` (a feature test in `js/filters.js`) and
+  `color-mix(` don't match.
+- **The 148 CSS named colours only**, not any keyword. All 148 were validated with
+  `CSS.supports("color", name)` in Chromium. Named colours are matched as a `var()` fallback
+  anywhere (`var(--success-color, green)`) and as the value written to a colour `.style`
+  property (`el.style.color = "orange"`). Keywords such as `none`, `auto`, `inherit` and
+  `transparent` are never flagged. A colour name in any other string isn't flagged either:
+  metal keys such as `METALS.GOLD.color = "gold"` in `js/constants.js` are token names, not
+  CSS colours.
+
+A labelled fixture checked the rule: it hits `"Orange"` on `.style.color`, `var(--x, Green)`,
+`LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)` and `#ABCDEF`. It passes
+`.style.background = "none"`, `var(--layout-mode, auto)`, `getContrastColor(x)`, `&#128196;`,
+`color-mix(…)` and `contrast-color(red)`.
 
 ```js
 const COLOR_PROPS = "color|backgroundColor|background|borderColor|fill|stroke";
-// Hex and colour functions anywhere; HTML entities (&#128196;) are excluded by the lookbehind.
-const LITERAL = "/(?<![&\\w])#[0-9a-fA-F]{3,8}\\b|\\b(rgba?|hsla?|oklch)\\(/";
+// The 148 CSS named colours (CSS Color 4). Validated with CSS.supports("color", name) in Chromium.
+const NAMED_COLORS =
+  "aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen";
+// Hex and every CSS colour function, case-insensitive. HTML entities (&#128196;) and
+// hyphenated names (contrast-color(, color-mix() are excluded by the lookbehinds.
+const LITERAL =
+  "/(?<![&\\w])#[0-9a-f]{3,8}\\b|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i";
 // A named colour used as a var() fallback, e.g. var(--success-color, green).
-const NAMED_FALLBACK =
-  "/var\\(--[\\w-]+,\\s*(?!inherit|currentColor|transparent|initial|unset)[a-zA-Z]+\\s*\\)/";
-// Any bare keyword written to a colour style property, e.g. el.style.color = "orange".
-const NAMED_VALUE = "/^(?!inherit$|currentColor$|transparent$|initial$|unset$|var\\()[a-zA-Z]+$/";
+const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
+// A named colour written to a colour style property, e.g. el.style.color = "orange".
+const NAMED_VALUE = `/^(${NAMED_COLORS})$/i`;
 module.exports = [
   {
     files: ["js/**/*.js"],
