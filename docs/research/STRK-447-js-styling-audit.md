@@ -165,15 +165,18 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
 - **The 148 CSS named colours only**, not any keyword. All 148 were validated with
   `CSS.supports("color", name)` in Chromium. Named colours are matched as a `var()` fallback
   anywhere (`var(--success-color, green)`). They are also matched anywhere inside a string
-  literal or template written to a colour `.style` property: `"orange"`,
-  `"linear-gradient(red, blue)"`, `` `red` `` and `` `linear-gradient(${a}, navy)` ``.
+  literal or template written to a colour-bearing `.style` property: `color`, any `*Color`
+  (`backgroundColor`, `caretColor`, `accentColor`, …), `background`, every `border*`,
+  `outline*`, `boxShadow`, `textShadow`, `fill` and `stroke`. Examples: `"orange"`,
+  `"linear-gradient(red, blue)"`, `border = "1px solid red"`, `boxShadow = "0 0 2px blue"`,
+  `` `red` `` and `` `linear-gradient(${a}, navy)` ``.
   Word and hyphen lookarounds keep token names like `var(--gold)` and
   `var(--type-gold-bg)` from matching. Keywords such as `none`, `auto`, `inherit` and
   `transparent` are never flagged.
 - **Named colours in generated inline styles.** Any string or template part matches when it
-  holds a CSS colour declaration (`color`, `background[-color]`, `border*`,
-  `outline[-color]`, `fill`, `stroke`, `box-shadow`, `text-shadow`) whose value names a
-  colour. Examples: `'<span style="color:red">'`, `` `<td style="border: 1px solid navy">` ``,
+  holds a CSS colour declaration whose value names a colour. The properties are the same set
+  in kebab case: `color`, any `*-color`, `background`, `border*`, `outline*`, `box-shadow`,
+  `text-shadow`, `fill`, `stroke`. Examples: `'<span style="color:red">'`, `` `<td style="border: 1px solid navy">` ``,
   and `cssText = "background-color: white"`. The match stops at `;`, quotes or backticks, so
   it stays within one declaration. A colour name elsewhere in a string isn't flagged:
   prose such as `"Red alert"` and metal keys such as `METALS.GOLD.color = "gold"` in
@@ -181,7 +184,7 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
 - **One report per node.** Selectors run from most to least specific, and each skips values
   an earlier one already reports.
 
-A labelled fixture checked the rule. It hits each of these exactly once (18 hits):
+A labelled fixture checked the rule. It hits each of these exactly once (24 hits):
 
 - `"Orange"` written to `.style.color`
 - `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`
@@ -189,11 +192,16 @@ A labelled fixture checked the rule. It hits each of these exactly once (18 hits
 - `"linear-gradient(red, blue)"`, `` `red` ``, `` `linear-gradient(${a}, Navy)` ``
 - `"var(--x, red)"`, `"linear-gradient(#fff, red)"`
 - `style="color:red"`, a template `style="border: 1px solid Navy"`,
-  `cssText = "…background-color: white"`, `style="color: var(--x, red)"`
+  `cssText = "…background-color: white"`, `style="color: var(--x, red)"`,
+  `style="caret-color: purple"`
+- `.style.border = "1px solid red"`, `.style.outline = "2px dotted navy"`,
+  `.style.boxShadow = "0 0 2px blue"`, `` .style.borderLeft = `3px solid ${a} green` ``,
+  `.style.caretColor = "orange"`
 
 It passes:
 
-- `.style.background = "none"`, `var(--layout-mode, auto)`
+- `.style.background = "none"`, `.style.outline = "none"`, `.style.borderRadius = "4px"`,
+  `var(--layout-mode, auto)`
 - `"var(--gold)"`, `"var(--type-gold-bg)"`, `style="color:var(--gold)"`,
   `style="background:none;color:var(--text-muted)"`
 - `#12345`, `#1234567`, `getContrastColor(x)`, `&#128196;`, `color-mix(…)`,
@@ -201,7 +209,11 @@ It passes:
 - the prose `"Red alert: the color is wrong"`, and `"red"` assigned to a plain variable
 
 ```js
-const COLOR_PROPS = "color|backgroundColor|background|borderColor|fill|stroke";
+// Colour-bearing style properties (camelCase): color, any *Color (backgroundColor, caretColor,
+// accentColor, textDecorationColor, …), background, every border*, outline*, the shadows,
+// fill and stroke. Kept in step with the property list in NAMED_IN_DECL.
+const COLOR_PROPS =
+  "color|[a-z]+Color|background|border[A-Za-z]*|outline[A-Za-z]*|boxShadow|textShadow|fill|stroke";
 // The 148 CSS named colours (CSS Color 4). Validated with CSS.supports("color", name) in Chromium.
 const NAMED_COLORS =
   "aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen";
@@ -213,7 +225,7 @@ const LITERAL =
 const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
 // A named colour inside a CSS declaration in any string: style="color:red", cssText
 // "border:1px solid red;", template parts. Stops at ; " ' so it stays in one declaration.
-const NAMED_IN_DECL = `/(?<![\\w-])(color|background(-color)?|border(-[a-z]+)*|outline(-color)?|fill|stroke|box-shadow|text-shadow)\\s*:[^;"'\`]*?(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
+const NAMED_IN_DECL = `/(?<![\\w-])(color|[a-z-]+-color|background|border(-[a-z]+)*|outline(-[a-z]+)*|box-shadow|text-shadow|fill|stroke)\\s*:[^;"'\`]*?(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // A named colour anywhere in a value written to a colour style property, e.g. "orange" or
 // "linear-gradient(red, blue)". The hyphen/word lookarounds skip token names like var(--gold).
 const NAMED_IN_VALUE = `/(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
