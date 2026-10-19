@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.58] - 2026-10-18
+
+### Changed — STRK-444: Custom Collection title images by live URL
+
+- **Title image links**: Each Custom Collection title frame now has an image options button for a live HTTP(S) image link. Obverse and reverse links can be previewed, swapped with links or uploads, and removed independently (STRK-444).
+- **Persistence and cleanup**: Title links survive reload, ZIP restore, Collections export/import and cloud sync. Replacing an upload with a link removes the old stored image; an untouched link in an open builder preserves another tab's newer edit (STRK-444).
+
+---
+
 ## [3.36.57] - 2026-10-18
 
 ### Changed — STRK-446: Readable filter chips in every theme

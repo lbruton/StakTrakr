@@ -585,16 +585,7 @@ const _setUrlPreviewGeneration = (side) => {
 const _getUrlPreviewGeneration = (side) =>
   side === "reverse" ? _urlPreviewGenRev : _urlPreviewGenObv;
 
-const _normalizeHttpImageUrl = (value = "") => {
-  const trimmed = value.trim();
-  if (!/^https?:\/\/.+\..+/i.test(trimmed)) return "";
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
-  } catch {
-    return "";
-  }
-};
+const _normalizeHttpImageUrl = (value = "") => window.collectionsCore.normalizeImageUrl(value);
 
 const previewImageUrlForSide = (side = "obverse", url = "") => {
   const suffix = _frameSuffix(side);

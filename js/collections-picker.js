@@ -568,9 +568,15 @@
    * already leave them out.
    * @param {string} collectionId - Collection id
    * @param {string} [slotId] - Slot id; omit for the cover
-   * @returns {Promise<string|null>} blob: URL, or null when there is no current image
+   * @returns {Promise<string|null>} Live title link, owned blob: URL, or null
    */
   const getImageUrl = async (collectionId, slotId) => {
+    if (slotId == null || slotId === "title:reverse") {
+      const definition = window.collectionsStore.getState().collections[collectionId]?.definition;
+      const key = slotId === "title:reverse" ? "reverseImageUrl" : "obverseImageUrl";
+      const link = window.collectionsCore.normalizeImageUrl(definition?.[key]);
+      if (link) return link;
+    }
     if (!window.imageCache || !window.imageCache.isAvailable()) return null;
     try {
       const id = imageId(collectionId, slotId);
@@ -621,10 +627,10 @@
    * @returns {Promise<boolean>} Whether removal was recorded
    */
   const deleteImage = async (collectionId, slotId) => {
-    if (!window.imageCache || !window.imageCache.isAvailable()) return false;
     try {
       const stamped = window.collectionsStore.setArtwork(collectionId, slotId, false);
       if (!stamped.ok) return false;
+      if (!window.imageCache || !window.imageCache.isAvailable()) return true;
       const removed = await window.imageCache.deletePatternImage(imageId(collectionId, slotId));
       if (removed && typeof scheduleSyncPush === "function") scheduleSyncPush();
       if (!removed) return false;
@@ -783,6 +789,8 @@
     // chooser holds an image; `onRemove()` fires when the user removes it.
     const { side, read, onPresence, onRemove } = options;
     let chosen = null;
+    let link = options.link || "";
+    let touched = false;
     let previewUrl = null;
     let removed = false;
     let hadStoredImage = false;
@@ -800,6 +808,8 @@
     const node = el("span", "collections-image-chooser");
     const remove = button("collections-image-remove", "×", () => {
       chosen = null;
+      link = "";
+      touched = true;
       removed = true;
       input.value = "";
       setPreview(null);
@@ -809,6 +819,40 @@
     remove.title = `Remove ${label.toLowerCase()}`;
     remove.hidden = true;
     node.append(trigger, remove, input);
+    if (side) {
+      const advanced = button("ife-link", "", async () => {
+        const value = await window.showAppPrompt(
+          "Paste a link to the image, for example from imgur.",
+          link,
+          side === "reverse" ? "Reverse title image" : "Obverse title image"
+        );
+        if (value === null || disposed) return;
+        const trimmed = String(value).trim();
+        const next = window.collectionsCore.normalizeImageUrl(trimmed);
+        if (trimmed && !next) {
+          await window.showAppAlert(
+            "That doesn't look like a web link. Use a full address that starts with http:// or https://.",
+            "Image link"
+          );
+          return;
+        }
+        if (next === link) return;
+        link = next;
+        touched = true;
+        chosen = null;
+        removed = true;
+        input.value = "";
+        setPreview(link || null);
+      });
+      advanced.setAttribute(
+        "aria-label",
+        `${side === "reverse" ? "Reverse" : "Obverse"} image options`
+      );
+      advanced.title = "Image options";
+      advanced.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3"/><path d="M14 2v4M8 10v4M16 18v4"/></svg>';
+      node.appendChild(advanced);
+    }
     const setPreview = (url) => {
       if (disposed) {
         if (url) URL.revokeObjectURL(url);
@@ -831,19 +875,25 @@
     input.addEventListener("change", () => {
       if (disposed) return;
       chosen = input.files && input.files[0] ? input.files[0] : null;
+      if (!chosen) return;
+      link = "";
+      touched = true;
       removed = false;
-      if (chosen) setPreview(URL.createObjectURL(chosen));
+      setPreview(URL.createObjectURL(chosen));
     });
     return {
       node,
       getFile: () => chosen,
-      isRemoved: () => removed && hadStoredImage,
+      getLink: () => link,
+      isTouched: () => touched,
+      isRemoved: () => removed && (hadStoredImage || Boolean(side)),
       /**
        * The image this side would save: a chosen file, nothing once removed (a pending Remove is
        * never resurrected), otherwise the stored blob. A failed stored read rejects (D-9).
-       * @returns {Promise<Blob|null>}
+       * @returns {Promise<Blob|string|null>}
        */
       effective: async () => {
+        if (link) return link;
         if (chosen) return chosen;
         if (removed || !hadStoredImage || !read) return null;
         return read();
@@ -851,12 +901,18 @@
       /**
        * Show a swapped-in image as this side's chosen file, or empty the side. Emptying a side
        * that held a stored image marks it removed, so Save deletes the image and its stamp.
-       * @param {Blob|null} blob
+       * @param {Blob|string|null} blob
        */
       adopt: (blob) => {
         if (disposed) return;
         input.value = "";
-        if (blob) {
+        touched = true;
+        link = typeof blob === "string" ? blob : "";
+        if (link) {
+          chosen = null;
+          removed = true;
+          setPreview(link);
+        } else if (blob) {
           chosen =
             blob instanceof File
               ? blob
@@ -871,6 +927,10 @@
       },
       setPreview: (url) => {
         if (url) hadStoredImage = true;
+        if (touched) {
+          if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+          return;
+        }
         setPreview(url);
       },
       dispose: () => {
@@ -1063,6 +1123,8 @@
         (context.template && context.template.about) ||
         "",
       description: definition.about || definition.description || "",
+      obverseImageUrl: definition.obverseImageUrl || "",
+      reverseImageUrl: definition.reverseImageUrl || "",
       side: definition.side === "reverse" ? "reverse" : "obverse",
       showItemImages: definition.showItemImages !== false,
       slots,
@@ -1320,6 +1382,7 @@
     let swapping = false;
     const chooserHooks = (side, slotId) => ({
       side,
+      link: side === "reverse" ? seed.reverseImageUrl : seed.obverseImageUrl,
       read: () => readStoredBlob(seed.editId, slotId),
       onPresence: (present) => {
         holds[side] = present;
@@ -1413,6 +1476,10 @@
       orientation: { obverse: seed.imageOrientation, reverse: seed.reverseImageOrientation },
     });
     chooserDisposers.push(() => frameEditor && frameEditor.dispose());
+    if (!seed.editId) {
+      if (seed.obverseImageUrl) cover.setPreview(seed.obverseImageUrl);
+      if (seed.reverseImageUrl) reverseTitle.setPreview(seed.reverseImageUrl);
+    }
     // An edit starts with its stored previews still loading, so Swap starts held.
     syncSwap();
     if (seed.editId) {
@@ -1778,6 +1845,10 @@
         imageOrientation: frameEditor.getState().obverseOrientation || undefined,
         reverseImageOrientation: frameEditor.getState().reverseOrientation || undefined,
         about: about.value,
+        ...(cover.isTouched() || !seed.editId ? { obverseImageUrl: cover.getLink() } : {}),
+        ...(reverseTitle.isTouched() || !seed.editId
+          ? { reverseImageUrl: reverseTitle.getLink() }
+          : {}),
         side: side.getValue(),
         showItemImages: itemImages.getValue() === "show",
         description: about.value,

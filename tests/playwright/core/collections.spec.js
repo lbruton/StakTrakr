@@ -5460,3 +5460,292 @@ test.describe("core/collections — STRK-440 cross-tab Collections state", () =>
     await expect(builder).toBeVisible();
   });
 });
+
+test.describe("STRK-444 Collection title image links", () => {
+  const front = "https://images.example.com/front.png";
+  const back = "https://images.example.com/back.png";
+  const builder = (page) => page.locator("#collectionsBuilderModal");
+  const setLink = async (page, side, url) => {
+    await builder(page)
+      .getByRole("button", { name: `${side} image options`, exact: true })
+      .click();
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+    await page.locator("#appDialogInput").fill(url);
+    await page.locator("#appDialogOk").click();
+  };
+  const start = async (page, definition = {}) => {
+    await page.route("https://images.example.com/**", (route) =>
+      route.fulfill({
+        contentType: "image/png",
+        body: readFileSync("tests/playwright/helpers/test-obverse.png"),
+      })
+    );
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    return page.evaluate((extra) => {
+      const result = window.collectionsStore.createCustom({
+        name: "Linked title set",
+        slots: [{ label: "First" }],
+        ...extra,
+      });
+      window.collectionsUI.openCollection(result.collection.id);
+      window.collectionsPicker.openBuilder({ editId: result.collection.id });
+      return result.collection.id;
+    }, definition);
+  };
+  const save = async (page) => {
+    await builder(page).getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(builder(page)).toBeHidden();
+  };
+
+  test("links preview, swap, render, reload and round-trip through standalone state", async ({
+    page,
+  }) => {
+    const id = await start(page);
+    await setLink(page, "Obverse", front);
+    await setLink(page, "Reverse", back);
+    const previews = builder(page).locator(".collections-builder-title-option img");
+    await expect(previews.nth(0)).toHaveAttribute("src", front);
+    await expect(previews.nth(1)).toHaveAttribute("src", back);
+    await builder(page).getByRole("button", { name: "Swap obverse and reverse images" }).click();
+    await expect(previews.nth(0)).toHaveAttribute("src", back);
+    await save(page);
+    const titles = panel(page).locator(".collections-album-head .collections-coin img");
+    await expect(titles).toHaveCount(2);
+    await expect(titles.nth(0)).toHaveAttribute("src", back);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      back
+    );
+    await reloadCollections(page);
+    await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
+    await expect(titles.nth(0)).toHaveAttribute("src", back);
+    const roundTrip = await page.evaluate(async (key) => {
+      const payload = window.collectionsIO.buildPayload();
+      saveDataSync(COLLECTION_STATE_KEY, window.collectionsCore.createEmptyState());
+      window.collectionsStore.reload();
+      const result = await window.collectionsIO.importFile(
+        new File([JSON.stringify(payload)], "collections.json")
+      );
+      return { result, definition: window.collectionsStore.getState().collections[key].definition };
+    }, id);
+    expect(roundTrip.result.ok).toBe(true);
+    expect(roundTrip.definition.obverseImageUrl).toBe(back);
+    expect(roundTrip.definition.reverseImageUrl).toBe(front);
+  });
+
+  test("invalid links and Cancel preserve the saved image; Remove clears it", async ({ page }) => {
+    const id = await start(page, { obverseImageUrl: front });
+    await expect(builder(page).locator(".collections-builder-title-option img")).toHaveAttribute(
+      "src",
+      front
+    );
+    await setLink(page, "Obverse", "javascript:alert(1)");
+    await expect(page.locator("#appDialogModal")).toContainText("full address");
+    await page.locator("#appDialogOk").click();
+    await expect(builder(page).locator(".collections-builder-title-option img")).toHaveAttribute(
+      "src",
+      front
+    );
+    await setLink(page, "Obverse", back);
+    await builder(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+        id
+      )
+    ).toBe(front);
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await builder(page).getByRole("button", { name: "Remove cover image", exact: true }).click();
+    await save(page);
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+        id
+      )
+    ).toBeUndefined();
+    await expect(panel(page).locator(".collections-album-head .collections-coin img")).toHaveCount(
+      0
+    );
+  });
+
+  test("a stored upload swaps with a link and URL replacement cleans up the old Blob", async ({
+    page,
+  }) => {
+    const id = await start(page, { reverseImageUrl: back });
+    await builder(page)
+      .locator(".collections-builder-title-option input[type=file]")
+      .first()
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+          id
+        )
+      )
+      .toBe(true);
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const swap = builder(page).getByRole("button", { name: "Swap obverse and reverse images" });
+    await expect(swap).toBeEnabled();
+    await swap.click();
+    await expect(
+      builder(page).locator(".collections-builder-title-option img").first()
+    ).toHaveAttribute("src", back);
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => ({
+            old: Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+            moved: Boolean(
+              await window.imageCache.getPatternImage(`collection--${key}--@title-reverse`)
+            ),
+            url: window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+          }),
+          id
+        )
+      )
+      .toEqual({ old: false, moved: true, url: back });
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await setLink(page, "Reverse", front);
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) =>
+            Boolean(await window.imageCache.getPatternImage(`collection--${key}--@title-reverse`)),
+          id
+        )
+      )
+      .toBe(false);
+  });
+
+  test("an untouched URL in an open builder preserves another tab's update", async ({ page }) => {
+    const id = await start(page, { obverseImageUrl: front });
+    await page.evaluate(
+      ({ key, url }) => {
+        const state = window.collectionsStore.exportState();
+        window.collectionsCore.updateCustomDefinition(state, key, {
+          name: "Linked title set",
+          slots: state.collections[key].definition.slots,
+          obverseImageUrl: url,
+          now: new Date(Date.now() + 1000).toISOString(),
+        });
+        // Another tab's write can precede this tab's queued storage event.
+        saveDataSync(COLLECTION_STATE_KEY, state);
+      },
+      { key: id, url: back }
+    );
+    await save(page);
+    await expect(
+      panel(page).locator(".collections-album-head .collections-coin img").first()
+    ).toHaveAttribute("src", back);
+  });
+  test("four themes keep title link controls usable at desktop and mobile sizes", async ({
+    page,
+  }) => {
+    await start(page, { obverseImageUrl: front, reverseImageUrl: back });
+    await page.addStyleTag({
+      content:
+        "*, *::before, *::after { animation: none !important; transition: none !important; }",
+    });
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      for (const theme of ["light", "dark", "slate", "sepia"]) {
+        await page.evaluate(
+          (value) => document.documentElement.setAttribute("data-theme", value),
+          theme
+        );
+        const button = builder(page).getByRole("button", {
+          name: "Obverse image options",
+          exact: true,
+        });
+        await expect(button).toBeVisible();
+        const geometry = await button.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, width: window.innerWidth };
+        });
+        expect(geometry.left).toBeGreaterThanOrEqual(0);
+        expect(geometry.right).toBeLessThanOrEqual(geometry.width);
+        await page.screenshot({ path: `playground/images/STRK-444/${width}-${theme}-builder.png` });
+        await button.click();
+        await expect(page.locator("#appDialogInput")).toHaveValue(front);
+        await page.screenshot({ path: `playground/images/STRK-444/${width}-${theme}-dialog.png` });
+        await page.locator("#appDialogCancel").click();
+      }
+    }
+  });
+  test("cloning a linked Collection seeds previews and preserves links on create", async ({
+    page,
+  }) => {
+    const id = await start(page, { reverseImageUrl: back });
+    await builder(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ cloneFrom: key }), id);
+    await expect(builder(page).locator(".collections-builder-title-option img")).toHaveAttribute(
+      "src",
+      back
+    );
+    await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+    await expect(builder(page)).toBeHidden();
+    const clone = await page.evaluate(
+      (key) =>
+        Object.values(window.collectionsStore.getState().collections).find(
+          (entry) => entry.id !== key && entry.clonedFrom === key
+        ),
+      id
+    );
+    expect(clone.definition.reverseImageUrl).toBe(back);
+    await expect(panel(page).locator(".collections-album-head .collections-coin img")).toHaveCount(
+      1
+    );
+  });
+
+  test("a URL saved before the stored preview resolves still deletes the replaced Blob", async ({
+    page,
+  }) => {
+    const id = await start(page);
+    await builder(page)
+      .locator(".collections-builder-title-option input[type=file]")
+      .first()
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+          id
+        )
+      )
+      .toBe(true);
+    await page.evaluate((key) => {
+      const original = window.imageCache.getPatternImage.bind(window.imageCache);
+      let first = true;
+      window.imageCache.getPatternImage = async (ruleId) => {
+        if (first && ruleId === `collection--${key}`) {
+          first = false;
+          await new Promise((resolve) => {
+            window.__releaseTitleRead = resolve;
+          });
+        }
+        return original(ruleId);
+      };
+      window.collectionsPicker.openBuilder({ editId: key });
+    }, id);
+    await setLink(page, "Obverse", front);
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+          id
+        )
+      )
+      .toBe(false);
+    await page.evaluate(() => window.__releaseTitleRead());
+    await expect(
+      panel(page).locator(".collections-album-head .collections-coin img")
+    ).toHaveAttribute("src", front);
+  });
+});

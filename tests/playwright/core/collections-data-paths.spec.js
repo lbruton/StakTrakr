@@ -2104,3 +2104,107 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     await expect(hiddenKeyRow.locator(".storage-key-label")).toContainText("Hidden Collections");
   });
 });
+
+test("STRK-444 live title links survive ZIP restore and change the sync settings hash", async ({
+  page,
+}) => {
+  await seedAndGoto(page);
+  const id = await page.evaluate(
+    () =>
+      window.collectionsStore.createCustom({
+        name: "Linked titles backup",
+        slots: [{ label: "One" }],
+        obverseImageUrl: "https://images.example.com/front.png",
+        reverseImageUrl: "https://images.example.com/back.png",
+      }).collection.id
+  );
+  const beforeHash = await page.evaluate(() => window.computeSettingsHash());
+  const exported = await captureDownload(page, "createBackupZip");
+  await wipeCollections(page);
+  expect(await page.evaluate(() => window.computeSettingsHash())).not.toBe(beforeHash);
+  const toasts = await restoreBackupZipAndAccept(page, exported.bytes);
+  expect(toasts).toContain("ZIP backup restored successfully");
+  const restored = await page.evaluate(
+    async (key) => ({
+      definition: window.collectionsStore.getState().collections[key].definition,
+      hash: await window.computeSettingsHash(),
+      resolved: await window.collectionsPicker.getTitleImage(key, "reverse"),
+    }),
+    id
+  );
+  expect(restored.definition).toMatchObject({
+    obverseImageUrl: "https://images.example.com/front.png",
+    reverseImageUrl: "https://images.example.com/back.png",
+  });
+  expect(restored.resolved).toEqual({
+    url: "https://images.example.com/back.png",
+    side: "reverse",
+  });
+  const linkHash = await page.evaluate(async (key) => {
+    const original = localStorage.getItem(COLLECTION_STATE_KEY);
+    const state = window.collectionsStore.exportState();
+    delete state.collections[key].definition.obverseImageUrl;
+    saveDataSync(COLLECTION_STATE_KEY, state);
+    const withoutLink = await window.computeSettingsHash();
+    localStorage.setItem(COLLECTION_STATE_KEY, original);
+    return { withoutLink, restored: await window.computeSettingsHash() };
+  }, id);
+  expect(linkHash.withoutLink).not.toBe(restored.hash);
+  expect(linkHash.restored).toBe(restored.hash);
+});
+
+test("STRK-444 live title links reach a second device by manifest and encrypted vault", async ({
+  browser,
+  page,
+}) => {
+  await withDevices(browser, page, async (deviceA) => {
+    const id = await deviceA.evaluate(
+      () =>
+        window.collectionsStore.createCustom({
+          name: "Linked titles sync",
+          slots: [{ label: "One" }],
+          obverseImageUrl: "https://images.example.com/front.png",
+          reverseImageUrl: "https://images.example.com/back.png",
+        }).collection.id
+    );
+    const files = { manifest: await deviceManifest(deviceA) };
+    await routeCollectionDropbox(page, files);
+    await page.evaluate(() => {
+      window.DiffModal.show = (options) => options.onApply([]);
+    });
+    await page.evaluate(
+      (meta) => window.pullWithPreview(meta),
+      remoteCollectionMeta("linked-titles-manifest")
+    );
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition,
+        id
+      )
+    ).toMatchObject({
+      obverseImageUrl: "https://images.example.com/front.png",
+      reverseImageUrl: "https://images.example.com/back.png",
+    });
+    await deviceA.evaluate((key) => {
+      const def = window.collectionsStore.getState().collections[key].definition;
+      window.collectionsStore.updateCustom(key, {
+        name: "Linked titles sync",
+        slots: def.slots,
+        obverseImageUrl: "",
+        reverseImageUrl: "https://images.example.com/new.png",
+      });
+    }, id);
+    files.manifest = null;
+    files.vault = await deviceVault(deviceA);
+    await page.evaluate(
+      (meta) => window.pullWithPreview(meta),
+      remoteCollectionMeta("linked-titles-vault")
+    );
+    const definition = await page.evaluate(
+      (key) => window.collectionsStore.getState().collections[key].definition,
+      id
+    );
+    expect(definition.obverseImageUrl).toBeUndefined();
+    expect(definition.reverseImageUrl).toBe("https://images.example.com/new.png");
+  });
+});

@@ -2040,3 +2040,56 @@ describe("STRK-427 shared resolver seam and reverse image orientation", () => {
     });
   });
 });
+
+describe("STRK-444 live Collection title links", () => {
+  const make = () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "linked-titles",
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: " https://images.example.com/front.png ",
+      reverseImageUrl: "https://images.example.com/back.png",
+      now: T1,
+    });
+    return state;
+  };
+  test("links normalize, round-trip and preserve on unrelated edits", () => {
+    const state = core.normalizeState(JSON.parse(JSON.stringify(make())));
+    core.updateCustomDefinition(state, "linked-titles", {
+      name: "Renamed",
+      slots: [{ label: "2026" }],
+      now: T2,
+    });
+    const def = state.collections["linked-titles"].definition;
+    assert.equal(def.obverseImageUrl, "https://images.example.com/front.png");
+    assert.equal(def.reverseImageUrl, "https://images.example.com/back.png");
+    core.updateCustomDefinition(state, "linked-titles", {
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: "",
+      now: T3,
+    });
+    assert.equal(state.collections["linked-titles"].definition.obverseImageUrl, undefined);
+  });
+  test("unsafe links are dropped and URL edits converge on ties", () => {
+    const a = make();
+    const b = make();
+    core.updateCustomDefinition(a, "linked-titles", {
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: "javascript:alert(1)",
+      now: T2,
+    });
+    core.updateCustomDefinition(b, "linked-titles", {
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: "https://images.example.com/new.png",
+      now: T2,
+    });
+    assert.equal(a.collections["linked-titles"].definition.obverseImageUrl, undefined);
+    assert.deepEqual(core.mergeStates(a, b), core.mergeStates(b, a));
+    const merged = core.mergeStates(a, b);
+    assert.deepEqual(core.mergeStates(merged, merged), merged);
+  });
+});
