@@ -26,12 +26,16 @@ Audit of colour and visual styling that `js/` writes directly, outside the four 
 | Colour-type `.style` writes (`color`, `background*`, `borderColor`, `fill`, `stroke`) | 46                     | 46                   |
 | `.style.cssText`                                                                      | 44                     | 44                   |
 | `style="…"` inside JS template strings                                                | 124                    | 122                  |
-| Colour literals in code (comments excluded)                                           | 71 (incl. comments)    | 44                   |
+| Colour literals in code (comments excluded)                                           | 71 (incl. comments)    | 50                   |
 | `var(--x)` in `js/` naming an undefined token                                         | —                      | 4 tokens, 9 sites    |
 | `var(--x)` in `css/styles.css` naming an undefined token                              | —                      | 24 tokens, 64 refs   |
 
-The 44 colour literals are the hits from the ESLint prototype below. It matches the grep
-once comments and HTML entities (`&#128196;`) are excluded.
+The 50 colour literals are the hits from the ESLint prototype below: 42 hex or colour-function
+literals and 8 named-colour `var()` fallbacks (`green`, `orange`, `red`). The hex count matches
+the grep once comments and HTML entities (`&#128196;`) are excluded. Named colours are not
+caught by a hex or function pattern, so the guard matches them separately. An earlier draft
+missed them and also counted the two `spotLookup.js` style writes twice, once per matching
+selector.
 
 ## Classification
 
@@ -63,24 +67,25 @@ allowed reasons listed further down.
 | `viewModal.js` 608, 1610                            | `var(--primary)`                                                | token         | —                        |
 | `vault.js` 2277, 2289, 2291, 2305, 2311, 2314       | strength map → `var(--danger/warning/info/success)`             | token         | —                        |
 
-### Colour literals in code (44, from the ESLint prototype)
+### Colour literals in code (50, from the ESLint prototype)
 
-| File                                 | Hits | What                                                                    | Class    | Issue                     |
-| ------------------------------------ | ---- | ----------------------------------------------------------------------- | -------- | ------------------------- |
-| `retail.js`                          | 12   | `RETAIL_VENDOR_COLORS` + `#6c757d` fallback                             | migrate  | STRK-451                  |
-| `viewModal.js`                       | 4    | header text hex pair; surface fallbacks                                 | migrate  | STRK-452                  |
-| `spotLookup.js`                      | 4    | fallbacks inside undefined/defined `var()`                              | migrate  | STRK-450                  |
-| `utils.js`                           | 3    | `getContrastColor` black/white result                                   | legit JS | —                         |
-| `ratios-panel.js`                    | 3    | dead fallbacks after reading defined tokens                             | migrate  | STRK-453                  |
-| `inventory-table.js`                 | 3    | `hsl(hue, var(--hashed-color-s), …)` and `var(--success, #…)` fallbacks | token    | STRK-455 (drop fallbacks) |
-| `card-view.js`                       | 2    | Chart.js grid + tooltip `rgba(...)`                                     | migrate  | STRK-453                  |
-| `detailsModal.js`                    | 2    | canvas gradient `rgba(r,g,b,…)` built from a token's RGB                | token    | —                         |
-| `diff-modal-settings.js`             | 2    | `_metalRgb` table → `rgba(...)` gradient                                | migrate  | STRK-452                  |
-| `image-cache-modal.js`               | 2    | fallbacks on undefined tokens                                           | migrate  | STRK-450                  |
-| `catalog-api.js`, `cloud-storage.js` | 3    | `var(--danger, #e74c3c)` fallback                                       | token    | STRK-455 (drop fallbacks) |
-| `init.js`                            | 2    | "Updating to new version…" screen, written before CSS loads             | legit JS | —                         |
-| `inventory-backup.js`                | 1    | `<style>` of a standalone printable HTML document                       | legit JS | —                         |
-| `spot.js`                            | 1    | `getMetalColor` fallback `#6366f1`                                      | migrate  | STRK-453                  |
+| File                                 | Hits | What                                                                     | Class         | Issue                     |
+| ------------------------------------ | ---- | ------------------------------------------------------------------------ | ------------- | ------------------------- |
+| `retail.js`                          | 12   | `RETAIL_VENDOR_COLORS` + `#6c757d` fallback                              | migrate       | STRK-451                  |
+| `viewModal.js`                       | 4    | header text hex pair; surface fallbacks                                  | migrate       | STRK-452                  |
+| `image-cache-modal.js`               | 8    | named fallbacks `green`/`orange`/`red` on undefined `--*-color` tokens   | migrate (bug) | STRK-450                  |
+| `image-cache-modal.js`               | 2    | `#888` fallback on the defined `--text-secondary` (lines 294, 297)       | token         | STRK-450 (drop fallbacks) |
+| `spotLookup.js`                      | 2    | `#fbbf24` on undefined `--accent` (bug); `#dc3545` on defined `--danger` | migrate       | STRK-450                  |
+| `utils.js`                           | 3    | `getContrastColor` black/white result                                    | legit JS      | —                         |
+| `ratios-panel.js`                    | 3    | dead fallbacks after reading defined tokens                              | migrate       | STRK-453                  |
+| `inventory-table.js`                 | 3    | `hsl(hue, var(--hashed-color-s), …)` and `var(--success, #…)` fallbacks  | token         | STRK-455 (drop fallbacks) |
+| `card-view.js`                       | 2    | Chart.js grid + tooltip `rgba(...)`                                      | migrate       | STRK-453                  |
+| `detailsModal.js`                    | 2    | canvas gradient `rgba(r,g,b,…)` built from a token's RGB                 | token         | —                         |
+| `diff-modal-settings.js`             | 2    | `_metalRgb` table → `rgba(...)` gradient                                 | migrate       | STRK-452                  |
+| `catalog-api.js`, `cloud-storage.js` | 3    | `var(--danger, #e74c3c)` fallback                                        | token         | STRK-455 (drop fallbacks) |
+| `init.js`                            | 2    | "Updating to new version…" screen, written before CSS loads              | legit JS      | —                         |
+| `inventory-backup.js`                | 1    | `<style>` of a standalone printable HTML document                        | legit JS      | —                         |
+| `spot.js`                            | 1    | `getMetalColor` fallback `#6366f1`                                       | migrate       | STRK-453                  |
 
 `js/theme.js` is excluded: it is the token-to-canvas bridge (`getThemeColorRGB`,
 `resolveColor`) and formats `rgb()` strings by design.
@@ -142,12 +147,23 @@ grep -rnoE 'var\(--[a-zA-Z0-9-]+' js/*.js | sed -E 's/var\(//' |
 ## Proposed ESLint guard (STRK-455)
 
 Prototyped against `dev` with `npx eslint --no-config-lookup -c <file> "js/**/*.js"`. It
-reports 44 hits in 16 files and zero parse errors. The lookbehind keeps HTML entities such as
-`&#128196;` from matching.
+reports 50 hits in 15 files and zero parse errors, one hit per node. The lookbehind keeps HTML
+entities such as `&#128196;` from matching. Named colours are matched in two shapes: as a
+`var()` fallback anywhere (`var(--success-color, green)`), and as a bare keyword written to a
+colour `.style` property (`el.style.color = "orange"`). `inherit`, `currentColor`,
+`transparent`, `initial` and `unset` are allowed. A bare word in any other string isn't
+flagged: metal keys such as `METALS.GOLD.color = "gold"` in `js/constants.js` are token
+names, not CSS colours.
 
 ```js
 const COLOR_PROPS = "color|backgroundColor|background|borderColor|fill|stroke";
+// Hex and colour functions anywhere; HTML entities (&#128196;) are excluded by the lookbehind.
 const LITERAL = "/(?<![&\\w])#[0-9a-fA-F]{3,8}\\b|\\b(rgba?|hsla?|oklch)\\(/";
+// A named colour used as a var() fallback, e.g. var(--success-color, green).
+const NAMED_FALLBACK =
+  "/var\\(--[\\w-]+,\\s*(?!inherit|currentColor|transparent|initial|unset)[a-zA-Z]+\\s*\\)/";
+// Any bare keyword written to a colour style property, e.g. el.style.color = "orange".
+const NAMED_VALUE = "/^(?!inherit$|currentColor$|transparent$|initial$|unset$|var\\()[a-zA-Z]+$/";
 module.exports = [
   {
     files: ["js/**/*.js"],
@@ -156,8 +172,8 @@ module.exports = [
       "no-restricted-syntax": [
         "warn",
         {
-          selector: `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/] > Literal.right[value=${LITERAL}]`,
-          message: "Colour literal written to .style — use a CSS token or a class (STRK-447).",
+          selector: `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/] > Literal.right[value=${NAMED_VALUE}]`,
+          message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
         },
         {
           selector: `Literal[value=${LITERAL}]`,
@@ -165,8 +181,17 @@ module.exports = [
             "Colour literal in js/ — read a token via getThemeColor()/resolveColor() or move it to CSS (STRK-447).",
         },
         {
+          selector: `Literal[value=${NAMED_FALLBACK}]`,
+          message:
+            "Named-colour var() fallback in js/ — use a defined token without a literal fallback (STRK-447).",
+        },
+        {
           selector: `TemplateElement[value.raw=${LITERAL}]`,
           message: "Colour literal in a template — use a CSS token (STRK-447).",
+        },
+        {
+          selector: `TemplateElement[value.raw=${NAMED_FALLBACK}]`,
+          message: "Named-colour var() fallback in a template — use a defined token (STRK-447).",
         },
       ],
     },
