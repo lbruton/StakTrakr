@@ -177,7 +177,18 @@ Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is han
 
 ### Custom Collection title artwork
 
-Custom Collection art uses the existing `patternImages` store and image-vault / ZIP paths.
+Custom Collection uploads use the existing `patternImages` store and image-vault / ZIP paths.
+Title images may instead carry sparse `definition.obverseImageUrl` / `reverseImageUrl`
+HTTP(S) live links (STRK-444). These travel with the definition through sync, ZIP/vault,
+JSON and standalone export/import; the image bytes stay on the remote host. `getImageUrl`
+resolves a title link before looking for an uploaded Blob. The builder's per-side Image
+options prompt, preview, Remove and Swap support both sources; upload clears that side's
+link, and replacing an upload with a link removes the old Blob through an artwork tombstone.
+Replacing a link with an upload retains the saved URL until processing, cache storage and
+the artwork-state transaction succeed; that transaction clears the matching URL and advances
+`metaModified` atomically, so a failed upload preserves the prior linked image.
+An untouched title URL is omitted from a builder update so a newer cross-tab URL survives.
+Link normalization is shared with Item image options through `collectionsCore.normalizeImageUrl`.
 The legacy obverse title image remains `collection--<id>`; reverse title art uses the
 reserved `collection--<id>--@title-reverse` id so it cannot collide with a Slot id; Slot
 art remains `collection--<id>--<slotId>`. The

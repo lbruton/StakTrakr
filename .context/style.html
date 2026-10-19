@@ -1656,13 +1656,14 @@
                 <strong>Frame controls (STRK-434):</strong> in both modals the frame is the upload
                 target (item modal: a transparent <code>.ife-upload</code> button over the frame),
                 <code>.collections-image-remove</code> is the × badge (upper right, a CSS-drawn
-                cross), and the item modal alone has a lower-right <code>.ife-link</code> image
-                options button ("Obverse/Reverse image options", a sliders icon; STRK-443). It opens
-                the shared prompt dialog (<code>showAppPromptWithOption</code>) with the external
-                URL and a "Use a matching pattern image" checkbox, the inverse of the Item's
+                cross), and both modals have a lower-right <code>.ife-link</code> image options
+                button ("Obverse/Reverse image options", a sliders icon; STRK-443). It opens the
+                shared prompt dialog (<code>showAppPromptWithOption</code>) with the external URL
+                and a "Use a matching pattern image" checkbox, the inverse of the Item's
                 <code>ignorePatternImages</code> flag; the URL fields only hold the value and stay
-                hidden. The builder gets the same button with its first action in STRK-444. A frame
-                holding an image draws no fill or border, and photos are fitted whole (<code
+                hidden. The builder uses the same button and a plain <code>showAppPrompt</code> for
+                each title side's live URL (STRK-444), without the Item-only pattern checkbox. A
+                frame holding an image draws no fill or border, and photos are fitted whole (<code
                   >object-fit: contain</code
                 >) in both modals.
               </li>

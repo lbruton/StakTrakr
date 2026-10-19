@@ -95,11 +95,24 @@
         const artwork = entry.collection.artwork || {};
         const titleSides = [];
         const hasTitleStamps =
-          Object.hasOwn(artwork, "cover") || Object.hasOwn(artwork, "title:reverse");
+          Object.hasOwn(artwork, "cover") ||
+          Object.hasOwn(artwork, "title:reverse") ||
+          Boolean(
+            entry.collection.definition.obverseImageUrl ||
+            entry.collection.definition.reverseImageUrl
+          );
         // An unstamped legacy cover may exist, so retain it as obverse while allowing a
         // cloned Collection to show its source Template's reverse until art is customized.
-        if (artwork.cover ? artwork.cover.present : !hasTitleStamps) titleSides.push("obverse");
-        if (artwork["title:reverse"]?.present || (!hasTitleStamps && entry.reverse))
+        if (
+          entry.collection.definition.obverseImageUrl ||
+          (artwork.cover ? artwork.cover.present : !hasTitleStamps)
+        )
+          titleSides.push("obverse");
+        if (
+          entry.collection.definition.reverseImageUrl ||
+          artwork["title:reverse"]?.present ||
+          (!hasTitleStamps && entry.reverse)
+        )
           titleSides.push("reverse");
         if (!titleSides.length && entry.obverse) titleSides.push("obverse");
         if (!titleSides.length)
