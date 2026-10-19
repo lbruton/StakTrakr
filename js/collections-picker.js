@@ -1845,8 +1845,11 @@
         imageOrientation: frameEditor.getState().obverseOrientation || undefined,
         reverseImageOrientation: frameEditor.getState().reverseOrientation || undefined,
         about: about.value,
-        ...(cover.isTouched() || !seed.editId ? { obverseImageUrl: cover.getLink() } : {}),
-        ...(reverseTitle.isTouched() || !seed.editId
+        // A pending upload replaces its saved URL only when the artwork stamp commits.
+        ...(!cover.getFile() && (cover.isTouched() || !seed.editId)
+          ? { obverseImageUrl: cover.getLink() }
+          : {}),
+        ...(!reverseTitle.getFile() && (reverseTitle.isTouched() || !seed.editId)
           ? { reverseImageUrl: reverseTitle.getLink() }
           : {}),
         side: side.getValue(),

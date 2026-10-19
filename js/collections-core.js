@@ -472,7 +472,18 @@
       modified,
       digest: present && isId(opts && opts.digest) ? opts.digest : "",
     };
-    collection.lastModified = laterOf(collection.lastModified, modified);
+    // Commit a title upload and its link replacement in the same state transaction.
+    // A failed persistence write then rolls both back, retaining the prior live URL.
+    const titleUrlKey =
+      slotId == null ? "obverseImageUrl" : slotId === "title:reverse" ? "reverseImageUrl" : null;
+    if (present === true && titleUrlKey && collection.definition?.[titleUrlKey]) {
+      delete collection.definition[titleUrlKey];
+      collection.metaModified = nextStamp(collection.metaModified, modified);
+    }
+    collection.lastModified = laterOf(
+      laterOf(collection.lastModified, modified),
+      collection.metaModified
+    );
     return { ok: true, changed: true };
   };
 

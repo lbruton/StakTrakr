@@ -5622,6 +5622,72 @@ test.describe("STRK-444 Collection title image links", () => {
       .toBe(false);
   });
 
+  for (const failure of ["processing", "cache", "quota", "none"]) {
+    test(`replacement uploads preserve prior links on ${failure} failure or commit on success`, async ({
+      page,
+    }) => {
+      const id = await start(page, { obverseImageUrl: front, reverseImageUrl: back });
+      await page.evaluate((mode) => {
+        if (mode === "processing") {
+          window.imageProcessor.processFile = async () => {
+            throw new Error("Injected processing failure");
+          };
+        } else if (mode === "cache") {
+          window.imageCache.importPatternImageRecord = async () => false;
+        } else if (mode === "quota") {
+          const original = Storage.prototype.setItem;
+          let writes = 0;
+          Storage.prototype.setItem = function (key, value) {
+            if (key === COLLECTION_STATE_KEY && writes++ > 0) {
+              throw new DOMException("Injected artwork quota failure", "QuotaExceededError");
+            }
+            return original.call(this, key, value);
+          };
+          window.restoreTitleStorage = () => {
+            Storage.prototype.setItem = original;
+          };
+        }
+      }, failure);
+      const inputs = builder(page).locator(".collections-builder-title-option input[type=file]");
+      await inputs.nth(0).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      await inputs.nth(1).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      await expect(
+        builder(page).locator(".collections-builder-title-option img").first()
+      ).toHaveAttribute("src", /^blob:/);
+      await save(page);
+      const titles = panel(page).locator(".collections-album-head .collections-coin img");
+      if (failure === "none") {
+        await expect(titles.nth(0)).toHaveAttribute("src", /^blob:/);
+        await expect(titles.nth(1)).toHaveAttribute("src", /^blob:/);
+      } else {
+        await expect(
+          page.locator(".cloud-toast", {
+            hasText: "Some collection image changes could not be saved.",
+          })
+        ).toBeVisible();
+        await expect(titles.nth(0)).toHaveAttribute("src", front);
+        await expect(titles.nth(1)).toHaveAttribute("src", back);
+      }
+      await page.evaluate(() => window.restoreTitleStorage?.());
+      await reloadCollections(page);
+      await page.evaluate((key) => {
+        window.collectionsUI.openCollection(key);
+        window.collectionsPicker.openBuilder({ editId: key });
+      }, id);
+      const previews = builder(page).locator(".collections-builder-title-option img");
+      await expect(previews.nth(0)).toHaveAttribute("src", failure === "none" ? /^blob:/ : front);
+      await expect(previews.nth(1)).toHaveAttribute("src", failure === "none" ? /^blob:/ : back);
+      const saved = await page.evaluate(
+        (key) => ({
+          front: window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+          back: window.collectionsStore.getState().collections[key].definition.reverseImageUrl,
+        }),
+        id
+      );
+      expect(saved).toEqual(failure === "none" ? {} : { front, back });
+    });
+  }
+
   test("an untouched URL in an open builder preserves another tab's update", async ({ page }) => {
     const id = await start(page, { obverseImageUrl: front });
     await page.evaluate(

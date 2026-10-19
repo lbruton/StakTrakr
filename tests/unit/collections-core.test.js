@@ -2093,3 +2093,28 @@ describe("STRK-444 live Collection title links", () => {
     assert.deepEqual(core.mergeStates(merged, merged), merged);
   });
 });
+
+test("title upload stamps clear only their matching link and advance merge metadata", () => {
+  const state = core.createEmptyState();
+  core.createCustomCollection(state, {
+    id: "title-links",
+    name: "Linked",
+    slots: [{ label: "First" }],
+    now: T1,
+    obverseImageUrl: "https://example.com/front.png",
+    reverseImageUrl: "https://example.com/back.png",
+  });
+  const collection = state.collections["title-links"];
+  const before = collection.metaModified;
+  core.setArtwork(state, "title-links", "first", true, { now: T2 });
+  assert.equal(collection.metaModified, before);
+  assert.equal(collection.definition.obverseImageUrl, "https://example.com/front.png");
+  core.setArtwork(state, "title-links", null, true, { now: T2 });
+  assert.equal(collection.definition.obverseImageUrl, undefined);
+  assert.equal(collection.definition.reverseImageUrl, "https://example.com/back.png");
+  assert.ok(collection.metaModified > before);
+  const frontStamp = collection.metaModified;
+  core.setArtwork(state, "title-links", "title:reverse", true, { now: T2 });
+  assert.equal(collection.definition.reverseImageUrl, undefined);
+  assert.ok(collection.metaModified > frontStamp);
+});
