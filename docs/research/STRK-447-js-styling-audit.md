@@ -155,8 +155,10 @@ On `40f84f85` this prints `js: 9 refs, 4 tokens` and `css: 64 refs, 24 tokens`. 
 Prototyped against `dev` with `npx eslint --no-config-lookup -c <file> "js/**/*.js"`. It
 reports 50 hits in 15 files and zero parse errors, one hit per node. What it matches:
 
-- **Hex and every CSS colour function**: `rgb`/`rgba`, `hsl`/`hsla`, `hwb`, `lab`, `lch`,
-  `oklab`, `oklch` and `color()`, case-insensitive. Chromium accepts each one through
+- **Hex of the lengths CSS allows (3, 4, 6, 8) and every CSS colour function**: `rgb`/`rgba`,
+  `hsl`/`hsla`, `hwb`, `lab`, `lch`, `oklab`, `oklch` and `color()`, case-insensitive. A
+  five- or seven-digit `#12345` is not a colour and is not flagged. Chromium accepts each
+  function through
   `CSS.supports("color", …)`. The lookbehinds skip HTML entities such as `&#128196;` and
   hyphenated names, so `contrast-color(red)` (a feature test in `js/filters.js`) and
   `color-mix(` don't match.
@@ -167,39 +169,61 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
   `"linear-gradient(red, blue)"`, `` `red` `` and `` `linear-gradient(${a}, navy)` ``.
   Word and hyphen lookarounds keep token names like `var(--gold)` and
   `var(--type-gold-bg)` from matching. Keywords such as `none`, `auto`, `inherit` and
-  `transparent` are never flagged. A colour name in any other string isn't flagged either:
-  metal keys such as `METALS.GOLD.color = "gold"` in `js/constants.js` are token names, not
-  CSS colours.
-- **One report per node.** The style-assignment selectors skip values that the hex/function
-  or `var()`-fallback selectors already report.
+  `transparent` are never flagged.
+- **Named colours in generated inline styles.** Any string or template part matches when it
+  holds a CSS colour declaration (`color`, `background[-color]`, `border*`,
+  `outline[-color]`, `fill`, `stroke`, `box-shadow`, `text-shadow`) whose value names a
+  colour. Examples: `'<span style="color:red">'`, `` `<td style="border: 1px solid navy">` ``,
+  and `cssText = "background-color: white"`. The match stops at `;`, quotes or backticks, so
+  it stays within one declaration. A colour name elsewhere in a string isn't flagged:
+  prose such as `"Red alert"` and metal keys such as `METALS.GOLD.color = "gold"` in
+  `js/constants.js` (token names, not CSS colours) pass.
+- **One report per node.** Selectors run from most to least specific, and each skips values
+  an earlier one already reports.
 
-A labelled fixture checked the rule. It hits each of these exactly once: `"Orange"` on
-`.style.color`, `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`,
-`#ABCDEF`, `"linear-gradient(red, blue)"`, `` `red` ``, `` `linear-gradient(${a}, Navy)` ``,
-`"var(--x, red)"` and `"linear-gradient(#fff, red)"`. It passes
-`.style.background = "none"`, `var(--layout-mode, auto)`, `"var(--gold)"`,
-`"var(--type-gold-bg)"`, `getContrastColor(x)`, `&#128196;`, `color-mix(…)`,
-`contrast-color(red)`, and `"red"` assigned to a plain variable.
+A labelled fixture checked the rule. It hits each of these exactly once (18 hits):
+
+- `"Orange"` written to `.style.color`
+- `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`
+- `#ABCDEF`, `#abcd`, `#11223344`
+- `"linear-gradient(red, blue)"`, `` `red` ``, `` `linear-gradient(${a}, Navy)` ``
+- `"var(--x, red)"`, `"linear-gradient(#fff, red)"`
+- `style="color:red"`, a template `style="border: 1px solid Navy"`,
+  `cssText = "…background-color: white"`, `style="color: var(--x, red)"`
+
+It passes:
+
+- `.style.background = "none"`, `var(--layout-mode, auto)`
+- `"var(--gold)"`, `"var(--type-gold-bg)"`, `style="color:var(--gold)"`,
+  `style="background:none;color:var(--text-muted)"`
+- `#12345`, `#1234567`, `getContrastColor(x)`, `&#128196;`, `color-mix(…)`,
+  `contrast-color(red)`
+- the prose `"Red alert: the color is wrong"`, and `"red"` assigned to a plain variable
 
 ```js
 const COLOR_PROPS = "color|backgroundColor|background|borderColor|fill|stroke";
 // The 148 CSS named colours (CSS Color 4). Validated with CSS.supports("color", name) in Chromium.
 const NAMED_COLORS =
   "aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen";
-// Hex and every CSS colour function, case-insensitive. HTML entities (&#128196;) and
-// hyphenated names (contrast-color(, color-mix() are excluded by the lookbehinds.
+// Hex (only the CSS lengths 3, 4, 6, 8) and every CSS colour function, case-insensitive.
+// HTML entities (&#128196;) and hyphenated names (contrast-color(, color-mix() are excluded.
 const LITERAL =
-  "/(?<![&\\w])#[0-9a-f]{3,8}\\b|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i";
+  "/(?<![&\\w])#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![0-9a-z])|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i";
 // A named colour used as a var() fallback, e.g. var(--success-color, green).
 const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
+// A named colour inside a CSS declaration in any string: style="color:red", cssText
+// "border:1px solid red;", template parts. Stops at ; " ' so it stays in one declaration.
+const NAMED_IN_DECL = `/(?<![\\w-])(color|background(-color)?|border(-[a-z]+)*|outline(-color)?|fill|stroke|box-shadow|text-shadow)\\s*:[^;"'\`]*?(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // A named colour anywhere in a value written to a colour style property, e.g. "orange" or
 // "linear-gradient(red, blue)". The hyphen/word lookarounds skip token names like var(--gold).
 const NAMED_IN_VALUE = `/(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // Assignment to el.style.<colour prop>.
 const COLOR_ASSIGN = `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/]`;
 // Skip values another selector already reports, so each node is reported once.
-const NOT_REPORTED = `:not([value=${LITERAL}]):not([value=${NAMED_FALLBACK}])`;
-const NOT_REPORTED_RAW = `:not([value.raw=${LITERAL}]):not([value.raw=${NAMED_FALLBACK}])`;
+const NOT_EARLIER = `:not([value=${LITERAL}]):not([value=${NAMED_FALLBACK}])`;
+const NOT_EARLIER_RAW = `:not([value.raw=${LITERAL}]):not([value.raw=${NAMED_FALLBACK}])`;
+const NOT_DECL = `:not([value=${NAMED_IN_DECL}])`;
+const NOT_DECL_RAW = `:not([value.raw=${NAMED_IN_DECL}])`;
 module.exports = [
   {
     files: ["js/**/*.js"],
@@ -208,30 +232,40 @@ module.exports = [
       "no-restricted-syntax": [
         "warn",
         {
-          selector: `${COLOR_ASSIGN} > Literal.right[value=${NAMED_IN_VALUE}]${NOT_REPORTED}`,
-          message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
-        },
-        {
-          selector: `${COLOR_ASSIGN} > TemplateLiteral.right > TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_REPORTED_RAW}`,
-          message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
-        },
-        {
           selector: `Literal[value=${LITERAL}]`,
           message:
             "Colour literal in js/ — read a token via getThemeColor()/resolveColor() or move it to CSS (STRK-447).",
-        },
-        {
-          selector: `Literal[value=${NAMED_FALLBACK}]`,
-          message:
-            "Named-colour var() fallback in js/ — use a defined token without a literal fallback (STRK-447).",
         },
         {
           selector: `TemplateElement[value.raw=${LITERAL}]`,
           message: "Colour literal in a template — use a CSS token (STRK-447).",
         },
         {
-          selector: `TemplateElement[value.raw=${NAMED_FALLBACK}]`,
+          selector: `Literal[value=${NAMED_FALLBACK}]:not([value=${LITERAL}])`,
+          message:
+            "Named-colour var() fallback in js/ — use a defined token without a literal fallback (STRK-447).",
+        },
+        {
+          selector: `TemplateElement[value.raw=${NAMED_FALLBACK}]:not([value.raw=${LITERAL}])`,
           message: "Named-colour var() fallback in a template — use a defined token (STRK-447).",
+        },
+        {
+          selector: `Literal[value=${NAMED_IN_DECL}]${NOT_EARLIER}`,
+          message:
+            "Named colour in a generated inline style — use a CSS token or a class (STRK-447).",
+        },
+        {
+          selector: `TemplateElement[value.raw=${NAMED_IN_DECL}]${NOT_EARLIER_RAW}`,
+          message:
+            "Named colour in a generated inline style — use a CSS token or a class (STRK-447).",
+        },
+        {
+          selector: `${COLOR_ASSIGN} > Literal.right[value=${NAMED_IN_VALUE}]${NOT_EARLIER}${NOT_DECL}`,
+          message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
+        },
+        {
+          selector: `${COLOR_ASSIGN} > TemplateLiteral.right > TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_EARLIER_RAW}${NOT_DECL_RAW}`,
+          message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
         },
       ],
     },
