@@ -166,7 +166,8 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
   `CSS.supports("color", name)` in Chromium. Named colours are matched as a `var()` fallback
   anywhere (`var(--success-color, green)`). They are also matched anywhere inside a string
   literal or template written to a colour-bearing `.style` property: `color`, any `*Color`
-  (`backgroundColor`, `caretColor`, `accentColor`, …), `background`, every `border*`,
+  including multiword names (`backgroundColor`, `caretColor`, `textDecorationColor`,
+  `borderInlineStartColor`, …), `background`, every `border*`,
   `outline*`, `boxShadow`, `textShadow`, `fill` and `stroke`. Examples: `"orange"`,
   `"linear-gradient(red, blue)"`, `border = "1px solid red"`, `boxShadow = "0 0 2px blue"`,
   `` `red` `` and `` `linear-gradient(${a}, navy)` ``.
@@ -181,10 +182,13 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
   it stays within one declaration. A colour name elsewhere in a string isn't flagged:
   prose such as `"Red alert"` and metal keys such as `METALS.GOLD.color = "gold"` in
   `js/constants.js` (token names, not CSS colours) pass.
+- **Nothing inside `url(…)`.** Asset paths such as `url(/icons/red/status.svg)` and SVG
+  references such as `url(#fade)` (whose id reads as 4-digit hex) are skipped. A colour after
+  the closing parenthesis still matches.
 - **One report per node.** Selectors run from most to least specific, and each skips values
   an earlier one already reports.
 
-A labelled fixture checked the rule. It hits each of these exactly once (24 hits):
+A labelled fixture checked the rule. It hits each of these exactly once (27 hits):
 
 - `"Orange"` written to `.style.color`
 - `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`
@@ -196,7 +200,9 @@ A labelled fixture checked the rule. It hits each of these exactly once (24 hits
   `style="caret-color: purple"`
 - `.style.border = "1px solid red"`, `.style.outline = "2px dotted navy"`,
   `.style.boxShadow = "0 0 2px blue"`, `` .style.borderLeft = `3px solid ${a} green` ``,
-  `.style.caretColor = "orange"`
+  `.style.caretColor = "orange"`, `.style.textDecorationColor = "red"`,
+  `.style.borderInlineStartColor = "Teal"`
+- `style="background: url(/a.svg) red"` (the colour after the URL)
 
 It passes:
 
@@ -206,6 +212,9 @@ It passes:
   `style="background:none;color:var(--text-muted)"`
 - `#12345`, `#1234567`, `getContrastColor(x)`, `&#128196;`, `color-mix(…)`,
   `contrast-color(red)`
+- `style="background: url(/icons/red/status.svg) no-repeat"`,
+  `cssText = "background-image: url(/img/gold-bar.png)"`,
+  `.style.background = "url(/icons/red/x.svg)"`, `.style.filter = "url(#fade)"`
 - the prose `"Red alert: the color is wrong"`, and `"red"` assigned to a plain variable
 
 ```js
@@ -213,22 +222,24 @@ It passes:
 // accentColor, textDecorationColor, …), background, every border*, outline*, the shadows,
 // fill and stroke. Kept in step with the property list in NAMED_IN_DECL.
 const COLOR_PROPS =
-  "color|[a-z]+Color|background|border[A-Za-z]*|outline[A-Za-z]*|boxShadow|textShadow|fill|stroke";
+  "color|[a-z][A-Za-z]*Color|background|border[A-Za-z]*|outline[A-Za-z]*|boxShadow|textShadow|fill|stroke";
 // The 148 CSS named colours (CSS Color 4). Validated with CSS.supports("color", name) in Chromium.
 const NAMED_COLORS =
   "aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen";
+// Nothing inside url(…) is a colour: asset paths (url(/icons/red/x.svg)) and SVG references
+// (url(#fade), whose id reads as 4-digit hex) are skipped by this lookbehind.
+const NOT_IN_URL = "(?<!url\\([^)]*)";
 // Hex (only the CSS lengths 3, 4, 6, 8) and every CSS colour function, case-insensitive.
 // HTML entities (&#128196;) and hyphenated names (contrast-color(, color-mix() are excluded.
-const LITERAL =
-  "/(?<![&\\w])#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![0-9a-z])|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i";
+const LITERAL = `/${NOT_IN_URL}(?<![&\\w])#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![0-9a-z])|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i`;
 // A named colour used as a var() fallback, e.g. var(--success-color, green).
 const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
 // A named colour inside a CSS declaration in any string: style="color:red", cssText
 // "border:1px solid red;", template parts. Stops at ; " ' so it stays in one declaration.
-const NAMED_IN_DECL = `/(?<![\\w-])(color|[a-z-]+-color|background|border(-[a-z]+)*|outline(-[a-z]+)*|box-shadow|text-shadow|fill|stroke)\\s*:[^;"'\`]*?(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
+const NAMED_IN_DECL = `/(?<![\\w-])(color|[a-z-]+-color|background|border(-[a-z]+)*|outline(-[a-z]+)*|box-shadow|text-shadow|fill|stroke)\\s*:[^;"'\`]*?${NOT_IN_URL}(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // A named colour anywhere in a value written to a colour style property, e.g. "orange" or
 // "linear-gradient(red, blue)". The hyphen/word lookarounds skip token names like var(--gold).
-const NAMED_IN_VALUE = `/(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
+const NAMED_IN_VALUE = `/${NOT_IN_URL}(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // Assignment to el.style.<colour prop>.
 const COLOR_ASSIGN = `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/]`;
 // Skip values another selector already reports, so each node is reported once.
