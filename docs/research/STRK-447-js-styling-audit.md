@@ -124,17 +124,23 @@ This list feeds STRK-420's `DESIGN.md`:
 ## Undefined-token sweep
 
 Method: collect every custom property defined in `css/*.css` and `index.html`, plus the
-`setProperty("--x", …)` targets in `js/`. Then list each `var(--x)` whose `--x` is not in
-that set. Use POSIX classes (`[[:space:]]`). BSD `sed` reads `\s` as a literal `s`, which
-silently mangles names such as `--success`.
+`setProperty("--x", …)` targets in `js/`. Then list each `var(--x)` in `js/` **and**
+`css/` whose `--x` is not in that set. Use POSIX classes (`[[:space:]]`). BSD `sed` reads
+`\s` as a literal `s`, which silently mangles names such as `--success`.
 
 ```bash
-D=/tmp/defs.txt
+D=$(mktemp)
 grep -ohE -- '--[a-zA-Z0-9-]+[[:space:]]*:' css/*.css index.html | grep -oE -- '--[a-zA-Z0-9-]+' | sort -u > "$D"
 grep -rhoE "setProperty\([[:space:]]*[\"'\`]--[a-zA-Z0-9-]+" js/*.js | grep -oE -- '--[a-zA-Z0-9-]+' | sort -u >> "$D"
-grep -rnoE 'var\(--[a-zA-Z0-9-]+' js/*.js | sed -E 's/var\(//' |
-  while IFS=: read -r f l t; do grep -qxF -- "$t" "$D" || echo "$f:$l $t"; done | sort -u
+grep -noE 'var\(--[a-zA-Z0-9-]+' js/*.js css/*.css | sed -E 's/var\(//' |
+  while IFS=: read -r f l t; do grep -qxF -- "$t" "$D" || echo "$f:$l $t"; done > "$D.out"
+for p in js css; do
+  echo "$p: $(grep -c "^$p/" "$D.out") refs, $(grep "^$p/" "$D.out" | awk '{print $2}' | sort -u | wc -l | tr -d ' ') tokens"
+done
 ```
+
+On `40f84f85` this prints `js: 9 refs, 4 tokens` and `css: 64 refs, 24 tokens`. The
+`file:line token` list is in `$D.out`.
 
 - **`js/`:** `--success-color`, `--warning-color`, `--danger-color` (`image-cache-modal.js`)
   and `--accent` (`spotLookup.js`). Fixed in STRK-450.
@@ -156,16 +162,24 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
   `color-mix(` don't match.
 - **The 148 CSS named colours only**, not any keyword. All 148 were validated with
   `CSS.supports("color", name)` in Chromium. Named colours are matched as a `var()` fallback
-  anywhere (`var(--success-color, green)`) and as the value written to a colour `.style`
-  property (`el.style.color = "orange"`). Keywords such as `none`, `auto`, `inherit` and
+  anywhere (`var(--success-color, green)`). They are also matched anywhere inside a string
+  literal or template written to a colour `.style` property: `"orange"`,
+  `"linear-gradient(red, blue)"`, `` `red` `` and `` `linear-gradient(${a}, navy)` ``.
+  Word and hyphen lookarounds keep token names like `var(--gold)` and
+  `var(--type-gold-bg)` from matching. Keywords such as `none`, `auto`, `inherit` and
   `transparent` are never flagged. A colour name in any other string isn't flagged either:
   metal keys such as `METALS.GOLD.color = "gold"` in `js/constants.js` are token names, not
   CSS colours.
+- **One report per node.** The style-assignment selectors skip values that the hex/function
+  or `var()`-fallback selectors already report.
 
-A labelled fixture checked the rule: it hits `"Orange"` on `.style.color`, `var(--x, Green)`,
-`LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)` and `#ABCDEF`. It passes
-`.style.background = "none"`, `var(--layout-mode, auto)`, `getContrastColor(x)`, `&#128196;`,
-`color-mix(…)` and `contrast-color(red)`.
+A labelled fixture checked the rule. It hits each of these exactly once: `"Orange"` on
+`.style.color`, `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`,
+`#ABCDEF`, `"linear-gradient(red, blue)"`, `` `red` ``, `` `linear-gradient(${a}, Navy)` ``,
+`"var(--x, red)"` and `"linear-gradient(#fff, red)"`. It passes
+`.style.background = "none"`, `var(--layout-mode, auto)`, `"var(--gold)"`,
+`"var(--type-gold-bg)"`, `getContrastColor(x)`, `&#128196;`, `color-mix(…)`,
+`contrast-color(red)`, and `"red"` assigned to a plain variable.
 
 ```js
 const COLOR_PROPS = "color|backgroundColor|background|borderColor|fill|stroke";
@@ -178,8 +192,14 @@ const LITERAL =
   "/(?<![&\\w])#[0-9a-f]{3,8}\\b|(?<![\\w-])(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(/i";
 // A named colour used as a var() fallback, e.g. var(--success-color, green).
 const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
-// A named colour written to a colour style property, e.g. el.style.color = "orange".
-const NAMED_VALUE = `/^(${NAMED_COLORS})$/i`;
+// A named colour anywhere in a value written to a colour style property, e.g. "orange" or
+// "linear-gradient(red, blue)". The hyphen/word lookarounds skip token names like var(--gold).
+const NAMED_IN_VALUE = `/(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
+// Assignment to el.style.<colour prop>.
+const COLOR_ASSIGN = `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/]`;
+// Skip values another selector already reports, so each node is reported once.
+const NOT_REPORTED = `:not([value=${LITERAL}]):not([value=${NAMED_FALLBACK}])`;
+const NOT_REPORTED_RAW = `:not([value.raw=${LITERAL}]):not([value.raw=${NAMED_FALLBACK}])`;
 module.exports = [
   {
     files: ["js/**/*.js"],
@@ -188,7 +208,11 @@ module.exports = [
       "no-restricted-syntax": [
         "warn",
         {
-          selector: `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/] > Literal.right[value=${NAMED_VALUE}]`,
+          selector: `${COLOR_ASSIGN} > Literal.right[value=${NAMED_IN_VALUE}]${NOT_REPORTED}`,
+          message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
+        },
+        {
+          selector: `${COLOR_ASSIGN} > TemplateLiteral.right > TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_REPORTED_RAW}`,
           message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
         },
         {
