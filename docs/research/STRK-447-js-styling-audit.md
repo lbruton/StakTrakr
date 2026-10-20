@@ -187,13 +187,17 @@ reports 50 hits in 15 files and zero parse errors, one hit per node. What it mat
 - **Nothing inside `url(…)`.** This applies to hex, colour functions and named colours alike.
   Asset paths such as `url(/icons/red/status.svg)`, SVG references such as `url(#fade)`
   (whose id reads as 4-digit hex) and inline SVG data URLs such as
-  `url("data:image/svg+xml,<svg fill=rgb(1 2 3)>")` are skipped. A colour after the closing
-  parenthesis still matches.
+  `url("data:image/svg+xml,<svg fill=rgb(1 2 3)>")` are skipped. A quoted URL runs to its
+  closing quote, so a `)` inside it (`transform='translate(1 2)'`) doesn't end it early. A
+  colour after the closing parenthesis still matches.
+- **`style.setProperty()`.** The CSSOM form `el.style.setProperty("color", "red")` is covered
+  for the same colour-bearing properties in kebab case, custom `--*-color` properties
+  included, with any literal or template part in its arguments checked.
 - **One report per node.** Selectors run from most to least specific, and each skips values
   an earlier one already reports.
 
 A labelled fixture checked the rule. It reports each of these exactly once, with no node
-reported twice (30 hits):
+reported twice (34 hits):
 
 - `"Orange"` written to `.style.color`
 - `var(--x, Green)`, `LAB(…)`, `color(srgb …)`, `hwb(…)`, `oklab(…)`
@@ -209,6 +213,9 @@ reported twice (30 hits):
   `.style.borderInlineStartColor = "Teal"`
 - `style="background: url(/a.svg) red"` (the colour after the URL)
 - `.style.color = failed ? "red" : "green"` (both branches), `.style.borderColor = "solid " + "navy"`
+- `style.setProperty("color", "red")`,
+  `style.setProperty("background-color", failed ? "white" : "black")` (both branches),
+  ``style.setProperty("--accent-color", `navy`)``
 
 It passes:
 
@@ -223,7 +230,10 @@ It passes:
   `.style.background = "url(/icons/red/x.svg)"`, `.style.filter = "url(#fade)"`,
   `url("data:image/svg+xml,<svg fill=rgb(1 2 3)>")`, and an `hsl()` inside a
   `backgroundImage` data URL
-- `.style.color = failed ? "var(--danger)" : "var(--success)"`
+- quoted data URLs with an inner `)`: `transform='translate(1 2)'` before `fill='rgb(1 2 3)'`,
+  and `transform="scale(2)"` before `fill="red"`
+- `.style.color = failed ? "var(--danger)" : "var(--success)"`,
+  `style.setProperty("width", "red")`, `style.setProperty("color", "var(--text-primary)")`
 - the prose `"Red alert: the color is wrong"`, and `"red"` assigned to a plain variable
 
 ```js
@@ -235,9 +245,14 @@ const COLOR_PROPS =
 // The 148 CSS named colours (CSS Color 4). Validated with CSS.supports("color", name) in Chromium.
 const NAMED_COLORS =
   "aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen";
+// The same colour-bearing properties in kebab case, for CSS text and setProperty().
+const KEBAB_PROPS =
+  "color|[a-z-]+-color|background|border(-[a-z]+)*|outline(-[a-z]+)*|box-shadow|text-shadow|fill|stroke";
 // Nothing inside url(…) is a colour: asset paths (url(/icons/red/x.svg)) and SVG references
 // (url(#fade), whose id reads as 4-digit hex) are skipped by this lookbehind.
-const NOT_IN_URL = "(?<!url\\([^)]*)";
+// A quoted URL runs to its closing quote (it may contain ")", e.g. transform='translate(1 2)');
+// an unquoted URL cannot contain an unescaped ")" so it ends at the first one.
+const NOT_IN_URL = `(?<!url\\(\\s*(?:"[^"]*|'[^']*|[^)]*))`;
 // Hex (only the CSS lengths 3, 4, 6, 8) and every CSS colour function, case-insensitive.
 // HTML entities (&#128196;) and hyphenated names (contrast-color(, color-mix() are excluded.
 // The url() guard applies to both alternatives (data:image/svg+xml,…fill=rgb(…) is skipped).
@@ -246,12 +261,15 @@ const LITERAL = `/${NOT_IN_URL}(?:(?<![&\\w])#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{
 const NAMED_FALLBACK = `/var\\(--[\\w-]+,\\s*(${NAMED_COLORS})\\s*\\)/i`;
 // A named colour inside a CSS declaration in any string: style="color:red", cssText
 // "border:1px solid red;", template parts. Stops at ; " ' so it stays in one declaration.
-const NAMED_IN_DECL = `/(?<![\\w-])(color|[a-z-]+-color|background|border(-[a-z]+)*|outline(-[a-z]+)*|box-shadow|text-shadow|fill|stroke)\\s*:[^;"'\`]*?${NOT_IN_URL}(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
+const NAMED_IN_DECL = `/(?<![\\w-])(${KEBAB_PROPS})\\s*:[^;"'\`]*?${NOT_IN_URL}(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // A named colour anywhere in a value written to a colour style property, e.g. "orange" or
 // "linear-gradient(red, blue)". The hyphen/word lookarounds skip token names like var(--gold).
 const NAMED_IN_VALUE = `/${NOT_IN_URL}(?<![\\w-])(${NAMED_COLORS})(?![\\w-])/i`;
 // Assignment to el.style.<colour prop>.
 const COLOR_ASSIGN = `AssignmentExpression[left.object.property.name='style'][left.property.name=/^(${COLOR_PROPS})$/]`;
+// The CSSOM form: el.style.setProperty("color", …) with a colour-bearing kebab-case property
+// (custom properties such as "--accent-color" included).
+const COLOR_SET = `CallExpression[callee.object.property.name='style'][callee.property.name='setProperty'][arguments.0.value=/^(${KEBAB_PROPS})$/i]`;
 // Skip values another selector already reports, so each node is reported once.
 const NOT_EARLIER = `:not([value=${LITERAL}]):not([value=${NAMED_FALLBACK}])`;
 const NOT_EARLIER_RAW = `:not([value.raw=${LITERAL}]):not([value.raw=${NAMED_FALLBACK}])`;
@@ -302,6 +320,16 @@ module.exports = [
           selector: `${COLOR_ASSIGN} TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_EARLIER_RAW}${NOT_DECL_RAW}`,
           message: "Named colour written to .style — use a CSS token or a class (STRK-447).",
         },
+        {
+          selector: `${COLOR_SET} Literal[value=${NAMED_IN_VALUE}]${NOT_EARLIER}${NOT_DECL}`,
+          message:
+            "Named colour passed to style.setProperty — use a CSS token or a class (STRK-447).",
+        },
+        {
+          selector: `${COLOR_SET} TemplateElement[value.raw=${NAMED_IN_VALUE}]${NOT_EARLIER_RAW}${NOT_DECL_RAW}`,
+          message:
+            "Named colour passed to style.setProperty — use a CSS token or a class (STRK-447).",
+        },
       ],
     },
   },
@@ -312,6 +340,15 @@ Roll-out: merge at `warn` into `eslint.config.cjs`, and mirror it in `.eslintrc.
 (dual config, see `.context/review-and-ci.md`). Mark the "legit JS" sites with
 `// eslint-disable-next-line no-restricted-syntax -- STRK-447 legit: <reason>`, then raise to
 `error` once STRK-451/452/453 merge.
+
+**Limits of the regex prototype.** The selectors above approximate CSS parsing with
+lookarounds. Each review round on PR #1607 found another syntax they mis-handled (URLs,
+quoting, CSSOM calls, nested expressions). Before raising the rule to `error`, STRK-455
+should decide whether to keep the selectors or write a small local ESLint rule. That rule
+would take string and template values from colour-bearing `.style` writes, `setProperty`
+calls and `style=` / `cssText` strings, and run them through a real CSS value tokenizer such
+as `postcss-value-parser`, which handles `url()`, quoting and functions. The fixture cases
+listed above become that rule's test suite either way.
 
 ## Follow-up issues
 
