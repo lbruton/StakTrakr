@@ -122,7 +122,8 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - CodeRabbit is **comment-triggered**: it reviews only a PR where someone has commented `@coderabbitai review` (post it once the PR is out of draft). The `coderabbit-review` label no longer triggers it on the free OSS plan. Unasked, it still flags, approves and passes its check but omits the full review — that is expected.
 - Codacy AI is **automatic**, now running as part of the Codacy static-analysis stage.
 - Copilot is **automatic** at **Balanced** review effort, and loads `.github/skills/code-review/SKILL.md`.
-- Codex is **dynamic** — it may or may not weigh in; its absence is not a signal.
+- Codex is **on PR**: one review when a PR is opened or marked ready, none on later pushes.
+- Comment `@codex review` to request another Codex pass.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
 - Required status checks differ by branch: `dev` requires **only** `Codacy Static Code Analysis`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
