@@ -810,6 +810,7 @@ async function setupRetailFixture(page, options = {}) {
     stalePrimaryAgeMs, // age of the api1 envelope's generated_at vs FIXED_NOW
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
     retailFeeds = {},
+    retailHistory = {},
     failedRetailFeeds = [],
   } = options;
 
@@ -839,7 +840,12 @@ async function setupRetailFixture(page, options = {}) {
       if (filter) writeJson("staktrakr.market_filter", filter);
     },
     {
-      seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
+      seeded: {
+        prices,
+        history: { ...historyRows, ...retailHistory },
+        intraday: intradayRows,
+        generatedAt: GENERATED_AT,
+      },
       meta: coinMeta,
       vendors: vendorMeta,
       saved: savedTab,
@@ -1640,7 +1646,17 @@ test.describe("core/retail-market", () => {
     const vendors = Object.fromEntries(
       vendorIds.map((id, index) => [id, { price: 40 + index, in_stock: true }])
     );
+    const vendorHistory = ["2026-05-25", "2026-05-26"].map((date, day) => ({
+      date,
+      avg_median: 50 + day,
+      avg_low: 40 + day,
+      vendors: Object.fromEntries(vendorIds.map((id, index) => [id, { avg: 40 + index + day }])),
+    }));
     await setupRetailFixture(page, {
+      retailHistory: {
+        [SLUG_SILVER_A]: vendorHistory,
+        ase: vendorHistory,
+      },
       retailFeeds: {
         [SLUG_SILVER_A]: {
           latest: {
@@ -1656,19 +1672,22 @@ test.describe("core/retail-market", () => {
             ],
           },
         },
+        ase: {
+          latest: {
+            weight_oz: 1,
+            median_price: 50,
+            lowest_price: 40,
+            window_start: GENERATED_AT,
+            vendors,
+            windows_24h: [
+              { window: "2026-05-26T15:00:00.000Z", vendors: { apmex: 48 } },
+              { window: "2026-05-26T16:00:00.000Z", vendors: {} },
+              { window: "2026-05-26T17:00:00.000Z", vendors: {} },
+            ],
+          },
+        },
       },
     });
-    await page.evaluate(
-      ({ slug, ids }) => {
-        window.retailPriceHistory[slug] = ["2026-05-25", "2026-05-26"].map((date, day) => ({
-          date,
-          avg_median: 50 + day,
-          avg_low: 40 + day,
-          vendors: Object.fromEntries(ids.map((id, index) => [id, { avg: 40 + index + day }])),
-        }));
-      },
-      { slug: SLUG_SILVER_A, ids: vendorIds }
-    );
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
 
@@ -1711,10 +1730,7 @@ test.describe("core/retail-market", () => {
     }
     await page.evaluate(() => window.closeMarketDetailModal());
 
-    await page.evaluate((slug) => {
-      window.RETAIL_COIN_META[slug] = { name: "Vendor Palette Silver", weight: 1, metal: "silver" };
-      window.openRetailViewModal(slug);
-    }, SLUG_SILVER_A);
+    await page.evaluate(() => window.openRetailViewModal("ase"));
     await page.waitForLoadState("networkidle");
     const names = page.locator("#retailViewVendorLegend .retail-legend-name");
     await expect(names).toHaveCount(vendorIds.length);

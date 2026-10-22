@@ -66,8 +66,15 @@
     const carriedIndices = o.carriedIndices || null;
 
     return vendors.map(function (vendorId, vendorIdx) {
-      const color = colorMap[vendorId]
-        ? getThemeColorRGB(colorMap[vendorId])
+      const colorValue = colorMap[vendorId];
+      const isCssColor =
+        typeof colorValue === "string" &&
+        typeof window.CSS?.supports === "function" &&
+        window.CSS.supports("color", colorValue);
+      const color = colorValue
+        ? isCssColor
+          ? resolveColor(colorValue)
+          : getThemeColorRGB(colorValue)
         : getThemeColorRGB("text-muted");
       const carried = carriedIndices ? carriedIndices[vendorIdx] : null;
 
