@@ -3280,7 +3280,7 @@ const restoreHistoricalSpotData = async () => {
     }
 
     if (allNew.length === 0) {
-      appAlert("Already up to date — no new entries found.");
+      appAlert("Already up to date. No new entries found.");
       return;
     }
 

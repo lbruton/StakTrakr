@@ -11,7 +11,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const jsDir = join(repoRoot, "js");
 
 const UI_COPY_CALL =
-  /\b(showToast|showCloudToast|showNotification|showAppAlert|showAppConfirm|showAppPrompt|showAppPromptWithOption)\s*\(/g;
+  /\b(showToast|showCloudToast|showNotification|showAppAlert|showAppConfirm|showAppPrompt|showAppPromptWithOption|appAlert|appConfirm|appPrompt)\s*\(/g;
 const STRING_LITERAL = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
 const EM_DASH = /—|\\u2014|&mdash;/;
 

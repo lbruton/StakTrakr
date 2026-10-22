@@ -2902,7 +2902,7 @@ const printInventory = () => {
   // Revoke after a short delay to allow the popup to load the blob before the URL is released
   setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
   if (!popup) {
-    appAlert("Your browser blocked the print window — allow popups for this page.");
+    appAlert("Your browser blocked the print window. Allow pop-ups for this page.");
   }
 };
 /**
