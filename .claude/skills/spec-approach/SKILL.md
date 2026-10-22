@@ -5,7 +5,7 @@ user-invocable: true
 allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep,
   mcp__claude-context__search_code
-library-version: 2392a08b5fd4
+library-version: 9c412b151ba8
 ---
 
 # /spec-approach ISSUE

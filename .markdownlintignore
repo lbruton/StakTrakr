@@ -75,3 +75,6 @@ docs/specs
 .codex/agents/pr-thread-resolver.toml
 .claude/agents/firecrawl-scraper.md
 .codex/agents/firecrawl-scraper.toml
+
+# Library-managed Vale styles (DEVS-140): deployed verbatim from Devops/skill-library; fix them in the master.
+.vale

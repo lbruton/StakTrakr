@@ -1,0 +1,12 @@
+extends: existence
+message: "Move the issue ID '%s' to the commit message; state the constraint (prose-core R3)."
+level: warning
+nonword: true
+tokens:
+  - '\b[A-Z]{3,5}-\d+\b'
+exceptions:
+  - '\bAES-\d+'
+  - '\bSHA-\d+'
+  - '\bUTF-\d+'
+  - '\bISO-\d+'
+  - '\bINC-\d+'

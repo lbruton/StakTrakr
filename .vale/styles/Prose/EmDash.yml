@@ -1,0 +1,7 @@
+extends: existence
+message: "Replace the em-dash aside with a full stop, colon or parentheses (prose-core R2)."
+level: warning
+scope: ~heading
+nonword: true
+tokens:
+  - '—'
