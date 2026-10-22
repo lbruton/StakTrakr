@@ -60,6 +60,13 @@ git diff {BASE_SHA}..{HEAD_SHA}
 - Documentation complete?
 - No obvious bugs?
 
+**Prose (the prose-core rule):**
+- Comments and docstrings state constraints only, within budget (inline 1-2 lines, docstring 1-4)?
+- No issue IDs, change history or run measurements in comments and current-state docs?
+- No em-dash asides, bold for stress, or `NOTE:`/`CRITICAL:` prefixes?
+- UI copy written as commands, without emoji, exclamation marks or "successfully"?
+- Terms match the project's `.context/GLOSSARY.md` and `.context/voice.md`?
+
 ## Output Format
 
 ### Strengths
@@ -74,7 +81,9 @@ git diff {BASE_SHA}..{HEAD_SHA}
 [Architecture problems, missing features, poor error handling, test gaps]
 
 #### Minor (Nice to Have)
-[Code style, optimization opportunities, documentation improvements]
+[Code style, optimization opportunities, documentation improvements, prose-core violations in comments and docs]
+
+Prose-core violations in user-facing UI copy are Important.
 
 **For each issue:**
 - File:line reference

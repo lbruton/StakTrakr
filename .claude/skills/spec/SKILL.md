@@ -7,7 +7,7 @@ allowed-tools: >-
   mcp__plane__workitem,
   mcp__plane__state,
   mcp__plane__project
-library-version: c1f149d0652e
+library-version: 58c5a7a41a16
 ---
 
 # Spec — Phased Spec Workflow (driver)
