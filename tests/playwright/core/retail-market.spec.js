@@ -535,6 +535,9 @@ const lightweightChartsStub = `
             if (type === "histogram") root.dataset.histogramCount = String(data.length);
             if (type === "area") root.dataset.areaCount = String(data.length);
           },
+          applyOptions(next) {
+            Object.assign(record.options, next);
+          },
         };
       };
       return {
@@ -1579,7 +1582,7 @@ test.describe("core/retail-market", () => {
     }));
     expect(registries.name).toBe("MintBuilder");
     expect(registries.url).toBe("https://mintbuilder.com");
-    expect(registries.color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(registries.color).toBe("vendor-mintbuilder");
     // Parity invariant: the three registries must describe the same vendor set,
     // so a future vendor can never land half-registered again.
     expect(registries.urlKeys).toEqual(registries.nameKeys);
@@ -1616,6 +1619,140 @@ test.describe("core/retail-market", () => {
     await legendItem.click();
     const openedUrls = await page.evaluate(() => window.__openedUrls);
     expect(openedUrls[0]).toBe("https://mintbuilder.com");
+  });
+
+  test("STRK-451 — vendor labels meet AA in every theme and chart colors follow theme changes", async ({
+    page,
+  }) => {
+    const vendorIds = [
+      "apmex",
+      "jmbullion",
+      "sdbullion",
+      "monumentmetals",
+      "herobullion",
+      "bullionexchanges",
+      "summitmetals",
+      "goldback",
+      "providentmetals",
+      "gainesvillecoins",
+      "mintbuilder",
+    ];
+    const vendors = Object.fromEntries(
+      vendorIds.map((id, index) => [id, { price: 40 + index, in_stock: true }])
+    );
+    await setupRetailFixture(page, {
+      retailFeeds: {
+        [SLUG_SILVER_A]: {
+          latest: {
+            weight_oz: 1,
+            median_price: 50,
+            lowest_price: 40,
+            window_start: GENERATED_AT,
+            vendors,
+          },
+        },
+      },
+    });
+    await page.evaluate(
+      ({ slug, ids }) => {
+        window.retailPriceHistory[slug] = ["2026-05-25", "2026-05-26"].map((date, day) => ({
+          date,
+          avg_median: 50 + day,
+          avg_low: 40 + day,
+          vendors: Object.fromEntries(ids.map((id, index) => [id, { avg: 40 + index + day }])),
+        }));
+      },
+      { slug: SLUG_SILVER_A, ids: vendorIds }
+    );
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await expect(page.locator("#marketDetailModal")).toBeVisible();
+
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      const chartColors = await page.evaluate(() => {
+        const chart = window.__marketChartHarness.instances.find(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        );
+        return {
+          actual: (chart?.series || []).map((series) => series.options.color),
+          expected: Object.values(window.RETAIL_VENDOR_COLORS).map((token) =>
+            window.getThemeColorRGB(token)
+          ),
+        };
+      });
+      expect(chartColors.actual, `${theme} market chart vendor lines`).not.toHaveLength(0);
+      for (const color of chartColors.actual) {
+        expect(chartColors.expected, `${theme} market chart color ${color}`).toContain(color);
+      }
+    }
+    await page.evaluate(() => window.closeMarketDetailModal());
+
+    await page.evaluate((slug) => {
+      window.RETAIL_COIN_META[slug] = { name: "Vendor Palette Silver", weight: 1, metal: "silver" };
+      window.openRetailViewModal(slug);
+    }, SLUG_SILVER_A);
+    const names = page.locator("#retailViewVendorLegend .retail-legend-name");
+    await expect(names).toHaveCount(vendorIds.length);
+    const contrastFailures = [];
+
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      const report = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const toRgb = (css) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = "#000";
+          ctx.fillStyle = css;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+        };
+        const linear = (channel) => {
+          const value = channel / 255;
+          return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        };
+        const luminance = (rgb) =>
+          0.2126 * linear(rgb[0]) + 0.7152 * linear(rgb[1]) + 0.0722 * linear(rgb[2]);
+        const contrast = (a, b) => {
+          const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+          return (high + 0.05) / (low + 0.05);
+        };
+        const modal = document.querySelector("#retailViewModal .modal-content");
+        const background = toRgb(getComputedStyle(modal).backgroundColor);
+        const labels = Array.from(
+          document.querySelectorAll("#retailViewVendorLegend .retail-legend-name")
+        );
+        const chart = Object.values(window.Chart?.instances || {}).find(
+          (candidate) => candidate.canvas?.id === "retailViewChart"
+        );
+        return {
+          labels: labels.map((label) => ({
+            name: label.textContent.trim(),
+            ratio: contrast(toRgb(getComputedStyle(label).color), background),
+          })),
+          datasets: (chart?.data.datasets || [])
+            .filter((dataset) => dataset._vendorId)
+            .map((dataset) => ({
+              id: dataset._vendorId,
+              color: dataset.borderColor,
+              expected: window.getRetailVendorColorRGB(dataset._vendorId),
+            })),
+          unknownColor: window.getRetailVendorColor("unknown-vendor"),
+        };
+      });
+      expect(report.labels, `${theme} vendor labels`).toHaveLength(vendorIds.length);
+      expect(report.datasets, `${theme} vendor chart datasets`).toHaveLength(vendorIds.length);
+      for (const label of report.labels) {
+        if (label.ratio < 4.5) {
+          contrastFailures.push(`${theme} ${label.name}: ${label.ratio.toFixed(2)}:1`);
+        }
+      }
+      for (const dataset of report.datasets) {
+        expect(dataset.color, `${theme} ${dataset.id} chart color`).toBe(dataset.expected);
+      }
+      expect(report.unknownColor).toBe("var(--text-muted)");
+    }
+    expect(contrastFailures).toEqual([]);
   });
 
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,

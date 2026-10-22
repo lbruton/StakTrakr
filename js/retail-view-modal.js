@@ -115,7 +115,7 @@ const _buildVendorLegend = (slug) => {
     // Skip vendors with no price and no OOS flag (they don't carry this coin)
     if (price == null && !isOOS) return;
 
-    const color = RETAIL_VENDOR_COLORS[vendorId] || getThemeColor("text-muted");
+    const color = getRetailVendorColor(vendorId);
     const label =
       (typeof RETAIL_VENDOR_NAMES !== "undefined" && RETAIL_VENDOR_NAMES[vendorId]) || vendorId;
     const vendorUrl =
@@ -151,9 +151,7 @@ const _buildVendorLegend = (slug) => {
       });
     }
 
-    const displayColor = isCarried
-      ? resolveColor(`color-mix(in srgb, ${color} 50%, transparent)`)
-      : color;
+    const displayColor = isCarried ? `color-mix(in srgb, ${color} 50%, transparent)` : color;
 
     const swatch = document.createElement("span");
     swatch.className = "retail-legend-swatch";
@@ -162,7 +160,7 @@ const _buildVendorLegend = (slug) => {
     const nameEl = document.createElement("span");
     nameEl.className = "retail-legend-name";
     nameEl.textContent = isCarried ? label + " (carried)" : label;
-    nameEl.style.color = displayColor;
+    nameEl.style.color = color;
 
     const priceEl = document.createElement("span");
     priceEl.className = "retail-legend-price";
@@ -901,9 +899,21 @@ const closeRetailViewModal = () => {
   if (typeof closeModalById === "function") closeModalById("retailViewModal");
 };
 
+/** Re-resolves Chart.js vendor lines after the active theme changes. */
+const refreshRetailVendorChartsTheme = () => {
+  [_retailViewModalChart, _retailViewIntradayChart].forEach((chart) => {
+    if (!chart) return;
+    chart.data.datasets.forEach((dataset) => {
+      if (dataset._vendorId) dataset.borderColor = getRetailVendorColorRGB(dataset._vendorId);
+    });
+    chart.update("none");
+  });
+};
+
 if (typeof window !== "undefined") {
   window.openRetailViewModal = openRetailViewModal;
   window.closeRetailViewModal = closeRetailViewModal;
+  window._refreshRetailVendorChartsTheme = refreshRetailVendorChartsTheme;
   window._switchRetailViewTab = _switchRetailViewTab;
   window._bucketWindows = _bucketWindows;
   window._forwardFillVendors = _forwardFillVendors;

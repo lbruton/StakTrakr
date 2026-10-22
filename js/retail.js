@@ -97,20 +97,30 @@ const RETAIL_VENDOR_URLS = {
   mintbuilder: "https://mintbuilder.com", // no www — matches the canonical host in feed/product URLs
 };
 
-/** Per-vendor brand colors — shared with retail-view-modal.js for chart lines and vendor labels */
-const RETAIL_VENDOR_COLORS = {
-  apmex: "#60a5fa", // bright blue (was #3b82f6 — boosted for dark bg contrast)
-  jmbullion: "#fbbf24", // bright amber (was #f59e0b)
-  sdbullion: "#34d399", // bright emerald (was #10b981)
-  monumentmetals: "#c4b5fd", // bright violet (was #a78bfa)
-  herobullion: "#f87171", // red — already distinct
-  bullionexchanges: "#f472b6", // bright pink (was #ec4899)
-  summitmetals: "#22d3ee", // bright cyan (was #06b6d4)
-  goldback: "#d4a017", // deep gold — goldback branding
-  providentmetals: "#a3e635", // lime green — distinct from emerald (SDB)
-  gainesvillecoins: "#fb923c", // orange — distinct from amber (JM)
-  mintbuilder: "#818cf8", // indigo — distinct from blue (APMEX) and violet (Monument)
+/** Per-vendor theme tokens — the token names are shared with DOM and chart renderers. */
+const RETAIL_VENDOR_COLORS = Object.assign(Object.create(null), {
+  apmex: "vendor-apmex",
+  jmbullion: "vendor-jmbullion",
+  sdbullion: "vendor-sdbullion",
+  monumentmetals: "vendor-monumentmetals",
+  herobullion: "vendor-herobullion",
+  bullionexchanges: "vendor-bullionexchanges",
+  summitmetals: "vendor-summitmetals",
+  goldback: "vendor-goldback",
+  providentmetals: "vendor-providentmetals",
+  gainesvillecoins: "vendor-gainesvillecoins",
+  mintbuilder: "vendor-mintbuilder",
+});
+
+/** Returns a CSS color that follows the active theme, with the muted text color for unknown vendors. */
+const getRetailVendorColor = (vendorId) => {
+  const token = RETAIL_VENDOR_COLORS[vendorId];
+  return token ? `var(--${token})` : "var(--text-muted)";
 };
+
+/** Resolves the active vendor token to an RGB color for Chart.js. */
+const getRetailVendorColorRGB = (vendorId) =>
+  getThemeColorRGB(RETAIL_VENDOR_COLORS[vendorId] || "text-muted");
 
 // ---------------------------------------------------------------------------
 // Manifest-driven resolver state (populated by syncRetailPrices)
@@ -290,11 +300,12 @@ const getRetailCoinMeta = (slug) => {
 /** Resolve vendor display info: manifest → hardcoded → defaults */
 const getVendorDisplay = (vendorId) => {
   _restoreRetailManifestCacheFromStorage();
-  if (_manifestVendorMeta && _manifestVendorMeta[vendorId]) return _manifestVendorMeta[vendorId];
+  const manifestVendor = _manifestVendorMeta && _manifestVendorMeta[vendorId];
   return {
-    name: RETAIL_VENDOR_NAMES[vendorId] || vendorId,
-    color: RETAIL_VENDOR_COLORS[vendorId] || "#6c757d",
-    url: RETAIL_VENDOR_URLS[vendorId] || null,
+    ...(manifestVendor || {}),
+    name: (manifestVendor && manifestVendor.name) || RETAIL_VENDOR_NAMES[vendorId] || vendorId,
+    color: getRetailVendorColor(vendorId),
+    url: (manifestVendor && manifestVendor.url) || RETAIL_VENDOR_URLS[vendorId] || null,
   };
 };
 
@@ -1773,6 +1784,8 @@ if (typeof window !== "undefined") {
   window.RETAIL_VENDOR_NAMES = RETAIL_VENDOR_NAMES;
   window.RETAIL_VENDOR_URLS = RETAIL_VENDOR_URLS;
   window.RETAIL_VENDOR_COLORS = RETAIL_VENDOR_COLORS;
+  window.getRetailVendorColor = getRetailVendorColor;
+  window.getRetailVendorColorRGB = getRetailVendorColorRGB;
   window.retailAvailability = retailAvailability;
   window.retailLastKnownPrices = retailLastKnownPrices;
   window.retailLastAvailableDates = retailLastAvailableDates;

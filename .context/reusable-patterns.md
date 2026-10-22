@@ -24,21 +24,23 @@ Vendor identity is always a short string key: `apmex`, `monumentmetals`, `sdbull
 Every vendor must be present in all three frontend maps in `retail.js` **plus** the poller's manifest map. They share the same key set and must stay in sync:
 
 - `RETAIL_VENDOR_NAMES` — `{ [vendorId]: displayName }` — drives iteration order everywhere
-- `RETAIL_VENDOR_COLORS` — `{ [vendorId]: hexColor }` — brand colors for charts and legend swatches
+- `RETAIL_VENDOR_COLORS` — `{ [vendorId]: themeToken }` — maps each vendor to its `--vendor-*` CSS token; use `getRetailVendorColor()` for DOM colors and `getRetailVendorColorRGB()` for canvas charts
 - `RETAIL_VENDOR_URLS` — `{ [vendorId]: url }` — fallback homepage URLs
 - `VENDOR_META` (`devops/pollers/shared/api-export-v2.js`) — feeds the published `manifest.json`; a missing entry silently emits the `{name: vid, color: "#94a3b8", url: null}` placeholder
 
 **Adding a new vendor:** Update all four maps together in the same PR. A vendor missing from `RETAIL_VENDOR_NAMES` will not appear in the legend, forward-fill, anomaly consensus, or intraday table regardless of the other maps — `RETAIL_VENDOR_NAMES` keys drive iteration everywhere (only the two modal charts union-discover vendors from data).
 
-**Test enforcement (STRK-322, v3.35.91):** a Playwright test in `tests/playwright/core/retail-market.spec.js` pins the three `retail.js` maps to the same key set with unique colors, and `devops/pollers/shared/api-export-v2-vendor-meta.test.mjs` pins every `VENDOR_META` entry's shape (name / hex color / https url). Half-registration now fails tests; full non-registration is still only caught by review. MintBuilder shipped half-registered (poller-only) from STRK-307 until STRK-322 closed the gap.
+**Test enforcement (STRK-322, v3.35.91):** a Playwright test in `tests/playwright/core/retail-market.spec.js` pins the three `retail.js` maps to the same key set and verifies unique theme-token assignments. `devops/pollers/shared/api-export-v2-vendor-meta.test.mjs` pins every `VENDOR_META` entry's shape (name / hex color / https url); poller hex colors remain part of the published manifest format. Half-registration now fails tests; full non-registration is still only caught by review. MintBuilder shipped half-registered (poller-only) from STRK-307 until STRK-322 closed the gap.
 
 ### Display Info Resolution Priority
 
-`getVendorDisplay(vendorId)` resolves in this order:
+`getVendorDisplay(vendorId)` resolves names and URLs in this order; vendor colors always come from the active theme token:
 
 1. `manifest._vendor_meta` (dynamic, from the API manifest)
 2. `RETAIL_VENDOR_NAMES` / `RETAIL_VENDOR_COLORS` / `RETAIL_VENDOR_URLS` (hardcoded)
-3. Fallback: vendor key as the label, `#6c757d` (gray) as the color
+3. Fallback: vendor key as the label and homepage URL from the hardcoded map when available
+
+Known vendors use `RETAIL_VENDOR_COLORS` to select a `--vendor-*` CSS token. Unknown vendors use `--text-muted`. Manifest colors do not override the theme palette. The four themes provide distinct vendor hues with at least 4.5:1 text contrast on the rendered vendor-label surfaces.
 
 ### Vendor URL Resolution (Two-Tier)
 
