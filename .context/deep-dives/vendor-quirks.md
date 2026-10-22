@@ -25,7 +25,7 @@ Vendor identity in the frontend is always a short string key: `apmex`, `monument
 
 1. **Retail prices honor display currency on active surfaces.** Retail source data remains USD, but active ticker, vendor grid, market detail, retail history, and Goldback settings surfaces format through the app's display-currency helpers. Non-USD vendor grids show a convenience-conversion footer because US-based vendors may still checkout in USD.
 
-2. **Vendor display info resolves in priority order: manifest `_vendor_meta` → hardcoded `RETAIL_VENDOR_NAMES`/`RETAIL_VENDOR_COLORS`/`RETAIL_VENDOR_URLS`.** `getVendorDisplay(vendorId)` uses this chain. If a vendor appears in the poller output but not in the hardcoded maps, the vendor key is used as the label and the color falls back to `#6c757d` (gray).
+2. **Vendor names and URLs resolve in priority order: manifest `_vendor_meta` → hardcoded `RETAIL_VENDOR_NAMES`/`RETAIL_VENDOR_URLS`.** `getVendorDisplay(vendorId)` uses this chain. Vendor colors come from the theme token selected by `RETAIL_VENDOR_COLORS`; manifest colors are ignored for display. Unknown vendors use `--text-muted`.
 
 3. **Product page URLs prefer `providers.json` over vendor homepages.** Matrix cells and retail-modal legend links use this resolution: `retailProviders[slug][vendorId]` → `RETAIL_VENDOR_URLS[vendorId]`. The `providers.json` file is fetched once per sync and cached in `localStorage` under `RETAIL_PROVIDERS_KEY`.
 
@@ -176,7 +176,7 @@ If a goldback slug appears in the manifest that does not match this pattern, `ge
 
 **Assuming vendor price is always a number.** `vendorData.price` can be `null` (vendor polled but no price found) or `undefined` (vendor not present in this slug's vendor map). Always null-check before rendering.
 
-**Editing `RETAIL_VENDOR_NAMES` without checking `RETAIL_VENDOR_COLORS` and `RETAIL_VENDOR_URLS`.** All three maps are keyed by the same vendor ID strings and must stay in sync. Adding a new vendor key to one but not the others results in undefined color (gray fallback) or missing homepage link.
+**Editing `RETAIL_VENDOR_NAMES` without checking `RETAIL_VENDOR_COLORS` and `RETAIL_VENDOR_URLS`.** All three maps are keyed by the same vendor ID strings and must stay in sync. Adding a new vendor key to one but not the others results in muted text or a missing homepage link. Vendor map colors name CSS tokens, not hex values; keep the four theme token definitions in `css/styles.css` in sync.
 
 **Expecting `retail.js` functions in `retail-view-modal.js`.** The modal file references `RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_COLORS`, `RETAIL_VENDOR_URLS`, `retailPrices`, `retailAvailability`, `retailLastKnownPrices`, `retailLastAvailableDates`, `retailIntradayData`, `retailPriceHistory`, and `retailProviders` as globals from `retail.js`. Script load order in `index.html` must place `retail.js` before `retail-view-modal.js`.
 

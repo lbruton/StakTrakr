@@ -535,6 +535,9 @@ const lightweightChartsStub = `
             if (type === "histogram") root.dataset.histogramCount = String(data.length);
             if (type === "area") root.dataset.areaCount = String(data.length);
           },
+          applyOptions(next) {
+            Object.assign(record.options, next);
+          },
         };
       };
       return {
@@ -807,6 +810,7 @@ async function setupRetailFixture(page, options = {}) {
     stalePrimaryAgeMs, // age of the api1 envelope's generated_at vs FIXED_NOW
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
     retailFeeds = {},
+    retailHistory = {},
     failedRetailFeeds = [],
   } = options;
 
@@ -836,7 +840,12 @@ async function setupRetailFixture(page, options = {}) {
       if (filter) writeJson("staktrakr.market_filter", filter);
     },
     {
-      seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
+      seeded: {
+        prices,
+        history: { ...historyRows, ...retailHistory },
+        intraday: intradayRows,
+        generatedAt: GENERATED_AT,
+      },
       meta: coinMeta,
       vendors: vendorMeta,
       saved: savedTab,
@@ -1579,7 +1588,7 @@ test.describe("core/retail-market", () => {
     }));
     expect(registries.name).toBe("MintBuilder");
     expect(registries.url).toBe("https://mintbuilder.com");
-    expect(registries.color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(registries.color).toBe("vendor-mintbuilder");
     // Parity invariant: the three registries must describe the same vendor set,
     // so a future vendor can never land half-registered again.
     expect(registries.urlKeys).toEqual(registries.nameKeys);
@@ -1616,6 +1625,205 @@ test.describe("core/retail-market", () => {
     await legendItem.click();
     const openedUrls = await page.evaluate(() => window.__openedUrls);
     expect(openedUrls[0]).toBe("https://mintbuilder.com");
+  });
+
+  test("STRK-451 — vendor labels meet AA in every theme and chart colors follow theme changes", async ({
+    page,
+  }) => {
+    const vendorIds = [
+      "apmex",
+      "jmbullion",
+      "sdbullion",
+      "monumentmetals",
+      "herobullion",
+      "bullionexchanges",
+      "summitmetals",
+      "goldback",
+      "providentmetals",
+      "gainesvillecoins",
+      "mintbuilder",
+    ];
+    const vendors = Object.fromEntries(
+      vendorIds.map((id, index) => [id, { price: 40 + index, in_stock: true }])
+    );
+    const vendorHistory = ["2026-05-25", "2026-05-26"].map((date, day) => ({
+      date,
+      avg_median: 50 + day,
+      avg_low: 40 + day,
+      vendors: Object.fromEntries(vendorIds.map((id, index) => [id, { avg: 40 + index + day }])),
+    }));
+    await setupRetailFixture(page, {
+      retailHistory: {
+        [SLUG_SILVER_A]: vendorHistory,
+        ase: vendorHistory,
+      },
+      retailFeeds: {
+        [SLUG_SILVER_A]: {
+          latest: {
+            weight_oz: 1,
+            median_price: 50,
+            lowest_price: 40,
+            window_start: GENERATED_AT,
+            vendors,
+            windows_24h: [
+              { window: "2026-05-26T15:00:00.000Z", vendors: { apmex: 48 } },
+              { window: "2026-05-26T16:00:00.000Z", vendors: {} },
+              { window: "2026-05-26T17:00:00.000Z", vendors: {} },
+            ],
+          },
+        },
+        ase: {
+          latest: {
+            weight_oz: 1,
+            median_price: 50,
+            lowest_price: 40,
+            window_start: GENERATED_AT,
+            vendors,
+            windows_24h: [
+              { window: "2026-05-26T15:00:00.000Z", vendors: { apmex: 48 } },
+              { window: "2026-05-26T16:00:00.000Z", vendors: {} },
+              { window: "2026-05-26T17:00:00.000Z", vendors: {} },
+            ],
+          },
+        },
+      },
+    });
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await expect(page.locator("#marketDetailModal")).toBeVisible();
+
+    const marketChartVendorTitles = {
+      apmex: "APMEX",
+      jmbullion: "JM",
+      sdbullion: "SD",
+      monumentmetals: "Monument",
+      herobullion: "Hero",
+      bullionexchanges: "BullionX",
+      summitmetals: "Summit",
+      goldback: "Goldback",
+      providentmetals: "Provident",
+      gainesvillecoins: "Gville",
+      mintbuilder: "mintbuilder",
+    };
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      const chartColors = await page.evaluate(() => {
+        const chart = window.__marketChartHarness.instances.find(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        );
+        return {
+          series: (chart?.series || []).map((series) => ({
+            title: series.options.title,
+            color: series.options.color,
+          })),
+        };
+      });
+      expect(chartColors.series, `${theme} market chart vendor lines`).not.toHaveLength(0);
+      for (const vendorSeries of chartColors.series) {
+        const vendorId = Object.entries(marketChartVendorTitles).find(
+          ([, title]) => title === vendorSeries.title
+        )?.[0];
+        expect(vendorId, `${theme} market chart series title ${vendorSeries.title}`).toBeTruthy();
+        expect(vendorSeries.color, `${theme} market chart ${vendorId} color`).toBe(
+          await page.evaluate((id) => window.getRetailVendorColorRGB(id), vendorId)
+        );
+      }
+    }
+    await page.evaluate(() => window.closeMarketDetailModal());
+
+    await page.evaluate(() => window.openRetailViewModal("ase"));
+    await page.waitForLoadState("networkidle");
+    const names = page.locator("#retailViewVendorLegend .retail-legend-name");
+    await expect(names).toHaveCount(vendorIds.length);
+    const contrastFailures = [];
+
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      const report = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const toRgb = (css) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = "#000";
+          ctx.fillStyle = css;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+        };
+        const toRgba = (css) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = "#000";
+          ctx.fillStyle = css;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+        };
+        const linear = (channel) => {
+          const value = channel / 255;
+          return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        };
+        const luminance = (rgb) =>
+          0.2126 * linear(rgb[0]) + 0.7152 * linear(rgb[1]) + 0.0722 * linear(rgb[2]);
+        const contrast = (a, b) => {
+          const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+          return (high + 0.05) / (low + 0.05);
+        };
+        const modal = document.querySelector("#retailViewModal .modal-content");
+        const background = toRgb(getComputedStyle(modal).backgroundColor);
+        const labels = Array.from(
+          document.querySelectorAll("#retailViewVendorLegend .retail-legend-name")
+        );
+        const chart = Object.values(window.Chart?.instances || {}).find(
+          (candidate) => candidate.canvas?.id === "retailViewChart"
+        );
+        const intradayChart = Object.values(window.Chart?.instances || {}).find(
+          (candidate) => candidate.canvas?.id === "retailViewIntradayChart"
+        );
+        const carriedDataset = intradayChart?.data.datasets.find(
+          (dataset) => dataset._vendorId === "apmex"
+        );
+        return {
+          labels: labels.map((label) => ({
+            name: label.textContent.trim(),
+            ratio: contrast(toRgb(getComputedStyle(label).color), background),
+          })),
+          datasets: (chart?.data.datasets || [])
+            .filter((dataset) => dataset._vendorId)
+            .map((dataset) => ({
+              id: dataset._vendorId,
+              color: dataset.borderColor,
+              expected: window.getRetailVendorColorRGB(dataset._vendorId),
+            })),
+          carriedSegmentRGBA: toRgba(
+            carriedDataset?.segment?.borderColor({
+              p0DataIndex: 1,
+              p1DataIndex: 2,
+              dataset: carriedDataset,
+            })
+          ),
+          carriedBaseRGBA: toRgba(carriedDataset?.borderColor),
+          unknownColor: window.getRetailVendorColor("unknown-vendor"),
+        };
+      });
+      expect(report.labels, `${theme} vendor labels`).toHaveLength(vendorIds.length);
+      expect(report.datasets, `${theme} vendor chart datasets`).toHaveLength(vendorIds.length);
+      for (const label of report.labels) {
+        if (label.ratio < 4.5) {
+          contrastFailures.push(`${theme} ${label.name}: ${label.ratio.toFixed(2)}:1`);
+        }
+      }
+      for (const dataset of report.datasets) {
+        expect(dataset.color, `${theme} ${dataset.id} chart color`).toBe(dataset.expected);
+      }
+      expect(report.carriedSegmentRGBA, `${theme} carried intraday segment`).toBeTruthy();
+      report.carriedSegmentRGBA.slice(0, 3).forEach((channel, index) => {
+        expect(
+          Math.abs(channel - report.carriedBaseRGBA[index]),
+          `${theme} carried segment hue`
+        ).toBeLessThanOrEqual(1);
+      });
+      expect(report.carriedSegmentRGBA[3], `${theme} carried segment opacity`).toBeGreaterThan(120);
+      expect(report.carriedSegmentRGBA[3], `${theme} carried segment opacity`).toBeLessThan(135);
+      expect(report.unknownColor).toBe("var(--text-muted)");
+    }
+    expect(contrastFailures).toEqual([]);
   });
 
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,

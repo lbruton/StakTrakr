@@ -119,22 +119,23 @@ These do not shift across themes.
 
 ### Vendor Chart Colors
 
-Each vendor has a fixed color used consistently across all chart contexts (retail cards, intraday charts, history charts, trend charts). Never remap a vendor to a different color — users develop visual associations.
+Each vendor keeps a stable hue identity across market tables, labels, and chart contexts. Each theme uses a shade tuned for at least 4.5:1 text contrast on rendered vendor-label surfaces. Never remap a vendor to a different hue association — users develop visual associations. The per-theme values are `--vendor-*` tokens in `css/styles.css`.
 
-| Vendor       | Hex       | Name           |
-| ------------ | --------- | -------------- |
-| APMEX        | `#60a5fa` | Bright blue    |
-| JM Bullion   | `#fbbf24` | Bright amber   |
-| SD Bullion   | `#34d399` | Bright emerald |
-| Monument     | `#c4b5fd` | Bright violet  |
-| Hero Bullion | `#f87171` | Red            |
-| BullionX     | `#f472b6` | Bright pink    |
-| Summit       | `#22d3ee` | Bright cyan    |
-| Goldback     | `#d4a017` | Deep gold      |
-| Provident    | `#a3e635` | Lime green     |
-| Gainesville  | `#fb923c` | Orange         |
+| Vendor       | Light / sepia | Dark / slate | Hue       |
+| ------------ | ------------- | ------------ | --------- |
+| APMEX        | `#1d4ed8`     | `#60a5fa`    | Blue      |
+| JM Bullion   | `#854d0e`     | `#fbbf24`    | Amber     |
+| SD Bullion   | `#065f46`     | `#34d399`    | Emerald   |
+| Monument     | `#6d28d9`     | `#c4b5fd`    | Violet    |
+| Hero Bullion | `#b91c1c`     | `#f87171`    | Red       |
+| BullionX     | `#9d174d`     | `#f472b6`    | Pink      |
+| Summit       | `#155e75`     | `#22d3ee`    | Cyan      |
+| Goldback     | `#713f12`     | `#d4a017`    | Deep gold |
+| Provident    | `#3f6212`     | `#a3e635`    | Lime      |
+| Gainesville  | `#9a3412`     | `#fb923c`    | Orange    |
+| MintBuilder  | `#4338ca`     | `#818cf8`    | Indigo    |
 
-Colors were brightened in v3.33.06 for contrast on dark backgrounds.
+The dark and slate shades preserve the palette brightened in v3.33.06 for contrast on dark backgrounds.
 
 ---
 
@@ -266,8 +267,8 @@ Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `
 
 - Minimum 44px touch targets for all interactive controls on mobile
 - Color is not the sole indicator of state — labels and icons accompany color cues
-- Vendor colors were brightened in v3.33.06 specifically for contrast on dark backgrounds
-- `--text-muted` (`#94a3b8`) is used for non-essential metadata only — not for primary labels
+- Vendor colors keep stable hues and meet at least 4.5:1 text contrast in all four themes
+- `--text-muted` is used for non-essential metadata and unknown vendor labels — not for known vendor labels
 
 ---
 

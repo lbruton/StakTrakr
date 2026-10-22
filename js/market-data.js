@@ -567,7 +567,10 @@ const _buildTickerItem = (slug, coin, coinMetaMap, vendorMeta) => {
   }
 
   const vendorName = _shortVendor(bestVid);
-  const vendorColor = vendorMeta[bestVid] ? vendorMeta[bestVid].color : null;
+  const vendorColor =
+    typeof getRetailVendorColor === "function"
+      ? getRetailVendorColor(bestVid)
+      : "var(--text-muted)";
   const vendorUrl = _resolveVendorUrl(slug, bestVid, vendorMeta);
 
   return {
@@ -1312,7 +1315,7 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
  * Build one vendor row for the detail-modal comparison table (name, price,
  * premium badge, stock status, buy link).
  * @param {Object} entry - Vendor entry ({vid, price, in_stock, carried, url, ...}).
- * @param {Object} vendorMeta - Vendor-meta map (name/color/url).
+ * @param {Object} vendorMeta - Vendor-meta map used for vendor purchase URLs.
  * @param {string} slug - Retail coin slug (for provider URL lookup).
  * @param {string} metalCode - ISO metal code (Goldback premium uses the G1 rate).
  * @param {number} weightOz - Coin weight in troy ounces (for spot premium).
@@ -1324,11 +1327,11 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
 
   // Vendor name
   const tdVendor = document.createElement("td");
-  const vMeta = vendorMeta[entry.vid];
   tdVendor.textContent = _shortVendor(entry.vid);
-  if (vMeta && vMeta.color) {
-    tdVendor.style.color = vMeta.color;
-  }
+  tdVendor.style.color =
+    typeof getRetailVendorColor === "function"
+      ? getRetailVendorColor(entry.vid)
+      : "var(--text-muted)";
   tr.appendChild(tdVendor);
 
   // Price
@@ -1722,10 +1725,9 @@ const _collectEnabledVendorIds = (metalSlugs, detailMap) => {
  * Build the vendor matrix table header row (ITEM, one column per vendor, then
  * MEDIAN and SPREAD).
  * @param {string[]} vendorIds - Sorted vendor ids.
- * @param {Object} vendorMeta - Vendor-meta map (for column color).
  * @returns {HTMLTableSectionElement} The thead element.
  */
-const _buildVendorTableHead = (vendorIds, vendorMeta) => {
+const _buildVendorTableHead = (vendorIds) => {
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
   const thCoin = document.createElement("th");
@@ -1735,8 +1737,8 @@ const _buildVendorTableHead = (vendorIds, vendorMeta) => {
   for (const vid of vendorIds) {
     const th = document.createElement("th");
     th.textContent = _shortVendor(vid);
-    const vMeta = vendorMeta[vid];
-    if (vMeta && vMeta.color) th.style.color = vMeta.color;
+    th.style.color =
+      typeof getRetailVendorColor === "function" ? getRetailVendorColor(vid) : "var(--text-muted)";
     headRow.appendChild(th);
   }
 
@@ -1955,7 +1957,7 @@ const _renderVendorTable = async (metalCode) => {
   const table = document.createElement("table");
   table.className = "vendor-prices-table";
 
-  table.appendChild(_buildVendorTableHead(vendorIds, vendorMeta));
+  table.appendChild(_buildVendorTableHead(vendorIds));
 
   const tbody = document.createElement("tbody");
 

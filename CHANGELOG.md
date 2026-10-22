@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.59] - 2026-10-21
+
+### Changed — STRK-451: Theme-aware retail vendor colors
+
+- **Vendor label contrast**: Retail vendor colors now use per-theme tokens that preserve distinct vendor identities and meet at least 4.5:1 contrast in all four themes; unknown vendors use the theme's muted text color (STRK-451).
+- **Live chart recoloring**: Market and retail vendor charts now use the active theme tokens and recolor when the theme changes without closing the view (STRK-451).
+
+---
+
 ## [3.36.58] - 2026-10-18
 
 ### Changed — STRK-444: Custom Collection title images by live URL

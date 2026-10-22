@@ -121,7 +121,7 @@ These helpers were extracted from duplicated patterns across `retail.js`, `retai
 | `retailLastKnownPrices`    | Last-seen price per vendor per slug — used by market list OOS rendering in `retail.js`, not by the modal legend |
 | `retailLastAvailableDates` | ISO date of last availability per vendor per slug — used by market list OOS metadata in `retail.js`             |
 | `RETAIL_VENDOR_NAMES`      | `{ [vendorId]: displayName }` — canonical vendor list and display order                                         |
-| `RETAIL_VENDOR_COLORS`     | `{ [vendorId]: hexColor }` — brand colors for chart lines and legend swatches                                   |
+| `RETAIL_VENDOR_COLORS`     | `{ [vendorId]: themeToken }` — maps vendors to `--vendor-*` tokens for DOM labels and canvas chart lines        |
 | `RETAIL_VENDOR_URLS`       | `{ [vendorId]: url }` — fallback homepage URLs                                                                  |
 | `RETAIL_COIN_META`         | `{ [slug]: { name, weight, metal } }` — metadata for each tracked product                                       |
 | `_lastSuccessfulApiBase`   | Last API base URL that returned a valid manifest — used for per-coin background refreshes                       |
@@ -343,7 +343,7 @@ Renders the Chart.js 24h intraday line chart into `#retailViewIntradayChart`.
 3. Shows `#retailViewIntradayNoData` placeholder if fewer than 2 windows survive.
 4. Destroys any existing `_retailViewIntradayChart` before creating a new one.
 5. Filters `activeVendors` to `qualifiedVendors` — excludes vendors with zero real (non-carried) prices across all bucketed windows (STAK-498). Fully-OOS vendors do not appear as chart lines.
-6. Builds one dataset per qualified vendor, using `RETAIL_VENDOR_NAMES` for order and `RETAIL_VENDOR_COLORS` for line colors.
+6. Builds one dataset per qualified vendor, using `RETAIL_VENDOR_NAMES` for order and `getRetailVendorColorRGB()` to resolve the theme token for line colors.
 7. Falls back to Median + Low aggregate datasets when no per-vendor data exists (pre-vendor-format windows).
 8. Attaches `_carriedIndices: Set<number>` to each dataset — uses **multi-hop carry logic** (STAK-498): only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
 9. Tooltip callback: returns nothing if `ctx.raw == null`; prefixes with `~` for carried values.
@@ -412,7 +412,7 @@ Vendor URL resolution priority (checked in order):
 
 Vendor popup behavior: `window.open(url, 'retail_vendor_{vendorId}', 'width=1250,height=800,...')`. If the popup is blocked, falls back to `window.open(url, '_blank')`.
 
-Vendor color is always sourced from `RETAIL_VENDOR_COLORS[vendorId]` in `retail.js`. Colors were brightened in v3.33.06 for better contrast on dark backgrounds.
+Vendor colors are selected by `RETAIL_VENDOR_COLORS[vendorId]` in `retail.js`, then resolved from the active `--vendor-*` token in `css/styles.css`. Light and sepia use darker hues; dark and slate retain the bright palette. Vendor label colors meet at least 4.5:1 contrast on their rendered surfaces across all four themes. Unknown vendors use `--text-muted`.
 
 ---
 

@@ -4443,10 +4443,11 @@ const renderMarketFilterMatrix = () => {
       return { id, name: info.name || id, color: info.color || getThemeColor("text-muted") };
     }
     const colors = typeof RETAIL_VENDOR_COLORS !== "undefined" ? RETAIL_VENDOR_COLORS : {};
+    const color = colors[id] ? `var(--${colors[id]})` : "var(--text-muted)";
     return {
       id,
       name: vendorSource[id]?.name || vendorSource[id] || id,
-      color: colors[id] || getThemeColor("text-muted"),
+      color,
     };
   });
 

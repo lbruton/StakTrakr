@@ -82,6 +82,18 @@
   --text-primary: var(--text);
   --text-secondary: var(--text-muted);
   --chip-text: oklch(0.252 0.021 251.6);
+  /* Vendor hues tuned for WCAG AA text contrast on light surfaces. */
+  --vendor-apmex: #1d4ed8;
+  --vendor-jmbullion: #854d0e;
+  --vendor-sdbullion: #065f46;
+  --vendor-monumentmetals: #6d28d9;
+  --vendor-herobullion: #b91c1c;
+  --vendor-bullionexchanges: #9d174d;
+  --vendor-summitmetals: #155e75;
+  --vendor-goldback: #713f12;
+  --vendor-providentmetals: #3f6212;
+  --vendor-gainesvillecoins: #9a3412;
+  --vendor-mintbuilder: #4338ca;
   /* Hashed colours (name/location/tag chips + table filter links): JS supplies only the hue */
   --hashed-color-s: 70%;
   --hashed-color-l: 35%;
@@ -280,6 +292,18 @@
   --text-secondary: oklch(0.8 0.008 85);
   --text-muted: oklch(0.65 0.012 85);
   --chip-text: oklch(0.95 0.005 85);
+  /* Bright vendor hues remain legible on the dark card and table surfaces. */
+  --vendor-apmex: #60a5fa;
+  --vendor-jmbullion: #fbbf24;
+  --vendor-sdbullion: #34d399;
+  --vendor-monumentmetals: #c4b5fd;
+  --vendor-herobullion: #f87171;
+  --vendor-bullionexchanges: #f472b6;
+  --vendor-summitmetals: #22d3ee;
+  --vendor-goldback: #d4a017;
+  --vendor-providentmetals: #a3e635;
+  --vendor-gainesvillecoins: #fb923c;
+  --vendor-mintbuilder: #818cf8;
   --hashed-color-s: 70%;
   --hashed-color-l: 65%;
   --chip-active-outline: oklch(0.95 0.005 85 / 0.9);
@@ -410,6 +434,18 @@
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   --chip-text: #f8fafc;
+  /* Keep the original slate palette while meeting AA on slate surfaces. */
+  --vendor-apmex: #60a5fa;
+  --vendor-jmbullion: #fbbf24;
+  --vendor-sdbullion: #34d399;
+  --vendor-monumentmetals: #c4b5fd;
+  --vendor-herobullion: #f87171;
+  --vendor-bullionexchanges: #f472b6;
+  --vendor-summitmetals: #22d3ee;
+  --vendor-goldback: #d4a017;
+  --vendor-providentmetals: #a3e635;
+  --vendor-gainesvillecoins: #fb923c;
+  --vendor-mintbuilder: #818cf8;
   --hashed-color-s: 70%;
   --hashed-color-l: 65%;
   --chip-active-outline: rgba(255, 255, 255, 0.9);
@@ -536,6 +572,18 @@
   --text-secondary: oklch(0.403 0.039 85.2);
   --text-muted: oklch(0.514 0.033 84.5);
   --chip-text: oklch(0.314 0.039 86.7);
+  /* Warm, darkened vendor hues preserve identity on parchment surfaces. */
+  --vendor-apmex: #1d4ed8;
+  --vendor-jmbullion: #854d0e;
+  --vendor-sdbullion: #065f46;
+  --vendor-monumentmetals: #6d28d9;
+  --vendor-herobullion: #b91c1c;
+  --vendor-bullionexchanges: #9d174d;
+  --vendor-summitmetals: #155e75;
+  --vendor-goldback: #713f12;
+  --vendor-providentmetals: #3f6212;
+  --vendor-gainesvillecoins: #9a3412;
+  --vendor-mintbuilder: #4338ca;
   --hashed-color-s: 70%;
   --hashed-color-l: 35%;
   --chip-active-outline: oklch(0.314 0.039 86.7 / 0.8);
