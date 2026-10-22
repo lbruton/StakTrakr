@@ -378,7 +378,7 @@ async function vaultEncryptToBytesScoped(password) {
 async function vaultDecryptAndRestore(fileBytes, password) {
   // STAK-427: Block restore while cloud sync is applying remote changes
   if (window.CloudSync && window.CloudSync.isSyncActive()) {
-    showToast("Cloud sync is in progress — please wait a moment and try again.", "warning");
+    showToast("Cloud sync is in progress. Wait for it to finish, then try again.", "warning");
     return;
   }
   var payload = await vaultDecryptToData(fileBytes, password);
@@ -764,7 +764,7 @@ async function vaultRestoreWithPreview(fileBytes, password, decryptedPayload) {
   if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
     debugLog("[Vault] DiffEngine/DiffModal not available — falling back to full restore");
     if (typeof showToast === "function") {
-      showToast("Diff preview unavailable — restoring full backup");
+      showToast("Diff preview unavailable. Restoring the full backup.");
     }
     await restoreVaultData(payload);
     return;
@@ -837,7 +837,7 @@ async function vaultRestoreWithPreview(fileBytes, password, decryptedPayload) {
       return;
     }
     if (typeof showToast === "function") {
-      showToast("No differences found \u2014 backup matches current data");
+      showToast("No differences found. The backup matches current data.");
     }
     return;
   }

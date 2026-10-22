@@ -89,7 +89,7 @@ const saveData = async (key, data, options = {}) => {
       typeof showToast === "function"
     ) {
       showToast(
-        "Storage is full — some data could not be saved. Try clearing unused spot history or image cache.",
+        "Storage is full. Some data could not be saved. Clear unused spot history or the image cache.",
         "error"
       );
     }
@@ -135,7 +135,7 @@ const saveDataSync = (key, data, options = {}) => {
       typeof showToast === "function"
     ) {
       showToast(
-        "Storage is full — some data could not be saved. Try clearing unused spot history or image cache.",
+        "Storage is full. Some data could not be saved. Clear unused spot history or the image cache.",
         "error"
       );
     }

@@ -3105,7 +3105,7 @@ const setupItemFormListeners = () => {
           saveInventory();
         } else if (_pendingAttachments.length > 0) {
           if (typeof showToast === "function")
-            showToast("Attachments could not be saved — storage is unavailable", "error");
+            showToast("Attachments could not be saved: storage is unavailable.", "error");
           clearAttachmentQueue();
         } else {
           clearAttachmentQueue();
@@ -5258,7 +5258,7 @@ const setupApiEvents = () => {
                   : "API";
                 showToast(`\u2713 Synced ${updatedCount} prices from ${label}`);
               } else if (!anySucceeded) {
-                showToast("Spot sync failed \u2014 check API settings");
+                showToast("Spot sync failed. Check the API settings.");
               }
             }
           }

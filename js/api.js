@@ -146,8 +146,7 @@ const _checkSpotEnvelopeFreshness = (envelope) =>
  * Order accepted spot envelopes newest-first. Candidates without a parseable
  * generated_at (legacy envelopes) sink to the end, so a timestamped candidate
  * always outranks an undated one and an undated one wins only when it is all
- * that is left — the same precedence the single-winner scan used before
- * STRK-333 turned it into a full ordering.
+ * that is left.
  * @param {any[]} envelopes - Parsed envelopes that already cleared the freshness gate
  * @returns {any[]} A new array ordered freshest-first
  */
@@ -155,19 +154,10 @@ const _sortEnvelopesByFreshness = (envelopes) =>
   envelopes.slice().sort((a, b) => compareIsoFreshnessDesc(a?.generated_at, b?.generated_at));
 
 /**
- * Fetch /spot/latest.json from EVERY configured endpoint in parallel and
- * return every acceptable envelope ordered freshest-first (STRK-331/STRK-333).
- * Endpoint ORDER no longer decides — both endpoints publish the same feed on
- * different cadences, so the one with the newest generated_at is strictly
- * better and the app should never display a 23-minute-old primary while an
- * 8-minute-old backup sits unread.
- * Each candidate must still pass the lenient STRK-189 gate, which keeps the
- * existing guarantees: days-old SW/CDN copies are rejected, and when every
- * endpoint is stale the sync fails rather than resurrecting one of them.
- * The runners-up are RETAINED rather than discarded (STRK-333): the publisher
- * skips metals with no current row (devops/pollers/shared/api-export-v2.js),
- * so the freshest envelope can be legitimately partial, and the losing
- * candidates are already in memory to fill the gap at no extra network cost.
+ * Fetch /spot/latest.json from every endpoint in parallel and order the envelopes
+ * that pass _checkSpotEnvelopeFreshness by generated_at, freshest first.
+ * The others are kept to fill metals the freshest envelope lacks, because the
+ * publisher omits metals that have no current row.
  * @param {AbortSignal} [signal] - Abort signal forwarded to every endpoint fetch
  * @returns {Promise<any[]>} Accepted envelopes, freshest first (never empty)
  */
@@ -2317,7 +2307,7 @@ const syncSpotPricesFromApi = async (showProgress = true, forceSync = false) => 
     }
   } else if (showProgress && !anySucceeded) {
     if (typeof showToast === "function") {
-      showToast("Spot sync failed — check API settings");
+      showToast("Spot sync failed. Check the API settings.");
     }
   }
 

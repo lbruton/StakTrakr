@@ -191,7 +191,7 @@
     if (result.ok) {
       showToast(result.changed ? "Collections imported" : "Collections already up to date");
     } else if (result.reason === "save-failed") {
-      showToast("Collections import failed — storage is full", "error");
+      showToast("Collections import failed: storage is full.", "error");
     } else {
       showToast("That file is not a StakTrakr Collections export", "error");
     }
