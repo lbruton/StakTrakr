@@ -65,6 +65,8 @@ docs/specs
 .agents/skills/codacy-cloud-cli
 .claude/skills/codacy-code-review
 .agents/skills/codacy-code-review
+.claude/skills/discernment-nudge
+.agents/skills/discernment-nudge
 .claude/skills/ui-mockup
 .agents/skills/ui-mockup
 .claude/agents/pr-discover.md
