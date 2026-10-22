@@ -66,6 +66,7 @@ docs and infra pages with LAN IPs live in the Devops repo vault, `Devops/DocVaul
 | `.context/review-and-ci.md`          | Codacy scans, agentlint, pre-PR checks, reviewer false positives       |
 | `.context/spec-conventions.md`       | Any `/spec-*` phase work — branch naming, closing tasks                |
 | `.context/GLOSSARY.md`               | Writing requirements, ACs, issue descriptions, commit messages         |
+| `.context/voice.md`                  | Writing docs, comments, docstrings, UI copy, commits or PR bodies      |
 
 ## Testing
 

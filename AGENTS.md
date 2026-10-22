@@ -22,6 +22,7 @@ duplicating its rules here; on any conflict with source code, code wins.
 - `.context/review-and-ci.md` — Codacy CLI behavior, agentlint requirements, reviewer false positives, CI/review triage.
 - `.context/spec-conventions.md` — per-project `/spec-*` overrides, branch naming, closing tasks.
 - `.context/GLOSSARY.md` — canonical StakTrakr domain terms, avoided aliases, relationships, and naming ambiguities.
+- `.context/voice.md` — project prose dials for docs, comments, docstrings, UI copy, commits and PR bodies.
 - `.context/deep-dives/` — 13 deep-dive docs (data model, DOM patterns, pollers, API reference, health checks, vendor quirks, …) for subsystem-deep work.
 
 Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, Model Context Protocol (MCP), and protected-branch policy.
