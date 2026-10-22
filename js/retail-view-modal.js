@@ -617,14 +617,13 @@ const _buildIntradayChart = (slug) => {
         if (!carried || carried.size === 0) return;
         ds.pointRadius = 0;
         ds.pointHoverRadius = (ctx) => (carried.has(ctx.dataIndex) ? 2 : 3);
-        const baseColor = ds.borderColor;
         ds.segment = {
           borderDash: (ctx) =>
             carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex) ? [5, 3] : [],
           borderColor: (ctx) =>
             carried.has(ctx.p0DataIndex) || carried.has(ctx.p1DataIndex)
-              ? resolveColor(`color-mix(in srgb, ${baseColor} 50%, transparent)`)
-              : baseColor,
+              ? resolveColor(`color-mix(in srgb, ${ds.borderColor} 50%, transparent)`)
+              : ds.borderColor,
         };
       });
     }
