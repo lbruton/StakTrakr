@@ -90,12 +90,11 @@ throwing, so it surfaces as a wrong number in the UI, not a stack trace.
 
 In-tree sites: `constants.js` (`SPOT_PROVIDER_METAL_SYMBOLS`,
 `SPOT_PROVIDER_HISTORY_EXCLUSIONS`), `tags.js` (six rehydration points), `retail.js`,
-`catalog-providers.js`, `portfolio-series.js`. Precedent: STRK-342 (provider registry),
-STRK-364 (`spotByMetal`).
+`catalog-providers.js`, `portfolio-series.js`, and the `spotByMetal` map.
 
-**A null-prototype map does not cover a second object indexed by the same key.** In
-STRK-364, fixing `spotByMetal` still left `spotDayMaps["constructor"]` returning the
-`Object` constructor — a caller-supplied plain object one layer out. Validate the _shape_
+**A null-prototype map does not cover a second object indexed by the same key.** A
+null-prototype `spotByMetal` still lets `spotDayMaps["constructor"]` return the `Object`
+constructor, because `spotDayMaps` is a caller-supplied plain object one layer out. Validate the _shape_
 of external input at the boundary rather than trusting the key:
 
 ```js
@@ -158,14 +157,14 @@ elements.inventoryForm = safeGetElement("inventoryForm", true);
 elements.itemGbDenom = safeGetElement("itemGbDenom");
 ```
 
-**Exception — existence checks:** When code must distinguish "exists" from "absent" (e.g., toggling a popover off, or refusing to mount a component that is already in the DOM), use `document.getElementById()` + `if` guard. The dummy object is always truthy, which broke the STAK-492 popover toggle and would have prevented the STRK-13 inventory recovery banner from ever mounting (`if (safeGetElement("inventoryRecoveryBanner"))` would have evaluated truthy on the very first call).
+**Exception — existence checks:** When code must distinguish "exists" from "absent" (e.g., toggling a popover off, or refusing to mount a component that is already in the DOM), use `document.getElementById()` + `if` guard. The dummy object is always truthy, so `if (safeGetElement("inventoryRecoveryBanner"))` passes even when the banner is absent, and a popover toggle never closes.
 
 ```js
 // Correct pattern for existence check
 const popover = document.getElementById("thumbPopover");
 if (popover) popover.remove();
 
-// Correct pattern for "mount once" check (STRK-13 — js/inventory.js:54)
+// Correct pattern for "mount once" check (js/inventory.js)
 const existing = document.getElementById("inventoryRecoveryBanner");
 if (existing) return; // already mounted; do not re-insert
 ```
@@ -251,9 +250,9 @@ optionalListener(fileInput, "change", handleChange, "CSV file input");
 
 For compact in-form mode switches, prefer the existing `.chip-sort-toggle` container and `.chip-sort-btn` buttons before adding new CSS. Keep state UI-local unless the selected mode is part of the persisted data contract.
 
-Reference: STRK-4 reused this pattern for the Add/Edit Item modal Purchase Price Lot/Each control while preserving `item.price` as per-unit stored data.
+Reference: the Add/Edit Item modal Purchase Price Lot/Each control uses this pattern, and `item.price` stays per-unit stored data.
 
-**N-chip quantity variant (STRK-53):** When a chip group represents a 1..N quantity range (not a binary toggle), use `.chip-sort-toggle--quantity` modifier. Thresholds: `DISPOSE_QTY_CHIP_MAX = 8` — render chips when N ≤ 8, fall back to a native `<select>` for larger ranges. Chips use roving tabindex (ArrowLeft/Right/Up/Down, Home, End) with `aria-pressed` and `aria-disabled` for the qty=1 pre-selected state. Write values through a hidden `<input>` via `writeDisposeQty(n)` which dispatches a bubbling `input` event to preserve downstream handler wiring. Reference: `js/inventory.js` — `renderDisposeQtyChips` / `renderDisposeQtySelect`.
+**N-chip quantity variant:** When a chip group represents a 1..N quantity range (not a binary toggle), use `.chip-sort-toggle--quantity` modifier. Thresholds: `DISPOSE_QTY_CHIP_MAX = 8` — render chips when N ≤ 8, fall back to a native `<select>` for larger ranges. Chips use roving tabindex (ArrowLeft/Right/Up/Down, Home, End) with `aria-pressed` and `aria-disabled` for the qty=1 pre-selected state. Write values through a hidden `<input>` via `writeDisposeQty(n)` which dispatches a bubbling `input` event to preserve downstream handler wiring. Reference: `js/inventory.js` — `renderDisposeQtyChips` / `renderDisposeQtySelect`.
 
 ---
 
@@ -288,21 +287,24 @@ const theme = await loadData(THEME_KEY, "light");
 
 ### ALLOWED_STORAGE_KEYS guard
 
-`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) no longer uses it: since STRK-412 it deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognise, so v3.36.35+ cannot wipe a newer build's data (downgrade safety; builds through 3.36.34 still run the old allowlist sweep). Retiring a key means adding it to `RETIRED_STORAGE_KEYS`.
+`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) does not use it. It deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognise, so an older build cannot wipe a newer build's data. To retire a key, add it to `RETIRED_STORAGE_KEYS`.
 
 The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding. Automated reviewer flags on this pattern are false positives.
 
-**STAK-443 additions:** `spotPricingSource` (single-select spot price source) and `metalSpotPrices` (manual-mode unified spot object) are registered in ALLOWED_STORAGE_KEYS as of v3.34.24.
+Registered keys with non-obvious roles:
 
-**STRK-13 additions:** `inventorySeedApplied` (ISO timestamp sentinel proving the seed has run) and `staktrakr.bootDiagnostics` (bounded 10-entry ring buffer for boot classifications) are registered in ALLOWED_STORAGE_KEYS as of v3.34.35. See architecture#Boot Dispatch — Inventory Seed Guard (STRK-13) for the dispatch flow.
+- `spotPricingSource`: the single-select spot price source.
+- `metalSpotPrices`: the manual-mode unified spot object.
+- `inventorySeedApplied`: an ISO timestamp sentinel that proves the seed has run.
+- `staktrakr.bootDiagnostics`: a bounded 10-entry ring buffer of boot classifications. The dispatch flow is in architecture.md, section "Boot Dispatch".
 
-### `inventoryRecoveryActive` — write gate for damaged-key boots (STRK-13)
+### `inventoryRecoveryActive`: write gate for damaged-key boots
 
 When `classifyBootState()` returns `damaged-key` or `parse-error`, `js/init.js` sets the `inventoryRecoveryActive` flag and `saveInventory()` early-returns until an explicit user action clears it. Auto-sync paths (cloud-sync poll/pull) also reach the same gated `saveInventory()`, so a corrupt `metalInventory` cannot be silently overwritten with `[]` from any code path.
 
 **When adding a new user-mutation entry point that calls `saveInventory()`** (new import format, new restore path, new direct-edit flow), call `clearInventoryRecovery()` first — otherwise the user's deliberate add/import will be suppressed by the recovery gate. Existing call sites: `js/events.js:1496` (addItem), `js/inventory-import.js:62/502/839/1342` (CSV/JSON/Numista paths), `js/vault.js:688` (cloud + .stvault restore).
 
-**Automatic (non-user) writers must go through `saveInventory()` and must NOT clear the gate.** Precedent: the STRK-369 identity back-fill in `loadInventory()` — when the load loop mints a missing `uuid` / `serial`, it persists once via `saveInventory()`, never `saveData(LS_KEY, …)`, and only when something was actually minted (an unconditional boot save would stamp `cloud_sync_local_modified` on every launch and defeat STAK-414's push-vs-pull arbitration).
+**Automatic (non-user) writers must go through `saveInventory()` and must NOT clear the gate.** Example: the identity back-fill in `loadInventory()`. When the load loop mints a missing `uuid` or `serial`, it persists once through `saveInventory()`, never `saveData(LS_KEY, …)`, and only when it minted something. An unconditional boot save would stamp `cloud_sync_local_modified` on every launch and break cloud sync push-vs-pull arbitration.
 
 **The gate is not armed during the boot-time `loadInventory()`.** `js/init.js` classifies boot state _before_ the load but calls `setInventoryRecoveryActive(true)` _after_ it. A write inside `loadInventory()` is therefore protected at boot only structurally: `damaged-key` means `metalInventory` is absent and `parse-error` means it is unparseable, so both load zero items. Any new load-time write must be conditional on items having actually loaded — do not rely on the flag there. The gate does cover the non-boot callers (multi-tab pull broadcast, snapshot / vault restore).
 
@@ -347,7 +349,7 @@ The `typeof` guard is required — `cloud-sync.js` may not be loaded in all envi
 
 ### Compression internals
 
-Values longer than 4,096 characters are compressed with real lz-string (`compressToUTF16`, vendored at `vendor/lz-string.min.js`) on write and decompressed on read — transparent through the wrappers. Current writes use the **`CMP2:`** prefix; **`CMP1:`** is a legacy read-only prefix (the pre-v3.35.1 identity-stub era, where the body was stored _uncompressed_ — it is sliced, never decompressed, since lz-string would return garbage on never-compressed bytes). `__decompressIfNeeded` handles both. Bypassing the wrappers breaks decompression silently — a compressed value read via `localStorage.getItem()` returns a `CMP2:...` (or legacy `CMP1:...`) string, not usable JSON. Two STRK-140 safeguards: `__migrateCompressionV2` (one-time boot migration that re-encodes legacy `CMP1:` keys to `CMP2:`) and `__wouldClobberCompressed` (fail-closed write guard that refuses to overwrite a `CMP2:` key when no real engine is loaded).
+Values longer than 4,096 characters are compressed with real lz-string (`compressToUTF16`, vendored at `vendor/lz-string.min.js`) on write and decompressed on read — transparent through the wrappers. Current writes use the **`CMP2:`** prefix; **`CMP1:`** is a legacy read-only prefix whose body is stored uncompressed. It is sliced, never decompressed, because lz-string returns garbage on bytes it did not compress. `__decompressIfNeeded` handles both. Bypassing the wrappers breaks decompression silently — a compressed value read via `localStorage.getItem()` returns a `CMP2:...` (or legacy `CMP1:...`) string, not usable JSON. Two safeguards: `__migrateCompressionV2` (one-time boot migration that re-encodes legacy `CMP1:` keys to `CMP2:`) and `__wouldClobberCompressed` (fail-closed write guard that refuses to overwrite a `CMP2:` key when no real engine is loaded).
 
 ### Rule — Decompress before parsing raw `localStorage`
 
@@ -368,9 +370,9 @@ const raw = localStorage.getItem("metalInventory");
 const parsed = JSON.parse(raw); // "CMP2:[...]" is not valid JSON
 ```
 
-This pattern was missed in the initial STRK-13 implementation and caught in Codex peer review — without the decompress step, every returning user with a large inventory would have been misclassified as `parse-error` and shown the recovery banner. Reference: `js/seed-data.js:8324-8334`.
+Without the decompress step, boot classification marks every large inventory as `parse-error` and shows the recovery banner. Reference: the boot classifier in `js/seed-data.js`.
 
-### Cloud-sync convergence — compare/merge/hash on logical content (STRK-154)
+### Cloud-sync convergence: compare, merge and hash on logical content
 
 Every cloud-sync **compare**, **merge**, and **hash** must operate on **normalized logical content**, never raw serialization — and every **merge** must be **commutative / convergent on ties**. Violating either freezes two devices in a permanent "Review Sync Changes" loop that no resolution (Keep Local / Keep Remote / Ignore) ever clears.
 
@@ -393,7 +395,7 @@ if (oldValue !== null) {
 
 Add a one-time migration flag (prefix: `migration_`) and keep `oldKeyName` in `ALLOWED_STORAGE_KEYS` until the next release.
 
-### IndexedDB-backed stores — the singleton class pattern (STRK-141)
+### IndexedDB-backed stores: the singleton class pattern
 
 When a dataset outgrows the localStorage ceiling (~5 MB), back it with IndexedDB instead. There are three such stores — `imageCache` (`js/image-cache.js`), `attachmentManager` (`js/attachment-manager.js`), and `historyStore` (`js/history-store.js`) — and a new one **must mirror this pattern**:
 
@@ -453,18 +455,18 @@ Keep `CORE_ASSETS` entries in the same order as `<script>` tags in `index.html` 
 
 ### Cache strategies
 
-| Request type                                              | Strategy                                                                      | Notes                                                                                                                          |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `CORE_ASSETS`                                             | Cache-first (pre-cached on install)                                           | Offline core                                                                                                                   |
-| External API hosts (`metalpriceapi.com`, etc.)            | Network-first                                                                 | Must return live data                                                                                                          |
-| CDN libraries (`cdnjs`, `jsdelivr`, `unpkg`)              | Stale-while-revalidate                                                        | Speed + freshness                                                                                                              |
-| StakTrakr API (`api.staktrakr.com`, `api2.staktrakr.com`) | Classified — realtime families **network-first**, others cache-first-with-TTL | Per-family via `sw-router.js`; the three realtime price families flip network-first as of STRK-249 (v3.35.61); see table below |
-| Spot-history seed data (`/data/spot-history-YYYY.json`)   | Classified cache-first-with-TTL                                               | Same classified path as API (STRK-79)                                                                                          |
-| Local JS/CSS (`*.js`, `*.css`)                            | Network-first                                                                 | Always fresh when online                                                                                                       |
-| Navigation (`navigate` mode)                              | Network-first                                                                 | Changed in v3.33.74 (STAK-485) — prevents stale HTML after restructured script tags                                            |
-| OAuth callbacks                                           | Bypassed entirely                                                             | Auth flow must hit network                                                                                                     |
+| Request type                                              | Strategy                                                                 | Notes                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
+| `CORE_ASSETS`                                             | Cache-first (pre-cached on install)                                      | Offline core                                       |
+| External API hosts (`metalpriceapi.com`, etc.)            | Network-first                                                            | Must return live data                              |
+| CDN libraries (`cdnjs`, `jsdelivr`, `unpkg`)              | Stale-while-revalidate                                                   | Speed + freshness                                  |
+| StakTrakr API (`api.staktrakr.com`, `api2.staktrakr.com`) | Classified: realtime families network-first, others cache-first-with-TTL | Per-family via `sw-router.js`; see the table below |
+| Spot-history seed data (`/data/spot-history-YYYY.json`)   | Classified cache-first-with-TTL                                          | Same classified path as the API                    |
+| Local JS/CSS (`*.js`, `*.css`)                            | Network-first                                                            | Always fresh when online                           |
+| Navigation (`navigate` mode)                              | Network-first                                                            | Prevents stale HTML after script tags change       |
+| OAuth callbacks                                           | Bypassed entirely                                                        | Auth flow must hit network                         |
 
-### Classified caching — `sw-router.js` (STRK-79)
+### Classified caching: `sw-router.js`
 
 `sw.js` delegates endpoint classification to `sw-router.js` (loaded via `importScripts`). For every request to `api.staktrakr.com`, `api2.staktrakr.com`, or the local `/data/spot-history-*` paths, `classifyEndpoint(url, selfOrigin)` returns a family descriptor `{ family, floor, hasEnvelope }` or `null` (falls through to stale-while-revalidate).
 
@@ -484,9 +486,11 @@ Keep `CORE_ASSETS` entries in the same order as `<script>` tags in `index.html` 
 | `providers`            | `/v2/providers.json`                                                           | 86400 s (24 h)  | yes           |
 | `annual-spot-history`  | `/data/spot-history-YYYY.json` (local) or `/spot-history-YYYY.json` (API root) | 86400 s (24 h)  | no            |
 
-**Network-first families:** four families carry a `networkFirst: true` descriptor flag in `FAMILY_TABLE` — the three realtime price families `spot-latest`, `goldback-latest`, and `retail-latest` (STRK-249, v3.35.61), **plus `providers`** (STRK-264, which carries its own rationale comment in `sw-router.js`). The flag propagates through `classifyEndpoint`'s descriptor. `classifiedFetch` branches on it: while online they **skip the cache-hit shortcut** and fetch network-first (`lastStrategy="network"`), serving the cached copy **only** on a network error (`lastStrategy="network-fallback"`). Their `floor` values above still bound the **offline-fallback** freshness, not an online cache-hit. The other (non-realtime) families keep cache-first-with-TTL. This reverses STRK-190's blanket cache-first for the realtime price families, restoring STRK-79's network-first intent for live pricing — the cache is retained purely as an offline fallback. (Companion app-level change: the `market-data.js` goldback-G1 and retail-detail fetches now fail over api1→api2 via `_marketV2Fetch` with a strict freshness gate capped at 2 h, so a stale SW-cached api1 `200` cannot short-circuit failover to api2.)
+**Network-first families:** four families carry `networkFirst: true` in `FAMILY_TABLE`. They are the realtime price families `spot-latest`, `goldback-latest` and `retail-latest`, plus `providers` (its rationale comment is in `sw-router.js`). The flag travels in the `classifyEndpoint` descriptor. While online, `classifiedFetch` skips the cache-hit shortcut for these families and fetches from the network (`lastStrategy="network"`). It serves the cached copy only on a network error (`lastStrategy="network-fallback"`). Their `floor` values bound offline-fallback freshness, not an online cache hit. All other families use cache-first-with-TTL.
 
-**Goldback intraday family (STRK-248, v3.35.62):** the `goldback-intraday` family above (exact-match `/v2/goldback/intraday.json`) is **cache-first-with-TTL**, not networkFirst — it mirrors `retail-intraday` in strategy but **not** in floor: its floor is **7200 s**, and `sw-router.js:56` carries a source comment noting the deliberate divergence from `retail-intraday`'s 1200. The response envelope also carries `stale_after: 7200`, which wins via the precedence rule below. The same release dropped the `goldback-latest` floor from 90000 s (25 h) to 7200 s (2 h), aligning the SW offline-fallback budget with the endpoint's new 2 h `stale_after`; `goldback-latest` stays networkFirst.
+For live pricing, the cache is an offline fallback only. In `market-data.js`, the goldback-G1 and retail-detail fetches fail over from api1 to api2 through `_marketV2Fetch`. A freshness gate capped at 2 h stops a stale SW-cached api1 `200` from blocking that failover.
+
+**Goldback intraday family:** `goldback-intraday` (exact match on `/v2/goldback/intraday.json`) is cache-first-with-TTL, not network-first. It uses the `retail-intraday` strategy with a different floor: 7200 s instead of 1200 s. A source comment in `sw-router.js` records the divergence. The response envelope carries `stale_after: 7200`, which wins through the precedence rule below. The `goldback-latest` floor is also 7200 s, matching the endpoint's 2 h `stale_after`.
 
 **Effective TTL precedence:** `envelope.stale_after ?? family.floor`
 
@@ -508,11 +512,11 @@ Legacy entry (no headers) → treat as stale → force one cold network hit
 - Cache miss or stale → `"network"` (fetch, synthesize + write freshness headers, return)
 - Network error (offline/timeout) + stale entry exists → `"network-fallback"` (serve stale)
 - Network error + no cache entry → `Response.error()`
-- **Network-first families** (`spot-latest`/`goldback-latest`/`retail-latest` from STRK-249, plus `providers` from STRK-264 — four in total): `classifiedFetch` skips the cache-hit check entirely — online → `"network"`, network error → `"network-fallback"` (cached copy). These families are **never** `"cache-hit"` while online.
+- Network-first families (`spot-latest`, `goldback-latest`, `retail-latest`, `providers`): `classifiedFetch` skips the cache-hit check. Online → `"network"`; network error → `"network-fallback"` (cached copy). These families never report `"cache-hit"` while online.
 
-**Unit tests:** `tests/unit/sw-router.test.js` covers every family in `FAMILY_TABLE` plus negative cases. Run: `npm run test:unit`. (Grep `FAMILY_TABLE` for the family count and read the test output for the test count — both have drifted from hard-coded values here before.)
+**Unit tests:** `tests/unit/sw-router.test.js` covers every family in `FAMILY_TABLE` plus negative cases. Run: `npm run test:unit`. Grep `FAMILY_TABLE` for the family count; this doc does not pin it.
 
-**Integration tests:** `tests/playwright/extended/service-worker.spec.js` — SC-1–3 cover `annual-spot-history` (cache-first, unchanged); SC-4–9 cover the realtime families' network-first behavior (online → `network`, offline → `network-fallback`), rescoped/added by STRK-249. Run: `npm run test:extended`.
+**Integration tests:** `tests/playwright/extended/service-worker.spec.js`. SC-1 to SC-3 cover `annual-spot-history` (cache-first). SC-4 to SC-9 cover the realtime families' network-first behavior (online → `network`, offline → `network-fallback`). Run: `npm run test:extended`.
 
 ### DEV_MODE
 
@@ -570,7 +574,7 @@ Current version is always authoritative in `js/constants.js`. Check `devops/vers
 
 **Pre-commit enforcement:** `devops/hooks/check-release-sync.sh` fails the commit if `APP_VERSION` disagrees across files 1, 3, 5, 6, and 4 (`getEmbeddedWhatsNew` version entry).
 
-**STAK-513:** `docs/announcements.md` is deprecated. `js/about.js` embedded functions are the single source of truth for What's New content.
+**What's New source:** the embedded functions in `js/about.js` are the single source of truth for What's New content. `docs/announcements.md` is deprecated.
 
 ### Version lock (`devops/version.lock`)
 
@@ -606,13 +610,13 @@ Worktrees live at `.worktrees/patch-VERSION/` (gitignored). Remove after PR merg
 ### Commit message format
 
 ```text
-vNEW_VERSION — STAK-XXX: Brief description
+vNEW_VERSION — STRK-XXX: Brief description
 ```
 
-Em dash (`—`), not hyphen. Include the Linear issue ID. Example:
+Use an em dash (`—`), not a hyphen, in this subject format. Include the Plane issue ID. Example:
 
 ```text
-v3.33.88 — STAK-400: Inventory filter persistence
+v3.36.59 — STRK-451: Make retail vendor colors theme-aware
 ```
 
 ### PR targets
@@ -704,7 +708,7 @@ await sharedPage.goto("/index.html");
 await installStakTrakrNetworkMocks(page, { mode: "deny-all" });
 ```
 
-Per-spec `page.route()` overrides register **after** the shared installer and win by LIFO precedence. Reference: STRK-78 spec archive.
+Per-spec `page.route()` overrides register **after** the shared installer and win by LIFO precedence.
 
 ### Test maintenance protocol
 
@@ -778,7 +782,7 @@ Reference: `_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSl
 
 ### Custom dialog testing — `showAppConfirm` is NOT `window.confirm`
 
-`showAppConfirm`, `showAppAlert`, `showAppPrompt` (and `showAppPromptWithOption`, a prompt with one `#appDialogOption` checkbox that resolves `{value, checked}`; STRK-443) are custom DOM modals (`#appDialogModal`), **not** native `window.confirm`. `page.on("dialog", ...)` does not intercept them. Pattern:
+`showAppConfirm`, `showAppAlert`, `showAppPrompt` (and `showAppPromptWithOption`, a prompt with one `#appDialogOption` checkbox that resolves `{value, checked}`) are custom DOM modals (`#appDialogModal`), **not** native `window.confirm`. `page.on("dialog", ...)` does not intercept them. Pattern:
 
 1. Fire-and-forget the async function via `page.evaluate`
 2. `await page.waitForSelector("#appDialogModal", { state: "visible" })`
@@ -909,7 +913,7 @@ fetch(url)
 - **Destroy before reuse**: call `.destroy()` on an existing chart instance before creating a new one on the same canvas — failing to destroy causes memory leaks and ghost overlays
 - **Disable animations** on programmatic updates (when the user didn't trigger the render)
 - **Store instances** in the `chartInstances` or `sparklineInstances` objects in `state.js`
-- **`getThemeColorRGB(token)`** — always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves those to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`) — **but `#hex` and `rgb()` inputs pass through unchanged** (slate defines its metal accents as hex). Fine for any Chart.js color field; **never scrape channels out of the result with a digit regex** — parse rgb() AND hex properly (precedent: `_dmRgbTriple` in `js/detailsModal.js`; the STRK-352 slate regression shipped from exactly this).
+- **`getThemeColorRGB(token)`** — always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves those to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`) — **but `#hex` and `rgb()` inputs pass through unchanged** (slate defines its metal accents as hex). Fine for any Chart.js color field; **never scrape channels out of the result with a digit regex** — parse rgb() AND hex properly (reference: `_dmRgbTriple` in `js/detailsModal.js`). A digit regex misreads the slate theme's hex accents.
 
 ```js
 const prev = Chart.getChart(canvas);
@@ -967,7 +971,7 @@ border-radius: 8px;
 padding: 0.75rem;
 ```
 
-### Colours computed in JS: hand CSS the data, not the colour (STRK-446)
+### Colours computed in JS: hand CSS the data, not the colour
 
 When JS must choose a colour (a per-value hue, a token picked by item type), pass a
 theme-reactive expression and let the stylesheet do the rest:
@@ -1065,7 +1069,7 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 | Colors      | `--primary`, `--secondary`, `--success`, `--info`, `--warning`, `--danger` + `-hover` variants |
 | Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card`                                 |
 | Text        | `--text-primary`, `--text-secondary`                                                           |
-| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`, `--copper` (STRK-305)                       |
+| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`, `--copper`                                  |
 | Types       | `--type-{coin,round,bar,note,set,other}-{bg,text}`                                             |
 | Borders     | `--border`, `--border-hover`                                                                   |
 | Shadows     | `--shadow-sm`, `--shadow`, `--shadow-lg`                                                       |
