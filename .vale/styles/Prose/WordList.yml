@@ -1,0 +1,13 @@
+extends: substitution
+message: "Use '%s' instead of '%s' (prose-core word list)."
+level: warning
+ignorecase: true
+swap:
+  utilize: use
+  utilizes: uses
+  leverage: use
+  leverages: uses
+  facilitate: help
+  in order to: to
+  prior to: before
+  a number of: some

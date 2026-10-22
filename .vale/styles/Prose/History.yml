@@ -1,0 +1,11 @@
+extends: existence
+message: "Write the current state; '%s' describes a change (prose-core R3)."
+level: warning
+ignorecase: true
+tokens:
+  - used to be
+  - used to have
+  - no longer
+  - reverses
+  - previously
+  - was replaced

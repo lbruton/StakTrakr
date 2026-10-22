@@ -1,0 +1,21 @@
+extends: existence
+message: "Remove '%s' or state what it does (prose-core word list)."
+level: warning
+ignorecase: true
+tokens:
+  - seamless
+  - seamlessly
+  - robust
+  - comprehensive
+  - enterprise-grade
+  - cutting-edge
+  - powerful
+  - simply
+  - easily
+  - very
+  - really
+  - basically
+  - successfully
+  - currently
+  - note that
+  - it is important to

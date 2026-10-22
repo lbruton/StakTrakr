@@ -70,6 +70,8 @@ docs/specs/
 .agents/skills/codacy-cloud-cli/
 .claude/skills/codacy-code-review/
 .agents/skills/codacy-code-review/
+.claude/skills/discernment-nudge/
+.agents/skills/discernment-nudge/
 .claude/skills/ui-mockup/
 .agents/skills/ui-mockup/
 .claude/agents/pr-discover.md
@@ -82,5 +84,7 @@ docs/specs/
 # Library-managed rules (DEVS-127): deployed verbatim from Devops/skill-library; prettier reflow makes skills-deploy --check report them as edited/stale.
 .claude/rules/
 .agents/rules/
+# Library-managed Vale styles (DEVS-140): deployed verbatim; fix them in the master.
+.vale/
 # AGENTS.md carries the skills-deploy rules block, whose blank lines prettier strips
 AGENTS.md

@@ -17,7 +17,7 @@ description: >
   to double-check, cite, or review — the skill file explains these
   boundaries and the exact output format.
 license: Complete terms in LICENSE.txt
-library-version: 2392a08b5fd4
+library-version: 9c412b151ba8
 ---
 
 # Discernment nudge
@@ -32,7 +32,7 @@ reflection can catch a bad assumption or a missing piece of context
 before it matters. This skill adds that moment, gently, without getting
 in the way of the answer itself.
 
-The goal is to _model_ three discernment habits from the AI Fluency
+The goal is to *model* three discernment habits from the AI Fluency
 framework, not to lecture about them:
 
 - **Checking facts** — which specific claims in this answer would be
@@ -75,7 +75,7 @@ scrutinizing before acting on it. The clearest cases:
 Leave it off when the nudge would be noise — or worse, when it would
 override something the user already told you. Silence is the right
 default; only add the nudge when there's something concrete worth
-reflecting on _and_ the user hasn't already signaled they've got
+reflecting on *and* the user hasn't already signaled they've got
 verification covered.
 
 **Once per conversation.** Offer the nudge at most once in a
@@ -132,7 +132,7 @@ not to:
   and stop.
 - **The user asked you to check something of theirs.** "Is this
   correct?", "review this," "what's wrong with my reasoning?" Your
-  answer _is_ the discernment step — you're the one doing the
+  answer *is* the discernment step — you're the one doing the
   checking. A nudge suggesting they re-check what you just checked
   is circular. If your review surfaces open questions you can't
   resolve — a timezone you don't know, a schema you can't see — ask
@@ -174,14 +174,14 @@ those facts?") defeat the purpose; the value is in the specificity.
 Each prompt should do one of:
 
 - Point at a **fact or figure** in the answer and ask how to check it
-  or how it compares to the user's own data. _"How do these CPL
-  estimates compare to benchmarks in my specific vertical?"_
+  or how it compares to the user's own data. *"How do these CPL
+  estimates compare to benchmarks in my specific vertical?"*
 - Point at a **reasoning step or assumption** and invite the user to
-  probe it. _"Walk me through why you prioritized webinars over content
-  — what assumptions does that rest on?"_
-- Point at **missing context** the answer had to guess at. _"I didn't
+  probe it. *"Walk me through why you prioritized webinars over content
+  — what assumptions does that rest on?"*
+- Point at **missing context** the answer had to guess at. *"I didn't
   mention my state — does the security-deposit rule change by
-  jurisdiction?"_
+  jurisdiction?"*
 
 Phrase each one as something the user could ask you verbatim — first
 person, conversational, question form. Two or three prompts, never
