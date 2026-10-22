@@ -164,4 +164,5 @@ to all work in this repo. They are copies of the skill library masters; edit the
 the copy, and do not edit this block (skills-deploy rewrites it).
 
 - `.agents/rules/code-core.md`
+- `.agents/rules/prose-core.md`
 <!-- skills-deploy:rules end -->
