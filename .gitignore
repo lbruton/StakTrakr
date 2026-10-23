@@ -54,6 +54,9 @@ webscale-cookies.json
 # Playwright test artifacts
 test-results/
 playwright-report/
+blob-report/
+all-blob-reports/
+core-report.json
 
 # Coverage outputs and the local test map
 coverage/

@@ -24,7 +24,8 @@ export default defineConfig({
   // Boot is renderer-bound: workers past the performance-core count only slow each test.
   workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) || 1 : "50%",
   retries: process.env.CI ? 1 : 0,
-  reporter: "html",
+  // CI shards write blob reports that the Tests workflow merges into one report.
+  reporter: process.env.CI ? "blob" : "html",
   use: {
     baseURL: `http://localhost:${PORT}`,
     serviceWorkers: "block",
