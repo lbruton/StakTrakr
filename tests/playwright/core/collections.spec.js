@@ -334,14 +334,20 @@ const createSlotNoteFixture = async (page) => {
 };
 
 /**
- * Fingerprint the displayed image rather than its disposable blob URL.
+ * Fingerprint the decoded pixels of the displayed image. The app revokes a blob URL
+ * when it re-renders, so re-fetching the URL can fail after the image has loaded.
  * @param {import('@playwright/test').Locator} image - Image locator.
  * @returns {Promise<string|null>} SHA-256 hex digest, or null before image load.
  */
 const displayedImageHash = (image) =>
   image.evaluate(async (img) => {
     if (!img.complete || !img.naturalWidth) return null;
-    const bytes = await (await fetch(img.currentSrc || img.src)).arrayBuffer();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(img, 0, 0);
+    const bytes = context.getImageData(0, 0, canvas.width, canvas.height).data;
     const hash = await crypto.subtle.digest("SHA-256", bytes);
     return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
   });
@@ -1145,12 +1151,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
         390
       );
       // The About textarea is themed like every other control (it used to keep the
-      // browser's light background in dark themes). Polled: a theme switch animates the
-      // visible input's colours, while the collapsed textarea snaps to its final value.
+      // browser's light background in dark themes). A theme switch starts colour
+      // transitions, and one on the collapsed textarea can stall while it is not rendered,
+      // so each read finishes them first: the assertion is about the final theme colours.
       await expect
         .poll(() =>
           builder.evaluate((modal) => {
             const read = (node) => {
+              node.getAnimations().forEach((animation) => animation.finish());
               const style = getComputedStyle(node);
               return `${style.backgroundColor}|${style.color}|${style.borderTopColor}`;
             };
@@ -1600,7 +1608,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
           return box.width / box.height;
         });
     };
-    expect(await coinRatio()).toBeCloseTo(1.6, 1);
+    // Polled: the Album lays out after openCollection returns, and an unlaid box reads 0/0.
+    await expect.poll(coinRatio).toBeCloseTo(1.6, 1);
 
     await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
     const orientation = builderModal(page).getByRole("radiogroup", {
@@ -1610,10 +1619,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await orientation.getByLabel("Portrait").check();
     await builderModal(page).getByRole("button", { name: "Save changes" }).click();
     expect((await read(id)).imageOrientation).toBe("portrait");
-    expect(await coinRatio()).toBeCloseTo(0.6, 1);
+    await expect.poll(coinRatio).toBeCloseTo(0.6, 1);
 
     // The Hub card and both Ledger levels read the same saved orientation as the Album.
-    const ratioIn = (scope) =>
+    const ratioIn = (scope) => () =>
       panel(page)
         .locator(`${scope} .collections-coin--shape-bar`)
         .first()
@@ -1622,11 +1631,13 @@ test.describe("core/collections — link picker, builder, item view", () => {
           return box.width / box.height;
         });
     await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
-    expect(await ratioIn(`.collections-card[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
+    await expect.poll(ratioIn(`.collections-card[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
-    expect(await ratioIn(`.collections-hubrow[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
+    await expect
+      .poll(ratioIn(`.collections-hubrow[data-collection-id="${id}"]`))
+      .toBeCloseTo(0.6, 1);
     await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
-    expect(await ratioIn(".collections-lrow[data-slot-id]")).toBeCloseTo(0.6, 1);
+    await expect.poll(ratioIn(".collections-lrow[data-slot-id]")).toBeCloseTo(0.6, 1);
 
     await page.reload();
     await page.waitForFunction(() => window.appListenersReady);

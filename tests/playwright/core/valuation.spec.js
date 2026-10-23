@@ -225,11 +225,12 @@ async function chartSnapshot(page) {
 }
 
 function expectVisibleDatasetsWithinScale(snapshot) {
+  // One assertion per dataset: an expect() per point costs seconds on the "All" range.
   for (const dataset of snapshot.datasets.filter((candidate) => candidate.visible)) {
-    for (const value of dataset.data) {
-      expect(value).toBeGreaterThanOrEqual(snapshot.yMin);
-      expect(value).toBeLessThanOrEqual(snapshot.yMax);
-    }
+    const outside = dataset.data.filter((value) => value < snapshot.yMin || value > snapshot.yMax);
+    expect(outside, `${dataset.label} values outside [${snapshot.yMin}, ${snapshot.yMax}]`).toEqual(
+      []
+    );
   }
 }
 

@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
-import { DEFAULT_RETAIL_LATEST } from "../helpers/mocks/fixtures.js";
+import { DEFAULT_RETAIL_LATEST, makeSpotLatest } from "../helpers/mocks/fixtures.js";
+import { V2_PRIMARY } from "../helpers/mocks/routes.js";
 
 async function allowWhatsNew(page) {
   await page.addInitScript(() => {
@@ -480,6 +481,13 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
     const valEl = chip(page, "Silver").locator(".val");
     const before = await valEl.textContent();
 
+    // The sync reads silver from the API, so the API must serve a new price: a local
+    // spotSilver write alone is overwritten by the boot sync's value.
+    await page.route(V2_PRIMARY, (route) =>
+      new URL(route.request().url()).pathname.endsWith("/spot/latest.json")
+        ? route.fulfill({ json: makeSpotLatest({ xag: { price: 40 } }) })
+        : route.fallback()
+    );
     // Drive the sync path; the implementation must re-render chips at its tail.
     await page.evaluate(() => {
       localStorage.setItem("spotSilver", "40");

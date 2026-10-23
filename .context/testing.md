@@ -3,7 +3,7 @@ title: "StakTrakr — Testing Policy"
 project: StakTrakr
 audience: agent
 canonical: .context/testing.md
-updated: "2026-08-12"
+updated: "2026-10-22"
 ---
 
 # Testing Policy — StakTrakr
@@ -38,6 +38,17 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - CI runs no Playwright gate — `npm test` is local-only. Re-run the covering spec after a
   force-push.
 
+## Parallel Runs
+
+- `playwright.config.js` sets `fullyParallel: true` and `workers: "50%"`. Tests from one
+  file run on different workers in any order.
+- Every test must pass alone and in any order. A test that shares state with another
+  belongs in a `test.describe.serial` block.
+- Workers above the performance-core count make each test slower, not the run faster.
+  `PW_WORKERS=<n>` overrides the default; use `PW_WORKERS=1` to debug an order problem.
+- A test that fails only under parallel load is a race in the test or the app. Fix the
+  wait; do not lower the worker count.
+
 ## File Placement & Inventory
 
 - Before adding a Playwright file, check `tests/playwright/coverage-map.csv`.
@@ -63,10 +74,24 @@ these rules elsewhere. Read before editing or running any Playwright test.
   dialog-testing pattern in `.context/implementation-gotchas.md`.
 - Wait on `window.appListenersReady` before header clicks — never sleep; early clicks
   silently no-op.
+- Import `test` and `expect` from `tests/playwright/helpers/mocks/extended-test.js`. Its
+  `page` fixture installs the network mocks, and its `goto`/`reload` resolve only after
+  `appListenersReady`. Pass `{ waitForApp: false }` to assert on the page before boot ends.
+- Boot finishes in a deferred timer after `DOMContentLoaded`. A helper that waits only for
+  `typeof window.someFn === "function"` races the rest of boot.
+- Poll layout and computed-style reads (`expect.poll`). A box measured before layout reads
+  `0/0`, and a colour read during a theme transition holds the old value.
+- Assert a whole array once (`expect(outOfRange).toEqual([])`), not one `expect()` per
+  element: per-element calls cost seconds on large chart datasets.
+- Hash a displayed image from its decoded pixels, not by re-fetching its `blob:` URL. The
+  app revokes blob URLs when it re-renders.
 
 ## Running Locally
 
 - Quick check: `npx playwright test tests/playwright/core/inventory-crud.spec.js`.
+- A worktree with its own `npm ci` can pin a newer Playwright than the main checkout. If
+  every test fails with "Executable doesn't exist", run `npx playwright install chromium`
+  in that worktree.
 - If Chromium fails with the macOS Mach port sandbox error, rerun the same Playwright
   command with escalation.
 - Do not pipe test output through `| tail` — it masks failures (exit 0). Redirect to a

@@ -17,8 +17,11 @@ const PORT = Number(process.env.PW_PORT) || portFromCwd();
 
 export default defineConfig({
   testDir: "./tests/playwright",
-  fullyParallel: false,
-  workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) || 1 : 1,
+  // Every test boots its own context, so tests in one file are independent and can
+  // spread across workers. Specs that share state opt out with describe.serial.
+  fullyParallel: true,
+  // Boot is renderer-bound: workers past the performance-core count only slow each test.
+  workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) || 1 : "50%",
   retries: process.env.CI ? 1 : 0,
   reporter: "html",
   use: {
