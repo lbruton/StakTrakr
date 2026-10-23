@@ -1836,7 +1836,8 @@ test.describe("core/image-frame-editor — builder Slot thumbnails follow the Im
 //      record, OK applies it, Cancel changes nothing, and Save stores it.
 //   3. Turning it off clears any side that shows a pattern image; turning it back on fills empty
 //      sides from the matching rule again, without reopening the modal.
-//   4. The builder shows no image options button until STRK-444 gives it an action.
+//   4. In the builder, only the two title frames carry an image options button (their link
+//      action); Slot thumbnails carry none.
 
 const PATTERN_IMAGE_ID = "custom-img-strk443";
 
@@ -2085,11 +2086,24 @@ test.describe("core/image-frame-editor — item image options (STRK-443)", () =>
     await expectNoPatternAfterRelease(page);
   });
 
-  test("the builder shows no image options button until it has an action", async ({ page }) => {
+  test("the builder shows image options only on the two title frames", async ({ page }) => {
     await seedAndGoto(page);
     await openBuilderModal(page);
-    await expect(
-      page.locator("#collectionsBuilderModal").getByRole("button", { name: /image options/i })
-    ).toHaveCount(0);
+    const options = page
+      .locator("#collectionsBuilderModal")
+      .getByRole("button", { name: /image options/i });
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toHaveAccessibleName("Obverse image options");
+    await expect(options.nth(1)).toHaveAccessibleName("Reverse image options");
+    for (const side of ["obverse", "reverse"]) {
+      await expect(
+        page.locator(
+          `#collectionsBuilderModal .collections-image-chooser:has([data-ife-frame="${side}"]) .ife-link`
+        )
+      ).toHaveCount(1);
+    }
+    const slotRows = page.locator("#collectionsBuilderModal .collections-builder-row");
+    expect(await slotRows.count()).toBeGreaterThanOrEqual(2);
+    await expect(slotRows.locator(".ife-link")).toHaveCount(0);
   });
 });
