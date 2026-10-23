@@ -143,6 +143,24 @@ describe("selectTests", () => {
     assert.deepEqual(unitFiles(selection), ["tests/unit/codec.test.js"]);
   });
 
+  test("a unit test that lists a repo directory depends on every file in it (AC-15)", () => {
+    const unitIndex = buildUnitIndex({
+      "tests/unit/tokens.test.js": [
+        "const listDir = (dir) => readdirSync(new URL(dir, root));",
+        'const files = [...listDir("js/"), ...listDir("css/")];',
+      ].join("\n"),
+      "tests/unit/copy.test.js": 'const jsDir = join(repoRoot, "js"); readdirSync(jsDir);',
+      "tests/unit/plain.test.js": 'const label = "css/";',
+    });
+    const unitFor = (file) =>
+      unitFiles(selectTests({ map: MAP, changes: [{ file, lines: [1] }], unitIndex }));
+    assert.deepEqual(unitFor("css/styles.css"), ["tests/unit/tokens.test.js"]);
+    assert.deepEqual(unitFor("js/demo.js"), [
+      "tests/unit/copy.test.js",
+      "tests/unit/tokens.test.js",
+    ]);
+  });
+
   test("a changed unit test or unit helper selects the unit tests that use it (AC-15)", () => {
     assert.deepEqual(unitFiles(select([{ file: "tests/unit/merge.test.js", lines: [1] }])), [
       "tests/unit/merge.test.js",

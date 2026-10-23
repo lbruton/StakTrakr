@@ -42,6 +42,9 @@ const TEST_FREE_PATHS = [
 const REPO_PATH =
   /(?:^|[^\w.-])((?:js|css|data|vendor|devops|tests)\/[\w./-]+\.(?:m?js|json|css|html)|sw-router\.js|sw\.js|index\.html)/g;
 const RELATIVE_IMPORT = /(?:from\s+|import\(\s*)["'](\.{1,2}\/[^"']+)["']/g;
+// A test that lists a directory depends on every file in each repo directory it names.
+const DIRECTORY_SCAN = /\breaddirSync\s*\(/;
+const DIRECTORY_NAME = /["'](js|css|data|vendor|tests\/playwright\/(?:core|extended))\/?["']/g;
 
 /**
  * Parses `git diff -U0` output into the changed lines on the old side of each file.
@@ -95,6 +98,9 @@ export function buildUnitIndex(files) {
     for (const match of text.matchAll(RELATIVE_IMPORT)) {
       refs.add(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
     }
+    if (DIRECTORY_SCAN.test(text)) {
+      for (const match of text.matchAll(DIRECTORY_NAME)) refs.add(`${match[1]}/`);
+    }
     direct.set(file, refs);
   }
   const index = new Map();
@@ -144,7 +150,8 @@ export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }
 
   for (const { file, lines, deleted } of changes) {
     for (const [unitFile, refs] of unitIndex) {
-      if (unitFile === file || refs.has(file)) pick(unit, unitFile, file);
+      const inScannedDir = [...refs].some((ref) => ref.endsWith("/") && file.startsWith(ref));
+      if (unitFile === file || refs.has(file) || inScannedDir) pick(unit, unitFile, file);
     }
     if (ALL_UNIT_PATHS.some((re) => re.test(file))) allUnit = true;
 

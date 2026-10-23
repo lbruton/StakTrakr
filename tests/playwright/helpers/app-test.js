@@ -22,6 +22,8 @@ const COVERAGE = isCoverageEnabled();
 const coveredPages = new Set();
 // Entries taken from pages a test closed itself, written with that test's record.
 const closedPageEntries = [];
+const instrumentedPages = new WeakSet();
+const wrappedContexts = new WeakSet();
 const APP_SHELL_PATHS = new Set(["/", "/index.html"]);
 // Precise coverage slows script execution, so boot gets more time when it is on.
 const BOOT_TIMEOUT_MS = COVERAGE ? 30000 : 15000;
@@ -65,7 +67,17 @@ function awaitBootOnNavigation(page, baseURL) {
  */
 async function prepareAppPage(page, baseURL = base.info().project.use.baseURL) {
   awaitBootOnNavigation(page, baseURL);
-  if (!COVERAGE) return;
+  await instrumentPage(page, baseURL);
+}
+
+/**
+ * Starts coverage on a page once, and takes it before the test closes the page.
+ * @param {import('@playwright/test').Page} page - Page to instrument.
+ * @param {string} baseURL - App origin.
+ */
+async function instrumentPage(page, baseURL) {
+  if (!COVERAGE || instrumentedPages.has(page)) return;
+  instrumentedPages.add(page);
   await page.coverage.startJSCoverage({ resetOnNavigation: false });
   coveredPages.add(page);
   page.once("close", () => coveredPages.delete(page));
@@ -102,16 +114,59 @@ async function takeCoverage(page, baseURL, restart) {
   return entries.map(({ url, functions }) => ({ url, functions }));
 }
 
+/**
+ * While a test runs, instruments every page it creates through `browser.newContext()`,
+ * `browser.newPage()` or a wrapped context's `newPage()`, so a second device or tab
+ * reports coverage too. Coverage only: the boot wait stays opt-in.
+ * @param {import('@playwright/test').Browser} browser - Worker browser.
+ * @param {string} baseURL - App origin.
+ * @param {Set<import('@playwright/test').Page>} owned - Collects the pages created.
+ * @returns {{wrapContext: Function, restore: Function}}
+ */
+function instrumentNewPages(browser, baseURL, owned) {
+  const track = async (page) => {
+    await instrumentPage(page, baseURL);
+    owned.add(page);
+    return page;
+  };
+  const wrapContext = (context) => {
+    if (wrappedContexts.has(context)) return context;
+    wrappedContexts.add(context);
+    const newPage = context.newPage.bind(context);
+    context.newPage = async (...args) => track(await newPage(...args));
+    return context;
+  };
+  const newContext = browser.newContext;
+  const newPage = browser.newPage;
+  browser.newContext = async (...args) => wrapContext(await newContext.apply(browser, args));
+  browser.newPage = async (...args) => track(await newPage.apply(browser, args));
+  return {
+    wrapContext,
+    restore: () => {
+      browser.newContext = newContext;
+      browser.newPage = newPage;
+    },
+  };
+}
+
 const test = base.extend({
   // `page` depends on this fixture, so its teardown adds the page's entries first.
   appCoverage: [
-    async ({ baseURL }, use, testInfo) => {
+    async ({ baseURL, browser }, use, testInfo) => {
       const entries = [];
+      const owned = new Set();
       // Drop entries a previous test's afterAll left behind; they belong to no test.
       closedPageEntries.length = 0;
-      await use(entries);
+      const pages = COVERAGE ? instrumentNewPages(browser, baseURL, owned) : null;
+      try {
+        await use({ entries, wrapContext: pages ? pages.wrapContext : (context) => context });
+      } finally {
+        pages?.restore();
+      }
       if (!COVERAGE) return;
       entries.push(...closedPageEntries.splice(0));
+      for (const page of owned) entries.push(...(await takeCoverage(page, baseURL, false)));
+      // What remains is a page shared across tests (a serial group's beforeAll page).
       for (const page of [...coveredPages])
         entries.push(...(await takeCoverage(page, baseURL, true)));
       writeRawRecord(RAW_COVERAGE_DIR, rawRecordFor(testInfo, REPO_ROOT, entries));
@@ -120,8 +175,9 @@ const test = base.extend({
   ],
   page: async ({ page, baseURL, appCoverage }, use) => {
     await prepareAppPage(page, baseURL);
+    appCoverage.wrapContext(page.context());
     await use(page);
-    if (COVERAGE) appCoverage.push(...(await takeCoverage(page, baseURL, false)));
+    if (COVERAGE) appCoverage.entries.push(...(await takeCoverage(page, baseURL, false)));
   },
 });
 
