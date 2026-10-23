@@ -55,7 +55,7 @@ async function gotoApp(page) {
       typeof window.catalogConfig !== "undefined"
   );
   // STRK-294: wait for the listener-readiness flag instead of sleeping. Phase 14
-  // of init.js attaches every listener inside a `setTimeout(…, 200)`, so the
+  // of init.js attaches every listener inside a deferred `setTimeout`, so the
   // waitForFunction above goes true well before the UI is actually interactive.
   // This replaced a bare `waitForTimeout(300)` — a 100ms margin over that timer,
   // which is thin enough to flake on a loaded CI runner and would fail in a way
