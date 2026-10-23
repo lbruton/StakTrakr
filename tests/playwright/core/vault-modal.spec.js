@@ -232,8 +232,7 @@ test.describe("STRK-170 vault modal characterization (cohort 1.4)", () => {
 // A restore must rehydrate it, or the next CatalogConfig.save() (a usage-counter
 // increment) writes the stale in-memory defaults over the restored key.
 
-// Test fixtures, not real credentials.
-const RESTORE_VAULT_PASSWORD = "strk186-vault-pass"; // gitleaks:allow
+// Test fixture, not a real credential.
 const NUMISTA_KEY = "strk186-numista-api-key"; // gitleaks:allow
 
 /**
@@ -257,7 +256,7 @@ async function seedKeyAndExport(page) {
       const bytes = await window.vaultEncryptToBytes(password);
       return Array.from(bytes);
     },
-    { password: RESTORE_VAULT_PASSWORD, key: NUMISTA_KEY }
+    { password: VAULT_PASSWORD, key: NUMISTA_KEY }
   );
 }
 
@@ -312,7 +311,7 @@ test.describe("STRK-186 catalog key vault restore", () => {
         await window.vaultDecryptAndRestore(new Uint8Array(bytes), password);
         return window.catalogConfig.config.numista.apiKey;
       },
-      { password: RESTORE_VAULT_PASSWORD, bytes: vaultBytes }
+      { password: VAULT_PASSWORD, bytes: vaultBytes }
     );
     expect(inMemoryKey).toBe(NUMISTA_KEY);
 
@@ -354,7 +353,7 @@ test.describe("STRK-186 catalog key vault restore", () => {
           inMemoryKey: window.catalogConfig.config.numista.apiKey,
         };
       },
-      { password: RESTORE_VAULT_PASSWORD, bytes: vaultBytes }
+      { password: VAULT_PASSWORD, bytes: vaultBytes }
     );
     expect(result.applied).toBe(true);
     expect(result.inMemoryKey).toBe(NUMISTA_KEY);
