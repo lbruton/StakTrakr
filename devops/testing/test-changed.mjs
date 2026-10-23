@@ -154,8 +154,11 @@ export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }
   };
   const full = (file, why) => reasons.push({ file, why });
 
+  // The map still lists tests of a spec this change deletes; there is nothing left to run.
+  const deletedSpecs = new Set(changes.filter((c) => c.deleted).map((c) => c.file));
   const pickTest = (id, file) => {
     const spec = id.replace(/:\d+$/, "");
+    if (deletedSpecs.has(spec)) return;
     pick(core, serialSpecs.has(spec) ? spec : id, file);
   };
 
@@ -272,7 +275,10 @@ export function renderPlan(selection) {
 export function toPlanJson(selection) {
   return {
     full: selection.full,
-    core: selection.full ? [] : selection.core.map((entry) => entry.location),
+    // With the full core suite, only selected locations outside core/ still need naming.
+    core: selection.core
+      .map((entry) => entry.location)
+      .filter((location) => !selection.full || !location.startsWith("tests/playwright/core/")),
     unit: selection.allUnit ? [ALL_UNIT] : selection.unit.map((entry) => entry.file),
     reasons: selection.reasons,
   };
@@ -410,7 +416,7 @@ function main(argv) {
       stdio: "inherit",
     }).status;
   }
-  const coreArgs = plan.full ? ["tests/playwright/core"] : plan.core;
+  const coreArgs = plan.full ? ["tests/playwright/core", ...plan.core] : plan.core;
   if (coreArgs.length) {
     const run = spawnSync("npx", ["playwright", "test", ...coreArgs], {
       cwd: REPO_ROOT,

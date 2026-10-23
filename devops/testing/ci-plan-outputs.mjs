@@ -40,7 +40,8 @@ const plan = existsSync(planPath)
       reasons: [{ file: "-", why: "no plan" }],
     };
 const unit = safe(plan.unit);
-const core = plan.full ? [FULL_CORE] : safe(plan.core);
+// A full plan still names selected specs outside core/, such as an extended spec.
+const core = plan.full ? [FULL_CORE, ...safe(plan.core)] : safe(plan.core);
 
 if (mode === "--summary") {
   const lines = ["## Test selection", ""];

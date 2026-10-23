@@ -202,6 +202,25 @@ describe("selectTests", () => {
     assert.deepEqual(spec.core, []);
   });
 
+  test("a deleted spec is not brought back through the map", () => {
+    const selection = select([
+      { file: "tests/playwright/core/alpha.spec.js", lines: [], deleted: true },
+      { file: "js/demo.js", lines: [6] },
+    ]);
+    assert.deepEqual(locations(selection), ["tests/playwright/core/beta.spec.js:7"]);
+  });
+
+  test("a full-suite fallback keeps a selected extended spec", () => {
+    const plan = toPlanJson(
+      select([
+        { file: "tests/playwright/extended/service-worker.spec.js", lines: [3] },
+        { file: "sw-router.js", lines: [1] },
+      ])
+    );
+    assert.equal(plan.full, true);
+    assert.deepEqual(plan.core, ["tests/playwright/extended/service-worker.spec.js"]);
+  });
+
   test("a selected test in a spec with a serial group runs the whole spec", () => {
     const selection = selectTests({
       map: MAP,
