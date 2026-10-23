@@ -35,8 +35,13 @@ these rules elsewhere. Read before editing or running any Playwright test.
   `page.route` pattern without the wildcard silently never matches and the test exercises the
   real endpoint instead of the mock. Grep `fetchApiHealth` in `js/api-health.js` for the
   current form.
-- CI runs no Playwright gate — `npm test` is local-only. Re-run the covering spec after a
-  force-push.
+- `npm run test:changed` runs only the core and unit tests a change can affect, selected from
+  the test map (`.cache/test-map.json`). `npm run test:changed -- --fetch` downloads the map
+  from the latest `dev` run first. `npm run test:map` builds the map locally with a full
+  coverage run.
+- CI (`.github/workflows/tests.yml`): a PR to `dev` runs the `test:changed` selection; a push
+  to `dev` runs the full unit and core suites with coverage, publishes the map and uploads lcov
+  to Codacy. The `Tests` job is the single check to require.
 
 ## Parallel Runs
 
