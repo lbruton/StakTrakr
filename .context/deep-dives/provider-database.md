@@ -15,7 +15,7 @@ updated: "2026-03-22"
 
 ## Overview
 
-Provider data (which vendors to scrape, URLs, coin metadata) is stored in **sqld** as the single source of truth. Before 2026-02-25, this data lived in a static `providers.json` file on the `api` branch: pollers curled it before each run, and the home dashboard wrote edits back to the file. This caused race conditions when multiple writers edited the file simultaneously.
+Provider data (which vendors to scrape, URLs, coin metadata) is stored in **sqld** as the single source of truth. Before 2026-02-25, this data lived in a static `providers.json` file on the `api` branch. Pollers curled it before each run, and the home dashboard wrote edits back to the file. This caused race conditions when multiple writers edited the file simultaneously.
 
 The shared query module `provider-db.js` provides all read/write operations. All consumers: Cloud - Fly.io publisher/runtime (publish and export, spot support), home poller (retail scraping), and the dashboard: import from this module.
 

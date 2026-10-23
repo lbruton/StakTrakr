@@ -38,7 +38,7 @@ configuration and source code in `devops/pollers/`, not this document.
 3. Check the operator's applicable secret store for the presence and access policy of the
    required configuration. Do not print or paste values into terminals, logs, issues, or chat.
 4. For the home poller, confirm the compose allow-list includes the required variable and
-   recreate the stack after changing its environment; a restart alone does not apply new values.
+   recreate the stack after changing its environment. A restart alone does not apply new values.
 5. Verify recovery with service logs and public health endpoints, not by displaying environment
    values.
 

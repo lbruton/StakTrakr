@@ -69,7 +69,7 @@ Written by `docker-entrypoint-slim.sh` at container start. Slim image has no ret
 **Data flow:**
 
 1. `run-spot.sh` polls MetalPriceAPI at `:00` and `:30` → writes to sqld
-2. `run-publish.sh` runs at `:08`, `:23`, `:38`, `:53` → exports all data from sqld via `api-export.js` → generates static JSON files (manifest, per-coin, spot hourly, goldback) → commits and force-pushes to `api` branch → GitHub Pages serves at `api.staktrakr.com`
+2. `run-publish.sh` runs at `:08`, `:23`, `:38`, `:53`. It exports all data from sqld via `api-export.js`. It generates static JSON files (manifest, per-coin, spot hourly, goldback). It commits and force-pushes to `api` branch. GitHub Pages serves at `api.staktrakr.com`
 
 ---
 
@@ -86,7 +86,7 @@ This is the Fly.io container's primary job. Runs 4x/hour, ~3 min after spot poll
    - `data/goldback-{YYYY}.json`: daily goldback history from sqld
    - `data/api/providers.json`: frontend provider URLs
    - `data/hourly/YYYY/MM/DD/HH.json`: spot price hourly files
-2. **`api-export-v2.js`**: generates v2 endpoints under `data/v2/` (spot, retail, goldback, providers, manifest). Called after v1 export. **Non-fatal**: if v2 export throws, it is caught and logged; v1 publish continues unaffected. `providers.json` was added to the v2 surface to fix a frontend 404 regression (2026-04-11): v1 already had `data/api/providers.json` but v2 never got its equivalent during the v2 redesign, so frontend clicks on vendor prices silently fell back to vendor homepages for fresh-browser users.
+2. **`api-export-v2.js`**: generates v2 endpoints under `data/v2/` (spot, retail, goldback, providers, manifest). Called after v1 export. **Non-fatal**: if v2 export throws, it is caught and logged; v1 publish continues unaffected. `providers.json` was added to the v2 surface to fix a frontend 404 regression (2026-04-11). The v1 API already had `data/api/providers.json` but v2 never got its equivalent during the v2 redesign. Therefore, frontend clicks on vendor prices silently fell back to vendor homepages for fresh-browser users.
 3. **`git add data/ && git commit && git push --force origin HEAD:api`**: sole Git writer for `api` branch
 
 ---
@@ -129,7 +129,7 @@ Calls a Byparr sidecar (`http://staktrakr-byparr:8191`) to solve Cloudflare chal
 The active slim image has non-secret operational settings in `fly.toml` and secret-backed
 configuration in the operator's Fly.io secret store. This document deliberately does not list
 deployed secret names, values, or network endpoints. For a self-hosted deployment, consult the
-enabled scripts and container configuration to identify the required categories: database access,
+enabled scripts and container configuration to identify the required categories. These are database access,
 publisher access, external price-feed access, and network identity.
 
 The former full retail-and-goldback image is historical. The slim image schedules only spot,

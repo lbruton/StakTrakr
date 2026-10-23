@@ -125,7 +125,7 @@ curl -s "https://api.staktrakr.com/data/v2/retail/latest.json" \
 
 - UA env value is **base64** (`/etc/environment` is sourced as shell; a raw UA breaks it).
 - Env vars: **replaced not merged** on Portainer redeploy → always keep the full set.
-- Cookie per-host (`www.jmbullion.com`, `www.providentmetals.com`). The ~7-day life appears to be **browser-side**; the cookie injected into the headless Linux poller has run ~3 weeks without a re-solve, so don't treat "weekly" as a hard requirement: re-solve when it actually fails.
+- Cookie per-host (`www.jmbullion.com`, `www.providentmetals.com`). The ~7-day life appears to be **browser-side**. The cookie injected into the headless Linux poller has run ~3 weeks without a re-solve. Do not treat "weekly" as a hard requirement: re-solve when it actually fails.
 - Manual env-var override always beats the dev-only file store (`WEBSCALE_COOKIE_FILE`).
 - **TLS/JA3 pinning is ruled out** (2026-07-30). A macOS-solved cookie replays fine from Linux headless Chromium; the earlier "open unknown" is closed. Failures are IP reputation or a stale/uncleared cookie: not fingerprinting.
 - Both hosts' vars are already in the `docker-compose.home.yml` allow-list. **Any _new_ Webscale host needs its vars added to compose too**, or the Portainer value never reaches the container.

@@ -14,21 +14,19 @@ Two consequences follow, and both are mandatory:
 1. **Logical, not raw.** Decompress (`__decompressIfNeeded`) and canonicalize
    (sorted object keys, order-preserved arrays, scalar-as-JSON normalized to its
    logical value) before comparing or hashing. Identical logical content must
-   compare/hash equal regardless of: lz-string `CMP2:` compression vs plain
-   (raw length `> 4096` compresses on one device, not the other),
-   scalar stored as JSON (`"dark"`) vs raw (`dark`), object key insertion order,
+   compare/hash equal regardless of: lz-string `CMP2:` compression vs plain. Raw length `> 4096` compresses on one device, not the other. The same equality covers scalar stored as JSON (`"dark"`) vs raw (`dark`), object key insertion order,
    or date-time serialization variant.
 2. **Commutative merge.** `merge(A, B)` must equal `merge(B, A)`, **including on a
    timestamp tie**. A last-write-wins no-op on a tie is non-commutative and freezes
    two diverged devices in a permanent "Review Sync Changes" loop. Resolve ties by
-   a deterministic union (or another commutative rule), and only bump the
+   a deterministic union (or another commutative rule). Only bump the
    modification timestamp when content actually changes (so the merge stays
    idempotent once both sides agree).
 
 The fixes are **self-healing**: existing diverged installs reconcile on the next
-sync with no user action: including tags that diverged with **no
+sync with no user action. This includes tags that diverged with **no
 `itemTagsLastModified` entry** (legacy installs, or Numista batch writes via
-`applyNumistaTags(persist=false)`), which the tie-union converges by content
+`applyNumistaTags(persist=false)`). The tie-union converges them by content
 presence, not just by an equal timestamp. The one exception is data that cannot
 round-trip (`[object Object]` corruption), which a one-time idempotent boot-repair
 clears.
@@ -76,17 +74,17 @@ whole store, wiping every tag/group (the corruption-detection failure).
 
 `imageShape`, `obverseImageOrientation` and `reverseImageOrientation` are in `DIFF_FIELDS`
 (Images group), the `changeLog.js` field array and a truthiness-gated `|frame:` hash segment.
-An absent field and `""` hash and diff identically (`_valuesEqual` normalizes `""`), and an
-inventory with none of the fields hashes byte-identically to the previous build, so the upgrade
+An absent field and `""` hash and diff identically (`_valuesEqual` normalizes `""`). An
+inventory with none of the fields hashes byte-identically to the previous build. The upgrade
 raises no spurious sync prompt. The legacy `obverseImageFrame` / `reverseImageFrame` stay out of
 the hash (adding them would re-hash every framed inventory; tracked as a separate hash change). Known,
 accepted limits, pinned in `tests/unit/cloud-sync-image-frame-hash.test.js`:
 
-- An older build's hash lacks the segment, so for an inventory that carries the fields the poll
+- An older build's hash lacks the segment. For an inventory that carries the fields, the poll
   sees a mismatch with an empty field diff (a hash-only mismatch, matrix H-3). Only inventories
   that carry the fields are affected.
-- An older build's edit of a migrated item's frame or Type is not detected (no heuristic): the
-  new fields win on read, so the older build's frame edit is lost (matrix I-3, I-4).
+- An older build's edit of a migrated item's frame or Type is not detected (no heuristic). The
+  new fields win on read. Therefore, the older build's frame edit is lost (matrix I-3, I-4).
 - A device's `modify` diff covers only its own `DIFF_FIELDS`; an `add` or a ZIP restore copies the
   whole record and keeps the new fields (matrix H-5).
 

@@ -25,8 +25,8 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Slower or edge coverage belongs under `tests/playwright/extended/`.
 - Unit tests run via `npm run test:unit`; `npm run test:all` = unit + core + extended.
 - **Playwright route mocks for api-health need a trailing `*`.** `fetchApiHealth` appends a
-  `_t=` cache-buster query param (joined with `?` or `&` depending on the URL), so a
-  `page.route` pattern without the wildcard silently never matches and the test exercises the
+  `_t=` cache-buster query param (joined with `?` or `&` depending on the URL). A
+  `page.route` pattern without the wildcard silently never matches. Such a test exercises the
   real endpoint instead of the mock. Grep `fetchApiHealth` in `js/api-health.js` for the
   current form.
 

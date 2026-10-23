@@ -257,7 +257,7 @@ Market list cards expand/collapse per coin. Cards always stack vertically on mob
 - FIFO dialog queue managed via `showDialog()` / `presentDialog()` in `js/dialogs.js`
 - All modal open/close goes through `openModalById()` / `closeModalById()`
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
-- Chart.js instances inside modals **must** be destroyed on close: skipping this leaks canvas contexts and causes "Canvas is already in use" on the next open
+- Chart.js instances inside modals **must** be destroyed on close. Skipping this leaks canvas contexts and causes "Canvas is already in use" on the next open
 
 ### Toggles
 
@@ -282,7 +282,7 @@ Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `
 
 Interactive reference: `.context/style.html` (references `../css/styles.css` for live token resolution).
 
-Covers: color swatches, typography scale, spacing demos, button states, form inputs, toggles and chips, cards, tables, modal headers, collapsible sections, image uploads, badges and indicators, and a migration checklist.
+Covers: color swatches, typography scale, spacing demos, button states, form inputs, toggles and chips, cards and tables. It also covers modal headers, collapsible sections, image uploads, badges and indicators, and a migration checklist.
 
 Design-system catalog: `.context/preview.html`: a self-contained page with its own copy of the theme tokens (extracted from `css/styles.css`, so it can drift; `css/styles.css` wins on any conflict).
 

@@ -16,7 +16,7 @@ StakTrakr enforces two strict DOM safety rules that apply to all application cod
 1. Element lookups must go through `safeGetElement()`. Raw `document.getElementById()` is only acceptable in the designated boot files (`about.js`) where `safeGetElement` is not yet defined, and in a small number of legacy pre-init paths.
 2. All user-controlled content written to `innerHTML` must pass through `sanitizeHtml()` first to prevent XSS.
 
-These rules exist because the app runs on `file://` (no server-side sanitization), handles user-entered text that is later rendered as HTML, and initializes a large number of DOM elements at startup. Violations are a recurring source of both runtime null-reference crashes and security bugs.
+These rules exist because the app runs on `file://` (no server-side sanitization). It handles user-entered text that is later rendered as HTML. It also initializes a large number of DOM elements at startup. Violations are a recurring source of both runtime null-reference crashes and security bugs.
 
 ---
 

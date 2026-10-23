@@ -34,7 +34,7 @@ After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh s
 provider instances.
 
 When adding a synced hidden-list preference, define its key constant, then mirror
-`chipBlacklist` at all seven registration sites; missing any one can make the value disappear
+`chipBlacklist` at all seven registration sites. Missing any one can make the value disappear
 from sync, restore, diff, or Storage:
 
 1. `SYNC_SCOPE_KEYS` in `js/constants.js` so cloud sync exports it.
@@ -52,13 +52,13 @@ from sync, restore, diff, or Storage:
 7. `STORAGE_KEY_LABELS` in `js/settings.js` so the Storage panel shows a human-readable name.
 
 `disabledCollections` is the current example. It is a normal whole-setting synced list like
-`chipBlacklist`; a new hidden-list key still needs all seven registrations even when its
+`chipBlacklist`. A new hidden-list key still needs all seven registrations even when its
 storage and sync paths already use `saveDataSync()`.
 
 ## Boot storage sweep is downgrade-safe — never delete unknown keys
 
 `cleanupStorage()` removes only `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`). Never make it
-delete keys "not in `ALLOWED_STORAGE_KEYS`": an older build (rolled-back `main`, beta alias
+delete keys "not in `ALLOWED_STORAGE_KEYS`". An older build (rolled-back `main`, beta alias
 pointed at the wrong branch, stale service worker) would wipe every newer-feature key on that
 origin. This wiped Collections on 2026-09-30 (every build through 3.36.34 still does this; 3.36.35 is the first safe one). Retiring a key =
 append it to `RETIRED_STORAGE_KEYS`.
@@ -130,7 +130,7 @@ as contracts to avoid regressing, not as live bugs to fix.
 
 - **Nested paths** route through `BULK_FIELD_STORAGE_MAP` via `applyBulkFieldToItem()` (grep
   either name in `js/bulkEdit.js`). A new bulk-editable field at a nested path (e.g.
-  `item.numistaData.shape`) still needs its own map entry: without one, a flat
+  `item.numistaData.shape`) still needs its own map entry. Without one, a flat
   `item[fieldId] = value` write lands on a bogus top-level key (a nested-field write failure).
 - **Change-log snapshots** use `structuredClone` for `oldItem.numistaData` and
   `oldItem.fieldMeta` (grep `structuredClone` in `js/bulkEdit.js`). A plain
@@ -180,7 +180,7 @@ Keep the base `--success`, `--warning` and `--danger` tokens for fills, borders 
 ## `--success` color — non-text contrast fail on sepia icons
 
 Sibling of the `--warning` gotcha above, at a different WCAG bar.
-Sepia `--success` (`oklch(0.603 0.117 130.4)`) on the sepia spot-card surface (`oklch(0.892 0.032 89.1)`) measures **2.72:1**: under the WCAG 1.4.11 Non-text Contrast bar of **3:1** for icons and graphical objects.
+Sepia `--success` (`oklch(0.603 0.117 130.4)`) on the sepia spot-card surface (`oklch(0.892 0.032 89.1)`) measures **2.72:1**. This is under the WCAG 1.4.11 Non-text Contrast bar of **3:1** for icons and graphical objects.
 The contrast fix uses `css/styles.css` with a same-hue, lower-lightness override: `[data-theme="sepia"] .spot-sync-icon--fresh { color: oklch(0.52 0.13 130.4) }`, measured at 3.83:1.
 Light `--success` measures 3.35:1: passing, but with little margin. Dark and slate are 5.6–5.8:1 and fine.
 
@@ -192,7 +192,7 @@ Two method notes for contrast tests:
 ## `_isMarketItemEnabled` guard — RESOLVED, do not re-add
 
 Historically the filter had to be applied on both the All-tab path and the per-metal `else`
-branch of `_renderVendorTable()`, and missing the `else` branch surfaced disabled vendors as
+branch of `_renderVendorTable()`. Missing the `else` branch surfaced disabled vendors as
 column headers.
 
 **This is not a hazard.** `_renderVendorTable` now delegates to

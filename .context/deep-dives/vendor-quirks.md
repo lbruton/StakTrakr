@@ -80,7 +80,7 @@ The Goldback vendor price is sourced via `getGoldbackVendorPrice(slug)`, which r
 
 ### Intraday Data: Forward-Fill for Chart Gaps
 
-When a vendor is not polled in a given window (e.g., poller skipped or vendor was OOS for one window), the frontend applies **forward-fill** via `_forwardFillVendors()` in `retail-view-modal.js`. This carries the most recent seen price forward into gap windows. Forward-filled values are marked `_carriedVendors` on the window object. In the intraday table, carried values display as `~$XX.XX` in italic gray. In the intraday chart tooltip, carried values display with a `~` prefix.
+A vendor may be unpolled because the poller skipped or the vendor was OOS for one window. In that case, the frontend applies **forward-fill** via `_forwardFillVendors()` in `retail-view-modal.js`. This carries the most recent seen price forward into gap windows. Forward-filled values are marked `_carriedVendors` on the window object. In the intraday table, carried values display as `~$XX.XX` in italic gray. In the intraday chart tooltip, carried values display with a `~` prefix.
 
 **Multi-hop carry logic:** Chart lines distinguish between single-hop and multi-hop carries. A vendor carried from the immediately preceding window (single-hop: just one missed poll) renders as a **solid** line. Only carries where the previous window _also_ carried that vendor (2+ consecutive hours missing, multi-hop) render as **dotted** lines. This prevents most vendor lines from appearing dotted during normal polling gaps. Vendors with zero real (non-carried) prices across all bucketed windows are excluded from the chart entirely via the `qualifiedVendors` filter.
 
@@ -88,7 +88,7 @@ When a vendor is not polled in a given window (e.g., poller skipped or vendor wa
 
 The frontend applies a two-pass spike filter to intraday (15-min) data before chart/table rendering:
 
-**Pass 1: Temporal spike detection:** For each vendor at window `t`, if the neighbors (`t-1`, `t+1`) are within +/-5% of each other (stable neighborhood) but the current price deviates by more than 5% from their average, the point is treated as a scrape spike. The anomalous value is nulled for the chart (Chart.js gaps over it via `spanGaps: true`) but preserved in `_anomalyOriginals` for the table, where it displays with strikethrough and 45% opacity.
+**Pass 1: Temporal spike detection:** For each vendor at window `t`, consider the neighbors (`t-1`, `t+1`). A stable neighborhood has neighbors within +/-5% of each other. With stable neighbors, treat a point as a scrape spike if its price deviates more than 5% from their average. The anomalous value is nulled for the chart (Chart.js gaps over it via `spanGaps: true`). It is preserved in `_anomalyOriginals` for the table, where it displays with strikethrough and 45% opacity.
 
 **Pass 2: Cross-vendor median consensus:** For each window with 3+ vendors, any vendor deviating more than 40% from the median across that window is nulled. Catches multi-window vendor drift and extreme outliers.
 
@@ -121,7 +121,7 @@ Do not mix `.price` and `.avg`: they represent different aggregation windows.
 
 ### SDB + BE JSON-LD `offer.price` is the deepest bulk tier (2026-05-23)
 
-SDB and Bullion Exchanges publish their Product `offer.price` as the deepest "As Low As" bulk-tier value (e.g. SDB silver maple `offer.price = "78.23"` is the 50+ tier, not the 1-unit $79.23 price). Neither vendor includes a tier-aware `priceSpecification` array with `eligibleQuantity.minValue === 1` and `appliesToPaymentMethod` set to wire/ACH. Believed to be an SEO / Google Shopping template change.
+SDB and Bullion Exchanges publish their Product `offer.price` as the deepest "As Low As" bulk-tier value. For example, SDB silver maple `offer.price = "78.23"` is the 50+ tier, not the 1-unit $79.23 price. Neither vendor includes a tier-aware `priceSpecification` array with `eligibleQuantity.minValue === 1` and `appliesToPaymentMethod` set to wire/ACH. Believed to be an SEO / Google Shopping template change.
 
 The retail poller's `extractJsonLdPrice()` enforces an `UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"])` denylist that skips the bare `offer.price` fallback for these two vendors. The zero-price OOS sentinel and a future tiered `priceSpecification` block are still honored.
 
@@ -129,7 +129,7 @@ Verified live 2026-05-23 via Playwright with real Chromium UA against `https://s
 
 ### Hotfix: BE Byparr returns the React shell (2026-05-23)
 
-When `cf-clearance` Phase 2 fetches a Bullion Exchanges product page, Byparr returns the **un-hydrated React shell HTML**: the pricing grid is JavaScript-rendered AFTER Byparr's render window closes. The only `$XX.XX` values surviving in the resulting plain text are:
+When `cf-clearance` Phase 2 fetches a Bullion Exchanges product page, Byparr returns the **un-hydrated React shell HTML**. The pricing grid is JavaScript-rendered AFTER Byparr's render window closes. The only `$XX.XX` values surviving in the resulting plain text are:
 
 1. The spot ticker in `<header>` (silver `$75.92`, gold `$4,520.00`, etc.)
 2. "As low as: $X" entries in the "Related Products" sidebar (different product)
@@ -166,7 +166,7 @@ Goldback slugs beyond the hardcoded `goldback-oklahoma-g1` entry are dynamically
 
 Supported denominations: `g0.5` / `ghalf`, `g1`, `g2`, `g5`, `g10`, `g25`, `g50`.
 
-If a goldback slug appears in the manifest that does not match this pattern, `getRetailCoinMeta()` returns a default object with `weight: 0` and `metal: "unknown"`, which causes the card to render without a metal badge and `0 troy oz` as the weight label.
+If a goldback slug appears in the manifest that does not match this pattern, `getRetailCoinMeta()` returns a default object with `weight: 0` and `metal: "unknown"`. This causes the card to render without a metal badge and `0 troy oz` as the weight label.
 
 ---
 

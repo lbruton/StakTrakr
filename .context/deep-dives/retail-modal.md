@@ -22,7 +22,7 @@ historical retail pricing data for a single coin slug (for example, `ase`, `age`
 
 The modal contains two tabs:
 
-- **24h Chart** (default on open): a Chart.js line chart of per-vendor retail prices over the past 24 hours, with a "Recent windows" data table beneath it.
+- **24h Chart** (default on open): a Chart.js line chart of per-vendor retail prices over the past 24 hours. A "Recent windows" data table sits beneath it.
 - **Price History**: a Chart.js line chart with per-vendor daily average lines plus a 30-day history table showing per-vendor average prices per day.
 
 On open, the modal displays cached data from localStorage immediately, then fires async fetches to `api.staktrakr.com` to refresh both the intraday and history data. If the refresh fails entirely, a staleness warning banner is injected at the top of the modal body.
@@ -51,7 +51,7 @@ On open, the modal displays cached data from localStorage immediately, then fire
 - All module-level state: `retailPrices`, `retailPriceHistory`, `retailIntradayData`, `retailProviders`, `retailAvailability`, `retailLastKnownPrices`, `retailLastAvailableDates`.
 - All persistence helpers: `loadRetailPrices`, `saveRetailPrices`, `loadRetailPriceHistory`, `saveRetailPriceHistory`, `loadRetailIntradayData`, `saveRetailIntradayData`, `loadRetailProviders`, `saveRetailProviders`, `loadRetailAvailability`, `saveRetailAvailability`.
 - The full sync pipeline: `syncRetailPrices` (fetches manifest, per-slug `latest.json` + `history-30d.json`, providers.json, and writes all results to localStorage).
-- Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of v3.33.96, `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path: slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape (e.g. bare `goldback-gN` denomination stubs, unmapped manifest slugs) are quarantined before any downstream plane sees them. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
+- Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of v3.33.96, `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path. Slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape are quarantined before any downstream plane sees them. Examples include bare `goldback-gN` denomination stubs and unmapped manifest slugs. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
 - The sync log, sync-in-progress flags, and error state. The sync log Time column uses timezone-aware formatting via `TIMEZONE_KEY` from localStorage, matching the `_fmtIntradayTime` pattern in `retail-view-modal.js`. Falls back gracefully if the stored timezone is invalid.
 - Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, and `_invalidateMarketFilterCache`. `market-data.js` consumes that state when rendering the vendor comparison matrix.
 - The retail data cache consumed by the market matrix. Matrix rendering, metal tabs, vendor cells, and row ordering live in `js/market-data.js`, not `retail.js`.
@@ -225,7 +225,7 @@ Internal function in `retail.js`. Called by `syncRetailPrices` after each per-sl
 **Responsibilities:**
 
 1. Normalizes `latest.json` fields into the internal result shape: `price`, `intraday`, `availabilityBySite`, `lastKnownPriceBySite`, `lastAvailableDateBySite`.
-2. **Live-price patch:** When both `latest.json` and `history-30d.json` are available, locates today's date entry in `hist30` (matched via `latest.window_start.slice(0, 10)`) and overwrites it with current vendor prices from `latest.vendors`. This ensures the Price History tab chart and trend badge reflect the same prices shown on the market card instead of lagging behind a daily average.
+2. **Live-price patch:** When both `latest.json` and `history-30d.json` are available, locates today's date entry in `hist30` (matched via `latest.window_start.slice(0, 10)`) and overwrites it with current vendor prices from `latest.vendors`. This ensures the Price History tab chart and trend badge reflect the same prices shown on the market card. This avoids lagging behind a daily average.
 
 **Patch logic detail:**
 
@@ -318,7 +318,7 @@ Fills vendor price gaps so the chart never shows a false "vendor dropped out" di
 
 - Pure function: never mutates input objects.
 - Iterates windows chronologically, maintaining `lastSeen[vendorId]` across the array.
-- For each vendor in `RETAIL_VENDOR_NAMES`: if the current window has no price but `lastSeen` has one, the carry-forward value is copied in and the vendor ID is added to the window's `_carriedVendors: Set`.
+- For each vendor in `RETAIL_VENDOR_NAMES`: if the current window has no price but `lastSeen` has one, the carry-forward value is copied in. In that case, the vendor ID is added to the window's `_carriedVendors: Set`.
 - Returns `[]` on empty input.
 - Only vendors in `RETAIL_VENDOR_NAMES` are eligible for forward-fill. A vendor that never appeared in any window is never filled (no `lastSeen` entry).
 
@@ -326,7 +326,7 @@ Fills vendor price gaps so the chart never shows a false "vendor dropped out" di
 
 Two-pass anomaly filter that nulls scraper spike prices before charting. Preserves original values in `_anomalyOriginals` for table display.
 
-**Pass 1: Temporal spike detection (primary):** For each vendor at window `t`, if neighbors at `t-1` and `t+1` are stable (within `RETAIL_SPIKE_NEIGHBOR_TOLERANCE`, default 5%) but the price at `t` deviates beyond that tolerance from the neighbor average, the price is replaced with `null` and the original is saved in `_anomalyOriginals`. Boundary windows (`t=0`, `t=last`) are skipped: Pass 2 provides coverage there.
+**Pass 1: Temporal spike detection (primary):** For each vendor at window `t`, consider neighbors at `t-1` and `t+1`. Stable neighbors are within `RETAIL_SPIKE_NEIGHBOR_TOLERANCE`, default 5%. If they are stable but the price at `t` deviates beyond that tolerance from their average, replace the price with `null`. When replacing it, save the original in `_anomalyOriginals`. Boundary windows (`t=0`, `t=last`) are skipped: Pass 2 provides coverage there.
 
 **Pass 2: Cross-vendor median consensus (safety net):** For each window with 3+ vendors, any vendor deviating more than `RETAIL_ANOMALY_THRESHOLD` (default 40%) from the median is nulled. Guard: if all vendors would be flagged, none are (prevents false consensus collapse).
 
@@ -345,7 +345,7 @@ Renders the Chart.js 24h intraday line chart into `#retailViewIntradayChart`.
 5. Filters `activeVendors` to `qualifiedVendors`: excludes vendors with zero real (non-carried) prices across all bucketed windows. Fully-OOS vendors do not appear as chart lines.
 6. Builds one dataset per qualified vendor, using `RETAIL_VENDOR_NAMES` for order and `getRetailVendorColorRGB()` to resolve the theme token for line colors.
 7. Falls back to Median + Low aggregate datasets when no per-vendor data exists (pre-vendor-format windows).
-8. Attaches `_carriedIndices: Set<number>` to each dataset: uses **multi-hop carry logic**: only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
+8. Attaches `_carriedIndices: Set<number>` to each dataset: uses **multi-hop carry logic**. Only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
 9. Tooltip callback: returns nothing if `ctx.raw == null`; prefixes with `~` for carried values.
 10. Chart options: `spanGaps: true`; legend hidden in vendor mode; X-axis HH:00 labels rendered at full opacity, HH:30 at reduced opacity and smaller font.
 11. Calls `_buildIntradayTable(slug, bucketed)` at the end.
@@ -470,7 +470,7 @@ window._buildIntradayTable; // called by row-count dropdown onchange
 
 ### Calling `_buildIntradayChart` and `_buildIntradayTable` independently
 
-`_buildIntradayChart` always calls `_buildIntradayTable` at the end with the same `bucketed` array. Calling both independently builds the table twice: the second call re-buckets from `retailIntradayData` and may show stale data if the background refresh updated the cached object between calls.
+`_buildIntradayChart` always calls `_buildIntradayTable` at the end with the same `bucketed` array. Calling both independently builds the table twice. The second call re-buckets from `retailIntradayData` and may show stale data if the background refresh updated the cached object between calls.
 
 ### Missing the null guard in Chart.js tooltip callbacks
 

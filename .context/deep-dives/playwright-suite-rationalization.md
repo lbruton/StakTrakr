@@ -23,7 +23,7 @@ The recommended direction is not "delete most tests." The better move is to resh
 - **~100 always-run Playwright tests** focused on user-facing critical journeys, money/math correctness, persistence, import/export, cloud/backup safety, and high-risk integrations.
 - **A smaller unit/component layer** for pure math, formatting, config, validators, service-worker routing, parser/conversion helpers, and schema-ish checks that do not need a browser.
 - **Archived or manual-run historical specs** for one-time design assertions, old issue acceptance matrices, static marketing page copy, and visual micro-details.
-- **A governance rule for new features:** add to an existing domain spec or shared fixture first; create a new spec file only when the product domain is genuinely new.
+- **A governance rule for new features:** add to an existing domain spec or shared fixture first. Create a new spec file only when the product domain is genuinely new.
 
 This document is a roadmap for the cleanup, not an implementation diff.
 
@@ -77,7 +77,7 @@ Use these as the durable policy:
 
 - **Test product risk, not issue history.** Once an issue ships, fold its lasting behavior into a domain suite.
 - **Keep browser tests for browser risk.** Browser tests should prove real flows, rendering, storage boundaries, modals, IndexedDB, downloads/uploads, route mocking, and event integration.
-- **Move pure logic out of Playwright.** Currency fraction digits, lot/each math, premiums, provider config validation, URL classifiers, data migrations, backup manifest shape, and date windows should run in Node-level tests when possible.
+- **Move pure logic out of Playwright.** Currency fraction digits, lot/each math, premiums, provider config validation and URL classifiers should run in Node-level tests when possible. So should data migrations, backup manifest shape and date windows.
 - **Use one journey to cover many nearby assertions.** Prefer one realistic Add Item flow that checks storage, table row, view modal, and valuation over six separate tests that each reload the app.
 - **Keep money and inventory math explicit.** Do not over-consolidate tests that protect decimals, rounding, lot/item totals, premiums, realized disposition, or import/export fidelity.
 - **Prefer user-visible locators and assertions.** This aligns with Playwright's official guidance to test user-visible behavior and avoid implementation details: [Playwright best practices](https://playwright.dev/docs/best-practices).
@@ -221,7 +221,7 @@ Then make new tests consume shared helpers by default.
 The cleanup should be guided by a dogfood pass, not just a spreadsheet of test counts. Recommended cadence:
 
 1. Run the current app locally with representative seed data.
-2. Walk the product like a collector: add bullion, add coins, add Goldbacks, edit quantities, dispose partial stacks, import/export, switch currencies, view valuation, inspect retail market data, backup/restore.
+2. Walk the product like a collector: add bullion, add coins, add Goldbacks, edit quantities. Then dispose partial stacks, import/export, switch currencies, view valuation, inspect retail market data, and backup/restore.
 3. Record user-facing workflows that feel critical or fragile.
 4. Map those workflows to the proposed core suite.
 5. Any old test that does not support a dogfood workflow, money/data safety, or a known fragile integration becomes an archive/delete candidate.
