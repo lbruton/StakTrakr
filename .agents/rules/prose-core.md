@@ -1,5 +1,5 @@
 ---
-library-version: 213313e0d2e1
+library-version: 8aa34eb2c2cf
 ---
 # Prose-core rules
 
@@ -81,6 +81,16 @@ relax them otherwise.
 - Follow the repo's commit convention. The subject states what changed. The body says why and holds the
   history.
 - PR bodies and Plane descriptions follow the sentence rules. Prefer short lists to paragraphs with asides.
+
+## Vale
+
+A repo with `.vale.ini` lints some of these rules with Vale. CI reports the alerts as warnings.
+
+- **Before committing docs,** run `vale <files>` on the files you changed. Fix the alerts on lines you wrote.
+- Leave alerts on lines you did not touch. Clean them up only when the task asks for it.
+- In Claude Code, the `vale-staged` hook reports alerts on the lines a commit adds. Fix them in a follow-up
+  commit before you push.
+- An alert you judge wrong stays in the text. Say so in the PR description; do not edit the style in the repo.
 
 ## Exempt text
 

@@ -2,7 +2,7 @@
 name: pr-resolve
 description: PR resolve — work through open PR review threads and Codacy issues to get a PR approved and merged.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, mcp__infisical__get-secret, mcp__github__get_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status, mcp__github__get_pull_request_reviews, mcp__github__get_pull_request_comments, mcp__github__get_pull_request_files
-library-version: 213313e0d2e1
+library-version: 8aa34eb2c2cf
 ---
 
 # PR Resolve

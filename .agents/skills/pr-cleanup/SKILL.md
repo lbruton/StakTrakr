@@ -5,7 +5,7 @@ description: >
   local branches and their worktrees, pulls main fast-forward, and reports the result.
   Run after a PR is merged, before /wrap.
   Triggers: "pr-cleanup", "clean up branches", "prune worktrees", "clean after merge".
-library-version: 213313e0d2e1
+library-version: 8aa34eb2c2cf
 ---
 
 # PR Cleanup
