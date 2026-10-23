@@ -9,6 +9,16 @@
             "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/post-edit-lint.py\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/vale-staged.py\"",
+            "timeout": 30
+          }
+        ]
       }
     ]
   }

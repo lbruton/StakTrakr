@@ -18,7 +18,7 @@ allowed-tools: >-
   mcp__plane__workitem,
   mcp__plane__state,
   mcp__plane__label
-library-version: 1cbc80ca80c9
+library-version: c8383f0c646f
 ---
 
 # Discover — Phase 1 Structured Brainstorm

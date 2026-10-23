@@ -1,5 +1,5 @@
 ---
-library-version: 1cbc80ca80c9
+library-version: c8383f0c646f
 ---
 # Prose-core rules
 
@@ -88,8 +88,8 @@ A repo with `.vale.ini` lints some of these rules with Vale. CI reports the aler
 
 - **Before committing docs,** run `vale <files>` on the files you changed. Fix the alerts on lines you wrote.
 - Leave alerts on lines you did not touch. Clean them up only when the task asks for it.
-- In Claude Code, the `vale-staged` hook reports alerts on the lines a commit adds. Fix them in a follow-up
-  commit before you push.
+- The `vale-staged` hook (Claude Code and Codex) reports alerts on the lines a commit adds. Fix them in a
+  follow-up commit before you push.
 - An alert you judge wrong stays in the text. Say so in the PR description; do not edit the style in the repo.
 
 ## Exempt text
