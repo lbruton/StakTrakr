@@ -56,25 +56,6 @@ test.describe("core/collections", () => {
     expect(progress).toEqual({ owned: 1, total: 6, missing: 5, pct: 17 });
   });
 
-  test("an item fills at most one slot per collection", async ({ page }) => {
-    await seedAndGoto(page);
-    const results = await page.evaluate(() => {
-      const store = window.collectionsStore;
-      return [
-        store.link("ase-type2", "2022", "col-ase-2022-a"),
-        store.link("ase-type2", "2023", "col-ase-2022-a"),
-      ];
-    });
-    expect(results[0]).toEqual({ ok: true, changed: true });
-    expect(results[1]).toEqual({
-      ok: false,
-      changed: false,
-      reason: "already-linked",
-      slotId: "2022",
-    });
-    expect(await readSlot(page, "2023")).toBeNull();
-  });
-
   test("Add new item from a slot opens Add Item prefilled and auto-links on save", async ({
     page,
   }) => {
@@ -2850,21 +2831,6 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
     await reloadApp(page);
     await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
-  });
-
-  test("the year-range shortcut accepts sane ranges only", async ({ page }) => {
-    await seedAndGoto(page);
-    const parsed = await page.evaluate(() => {
-      const parse = window.collectionsPicker.parseYearRange;
-      return [
-        parse("1986-1990"),
-        parse("1999"),
-        parse("2005-1986"),
-        parse("abc"),
-        parse("1000-2999"),
-      ];
-    });
-    expect(parsed).toEqual([[1986, 1987, 1988, 1989, 1990], [1999], null, null, null]);
   });
 
   test("the item view shows a Collections chip and section, and Unlink clears both", async ({

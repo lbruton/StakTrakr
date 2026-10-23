@@ -224,7 +224,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort B — Tests · RED
 
-- [ ] **B.7** — Test justification: consolidation keeps behavior
+- [x] **B.7** — Test justification: consolidation keeps behavior
   - **File(s):** _no file changes — review anchor only_
   - **Acceptance:** Documented below.
   - **Justification:** Consolidation rewrites tests, not app code; there is no new behavior to make red. The proof is coverage that does not drop and an assertion-by-assertion merge plan.
@@ -252,6 +252,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Scope (amended 2026-10-23, user-approved):** table-drive the logic-only groups in `collections-data-paths.spec.js` whose cases share a seed (CSV, standalone file and JSON, sync contract). UI tests in `collections.spec.js` stay separate unless two tests repeat the same setup and flow; the redundancy report's zero-unique theme and layout tests keep their own assertions. The environment toast that blocks Save clicks is an app bug, STRK-464, fixed in its own patch.
   - **Depends on:** C.11, B.7, C.17
   - **Maps to:** AC-24, AC-25
+  - **As built:** the merge plan is in the C.12 PR body. In `collections-data-paths.spec.js`, 16 logic-only tests become three table tests ("Collections file and JSON round trips", "CSV round trips", "the sync contract for collectionState"), each old test a `test.step` of the same name. `runCases` clears storage, writes the case's seed and reloads before each step. The `expect(` count stays at 203. In `collections.spec.js`, "an item fills at most one slot per collection" is removed (the same case exists in `collections-core.test.js`), and the year-range case moves to `tests/unit/collections-picker.test.js` through `evalSource`. Tests that use IndexedDB, vaults or two devices keep their own boot. Collections domain: 191 tests and 358 s of test time before, 176 tests and 333 s after. Full core: 1,006 tests pass in 276 s at default workers; unit: 1,239 pass. AC-24 is confirmed by the `dev` push run after merge.
 
 - [ ] **C.13** — Consolidate inventory math and CRUD
   - **File(s):** `tests/playwright/core/inventory-math.spec.js`, `tests/playwright/core/inventory-crud.spec.js`, `tests/unit/*.test.js`
