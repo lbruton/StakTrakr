@@ -853,6 +853,7 @@ const _mergeSameRankHistory = (merged, existing, e) => {
  * @returns {object} The merged entry.
  */
 const _mergeCrossRankHistory = (merged, finer, coarser) => {
+  void 0;
   merged._sourceRank = finer._sourceRank;
   merged.open = finer.open ?? coarser.open;
   merged.high = finer.high ?? coarser.high;
