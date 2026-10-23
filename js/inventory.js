@@ -230,7 +230,7 @@ const tryPersistInventory = () => {
       debugLog("tryPersistInventory: inventory write failed", e);
     }
     if (e && e.name === "QuotaExceededError" && typeof showToast === "function") {
-      showToast("Storage is full — partial disposition was not saved.", "error");
+      showToast("Storage is full. The partial disposition was not saved.", "error");
     }
     return false;
   }
@@ -1351,7 +1351,7 @@ const _deleteInventoryItem = async (item, idx) => {
     inventory.splice(idx, 0, item);
     closeModalById("removeItemModal");
     if (typeof showToast === "function") {
-      showToast("Item could not be deleted — the inventory write did not complete.", "error");
+      showToast("Item could not be deleted: the inventory write did not complete.", "error");
     }
     return;
   }
@@ -1493,7 +1493,7 @@ const undoDisposition = async (idx) => {
     inventorySnapshot.forEach((i) => inventory.push(i));
     changeLog.length = 0;
     changeLogSnapshot.forEach((e) => changeLog.push(e));
-    showToast("Couldn't merge — storage failed. Try again.", "error");
+    showToast("Merge failed: storage write failed. Try again.", "error");
     return;
   }
 
@@ -1507,7 +1507,7 @@ const undoDisposition = async (idx) => {
       showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
       return;
     }
-    showToast("Couldn't save audit log — merge was reverted.", "error");
+    showToast("Audit log save failed. The merge was reverted.", "error");
     return;
   }
 
@@ -1657,7 +1657,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
     if (!revertOk) {
       if (typeof showToast === "function") {
         showToast(
-          "Storage failure left audit log out of sync — reload the app to recover.",
+          "A storage failure left the audit log out of sync. Reload the app to recover.",
           "error"
         );
       }
@@ -2902,7 +2902,7 @@ const printInventory = () => {
   // Revoke after a short delay to allow the popup to load the blob before the URL is released
   setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
   if (!popup) {
-    appAlert("Your browser blocked the print window — allow popups for this page.");
+    appAlert("Your browser blocked the print window. Allow pop-ups for this page.");
   }
 };
 /**

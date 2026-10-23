@@ -1986,7 +1986,7 @@ const handleCatalogTest = async (btn) => {
     try {
       const result = await window.testNumistaAPI();
       showAppAlert(
-        result ? "Numista API test successful." : "Numista API test failed — check your key.",
+        result ? "Numista API test successful." : "Numista API test failed. Check your key.",
         result ? "success" : "error"
       );
     } catch (err) {

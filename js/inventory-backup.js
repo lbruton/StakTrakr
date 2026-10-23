@@ -913,7 +913,7 @@
       if (missingBinaryCount > 0) {
         if (typeof showToast === "function") {
           showToast(
-            `${missingBinaryCount} attachment file(s) could not be restored — metadata only.`,
+            `${missingBinaryCount} attachment file(s) could not be restored. Metadata only.`,
             "warning"
           );
         }
@@ -922,7 +922,7 @@
       console.warn("Attachment manifest parse/restore failed:", attachRestoreErr);
       if (typeof showToast === "function") {
         showToast(
-          "Attachment manifest was malformed — inventory restored without attachments.",
+          "Attachment manifest was malformed. Inventory restored without attachments.",
           "warning"
         );
       }
@@ -973,7 +973,7 @@
   const restoreBackupZip = async (file) => {
     // STAK-427: Block restore while cloud sync is applying remote changes
     if (window.CloudSync && window.CloudSync.isSyncActive()) {
-      showToast("Cloud sync is in progress — please wait a moment and try again.", "warning");
+      showToast("Cloud sync is in progress. Wait for it to finish, then try again.", "warning");
       return;
     }
     try {
@@ -1051,8 +1051,8 @@
               const collectionFailure = String(ancillaryErr.message || "").includes("Collections");
               showToast(
                 collectionFailure
-                  ? "ZIP restore incomplete — Collections could not be saved. Free storage and retry."
-                  : "ZIP restored with warnings — some ancillary data may not have been applied",
+                  ? "ZIP restore incomplete: Collections could not be saved. Free storage and retry."
+                  : "ZIP restored with warnings: some ancillary data may not have been applied.",
                 collectionFailure ? "error" : "warning"
               );
             });

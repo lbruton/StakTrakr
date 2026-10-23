@@ -1349,12 +1349,12 @@ async function changeVaultPassword(newPassword) {
       _syncPasswordJustChanged = false;
     }
     if (typeof showCloudToast === "function")
-      showCloudToast("Vault password updated — syncing now", 3000);
+      showCloudToast("Vault password updated. Syncing.", 3000);
     return true;
   } catch (err) {
     if (typeof debugLog === "function") debugLog("[CloudSync] changeVaultPassword failed:", err);
     if (typeof showCloudToast === "function")
-      showCloudToast("Failed to update password — try again", 3000);
+      showCloudToast("Password update failed. Try again.", 3000);
     return false;
   }
 }
@@ -6140,7 +6140,7 @@ async function enableCloudSync(provider) {
     }
     refreshSyncUI();
     if (typeof showCloudToast === "function") {
-      showCloudToast("Cloud sync setup incomplete — please reconnect your Dropbox account.");
+      showCloudToast("Cloud sync setup is incomplete. Reconnect your Dropbox account.");
     }
     return;
   }
@@ -6261,7 +6261,7 @@ function initCloudSync() {
           // Copy updated for STRK-287: the cloud icon this used to point at is
           // retired, so send users to where the control actually lives now.
           showCloudToast(
-            "Cloud sync paused — open Settings › Cloud to set your vault password",
+            "Cloud sync paused. Open Settings › Cloud to set your vault password.",
             5000
           );
         }

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.60] - 2026-10-22
+
+### Changed — STRK-456: Clearer error and status messages
+
+- **Message punctuation**: Toasts, alerts and confirmations join clauses with a full stop or a colon instead of an em-dash, and state what failed and what to do next (STRK-456).
+- **Spot fetch docstring**: The `_fetchFreshestSpotEnvelopes` docstring states its constraint in four lines (STRK-456).
+- **Guard test**: A unit test fails when a toast or alert string in `js/` contains an em-dash (STRK-456).
+
+---
+
 ## [3.36.59] - 2026-10-21
 
 ### Changed — STRK-451: Theme-aware retail vendor colors

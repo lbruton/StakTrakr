@@ -578,7 +578,8 @@ const _undoPriceHistoryDelete = (entry) => {
     typeof deleted.entry === "object" &&
     typeof deleted.entry.ts === "number";
   if (!isValidSnapshot) {
-    if (typeof showToast === "function") showToast("Undo failed — corrupt price-history snapshot.");
+    if (typeof showToast === "function")
+      showToast("Undo failed: the price-history snapshot is corrupt.");
     return;
   }
   if (entry.undone) {
@@ -652,7 +653,7 @@ const _undoTradeLink = (entry) => {
     oldSnapshot = entry.oldValue ? JSON.parse(entry.oldValue) : null;
     newSnapshot = entry.newValue ? JSON.parse(entry.newValue) : null;
   } catch {
-    if (typeof showToast === "function") showToast("Undo failed — corrupt trade snapshot.");
+    if (typeof showToast === "function") showToast("Undo failed: the trade snapshot is corrupt.");
     return;
   }
   try {
@@ -665,7 +666,7 @@ const _undoTradeLink = (entry) => {
     }
   } catch (e) {
     console.warn("[ChangeLog] applyTradeSnapshot failed:", e);
-    if (typeof showToast === "function") showToast("Trade undo failed — invalid snapshot.");
+    if (typeof showToast === "function") showToast("Trade undo failed: the snapshot is invalid.");
     return;
   }
   _finalizeInventoryUndo(false);
@@ -689,14 +690,14 @@ const _undoItemDeleted = (entry) => {
     entry.undone = false;
   } else {
     if (entry.oldValue == null) {
-      if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
+      if (typeof showToast === "function") showToast("Redo failed: the snapshot is missing.");
       return;
     }
     let restored;
     try {
       restored = JSON.parse(entry.oldValue);
     } catch {
-      if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
+      if (typeof showToast === "function") showToast("Redo failed: the snapshot is corrupt.");
       return;
     }
     inventory.splice(entry.idx, 0, restored);
@@ -717,14 +718,14 @@ const _undoItemAdded = (entry) => {
   if (entry.undone) {
     // Redo: re-add the item
     if (entry.newValue == null) {
-      if (typeof showToast === "function") showToast("Redo failed — snapshot missing.");
+      if (typeof showToast === "function") showToast("Redo failed: the snapshot is missing.");
       return;
     }
     let restored;
     try {
       restored = JSON.parse(entry.newValue);
     } catch {
-      if (typeof showToast === "function") showToast("Redo failed — corrupt snapshot.");
+      if (typeof showToast === "function") showToast("Redo failed: the snapshot is corrupt.");
       return;
     }
     inventory.splice(entry.idx, 0, restored);
@@ -865,7 +866,7 @@ const _cascadeApplyDriftFallback = async (triggerEntry, disposedEntry) => {
   const proceed =
     typeof showAppConfirm === "function"
       ? await showAppConfirm(
-          "Original record has been edited since this split — only this disposition entry can be undone. Continue with single-entry undo?",
+          "The original record was edited after this split. Only this disposition entry can be undone. Undo this entry only?",
           "Cascade undo unavailable"
         )
       : false;
@@ -935,7 +936,7 @@ const _cascadeCommit = (splitEntry, disposedEntry, drift) => {
   if (!tryPersistInventory()) {
     _cascadeRestoreSnapshots(inventorySnapshot, changeLogSnapshot);
     if (typeof showToast === "function")
-      showToast("Couldn't undo — storage failed. Try again.", "error");
+      showToast("Undo failed: storage write failed. Try again.", "error");
     return { ok: false, applied: "none", reason: "storage_failed_inventory" };
   }
 
@@ -962,7 +963,7 @@ const _cascadeCommit = (splitEntry, disposedEntry, drift) => {
   if (typeof showToast === "function") {
     showToast(
       sanitizeHtml(originalName ?? "Item") +
-        " stack split reversed — restored to " +
+        " stack split reversed: restored to " +
         (inventory[adjustedOriginalIdx]?.qty ?? originalQtyBefore)
     );
   }

@@ -1463,7 +1463,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     }
     // One toast per corrupt payload, none mutated.
     expect(result.toasts).toEqual(
-      result.out.map(() => "Undo failed — corrupt price-history snapshot.")
+      result.out.map(() => "Undo failed: the price-history snapshot is corrupt.")
     );
   });
 });

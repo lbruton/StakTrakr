@@ -85,7 +85,7 @@ const saveTagTimestampsDirect = (map) => {
   } catch (e) {
     const isQuota = e?.name === "QuotaExceededError" || e?.code === 22;
     if (typeof showToast === "function")
-      showToast(isQuota ? "Tag save failed — storage full" : "Tag save failed");
+      showToast(isQuota ? "Tag save failed: storage is full." : "Tag save failed");
     console.warn("[Tags] saveDataSync error:", e);
   }
 };
