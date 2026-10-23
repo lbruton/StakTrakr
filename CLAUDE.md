@@ -84,8 +84,9 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 ## Git Topology
 
 - Branch model: `feature/* → dev → main`. **Every change to `dev` needs a PR — no
-  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL
-  checks, signed commits, no bypass actors) blocks direct pushes of any file type.
+  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` check,
+  signed commits, no bypass actors) blocks direct pushes of any file type. CodeQL runs on
+  `dev` but is not a required check there.
 - Config/tooling edits (`.claude/`, `.agents/`, instruction files, skill files, devops
   config) are **lightweight** — a small chore PR to `dev`, no Plane issue or version lock.
 - Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the
