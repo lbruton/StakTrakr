@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Merges the per-test raw coverage records written by tests/playwright/helpers/coverage.js
- * into lcov for the js/ files, the test map (tests to executed functions) and the block
- * file (tests to covered V8 ranges) for the redundancy report.
+ * into lcov for the js/ files, the test map (tests to executed functions, and a line
+ * index of the tests that ran each line) and the block file (tests to covered V8 ranges)
+ * for the redundancy report.
  *
  * Usage: node devops/testing/coverage-merge.mjs [--no-map]
  */
@@ -181,19 +182,94 @@ function coveredSegments(functions, bounds) {
 
 /**
  * Covered segments of one test as `file:start-end` keys.
- * @param {object[]} entries - Loaded entries of one record.
+ * @param {Map<string, Set<number>>} segments - Covered segment indexes per file.
  * @param {Map<string, number[]>} boundsByFile - Segment boundaries from segmentBounds.
  * @returns {string[]}
  */
-function coveredBlocks(entries, boundsByFile) {
-  const blocks = new Set();
-  for (const { file, functions } of entries) {
+function coveredBlocks(segments, boundsByFile) {
+  const blocks = [];
+  for (const [file, indexes] of segments) {
     const bounds = boundsByFile.get(file);
-    for (const i of coveredSegments(functions, bounds)) {
-      blocks.add(`${file}:${bounds[i]}-${bounds[i + 1]}`);
-    }
+    for (const i of indexes) blocks.push(`${file}:${bounds[i]}-${bounds[i + 1]}`);
   }
-  return [...blocks].sort();
+  return blocks.sort();
+}
+
+/**
+ * Covered segment indexes per file for one test; a retried test merges its records.
+ * @param {object[]} entries - Loaded entries of one test.
+ * @param {Map<string, number[]>} boundsByFile - Segment boundaries from segmentBounds.
+ * @returns {Map<string, Set<number>>}
+ */
+function testSegments(entries, boundsByFile) {
+  const segments = new Map();
+  for (const { file, functions } of entries) {
+    if (!segments.has(file)) segments.set(file, new Set());
+    const covered = segments.get(file);
+    for (const i of coveredSegments(functions, boundsByFile.get(file))) covered.add(i);
+  }
+  return segments;
+}
+
+/**
+ * Lines that hold code of one segment. Whitespace at either end is left out, so the
+ * newline after a function's closing brace does not lend that line the script's tests.
+ * @param {{source: string, lineOf: Function}} text - Source and its line lookup.
+ * @param {number} start - Segment start offset.
+ * @param {number} end - Segment end offset (exclusive).
+ * @returns {[number, number]|null} First and last line, or null for a blank segment.
+ */
+function segmentLines({ source, lineOf }, start, end) {
+  while (start < end && /\s/.test(source[start])) start++;
+  while (end > start && /\s/.test(source[end - 1])) end--;
+  return start < end ? [lineOf(start), lineOf(end - 1)] : null;
+}
+
+/**
+ * The map's line index: per file, runs of lines with the index of the set of tests
+ * whose covered segments hold code on each line. Equal sets are stored once.
+ * @param {Array<Map<string, Set<number>>>} perTest - testSegments for each map test.
+ * @param {Map<string, number[]>} boundsByFile - Segment boundaries from segmentBounds.
+ * @param {Map<string, {source: string, lineOf: Function}>} sources - Source per file.
+ * @returns {{lines: Record<string, Array<[number, number, number]>>, sets: number[][]}}
+ */
+function lineIndexOf(perTest, boundsByFile, sources) {
+  const words = Math.ceil(perTest.length / 32) || 1;
+  const sets = [];
+  const setIds = new Map();
+  const lines = {};
+  for (const file of [...boundsByFile.keys()].sort()) {
+    const text = sources.get(file);
+    const lineCount = text.lineOf(Math.max(0, text.source.trimEnd().length - 1));
+    const bounds = boundsByFile.get(file);
+    const spans = bounds.slice(0, -1).map((start, i) => segmentLines(text, start, bounds[i + 1]));
+    const bits = new Uint32Array(lineCount * words);
+    perTest.forEach((segments, test) => {
+      for (const i of segments.get(file) ?? []) {
+        if (!spans[i]) continue;
+        for (let line = spans[i][0]; line <= spans[i][1]; line++) {
+          bits[(line - 1) * words + (test >> 5)] |= 1 << (test & 31);
+        }
+      }
+    });
+    const runs = [];
+    for (let line = 1; line <= lineCount; line++) {
+      const row = bits.subarray((line - 1) * words, line * words);
+      const key = row.join(",");
+      if (!setIds.has(key)) {
+        const tests = [];
+        row.forEach((word, w) => {
+          for (let b = 0; b < 32; b++) if (word & (1 << b)) tests.push(w * 32 + b);
+        });
+        setIds.set(key, sets.push(tests) - 1);
+      }
+      const id = setIds.get(key);
+      if (runs.at(-1)?.[2] === id) runs.at(-1)[1] = line;
+      else runs.push([line, line, id]);
+    }
+    lines[file] = runs;
+  }
+  return { lines, sets };
 }
 
 /**
@@ -247,7 +323,7 @@ async function writeLcov(records, outDir) {
  * @returns {Promise<{lcov: string, map?: string, blocks?: string}>}
  */
 export async function mergeCoverage({ rawDir, outDir, mapDir, sha, root = REPO_ROOT, map = true }) {
-  const { records } = loadRecords(rawDir, root);
+  const { records, sources } = loadRecords(rawDir, root);
   mkdirSync(outDir, { recursive: true });
   const lcov = await writeLcov(records, outDir);
   if (!map) return { lcov };
@@ -256,11 +332,14 @@ export async function mergeCoverage({ rawDir, outDir, mapDir, sha, root = REPO_R
   const mapPath = path.join(mapDir, "test-map.json");
   const blocksPath = path.join(mapDir, "test-blocks.json");
   mkdirSync(mapDir, { recursive: true });
+  const boundsByFile = segmentBounds(tests);
+  const perTest = tests.map(([, { entries }]) => testSegments(entries, boundsByFile));
   writeFileSync(
     mapPath,
     JSON.stringify({
       sha,
       files: functionRanges(records),
+      ...lineIndexOf(perTest, boundsByFile, sources),
       tests: tests.map(([id, { title, entries }]) => ({
         id,
         title,
@@ -268,15 +347,11 @@ export async function mergeCoverage({ rawDir, outDir, mapDir, sha, root = REPO_R
       })),
     })
   );
-  const boundsByFile = segmentBounds(tests);
   writeFileSync(
     blocksPath,
     JSON.stringify({
       sha,
-      tests: tests.map(([id, { entries }]) => ({
-        id,
-        blocks: coveredBlocks(entries, boundsByFile),
-      })),
+      tests: tests.map(([id], i) => ({ id, blocks: coveredBlocks(perTest[i], boundsByFile) })),
     })
   );
   return { lcov, map: mapPath, blocks: blocksPath };

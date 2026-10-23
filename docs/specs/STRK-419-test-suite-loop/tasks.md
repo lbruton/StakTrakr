@@ -175,6 +175,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
     - mid: `_mergeCrossRankHistory` in `js/retail.js`, 40 core + 2 unit files, 11 s;
     - hot: `refreshDetailsModalIfOpen` in `js/detailsModal.js`, 380 core, 111 s.
   - AC-20 holds for the cold and mid cases and fails for the hot one: 380 core tests run a function that save flows share. Part 4 consolidation of those tests is the lever; the box stays unticked until then.
+  - **Re-measured 2026-10-23 with the line index (C.17, map at `131da02d`),** one `void 0;` inserted after line N, full `npm run test:changed` wall time:
+    - cold, `removeFromSlot` first body line (`js/collections-core.js:922`): 5 core + 9 unit files, 6 s; a line inside its first branch (`:927`): 5 core, 4 s;
+    - mid, `_mergeCrossRankHistory` (`js/retail.js:855`): 48 core + 6 unit files, 16 s;
+    - hot, `refreshDetailsModalIfOpen` first body line (`js/detailsModal.js:1614`): 354 locations, 444 tests, 111 s, unchanged, because every save path runs that line;
+    - hot, after the early return (`:1617`): 2 locations, 81 tests, 28 s. One is `details-modal.spec.js:1702`; the other is the whole of `inventory-crud.spec.js`, because a selected test in a serial spec runs its spec.
+  - AC-20 holds for every case but a change to code that every save path runs. The remaining levers are the `inventory-crud.spec.js` serial group and the cost of the save-flow tests (C.13 to C.15); the box stays unticked.
 
 ---
 
@@ -218,20 +224,35 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort B — Tests · RED
 
-- [ ] **B.7** — Test justification: consolidation keeps behavior
+- [x] **B.7** — Test justification: consolidation keeps behavior
   - **File(s):** _no file changes — review anchor only_
   - **Acceptance:** Documented below.
   - **Justification:** Consolidation rewrites tests, not app code; there is no new behavior to make red. The proof is coverage that does not drop and an assertion-by-assertion merge plan.
   - **Manual validation:** Each consolidation PR body holds the merge plan (each old test → the test or table row that replaces it, and why) built from `npm run test:redundancy`; the Codacy gate passes against the `dev` baseline.
   - **Maps to:** AC-23, AC-24, AC-25, AC-26
 
+- [x] **B.8** — Failing tests for selection by line (added 2026-10-23, user-approved, D-19)
+  - **File(s):** `tests/unit/test-changed.test.js`, `tests/unit/coverage-merge.test.js`
+  - **Acceptance:** With an inline map holding `lines` and `sets`, the tests assert: a changed line after an early return selects only the tests whose set covers that line, not every test that entered the function (AC-13); an inserted line takes the set of the line after it, and also the line before when the line after is blank or starts with `}`; a top-level line still selects the full suite (D-7); a map without `lines` keeps function selection. `coverage-merge.test.js` asserts that the merge writes `lines` runs and deduplicated `sets` from two tests that take different branches. All fail because neither script knows `lines`.
+  - **Maps to:** AC-13, AC-20
+  - **As built:** `parseDiff` reports a pure insertion in `inserts` (the old line it follows), so the existing parseDiff case changed its expected shape with the AC-13 amendment. The new cases failed (8 of 44) before C.17; the top-level and no-index fallback cases passed, as they should.
+
 ### Sprint Cohort C — Implementation · GREEN (sequential, one PR per domain)
+
+- [x] **C.17** — Select by line (added 2026-10-23, user-approved, D-19; lands before C.12)
+  - **File(s):** `devops/testing/coverage-merge.mjs`, `devops/testing/test-changed.mjs`
+  - **Acceptance:** `coverage-merge.mjs` writes `lines` and `sets` into the test map from the segments it already cuts for the block file. `test-changed.mjs` selects by line when the map has `lines`, else by function. All B.4 and B.8 cases pass. C.8 is measured again with a map that holds `lines`, and the hot case is recorded in the PR body.
+  - **Depends on:** B.8
+  - **Maps to:** AC-13, AC-20
+  - **As built:** a segment counts for the lines that hold its code, with whitespace at either end left out, so the newline after a closing brace does not give that line the whole script's tests. Lines are stored as runs per file with test bitsets folded into deduplicated index lists. A full core run with coverage (1,021 passed) gave 2,127 sets and 14,693 runs over 96 files, which adds 1.3 MB to a 77 MB map. `test-changed.mjs` reads inserted-line neighbours from the map's commit with `git show`. C.8 results are under C.8.
 
 - [ ] **C.12** — Consolidate Collections
   - **File(s):** `tests/playwright/core/collections.spec.js`, `tests/playwright/core/collections-data-paths.spec.js`, `tests/unit/*.test.js`
   - **Acceptance:** Logic-only checks move to unit tests (through the C.3 harness) or one table-driven `page.evaluate` test per behavior group (approach D-14); each table row carries a message naming its case; the domain is green; the Codacy gate passes (AC-24); the PR body records domain test count and time before and after.
-  - **Depends on:** C.11, B.7
+  - **Scope (amended 2026-10-23, user-approved):** table-drive the logic-only groups in `collections-data-paths.spec.js` whose cases share a seed (CSV, standalone file and JSON, sync contract). UI tests in `collections.spec.js` stay separate unless two tests repeat the same setup and flow; the redundancy report's zero-unique theme and layout tests keep their own assertions. The environment toast that blocks Save clicks is an app bug, STRK-464, fixed in its own patch.
+  - **Depends on:** C.11, B.7, C.17
   - **Maps to:** AC-24, AC-25
+  - **As built:** the merge plan is in the C.12 PR body. In `collections-data-paths.spec.js`, 16 logic-only tests become three table tests ("Collections file and JSON round trips", "CSV round trips", "the sync contract for collectionState"), each old test a `test.step` of the same name. `runCases` clears storage, writes the case's seed and reloads before each step. The `expect(` count stays at 203. In `collections.spec.js`, "an item fills at most one slot per collection" is removed (the same case exists in `collections-core.test.js`), and the year-range case moves to `tests/unit/collections-picker.test.js` through `evalSource`. Tests that use IndexedDB, vaults or two devices keep their own boot. Collections domain: 191 tests and 358 s of test time before, 176 tests and 333 s after. Full core: 1,006 tests pass in 276 s at default workers; unit: 1,239 pass. AC-24 is confirmed by the `dev` push run after merge.
 
 - [ ] **C.13** — Consolidate inventory math and CRUD
   - **File(s):** `tests/playwright/core/inventory-math.spec.js`, `tests/playwright/core/inventory-crud.spec.js`, `tests/unit/*.test.js`

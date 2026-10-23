@@ -90,7 +90,12 @@ count from `playwright.config.js`.
   from the files changed against the merge base with `origin/dev`, including uncommitted
   and untracked changes.
 - **AC-13:** WHEN a changed file is a `js/` file in the coverage map, the runner SHALL
-  select every test whose coverage record executed a function in a changed line range.
+  select every test whose coverage record executed a changed line. (Amended 2026-10-23,
+  user-approved: was "executed a function in a changed line range". A line counts as
+  executed when a covered V8 segment overlaps it. An inserted line belongs to the innermost
+  function that holds both of its neighbours, and takes the line after it, plus the line
+  before when the line after is blank or closes a block. An insertion that no function
+  holds is top-level code and selects the full suite.)
 - **AC-14:** WHEN a changed file is a Playwright spec, the runner SHALL select that whole
   spec file.
 - **AC-15:** WHEN a changed file is a unit test or a `js/` file that a unit test loads, the

@@ -3,7 +3,8 @@
  * Runs only the tests a change can affect.
  *
  * Core tests come from the test map (.cache/test-map.json): a changed line inside a
- * function selects the tests that ran it. Unit tests come from the paths each unit
+ * function selects the tests that ran that line, or the tests that ran the function when
+ * the map has no line index. Unit tests come from the paths each unit
  * test, or a helper it imports, reads. Shared files and top-level code select the
  * full core suite; docs and config paths select nothing.
  *
@@ -57,11 +58,11 @@ const DIRECTORY_NAME = /["'](js|css|data|vendor|tests\/playwright\/(?:core|exten
 
 /**
  * Parses `git diff -U0` output into the changed lines on the old side of each file.
- * A pure insertion contributes the old line it follows and the line after it.
+ * A pure insertion goes to `inserts` as the old line it follows (0 at the file start).
  * A deleted file keeps its old path and carries `deleted: true`; a binary or mode-only
  * change, which has no `+++` header, keeps the path from its `diff --git` line.
  * @param {string} text - Diff text.
- * @returns {Array<{file: string, lines: number[], deleted?: boolean}>}
+ * @returns {Array<{file: string, lines: number[], inserts?: number[], deleted?: boolean}>}
  */
 export function parseDiff(text) {
   const changes = [];
@@ -103,7 +104,7 @@ export function parseDiff(text) {
       if (!match || added || current.deleted) continue;
       const start = Number(match[1]);
       const count = match[2] === undefined ? 1 : Number(match[2]);
-      if (count === 0) current.lines.push(start, start + 1);
+      if (count === 0) (current.inserts ??= []).push(start);
       else for (let n = start; n < start + count; n++) current.lines.push(n);
     }
   }
@@ -161,18 +162,102 @@ export function buildUnitIndex(files) {
 }
 
 /**
+ * Old-side lines whose line-index sets stand for an insertion inside a function: the line
+ * after it, and the line before when the line after is blank or a closing brace.
+ * @param {number} before - Old line the insertion follows.
+ * @param {(line: number) => string|undefined} lineText - Old-side text of a line.
+ * @returns {number[]}
+ */
+function insertionLines(before, lineText) {
+  const next = lineText(before + 1);
+  if (next === undefined) return [before];
+  return /^\s*(\}|$)/.test(next) ? [before, before + 1] : [before + 1];
+}
+
+/**
+ * Picks the core tests for changed lines of one mapped js/ file.
+ * @param {object} options
+ * @param {string} options.file - Changed js/ file.
+ * @param {{lines: number[], inserts?: number[]}} options.change - Its changed lines.
+ * @param {object} options.map - Test map.
+ * @param {(file: string, line: number) => string|undefined} options.oldLine - Old-side text.
+ * @param {(id: string, file: string) => void} options.pickTest - Selects one test.
+ * @param {(file: string, why: string) => void} options.full - Selects the full suite.
+ */
+function selectInScript({ file, change, map, oldLine, pickTest, full }) {
+  const ranges = map.files?.[file];
+  const testsInFile = map.tests.filter((t) => t.functions.some((fn) => fn.file === file));
+  // Without `files`, only the functions some test ran are known.
+  const known =
+    ranges ??
+    testsInFile.flatMap((t) =>
+      t.functions.filter((fn) => fn.file === file).map((fn) => [fn.startLine, fn.endLine])
+    );
+  const runs = map.sets ? map.lines?.[file] : undefined;
+  // A line runs only when its innermost enclosing function runs, so a module
+  // wrapper that every boot enters does not select every test.
+  const innermost = (first, last) =>
+    known
+      .filter(([start, end]) => start <= first && last <= end)
+      .sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0];
+  const pickFunction = (inner) =>
+    testsInFile
+      .filter((t) =>
+        t.functions.some(
+          (fn) => fn.file === file && fn.startLine === inner[0] && fn.endLine === inner[1]
+        )
+      )
+      .forEach((t) => pickTest(t.id, file));
+  const pickLine = (line) => {
+    const run = runs?.find(([start, end]) => start <= line && line <= end);
+    if (!run) return false;
+    for (const index of map.sets[run[2]]) pickTest(map.tests[index].id, file);
+    return true;
+  };
+
+  for (const line of change.lines) {
+    const inner = innermost(line, line);
+    if (!inner) full(file, `line ${line} is top-level code that every boot runs`);
+    else if (!pickLine(line)) pickFunction(inner);
+  }
+  // An insertion runs in the innermost function that holds both of its neighbours. Just
+  // before a function's first line or after its last, that is the scope around it.
+  for (const before of change.inserts ?? []) {
+    const scope = innermost(before, before + 1);
+    if (!scope) {
+      full(file, `an insertion after line ${before} is top-level code that every boot runs`);
+      continue;
+    }
+    const lines = runs ? insertionLines(before, (n) => oldLine(file, n)) : [];
+    // A neighbour that opens or closes a nested function carries that function's
+    // coverage, not the scope's, so the scope's tests decide.
+    const nested = lines.some((line) => innermost(line, line) !== scope);
+    const picked = nested ? [] : lines.map(pickLine);
+    if (!picked.length || picked.includes(false)) pickFunction(scope);
+  }
+}
+
+/**
  * Selects the core and unit tests a set of changes can affect.
  * @param {object} options
  * @param {object|null} options.map - Test map, or null when none exists.
- * @param {Array<{file: string, lines: number[]}>} options.changes - Changed files.
+ * @param {Array<{file: string, lines: number[], inserts?: number[]}>} options.changes - Changed files.
  * @param {Map<string, Set<string>>} options.unitIndex - From `buildUnitIndex`.
  * @param {Set<string>} [options.serialSpecs] - Specs with a serial group; a selected
  *   test there runs its whole spec, because a serial test needs the tests before it.
+ * @param {(file: string, line: number) => string|undefined} [options.oldLine] - Text of a
+ *   line at the map's commit, for placing inserted lines.
  * @returns {{full: boolean, allUnit: boolean, reasons: Array<{file: string, why: string}>,
  *   core: Array<{location: string, files: string[]}>, unit: Array<{file: string, files: string[]}>,
  *   missingMap: boolean}}
  */
-export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }) {
+export function selectTests({
+  map,
+  changes,
+  unitIndex,
+  serialSpecs = new Set(),
+  oldLine = () => undefined,
+}) {
   const core = new Map();
   const unit = new Map();
   const reasons = [];
@@ -192,7 +277,8 @@ export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }
     pick(core, serialSpecs.has(spec) ? spec : id, file);
   };
 
-  for (const { file, lines, deleted } of changes) {
+  for (const change of changes) {
+    const { file, lines, inserts = [], deleted } = change;
     for (const [unitFile, refs] of unitIndex) {
       const inScannedDir =
         [...refs].some((ref) => ref.endsWith("/") && file.startsWith(ref)) ||
@@ -209,38 +295,16 @@ export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }
         full(file, "no test map to place this file");
         continue;
       }
-      const ranges = map.files?.[file];
-      const testsInFile = map.tests.filter((t) => t.functions.some((fn) => fn.file === file));
-      if (!ranges && testsInFile.length === 0) {
+      if (
+        !map.files?.[file] &&
+        !map.tests.some((t) => t.functions.some((fn) => fn.file === file))
+      ) {
         full(file, "no core test loads this file in the test map");
         continue;
       }
-      if (lines.length === 0)
+      if (lines.length === 0 && inserts.length === 0)
         full(file, deleted ? "the file was deleted" : "the whole file changed");
-      // Without `files`, only the functions some test ran are known.
-      const known =
-        ranges ??
-        testsInFile.flatMap((t) =>
-          t.functions.filter((fn) => fn.file === file).map((fn) => [fn.startLine, fn.endLine])
-        );
-      for (const line of lines) {
-        // A line runs only when its innermost enclosing function runs, so a module
-        // wrapper that every boot enters does not select every test.
-        const inner = known
-          .filter(([start, end]) => start <= line && line <= end)
-          .sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0];
-        if (!inner) {
-          full(file, `line ${line} is top-level code that every boot runs`);
-          continue;
-        }
-        testsInFile
-          .filter((t) =>
-            t.functions.some(
-              (fn) => fn.file === file && fn.startLine === inner[0] && fn.endLine === inner[1]
-            )
-          )
-          .forEach((t) => pickTest(t.id, file));
-      }
+      selectInScript({ file, change, map, oldLine, pickTest, full });
     } else if (!TEST_FREE_PATHS.some((re) => re.test(file))) {
       full(file, "a shared file no test map entry covers");
     }
@@ -378,6 +442,26 @@ function serialSpecs() {
   return specs;
 }
 
+/**
+ * Line lookup in files as they were at `base`, read once per file.
+ * @param {string} base - Commit the diff was taken against.
+ * @returns {(file: string, line: number) => string|undefined}
+ */
+function oldLineReader(base) {
+  const cache = new Map();
+  return (file, line) => {
+    if (!cache.has(file)) {
+      const text = spawnSync("git", ["show", `${base}:${file}`], {
+        cwd: REPO_ROOT,
+        encoding: "utf-8",
+        maxBuffer: 64 << 20,
+      });
+      cache.set(file, text.status === 0 ? text.stdout.split("\n") : []);
+    }
+    return cache.get(file)[line - 1];
+  };
+}
+
 /** Changed files against `base`, working tree and untracked files included. */
 function changesSince(base) {
   const diff = git(["diff", "-U0", "--no-renames", "--no-color", base]);
@@ -420,6 +504,7 @@ function main(argv) {
     changes: changesSince(base),
     unitIndex: buildUnitIndex(unitSources()),
     serialSpecs: serialSpecs(),
+    oldLine: oldLineReader(base),
   });
   console.log(renderPlan(selection));
   const plan = toPlanJson(selection);
