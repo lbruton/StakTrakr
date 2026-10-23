@@ -182,6 +182,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
     - hot, after the early return (`:1617`): 2 locations, 81 tests, 28 s. One is `details-modal.spec.js:1702`; the other is the whole of `inventory-crud.spec.js`, because a selected test in a serial spec runs its spec.
   - AC-20 holds for every case but a change to code that every save path runs. The remaining levers are the `inventory-crud.spec.js` serial group and the cost of the save-flow tests (C.13 to C.15); the box stays unticked.
   - **Re-measured 2026-10-23 after C.13 (map at `a7a2f840`, no serial group left in `inventory-crud.spec.js`):** cold 6 core, 7 s and 5 s; mid 48 core, 16 s; hot after the early return 1 location (`details-modal.spec.js:1702`), 1 test, 3 s; hot first line 376 locations, 391 tests, 124 s. The hot first line runs in 376 of 949 locations across `retail-market`, `header-retirement`, `smoke`, `settings-search-images` and others, so no selection rule can shrink it. AC-20 for that case waits on the suite speed work in C.15 and C.16; the box stays unticked.
+  - **After C.15 and C.16 (2026-10-23):** C.15 closed with no consolidation, so the hot first line still selects about 390 tests. At a median of 1.00 s per test and 5 workers, that run cannot reach 60 s. Whole-suite speed does not bound this case; the count of tests that run a line every save path shares does. AC-20 holds for the cold, mid and hot-after-the-early-return cases and fails for the hot first line. The box stays unticked; CLOSE-3 records the gap unless AC-20 is amended for that case.
 
 ---
 
@@ -292,7 +293,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
     - The `dev` run after the merge (40029054488) failed the reloaded-page note check in `collections.spec.js`: a `goldback:updated` re-render closes an open Slot note. The check retries the click (`124abf93`), and STRK-468 tracks the app behavior.
   - **Confirmed (2026-10-23, `dev` run 40031548118 at `124abf93`):** green; unit and all four core shards pass.
 
-- [ ] **C.15** — Consolidate the remaining domains by measured cost (amended 2026-10-23, user-approved, D-22)
+- [x] **C.15** — Consolidate the remaining domains by measured cost (amended 2026-10-23, user-approved, D-22)
   - **File(s):** `tests/playwright/core/*.spec.js`, `tests/unit/*.test.js`
   - **Acceptance:** Start from a full core JSON report taken after C.18 and C.19. Take domains in order of total test time, until AC-23 holds. Each PR meets the C.12 acceptance. Merge only logic-only groups that share a seed; UI tests keep their own boot (D-14).
   - **Measured (2026-10-23, before C.18 and C.19):**
@@ -302,12 +303,34 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
     - The redundancy report lists 407 of 872 mapped tests with no block unique in their spec. Most of them assert layout, theme or modal flow.
   - **Depends on:** C.18, C.19
   - **Maps to:** AC-24, AC-25
+  - **As built (2026-10-23, `dev` at `97b4e8a4`, user-approved):** AC-23 holds before any domain is taken, so C.15 closes with no test changes. AC-24 and AC-25 need no new check, because no consolidation PR merges. Three full core JSON reports at default workers (5 on the reference machine) give these domains by test time:
 
-- [ ] **C.16** — Confirm the full-suite target
+    | Spec | Tests | Run 1 (s) | Run 2 (s) | Run 3 (s) |
+    | --- | --- | --- | --- | --- |
+    | `collections.spec.js` | 144 | 209.9 | 212.3 | 233.5 |
+    | `image-frame-editor.spec.js` | 87 | 122.7 | 116.2 | 122.7 |
+    | `inventory-math.spec.js` | 96 | 96.1 | 94.9 | 94.9 |
+    | `details-modal.spec.js` | 58 | 87.7 | 73.8 | 79.0 |
+    | `inventory-crud.spec.js` | 63 | 77.1 | 74.8 | 82.1 |
+    | `collections-data-paths.spec.js` | 32 | 60.2 | 52.9 | 58.9 |
+    | `settings-search-images.spec.js` | 33 | 53.3 | 49.7 | 60.1 |
+    | `retail-market.spec.js` | 46 | 41.6 | 39.6 | 43.9 |
+
+    - The median test takes 1.00 s.
+    - The worst run is 6.5 s under the limit. Most remaining Collections time is UI flow (the five image-swap variants, theme and layout checks), which D-14 keeps on its own boot.
+
+- [x] **C.16** — Confirm the full-suite target
   - **File(s):** _no file changes — measurement only_
   - **Acceptance:** Three consecutive full core runs on the reference machine at default workers are green and each finishes in 4 minutes or less (AC-23); the counts and times go in the final PR body.
   - **Depends on:** C.15
   - **Maps to:** AC-23
+  - **Confirmed (2026-10-23, `dev` at `97b4e8a4`):** three consecutive full core runs, back to back at default workers. Each run passes 922 tests with no failure and no flaky test.
+
+    | Run | Wall (s) | Test time (s) |
+    | --- | --- | --- |
+    | 1 | 228.2 | 1,109.7 |
+    | 2 | 217.5 | 1,061.5 |
+    | 3 | 233.5 | 1,140.1 |
 
 ---
 
