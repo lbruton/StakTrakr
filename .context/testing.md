@@ -100,6 +100,9 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Import `test` and `expect` from `tests/playwright/helpers/mocks/extended-test.js`. Its
   `page` fixture installs the network mocks, and its `goto`/`reload` resolve only after
   `appListenersReady`. Pass `{ waitForApp: false }` to assert on the page before boot ends.
+- The same `page` fixture serves the app's `js/`, `css/`, `vendor/` and `data/` scripts
+  and stylesheets from worker memory. Tests on it do not exercise the static file server.
+  A test of server headers or caching uses `app-test.js` or its own `page.route`.
 - Boot finishes in a deferred timer after `DOMContentLoaded`. A helper that waits only for
   `typeof window.someFn === "function"` races the rest of boot.
 - Poll layout and computed-style reads (`expect.poll`). A box measured before layout reads
