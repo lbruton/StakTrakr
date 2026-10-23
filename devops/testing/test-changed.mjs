@@ -47,26 +47,31 @@ const RELATIVE_IMPORT = /(?:from\s+|import\(\s*)["'](\.{1,2}\/[^"']+)["']/g;
  * Parses `git diff -U0` output into the changed lines on the old side of each file.
  * A pure insertion contributes the old line it follows and the line after it.
  * @param {string} text - Diff text.
- * @returns {Array<{file: string, lines: number[]}>}
+ * A deleted file keeps its old path and carries `deleted: true`.
+ * @returns {Array<{file: string, lines: number[], deleted?: boolean}>}
  */
 export function parseDiff(text) {
   const changes = [];
   let current = null;
-  let removed = false;
+  let added = false;
+  let oldFile = null;
   for (const line of text.split("\n")) {
     if (line.startsWith("diff --git ")) {
       current = null;
-      removed = false;
+      added = false;
+      oldFile = null;
     } else if (line.startsWith("--- ")) {
-      removed = line === "--- /dev/null";
+      added = line === "--- /dev/null";
+      oldFile = added ? null : line.slice("--- a/".length);
     } else if (line.startsWith("+++ ")) {
-      const file = line === "+++ /dev/null" ? null : line.slice("+++ b/".length);
-      current = { file, lines: [] };
-      if (file) changes.push(current);
-      if (removed) current.lines = [];
+      current =
+        line === "+++ /dev/null"
+          ? { file: oldFile, lines: [], deleted: true }
+          : { file: line.slice("+++ b/".length), lines: [] };
+      if (current.file) changes.push(current);
     } else if (current && line.startsWith("@@ ")) {
       const match = line.match(/^@@ -(\d+)(?:,(\d+))? \+/);
-      if (!match || removed) continue;
+      if (!match || added || current.deleted) continue;
       const start = Number(match[1]);
       const count = match[2] === undefined ? 1 : Number(match[2]);
       if (count === 0) current.lines.push(start, start + 1);
@@ -114,11 +119,13 @@ export function buildUnitIndex(files) {
  * @param {object|null} options.map - Test map, or null when none exists.
  * @param {Array<{file: string, lines: number[]}>} options.changes - Changed files.
  * @param {Map<string, Set<string>>} options.unitIndex - From `buildUnitIndex`.
+ * @param {Set<string>} [options.serialSpecs] - Specs with a serial group; a selected
+ *   test there runs its whole spec, because a serial test needs the tests before it.
  * @returns {{full: boolean, allUnit: boolean, reasons: Array<{file: string, why: string}>,
  *   core: Array<{location: string, files: string[]}>, unit: Array<{file: string, files: string[]}>,
  *   missingMap: boolean}}
  */
-export function selectTests({ map, changes, unitIndex }) {
+export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }) {
   const core = new Map();
   const unit = new Map();
   const reasons = [];
@@ -130,14 +137,19 @@ export function selectTests({ map, changes, unitIndex }) {
   };
   const full = (file, why) => reasons.push({ file, why });
 
-  for (const { file, lines } of changes) {
+  const pickTest = (id, file) => {
+    const spec = id.replace(/:\d+$/, "");
+    pick(core, serialSpecs.has(spec) ? spec : id, file);
+  };
+
+  for (const { file, lines, deleted } of changes) {
     for (const [unitFile, refs] of unitIndex) {
       if (unitFile === file || refs.has(file)) pick(unit, unitFile, file);
     }
     if (ALL_UNIT_PATHS.some((re) => re.test(file))) allUnit = true;
 
     if (SPEC_FILE.test(file)) {
-      pick(core, file, file);
+      if (!deleted) pick(core, file, file);
     } else if (APP_SCRIPT.test(file)) {
       if (!map) {
         missingMap = true;
@@ -150,7 +162,8 @@ export function selectTests({ map, changes, unitIndex }) {
         full(file, "no core test loads this file in the test map");
         continue;
       }
-      if (lines.length === 0) full(file, "the whole file changed");
+      if (lines.length === 0)
+        full(file, deleted ? "the file was deleted" : "the whole file changed");
       // Without `files`, only the functions some test ran are known.
       const known =
         ranges ??
@@ -173,13 +186,21 @@ export function selectTests({ map, changes, unitIndex }) {
               (fn) => fn.file === file && fn.startLine === inner[0] && fn.endLine === inner[1]
             )
           )
-          .forEach((t) => pick(core, t.id, file));
+          .forEach((t) => pickTest(t.id, file));
       }
     } else if (!TEST_FREE_PATHS.some((re) => re.test(file))) {
       full(file, "a shared file no test map entry covers");
     }
   }
 
+  // A spec selected whole already runs its single-test locations.
+  for (const location of [...core.keys()]) {
+    const spec = location.replace(/:\d+$/, "");
+    if (spec !== location && core.has(spec)) {
+      core.get(location).forEach((file) => core.get(spec).add(file));
+      core.delete(location);
+    }
+  }
   const list = (into, key) =>
     [...into]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -302,6 +323,19 @@ function unitSources() {
   return files;
 }
 
+/** Specs that declare a serial group (`describe.serial` or serial mode). */
+function serialSpecs() {
+  const specs = new Set();
+  for (const dir of ["tests/playwright/core", "tests/playwright/extended"]) {
+    for (const name of readdirSync(path.join(REPO_ROOT, dir))) {
+      if (!name.endsWith(".spec.js")) continue;
+      const text = readFileSync(path.join(REPO_ROOT, dir, name), "utf-8");
+      if (/describe\.serial|mode:\s*["']serial["']/.test(text)) specs.add(`${dir}/${name}`);
+    }
+  }
+  return specs;
+}
+
 /** Changed files against `base`, working tree and untracked files included. */
 function changesSince(base) {
   const diff = git(["diff", "-U0", "--no-renames", "--no-color", base]);
@@ -342,6 +376,7 @@ function main(argv) {
     map,
     changes: changesSince(base),
     unitIndex: buildUnitIndex(unitSources()),
+    serialSpecs: serialSpecs(),
   });
   console.log(renderPlan(selection));
   const plan = toPlanJson(selection);

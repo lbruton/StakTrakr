@@ -100,6 +100,17 @@ describe("parseDiff", () => {
       { file: "docs/note.md", lines: [] },
     ]);
   });
+
+  test("keeps a deleted file under its old path", () => {
+    const diff = [
+      "diff --git a/js/old.js b/js/old.js",
+      "deleted file mode 100644",
+      "--- a/js/old.js",
+      "+++ /dev/null",
+      "@@ -1,10 +0,0 @@",
+    ].join("\n");
+    assert.deepEqual(parseDiff(diff), [{ file: "js/old.js", lines: [], deleted: true }]);
+  });
 });
 
 describe("selectTests", () => {
@@ -144,6 +155,25 @@ describe("selectTests", () => {
       unitFiles(select([{ file: "devops/testing/coverage-merge.mjs", lines: [2] }])),
       ["tests/unit/merge.test.js"]
     );
+  });
+
+  test("a deleted script selects the full suite; a deleted spec selects nothing to run", () => {
+    const script = select([{ file: "js/demo.js", lines: [], deleted: true }]);
+    assert.equal(script.full, true);
+    assert.ok(script.reasons.some((reason) => reason.file === "js/demo.js"));
+    const spec = select([{ file: "tests/playwright/core/beta.spec.js", lines: [], deleted: true }]);
+    assert.equal(spec.full, false);
+    assert.deepEqual(spec.core, []);
+  });
+
+  test("a selected test in a spec with a serial group runs the whole spec", () => {
+    const selection = selectTests({
+      map: MAP,
+      changes: [{ file: "js/demo.js", lines: [21] }],
+      unitIndex: UNIT_INDEX,
+      serialSpecs: new Set(["tests/playwright/core/alpha.spec.js"]),
+    });
+    assert.deepEqual(locations(selection), ["tests/playwright/core/alpha.spec.js"]);
   });
 
   test("a changed line selects by its innermost function, not the wrapper around it", () => {
