@@ -59,6 +59,10 @@ specs extend existing tests instead of adding one per acceptance criterion.
 - `devops/testing/test-changed.mjs` — diff, select, print the plan, run Playwright and unit tests.
 - `devops/testing/test-redundancy.mjs` — unique coverage and subset report, JSON and Markdown.
 - `.github/workflows/tests.yml` — unit, sharded core with coverage, report and Codacy upload.
+- `tests/unit/coverage-merge.test.js` — `coverage.js` helpers and `coverage-merge.mjs` outputs, inline fixtures.
+- `tests/unit/source-extract-coverage.test.js` — Node lcov credits `js/` files loaded through the harness.
+- `tests/unit/test-changed.test.js` — selection, fallback, staleness and plan output of `test-changed.mjs`.
+- `tests/unit/test-redundancy.test.js` — unique coverage, subsets and report text of `test-redundancy.mjs`.
 
 ### Modified
 
