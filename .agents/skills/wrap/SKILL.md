@@ -6,7 +6,7 @@ description: >
   .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: 8aa34eb2c2cf
+library-version: 1cbc80ca80c9
 ---
 
 # Wrap Session

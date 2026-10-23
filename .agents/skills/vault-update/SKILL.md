@@ -7,7 +7,7 @@ description: >
   architecture decisions are made, or project docs need updating. Triggers on: "update vault",
   "vault update", "docvault", "update docs", "add to vault", "vault"
 user-invocable: true
-library-version: 8aa34eb2c2cf
+library-version: 1cbc80ca80c9
 ---
 
 # Vault Update
