@@ -11,7 +11,7 @@ updated: "2026-06-28"
 
 Authoritative reference for all four data pipelines. Each section covers data source → transform → storage → API export → frontend consumption, with verified cron schedules, stale thresholds, sqld tables, and failure modes.
 
-**Cron schedule source of truth:** `devops/pollers/home-poller/docker-entrypoint.sh` — schedules below are verified against that file.
+**Cron schedule source of truth:** `devops/pollers/home-poller/docker-entrypoint.sh`: schedules below are verified against that file.
 
 ---
 
@@ -19,14 +19,14 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 ### Home Poller (sole retail + goldback scraper, 192.168.1.81)
 
-| Script                     | Cron            | Verified | Purpose                                    |
-| -------------------------- | --------------- | -------- | ------------------------------------------ |
-| `run-home.sh`              | `30 * * * *`    | yes      | Retail scrape — all vendors                |
-| `spot-extract.js`          | `15,45 * * * *` | yes      | Spot price poll (staggered from Fly.io)    |
-| `goldback-scraper.js`      | `5 * * * *`     | yes      | Goldback G1 rate — hourly at :05 (STRK-58) |
-| `export-providers-json.js` | `*/5 * * * *`   | yes      | Sync providers.json from sqld              |
-| `turso-backup-sync.js`     | `0 3 * * *`     | yes      | Nightly DR sync to Turso Cloud             |
-| `check-flyio.sh`           | `*/5 * * * *`   | yes      | Fly.io health probe                        |
+| Script                     | Cron            | Verified | Purpose                                   |
+| -------------------------- | --------------- | -------- | ----------------------------------------- |
+| `run-home.sh`              | `30 * * * *`    | yes      | Retail scrape: all vendors                |
+| `spot-extract.js`          | `15,45 * * * *` | yes      | Spot price poll (staggered from Fly.io)   |
+| `goldback-scraper.js`      | `5 * * * *`     | yes      | Goldback G1 rate: hourly at :05 (STRK-58) |
+| `export-providers-json.js` | `*/5 * * * *`   | yes      | Sync providers.json from sqld             |
+| `turso-backup-sync.js`     | `0 3 * * *`     | yes      | Nightly DR sync to Turso Cloud            |
+| `check-flyio.sh`           | `*/5 * * * *`   | yes      | Fly.io health probe                       |
 
 ### Fly.io (thin publisher — spot + publish only, `staktrakr` app, dfw)
 
@@ -43,30 +43,30 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 **Signature:** all three feeds frozen simultaneously, `fly logs` shows a repeating OOM kill,
 Tailscale ping to the Fly machine times out, and `ps` (via `fly ssh console`) shows a
-long-running `git pack-objects`. Looks like a tunnel/network problem — it isn't; the tunnel
+long-running `git pack-objects`. Looks like a tunnel/network problem: it isn't; the tunnel
 stall is a _symptom_ of memory thrash, not the cause.
 
 **Root cause:** `git repack -a` in `cleanup-export.sh` enumerates the export repo's **entire**
-history before it can build deltas — `--window-memory` only caps the per-delta window, not the
+history before it can build deltas: `--window-memory` only caps the per-delta window, not the
 object list. Years of 4×/hour publish commits (10k+ commits, millions of objects) pushed the
 repack past the machine's memory ceiling; it was OOM-killed mid-run, 86 minutes in, wedging the
 whole VM (Tailscale, sqld connections, the `*/5` provider-export cron) while still holding the
 publish lock. Because it never reached `prune`, the low-inode condition that triggered the
-repack never cleared, so the _next_ publish immediately re-entered the same repack — a
+repack never cleared, so the _next_ publish immediately re-entered the same repack: a
 permanent loop that a plain `fly machine restart` does not break.
 
 **Fix (this issue):** `cleanup-export.sh` re-shallows (fresh depth-1 clone of the current tip)
-instead of repacking full history — bounded to the current tree regardless of how much history
+instead of repacking full history: bounded to the current tree regardless of how much history
 has accumulated. `run-publish.sh` re-shallows on bootstrap if `.git/shallow` is missing. Every
 cron job is wrapped in its own `flock -n <job>.flock timeout -k 30 <N>` (see
 `docker-entrypoint-slim.sh`), and the cross-script publish/cleanup mutex moved from a
-`noclobber` lockfile to `flock` on `/tmp/retail-publish.flock` — the noclobber version needed
+`noclobber` lockfile to `flock` on `/tmp/retail-publish.flock`: the noclobber version needed
 its `EXIT` trap to fire to release, which does not happen on SIGKILL/OOM-kill, and left the
 lock stranded during this incident.
 
 **Manual recovery** (if the fix has not yet reached a machine): take the publish lock, back up
 `.git/config`, `rm -rf .git`, `git init`, restore the config, `git symbolic-ref HEAD
-refs/heads/api`, `git fetch --depth 1 origin api`, `git reset FETCH_HEAD` (mixed — working tree
+refs/heads/api`, `git fetch --depth 1 origin api`, `git reset FETCH_HEAD` (mixed: working tree
 untouched), release the lock, run `/app/run-publish.sh`. Then heal any spot-hourly gap from the
 outage window with `backfill-spot-files.js` (it skips files that already exist).
 
@@ -128,7 +128,7 @@ MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD,XCU)
 
 ### Data Source
 
-**MetalPriceAPI** (`metalpriceapi.com`) — requires a managed external-feed credential in the deployment's secret store.
+**MetalPriceAPI** (`metalpriceapi.com`): requires a managed external-feed credential in the deployment's secret store.
 
 | Symbol | Metal     |
 | ------ | --------- |
@@ -138,16 +138,16 @@ MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD,XCU)
 | `XPD`  | Palladium |
 | `XCU`  | Copper    |
 
-The tracked set is defined once, in `devops/pollers/shared/spot-metals.js`. Every other list — the API query string, the database key set, the JSON entry order, the exporter's ISO map, the manifest `metals` array — is derived from it. Do not add a metal by editing those directly.
+The tracked set is defined once, in `devops/pollers/shared/spot-metals.js`. Every other list (the API query string, the database key set, the JSON entry order, the exporter's ISO map, the manifest `metals` array) is derived from it. Do not add a metal by editing those directly.
 
 **Rate conversion logic in `spot-extract.js`:**
 
 A `/v1/latest?base=USD` response carries every figure twice:
 
-| Key      | Meaning                                                    |
-| -------- | ---------------------------------------------------------- |
-| `USDXAU` | Direct USD price per troy ounce — **this is what we read** |
-| `XAU`    | Its reciprocal: troy ounces per USD                        |
+| Key      | Meaning                                                   |
+| -------- | --------------------------------------------------------- |
+| `USDXAU` | Direct USD price per troy ounce: **this is what we read** |
+| `XAU`    | Its reciprocal: troy ounces per USD                       |
 
 `derivePrice()` reads the `USD`-prefixed key and falls back to inverting the bare one. Both paths are deterministic.
 
@@ -155,7 +155,7 @@ A `/v1/latest?base=USD` response carries every figure twice:
 
 Sanity bounds are **per metal** (`METAL_PRICE_BOUNDS` in `spot-metals.js`), not one global range. A single `$5 < price < $50,000` window cannot span metals four orders of magnitude apart: it rejected every correct copper quote, and because that rejection throws and is caught upstream into `process.exit(1)`, it killed the whole poll run rather than dropping one metal.
 
-Prices are rounded by magnitude — two decimals at or above $1, four below. Two decimals quantises copper by roughly 0.6% per tick, and that error is permanent once written to history.
+Prices are rounded by magnitude: two decimals at or above $1, four below. Two decimals quantises copper by roughly 0.6% per tick, and that error is permanent once written to history.
 
 ### Storage
 
@@ -214,13 +214,13 @@ The frontend user-selectable spot source (v3.34.24+) replaces the legacy fallbac
 
 ### Legacy Note
 
-`poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`, which writes no year file — so the public `data/spot-history-YYYY.json` froze at 2026-02-26 until STRK-403.
+`poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`, which writes no year file: so the public `data/spot-history-YYYY.json` froze at 2026-02-26 until STRK-403.
 
-**Daily year file (STRK-403):** `data/spot-history-YYYY.json` has two writers that share one rule — `shared/spot-year-history.js` (called from `api-export.js` every publish, API copy) and `.claude/skills/update-spot-bundle/update-spot-bundle.py` (release time, repo copy). Rule: one entry per (metal, UTC day) = `AVG(spot)`, aggregated **and rounded** in SQL (4dp below $1, else 2dp — keeps Python half-even and JS half-up rounding from diverging), stamped `YYYY-MM-DD 12:00:00` with `source: "sqld"`; **complete UTC days only** (the day in progress is never written); sqld fills missing keys and replaces its own earlier `sqld` entries but **never overwrites a `seed` entry** (sqld's first days held as little as 1 sample/day; seed rows cover pre-2026-02-17 and the STRK-304 copper backfill). The publisher rewrites the current UTC year (plus the previous year during Jan 1–7) and only writes when content changed, so the file gains at most one git blob per day. Change one writer → change both. It is still a daily series, not a freshness signal — live spot is `data/hourly/`.
+**Daily year file (STRK-403):** `data/spot-history-YYYY.json` has two writers that share one rule: `shared/spot-year-history.js` (called from `api-export.js` every publish, API copy) and `.claude/skills/update-spot-bundle/update-spot-bundle.py` (release time, repo copy). Rule: one entry per (metal, UTC day) = `AVG(spot)`, aggregated **and rounded** in SQL (4dp below $1, else 2dp: keeps Python half-even and JS half-up rounding from diverging), stamped `YYYY-MM-DD 12:00:00` with `source: "sqld"`; **complete UTC days only** (the day in progress is never written); sqld fills missing keys and replaces its own earlier `sqld` entries but **never overwrites a `seed` entry** (sqld's first days held as little as 1 sample/day; seed rows cover pre-2026-02-17 and the STRK-304 copper backfill). The publisher rewrites the current UTC year (plus the previous year during Jan 1–7) and only writes when content changed, so the file gains at most one git blob per day. Change one writer → change both. It is still a daily series, not a freshness signal: live spot is `data/hourly/`.
 
-**Gap-healing backfiller (STRK-187):** `shared/backfill-spot-files.js` regenerates hourly spot JSON files **from sqld** — the reverse of `backfill-spot.js` (which imports files _into_ sqld). Use it when spot rows kept landing in sqld but file writes failed (e.g. the 2026-06-11 inode-exhaustion outage). Usage: `DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]` (hours UTC, inclusive; existing files skipped unless `--overwrite`; output byte-compatible with `spot-extract.js`).
+**Gap-healing backfiller (STRK-187):** `shared/backfill-spot-files.js` regenerates hourly spot JSON files **from sqld**: the reverse of `backfill-spot.js` (which imports files _into_ sqld). Use it when spot rows kept landing in sqld but file writes failed (e.g. the 2026-06-11 inode-exhaustion outage). Usage: `DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]` (hours UTC, inclusive; existing files skipped unless `--overwrite`; output byte-compatible with `spot-extract.js`).
 
-**v2 day-file backfiller (STRK-345):** `shared/backfill-v2-day-files.js` backfills a metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive **from year-file daily history** — sqld cannot source it (`spot_prices` reaches back only to 2026-02 and holds a new metal only from its go-live). Emits one honest single-sample OHLCA entry per day (`n: 1`, `t` at noon UTC) in the standard v2 envelope; existing files are skipped unless `--overwrite`, so it can never clobber a real hourly file. Usage (on the Fly machine; `run-publish.sh` pushes on its next cycle): `DATA_DIR=/data/staktrakr-api-export/data node backfill-v2-day-files.js --metal xcu --from 2026-03-25 --to 2026-08-14 [--source <url-or-path>] [--overwrite] [--dry-run]`.
+**v2 day-file backfiller (STRK-345):** `shared/backfill-v2-day-files.js` backfills a metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive **from year-file daily history**: sqld cannot source it (`spot_prices` reaches back only to 2026-02 and holds a new metal only from its go-live). Emits one honest single-sample OHLCA entry per day (`n: 1`, `t` at noon UTC) in the standard v2 envelope; existing files are skipped unless `--overwrite`, so it can never clobber a real hourly file. Usage (on the Fly machine; `run-publish.sh` pushes on its next cycle): `DATA_DIR=/data/staktrakr-api-export/data node backfill-v2-day-files.js --metal xcu --from 2026-03-25 --to 2026-08-14 [--source <url-or-path>] [--overwrite] [--dry-run]`.
 
 ### Adding a metal — rollout checklist addition (STRK-345)
 
@@ -270,9 +270,9 @@ Home VM run-home.sh  (30 * * * *)
 
 ### Data Source
 
-Provider configuration lives in **sqld** (`provider_coins` + `provider_vendors` tables), with file fallback to `data/retail/providers.json`. URL corrections go directly to the database via `provider-db.js` or the dashboard at `http://192.168.1.81:3010/providers` — no redeploy needed.
+Provider configuration lives in **sqld** (`provider_coins` + `provider_vendors` tables), with file fallback to `data/retail/providers.json`. URL corrections go directly to the database via `provider-db.js` or the dashboard at `http://192.168.1.81:3010/providers`: no redeploy needed.
 
-**URL strategy:** Prefer random-year SKUs when in stock. At year-start, Monument Metals random-year SKUs go pre-order — switch to year-specific (e.g., `2026-american-silver-eagle.html`) until bulk stock arrives.
+**URL strategy:** Prefer random-year SKUs when in stock. At year-start, Monument Metals random-year SKUs go pre-order: switch to year-specific (e.g., `2026-american-silver-eagle.html`) until bulk stock arrives.
 
 See Providers Config (deprecated DocVault page) and .context/deep-dives/vendor-quirks.md for per-vendor details.
 
@@ -292,23 +292,23 @@ Each provider entry supports a `urls` array (tried in sequence). Single `url` en
 
 ### MintBuilder Direct API Feed (STRK-321 / STRK-325)
 
-MintBuilder is the **first vendor with a first-party price feed** (offered by MintBuilder after finding the Reddit post, 2026-08-01) — it is not scraped when the feed is available. `price-extract-vendor-mintbuilder.js` `scrape()` resolves each target against a per-process memoized index of `GET https://mintbuilder.com/feed/api/prices?key=$MB_API_KEY&mintbuilder=all` (client: `price-extract-mintbuilder-feed.js`; one request per hourly run ≈ 24 calls/day; ~314 products).
+MintBuilder is the **first vendor with a first-party price feed** (offered by MintBuilder after finding the Reddit post, 2026-08-01): it is not scraped when the feed is available. `price-extract-vendor-mintbuilder.js` `scrape()` resolves each target against a per-process memoized index of `GET https://mintbuilder.com/feed/api/prices?key=$MB_API_KEY&mintbuilder=all` (client: `price-extract-mintbuilder-feed.js`; one request per hourly run ≈ 24 calls/day; ~314 products).
 
-- **Matching:** feed product `link` ↔ `provider_vendors.url` by canonicalized-URL comparison (protocol/www/case/query/fragment/trailing-slash collapsed). A per-row `hints {"mbProductId": "…"}` pin (dashboard gear row) overrides URL matching. Adding/removing items stays the normal dashboard flow — there are no per-item endpoints.
+- **Matching:** feed product `link` ↔ `provider_vendors.url` by canonicalized-URL comparison (protocol/www/case/query/fragment/trailing-slash collapsed). A per-row `hints {"mbProductId": "…"}` pin (dashboard gear row) overrides URL matching. Adding/removing items stays the normal dashboard flow: there are no per-item endpoints.
 - **Hybrid stock rule (STRK-325):** the feed **retains sold-out listings** and has no stock field. `tiers[].qty_max` tracks live sellable inventory (validated against 119 product pages). A hit with `max(qty_max) > 1` across ALL tiers records `source: "mintbuilder-api"`, `in_stock=1`; a degenerate cap (≤ 1) is ambiguous (zero-floored vs genuine last unit), so that item falls through to the page scrape, whose JSON-LD availability is authoritative. Max is across all tiers because some in-stock products lead with a qty-1 discount tier (1 oz Gold Eagle).
-- **Fallback = the unchanged scrape path** (feed miss, outage, HTTP 401, key unset). **Rollback: unset `MB_API_KEY`** in the Portainer stack env and redeploy — no code change.
-- **Feed price semantics:** `price` == the page's qty-1 check/wire price exactly (verified 14/14 tracked SKUs at 0.00% delta on cutover) — no history discontinuity.
-- **Key hygiene:** `MB_API_KEY` lives only in container env (compose declaration + `run-home.sh` cron re-export, STRK-230 pattern; Infisical `dev` is the source of record). `provider_vendors.url` keeps the human product-page URL — it is republished into public JSON (Buy links); the feed request URL is never logged and error messages are key-redacted.
+- **Fallback = the unchanged scrape path** (feed miss, outage, HTTP 401, key unset). **Rollback: unset `MB_API_KEY`** in the Portainer stack env and redeploy: no code change.
+- **Feed price semantics:** `price` == the page's qty-1 check/wire price exactly (verified 14/14 tracked SKUs at 0.00% delta on cutover): no history discontinuity.
+- **Key hygiene:** `MB_API_KEY` lives only in container env (compose declaration + `run-home.sh` cron re-export, STRK-230 pattern; Infisical `dev` is the source of record). `provider_vendors.url` keeps the human product-page URL: it is republished into public JSON (Buy links); the feed request URL is never logged and error messages are key-redacted.
 - **Pending vendor ask:** an explicit availability field (or `qty_max: 0` on sold-out) would eliminate the residual per-item scrapes; `feedStockIsConfident()` in the feed client is the single consumption point when it arrives.
 
 ### JM Bullion via FindBullionPrices (STRK-334)
 
-JM Bullion direct scraping is Webscale/reCAPTCHA-blocked, so `jmbullion` prices are gap-filled from **FindBullionPrices.com (FBP)**. `price-extract-vendor-jmbullion-fbp.js` `scrape(context)` fetches the coin's FBP product page and reads the embedded schema.org `ItemList`, picking the JM Bullion offer and recording `source: "fbp"`. Extraction is a **plain HTTPS `fetch` + JSON-LD parse** (`fbp-jsonld.js`, browser `User-Agent`, AbortController timeout) — no Firecrawl, no Byparr/CF-bypass. It runs on the same polite hourly retail cadence as every other vendor.
+JM Bullion direct scraping is Webscale/reCAPTCHA-blocked, so `jmbullion` prices are gap-filled from **FindBullionPrices.com (FBP)**. `price-extract-vendor-jmbullion-fbp.js` `scrape(context)` fetches the coin's FBP product page and reads the embedded schema.org `ItemList`, picking the JM Bullion offer and recording `source: "fbp"`. Extraction is a **plain HTTPS `fetch` + JSON-LD parse** (`fbp-jsonld.js`, browser `User-Agent`, AbortController timeout): no Firecrawl, no Byparr/CF-bypass. It runs on the same polite hourly retail cadence as every other vendor.
 
-- **Fetch seam:** the network call is injected as `context.fetchFbpPage` (test double), falling back to the real `fetchFbpPage`. `scrape` never throws — misses return a failed result (`no-fbp-url`, `jm-not-listed`, or the fetch error).
-- **URL source — direct hand-assignment:** each coin's `provider_coins.fbp_url` is set by hand to the exact FBP product page. An auto-resolver (`resolve-fbp-slugs.js` + an `fbp_match` keyword-hint column) shipped with STRK-334 but was removed as unused in STRK-346: FBP lists a single 1 oz coin alongside a `Tube-of-50`, `Monster-Box`, and `1-10-oz` fractional for the same coin+year, and positive-token matching (ranked by year only) can't prefer the single coin, so hand-assignment is both simpler and more correct. The vendor module reads `coin.fbp_url` directly and host-allowlists it to `findbullionprices.com` before fetching (SSRF fail-closed).
-- **Annual refresh:** FBP's dated slugs roll each January (`2026-…` → `2027-…`). Prefer FBP **Random-Year** product URLs where they exist — those don't roll — otherwise re-point the affected `fbp_url` values by hand once a year.
-- **Live JM re-enable is a post-deploy step** — the vendor module and FBP sourcing ship on this branch, but flipping JM back on in provider config happens after deploy.
+- **Fetch seam:** the network call is injected as `context.fetchFbpPage` (test double), falling back to the real `fetchFbpPage`. `scrape` never throws: misses return a failed result (`no-fbp-url`, `jm-not-listed`, or the fetch error).
+- **URL source: direct hand-assignment:** each coin's `provider_coins.fbp_url` is set by hand to the exact FBP product page. An auto-resolver (`resolve-fbp-slugs.js` + an `fbp_match` keyword-hint column) shipped with STRK-334 but was removed as unused in STRK-346: FBP lists a single 1 oz coin alongside a `Tube-of-50`, `Monster-Box`, and `1-10-oz` fractional for the same coin+year, and positive-token matching (ranked by year only) can't prefer the single coin, so hand-assignment is both simpler and more correct. The vendor module reads `coin.fbp_url` directly and host-allowlists it to `findbullionprices.com` before fetching (SSRF fail-closed).
+- **Annual refresh:** FBP's dated slugs roll each January (`2026-…` → `2027-…`). Prefer FBP **Random-Year** product URLs where they exist (those don't roll) otherwise re-point the affected `fbp_url` values by hand once a year.
+- **Live JM re-enable is a post-deploy step**: the vendor module and FBP sourcing ship on this branch, but flipping JM back on in provider config happens after deploy.
 - **Attribution:** the market footer carries a FindBullionPrices attribution link.
 
 ### STRK-32 Vendor Module Boundary
@@ -321,13 +321,13 @@ scrape through a standard Vendor module interface.
 
 Migrated Vendors:
 
-| Vendor         | Module                                  | Notes                                                                                                                                                                                                                                     |
-| -------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apmex`        | `price-extract-vendor-apmex.js`         | Owns APMEX Firecrawl-preferred config and delegates to shared generic scraping                                                                                                                                                            |
-| `goldback`     | `price-extract-vendor-goldback.js`      | Owns the Goldback Phase 0 bypass predicate and delegates to shared generic scraping                                                                                                                                                       |
-| `summitmetals` | `price-extract-vendor-summit.js`        | Owns Summit cutoff patterns + qty-tier-first extract strategy (JSON-LD offer price untrusted — it is the 100+ bulk tier)                                                                                                                  |
-| `mintbuilder`  | `price-extract-vendor-mintbuilder.js`   | **Feed-first (STRK-321/325)** — direct vendor API with page-scrape fallback; see #MintBuilder Direct API Feed (STRK-321 / STRK-325)                                                                                                       |
-| `jmbullion`    | `price-extract-vendor-jmbullion-fbp.js` | **FBP-backed (STRK-334)** — JM direct is Webscale/reCAPTCHA-blocked, so prices are sourced from FindBullionPrices.com JSON-LD (`source: "fbp"`); consumes a `context.fetchFbpPage` seam. See #JM Bullion via FindBullionPrices (STRK-334) |
+| Vendor         | Module                                  | Notes                                                                                                                                                                                                                                    |
+| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apmex`        | `price-extract-vendor-apmex.js`         | Owns APMEX Firecrawl-preferred config and delegates to shared generic scraping                                                                                                                                                           |
+| `goldback`     | `price-extract-vendor-goldback.js`      | Owns the Goldback Phase 0 bypass predicate and delegates to shared generic scraping                                                                                                                                                      |
+| `summitmetals` | `price-extract-vendor-summit.js`        | Owns Summit cutoff patterns + qty-tier-first extract strategy (JSON-LD offer price untrusted: it is the 100+ bulk tier)                                                                                                                  |
+| `mintbuilder`  | `price-extract-vendor-mintbuilder.js`   | **Feed-first (STRK-321/325)**: direct vendor API with page-scrape fallback; see #MintBuilder Direct API Feed (STRK-321 / STRK-325)                                                                                                       |
+| `jmbullion`    | `price-extract-vendor-jmbullion-fbp.js` | **FBP-backed (STRK-334)**: JM direct is Webscale/reCAPTCHA-blocked, so prices are sourced from FindBullionPrices.com JSON-LD (`source: "fbp"`); consumes a `context.fetchFbpPage` seam. See #JM Bullion via FindBullionPrices (STRK-334) |
 
 All not-yet-migrated Vendors still route through `price-extract-vendor-legacy.js`,
 which preserves the pre-refactor generic scrape behavior. To migrate another Vendor,
@@ -349,7 +349,7 @@ Deploy packaging must keep all shared modules together. The poller Dockerfiles u
 `COPY shared/*.js ./`, and the home sync manifest explicitly lists the new
 `price-extract-*` shared modules.
 
-**OOS detection (`detectStockStatus()`):** Checks scraped text for patterns (`out of stock`, `sold out`, `pre-order`, etc.) before price extraction. Exception: `jmbullion` is preorder-tolerant — resolved per vendor by `resolvePreorderTolerant()` (`price-extract-shared.js:106-110`), with `LEGACY_PREORDER_TOLERANT_PROVIDERS` (`:72`, holding `jmbullion` and `monumentmetals`) as the fallback. For those, the `pre-?order` pattern is skipped because JMBullion marks presale coins (buffalo, maple-silver, etc.) as Pre-Order while still showing live prices.
+**OOS detection (`detectStockStatus()`):** Checks scraped text for patterns (`out of stock`, `sold out`, `pre-order`, etc.) before price extraction. Exception: `jmbullion` is preorder-tolerant: resolved per vendor by `resolvePreorderTolerant()` (`price-extract-shared.js:106-110`), with `LEGACY_PREORDER_TOLERANT_PROVIDERS` (`:72`, holding `jmbullion` and `monumentmetals`) as the fallback. For those, the `pre-?order` pattern is skipped because JMBullion marks presale coins (buffalo, maple-silver, etc.) as Pre-Order while still showing live prices.
 
 **Price bounds guard (`writeSnapshot()` in `shared/db.js`):** Applied before every database write.
 
@@ -386,7 +386,7 @@ Set `row.skipPriceBounds = true` or `provider.skipPriceBounds: true` to bypass f
 
 ### API Export
 
-`api-export.js` calls `readLatestPerVendor(db, coinSlug, lookbackHours=2)` — returns the most recent row **per vendor** within the last 2 hours. Both pollers' data appears regardless of which time window they ran in.
+`api-export.js` calls `readLatestPerVendor(db, coinSlug, lookbackHours=2)`: returns the most recent row **per vendor** within the last 2 hours. Both pollers' data appears regardless of which time window they ran in.
 
 **Last-known-good fallback (v1):** When all scrape phases fail, `api-export.js` fills from the most recent successful `price_snapshots` row at publish time:
 
@@ -412,7 +412,7 @@ Frontend retail cards display live per-item prices sourced from `data/api/manife
 
 ### Vision Pipeline (optional, soft-disabled by default)
 
-Requires the operator to configure the vision integration and enable it for the deployment. Non-fatal — failure is logged and scrape continues.
+Requires the operator to configure the vision integration and enable it for the deployment. Non-fatal: failure is logged and scrape continues.
 
 | Scenario                            | Confidence score                                  |
 | ----------------------------------- | ------------------------------------------------- |
@@ -432,7 +432,7 @@ Expected run timing:
 
 | Symptom                               | Likely cause                                     | Fix                                                                                         |
 | ------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Vendor missing prices multiple cycles | URL changed, OOS, or bot-blocked                 | Add backup URLs via `urls` array — auto-synced next cycle, no redeploy                      |
+| Vendor missing prices multiple cycles | URL changed, OOS, or bot-blocked                 | Add backup URLs via `urls` array: auto-synced next cycle, no redeploy                       |
 | Only 1–2 vendors per coin             | Home poller down or sqld connectivity            | Check Portainer dashboard; verify sqld has recent rows                                      |
 | JMBullion presale coins show OOS      | Pre-order pattern matching before provider check | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS` |
 | OOM on Fly.io                         | Concurrent `api-export.js` invocations           | Verify `run-publish.sh` lockfile; `fly scale show`                                          |
@@ -447,9 +447,9 @@ Expected run timing:
 
 Goldback pricing flows through **two independent paths**:
 
-1. **Denomination spot path** — `goldback-scraper.js` runs hourly at :05 (`5 * * * *`, STRK-58) on the home poller, fetches the official G1 rate from `goldback.com`, writes to sqld. Fly.io publisher regenerates `goldback-spot.json` on every publish cycle (4×/hr) with a fresh `generated_at` envelope — republishing the cached value, not re-scraping. goldback.com's upstream rate (`data.t`) can lag the scrape, so `g1_usd` may repeat across publishes even though the scrape now runs hourly. As of STRK-248 (v3.35.62) the v2 `goldback/latest.json` `data.t` is stamped at the actual scrape **hour** (was a daily-noon "daily" granularity), its envelope `stale_after` dropped to **7200 s (2 h)** (was 90000 s / 25 h), and a companion raw intraday endpoint (`goldback/intraday.json`) was added — see [API Export](#api-export-2) below.
+1. **Denomination spot path**: `goldback-scraper.js` runs hourly at :05 (`5 * * * *`, STRK-58) on the home poller, fetches the official G1 rate from `goldback.com`, writes to sqld. Fly.io publisher regenerates `goldback-spot.json` on every publish cycle (4×/hr) with a fresh `generated_at` envelope: republishing the cached value, not re-scraping. goldback.com's upstream rate (`data.t`) can lag the scrape, so `g1_usd` may repeat across publishes even though the scrape now runs hourly. As of STRK-248 (v3.35.62) the v2 `goldback/latest.json` `data.t` is stamped at the actual scrape **hour** (was a daily-noon "daily" granularity), its envelope `stale_after` dropped to **7200 s (2 h)** (was 90000 s / 25 h), and a companion raw intraday endpoint (`goldback/intraday.json`) was added: see [API Export](#api-export-2) below.
 
-2. **Retail path** — Per-state Goldback coins (`goldback-{state}-g{denom}`) are tracked in `providers.json` and scraped from vendor product pages by `run-home.sh` at `:30`, flowing through the standard retail pipeline.
+2. **Retail path**: Per-state Goldback coins (`goldback-{state}-g{denom}`) are tracked in `providers.json` and scraped from vendor product pages by `run-home.sh` at `:30`, flowing through the standard retail pipeline.
 
 > Both paths run on the **home poller only** (STAK-478/491). Fly.io does not scrape goldback.
 
@@ -495,7 +495,7 @@ Fly.io run-publish.sh (8,23,38,53 * * * *)
 
 ### States and Denominations
 
-**9 states** currently issue Goldbacks:
+**9 states** issue Goldbacks:
 
 | State         | Slug prefix               |
 | ------------- | ------------------------- |
@@ -526,7 +526,7 @@ The v2 rate payload uses `g0.25`, `g1`, `g5`, `g10`, `g25`, and `g50`; `buildGol
 
 `goldback-scraper.js` cron: `5 * * * *` (hourly at :05, verified in `docker-entrypoint.sh` line 31, STRK-58).
 
-**No in-script skip guard.** Each hourly run writes the current goldback.com G1 rate to sqld; if the upstream rate (`data.t`) hasn't moved, it simply overwrites the row with the same `g1_usd` (fresh `scraped_at`, unchanged value). STRK-58 moved this from a daily to an hourly cron because the CurrencyLayer-backed rate can shift intraday — hourly scraping catches those mid-day moves rather than locking in a single snapshot.
+**No in-script skip guard.** Each hourly run writes the current goldback.com G1 rate to sqld; if the upstream rate (`data.t`) hasn't moved, it overwrites the row with the same `g1_usd` (fresh `scraped_at`, unchanged value). STRK-58 moved this from a daily to an hourly cron because the CurrencyLayer-backed rate can shift intraday: hourly scraping catches those mid-day moves rather than locking in a single snapshot.
 
 ### Goldback badge freshness — `generated_at` is the scrape time (STRK-257)
 
@@ -539,12 +539,12 @@ This supersedes the earlier STRK-250 behavior, where the scrape timestamp was wr
 on the outage path (freshest row older than the 7200 s realtime budget) and normal operation
 kept publish time. The badge therefore reflects scrape age at all times, and a slow-moving
 feed reads as its true age rather than "~2m ago". `g1_usd` repeating across publishes is
-still expected — goldback.com's upstream rate (`data.t`) can lag — but the timestamp no
+still expected: goldback.com's upstream rate (`data.t`) can lag: but the timestamp no
 longer refreshes independently of the scrape.
 
 ### Storage
 
-**sqld table: `price_snapshots`** — same schema as retail. Denomination spot uses `coin_slug=goldback-g1`, `vendor=goldback` (official rate). Per-state retail uses `coin_slug=goldback-{state}-g{denom}`.
+**sqld table: `price_snapshots`**: same schema as retail. Denomination spot uses `coin_slug=goldback-g1`, `vendor=goldback` (official rate). Per-state retail uses `coin_slug=goldback-{state}-g{denom}`.
 
 ### API Export
 
@@ -573,7 +573,7 @@ All denomination prices: `G1 × multiplier`, rounded to 2 decimal places.
 
 **v2 envelope (STAK-503):** `data/v2/goldback/latest.json` includes OHLCA aggregates and six denomination prices (`g0.25`, `g1`, `g5`, `g10`, `g25`, `g50`). `stale_after: 7200` (2 h) as of STRK-248, and `data.t` is stamped at the actual scrape hour rather than a daily-noon timestamp. `resolveGoldbackGeneratedAt()` uses normalized `scraped_at` whenever available, so the envelope freshness reflects the scrape rather than a publish loop.
 
-**Raw intraday endpoint (STRK-248, v3.35.62):** `data/v2/goldback/intraday.json` is a **raw hourly point series** — `data: [{ t, ts, g1_usd }]` for the last 72 h — built by `buildGoldbackIntradayEntries()` in `api-export-v2.js` (reuses `queryGoldbackRange`; points are hourly-floored, **not** OHLCA-bucketed). Envelope `stale_after: 7200` (2 h). The legacy v1 exporter prunes `price_snapshots` older than 31 days; treat that as implementation behavior, not a blanket retention guarantee for every output.
+**Raw intraday endpoint (STRK-248, v3.35.62):** `data/v2/goldback/intraday.json` is a **raw hourly point series** (`data: [{ t, ts, g1_usd }]` for the last 72 h) built by `buildGoldbackIntradayEntries()` in `api-export-v2.js` (reuses `queryGoldbackRange`; points are hourly-floored, **not** OHLCA-bucketed). Envelope `stale_after: 7200` (2 h). The legacy v1 exporter prunes `price_snapshots` older than 31 days; treat that as implementation behavior, not a blanket retention guarantee for every output.
 
 ### Enabling a State/Vendor
 
@@ -581,16 +581,16 @@ All denomination prices: `G1 × multiplier`, rounded to 2 decimal places.
 2. Set the vendor's `url` to the product page URL
 3. Set `enabled: true`
 
-Changes auto-sync next cycle — no redeploy needed.
+Changes auto-sync next cycle: no redeploy needed.
 
 ### Failure Modes
 
-| Symptom                                                  | Likely cause                                                   | Fix                                                                                                    |
-| -------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `goldback/latest.json` > 2h stale (STRK-248)             | Home poller `goldback-scraper.js` failing or goldback.com down | Check home poller logs via Portainer (goldback runs on home only)                                      |
-| G1 price null in manifest                                | Firecrawl timeout on JS-rendered page                          | timing comes from `price-extract-provider-config.js` (`SLOW_PROVIDERS` was retired) — verify `waitFor` |
-| Denomination prices wrong                                | G1 base rate incorrect                                         | Check `goldback-spot.json` G1 value; compare to goldback.com/exchange-rates/                           |
-| Per-denomination retail prices differ from computed spot | Normal — retail vendor prices ≠ official exchange rate         | Expected: `goldback-spot.json` uses official G1 rate; retail endpoints track actual vendor prices      |
+| Symptom                                                  | Likely cause                                                   | Fix                                                                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `goldback/latest.json` > 2h stale (STRK-248)             | Home poller `goldback-scraper.js` failing or goldback.com down | Check home poller logs via Portainer (goldback runs on home only)                                     |
+| G1 price null in manifest                                | Firecrawl timeout on JS-rendered page                          | timing comes from `price-extract-provider-config.js` (`SLOW_PROVIDERS` was retired): verify `waitFor` |
+| Denomination prices wrong                                | G1 base rate incorrect                                         | Check `goldback-spot.json` G1 value; compare to goldback.com/exchange-rates/                          |
+| Per-denomination retail prices differ from computed spot | Normal: retail vendor prices ≠ official exchange rate          | Expected: `goldback-spot.json` uses official G1 rate; retail endpoints track actual vendor prices     |
 
 ---
 
@@ -598,7 +598,7 @@ Changes auto-sync next cycle — no redeploy needed.
 
 ### Overview
 
-StakTrakr stores item images entirely **client-side** using IndexedDB. There is **no server component** — no uploads, no CDN, no cron. The image pipeline is a browser-only system involving five JavaScript modules.
+StakTrakr stores item images entirely **client-side** using IndexedDB. There is **no server component**: no uploads, no CDN, no cron. The image pipeline is a browser-only system involving five JavaScript modules.
 
 ### Flow
 
@@ -633,12 +633,12 @@ Object URL → rendered in UI
 
 Database: **`StakTrakrImages`**, schema version **3**
 
-| Store           | Key                        | Status                                                             |
-| --------------- | -------------------------- | ------------------------------------------------------------------ |
-| `userImages`    | `uuid` (item UUID)         | Active                                                             |
-| `patternImages` | `ruleId` (pattern rule ID) | Active                                                             |
-| `coinMetadata`  | `catalogId` (Numista N#)   | Active                                                             |
-| `coinImages`    | `catalogId`                | Legacy — retained for cleanup/reporting only (deprecated STAK-339) |
+| Store           | Key                        | Status                                                            |
+| --------------- | -------------------------- | ----------------------------------------------------------------- |
+| `userImages`    | `uuid` (item UUID)         | Active                                                            |
+| `patternImages` | `ruleId` (pattern rule ID) | Active                                                            |
+| `coinMetadata`  | `catalogId` (Numista N#)   | Active                                                            |
+| `coinImages`    | `catalogId`                | Legacy: retained for cleanup/reporting only (deprecated STAK-339) |
 
 **Storage quota (computed at IDB init):**
 
@@ -686,7 +686,7 @@ processFile(file, opts)
 
 ### Bulk Metadata Sync (`bulk-image-cache.js`)
 
-`BulkImageCache.cacheAll()` syncs **Numista metadata only** (not image blobs) for all inventory items with a Numista catalog ID. Image blobs are not downloaded — images come from stored CDN URLs or user uploads.
+`BulkImageCache.cacheAll()` syncs **Numista metadata only** (not image blobs) for all inventory items with a Numista catalog ID. Image blobs are not downloaded: images come from stored CDN URLs or user uploads.
 
 Per-item loop:
 
@@ -701,23 +701,23 @@ Per-item loop:
 
 ### Seed Images (`seed-images.js`)
 
-First-run demo: creates two pattern rules (American Silver Eagle + Canadian Gold Maple Leaf) with real coin photos embedded as base64 WebP data URIs. Gated by `localStorage` key `seedImagesVer` — version-checked on each app load, only runs if version has changed.
+First-run demo: creates two pattern rules (American Silver Eagle + Canadian Gold Maple Leaf) with real coin photos embedded as base64 WebP data URIs. Gated by `localStorage` key `seedImagesVer`: version-checked on each app load, only runs if version has changed.
 
 ### Storage Limits and Overflow
 
 - `cacheUserImage()` returns `false` if IDB `put()` throws (quota exceeded).
 - `ImageProcessor` reduces quality iteratively (down to `minQuality=0.30`) before failing.
-- No automatic eviction — user must manually clear via Settings > API > Numista (Clear API Cache).
+- No automatic eviction: user must manually clear via Settings > API > Numista (Clear API Cache).
 - `getStorageUsage()` returns per-store breakdown: `numistaBytes`, `userImageBytes`, `patternImageBytes`, `metadataBytes`, `totalBytes`, `limitBytes`.
 
 ### Key Rules
 
-- Never write directly to the `userImages` IDB store — always use `imageCache.cacheUserImage()`.
-- Always revoke object URLs after use — uncollected object URLs leak memory.
+- Never write directly to the `userImages` IDB store: always use `imageCache.cacheUserImage()`.
+- Always revoke object URLs after use: uncollected object URLs leak memory.
 - Call `renderTable()` after any IDB write so thumbnails update.
-- Do not add new code that touches the `coinImages` store — legacy, cleanup-only.
+- Do not add new code that touches the `coinImages` store: legacy, cleanup-only.
 - `resolveImageForItem()` is the legacy item-level function. Use `resolveImageUrlForItem(item, side)` for all new code.
-- Numista CDN URLs (`item.obverseImageUrl`, `item.reverseImageUrl`) are stored as plain strings on inventory items — no blob is fetched or stored for CDN images.
+- Numista CDN URLs (`item.obverseImageUrl`, `item.reverseImageUrl`) are stored as plain strings on inventory items: no blob is fetched or stored for CDN images.
 
 ### No Server Component
 
@@ -727,14 +727,14 @@ There is no server-side image storage, upload endpoint, or CDN. All images are l
 
 ## Related Pages
 
-- Spot Pipeline (deprecated DocVault page) — full spot price architecture
-- Retail Pipeline (deprecated DocVault page) — full retail scrape architecture
-- Goldback Pipeline (deprecated DocVault page) — denomination generation and per-state slugs
-- .context/deep-dives/image-pipeline.md— full client-side image system
-- .context/deep-dives/health-checks.md— stale thresholds and quick health script
-- Turso Schema (deprecated DocVault page) — sqld table definitions
-- .context/deep-dives/home-poller.md— home VM container and dashboard
-- .context/deep-dives/remote-poller.md— Fly.io container deployment
-- .context/deep-dives/api-reference.md — full endpoint schemas
-- Providers Config (deprecated DocVault page) — vendor URL configuration
-- .context/deep-dives/vendor-quirks.md— per-vendor scraping notes
+- Spot Pipeline (deprecated DocVault page): full spot price architecture
+- Retail Pipeline (deprecated DocVault page): full retail scrape architecture
+- Goldback Pipeline (deprecated DocVault page): denomination generation and per-state slugs
+- .context/deep-dives/image-pipeline.md: full client-side image system
+- .context/deep-dives/health-checks.md: stale thresholds and quick health script
+- Turso Schema (deprecated DocVault page): sqld table definitions
+- .context/deep-dives/home-poller.md: home VM container and dashboard
+- .context/deep-dives/remote-poller.md: Fly.io container deployment
+- .context/deep-dives/api-reference.md: full endpoint schemas
+- Providers Config (deprecated DocVault page): vendor URL configuration
+- .context/deep-dives/vendor-quirks.md: per-vendor scraping notes

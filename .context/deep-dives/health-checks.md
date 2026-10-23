@@ -108,20 +108,20 @@ Expected: rows from `home` (retail), `home-spot` (spot from home poller), and `f
 
 ## Diagnosing by Symptom
 
-| Symptom                               | Likely cause                                                                  | Action                                                                                                            |
-| ------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `v2/manifest.json` > 30 min stale     | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                        |
-| `v2/manifest.json` > 4h stale         | Home poller or Fly.io container down                                          | Check home poller container in Portainer; `fly status --app staktrakr`                                            |
-| Spot hourly > 75 min stale            | External price-feed credential expired or quota exceeded                      | Check the provider dashboard and operator-managed secret store                                                    |
-| Goldback > 2h stale (STRK-248)        | Home poller `goldback-scraper.js` failed                                      | Check home poller logs via Portainer dashboard (goldback runs on home only, not Fly.io)                           |
-| Only 1-2 vendors per coin             | Home poller down or OOS                                                       | Check home poller container; verify sqld has recent rows (home is sole retail scraper)                            |
-| Vendor missing multiple cycles        | URL changed or bot-blocked                                                    | Update vendor URL via [dashboard](http://192.168.1.81:3010/providers) or `provider-db.js` — see Provider Database |
-| OOM on Fly.io                         | Concurrent api-export.js invocations                                          | Verify publish lockfile; `fly scale show` — expect 1 shared CPU / 1024 MB (STAK-478 slim image)                   |
-| Monument Metals missing at year-start | Random-year SKU on pre-order                                                  | Switch to year-specific SKU in providers.json                                                                     |
-| JMBullion presale coins show OOS      | Pre-order pattern matching                                                    | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS`                       |
-| Merge workflow failing                | Branch conflict or jq parse error                                             | Retired/manual-only — `api` branch is now served directly by GitHub Pages                                         |
-| ~~Both pollers firing at same time~~  | Historical (pre-STAK-478) — Fly.io no longer runs retail scraping             | N/A — only home poller scrapes retail                                                                             |
-| `api-export.js` import crash          | `db.js` missing export after refactor                                         | `fly ssh console -C "sh -c 'tail -5 /var/log/publish.log'"` — look for `SyntaxError`                              |
+| Symptom                               | Likely cause                                                                  | Action                                                                                                           |
+| ------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `v2/manifest.json` > 30 min stale     | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                       |
+| `v2/manifest.json` > 4h stale         | Home poller or Fly.io container down                                          | Check home poller container in Portainer; `fly status --app staktrakr`                                           |
+| Spot hourly > 75 min stale            | External price-feed credential expired or quota exceeded                      | Check the provider dashboard and operator-managed secret store                                                   |
+| Goldback > 2h stale (STRK-248)        | Home poller `goldback-scraper.js` failed                                      | Check home poller logs via Portainer dashboard (goldback runs on home only, not Fly.io)                          |
+| Only 1-2 vendors per coin             | Home poller down or OOS                                                       | Check home poller container; verify sqld has recent rows (home is sole retail scraper)                           |
+| Vendor missing multiple cycles        | URL changed or bot-blocked                                                    | Update vendor URL via [dashboard](http://192.168.1.81:3010/providers) or `provider-db.js`: see Provider Database |
+| OOM on Fly.io                         | Concurrent api-export.js invocations                                          | Verify publish lockfile; `fly scale show`: expect 1 shared CPU / 1024 MB (STAK-478 slim image)                   |
+| Monument Metals missing at year-start | Random-year SKU on pre-order                                                  | Switch to year-specific SKU in providers.json                                                                    |
+| JMBullion presale coins show OOS      | Pre-order pattern matching                                                    | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS`                      |
+| Merge workflow failing                | Branch conflict or jq parse error                                             | Retired/manual-only: `api` branch is now served directly by GitHub Pages                                         |
+| ~~Both pollers firing at same time~~  | Historical (pre-STAK-478): Fly.io does not run retail scraping                | N/A: only home poller scrapes retail                                                                             |
+| `api-export.js` import crash          | `db.js` missing export after refactor                                         | `fly ssh console -C "sh -c 'tail -5 /var/log/publish.log'"`: look for `SyntaxError`                              |
 
 ---
 
@@ -168,7 +168,7 @@ fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/retail-pu
 
 1. **`db.js` missing `readLatestPerVendor` export** -- `api-export.js` imports this function to merge data from both pollers into vendor maps. Without it, `run-publish.sh` crashed on every cycle with `SyntaxError: The requested module './db.js' does not provide an export named 'readLatestPerVendor'`. No new JSON was written to the `api` branch.
 
-2. **`docker-entrypoint.sh` defaulted `CRON_SCHEDULE` to `*/15`** instead of `15,45` (the schedule at the time). This fired the Fly.io retail poller at `:00/:15/:30/:45` instead of just `:15/:45`, colliding with the home poller at `:00/:30`. Both pollers wrote to the same Turso `window_start` simultaneously, and the `:15/:45` windows were empty. (Note: schedule has since been relaxed to `0` / `30` — see Cloud - Fly.io.)
+2. **`docker-entrypoint.sh` defaulted `CRON_SCHEDULE` to `*/15`** instead of `15,45` (the schedule at the time). This fired the Fly.io retail poller at `:00/:15/:30/:45` instead of just `:15/:45`, colliding with the home poller at `:00/:30`. Both pollers wrote to the same Turso `window_start` simultaneously, and the `:15/:45` windows were empty. (Note: schedule has since been relaxed to `0` / `30`: see Cloud - Fly.io.)
 
 3. **`db.js` also missing `startRunLog`/`finishRunLog`** -- `price-extract.js` imports these for Turso run logging. The scraper crashed before executing any scrape logic. (Home poller was unaffected -- separate codebase.)
 
@@ -205,5 +205,5 @@ The v2 manifest also publishes these thresholds in `data.stale_thresholds`. The 
 
 ## Related
 
-- Home Poller — home poller container and dashboard
-- Remote Poller — Fly.io container deployment and environment
+- Home Poller: home poller container and dashboard
+- Remote Poller: Fly.io container deployment and environment

@@ -19,7 +19,7 @@ Foundation reference for the cloud sync subsystem. This document synthesizes Clo
 
 StakTrakr supports Dropbox-based cloud sync that automatically pushes an encrypted vault snapshot whenever inventory changes, and polls for remote updates on other devices.
 
-The active provider is `dropbox` (`_syncProvider = 'dropbox'`). pCloud and Box are defined in `CLOUD_PROVIDERS` but are not production-ready — folder creation and upload code exists but token exchange is incomplete.
+The active provider is `dropbox` (`_syncProvider = 'dropbox'`). pCloud and Box are defined in `CLOUD_PROVIDERS` but are not production-ready: folder creation and upload code exists but token exchange is incomplete.
 
 ### Source Files
 
@@ -69,7 +69,7 @@ key = vaultPassword + ':' + accountId
 ```
 
 - Both `cloud_vault_password` and `cloud_dropbox_account_id` are required.
-- `getSyncPasswordSilent()` returns `null` on a new device until the user enters the password at least once — this triggers `getSyncPassword()` which opens the password modal.
+- `getSyncPasswordSilent()` returns `null` on a new device until the user enters the password at least once: this triggers `getSyncPassword()` which opens the password modal.
 - After first entry, the password is cached in `cloud_vault_password` (localStorage) so subsequent page loads are silent.
 - **Zero-knowledge:** Dropbox OAuth access alone is insufficient to decrypt the vault.
 
@@ -81,7 +81,7 @@ key = STAKTRAKR_SIMPLE_SALT + ':' + accountId
 
 - Only applies when `cloud_sync_mode === 'simple'` is present in localStorage.
 - `STAKTRAKR_SIMPLE_SALT` is a fixed hex string defined in `js/constants.js`.
-- Any device with the same Dropbox OAuth token can derive the key — weaker security.
+- Any device with the same Dropbox OAuth token can derive the key: weaker security.
 - This compatibility mode remains load-bearing. Do not remove it without a migration for existing simple-mode vaults.
 
 ### Key Derivation Flow
@@ -93,7 +93,7 @@ getSyncPasswordSilent()
   └─ null → caller must call getSyncPassword() to open the password modal
 ```
 
-`getSyncPassword()` checks `getSyncPasswordSilent()` first. If null, opens `cloudSyncPasswordModal`. On confirm, re-reads `cloud_dropbox_account_id` — if still absent, an in-modal error is displayed and the modal stays open; if present, writes `cloud_vault_password` to localStorage and resolves the composite key.
+`getSyncPassword()` checks `getSyncPasswordSilent()` first. If null, opens `cloudSyncPasswordModal`. On confirm, re-reads `cloud_dropbox_account_id`: if still absent, an in-modal error is displayed and the modal stays open; if present, writes `cloud_vault_password` to localStorage and resolves the composite key.
 
 ### What Is Encrypted
 
@@ -111,9 +111,9 @@ getSyncPasswordSilent()
 
 ### Dropbox PKCE Flow
 
-1. `cloudAuthStart(provider)` — opens OAuth popup with PKCE parameters. Must be called from a click handler to avoid popup blockers. Optional `forceReauth: true` adds `force_reauthentication=true` to the URL (forces account picker; used by Switch Account).
-2. `cloudExchangeCode(code, state)` — exchanges OAuth code for access/refresh tokens. Validates `state` against `sessionStorage` before exchange. Always calls `/2/users/get_current_account` after exchange to fetch and store `email` and `display_name` in localStorage.
-3. `cloudCheckOAuthRelay()` — fallback relay handler when popup loses `window.opener`. Reads `staktrakr_oauth_result` from localStorage, validates `data.state` against `sessionStorage.getItem('cloud_oauth_state')` before calling `cloudExchangeCode`. Rejects with a CSRF warning on mismatch — **`cloudExchangeCode` is never called on state mismatch**.
+1. `cloudAuthStart(provider)`: opens OAuth popup with PKCE parameters. Must be called from a click handler to avoid popup blockers. Optional `forceReauth: true` adds `force_reauthentication=true` to the URL (forces account picker; used by Switch Account).
+2. `cloudExchangeCode(code, state)`: exchanges OAuth code for access/refresh tokens. Validates `state` against `sessionStorage` before exchange. Always calls `/2/users/get_current_account` after exchange to fetch and store `email` and `display_name` in localStorage.
+3. `cloudCheckOAuthRelay()`: fallback relay handler when popup loses `window.opener`. Reads `staktrakr_oauth_result` from localStorage, validates `data.state` against `sessionStorage.getItem('cloud_oauth_state')` before calling `cloudExchangeCode`. Rejects with a CSRF warning on mismatch: **`cloudExchangeCode` is never called on state mismatch**.
 
 ### Token Storage
 
@@ -226,7 +226,7 @@ pullWithPreview(remoteMeta)
        └─ await showRestorePreviewModal(); pull image vault after apply
 ```
 
-`pullSyncVault()` is the lower-level restore (full overwrite, no preview). **Its token guard THROWS before the internal try/catch — all callers must `.catch()`.**
+`pullSyncVault()` is the lower-level restore (full overwrite, no preview). **Its token guard THROWS before the internal try/catch: all callers must `.catch()`.**
 
 ---
 
@@ -240,9 +240,9 @@ pullWithPreview(remoteMeta)
 
 Two cases resolve without user interaction inside the manifest-first path:
 
-1. **STAK-387 — no changes at all:** Manifest confirms no item or settings changes. Pull recorded silently.
-2. **STAK-470 — version-upgrade settings drift:** No item changes, and every non-tag settings diff is one-sided (key exists on only one side). Remote-only keys are applied immediately; local-only keys kept and a push queued. If any key has genuine values on both sides, STAK-470 is skipped and DiffModal shown normally.
-3. **STRK-108 — tag-only changes:** No item changes and only tag scope keys changed. `_mergeTagData()` applies the timestamp merge silently and records the pull without showing DiffModal.
+1. **STAK-387: no changes at all:** Manifest confirms no item or settings changes. Pull recorded silently.
+2. **STAK-470: version-upgrade settings drift:** No item changes, and every non-tag settings diff is one-sided (key exists on only one side). Remote-only keys are applied immediately; local-only keys kept and a push queued. If any key has genuine values on both sides, STAK-470 is skipped and DiffModal shown normally.
+3. **STRK-108: tag-only changes:** No item changes and only tag scope keys changed. `_mergeTagData()` applies the timestamp merge silently and records the pull without showing DiffModal.
 
 ### Keep Mine / Push My Data Bypass Flag (STAK-403)
 
@@ -266,11 +266,11 @@ if (_prePushOverride) {
 }
 ```
 
-The flag is consumed (cleared) at the top of the next `pushSyncVault()` call regardless of outcome — no permanent bypass accumulates.
+The flag is consumed (cleared) at the top of the next `pushSyncVault()` call regardless of outcome: no permanent bypass accumulates.
 
 ### Override Backup (Pre-Pull Snapshot)
 
-`syncSaveOverrideBackup()` snapshots all `SYNC_SCOPE_KEYS` raw strings to `cloud_sync_override_backup` in localStorage before every pull. `syncRestoreOverrideBackup()` restores the pre-pull snapshot with an `appConfirm()` dialog. Only clears scope keys if the snapshot is non-empty — an empty snapshot is treated as corruption.
+`syncSaveOverrideBackup()` snapshots all `SYNC_SCOPE_KEYS` raw strings to `cloud_sync_override_backup` in localStorage before every pull. `syncRestoreOverrideBackup()` restores the pre-pull snapshot with an `appConfirm()` dialog. Only clears scope keys if the snapshot is non-empty: an empty snapshot is treated as corruption.
 
 ---
 
@@ -304,7 +304,7 @@ Both the STAK-470 auto-merge path and `_applyAndFinalize()` enforce the same thr
 
 ### ALLOWED_STORAGE_KEYS Guard
 
-The guard `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` is **intentional defensive coding** — the constant IS defined in `js/constants.js` (`ALLOWED_STORAGE_KEYS`). Automated reviewer flags on this are false positives. Do not remove the guard.
+The guard `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` is **intentional defensive coding**: the constant IS defined in `js/constants.js` (`ALLOWED_STORAGE_KEYS`). Automated reviewer flags on this are false positives. Do not remove the guard.
 
 ---
 
@@ -312,27 +312,27 @@ The guard `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` is **intentional defensi
 
 `scheduleSyncPush` is a debounced (2000ms) wrapper around `pushSyncVault`, exposed on `window` so `saveInventory()` can call it. Every public sync entry point (`initCloudSync`, `pushSyncVault`, `pullSyncVault`, `pollForRemoteChanges`, `scheduleSyncPush`) checks `window._initFailed` as its first guard and returns early with a console warning if true (STAK-485).
 
-`SYNC_SCOPE_KEYS` defines what auto-sync includes: inventory, item tags, tag tombstones (`itemRemovedTags`), per-item tag timestamps (`itemTagsLastModified`), the item-price-history clear watermark (`itemPriceHistoryClearedAt` — STRK-223), display preferences, `chipMinCount`, `metalApiConfig` (spot provider keys), and `catalog_api_config` (Numista/PCGS keys — added STAK-533). Auto-sync intentionally excludes OAuth tokens, spot price history, and device-specific state.
+`SYNC_SCOPE_KEYS` defines what auto-sync includes: inventory, item tags, tag tombstones (`itemRemovedTags`), per-item tag timestamps (`itemTagsLastModified`), the item-price-history clear watermark (`itemPriceHistoryClearedAt`: STRK-223), display preferences, `chipMinCount`, `metalApiConfig` (spot provider keys), and `catalog_api_config` (Numista/PCGS keys: added STAK-533). Auto-sync intentionally excludes OAuth tokens, spot price history, and device-specific state.
 
 **Volatile-subfield exclusion (STRK-313, v3.35.81; extended STRK-315, v3.35.82):** **two** synced blobs carry per-device usage counters alongside credentials, and both are stripped before change detection.
 
-| Key                  | Volatile fields                      | Strip shape                                                                   |
-| -------------------- | ------------------------------------ | ----------------------------------------------------------------------------- |
-| `catalog_api_config` | `numistaUsage`, `pcgsUsage`          | whole objects dropped — they are purely volatile                              |
-| `metalApiConfig`     | `usage[provider].used`, `usageMonth` | **nested** — `used` dropped, `quota` KEPT (user-editable via the quota modal) |
+| Key                  | Volatile fields                      | Strip shape                                                                  |
+| -------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| `catalog_api_config` | `numistaUsage`, `pcgsUsage`          | whole objects dropped: they are purely volatile                              |
+| `metalApiConfig`     | `usage[provider].used`, `usageMonth` | **nested**: `used` dropped, `quota` KEPT (user-editable via the quota modal) |
 
-Both change-detection layers strip them before comparing — `computeSettingsHash` via `_stripVolatileSettingFields` (cloud-sync.js) and `DiffEngine.compareSettings` via `_normalizeSettingForCompare` (diff-engine.js). **These twins must be updated together**: if only one learns about a new volatile field, the hash and the diff disagree and the Review Sync Changes modal opens with zero rows in it.
+Both change-detection layers strip them before comparing: `computeSettingsHash` via `_stripVolatileSettingFields` (cloud-sync.js) and `DiffEngine.compareSettings` via `_normalizeSettingForCompare` (diff-engine.js). **These twins must be updated together**: if only one learns about a new volatile field, the hash and the diff disagree and the Review Sync Changes modal opens with zero rows in it.
 
-`metalApiConfig` was the more damaging of the two. STAKTRAKR is the keyless provider (`requiresKey: false`) and `autoRefresh` defaults on, so `usage.STAKTRAKR.used++` fires on **every app boot even when the user has saved no API keys at all** — two devices diverged within a session or two and the modal opened every time. STRK-313 fixed only the catalog store, so the symptom persisted until STRK-315.
+`metalApiConfig` was the more damaging of the two. STAKTRAKR is the keyless provider (`requiresKey: false`) and `autoRefresh` defaults on, so `usage.STAKTRAKR.used++` fires on **every app boot even when the user has saved no API keys at all**: two devices diverged within a session or two and the modal opened every time. STRK-313 fixed only the catalog store, so the symptom persisted until STRK-315.
 
 On a genuine credential apply, each blob merges its counters so applying a change never under-reports quota consumption:
 
-- `_mergeCatalogUsageCounters` — `max(used)` within the same period, per provider, **only when that provider's credential is unchanged**.
-- `_mergeSpotUsageCounters` — `quota` always comes from `remote` in every branch. Remote in a later `usageMonth` → remote returned untouched. Local later → adopt local's `usageMonth`, and carry local's `used` per provider only when that provider's key is unchanged, else reset to `0` (a fresh credential in a fresh period must not inherit either side's count). Same month → `max(used)`, same credential gate. Keyless providers compare `"" === ""` and always count as unchanged.
+- `_mergeCatalogUsageCounters`: `max(used)` within the same period, per provider, **only when that provider's credential is unchanged**.
+- `_mergeSpotUsageCounters`: `quota` always comes from `remote` in every branch. Remote in a later `usageMonth` → remote returned untouched. Local later → adopt local's `usageMonth`, and carry local's `used` per provider only when that provider's key is unchanged, else reset to `0` (a fresh credential in a fresh period must not inherit either side's count). Same month → `max(used)`, same credential gate. Keyless providers compare `"" === ""` and always count as unchanged.
 
 The `changed` entries from `compareSettings` still carry the full original blob, so apply paths write counters through unchanged.
 
-**Diff-modal display (STRK-315):** `unchanged` entries from `compareSettings` now carry `localVal`/`remoteVal` in the same shape as `changed` entries. Previously they emitted `{key, val}` while `diff-modal.js` read `mEntry.localVal` for both lists, so **every matched settings row rendered `undefined`** — "not set" for the masked API-key rows, "—" for everything else, regardless of what was actually stored. That false "not set" on a demonstrably configured Numista key is what sent STRK-313 after the wrong store. `metalApiConfig` is also relabeled **"Spot API Config"** (it holds twelve fields, only one of which is credentials) and renders provider + key count rather than a blanket `••• configured`.
+**Diff-modal display (STRK-315):** `unchanged` entries from `compareSettings` now carry `localVal`/`remoteVal` in the same shape as `changed` entries. The legacy entries emitted `{key, val}` while `diff-modal.js` read `mEntry.localVal` for both lists, so **every matched settings row rendered `undefined`**: "not set" for the masked API-key rows, "—" for everything else, regardless of what was actually stored. That false "not set" on a demonstrably configured Numista key is what sent STRK-313 after the wrong store. `metalApiConfig` is also relabeled **"Spot API Config"** (it holds twelve fields, only one of which is credentials) and renders provider + key count rather than a blanket `••• configured`.
 
 ### Tag Sync Merge (STRK-108)
 
@@ -351,21 +351,21 @@ All tag writes are part of the `_applyAndFinalize()` rollback surface. The funct
 
 ### Item-Price-History Companion Vault (STRK-147)
 
-Per-Item price history (`item-price-history` — shape `{ [uuid]: [{ ts, itemName, retail, spot, melt }, ...] }`) syncs through a dedicated, **always-on** encrypted companion vault (`SYNC_ITEM_PRICE_HISTORY_PATH`), modeled on the image vault — **not** `SYNC_SCOPE_KEYS`. The LWW settings path would silently drop entries recorded on a second device; history is append-only and must merge by **union**. It stays in `ALLOWED_STORAGE_KEYS` (cleanup + manual backup) but is never added to `SYNC_SCOPE_KEYS`.
+Per-Item price history (`item-price-history` (shape `{ [uuid]: [{ ts, itemName, retail, spot, melt }, ...] }`) syncs through a dedicated, **always-on** encrypted companion vault (`SYNC_ITEM_PRICE_HISTORY_PATH`), modeled on the image vault) **not** `SYNC_SCOPE_KEYS`. The LWW settings path would silently drop entries recorded on a second device; history is append-only and must merge by **union**. It stays in `ALLOWED_STORAGE_KEYS` (cleanup + manual backup) but is never added to `SYNC_SCOPE_KEYS`.
 
 **Push.** When the companion hash differs from the remote pointer (or remote meta is absent), `collectAndHashItemPriceHistory()` canonicalizes → hashes → `vaultEncryptItemPriceHistory()` (AES-256-GCM) → uploads to the `.stvault` path. A `{hash, uuidCount, entryCount}` pointer is attached to `metaPayload.itemPriceHistoryVault`; the full history JSON never enters the change-detection manifest. A debounced `scheduleSyncPush()` call inside `saveItemPriceHistory()` makes history-only changes sync even when inventory is unchanged.
 
 **Merge.** `mergeItemPriceHistories(local, remote, acceptedUuids)` (`js/priceHistory.js`) is a pure, commutative, idempotent fingerprint-union: UUID-keyed union; remote filtered to `acceptedUuids`; entries deduped by **full fingerprint** (`ts, itemName, retail, spot, melt`) so equal-`ts` distinct snapshots survive while exact duplicates collapse; output canonicalized (sorted UUIDs + full-fingerprint comparator) so `merge(A,B) === merge(B,A)`; the retention cap (`applyItemPriceRetention`, 365d / 1000 per UUID) is applied **after** merging. The ZIP-restore `mergeItemPriceHistory()` (ts-only dedupe) is intentionally left unchanged (manual-restore behavior preserved).
 
-**Pull (six companion-pull call sites).** The companion vault is fetched only when its remote hash ≠ `lastPull.itemPriceHistoryHash`, then merged. The hash check is wired into every pull path so a companion-only remote change is never missed: the **poll hash-shortcut** (`_pollCompanionItemPriceHistory()`), **manifest-first silent-pull**, **manifest-first deferred** (`_deferredVaultRestore` `newInv` boundary), **vault-first silent-pull**, **vault-first post-apply** (post-apply inventory UUIDs), and — since STRK-224 — the **STAK-470 settings-only version-upgrade auto-merge** branch (which has no companion call of its own and previously relied on the poll pre-merge). Each path supplies the accepted-inventory `acceptedUuids` boundary, so a remote Item rejected in the DiffModal imports **no orphan history**.
+**Pull (six companion-pull call sites).** The companion vault is fetched only when its remote hash ≠ `lastPull.itemPriceHistoryHash`, then merged. The hash check is wired into every pull path so a companion-only remote change is never missed: the **poll hash-shortcut** (`_pollCompanionItemPriceHistory()`), **manifest-first silent-pull**, **manifest-first deferred** (`_deferredVaultRestore` `newInv` boundary), **vault-first silent-pull**, **vault-first post-apply** (post-apply inventory UUIDs), and (since STRK-224) the **STAK-470 settings-only version-upgrade auto-merge** branch (which has no companion call of its own and in its legacy form relied on the poll pre-merge). Each path supplies the accepted-inventory `acceptedUuids` boundary, so a remote Item rejected in the DiffModal imports **no orphan history**.
 
-**STRK-224 (v3.35.40) — Edge 1, cancel semantics.** The poll hash-shortcut previously pre-merged the companion **unconditionally**, ahead of `handleRemoteChange()`, so a Cancel on a DiffModal that _also_ carried companion changes could not undo the merge. The pre-merge now runs **only on the no-modal poll exits** — the silent fast-path and the STAK-414 local-newer branch; when the poll routes to the DiffModal, the merge is deferred to `pullWithPreview`'s STRK-225 `_vfApplied`-gated companion pull (Apply merges, Cancel skips). A companion-**only** change (no inv/settings diff → no DiffModal) still merges silently on the fast-path (preserved as an explicit non-regression guard).
+**STRK-224 (v3.35.40): Edge 1, cancel semantics.** The poll hash-shortcut in its legacy form pre-merged the companion **unconditionally**, ahead of `handleRemoteChange()`, so a Cancel on a DiffModal that _also_ carried companion changes could not undo the merge. The pre-merge now runs **only on the no-modal poll exits**: the silent fast-path and the STAK-414 local-newer branch; when the poll routes to the DiffModal, the merge is deferred to `pullWithPreview`'s STRK-225 `_vfApplied`-gated companion pull (Apply merges, Cancel skips). A companion-**only** change (no inv/settings diff → no DiffModal) still merges silently on the fast-path (preserved as an explicit non-regression guard).
 
-**Partial-failure safety.** The merge persists via a throwing write path (`writeItemPriceHistoryStrict()`) — unlike `saveItemPriceHistory()`, which swallows `saveDataSync` errors. On a write failure (e.g. quota), `lastPull` (incl. `itemPriceHistoryHash`) is **not** advanced and a partial/error state is recorded, so the next poll retries. Shipped in **v3.35.26** (PR #1285).
+**Partial-failure safety.** The merge persists via a throwing write path (`writeItemPriceHistoryStrict()`): unlike `saveItemPriceHistory()`, which swallows `saveDataSync` errors. On a write failure (e.g. quota), `lastPull` (incl. `itemPriceHistoryHash`) is **not** advanced and a partial/error state is recorded, so the next poll retries. Shipped in **v3.35.26** (PR #1285).
 
-**STRK-224 (v3.35.40) — transient-failure & post-apply retry.** Two further watermark-advance gaps were closed. _Edge 2:_ a transient companion download/decrypt failure is non-throwing but previously returned the same `{hash:null, skipped:false}` shape as a benign precondition-miss no-op, so the watermark advanced and the `lastPull.syncId === remoteMeta.syncId` poll shortcut then blocked the retry. `_pullItemPriceHistoryVault` now returns an explicit `failed` flag (set **only** on the two transient returns — download `!resp.ok` and decrypt-catch); every call site declines to advance `lastPull` when it is set. _Edge 3:_ in the manifest-first (`_deferredVaultRestore`) and vault-first (`pullWithPreview`) apply paths, `_applyAndFinalize` records `syncId` **before** the post-apply companion write, so a write throw left `syncId` falsely advanced. Both paths now snapshot the full prior `lastPull` before the apply and restore it on a companion failure/throw, so the next poll retries. The merge algorithm is unchanged — only _when_ and _whether_ the watermark advances.
+**STRK-224 (v3.35.40): transient-failure & post-apply retry.** Two further watermark-advance gaps were closed. _Edge 2:_ a transient companion download/decrypt failure is non-throwing but in its legacy form returned the same `{hash:null, skipped:false}` shape as a benign precondition-miss no-op, so the watermark advanced and the `lastPull.syncId === remoteMeta.syncId` poll shortcut then blocked the retry. `_pullItemPriceHistoryVault` now returns an explicit `failed` flag (set **only** on the two transient returns: download `!resp.ok` and decrypt-catch); every call site declines to advance `lastPull` when it is set. _Edge 3:_ in the manifest-first (`_deferredVaultRestore`) and vault-first (`pullWithPreview`) apply paths, `_applyAndFinalize` records `syncId` **before** the post-apply companion write, so a write throw left `syncId` falsely advanced. Both paths now snapshot the full prior `lastPull` before the apply and restore it on a companion failure/throw, so the next poll retries. The merge algorithm is unchanged: only _when_ and _whether_ the watermark advances.
 
-**STRK-223 (v3.35.41) — propagating a "clear all".** Clearing all history is the one mutation the union merge cannot express (it only adds), so a clear on one device never reached the others. The fix is a synced tombstone: a new scalar **`itemPriceHistoryClearedAt`** (ms timestamp) that — unlike the companion vault data — **is** in `SYNC_SCOPE_KEYS`, riding the main vault like `itemTagsLastModified`. `clearItemPriceHistory()` stamps `Date.now()`; `applyItemPriceRetention()` then drops every entry with `ts <= clearedAt` on every save/merge/strict-write, so the clear converges through the existing commutative merge (a fresh device's `clearedAt` of 0 drops nothing; entries recorded _after_ the clear survive). **Push:** when local history is empty **and** the watermark post-dates the remote companion's last write, the push deletes the `.stvault` (`files/delete_v2`, mirroring the STAK-426 image path) and drops the pointer; a fresh/empty device with no watermark still preserves a populated remote companion. **Receive:** like the tag keys, the watermark is excluded from the blind settings-overwrite (`_isManagedSyncKey`, applied at all five settings-diff/apply sites) and reconciled by `_mergeItemPriceClearWatermark()` — a max-arbitration (an older remote can never un-clear a newer local watermark) that applies the drop immediately even when no companion is pulled. It is wired at both tag-merge chokepoints (`_applyAndFinalize` via the new `remoteRawSettings` option, and the manifest one-sided path) and is idempotent, so the deliberate double-coverage is safe. Cancel-safety is inherited: the hook only runs on apply paths, never on a cancelled preview (the `_vfApplied` gate). Shipped in **v3.35.41** (PR #1313).
+**STRK-223 (v3.35.41): propagating a "clear all".** Clearing all history is the one mutation the union merge cannot express (it only adds), so a clear on one device never reached the others. The fix is a synced tombstone: a new scalar **`itemPriceHistoryClearedAt`** (ms timestamp) that (unlike the companion vault data) **is** in `SYNC_SCOPE_KEYS`, riding the main vault like `itemTagsLastModified`. `clearItemPriceHistory()` stamps `Date.now()`; `applyItemPriceRetention()` then drops every entry with `ts <= clearedAt` on every save/merge/strict-write, so the clear converges through the existing commutative merge (a fresh device's `clearedAt` of 0 drops nothing; entries recorded _after_ the clear survive). **Push:** when local history is empty **and** the watermark post-dates the remote companion's last write, the push deletes the `.stvault` (`files/delete_v2`, mirroring the STAK-426 image path) and drops the pointer; a fresh/empty device with no watermark still preserves a populated remote companion. **Receive:** like the tag keys, the watermark is excluded from the blind settings-overwrite (`_isManagedSyncKey`, applied at all five settings-diff/apply sites) and reconciled by `_mergeItemPriceClearWatermark()`: a max-arbitration (an older remote can never un-clear a newer local watermark) that applies the drop immediately even when no companion is pulled. It is wired at both tag-merge chokepoints (`_applyAndFinalize` via the new `remoteRawSettings` option, and the manifest one-sided path) and is idempotent, so the deliberate double-coverage is safe. Cancel-safety is inherited: the hook only runs on apply paths, never on a cancelled preview (the `_vfApplied` gate). Shipped in **v3.35.41** (PR #1313).
 
 ### Collections Sync (STRK-370)
 
@@ -374,15 +374,15 @@ Per-Item price history (`item-price-history` — shape `{ [uuid]: [{ ts, itemNam
 | Part          | Where                                                                                     | Rule                                                                                                                                                                                                                                |
 | ------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **EXCLUDE**   | `_isManagedSyncKey` (inherited by all five settings-diff/apply sites)                     | Never appears in a settings diff, never blind-written. `importJson`'s settings filter excludes it too                                                                                                                               |
-| **RE-DETECT** | `_hasCollectionStateChange`, in the manifest silent-return guard beside `_mHasTagChanges` | True only when the remote would **contribute** something: `merge(local, remote) !== local`, on logical content. Not `local !== remote` — a device that is merely _ahead_ must not re-apply on every poll                            |
-| **APPLY**     | `_mergeCollectionState` → `collectionsStore.mergeIn` → `collectionsCore.mergeStates`      | Wired at `_applyAndFinalize` (via `remoteRawSettings`), the manifest one-sided auto-merge, and the vault-first silent branch. Commutative + idempotent, so the double coverage is safe. Apply paths only — never on a Cancel        |
+| **RE-DETECT** | `_hasCollectionStateChange`, in the manifest silent-return guard beside `_mHasTagChanges` | True only when the remote would **contribute** something: `merge(local, remote) !== local`, on logical content. Not `local !== remote`: a device that is merely _ahead_ must not re-apply on every poll                             |
+| **APPLY**     | `_mergeCollectionState` → `collectionsStore.mergeIn` → `collectionsCore.mergeStates`      | Wired at `_applyAndFinalize` (via `remoteRawSettings`), the manifest one-sided auto-merge, and the vault-first silent branch. Commutative + idempotent, so the double coverage is safe. Apply paths only: never on a Cancel         |
 | **HOLD**      | every call site                                                                           | `_mergeCollectionState` **throws** on a failed write. `_applyAndFinalize` returns an explicit failure after rolling back inventory + tags + Collections; callers stop companion work, success reporting and `lastPull` advancement. |
 
 **Push:** `collectionsStore.save()` calls `scheduleSyncPush()` (guarded, best-effort) because a Collections-only edit never reaches `saveInventory()`. Cover and Slot image writes finish before their artwork metadata is saved and a push is scheduled. The image vault filters records behind removal stamps; a device that owned the current remote image vault deletes it when all local images are removed. A device that never held that vault preserves it. The poll-level `computeSettingsHash` already covers the managed key logically.
 
-**Restore paths** that rewrite the key behind the store's back — `restoreVaultData` and `syncRestoreOverrideBackup` — call `collectionsStore.reload()`; otherwise the stale in-memory state overwrites the restored one on the next mutation.
+**Restore paths** that rewrite the key behind the store's back (`restoreVaultData` and `syncRestoreOverrideBackup`) call `collectionsStore.reload()`; otherwise the stale in-memory state overwrites the restored one on the next mutation.
 
-**Custom Collection definition and Slot order (STRK-389, STRK-395):** the ordered Slot list is `definition.slots`, and `mergeCollection` merges the whole `definition` as one unit — the side with the later `metaModified` wins (a tie falls to the `stableStringify` comparison), alongside identity, specifications, Image Shape and its Bar/Note orientation (`imageOrientation`, STRK-424, plus the optional per-side `reverseImageOrientation`, STRK-427, which an older build strips so the reverse then falls back to the obverse value and a tie on `metaModified` merges identically in either order), About, side, Item image visibility, and sparse HTTP(S) title links (`obverseImageUrl` / `reverseImageUrl`, STRK-444). Links travel as definition metadata, without image-vault bytes. Legacy `description` normalizes into `about`. So an inserted or reordered Slot list reaches every device by cloud sync, ZIP, `.stvault`, JSON and the standalone Collections file (all merge through `mergeStates`; CSV carries membership cells only). Links and artwork merge independently. Consequence: two devices that both change the definition before syncing keep only the later edit — the other device's inserted Slot disappears from the list, and a link made to it stays in `slots` but is not shown. Restoring an older backup never reverts a newer order. A per-Slot list merge would change this and is not built.
+**Custom Collection definition and Slot order (STRK-389, STRK-395):** the ordered Slot list is `definition.slots`, and `mergeCollection` merges the whole `definition` as one unit: the side with the later `metaModified` wins (a tie falls to the `stableStringify` comparison), alongside identity, specifications, Image Shape and its Bar/Note orientation (`imageOrientation`, STRK-424, plus the optional per-side `reverseImageOrientation`, STRK-427, which an older build strips so the reverse then falls back to the obverse value and a tie on `metaModified` merges identically in either order), About, side, Item image visibility, and sparse HTTP(S) title links (`obverseImageUrl` / `reverseImageUrl`, STRK-444). Links travel as definition metadata, without image-vault bytes. Legacy `description` normalizes into `about`. So an inserted or reordered Slot list reaches every device by cloud sync, ZIP, `.stvault`, JSON and the standalone Collections file (all merge through `mergeStates`; CSV carries membership cells only). Links and artwork merge independently. Consequence: two devices that both change the definition before syncing keep only the later edit: the other device's inserted Slot disappears from the list, and a link made to it stays in `slots` but is not shown. Restoring an older backup never reverts a newer order. A per-Slot list merge would change this and is not built.
 
 **Test depth:** the contract is pinned by `tests/unit/cloud-sync-collection-state.test.js`, `tests/unit/collections-core.test.js`, and two-device mock Dropbox browser cases in `tests/playwright/core/collections-data-paths.spec.js` for all three apply paths, artwork, rollback, quota retry, older links versus newer unlinks, and an inserted and reordered Slot list by manifest and vault-first pulls.
 
@@ -392,7 +392,7 @@ Per-Item price history (`item-price-history` — shape `{ [uuid]: [{ ts, itemNam
 
 The diff labels the setting “Hidden Collections.” Known IDs display their Collection name and template variant; unknown IDs stay visible as raw IDs.
 
-**Invariant — disabled means empty.** `collectionsStore.setEnabled()` refuses to hide a Collection while any Item UUID is linked; primary and Spare links both count. If a Collection becomes populated, `collectionsStore.isEnabled()` treats it as visible and `reconcilePopulated()` removes its ID from `disabledCollections`. `collectionsStore.save()` runs that reconciliation after saving `collectionState` (`js/collections-store.js:132–139`), and `collectionsStore.reload()` runs it after re-hydrating state written by a restore (`js/collections-store.js:57–60`).
+**Invariant: disabled means empty.** `collectionsStore.setEnabled()` refuses to hide a Collection while any Item UUID is linked; primary and Spare links both count. If a Collection becomes populated, `collectionsStore.isEnabled()` treats it as visible and `reconcilePopulated()` removes its ID from `disabledCollections`. `collectionsStore.save()` runs that reconciliation after saving `collectionState` (`js/collections-store.js:132–139`), and `collectionsStore.reload()` runs it after re-hydrating state written by a restore (`js/collections-store.js:57–60`).
 
 CloudSync reconciles only after each successful apply, so newly applied links cannot remain hidden by a stale `disabledCollections` array. The three call sites are `_applyAndFinalize()` (`js/cloud-sync.js:4272–4280`), the one-sided manifest auto-merge inside `pullWithPreview()` after all writes succeed (`js/cloud-sync.js:5265–5273`), and the vault-first silent apply inside `pullWithPreview()` (`js/cloud-sync.js:5793–5801`). Each runs before recording the successful pull; cancellation and failed applies do not reach these hooks.
 
@@ -418,8 +418,8 @@ CloudSync reconciles only after each successful apply, so newly applied links ca
 `restoreVaultData()` in `js/vault.js` is the final step of both the manual vault restore path (`vaultDecryptAndRestore`) and the vault-first fallback path in `vaultRestoreWithPreview` (when DiffEngine/DiffModal is unavailable). After writing localStorage keys and reloading inventory, its UI refresh block calls:
 
 1. `loadInventory()` + `renderTable()` + `renderActiveFilters()` + `loadSpotHistory()` + `fetchSpotPrice()`
-2. `_invalidateMarketFilterCache()` — clears the in-memory market filter cache in `retail.js`
-3. `renderMarketFilterMatrix()` — re-renders the Market Filter Matrix in Settings to reflect the restored `staktrakr.market_filter` localStorage value
+2. `_invalidateMarketFilterCache()`: clears the in-memory market filter cache in `retail.js`
+3. `renderMarketFilterMatrix()`: re-renders the Market Filter Matrix in Settings to reflect the restored `staktrakr.market_filter` localStorage value
 
 This means a vault restore or cloud sync pull that writes `staktrakr.market_filter` will reflect the restored state immediately without a page reload. `restoreVaultData` is also exposed as `window.restoreVaultData` for Playwright testing.
 
@@ -454,7 +454,7 @@ No single mechanism backs up everything. Full recovery requires combining mechan
 
 ### Backup Isolation (STAK-419)
 
-Manual backups (`staktrakr-backup-` prefix) and sync snapshots (`pre-sync-` prefix) share the `/StakTrakr/backups/` folder but are distinguished by filename prefix. `cloudListBackups(provider, type)` filters by prefix. `cloudPruneBackups` defaults to `type='sync'` — manual backups are never auto-pruned.
+Manual backups (`staktrakr-backup-` prefix) and sync snapshots (`pre-sync-` prefix) share the `/StakTrakr/backups/` folder but are distinguished by filename prefix. `cloudListBackups(provider, type)` filters by prefix. `cloudPruneBackups` defaults to `type='sync'`: manual backups are never auto-pruned.
 
 ### Backup Keys — which key opens which file (STRK-413)
 
@@ -491,7 +491,7 @@ The user never types the composite key. Before STRK-413 the restore click tried 
 
 Full recovery requires BOTH a ZIP (for IDB blobs) AND a vault (for localStorage including API keys).
 
-**Market-history backup scope (STRK-141, v3.35.3):** Spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history moved from localStorage to the `StakTrakrHistory` IndexedDB store (see architecture#IndexedDB Stores) and are now **excluded from both manual vault export and ZIP export** — they are API-reproducible, so there is no value in carrying them in a backup. Exclusion is driven by a dedicated `HISTORY_IDB_KEYS` skip set in `js/constants.js` (skipped on export **and** on restore — an older backup that still contains these keys is ignored, written to neither localStorage nor IDB), **not** by removing the keys from `ALLOWED_STORAGE_KEYS` (which stays the cleanup/fallback allowlist). `item-price-history` is **not** in the skip set, so it is still included in manual vault + ZIP backup (it is user-authored, not reproducible). **Cloud auto-sync scope is unchanged** — no market-history key was added to `SYNC_SCOPE_KEYS`; cross-device item-price sync is deferred to STRK-147.
+**Market-history backup scope (STRK-141, v3.35.3):** Spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history moved from localStorage to the `StakTrakrHistory` IndexedDB store (see architecture#IndexedDB Stores) and are now **excluded from both manual vault export and ZIP export**: they are API-reproducible, so there is no value in carrying them in a backup. Exclusion is driven by a dedicated `HISTORY_IDB_KEYS` skip set in `js/constants.js` (skipped on export **and** on restore: an older backup that still contains these keys is ignored, written to neither localStorage nor IDB), **not** by removing the keys from `ALLOWED_STORAGE_KEYS` (which stays the cleanup/fallback allowlist). `item-price-history` is **not** in the skip set, so it is still included in manual vault + ZIP backup (it is user-authored, not reproducible). **Cloud auto-sync scope is unchanged**: no market-history key was added to `SYNC_SCOPE_KEYS`; cross-device item-price sync is deferred to STRK-147.
 
 ### Encrypted Vault (.stvault) Binary Format
 
@@ -514,7 +514,7 @@ Full recovery requires BOTH a ZIP (for IDB blobs) AND a vault (for localStorage 
 }
 ```
 
-Hash tracking: `simpleHash(uuid + ':' + size + ':' + obverse.slice(0, 32))` — detects content changes even when file size is identical.
+Hash tracking: `simpleHash(uuid + ':' + size + ':' + obverse.slice(0, 32))`: detects content changes even when file size is identical.
 
 ---
 
@@ -522,8 +522,8 @@ Hash tracking: `simpleHash(uuid + ':' + size + ':' + obverse.slice(0, 32))` — 
 
 ### Console Output Sanitization (STAK-430)
 
-- `cloud-sync.js` — `console.warn` calls never emit password values, key lengths, or hash values. `_logDecryptAttempt()` logs only boolean presence of `cloud_vault_password` and `'present'`/`'MISSING'` for `cloud_dropbox_account_id`.
-- `cloud-storage.js` — account ID logged as `'present'`, never as a slice of the actual value.
+- `cloud-sync.js`: `console.warn` calls never emit password values, key lengths, or hash values. `_logDecryptAttempt()` logs only boolean presence of `cloud_vault_password` and `'present'`/`'MISSING'` for `cloud_dropbox_account_id`.
+- `cloud-storage.js`: account ID logged as `'present'`, never as a slice of the actual value.
 
 ### Pre-Decrypt Diagnostics Format
 
@@ -536,7 +536,7 @@ Fields: `artifact`, `vaultPw` (boolean), `accountId` (`'present'` or `'MISSING'`
 
 ### All Confirmations Use `appConfirm`
 
-There are no `window.confirm` calls anywhere in `cloud-sync.js` or `cloud-storage.js`. All user confirmation dialogs — including the password-change blind-overwrite prompt — use `await appConfirm(..., 'Cloud Sync')`.
+There are no `window.confirm` calls anywhere in `cloud-sync.js` or `cloud-storage.js`. All user confirmation dialogs (including the password-change blind-overwrite prompt) use `await appConfirm(..., 'Cloud Sync')`.
 
 ### Disconnect Cleanup (STAK-425, updated STAK-449)
 
@@ -552,7 +552,7 @@ There are no `window.confirm` calls anywhere in `cloud-sync.js` or `cloud-storag
 | `cloud_dropbox_account_id`   | Dropbox account ID (required for key derivation)                                               |
 | `cloud_dropbox_email`        | Dropbox account email (display only; excluded from vault exports)                              |
 | `cloud_dropbox_display_name` | Dropbox display name (display only; excluded from vault exports)                               |
-| `cloud_sync_mode`            | `'simple'` — deprecated, migration only, removed after v3.33                                   |
+| `cloud_sync_mode`            | `'simple'`: deprecated, migration only, removed after v3.33                                    |
 | `cloud_sync_enabled`         | `'true'` when auto-sync is active                                                              |
 | `cloud_sync_device_id`       | Stable per-device UUID                                                                         |
 | `cloud_sync_last_push`       | JSON: `{syncId, timestamp, rev, itemCount, imageHash?}`                                        |
@@ -576,10 +576,10 @@ There are no `window.confirm` calls anywhere in `cloud-sync.js` or `cloud-storag
 | `pushSyncVault()`                  | All errors caught internally; sets status indicator to `'error'`; returns silently. No caller catch required. |
 | `pullSyncVault()`                  | Token guard **THROWS** before internal try/catch. All callers **must** `.catch()`.                            |
 | `pullWithPreview()`                | Catches internally; falls back to `pullSyncVault()` on outer error. Awaits DiffModal before returning.        |
-| `buildAndUploadManifest()`         | Non-blocking — failure does not prevent vault push. Must be called inside try/catch.                          |
-| Image vault upload/download        | Non-fatal — caught with `console.warn`; inventory sync continues.                                             |
+| `buildAndUploadManifest()`         | Non-blocking: failure does not prevent vault push. Must be called inside try/catch.                           |
+| Image vault upload/download        | Non-fatal: caught with `console.warn`; inventory sync continues.                                              |
 | 429 rate limiting                  | Exponential backoff; `_syncRetryDelay` doubles, caps at 5 minutes. Resets on success.                         |
-| Missing `cloud_dropbox_account_id` | All pull/poll paths show toast and return early — no decrypt attempted.                                       |
+| Missing `cloud_dropbox_account_id` | All pull/poll paths show toast and return early: no decrypt attempted.                                        |
 
 ---
 
@@ -686,7 +686,7 @@ scheduleSyncPush(); // for inventory changes; includes _syncIsLeader check
 
 ### Setting `_syncRemoteChangeActive` at a call site
 
-`_syncRemoteChangeActive` is managed exclusively by `handleRemoteChange()` via try/finally. Do not set it at call sites — if `handleRemoteChange()` throws before its own try block, the flag stays permanently `true` and blocks all future pushes.
+`_syncRemoteChangeActive` is managed exclusively by `handleRemoteChange()` via try/finally. Do not set it at call sites: if `handleRemoteChange()` throws before its own try block, the flag stays permanently `true` and blocks all future pushes.
 
 ### Assuming manifest path succeeds for all pulls
 
@@ -696,7 +696,7 @@ scheduleSyncPush(); // for inventory changes; includes _syncIsLeader check
 
 ## Related
 
-- Cloud Sync (deprecated DocVault page) — full source doc (auto-sync subsystem detail)
-- Backup & Restore (deprecated DocVault page) — full source doc (all four backup mechanisms)
+- Cloud Sync (deprecated DocVault page): full source doc (auto-sync subsystem detail)
+- Backup & Restore (deprecated DocVault page): full source doc (all four backup mechanisms)
 - Storage Patterns (deprecated DocVault page)
 - .context/deep-dives/dom-patterns.md

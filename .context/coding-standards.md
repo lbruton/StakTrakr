@@ -18,15 +18,15 @@ Single-page working reference. Covers code style, module boundaries, DOM rules, 
 ### Formatting
 
 - **2-space indentation** (no tabs)
-- **Semicolons always** — every statement ends with `;`
+- **Semicolons always**: every statement ends with `;`
 - **Trailing commas** in multi-line arrays and objects
-- **120-character soft line limit** — break long lines at logical points
+- **120-character soft line limit**: break long lines at logical points
 
 ### Quotes
 
 - **Double quotes** for string values in configuration objects and data (`"silver"`, `"USD"`)
 - **Single quotes** for DOM selectors, localStorage keys, and template fragments (`'changeLog'`, `'hidden.bs.modal'`)
-- **Template literals** for string interpolation and multi-line strings — always prefer over concatenation
+- **Template literals** for string interpolation and multi-line strings: always prefer over concatenation
 
 ### Variable declarations
 
@@ -55,14 +55,14 @@ let editingIndex = null;
 ### Functions
 
 - **Arrow functions** for callbacks, inline handlers, and short helpers
-- **`function` declarations** for hoisted functions that need to be called before definition (rare — prefer `const`)
+- **`function` declarations** for hoisted functions that need to be called before definition (rare: prefer `const`)
 - **Verb-noun naming**: `saveData`, `loadData`, `formatCurrency`, `handleError`, `renderTable`
 - **Boolean-returning functions**: prefix with `is`, `has`, `can`, `should` (e.g., `isFeatureEnabled`)
 
 ### Comparison
 
 - **Strict equality only**: `===` and `!==`. Never use `==` or `!=`
-- **Nullish checks**: prefer `value == null` (the one exception — catches both `null` and `undefined`) or optional chaining (`data?.rates?.price`)
+- **Nullish checks**: prefer `value == null` (the one exception: catches both `null` and `undefined`) or optional chaining (`data?.rates?.price`)
 
 ### Lookup maps — `Object.create(null)`, never `{}`
 
@@ -83,7 +83,7 @@ const byMetal = {};
 ```
 
 The bug this prevents is silent, not loud. The near-universal populate idiom is
-`if (!map[key]) map[key] = [];` — with a plain literal that guard sees the inherited
+`if (!map[key]) map[key] = [];`: with a plain literal that guard sees the inherited
 property, skips the assignment, and every later read of `map[key]` returns a `Function`
 instead of the array the code expects. Downstream arithmetic yields `NaN` rather than
 throwing, so it surfaces as a wrong number in the UI, not a stack trace.
@@ -103,7 +103,7 @@ const src = typeof map?.get === "function" ? map : null;
 ```
 
 Guarding an internal invariant and validating a caller's input are deliberately different
-things — see the last two rows of **Common Mistakes Quick Reference** below.
+things: see the last two rows of **Common Mistakes Quick Reference** below.
 
 ---
 
@@ -128,7 +128,7 @@ Since everything is global (no bundler, no ES modules), follow these rules to av
 - **Constants**: define with `const` at file top, expose via `window.X = X` block at file bottom
 - **State variables**: declare only in `state.js` with `let`
 - **Helper functions**: define with `const fn = () => {}` in their owning module
-- **No generic names**: avoid `data`, `result`, `temp`, `value` at file scope — prefix with domain context (e.g., `apiCache`, `spotHistory`)
+- **No generic names**: avoid `data`, `result`, `temp`, `value` at file scope: prefix with domain context (e.g., `apiCache`, `spotHistory`)
 
 ---
 
@@ -136,7 +136,7 @@ Since everything is global (no bundler, no ES modules), follow these rules to av
 
 ### Rule 1 — Use `safeGetElement` for all ID lookups
 
-`safeGetElement(id, required?)` is defined in `js/init.js` at line 42. It never returns `null` — missing elements get a no-op dummy object, preventing TypeError crashes in the init chain.
+`safeGetElement(id, required?)` is defined in `js/init.js` at line 42. It never returns `null`: missing elements get a no-op dummy object, preventing TypeError crashes in the init chain.
 
 ```js
 // Signature
@@ -157,7 +157,7 @@ elements.inventoryForm = safeGetElement("inventoryForm", true);
 elements.itemGbDenom = safeGetElement("itemGbDenom");
 ```
 
-**Exception — existence checks:** When code must distinguish "exists" from "absent" (e.g., toggling a popover off, or refusing to mount a component that is already in the DOM), use `document.getElementById()` + `if` guard. The dummy object is always truthy, so `if (safeGetElement("inventoryRecoveryBanner"))` passes even when the banner is absent, and a popover toggle never closes.
+**Exception: existence checks:** When code must distinguish "exists" from "absent" (e.g., toggling a popover off, or refusing to mount a component that is already in the DOM), use `document.getElementById()` + `if` guard. The dummy object is always truthy, so `if (safeGetElement("inventoryRecoveryBanner"))` passes even when the banner is absent, and a popover toggle never closes.
 
 ```js
 // Correct pattern for existence check
@@ -169,25 +169,25 @@ const existing = document.getElementById("inventoryRecoveryBanner");
 if (existing) return; // already mounted; do not re-insert
 ```
 
-**Recovery-state guard for empty-state UI:** Any new inventory view that renders an empty-state placeholder must check `isInventoryRecoveryActive()` before showing mutation actions (Add Item button, etc.). When the recovery banner is up, the placeholder must defer to the banner — otherwise a single click on Add Item silently clears `inventoryRecoveryActive` and defeats the recovery hold before the user can read the warning. Reference: `js/inventory-table.js:656-658` (table view) and `js/card-view.js:776-782` (card view) — both check the flag and skip the empty-state row when true.
+**Recovery-state guard for empty-state UI:** Any new inventory view that renders an empty-state placeholder must check `isInventoryRecoveryActive()` before showing mutation actions (Add Item button, etc.). When the recovery banner is up, the placeholder must defer to the banner: otherwise a single click on Add Item silently clears `inventoryRecoveryActive` and defeats the recovery hold before the user can read the warning. Reference: `js/inventory-table.js:656-658` (table view) and `js/card-view.js:776-782` (card view): both check the flag and skip the empty-state row when true.
 
-**Exception — `about.js` early-init:** `about.js` loads before `init.js`, so `safeGetElement` does not exist at top-level execution time. Early-init functions (ack modal: `showAckModal`, `hideAckModal`, `setupAckModalEvents`) must use raw `document.getElementById()` + `if` guard. Late-call functions in `about.js` that only run after `init.js` completes (About tab, popup) may use `safeGetElement`.
+**Exception: `about.js` early-init:** `about.js` loads before `init.js`, so `safeGetElement` does not exist at top-level execution time. Early-init functions (ack modal: `showAckModal`, `hideAckModal`, `setupAckModalEvents`) must use raw `document.getElementById()` + `if` guard. Late-call functions in `about.js` that only run after `init.js` completes (About tab, popup) may use `safeGetElement`.
 
 **Lookup style reference:**
 
 | Context                                                                 | Style                              | Reason                                                               |
 | ----------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
-| All `.js` files (general)                                               | `safeGetElement()`                 | Default — prevents null crashes                                      |
+| All `.js` files (general)                                               | `safeGetElement()`                 | Default: prevents null crashes                                       |
 | DOM existence check                                                     | `document.getElementById()` + `if` | Needs real `null` when absent                                        |
 | `about.js` early-init functions                                         | `document.getElementById()` + `if` | `safeGetElement` not yet defined                                     |
 | `about.js` late-call functions                                          | `safeGetElement()`                 | `init.js` has run                                                    |
-| Established modules (`card-view.js`, `events.js`, `inventory.js`, etc.) | Mix — legacy direct calls exist    | New code in these files should use `safeGetElement()` for ID lookups |
+| Established modules (`card-view.js`, `events.js`, `inventory.js`, etc.) | Mix: legacy direct calls exist     | New code in these files should use `safeGetElement()` for ID lookups |
 
 ---
 
 ### Rule 2 — Always sanitize user content before setting inner HTML
 
-`sanitizeHtml(str)` is defined in `js/utils.js` at line 401. It HTML-encodes `&`, `<`, `>`, `"`, `'` — making any string safe for interpolation into an HTML template literal.
+`sanitizeHtml(str)` is defined in `js/utils.js` at line 401. It HTML-encodes `&`, `<`, `>`, `"`, `'`: making any string safe for interpolation into an HTML template literal.
 
 ```js
 // Signature (utils.js:401 — const sanitizeHtml)
@@ -202,18 +202,18 @@ const sanitizeHtml = (text) => {
 };
 ```
 
-**Use `sanitizeHtml` for:** any string that originated from user input — item names, notes, imported CSV fields, catalog lookups, custom labels.
+**Use `sanitizeHtml` for:** any string that originated from user input: item names, notes, imported CSV fields, catalog lookups, custom labels.
 
 **Do NOT use `sanitizeHtml` for:** developer-written static HTML strings. Wrapping a static template literal double-encodes it and produces visible `&lt;span&gt;` garbage in the UI.
 
-Correct pattern — user content:
+Correct pattern: user content:
 
 ```js
 // Always pass user-supplied text through sanitizeHtml before innerHTML assignment
 row.innerHTML = `<td>${sanitizeHtml(item.name)}</td>`;
 ```
 
-Correct pattern — static developer markup:
+Correct pattern: static developer markup:
 
 ```js
 // Static markup written by the developer needs no sanitizing
@@ -237,7 +237,7 @@ const escapeHtml = (str) =>
 
 ### Rule 3 — Use `safeAttachListener` for optional elements
 
-`safeAttachListener(element, event, handler, description?)` is defined in `js/events.js`. It skips silently when `element` is falsy — no crashes on optional UI elements.
+`safeAttachListener(element, event, handler, description?)` is defined in `js/events.js`. It skips silently when `element` is falsy: no crashes on optional UI elements.
 
 ```js
 // For truly optional elements: one-liner guard
@@ -252,13 +252,13 @@ For compact in-form mode switches, prefer the existing `.chip-sort-toggle` conta
 
 Reference: the Add/Edit Item modal Purchase Price Lot/Each control uses this pattern, and `item.price` stays per-unit stored data.
 
-**N-chip quantity variant:** When a chip group represents a 1..N quantity range (not a binary toggle), use `.chip-sort-toggle--quantity` modifier. Thresholds: `DISPOSE_QTY_CHIP_MAX = 8` — render chips when N ≤ 8, fall back to a native `<select>` for larger ranges. Chips use roving tabindex (ArrowLeft/Right/Up/Down, Home, End) with `aria-pressed` and `aria-disabled` for the qty=1 pre-selected state. Write values through a hidden `<input>` via `writeDisposeQty(n)` which dispatches a bubbling `input` event to preserve downstream handler wiring. Reference: `js/inventory.js` — `renderDisposeQtyChips` / `renderDisposeQtySelect`.
+**N-chip quantity variant:** When a chip group represents a 1..N quantity range (not a binary toggle), use `.chip-sort-toggle--quantity` modifier. Thresholds: `DISPOSE_QTY_CHIP_MAX = 8`: render chips when N ≤ 8, fall back to a native `<select>` for larger ranges. Chips use roving tabindex (ArrowLeft/Right/Up/Down, Home, End) with `aria-pressed` and `aria-disabled` for the qty=1 pre-selected state. Write values through a hidden `<input>` via `writeDisposeQty(n)` which dispatches a bubbling `input` event to preserve downstream handler wiring. Reference: `js/inventory.js`: `renderDisposeQtyChips` / `renderDisposeQtySelect`.
 
 ---
 
 ### Security — innerHTML policy
 
-All innerHTML assignments that interpolate user-supplied values must sanitize the value first via `sanitizeHtml`. The `// nosemgrep: no-direct-inner-html` annotation exists only to suppress static analysis false positives on assignments that have already been sanitized — do not add it as a bypass.
+All innerHTML assignments that interpolate user-supplied values must sanitize the value first via `sanitizeHtml`. The `// nosemgrep: no-direct-inner-html` annotation exists only to suppress static analysis false positives on assignments that have already been sanitized: do not add it as a bypass.
 
 ---
 
@@ -270,8 +270,8 @@ All reads and writes of structured JSON app data must go through the wrapper fun
 
 | Wrapper                           | Async | Re-throws on error     | Use when                         |
 | --------------------------------- | ----- | ---------------------- | -------------------------------- |
-| `saveData(key, data)`             | Yes   | No (logs only)         | Default — all new async code     |
-| `loadData(key, defaultValue)`     | Yes   | No (returns default)   | Default — all new async code     |
+| `saveData(key, data)`             | Yes   | No (logs only)         | Default: all new async code      |
+| `loadData(key, defaultValue)`     | Yes   | No (returns default)   | Default: all new async code      |
 | `saveDataSync(key, data)`         | No    | Yes                    | `beforeunload`, early-init paths |
 | `loadDataSync(key, defaultValue)` | No    | No (swallows silently) | Early-init, sync-only contexts   |
 
@@ -302,11 +302,11 @@ Registered keys with non-obvious roles:
 
 When `classifyBootState()` returns `damaged-key` or `parse-error`, `js/init.js` sets the `inventoryRecoveryActive` flag and `saveInventory()` early-returns until an explicit user action clears it. Auto-sync paths (cloud-sync poll/pull) also reach the same gated `saveInventory()`, so a corrupt `metalInventory` cannot be silently overwritten with `[]` from any code path.
 
-**When adding a new user-mutation entry point that calls `saveInventory()`** (new import format, new restore path, new direct-edit flow), call `clearInventoryRecovery()` first — otherwise the user's deliberate add/import will be suppressed by the recovery gate. Existing call sites: `js/events.js:1496` (addItem), `js/inventory-import.js:62/502/839/1342` (CSV/JSON/Numista paths), `js/vault.js:688` (cloud + .stvault restore).
+**When adding a new user-mutation entry point that calls `saveInventory()`** (new import format, new restore path, new direct-edit flow), call `clearInventoryRecovery()` first: otherwise the user's deliberate add/import will be suppressed by the recovery gate. Existing call sites: `js/events.js:1496` (addItem), `js/inventory-import.js:62/502/839/1342` (CSV/JSON/Numista paths), `js/vault.js:688` (cloud + .stvault restore).
 
 **Automatic (non-user) writers must go through `saveInventory()` and must NOT clear the gate.** Example: the identity back-fill in `loadInventory()`. When the load loop mints a missing `uuid` or `serial`, it persists once through `saveInventory()`, never `saveData(LS_KEY, …)`, and only when it minted something. An unconditional boot save would stamp `cloud_sync_local_modified` on every launch and break cloud sync push-vs-pull arbitration.
 
-**The gate is not armed during the boot-time `loadInventory()`.** `js/init.js` classifies boot state _before_ the load but calls `setInventoryRecoveryActive(true)` _after_ it. A write inside `loadInventory()` is therefore protected at boot only structurally: `damaged-key` means `metalInventory` is absent and `parse-error` means it is unparseable, so both load zero items. Any new load-time write must be conditional on items having actually loaded — do not rely on the flag there. The gate does cover the non-boot callers (multi-tab pull broadcast, snapshot / vault restore).
+**The gate is not armed during the boot-time `loadInventory()`.** `js/init.js` classifies boot state _before_ the load but calls `setInventoryRecoveryActive(true)` _after_ it. A write inside `loadInventory()` is therefore protected at boot only structurally: `damaged-key` means `metalInventory` is absent and `parse-error` means it is unparseable, so both load zero items. Any new load-time write must be conditional on items having actually loaded: do not rely on the flag there. The gate does cover the non-boot callers (multi-tab pull broadcast, snapshot / vault restore).
 
 ### How to add a new storage key
 
@@ -335,7 +335,7 @@ When `classifyBootState()` returns `damaged-key` or `parse-error`, `js/init.js` 
    const value = await loadData(MY_NEW_SETTING_KEY, "default");
    ```
 
-Never hardcode the key string in two files — define it once as a constant, reference the constant everywhere. Key name drift causes silent allowlist mismatches.
+Never hardcode the key string in two files: define it once as a constant, reference the constant everywhere. Key name drift causes silent allowlist mismatches.
 
 ### Cloud sync integration
 
@@ -345,11 +345,11 @@ Keys that should sync across devices must be in both `ALLOWED_STORAGE_KEYS` AND 
 if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 ```
 
-The `typeof` guard is required — `cloud-sync.js` may not be loaded in all environments.
+The `typeof` guard is required: `cloud-sync.js` may not be loaded in all environments.
 
 ### Compression internals
 
-Values longer than 4,096 characters are compressed with real lz-string (`compressToUTF16`, vendored at `vendor/lz-string.min.js`) on write and decompressed on read — transparent through the wrappers. Current writes use the **`CMP2:`** prefix; **`CMP1:`** is a legacy read-only prefix whose body is stored uncompressed. It is sliced, never decompressed, because lz-string returns garbage on bytes it did not compress. `__decompressIfNeeded` handles both. Bypassing the wrappers breaks decompression silently — a compressed value read via `localStorage.getItem()` returns a `CMP2:...` (or legacy `CMP1:...`) string, not usable JSON. Two safeguards: `__migrateCompressionV2` (one-time boot migration that re-encodes legacy `CMP1:` keys to `CMP2:`) and `__wouldClobberCompressed` (fail-closed write guard that refuses to overwrite a `CMP2:` key when no real engine is loaded).
+Values longer than 4,096 characters are compressed with real lz-string (`compressToUTF16`, vendored at `vendor/lz-string.min.js`) on write and decompressed on read: transparent through the wrappers. Current writes use the **`CMP2:`** prefix; **`CMP1:`** is a legacy read-only prefix whose body is stored uncompressed. It is sliced, never decompressed, because lz-string returns garbage on bytes it did not compress. `__decompressIfNeeded` handles both. Bypassing the wrappers breaks decompression silently: a compressed value read via `localStorage.getItem()` returns a `CMP2:...` (or legacy `CMP1:...`) string, not usable JSON. Two safeguards: `__migrateCompressionV2` (one-time boot migration that re-encodes legacy `CMP1:` keys to `CMP2:`) and `__wouldClobberCompressed` (fail-closed write guard that refuses to overwrite a `CMP2:` key when no real engine is loaded).
 
 ### Rule — Decompress before parsing raw `localStorage`
 
@@ -374,12 +374,12 @@ Without the decompress step, boot classification marks every large inventory as 
 
 ### Cloud-sync convergence: compare, merge and hash on logical content
 
-Every cloud-sync **compare**, **merge**, and **hash** must operate on **normalized logical content**, never raw serialization — and every **merge** must be **commutative / convergent on ties**. Violating either freezes two devices in a permanent "Review Sync Changes" loop that no resolution (Keep Local / Keep Remote / Ignore) ever clears.
+Every cloud-sync **compare**, **merge**, and **hash** must operate on **normalized logical content**, never raw serialization: and every **merge** must be **commutative / convergent on ties**. Violating either freezes two devices in a permanent "Review Sync Changes" loop that no resolution (Keep Local / Keep Remote / Ignore) ever clears.
 
 1. **Logical, not raw.** Decompress (`__decompressIfNeeded`) and canonicalize (sorted object keys, order-preserved arrays, scalar-as-JSON normalized to its logical value) before comparing or hashing. Identical logical content must compare/hash equal regardless of `CMP2:`-compressed-vs-plain, scalar-as-JSON-vs-raw, object key-order, or date-time serialization variant. `computeSettingsHash` and `computeInventoryHash` already do this; any new hash must too.
-2. **Commutative merge.** `merge(A, B)` must equal `merge(B, A)`, **including on a timestamp tie** — a last-write-wins no-op on a tie is non-commutative and is exactly what froze the live loop. Resolve ties by a deterministic union (see `_unionTags` / `_mergeTagData`), and bump the modification timestamp only when content actually changes, so the merge stays idempotent once both sides agree.
+2. **Commutative merge.** `merge(A, B)` must equal `merge(B, A)`, **including on a timestamp tie**: a last-write-wins no-op on a tie is non-commutative and is exactly what froze the live loop. Resolve ties by a deterministic union (see `_unionTags` / `_mergeTagData`), and bump the modification timestamp only when content actually changes, so the merge stays idempotent once both sides agree.
 
-The fixes are **self-healing**: diverged installs reconcile on the next sync with no user action. The only exception is data that cannot round-trip — `[object Object]` coercion corruption (an object written without `JSON.stringify`) — which a one-time idempotent boot-repair (`syncBootRepairCorruptSettings`) clears. Detect that corruption by an **exact** match of the whole value against the artifact, **never** a substring: free-text scope keys (`itemTags`, `tagBlacklist`, `chipCustomGroups`) can legitimately hold a user value named `[object Object]` inside valid JSON, and a substring match would wipe the entire store.
+The fixes are **self-healing**: diverged installs reconcile on the next sync with no user action. The only exception is data that cannot round-trip (`[object Object]` coercion corruption (an object written without `JSON.stringify`)) which a one-time idempotent boot-repair (`syncBootRepairCorruptSettings`) clears. Detect that corruption by an **exact** match of the whole value against the artifact, **never** a substring: free-text scope keys (`itemTags`, `tagBlacklist`, `chipCustomGroups`) can legitimately hold a user value named `[object Object]` inside valid JSON, and a substring match would wipe the entire store.
 
 When adding a `SYNC_SCOPE_KEYS` entry: object/array configs must always be `JSON.stringify`-written (never let an object reach `localStorage.setItem` un-stringified); a per-item map merged across devices needs a commutative tie-union (not raw LWW); a date-time field compared in the item diff must be added to `INSTANT_FIELDS` in `js/diff-engine.js`. The full per-surface matrix and the commutativity / logical-equality tests live in `.context/cloud-sync-convergence.md` and `tests/unit/cloud-sync-*.test.js`.
 
@@ -397,24 +397,24 @@ Add a one-time migration flag (prefix: `migration_`) and keep `oldKeyName` in `A
 
 ### IndexedDB-backed stores: the singleton class pattern
 
-When a dataset outgrows the localStorage ceiling (~5 MB), back it with IndexedDB instead. There are three such stores — `imageCache` (`js/image-cache.js`), `attachmentManager` (`js/attachment-manager.js`), and `historyStore` (`js/history-store.js`) — and a new one **must mirror this pattern**:
+When a dataset outgrows the localStorage ceiling (~5 MB), back it with IndexedDB instead. There are three such stores (`imageCache` (`js/image-cache.js`), `attachmentManager` (`js/attachment-manager.js`), and `historyStore` (`js/history-store.js`)) and a new one **must mirror this pattern**:
 
-- A plain class file exposing a `window.<name>` singleton tail (`const x = new X(); window.x = x;`) — no ES modules.
+- A plain class file exposing a `window.<name>` singleton tail (`const x = new X(); window.x = x;`): no ES modules.
 - The shared lifecycle: `_ensureDb()` stale-reconnect probe, `_initQuota()` non-blocking quota estimate via `navigator.storage.estimate()`, an `onclose` recovery handler, `async init() → boolean`, and a synchronous `isAvailable()` gate.
-- Quota-safe writes: the `put`/write path **catches** `QuotaExceededError` / `NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR` and returns `false` — it never throws.
+- Quota-safe writes: the `put`/write path **catches** `QuotaExceededError` / `NS_ERROR_DOM_INDEXEDDB_QUOTA_ERR` and returns `false`: it never throws.
 - Loaded via `<script defer>` in dependency order (after its `_ensureDb` peers, before its consumers) **and** added to `sw.js` `CORE_ASSETS`.
 - An IndexedDB store is **not** a localStorage key, so it is **not** in `ALLOWED_STORAGE_KEYS` (matching `imageCache` / `attachmentManager`).
 
-`historyStore` owns the `StakTrakrHistory` DB (single `histories` object store keyed by logical name; see architecture#IndexedDB Stores). It holds spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history as uncompressed JSON blobs. Its `migrate()` runs a one-time, idempotent localStorage→IDB migration (flag `migration_idb_history_v1`) that decompresses Phase-1 `CMP2:` payloads and deletes the legacy localStorage copies **only after** a confirmed IDB write — never destroy the source before the destination is durable.
+`historyStore` owns the `StakTrakrHistory` DB (single `histories` object store keyed by logical name; see architecture#IndexedDB Stores). It holds spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history as uncompressed JSON blobs. Its `migrate()` runs a one-time, idempotent localStorage→IDB migration (flag `migration_idb_history_v1`) that decompresses Phase-1 `CMP2:` payloads and deletes the legacy localStorage copies **only after** a confirmed IDB write: never destroy the source before the destination is durable.
 
 ### Boot-hydration-before-render — keep render reads synchronous
 
 The render/chart paths must stay **synchronous**. The rule: an in-memory global (`spotHistory` array, `retailPriceHistory` object) is the runtime source of truth that all readers consult; storage is async at exactly two well-defined moments, never in the render path.
 
 1. **Boot hydration (awaited):** `js/init.js` awaits `historyStore.init()` → `migrate()` → `loadSpotHistory()` → retail load **before** the first render (slots in after `attachmentManager.init()`). This is why charts never flash blank-then-populate.
-2. **Persistence (sync facade + fire-and-forget put):** a save updates the in-memory global **synchronously first**, then schedules the IDB write without awaiting it (`void historyStore.put(...)`). Sync callers need no `await` — the global they and the renderers read is already current; the IDB write completes in the background and falls back to `saveDataSync` on failure.
+2. **Persistence (sync facade + fire-and-forget put):** a save updates the in-memory global **synchronously first**, then schedules the IDB write without awaiting it (`void historyStore.put(...)`). Sync callers need no `await`: the global they and the renderers read is already current; the IDB write completes in the background and falls back to `saveDataSync` on failure.
 
-This bounds the sync→async blast radius to the boot sequence and the save/load wrappers — the dozens of synchronous readers are untouched. When wiring a new IDB-backed history, follow the same seam: hydrate in the awaited boot block, expose a sync save facade. Parse-time boot work that depends on the store (e.g. `migrateHourlySource`) must be **moved into the awaited boot sequence**, not left at script-parse time where the store isn't ready yet.
+This bounds the sync→async blast radius to the boot sequence and the save/load wrappers: the dozens of synchronous readers are untouched. When wiring a new IDB-backed history, follow the same seam: hydrate in the awaited boot block, expose a sync save facade. Parse-time boot work that depends on the store (e.g. `migrateHourlySource`) must be **moved into the awaited boot sequence**, not left at script-parse time where the store isn't ready yet.
 
 ---
 
@@ -451,7 +451,7 @@ When adding a new JS file: update **both** `index.html` (script tag) and `CORE_A
 
 Keep `CORE_ASSETS` entries in the same order as `<script>` tags in `index.html` for auditability.
 
-**Intentional exclusion:** `js/test-loader.js` is never added to `CORE_ASSETS` — it is a dev-only test harness.
+**Intentional exclusion:** `js/test-loader.js` is never added to `CORE_ASSETS`: it is a dev-only test harness.
 
 ### Cache strategies
 
@@ -470,7 +470,7 @@ Keep `CORE_ASSETS` entries in the same order as `<script>` tags in `index.html` 
 
 `sw.js` delegates endpoint classification to `sw-router.js` (loaded via `importScripts`). For every request to `api.staktrakr.com`, `api2.staktrakr.com`, or the local `/data/spot-history-*` paths, `classifyEndpoint(url, selfOrigin)` returns a family descriptor `{ family, floor, hasEnvelope }` or `null` (falls through to stale-while-revalidate).
 
-**FAMILY_TABLE** — first match wins, iterated in order:
+**FAMILY_TABLE**: first match wins, iterated in order:
 
 | Family                 | Path pattern                                                                   | `floor` (TTL)   | `hasEnvelope` |
 | ---------------------- | ------------------------------------------------------------------------------ | --------------- | ------------- |
@@ -548,7 +548,7 @@ StakTrakr has no bundler. Script tags in `index.html` define execution order, an
 
 ### Version format
 
-`BRANCH.RELEASE.PATCH` — defined as `APP_VERSION` in `js/constants.js`.
+`BRANCH.RELEASE.PATCH`: defined as `APP_VERSION` in `js/constants.js`.
 
 ```text
 3.33.87
@@ -564,7 +564,7 @@ Current version is always authoritative in `js/constants.js`. Check `devops/vers
 | #   | File                       | What changes                       | How                                         |
 | --- | -------------------------- | ---------------------------------- | ------------------------------------------- |
 | 1   | `js/constants.js`          | `APP_VERSION` string               | Manual                                      |
-| 2   | `sw.js`                    | `CACHE_NAME`                       | Auto — pre-commit hook                      |
+| 2   | `sw.js`                    | `CACHE_NAME`                       | Auto: pre-commit hook                       |
 | 3   | `CHANGELOG.md`             | New version section                | Manual                                      |
 | 4   | `js/about.js`              | `getEmbeddedWhatsNew()`            | Manual                                      |
 | 5   | `version.json`             | `version` + `releaseDate`          | Manual                                      |
@@ -578,7 +578,7 @@ Current version is always authoritative in `js/constants.js`. Check `devops/vers
 
 ### Version lock (`devops/version.lock`)
 
-The lock prevents two concurrent agents from claiming the same version number. It is gitignored — edit directly, never commit.
+The lock prevents two concurrent agents from claiming the same version number. It is gitignored: edit directly, never commit.
 
 ```json
 {
@@ -628,7 +628,7 @@ v3.36.59 — STRK-451: Make retail vendor colors theme-aware
 
 After PR merges to `dev`: tag the merge commit, push the tag, remove the worktree, delete the branch, release the version lock claim.
 
-After `dev → main` merge: create the GitHub Release immediately (`gh release create`) — without it, `version.json`'s `releaseUrl` resolves to a stale release.
+After `dev → main` merge: create the GitHub Release immediately (`gh release create`): without it, `version.json`'s `releaseUrl` resolves to a stale release.
 
 ### `/release patch` gate — hard gate, no exceptions
 
@@ -646,7 +646,7 @@ A worktree created from a stale HEAD silently drops remote commits.
 
 ## Testing
 
-StakTrakr uses a four-tier test architecture. Each tier has a budget, a purpose, and a maintenance policy. **The default PR gate is `npm run test:core` — not the full suite.** See .context/deep-dives/playwright-suite-rationalization.md for the full rationale.
+StakTrakr uses a four-tier test architecture. Each tier has a budget, a purpose, and a maintenance policy. **The default PR gate is `npm run test:core`: not the full suite.** See .context/deep-dives/playwright-suite-rationalization.md for the full rationale.
 
 ### Tier model
 
@@ -664,7 +664,7 @@ StakTrakr uses a four-tier test architecture. Each tier has a budget, a purpose,
 Before writing a new test, follow this decision tree:
 
 1. **Does this need a browser?** If no → `tests/unit/` only.
-2. **Is there an existing domain suite for this behavior?** (`inventory-crud`, `inventory-math`, `disposition`, `valuation`, `settings`, `numista-catalog`, `retail-market`, `attachments-cloud`, `mobile-and-layout`) — if yes → add cases there.
+2. **Is there an existing domain suite for this behavior?** (`inventory-crud`, `inventory-math`, `disposition`, `valuation`, `settings`, `numista-catalog`, `retail-market`, `attachments-cloud`, `mobile-and-layout`): if yes → add cases there.
 3. **Is the behavior a genuinely new product domain?** Only then → new spec file in `core/` or `extended/`.
 
 **Forbidden:** creating an issue-prefixed spec file (`strk-NNN-*.spec.js`) for a feature that fits an existing domain suite. Temporary AC-matrix files during implementation are allowed but **must be reconciled into a domain suite before the PR merges**.
@@ -681,7 +681,7 @@ All Playwright specs must hit zero external hosts. The shared mock layer lives a
 
 | File               | What it provides                                                                   |
 | ------------------ | ---------------------------------------------------------------------------------- |
-| `extended-test.js` | Re-exported `{ test, expect }` — import this, **not** `@playwright/test`           |
+| `extended-test.js` | Re-exported `{ test, expect }`: import this, **not** `@playwright/test`            |
 | `routes.js`        | `installStakTrakrNetworkMocks(page, options)` for `browser.newPage()` suites       |
 | `fixtures.js`      | Canonical v2 envelope response shapes (manifest, spot, retail, goldback, exchange) |
 | `audit.js`         | Deny-list catch-all that fails any test leaking external requests                  |
@@ -764,7 +764,7 @@ Module-scope functions are not accessible via `page.evaluate()`. Expose them in 
 window.myInternalFn = myInternalFn;
 ```
 
-For `let`-declared state variables that tests need via `window.X`, follow `state.js`'s `Object.defineProperty` getter/setter pattern — `let` variables are not on `window` by default. Reference: `inventory` and `changeLog` in `js/state.js`.
+For `let`-declared state variables that tests need via `window.X`, follow `state.js`'s `Object.defineProperty` getter/setter pattern: `let` variables are not on `window` by default. Reference: `inventory` and `changeLog` in `js/state.js`.
 
 ### Injecting state via localStorage
 
@@ -788,7 +788,7 @@ Reference: `_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSl
 
 ### Browserbase — live-site flows
 
-For end-to-end flows against the live site, use Browserbase. API keys for third-party providers (Numista, PCGS, etc.) must be fetched from Infisical before running — never skip a test because "no API key is configured"; check Infisical first.
+For end-to-end flows against the live site, use Browserbase. API keys for third-party providers (Numista, PCGS, etc.) must be fetched from Infisical before running: never skip a test because "no API key is configured"; check Infisical first.
 
 ---
 
@@ -852,7 +852,7 @@ const price = parseFloat(item.price) || 0;
 const weight = item.weight || 1;
 ```
 
-**Never** swallow errors silently — `catch (e) {}` with no logging or fallback is always wrong.
+**Never** swallow errors silently: `catch (e) {}` with no logging or fallback is always wrong.
 
 ---
 
@@ -883,7 +883,7 @@ API errors must be:
 
 1. **Logged** with provider name and context
 2. **Recovered** via fallback provider or cached data
-3. **Never silent** — if all providers fail, notify the user
+3. **Never silent**: if all providers fail, notify the user
 
 ### Async style
 
@@ -908,10 +908,10 @@ fetch(url)
 
 ### Chart.js
 
-- **Destroy before reuse**: call `.destroy()` on an existing chart instance before creating a new one on the same canvas — failing to destroy causes memory leaks and ghost overlays
+- **Destroy before reuse**: call `.destroy()` on an existing chart instance before creating a new one on the same canvas: failing to destroy causes memory leaks and ghost overlays
 - **Disable animations** on programmatic updates (when the user didn't trigger the render)
 - **Store instances** in the `chartInstances` or `sparklineInstances` objects in `state.js`
-- **`getThemeColorRGB(token)`** — always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves those to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`) — **but `#hex` and `rgb()` inputs pass through unchanged** (slate defines its metal accents as hex). Fine for any Chart.js color field; **never scrape channels out of the result with a digit regex** — parse rgb() AND hex properly (reference: `_dmRgbTriple` in `js/detailsModal.js`). A digit regex misreads the slate theme's hex accents.
+- **`getThemeColorRGB(token)`**: always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves those to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`): **but `#hex` and `rgb()` inputs pass through unchanged** (slate defines its metal accents as hex). Fine for any Chart.js color field; **never scrape channels out of the result with a digit regex**: parse rgb() AND hex properly (reference: `_dmRgbTriple` in `js/detailsModal.js`). A digit regex misreads the slate theme's hex accents.
 
 ```js
 const prev = Chart.getChart(canvas);
@@ -928,19 +928,19 @@ historical CSS class names remain, but current modal behavior uses `openModalByI
 
 ### PapaParse (CSV)
 
-- **Always check `results.errors`** after parsing — PapaParse can return partial data with errors
+- **Always check `results.errors`** after parsing: PapaParse can return partial data with errors
 - **Use `skipEmptyLines: 'greedy'`** to handle trailing newlines and whitespace-only rows
 - **Two-tier validation**: PapaParse structural errors first, then business logic validation on each row
 
 ### jsPDF + AutoTable
 
-- **Use AutoTable for all tabular exports** — never manually position text for table layouts
-- **Optimize images before embedding** — large base64 images bloat PDF size
+- **Use AutoTable for all tabular exports**: never manually position text for table layouts
+- **Optimize images before embedding**: large base64 images bloat PDF size
 - **Set page orientation** based on column count (portrait for narrow tables, landscape for wide)
 
 ### JSZip
 
-- **`generateAsync({type: "blob"})`** for browser downloads — never use synchronous generation
+- **`generateAsync({type: "blob"})`** for browser downloads: never use synchronous generation
 - **Use `file()` method** for adding entries, not direct property assignment
 
 ---
@@ -1036,7 +1036,7 @@ Related settings wrap in a `.settings-fieldset` card with a `.settings-fieldset-
 
 ### Modal structure
 
-Standard modal pattern — glass-morphism shell with gradient top accent:
+Standard modal pattern: glass-morphism shell with gradient top accent:
 
 ```html
 <div class="modal" id="myModal">
@@ -1080,45 +1080,45 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 
 ## Common Mistakes Quick Reference
 
-| Mistake                                                     | Consequence                                                                                                                  | Fix                                                                                                                    |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `document.getElementById()` in app code                     | Crashes on `null.textContent`                                                                                                | Use `safeGetElement()`                                                                                                 |
-| `safeGetElement()` for existence check                      | Dummy is truthy — toggle logic breaks                                                                                        | Use `document.getElementById()` + `if`                                                                                 |
-| `safeGetElement()` in `about.js` early-init                 | `ReferenceError` — not yet defined                                                                                           | Use `document.getElementById()` + `if`                                                                                 |
-| Unsanitized user content in innerHTML assignment            | XSS via crafted item name                                                                                                    | Wrap user strings in `sanitizeHtml()` first                                                                            |
-| `sanitizeHtml()` on static developer HTML                   | Double-encodes intentional markup                                                                                            | Do not sanitize static strings                                                                                         |
-| `localStorage.setItem()` for JSON data                      | Bypasses compression                                                                                                         | Use `saveData` / `saveDataSync`                                                                                        |
-| `localStorage.getItem()` on compressed key                  | Returns corrupt `CMP2:...` string                                                                                            | Use `loadData` / `loadDataSync`                                                                                        |
-| New key not in `ALLOWED_STORAGE_KEYS`                       | Survives locally but refused by sync/import (since 3.36.35)                                                                  | Add to allowlist if it must sync or restore (skip for device-local keys)                                               |
-| `loadData(key)` without explicit default for non-array      | Returns `[]` instead of correct type                                                                                         | Always pass explicit `defaultValue`                                                                                    |
-| Editing `CACHE_NAME` manually                               | Pre-commit hook overwrites it                                                                                                | Do not touch — hook owns this line                                                                                     |
-| New JS file in `index.html` but not `CORE_ASSETS`           | Missing offline; stale-serve bug                                                                                             | Add to both, in matching order                                                                                         |
-| Editing code in main `dev` directory                        | Bypasses worktree isolation                                                                                                  | Always work inside `.worktrees/patch-VERSION/`                                                                         |
-| Skipping remote sync gate before `/release patch`           | Stale worktree base; drops remote commits                                                                                    | `git pull origin dev` first                                                                                            |
-| `dev → main` PR without explicit user request               | Ships unreviewed code                                                                                                        | Only via `/ship`, on explicit "ready to ship"                                                                          |
-| Missing GitHub Release post-merge                           | `version.json` `releaseUrl` resolves to stale release                                                                        | `gh release create` immediately after merge                                                                            |
-| `getThemeColor()` for Chart.js datasets                     | Chart.js cannot parse oklch or `color-mix()` strings — renders invisible/black                                               | Use `getThemeColorRGB(token)` which resolves to `rgb(...)` via a 1x1 canvas bridge (`resolveColor()`)                  |
-| `structuredClone` without regenerating `uuid` + `serial`    | Clone shares identity with original — diff/sync engine produces duplicate-key errors; Activity Log undo targets wrong record | After clone: `clone.uuid = generateUUID(); clone.serial = getNextSerial();` — both fields are mandatory                |
-| Async confirm handler without in-flight guard               | Double-click fires handler twice — inventory mutates twice, Activity Log gets duplicate entries                              | Wrap with `let _inFlight = false` + `try/finally` reset; for shared resources use `new Set()` keyed by `transactionId` |
-| `var x = ...`                                               | Leaks scope, hoists unpredictably                                                                                            | `const x = ...` or `let x = ...`                                                                                       |
-| `==` or `!=` (non-null checks)                              | Type coercion produces surprising results                                                                                    | `===` / `!==` everywhere; use `== null` only for nullish checks                                                        |
-| `.then().catch()` chains                                    | Hard to read; error handling gaps                                                                                            | `async/await` with `try/catch`                                                                                         |
-| `element.className = "..."`                                 | Overwrites all existing classes                                                                                              | `element.classList.add/remove/toggle()`                                                                                |
-| Any `bootstrap.*` JavaScript API or `data-bs-*` attribute   | No `bootstrap` global is loaded — the call throws or the attribute silently does nothing                                     | Use `openModalById()` / `closeModalById()` / `.modal-close`                                                            |
-| Nested ternaries (3+ levels)                                | Unreadable, error-prone                                                                                                      | `if/else` or extract a named helper                                                                                    |
-| Magic numbers in logic                                      | Context-free, breaks on next change                                                                                          | Named constant in `constants.js`                                                                                       |
-| `catch (e) {}` with no logging                              | Silent failure, impossible to debug                                                                                          | Log with `[module]` prefix + apply fallback                                                                            |
-| DOM query inside a loop                                     | Repeated layout thrash                                                                                                       | Cache element reference before the loop                                                                                |
-| Hardcoded localStorage key string                           | Key drift → allowlist mismatch → data loss                                                                                   | Named constant from `constants.js`                                                                                     |
-| `{}` literal as a runtime-string-keyed lookup map           | `map["constructor"]` is truthy — `if (!map[k])` skips the write, later reads return a `Function`, arithmetic yields `NaN`    | `Object.create(null)`, or `Object.assign(Object.create(null), raw)` when rehydrating                                   |
-| Runtime fallback (`\|\| []`) to guard an internal invariant | Converts a loud desync into a silent wrong answer — the broken invariant then passes the whole suite                         | Pin the invariant with a test; validate only _caller-supplied_ input, at the boundary                                  |
+| Mistake                                                     | Consequence                                                                                                                 | Fix                                                                                                                    |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `document.getElementById()` in app code                     | Crashes on `null.textContent`                                                                                               | Use `safeGetElement()`                                                                                                 |
+| `safeGetElement()` for existence check                      | Dummy is truthy: toggle logic breaks                                                                                        | Use `document.getElementById()` + `if`                                                                                 |
+| `safeGetElement()` in `about.js` early-init                 | `ReferenceError`: not yet defined                                                                                           | Use `document.getElementById()` + `if`                                                                                 |
+| Unsanitized user content in innerHTML assignment            | XSS via crafted item name                                                                                                   | Wrap user strings in `sanitizeHtml()` first                                                                            |
+| `sanitizeHtml()` on static developer HTML                   | Double-encodes intentional markup                                                                                           | Do not sanitize static strings                                                                                         |
+| `localStorage.setItem()` for JSON data                      | Bypasses compression                                                                                                        | Use `saveData` / `saveDataSync`                                                                                        |
+| `localStorage.getItem()` on compressed key                  | Returns corrupt `CMP2:...` string                                                                                           | Use `loadData` / `loadDataSync`                                                                                        |
+| New key not in `ALLOWED_STORAGE_KEYS`                       | Survives locally but refused by sync/import (since 3.36.35)                                                                 | Add to allowlist if it must sync or restore (skip for device-local keys)                                               |
+| `loadData(key)` without explicit default for non-array      | Returns `[]` instead of correct type                                                                                        | Always pass explicit `defaultValue`                                                                                    |
+| Editing `CACHE_NAME` manually                               | Pre-commit hook overwrites it                                                                                               | Do not touch: hook owns this line                                                                                      |
+| New JS file in `index.html` but not `CORE_ASSETS`           | Missing offline; stale-serve bug                                                                                            | Add to both, in matching order                                                                                         |
+| Editing code in main `dev` directory                        | Bypasses worktree isolation                                                                                                 | Always work inside `.worktrees/patch-VERSION/`                                                                         |
+| Skipping remote sync gate before `/release patch`           | Stale worktree base; drops remote commits                                                                                   | `git pull origin dev` first                                                                                            |
+| `dev → main` PR without explicit user request               | Ships unreviewed code                                                                                                       | Only via `/ship`, on explicit "ready to ship"                                                                          |
+| Missing GitHub Release post-merge                           | `version.json` `releaseUrl` resolves to stale release                                                                       | `gh release create` immediately after merge                                                                            |
+| `getThemeColor()` for Chart.js datasets                     | Chart.js cannot parse oklch or `color-mix()` strings: renders invisible/black                                               | Use `getThemeColorRGB(token)` which resolves to `rgb(...)` via a 1x1 canvas bridge (`resolveColor()`)                  |
+| `structuredClone` without regenerating `uuid` + `serial`    | Clone shares identity with original: diff/sync engine produces duplicate-key errors; Activity Log undo targets wrong record | After clone: `clone.uuid = generateUUID(); clone.serial = getNextSerial();`: both fields are mandatory                 |
+| Async confirm handler without in-flight guard               | Double-click fires handler twice: inventory mutates twice, Activity Log gets duplicate entries                              | Wrap with `let _inFlight = false` + `try/finally` reset; for shared resources use `new Set()` keyed by `transactionId` |
+| `var x = ...`                                               | Leaks scope, hoists unpredictably                                                                                           | `const x = ...` or `let x = ...`                                                                                       |
+| `==` or `!=` (non-null checks)                              | Type coercion produces surprising results                                                                                   | `===` / `!==` everywhere; use `== null` only for nullish checks                                                        |
+| `.then().catch()` chains                                    | Hard to read; error handling gaps                                                                                           | `async/await` with `try/catch`                                                                                         |
+| `element.className = "..."`                                 | Overwrites all existing classes                                                                                             | `element.classList.add/remove/toggle()`                                                                                |
+| Any `bootstrap.*` JavaScript API or `data-bs-*` attribute   | No `bootstrap` global is loaded: the call throws or the attribute silently does nothing                                     | Use `openModalById()` / `closeModalById()` / `.modal-close`                                                            |
+| Nested ternaries (3+ levels)                                | Unreadable, error-prone                                                                                                     | `if/else` or extract a named helper                                                                                    |
+| Magic numbers in logic                                      | Context-free, breaks on next change                                                                                         | Named constant in `constants.js`                                                                                       |
+| `catch (e) {}` with no logging                              | Silent failure, impossible to debug                                                                                         | Log with `[module]` prefix + apply fallback                                                                            |
+| DOM query inside a loop                                     | Repeated layout thrash                                                                                                      | Cache element reference before the loop                                                                                |
+| Hardcoded localStorage key string                           | Key drift → allowlist mismatch → data loss                                                                                  | Named constant from `constants.js`                                                                                     |
+| `{}` literal as a runtime-string-keyed lookup map           | `map["constructor"]` is truthy: `if (!map[k])` skips the write, later reads return a `Function`, arithmetic yields `NaN`    | `Object.create(null)`, or `Object.assign(Object.create(null), raw)` when rehydrating                                   |
+| Runtime fallback (`\|\| []`) to guard an internal invariant | Converts a loud desync into a silent wrong answer: the broken invariant then passes the whole suite                         | Pin the invariant with a test; validate only _caller-supplied_ input, at the boundary                                  |
 
 ---
 
 ## Related
 
-- .context/deep-dives/dom-patterns.md— full API reference with all edge cases
-- Storage Patterns (deprecated DocVault page) — full key registry and migration patterns
-- Service Worker (deprecated DocVault page) — CORE_ASSETS list, cache strategy table, hook internals
-- Release Workflow (deprecated DocVault page) — full `/release patch` and `/ship` procedures
-- Frontend Overview (deprecated DocVault page) — overall JS architecture and file load order
+- .context/deep-dives/dom-patterns.md: full API reference with all edge cases
+- Storage Patterns (deprecated DocVault page): full key registry and migration patterns
+- Service Worker (deprecated DocVault page): CORE_ASSETS list, cache strategy table, hook internals
+- Release Workflow (deprecated DocVault page): full `/release patch` and `/ship` procedures
+- Frontend Overview (deprecated DocVault page): overall JS architecture and file load order

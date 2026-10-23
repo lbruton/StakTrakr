@@ -19,8 +19,8 @@ Design system and brand identity reference for StakTrakr. Source of truth for al
 
 `STAKTRAKR` rendered in two-tone split:
 
-- **STAK** — `#e2e8f0` (near-white)
-- **TRAKR** — `#d4a017` (deep gold brand accent)
+- **STAK**: `#e2e8f0` (near-white)
+- **TRAKR**: `#d4a017` (deep gold brand accent)
 - Weight: 700 bold in header contexts; 300 light on the About page
 - Letter-spacing: 3–4px
 - Body/prose references use Title Case: `StakTrakr`
@@ -42,7 +42,7 @@ Brand assets live at `/Users/lbruton/CoWork/StakTrakr-Branding/final/`.
 
 - **Primary:** "Track Your Stack"
 - **Descriptive:** "Precious Metals Portfolio Tracker"
-- **Tone:** Casual, community-driven — not corporate fintech
+- **Tone:** Casual, community-driven: not corporate fintech
 
 ---
 
@@ -63,7 +63,7 @@ All new components must be authored against the dark theme first.
 
 ## Color System
 
-**Rule:** Always use CSS custom properties (`var(--token)`) over hardcoded hex values. Hardcoded values still exist in `.btn.filters` and retail badge/trend styles — these are tech debt, not patterns to follow.
+**Rule:** Always use CSS custom properties (`var(--token)`) over hardcoded hex values. Hardcoded values still exist in `.btn.filters` and retail badge/trend styles: these are tech debt, not patterns to follow.
 
 > **Note:** The dark, light, and sepia themes now use oklch tokens (not hex). The hex values in the tables below are the Slate theme's Tailwind Slate palette — they remain accurate for the `[data-theme="slate"]` theme and serve as a reference for the token names and semantic roles used across all themes.
 
@@ -125,7 +125,7 @@ These do not shift across themes.
 
 ### Vendor Chart Colors
 
-Each vendor keeps a stable hue identity across market tables, labels, and chart contexts. Each theme uses a shade tuned for at least 4.5:1 text contrast on rendered vendor-label surfaces. Never remap a vendor to a different hue association — users develop visual associations. The per-theme values are `--vendor-*` tokens in `css/styles.css`.
+Each vendor keeps a stable hue identity across market tables, labels, and chart contexts. Each theme uses a shade tuned for at least 4.5:1 text contrast on rendered vendor-label surfaces. Never remap a vendor to a different hue association: users develop visual associations. The per-theme values are `--vendor-*` tokens in `css/styles.css`.
 
 | Vendor       | Light / sepia | Dark / slate | Hue       |
 | ------------ | ------------- | ------------ | --------- |
@@ -147,7 +147,7 @@ The dark and slate shades preserve the palette brightened in v3.33.06 for contra
 
 ## Typography
 
-Three self-hosted faces (STRK-24 / PR #1065 replaced the original Inter / system-ui stack). Declared via `@font-face` at the top of `css/styles.css` with `font-display: swap`; the `.woff2` files live in `fonts/` alongside their `LICENSE`. Self-hosting keeps typography intact on `file://` and offline — no CDN requests. All sizes in `rem`; monospace for prices and data.
+Three self-hosted faces (STRK-24 / PR #1065 replaced the original Inter / system-ui stack). Declared via `@font-face` at the top of `css/styles.css` with `font-display: swap`; the `.woff2` files live in `fonts/` alongside their `LICENSE`. Self-hosting keeps typography intact on `file://` and offline: no CDN requests. All sizes in `rem`; monospace for prices and data.
 
 ### Font Family Tokens
 
@@ -158,12 +158,12 @@ Three self-hosted faces (STRK-24 / PR #1065 replaced the original Inter / system
 | `--font-mono`    | Geist Mono       | `fonts/geist-mono-variable.woff2`      | 100–900 (variable) | `ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace`      |
 
 - `--font-body` is the global default, set once on `html` (line-height 1.6).
-- `--font-heading` is reserved for `h1`, `h2`, and `.section-title`. Headings render at weight 400 — Instrument Serif ships regular only, so never fake bold on it.
+- `--font-heading` is reserved for `h1`, `h2`, and `.section-title`. Headings render at weight 400: Instrument Serif ships regular only, so never fake bold on it.
 - `--font-mono` is for prices and numeric data.
 
 ### Type Scale Tokens
 
-Fixed `rem` values — size text with `var(--font-size-*)`, not literals:
+Fixed `rem` values: size text with `var(--font-size-*)`, not literals:
 
 | Token              | Value       | Typical usage                            |
 | ------------------ | ----------- | ---------------------------------------- |
@@ -185,7 +185,7 @@ Fixed `rem` values — size text with `var(--font-size-*)`, not literals:
 | `.section-title` | `--font-heading` | inherited                    | 400    | Centered; reused in modal headers           |
 | `label`          | `--font-body`    | `--font-size-md` (0.875rem)  | 500    | —                                           |
 
-There is no global `h3` rule — `h3` is styled per component (`.settings-section-panel h3`, `.empty-state h3`, …).
+There is no global `h3` rule: `h3` is styled per component (`.settings-section-panel h3`, `.empty-state h3`, …).
 
 ---
 
@@ -210,7 +210,7 @@ There is no global `h3` rule — `h3` is styled per component (`.settings-sectio
 
 ### Breakpoints
 
-Not yet standardized in the codebase (59 `@media` rules spanning 15 distinct breakpoint values currently in `css/styles.css`). Recommended canonical set for all new work:
+Not yet standardized in the codebase (59 `@media` rules spanning 15 distinct breakpoint values in `css/styles.css`). Recommended canonical set for all new work:
 
 | Name      | Value  | Target                   |
 | --------- | ------ | ------------------------ |
@@ -253,11 +253,11 @@ Market list cards expand/collapse per coin. Cards always stack vertically on mob
 
 ### Modals
 
-- Close selector is `.modal-close` — **not** `.close-btn`, and **not** `[data-bs-dismiss]`. The Bootstrap JS library is not loaded in this project (verified 2026-08-13: zero `data-bs-*` attributes in `index.html` and `js/`), so a `data-bs-dismiss` handle is inert.
+- Close selector is `.modal-close`: **not** `.close-btn`, and **not** `[data-bs-dismiss]`. The Bootstrap JS library is not loaded in this project (verified 2026-08-13: zero `data-bs-*` attributes in `index.html` and `js/`), so a `data-bs-dismiss` handle is inert.
 - FIFO dialog queue managed via `showDialog()` / `presentDialog()` in `js/dialogs.js`
 - All modal open/close goes through `openModalById()` / `closeModalById()`
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
-- Chart.js instances inside modals **must** be destroyed on close — skipping this leaks canvas contexts and causes "Canvas is already in use" on the next open
+- Chart.js instances inside modals **must** be destroyed on close: skipping this leaks canvas contexts and causes "Canvas is already in use" on the next open
 
 ### Toggles
 
@@ -265,16 +265,16 @@ Standard HTML `<input type="checkbox">` with custom switch styling. Minimum 44px
 
 ### Metal Filter Pills
 
-Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper` — STRK-305). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
+Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper`: STRK-305). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
 
 ---
 
 ## Accessibility Baseline
 
 - Minimum 44px touch targets for all interactive controls on mobile
-- Color is not the sole indicator of state — labels and icons accompany color cues
+- Color is not the sole indicator of state: labels and icons accompany color cues
 - Vendor colors keep stable hues and meet at least 4.5:1 text contrast in all four themes
-- `--text-muted` is used for non-essential metadata and unknown vendor labels — not for known vendor labels
+- `--text-muted` is used for non-essential metadata and unknown vendor labels: not for known vendor labels
 
 ---
 
@@ -284,7 +284,7 @@ Interactive reference: `.context/style.html` (references `../css/styles.css` for
 
 Covers: color swatches, typography scale, spacing demos, button states, form inputs, toggles and chips, cards, tables, modal headers, collapsible sections, image uploads, badges and indicators, and a migration checklist.
 
-Design-system catalog: `.context/preview.html` — a self-contained page with its own copy of the theme tokens (extracted from `css/styles.css`, so it can drift; `css/styles.css` wins on any conflict).
+Design-system catalog: `.context/preview.html`: a self-contained page with its own copy of the theme tokens (extracted from `css/styles.css`, so it can drift; `css/styles.css` wins on any conflict).
 
 ---
 
@@ -293,16 +293,16 @@ Design-system catalog: `.context/preview.html` — a self-contained page with it
 12 open issues. Key decisions:
 
 - **About page** moves into Settings as landing tab; "What's New" thin popup stays
-- **Mobile-first** — all cards stack vertically, 44px touch targets, no horizontal scroll
+- **Mobile-first**: all cards stack vertically, 44px touch targets, no horizontal scroll
 - **Execution order:** Style Guide → About/What's New → API tab (STAK-443) → remaining tabs
 
 ### API Tab Sectioned Card Layout (STAK-443, v3.34.24)
 
 Replaced 1075-line monolithic API settings panel with three sectioned `.settings-fieldset` cards following the established section pattern:
 
-1. **Market Prices** — beacon endpoint (read-only, no controls)
-2. **Spot Price Source** — 6-option pill-radio single-select (STAKTRAKR, METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM, MANUAL)
-3. **Catalog** — Numista + PCGS configuration rows, with "Bulk Sync & Advanced" modal for detailed settings
+1. **Market Prices**: beacon endpoint (read-only, no controls)
+2. **Spot Price Source**: 6-option pill-radio single-select (STAKTRAKR, METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM, MANUAL)
+3. **Catalog**: Numista + PCGS configuration rows, with "Bulk Sync & Advanced" modal for detailed settings
 
 All action buttons use pill shape (`.btn` + `border-radius: 999px`); History buttons use violet `.btn-history` variant. The modal replaces inline Numista bulk-sync, reducing Settings page scrolling and cognitive load.
 
@@ -310,7 +310,7 @@ All action buttons use pill shape (`.btn` + `border-radius: 999px`); History but
 
 ## Related
 
-- Style Guide (deprecated DocVault page) — living source file (this doc was derived from it)
+- Style Guide (deprecated DocVault page): living source file (this doc was derived from it)
 - Frontend Overview (deprecated DocVault page)
 - .context/deep-dives/dom-patterns.md
 - Brand assets: `/Users/lbruton/CoWork/StakTrakr-Branding/final/`

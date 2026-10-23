@@ -11,7 +11,7 @@ updated: "2026-07-30"
 
 **When:** ~weekly, or whenever `retail-poller.log` shows `⚠️ WEBSCALE CHALLENGE … RE-SOLVE NEEDED`, or JM Bullion / Provident drop to "no price". The `wspc` cookie lasts ~7 days.
 
-**Why:** JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages — NOT Cloudflare). The poller injects a human-solved `wspc` cookie. Background: STRK-230 (PR #1303). Automation plan: STRK-231 (CapSolver). Full diagnosis: Home Poller, `infrastructure.md`.
+**Why:** JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare). The poller injects a human-solved `wspc` cookie. Background: STRK-230 (PR #1303). Automation plan: STRK-231 (CapSolver). Full diagnosis: Home Poller, `infrastructure.md`.
 
 **Must run on a machine sharing the poller's public IP** (your home network / same Cox IP). The cookie is bound to IP + UA.
 
@@ -26,18 +26,18 @@ curl -s -o /tmp/ws.html -w "%{http_code} %{size_download}\n" --max-time 25 \
 grep -o -m1 -E "grecaptcha.render|i-am-a-human" /tmp/ws.html
 ```
 
-| Result                                                      | Meaning                                       | Action                                                                                                 |
-| ----------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `401` + `i-am-a-human` marker                               | Normal Protection Mode challenge              | Proceed to Step 1                                                                                      |
-| **bare `403`** (~10-byte body) or **TLS reset** (`curl 35`) | Webscale's escalated deny for a **burned IP** | **Rotate the router IP first**, then re-probe — a solve is impossible until the challenge page returns |
+| Result                                                      | Meaning                                       | Action                                                                                                |
+| ----------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `401` + `i-am-a-human` marker                               | Normal Protection Mode challenge              | Proceed to Step 1                                                                                     |
+| **bare `403`** (~10-byte body) or **TLS reset** (`curl 35`) | Webscale's escalated deny for a **burned IP** | **Rotate the router IP first**, then re-probe: a solve is impossible until the challenge page returns |
 
-**A hard 403 is reversible, not terminal.** Confirmed 2026-07-30: rotating the home IP restored the ordinary 401 interstitial on both hosts. Rotation is however only an _unblock probe_ — it was re-flagged after ~one scrape cycle, so plan on rotate **then** solve, not rotate-and-hope.
+**A hard 403 is reversible, not terminal.** Confirmed 2026-07-30: rotating the home IP restored the ordinary 401 interstitial on both hosts. Rotation is however only an _unblock probe_: it was re-flagged after ~one scrape cycle, so plan on rotate **then** solve, not rotate-and-hope.
 
 ---
 
 ## Step 1 — Solve & capture (your Mac terminal)
 
-Pass **explicit product URLs** — do not rely on the built-in defaults:
+Pass **explicit product URLs**: do not rely on the built-in defaults:
 
 ```bash
 cd /Volumes/DATA/GitHub/StakTrakr
@@ -101,13 +101,13 @@ rm -f /tmp/retail-poller.lock      # clear a stale lock if present
 . /etc/environment; /app/run-home.sh
 ```
 
-`run-home.sh` re-exports the `WEBSCALE_*` vars itself (cron-sourced vars aren't exported to children — STRK-230), so the cookie reaches node.
+`run-home.sh` re-exports the `WEBSCALE_*` vars itself (cron-sourced vars aren't exported to children: STRK-230), so the cookie reaches node.
 
 ---
 
 ## Step 5 — Verify
 
-`tail -f /data/logs/retail-poller.log` — JM/Provident should show prices, and you should see
+`tail -f /data/logs/retail-poller.log`: JM/Provident should show prices, and you should see
 `(playwright-direct) injected Webscale wspc for jmbullion …`. If you see `⚠️ WEBSCALE CHALLENGE`, the cookie didn't take (stale or wrong IP).
 
 **If you can't reach that logfile** (container stdout is only supervisord noise, and `exec` may be blocked), use the **public feed** as the practical success signal:
@@ -117,7 +117,7 @@ curl -s "https://api.staktrakr.com/data/v2/retail/latest.json" \
   | jq '{generated_at, ase: .data.coins.ase.vendor_count, age: .data.coins.age.vendor_count}'
 ```
 
-`vendor_count` reference points for ASE/AGE: **7** = both blocked · **9** = both working (2026-07-29) · **10** = both working (2026-07-30). Also confirm both vendors are exported to `providers.json` — the poller reads that **file**, not live sqld, so a dashboard toggle only takes effect after the `*/5` `export-providers-json.js` cron.
+`vendor_count` reference points for ASE/AGE: **7** = both blocked · **9** = both working (2026-07-29) · **10** = both working (2026-07-30). Also confirm both vendors are exported to `providers.json`: the poller reads that **file**, not live sqld, so a dashboard toggle only takes effect after the `*/5` `export-providers-json.js` cron.
 
 ---
 
@@ -125,7 +125,7 @@ curl -s "https://api.staktrakr.com/data/v2/retail/latest.json" \
 
 - UA env value is **base64** (`/etc/environment` is sourced as shell; a raw UA breaks it).
 - Env vars: **replaced not merged** on Portainer redeploy → always keep the full set.
-- Cookie per-host (`www.jmbullion.com`, `www.providentmetals.com`). The ~7-day life appears to be **browser-side**; the cookie injected into the headless Linux poller has run ~3 weeks without a re-solve, so don't treat "weekly" as a hard requirement — re-solve when it actually fails.
+- Cookie per-host (`www.jmbullion.com`, `www.providentmetals.com`). The ~7-day life appears to be **browser-side**; the cookie injected into the headless Linux poller has run ~3 weeks without a re-solve, so don't treat "weekly" as a hard requirement: re-solve when it actually fails.
 - Manual env-var override always beats the dev-only file store (`WEBSCALE_COOKIE_FILE`).
-- **TLS/JA3 pinning is ruled out** (2026-07-30). A macOS-solved cookie replays fine from Linux headless Chromium; the earlier "open unknown" is closed. Failures are IP reputation or a stale/uncleared cookie — not fingerprinting.
+- **TLS/JA3 pinning is ruled out** (2026-07-30). A macOS-solved cookie replays fine from Linux headless Chromium; the earlier "open unknown" is closed. Failures are IP reputation or a stale/uncleared cookie: not fingerprinting.
 - Both hosts' vars are already in the `docker-compose.home.yml` allow-list. **Any _new_ Webscale host needs its vars added to compose too**, or the Portainer value never reaches the container.
