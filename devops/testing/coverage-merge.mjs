@@ -134,17 +134,63 @@ function functionRanges(records) {
 }
 
 /**
- * Covered V8 ranges of one test as `file:start-end` keys.
+ * Sorted range boundaries per js/ file across every test. They cut each file into the
+ * same segments for every test, so block keys compare as plain strings.
+ * @param {Array<[string, {entries: object[]}]>} tests - Tests from byTest.
+ * @returns {Map<string, number[]>}
+ */
+function segmentBounds(tests) {
+  const byFile = new Map();
+  for (const [, { entries }] of tests) {
+    for (const { file, functions } of entries) {
+      if (!byFile.has(file)) byFile.set(file, new Set());
+      const bounds = byFile.get(file);
+      for (const fn of functions) {
+        for (const range of fn.ranges) bounds.add(range.startOffset).add(range.endOffset);
+      }
+    }
+  }
+  return new Map([...byFile].map(([file, bounds]) => [file, [...bounds].sort((a, b) => a - b)]));
+}
+
+/**
+ * Indexes of the segments whose innermost enclosing range ran. V8 omits a block whose
+ * count equals its parent's, so only the innermost range tells a taken branch apart.
+ * @param {object[]} functions - V8 functions of one entry.
+ * @param {number[]} bounds - Segment boundaries of the entry's file.
+ * @returns {number[]}
+ */
+function coveredSegments(functions, bounds) {
+  const ranges = functions
+    .flatMap((fn) => fn.ranges)
+    .sort((a, b) => a.startOffset - b.startOffset || b.endOffset - a.endOffset);
+  const covered = [];
+  const open = [];
+  let next = 0;
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const start = bounds[i];
+    while (open.length && open.at(-1).endOffset <= start) open.pop();
+    while (next < ranges.length && ranges[next].startOffset <= start) {
+      const range = ranges[next++];
+      if (range.endOffset > start) open.push(range);
+    }
+    if (open.at(-1)?.count > 0) covered.push(i);
+  }
+  return covered;
+}
+
+/**
+ * Covered segments of one test as `file:start-end` keys.
  * @param {object[]} entries - Loaded entries of one record.
+ * @param {Map<string, number[]>} boundsByFile - Segment boundaries from segmentBounds.
  * @returns {string[]}
  */
-function coveredBlocks(entries) {
+function coveredBlocks(entries, boundsByFile) {
   const blocks = new Set();
   for (const { file, functions } of entries) {
-    for (const fn of functions) {
-      for (const range of fn.ranges) {
-        if (range.count > 0) blocks.add(`${file}:${range.startOffset}-${range.endOffset}`);
-      }
+    const bounds = boundsByFile.get(file);
+    for (const i of coveredSegments(functions, bounds)) {
+      blocks.add(`${file}:${bounds[i]}-${bounds[i + 1]}`);
     }
   }
   return [...blocks].sort();
@@ -222,11 +268,15 @@ export async function mergeCoverage({ rawDir, outDir, mapDir, sha, root = REPO_R
       })),
     })
   );
+  const boundsByFile = segmentBounds(tests);
   writeFileSync(
     blocksPath,
     JSON.stringify({
       sha,
-      tests: tests.map(([id, { entries }]) => ({ id, blocks: coveredBlocks(entries) })),
+      tests: tests.map(([id, { entries }]) => ({
+        id,
+        blocks: coveredBlocks(entries, boundsByFile),
+      })),
     })
   );
   return { lcov, map: mapPath, blocks: blocksPath };

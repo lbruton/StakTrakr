@@ -81,13 +81,41 @@ const RECORD_B = rawRecordFor(
   [demoEntry({ used: 2, other: 1 })]
 );
 
-/** Writes both records, merges them and returns the three outputs as text. */
-async function mergeFixture() {
+// V8 reports a branch only when its count differs from its function's, so the
+// branch a test took is absent and the branch it skipped carries count 0.
+const BRANCH_SOURCE = 'function pick(x) {\n  if (x) {\n    return "a";\n  }\n  return "b";\n}\n';
+const branchEntry = (took) => {
+  const thenStart = BRANCH_SOURCE.indexOf("{\n    return");
+  const thenEnd = BRANCH_SOURCE.indexOf("}\n  return") + 1;
+  const skipped = took === "then" ? [thenEnd, BRANCH_SOURCE.length - 2] : [thenStart, thenEnd];
+  return {
+    url: `${ORIGIN}/js/branch.js`,
+    scriptId: "2",
+    source: BRANCH_SOURCE,
+    functions: [
+      {
+        functionName: "",
+        isBlockCoverage: true,
+        ranges: [{ startOffset: 0, endOffset: BRANCH_SOURCE.length, count: 1 }],
+      },
+      {
+        functionName: "pick",
+        isBlockCoverage: true,
+        ranges: [
+          { startOffset: 0, endOffset: BRANCH_SOURCE.length - 1, count: 1 },
+          { startOffset: skipped[0], endOffset: skipped[1], count: 0 },
+        ],
+      },
+    ],
+  };
+};
+
+/** Writes the records, merges them and returns the three outputs as text. */
+async function mergeFixture(records = [RECORD_A, RECORD_B]) {
   const dir = mkdtempSync(path.join(tmpdir(), "strk-coverage-"));
   try {
     const rawDir = path.join(dir, "raw");
-    writeRawRecord(rawDir, RECORD_A);
-    writeRawRecord(rawDir, RECORD_B);
+    for (const record of records) writeRawRecord(rawDir, record);
     const out = await mergeCoverage({
       rawDir,
       outDir: path.join(dir, "coverage"),
@@ -221,6 +249,25 @@ describe("coverage merge", () => {
     assert.ok(
       [...b].every((block) => block.startsWith("js/demo.js:")),
       "blocks are keyed by file"
+    );
+  });
+
+  test("the block file tells apart tests that took different branches", async () => {
+    const spec = "tests/playwright/core/branch.spec.js";
+    const { blocks } = await mergeFixture([
+      rawRecordFor(testInfo(spec, 5, "takes then"), ROOT, [branchEntry("then")]),
+      rawRecordFor(testInfo(spec, 9, "takes else"), ROOT, [branchEntry("else")]),
+    ]);
+    const byId = Object.fromEntries(blocks.tests.map((t) => [t.id, new Set(t.blocks)]));
+    const then = byId[`${spec}:5`];
+    const other = byId[`${spec}:9`];
+    assert.ok(
+      [...then].some((block) => !other.has(block)),
+      "the then-branch test covers a block the else-branch test does not"
+    );
+    assert.ok(
+      [...other].some((block) => !then.has(block)),
+      "the else-branch test covers a block the then-branch test does not"
     );
   });
 });

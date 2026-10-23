@@ -248,9 +248,17 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: test-map
-          path: |
-            .cache/test-map.json
-            .cache/test-blocks.json
+          path: .cache/test-map.json
+          retention-days: 30
+
+      # The block file feeds only the redundancy report; a separate artifact keeps
+      # `test:changed --fetch` from downloading it.
+      - name: Upload block file
+        if: ${{ env.IS_PUSH == 'true' }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-blocks
+          path: .cache/test-blocks.json
           retention-days: 30
 
       - name: Check for the Codacy token
