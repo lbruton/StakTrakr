@@ -77,6 +77,12 @@ All new components must be authored against the dark theme first.
 | `--warning`       | `#f59e0b` | Caution states, disclaimers          |
 | `--danger`        | `#ef4444` | Destructive actions, negative values |
 | `--info`          | `#38bdf8` | Informational badges                 |
+| `--success-text`  | `#34d399` | Positive status words (Synced)       |
+| `--warning-text`  | `#fbbf24` | Caution status words (Needs sync)    |
+| `--danger-text`   | `#f87171` | Failure status words (Failed)        |
+
+Use the `-text` tokens for status words. Every theme sets them at 4.5:1 or more on `--bg-secondary`.
+The base `--success`, `--warning` and `--danger` tokens are for fills, borders and icons.
 
 ### Background Tokens (Slate Theme — reference hex)
 

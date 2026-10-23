@@ -1067,6 +1067,7 @@ All new CSS **must** work across light, dark, slate, and sepia themes. Use seman
 | Category    | Tokens                                                                                         |
 | ----------- | ---------------------------------------------------------------------------------------------- |
 | Colors      | `--primary`, `--secondary`, `--success`, `--info`, `--warning`, `--danger` + `-hover` variants |
+| Status text | `--success-text`, `--warning-text`, `--danger-text` (4.5:1 or more on `--bg-secondary`)        |
 | Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card`                                 |
 | Text        | `--text-primary`, `--text-secondary`                                                           |
 | Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`, `--copper`                                  |
