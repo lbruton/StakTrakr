@@ -2381,8 +2381,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
       "src",
       /test-reverse\.png$/
     );
-    await slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" }).click();
-    await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
+    // A Collections render closes an open note, and a boot-time price refresh can render
+    // the tab again just after the click, so open the note until it stays open.
+    await expect(async () => {
+      await slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" }).click();
+      await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date", {
+        timeout: 1000,
+      });
+    }).toPass();
   });
 
   /**
