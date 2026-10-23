@@ -20,8 +20,8 @@ import {
 const COVERAGE = isCoverageEnabled();
 // Pages that collect coverage and are still open; a shared page outlives one test.
 const coveredPages = new Set();
-// Entries taken from pages a test closed itself, written with that test's record.
-const closedPageEntries = [];
+// Entries taken before a test closed a page or navigated it, written with that test's record.
+const takenEntries = [];
 const instrumentedPages = new WeakSet();
 const wrappedContexts = new WeakSet();
 const APP_SHELL_PATHS = new Set(["/", "/index.html"]);
@@ -71,7 +71,8 @@ async function prepareAppPage(page, baseURL = base.info().project.use.baseURL) {
 }
 
 /**
- * Starts coverage on a page once, and takes it before the test closes the page.
+ * Starts coverage on a page once, and takes it before the test closes or navigates
+ * the page.
  * @param {import('@playwright/test').Page} page - Page to instrument.
  * @param {string} baseURL - App origin.
  */
@@ -81,17 +82,20 @@ async function instrumentPage(page, baseURL) {
   await page.coverage.startJSCoverage({ resetOnNavigation: false });
   coveredPages.add(page);
   page.once("close", () => coveredPages.delete(page));
-  // Coverage cannot be read from a closed page, so take it before the test closes one.
-  const keepBeforeClose = (target, method) => {
-    const close = target[method].bind(target);
+  // Coverage cannot be read from a closed page, and the scripts of a document left
+  // behind drop out of the next read, so take it first.
+  const takeBefore = (target, method, restart) => {
+    const call = target[method].bind(target);
     target[method] = async (...args) => {
       if (coveredPages.has(page))
-        closedPageEntries.push(...(await takeCoverage(page, baseURL, false)));
-      return close(...args);
+        takenEntries.push(...(await takeCoverage(page, baseURL, restart)));
+      return call(...args);
     };
   };
-  keepBeforeClose(page, "close");
-  keepBeforeClose(page.context(), "close");
+  takeBefore(page, "close", false);
+  takeBefore(page.context(), "close", false);
+  takeBefore(page, "goto", true);
+  takeBefore(page, "reload", true);
 }
 
 /**
@@ -156,7 +160,7 @@ const test = base.extend({
       const entries = [];
       const owned = new Set();
       // Drop entries a previous test's afterAll left behind; they belong to no test.
-      closedPageEntries.length = 0;
+      takenEntries.length = 0;
       const pages = COVERAGE ? instrumentNewPages(browser, baseURL, owned) : null;
       try {
         await use({ entries, wrapContext: pages ? pages.wrapContext : (context) => context });
@@ -164,7 +168,7 @@ const test = base.extend({
         pages?.restore();
       }
       if (!COVERAGE) return;
-      entries.push(...closedPageEntries.splice(0));
+      entries.push(...takenEntries.splice(0));
       for (const page of owned) entries.push(...(await takeCoverage(page, baseURL, false)));
       // What remains is a page shared across tests (a serial group's beforeAll page).
       for (const page of [...coveredPages])
