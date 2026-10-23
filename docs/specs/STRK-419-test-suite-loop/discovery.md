@@ -136,9 +136,8 @@ decisions"` (filters `user_id: lbruton`, `metadata.project: staktrakr`); session
 
 ## Open Questions
 
-- [ ] AC-34 retires `coverage-map.csv` and the per-PR row rule set on 2026-06-18/19. Confirm
-      that the generated coverage map replaces it, or keep the CSV as a slim file-to-domain
-      index without per-PR rows.
+- [x] AC-34 retires `coverage-map.csv` and the per-PR row rule set on 2026-06-18/19.
+      Decided 2026-10-22: the generated coverage map replaces the CSV and the per-PR row rule.
 
 Not blocking, for `approach.md` to settle:
 
