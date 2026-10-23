@@ -3058,3 +3058,181 @@ test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
     expect(calls[0]).toContain("1234567-001");
   });
 });
+
+// A lone origin word ("american", "canadian") matches every item of that origin.
+// The assertions read the rendered table. Fuzzy autocomplete is off so the rows
+// come from the exact field-match path; the fuzzy fallback runs only when it fails.
+const ORIGIN_SEARCH_SEED = [
+  ["us-eagle", "American Silver Eagle"],
+  ["us-buffalo", "American Gold Buffalo", { metal: "Gold", composition: "Gold" }],
+  ["ca-maple", "Canadian Silver Maple Leaf"],
+  ["control-round", "Generic Silver Round"],
+].map(([uuid, name, overrides = {}], i) => ({
+  ...SEED_ITEM,
+  purchaseLocation: "LocalShop",
+  uuid,
+  name,
+  serial: i + 1,
+  ...overrides,
+}));
+
+const ORIGIN_NAME_CELL = "#inventoryTable tbody tr [data-column='name']";
+
+/**
+ * Seeds the origin items with fuzzy autocomplete off and waits for every row.
+ * @param {import('@playwright/test').Page} page - Page to boot.
+ * @returns {Promise<void>}
+ */
+async function seedOriginSearchAndGoto(page) {
+  await page.addInitScript((inventory) => {
+    localStorage.setItem("metalInventory", JSON.stringify(inventory));
+    localStorage.setItem("itemTags", JSON.stringify({}));
+    // The constants.js migration turns fuzzy back on unless its sentinel is set.
+    localStorage.setItem("featureFlags", JSON.stringify({ FUZZY_AUTOCOMPLETE: false }));
+    localStorage.setItem("ff_migration_fuzzy_autocomplete", "1");
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        if (typeof APP_VERSION !== "undefined") {
+          localStorage.setItem("ackVersion", APP_VERSION);
+        }
+      },
+      { once: true }
+    );
+  }, ORIGIN_SEARCH_SEED);
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#newItemBtn", { state: "visible" });
+  await page.waitForFunction(
+    ({ cell, expectedRows }) =>
+      window.featureFlags &&
+      window.featureFlags.isEnabled("FUZZY_AUTOCOMPLETE") === false &&
+      document.querySelectorAll(cell).length === expectedRows,
+    { cell: ORIGIN_NAME_CELL, expectedRows: ORIGIN_SEARCH_SEED.length }
+  );
+}
+
+/**
+ * Types a search term, waits out the debounce and checks each expected row once.
+ * @param {import('@playwright/test').Page} page - Booted page.
+ * @param {string} term - Search text.
+ * @param {string[]} expectedNames - Item names the table must show.
+ * @returns {Promise<void>}
+ */
+async function expectSearchRows(page, term, expectedNames) {
+  await page.fill("#searchInput", term);
+  await page.waitForFunction(
+    ({ cell, count }) => document.querySelectorAll(cell).length === count,
+    { cell: ORIGIN_NAME_CELL, count: expectedNames.length }
+  );
+  for (const name of expectedNames) {
+    await expect(page.locator(ORIGIN_NAME_CELL).filter({ hasText: name })).toHaveCount(1);
+  }
+}
+
+test.describe("STRK-205 broad-origin single-word search", () => {
+  test("a lone origin word matches its origin; one with no items shows the empty state", async ({
+    page,
+  }) => {
+    await seedOriginSearchAndGoto(page);
+
+    await test.step("a lone origin word matches every item of that origin (not suppressed)", async () => {
+      await expectSearchRows(page, "american", ["American Silver Eagle", "American Gold Buffalo"]);
+      await expect(page.locator(ORIGIN_NAME_CELL)).toHaveCount(2);
+
+      await expectSearchRows(page, "canadian", ["Canadian Silver Maple Leaf"]);
+      await expect(page.locator(ORIGIN_NAME_CELL)).toHaveCount(1);
+    });
+
+    await test.step("an origin word with no matching items shows the empty state (no crash)", async () => {
+      // "mexican" is a broad term that no item carries.
+      await page.fill("#searchInput", "mexican");
+      await expect(page.locator("#inventoryTable tbody tr.empty-state-row")).toBeVisible();
+      await expect(page.locator(ORIGIN_NAME_CELL)).toHaveCount(0);
+      await expect(page.locator(".empty-state-row")).toContainText("No matching items found");
+    });
+  });
+});
+
+// 1x1 transparent PNG: the obverse gets a real <img> with no network request, so
+// the only placeholder left in the cell is the reverse slot.
+const TRANSPARENT_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+const OBVERSE_ONLY_ITEM = {
+  ...SEED_ITEM,
+  uuid: "strk-173-no-reverse",
+  name: "STRK-173 Obverse Only",
+  obverseImageUrl: TRANSPARENT_PNG,
+  // No reverse URL and no pattern lookup, so the reverse resolves to null.
+  reverseImageUrl: "",
+  ignorePatternImages: true,
+};
+
+// _loadBulkRowImages (js/bulkEdit.js) must render a reverse placeholder when the
+// table shows reverse images and the item has none. The gate sits past the
+// imageCache.isAvailable() guard, so the test forces the IndexedDB path.
+test.describe("STRK-173 — bulk-edit reverse image render", () => {
+  test("reverse display + item with no reverse image renders a placeholder without throwing", async ({
+    page,
+  }) => {
+    // The loader runs un-awaited, so a throw surfaces as an unhandled rejection.
+    const pageErrors = [];
+    page.on("pageerror", (err) => pageErrors.push(String(err)));
+    await page.addInitScript(() => {
+      window.__bulkImgErrors = [];
+      window.addEventListener("unhandledrejection", (e) =>
+        window.__bulkImgErrors.push(String(e.reason))
+      );
+      window.addEventListener("error", (e) =>
+        window.__bulkImgErrors.push(String(e.error || e.message))
+      );
+    });
+
+    await page.addInitScript((item) => {
+      localStorage.setItem("metalInventory", JSON.stringify([item]));
+      localStorage.setItem("tableImageSides", "both");
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    }, OBVERSE_ONLY_ITEM);
+
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#newItemBtn", { state: "visible" });
+    await page.waitForFunction(
+      () => typeof window.openBulkEdit === "function" && Array.isArray(window.inventory)
+    );
+
+    await page.waitForFunction(
+      () => window.imageCache && typeof window.imageCache.init === "function"
+    );
+    await page.evaluate(async () => {
+      await window.imageCache.init();
+    });
+    await page.waitForFunction(() => window.imageCache.isAvailable() === true);
+
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+
+    const cell = page.locator(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] .bulk-img-cell'
+    );
+    // The obverse <img> shows the loader reached the obverse/reverse gate.
+    await expect(cell.locator('img[data-side="obverse"]')).toBeAttached({ timeout: 10000 });
+    await expect(cell.locator(".bulk-img-placeholder")).toHaveCount(1, { timeout: 10000 });
+
+    const resolvedErrors = [
+      ...pageErrors,
+      ...(await page.evaluate(() => window.__bulkImgErrors || [])),
+    ].filter((m) => /resolved/.test(m) && /not defined|ReferenceError/.test(m));
+    expect(
+      resolvedErrors,
+      `unexpected ReferenceError(s) from _loadBulkRowImages: ${resolvedErrors.join(" | ")}`
+    ).toEqual([]);
+  });
+});
