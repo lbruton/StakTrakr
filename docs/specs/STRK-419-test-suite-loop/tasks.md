@@ -36,6 +36,11 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ## Part 1 — Coverage collection, unit coverage and the CI gate
 
+> **Amended 2026-10-23 (user-approved):** the PR check must not run the full suite. B.4, C.6
+> and C.8 (targeted runs) move into Part 1 and land before C.4 is finished; C.4 follows
+> approach D-18 (PR runs the selection, `dev` pushes run the full suite with coverage).
+> Part 2 keeps B.5 and C.7 (redundancy report).
+
 ### Sprint Cohort A — Foundation (parallel-safe)
 
 - [x] **A.1 [P]** — Add the coverage dev dependency and ignore build outputs
@@ -70,8 +75,8 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **File(s):** _no file changes — review anchor only_
   - **Acceptance:** Documented below; reviewers confirm no repo-local automated test is feasible.
   - **Justification:** AC-5 to AC-11 describe GitHub Actions, Codacy and ruleset behavior; they run only on GitHub.
-  - **Manual validation:** On the Part 1 PR: the `Tests` check appears and runs unit plus four core shards (AC-5); a deliberately failing test on a throwaway commit turns the check red (AC-8, revert after); the run before the secret exists shows the "upload skipped" notice (AC-10); after the secret, the Codacy PR page shows coverage (AC-7); after merge, the `dev` push run uploads a baseline (AC-6); a throwaway commit that deletes a covered test shows the Codacy coverage gate failing (AC-9); the job summary shows wall time ≤ 10 min (AC-11).
-  - **Maps to:** AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11
+  - **Manual validation (amended 2026-10-23, D-18):** On the Part 1 PR: the `Tests` check runs the selection (the full suite while no `dev` map exists, per AC-17) (AC-5); a throwaway commit with a failing test in a selected spec turns the check red (AC-8, revert after); a docs-only change starts no browser (AC-5). After merge: the `dev` push run runs the full suite, publishes the map and uploads to Codacy, or notes the skip (AC-6, AC-7, AC-10); the next PR's check uses that map and finishes within AC-11. AC-9 is retired.
+  - **Maps to:** AC-5, AC-6, AC-7, AC-8, AC-10, AC-11
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
@@ -110,14 +115,15 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 - [ ] **C.4** — `Tests` workflow
   - **File(s):** `.github/workflows/tests.yml` (new), `playwright.config.js`
   - **Acceptance:** On PRs to `dev` and pushes to `dev`: job `unit` (with coverage), job `core` (matrix of four shards, `COVERAGE=1`, blob reporter on CI, raw coverage and blob artifacts), job `report` named `Tests` (needs both; merges blobs and coverage, lists flaky tests in the summary, uploads lcov with `codacy/codacy-coverage-reporter-action` only when `CODACY_PROJECT_TOKEN` is set, writes a skip notice otherwise, and publishes `test-map.json` as an artifact). Actions are pinned to full versions. Validated per B.3.
-  - **Depends on:** C.2, C.3
+  - **Amended 2026-10-23 (D-18):** a `select` job builds the plan with `test-changed.mjs --plan-only --json` from the latest `dev` map. On PRs the unit job runs the selected unit files and the core matrix runs the selected locations, with the shard count set from the selection size; an empty selection skips both. Coverage, the map artifact and the Codacy upload run on `dev` pushes only. `Tests` fails when a selected suite fails.
+  - **Depends on:** C.2, C.3, C.6
   - **Maps to:** AC-5, AC-6, AC-7, AC-8, AC-10, AC-11
 
 - [ ] **C.5** — User gate steps and Part 1 PR
   - **File(s):** _no file changes — PR body and external settings_
-  - **Acceptance:** The Part 1 PR body lists the user steps: create a Codacy repository API token and store it as the `CODACY_PROJECT_TOKEN` Actions secret; enable the Codacy coverage gate ("coverage must not drop") for PRs to `dev`; add `Tests` to the `Protect Dev` ruleset's required checks after the first green run. The agent verifies each step on GitHub after the user reports it done, and completes the B.3 manual validation.
+  - **Acceptance:** The Part 1 PR body lists the user steps: create a Codacy repository API token and store it as the `CODACY_PROJECT_TOKEN` Actions secret; add `Tests` to the `Protect Dev` ruleset's required checks after the first green run. The agent verifies each step on GitHub after the user reports it done, and completes the B.3 manual validation. (Amended 2026-10-23: no Codacy PR coverage gate; AC-9 retired.)
   - **Depends on:** C.4
-  - **Maps to:** AC-7, AC-8, AC-9
+  - **Maps to:** AC-7, AC-8
 
 ---
 
@@ -125,8 +131,9 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort B — Tests · RED
 
-- [ ] **B.4 [P]** — Failing tests for test selection
+- [ ] **B.4 [P]** — Failing tests for test selection (moved to Part 1, 2026-10-23)
   - **File(s):** `tests/unit/test-changed.test.js` (new)
+  - **Amended 2026-10-23 (D-18):** also asserts that docs and config paths (`*.md`, `docs/`, `.context/`, `.claude/`, `.agents/`, `.github/` other than `tests.yml`, `playground/`) select nothing, that a changed path a unit test or its helper names selects that unit file, and that the plan serializes to JSON (`full`, `core`, `unit`, reasons) for CI.
   - **Acceptance:** With an inline test map and inline diffs, the tests assert: a changed line inside a mapped function selects exactly the tests that executed it (AC-13); a changed spec file selects that whole file (AC-14); a changed unit file, or a `js/` file a unit file reads by path, selects those unit files (AC-15); a changed line outside every function, or an unmapped file (`index.html`, `css/styles.css`, a helper, `playwright.config.js`), selects the full core suite and names the file (AC-16, approach D-7); a missing map selects the full suite and prints the `npm run test:map` command (AC-17); a map SHA that is not an ancestor of the merge base yields a stale warning (AC-18); the printed plan lists each selected test with the changed file that selected it (AC-19); untracked files are included (AC-12). All fail because the script does not exist.
   - **Depends on:** C.2
   - **Maps to:** AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
@@ -139,7 +146,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
-- [ ] **C.6** — `test:changed`
+- [ ] **C.6** — `test:changed` (moved to Part 1, 2026-10-23; adds `--plan-only` and `--json <path>` for CI)
   - **File(s):** `devops/testing/test-changed.mjs` (new), `package.json`
   - **Acceptance:** `npm run test:changed` diffs against the map commit plus untracked files (approach D-6), prints the plan, runs selected Playwright tests by `file:line` and selected unit files, and supports `--fetch` to download the latest `dev` map artifact with `gh run download` (approach D-5). All B.4 cases pass.
   - **Depends on:** B.4
@@ -151,7 +158,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Depends on:** B.5, C.6
   - **Maps to:** AC-21, AC-22
 
-- [ ] **C.8** — Measure the targeted run
+- [ ] **C.8** — Measure the targeted run (moved to Part 1, 2026-10-23; results go in the Part 1 PR body)
   - **File(s):** _no file changes — measurement only_
   - **Acceptance:** On the reference machine, with a fresh map, a one-line change inside a function in one `js/` file runs through `npm run test:changed` in 60 s or less; three such files (one hot, one mid, one cold by test count) are measured and listed in the Part 2 PR body.
   - **Depends on:** C.6

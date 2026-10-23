@@ -48,6 +48,7 @@ specs extend existing tests instead of adding one per acceptance criterion.
 | D-15 | `test:offline` is removed. | No spec carries `@network`, so it equals a full run across all tiers. | One fewer command in the docs. |
 | D-16 | The template change edits the master in `Devops/skill-library`, deploys with `skills-deploy`, and lands the StakTrakr copies in a chore PR. | The decision was global (2026-10-22). | Every project's next spec follows the new rule. |
 | D-17 | Ruleset, Codacy gate and secret changes are user steps, listed in the PR that adds the workflow. | They live outside the repo and need the owner's permissions. | The gate is not live until the user makes them. |
+| D-18 | (Amended 2026-10-23, supersedes D-11 for PRs.) The PR check runs the `test:changed` plan: a `select` job downloads the latest `dev` test map, writes the plan as JSON, and the unit and core jobs run only the selection; core shards scale with its size, and an empty selection starts no browser. Pushes to `dev` run the full sharded suite with coverage, publish the map and upload to Codacy. `test:changed` treats docs and config paths as test-free and any other path it cannot map as a full-suite trigger. | A PR must not wait on the full suite; the full run after merge catches what a selection misses and keeps the map fresh. | A regression outside the selection surfaces after merge, on the `dev` run, not on the PR. No PR coverage gate (AC-9 retired). |
 
 ## File Map
 

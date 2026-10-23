@@ -36,8 +36,10 @@ count from `playwright.config.js`.
 
 - **US-1:** As the developer, I want to run only the tests that a change can affect, so
   that a minor change gives me an answer in about a minute.
-- **US-2:** As the developer, I want every PR to `dev` to run the full suite and report
-  coverage in CI, so that a change cannot merge if it breaks a test or drops coverage.
+- **US-2:** As the developer, I want every PR to `dev` to run in CI only the tests its
+  change can affect, and every merge to `dev` to run the full suite with coverage, so that
+  a PR never waits on the full suite and a regression the selection misses is still caught.
+  (Amended 2026-10-23: the PR check ran the full suite; the user rejected the wait.)
 - **US-3:** As the developer, I want the full core suite to finish in 3 minutes, so that a
   full local run before a PR is practical.
 - **US-4:** As the developer, I want a report of tests that add no unique coverage, so that
@@ -62,19 +64,25 @@ count from `playwright.config.js`.
 
 ### CI gate and Codacy (US-2)
 
-- **AC-5:** WHEN a PR targets `dev`, CI SHALL run the unit suite and the full core
-  Playwright suite with coverage on.
-- **AC-6:** WHEN a commit lands on `dev`, CI SHALL run the same job, so that Codacy holds a
-  coverage baseline for `dev`.
-- **AC-7:** WHEN the CI job finishes, CI SHALL upload the Playwright and unit lcov reports
-  to Codacy with the `CODACY_PROJECT_TOKEN` repository secret.
-- **AC-8:** IF any test in the CI job fails, THEN the CI check SHALL fail, and the `dev`
+> Amended 2026-10-23 (user-approved): the PR check runs the `test:changed` selection, not
+> the full suite; the full suite with coverage runs after merge. AC-9 is retired because a
+> partial run cannot hold a coverage baseline.
+
+- **AC-5:** WHEN a PR targets `dev`, CI SHALL run the unit tests and core tests that
+  `test:changed` selects against the test map from the latest `dev` run, and SHALL start
+  no browser when the selection holds no core test.
+- **AC-6:** WHEN a commit lands on `dev`, CI SHALL run the unit suite and the full core
+  suite with coverage on, publish the test map, and give Codacy a coverage baseline.
+- **AC-7:** WHEN the `dev` job finishes, CI SHALL upload the Playwright and unit lcov
+  reports to Codacy with the `CODACY_PROJECT_TOKEN` repository secret.
+- **AC-8:** IF any test in the PR check fails, THEN the check SHALL fail, and the `dev`
   ruleset SHALL block the merge.
-- **AC-9:** IF a PR lowers total coverage below the `dev` baseline, THEN the Codacy quality
-  gate SHALL fail the PR.
-- **AC-10:** IF the `CODACY_PROJECT_TOKEN` secret is missing, THEN the CI job SHALL still
-  run the tests and SHALL report that the upload was skipped.
-- **AC-11:** The CI job SHALL finish in 10 minutes or less wall time.
+- **AC-9:** Retired 2026-10-23. Coverage is reported from `dev` runs; no PR coverage gate.
+- **AC-10:** IF the `CODACY_PROJECT_TOKEN` secret is missing, THEN the `dev` job SHALL
+  still run the tests and SHALL report that the upload was skipped.
+- **AC-11:** WHEN a PR changes one `js/` file in the test map and no shared file, the PR
+  check SHALL finish in 4 minutes or less wall time; the `dev` job SHALL finish in
+  10 minutes or less.
 
 ### Targeted runs (US-1)
 
