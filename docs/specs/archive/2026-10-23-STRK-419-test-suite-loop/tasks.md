@@ -366,19 +366,22 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - Mark STRK-419 Done in Plane: `mcp__plane__workitem` (`action: "update"`) to state "Done"; cross-link STRK-460 and STRK-461.
   - **Run (2026-10-23):** `/vault-update` found no shared-vault page that STRK-419 makes stale; the only hits are dated drift reports, comment backups and archived specs. STRK-419 goes to Done in Plane after CLOSE-8, with the cross-links.
 
-- [ ] **CLOSE-6. Open PR**
+- [x] **CLOSE-6. Open PR**
   - Each part opens its own PR from its `chore/strk-419-<part>` branch to `dev`. Title: `chore(STRK-419): <short summary>`.
   - Body must include: link to STRK-419, link to `docs/specs/STRK-419-test-suite-loop/`, test plan checklist, test inventory delta (`+N -M tests, +X -Y files`).
+  - **Done (2026-10-23):** the closing PR is #1652 (merge `ec9cf645`); each part before it shipped in its own PR.
 
-- [ ] **CLOSE-7. Resolve PR review threads**
+- [x] **CLOSE-7. Resolve PR review threads**
   - **File:** _GitHub PR threads only — code fixes land via the worktree as needed_
   - **MUST invoke `/pr-resolve`** as a skill on each part's PR.
   - Coverage: the resolver MUST scan **both** inline diff threads AND review-body findings.
   - All Critical/High findings must be either fixed or marked false-positive with explicit reasoning. Medium: fix or document waiver. Low/Info: advisory.
   - After running `/pr-resolve`, check whether new threads appeared from auto-scanners and address those before merge.
+  - **Done (2026-10-23):** #1652 had no review thread; Codex reported no finding and Codacy 0 new issues. CodeRabbit skipped the chore PR by label configuration.
 
-- [ ] **CLOSE-8. Archive spec** (after the last PR merges)
+- [x] **CLOSE-8. Archive spec** (after the last PR merges)
   - **MUST invoke `/spec archive STRK-419`** as a skill.
+  - **Done (2026-10-23):** the folder moved to `docs/specs/archive/2026-10-23-STRK-419-test-suite-loop/`.
 
 ## Verification Stamp
 
