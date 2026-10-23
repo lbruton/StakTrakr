@@ -656,7 +656,6 @@ StakTrakr uses a four-tier test architecture. Each tier has a budget, a purpose,
 | **Core (PR gate)**                 | `tests/playwright/core/`              |     70–90 | User journeys, money/math, persistence, import/export, integrations                                |
 | **Extended (nightly/pre-release)** | `tests/playwright/extended/`          |   100–180 | Service worker, cloud sync, attachment ZIP, provider edge cases, mobile, historical high-risk bugs |
 | **Unit**                           | `tests/unit/`                         | unbounded | Pure logic: math, formatters, validators, schema, conversion, parsers, sw-router                   |
-| **Archive**                        | `tests/playwright/archive/`           | reference | Old issue-prefixed acceptance matrices. Does not run by default.                                   |
 
 **Hard budget rule:** if a tier exceeds its upper bound, the next test added requires a corresponding test removed or moved. No exceptions.
 
@@ -715,13 +714,13 @@ Per-spec `page.route()` overrides register **after** the shared installer and wi
 Every PR that touches `tests/playwright/` must do exactly one of:
 
 - **Add** a test to an existing domain suite (no file count change)
-- **Move** a test between tiers (smoke ↔ core ↔ extended ↔ archive)
+- **Move** a test between tiers (unit ↔ smoke ↔ core ↔ extended)
 - **Delete** a test with a one-line rationale in the PR body
 - **Create a new file** with the required justification line in the PR body
 
 The release PR's closing tasks include a "test inventory delta" line: `+N -M tests, +X -Y files` matched against the budget.
 
-### Deprecation workflow — two-step archive
+### Deprecation workflow
 
 A test becomes deprecation-eligible when **any** of these is true:
 
@@ -732,11 +731,9 @@ A test becomes deprecation-eligible when **any** of these is true:
 
 Deprecation steps:
 
-1. Verify durable assertions are covered in the appropriate domain suite (grep + manual coverage map).
-2. Move the file to `tests/playwright/archive/issue-ac-matrices/` in **one PR** (no other changes).
-3. After one release with no regressions traced to the archived assertions, delete in a second PR.
-
-**Never delete in one step.** The archive tier is the rollback path.
+1. Run `npm run test:redundancy -- --fetch` and confirm the test covers no block unique in its spec.
+2. Confirm by reading both tests that its assertions exist in the test that covers the same blocks.
+3. Delete it, and list each deleted test with its replacement in the PR body. Git history is the rollback path.
 
 ### Test commands
 
@@ -746,7 +743,8 @@ npm run test:core           # tests/playwright/core/
 npm run test:extended       # tests/playwright/extended/
 npm run test:unit           # tests/unit/
 npm run test:all            # unit + core + extended (pre-release)
-npm run test:offline        # legacy; removed after @network tags retire
+npm run test:changed        # only the tests a change can affect (see .context/testing.md)
+npm run test:redundancy     # tests that cover nothing unique in their spec
 ```
 
 ### Pre-existing flaky categories — do not fix in unrelated work

@@ -15,7 +15,7 @@ duplicating its rules here; on any conflict with source code, code wins.
 - `.context/data-pipelines.md` — spot/retail/goldback/image pipelines, cron, failure modes.
 - `.context/cloud-sync.md` — Dropbox OAuth, AES-GCM encryption, rollback, backup/restore.
 - `.context/cloud-sync-convergence.md` — STRK-154 sync compare/merge/hash invariant.
-- `.context/testing.md` — test tiers, TDD rules, coverage-map requirement. **Read before editing or running tests.**
+- `.context/testing.md` — test tiers, TDD rules, targeted runs and CI. **Read before editing or running tests.**
 - `.context/issue-tracking.md` — Plane state UUIDs, epic conventions.
 - `.context/git-topology.md` — branch model, worktrees, version locks, release flow, spot bundle, merge strategy, stale branch checks.
 - `.context/implementation-gotchas.md` — runtime and module foot-guns (dual config store, script load order, date frames, storage behavior, sticky columns, goldback predicates, spec closing order).
@@ -48,11 +48,10 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - `npm run test:core` — core Playwright suite
 - `npm run test:changed` — only the tests a change can affect (`-- --fetch` downloads `dev`'s test map)
 - `npm run test:map` — full core run with coverage; writes the test map and lcov
+- `npm run test:redundancy` — tests that cover nothing unique in their spec (`-- --fetch` uses `dev`'s block file)
 - `npm run test:extended` — slower extended coverage
-- `npm run test:legacy` — archived issue acceptance matrices
 - `npm run test:all` — unit + core + extended suites
 - `npm run test:unit` — Node/unit tests
-- `npm run test:offline` — legacy full suite excluding `@network` scenarios
 
 ## Coding Style
 
@@ -68,7 +67,8 @@ Full policy in `.context/testing.md` — read it before editing or running any t
 Non-negotiables:
 
 - Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
-- Update `tests/playwright/coverage-map.csv` whenever a PR changes the Playwright test inventory.
+- Extend an existing test of the same behavior before adding a new one.
+- Run `npm run test:changed` before every push.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 
 ## Issue, Worktree, And PR Gates
@@ -129,7 +129,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Comment `@codex review` to request another Codex pass.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
-- Required status checks differ by branch: `dev` requires **only** `Codacy Static Code Analysis`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
+- Required status checks differ by branch: `dev` requires `Codacy Static Code Analysis` **and** `Tests`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
 - CodeRabbit's 75% docstring-coverage pre-merge check blocks merge invisibly (green checks + 0 threads but `CHANGES_REQUESTED`). Write JSDoc / shell docstrings pre-emptively.
 
 ## Pre-Flight Triggers

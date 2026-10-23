@@ -3051,7 +3051,7 @@ test.describe("core/retail-market", () => {
         // slightly over 1000 — an assertion the helper's own semantics permit but
         // `toBeLessThan(1000)` would fail. Enforcing the deadline in one place
         // (the helper) is what makes this deterministic. Raise deadlineMs there
-        // to change the contract, and update this file's coverage-map row.
+        // to change the contract.
         expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
       }
 

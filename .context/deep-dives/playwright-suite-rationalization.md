@@ -11,7 +11,8 @@ updated: "2026-05-21"
 
 > **Historical planning artifact.** This document records a rationalization proposal, not the
 > live test inventory. Before acting on a file path, test count, or suite grouping here, check
-> `tests/playwright/coverage-map.csv` and the current `tests/playwright/` tree.
+> the current `tests/playwright/` tree and `.context/testing.md`. The archive tier it proposes
+> does not exist in the repository; `npm run test:redundancy` replaces a hand-kept coverage map.
 
 ## Executive Summary
 
@@ -260,7 +261,6 @@ After the suite is reshaped, update scripts:
   "test": "npm run test:core",
   "test:core": "npx playwright test tests/playwright/core",
   "test:extended": "npx playwright test tests/playwright/extended",
-  "test:legacy": "npx playwright test tests/playwright/archive",
   "test:unit": "node --test tests/unit/**/*.test.js",
   "test:all": "npm run test:unit && npx playwright test"
 }

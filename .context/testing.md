@@ -23,25 +23,33 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Default PR gate: `npm test`, which runs only `tests/playwright/core/`.
 - Core browser coverage belongs under `tests/playwright/core/<domain>.spec.js`.
 - Slower or edge coverage belongs under `tests/playwright/extended/`.
-- Archived issue acceptance-criteria (AC) matrices belong under
-  `tests/playwright/archive/issue-ac-matrices/`.
 - Unit tests run via `npm run test:unit`; `npm run test:all` = unit + core + extended.
-- `npm run test:offline` runs the legacy full suite with `--grep-invert @network`. **No spec
-  currently carries an `@network` tag**, so the filter is a no-op and this is equivalent to a
-  full run. Tag a spec `@network` if it genuinely needs live network, or the command has no
-  purpose.
 - **Playwright route mocks for api-health need a trailing `*`.** `fetchApiHealth` appends a
   `_t=` cache-buster query param (joined with `?` or `&` depending on the URL), so a
   `page.route` pattern without the wildcard silently never matches and the test exercises the
   real endpoint instead of the mock. Grep `fetchApiHealth` in `js/api-health.js` for the
   current form.
+
+## Targeted Runs, Coverage and CI
+
 - `npm run test:changed` runs only the core and unit tests a change can affect, selected from
-  the test map (`.cache/test-map.json`). `npm run test:changed -- --fetch` downloads the map
-  from the latest `dev` run first. `npm run test:map` builds the map locally with a full
-  coverage run.
-- CI (`.github/workflows/tests.yml`): a PR to `dev` runs the `test:changed` selection; a push
-  to `dev` runs the full unit and core suites with coverage, publishes the map and uploads lcov
-  to Codacy. The `Tests` job is the single check to require.
+  the test map (`.cache/test-map.json`). Run it before every push.
+- `npm run test:changed -- --fetch` downloads the map from the latest `dev` run first. Without
+  a map, it runs the full suite and prints the `npm run test:map` command.
+- `npm run test:map` runs core with coverage and writes the map, `.cache/test-blocks.json` and
+  `coverage/lcov.info`. `npm run test:coverage` writes only the lcov.
+- `npm run test:redundancy` reads the block file and writes `coverage/redundancy.json` and
+  `coverage/redundancy.md`. It ranks tests that cover no block unique in their spec.
+  `-- --fetch` downloads the block file and map from `dev`.
+- Equal coverage does not prove equal assertions. Read both tests before merging them.
+- CI (`.github/workflows/tests.yml`): a PR to `dev` runs the `test:changed` selection. A
+  docs-only PR starts no browser.
+- A push to `dev` runs the full unit and core suites with coverage. It publishes the
+  `test-map` and `test-blocks` artifacts and uploads lcov to Codacy.
+- The `dev` ruleset requires two checks: `Codacy Static Code Analysis` and `Tests`. There is
+  no coverage gate on PRs; Codacy tracks `dev` coverage from the push runs.
+- A regression outside the PR selection fails the next `dev` push run. Fix it before other
+  work.
 
 ## Parallel Runs
 
@@ -56,17 +64,14 @@ these rules elsewhere. Read before editing or running any Playwright test.
 
 ## File Placement & Inventory
 
-- Before adding a Playwright file, check `tests/playwright/coverage-map.csv`.
+- **Extend an existing test before adding one.** Search the domain suite for a test of the
+  same behavior and add the assertion there.
+- Add a new test only for a new behavior, or when it covers blocks no other test covers.
 - Add a new file only when assertions do not fit an existing domain suite.
-- Do not add new issue-prefixed specs at the Playwright root.
-- Reconcile temporary issue AC matrices into core/extended coverage before merge, or
-  archive them.
-- **Update `tests/playwright/coverage-map.csv` when a PR changes the Playwright test
-  inventory.** The CSV is keyed by file (one row per spec): a new spec file adds a row;
-  adding or removing cases in an existing spec updates that file's row (`test_count`).
-  A missing or stale row is caught only by review, not by any local gate.
-  - Exception: non-functional edits (comments, formatting, refactors) that leave the
-    inventory unchanged do not require a coverage-map entry.
+- Do not add issue-prefixed specs. Fold issue acceptance checks into the domain suite before
+  merge.
+- Prefer a unit test for logic that needs no DOM. A logic check in Playwright pays a full
+  app boot.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 
 ## Assertions & Fixtures

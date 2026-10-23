@@ -19,9 +19,7 @@
     "test:changed": "node devops/testing/test-changed.mjs",
     "test:redundancy": "node devops/testing/test-redundancy.mjs",
     "test:extended": "npx playwright test tests/playwright/extended --pass-with-no-tests",
-    "test:legacy": "npx playwright test tests/playwright/archive",
     "test:all": "npm run test:unit && npm run test:core && npm run test:extended",
-    "test:offline": "npx playwright test --grep-invert @network",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
