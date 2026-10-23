@@ -281,11 +281,16 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Maps to:** AC-23
   - **As built:** `serveStaticFromMemory` in `extended-test.js` matches app-origin paths under `js/`, `css/`, `vendor/` and `data/` that end in `.js` or `.css`. It reads each file once per worker from `REPO_ROOT` and falls back to the server for a missing file. It registers before the network mocks, so a mock or a spec route for the same URL still wins. Full core at default workers on `a136b858`: 244.0 s before; 230.1 s and 227.7 s after, with 922 passed, none flaky, and the `.stvault` test passing in both runs. Test time is 1,189 s before and 1,125 s and 1,113 s after. The extended suite passes (22).
 
-- [ ] **C.19** — Phase 14 startup delay at 0 ms (added 2026-10-23, user-approved, D-21)
+- [x] **C.19** — Phase 14 startup delay at 0 ms (added 2026-10-23, user-approved, D-21)
   - **File(s):** _no file changes in this spec — STRK-466, its own patch release_
   - **Acceptance:** STRK-466 is merged to `dev`. A full core run after it is green, and its wall time goes in the C.15 PR body as the new baseline.
   - **Depends on:** C.18
   - **Maps to:** AC-23
+  - **As built:** STRK-466 shipped as v3.36.65 (`c112449a`). Median navigation start to `appListenersReady` over 40 boots at default workers: 986 and 845 ms before, 769 and 639 ms after. Two local full core runs on the patch: 242.8 s and 230.5 s, 922 passed, none flaky. Run-to-run spread on the reference machine is about 15 s, larger than the saving, so the suite total shows no clear gain.
+  - **Tests that raced boot:** the 200 ms delay had hidden two races.
+    - The `.stvault` companion-artwork test in `collections-data-paths.spec.js` took its backup before the startup spot sync wrote `metalApiConfig`. It now awaits the in-flight sync (fixed in the v3.36.65 PR).
+    - The `dev` run after the merge (40029054488) failed the reloaded-page note check in `collections.spec.js`: a `goldback:updated` re-render closes an open Slot note. The check retries the click (`124abf93`), and STRK-468 tracks the app behavior.
+  - **Confirmed (2026-10-23, `dev` run 40031548118 at `124abf93`):** green; unit and all four core shards pass.
 
 - [ ] **C.15** — Consolidate the remaining domains by measured cost (amended 2026-10-23, user-approved, D-22)
   - **File(s):** `tests/playwright/core/*.spec.js`, `tests/unit/*.test.js`
