@@ -90,15 +90,16 @@ const getSpotLookupDisplayValue = (spotPrice, timestamp = "") => {
 
 /**
  * Briefly highlights an input that was populated from a spot lookup selection.
+ * The `.spot-lookup-flash` class supplies the theme tint.
  *
  * @param {HTMLElement|null|undefined} input
  */
 const flashSpotLookupTarget = (input) => {
   if (!input) return;
   input.style.transition = "background-color 0.3s";
-  input.style.backgroundColor = "var(--accent, #fbbf24)";
+  input.classList.add("spot-lookup-flash");
   setTimeout(() => {
-    input.style.backgroundColor = "";
+    input.classList.remove("spot-lookup-flash");
   }, 800);
 };
 

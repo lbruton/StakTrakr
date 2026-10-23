@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.61] - 2026-10-22
+
+### Changed — STRK-450: Theme-aware sync status colors
+
+- **Status text tokens**: New `--success-text`, `--warning-text` and `--danger-text` tokens in all four themes meet at least 4.5:1 on `--bg-secondary`; `--warning-text` was missing from dark and slate (STRK-450).
+- **Numista sync status**: Status cells and activity log lines use classes on those tokens instead of the undefined `--success-color`, `--warning-color` and `--danger-color` tokens; Failed reads as danger, apart from Needs sync (STRK-450).
+- **Spot lookup flash**: The filled price input takes a `.spot-lookup-flash` tint mixed from `--warning` instead of the undefined `--accent` (STRK-450).
+- **Guard test**: A unit test fails when `js/` reads a custom property that no stylesheet defines (STRK-450).
+
+---
+
 ## [3.36.60] - 2026-10-22
 
 ### Changed — STRK-456: Clearer error and status messages
