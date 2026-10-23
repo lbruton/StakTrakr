@@ -1,6 +1,7 @@
-// STRK-189 — Spot sync freshness guard (generated_at)
+// Spot prices: sync freshness, provider dispatch, the refresh icon and the
+// timestamp label on the spot cards.
 //
-// Verifies the consumer-side freshness gate on /spot/latest.json:
+// The consumer-side freshness gate on /spot/latest.json:
 //   1. A stale api1 payload fails over to api2 (validator inside _staktrakrFetch).
 //   2. When both endpoints are stale the sync fails: nothing displayed, written,
 //      or recorded with a wall-clock timestamp.
@@ -869,5 +870,100 @@ test.describe("STRK-333 — spot metal coverage across endpoints", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.some((row) => row.timestamp === toHistoryTimestamp(rowIso))).toBe(true);
     expect(rows.some((row) => row.timestamp === toHistoryTimestamp(publishIso))).toBe(false);
+  });
+});
+
+// The seed bundle can end with a today-dated noon entry. saveSpotHistory sorts by
+// timestamp, so that entry stays the tail after an earlier same-day API sync.
+// getLastUpdateTime compares by local calendar day and prefers the sync label.
+const SEED_LABEL_NOW_ISO = "2026-06-04T18:00:00.000Z"; // 13:00 in America/Chicago (CDT)
+const SEED_LABEL_TODAY = "2026-06-04";
+
+/** Boots the app with Date pinned to SEED_LABEL_NOW_ISO. */
+async function gotoAppAtSeedLabelNow(page) {
+  await page.addInitScript(
+    ({ fixedNowIso }) => {
+      const RealDate = Date;
+      const fixedNow = new RealDate(fixedNowIso).getTime();
+      class MockDate extends RealDate {
+        constructor(...args) {
+          super(...(args.length ? args : [fixedNow]));
+        }
+        static now() {
+          return fixedNow;
+        }
+      }
+      MockDate.UTC = RealDate.UTC;
+      MockDate.parse = RealDate.parse;
+      window.Date = MockDate;
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
+        },
+        { once: true }
+      );
+    },
+    { fixedNowIso: SEED_LABEL_NOW_ISO }
+  );
+
+  // #newItemBtn lives in the Inventory panel; the shell boots on Dashboard.
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#newItemBtn", { state: "visible" });
+  await page.waitForFunction(
+    () =>
+      typeof window.updateSpotTimestamp === "function" &&
+      typeof window.saveDataSync === "function" &&
+      "spotHistory" in window
+  );
+}
+
+/**
+ * Sets the spotHistory tail to a today-noon seed entry, optionally records a
+ * same-day morning API sync, and returns the rendered Silver timestamp label.
+ */
+async function renderSilverLabel(page, { withMorningSync }) {
+  return page.evaluate(
+    ({ today, morningSync }) => {
+      window.spotHistory = [
+        { metal: "Silver", spot: 30, source: "seed", timestamp: `${today} 12:00:00` },
+      ];
+      // "lastApiSync" === LAST_API_SYNC_KEY
+      if (morningSync) {
+        window.saveDataSync("lastApiSync", {
+          provider: "Metals.dev",
+          timestamp: `${today}T06:57:00`,
+        });
+      } else {
+        localStorage.removeItem("lastApiSync");
+      }
+      localStorage.removeItem("lastCacheRefresh");
+      window.updateSpotTimestamp("Silver");
+      return document.getElementById("spotTimestampSilver").innerHTML;
+    },
+    { today: SEED_LABEL_TODAY, morningSync: withMorningSync }
+  );
+}
+
+test.describe("STRK-153 seed label lock", () => {
+  test.use({ locale: "en-US", timezoneId: "America/Chicago" });
+
+  test("a today-noon seed tail shows the Seed label until a same-day API sync replaces it", async ({
+    page,
+  }) => {
+    await gotoAppAtSeedLabelNow(page);
+
+    await test.step("today-noon seed tail with no sync still shows the Seed label", async () => {
+      const label = await renderSilverLabel(page, { withMorningSync: false });
+      expect(label).toContain("Seed");
+      expect(label).toContain(SEED_LABEL_TODAY);
+    });
+
+    await test.step("today-noon seed tail + same-day morning API sync shows the live provider label, not Seed", async () => {
+      const label = await renderSilverLabel(page, { withMorningSync: true });
+      expect(label).not.toContain("Seed");
+      expect(label).toContain("Metals.dev");
+      expect(label).toContain("Last API Sync");
+    });
   });
 });

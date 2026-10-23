@@ -1,7 +1,7 @@
 // STRK-170 cohort 1.4 — characterization coverage for the vault modal dispatch
 // surface (`openVaultModal` + `handleVaultAction`). These functions had NO direct
 // test coverage before this spec; the crypto round-trip itself is covered by
-// core/import-export.spec.js and core/strk-186-catalog-key-vault-restore.spec.js.
+// core/import-export.spec.js and the catalog key restore tests at the end of this file.
 //
 // The complexity refactor decomposes both functions into per-mode/per-phase
 // helpers. This spec pins the observable, deterministic behavior the refactor
@@ -16,6 +16,7 @@
 // stubbing window.exportEncryptedBackup / window.importEncryptedBackup and setting
 // window._vaultPendingFile are seen by the bare references inside handleVaultAction.
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../helpers/seed.js";
 
 const VAULT_PASSWORD = "strk170-vault-pass"; // gitleaks:allow — test fixture, not a real secret
 
@@ -224,5 +225,141 @@ test.describe("STRK-170 vault modal characterization (cohort 1.4)", () => {
     }, VAULT_PASSWORD);
     expect(r.importArgs).toEqual([[10, 20, 30], VAULT_PASSWORD]);
     expect(r.modalDisplay).toBe("none");
+  });
+});
+
+// The CatalogConfig singleton reads catalog_api_config once in its constructor.
+// A restore must rehydrate it, or the next CatalogConfig.save() (a usage-counter
+// increment) writes the stale in-memory defaults over the restored key.
+
+// Test fixtures, not real credentials.
+const RESTORE_VAULT_PASSWORD = "strk186-vault-pass"; // gitleaks:allow
+const NUMISTA_KEY = "strk186-numista-api-key"; // gitleaks:allow
+
+/**
+ * Seeds the Numista key through the real setter (localStorage and in-memory
+ * config), then exports an encrypted vault. Not seeded with addInitScript: init
+ * scripts run again on every navigation and would restore the key after the wipe.
+ * @param {import('@playwright/test').Page} page - Page to boot.
+ * @returns {Promise<number[]>} Vault bytes.
+ */
+async function seedKeyAndExport(page) {
+  await injectSeedInventory(page);
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () =>
+      typeof window.vaultEncryptToBytes === "function" &&
+      typeof window.catalogConfig !== "undefined"
+  );
+  return page.evaluate(
+    async ({ password, key }) => {
+      window.catalogConfig.setNumistaConfig(key);
+      const bytes = await window.vaultEncryptToBytes(password);
+      return Array.from(bytes);
+    },
+    { password: RESTORE_VAULT_PASSWORD, key: NUMISTA_KEY }
+  );
+}
+
+/**
+ * Clears localStorage from a same-origin page where the app is not running, then
+ * boots the app so CatalogConfig constructs from empty defaults.
+ * @param {import('@playwright/test').Page} page - Page to reboot.
+ * @returns {Promise<void>}
+ */
+async function wipeAndReboot(page) {
+  await page.goto("/strk186-neutral-404", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => localStorage.clear());
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.catalogConfig !== "undefined");
+}
+
+/**
+ * Decodes the Numista key persisted in localStorage (base64).
+ * @param {import('@playwright/test').Page} page - Booted page.
+ * @returns {Promise<string|null>}
+ */
+function readPersistedKey(page) {
+  return page.evaluate(() => {
+    const raw = localStorage.getItem("catalog_api_config");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const stored = parsed?.numista?.apiKey || "";
+    try {
+      return atob(stored);
+    } catch (e) {
+      return stored;
+    }
+  });
+}
+
+test.describe("STRK-186 catalog key vault restore", () => {
+  test("full restore rehydrates CatalogConfig and key survives usage-counter save + reload", async ({
+    page,
+  }) => {
+    const vaultBytes = await seedKeyAndExport(page);
+    await wipeAndReboot(page);
+
+    // The wipe removed the key from the booted singleton.
+    const wipedKey = await page.evaluate(() => window.catalogConfig.config.numista.apiKey);
+    expect(wipedKey).toBe("");
+
+    // The legacy full restore is also the path of the diff-preview fallback and
+    // the cloud-sync pull.
+    const inMemoryKey = await page.evaluate(
+      async ({ password, bytes }) => {
+        window.showToast = () => {};
+        await window.vaultDecryptAndRestore(new Uint8Array(bytes), password);
+        return window.catalogConfig.config.numista.apiKey;
+      },
+      { password: RESTORE_VAULT_PASSWORD, bytes: vaultBytes }
+    );
+    expect(inMemoryKey).toBe(NUMISTA_KEY);
+
+    // A usage-counter save writes the in-memory config back to localStorage.
+    await page.evaluate(() => window.catalogConfig.incrementNumistaUsage());
+    expect(await readPersistedKey(page)).toBe(NUMISTA_KEY);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof window.catalogConfig !== "undefined");
+    expect(await readPersistedKey(page)).toBe(NUMISTA_KEY);
+    expect(await page.evaluate(() => window.catalogConfig.config.numista.apiKey)).toBe(NUMISTA_KEY);
+  });
+
+  test("diff-preview apply rehydrates CatalogConfig and key survives usage-counter save", async ({
+    page,
+  }) => {
+    const vaultBytes = await seedKeyAndExport(page);
+    await wipeAndReboot(page);
+    await page.waitForFunction(
+      () =>
+        typeof window.vaultRestoreWithPreview === "function" &&
+        typeof window.DiffModal !== "undefined"
+    );
+
+    // Settings apply all or nothing, so an empty selection still applies them.
+    const result = await page.evaluate(
+      async ({ password, bytes }) => {
+        let applied = false;
+        const origShow = window.DiffModal.show;
+        window.showToast = () => {};
+        window.DiffModal.show = (opts) => {
+          applied = true;
+          opts.onApply([]);
+        };
+        await window.vaultRestoreWithPreview(new Uint8Array(bytes), password);
+        window.DiffModal.show = origShow;
+        return {
+          applied,
+          inMemoryKey: window.catalogConfig.config.numista.apiKey,
+        };
+      },
+      { password: RESTORE_VAULT_PASSWORD, bytes: vaultBytes }
+    );
+    expect(result.applied).toBe(true);
+    expect(result.inMemoryKey).toBe(NUMISTA_KEY);
+
+    await page.evaluate(() => window.catalogConfig.incrementNumistaUsage());
+    expect(await readPersistedKey(page)).toBe(NUMISTA_KEY);
   });
 });
