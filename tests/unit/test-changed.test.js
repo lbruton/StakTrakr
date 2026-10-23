@@ -402,6 +402,18 @@ describe("selectTests with the line index", () => {
     assert.deepEqual(locations(beforeBlank), [guardId("open"), guardId("deep")]);
   });
 
+  test("an insertion just before or just after a function is top-level code (D-7)", () => {
+    for (const before of [0, 9]) {
+      const selection = selectLines([{ file: "js/guard.js", lines: [], inserts: [before] }]);
+      assert.equal(
+        selection.full,
+        true,
+        `an insertion after line ${before} selects the full suite`
+      );
+      assert.ok(selection.reasons.some((reason) => reason.file === "js/guard.js"));
+    }
+  });
+
   test("a top-level line still selects the full core suite (D-7)", () => {
     const selection = selectLines([{ file: "js/guard.js", lines: [10] }]);
     assert.equal(selection.full, true);
@@ -418,13 +430,17 @@ describe("selectTests with the line index", () => {
     ]);
   });
 
-  test("without a line index an inserted line counts as the lines on both sides", () => {
-    const selection = select([{ file: "js/demo.js", lines: [], inserts: [12] }]);
-    assert.deepEqual(locations(selection), [
+  test("without a line index an inserted line selects the tests of its enclosing function", () => {
+    const inside = select([{ file: "js/demo.js", lines: [], inserts: [6] }]);
+    assert.equal(inside.full, false);
+    assert.deepEqual(locations(inside), [
       "tests/playwright/core/alpha.spec.js:10",
       "tests/playwright/core/beta.spec.js:7",
     ]);
-    assert.equal(selection.full, true, "line 13 is top-level code");
+    for (const before of [4, 12]) {
+      const outside = select([{ file: "js/demo.js", lines: [], inserts: [before] }]);
+      assert.equal(outside.full, true, `an insertion after line ${before} is top-level code`);
+    }
   });
 });
 

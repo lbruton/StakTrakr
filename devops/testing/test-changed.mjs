@@ -162,25 +162,16 @@ export function buildUnitIndex(files) {
 }
 
 /**
- * Old-side lines that stand for each change in a script. With a line index, an inserted
- * line runs with the line after it; a blank line or a closing brace after it means the
- * line before decides too. Without one, an insertion counts as both neighbours.
- * @param {{lines: number[], inserts?: number[]}} change - One file's change.
- * @param {boolean} byLine - Whether the map has a line index for the file.
+ * Old-side lines whose line-index sets stand for an insertion inside a function: the line
+ * after it, and the line before when the line after is blank or a closing brace.
+ * @param {number} before - Old line the insertion follows.
  * @param {(line: number) => string|undefined} lineText - Old-side text of a line.
  * @returns {number[]}
  */
-function judgedLines({ lines, inserts = [] }, byLine, lineText) {
-  const judged = new Set(lines);
-  for (const before of inserts) {
-    const after = before + 1;
-    const next = lineText(after);
-    if (!byLine || next === undefined || /^\s*(\}|$)/.test(next)) {
-      if (before > 0) judged.add(before);
-    }
-    if (next !== undefined || !byLine) judged.add(after);
-  }
-  return [...judged].sort((a, b) => a - b);
+function insertionLines(before, lineText) {
+  const next = lineText(before + 1);
+  if (next === undefined) return [before];
+  return /^\s*(\}|$)/.test(next) ? [before, before + 1] : [before + 1];
 }
 
 /**
@@ -203,21 +194,13 @@ function selectInScript({ file, change, map, oldLine, pickTest, full }) {
       t.functions.filter((fn) => fn.file === file).map((fn) => [fn.startLine, fn.endLine])
     );
   const runs = map.sets ? map.lines?.[file] : undefined;
-  for (const line of judgedLines(change, Boolean(runs), (n) => oldLine(file, n))) {
-    // A line runs only when its innermost enclosing function runs, so a module
-    // wrapper that every boot enters does not select every test.
-    const inner = known
-      .filter(([start, end]) => start <= line && line <= end)
+  // A line runs only when its innermost enclosing function runs, so a module
+  // wrapper that every boot enters does not select every test.
+  const innermost = (first, last) =>
+    known
+      .filter(([start, end]) => start <= first && last <= end)
       .sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0];
-    if (!inner) {
-      full(file, `line ${line} is top-level code that every boot runs`);
-      continue;
-    }
-    const run = runs?.find(([start, end]) => start <= line && line <= end);
-    if (run) {
-      for (const index of map.sets[run[2]]) pickTest(map.tests[index].id, file);
-      continue;
-    }
+  const pickFunction = (inner) =>
     testsInFile
       .filter((t) =>
         t.functions.some(
@@ -225,6 +208,29 @@ function selectInScript({ file, change, map, oldLine, pickTest, full }) {
         )
       )
       .forEach((t) => pickTest(t.id, file));
+  const pickLine = (line) => {
+    const run = runs?.find(([start, end]) => start <= line && line <= end);
+    if (!run) return false;
+    for (const index of map.sets[run[2]]) pickTest(map.tests[index].id, file);
+    return true;
+  };
+
+  for (const line of change.lines) {
+    const inner = innermost(line, line);
+    if (!inner) full(file, `line ${line} is top-level code that every boot runs`);
+    else if (!pickLine(line)) pickFunction(inner);
+  }
+  // An insertion runs in the innermost function that holds both of its neighbours. Just
+  // before a function's first line or after its last, that is the scope around it.
+  for (const before of change.inserts ?? []) {
+    const scope = innermost(before, before + 1);
+    if (!scope) {
+      full(file, `an insertion after line ${before} is top-level code that every boot runs`);
+      continue;
+    }
+    const lines = runs ? insertionLines(before, (n) => oldLine(file, n)) : [];
+    const picked = lines.map(pickLine);
+    if (!picked.length || picked.includes(false)) pickFunction(scope);
   }
 }
 
