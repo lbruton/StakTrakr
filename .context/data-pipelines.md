@@ -49,25 +49,25 @@ stall is a _symptom_ of memory thrash, not the cause.
 **Root cause:** `git repack -a` in `cleanup-export.sh` enumerates the export repo's **entire**
 history before it can build deltas: `--window-memory` only caps the per-delta window, not the
 object list. Years of 4×/hour publish commits (10k+ commits, millions of objects) pushed the
-repack past the machine's memory ceiling; it was OOM-killed mid-run, 86 minutes in, wedging the
+repack past the machine's memory ceiling. It was OOM-killed mid-run, 86 minutes in. This wedged the
 whole VM (Tailscale, sqld connections, the `*/5` provider-export cron) while still holding the
 publish lock. Because it never reached `prune`, the low-inode condition that triggered the
-repack never cleared, so the _next_ publish immediately re-entered the same repack: a
+repack never cleared. The _next_ publish immediately re-entered the same repack. This creates a
 permanent loop that a plain `fly machine restart` does not break.
 
 **Fix (this issue):** `cleanup-export.sh` re-shallows (fresh depth-1 clone of the current tip)
-instead of repacking full history: bounded to the current tree regardless of how much history
+instead of repacking full history. It is bounded to the current tree regardless of how much history
 has accumulated. `run-publish.sh` re-shallows on bootstrap if `.git/shallow` is missing. Every
 cron job is wrapped in its own `flock -n <job>.flock timeout -k 30 <N>` (see
-`docker-entrypoint-slim.sh`), and the cross-script publish/cleanup mutex moved from a
-`noclobber` lockfile to `flock` on `/tmp/retail-publish.flock`: the noclobber version needed
-its `EXIT` trap to fire to release, which does not happen on SIGKILL/OOM-kill, and left the
-lock stranded during this incident.
+`docker-entrypoint-slim.sh`). The cross-script publish/cleanup mutex moved from a
+`noclobber` lockfile to `flock` on `/tmp/retail-publish.flock`. The noclobber version needed
+its `EXIT` trap to fire to release. That does not happen on SIGKILL/OOM-kill, so the
+lock remained stranded during this incident.
 
 **Manual recovery** (if the fix has not yet reached a machine): take the publish lock, back up
-`.git/config`, `rm -rf .git`, `git init`, restore the config, `git symbolic-ref HEAD
+`.git/config`. Run `rm -rf .git`, `git init`, restore the config. Run `git symbolic-ref HEAD
 refs/heads/api`, `git fetch --depth 1 origin api`, `git reset FETCH_HEAD` (mixed: working tree
-untouched), release the lock, run `/app/run-publish.sh`. Then heal any spot-hourly gap from the
+untouched). Release the lock. Run `/app/run-publish.sh`. Then heal any spot-hourly gap from the
 outage window with `backfill-spot-files.js` (it skips files that already exist).
 
 ---
@@ -99,7 +99,7 @@ v2 endpoints embed their freshness threshold in the envelope. The frontend alway
 
 ### Overview
 
-Spot prices (gold, silver, platinum, palladium, copper in USD per troy oz) are polled **4× per hour** (every 15 minutes) by **two independent writers**: the Fly.io container and the home poller. Both write to the sqld `spot_prices` table and JSON files on the Fly.io persistent volume. Published to GitHub Pages via `run-publish.sh`.
+Spot prices (gold, silver, platinum, palladium, copper in USD per troy oz) are polled **4× per hour** (every 15 minutes) by **two independent writers**. These are the Fly.io container and the home poller. Both write to the sqld `spot_prices` table and JSON files on the Fly.io persistent volume. Published to GitHub Pages via `run-publish.sh`.
 
 ### Flow
 
@@ -138,7 +138,7 @@ MetalPriceAPI (/v1/latest?base=USD&currencies=XAU,XAG,XPT,XPD,XCU)
 | `XPD`  | Palladium |
 | `XCU`  | Copper    |
 
-The tracked set is defined once, in `devops/pollers/shared/spot-metals.js`. Every other list (the API query string, the database key set, the JSON entry order, the exporter's ISO map, the manifest `metals` array) is derived from it. Do not add a metal by editing those directly.
+The tracked set is defined once, in `devops/pollers/shared/spot-metals.js`. Every other list is derived from it: the API query string, the database key set, and the JSON entry order. This also includes the exporter's ISO map and the manifest `metals` array. Do not add a metal by editing those directly.
 
 **Rate conversion logic in `spot-extract.js`:**
 
@@ -153,7 +153,7 @@ A `/v1/latest?base=USD` response carries every figure twice:
 
 > **Corrected 2026-08-15 (STRK-303).** This section previously documented a magnitude heuristic — `rate >= 1 ? rate : 1 / rate` — that guessed which of the two forms it had been handed. The guess was only ever right because every tracked metal was worth far more than $1/ozt, which put the two candidates orders of magnitude apart. Copper trades near $0.41/ozt, so its reciprocal (~2.42) sits above the threshold and the heuristic silently returned $2.42. It existed only because the code read the bare key while its own comment claimed to read the `USD`-prefixed one. It has been deleted.
 
-Sanity bounds are **per metal** (`METAL_PRICE_BOUNDS` in `spot-metals.js`), not one global range. A single `$5 < price < $50,000` window cannot span metals four orders of magnitude apart: it rejected every correct copper quote, and because that rejection throws and is caught upstream into `process.exit(1)`, it killed the whole poll run rather than dropping one metal.
+Sanity bounds are **per metal** (`METAL_PRICE_BOUNDS` in `spot-metals.js`), not one global range. A single `$5 < price < $50,000` window cannot span metals four orders of magnitude apart. It rejected every correct copper quote. Because that rejection throws and is caught upstream into `process.exit(1)`, it killed the whole poll run rather than dropping one metal.
 
 Prices are rounded by magnitude: two decimals at or above $1, four below. Two decimals quantises copper by roughly 0.6% per tick, and that error is permanent once written to history.
 
@@ -161,7 +161,7 @@ Prices are rounded by magnitude: two decimals at or above $1, four below. Two de
 
 **sqld table: `spot_prices`**
 
-Primary data store. `spot-extract.js` inserts one row per tracked metal via `insertSpotPrices()`, keyed on `(metal, timestamp_floor)` with a floored 15-minute window timestamp. The metal set comes from `spot-metals.js`; `insertSpotPrices` validates every requested metal is a finite number before writing any row, so a partial payload fails before it can half-commit.
+Primary data store. `spot-extract.js` inserts one row per tracked metal via `insertSpotPrices()`, keyed on `(metal, timestamp_floor)` with a floored 15-minute window timestamp. The metal set comes from `spot-metals.js`; `insertSpotPrices` validates every requested metal is a finite number before writing any row. A partial payload fails before it can half-commit.
 
 **JSON files on Fly volume:**
 
@@ -216,20 +216,20 @@ The frontend user-selectable spot source (v3.34.24+) replaces the legacy fallbac
 
 `poller.py` (Python) is **inactive**. Replaced by `spot-extract.js`, which writes no year file: so the public `data/spot-history-YYYY.json` froze at 2026-02-26 until the publisher gained its daily-year writer.
 
-**Daily year file:** `data/spot-history-YYYY.json` has two writers that share one rule: `shared/spot-year-history.js` (called from `api-export.js` every publish, API copy) and `.claude/skills/update-spot-bundle/update-spot-bundle.py` (release time, repo copy). Rule: one entry per (metal, UTC day) = `AVG(spot)`, aggregated **and rounded** in SQL (4dp below $1, else 2dp: keeps Python half-even and JS half-up rounding from diverging), stamped `YYYY-MM-DD 12:00:00` with `source: "sqld"`; **complete UTC days only** (the day in progress is never written); sqld fills missing keys and replaces its own earlier `sqld` entries but **never overwrites a `seed` entry** (sqld's first days held as little as 1 sample/day; seed rows cover pre-2026-02-17 and the copper backfill). The publisher rewrites the current UTC year (plus the previous year during Jan 1–7) and only writes when content changed, so the file gains at most one git blob per day. Change one writer → change both. It is still a daily series, not a freshness signal: live spot is `data/hourly/`.
+**Daily year file:** `data/spot-history-YYYY.json` has two writers that share one rule: `shared/spot-year-history.js` (called from `api-export.js` every publish, API copy) and `.claude/skills/update-spot-bundle/update-spot-bundle.py` (release time, repo copy). Rule: one entry per (metal, UTC day) = `AVG(spot)`, aggregated **and rounded** in SQL. Rounding uses 4dp below $1, else 2dp. This keeps Python half-even and JS half-up rounding from diverging. Entries are stamped `YYYY-MM-DD 12:00:00` with `source: "sqld"`. Use **complete UTC days only** (the day in progress is never written). The sqld writer fills missing keys and replaces its own earlier `sqld` entries but **never overwrites a `seed` entry**. Its first days held as little as 1 sample/day. The seed rows cover pre-2026-02-17 and the copper backfill. The publisher rewrites the current UTC year (plus the previous year during Jan 1–7) and only writes when content changed. The file gains at most one git blob per day. Change one writer → change both. It is still a daily series, not a freshness signal: live spot is `data/hourly/`.
 
 **Gap-healing backfiller:** `shared/backfill-spot-files.js` regenerates hourly spot JSON files **from sqld**: the reverse of `backfill-spot.js` (which imports files _into_ sqld). Use it when spot rows kept landing in sqld but file writes failed (e.g. the 2026-06-11 inode-exhaustion outage). Usage: `DATA_DIR=/data/staktrakr-api-export/data node backfill-spot-files.js --from 2026-06-11T06 --to 2026-06-11T13 [--overwrite] [--dry-run]` (hours UTC, inclusive; existing files skipped unless `--overwrite`; output byte-compatible with `spot-extract.js`).
 
-**v2 day-file backfiller:** `shared/backfill-v2-day-files.js` backfills a metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive **from year-file daily history**: sqld cannot source it (`spot_prices` reaches back only to 2026-02 and holds a new metal only from its go-live). Emits one honest single-sample OHLCA entry per day (`n: 1`, `t` at noon UTC) in the standard v2 envelope; existing files are skipped unless `--overwrite`, so it can never clobber a real hourly file. Usage (on the Fly machine; `run-publish.sh` pushes on its next cycle): `DATA_DIR=/data/staktrakr-api-export/data node backfill-v2-day-files.js --metal xcu --from 2026-03-25 --to 2026-08-14 [--source <url-or-path>] [--overwrite] [--dry-run]`.
+**v2 day-file backfiller:** `shared/backfill-v2-day-files.js` backfills a metal's `data/v2/spot/{iso}/YYYY/MM/DD.json` archive **from year-file daily history**. The sqld database cannot source it (`spot_prices` reaches back only to 2026-02 and holds a new metal only from its go-live). Emits one honest single-sample OHLCA entry per day (`n: 1`, `t` at noon UTC) in the standard v2 envelope. Existing files are skipped unless `--overwrite`. Therefore, it can never clobber a real hourly file. Usage (on the Fly machine; `run-publish.sh` pushes on its next cycle): `DATA_DIR=/data/staktrakr-api-export/data node backfill-v2-day-files.js --metal xcu --from 2026-03-25 --to 2026-08-14 [--source <url-or-path>] [--overwrite] [--dry-run]`.
 
 ### Adding a metal — rollout checklist addition
 
-A new metal's poller go-live starts its v2 day-file archive **at go-live**; nothing
-backfills the archive automatically, so the client's hourly-resolution pulls 404
-across the metal's pre-go-live window (this bit copper: legacy archive floor
-2026-03-25, copper's first day file 2026-08-15). After deploying a new metal's
+A new metal's poller go-live starts its v2 day-file archive **at go-live**. Nothing
+backfills the archive automatically. The client's hourly-resolution pulls 404
+across the metal's pre-go-live window. This affected copper: its legacy archive floor was
+2026-03-25, and its first day file was 2026-08-15. After deploying a new metal's
 poller support, run `backfill-v2-day-files.js` for the new metal from the legacy
-metals' archive floor to the day before go-live, then verify sample dates return
+metals' archive floor to the day before go-live. Then verify sample dates return
 200 on both `api.staktrakr.com` and `api2.staktrakr.com`.
 
 ---
@@ -238,7 +238,7 @@ metals' archive floor to the day before go-live, then verify sample dates return
 
 ### Overview
 
-The retail pipeline scrapes coin dealer prices from **7 active vendors × 11 bullion coins** every hour via the home poller only (Fly.io retail was disabled). Results are written to sqld, exported to JSON by the Fly.io publisher, and pushed to GitHub Pages.
+The retail pipeline scrapes coin dealer prices from **7 active vendors × 11 bullion coins** every hour via the home poller only. Fly.io retail was disabled. Results are written to sqld, exported to JSON by the Fly.io publisher, and pushed to GitHub Pages.
 
 ### Flow
 
@@ -292,21 +292,21 @@ Each provider entry supports a `urls` array (tried in sequence). Single `url` en
 
 ### MintBuilder Direct API Feed
 
-MintBuilder is the **first vendor with a first-party price feed** (offered by MintBuilder after finding the Reddit post, 2026-08-01): it is not scraped when the feed is available. `price-extract-vendor-mintbuilder.js` `scrape()` resolves each target against a per-process memoized index of `GET https://mintbuilder.com/feed/api/prices?key=$MB_API_KEY&mintbuilder=all` (client: `price-extract-mintbuilder-feed.js`; one request per hourly run ≈ 24 calls/day; ~314 products).
+MintBuilder is the **first vendor with a first-party price feed** (offered by MintBuilder after finding the Reddit post, 2026-08-01). It is not scraped when the feed is available. `price-extract-vendor-mintbuilder.js` `scrape()` resolves each target against a per-process memoized index of `GET https://mintbuilder.com/feed/api/prices?key=$MB_API_KEY&mintbuilder=all` (client: `price-extract-mintbuilder-feed.js`; one request per hourly run ≈ 24 calls/day; ~314 products).
 
 - **Matching:** feed product `link` ↔ `provider_vendors.url` by canonicalized-URL comparison (protocol/www/case/query/fragment/trailing-slash collapsed). A per-row `hints {"mbProductId": "…"}` pin (dashboard gear row) overrides URL matching. Adding/removing items stays the normal dashboard flow: there are no per-item endpoints.
-- **Hybrid stock rule:** the feed **retains sold-out listings** and has no stock field. `tiers[].qty_max` tracks live sellable inventory (validated against 119 product pages). A hit with `max(qty_max) > 1` across ALL tiers records `source: "mintbuilder-api"`, `in_stock=1`; a degenerate cap (≤ 1) is ambiguous (zero-floored vs genuine last unit), so that item falls through to the page scrape, whose JSON-LD availability is authoritative. Max is across all tiers because some in-stock products lead with a qty-1 discount tier (1 oz Gold Eagle).
+- **Hybrid stock rule:** the feed **retains sold-out listings** and has no stock field. `tiers[].qty_max` tracks live sellable inventory (validated against 119 product pages). A hit with `max(qty_max) > 1` across ALL tiers records `source: "mintbuilder-api"`, `in_stock=1`. A degenerate cap (≤ 1) is ambiguous (zero-floored vs genuine last unit). Such an item falls through to the page scrape, whose JSON-LD availability is authoritative. Max is across all tiers because some in-stock products lead with a qty-1 discount tier (1 oz Gold Eagle).
 - **Fallback = the unchanged scrape path** (feed miss, outage, HTTP 401, key unset). **Rollback: unset `MB_API_KEY`** in the Portainer stack env and redeploy: no code change.
 - **Feed price semantics:** `price` == the page's qty-1 check/wire price exactly (verified 14/14 tracked SKUs at 0.00% delta on cutover): no history discontinuity.
 - **Key hygiene:** `MB_API_KEY` lives only in container env (compose declaration + `run-home.sh` cron re-export, cron re-export pattern; Infisical `dev` is the source of record). `provider_vendors.url` keeps the human product-page URL: it is republished into public JSON (Buy links); the feed request URL is never logged and error messages are key-redacted.
-- **Pending vendor ask:** an explicit availability field (or `qty_max: 0` on sold-out) would eliminate the residual per-item scrapes; `feedStockIsConfident()` in the feed client is the single consumption point when it arrives.
+- **Pending vendor ask:** an explicit availability field (or `qty_max: 0` on sold-out) would eliminate the residual per-item scrapes. Then `feedStockIsConfident()` in the feed client is the single consumption point when it arrives.
 
 ### JM Bullion via FindBullionPrices
 
 JM Bullion direct scraping is Webscale/reCAPTCHA-blocked, so `jmbullion` prices are gap-filled from **FindBullionPrices.com (FBP)**. `price-extract-vendor-jmbullion-fbp.js` `scrape(context)` fetches the coin's FBP product page and reads the embedded schema.org `ItemList`, picking the JM Bullion offer and recording `source: "fbp"`. Extraction is a **plain HTTPS `fetch` + JSON-LD parse** (`fbp-jsonld.js`, browser `User-Agent`, AbortController timeout): no Firecrawl, no Byparr/CF-bypass. It runs on the same polite hourly retail cadence as every other vendor.
 
 - **Fetch seam:** the network call is injected as `context.fetchFbpPage` (test double), falling back to the real `fetchFbpPage`. `scrape` never throws: misses return a failed result (`no-fbp-url`, `jm-not-listed`, or the fetch error).
-- **URL source: direct hand-assignment:** each coin's `provider_coins.fbp_url` is set by hand to the exact FBP product page. An auto-resolver (`resolve-fbp-slugs.js` + an `fbp_match` keyword-hint column) shipped with the feed integration but was later removed as unused: FBP lists a single 1 oz coin alongside a `Tube-of-50`, `Monster-Box`, and `1-10-oz` fractional for the same coin+year, and positive-token matching (ranked by year only) can't prefer the single coin, so hand-assignment is both simpler and more correct. The vendor module reads `coin.fbp_url` directly and host-allowlists it to `findbullionprices.com` before fetching (SSRF fail-closed).
+- **URL source: direct hand-assignment:** each coin's `provider_coins.fbp_url` is set by hand to the exact FBP product page. An auto-resolver (`resolve-fbp-slugs.js` + an `fbp_match` keyword-hint column) shipped with the feed integration but was later removed as unused. FBP lists a single 1 oz coin alongside a `Tube-of-50`, `Monster-Box`, and `1-10-oz` fractional for the same coin+year. Positive-token matching (ranked by year only) can't prefer the single coin. Therefore, hand-assignment is both simpler and more correct. The vendor module reads `coin.fbp_url` directly and host-allowlists it to `findbullionprices.com` before fetching (SSRF fail-closed).
 - **Annual refresh:** FBP's dated slugs roll each January (`2026-…` → `2027-…`). Prefer FBP **Random-Year** product URLs where they exist (those don't roll) otherwise re-point the affected `fbp_url` values by hand once a year.
 - **Live JM re-enable is a post-deploy step**: the vendor module and FBP sourcing ship on this branch, but flipping JM back on in provider config happens after deploy.
 - **Attribution:** the market footer carries a FindBullionPrices attribution link.
@@ -404,7 +404,7 @@ Vendors absent for more than 24 hours are omitted entirely.
 
 **Daily history buckets are stamped at synthetic noon UTC.** `buildDailyWithVendors()` in `devops/pollers/shared/api-export-v2.js` writes every `history-30d.json` / `history-90d.json` daily aggregate at `<date>T12:00:00Z`, and `floorTimestamp(…, "daily")` in `devops/pollers/shared/v2-utils.js` normalizes to the same. The timestamp is a **calendar-day label, not an observation time**.
 
-Consequence for any consumer: comparing those rows against a millisecond wall-clock window is always wrong. Before 12:00 UTC today's bucket looks like a future row and is dropped; after 12:00 UTC the oldest bucket falls outside the rolling cutoff and is dropped. Either way the point count stays correct while the window silently slides off by one calendar day, so the bug is invisible in the UI. **Bound daily rows by UTC calendar date** (start exclusive, end inclusive, so an N-day period spans exactly N dates) and keep the millisecond compare only for intraday. See `_buildMarketDetailRangeModel` / `_utcDateKey` in `js/market-data.js`.
+Consequence for any consumer: comparing those rows against a millisecond wall-clock window is always wrong. Before 12:00 UTC today's bucket looks like a future row and is dropped. After 12:00 UTC the oldest bucket falls outside the rolling cutoff and is dropped. Either way the point count stays correct while the window silently slides off by one calendar day, so the bug is invisible in the UI. **Bound daily rows by UTC calendar date** (start exclusive, end inclusive, so an N-day period spans exactly N dates). Keep the millisecond compare only for intraday. See `_buildMarketDetailRangeModel` / `_utcDateKey` in `js/market-data.js`.
 
 ### Frontend Consumption
 
@@ -447,7 +447,7 @@ Expected run timing:
 
 Goldback pricing flows through **two independent paths**:
 
-1. **Denomination spot path**: `goldback-scraper.js` runs hourly at :05 (`5 * * * *`) on the home poller, fetches the official G1 rate from `goldback.com`, writes to sqld. Fly.io publisher regenerates `goldback-spot.json` on every publish cycle (4×/hr) with a fresh `generated_at` envelope: republishing the cached value, not re-scraping. goldback.com's upstream rate (`data.t`) can lag the scrape, so `g1_usd` may repeat across publishes even though the scrape now runs hourly. As of v3.35.62 the v2 `goldback/latest.json` `data.t` is stamped at the actual scrape **hour** (was a daily-noon "daily" granularity), its envelope `stale_after` dropped to **7200 s (2 h)** (was 90000 s / 25 h), and a companion raw intraday endpoint (`goldback/intraday.json`) was added: see [API Export](#api-export-2) below.
+1. **Denomination spot path**: `goldback-scraper.js` runs hourly at :05 (`5 * * * *`) on the home poller, fetches the official G1 rate from `goldback.com`, writes to sqld. Fly.io publisher regenerates `goldback-spot.json` on every publish cycle (4×/hr) with a fresh `generated_at` envelope: republishing the cached value, not re-scraping. goldback.com's upstream rate (`data.t`) can lag the scrape, so `g1_usd` may repeat across publishes even though the scrape now runs hourly. As of v3.35.62 the v2 `goldback/latest.json` `data.t` is stamped at the actual scrape **hour** (was a daily-noon "daily" granularity). Its envelope `stale_after` dropped to **7200 s (2 h)** (was 90000 s / 25 h). A companion raw intraday endpoint (`goldback/intraday.json`) was added: see [API Export](#api-export-2) below.
 
 2. **Retail path**: Per-state Goldback coins (`goldback-{state}-g{denom}`) are tracked in `providers.json` and scraped from vendor product pages by `run-home.sh` at `:30`, flowing through the standard retail pipeline.
 
@@ -526,7 +526,7 @@ The v2 rate payload uses `g0.25`, `g1`, `g5`, `g10`, `g25`, and `g50`; `buildGol
 
 `goldback-scraper.js` cron: `5 * * * *` (hourly at :05, verified in `docker-entrypoint.sh` line 31).
 
-**No in-script skip guard.** Each hourly run writes the current goldback.com G1 rate to sqld; if the upstream rate (`data.t`) hasn't moved, it overwrites the row with the same `g1_usd` (fresh `scraped_at`, unchanged value). The hourly-scrape change moved this from a daily to an hourly cron because the CurrencyLayer-backed rate can shift intraday: hourly scraping catches those mid-day moves rather than locking in a single snapshot.
+**No in-script skip guard.** Each hourly run writes the current goldback.com G1 rate to sqld. If the upstream rate (`data.t`) hasn't moved, it overwrites the row with the same `g1_usd` (fresh `scraped_at`, unchanged value). The hourly-scrape change moved this from a daily to an hourly cron. The CurrencyLayer-backed rate can shift intraday. Hourly scraping catches those mid-day moves rather than locking in a single snapshot.
 
 ### Goldback badge freshness — `generated_at` is the scrape time
 
@@ -536,7 +536,7 @@ The v2 rate payload uses `g0.25`, `g1`, `g5`, `g10`, `g25`, and `g50`; `buildGol
 only as a last resort when no usable scrape timestamp exists.
 
 This supersedes the earlier behavior, where the scrape timestamp was written only
-on the outage path (freshest row older than the 7200 s realtime budget) and normal operation
+on the outage path (freshest row older than the 7200 s realtime budget). Normal operation
 kept publish time. The badge therefore reflects scrape age at all times, and a slow-moving
 feed reads as its true age rather than "~2m ago". `g1_usd` repeating across publishes is
 still expected: goldback.com's upstream rate (`data.t`) can lag: but the timestamp no
@@ -573,7 +573,7 @@ All denomination prices: `G1 × multiplier`, rounded to 2 decimal places.
 
 **v2 envelope:** `data/v2/goldback/latest.json` includes OHLCA aggregates and six denomination prices (`g0.25`, `g1`, `g5`, `g10`, `g25`, `g50`). `stale_after: 7200` (2 h) for the hourly scrape, and `data.t` is stamped at the actual scrape hour rather than a daily-noon timestamp. `resolveGoldbackGeneratedAt()` uses normalized `scraped_at` whenever available, so the envelope freshness reflects the scrape rather than a publish loop.
 
-**Raw intraday endpoint (v3.35.62):** `data/v2/goldback/intraday.json` is a **raw hourly point series** (`data: [{ t, ts, g1_usd }]` for the last 72 h) built by `buildGoldbackIntradayEntries()` in `api-export-v2.js` (reuses `queryGoldbackRange`; points are hourly-floored, **not** OHLCA-bucketed). Envelope `stale_after: 7200` (2 h). The legacy v1 exporter prunes `price_snapshots` older than 31 days; treat that as implementation behavior, not a blanket retention guarantee for every output.
+**Raw intraday endpoint (v3.35.62):** `data/v2/goldback/intraday.json` is a **raw hourly point series** (`data: [{ t, ts, g1_usd }]` for the last 72 h). It is built by `buildGoldbackIntradayEntries()` in `api-export-v2.js` (reuses `queryGoldbackRange`; points are hourly-floored, **not** OHLCA-bucketed). Envelope `stale_after: 7200` (2 h). The legacy v1 exporter prunes `price_snapshots` older than 31 days; treat that as implementation behavior, not a blanket retention guarantee for every output.
 
 ### Enabling a State/Vendor
 

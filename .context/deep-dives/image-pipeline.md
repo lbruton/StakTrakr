@@ -83,7 +83,7 @@ The quota is stored in `this._quotaBytes` and is surfaced via `getStorageUsage()
 
 ## Image Storage Format
 
-All images are stored as **Blobs** inside IDB records. No base64 strings are stored in IDB (base64 is only used in `seed-images.js` as an embedded source format, immediately converted to a Blob before being written to IDB).
+All images are stored as **Blobs** inside IDB records. No base64 strings are stored in IDB. Base64 is only used in `seed-images.js` as an embedded source format. It is immediately converted to a Blob before being written to IDB.
 
 **User image record shape:**
 
@@ -128,7 +128,7 @@ All images are stored as **Blobs** inside IDB records. No base64 strings are sto
 
 ## image-cache.js: Caching Strategy and Retrieval
 
-`ImageCache` is a singleton (`window.imageCache`) opened lazily on first use. The DB connection is guarded by `_ensureDb()` before every public operation, which probes the connection with a lightweight readonly transaction and reconnects if it is stale (browser can close IDB connections under storage pressure or tab backgrounding).
+`ImageCache` is a singleton (`window.imageCache`) opened lazily on first use. The DB connection is guarded by `_ensureDb()` before every public operation. It probes the connection with a lightweight readonly transaction and reconnects if it is stale. The browser can close IDB connections under storage pressure or tab backgrounding.
 
 ### Image resolution cascade
 
@@ -144,7 +144,7 @@ Per-side resolution order:
 | 2           | Pattern rule image | `patternImages[NumistaLookup.matchQuery(item.name).rule.seedImageId][side]`    |
 | 3 (not IDB) | Numista CDN URL    | `item.obverseImageUrl` / `item.reverseImageUrl` (string on item, not from IDB) |
 
-Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is handled by the caller (viewModal, inventory, card-view), not by the cascade function itself: `resolveImageUrlForItem` returns null at step 3 and callers fall back to the string URL directly.
+Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is handled by the caller (viewModal, inventory, card-view), not by the cascade function itself. Here, `resolveImageUrlForItem` returns null at step 3 and callers fall back to the string URL directly.
 
 ### Key public methods
 
@@ -182,11 +182,11 @@ Title images may instead carry sparse `definition.obverseImageUrl` / `reverseIma
 HTTP(S) live links. These travel with the definition through sync, ZIP/vault,
 JSON and standalone export/import; the image bytes stay on the remote host. `getImageUrl`
 resolves a title link before looking for an uploaded Blob. The builder's per-side Image
-options prompt, preview, Remove and Swap support both sources; upload clears that side's
+options prompt, preview, Remove and Swap support both sources. An upload clears that side's
 link, and replacing an upload with a link removes the old Blob through an artwork tombstone.
 Replacing a link with an upload retains the saved URL until processing, cache storage and
-the artwork-state transaction succeed; that transaction clears the matching URL and advances
-`metaModified` atomically, so a failed upload preserves the prior linked image.
+the artwork-state transaction succeed. That transaction clears the matching URL and advances
+`metaModified` atomically. A failed upload preserves the prior linked image.
 An untouched title URL is omitted from a builder update so a newer cross-tab URL survives.
 Link normalization is shared with Item image options through `collectionsCore.normalizeImageUrl`.
 The legacy obverse title image remains `collection--<id>`; reverse title art uses the
@@ -199,64 +199,64 @@ records and all current Slot records. Renderers own and revoke returned `blob:` 
 **Rendering never deletes artwork.** `collectionsPicker.getImageUrl` is
 read-only: a record that is not current is hidden (null), never removed. It checks this
 tab's in-memory stamps first and, when they say stale, re-judges against the persisted
-state (`collectionsStore.readPersisted()`), because another tab may have uploaded, replaced
-or restored the artwork before its `storage` event reached this tab; an unreadable persisted state
+state (`collectionsStore.readPersisted()`). Another tab may have uploaded, replaced
+or restored the artwork before its `storage` event reached this tab. An unreadable persisted state
 hides the record. Deleting there was unsafe even with a fresh read, since `saveImage`
 stores the IndexedDB record before it persists the stamp. Stale records are removed only
 by the explicit paths: `deleteImage`, `cleanupCollectionImages` on Collection delete, and
-the Settings orphan cleanup below: and backup, vault and sync already leave them out.
+the Settings orphan cleanup below. Backup, vault and sync already leave them out.
 
 **Cross-tab Collections state.** `collectionsStore` listens for `storage` events
 on `collectionState` and `disabledCollections` (and a `null` key, a storage clear) and calls
-`reload()`, so another tab's write re-hydrates this tab and repaints open views; before it
+`reload()`. Another tab's write re-hydrates this tab and repaints open views. Before this listener,
 this tab's next save wrote its stale copy over the other tab's links, Custom Collections and
 artwork stamps. The browser never delivers `storage` to the writing tab, so it cannot echo.
 An open builder keeps its draft (it lives only in the form) and Save applies it to the
-re-hydrated state; a Collection the other tab deleted fails Save with "This collection was
+re-hydrated state. A Collection the other tab deleted fails Save with "This collection was
 deleted in another tab." The event is asynchronous, so backup (`_addPatternImagesToBackup`)
 and image-vault export (`collectAndHashImageVault`) judge artwork with
 `collectionsStore.exportState()`: the persisted snapshot (`readPersisted()`), falling back
 to the in-memory state when it is unreadable. For the same reason every writer (`transact`,
-`link`, `mergeIn`) first calls `syncWithStorage()`: when the stored raw value differs from
-the one this tab last read or wrote, it adopts `readPersisted()` before mutating, so a
+`link`, `mergeIn`) first calls `syncWithStorage()`. When the stored raw value differs from
+the one this tab last read or wrote, it adopts `readPersisted()` before mutating. A
 change made in the gap before the event lands cannot overwrite the other tab's save. A
 stored value that does not read cleanly never replaces memory.
 
 **Orphan cleanup.** Settings ▸ Images ▸ Orphaned Pattern Images shares this
 store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
 `_isOrphanedPatternImage` judges them with `collectionsCore.isCurrentArtwork` against the
-live Collections store (the check backup, vault and sync use) and **fails closed**: if
+live Collections store (the check backup, vault and sync use) and **fails closed**. If
 `collectionsCore` / `collectionsStore` is missing or the check throws, a Collection record is
 never listed or deleted. Artwork of a removed or unknown Collection, and a record older than
-its stamp, is orphaned. The list is a snapshot, so each delete re-runs the same check
+its stamp, is orphaned. The list is a snapshot. Each delete re-runs the same check
 (`_deleteOrphanIfStillOrphaned`) against the stored record inside the delete's own IndexedDB
-transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serialized around
+transaction (`imageCache.deletePatternImageIf`). A concurrent write is serialized around
 the delete rather than removed by it. The stored record must also still match the listed one
 (`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
-reclassified, because an upload stores its image before its artwork stamp. Ownership is read
+reclassified. An upload stores its image before its artwork stamp. Ownership is read
 from a private snapshot of the persisted state (`collectionsStore.readPersisted()`, shared
 with `getImageUrl` and wrapped by `settings.js` `_persistedCollectionsState`;
-normalized with `collectionsCore.normalizeState`; never the memoized `getState()` and never
-`collectionsStore.load()`, which swaps the shared state without a change event) at scan time
-and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
-its transaction opens and the store's cross-tab listener is asynchronous: another
+normalized with `collectionsCore.normalizeState`). It never uses the memoized `getState()` and never
+`collectionsStore.load()`, which swaps the shared state without a change event). The snapshot is read at scan time
+and INSIDE the delete predicate. This is because `deletePatternImageIf` awaits the database before
+its transaction opens and the store's cross-tab listener is asynchronous. Another
 tab's cloud restore can change who owns an image without changing the record. `loadDataSync` swallows parse
-errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
-sentinel default and checks the shape (an object holding a `collections` map), refuses a
+errors and `normalizeState` turns any wrong shape into an empty state. The reader uses a
+sentinel default and checks the shape (an object holding a `collections` map). It refuses a
 snapshot from which normalization dropped an entry (a null entry, or an `id` that differs
-from its key), and refuses a retained artwork stamp whose `present` is not a boolean
-(`normalizeState` would coerce it to `false`) or whose `modified` is not exactly
-`Date#toISOString()` output (`isCurrentArtwork` compares it lexically, so even a valid
-`...:00Z` without fractional seconds reads as newer than its own image). It also refuses an
-artwork entry that is not an object or whose `modified` is missing, empty or not a string:
-normalization drops such an entry and `isCurrentArtwork` reads a missing entry as pre-stamp
-art (current), so a damaged removal tombstone would otherwise revive stale art (removal-timestamp
+from its key). It also refuses a retained artwork stamp whose `present` is not a boolean
+(`normalizeState` would coerce it to `false`). It also refuses a stamp whose `modified` is not exactly
+`Date#toISOString()` output (`isCurrentArtwork` compares it lexically). Even a valid
+`...:00Z` without fractional seconds reads as newer than its own image. It also refuses an
+artwork entry that is not an object or whose `modified` is missing, empty or not a string.
+Normalization drops such an entry and `isCurrentArtwork` reads a missing entry as pre-stamp
+art (current). A damaged removal tombstone would otherwise revive stale art (removal-timestamp
 review). That Collection could still own stored
-artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
+artwork. An unreadable, wrongly shaped or partly damaged value returns `null` and fails
 closed instead of reading as "no Collections". Only an absent key means no Collections.
 Numista rule references get the same treatment: `NumistaLookup` hydrates its rule cache once
-at boot and has no cross-tab listener, so `_referencedPatternImageIds` reads the persisted
-`numistaLookupRules` value at scan time and inside the delete predicate, and returns `null`
+at boot and has no cross-tab listener. Therefore, `_referencedPatternImageIds` reads the persisted
+`numistaLookupRules` value at scan time and inside the delete predicate. It returns `null`
 (nothing orphaned, nothing deletable) when it is not an array of rule objects with string or
 absent `seedImageId`. Deleting an orphan never writes an artwork stamp: a tombstone stamped
 at delete time would out-rank newer art on another device in a merge.
@@ -396,7 +396,7 @@ A pre-built `Map<catalogId, uuid[]>` enables O(1) tag application per catalog ID
 
 ## seed-images.js: Default Images for First-Time Users
 
-`seed-images.js` provides a first-run demo experience. On first launch, it creates two custom pattern rules (American Silver Eagle and Canadian Gold Maple Leaf) with real coin photos embedded as base64 WebP data URIs. These appear in **Settings > Images > Custom Pattern Rules** where users can interact with them (edit, delete, export) to learn the pattern image feature before uploading their own images.
+`seed-images.js` provides a first-run demo experience. On first launch, it creates two custom pattern rules (American Silver Eagle and Canadian Gold Maple Leaf). These have real coin photos embedded as base64 WebP data URIs. These appear in **Settings > Images > Custom Pattern Rules**. Users can interact with them (edit, delete, export) to learn the pattern image feature before uploading their own images.
 
 ### How it works
 

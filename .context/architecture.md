@@ -9,7 +9,7 @@ updated: "2026-07-24"
 
 # StakTrakr — Architecture
 
-Authoritative foundation reference. Synthesized from architecture, Frontend Overview (deprecated DocVault page), .context/deep-dives/api-reference.md, API Consumption (deprecated DocVault page), .context/deep-dives/data-model.md, Turso Schema (deprecated DocVault page), and .context/deep-dives/provider-database.md. Read this before making architectural decisions; read the linked deep-dives for implementation detail.
+Authoritative foundation reference. Synthesized from architecture, Frontend Overview (deprecated DocVault page). Other sources are .context/deep-dives/api-reference.md and API Consumption (deprecated DocVault page). Sources also include .context/deep-dives/data-model.md and Turso Schema (deprecated DocVault page). Another source is .context/deep-dives/provider-database.md. Read this before making architectural decisions; read the linked deep-dives for implementation detail.
 
 ---
 
@@ -109,7 +109,7 @@ StakTrakr is a **single-page application**: one `index.html` containing all pane
 - Works on `file://` and HTTP equally: `js/file-protocol-fix.js` patches `localStorage` for `file://` origins
 - 93 `<script>` tags in `index.html` (88 with `defer`): load order is strict and intentional; `init.js` stays **last** (any feature script, e.g. `spot-ratio-math.js`/`spot-ratio-chips.js`, loads before it)
 - New JS files must be registered in **both** `index.html` (as `<script defer>`) and `sw.js` `CORE_ASSETS`
-- All DOM access outside `about.js`/`init.js` must use `safeGetElement(id)`, not `document.getElementById()`: narrow exception: a **create-if-missing singleton** (e.g. `getRatioChipTip()` in `spot-ratio-chips.js`) uses `document.getElementById` on purpose, since `safeGetElement` returns a truthy dummy on a miss and would make the "not found → create it" branch unreachable; second exception: **`events.js` top-level parse-time wiring** must use `document.getElementById`: `safeGetElement` is defined in `init.js`, which loads last, so calling it at parse time throws a silent ReferenceError (see `.context/implementation-gotchas.md`)
+- All DOM access outside `about.js`/`init.js` must use `safeGetElement(id)`, not `document.getElementById()`. A narrow exception is a **create-if-missing singleton** (e.g. `getRatioChipTip()` in `spot-ratio-chips.js`). It uses `document.getElementById` on purpose, since `safeGetElement` returns a truthy dummy on a miss. This would make the "not found → create it" branch unreachable. Second exception: **`events.js` top-level parse-time wiring** must use `document.getElementById`. Here, `safeGetElement` is defined in `init.js`, which loads last. Calling it at parse time throws a silent ReferenceError (see `.context/implementation-gotchas.md`)
 - All localStorage writes must use `saveData()`/`saveDataSync()` from `js/utils.js`: never raw `setItem`
 - All localStorage keys must be declared in `ALLOWED_STORAGE_KEYS` in `js/constants.js`
 - API settings panel uses a single-select `spotPricingSource` (6 options: STAKTRAKR, METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM, MANUAL) instead of fallback-chain provider priority: see API Settings Tab for detail
@@ -174,7 +174,7 @@ For full file:line traceability see the boot-recovery verification and the Plane
 
 ### Weight Units and Valuation
 
-`weightUnit` says what `weight` holds: for the metric/troy units it is only a display lens over a value already stored in troy ounces, while `gb`, `sb`, and `cu` store raw inputs that are converted when read:
+`weightUnit` says what `weight` holds. For the metric/troy units it is only a display lens over a value already stored in troy ounces. In contrast, `gb`, `sb`, and `cu` store raw inputs that are converted when read:
 
 | Unit                                | Meaning                                                                   | Conversion                                                                 |
 | ----------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -187,7 +187,7 @@ For the metric/troy group, `weight` is **already** troy oz and `weightUnit` only
 
 Goldbacks are the only type eligible for the Goldback denomination retail-price path. Silverbacks use the dedicated `sb` unit and fall through to melt-based retail valuation (`weight * SB_TO_OZT * spot * purity`). Legacy Silverback records that were stored as `weightUnit: "gb"` are migrated to `sb` during load, import, encrypted backup restore, and cloud restore preview paths.
 
-**Constitutional / junk silver (`cu`, v3.35.50).** U.S. 90% / 40% / 35% coinage entered by _denomination + coin count_ or _total face value_. Like `gb`/`sb` it uses deferred conversion (the item stores inputs, not troy oz) but unlike them the derived figure is **already pure silver**, so `computeMeltValue()` early-returns `getConstitutionalSilverOz(item) * spot` and never re-applies `purity`. See [Constitutional Silver Unit Conversion](#constitutional-silver-unit-conversion).
+**Constitutional / junk silver (`cu`, v3.35.50).** U.S. 90% / 40% / 35% coinage entered by _denomination + coin count_ or _total face value_. Like `gb`/`sb` it uses deferred conversion (the item stores inputs, not troy oz) but unlike them the derived figure is **already pure silver**. Therefore, `computeMeltValue()` early-returns `getConstitutionalSilverOz(item) * spot` and never re-applies `purity`. See [Constitutional Silver Unit Conversion](#constitutional-silver-unit-conversion).
 
 ### Versioning
 
@@ -197,14 +197,14 @@ Goldbacks are the only type eligible for the Goldback denomination retail-price 
 
 - Pre-caches ~118 `CORE_ASSETS` on install (includes the `/ratios/` shell, its manifest, `js/ratios-page.js`, and the ratios icon set)
 - Purges old caches (`staktrakr-*`) on activate
-- Routing: `file://` bypassed; MetalPriceAPI/Numista = network-first; CDN = stale-while-revalidate; `api.staktrakr.com`/`api2.staktrakr.com` = classified: realtime price families (`spot-latest`/`goldback-latest`/`retail-latest`) **network-first**, other families cache-first-with-TTL (see `coding-standards.md` §Classified caching); local JS/CSS = network-first; navigation = network-first with **per-shell nav caching**
+- Routing: `file://` bypassed. MetalPriceAPI/Numista = network-first. CDN = stale-while-revalidate. `api.staktrakr.com`/`api2.staktrakr.com` = classified: realtime price families (`spot-latest`/`goldback-latest`/`retail-latest`) **network-first**. Other families cache-first-with-TTL (see `coding-standards.md` §Classified caching). Local JS/CSS = network-first. Navigation = network-first with **per-shell nav caching**
 - **Per-shell navigation cache:** `navShellCacheKey()` in `sw-router.js` maps navigations to shell cache keys: tracker → `"./"`, `/ratios/` (incl. bare `/ratios`) → `"./ratios/"`, every other same-origin page → `null` (bypasses the nav cache in both directions, receiving honest error/offline responses). Before this guard, ANY same-origin navigation overwrote the cached tracker shell.
 - `CACHE_NAME` auto-stamped by `devops/hooks/stamp-sw-cache.sh` pre-commit hook: never edit manually
 
 ### Second PWA — Metal Ratios at `/ratios/` (v3.35.66–71)
 
 - **Public, permanent URL** `/ratios/` (directory on purpose: PWA scope is a path prefix, so it owns `scope: "/ratios/"` without colliding with the main app's `"/"`). Own manifest (`ratios/manifest.json`) with explicit `id`, balance-scale icon set (`images/ratios-icon*`), and an Android `shortcuts` entry on the **main** manifest.
-- Host script `js/ratios-page.js` runs without the main app: defines `_loadSpotSeedBundle` + the panel's bare globals, merges the **API-origin** current-year feed file (`api.staktrakr.com/data/spot-history-YYYY.json`, rewritten from sqld every publish by `spot-year-history.js` through yesterday's complete UTC day, the same-origin copy is release-stale) over the seed bundle, and gates the Live badge on envelope freshness (`generated_at`/`stale_after`).
+- Host script `js/ratios-page.js` runs without the main app. It defines `_loadSpotSeedBundle` + the panel's bare globals. It merges the **API-origin** current-year feed file (`api.staktrakr.com/data/spot-history-YYYY.json`, rewritten from sqld every publish by `spot-year-history.js` through yesterday's complete UTC day) over the seed bundle. The same-origin copy is release-stale. It gates the Live badge on envelope freshness (`generated_at`/`stale_after`).
 - Registers the **root** `sw.js` (scope `/` already controls `/ratios/`; a controlling SW on `start_url` is what enables Chrome installability). Renders offline from its own precached shell.
 - Shared UI: `js/ratios-panel.js` (Layout C panel) is mounted by both this page and the in-app modal opened from the spot-card ratio chips. Statistics engine in `js/spot-ratio-math.js`: weekday-only session series (weekend gap-fill rows filtered), both-metals-printed join, trailing session windows (261 = 1Y, 1,305 = 5Y).
 
@@ -237,16 +237,16 @@ Intentionally permissive (`default-src * 'unsafe-inline' 'unsafe-eval' data: blo
 **Endpoint selection is freshest-wins, not primary/fallback (v3.35.96–98).**
 The spot sync (`_fetchFreshestSpotEnvelope`, `js/api.js`) and the retail market sync
 (`_pickFreshestV2Endpoint`, `js/retail.js`) fetch every endpoint in parallel and use the
-one with the newest `generated_at`; ordered try-each failover (`_staktrakrFetch`) remains
+one with the newest `generated_at`. Ordered try-each failover (`_staktrakrFetch`) remains
 for single-file fetches (hourly spot backfill, year-history files). Every candidate still
-passes the freshness gate (rejects stale SW/CDN copies; all-stale fails the sync),
-the per-fetch 5 s timeout covers headers _and_ body, and the footer health badge reports
+passes the freshness gate (rejects stale SW/CDN copies; all-stale fails the sync).
+The per-fetch 5 s timeout covers headers _and_ body. The footer health badge reports
 the same freshest-per-feed age with a separate infra icon (✅/⚠️). Do not add manual
 switching logic, and do not reintroduce order-based preference.
 
 ### v1 vs v2
 
-v2 API was introduced behind a feature flag, later shipped as default, and v1 was then fully removed (v3.33.92). **v2 is the sole API layer.** v1 endpoints (`data/api/`) are not referenced by frontend code. All frontend fetches now target `data/v2/`.
+v2 API was introduced behind a feature flag. It later shipped as default, and v1 was then fully removed (v3.33.92). **v2 is the sole API layer.** v1 endpoints (`data/api/`) are not referenced by frontend code. All frontend fetches now target `data/v2/`.
 
 ### v2 Endpoints
 
@@ -339,7 +339,7 @@ Frontend v2 data flow:
 
 `meltValue` is **never stored**. Spot moves constantly; deriving at render keeps stored schema simple. `realizedGainLoss` is the sole exception: computed once at disposition time and stored.
 
-`item.price` remains a **per-unit USD purchase price** even when the UI accepts a lot total. The Lot/Each purchase-price toggle divides lot input by quantity before the existing display-currency to USD conversion path persists the item; table and modal total displays derive from `item.price * qty` and do not change the stored schema. The purchase-mode change added `pricingType: "each" | "lot"` to record which mode the user chose; the price history chart uses it to scale purchase, melt, and retail lines consistently. The constitutional purchase-mode change promoted `pricingType` from a presentation-only chart hint to a **load-bearing** field for constitutional ("cu") by-denomination items: it drives edit-restore (reopening a saved item in LOT vs EACH) and is registered for persistence on JSON export/import, ZIP backup, and cloud-sync (cu-scoped hash / `DIFF_FIELDS` / change-log). Cost basis still rides on `price × qty` on every path regardless. For cu by-denomination, the entered lot total divides by the **coin count** (`cu.qty`), not `#itemQty` (pinned to 1 for cu); by-face-value is a lot of one (no division). Legacy items without `pricingType` default to lot-total display (chart) and EACH (cu edit-restore).
+`item.price` remains a **per-unit USD purchase price** even when the UI accepts a lot total. The Lot/Each purchase-price toggle divides lot input by quantity before the existing display-currency to USD conversion path persists the item. Table and modal total displays derive from `item.price * qty` and do not change the stored schema. The purchase-mode change added `pricingType: "each" | "lot"` to record which mode the user chose; the price history chart uses it to scale purchase, melt, and retail lines consistently. The constitutional purchase-mode change promoted `pricingType` from a presentation-only chart hint to a **load-bearing** field for constitutional ("cu") by-denomination items. It drives edit-restore (reopening a saved item in LOT vs EACH). It is registered for persistence on JSON export/import, ZIP backup, and cloud-sync (cu-scoped hash / `DIFF_FIELDS` / change-log). Cost basis still rides on `price × qty` on every path regardless. For cu by-denomination, the entered lot total divides by the **coin count** (`cu.qty`), not `#itemQty` (pinned to 1 for cu). By-face-value is a lot of one (no division). Legacy items without `pricingType` default to lot-total display (chart) and EACH (cu edit-restore).
 
 ### Goldback Unit Conversion
 
@@ -351,7 +351,7 @@ const weightOz = item.weight * GB_TO_OZT;
 
 ### Constitutional Silver Unit Conversion
 
-Constitutional ("junk") silver (`weightUnit: "cu"`) uses **deferred conversion** mirroring the Goldback/Silverback pattern: the item stores user inputs (a `constitutionalVariant` + coin count, _or_ a face value) and the troy-oz figure is derived on demand:
+Constitutional ("junk") silver (`weightUnit: "cu"`) uses **deferred conversion** mirroring the Goldback/Silverback pattern. The item stores user inputs (a `constitutionalVariant` + coin count, _or_ a face value). The troy-oz figure is derived on demand:
 
 ```js
 // getConstitutionalSilverOz(item) — js/utils.js
@@ -364,7 +364,7 @@ Constitutional ("junk") silver (`weightUnit: "cu"`) uses **deferred conversion**
 
 **`CONSTITUTIONAL_VARIANTS` (7 variants):** 90% dime / quarter / half + Morgan/Peace dollar, 40% Kennedy half (1965–70) + 40% Ike dollar, 35% war nickel (1942–45).
 
-- **Silver-dollar exception:** Morgan/Peace dollars carry ~0.7734 ozt/coin, **not** the 0.7234 oz/$ subsidiary rate: a generic "90% → 0.7234/$" branch undervalues every silver dollar.
+- **Silver-dollar exception:** Morgan/Peace dollars carry ~0.7734 ozt/coin, **not** the 0.7234 oz/$ subsidiary rate. A generic "90% → 0.7234/$" branch undervalues every silver dollar.
 - **No double-purity:** the variant figures are already pure silver, so the `cu` branch returns before the `× purity` multiply. `$10` face 90% subsidiary (worn) ≈ 7.15 ozt × spot.
 - **Worn vs fresh basis:** a single global wear multiplier (`CONSTITUTIONAL_BASIS_KEY`, default `"worn"`) applied to fresh ASW, persisted and cloud-synced; toggling it reprices the table without per-item edits.
 - **Enum-id integrity:** `sanitizeObjectFields()` must **not** strip hyphens from the `constitutionalVariant` id (e.g. `con-90-quarter`) on load/import: the enum-id fix exempts it.
@@ -410,9 +410,9 @@ Written to `item.disposition` when an item is sold/disposed. Never re-derived af
 }
 ```
 
-`isDisposed(item)` in `js/constants.js` is the **single source of truth** for disposition validity: it returns `true` only when `item.disposition` is a non-null, non-array object with at least one own key (an empty `{}` is **not** disposed: a Disposition records realized value and date). Disposed items are excluded from active portfolio totals but tracked separately in `updateSummary()`.
+`isDisposed(item)` in `js/constants.js` is the **single source of truth** for disposition validity. It returns `true` only when `item.disposition` is a non-null, non-array object with at least one own key. An empty `{}` is **not** disposed: a Disposition records realized value and date. Disposed items are excluded from active portfolio totals but tracked separately in `updateSummary()`.
 
-**Single source of truth:** every disposed/active decision routes through `isDisposed()`: the disposed filter (`js/filters.js`), summary totals, row/card styling + badge, the trade-link guards (`js/inventory.js`), the trade autocomplete, and `_buildDispositionSection()`'s render guard (`js/viewModal.js`). The earlier predicate inconsistency (a loose truthy `isDisposed()` vs the tighter empty-object guard in `_buildDispositionSection()`) is resolved: an item with `disposition: {}` is now treated as not disposed everywhere. The only deliberate exception is the defensive `source.disposition || {}` provenance fallback in `js/viewModal.js`, which is a no-data default, not a disposed/active decision.
+**Single source of truth:** every disposed/active decision routes through `isDisposed()`. This includes the disposed filter (`js/filters.js`), summary totals, row/card styling + badge, the trade-link guards (`js/inventory.js`), the trade autocomplete. It also includes `_buildDispositionSection()`'s render guard (`js/viewModal.js`). The earlier predicate inconsistency (a loose truthy `isDisposed()` vs the tighter empty-object guard in `_buildDispositionSection()`) is resolved: an item with `disposition: {}` is now treated as not disposed everywhere. The only deliberate exception is the defensive `source.disposition || {}` provenance fallback in `js/viewModal.js`, which is a no-data default, not a disposed/active decision.
 
 **Partial-stack splits:** When `disposedQty < stackQty`, the original record is decremented in place (no disposition set) and a `structuredClone` is inserted at `idx + 1` with `qty = disposedQty`, a fresh `uuid` + `serial`, and a disposition containing `splitFromUuid`. Two correlated Activity Log entries share the same `transactionId` (the `disposedAt` ISO timestamp) and undo atomically via `confirmCascadeUndo`. Restoring a split clone prompts merge-or-separate.
 
@@ -431,7 +431,7 @@ A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Seri
 | Bundle builder   | `devops/collections/build-collections-bundle.mjs`                          | JSON → bundle. `data/` is Prettier-ignored on purpose: the drift test is byte-exact.                                                                                                                                                          |
 
 **Custom Collection Slot order:** The editor in
-`js/collections-picker.js` renders each Slot as a card with a drag handle, one `+` button
+`js/collections-picker.js` renders each Slot as a card with a drag handle. Each card has one `+` button
 that inserts a blank Slot after it, and a remove button. Pointer dragging goes through
 `collectionsUI.wireReorderHandle`; the handle is also the keyboard path (Arrow Up / Arrow
 Down), because the builder has no move buttons. Moves retain each row node,
@@ -442,22 +442,22 @@ use the saved Collection order; Reverse is only a view reversal. Series Template
 remain immutable.
 
 **Custom Collection builder form:** The New/Edit collection modal shares the
-Add Item form system instead of carrying its own control sizing: `.collections-builder-form`
+Add Item form system instead of carrying its own control sizing. The `.collections-builder-form`
 joins the `#inventoryForm` selector lists in `css/styles.css` (search "Glass-style form
-inputs") for inputs, selects, textareas, labels, `details.form-section` chrome and footer
+inputs") for inputs, selects, textareas and labels. It also joins those lists for `details.form-section` chrome and footer
 buttons. A new modal that should look like Add Item extends those lists; it does not copy
 sizes. `textarea` is part of the global themed form-control rule. Type, Metal, Collection
-name, the two title images, the Image shape radiogroup, the Orientation radiogroup (Bar and Note only) and the Slot cards (with the Add
-slot actions) are always visible; the remaining collection metadata fields (Identity, Metal
-content, Specifications, Display, About) sit in collapsed sections that are rebuilt closed
+name and the two title images are always visible. So are the Image shape radiogroup and the Orientation radiogroup (Bar and Note only). The Slot cards (with the Add
+slot actions) are also always visible. The remaining collection metadata fields (Identity, Metal
+content, Specifications, Display, About) sit in collapsed sections. Those sections are rebuilt closed
 on each open. Builder sections
 carry `data-builder-section`, never `data-section`, which is the Add Item form's
 open-state persistence hook (`js/form-sections.js`). A Type that forces the metal disables
 Metal and Weight unit, and Save re-applies the lock. When the lock rewrites the unit
-(on open or on a Type change), the Weight field is cleared with it, so a stored "1 oz" never
-becomes "1 gb"; `prefillFor()` drops the weight in the same mismatch. Save also
+(on open or on a Type change), the Weight field is cleared with it. A stored "1 oz" never
+becomes "1 gb". In that mismatch, `prefillFor()` drops the weight in the same mismatch. Save also
 rejects a negative or non-numeric Diameter, Gross weight or Thickness with `aria-invalid`,
-focus and a toast, and keeps the builder open, because the builder is not a native form and
+focus and a toast, and keeps the builder open. The builder is not a native form and
 `min="0"` never validates. Approved mockup:
 `playground/STRK-421-collection-modal-variants.html` (variant C).
 
@@ -465,23 +465,23 @@ focus and a toast, and keeps the builder open, because the builder is not a nati
 
 **Hub sorting and My order:** `js/collections-sort.js` loads before the hub renderer and exposes pure typed sorting and ordering through `window.collectionsSort` (`orderEntries`, `sortHubEntries`, `moveVisibleId`). The sort and the user's **My order** persist device-locally in `collectionsHubPreferences` `{ order, sortKey, direction }`, read and written only through `collectionsUI.getHubPreferences` / `saveHubSort` / `saveHubOrder`. Sorts are applied on top of My order, so equal keys keep My order and unknown values stay last in either direction. Recently updated compares parsed timestamps, not text. A fresh profile's My order is chronological by run start; ids missing from the saved order are appended in that fallback order.
 
-Controls live in three places, and the hub toolbar has none. **Settings → Collections** (`js/collections-settings.js`) shows one My order list for templates and Custom Collections; drag handles and move arrows save immediately, and a hidden Collection keeps its position. **Ledger header** column buttons sort, and an icon-only Arrange Collections control (under the All filter only) opens a draft arrange mode with Cancel / Done. Done saves the draft as My order and makes it the active sort. At phone width the header row is hidden, so a compact Sort select (My order plus every column in both directions) and the Arrange control render in the toolbar instead. **Album** has no sort controls; it follows the active sort and shows a `Sorted by <Ledger column label>` hint with Show My order. Pointer reordering in the Ledger, in Settings and in the Custom Collection builder shares `collectionsUI.wireReorderHandle`; the Ledger and Settings drag handles are out of the tab order because the move buttons are the keyboard path there. Slot order inside a Collection is untouched, and Slot Ledger header sorting remains deferred.
+Controls live in three places, and the hub toolbar has none. **Settings → Collections** (`js/collections-settings.js`) shows one My order list for templates and Custom Collections. Drag handles and move arrows save immediately, and a hidden Collection keeps its position. **Ledger header** column buttons sort, and an icon-only Arrange Collections control (under the All filter only) opens a draft arrange mode with Cancel / Done. Done saves the draft as My order and makes it the active sort. At phone width the header row is hidden. A compact Sort select (My order plus every column in both directions) and the Arrange control render in the toolbar instead. **Album** has no sort controls; it follows the active sort and shows a `Sorted by <Ledger column label>` hint with Show My order. Pointer reordering in the Ledger, in Settings and in the Custom Collection builder shares `collectionsUI.wireReorderHandle`. The Ledger and Settings drag handles are out of the tab order because the move buttons are the keyboard path there. Slot order inside a Collection is untouched, and Slot Ledger header sorting remains deferred.
 
-**Collection value:** a collection's value is a view of the inventory rule, never its own: `describeEntry` in `js/collections-ui.js` sums each owned Slot's per-unit `computeItemUnitValuation` result (retail when set, otherwise melt, below-melt manual retail honoured). `entry.retail` is the complete total, or `0` (shown as an em dash) when any owned Slot has no signal (`retailAvailable` false), so a partial sum is never presented as the whole. `entry.retailDiffers` is true only when retail and melt are both known and differ, and gates the secondary melt figure in the Hub Ledger Value cell, the completed-set card foot and the Album Value tile. The Hub "Collected value" note counts active collections left out as `N unpriced`. The Value sort (`value`) orders by `ledgerRetail`; a saved legacy `value-melt` preference is migrated to `value` by `normalizeHubPreferences`.
+**Collection value:** a collection's value is a view of the inventory rule, never its own. Here, `describeEntry` in `js/collections-ui.js` sums each owned Slot's per-unit `computeItemUnitValuation` result (retail when set, otherwise melt, below-melt manual retail honoured). `entry.retail` is the complete total, or `0` (shown as an em dash) when any owned Slot has no signal (`retailAvailable` false). A partial sum is never presented as the whole. `entry.retailDiffers` is true only when retail and melt are both known and differ. When true, it gates the secondary melt figure in the Hub Ledger Value cell, the completed-set card foot and the Album Value tile. The Hub "Collected value" note counts active collections left out as `N unpriced`. The Value sort (`value`) orders by `ledgerRetail`; a saved legacy `value-melt` preference is migrated to `value` by `normalizeHubPreferences`.
 
-**Slot Ledger tablet layout:** From 641px through 800px, each Slot row in the Album uses a two-row grid. The coin, identity and action stay on the first row; the Item name spans the middle tracks and may wrap; Paid, Melt, Retail and G-L values occupy the second row. Mintage remains hidden at tablet widths. These narrow-tablet grid and name-wrapping rules are scoped under `.collections-album`, since the Collections hub reuses `.collections-lrow` with a different column contract.
+**Slot Ledger tablet layout:** From 641px through 800px, each Slot row in the Album uses a two-row grid. The coin, identity and action stay on the first row. The Item name spans the middle tracks and may wrap. Paid, Melt, Retail and G-L values occupy the second row. Mintage remains hidden at tablet widths. These narrow-tablet grid and name-wrapping rules are scoped under `.collections-album`, since the Collections hub reuses `.collections-lrow` with a different column contract.
 
-**State shape** (`collectionState`): `{ schema, collections: { id → { id, kind: "template"|"custom", templateSlug, name, createdAt, metaModified, lastModified, deletedAt, clonedFrom, definition, slots: { slotId → { primary, spares[], modified } }, artwork: { cover|title:reverse|slot:<slotId> → { present, modified, digest } } } } }`. A Custom Collection definition whitelists `metal`, `variant`, `subtitle`, `issuer`, `weight`, `weightUnit`, `itemType`, numeric `purity`, known `specs`, `imageShape`, `imageOrientation` (Bar and Note only; a stored Bar or Note without one normalizes to landscape), `reverseImageOrientation` (the reverse side's orientation, stored only when it differs from the resolved obverse value and absent for a shape that never rotates, so a uniform pair is byte-identical to one saved by an older build), `about`, `side`, `showItemImages`, sparse HTTP(S) title links `obverseImageUrl` / `reverseImageUrl`, and Slots. Legacy `description` is normalized into `about`; unrecognized fields and invalid values are discarded. Type-derived image shapes come from the one resolver `deriveImageShape` in `js/image-frame.js` (shared with Items): grading gives Slab, Bar/Set Bar, Note/Aurum/Goldback/Silverback Note, a Coin with a non-round Numista shape Bar, and other Item Types Round; Slab is an image shape for graded coins, not an Item Type. `showItemImages` is sparse: only an explicit `false` is stored and any other value is dropped. Every runtime-string-keyed map is null-prototype. Artwork stamps are optional for older states; removals are tombstones and win timestamp ties. Whole-definition sync continues to select by `metaModified`.
+**State shape** (`collectionState`): `{ schema, collections: { id → { id, kind: "template"|"custom", templateSlug, name, createdAt, metaModified, lastModified, deletedAt, clonedFrom, definition, slots: { slotId → { primary, spares[], modified } }, artwork: { cover|title:reverse|slot:<slotId> → { present, modified, digest } } } } }`. A Custom Collection definition whitelists `metal`, `variant`, `subtitle`, `issuer`, `weight`, `weightUnit`, `itemType`, numeric `purity`, known `specs`, `imageShape`, `imageOrientation` (Bar and Note only; a stored Bar or Note without one normalizes to landscape). It also whitelists `reverseImageOrientation` (the reverse side's orientation). This is stored only when it differs from the resolved obverse value, and is absent for a shape that never rotates. A uniform pair is therefore byte-identical to one saved by an older build. The whitelist also includes `about`, `side`, `showItemImages`, sparse HTTP(S) title links `obverseImageUrl` / `reverseImageUrl`, and Slots. Legacy `description` is normalized into `about`; unrecognized fields and invalid values are discarded. Type-derived image shapes come from the one resolver `deriveImageShape` in `js/image-frame.js` (shared with Items). Grading gives Slab; Bar/Set gives Bar; Note/Aurum/Goldback/Silverback gives Note. A Coin with a non-round Numista shape gives Bar, and other Item Types give Round. Slab is an image shape for graded coins, not an Item Type. `showItemImages` is sparse: only an explicit `false` is stored and any other value is dropped. Every runtime-string-keyed map is null-prototype. Artwork stamps are optional for older states; removals are tombstones and win timestamp ties. Whole-definition sync continues to select by `metaModified`.
 
 **Invariants:**
 
-- Links live on the Collection, never on the Item: zero new item fields, so no enumeration blast radius (diff fields, change log, inventory hash, bulk edit).
-- An Item fills at most one Slot per Collection; a Slot holds one primary + up to `MAX_SLOT_SPARES` (3) Spares; unlinking or deleting the primary promotes the first Spare.
+- Links live on the Collection, never on the Item. There are zero new item fields, so no enumeration blast radius (diff fields, change log, inventory hash, bulk edit).
+- An Item fills at most one Slot per Collection. A Slot holds one primary + up to `MAX_SLOT_SPARES` (3) Spares. Unlinking or deleting the primary promotes the first Spare.
 - Disposal never rewrites a link: `resolveSlot()` filters disposed/unknown UUIDs at read time, so undoing a Disposition restores the Slot. Hard delete prunes (`_deleteInventoryItem` → `collectionsStore.pruneItem`); a guarded boot sweep covers bulk-delete/import paths and refuses an empty or recovery-held inventory.
-- An emptied Slot and a removed Collection are **Tombstones**, never deleted keys, and `metaModified` is tracked apart from `lastModified`: both exist so `mergeStates` can be commutative and idempotent on ties.
+- An emptied Slot and a removed Collection are **Tombstones**, never deleted keys. Also, `metaModified` is tracked apart from `lastModified`. Both exist so `mergeStates` can be commutative and idempotent on ties.
 - `loadInventory()` back-fills a missing `item.uuid` in memory only, so `collectionsStore.link()` persists the inventory when the linked UUID is not yet durable.
 - **Every store mutation is a transaction**: core mutators edit state in place, so `transact()` snapshots first and restores through `normalizeState` when the write throws. A failed write reports `save-failed`, fires no `collections:changed`, and can never be persisted by a later save.
-- Anything that rewrites `collectionState` in storage **behind the store's back** (vault restore, snapshot restore) must call `collectionsStore.reload()` afterwards, or the stale in-memory state overwrites the restored one on the next mutation.
+- Anything that rewrites `collectionState` in storage **behind the store's back** (vault restore, snapshot restore) must call `collectionsStore.reload()` afterwards. Otherwise, the stale in-memory state overwrites the restored one on the next mutation.
 
 **Data paths**: membership is off-item, so no item-shaped export carries it for free:
 
@@ -493,7 +493,7 @@ Controls live in three places, and the hub toolbar has none. **Settings → Coll
 | JSON export              | `collectionState` on the envelope (omitted when empty)   | `mergeIn` on every import path, including the zero-item-diff branch                                                                                                        |
 | CSV (`Collections` col.) | Per-Item `collectionId:slotId[:spare]`, semicolon-joined | **Additive** batch transaction after identity stamping. A quota failure leaves no partial links. Cannot recreate a Custom Collection's definition.                         |
 
-The CSV column is **last** in both header lists (`buildStandardHeaders`, `BACKUP_CSV_HEADERS`). `exportCsv` terminates its `# exportOrigin` comment with CRLF to match PapaParse's body. For legacy exports with an LF comment and CRLF body, `importCsv` normalizes only the comment terminator before parsing, so the final header and cell values do not retain `\r` and quoted cell data stays intact. CSV parsing also trims headers, including older exports whose final header is `Traded From UUID`.
+The CSV column is **last** in both header lists (`buildStandardHeaders`, `BACKUP_CSV_HEADERS`). `exportCsv` terminates its `# exportOrigin` comment with CRLF to match PapaParse's body. For legacy exports with an LF comment and CRLF body, `importCsv` normalizes only the comment terminator before parsing. The final header and cell values do not retain `\r` and quoted cell data stays intact. CSV parsing also trims headers, including older exports whose final header is `Traded From UUID`.
 
 **Synced as a managed key:** `collectionState` is in both `ALLOWED_STORAGE_KEYS` and `SYNC_SCOPE_KEYS`, but is never blind-overwritten: `cloud-sync.js` excludes it from every settings diff/apply site and reconciles it through `mergeStates`. See "Collections Sync" in `.context/cloud-sync.md`. `collectionsViewMode` and `collectionsHubPreferences` stay device-local by design; the latter stores My order plus the shared hub sort preset and direction.
 
@@ -551,7 +551,7 @@ All three databases use the same `_ensureDb` + singleton pattern. `attachmentMan
 }
 ```
 
-`metalSpotHistory` (spot price time series) and `v2RetailHistory` (daily retail history per slug) now live here, **not** in localStorage: so they do not consume the localStorage budget. IndexedDB stores them **uncompressed** (the Phase-1 LZ compression existed only to fit the localStorage ceiling; pointless at ~4 GB headroom). A one-time, idempotent boot migration (`historyStore.migrate()`, flag `migration_idb_history_v1`) copies any legacy localStorage payloads (including Phase-1 `CMP2:`-compressed ones) into IDB, deleting the legacy copies **only after** a confirmed IDB write. If IndexedDB is unavailable, the app transparently stays on localStorage (the spot/retail keys remain in `ALLOWED_STORAGE_KEYS` to protect the fallback). `item-price-history` is the one market history that **stays in localStorage**, now bounded by a silent retention cap (365 days / 1000 entries per item).
+`metalSpotHistory` (spot price time series) and `v2RetailHistory` (daily retail history per slug) now live here, **not** in localStorage: so they do not consume the localStorage budget. IndexedDB stores them **uncompressed** (the Phase-1 LZ compression existed only to fit the localStorage ceiling; pointless at ~4 GB headroom). A one-time, idempotent boot migration (`historyStore.migrate()`, flag `migration_idb_history_v1`) copies any legacy localStorage payloads (including Phase-1 `CMP2:`-compressed ones) into IDB. It deletes the legacy copies **only after** a confirmed IDB write. If IndexedDB is unavailable, the app transparently stays on localStorage (the spot/retail keys remain in `ALLOWED_STORAGE_KEYS` to protect the fallback). `item-price-history` is the one market history that **stays in localStorage**, now bounded by a silent retention cap (365 days / 1000 entries per item).
 
 **Attachment record schema** (stored in IDB, not in localStorage):
 
@@ -704,7 +704,7 @@ Lives at `devops/pollers/shared/provider-db.js`. Both pollers' Dockerfiles `COPY
 
 ### Dashboard
 
-Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables: add/edit/delete coins, add/edit/delete vendors, toggle enabled state, bulk enable/disable/remove by vendor+metal, coverage stats, failure queue at `/failures`. FBP-backed vendors (`jmbullion`) carry an "FBP-backed" badge and a second editable URL per coin: the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
+Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables. It supports add/edit/delete for coins and vendors, enabled-state toggles, bulk enable/disable/remove by vendor+metal, and coverage stats. The failure queue is at `/failures`. FBP-backed vendors (`jmbullion`) carry an "FBP-backed" badge and a second editable URL per coin: the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
 
 ---
 
@@ -759,7 +759,7 @@ All downstream components (market cards, Best Price Ticker, Vendor Prices table,
 
 The market filter (`MARKET_FILTER_KEY` localStorage key) stores a `slug → vendor → boolean` map. Absent entries default to enabled (no filter = show everything). `_loadMarketFilter()` normalizes corrupted entries and deletes persisted entries for slugs that fail `_isSlugResolved`.
 
-After a vault restore or cloud sync pull that writes `staktrakr.market_filter`, `restoreVaultData()` automatically calls `_invalidateMarketFilterCache()` and `renderMarketFilterMatrix()` so the Market Filter Matrix in Settings reflects the restored state without a page reload.
+After a vault restore or cloud sync pull writes `staktrakr.market_filter`, `restoreVaultData()` automatically calls `_invalidateMarketFilterCache()` and `renderMarketFilterMatrix()`. The Market Filter Matrix in Settings reflects the restored state without a page reload.
 
 ### API Health
 

@@ -83,8 +83,8 @@ const byMetal = {};
 ```
 
 The bug this prevents is silent, not loud. The near-universal populate idiom is
-`if (!map[key]) map[key] = [];`: with a plain literal that guard sees the inherited
-property, skips the assignment, and every later read of `map[key]` returns a `Function`
+`if (!map[key]) map[key] = [];`. With a plain literal that guard sees the inherited
+property, skips the assignment. Every later read of `map[key]` returns a `Function`
 instead of the array the code expects. Downstream arithmetic yields `NaN` rather than
 throwing, so it surfaces as a wrong number in the UI, not a stack trace.
 
@@ -157,7 +157,7 @@ elements.inventoryForm = safeGetElement("inventoryForm", true);
 elements.itemGbDenom = safeGetElement("itemGbDenom");
 ```
 
-**Exception: existence checks:** When code must distinguish "exists" from "absent" (e.g., toggling a popover off, or refusing to mount a component that is already in the DOM), use `document.getElementById()` + `if` guard. The dummy object is always truthy, so `if (safeGetElement("inventoryRecoveryBanner"))` passes even when the banner is absent, and a popover toggle never closes.
+**Exception: existence checks:** Code may need to distinguish "exists" from "absent". Examples include toggling a popover off or refusing to mount a component already in the DOM. Use `document.getElementById()` + `if` guard for these checks. The dummy object is always truthy, so `if (safeGetElement("inventoryRecoveryBanner"))` passes even when the banner is absent, and a popover toggle never closes.
 
 ```js
 // Correct pattern for existence check
@@ -169,7 +169,7 @@ const existing = document.getElementById("inventoryRecoveryBanner");
 if (existing) return; // already mounted; do not re-insert
 ```
 
-**Recovery-state guard for empty-state UI:** Any new inventory view that renders an empty-state placeholder must check `isInventoryRecoveryActive()` before showing mutation actions (Add Item button, etc.). When the recovery banner is up, the placeholder must defer to the banner: otherwise a single click on Add Item silently clears `inventoryRecoveryActive` and defeats the recovery hold before the user can read the warning. Reference: `js/inventory-table.js:656-658` (table view) and `js/card-view.js:776-782` (card view): both check the flag and skip the empty-state row when true.
+**Recovery-state guard for empty-state UI:** Any new inventory view that renders an empty-state placeholder must check `isInventoryRecoveryActive()` before showing mutation actions (Add Item button, etc.). When the recovery banner is up, the placeholder must defer to the banner. Otherwise, a single click on Add Item silently clears `inventoryRecoveryActive`. This defeats the recovery hold before the user can read the warning. Reference: `js/inventory-table.js:656-658` (table view) and `js/card-view.js:776-782` (card view): both check the flag and skip the empty-state row when true.
 
 **Exception: `about.js` early-init:** `about.js` loads before `init.js`, so `safeGetElement` does not exist at top-level execution time. Early-init functions (ack modal: `showAckModal`, `hideAckModal`, `setupAckModalEvents`) must use raw `document.getElementById()` + `if` guard. Late-call functions in `about.js` that only run after `init.js` completes (About tab, popup) may use `safeGetElement`.
 
@@ -302,7 +302,7 @@ Registered keys with non-obvious roles:
 
 When `classifyBootState()` returns `damaged-key` or `parse-error`, `js/init.js` sets the `inventoryRecoveryActive` flag and `saveInventory()` early-returns until an explicit user action clears it. Auto-sync paths (cloud-sync poll/pull) also reach the same gated `saveInventory()`, so a corrupt `metalInventory` cannot be silently overwritten with `[]` from any code path.
 
-**When adding a new user-mutation entry point that calls `saveInventory()`** (new import format, new restore path, new direct-edit flow), call `clearInventoryRecovery()` first: otherwise the user's deliberate add/import will be suppressed by the recovery gate. Existing call sites: `js/events.js:1496` (addItem), `js/inventory-import.js:62/502/839/1342` (CSV/JSON/Numista paths), `js/vault.js:688` (cloud + .stvault restore).
+**When adding a new user-mutation entry point that calls `saveInventory()`** (new import format, new restore path, new direct-edit flow), call `clearInventoryRecovery()` first. Otherwise, the user's deliberate add/import will be suppressed by the recovery gate. Existing call sites: `js/events.js:1496` (addItem), `js/inventory-import.js:62/502/839/1342` (CSV/JSON/Numista paths), `js/vault.js:688` (cloud + .stvault restore).
 
 **Automatic (non-user) writers must go through `saveInventory()` and must NOT clear the gate.** Example: the identity back-fill in `loadInventory()`. When the load loop mints a missing `uuid` or `serial`, it persists once through `saveInventory()`, never `saveData(LS_KEY, …)`, and only when it minted something. An unconditional boot save would stamp `cloud_sync_local_modified` on every launch and break cloud sync push-vs-pull arbitration.
 
@@ -349,7 +349,7 @@ The `typeof` guard is required: `cloud-sync.js` may not be loaded in all environ
 
 ### Compression internals
 
-Values longer than 4,096 characters are compressed with real lz-string (`compressToUTF16`, vendored at `vendor/lz-string.min.js`) on write and decompressed on read: transparent through the wrappers. Current writes use the **`CMP2:`** prefix; **`CMP1:`** is a legacy read-only prefix whose body is stored uncompressed. It is sliced, never decompressed, because lz-string returns garbage on bytes it did not compress. `__decompressIfNeeded` handles both. Bypassing the wrappers breaks decompression silently: a compressed value read via `localStorage.getItem()` returns a `CMP2:...` (or legacy `CMP1:...`) string, not usable JSON. Two safeguards: `__migrateCompressionV2` (one-time boot migration that re-encodes legacy `CMP1:` keys to `CMP2:`) and `__wouldClobberCompressed` (fail-closed write guard that refuses to overwrite a `CMP2:` key when no real engine is loaded).
+Values longer than 4,096 characters are compressed with real lz-string (`compressToUTF16`, vendored at `vendor/lz-string.min.js`) on write and decompressed on read: transparent through the wrappers. Current writes use the **`CMP2:`** prefix; **`CMP1:`** is a legacy read-only prefix whose body is stored uncompressed. It is sliced, never decompressed, because lz-string returns garbage on bytes it did not compress. `__decompressIfNeeded` handles both. Bypassing the wrappers breaks decompression silently: a compressed value read via `localStorage.getItem()` returns a `CMP2:...` (or legacy `CMP1:...`) string, not usable JSON. Two safeguards: `__migrateCompressionV2` (one-time boot migration that re-encodes legacy `CMP1:` keys to `CMP2:`). The second is `__wouldClobberCompressed` (fail-closed write guard that refuses to overwrite a `CMP2:` key when no real engine is loaded).
 
 ### Rule — Decompress before parsing raw `localStorage`
 
@@ -377,11 +377,11 @@ Without the decompress step, boot classification marks every large inventory as 
 Every cloud-sync **compare**, **merge**, and **hash** must operate on **normalized logical content**, never raw serialization: and every **merge** must be **commutative / convergent on ties**. Violating either freezes two devices in a permanent "Review Sync Changes" loop that no resolution (Keep Local / Keep Remote / Ignore) ever clears.
 
 1. **Logical, not raw.** Decompress (`__decompressIfNeeded`) and canonicalize (sorted object keys, order-preserved arrays, scalar-as-JSON normalized to its logical value) before comparing or hashing. Identical logical content must compare/hash equal regardless of `CMP2:`-compressed-vs-plain, scalar-as-JSON-vs-raw, object key-order, or date-time serialization variant. `computeSettingsHash` and `computeInventoryHash` already do this; any new hash must too.
-2. **Commutative merge.** `merge(A, B)` must equal `merge(B, A)`, **including on a timestamp tie**: a last-write-wins no-op on a tie is non-commutative and is exactly what froze the live loop. Resolve ties by a deterministic union (see `_unionTags` / `_mergeTagData`), and bump the modification timestamp only when content actually changes, so the merge stays idempotent once both sides agree.
+2. **Commutative merge.** `merge(A, B)` must equal `merge(B, A)`, **including on a timestamp tie**: a last-write-wins no-op on a tie is non-commutative and is exactly what froze the live loop. Resolve ties by a deterministic union (see `_unionTags` / `_mergeTagData`), and bump the modification timestamp only when content actually changes. The merge stays idempotent once both sides agree.
 
-The fixes are **self-healing**: diverged installs reconcile on the next sync with no user action. The only exception is data that cannot round-trip (`[object Object]` coercion corruption (an object written without `JSON.stringify`)) which a one-time idempotent boot-repair (`syncBootRepairCorruptSettings`) clears. Detect that corruption by an **exact** match of the whole value against the artifact, **never** a substring: free-text scope keys (`itemTags`, `tagBlacklist`, `chipCustomGroups`) can legitimately hold a user value named `[object Object]` inside valid JSON, and a substring match would wipe the entire store.
+The fixes are **self-healing**: diverged installs reconcile on the next sync with no user action. The only exception is data that cannot round-trip (`[object Object]` coercion corruption (an object written without `JSON.stringify`)) which a one-time idempotent boot-repair (`syncBootRepairCorruptSettings`) clears. Detect that corruption by an **exact** match of the whole value against the artifact, **never** a substring. Free-text scope keys (`itemTags`, `tagBlacklist`, `chipCustomGroups`) can legitimately hold a user value named `[object Object]` inside valid JSON. A substring match would wipe the entire store.
 
-When adding a `SYNC_SCOPE_KEYS` entry: object/array configs must always be `JSON.stringify`-written (never let an object reach `localStorage.setItem` un-stringified); a per-item map merged across devices needs a commutative tie-union (not raw LWW); a date-time field compared in the item diff must be added to `INSTANT_FIELDS` in `js/diff-engine.js`. The full per-surface matrix and the commutativity / logical-equality tests live in `.context/cloud-sync-convergence.md` and `tests/unit/cloud-sync-*.test.js`.
+When adding a `SYNC_SCOPE_KEYS` entry: object/array configs must always be `JSON.stringify`-written (never let an object reach `localStorage.setItem` un-stringified). A per-item map merged across devices needs a commutative tie-union (not raw LWW). A date-time field compared in the item diff must be added to `INSTANT_FIELDS` in `js/diff-engine.js`. The full per-surface matrix and the commutativity / logical-equality tests live in `.context/cloud-sync-convergence.md` and `tests/unit/cloud-sync-*.test.js`.
 
 ### Migration pattern — renaming a key
 
@@ -405,16 +405,16 @@ When a dataset outgrows the localStorage ceiling (~5 MB), back it with IndexedDB
 - Loaded via `<script defer>` in dependency order (after its `_ensureDb` peers, before its consumers) **and** added to `sw.js` `CORE_ASSETS`.
 - An IndexedDB store is **not** a localStorage key, so it is **not** in `ALLOWED_STORAGE_KEYS` (matching `imageCache` / `attachmentManager`).
 
-`historyStore` owns the `StakTrakrHistory` DB (single `histories` object store keyed by logical name; see architecture#IndexedDB Stores). It holds spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history as uncompressed JSON blobs. Its `migrate()` runs a one-time, idempotent localStorage→IDB migration (flag `migration_idb_history_v1`) that decompresses Phase-1 `CMP2:` payloads and deletes the legacy localStorage copies **only after** a confirmed IDB write: never destroy the source before the destination is durable.
+`historyStore` owns the `StakTrakrHistory` DB (single `histories` object store keyed by logical name; see architecture#IndexedDB Stores). It holds spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history as uncompressed JSON blobs. Its `migrate()` runs a one-time, idempotent localStorage→IDB migration (flag `migration_idb_history_v1`) that decompresses Phase-1 `CMP2:` payloads and deletes the legacy localStorage copies **only after** a confirmed IDB write. Never destroy the source before the destination is durable.
 
 ### Boot-hydration-before-render — keep render reads synchronous
 
-The render/chart paths must stay **synchronous**. The rule: an in-memory global (`spotHistory` array, `retailPriceHistory` object) is the runtime source of truth that all readers consult; storage is async at exactly two well-defined moments, never in the render path.
+The render/chart paths must stay **synchronous**. The rule: an in-memory global (`spotHistory` array, `retailPriceHistory` object) is the runtime source of truth that all readers consult. Storage is async at exactly two well-defined moments, never in the render path.
 
 1. **Boot hydration (awaited):** `js/init.js` awaits `historyStore.init()` → `migrate()` → `loadSpotHistory()` → retail load **before** the first render (slots in after `attachmentManager.init()`). This is why charts never flash blank-then-populate.
-2. **Persistence (sync facade + fire-and-forget put):** a save updates the in-memory global **synchronously first**, then schedules the IDB write without awaiting it (`void historyStore.put(...)`). Sync callers need no `await`: the global they and the renderers read is already current; the IDB write completes in the background and falls back to `saveDataSync` on failure.
+2. **Persistence (sync facade + fire-and-forget put):** a save updates the in-memory global **synchronously first**, then schedules the IDB write without awaiting it (`void historyStore.put(...)`). Sync callers need no `await`: the global they and the renderers read is already current. The IDB write completes in the background and falls back to `saveDataSync` on failure.
 
-This bounds the sync→async blast radius to the boot sequence and the save/load wrappers: the dozens of synchronous readers are untouched. When wiring a new IDB-backed history, follow the same seam: hydrate in the awaited boot block, expose a sync save facade. Parse-time boot work that depends on the store (e.g. `migrateHourlySource`) must be **moved into the awaited boot sequence**, not left at script-parse time where the store isn't ready yet.
+This bounds the sync→async blast radius to the boot sequence and the save/load wrappers: the dozens of synchronous readers are untouched. When wiring a new IDB-backed history, follow the same seam: hydrate in the awaited boot block, expose a sync save facade. Parse-time boot work that depends on the store (e.g. `migrateHourlySource`) must be **moved into the awaited boot sequence**. Do not leave it at script-parse time, where the store is not ready yet.
 
 ---
 
@@ -594,7 +594,7 @@ The lock prevents two concurrent agents from claiming the same version number. I
 }
 ```
 
-Claim lifecycle: prune expired entries → find highest claimed version (fall back to `APP_VERSION` if none) → increment PATCH → append your claim → create worktree → work → remove your claim on cleanup.
+Claim lifecycle: prune expired entries. Find the highest claimed version (fall back to `APP_VERSION` if none). Increment PATCH. Append your claim. Create the worktree. Work. Remove your claim on cleanup.
 
 ### Worktree conventions
 
@@ -788,7 +788,7 @@ Reference: `_manifestSlugs` / `_manifestCoinMeta` hydrate from `retailManifestSl
 
 ### Browserbase — live-site flows
 
-For end-to-end flows against the live site, use Browserbase. API keys for third-party providers (Numista, PCGS, etc.) must be fetched from Infisical before running: never skip a test because "no API key is configured"; check Infisical first.
+For end-to-end flows against the live site, use Browserbase. API keys for third-party providers (Numista, PCGS, etc.) must be fetched from Infisical before running. Never skip a test because "no API key is configured"; check Infisical first.
 
 ---
 
@@ -908,7 +908,7 @@ fetch(url)
 
 ### Chart.js
 
-- **Destroy before reuse**: call `.destroy()` on an existing chart instance before creating a new one on the same canvas: failing to destroy causes memory leaks and ghost overlays
+- **Destroy before reuse**: call `.destroy()` on an existing chart instance before creating a new one on the same canvas. Failing to destroy causes memory leaks and ghost overlays
 - **Disable animations** on programmatic updates (when the user didn't trigger the render)
 - **Store instances** in the `chartInstances` or `sparklineInstances` objects in `state.js`
 - **`getThemeColorRGB(token)`**: always use this for Chart.js dataset colors, never `getThemeColor()`. Chart.js cannot parse `oklch()` or `color-mix()` strings and renders invisible/black. `getThemeColorRGB` resolves those to `rgb(...)` via a 1×1 canvas bridge (`resolveColor()`): **but `#hex` and `rgb()` inputs pass through unchanged** (slate defines its metal accents as hex). Fine for any Chart.js color field; **never scrape channels out of the result with a digit regex**: parse rgb() AND hex properly (reference: `_dmRgbTriple` in `js/detailsModal.js`). A digit regex misreads the slate theme's hex accents.
@@ -972,7 +972,7 @@ padding: 0.75rem;
 ### Colours computed in JS: hand CSS the data, not the colour
 
 When JS must choose a colour (a per-value hue, a token picked by item type), pass a
-theme-reactive expression and let the stylesheet do the rest:
+theme-reactive expression. Let the stylesheet do the rest:
 
 - **Filter chips:** `_buildFilterChipElement` (`js/filters.js`) sets only the `--chip-bg`
   custom property. `.filter-chip` paints it and picks the text with

@@ -9,13 +9,13 @@ Routing differs per reviewer. Do not generalize from one bot to the others.
 
 - **CodeRabbit is comment-triggered.** Request a review by posting `@coderabbitai review`
   as a PR comment once the PR is out of draft. On the free OSS plan (since 2026-10-17, ship
-  PR #1591) it skips every PR it was not asked to review, with "fewer than 10 stars" /
-  "manual review required for this OSS repository", and the old `coderabbit-review` label
+  PR #1591) it skips every PR it was not asked to review. The skip notice says "fewer than 10 stars" /
+  "manual review required for this OSS repository". The old `coderabbit-review` label
   does not trigger it. A skipped PR still **flags and approves**, and its required
   `CodeRabbit` check still reports **pass**, so it appears to have participated when it has
   not. Patch and ship PRs get the trigger comment; chores skip it.
 - **Codacy AI runs as part of the Codacy static-analysis stage.** This is a change on
-  Codacy's side (observed 2026-08-13), not a config change here: the AI review now arrives
+  Codacy's side (observed 2026-08-13), not a config change here. The AI review now arrives
   bundled with the required check rather than as a separate opt-in pass.
 - **Copilot is automatic, at "Balanced" review effort** (verified 2026-10-03: every review
   body on #1535–#1546 reads `Review effort: Balanced`; it was "lite" on 2026-08-13). The
@@ -71,7 +71,7 @@ is what produced the false correction described below.
 
 ### Copilot review inputs
 
-Copilot code review reads its customization from the PR's **head branch**, so a change to
+Copilot code review reads its customization from the PR's **head branch**. A change to
 any of these takes effect on the PR that makes it:
 
 | Input                                 | Role                                                                    |
@@ -96,8 +96,8 @@ configured for Copilot beyond GitHub's defaults (GitHub + Playwright); Plane is 
 `test:changed` selection; `.context/testing.md` describes the selection and the `dev` push run.
 
 **CodeQL is not a required status check on `dev`.** On `main` it is enforced as a
-code-scanning rule rather than a status check: that distinction is why a `dev` PR can
-merge while CodeQL is still running, and why a `dev → main` ship PR blocks on CodeRabbit
+code-scanning rule rather than a status check. That distinction is why a `dev` PR can
+merge while CodeQL is still running. It also explains why a `dev → main` ship PR blocks on CodeRabbit
 even though `dev` PRs never do.
 
 **Merges block on unresolved threads, not on approvals.** Both branches set
@@ -134,18 +134,18 @@ are easy to hit unexpectedly:
 
 **Order matters: prettier runs before markdownlint.** Reversed (as it was until
 2026-08-13), markdownlint validated the pre-prettier content while prettier's rewrites
-landed unlinted: so a commit could pass and still leave the file failing the _next_ lint.
-The concrete symptom was emphasis style: prettier normalizes `*text*` to `_text_`, MD049
-defaulted to "consistent" and resolved to asterisk in some files, and the two ping-ponged
+landed unlinted. A commit could pass and still leave the file failing the _next_ lint.
+The concrete symptom was emphasis style: prettier normalizes `*text*` to `_text_`. MD049
+defaulted to "consistent" and resolved to asterisk in some files. The two ping-ponged
 across commits. `MD049` is now pinned to `underscore` (matching prettier's output) and
 `MD050` to `asterisk`, so the two tools agree by construction rather than by ordering luck.
 
 **Markdown lint coverage:** `npm run lint:md:all` globs `**/*.md`, which **does not traverse
-dot-directories**: so `.context/`, `.agents/`, and `.claude/` were historically unlinted by
+dot-directories**. Thus, `.context/`, `.agents/`, and `.claude/` were historically unlinted by
 the repo gate and only caught by the staged pre-commit hook. All three are now globbed
 explicitly. Machine-local files (`.claude/**/*.local.*`) are excluded via
-`.markdownlintignore`, mirroring the matching `.gitignore` rule, because markdownlint globs
-the filesystem rather than git and would otherwise judge files the repo deliberately ignores.
+`.markdownlintignore`, mirroring the matching `.gitignore` rule. The markdownlint tool globs
+the filesystem rather than git. It would otherwise judge files the repo deliberately ignores.
 
 `.github/` stays excluded: issue templates render **into** an issue body rather than standing
 as documents, so MD041 does not apply to them.
@@ -157,20 +157,20 @@ as documents, so MD041 does not apply to them.
 
 ### 75% docstring-coverage pre-merge gate (the invisible blocker)
 
-CodeRabbit enforces a 75% docstring-coverage **pre-merge check** (org-level via `inheritance: true`, not in the repo yaml). New or modified JS **and shell** functions need docstrings (JSDoc, or a `#` comment line directly above a shell function) or the PR sticks at `reviewDecision: CHANGES_REQUESTED` / `mergeStateStatus: BLOCKED` **with every GitHub status check green and 0 unresolved threads.** The failing check appears **only** in CodeRabbit's "Pre-merge checks" issue-comment panel: invisible to `statusCheckRollup`, the legacy status API, and the `reviewThreads` GraphQL query.
+CodeRabbit enforces a 75% docstring-coverage **pre-merge check** (org-level via `inheritance: true`, not in the repo yaml). New or modified JS **and shell** functions need docstrings (JSDoc, or a `#` comment line directly above a shell function). Otherwise, the PR sticks at `reviewDecision: CHANGES_REQUESTED` / `mergeStateStatus: BLOCKED` **with every GitHub status check green and 0 unresolved threads.** The failing check appears **only** in CodeRabbit's "Pre-merge checks" issue-comment panel: invisible to `statusCheckRollup`, the legacy status API, and the `reviewThreads` GraphQL query.
 
 When a PR is `CHANGES_REQUESTED` but threads == 0 and checks are green → fetch the latest `coderabbitai[bot]` issue comment and read its "Pre-merge checks" panel for `❌ Error` rows. Write docstrings pre-emptively on new functions. (This cost three round-trips on PR #1255 before it was spotted.)
 
 ### Async bot reviewers land after checks go green
 
-Copilot and Codacy AI post review threads 1–3 min **after** required checks pass: often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`); an empty `nodes` array is the valid "no active threads" state: confirm the response is a valid list before merging.
+Copilot and Codacy AI post review threads 1–3 min **after** required checks pass: often after the merge window opens. Before merging: confirm required checks are green, pause ~2–3 min, then re-query review threads. Treat a `null` result or `errors` array from a `gh api graphql` query as a failure (a malformed query can silently return `null`). An empty `nodes` array is the valid "no active threads" state. Confirm the response is a valid list before merging.
 
 ## Pre-PR scan — Codacy local analysis (Gen-3)
 
 Run the local scan with the **`codacy-analysis`** command (npm package `@codacy/analysis-cli`),
 which is **already installed machine-wide**: there is no per-project bootstrap and no
 per-task reinstall. NOTE: `codacy-analysis-cli` is the **skill** name, **not** a command or npm
-package (it is also the name of the deprecated Gen-1 tool): never run `codacy-analysis-cli` as
+package (it is also the name of the deprecated Gen-1 tool). Never run `codacy-analysis-cli` as
 a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
 `command -v codacy-analysis`; only run `npm i -g @codacy/analysis-cli` if that check fails.
 
@@ -178,39 +178,39 @@ a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
 - Config: `.codacy/codacy.config.json`: a near-1:1 mirror of the Codacy Cloud dashboard,
   regenerated with `codacy-analysis init --remote gh lbruton StakTrakr`. The two
   `localConfigurationFile` entries (ESLint9, markdownlint) are deliberately kept
-  **repo-relative** (`eslint.config.cjs`, `.markdownlint.json`): `analyze` resolves them
-  against the project root, so the tracked file is portable across the main checkout and
+  **repo-relative** (`eslint.config.cjs`, `.markdownlint.json`). The `analyze` command resolves them
+  against the project root. The tracked file is portable across the main checkout and
   every worktree.
 - `analyze` does **not** mutate the config file (verified), so there is no churn to revert.
 - **Do NOT run `init --remote` in a worktree.** The tracked, repo-relative config is the
-  working copy and resolves correctly in any checkout, so re-init buys nothing and actively
-  harms: `init` overwrites from cloud regardless of git tracking and re-bakes absolute
+  working copy and resolves correctly in any checkout. Re-init buys nothing and actively
+  harms. The `init` command overwrites from cloud regardless of git tracking and re-bakes absolute
   `/Volumes/...` paths that then break in worktrees. Refresh **only** when the cloud
-  "StakTrakr" standard actually changes, and do it **in the main checkout**: run
+  "StakTrakr" standard actually changes, and do it **in the main checkout**. Run
   `codacy-analysis init --remote gh lbruton StakTrakr`, then re-relativize the two paths and
   commit (path-agnostic, runs on macOS and Linux):
   `perl -i -pe 's#("localConfigurationFile":\s*")[^"]*/(\.markdownlint\.json|eslint\.config\.cjs)"#$1$2"#g' .codacy/codacy.config.json`
 - **Cloud state is authoritative via the `codacy` command (the Codacy Cloud CLI), not the
   dashboard UI.** Before claiming a Codacy tool toggle or pattern suppression is done, confirm
-  it by running the `codacy` command: invoked through the `codacy-cloud-cli` skill (Skill
-  tool): because the dashboard UI and backend can diverge, and a UI-only check has been wrong
+  it by running the `codacy` command. It is invoked through the `codacy-cloud-cli` skill (Skill
+  tool). The dashboard UI and backend can diverge. A UI-only check has been wrong
   repeatedly in a single session. The
   Codacy MCP server is retired; use the `codacy-skills` plugin **skills**: the
-  `codacy-cloud-cli` skill (which drives the `codacy` command) for cloud state, and the
+  `codacy-cloud-cli` skill (which drives the `codacy` command) for cloud state. Use the
   `codacy-analysis-cli` skill (which drives the `codacy-analysis` command) for local scans.
   These are skill names invoked via the Skill tool, not shell commands.
 
 ## Dual ESLint config — `.eslintrc.json` is read by Codacy and CodeRabbit
 
-The repo carries two ESLint configs: `eslint.config.cjs` (flat: used by local `npm run lint`) and `.eslintrc.json` (legacy: read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
+The repo carries two ESLint configs: `eslint.config.cjs` (flat: used by local `npm run lint`). The other is `.eslintrc.json` (legacy: read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
 
 - The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
 - The legacy config defaults `sourceType` to `script`, so an `overrides` block sets `sourceType: module` for `tests/**/*.js`. Without it, CodeRabbit fails to parse ES-module Playwright/unit specs (`'import' and 'export' may appear only with 'sourceType: module'`) on every PR that touches a spec. `npm run lint` never globs `tests/playwright/**`, so it can't catch this.
 - Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate the `no-restricted-globals` rule into `eslint.config.cjs`.
 
 Project-specific noise: the app uses script-tag globals. Local ESLint uses the repo's
-`eslint.config.cjs` (which disables `no-undef`), while the dashboard's managed ESLint
-patterns may still flag browser globals: so local and dashboard ESLint can differ on
+`eslint.config.cjs` (which disables `no-undef`). The dashboard's managed ESLint
+patterns may still flag browser globals. Thus, local and dashboard ESLint can differ on
 `no-undef`. Treat pre-existing browser-global findings as noise; verify findings on
 changed lines only. Global `Action Gates` covers the fresh-worktree empty-diff issue.
 
@@ -240,7 +240,7 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - **CodeRabbit StakTrakr issue prefix**: see global CLAUDE.md "Conventions" rule on post-migration prefix flags; pre-classify as false positive.
 - **Copilot `no-undef` on browser globals**: project uses script-tag globals across vanilla JS files with no bundler. The phrasing "vanilla JS global scope, no module bundler" is sufficient context in PR replies; do not include a file count (it changes).
 - **`gb-*` CSS classes**: goldback-scoped. Do not copy to other panels; rename to neutral prefixes (`source-group`, `source-btn`, `input-shell`).
-- **CodeRabbit is comment-triggered, not automatic**: a PR nobody asked it to review gets **no full CodeRabbit review**, and that is expected, not a misconfiguration. It may still emit flags, an empty `APPROVED` review and a passing check, so neither the reviewers list nor the check is a reliable signal: check the review body. Comment `@coderabbitai review` when you want the full pass. (See "Review routing" above.)
+- **CodeRabbit is comment-triggered, not automatic**: a PR nobody asked it to review gets **no full CodeRabbit review**, and that is expected, not a misconfiguration. It may still emit flags, an empty `APPROVED` review and a passing check. Neither the reviewers list nor the check is a reliable signal. Check the review body. Comment `@coderabbitai review` when you want the full pass. (See "Review routing" above.)
 - **Codacy AI / Copilot threads on any PR are expected**: both are automatic, unlike CodeRabbit. Budget for their threads on every PR, including docs-only chores.
 - **Codex reviews once per PR**: on open or ready-for-review, with no re-review on later pushes (the setting has been "on PR" since 2026-10-19). A quiet Codex after a fix push is expected; comment `@codex review` only when the fix warrants a second look. Its comments block `dev` merges like any other thread, so resolve them, but don't wait on a review it was never asked for.
 - **Retail out-of-stock detection is content-driven**: `detectStockStatus` in `firecrawl-extract.js` regex-matches rendered markdown.

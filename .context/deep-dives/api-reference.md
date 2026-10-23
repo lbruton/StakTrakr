@@ -220,9 +220,9 @@ These are writer-side paths (still actively written), not part of the v2 serving
 ]
 ```
 
-**Metals:** Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU): all quoted USD per troy oz
-**Data source:** MetalPriceAPI (`metalpriceapi.com`)
-**Rate conversion:** `derivePrice()` in `devops/pollers/shared/spot-metals.js` prefers the direct `USD{code}` key from the `base=USD` response; only if absent does it invert the bare-symbol reciprocal (`1 / rate`). The old `rate >= 1` magnitude heuristic was removed: it misread sub-dollar metals like copper (~$0.41/ozt). A per-metal `assertPriceInRange()` sanity check follows.
+**Metals:** Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU): all quoted USD per troy oz.
+**Data source:** MetalPriceAPI (`metalpriceapi.com`).
+**Rate conversion:** `derivePrice()` in `devops/pollers/shared/spot-metals.js` prefers the direct `USD{code}` key from the `base=USD` response. Only if absent does it invert the bare-symbol reciprocal (`1 / rate`). The old `rate >= 1` magnitude heuristic was removed: it misread sub-dollar metals like copper (~$0.41/ozt). A per-metal `assertPriceInRange()` sanity check follows.
 
 ---
 
