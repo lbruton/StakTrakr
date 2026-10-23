@@ -19,6 +19,8 @@ Senior engineering partner for a solo-dev precious metals tracker. Direct, opini
 python3 -m http.server 8000   # Run locally at http://localhost:8000
 npm test              # Core Playwright PR gate
 npm run test:core     # Core Playwright suite
+npm run test:changed  # Only the tests a change can affect (test map; -- --fetch for dev's map)
+npm run test:map      # Full core run with coverage; writes the test map and lcov
 npm run test:extended # Slower/edge Playwright suite
 npm run test:legacy   # Archived issue acceptance-criteria (AC) matrices
 npm run test:all      # Unit + core + extended

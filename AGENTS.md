@@ -46,6 +46,8 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - Prettier scope is governed by `.prettierignore` (excludes `data/`, `vendor/`, minified assets).
 - `npm test` — core Playwright PR gate
 - `npm run test:core` — core Playwright suite
+- `npm run test:changed` — only the tests a change can affect (`-- --fetch` downloads `dev`'s test map)
+- `npm run test:map` — full core run with coverage; writes the test map and lcov
 - `npm run test:extended` — slower extended coverage
 - `npm run test:legacy` — archived issue acceptance matrices
 - `npm run test:all` — unit + core + extended suites
