@@ -13,9 +13,9 @@ updated: "2026-04-11"
 
 Single Cloud - Fly.io app (`staktrakr`) that runs **spot price polling** and **data publishing** to the `api` branch on GitHub Pages. Managed by **supervisord** inside one container.
 
-**Database connectivity (STAK-486):** The Fly.io container reaches the home sqld service through Tailscale subnet routing. The home side advertises the required subnet route and the Fly.io container accepts it. Database connection configuration belongs in the operator's Fly.io secret store. Tailscale must be connected and the subnet route approved for DB reads to succeed.
+**Database connectivity:** The Fly.io container reaches the home sqld service through Tailscale subnet routing. The home side advertises the required subnet route and the Fly.io container accepts it. Database connection configuration belongs in the operator's Fly.io secret store. Tailscale must be connected and the subnet route approved for DB reads to succeed.
 
-**Goldback data flow (STAK-491):** The Home Poller scrapes goldback.com and writes the G1 rate to sqld as `coin_slug=goldback-g1`. The Fly.io publisher's `api-export.js` reads this from sqld and generates `goldback-spot.json` + `goldback-{YYYY}.json` as part of its normal publish cycle. The old `run-goldback.sh` (git-commit-and-push) path is disabled via `GOLDBACK_ENABLED=0`.
+**Goldback data flow:** The Home Poller scrapes goldback.com and writes the G1 rate to sqld as `coin_slug=goldback-g1`. The Fly.io publisher's `api-export.js` reads this from sqld and generates `goldback-spot.json` + `goldback-{YYYY}.json` as part of its normal publish cycle. The old `run-goldback.sh` (git-commit-and-push) path is disabled via `GOLDBACK_ENABLED=0`.
 
 ---
 
@@ -82,11 +82,11 @@ This is the Fly.io container's primary job. Runs 4x/hour, ~3 min after spot poll
    - `data/api/latest.json`: all coins, current 15-min window prices
    - `data/api/{slug}/latest.json`: per-coin detail + 24h series
    - `data/api/{slug}/history-7d.json`, `history-30d.json`: daily aggregates
-   - `data/api/goldback-spot.json`: G1 rate from `goldback-g1` rows in sqld (STAK-491)
-   - `data/goldback-{YYYY}.json`: daily goldback history from sqld (STAK-491)
+   - `data/api/goldback-spot.json`: G1 rate from `goldback-g1` rows in sqld
+   - `data/goldback-{YYYY}.json`: daily goldback history from sqld
    - `data/api/providers.json`: frontend provider URLs
    - `data/hourly/YYYY/MM/DD/HH.json`: spot price hourly files
-2. **`api-export-v2.js`** (STAK-503): generates v2 endpoints under `data/v2/` (spot, retail, goldback, providers, manifest). Called after v1 export. **Non-fatal**: if v2 export throws, it is caught and logged; v1 publish continues unaffected. `providers.json` was added to the v2 surface to fix a frontend 404 regression (2026-04-11): v1 already had `data/api/providers.json` but v2 never got its equivalent during the STAK-503 redesign, so frontend clicks on vendor prices silently fell back to vendor homepages for fresh-browser users.
+2. **`api-export-v2.js`**: generates v2 endpoints under `data/v2/` (spot, retail, goldback, providers, manifest). Called after v1 export. **Non-fatal**: if v2 export throws, it is caught and logged; v1 publish continues unaffected. `providers.json` was added to the v2 surface to fix a frontend 404 regression (2026-04-11): v1 already had `data/api/providers.json` but v2 never got its equivalent during the v2 redesign, so frontend clicks on vendor prices silently fell back to vendor homepages for fresh-browser users.
 3. **`git add data/ && git commit && git push --force origin HEAD:api`**: sole Git writer for `api` branch
 
 ---

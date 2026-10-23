@@ -82,7 +82,7 @@ The Goldback vendor price is sourced via `getGoldbackVendorPrice(slug)`, which r
 
 When a vendor is not polled in a given window (e.g., poller skipped or vendor was OOS for one window), the frontend applies **forward-fill** via `_forwardFillVendors()` in `retail-view-modal.js`. This carries the most recent seen price forward into gap windows. Forward-filled values are marked `_carriedVendors` on the window object. In the intraday table, carried values display as `~$XX.XX` in italic gray. In the intraday chart tooltip, carried values display with a `~` prefix.
 
-**Multi-hop carry logic (STAK-498):** Chart lines distinguish between single-hop and multi-hop carries. A vendor carried from the immediately preceding window (single-hop: just one missed poll) renders as a **solid** line. Only carries where the previous window _also_ carried that vendor (2+ consecutive hours missing, multi-hop) render as **dotted** lines. This prevents most vendor lines from appearing dotted during normal polling gaps. Vendors with zero real (non-carried) prices across all bucketed windows are excluded from the chart entirely via the `qualifiedVendors` filter.
+**Multi-hop carry logic:** Chart lines distinguish between single-hop and multi-hop carries. A vendor carried from the immediately preceding window (single-hop: just one missed poll) renders as a **solid** line. Only carries where the previous window _also_ carried that vendor (2+ consecutive hours missing, multi-hop) render as **dotted** lines. This prevents most vendor lines from appearing dotted during normal polling gaps. Vendors with zero real (non-carried) prices across all bucketed windows are excluded from the chart entirely via the `qualifiedVendors` filter.
 
 ### Anomaly Detection — Intraday Spikes
 
@@ -119,15 +119,15 @@ The retail sync log table's Time column uses timezone-aware formatting via `TIME
 
 Do not mix `.price` and `.avg`: they represent different aggregation windows.
 
-### STRK-99: SDB + BE JSON-LD `offer.price` is the deepest bulk tier (2026-05-23)
+### SDB + BE JSON-LD `offer.price` is the deepest bulk tier (2026-05-23)
 
 SDB and Bullion Exchanges publish their Product `offer.price` as the deepest "As Low As" bulk-tier value (e.g. SDB silver maple `offer.price = "78.23"` is the 50+ tier, not the 1-unit $79.23 price). Neither vendor includes a tier-aware `priceSpecification` array with `eligibleQuantity.minValue === 1` and `appliesToPaymentMethod` set to wire/ACH. Believed to be an SEO / Google Shopping template change.
 
-The retail poller's `extractJsonLdPrice()` enforces an `UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"])` denylist that skips the bare `offer.price` fallback for these two vendors. The zero-price OOS sentinel (STAK-475 P1) and a future tiered `priceSpecification` block are still honored.
+The retail poller's `extractJsonLdPrice()` enforces an `UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"])` denylist that skips the bare `offer.price` fallback for these two vendors. The zero-price OOS sentinel and a future tiered `priceSpecification` block are still honored.
 
 Verified live 2026-05-23 via Playwright with real Chromium UA against `https://sdbullion.com/canadian-silver-maple-leaf-coin-random-year`.
 
-### STRK-99 hotfix: BE Byparr returns the React shell (2026-05-23)
+### Hotfix: BE Byparr returns the React shell (2026-05-23)
 
 When `cf-clearance` Phase 2 fetches a Bullion Exchanges product page, Byparr returns the **un-hydrated React shell HTML**: the pricing grid is JavaScript-rendered AFTER Byparr's render window closes. The only `$XX.XX` values surviving in the resulting plain text are:
 
@@ -139,7 +139,7 @@ Two mitigations in the poller:
 - `htmlToPlainText()` drops `<nav>`, `<header>`, `<footer>` blocks the same way it drops `<script>`/`<style>` (`CHROME_OR_RAWTEXT_TAGS` set). A partial-name guard ensures `<nav-bar>`-style custom elements are not mis-identified as `<nav>` (Gemini PR #1148 review catch).
 - For `UNTRUSTED_OFFER_PRICE_VENDORS`, `extractPrice()` uses pipe-table → tier-anchored prose only. `firstInRangePriceProse` is **not reachable** for these vendors, so spot tickers and sidebar prices can never poison the dashboard. Returns null when neither matcher hits: the dashboard records NULL (safe-OOS) rather than a wrong value.
 
-### STRK-99 hotfix: SDB renders qty as `1 - 49` with whitespace around the dash
+### Hotfix: SDB renders qty as `1 - 49` with whitespace around the dash
 
 The tier-anchored extractor's regex MUST accept both `1-49` and `1 - 49`. The v1 regex required no spaces and silently skipped the first qty row, recording the bulk-tier `50+ $78.23` instead of the 1-unit `$79.23`. Production regex: `/\b(?:\d{1,3}\s*-\s*\d{1,5}|\d{1,3}\+)\s+\$\s*([\d,]+\.\d{2})/g`: the `\d{1,3}` low-side cap also excludes year ranges like `2024 - 2025` from false-matching.
 
@@ -216,7 +216,7 @@ This section documents how each vendor's website is structured for scraping purp
 
 - **Stack:** Next.js App Router with RSC streaming
 - **Spot API:** `contentapi-managed.jmbullion.com/api/spot/summary`: unauthenticated, returns current spot prices.
-- **Product pricing:** No dedicated product price API. JM direct scraping is Webscale/reCAPTCHA-blocked, so product prices are gap-filled from **FindBullionPrices.com** JSON-LD `ItemList` via `price-extract-vendor-jmbullion-fbp.js` (`source: "fbp"`, STRK-334): a plain HTTPS fetch + JSON-LD parse, no CF-bypass. See the JM-via-FBP subsection in `.context/data-pipelines.md`.
+- **Product pricing:** No dedicated product price API. JM direct scraping is Webscale/reCAPTCHA-blocked, so product prices are gap-filled from **FindBullionPrices.com** JSON-LD `ItemList` via `price-extract-vendor-jmbullion-fbp.js` (`source: "fbp"`): a plain HTTPS fetch + JSON-LD parse, no CF-bypass. See the JM-via-FBP subsection in `.context/data-pipelines.md`.
 
 ### APMEX
 

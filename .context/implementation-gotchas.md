@@ -28,7 +28,7 @@ Two separate localStorage stores. Confusing them = silent data loss.
 | Catalog providers | `catalog_api_config` | Numista apiKey, Professional Coin Grading Service bearerToken | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
 
 Reading catalog keys via `loadApiConfig().keys["numista"]` returns `undefined`; that is the
-wrong store and the root cause of STRK-573.
+wrong store and the root cause of the catalog-key failure.
 `saveData()` wraps in `JSON.stringify`. Read saved data via `loadData()` / `loadDataSync()`.
 After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale
 provider instances.
@@ -55,7 +55,7 @@ from sync, restore, diff, or Storage:
 `chipBlacklist`; a new hidden-list key still needs all seven registrations even when its
 storage and sync paths already use `saveDataSync()`.
 
-## Boot storage sweep is downgrade-safe — never delete unknown keys (STRK-412)
+## Boot storage sweep is downgrade-safe — never delete unknown keys
 
 `cleanupStorage()` removes only `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`). Never make it
 delete keys "not in `ALLOWED_STORAGE_KEYS`": an older build (rolled-back `main`, beta alias
@@ -67,7 +67,7 @@ append it to `RETIRED_STORAGE_KEYS`.
 
 Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the
 `js/about.js` What's New block: it asserts the current-version `<li>` entry is present
-**and** enforces the 5-entry cap (STRK-194, #1262).
+**and** enforces the 5-entry cap (#1262).
 Does not check `manifest.json`, README badges, or `sw.js` cache.
 **Hook green ≠ release complete.** `/release` is the only path that touches all
 release-bearing files.
@@ -131,7 +131,7 @@ as contracts to avoid regressing, not as live bugs to fix.
 - **Nested paths** route through `BULK_FIELD_STORAGE_MAP` via `applyBulkFieldToItem()` (grep
   either name in `js/bulkEdit.js`). A new bulk-editable field at a nested path (e.g.
   `item.numistaData.shape`) still needs its own map entry: without one, a flat
-  `item[fieldId] = value` write lands on a bogus top-level key (precedent: STRK-91).
+  `item[fieldId] = value` write lands on a bogus top-level key (a nested-field write failure).
 - **Change-log snapshots** use `structuredClone` for `oldItem.numistaData` and
   `oldItem.fieldMeta` (grep `structuredClone` in `js/bulkEdit.js`). A plain
   `Object.assign({}, item)` is shallow: mutating a nested object would also mutate
@@ -158,13 +158,13 @@ Missing the corner tier causes data cells to paint over the frozen header corner
 ## Daily close — TWO per-day dedup policies coexist in `js/spot.js`
 
 The legacy sparkline path (grep `getHistoricalSparklineData` in `js/spot.js`) keeps the FIRST live row per day.
-`getSpotDayMap` (STRK-352) deliberately keeps the LATEST live timestamp per day, and a live row always beats a seed/bundle row for that day.
+`getSpotDayMap` deliberately keeps the LATEST live timestamp per day, and a live row always beats a seed/bundle row for that day.
 The divergence is intentional: the detail chart wants the daily close; the sparkline dedup predates it and its consumers expect the old behavior.
 Do not "unify" one policy into the other; `details-modal.spec.js` pins the latest-live-wins close.
 
-## STACK-70 Phase 4 mobile hide rules — RETIRED by STRK-352
+## Phase 4 mobile hide rules: retired by the chart rebuild
 
-STACK-70's Phase 4 hid the old pie canvases and metric toggle on mobile (`css/styles.css`, MOBILE-OPTIMIZED MODALS block: a tombstone comment marks the spot).
+Phase 4 hid the old pie canvases and metric toggle on mobile (`css/styles.css`, MOBILE-OPTIMIZED MODALS block: a tombstone comment marks the spot).
 The redesigned detail modal's hero chart and toggle MUST render on mobile (AC-17/AC-22); its responsive rules live in the `dm-` block's own 768px section.
 Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdown selectors: that DOM does not exist and the suite asserts zero legacy pie DOM.
 
@@ -181,7 +181,7 @@ Keep the base `--success`, `--warning` and `--danger` tokens for fills, borders 
 
 Sibling of the `--warning` gotcha above, at a different WCAG bar.
 Sepia `--success` (`oklch(0.603 0.117 130.4)`) on the sepia spot-card surface (`oklch(0.892 0.032 89.1)`) measures **2.72:1**: under the WCAG 1.4.11 Non-text Contrast bar of **3:1** for icons and graphical objects.
-STRK-291 fixed it in `css/styles.css` with a same-hue, lower-lightness override: `[data-theme="sepia"] .spot-sync-icon--fresh { color: oklch(0.52 0.13 130.4) }`, measured at 3.83:1.
+The contrast fix uses `css/styles.css` with a same-hue, lower-lightness override: `[data-theme="sepia"] .spot-sync-icon--fresh { color: oklch(0.52 0.13 130.4) }`, measured at 3.83:1.
 Light `--success` measures 3.35:1: passing, but with little margin. Dark and slate are 5.6–5.8:1 and fine.
 
 Two method notes for contrast tests:
@@ -217,7 +217,7 @@ Follow this sequence:
 **Warning:** Mark Plane issues Done only after the PR merges.
 Plane closure tasks (close task number) follow `/spec archive` after merging.
 
-**Spec git add discipline:** Specs live in-repo at `docs/specs/` (`specs.path` in `.claude/project.json`, STRK-411) and ride the feature PR. When committing spec archives, stage with surgical precision:
+**Spec git add discipline:** Specs live in-repo at `docs/specs/` (`specs.path` in `.claude/project.json`) and ride the feature PR. When committing spec archives, stage with surgical precision:
 
 - Stage by exact file paths: `git add docs/specs/STRK-74/requirements.md ...`
 - Do not use broad staging: `git add docs/specs/` or `git add .`

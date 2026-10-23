@@ -78,7 +78,7 @@ function safeGetElement(id, required = false) {
 
 **Why this matters:** Raw `document.getElementById()` returns `null` when an element is absent. Any subsequent property access on `null`: e.g., `el.textContent = x`: throws a TypeError and can crash the entire initialization chain. `safeGetElement` eliminates that failure mode by guaranteeing a non-null return value with a safe no-op interface.
 
-**When NOT to use `safeGetElement`:** For DOM **existence checks** (code that needs to distinguish "element exists" from "element absent") use `document.getElementById()` directly. Because `safeGetElement` never returns `null`, an `if (el)` guard always passes, which caused the STAK-492 popover crash. Example: `_openThumbPopover` in `inventory.js` checks whether a popover already exists to toggle it off.
+**When NOT to use `safeGetElement`:** For DOM **existence checks** (code that needs to distinguish "element exists" from "element absent") use `document.getElementById()` directly. Because `safeGetElement` never returns `null`, an `if (el)` guard always passes, which caused the popover crash. Example: `_openThumbPopover` in `inventory.js` checks whether a popover already exists to toggle it off.
 
 **Using the `required` flag:** Pass `required = true` for elements that are critical to a feature. This emits a visible `console.warn` in DevTools during development without throwing an error:
 
@@ -182,7 +182,7 @@ const populateAboutTab = () => {
 
 Code inside `init.js` itself CAN use `safeGetElement` after line 31, and all element lookups in the `initializeApp()` function do so.
 
-### Service Worker Update Defense (STAK-485, STRK-56)
+### Service Worker Update Defense
 
 `init.js` includes two defense mechanisms for graceful service worker updates:
 
@@ -205,28 +205,28 @@ If the same known asset-global failure persists after the first reload, `init.js
 | `js/about.js` (late-call: About tab, popup)                                                                     | `safeGetElement()`                                       | Called after `init.js` defines it                                                                                                                                              |
 | `js/init.js` (after line 31)                                                                                    | `safeGetElement()`                                       | `safeGetElement` is available                                                                                                                                                  |
 | All other JS files                                                                                              | `safeGetElement()` (preferred)                           | Default pattern for new code                                                                                                                                                   |
-| DOM existence checks (e.g., popover toggle-off)                                                                 | `document.getElementById()` + `if` guard                 | Need real `null` when absent: dummy is always truthy (STAK-492)                                                                                                                |
+| DOM existence checks (e.g., popover toggle-off)                                                                 | `document.getElementById()` + `if` guard                 | Need real `null` when absent: dummy is always truthy                                                                                                                           |
 | Established modules (`card-view.js`, `events.js`, `inventory.js`, `image-cache-modal.js`, `inventory-table.js`) | `document.getElementById()` / `document.querySelector()` | Direct `document.getElementById()` and `document.querySelector()` calls still appear in several established modules. New code should prefer `safeGetElement()` for ID lookups. |
 
 ---
 
-## Market Data DOM Elements (STAK-504)
+## Market Data DOM Elements
 
 The market data module (`js/market-data.js`) introduces six new DOM elements, all looked up via `safeGetElement()`:
 
-| Element ID              | Type        | Purpose                                                                                                                                                                                                                                     |
-| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bestPriceTickerEl`     | `<div>`     | Best Price Ticker ribbon: horizontal scrolling lowest-per-coin prices                                                                                                                                                                       |
-| `vendorPricesSectionEl` | `<section>` | Vendor Prices comparison table container                                                                                                                                                                                                    |
-| `vendorPricesContainer` | `<div>`     | Inner container for the tabbed vendor price tables                                                                                                                                                                                          |
-| `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                              |
-| `marketDetailContent`   | `<div>`     | Content area inside the market detail modal                                                                                                                                                                                                 |
-| `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                                    |
-| `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added in STAK-545 alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
+| Element ID              | Type        | Purpose                                                                                                                                                                                                                         |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bestPriceTickerEl`     | `<div>`     | Best Price Ticker ribbon: horizontal scrolling lowest-per-coin prices                                                                                                                                                           |
+| `vendorPricesSectionEl` | `<section>` | Vendor Prices comparison table container                                                                                                                                                                                        |
+| `vendorPricesContainer` | `<div>`     | Inner container for the tabbed vendor price tables                                                                                                                                                                              |
+| `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                  |
+| `marketDetailContent`   | `<div>`     | Content area inside the market detail modal                                                                                                                                                                                     |
+| `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                        |
+| `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
 
 These elements are defined in `index.html` and are part of the `layoutSectionConfig` system (`bestPriceTicker` section). The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
-### Market Filter Matrix Settings Panel (STAK-515)
+### Market Filter Matrix Settings Panel
 
 The `settingsPanel_market` panel in `index.html` was gutted and replaced with a **Market Filter Matrix**: a checkbox grid where rows are product slugs and columns are vendors. The panel is rendered dynamically by `renderMarketFilterMatrix()` in `js/settings.js` and wired by `bindMarketFilterListeners()` in `js/settings-listeners.js`. Metal filter tabs (Gold / Silver / Platinum / Palladium / Goldback) control which rows are visible in the matrix. The Sync Now button and last-sync timestamp are retained. CSS styles are scoped under `.market-filter-matrix` in `css/styles.css`.
 

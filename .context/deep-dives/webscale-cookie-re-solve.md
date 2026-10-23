@@ -11,7 +11,7 @@ updated: "2026-07-30"
 
 **When:** ~weekly, or whenever `retail-poller.log` shows `⚠️ WEBSCALE CHALLENGE … RE-SOLVE NEEDED`, or JM Bullion / Provident drop to "no price". The `wspc` cookie lasts ~7 days.
 
-**Why:** JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare). The poller injects a human-solved `wspc` cookie. Background: STRK-230 (PR #1303). Automation plan: STRK-231 (CapSolver). Full diagnosis: Home Poller, `infrastructure.md`.
+**Why:** JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare). The poller injects a human-solved `wspc` cookie. Background: the product-page cookie bypass (PR #1303). Automation plan: CapSolver. Full diagnosis: Home Poller, `infrastructure.md`.
 
 **Must run on a machine sharing the poller's public IP** (your home network / same Cox IP). The cookie is bound to IP + UA.
 
@@ -101,7 +101,7 @@ rm -f /tmp/retail-poller.lock      # clear a stale lock if present
 . /etc/environment; /app/run-home.sh
 ```
 
-`run-home.sh` re-exports the `WEBSCALE_*` vars itself (cron-sourced vars aren't exported to children: STRK-230), so the cookie reaches node.
+`run-home.sh` re-exports the `WEBSCALE_*` vars itself (cron-sourced vars aren't exported to children), so the cookie reaches node.
 
 ---
 

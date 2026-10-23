@@ -102,26 +102,26 @@ curl -s http://192.168.1.81:8080/v2/pipeline -H 'Content-Type: application/json'
 }' | jq '.results[0].response.result.rows'
 ```
 
-Expected: rows from `home` (retail), `home-spot` (spot from home poller), and `fly-spot` (spot from Fly.io) pollers within the last 2 hours. Only `home` produces retail rows since STAK-478.
+Expected: rows from `home` (retail), `home-spot` (spot from home poller), and `fly-spot` (spot from Fly.io) pollers within the last 2 hours. Only `home` produces retail rows.
 
 ---
 
 ## Diagnosing by Symptom
 
-| Symptom                               | Likely cause                                                                  | Action                                                                                                           |
-| ------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `v2/manifest.json` > 30 min stale     | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                       |
-| `v2/manifest.json` > 4h stale         | Home poller or Fly.io container down                                          | Check home poller container in Portainer; `fly status --app staktrakr`                                           |
-| Spot hourly > 75 min stale            | External price-feed credential expired or quota exceeded                      | Check the provider dashboard and operator-managed secret store                                                   |
-| Goldback > 2h stale (STRK-248)        | Home poller `goldback-scraper.js` failed                                      | Check home poller logs via Portainer dashboard (goldback runs on home only, not Fly.io)                          |
-| Only 1-2 vendors per coin             | Home poller down or OOS                                                       | Check home poller container; verify sqld has recent rows (home is sole retail scraper)                           |
-| Vendor missing multiple cycles        | URL changed or bot-blocked                                                    | Update vendor URL via [dashboard](http://192.168.1.81:3010/providers) or `provider-db.js`: see Provider Database |
-| OOM on Fly.io                         | Concurrent api-export.js invocations                                          | Verify publish lockfile; `fly scale show`: expect 1 shared CPU / 1024 MB (STAK-478 slim image)                   |
-| Monument Metals missing at year-start | Random-year SKU on pre-order                                                  | Switch to year-specific SKU in providers.json                                                                    |
-| JMBullion presale coins show OOS      | Pre-order pattern matching                                                    | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS`                      |
-| Merge workflow failing                | Branch conflict or jq parse error                                             | Retired/manual-only: `api` branch is now served directly by GitHub Pages                                         |
-| ~~Both pollers firing at same time~~  | Historical (pre-STAK-478): Fly.io does not run retail scraping                | N/A: only home poller scrapes retail                                                                             |
-| `api-export.js` import crash          | `db.js` missing export after refactor                                         | `fly ssh console -C "sh -c 'tail -5 /var/log/publish.log'"`: look for `SyntaxError`                              |
+| Symptom                               | Likely cause                                                                      | Action                                                                                                           |
+| ------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `v2/manifest.json` > 30 min stale     | Home poller `run-home.sh` missed cycle or Fly.io `run-publish.sh` not running     | Check home poller logs via Portainer dashboard; `fly logs --app staktrakr \| grep publish`                       |
+| `v2/manifest.json` > 4h stale         | Home poller or Fly.io container down                                              | Check home poller container in Portainer; `fly status --app staktrakr`                                           |
+| Spot hourly > 75 min stale            | External price-feed credential expired or quota exceeded                          | Check the provider dashboard and operator-managed secret store                                                   |
+| Goldback > 2h stale                   | Home poller `goldback-scraper.js` failed                                          | Check home poller logs via Portainer dashboard (goldback runs on home only, not Fly.io)                          |
+| Only 1-2 vendors per coin             | Home poller down or OOS                                                           | Check home poller container; verify sqld has recent rows (home is sole retail scraper)                           |
+| Vendor missing multiple cycles        | URL changed or bot-blocked                                                        | Update vendor URL via [dashboard](http://192.168.1.81:3010/providers) or `provider-db.js`: see Provider Database |
+| OOM on Fly.io                         | Concurrent api-export.js invocations                                              | Verify publish lockfile; `fly scale show`: expect 1 shared CPU / 1024 MB (slim image)                            |
+| Monument Metals missing at year-start | Random-year SKU on pre-order                                                      | Switch to year-specific SKU in providers.json                                                                    |
+| JMBullion presale coins show OOS      | Pre-order pattern matching                                                        | Verify `preorderTolerant` on the vendor descriptor, or `LEGACY_PREORDER_TOLERANT_PROVIDERS`                      |
+| Merge workflow failing                | Branch conflict or jq parse error                                                 | Retired/manual-only: `api` branch is now served directly by GitHub Pages                                         |
+| ~~Both pollers firing at same time~~  | Historical (before the publisher-only split): Fly.io does not run retail scraping | N/A: only home poller scrapes retail                                                                             |
+| `api-export.js` import crash          | `db.js` missing export after refactor                                             | `fly ssh console -C "sh -c 'tail -5 /var/log/publish.log'"`: look for `SyntaxError`                              |
 
 ---
 
@@ -182,7 +182,7 @@ fly ssh console --app staktrakr -C "rm -f /tmp/retail-poller.lock /tmp/retail-pu
 
 ---
 
-## v2 Health Check Path (STAK-503)
+## v2 Health Check Path
 
 v2 endpoints embed their own staleness threshold via the `stale_after` field in the envelope. Instead of comparing against hardcoded thresholds, v2 health checks compute freshness dynamically:
 
@@ -199,7 +199,7 @@ Each endpoint type declares its own `stale_after` value (in seconds):
 | Goldback | 7200          | 2 h (was 90000 / 25 h before STRK-248) |
 | Manifest | 1800          | 30 min                                 |
 
-The v2 manifest also publishes these thresholds in `data.stale_thresholds`. The frontend is v2-only; `api-health.js` uses the envelope's `stale_after` when supplied and retains defensive constants for malformed data. Per STRK-331, both the data paths and the badge resolve freshness from the **freshest `generated_at` per feed** across serving endpoints.
+The v2 manifest also publishes these thresholds in `data.stale_thresholds`. The frontend is v2-only; `api-health.js` uses the envelope's `stale_after` when supplied and retains defensive constants for malformed data. For endpoint selection, both the data paths and the badge resolve freshness from the **freshest `generated_at` per feed** across serving endpoints.
 
 ---
 
