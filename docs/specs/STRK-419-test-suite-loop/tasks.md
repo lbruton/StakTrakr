@@ -131,7 +131,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort B — Tests · RED
 
-- [ ] **B.4 [P]** — Failing tests for test selection (moved to Part 1, 2026-10-23)
+- [x] **B.4 [P]** — Failing tests for test selection (moved to Part 1, 2026-10-23)
   - **File(s):** `tests/unit/test-changed.test.js` (new)
   - **Amended 2026-10-23 (D-18):** also asserts that docs and config paths (`*.md`, `docs/`, `.context/`, `.claude/`, `.agents/`, `.github/` other than `tests.yml`, `playground/`) select nothing, that a changed path a unit test or its helper names selects that unit file, and that the plan serializes to JSON (`full`, `core`, `unit`, reasons) for CI.
   - **Acceptance:** With an inline test map and inline diffs, the tests assert: a changed line inside a mapped function selects exactly the tests that executed it (AC-13); a changed spec file selects that whole file (AC-14); a changed unit file, or a `js/` file a unit file reads by path, selects those unit files (AC-15); a changed line outside every function, or an unmapped file (`index.html`, `css/styles.css`, a helper, `playwright.config.js`), selects the full core suite and names the file (AC-16, approach D-7); a missing map selects the full suite and prints the `npm run test:map` command (AC-17); a map SHA that is not an ancestor of the merge base yields a stale warning (AC-18); the printed plan lists each selected test with the changed file that selected it (AC-19); untracked files are included (AC-12). All fail because the script does not exist.
@@ -146,11 +146,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
-- [ ] **C.6** — `test:changed` (moved to Part 1, 2026-10-23; adds `--plan-only` and `--json <path>` for CI)
+- [x] **C.6** — `test:changed` (moved to Part 1, 2026-10-23; adds `--plan-only` and `--json <path>` for CI)
   - **File(s):** `devops/testing/test-changed.mjs` (new), `package.json`
   - **Acceptance:** `npm run test:changed` diffs against the map commit plus untracked files (approach D-6), prints the plan, runs selected Playwright tests by `file:line` and selected unit files, and supports `--fetch` to download the latest `dev` map artifact with `gh run download` (approach D-5). All B.4 cases pass.
   - **Depends on:** B.4
   - **Maps to:** AC-12 to AC-19
+  - **As built:** the test map gains `files` (every function's line range per file, from `coverage-merge.mjs`). A changed line selects the tests that ran its innermost enclosing function, so a module wrapper every boot enters does not select every test; a line in a function no core test runs selects none; a line outside every function selects the full suite. B.4 gained the nested-function case after C.8 measured the wrapper problem.
 
 - [ ] **C.7** — Redundancy report
   - **File(s):** `devops/testing/test-redundancy.mjs` (new), `package.json`
@@ -163,6 +164,11 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Acceptance:** On the reference machine, with a fresh map, a one-line change inside a function in one `js/` file runs through `npm run test:changed` in 60 s or less; three such files (one hot, one mid, one cold by test count) are measured and listed in the Part 2 PR body.
   - **Depends on:** C.6
   - **Maps to:** AC-20
+  - **Measured 2026-10-23** (map at `c6882117`, one inserted line inside the function):
+    - cold: `removeFromSlot` in `js/collections-core.js`, 5 core + 6 unit files, 4 s;
+    - mid: `_mergeCrossRankHistory` in `js/retail.js`, 40 core + 2 unit files, 11 s;
+    - hot: `refreshDetailsModalIfOpen` in `js/detailsModal.js`, 380 core, 111 s.
+  - AC-20 holds for the cold and mid cases and fails for the hot one: 380 core tests run a function that save flows share. Part 4 consolidation of those tests is the lever; the box stays unticked until then.
 
 ---
 

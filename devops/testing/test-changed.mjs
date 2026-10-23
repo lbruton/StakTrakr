@@ -151,15 +151,29 @@ export function selectTests({ map, changes, unitIndex }) {
         continue;
       }
       if (lines.length === 0) full(file, "the whole file changed");
-      for (const line of lines) {
-        const hits = testsInFile.filter((t) =>
-          t.functions.some((fn) => fn.file === file && fn.startLine <= line && line <= fn.endLine)
+      // Without `files`, only the functions some test ran are known.
+      const known =
+        ranges ??
+        testsInFile.flatMap((t) =>
+          t.functions.filter((fn) => fn.file === file).map((fn) => [fn.startLine, fn.endLine])
         );
-        hits.forEach((t) => pick(core, t.id, file));
-        const inFunction = ranges?.some(([start, end]) => start <= line && line <= end);
-        if (hits.length === 0 && !inFunction) {
+      for (const line of lines) {
+        // A line runs only when its innermost enclosing function runs, so a module
+        // wrapper that every boot enters does not select every test.
+        const inner = known
+          .filter(([start, end]) => start <= line && line <= end)
+          .sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0];
+        if (!inner) {
           full(file, `line ${line} is top-level code that every boot runs`);
+          continue;
         }
+        testsInFile
+          .filter((t) =>
+            t.functions.some(
+              (fn) => fn.file === file && fn.startLine === inner[0] && fn.endLine === inner[1]
+            )
+          )
+          .forEach((t) => pick(core, t.id, file));
       }
     } else if (!TEST_FREE_PATHS.some((re) => re.test(file))) {
       full(file, "a shared file no test map entry covers");

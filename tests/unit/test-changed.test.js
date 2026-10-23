@@ -24,8 +24,26 @@ const MAP = {
       [40, 50],
     ],
     "js/other.js": [[1, 9]],
+    // A module wrapper (lines 1-100) with one inner function (lines 10-20).
+    "js/wrapped.js": [
+      [1, 100],
+      [10, 20],
+    ],
   },
   tests: [
+    {
+      id: "tests/playwright/core/wrap.spec.js:5",
+      title: "wrap › boots and calls inner",
+      functions: [
+        { file: "js/wrapped.js", name: "", startLine: 1, endLine: 100 },
+        { file: "js/wrapped.js", name: "inner", startLine: 10, endLine: 20 },
+      ],
+    },
+    {
+      id: "tests/playwright/core/wrap.spec.js:9",
+      title: "wrap › boots only",
+      functions: [{ file: "js/wrapped.js", name: "", startLine: 1, endLine: 100 }],
+    },
     {
       id: "tests/playwright/core/alpha.spec.js:10",
       title: "alpha › uses foo",
@@ -126,6 +144,16 @@ describe("selectTests", () => {
       unitFiles(select([{ file: "devops/testing/coverage-merge.mjs", lines: [2] }])),
       ["tests/unit/merge.test.js"]
     );
+  });
+
+  test("a changed line selects by its innermost function, not the wrapper around it", () => {
+    assert.deepEqual(locations(select([{ file: "js/wrapped.js", lines: [15] }])), [
+      "tests/playwright/core/wrap.spec.js:5",
+    ]);
+    assert.deepEqual(locations(select([{ file: "js/wrapped.js", lines: [50] }])), [
+      "tests/playwright/core/wrap.spec.js:5",
+      "tests/playwright/core/wrap.spec.js:9",
+    ]);
   });
 
   test("a changed line in a function no core test runs selects no core test", () => {
