@@ -22,11 +22,14 @@ const BOOT_TIMEOUT_MS = 15000;
  * test that starts at DOMContentLoaded races it once workers share the CPU.
  * Pass `{ waitForApp: false }` to observe the page before boot completes.
  * @param {import('@playwright/test').Page} page - Page under test.
+ * @param {string} baseURL - App origin; navigations elsewhere never wait for boot.
  */
-function awaitBootOnNavigation(page) {
+function awaitBootOnNavigation(page, baseURL) {
+  const appOrigin = new URL(baseURL).origin;
   const settle = async (response, options) => {
     if (options.waitForApp === false) return response;
-    if (!APP_SHELL_PATHS.has(new URL(page.url()).pathname)) return response;
+    const target = new URL(page.url());
+    if (target.origin !== appOrigin || !APP_SHELL_PATHS.has(target.pathname)) return response;
     await page.waitForFunction(() => window.appListenersReady === true, null, {
       timeout: BOOT_TIMEOUT_MS,
     });
@@ -45,9 +48,9 @@ function awaitBootOnNavigation(page) {
 }
 
 const test = base.extend({
-  page: async ({ page }, use) => {
+  page: async ({ page, baseURL }, use) => {
     await installStakTrakrNetworkMocks(page);
-    awaitBootOnNavigation(page);
+    awaitBootOnNavigation(page, baseURL);
     await use(page);
   },
 });
