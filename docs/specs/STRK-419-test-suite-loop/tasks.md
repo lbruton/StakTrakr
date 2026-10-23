@@ -141,11 +141,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Depends on:** C.2
   - **Maps to:** AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
 
-- [ ] **B.5 [P]** — Failing tests for the redundancy report
+- [x] **B.5 [P]** — Failing tests for the redundancy report
   - **File(s):** `tests/unit/test-redundancy.test.js` (new)
   - **Acceptance:** With an inline block file for three tests in one spec (one unique, one a subset of another), the tests assert per-spec unique coverage, the subset pair, a ranked candidate list with zero-unique tests first, valid JSON output, and Markdown that states equal coverage does not prove equal assertions. All fail because the script does not exist.
   - **Depends on:** C.2
   - **Maps to:** AC-21, AC-22
+  - **As built:** a second spec file checks that subsets stay within one spec and that suite-wide unique blocks are counted separately. `tests/unit/coverage-merge.test.js` gains a case where two tests take different branches of one function. A V8 probe showed that V8 omits a branch whose count equals its function's, so the block file as built gave both tests the same keys. That case failed on the Part 1 merge code.
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
@@ -156,11 +157,13 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Maps to:** AC-12 to AC-19
   - **As built:** the test map gains `files` (every function's line range per file, from `coverage-merge.mjs`). A changed line selects the tests that ran its innermost enclosing function, so a module wrapper every boot enters does not select every test; a line in a function no core test runs selects none; a line outside every function selects the full suite. B.4 gained the nested-function case after C.8 measured the wrapper problem.
 
-- [ ] **C.7** — Redundancy report
+- [x] **C.7** — Redundancy report
   - **File(s):** `devops/testing/test-redundancy.mjs` (new), `package.json`
   - **Acceptance:** `npm run test:redundancy` reads the block file and writes `coverage/redundancy.json` and `coverage/redundancy.md`. All B.5 cases pass.
   - **Depends on:** B.5, C.6
   - **Maps to:** AC-21, AC-22
+  - **As built:** `--fetch` downloads `dev`'s block file and map. `coverage-merge.mjs` cuts each file into segments at every V8 range boundary across all tests; a test covers a segment when the innermost range around it ran. On the `dev` records at `c22499e3` the merge takes 14 s, and the block file is 232 MB (51 MB gzipped) against 46 MB before. It moves to its own `test-blocks` artifact, so `test:changed --fetch` downloads only the map. `devops/testing/dev-artifacts.mjs` extracts each artifact into a temp folder first, because `gh run download` refuses to overwrite a file and a second `--fetch` failed. Tests that share a `file:line` (generated in a loop) form one entry in the map and the report.
+  - **First report (`c22499e3`, branch-aware blocks):** 972 entries in 41 spec files; 481 cover no block unique in their spec, 255 are a subset of another test in their spec, and 126 have a peer with identical coverage. The old keys gave 492 and 268. Most zero-unique entries: `inventory-math` 86 of 131, `collections` 56 of 135, `image-frame-editor` 46 of 66, `inventory-crud` 42 of 80, `details-modal` 33 of 55.
 
 - [ ] **C.8** — Measure the targeted run (moved to Part 1, 2026-10-23; results go in the Part 1 PR body)
   - **File(s):** _no file changes — measurement only_
