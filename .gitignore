@@ -55,6 +55,10 @@ webscale-cookies.json
 test-results/
 playwright-report/
 
+# Coverage outputs and the local test map
+coverage/
+.cache/
+
 # AI/MCP configuration files are tracked for project consistency
 .firecrawl/
 .antigravitycli/

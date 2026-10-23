@@ -15,7 +15,7 @@
 // one postMessage read. lastStrategy is a module-scoped variable in the SW so the
 // read always reflects the most recent classified request in this SW lifetime.
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/app-test.js";
 
 test.describe("SW classified caching", () => {
   // Override the global serviceWorkers: "block" setting for this test file only.

@@ -22,12 +22,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ## Sprint Cohort 0 — Setup (sequential)
 
-- [ ] **0.1** — Ensure the spec worktree exists on top of PR 1621
+- [x] **0.1** — Ensure the spec worktree exists on top of PR 1621
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** `git worktree list` shows `.worktrees/strk-419-test-suite-loop` on `chore/strk-419-test-suite-loop`. PR 1621 (STRK-460) is merged and the branch is rebased on `origin/dev`, so `playwright.config.js` has `fullyParallel: true` and `extended-test.js` has the boot wait. If the worktree is missing, create it with `git fetch origin dev && git worktree add .worktrees/strk-419-test-suite-loop -b chore/strk-419-test-suite-loop origin/dev`.
   - **Leverage:** `.context/git-topology.md` §Worktrees; `.context/spec-conventions.md` no-bump campaign exception.
 
-- [ ] **0.2** — Record the baseline
+- [x] **0.2** — Record the baseline
   - **File(s):** _no file changes — verification only_
   - **Acceptance:** `npm ci` and `npx playwright install chromium` in the worktree; one full core run at default workers is green; the test count (1,021 core, 22 extended, 1,063 unit at spec time) and wall time are written into the Part 1 PR body.
   - **Leverage:** `.context/testing.md` §Running Locally.
@@ -38,15 +38,16 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort A — Foundation (parallel-safe)
 
-- [ ] **A.1 [P]** — Add the coverage dev dependency and ignore build outputs
+- [x] **A.1 [P]** — Add the coverage dev dependency and ignore build outputs
   - **File(s):** `package.json`, `package-lock.json`, `.gitignore`
   - **Acceptance:** `monocart-coverage-reports` is a dev dependency (exact version pinned by the lockfile); `.gitignore` lists `coverage/` and `.cache/`; `npm ci` succeeds.
   - **Leverage:** approach D-3; context7 `/cenfun/monocart-coverage-reports`.
   - **Maps to:** AC-1, AC-2
 
-- [ ] **A.2 [P]** — Split the base fixture from the mock fixture
+- [x] **A.2 [P]** — Split the base fixture from the mock fixture
   - **File(s):** `tests/playwright/helpers/app-test.js` (new), `tests/playwright/helpers/mocks/extended-test.js`, `tests/playwright/core/collections.spec.js`, `tests/playwright/core/inventory-crud.spec.js`, `tests/playwright/extended/service-worker.spec.js`
   - **Acceptance:** `app-test.js` exports `test`/`expect` with the boot wait from PR 1621; `extended-test.js` extends it and adds only the network mocks; the three raw specs import `app-test.js`. Full core and extended runs are green with unchanged counts.
+  - **As built:** only `service-worker.spec.js` imported `@playwright/test` directly. The two core specs already use `extended-test.js`; their raw part is one page each made with `browser.newPage()` / `context.newPage()`. `app-test.js` exports `prepareAppPage(page)`, which those pages call so they get the same per-page setup (and the C.1 coverage hook).
   - **Leverage:** approach D-1; `awaitBootOnNavigation` in `extended-test.js`.
   - **Maps to:** AC-1, AC-2 (fixture reach)
 

@@ -1,4 +1,4 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
+import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import seedInventoryFixture from "../../fixtures/seed-inventory.js";
@@ -1513,6 +1513,7 @@ let sharedPage;
 test.describe.serial("crud-journey", () => {
   test.beforeAll(async ({ browser }) => {
     sharedPage = await browser.newPage();
+    await prepareAppPage(sharedPage);
     await installStakTrakrNetworkMocks(sharedPage);
     await injectSeedInventory(sharedPage);
     await sharedPage.addInitScript(() => {

@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 // real delete funnel, real storage cleanup) rather than re-proving the pure rules already
 // pinned by tests/unit/collections-core.test.js.
 
-import { test, expect } from "../helpers/mocks/extended-test.js";
+import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import {
   collectionItem as baseItem,
@@ -2642,6 +2642,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
       hasTouch: true,
     });
     const page = await context.newPage();
+    await prepareAppPage(page);
     await installStakTrakrNetworkMocks(page);
     try {
       const { slotId, blankSlotId } = await createSlotNoteFixture(page);
