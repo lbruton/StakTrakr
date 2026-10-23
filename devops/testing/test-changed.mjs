@@ -14,6 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { downloadDevArtifact } from "./dev-artifacts.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const MAP_PATH = path.join(REPO_ROOT, ".cache", "test-map.json");
@@ -331,36 +332,9 @@ const gitOk = (args) => spawnSync("git", args, { cwd: REPO_ROOT }).status === 0;
 
 /** Downloads the test map from the latest successful `dev` push run of the Tests workflow. */
 function fetchMap() {
-  const id = execFileSync(
-    "gh",
-    [
-      "run",
-      "list",
-      "--workflow",
-      "tests.yml",
-      "--branch",
-      "dev",
-      "--event",
-      "push",
-      "--status",
-      "success",
-      "--limit",
-      "1",
-      "--json",
-      "databaseId",
-      "--jq",
-      ".[0].databaseId",
-    ],
-    { cwd: REPO_ROOT, encoding: "utf-8" }
-  ).trim();
-  if (!id) {
+  if (!downloadDevArtifact("test-map", path.dirname(MAP_PATH), REPO_ROOT)) {
     console.log("No successful dev run has published a test map yet.");
-    return;
   }
-  execFileSync("gh", ["run", "download", id, "-n", "test-map", "-D", path.dirname(MAP_PATH)], {
-    cwd: REPO_ROOT,
-    stdio: "inherit",
-  });
 }
 
 /** Reads the unit tests and helpers that the unit index scans. */
