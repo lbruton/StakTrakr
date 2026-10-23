@@ -181,6 +181,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
     - hot, `refreshDetailsModalIfOpen` first body line (`js/detailsModal.js:1614`): 354 locations, 444 tests, 111 s, unchanged, because every save path runs that line;
     - hot, after the early return (`:1617`): 2 locations, 81 tests, 28 s. One is `details-modal.spec.js:1702`; the other is the whole of `inventory-crud.spec.js`, because a selected test in a serial spec runs its spec.
   - AC-20 holds for every case but a change to code that every save path runs. The remaining levers are the `inventory-crud.spec.js` serial group and the cost of the save-flow tests (C.13 to C.15); the box stays unticked.
+  - **Re-measured 2026-10-23 after C.13 (map at `a7a2f840`, no serial group left in `inventory-crud.spec.js`):** cold 6 core, 7 s and 5 s; mid 48 core, 16 s; hot after the early return 1 location (`details-modal.spec.js:1702`), 1 test, 3 s; hot first line 376 locations, 391 tests, 124 s. The hot first line runs in 376 of 949 locations across `retail-market`, `header-retirement`, `smoke`, `settings-search-images` and others, so no selection rule can shrink it. AC-20 for that case waits on the suite speed work in C.15 and C.16; the box stays unticked.
 
 ---
 
@@ -261,6 +262,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Acceptance:** As C.12 for these two files.
   - **Depends on:** C.12
   - **Maps to:** AC-24, AC-25
+  - **As built:** the merge plan is in the C.13 PR body. `inventory-math.spec.js`: 42 logic-only tests become five table tests (constitutional valuation helpers, copper and avdp helpers, goldback weight sort and filter keys, gb/sb denomination text and sort keys, weight-unit rendering), each old test a `test.step` of the same name. Steps on the default seed share one boot; steps with their own seed call `freshPage` first, because a `goto` to the current URL changes only the hash and keeps the page. `inventory-crud.spec.js`: the serial CRUD journey (21 tests) becomes one test with a step per stage and a last cleanup step holding the old `afterAll` assertions, so the spec has no serial group. The `expect(` counts stay at 478 and 302. Both specs: 213 tests and 262 s of test time before, 156 tests and about 230 s after. Full core with coverage: 949 pass. Local core line coverage of `js/` is 73.25 % (74.03 % with unit hits) against 73.24 % (74.02 %) on `dev` at `cce360e7`; the box is ticked after the `dev` run holds it.
 
 - [ ] **C.14** — Merge the issue-prefixed specs into their domains
   - **File(s):** `tests/playwright/core/*.spec.js` (the eight `strk-NNN-*.spec.js` files and their target domain specs)
