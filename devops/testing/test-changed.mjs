@@ -40,8 +40,14 @@ const TEST_FREE_PATHS = [
   /^LICENSE/,
 ];
 const REPO_PATH =
-  /(?:^|[^\w.-])((?:js|css|data|vendor|devops|tests)\/[\w./-]+\.(?:m?js|json|css|html)|sw-router\.js|sw\.js|index\.html)/g;
-const RELATIVE_IMPORT = /(?:from\s+|import\(\s*)["'](\.{1,2}\/[^"']+)["']/g;
+  /(?:^|[^\w.-])((?:js|css|data|vendor|devops|tests|functions)\/[\w./-]+\.(?:m?js|json|css|html|sh)|sw-router\.js|sw\.js|index\.html)/g;
+// Any relative file literal (an import, a `new URL(...)`, a read), resolved against the test's folder.
+const RELATIVE_FILE = /["'`](\.{1,2}\/[^"'`\s]+\.(?:m?js|json|css|html|sh|csv))["'`]/g;
+// `join(ROOT, "devops", "pollers", "run-lock.sh")`: a path built from string segments.
+const JOINED_PATH = /\bjoin\(\s*[\w.]+\s*((?:,\s*["'][^"']+["']\s*)+)\)/g;
+// A test that lists the tracked files checks every root-level file.
+const LISTS_REPO = /["']ls-files["']/;
+const ROOT_FILES = "<root files>";
 // A test that lists a directory depends on every file in each repo directory it names.
 const DIRECTORY_SCAN = /\breaddirSync\s*\(/;
 const DIRECTORY_NAME = /["'](js|css|data|vendor|tests\/playwright\/(?:core|extended))\/?["']/g;
@@ -95,9 +101,14 @@ export function buildUnitIndex(files) {
   for (const [file, text] of Object.entries(files)) {
     const refs = new Set();
     for (const match of text.matchAll(REPO_PATH)) refs.add(match[1]);
-    for (const match of text.matchAll(RELATIVE_IMPORT)) {
+    for (const match of text.matchAll(RELATIVE_FILE)) {
       refs.add(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
     }
+    for (const match of text.matchAll(JOINED_PATH)) {
+      const segments = [...match[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
+      refs.add(path.posix.normalize(segments.join("/")));
+    }
+    if (LISTS_REPO.test(text)) refs.add(ROOT_FILES);
     if (DIRECTORY_SCAN.test(text)) {
       for (const match of text.matchAll(DIRECTORY_NAME)) refs.add(`${match[1]}/`);
     }
@@ -150,7 +161,9 @@ export function selectTests({ map, changes, unitIndex, serialSpecs = new Set() }
 
   for (const { file, lines, deleted } of changes) {
     for (const [unitFile, refs] of unitIndex) {
-      const inScannedDir = [...refs].some((ref) => ref.endsWith("/") && file.startsWith(ref));
+      const inScannedDir =
+        [...refs].some((ref) => ref.endsWith("/") && file.startsWith(ref)) ||
+        (refs.has(ROOT_FILES) && !file.includes("/"));
       if (unitFile === file || refs.has(file) || inScannedDir) pick(unit, unitFile, file);
     }
     if (ALL_UNIT_PATHS.some((re) => re.test(file))) allUnit = true;

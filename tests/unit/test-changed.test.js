@@ -161,6 +161,24 @@ describe("selectTests", () => {
     ]);
   });
 
+  test("relative URLs, joined segments and repo listings count as reads (AC-15)", () => {
+    const unitIndex = buildUnitIndex({
+      "tests/unit/pages.test.js": [
+        'const mw = await import(new URL("../../functions/_middleware.js", import.meta.url));',
+        'readFileSync(new URL("../../_routes.json", import.meta.url), "utf-8");',
+        'execFileSync("git", ["ls-files"], { cwd: new URL("../..", import.meta.url) });',
+      ].join("\n"),
+      "tests/unit/lock.test.js":
+        'const LOCK = join(REPO_ROOT, "devops", "pollers", "shared", "run-lock.sh");',
+    });
+    const unitFor = (file) =>
+      unitFiles(selectTests({ map: MAP, changes: [{ file, lines: [1] }], unitIndex }));
+    assert.deepEqual(unitFor("functions/_middleware.js"), ["tests/unit/pages.test.js"]);
+    assert.deepEqual(unitFor("_routes.json"), ["tests/unit/pages.test.js"]);
+    assert.deepEqual(unitFor("privacy.html"), ["tests/unit/pages.test.js"]);
+    assert.deepEqual(unitFor("devops/pollers/shared/run-lock.sh"), ["tests/unit/lock.test.js"]);
+  });
+
   test("a changed unit test or unit helper selects the unit tests that use it (AC-15)", () => {
     assert.deepEqual(unitFiles(select([{ file: "tests/unit/merge.test.js", lines: [1] }])), [
       "tests/unit/merge.test.js",
