@@ -5,7 +5,7 @@ user-invocable: true
 allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion,
   mcp__claude-context__search_code
-library-version: 213313e0d2e1
+library-version: 1cbc80ca80c9
 ---
 
 # /spec-reconcile ISSUE PHASE
