@@ -109,6 +109,9 @@ test.describe("core/collections-data-paths — encrypted vault", () => {
 
   test("a matching .stvault restores missing companion artwork", async ({ page }) => {
     await seedAndGoto(page);
+    // The startup spot sync writes metalApiConfig. A backup taken before that write
+    // differs from storage at restore, and the restore then waits on the diff modal.
+    await page.evaluate(() => window.syncSpotProvider({ forceSync: false }));
     const art = await page.evaluate(async () => {
       const created = window.collectionsStore.createCustom({
         name: "Vault art",
