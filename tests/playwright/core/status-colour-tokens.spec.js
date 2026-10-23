@@ -103,12 +103,10 @@ async function renderSyncTableWithFailure(page) {
   await expect(page.locator("#numistaSyncTableContainer tbody tr")).toHaveCount(3);
 }
 
-/** Mounts the activity log container the sync log writes into, then logs one line per type. */
+/** Opens the bulk sync activity log and logs one line per type. */
 async function writeLogLines(page) {
   await page.evaluate(() => {
-    const log = document.createElement("div");
-    log.id = "numistaSyncLog";
-    document.getElementById("numistaSyncTableContainer").appendChild(log);
+    document.getElementById("numistaSyncLogDetails").open = true;
     logSyncActivity("Metadata synced", "success");
     logSyncActivity("Metadata lookup failed", "warn");
     logSyncActivity("Catalog API not available", "error");

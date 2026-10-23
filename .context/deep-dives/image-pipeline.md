@@ -318,7 +318,7 @@ All parameters can be overridden per-call via the `opts` argument.
 
 ## image-cache-modal.js: Settings UI for Numista Sync
 
-This file is **not** a modal in the traditional sense — it is the inline Numista sync panel rendered inside **Settings > API > Numista**. It has no dedicated `<dialog>` element.
+This file renders the Overview panel of `#bulkSyncModal`, which opens from **Settings > API > Numista > Advanced Settings** (`openBulkSyncModal` in `js/catalog-manager.js`). All the elements below are static markup in `index.html`, inside `#numistaSyncOverview`.
 
 ### Components
 
@@ -328,7 +328,6 @@ This file is **not** a modal in the traditional sense — it is the inline Numis
 | `renderSyncStats()`                        | `#numistaSyncStats`                                                     | Shows "N API cache · M eligible" counts                            |
 | `renderEligibleItemsTable()`               | `#numistaSyncTableContainer`                                            | Table of N#-linked items with cache status and action buttons      |
 | `startBulkSync()`                          | `#numistaSyncStartBtn`, `#numistaSyncCancelBtn`, `#numistaSyncProgress` | Triggers `BulkImageCache.cacheAll()`, wires progress/log callbacks |
-| `clearAllCachedData()`                     | —                                                                       | Confirms then calls `imageCache.clearAll()`                        |
 | `logSyncActivity(message, type)`           | `#numistaSyncLog`                                                       | Appends timestamped monospaced log lines                           |
 | `updateStatusCell(catalogId, text, color)` | `_statusCells` Map                                                      | Live-updates per-row status during bulk sync                       |
 | `resyncCachedEntry(catalogId)`             | —                                                                       | Deletes metadata then re-fetches from Numista API for one entry    |
@@ -438,7 +437,7 @@ The effective quota is computed dynamically at IDB init (see image-cache.js quot
 
 - `imageCache.cacheUserImage()` returns `false` if the IDB `put()` throws.
 - `imageProcessor.processFile()` iteratively reduces quality (down to `minQuality = 0.30`) before giving up — this reduces the chance of hitting the limit on individual images.
-- No automatic eviction is performed. The user must manually clear cached data via the **Settings > API > Numista** panel (Clear API Cache button, which calls `clearAllCachedData()`).
+- No automatic eviction is performed. The settings UI has no cache-only clear control. The full local data wipe in `js/events.js` calls `imageCache.clearAll()`.
 - `getStorageUsage()` returns a breakdown by store (`numistaBytes`, `userImageBytes`, `patternImageBytes`, `metadataBytes`, `totalBytes`, `limitBytes`). The settings UI displays only the user photos gauge (Numista Cache gauge was removed in STAK-432).
 
 ---

@@ -473,20 +473,6 @@ const _populateBulkSyncFieldsPanel = (panel) => {
 };
 
 /**
- * Replace a panel's children with a single placeholder paragraph.
- * @param {HTMLElement|null} panel
- * @param {string} text
- */
-const _setBulkSyncPanelPlaceholder = (panel, text) => {
-  if (!panel) return;
-  while (panel.firstChild) panel.removeChild(panel.firstChild);
-  const p = document.createElement("p");
-  p.className = "settings-subtext";
-  p.textContent = text;
-  panel.appendChild(p);
-};
-
-/**
  * Open the Bulk Sync modal for the given provider.
  * @param {'numista'|'pcgs'} provider
  */
@@ -526,8 +512,14 @@ const openBulkSyncModal = (provider) => {
     panel.style.display = isOverview ? "" : "none";
   });
 
-  const overviewPanel = modal.querySelector(`.bulk-panel[data-panel="overview"]`);
   const fieldsSection = modal.querySelector("#bulkSyncFieldsSection");
+
+  // The Numista controls stay in the DOM for every provider: bindBulkSyncModalListeners
+  // binds them once at startup, so the PCGS view hides them instead of replacing them.
+  const numistaOverview = modal.querySelector("#numistaSyncOverview");
+  const pcgsPlaceholder = modal.querySelector("#bulkSyncPcgsPlaceholder");
+  if (numistaOverview) numistaOverview.style.display = normalized === "numista" ? "" : "none";
+  if (pcgsPlaceholder) pcgsPlaceholder.style.display = normalized === "pcgs" ? "" : "none";
 
   if (normalized === "numista") {
     if (typeof window.renderNumistaSyncUI === "function") {
@@ -546,33 +538,17 @@ const openBulkSyncModal = (provider) => {
     }
     _populateBulkSyncFieldsPanel(fieldsSection);
 
-    // Add "Sync Unsynced" button to overview panel
-    if (overviewPanel) {
-      const existingBtn = overviewPanel.querySelector(".js-bulk-sync-start");
-      if (!existingBtn) {
-        const syncBtn = document.createElement("button");
-        syncBtn.type = "button";
-        syncBtn.className = "btn api-action-btn btn-action-primary js-bulk-sync-start";
-        syncBtn.textContent = "Sync Unsynced";
-        syncBtn.style.marginTop = "12px";
-        syncBtn.addEventListener("click", () => {
-          if (typeof window.startBulkSync === "function") {
-            window.startBulkSync();
-          }
-        });
-        overviewPanel.appendChild(syncBtn);
-      }
-
-      // STRK-166: "Sync Image URLs" — backfill obverse/reverse CDN URLs for
-      // items missing them (e.g. CSV imports). Sibling to "Sync Unsynced".
-      const existingImgBtn = overviewPanel.querySelector(".js-bulk-sync-images");
+    // STRK-166: "Sync Image URLs" — backfill obverse/reverse CDN URLs for
+    // items missing them (e.g. CSV imports). Sibling to "Sync Unsynced".
+    const actionsRow = modal.querySelector("#numistaSyncActions");
+    if (actionsRow) {
+      const existingImgBtn = actionsRow.querySelector(".js-bulk-sync-images");
       if (!existingImgBtn) {
         const imgBtn = document.createElement("button");
         imgBtn.type = "button";
         imgBtn.className = "btn api-action-btn js-bulk-sync-images";
         imgBtn.textContent = "Sync Image URLs";
         imgBtn.title = "Populate obverse/reverse image URLs from Numista for items missing them";
-        imgBtn.style.marginTop = "8px";
         imgBtn.addEventListener("click", async () => {
           if (typeof window.syncNumistaImageUrls !== "function") return;
           imgBtn.disabled = true;
@@ -585,11 +561,9 @@ const openBulkSyncModal = (provider) => {
             imgBtn.textContent = original;
           }
         });
-        overviewPanel.appendChild(imgBtn);
+        actionsRow.appendChild(imgBtn);
       }
     }
-  } else {
-    _setBulkSyncPanelPlaceholder(overviewPanel, "PCGS bulk sync — coming soon.");
   }
 
   if (typeof window.trapFocus === "function") {
