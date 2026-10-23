@@ -101,6 +101,21 @@ describe("parseDiff", () => {
     ]);
   });
 
+  test("keeps a binary or mode-only change that has no +++ header", () => {
+    const diff = [
+      "diff --git a/tests/playwright/helpers/test-obverse.png b/tests/playwright/helpers/test-obverse.png",
+      "index 1111111..2222222 100644",
+      "Binary files a/tests/playwright/helpers/test-obverse.png and b/tests/playwright/helpers/test-obverse.png differ",
+      "diff --git a/devops/run.sh b/devops/run.sh",
+      "old mode 100644",
+      "new mode 100755",
+    ].join("\n");
+    assert.deepEqual(parseDiff(diff), [
+      { file: "tests/playwright/helpers/test-obverse.png", lines: [] },
+      { file: "devops/run.sh", lines: [] },
+    ]);
+  });
+
   test("keeps a deleted file under its old path", () => {
     const diff = [
       "diff --git a/js/old.js b/js/old.js",

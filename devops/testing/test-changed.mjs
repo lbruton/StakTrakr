@@ -57,8 +57,9 @@ const DIRECTORY_NAME = /["'](js|css|data|vendor|tests\/playwright\/(?:core|exten
 /**
  * Parses `git diff -U0` output into the changed lines on the old side of each file.
  * A pure insertion contributes the old line it follows and the line after it.
+ * A deleted file keeps its old path and carries `deleted: true`; a binary or mode-only
+ * change, which has no `+++` header, keeps the path from its `diff --git` line.
  * @param {string} text - Diff text.
- * A deleted file keeps its old path and carries `deleted: true`.
  * @returns {Array<{file: string, lines: number[], deleted?: boolean}>}
  */
 export function parseDiff(text) {
@@ -66,11 +67,27 @@ export function parseDiff(text) {
   let current = null;
   let added = false;
   let oldFile = null;
+  let header = null;
+  // A file block that ended without a `+++` header still changed.
+  const flushHeader = () => {
+    if (header && !current) {
+      changes.push(
+        header.deleted
+          ? { file: header.file, lines: [], deleted: true }
+          : { file: header.file, lines: [] }
+      );
+    }
+  };
   for (const line of text.split("\n")) {
     if (line.startsWith("diff --git ")) {
+      flushHeader();
+      const match = line.match(/^diff --git a\/(.+) b\/(.+)$/);
+      header = match ? { file: match[2], deleted: false } : null;
       current = null;
       added = false;
       oldFile = null;
+    } else if (header && line.startsWith("deleted file mode")) {
+      header.deleted = true;
     } else if (line.startsWith("--- ")) {
       added = line === "--- /dev/null";
       oldFile = added ? null : line.slice("--- a/".length);
@@ -89,6 +106,7 @@ export function parseDiff(text) {
       else for (let n = start; n < start + count; n++) current.lines.push(n);
     }
   }
+  flushHeader();
   return changes;
 }
 
@@ -409,7 +427,7 @@ function main(argv) {
   const base = mapUsable ? map.sha : mergeBase || "HEAD";
   if (map && !mapUsable) {
     console.log(
-      `Warning: the test map's commit ${map.sha.slice(0, 8)} is not in this clone. Run \`git fetch origin dev\`.`
+      `Warning: the test map's commit ${map.sha.slice(0, 8)} is not in this clone, so the map is not used. Run \`git fetch origin dev\`.`
     );
   }
   const warning =
@@ -423,7 +441,8 @@ function main(argv) {
   if (warning) console.log(warning);
 
   const selection = selectTests({
-    map,
+    // Line numbers diffed from another base would not match the map's ranges.
+    map: mapUsable ? map : null,
     changes: changesSince(base),
     unitIndex: buildUnitIndex(unitSources()),
     serialSpecs: serialSpecs(),
