@@ -221,7 +221,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ---
 
-## Part 4 — Consolidation to the 3-minute target
+## Part 4 — Consolidation to the 4-minute target
 
 ### Sprint Cohort B — Tests · RED
 
@@ -274,15 +274,32 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **As built:** no `strk-NNN-*.spec.js` remains in `core/`. `strk-189` becomes the `spot-prices.spec.js` domain spec and takes `strk-153` as a two-step test. `strk-186` moves to `vault-modal.spec.js`. `strk-173` and `strk-205` move to `inventory-crud.spec.js`, the two origin-search tests as one test with two steps. `strk-146` and `strk-162` become two table tests at the end of `settings-search-images.spec.js` (one boot each; every step empties the store and resets the warned band, toasts and the scan counter). `strk-138` moves to `item-form-sections.spec.js`: the seven Add-form coupling cases and the seven Numista-fill cases become two table tests that reopen the Add form per step, the two inline-edit guards become one test, and `normalizeType` and `parseGoldbackDenomination` move to `tests/unit/numista-goldback-import.test.js`. Full core with coverage: 921 pass (949 before, −28). Local core line coverage of `js/` is 28,847 of 39,391 lines (73.23 %; `dev` at `4902c931`: 28,849, 73.24 %); with unit hits 76.54 % (last `dev` run: 76.51 %). Core no longer runs `normalizeType`; the unit test covers it. The box stays unticked until the `dev` run after the merge holds AC-24.
   - **AC-24 confirmed (2026-10-23, `dev` run 40011159365 at `7de431f2` against run 40005318222 at `98f37bfb`, same `js/` code):** green, 921 core records, Codacy upload succeeded. Merging each run's raw coverage gives core line coverage of `js/` of 28,846 of 39,391 lines (73.23 %) against 28,842 (73.22 %). Runs at `4902c931` and `98f37bfb` cover the same code at 28,849 and 28,842 lines, so a few lines of difference is run-to-run noise. The combined core-and-unit figure is not a usable baseline: the unit lcov for `js/cloud-sync.js` reports 213 hit lines in one run and 6,383 in the next with no unit test change.
 
-- [ ] **C.15** — Consolidate the remaining domains by measured cost
-  - **File(s):** `tests/playwright/core/*.spec.js`, `tests/unit/*.test.js`
-  - **Acceptance:** Domains are taken in order of total time from the latest JSON report (image-frame-editor, details-modal, import-export, item-price-history-cloud, then the rest) until AC-23 holds; each PR meets the C.12 acceptance.
+- [ ] **C.18** — Serve static files from worker memory (added 2026-10-23, user-approved, D-20)
+  - **File(s):** `tests/playwright/helpers/mocks/extended-test.js`, `.context/testing.md`
+  - **Acceptance:** The `page` fixture fulfils requests for `js/`, `css/`, `vendor/` and `data/` `.js` and `.css` files from a per-worker in-memory map, with the right content type. Full core passes twice in a row at default workers with no new flaky test. `collections-data-paths.spec.js:110` ("a matching .stvault restores missing companion artwork") passes in both runs, because it failed once in the profiling run with this change. `.context/testing.md` states that core tests do not exercise the static file server. The PR body records full core wall time before and after.
   - **Depends on:** C.14
+  - **Maps to:** AC-23
+
+- [ ] **C.19** — Phase 14 startup delay at 0 ms (added 2026-10-23, user-approved, D-21)
+  - **File(s):** _no file changes in this spec — STRK-466, its own patch release_
+  - **Acceptance:** STRK-466 is merged to `dev`. A full core run after it is green, and its wall time goes in the C.15 PR body as the new baseline.
+  - **Depends on:** C.18
+  - **Maps to:** AC-23
+
+- [ ] **C.15** — Consolidate the remaining domains by measured cost (amended 2026-10-23, user-approved, D-22)
+  - **File(s):** `tests/playwright/core/*.spec.js`, `tests/unit/*.test.js`
+  - **Acceptance:** Start from a full core JSON report taken after C.18 and C.19. Take domains in order of total test time, until AC-23 holds. Each PR meets the C.12 acceptance. Merge only logic-only groups that share a seed; UI tests keep their own boot (D-14).
+  - **Measured (2026-10-23, before C.18 and C.19):**
+    - Full core: 921 tests, 294.7 s wall, 1,438 s of test time at 5 workers. Domains by test time: collections 317 s, image-frame-editor 151 s, inventory-math 119 s, inventory-crud 111 s, details-modal 99 s.
+    - A test's median is 1.16 s, and about 1.0 s of it is startup.
+    - The STRK-464 toast fix alone gives 263 to 278 s.
+    - The redundancy report lists 407 of 872 mapped tests with no block unique in their spec. Most of them assert layout, theme or modal flow.
+  - **Depends on:** C.18, C.19
   - **Maps to:** AC-24, AC-25
 
 - [ ] **C.16** — Confirm the full-suite target
   - **File(s):** _no file changes — measurement only_
-  - **Acceptance:** Three consecutive full core runs on the reference machine at default workers are green and each finishes in 3 minutes or less (AC-23); the counts and times go in the final PR body.
+  - **Acceptance:** Three consecutive full core runs on the reference machine at default workers are green and each finishes in 4 minutes or less (AC-23); the counts and times go in the final PR body.
   - **Depends on:** C.15
   - **Maps to:** AC-23
 
