@@ -4,12 +4,25 @@
  * Its `page` fixture makes every app-shell navigation wait for boot to finish and
  * installs no network mocks. Specs that load the app shell import
  * `mocks/extended-test.js`, which extends this fixture with the default mocks.
+ * With `COVERAGE=1` it also writes one coverage record per test (see `coverage.js`).
  */
 
 import { test as base, expect } from "@playwright/test";
+import {
+  RAW_COVERAGE_DIR,
+  REPO_ROOT,
+  appCoverageEntries,
+  isCoverageEnabled,
+  rawRecordFor,
+  writeRawRecord,
+} from "./coverage.js";
 
+const COVERAGE = isCoverageEnabled();
+// Pages that collect coverage and are still open; a shared page outlives one test.
+const coveredPages = new Set();
 const APP_SHELL_PATHS = new Set(["/", "/index.html"]);
-const BOOT_TIMEOUT_MS = 15000;
+// Precise coverage slows script execution, so boot gets more time when it is on.
+const BOOT_TIMEOUT_MS = COVERAGE ? 30000 : 15000;
 
 /**
  * Wraps page.goto and page.reload so an app-shell navigation resolves only after
@@ -50,12 +63,49 @@ function awaitBootOnNavigation(page, baseURL) {
  */
 async function prepareAppPage(page, baseURL = base.info().project.use.baseURL) {
   awaitBootOnNavigation(page, baseURL);
+  if (!COVERAGE) return;
+  await page.coverage.startJSCoverage({ resetOnNavigation: false });
+  coveredPages.add(page);
+  page.once("close", () => coveredPages.delete(page));
+}
+
+/**
+ * Stops coverage on a page and returns its app entries without `source`; the merge
+ * reads the served file from the repository. A page that stays open for the next
+ * test (`restart`) starts collecting again.
+ * @param {import('@playwright/test').Page} page - Page collecting coverage.
+ * @param {string} baseURL - App origin.
+ * @param {boolean} restart - Start a new collection after stopping.
+ * @returns {Promise<object[]>}
+ */
+async function takeCoverage(page, baseURL, restart) {
+  coveredPages.delete(page);
+  if (page.isClosed()) return [];
+  const entries = appCoverageEntries(await page.coverage.stopJSCoverage(), baseURL);
+  if (restart) {
+    await page.coverage.startJSCoverage({ resetOnNavigation: false });
+    coveredPages.add(page);
+  }
+  return entries.map(({ url, functions }) => ({ url, functions }));
 }
 
 const test = base.extend({
-  page: async ({ page, baseURL }, use) => {
+  // `page` depends on this fixture, so its teardown adds the page's entries first.
+  appCoverage: [
+    async ({ baseURL }, use, testInfo) => {
+      const entries = [];
+      await use(entries);
+      if (!COVERAGE) return;
+      for (const page of [...coveredPages])
+        entries.push(...(await takeCoverage(page, baseURL, true)));
+      writeRawRecord(RAW_COVERAGE_DIR, rawRecordFor(testInfo, REPO_ROOT, entries));
+    },
+    { auto: true },
+  ],
+  page: async ({ page, baseURL, appCoverage }, use) => {
     await prepareAppPage(page, baseURL);
     await use(page);
+    if (COVERAGE) appCoverage.push(...(await takeCoverage(page, baseURL, false)));
   },
 });
 

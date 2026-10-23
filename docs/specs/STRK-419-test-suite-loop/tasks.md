@@ -75,11 +75,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
-- [ ] **C.1** — Per-test coverage hook
+- [x] **C.1** — Per-test coverage hook
   - **File(s):** `tests/playwright/helpers/coverage.js` (new), `tests/playwright/helpers/app-test.js`
   - **Acceptance:** With `COVERAGE=1`, every test writes one raw record under `coverage/raw/` holding its `file:line`, title and `js/` entries with `count > 0`; without it, nothing is written. The coverage-helper cases of B.1 pass. Measure per-test overhead on one full run and record it in the PR body (approach risk note).
   - **Depends on:** A.2, B.1
   - **Maps to:** AC-2, AC-3
+  - **As built:** records hold whole `js/` entries (see B.1) without the `source` text; the merge reads the served file from the repository. An auto fixture `appCoverage` writes the record after the `page` fixture adds its entries, and pages made with `prepareAppPage` also report, a shared serial page per test. A page closed inside the test body reports nothing. The boot wait allows 30 s with coverage on and keeps 15 s without. Full core run with coverage: 1,021 records, 344 s against 278 s without (one boot timeout at 15 s, gone in isolation and over 10 repeats, led to the 30 s limit). Raw output is about 500 MB, which C.4 must account for in its artifact upload.
 
 - [ ] **C.2** — Merge script and local commands
   - **File(s):** `devops/testing/coverage-merge.mjs` (new), `playwright.config.js`, `package.json`
@@ -88,8 +89,14 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Maps to:** AC-1, AC-2, AC-3
 
 - [ ] **C.3** — Unit harness evaluates source with file attribution
-  - **File(s):** `tests/unit/helpers/source-extract.js`, `tests/unit/helpers/load-sw-router.js`, `package.json`
+  - **File(s):** `tests/unit/helpers/source-extract.js`, `tests/unit/helpers/load-sw-router.js`, `package.json`, the 37 `tests/unit/*.test.js` files that call `new Function` on repo source
   - **Acceptance:** Both helpers evaluate with `vm.Script` and a `filename` (plus `lineOffset` for slices); `COVERAGE=1 npm run test:unit` writes `coverage/unit-lcov.info`. B.2 passes, including the slice branch. The unit count equals the baseline plus the new tooling tests, all green. If slice attribution cannot pass, stop and amend AC-4 in `requirements.md` with the user before continuing (approach D-10).
+  - **Amended 2026-10-23 (user-approved, widened):** 37 unit files evaluate `js/` source with their own `new Function` calls, so the two helpers alone credit a few files. Part 4 moves logic tests into unit tests, and unattributed unit tests would read as a coverage drop at the Codacy gate. C.3 therefore:
+    - adds `evalSource(relPath, { params, slice, prefix, suffix })` to `source-extract.js`. It compiles with `vm.compileFunction` and `filename` set to the absolute path. A whole file evaluates as is. A slice `{ start, end }` evaluates inside a copy of the file of the same length, where the text before and after the slice is blanked to spaces (newlines kept) and fenced in a never-called function, so offsets match the file and only the slice's lines count. `prefix` (for example a `return` keyword and a space) goes at the end of the leading fence; `suffix` goes after the file.
+    - builds `evalConstantsWindow`, `extractConstFn` (with `{ file }`) and `loadSwRouter` on `evalSource`;
+    - moves every `new Function` call on repo source in the 37 files to `evalSource` or `extractConstFn`. Vendor code (`vendor/lz-string.min.js`) goes through `evalSource` too and is left out of the lcov by the coverage include pattern. Calls on generated strings that are not repo source stay as they are;
+    - leaves every unit test's assertions unchanged; the unit count before and after the move is identical.
+  - **Spike (2026-10-23):** `vm.compileFunction` with the fenced, same-length slice credited exactly lines 414 to 433 of `js/api.js` (the `_staktrakrBackfillHoursBack` slice), with correct per-line and branch counts. Without the fence the top-level range marked all lines of the file as hit.
   - **Depends on:** B.2
   - **Maps to:** AC-4
 
