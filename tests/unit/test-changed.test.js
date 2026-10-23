@@ -384,6 +384,61 @@ describe("selectTests with the line index", () => {
     ]);
   });
 
+  test("an insertion beside a nested function takes the tests of the scope around it", () => {
+    // A module wrapper (lines 1-8) declares `list` (lines 3-5); "boots" never calls it.
+    const source = [
+      "(function () {",
+      "  const ready = true;",
+      "  function list() {",
+      "    return [];",
+      "  }",
+      "",
+      "  window.nested = { list, ready };",
+      "})();",
+    ];
+    const tests = [
+      { id: "tests/playwright/core/nested.spec.js:5", title: "nested › boots", functions: [] },
+      { id: "tests/playwright/core/nested.spec.js:9", title: "nested › lists", functions: [] },
+    ];
+    tests[0].functions = [{ file: "js/nested.js", name: "", startLine: 1, endLine: 8 }];
+    tests[1].functions = [
+      ...tests[0].functions,
+      { file: "js/nested.js", name: "list", startLine: 3, endLine: 5 },
+    ];
+    const map = {
+      sha: MAP.sha,
+      files: {
+        "js/nested.js": [
+          [1, 8],
+          [3, 5],
+        ],
+      },
+      tests,
+      sets: [[0, 1], [1], []],
+      lines: {
+        "js/nested.js": [
+          [1, 2, 0],
+          [3, 5, 1],
+          [6, 6, 2],
+          [7, 8, 0],
+        ],
+      },
+    };
+    for (const before of [2, 5]) {
+      const selection = selectTests({
+        map,
+        changes: [{ file: "js/nested.js", lines: [], inserts: [before] }],
+        unitIndex: UNIT_INDEX,
+        oldLine: (file, line) => (file === "js/nested.js" ? source[line - 1] : undefined),
+      });
+      assert.deepEqual(
+        locations(selection),
+        tests.map((t) => t.id),
+        `an insertion after line ${before} runs whenever the wrapper runs`
+      );
+    }
+  });
+
   test("a changed line in a branch selects only the tests that took it (AC-13)", () => {
     assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [5] }])), [
       guardId("deep"),

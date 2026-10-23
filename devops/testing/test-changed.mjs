@@ -229,7 +229,10 @@ function selectInScript({ file, change, map, oldLine, pickTest, full }) {
       continue;
     }
     const lines = runs ? insertionLines(before, (n) => oldLine(file, n)) : [];
-    const picked = lines.map(pickLine);
+    // A neighbour that opens or closes a nested function carries that function's
+    // coverage, not the scope's, so the scope's tests decide.
+    const nested = lines.some((line) => innermost(line, line) !== scope);
+    const picked = nested ? [] : lines.map(pickLine);
     if (!picked.length || picked.includes(false)) pickFunction(scope);
   }
 }
