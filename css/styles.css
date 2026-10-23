@@ -4901,8 +4901,9 @@ input.spot-lookup-flash {
   text-align: center;
 }
 
-/* Cloud toast */
+/* Cloud toast: text only, so clicks pass through to the page beneath it. */
 .cloud-toast {
+  pointer-events: none;
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
