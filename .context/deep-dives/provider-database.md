@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS provider_failures (
 );
 ```
 
-Added in STAK-349. Populated by `recordFailure()` in `db.js`: called from `price-extract.js` whenever a scrape returns no price for an in-stock vendor.
+Added with the scrape-failure dashboard. Populated by `recordFailure()` in `db.js`: called from `price-extract.js` whenever a scrape returns no price for an in-stock vendor.
 
 ### Indexes
 
@@ -91,32 +91,32 @@ CREATE INDEX IF NOT EXISTS idx_pf_failed_at ON provider_failures(failed_at);
 
 Shared module at `StakTrakr/devops/pollers/shared/provider-db.js`. Most functions take a database `client` as the first argument. Exceptions: `loadProvidersFromFile(dataDir)` reads from the local filesystem, and `loadProviders(client, dataDir)` uses sqld-first with file fallback.
 
-| Function                                                              | Description                                                                                                                                                          |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initProviderSchema(client)`                                          | Idempotent DDL: creates tables, indexes, and runs `skip_bounds` column migration (STAK-496)                                                                          |
-| `getProviders(client)`                                                | Returns `{ coins: { [slug]: { metal, name, weight_oz, providers: [...] } } }`: vendors include `skipPriceBounds: true` when `skip_bounds=1`                          |
-| `getProvidersByCoin(client, coinSlug)`                                | Vendors for a single coin: includes `skipPriceBounds` flag                                                                                                           |
-| `getAllCoins(client)`                                                 | Coin list without vendor detail                                                                                                                                      |
-| `upsertCoin(client, coin)`                                            | Insert or update a coin row                                                                                                                                          |
-| `upsertVendor(client, vendor)`                                        | Insert or update a vendor row                                                                                                                                        |
-| `toggleVendor(client, coinSlug, vendorId, enabled)`                   | Enable/disable a vendor                                                                                                                                              |
-| `updateVendorUrl(client, coinSlug, vendorId, url)`                    | Change a vendor's scrape URL                                                                                                                                         |
-| `updateCoinFbpUrl(client, slug, fbpUrl)`                              | Change only a coin's `fbp_url` (FBP price source), leaving identity columns untouched: coin-level analog of `updateVendorUrl` (STRK-347). Returns `{ rowsAffected }` |
-| `deleteCoin(client, slug)`                                            | Delete coin + all its vendors (batch)                                                                                                                                |
-| `deleteVendor(client, coinSlug, vendorId)`                            | Delete a single vendor row                                                                                                                                           |
-| `updateVendorFields(client, coinSlug, vendorId, { selector, hints })` | Update selector/hints metadata                                                                                                                                       |
-| `getVendorScrapeStatus(client)`                                       | Latest scrape result per vendor (window function query)                                                                                                              |
-| `getFailureStats(client)`                                             | Vendors with 3+ failures in last 7 days                                                                                                                              |
-| `getRunStats(client)`                                                 | Poller run aggregates (last 24h)                                                                                                                                     |
-| `batchToggleVendor(client, { vendorId, metal, enabled })`             | Toggle all vendors of a vendor ID + metal type. Returns `{ rowsAffected }`                                                                                           |
-| `batchDeleteVendor(client, { vendorId, metal })`                      | Delete all vendor entries for a vendor ID + metal type. Returns `{ rowsAffected }`                                                                                   |
-| `batchToggleVendorByCoins(client, { vendorId, coinSlugs, enabled })`  | Toggle vendor across specific coin slugs. Returns `{ rowsAffected }`                                                                                                 |
-| `getVendorSummary(client)`                                            | Grouped counts by vendor ID and metal. Returns `{ [vendorId]: { total, enabled, disabled, byMetal: { [metal]: { total, enabled, disabled } } } }`                    |
-| `getCoverageStats(client, hours?)`                                    | Hourly coverage: how many enabled pairs had a successful price. Returns `{ totalEnabled, hours: [{ hour, covered, pct }] }`                                          |
-| `getMissingItems(client)`                                             | Enabled pairs with no successful price this hour. Returns `[{ coinSlug, coinName, metal, vendor, url }]`                                                             |
-| `exportProvidersJson(client)`                                         | Returns JSON string matching `providers.json` format                                                                                                                 |
-| `loadProvidersFromFile(dataDir)`                                      | File fallback: reads `{dataDir}/retail/providers.json`                                                                                                               |
-| `loadProviders(client, dataDir)`                                      | sqld-first with file fallback; logs which path taken                                                                                                                 |
+| Function                                                              | Description                                                                                                                                               |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initProviderSchema(client)`                                          | Idempotent DDL: creates tables, indexes, and runs `skip_bounds` column migration                                                                          |
+| `getProviders(client)`                                                | Returns `{ coins: { [slug]: { metal, name, weight_oz, providers: [...] } } }`: vendors include `skipPriceBounds: true` when `skip_bounds=1`               |
+| `getProvidersByCoin(client, coinSlug)`                                | Vendors for a single coin: includes `skipPriceBounds` flag                                                                                                |
+| `getAllCoins(client)`                                                 | Coin list without vendor detail                                                                                                                           |
+| `upsertCoin(client, coin)`                                            | Insert or update a coin row                                                                                                                               |
+| `upsertVendor(client, vendor)`                                        | Insert or update a vendor row                                                                                                                             |
+| `toggleVendor(client, coinSlug, vendorId, enabled)`                   | Enable/disable a vendor                                                                                                                                   |
+| `updateVendorUrl(client, coinSlug, vendorId, url)`                    | Change a vendor's scrape URL                                                                                                                              |
+| `updateCoinFbpUrl(client, slug, fbpUrl)`                              | Change only a coin's `fbp_url` (FBP price source), leaving identity columns untouched: coin-level analog of `updateVendorUrl`. Returns `{ rowsAffected }` |
+| `deleteCoin(client, slug)`                                            | Delete coin + all its vendors (batch)                                                                                                                     |
+| `deleteVendor(client, coinSlug, vendorId)`                            | Delete a single vendor row                                                                                                                                |
+| `updateVendorFields(client, coinSlug, vendorId, { selector, hints })` | Update selector/hints metadata                                                                                                                            |
+| `getVendorScrapeStatus(client)`                                       | Latest scrape result per vendor (window function query)                                                                                                   |
+| `getFailureStats(client)`                                             | Vendors with 3+ failures in last 7 days                                                                                                                   |
+| `getRunStats(client)`                                                 | Poller run aggregates (last 24h)                                                                                                                          |
+| `batchToggleVendor(client, { vendorId, metal, enabled })`             | Toggle all vendors of a vendor ID + metal type. Returns `{ rowsAffected }`                                                                                |
+| `batchDeleteVendor(client, { vendorId, metal })`                      | Delete all vendor entries for a vendor ID + metal type. Returns `{ rowsAffected }`                                                                        |
+| `batchToggleVendorByCoins(client, { vendorId, coinSlugs, enabled })`  | Toggle vendor across specific coin slugs. Returns `{ rowsAffected }`                                                                                      |
+| `getVendorSummary(client)`                                            | Grouped counts by vendor ID and metal. Returns `{ [vendorId]: { total, enabled, disabled, byMetal: { [metal]: { total, enabled, disabled } } } }`         |
+| `getCoverageStats(client, hours?)`                                    | Hourly coverage: how many enabled pairs had a successful price. Returns `{ totalEnabled, hours: [{ hour, covered, pct }] }`                               |
+| `getMissingItems(client)`                                             | Enabled pairs with no successful price this hour. Returns `[{ coinSlug, coinName, metal, vendor, url }]`                                                  |
+| `exportProvidersJson(client)`                                         | Returns JSON string matching `providers.json` format                                                                                                      |
+| `loadProvidersFromFile(dataDir)`                                      | File fallback: reads `{dataDir}/retail/providers.json`                                                                                                    |
+| `loadProviders(client, dataDir)`                                      | sqld-first with file fallback; logs which path taken                                                                                                      |
 
 ---
 
@@ -158,7 +158,7 @@ Dashboard (CRUD)  ──→  sqld provider tables  ←── migrate-providers.j
 
 ## Dashboard CRUD
 
-The Home Poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against the sqld provider tables. Rebuilt in STAK-349 (2026-02-26).
+The Home Poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against the sqld provider tables. Rebuilt on 2026-02-26.
 
 ### Layout
 
@@ -251,7 +251,7 @@ node devops/pollers/shared/migrate-providers.js --production
 - Uses `INSERT OR REPLACE`: fully idempotent
 - Migrated 2026-02-25: 11 coins, 67 vendors, verified round-trip fidelity
 
-**STAK-496 migration (v3.33.81):** `initProviderSchema()` now includes an idempotent `ALTER TABLE provider_vendors ADD COLUMN skip_bounds INTEGER NOT NULL DEFAULT 0`. The migration runs on every startup: the `catch` block silently handles the expected "duplicate column" error on subsequent runs. If the ALTER truly fails (permissions, schema lock), the subsequent SELECT including `skip_bounds` will throw immediately.
+**Startup migration (v3.33.81):** `initProviderSchema()` now includes an idempotent `ALTER TABLE provider_vendors ADD COLUMN skip_bounds INTEGER NOT NULL DEFAULT 0`. The migration runs on every startup: the `catch` block silently handles the expected "duplicate column" error on subsequent runs. If the ALTER truly fails (permissions, schema lock), the subsequent SELECT including `skip_bounds` will throw immediately.
 
 ---
 
@@ -260,7 +260,7 @@ node devops/pollers/shared/migrate-providers.js --production
 If sqld provider tables need to be abandoned:
 
 1. All poller scripts automatically fall back to `loadProvidersFromFile()` if the database is unreachable
-2. Restore `curl` lines in `run-local.sh` and `run-home.sh` (see git history pre-STAK-348)
+2. Restore `curl` lines in `run-local.sh` and `run-home.sh` (see git history before the sqld migration)
 3. Remove `exportProvidersJson()` call from `run-publish.sh`
 4. Edit `providers.json` on the `api` branch directly (old workflow)
 

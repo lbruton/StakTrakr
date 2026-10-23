@@ -54,7 +54,7 @@ Four themes via `[data-theme]` attribute on `<html>`. Dark is primary; light, sl
 | ----- | ------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Dark  | `dark`       | Primary, fully styled | oklch color space with warm gunmetal tinting; ~161 `color-mix()` expressions across all themes for hover/active states |
 | Light | `light`      | Fully styled          | oklch color space                                                                                                      |
-| Slate | `slate`      | Fully styled          | Original Tailwind Slate hex palette (pre-STRK-25 dark theme)                                                           |
+| Slate | `slate`      | Fully styled          | Original Tailwind Slate hex palette (original dark theme)                                                              |
 | Sepia | `sepia`      | Fully styled          | oklch color space                                                                                                      |
 
 All new components must be authored against the dark theme first.
@@ -147,7 +147,7 @@ The dark and slate shades preserve the palette brightened in v3.33.06 for contra
 
 ## Typography
 
-Three self-hosted faces (STRK-24 / PR #1065 replaced the original Inter / system-ui stack). Declared via `@font-face` at the top of `css/styles.css` with `font-display: swap`; the `.woff2` files live in `fonts/` alongside their `LICENSE`. Self-hosting keeps typography intact on `file://` and offline: no CDN requests. All sizes in `rem`; monospace for prices and data.
+Three self-hosted faces (PR #1065 replaced the original Inter / system-ui stack). Declared via `@font-face` at the top of `css/styles.css` with `font-display: swap`; the `.woff2` files live in `fonts/` alongside their `LICENSE`. Self-hosting keeps typography intact on `file://` and offline: no CDN requests. All sizes in `rem`; monospace for prices and data.
 
 ### Font Family Tokens
 
@@ -219,7 +219,7 @@ Not yet standardized in the codebase (59 `@media` rules spanning 15 distinct bre
 | `--bp-lg` | 1024px | Desktop                  |
 | `--bp-xl` | 1350px | Wide desktop             |
 
-All settings redesign work (STAK-432–447) uses mobile-first ordering against this set.
+All settings redesign work uses mobile-first ordering against this set.
 
 ---
 
@@ -265,7 +265,7 @@ Standard HTML `<input type="checkbox">` with custom switch styling. Minimum 44px
 
 ### Metal Filter Pills
 
-Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper`: STRK-305). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
+Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper`). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
 
 ---
 
@@ -288,15 +288,15 @@ Design-system catalog: `.context/preview.html`: a self-contained page with its o
 
 ---
 
-## Settings Redesign (STAK-432–447)
+## Settings Redesign
 
 12 open issues. Key decisions:
 
 - **About page** moves into Settings as landing tab; "What's New" thin popup stays
 - **Mobile-first**: all cards stack vertically, 44px touch targets, no horizontal scroll
-- **Execution order:** Style Guide → About/What's New → API tab (STAK-443) → remaining tabs
+- **Execution order:** Style Guide → About/What's New → API tab → remaining tabs
 
-### API Tab Sectioned Card Layout (STAK-443, v3.34.24)
+### API Tab Sectioned Card Layout (v3.34.24)
 
 Replaced 1075-line monolithic API settings panel with three sectioned `.settings-fieldset` cards following the established section pattern:
 

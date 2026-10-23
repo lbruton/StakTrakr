@@ -51,9 +51,9 @@ On open, the modal displays cached data from localStorage immediately, then fire
 - All module-level state: `retailPrices`, `retailPriceHistory`, `retailIntradayData`, `retailProviders`, `retailAvailability`, `retailLastKnownPrices`, `retailLastAvailableDates`.
 - All persistence helpers: `loadRetailPrices`, `saveRetailPrices`, `loadRetailPriceHistory`, `saveRetailPriceHistory`, `loadRetailIntradayData`, `saveRetailIntradayData`, `loadRetailProviders`, `saveRetailProviders`, `loadRetailAvailability`, `saveRetailAvailability`.
 - The full sync pipeline: `syncRetailPrices` (fetches manifest, per-slug `latest.json` + `history-30d.json`, providers.json, and writes all results to localStorage).
-- Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of STAK-521 (v3.33.96), `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path: slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape (e.g. bare `goldback-gN` denomination stubs, unmapped manifest slugs) are quarantined before any downstream plane sees them. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
+- Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of v3.33.96, `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path: slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape (e.g. bare `goldback-gN` denomination stubs, unmapped manifest slugs) are quarantined before any downstream plane sees them. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
 - The sync log, sync-in-progress flags, and error state. The sync log Time column uses timezone-aware formatting via `TIMEZONE_KEY` from localStorage, matching the `_fmtIntradayTime` pattern in `retail-view-modal.js`. Falls back gracefully if the stored timezone is invalid.
-- Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, and `_invalidateMarketFilterCache` (STAK-515). `market-data.js` consumes that state when rendering the vendor comparison matrix.
+- Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, and `_invalidateMarketFilterCache`. `market-data.js` consumes that state when rendering the vendor comparison matrix.
 - The retail data cache consumed by the market matrix. Matrix rendering, metal tabs, vendor cells, and row ordering live in `js/market-data.js`, not `retail.js`.
 
 **`retail-view-modal.js`** owns:
@@ -84,9 +84,9 @@ Declared in `retail.js`. All three maps must be updated together when adding a n
 
 ### Module-Level State (retail.js)
 
-| Variable             | Type             | Purpose                                                                                                                   |
-| -------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `_marketFilterCache` | `object \| null` | In-memory cache of the market filter matrix from localStorage (STAK-515). Invalidated by `_invalidateMarketFilterCache()` |
+| Variable             | Type             | Purpose                                                                                                        |
+| -------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `_marketFilterCache` | `object \| null` | In-memory cache of the market filter matrix from localStorage. Invalidated by `_invalidateMarketFilterCache()` |
 
 ### Module-Level State (retail-view-modal.js)
 
@@ -96,18 +96,18 @@ Declared in `retail.js`. All three maps must be updated together when adding a n
 | `_retailViewIntradayChart` | `Chart \| null` | 24h intraday Chart.js instance                                                  |
 | `_intradayRowCount`        | `number`        | Number of rows in the Recent windows table (default 24, controlled by dropdown) |
 
-### Globals Consumed from `chart-utils.js` (STAK-484)
+### Globals Consumed from `chart-utils.js`
 
-| Global                  | Purpose                                                                                                                                                  |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `replaceChart`          | Safely destroys an existing Chart.js instance before creating a replacement (avoids "Canvas is already in use" errors)                                   |
-| `buildVendorDatasets`   | Creates per-vendor Chart.js datasets with standard color/style configuration                                                                             |
-| `chartPriceTooltip`     | Shared tooltip callback for dollar-formatted chart values                                                                                                |
-| `chartDollarTicks`      | Y-axis tick formatter for dollar values                                                                                                                  |
-| `createTimeSeriesChart` | Factory for time-series line charts with standard options                                                                                                |
-| `createSparkline`       | Lightweight mini chart builder for inline trend sparklines (defined in `chart-utils.js`; not called by `retail.js` after STAK-473 removed the grid view) |
+| Global                  | Purpose                                                                                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `replaceChart`          | Safely destroys an existing Chart.js instance before creating a replacement (avoids "Canvas is already in use" errors)                              |
+| `buildVendorDatasets`   | Creates per-vendor Chart.js datasets with standard color/style configuration                                                                        |
+| `chartPriceTooltip`     | Shared tooltip callback for dollar-formatted chart values                                                                                           |
+| `chartDollarTicks`      | Y-axis tick formatter for dollar values                                                                                                             |
+| `createTimeSeriesChart` | Factory for time-series line charts with standard options                                                                                           |
+| `createSparkline`       | Lightweight mini chart builder for inline trend sparklines (defined in `chart-utils.js`; not called by `retail.js` after the grid view was removed) |
 
-These helpers were extracted from duplicated patterns across `retail.js`, `retail-view-modal.js`, and `spot.js` in STAK-484 (v3.33.71). Both `retail.js` and `retail-view-modal.js` consume them via `window` globals. Script load order in `index.html` places `chart-utils.js` before both retail files.
+These helpers were extracted from duplicated patterns across `retail.js`, `retail-view-modal.js`, and `spot.js` in v3.33.71. Both `retail.js` and `retail-view-modal.js` consume them via `window` globals. Script load order in `index.html` places `chart-utils.js` before both retail files.
 
 ### Globals Consumed from `retail.js`
 
@@ -218,14 +218,14 @@ _pickFreshestEndpoint()        -> tries each RETAIL_API_ENDPOINTS in order, pick
 
 ## Key Functions
 
-### `_processSlugResult(slug, latest, hist30)` — live-price patching (STAK-483)
+### `_processSlugResult(slug, latest, hist30)` — live-price patching
 
 Internal function in `retail.js`. Called by `syncRetailPrices` after each per-slug fetch resolves.
 
 **Responsibilities:**
 
 1. Normalizes `latest.json` fields into the internal result shape: `price`, `intraday`, `availabilityBySite`, `lastKnownPriceBySite`, `lastAvailableDateBySite`.
-2. **Live-price patch (STAK-483):** When both `latest.json` and `history-30d.json` are available, locates today's date entry in `hist30` (matched via `latest.window_start.slice(0, 10)`) and overwrites it with current vendor prices from `latest.vendors`. This ensures the Price History tab chart and trend badge reflect the same prices shown on the market card instead of lagging behind a daily average.
+2. **Live-price patch:** When both `latest.json` and `history-30d.json` are available, locates today's date entry in `hist30` (matched via `latest.window_start.slice(0, 10)`) and overwrites it with current vendor prices from `latest.vendors`. This ensures the Price History tab chart and trend badge reflect the same prices shown on the market card instead of lagging behind a daily average.
 
 **Patch logic detail:**
 
@@ -292,7 +292,7 @@ Renders the colored vendor legend (swatch + clickable name + current price) into
 - Per-vendor row guard: only vendors with a non-null current `price` render a legend row.
 - OOS vendors: out-of-stock vendors with `price == null` are omitted from the legend entirely (`_buildVendorLegend` returns early at the `if (price == null) return` guard on line 94).
 
-### `_trimTo24h(windows)` (STAK-498)
+### `_trimTo24h(windows)`
 
 Filters the raw `windows_24h` array to only include entries within the last 24 hours, relative to the **newest timestamp in the data** (not `Date.now()`). This prevents the chart from displaying multi-day spans when the API returns more than 24h of data.
 
@@ -342,10 +342,10 @@ Renders the Chart.js 24h intraday line chart into `#retailViewIntradayChart`.
 2. Runs `_trimTo24h` → `_bucketWindows` → `_forwardFillVendors` → `_flagAnomalies`.
 3. Shows `#retailViewIntradayNoData` placeholder if fewer than 2 windows survive.
 4. Destroys any existing `_retailViewIntradayChart` before creating a new one.
-5. Filters `activeVendors` to `qualifiedVendors`: excludes vendors with zero real (non-carried) prices across all bucketed windows (STAK-498). Fully-OOS vendors do not appear as chart lines.
+5. Filters `activeVendors` to `qualifiedVendors`: excludes vendors with zero real (non-carried) prices across all bucketed windows. Fully-OOS vendors do not appear as chart lines.
 6. Builds one dataset per qualified vendor, using `RETAIL_VENDOR_NAMES` for order and `getRetailVendorColorRGB()` to resolve the theme token for line colors.
 7. Falls back to Median + Low aggregate datasets when no per-vendor data exists (pre-vendor-format windows).
-8. Attaches `_carriedIndices: Set<number>` to each dataset: uses **multi-hop carry logic** (STAK-498): only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
+8. Attaches `_carriedIndices: Set<number>` to each dataset: uses **multi-hop carry logic**: only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
 9. Tooltip callback: returns nothing if `ctx.raw == null`; prefixes with `~` for carried values.
 10. Chart options: `spanGaps: true`; legend hidden in vendor mode; X-axis HH:00 labels rendered at full opacity, HH:30 at reduced opacity and smaller font.
 11. Calls `_buildIntradayTable(slug, bucketed)` at the end.

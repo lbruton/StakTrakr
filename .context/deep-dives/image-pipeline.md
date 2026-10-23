@@ -19,7 +19,7 @@ Key design decisions:
 - **No raw uploads**: every image passes through `ImageProcessor` (resize → WebP/JPEG → byte-budget loop) before being stored.
 - **Per-side cascade**: obverse and reverse resolve independently, so a user obverse + pattern reverse is a valid configuration.
 - **Numista CDN URLs** are stored as plain strings on inventory items (`item.obverseImageUrl`, `item.reverseImageUrl`): no blob is fetched or stored for CDN images.
-- **`coinImages`** is a legacy IDB store retained for cleanup/reporting -- `deleteImages()`, `clearAll()`, and `getStorageUsage()` still reference it. It was deprecated in STAK-339 (v3.32.41). Do not add new code that touches it beyond these existing references.
+- **`coinImages`** is a legacy IDB store retained for cleanup/reporting -- `deleteImages()`, `clearAll()`, and `getStorageUsage()` still reference it. It was deprecated in v3.32.41. Do not add new code that touches it beyond these existing references.
 
 ---
 
@@ -179,7 +179,7 @@ Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is han
 
 Custom Collection uploads use the existing `patternImages` store and image-vault / ZIP paths.
 Title images may instead carry sparse `definition.obverseImageUrl` / `reverseImageUrl`
-HTTP(S) live links (STRK-444). These travel with the definition through sync, ZIP/vault,
+HTTP(S) live links. These travel with the definition through sync, ZIP/vault,
 JSON and standalone export/import; the image bytes stay on the remote host. `getImageUrl`
 resolves a title link before looking for an uploaded Blob. The builder's per-side Image
 options prompt, preview, Remove and Swap support both sources; upload clears that side's
@@ -196,7 +196,7 @@ Collection artwork stamps use `cover`, `title:reverse`, and `slot:<slotId>` keys
 lookups validate those stamps after sync merge, and collection removal deletes both title
 records and all current Slot records. Renderers own and revoke returned `blob:` URLs.
 
-**Rendering never deletes artwork (STRK-439).** `collectionsPicker.getImageUrl` is
+**Rendering never deletes artwork.** `collectionsPicker.getImageUrl` is
 read-only: a record that is not current is hidden (null), never removed. It checks this
 tab's in-memory stamps first and, when they say stale, re-judges against the persisted
 state (`collectionsStore.readPersisted()`), because another tab may have uploaded, replaced
@@ -206,7 +206,7 @@ stores the IndexedDB record before it persists the stamp. Stale records are remo
 by the explicit paths: `deleteImage`, `cleanupCollectionImages` on Collection delete, and
 the Settings orphan cleanup below: and backup, vault and sync already leave them out.
 
-**Cross-tab Collections state (STRK-440).** `collectionsStore` listens for `storage` events
+**Cross-tab Collections state.** `collectionsStore` listens for `storage` events
 on `collectionState` and `disabledCollections` (and a `null` key, a storage clear) and calls
 `reload()`, so another tab's write re-hydrates this tab and repaints open views; before it
 this tab's next save wrote its stale copy over the other tab's links, Custom Collections and
@@ -222,7 +222,7 @@ the one this tab last read or wrote, it adopts `readPersisted()` before mutating
 change made in the gap before the event lands cannot overwrite the other tab's save. A
 stored value that does not read cleanly never replaces memory.
 
-**Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
+**Orphan cleanup.** Settings ▸ Images ▸ Orphaned Pattern Images shares this
 store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
 `_isOrphanedPatternImage` judges them with `collectionsCore.isCurrentArtwork` against the
 live Collections store (the check backup, vault and sync use) and **fails closed**: if
@@ -235,11 +235,11 @@ the delete rather than removed by it. The stored record must also still match th
 (`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
 reclassified, because an upload stores its image before its artwork stamp. Ownership is read
 from a private snapshot of the persisted state (`collectionsStore.readPersisted()`, shared
-with `getImageUrl` since STRK-439 and wrapped by `settings.js` `_persistedCollectionsState`;
+with `getImageUrl` and wrapped by `settings.js` `_persistedCollectionsState`;
 normalized with `collectionsCore.normalizeState`; never the memoized `getState()` and never
 `collectionsStore.load()`, which swaps the shared state without a change event) at scan time
 and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
-its transaction opens and the store's cross-tab listener (STRK-440) is asynchronous: another
+its transaction opens and the store's cross-tab listener is asynchronous: another
 tab's cloud restore can change who owns an image without changing the record. `loadDataSync` swallows parse
 errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
 sentinel default and checks the shape (an object holding a `collections` map), refuses a
@@ -250,7 +250,7 @@ from its key), and refuses a retained artwork stamp whose `present` is not a boo
 `...:00Z` without fractional seconds reads as newer than its own image). It also refuses an
 artwork entry that is not an object or whose `modified` is missing, empty or not a string:
 normalization drops such an entry and `isCurrentArtwork` reads a missing entry as pre-stamp
-art (current), so a damaged removal tombstone would otherwise revive stale art (STRK-439
+art (current), so a damaged removal tombstone would otherwise revive stale art (removal-timestamp
 review). That Collection could still own stored
 artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
 closed instead of reading as "no Collections". Only an absent key means no Collections.
@@ -340,7 +340,7 @@ This file renders the Overview panel of `#bulkSyncModal`, which opens from **Set
 
 ## bulk-image-cache.js: Batch Metadata Sync
 
-`BulkImageCache` is an IIFE singleton (`window.BulkImageCache`). It syncs **Numista metadata** (not image blobs) for all inventory items that have a Numista catalog ID. Image blobs are not downloaded during bulk sync: images come from stored CDN URLs or user uploads only (on-the-fly Numista image fetching was removed in STAK-489).
+`BulkImageCache` is an IIFE singleton (`window.BulkImageCache`). It syncs **Numista metadata** (not image blobs) for all inventory items that have a Numista catalog ID. Image blobs are not downloaded during bulk sync: images come from stored CDN URLs or user uploads only (on-the-fly Numista image fetching was removed).
 
 ### Catalog ID resolution
 
@@ -438,7 +438,7 @@ The effective quota is computed dynamically at IDB init (see image-cache.js quot
 - `imageCache.cacheUserImage()` returns `false` if the IDB `put()` throws.
 - `imageProcessor.processFile()` iteratively reduces quality (down to `minQuality = 0.30`) before giving up: this reduces the chance of hitting the limit on individual images.
 - No automatic eviction is performed. The settings UI has no cache-only clear control. The full local data wipe in `js/events.js` calls `imageCache.clearAll()`.
-- `getStorageUsage()` returns a breakdown by store (`numistaBytes`, `userImageBytes`, `patternImageBytes`, `metadataBytes`, `totalBytes`, `limitBytes`). The settings UI displays only the user photos gauge (Numista Cache gauge was removed in STAK-432).
+- `getStorageUsage()` returns a breakdown by store (`numistaBytes`, `userImageBytes`, `patternImageBytes`, `metadataBytes`, `totalBytes`, `limitBytes`). The settings UI displays only the user photos gauge (Numista Cache gauge was removed).
 
 ---
 

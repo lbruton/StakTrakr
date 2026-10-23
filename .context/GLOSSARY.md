@@ -27,7 +27,7 @@ _Avoid_: label, category
 ## Disposition & Lifecycle
 
 **Acquisition**:
-The event of an Item entering inventory: the dated purchase the detail modal charts as a marker, counts in the substrip, and lists in the Acquisitions ledger. The neutral event noun for user-facing copy (STRK-357); "Acquired <date>" is its tooltip form.
+The event of an Item entering inventory: the dated purchase the detail modal charts as a marker, counts in the substrip, and lists in the Acquisitions ledger. The neutral event noun for user-facing copy; "Acquired <date>" is its tooltip form.
 _Avoid_: buy, purchase (as the event noun: `buyCost`, `purchaseLocation`, and `dmRole: "buys"` are code identifiers, not copy)
 
 **Disposition**:
@@ -49,7 +49,7 @@ _Avoid_: audit log, edit history, activity log
 ## Market Data & Pricing
 
 **Spot Price**:
-The current per-troy-ounce market price for a tracked metal (gold, silver, platinum, palladium, copper: STRK-305), sourced from a configured Spot Provider.
+The current per-troy-ounce market price for a tracked metal (gold, silver, platinum, palladium, copper), sourced from a configured Spot Provider.
 _Avoid_: market price, live price, melt value
 
 **Spot Provider**:
@@ -79,15 +79,15 @@ _Avoid_: market view, dealer view, price comparison
 ## Weight Units
 
 **Weight Unit** (`weightUnit`):
-A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg`/`avdp` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text: which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back (STRK-316, STRK-318, STRK-319).
+A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg`/`avdp` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text: which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back.
 _Avoid_: weight type, measurement unit
 
 **Milligram** (`mg`):
-Entry and display lens for sub-gram pieces: Aurum foil notes and similar are sold as 25 mg, 50 mg, where a gram figure is all leading zeros. Storage stays troy ounces like every other metric unit, so melt, totals, and sort need no special case (STRK-319).
+Entry and display lens for sub-gram pieces: Aurum foil notes and similar are sold as 25 mg, 50 mg, where a gram figure is all leading zeros. Storage stays troy ounces like every other metric unit, so melt, totals, and sort need no special case.
 _Avoid_: milligrams, mgs
 
 **Adaptive Precision**:
-Rendering a measured weight at its unit's normal decimal places, and adding decimals only when that precision would misrepresent the value. Fixed decimals assume one band of magnitude; this inventory spans a 25 mg note and a 100 ozt bar, so at two decimals 25 mg rendered `0.03 g` or `0.00 oz`. Ordinary weights are unaffected: `1.00 oz` and `31.65 g` are byte-identical (STRK-319).
+Rendering a measured weight at its unit's normal decimal places, and adding decimals only when that precision would misrepresent the value. Fixed decimals assume one band of magnitude; this inventory spans a 25 mg note and a 100 ozt bar, so at two decimals 25 mg rendered `0.03 g` or `0.00 oz`. Ordinary weights are unaffected: `1.00 oz` and `31.65 g` are byte-identical.
 _Avoid_: rounding, significant figures
 
 ## Goldback
@@ -101,7 +101,7 @@ A calculated fair-market value for a Goldback denomination derived from the gold
 _Avoid_: estimated price, calculated price
 
 **AGW** (Actual Gold Weight):
-The pure gold content of a piece in troy ounces: the gold counterpart to [ASW](#constitutional-silver). A ¼ Goldback carries 0.00025 ozt AGW, a 1 Goldback 0.001 ozt. Because Goldbacks are bought and quoted by denomination, the Weight cell shows the denomination (`¼ gb`) and the AGW is surfaced in that cell's tooltip; the Weight column still sorts on AGW so notes rank correctly against bullion (STRK-318).
+The pure gold content of a piece in troy ounces: the gold counterpart to [ASW](#constitutional-silver). A ¼ Goldback carries 0.00025 ozt AGW, a 1 Goldback 0.001 ozt. Because Goldbacks are bought and quoted by denomination, the Weight cell shows the denomination (`¼ gb`) and the AGW is surfaced in that cell's tooltip; the Weight column still sorts on AGW so notes rank correctly against bullion.
 _Avoid_: gold content, actual weight, derived oz
 
 **Denomination**:
@@ -115,11 +115,11 @@ US circulating coinage valued for its silver content rather than as bullion: 90%
 _Avoid_ as the canonical noun: 90% silver, coin silver. ("Junk silver" is the common trade term and is fine as a one-time gloss in user-facing copy and code comments (it is what users search for) but Constitutional Silver is the canonical term for requirements, ACs, and issue text.)
 
 **ASW** (Actual Silver Weight):
-The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term: junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
+The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term: junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure. Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
 _Avoid_: silver content, pure silver weight, derived oz
 
 **Face Value** (suffix `fv`):
-The legal-tender denomination of a Constitutional lot in US dollars: the figure junk silver is quoted and bought in. Stored in `item.weight`: face mode holds the entered **total** (qty is 1 by contract), denomination mode holds face-per-coin (total = weight × coin count). Rendered `$6.00 fv` in the Weight cell and card chips; the `fv` suffix is what stops it reading as another money column beside Purchase, Melt, and Retail. Never currency-converted: it stays in USD even when the display currency is EUR (STRK-300).
+The legal-tender denomination of a Constitutional lot in US dollars: the figure junk silver is quoted and bought in. Stored in `item.weight`: face mode holds the entered **total** (qty is 1 by contract), denomination mode holds face-per-coin (total = weight × coin count). Rendered `$6.00 fv` in the Weight cell and card chips; the `fv` suffix is what stops it reading as another money column beside Purchase, Melt, and Retail. Never currency-converted: it stays in USD even when the display currency is EUR.
 _Avoid_: face, $face, denomination value, legal tender value
 
 **Valuation Basis**:
@@ -151,7 +151,7 @@ _Avoid_: item key, dedup key, hash
 ## Collections
 
 **Collection**:
-A named checklist over the inventory: a digital coin album (STRK-254). Holds Slots and the links from each Slot to the Items that fill it. Links are stored on the Collection in the `collectionState` store, never on the Item. Either backed by a Series Template or Custom.
+A named checklist over the inventory: a digital coin album. Holds Slots and the links from each Slot to the Items that fill it. Links are stored on the Collection in the `collectionState` store, never on the Item. Either backed by a Series Template or Custom.
 _Avoid_: set, album (as a code term), checklist (as a code term), folder
 
 **Slot**:
@@ -175,7 +175,7 @@ A Collection whose Slots the user defines: built blank or cloned from a Series T
 _Avoid_: user collection, custom list, custom set
 
 **Image Shape**:
-The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin. One shape covers both sides. For an Item it is **derived** from Type, grading and the Numista shape (grading wins; Bar and Set are Bar; Note, Aurum, Goldback and Silverback are Note; a Coin with a non-round Numista shape is Bar; else Round) and **stored only when the user chose a different one** (`imageShape`, written sparsely with the legacy `*ImageFrame` projection for older builds). The shared image-frame editor re-derives on a Type change while the shape is unchosen (a legacy rectangle item shows its mapped shape but keeps following Type) or still equals the previous Type's default, and leaves a chosen shape that differs from it alone; a grade or Numista change moves only a shape the user has not chosen, so clicking the already-selected shape pins it against those two but not against Type (STRK-427). The inventory table, card views and view modal draw the same shape and per-side orientation. Non-round frames letterbox the photo (`contain`) inside a token-ratio frame; a Round photo still fills its circle (`cover`) in the table and cards, while the view modal letterboxes every frame including Round. A legacy rectangle item reads as a portrait Bar (STRK-427 P2).
+The display frame used for an Item or Collection image: Round, Bar, Note, or Slab. Slab represents a graded coin in its holder; the Item Type remains Coin. One shape covers both sides. For an Item it is **derived** from Type, grading and the Numista shape (grading wins; Bar and Set are Bar; Note, Aurum, Goldback and Silverback are Note; a Coin with a non-round Numista shape is Bar; else Round) and **stored only when the user chose a different one** (`imageShape`, written sparsely with the legacy `*ImageFrame` projection for older builds). The shared image-frame editor re-derives on a Type change while the shape is unchosen (a legacy rectangle item shows its mapped shape but keeps following Type) or still equals the previous Type's default, and leaves a chosen shape that differs from it alone; a grade or Numista change moves only a shape the user has not chosen, so clicking the already-selected shape pins it against those two but not against Type. The inventory table, card views and view modal draw the same shape and per-side orientation. Non-round frames letterbox the photo (`contain`) inside a token-ratio frame; a Round photo still fills its circle (`cover`) in the table and cards, while the view modal letterboxes every frame including Round. A legacy rectangle item reads as a portrait Bar.
 _Avoid_: graded type, slabbed type
 
 **Image Orientation**:
@@ -228,6 +228,6 @@ _Avoid_: feature toggle, experiment, beta flag
 - "item" vs "lot" vs "stack": resolved: use **Item** for the data record. "Stack" is colloquial for a user's collection; never use as a code term for a single record.
 - "disposal" vs "disposition": resolved: use **Disposition**. "Disposal" implies waste; disposition tracks realized value.
 - `metalApiConfig` vs `catalog_api_config`: resolved: these are the **Dual Config Store**. Always use the correct accessor pair.
-- "collection" (colloquial) vs **Collection**: resolved: **Collection** is the STRK-254 checklist entity. For everything a user owns, say "inventory" or "stack" in prose, never "collection". The legacy `item.collectable` boolean is unrelated: a vestige of a removed retail-vs-melt valuation toggle with no producer or consumer today. Do not build on it and do not read it as Collection membership.
+- "collection" (colloquial) vs **Collection**: resolved: **Collection** is the checklist entity. For everything a user owns, say "inventory" or "stack" in prose, never "collection". The legacy `item.collectable` boolean is unrelated: a vestige of a removed retail-vs-melt valuation toggle with no producer or consumer today. Do not build on it and do not read it as Collection membership.
 - "slot id" vs "item UUID": resolved: a **Slot** id names a position and is human-meaningful and stable; an Item UUID names a physical holding and is random. A link is always Slot id → Item UUID, never the reverse.
-- `numistaId` as type vs instance: resolved: **Numista ID** is a catalog TYPE; physical-copy identity is the **Item Instance** (adds grade + certNumber). Keying dedup on Numista ID alone wrongly merges distinct graded instances (STRK-167).
+- `numistaId` as type vs instance: resolved: **Numista ID** is a catalog TYPE; physical-copy identity is the **Item Instance** (adds grade + certNumber). Keying dedup on Numista ID alone wrongly merges distinct graded instances.
