@@ -129,8 +129,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Read the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The runner image ships Chrome and its system libraries, so the install skips
+      # --with-deps: that flag runs apt-get against a mirror that can stall for minutes.
+      - name: Cache Chromium
+        id: chromium
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        if: ${{ steps.chromium.outputs.cache-hit != 'true' }}
+        run: npx playwright install chromium
 
       - name: Run the selected core tests
         run: npx playwright test $CORE_TESTS --shard=${{ matrix.shard }}/${{ strategy.job-total }}
