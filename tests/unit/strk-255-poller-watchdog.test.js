@@ -271,13 +271,25 @@ describe("STRK-255 retail poller run lock", () => {
     // redirect creates the file before the PID is written, so a competing tick
     // could read an empty owner, judge the live lock malformed, delete it, and
     // run concurrently. Hard-linking a pre-filled temp file closes that window.
+    //
+    // The winner holds the lock until every contender has tried; otherwise a
+    // contender that starts after the winner released wins legitimately, which a
+    // slow runner does often.
+    const tried = join(workDir, "tried");
     const script = `
+      mkdir -p "${tried}"
       for i in $(seq 1 ${CONTENDERS}); do
         (
           . "${LOCK_HELPER}"
           if acquire_run_lock "${lockfile}" 600; then
             echo WON
-            sleep 0.3
+            touch "${tried}/$i"
+            for _ in $(seq 1 400); do
+              [ "$(ls "${tried}" | wc -l)" -ge ${CONTENDERS} ] && break
+              sleep 0.05
+            done
+          else
+            touch "${tried}/$i"
           fi
         ) &
       done
