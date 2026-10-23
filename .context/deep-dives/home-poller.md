@@ -83,7 +83,7 @@ Node.js HTTP/HTTPS server (`/app/dashboard.js` inside container) showing:
 - Spot price trend (15-min increments)
 - Home poller log tail (last 300 lines from persistent volume)
 - Failure trend (7-day chart)
-- **`/providers`** (Provider URL editor (inline CRUD against sqld) see Provider Database)
+- **`/providers`**: Provider URL editor (inline CRUD against sqld: see Provider Database)
 - **`/failures`**: Failure queue (URLs with 3+ failures in last 7 days from sqld)
 
 HTTPS on port 3011 uses a self-signed certificate generated at Docker build time. Used for iframe embedding in the spec-workflow MCP dashboard.

@@ -202,7 +202,7 @@ a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
 
 ## Dual ESLint config — `.eslintrc.json` is read by Codacy and CodeRabbit
 
-The repo carries two ESLint configs: `eslint.config.cjs` (flat (used by local `npm run lint`) and `.eslintrc.json` (legacy) read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
+The repo carries two ESLint configs: `eslint.config.cjs` (flat: used by local `npm run lint`) and `.eslintrc.json` (legacy: read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
 
 - The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
 - The legacy config defaults `sourceType` to `script`, so an `overrides` block sets `sourceType: module` for `tests/**/*.js`. Without it, CodeRabbit fails to parse ES-module Playwright/unit specs (`'import' and 'export' may appear only with 'sourceType: module'`) on every PR that touches a spec. `npm run lint` never globs `tests/playwright/**`, so it can't catch this.
