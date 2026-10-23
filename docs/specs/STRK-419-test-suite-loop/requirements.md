@@ -109,8 +109,11 @@ count from `playwright.config.js`.
   current merge base with `origin/dev`, THEN the runner SHALL warn that the map is stale.
 - **AC-19:** The runner SHALL print, before it runs, the selected tests and the changed
   file that selected each one.
-- **AC-20:** WHEN the change touches one `js/` file in the coverage map, `test:changed`
-  SHALL finish in 60 seconds or less on the reference machine.
+- **AC-20:** (Amended 2026-10-23, user-approved: scoped by selection size, approach D-23.)
+  WHEN the change touches one `js/` file in the coverage map and its changed lines select
+  100 or fewer core test locations, `test:changed` SHALL finish in 60 seconds or less on the
+  reference machine. WHEN the changed lines select more, the runner SHALL print the location
+  count before it runs.
 
 ### Redundancy report (US-4)
 
