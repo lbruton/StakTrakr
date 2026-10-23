@@ -184,10 +184,10 @@ Sepia `--success` (`oklch(0.603 0.117 130.4)`) on the sepia spot-card surface (`
 STRK-291 fixed it in `css/styles.css` with a same-hue, lower-lightness override: `[data-theme="sepia"] .spot-sync-icon--fresh { color: oklch(0.52 0.13 130.4) }`, measured at 3.83:1.
 Light `--success` measures 3.35:1 — passing, but with little margin. Dark and slate are 5.6–5.8:1 and fine.
 
-Two method notes, both of which cost real debugging time in STRK-291:
+Two method notes for contrast tests:
 
-- **Judge icon strokes and borders at 3:1, not 4.5:1.** Non-text Contrast (1.4.11) governs icons and graphical objects; the 4.5:1 small-text bar implied by the `--warning` entry above does not apply to them.
-- **Never parse `oklch(...)` numbers as RGB.** `getComputedStyle` returns these tokens verbatim as `oklch(...)` strings, and treating the three components as RGB yields silently wrong ratios — during STRK-291 that mistake reported all four themes as failing, including ones that were fine. Resolve to sRGB by painting the color into a 1×1 canvas and reading the pixel back; working implementation is `__resolveRgb` in `tests/playwright/core/spot-prices.spec.js`.
+- **Judge icon strokes and borders at 3:1, not 4.5:1.** Non-text Contrast (1.4.11) governs icons and graphical objects. The 4.5:1 small-text bar from the `--warning` entry above does not apply to them.
+- **Never parse `oklch(...)` numbers as RGB.** `getComputedStyle` returns these tokens as `oklch(...)` strings. Reading the three components as RGB gives wrong contrast ratios, so a theme that passes can read as failing. Resolve the color to sRGB: paint it into a 1×1 canvas and read the pixel back. `__resolveRgb` in `tests/playwright/core/spot-prices.spec.js` does this.
 
 ## `_isMarketItemEnabled` guard — RESOLVED, do not re-add
 
