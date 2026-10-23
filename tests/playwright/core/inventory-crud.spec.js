@@ -116,6 +116,28 @@ test.describe("core/inventory-crud", () => {
     await expect(page.locator("#itemMetal")).toHaveValue("Silver");
     await expect(page.locator("#itemType")).toHaveValue("Coin");
   });
+
+  // The environment toast shows for 5 s on localhost, beta and preview, and sits
+  // over the item modal's Save button. Clicks pass through it.
+  test("Save works while the environment toast is on screen", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+
+    const toast = page.locator(".cloud-toast", { hasText: "Running locally" });
+    await expect(toast).toBeVisible({ timeout: 5000 });
+    const hitsToast = await toast.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return el.contains(hit);
+    });
+    expect(hitsToast, "the toast must not take pointer events").toBe(false);
+
+    // Shorter than the toast's 5 s life, so a blocked click fails here.
+    await page.locator("#itemModalSubmit").click({ timeout: 2000 });
+    await expect(page.locator("#itemModal")).toBeHidden({ timeout: 2000 });
+    await expect(toast).toBeVisible();
+  });
 });
 
 // ─── Seed guard — boot state classification (from seed-guard.spec.js) ───────

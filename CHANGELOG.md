@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.64] - 2026-10-23
+
+### Changed — STRK-464: Toasts no longer block clicks
+
+- **Toasts**: Clicks pass through the bottom-right toast to the page beneath it. On localhost, beta and preview, the environment toast covered the item modal's Save button for 5 seconds, so a click on Save did nothing until the toast faded (STRK-464).
+
+---
+
 ## [3.36.63] - 2026-10-23
 
 ### Changed — STRK-463: No duplicate Item from a late Save

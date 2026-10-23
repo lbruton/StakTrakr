@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.64 &ndash; STRK-464: Toasts no longer block clicks</strong>: Clicks pass through the small notice in the bottom-right corner to the page beneath it. On the beta and preview sites, the notice about separate data covered the Save button in the Item window for five seconds, so Save did nothing until it faded (STRK-464).</li>
     <li><strong>v3.36.63 &ndash; STRK-463: No duplicate Item from a double Save</strong>: Saving an Item twice in quick succession, for example while an image swap is still loading, stores one Item. A second Save that arrives after the first closed the window is ignored instead of adding a copy (STRK-463).</li>
     <li><strong>v3.36.62 &ndash; STRK-458: Bulk sync progress and cancel</strong>: The Numista Bulk Sync window shows a progress bar and an activity log while a sync runs, and a Cancel sync button stops it. Opening the PCGS view no longer empties the Numista view (STRK-458).</li>
     <li><strong>v3.36.61 &ndash; STRK-450: Readable sync status colors</strong>: The Numista sync status words (Synced, Needs sync and Failed) and the activity log use green, amber and red tuned for each theme, readable in light, dark, slate and sepia. The tint on a price field after a spot lookup follows the theme too. Failed rows read red, so they stand apart from rows that still need a sync (STRK-450).</li>
-    <li><strong>v3.36.60 &ndash; STRK-456: Clearer messages</strong>: Error and status messages read as short statements. Each one says what happened and, where it applies, what to do next, for example &ldquo;Spot sync failed. Check the API settings.&rdquo; (STRK-456).</li>
-    <li><strong>v3.36.59 &ndash; STRK-451: Theme-aware retail vendor colors</strong>: Vendor colors now adjust for light, dark, slate and sepia, keeping vendor labels readable while preserving distinct identities. Market and retail charts also switch to the matching colors when you change themes, and unknown vendors use muted text (STRK-451).</li>      `;
+    <li><strong>v3.36.60 &ndash; STRK-456: Clearer messages</strong>: Error and status messages read as short statements. Each one says what happened and, where it applies, what to do next, for example &ldquo;Spot sync failed. Check the API settings.&rdquo; (STRK-456).</li>      `;
 };
 
 // Expose globally for access from other modules
