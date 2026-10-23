@@ -296,13 +296,14 @@ const runCsvImportCapturingParse = async (page, spec) => {
 /**
  * Run logic-only cases on one booted page, one step each. Every case starts from
  * cleared storage holding only its seed, and the reload drops any global an earlier
- * case patched.
+ * case patched. Each step gets the configured per-test timeout.
  * @param {import('@playwright/test').Page} page - A page booted with seedAndGoto.
  * @param {Array<{name: string, seed?: object[], run: Function}>} cases - Named cases.
  * @param {Function} [ready] - Extra boot condition, evaluated in the page.
  * @returns {Promise<void>}
  */
 const runCases = async (page, cases, ready) => {
+  test.setTimeout(test.info().timeout * cases.length);
   for (const { name, seed = SEED, run } of cases) {
     await test.step(name, async () => {
       await page.evaluate((items) => {

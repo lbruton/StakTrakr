@@ -74,6 +74,19 @@ these rules elsewhere. Read before editing or running any Playwright test.
   app boot.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 
+## Table Tests
+
+- Group logic checks that share a setup into one test with a `test.step` per case. Name
+  each step after the case it replaces.
+- Start each step from a known state: reset the keys the cases write, or clear storage and
+  boot again.
+- A step that seeds and boots again leaves the app first (`page.goto("about:blank")`). A
+  `goto` to the current URL changes only the hash, so the init scripts do not run again.
+- Give a table test the per-test timeout once per step:
+  `test.setTimeout(test.info().timeout * cases.length)`. CI with coverage runs slower than a
+  local run.
+- Keep a check that asserts on layout, focus or a modal flow in its own test.
+
 ## Assertions & Fixtures
 
 - Use stable, user-visible assertions. Storage-only assertions are insufficient for
