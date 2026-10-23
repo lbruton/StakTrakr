@@ -48,6 +48,8 @@ const JOINED_PATH = /\bjoin\(\s*[\w.]+\s*((?:,\s*["'][^"']+["']\s*)+)\)/g;
 // A test that lists the tracked files checks every root-level file.
 const LISTS_REPO = /["']ls-files["']/;
 const ROOT_FILES = "<root files>";
+// A bare data directory (`"data/collections"`) means its files are read.
+const DATA_DIRECTORY = /["'`]((?:data|tests\/fixtures)(?:\/[\w-]+)+)\/?["'`]/g;
 // A test that lists a directory depends on every file in each repo directory it names.
 const DIRECTORY_SCAN = /\breaddirSync\s*\(/;
 const DIRECTORY_NAME = /["'](js|css|data|vendor|tests\/playwright\/(?:core|extended))\/?["']/g;
@@ -91,29 +93,38 @@ export function parseDiff(text) {
 }
 
 /**
+ * Repository paths one source file reads or imports; a trailing "/" marks a directory.
+ * @param {string} file - Repo path of the source.
+ * @param {string} text - Its contents.
+ * @returns {Set<string>}
+ */
+function directRefs(file, text) {
+  const refs = new Set();
+  for (const match of text.matchAll(REPO_PATH)) refs.add(match[1]);
+  for (const match of text.matchAll(RELATIVE_FILE)) {
+    refs.add(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
+  }
+  for (const match of text.matchAll(JOINED_PATH)) {
+    const segments = [...match[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
+    refs.add(path.posix.normalize(segments.join("/")));
+  }
+  if (LISTS_REPO.test(text)) refs.add(ROOT_FILES);
+  for (const match of text.matchAll(DATA_DIRECTORY)) refs.add(`${match[1]}/`);
+  if (DIRECTORY_SCAN.test(text)) {
+    for (const match of text.matchAll(DIRECTORY_NAME)) refs.add(`${match[1]}/`);
+  }
+  return refs;
+}
+
+/**
  * Maps each unit test file to the repository paths it reads, directly or through the
- * helper files it imports.
- * @param {Record<string, string>} files - Unit test and helper sources by repo path.
+ * modules it imports.
+ * @param {Record<string, string>} files - Unit tests and the modules they import, by repo path.
  * @returns {Map<string, Set<string>>} Unit test file → referenced paths.
  */
 export function buildUnitIndex(files) {
   const direct = new Map();
-  for (const [file, text] of Object.entries(files)) {
-    const refs = new Set();
-    for (const match of text.matchAll(REPO_PATH)) refs.add(match[1]);
-    for (const match of text.matchAll(RELATIVE_FILE)) {
-      refs.add(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
-    }
-    for (const match of text.matchAll(JOINED_PATH)) {
-      const segments = [...match[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
-      refs.add(path.posix.normalize(segments.join("/")));
-    }
-    if (LISTS_REPO.test(text)) refs.add(ROOT_FILES);
-    if (DIRECTORY_SCAN.test(text)) {
-      for (const match of text.matchAll(DIRECTORY_NAME)) refs.add(`${match[1]}/`);
-    }
-    direct.set(file, refs);
-  }
+  for (const [file, text] of Object.entries(files)) direct.set(file, directRefs(file, text));
   const index = new Map();
   for (const file of direct.keys()) {
     if (!file.endsWith(".test.js")) continue;
@@ -346,6 +357,19 @@ function unitSources() {
     }
   };
   walk("tests/unit");
+  // Follow imports into tooling modules (devops/, Playwright helpers) so their reads
+  // count too; app scripts under js/ are matched by path, not scanned.
+  const queue = Object.keys(files);
+  while (queue.length) {
+    const file = queue.pop();
+    for (const ref of directRefs(file, files[file])) {
+      if (files[ref] !== undefined || !/^(devops|tests\/playwright\/helpers)\/.+\.m?js$/.test(ref))
+        continue;
+      if (!existsSync(path.join(REPO_ROOT, ref))) continue;
+      files[ref] = readFileSync(path.join(REPO_ROOT, ref), "utf-8");
+      queue.push(ref);
+    }
+  }
   return files;
 }
 

@@ -179,6 +179,20 @@ describe("selectTests", () => {
     assert.deepEqual(unitFor("devops/pollers/shared/run-lock.sh"), ["tests/unit/lock.test.js"]);
   });
 
+  test("a data directory an imported module names counts as read (AC-15)", () => {
+    const unitIndex = buildUnitIndex({
+      "tests/unit/bundle.test.js":
+        'import { buildBundleObject } from "../../devops/collections/build.mjs";',
+      "devops/collections/build.mjs": 'const COLLECTIONS_DIR = "data/collections";',
+    });
+    const selection = selectTests({
+      map: MAP,
+      changes: [{ file: "data/collections/index.json", lines: [2] }],
+      unitIndex,
+    });
+    assert.deepEqual(unitFiles(selection), ["tests/unit/bundle.test.js"]);
+  });
+
   test("a changed unit test or unit helper selects the unit tests that use it (AC-15)", () => {
     assert.deepEqual(unitFiles(select([{ file: "tests/unit/merge.test.js", lines: [1] }])), [
       "tests/unit/merge.test.js",
