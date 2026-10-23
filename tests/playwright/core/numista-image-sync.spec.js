@@ -134,3 +134,83 @@ test.describe("STRK-166 bulk Sync Image URLs", () => {
     expect(lookups.sort()).toEqual(["111", "222"]);
   });
 });
+
+// STRK-458: the bulk sync modal's Start / Cancel buttons, progress bar and activity log
+// are static markup that startBulkSync and logSyncActivity drive.
+test.describe("STRK-458 bulk sync modal controls", () => {
+  const overview = "#numistaSyncOverview";
+  const startBtn = "#numistaSyncStartBtn";
+  const cancelBtn = "#numistaSyncCancelBtn";
+  const progress = "#numistaSyncProgress";
+  const logLines = "#numistaSyncLog .cache-log-line";
+
+  test.beforeEach(async ({ page }) => {
+    await seed(page);
+    await gotoApp(page);
+    await installStubs(page);
+    await page.waitForFunction(() => window.appListenersReady === true);
+  });
+
+  test("Start shows progress and log lines, Cancel aborts and resets the controls", async ({
+    page,
+  }) => {
+    // cacheAll reports one step, then waits for abort() before it completes.
+    await page.evaluate(() => {
+      window.__aborts = 0;
+      BulkImageCache.isRunning = () => false;
+      BulkImageCache.cacheAll = ({ onProgress, onLog, onComplete }) =>
+        new Promise((resolve) => {
+          onProgress({ current: 1, total: 3, catalogId: "111" });
+          onLog({ catalogId: "111", status: "metadata", message: "Metadata synced" });
+          BulkImageCache.abort = () => {
+            window.__aborts++;
+            Promise.resolve(
+              onComplete({ synced: 1, skipped: 0, failed: 0, apiLookups: 0, elapsed: 1200 })
+            ).then(resolve);
+          };
+        });
+      window.openBulkSyncModal("numista");
+    });
+
+    await expect(page.locator("#bulkSyncModal")).toBeVisible();
+    await expect(page.locator(startBtn)).toBeVisible();
+    await expect(page.locator(startBtn)).toBeEnabled();
+    await expect(page.locator(cancelBtn)).toBeHidden();
+    await expect(page.locator(progress)).toBeHidden();
+
+    await page.locator(startBtn).click();
+
+    await expect(page.locator(startBtn)).toBeDisabled();
+    await expect(page.locator(cancelBtn)).toBeVisible();
+    await expect(page.locator(progress)).toBeVisible();
+    await expect(page.locator(progress)).toHaveJSProperty("value", 1);
+    await expect(page.locator(progress)).toHaveJSProperty("max", 3);
+    await expect(page.locator(logLines)).toHaveText([
+      /Starting metadata sync/,
+      /111: Metadata synced/,
+    ]);
+    await expect(page.locator(logLines).nth(1)).toBeVisible();
+
+    await page.locator(cancelBtn).click();
+
+    await expect(page.locator(startBtn)).toBeEnabled();
+    await expect(page.locator(cancelBtn)).toBeHidden();
+    await expect(page.locator(progress)).toBeHidden();
+    await expect(page.locator(logLines).last()).toHaveText(/Complete in 1\.2s: 1 synced/);
+    expect(await page.evaluate(() => window.__aborts)).toBe(1);
+  });
+
+  test("PCGS view hides the Numista controls without removing them", async ({ page }) => {
+    await page.evaluate(() => window.openBulkSyncModal("pcgs"));
+    await expect(page.locator("#bulkSyncPcgsPlaceholder")).toBeVisible();
+    await expect(page.locator(overview)).toBeHidden();
+
+    await page.evaluate(() => window.openBulkSyncModal("numista"));
+    await page.evaluate(() => window.openBulkSyncModal("numista"));
+    await expect(page.locator("#bulkSyncPcgsPlaceholder")).toBeHidden();
+    await expect(page.locator(overview)).toBeVisible();
+    await expect(page.locator(startBtn)).toBeVisible();
+    await expect(page.locator("#numistaSyncActions .js-bulk-sync-images")).toHaveCount(1);
+    await expect(page.locator("#numistaSyncLogDetails summary")).toHaveText("Activity log");
+  });
+});

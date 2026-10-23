@@ -8143,8 +8143,41 @@
             role="tabpanel"
             aria-labelledby="bulkTab-overview"
           >
-            <div id="numistaSyncStats"></div>
-            <div id="numistaSyncTableContainer"></div>
+            <div id="numistaSyncOverview">
+              <div id="numistaSyncStats"></div>
+              <div id="numistaSyncTableContainer"></div>
+              <progress
+                id="numistaSyncProgress"
+                class="bulk-sync-progress"
+                value="0"
+                max="0"
+                style="display: none"
+              ></progress>
+              <div class="bulk-sync-actions" id="numistaSyncActions">
+                <button
+                  type="button"
+                  class="btn api-action-btn btn-action-primary"
+                  id="numistaSyncStartBtn"
+                >
+                  Sync Unsynced
+                </button>
+                <button
+                  type="button"
+                  class="btn api-action-btn"
+                  id="numistaSyncCancelBtn"
+                  style="display: none"
+                >
+                  Cancel sync
+                </button>
+              </div>
+              <details class="bulk-sync-log-details" id="numistaSyncLogDetails">
+                <summary>Activity log</summary>
+                <div class="bulk-sync-log" id="numistaSyncLog" aria-live="polite"></div>
+              </details>
+            </div>
+            <p class="settings-subtext" id="bulkSyncPcgsPlaceholder" style="display: none">
+              PCGS bulk sync is not available yet.
+            </p>
           </div>
           <div
             class="bulk-panel"

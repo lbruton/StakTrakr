@@ -314,10 +314,8 @@ const bindFilterAndNumistaListeners = () => {
 };
 
 /**
- * Binds listeners for bulk sync modal control buttons (start / cancel / clear).
- * Renamed from bindNumistaBulkSyncListeners as part of STAK-443 — the button
- * IDs now live inside the #bulkSyncModal body but the binding logic is
- * unchanged.
+ * Binds the Start and Cancel buttons in the Overview panel of #bulkSyncModal.
+ * The buttons are static markup, so this runs once at startup.
  */
 const bindBulkSyncModalListeners = () => {
   const nsStartBtn = getExistingElement("numistaSyncStartBtn");
@@ -332,13 +330,6 @@ const bindBulkSyncModalListeners = () => {
     nsCancelBtn.addEventListener("click", () => {
       if (window.BulkImageCache) BulkImageCache.abort();
       nsCancelBtn.style.display = "none";
-    });
-  }
-
-  const nsClearBtn = getExistingElement("numistaSyncClearBtn");
-  if (nsClearBtn) {
-    nsClearBtn.addEventListener("click", () => {
-      if (typeof clearAllCachedData === "function") clearAllCachedData();
     });
   }
 };

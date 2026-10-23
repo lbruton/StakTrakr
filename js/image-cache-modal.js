@@ -240,12 +240,13 @@ const updateStatusCell = (catalogId, text, status) => {
 };
 
 // ---------------------------------------------------------------------------
-// Bulk sync from inline UI
+// Bulk sync from the Bulk Sync modal
 // ---------------------------------------------------------------------------
 
 /**
- * Starts the bulk sync operation from the inline Numista card.
- * Updates per-row status cells in real time as items are processed.
+ * Starts the bulk sync from the Overview panel of #bulkSyncModal.
+ * Drives the progress bar, Cancel button and activity log, and updates
+ * per-row status cells as items are processed.
  */
 const startBulkSync = async () => {
   if (!window.BulkImageCache || BulkImageCache.isRunning()) return;
@@ -271,8 +272,10 @@ const startBulkSync = async () => {
   const startBtn = document.getElementById("numistaSyncStartBtn");
   const cancelBtn = document.getElementById("numistaSyncCancelBtn");
   const progressBar = document.getElementById("numistaSyncProgress");
+  const logDetails = document.getElementById("numistaSyncLogDetails");
 
   if (startBtn) startBtn.disabled = true;
+  if (logDetails) logDetails.open = true;
   if (cancelBtn) cancelBtn.style.display = "";
   if (progressBar) {
     progressBar.style.display = "";
@@ -337,36 +340,6 @@ const startBulkSync = async () => {
       if (typeof renderActiveFilters === "function") renderActiveFilters();
     },
   });
-};
-
-/**
- * Clears all cached images and metadata after confirmation.
- */
-const clearAllCachedData = async () => {
-  if (!window.imageCache?.isAvailable()) return;
-
-  const usage = await imageCache.getStorageUsage();
-  if (usage.count === 0) {
-    logSyncActivity("No cached data to clear", "info");
-    return;
-  }
-
-  const confirmed = await appConfirm(
-    `Delete all ${usage.count} cached entries (images + metadata)? This cannot be undone.`,
-    "Image Cache"
-  );
-  if (!confirmed) return;
-
-  const ok = await imageCache.clearAll();
-  if (ok) {
-    logSyncActivity(`Cleared all ${usage.count} cached entries`, "warn");
-  } else {
-    logSyncActivity("Failed to clear cache", "error");
-  }
-
-  await renderEligibleItemsTable();
-  await renderSyncStats();
-  if (typeof updateSettingsFooter === "function") updateSettingsFooter();
 };
 
 // ---------------------------------------------------------------------------
@@ -562,6 +535,5 @@ const _fetchImageUrlsForCatId = async (catId, urlByCatId, totals) => {
 if (typeof window !== "undefined") {
   window.renderNumistaSyncUI = renderNumistaSyncUI;
   window.startBulkSync = startBulkSync;
-  window.clearAllCachedData = clearAllCachedData;
   window.syncNumistaImageUrls = syncNumistaImageUrls;
 }

@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.62 &ndash; STRK-458: Bulk sync progress and cancel</strong>: The Numista Bulk Sync window shows a progress bar and an activity log while a sync runs, and a Cancel sync button stops it. Opening the PCGS view no longer empties the Numista view (STRK-458).</li>
     <li><strong>v3.36.61 &ndash; STRK-450: Readable sync status colors</strong>: The Numista sync status words (Synced, Needs sync and Failed) and the activity log use green, amber and red tuned for each theme, readable in light, dark, slate and sepia. The tint on a price field after a spot lookup follows the theme too. Failed rows read red, so they stand apart from rows that still need a sync (STRK-450).</li>
     <li><strong>v3.36.60 &ndash; STRK-456: Clearer messages</strong>: Error and status messages read as short statements. Each one says what happened and, where it applies, what to do next, for example &ldquo;Spot sync failed. Check the API settings.&rdquo; (STRK-456).</li>
     <li><strong>v3.36.59 &ndash; STRK-451: Theme-aware retail vendor colors</strong>: Vendor colors now adjust for light, dark, slate and sepia, keeping vendor labels readable while preserving distinct identities. Market and retail charts also switch to the matching colors when you change themes, and unknown vendors use muted text (STRK-451).</li>
-    <li><strong>v3.36.58 &ndash; STRK-444: Collection title image links</strong>: Custom Collections now accept a web image link on either title frame through the image options button. Swap links and uploaded images, remove either side, and carry the links through backups, exports and cloud sync (STRK-444).</li>
-    <li><strong>v3.36.57 &ndash; STRK-446: Readable filter chips in every theme</strong>: Filter chip text now switches between black and white to whichever reads best on the chip colour, so the chip bar is readable in light, dark, slate and sepia. Before, every chip used black text, which almost disappeared on the darker chips in the light and sepia themes. Chips also recolour straight away when you change theme (STRK-446).</li>      `;
+    <li><strong>v3.36.58 &ndash; STRK-444: Collection title image links</strong>: Custom Collections now accept a web image link on either title frame through the image options button. Swap links and uploaded images, remove either side, and carry the links through backups, exports and cloud sync (STRK-444).</li>      `;
 };
 
 // Expose globally for access from other modules

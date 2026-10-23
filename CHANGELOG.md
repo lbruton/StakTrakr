@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.62] - 2026-10-22
+
+### Changed — STRK-458: Bulk sync progress, cancel and activity log
+
+- **Sync controls**: The Numista Bulk Sync modal has static Sync Unsynced and Cancel sync buttons, a progress bar and an Activity log; the STAK-443 modal rebuild dropped this markup, so a running sync showed no progress and could not be cancelled (STRK-458).
+- **PCGS view**: Opening the PCGS bulk sync hides the Numista controls instead of deleting the Overview panel, which left the Numista view empty until reload (STRK-458).
+- **Dead code**: Removed the `numistaSyncClearBtn` binding and `clearAllCachedData`, which had no button since v3.32.0 (STRK-458).
+
+---
+
 ## [3.36.61] - 2026-10-22
 
 ### Changed — STRK-450: Theme-aware sync status colors

@@ -13673,6 +13673,38 @@ th {
   display: block;
 }
 
+/* Numista bulk sync controls: progress, actions and activity log */
+.bulk-sync-progress {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  accent-color: var(--primary);
+}
+.bulk-sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.bulk-sync-log-details {
+  margin-top: 12px;
+}
+.bulk-sync-log-details > summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.bulk-sync-log {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 /* Overview stats */
 .bulk-stat-row {
   display: grid;
