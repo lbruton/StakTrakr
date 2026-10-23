@@ -1512,6 +1512,8 @@ let sharedPage;
 
 test.describe("crud-journey", () => {
   test("the CRUD journey on one page, one step per stage", async ({ browser }) => {
+    // One per-test timeout for each of the 22 stages.
+    test.setTimeout(test.info().timeout * 22);
     sharedPage = await browser.newPage();
     await prepareAppPage(sharedPage);
     await installStakTrakrNetworkMocks(sharedPage);

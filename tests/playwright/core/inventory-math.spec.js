@@ -912,6 +912,7 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
   test("constitutional valuation helpers, one step per case", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
+    test.setTimeout(test.info().timeout * VALUATION_CASES.length);
     for (const { name, run } of VALUATION_CASES) {
       await test.step(name, async () => {
         await page.evaluate(() => localStorage.removeItem("constitutionalValuationBasis"));
@@ -2943,6 +2944,7 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
   ];
 
   test("goldback weight sort and filter keys, one step per case", async ({ page }) => {
+    test.setTimeout(test.info().timeout * GOLDBACK_WEIGHT_CASES.length);
     for (const { name, run } of GOLDBACK_WEIGHT_CASES) {
       await test.step(name, async () => {
         await freshPage(page);
@@ -3120,6 +3122,7 @@ test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW
   ];
 
   test("gb/sb denomination text, tooltips and sort keys, one step per case", async ({ page }) => {
+    test.setTimeout(test.info().timeout * DENOMINATION_CASES.length);
     for (const { name, run } of DENOMINATION_CASES) {
       await test.step(name, async () => {
         await freshPage(page);
@@ -3499,6 +3502,7 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
   ];
 
   test("weight-unit rendering and conversion, one step per case", async ({ page }) => {
+    test.setTimeout(test.info().timeout * WEIGHT_UNIT_CASES.length);
     for (const { name, run } of WEIGHT_UNIT_CASES) {
       await test.step(name, async () => {
         await freshPage(page);
@@ -3629,6 +3633,7 @@ test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () =
   test("copper and avdp helpers, one step per case", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
+    test.setTimeout(test.info().timeout * COPPER_HELPER_CASES.length);
     for (const { name, run } of COPPER_HELPER_CASES) {
       await test.step(name, () => run(page));
     }
