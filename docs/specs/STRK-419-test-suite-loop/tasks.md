@@ -112,12 +112,13 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Depends on:** B.2
   - **Maps to:** AC-4
 
-- [ ] **C.4** — `Tests` workflow
+- [x] **C.4** — `Tests` workflow
   - **File(s):** `.github/workflows/tests.yml` (new), `playwright.config.js`
   - **Acceptance:** On PRs to `dev` and pushes to `dev`: job `unit` (with coverage), job `core` (matrix of four shards, `COVERAGE=1`, blob reporter on CI, raw coverage and blob artifacts), job `report` named `Tests` (needs both; merges blobs and coverage, lists flaky tests in the summary, uploads lcov with `codacy/codacy-coverage-reporter-action` only when `CODACY_PROJECT_TOKEN` is set, writes a skip notice otherwise, and publishes `test-map.json` as an artifact). Actions are pinned to full versions. Validated per B.3.
   - **Amended 2026-10-23 (D-18):** a `select` job builds the plan with `test-changed.mjs --plan-only --json` from the latest `dev` map. On PRs the unit job runs the selected unit files and the core matrix runs the selected locations, with the shard count set from the selection size; an empty selection skips both. Coverage, the map artifact and the Codacy upload run on `dev` pushes only. `Tests` fails when a selected suite fails.
   - **Depends on:** C.2, C.3, C.6
   - **Maps to:** AC-5, AC-6, AC-7, AC-8, AC-10, AC-11
+  - **As built (2026-10-23):** the first two `dev` push runs (39926539842 for `4c60a464`, 39927249803 for `c22499e3`) passed. Each ran the full suite in four shards, published the `test-map` artifact (about 23.7 MB) and uploaded lcov to Codacy (`Final notification received successfully`). Codacy reports `dev` coverage of 72.96 % (28,739 of 39,391 lines, 952 files). The second run took 9 min 10 s; the first took 20 min because `Install Chromium` took 13 min on one shard. Core shards are uneven (3 to 7 min of test time). Pushes to `dev` queue behind each other in one concurrency group.
 
 - [ ] **C.5** — User gate steps and Part 1 PR
   - **File(s):** _no file changes — PR body and external settings_
