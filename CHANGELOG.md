@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.65] - 2026-10-23
+
+### Changed — STRK-466: Buttons respond sooner after the app loads
+
+- **Startup**: The app wires its buttons and inputs right after the first render instead of waiting a fixed 200 ms first. The delay dated from the first release and had no recorded reason (STRK-466).
+
+---
+
 ## [3.36.64] - 2026-10-23
 
 ### Changed — STRK-464: Toasts no longer block clicks

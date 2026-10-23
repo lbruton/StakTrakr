@@ -851,7 +851,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Phase 14: Event Listeners Setup (Delayed)
     debugLog("Phase 14: Setting up event listeners...");
 
-    // Use a small delay to ensure all DOM manipulation is complete
+    // Listener setup runs in its own task after the synchronous Phase 13 render.
     setTimeout(() => {
       try {
         setupEventListeners();
@@ -921,8 +921,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       setupSearch();
 
       // STRK-294: readiness signal for anything that needs to interact with a
-      // header control. Every listener above is attached inside this 200ms
-      // timer, so page-load signals (an element being visible, a global being
+      // header control. Every listener above is attached inside this deferred
+      // task, so page-load signals (an element being visible, a global being
       // defined) all go true well BEFORE the header is actually clickable —
       // clicking #settingsBtn earlier silently does nothing, which reads as a
       // broken button rather than a race.
@@ -940,7 +940,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // window listener — the inconsistency would have been silent.
       window.appListenersReady = true;
       window.dispatchEvent(new CustomEvent("app:listeners-ready"));
-    }, 200); // Increased delay for better compatibility
+    }, 0);
 
     // Phase 15: Completion
     debugLog("=== INITIALIZATION COMPLETE ===");
@@ -963,9 +963,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Supports privacy.html redirect shim and any direct #privacy / #faq links.
     //
     // STRK-294: keyed off the listener-readiness signal instead of its own
-    // setTimeout(..., 250). That timer was a SECOND guess at the same Phase 14
-    // 200ms timer, with only 50ms of headroom — thinner than the 100ms the test
-    // helpers used, and wrong in the same way. Waiting on the signal makes
+    // setTimeout(..., 250). That timer was a second guess at the Phase 14 timer,
+    // and wrong in the same way as the test helpers' fixed waits. Waiting on the signal makes
     // "runs after event listeners are wired" a guarantee rather than an
     // assumption.
     /**

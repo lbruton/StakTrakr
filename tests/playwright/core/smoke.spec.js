@@ -156,7 +156,7 @@ test.describe("core/smoke — app shell boot", () => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
 
     // Deliberately NOT a fixed wait — the point of the flag is that callers no
-    // longer have to guess how long init.js Phase 14's 200ms timer needs.
+    // longer have to guess how long init.js Phase 14's deferred listener setup needs.
     await page.waitForFunction(() => window.appListenersReady === true);
 
     // The flag is only meaningful if it actually implies interactivity, so
@@ -176,8 +176,8 @@ test.describe("core/smoke — app shell boot", () => {
   // market-data and retail) would simply have sat silent forever. This pins the
   // dispatch target so that cannot regress.
   //
-  // The listener is installed via addInitScript because the event fires ~200ms
-  // into boot; attaching after page.goto() would miss it and the test would
+  // The listener is installed via addInitScript because the event fires during
+  // boot; attaching after page.goto() would miss it and the test would
   // fail for the wrong reason.
   test("app:listeners-ready reaches a window listener", async ({ page }) => {
     await page.addInitScript(() => {
