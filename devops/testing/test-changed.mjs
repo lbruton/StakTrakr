@@ -34,7 +34,7 @@ const TEST_FREE_PATHS = [
   /^devops\//,
   /^tests\/unit\//,
   /^tests\/runbook\//,
-  /^tests\/playwright\/(archive|evidence)\//,
+  /^tests\/playwright\/evidence\//,
   /^tests\/playwright\/[^/]+\.(md|csv)$/,
   /^\.(gitignore|gitattributes|prettierrc|prettierignore|markdownlint\.json|markdownlintignore|vale\.ini|coderabbit\.yaml|codacy\.yml|pre-commit-config\.yaml|dockerignore|geminiignore|npmrc|eslintrc\.json|nojekyll)$/,
   /^eslint\.config\.cjs$/,

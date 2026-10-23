@@ -182,7 +182,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort B — Tests · RED
 
-- [ ] **B.6** — Test justification: deletions and policy text
+- [x] **B.6** — Test justification: deletions and policy text
   - **File(s):** _no file changes — review anchor only_
   - **Acceptance:** Documented below.
   - **Justification:** These tasks delete files and edit docs and templates; no runtime behavior changes.
@@ -191,23 +191,26 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
-- [ ] **C.9** — Delete the archive and the hand-kept map
+- [x] **C.9** — Delete the archive and the hand-kept map
   - **File(s):** `tests/playwright/archive/` (delete), `tests/playwright/coverage-map.csv` (delete), `tests/playwright/consolidation-audit.md` (delete), `package.json`, `.codacy/codacy.config.json`
   - **Acceptance:** The three paths are gone; `test:legacy` and `test:offline` are removed from `package.json` (approach D-15); the Codacy mirror is regenerated with `codacy-analysis init --remote` and lists no archive file. Core and unit counts are unchanged.
   - **Depends on:** B.6
   - **Maps to:** AC-27, AC-28, AC-29, AC-34
+  - **As built:** `devops/testing/test-changed.mjs` drops `archive` from its test-free paths. The Codacy mirror is not regenerated: its `exclude` list copies the dashboard's ignored-files list, which still names the 58 archive specs and `consolidation-audit.md`, next to other paths that no longer exist. `init --remote` would write them back, and `.context/review-and-ci.md` forbids running it in a worktree. A stale exclude matches nothing; removing the entries from the Codacy dashboard is a user step.
 
-- [ ] **C.10** — Policy and docs
+- [x] **C.10** — Policy and docs
   - **File(s):** `.context/testing.md`, `.context/review-and-ci.md`, `.context/coding-standards.md`, `.context/deep-dives/playwright-suite-rationalization.md`, `AGENTS.md`, `CLAUDE.md`, `.github/skills/code-review/SKILL.md`, `tests/playwright/core/retail-market.spec.js`
   - **Acceptance:** `testing.md` states "extend an existing test before adding one", the `test:changed` and `test:map` workflow, and the `Tests` check plus the Codacy coverage gate; the coverage-map and archive rules are gone from every listed file; `CLAUDE.md` and `review-and-ci.md` name the `dev` required checks as the ruleset holds them; the `retail-market.spec.js` comment no longer points at the coverage map. B.6 manual validation passes.
   - **Depends on:** C.9
   - **Maps to:** AC-28, AC-33, AC-34
+  - **As built:** AC-9 is retired, so `testing.md` states that no PR coverage gate exists and that Codacy tracks `dev` coverage from the push runs. The `dev` required checks (`Codacy Static Code Analysis`, `Tests`) were read from the live `Protect Dev` ruleset and corrected in `CLAUDE.md`, `AGENTS.md` and `review-and-ci.md`. `coding-standards.md` loses the archive tier and the two-step archive; deletion uses `test:redundancy` and git history. The historical deep dive keeps its proposal text under a banner.
 
-- [ ] **C.11** — Template change in the master and the deployed copies
+- [x] **C.11** — Template change in the master and the deployed copies
   - **File(s):** `Devops/skill-library/skills/spec/references/templates/tasks-template.md` (Devops repo, commit to `main`), `.claude/skills/spec/references/templates/tasks-template.md`, `.agents/skills/spec/references/templates/tasks-template.md`
   - **Acceptance:** The master B.1 acceptance tells the RED task to search for an existing test of the same behavior and extend it before adding one (AC-30); a new Standard Closing Task after the full test run folds each new test into its domain suite, or justifies it by unique coverage or a new assertion, and records the net test-count delta (AC-31); `skills-deploy` refreshes both StakTrakr copies, byte-identical to the master (AC-32).
   - **Depends on:** C.10
   - **Maps to:** AC-30, AC-31, AC-32
+  - **As built:** Devops `213313e`. B.1 gains an "Extend before add" line. The new closing task is CLOSE-2 (Fold new tests), so the later closing tasks shift by one and the spec skill's stamp reference reads CLOSE-4. `skills-deploy --apply` updated both copies, which match the master apart from the library stamp; every other deployed file changed only its stamp. This spec keeps the closing numbers it was approved with.
 
 ---
 

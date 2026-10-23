@@ -7,7 +7,7 @@ allowed-tools: >-
   mcp__plane__workitem,
   mcp__plane__state,
   mcp__plane__project
-library-version: 9c412b151ba8
+library-version: 213313e0d2e1
 ---
 
 # Spec — Phased Spec Workflow (driver)
@@ -177,7 +177,7 @@ The driver and phase skills run from any harness that reads SKILL.md. The markdo
 - **Don't** run tasks inline during `workflow` or `dispatch` — the conductor dispatches/prints and tracks; only Cohort 0 setup and closing-task skill invocations are done by the conductor itself.
 - **Don't** omit the worktree path from a `workflow`/`dispatch` prompt — inherited `cwd` is the #1 split-diff cause.
 - **Don't** put tests after implementation, or modify a failing test to make it pass — tests are the spec (TDD: Cohort B before C).
-- **Don't** let green tests substitute for visual QA on UI-heavy specs — if `approach.md` has a `## UI Contract`, CLOSE-3 needs visual verification per UI-linked AC (STRK-123).
+- **Don't** let green tests substitute for visual QA on UI-heavy specs — if `approach.md` has a `## UI Contract`, CLOSE-4 (verification stamp) needs visual verification per UI-linked AC (STRK-123).
 - **Don't** run schema migrations, public API, or security-sensitive specs without a `/spec-review` from at least one other model on every phase.
 
 ## Decision matrix recap
