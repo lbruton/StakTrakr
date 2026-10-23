@@ -54,9 +54,14 @@
   --info-hover: oklch(0.588 0.139 242);
   --warning: oklch(0.666 0.157 58.3);
   --warning-hover: oklch(0.555 0.146 49);
-  --warning-text: oklch(0.55 0.15 60);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
+
+  /* Status text: each theme sets all three, at 4.5:1 or more on --bg-secondary.
+     Use these for status words; the base tokens above are for fills and icons. */
+  --success-text: oklch(0.48 0.11 163);
+  --warning-text: oklch(0.49 0.13 55);
+  --danger-text: oklch(0.5 0.19 27);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--warning);
@@ -242,6 +247,9 @@
   --warning-hover: oklch(0.63 0.16 80);
   --danger: oklch(0.58 0.22 25);
   --danger-hover: oklch(0.5 0.22 25);
+  --success-text: oklch(0.72 0.16 155);
+  --warning-text: oklch(0.78 0.15 80);
+  --danger-text: oklch(0.72 0.17 25);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -389,6 +397,9 @@
   --warning-hover: #d97706;
   --danger: #ef4444;
   --danger-hover: #dc2626;
+  --success-text: #34d399;
+  --warning-text: #fbbf24;
+  --danger-text: #f87171;
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -526,9 +537,11 @@
   --info-hover: oklch(0.455 0.072 212.2);
   --warning: oklch(0.666 0.157 58.3);
   --warning-hover: oklch(0.555 0.146 49);
-  --warning-text: oklch(0.55 0.15 60);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
+  --success-text: oklch(0.47 0.1 130);
+  --warning-text: oklch(0.48 0.12 55);
+  --danger-text: oklch(0.48 0.18 27);
 
   /* Metal-specific Colors - Sepia tone (darkened for WCAG AA text contrast on warm bg) */
   --silver: oklch(0.531 0.01 67.6);
@@ -4509,6 +4522,33 @@ input[type="submit"] {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   padding: 0.1rem 0;
+}
+.cache-status {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+/* Two classes outrank .chip-grouping-table td, which sets the cell colour. */
+.cache-status.cache-status--synced,
+.cache-log-line--success {
+  color: var(--success-text);
+}
+.cache-status.cache-status--pending,
+.cache-log-line--warn {
+  color: var(--warning-text);
+}
+.cache-status.cache-status--failed,
+.cache-log-line--error {
+  color: var(--danger-text);
+}
+.cache-status.cache-status--muted {
+  color: var(--text-secondary);
+}
+
+/* Spot lookup: brief tint on the input a lookup just filled (flashSpotLookupTarget).
+   The ID selector outranks #inventoryForm input, which sets the field background. */
+#inventoryForm input.spot-lookup-flash,
+input.spot-lookup-flash {
+  background-color: color-mix(in oklch, var(--warning) 35%, transparent);
 }
 
 /* Inline chip config — up/down reorder buttons */
@@ -12049,7 +12089,7 @@ th {
 
 .numista-field-edited {
   font-size: var(--font-size-sm);
-  color: var(--warning-color, orange);
+  color: var(--warning-text);
   font-style: italic;
   grid-column: 3;
 }

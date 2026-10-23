@@ -105,15 +105,12 @@ const renderEligibleItemsTable = async () => {
 
     // Status cell (updated live during bulk sync)
     const tdStatus = document.createElement("td");
-    tdStatus.style.cssText = "font-size:0.8rem;white-space:nowrap";
-    if (hasMeta) {
-      tdStatus.textContent = "\u2713 Synced";
-      tdStatus.style.color = "var(--success-color, green)";
-    } else {
-      tdStatus.textContent = "Needs sync";
-      tdStatus.style.color = "var(--warning-color, orange)";
-    }
     _statusCells.set(catalogId, tdStatus);
+    if (hasMeta) {
+      updateStatusCell(catalogId, "\u2713 Synced", "synced");
+    } else {
+      updateStatusCell(catalogId, "Needs sync", "pending");
+    }
 
     // Actions cell
     const tdActions = document.createElement("td");
@@ -214,14 +211,9 @@ const logSyncActivity = (message, type = "info") => {
 
   const line = document.createElement("div");
   line.classList.add("cache-log-line");
-
-  const colorMap = {
-    info: "inherit",
-    success: "var(--success-color, green)",
-    warn: "var(--warning-color, orange)",
-    error: "var(--danger-color, red)",
-  };
-  line.style.color = colorMap[type] || "inherit";
+  if (["success", "warn", "error"].includes(type)) {
+    line.classList.add(`cache-log-line--${type}`);
+  }
 
   const now = new Date();
   const ts =
@@ -235,15 +227,16 @@ const logSyncActivity = (message, type = "info") => {
 
 /**
  * Updates a status cell in the eligible items table for live feedback.
+ * The status picks a `.cache-status--*` class, which reads a per-theme text token.
  * @param {string} catalogId
  * @param {string} text
- * @param {string} color - CSS color value
+ * @param {'synced'|'pending'|'failed'|'muted'} status
  */
-const updateStatusCell = (catalogId, text, color) => {
+const updateStatusCell = (catalogId, text, status) => {
   const cell = _statusCells.get(catalogId);
   if (!cell) return;
   cell.textContent = text;
-  cell.style.color = color;
+  cell.className = `cache-status cache-status--${status}`;
 };
 
 // ---------------------------------------------------------------------------
@@ -289,12 +282,12 @@ const startBulkSync = async () => {
 
   logSyncActivity("Starting metadata sync...", "info");
 
-  const statusColorMap = {
-    "skip-cached": ["var(--success-color, green)", "\u2713 Synced"],
-    "api-lookup": ["var(--text-secondary, #888)", "Syncing..."],
-    metadata: ["var(--success-color, green)", "\u2713 Synced"],
-    "meta-failed": ["var(--warning-color, orange)", "\u26a0 Failed"],
-    info: ["var(--text-secondary, #888)", "\u24d8 Info"],
+  const statusMap = {
+    "skip-cached": ["synced", "\u2713 Synced"],
+    "api-lookup": ["muted", "Syncing..."],
+    metadata: ["synced", "\u2713 Synced"],
+    "meta-failed": ["failed", "\u26a0 Failed"],
+    info: ["muted", "\u24d8 Info"],
   };
 
   BulkImageCache.cacheAll({
@@ -307,8 +300,8 @@ const startBulkSync = async () => {
     },
     onLog: ({ catalogId, status, message }) => {
       // Update the table row status cell
-      const [color, label] = statusColorMap[status] || ["inherit", status];
-      updateStatusCell(catalogId, label, color);
+      const [cellStatus, label] = statusMap[status] || ["muted", status];
+      updateStatusCell(catalogId, label, cellStatus);
 
       // Log to activity log
       const logTypeMap = {
