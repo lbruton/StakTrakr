@@ -44,6 +44,6 @@ configuration and source code in `devops/pollers/`, not this document.
 
 ## Related
 
-- `.context/infrastructure.md` — deployment topology and configuration propagation
-- `.context/deep-dives/remote-poller.md` — cloud poller responsibilities and safe diagnostics
-- `.context/deep-dives/home-poller.md` — home-poller deployment and troubleshooting
+- `.context/infrastructure.md`: deployment topology and configuration propagation
+- `.context/deep-dives/remote-poller.md`: cloud poller responsibilities and safe diagnostics
+- `.context/deep-dives/home-poller.md`: home-poller deployment and troubleshooting

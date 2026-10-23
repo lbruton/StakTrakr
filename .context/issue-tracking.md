@@ -34,8 +34,8 @@ in DEVS-78), under `Archive/Issues-Pre-Plane/StakTrakr/`. They are not part of t
 - UUIDs are convenience references. Re-fetch via `mcp__plane__state` (`action: "list"`) if a session
   boundary or compaction may have introduced drift.
 - Mark issues Done only after the PR merges.
-- Issue scans: use `mcp__plane__workitem` (`action: "list"`) scoped to this project — no
+- Issue scans: use `mcp__plane__workitem` (`action: "list"`) scoped to this project: no
   cross-project globs unless the user asks.
 - `workitem` `list` includes `parent` on every item (DEVS-77), so epic children can be counted
-  from the list directly — the old per-issue fetch workaround is no longer needed.
+  from the list directly: the old per-issue fetch workaround is not needed.
 - Plane comments (`mcp__plane__workitem_comment`) accept HTML and can be edited (`update`) or deleted (`delete`) since DEVS-77. Never send pre-escaped HTML (`&lt;p&gt;`); it renders as literal tags.

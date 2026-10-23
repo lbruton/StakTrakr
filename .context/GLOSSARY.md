@@ -27,11 +27,11 @@ _Avoid_: label, category
 ## Disposition & Lifecycle
 
 **Acquisition**:
-The event of an Item entering inventory — the dated purchase the detail modal charts as a marker, counts in the substrip, and lists in the Acquisitions ledger. The neutral event noun for user-facing copy (STRK-357); "Acquired <date>" is its tooltip form.
-_Avoid_: buy, purchase (as the event noun — `buyCost`, `purchaseLocation`, and `dmRole: "buys"` are code identifiers, not copy)
+The event of an Item entering inventory: the dated purchase the detail modal charts as a marker, counts in the substrip, and lists in the Acquisitions ledger. The neutral event noun for user-facing copy (STRK-357); "Acquired <date>" is its tooltip form.
+_Avoid_: buy, purchase (as the event noun: `buyCost`, `purchaseLocation`, and `dmRole: "buys"` are code identifiers, not copy)
 
 **Disposition**:
-The record of how an Item left active inventory — sold, traded, lost, or gifted. Tracks realized value and date.
+The record of how an Item left active inventory: sold, traded, lost, or gifted. Tracks realized value and date.
 _Avoid_: disposal, removal, exit
 
 **Trade Link**:
@@ -49,7 +49,7 @@ _Avoid_: audit log, edit history, activity log
 ## Market Data & Pricing
 
 **Spot Price**:
-The current per-troy-ounce market price for a tracked metal (gold, silver, platinum, palladium, copper — STRK-305), sourced from a configured Spot Provider.
+The current per-troy-ounce market price for a tracked metal (gold, silver, platinum, palladium, copper: STRK-305), sourced from a configured Spot Provider.
 _Avoid_: market price, live price, melt value
 
 **Spot Provider**:
@@ -79,21 +79,21 @@ _Avoid_: market view, dealer view, price comparison
 ## Weight Units
 
 **Weight Unit** (`weightUnit`):
-A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg`/`avdp` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text — which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back (STRK-316, STRK-318, STRK-319).
+A **display lens** over the canonical value in `item.weight`, not a statement about how the weight is stored. `oz`/`g`/`kg`/`lb`/`mg`/`avdp` all store **troy ounces** and convert outward for display; `gb`/`sb` store a Denomination; `cu` stores a Face Value. Sort keys and filter keys always use the canonical value, never the displayed text: which is why a cell and its filter chip can disagree unless the chip is explicitly mapped back (STRK-316, STRK-318, STRK-319).
 _Avoid_: weight type, measurement unit
 
 **Milligram** (`mg`):
-Entry and display lens for sub-gram pieces — Aurum foil notes and similar are sold as 25 mg, 50 mg, where a gram figure is all leading zeros. Storage stays troy ounces like every other metric unit, so melt, totals, and sort need no special case (STRK-319).
+Entry and display lens for sub-gram pieces: Aurum foil notes and similar are sold as 25 mg, 50 mg, where a gram figure is all leading zeros. Storage stays troy ounces like every other metric unit, so melt, totals, and sort need no special case (STRK-319).
 _Avoid_: milligrams, mgs
 
 **Adaptive Precision**:
-Rendering a measured weight at its unit's normal decimal places, and adding decimals only when that precision would misrepresent the value. Fixed decimals assume one band of magnitude; this inventory spans a 25 mg note and a 100 ozt bar, so at two decimals 25 mg rendered `0.03 g` or `0.00 oz`. Ordinary weights are unaffected — `1.00 oz` and `31.65 g` are byte-identical (STRK-319).
+Rendering a measured weight at its unit's normal decimal places, and adding decimals only when that precision would misrepresent the value. Fixed decimals assume one band of magnitude; this inventory spans a 25 mg note and a 100 ozt bar, so at two decimals 25 mg rendered `0.03 g` or `0.00 oz`. Ordinary weights are unaffected: `1.00 oz` and `31.65 g` are byte-identical (STRK-319).
 _Avoid_: rounding, significant figures
 
 ## Goldback
 
 **Goldback**:
-A voluntary local currency note containing a measured amount of gold in a polymer bill. Priced by denomination (¼, ½, 1, 2, 5, 10, 25, 50, 100 — see `GOLDBACK_DENOMINATIONS`) rather than by troy ounce. One Goldback is 0.001 troy oz of gold, so `item.weight` stores the **denomination**, not a weight; consumers that need a weight convert via `getUnitOztWeight`.
+A voluntary local currency note containing a measured amount of gold in a polymer bill. Priced by denomination (¼, ½, 1, 2, 5, 10, 25, 50, 100: see `GOLDBACK_DENOMINATIONS`) rather than by troy ounce. One Goldback is 0.001 troy oz of gold, so `item.weight` stores the **denomination**, not a weight; consumers that need a weight convert via `getUnitOztWeight`.
 _Avoid_: gold note, gold bill
 
 **Goldback Estimate**:
@@ -101,25 +101,25 @@ A calculated fair-market value for a Goldback denomination derived from the gold
 _Avoid_: estimated price, calculated price
 
 **AGW** (Actual Gold Weight):
-The pure gold content of a piece in troy ounces — the gold counterpart to [ASW](#constitutional-silver). A ¼ Goldback carries 0.00025 ozt AGW, a 1 Goldback 0.001 ozt. Because Goldbacks are bought and quoted by denomination, the Weight cell shows the denomination (`¼ gb`) and the AGW is surfaced in that cell's tooltip; the Weight column still sorts on AGW so notes rank correctly against bullion (STRK-318).
+The pure gold content of a piece in troy ounces: the gold counterpart to [ASW](#constitutional-silver). A ¼ Goldback carries 0.00025 ozt AGW, a 1 Goldback 0.001 ozt. Because Goldbacks are bought and quoted by denomination, the Weight cell shows the denomination (`¼ gb`) and the AGW is surfaced in that cell's tooltip; the Weight column still sorts on AGW so notes rank correctly against bullion (STRK-318).
 _Avoid_: gold content, actual weight, derived oz
 
 **Denomination**:
-The face-unit of a Goldback or Silverback note — the value stored in `item.weight` for the `gb`/`sb` units. An exact enum value from `GOLDBACK_DENOMINATIONS` / `SILVERBACK_DENOMINATIONS`, never a measurement, so it must be rendered exactly and never rounded (rounding once turned a ¼ Goldback into `0.3 gb`). Sub-1 denominations display as fraction glyphs: `¼ gb`, `½ gb`.
+The face-unit of a Goldback or Silverback note: the value stored in `item.weight` for the `gb`/`sb` units. An exact enum value from `GOLDBACK_DENOMINATIONS` / `SILVERBACK_DENOMINATIONS`, never a measurement, so it must be rendered exactly and never rounded (rounding once turned a ¼ Goldback into `0.3 gb`). Sub-1 denominations display as fraction glyphs: `¼ gb`, `½ gb`.
 _Avoid_: note value, face value (that term is Constitutional Silver's), weight
 
 ## Constitutional Silver
 
 **Constitutional Silver**:
-US circulating coinage valued for its silver content rather than as bullion — 90% issues struck through 1964, 35% war nickels (1942–1945), and 40% Kennedy halves (1965–1970). "Pre-1965" describes only the 90% issues. Uses the `cu` weight unit; `item.weight` stores a **face value** in dollars, not a weight.
-_Avoid_ as the canonical noun: 90% silver, coin silver. ("Junk silver" is the common trade term and is fine as a one-time gloss in user-facing copy and code comments — it is what users search for — but Constitutional Silver is the canonical term for requirements, ACs, and issue text.)
+US circulating coinage valued for its silver content rather than as bullion: 90% issues struck through 1964, 35% war nickels (1942–1945), and 40% Kennedy halves (1965–1970). "Pre-1965" describes only the 90% issues. Uses the `cu` weight unit; `item.weight` stores a **face value** in dollars, not a weight.
+_Avoid_ as the canonical noun: 90% silver, coin silver. ("Junk silver" is the common trade term and is fine as a one-time gloss in user-facing copy and code comments (it is what users search for) but Constitutional Silver is the canonical term for requirements, ACs, and issue text.)
 
 **ASW** (Actual Silver Weight):
-The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term — junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
+The pure silver content of a coin or lot in troy ounces, derived from its denomination and the worn/fresh basis. The standard numismatic term: junk-silver dealers quote and price bags in ASW, which is why it is the user-facing label on every surface showing this figure (STRK-299). Constitutional is silver-only in StakTrakr, so there is no gold counterpart (AGW) to disambiguate against.
 _Avoid_: silver content, pure silver weight, derived oz
 
 **Face Value** (suffix `fv`):
-The legal-tender denomination of a Constitutional lot in US dollars — the figure junk silver is quoted and bought in. Stored in `item.weight`: face mode holds the entered **total** (qty is 1 by contract), denomination mode holds face-per-coin (total = weight × coin count). Rendered `$6.00 fv` in the Weight cell and card chips; the `fv` suffix is what stops it reading as another money column beside Purchase, Melt, and Retail. Never currency-converted — it stays in USD even when the display currency is EUR (STRK-300).
+The legal-tender denomination of a Constitutional lot in US dollars: the figure junk silver is quoted and bought in. Stored in `item.weight`: face mode holds the entered **total** (qty is 1 by contract), denomination mode holds face-per-coin (total = weight × coin count). Rendered `$6.00 fv` in the Weight cell and card chips; the `fv` suffix is what stops it reading as another money column beside Purchase, Melt, and Retail. Never currency-converted: it stays in USD even when the display currency is EUR (STRK-300).
 _Avoid_: face, $face, denomination value, legal tender value
 
 **Valuation Basis**:
@@ -133,25 +133,25 @@ An external numismatic database (Numista or PCGS) used to enrich Items with mint
 _Avoid_: data provider, lookup service, enrichment API
 
 **Numista Data**:
-The nested object on an Item (`item.numistaData`) containing fields pulled from the Numista catalog — year range, composition, shape, images, and catalog ID.
+The nested object on an Item (`item.numistaData`) containing fields pulled from the Numista catalog: year range, composition, shape, images, and catalog ID.
 _Avoid_: catalog data, coin data, enrichment data
 
 **Numista ID**:
-A Numista catalog **type** identifier (`item.numistaId`) — e.g. the N# for "American Silver Eagle". Identifies a coin design, NOT a physical copy: a user may own several distinct Item Instances under one Numista ID.
+A Numista catalog **type** identifier (`item.numistaId`): e.g. the N# for "American Silver Eagle". Identifies a coin design, NOT a physical copy: a user may own several distinct Item Instances under one Numista ID.
 _Avoid_: coin id, catalog number (as an instance identifier)
 
 **Item Instance**:
-A single physical copy of a catalog type. Two Items are distinct instances when their Numista ID, issue year, grade, or certNumber differ (e.g. a 2023 vs 2024 coin, or a raw vs a PCGS-graded one). Identical ungraded copies of the same N#+year share an instance key; at **import time** the Numista importer collapses such repeated export rows into one Item with summed quantity (`DiffEngine.collapseByInstanceKey`). This is an import pre-processing step — existing inventory Items each keep their own UUID and are never silently merged.
+A single physical copy of a catalog type. Two Items are distinct instances when their Numista ID, issue year, grade, or certNumber differ (e.g. a 2023 vs 2024 coin, or a raw vs a PCGS-graded one). Identical ungraded copies of the same N#+year share an instance key; at **import time** the Numista importer collapses such repeated export rows into one Item with summed quantity (`DiffEngine.collapseByInstanceKey`). This is an import pre-processing step: existing inventory Items each keep their own UUID and are never silently merged.
 _Avoid_: copy, unit, duplicate
 
 **Item Identity Key**:
-The stable string `computeItemKey()` derives to match Items across import, cloud sync, and changelog; it returns the **highest available tier**: `uuid` → `serial` → `numistaId|year|grade|certNumber` (the instance tier — year is `item.year`; grade/cert trimmed + lowercased, empty→`""`) → `name|date`. `computeItemKey` is authoritative in `diff-engine.js`; `changeLog.js` and `diff-modal.js` delegate to it. `enrichItemIdentities` does **not** re-run the full ladder — it backfills the stable `uuid` onto incoming rows (matching serial → instance-key FIFO bucket → name|date) and shares only the `_instanceKey` normalization. That UUID backfill is what keeps an Item's identity stable after it later gains a `numistaId`.
+The stable string `computeItemKey()` derives to match Items across import, cloud sync, and changelog; it returns the **highest available tier**: `uuid` → `serial` → `numistaId|year|grade|certNumber` (the instance tier: year is `item.year`; grade/cert trimmed + lowercased, empty→`""`) → `name|date`. `computeItemKey` is authoritative in `diff-engine.js`; `changeLog.js` and `diff-modal.js` delegate to it. `enrichItemIdentities` does **not** re-run the full ladder: it backfills the stable `uuid` onto incoming rows (matching serial → instance-key FIFO bucket → name|date) and shares only the `_instanceKey` normalization. That UUID backfill is what keeps an Item's identity stable after it later gains a `numistaId`.
 _Avoid_: item key, dedup key, hash
 
 ## Collections
 
 **Collection**:
-A named checklist over the inventory — a digital coin album (STRK-254). Holds Slots and the links from each Slot to the Items that fill it. Links are stored on the Collection in the `collectionState` store, never on the Item. Either backed by a Series Template or Custom.
+A named checklist over the inventory: a digital coin album (STRK-254). Holds Slots and the links from each Slot to the Items that fill it. Links are stored on the Collection in the `collectionState` store, never on the Item. Either backed by a Series Template or Custom.
 _Avoid_: set, album (as a code term), checklist (as a code term), folder
 
 **Slot**:
@@ -159,11 +159,11 @@ One position in a Collection (e.g. the 2024 coin of a Date Run). Holds one **pri
 _Avoid_: entry, hole, position, cell
 
 **Spare**:
-An additional Item linked to a Slot behind its primary — a duplicate the user also owns. The first Spare is promoted automatically when the primary is unlinked or deleted.
+An additional Item linked to a Slot behind its primary: a duplicate the user also owns. The first Spare is promoted automatically when the primary is unlinked or deleted.
 _Avoid_: duplicate, extra, backup
 
 **Series Template**:
-First-party, versioned catalog data describing a prebuilt Collection: its Slots, mintages, specifications, stock images and sources. Lives in-repo at `data/collections/<slug>/collection.json` and boots from the generated `data/collections-bundle.js`. Static — user state never writes to it.
+First-party, versioned catalog data describing a prebuilt Collection: its Slots, mintages, specifications, stock images and sources. Lives in-repo at `data/collections/<slug>/collection.json` and boots from the generated `data/collections-bundle.js`. Static: user state never writes to it.
 _Avoid_: preset, catalog entry, collection definition (that is the Custom Collection's term)
 
 **Date Run**:
@@ -171,7 +171,7 @@ A Series Template whose Slots are the successive issue years of one coin series 
 _Avoid_: year set, series run, date set
 
 **Custom Collection**:
-A Collection whose Slots the user defines — built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (identity, specifications, Image Shape and Orientation, About, coin side, Item images choice, Slot list). Its coin-side declaration selects title art and linked Item image side; it defaults to obverse. Its Item images choice (Show by default) can hide linked Item photos so filled Slots display the collection's artwork instead. Older Description text is retained in About.
+A Collection whose Slots the user defines: built blank or cloned from a Series Template and then modified (varieties, mint marks, proofs). Carries its own **definition** (identity, specifications, Image Shape and Orientation, About, coin side, Item images choice, Slot list). Its coin-side declaration selects title art and linked Item image side; it defaults to obverse. Its Item images choice (Show by default) can hide linked Item photos so filled Slots display the collection's artwork instead. Older Description text is retained in About.
 _Avoid_: user collection, custom list, custom set
 
 **Image Shape**:
@@ -187,7 +187,7 @@ A Slot link emptied to `{ primary: null }`, or a Collection stamped `deletedAt`,
 _Avoid_: deleted slot, empty link
 
 **Cost to Complete**:
-The missing Slots of a Collection priced at the best current Vendor price from the retail feed. Always presented as a **floor estimate** — key dates carry numismatic premiums above the current-year price.
+The missing Slots of a Collection priced at the best current Vendor price from the retail feed. Always presented as a **floor estimate**: key dates carry numismatic premiums above the current-year price.
 _Avoid_: completion cost, price to finish, value to complete
 
 ## Cloud & Storage
@@ -217,17 +217,17 @@ _Avoid_: feature toggle, experiment, beta flag
 - The **Dual Config Store** separates **Spot Provider** credentials from **Catalog Provider** credentials.
 - The **Change Log** records every field-level mutation on every **Item**.
 - A **Numista ID** identifies a catalog type (spanning years); an **Item Instance** is `Numista ID + year + grade + certNumber`. The **Item Identity Key** encodes that instance identity in its tertiary tier.
-- A **Collection** has many **Slots**; a **Slot** links one primary **Item** and up to three **Spares**, by Item UUID. The links belong to the Collection — an Item carries no Collection field.
+- A **Collection** has many **Slots**; a **Slot** links one primary **Item** and up to three **Spares**, by Item UUID. The links belong to the Collection: an Item carries no Collection field.
 - An **Item** may belong to many **Collections**, but fills at most one **Slot** within any single Collection.
-- A **Disposition** never rewrites a Slot link: a disposed Item simply stops counting, and undoing the Disposition restores the Slot. Hard-deleting an Item prunes it from every Slot.
-- A **Series Template** defines the Slots of a template-backed **Collection**; a **Custom Collection** defines its own. Name matching only ever **suggests** Items for a Slot — a link is always an explicit user action.
+- A **Disposition** never rewrites a Slot link: a disposed Item stops counting, and undoing the Disposition restores the Slot. Hard-deleting an Item prunes it from every Slot.
+- A **Series Template** defines the Slots of a template-backed **Collection**; a **Custom Collection** defines its own. Name matching only ever **suggests** Items for a Slot: a link is always an explicit user action.
 
 ## Flagged Ambiguities
 
-- "vendor" vs "dealer" vs "retailer" — resolved: use **Vendor** in code and UI. "Dealer" acceptable in user-facing prose.
-- "item" vs "lot" vs "stack" — resolved: use **Item** for the data record. "Stack" is colloquial for a user's collection; never use as a code term for a single record.
-- "disposal" vs "disposition" — resolved: use **Disposition**. "Disposal" implies waste; disposition tracks realized value.
-- `metalApiConfig` vs `catalog_api_config` — resolved: these are the **Dual Config Store**. Always use the correct accessor pair.
-- "collection" (colloquial) vs **Collection** — resolved: **Collection** is the STRK-254 checklist entity. For everything a user owns, say "inventory" or "stack" in prose, never "collection". The legacy `item.collectable` boolean is unrelated: a vestige of a removed retail-vs-melt valuation toggle with no producer or consumer today. Do not build on it and do not read it as Collection membership.
-- "slot id" vs "item UUID" — resolved: a **Slot** id names a position and is human-meaningful and stable; an Item UUID names a physical holding and is random. A link is always Slot id → Item UUID, never the reverse.
-- `numistaId` as type vs instance — resolved: **Numista ID** is a catalog TYPE; physical-copy identity is the **Item Instance** (adds grade + certNumber). Keying dedup on Numista ID alone wrongly merges distinct graded instances (STRK-167).
+- "vendor" vs "dealer" vs "retailer": resolved: use **Vendor** in code and UI. "Dealer" acceptable in user-facing prose.
+- "item" vs "lot" vs "stack": resolved: use **Item** for the data record. "Stack" is colloquial for a user's collection; never use as a code term for a single record.
+- "disposal" vs "disposition": resolved: use **Disposition**. "Disposal" implies waste; disposition tracks realized value.
+- `metalApiConfig` vs `catalog_api_config`: resolved: these are the **Dual Config Store**. Always use the correct accessor pair.
+- "collection" (colloquial) vs **Collection**: resolved: **Collection** is the STRK-254 checklist entity. For everything a user owns, say "inventory" or "stack" in prose, never "collection". The legacy `item.collectable` boolean is unrelated: a vestige of a removed retail-vs-melt valuation toggle with no producer or consumer today. Do not build on it and do not read it as Collection membership.
+- "slot id" vs "item UUID": resolved: a **Slot** id names a position and is human-meaningful and stable; an Item UUID names a physical holding and is random. A link is always Slot id → Item UUID, never the reverse.
+- `numistaId` as type vs instance: resolved: **Numista ID** is a catalog TYPE; physical-copy identity is the **Item Instance** (adds grade + certNumber). Keying dedup on Numista ID alone wrongly merges distinct graded instances (STRK-167).

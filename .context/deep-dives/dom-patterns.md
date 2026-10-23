@@ -26,7 +26,7 @@ These rules exist because the app runs on `file://` (no server-side sanitization
 - **Never use raw `document.getElementById()`** in application code outside the designated exceptions below.
 - **Always call `sanitizeHtml(str)` before assigning user-supplied text to `innerHTML`.**
 - Never assign an unescaped user string directly to `innerHTML`, even for fields that appear "display-only."
-- `escapeHtml()` is a lower-level utility in `js/utils.js` used for specific button-loading contexts — prefer `sanitizeHtml()` for general user content.
+- `escapeHtml()` is a lower-level utility in `js/utils.js` used for specific button-loading contexts: prefer `sanitizeHtml()` for general user content.
 
 ---
 
@@ -51,7 +51,7 @@ function safeGetElement(id, required = false) {
 | `id`       | `string`  | —       | The HTML element ID to look up                                  |
 | `required` | `boolean` | `false` | If `true`, emits a `console.warn` when the element is not found |
 
-**Return value:** The real `HTMLElement` if found; otherwise a `createDummyElement()` object — never `null`.
+**Return value:** The real `HTMLElement` if found; otherwise a `createDummyElement()` object: never `null`.
 
 **What the dummy element provides:** A plain object with no-op stubs for all commonly accessed DOM properties and methods. This means callers never receive `null` and never need to null-check before property access:
 
@@ -76,9 +76,9 @@ function safeGetElement(id, required = false) {
 }
 ```
 
-**Why this matters:** Raw `document.getElementById()` returns `null` when an element is absent. Any subsequent property access on `null` — e.g., `el.textContent = x` — throws a TypeError and can crash the entire initialization chain. `safeGetElement` eliminates that failure mode by guaranteeing a non-null return value with a safe no-op interface.
+**Why this matters:** Raw `document.getElementById()` returns `null` when an element is absent. Any subsequent property access on `null`: e.g., `el.textContent = x`: throws a TypeError and can crash the entire initialization chain. `safeGetElement` eliminates that failure mode by guaranteeing a non-null return value with a safe no-op interface.
 
-**When NOT to use `safeGetElement`:** For DOM **existence checks** — code that needs to distinguish "element exists" from "element absent" — use `document.getElementById()` directly. Because `safeGetElement` never returns `null`, an `if (el)` guard always passes, which caused the STAK-492 popover crash. Example: `_openThumbPopover` in `inventory.js` checks whether a popover already exists to toggle it off.
+**When NOT to use `safeGetElement`:** For DOM **existence checks** (code that needs to distinguish "element exists" from "element absent") use `document.getElementById()` directly. Because `safeGetElement` never returns `null`, an `if (el)` guard always passes, which caused the STAK-492 popover crash. Example: `_openThumbPopover` in `inventory.js` checks whether a popover already exists to toggle it off.
 
 **Using the `required` flag:** Pass `required = true` for elements that are critical to a feature. This emits a visible `console.warn` in DevTools during development without throwing an error:
 
@@ -106,9 +106,9 @@ const sanitizeHtml = (text) => {
 };
 ```
 
-**What it does:** HTML-encodes the five characters that are meaningful inside HTML (`&`, `<`, `>`, `"`, `'`). The result is safe to interpolate directly into an `innerHTML` assignment or template literal — it renders as visible text, never as markup or script.
+**What it does:** HTML-encodes the five characters that are meaningful inside HTML (`&`, `<`, `>`, `"`, `'`). The result is safe to interpolate directly into an `innerHTML` assignment or template literal: it renders as visible text, never as markup or script.
 
-**When to use it:** Any time the string originated from user input — item names, notes, imported CSV fields, custom labels, catalog lookups, etc.
+**When to use it:** Any time the string originated from user input: item names, notes, imported CSV fields, custom labels, catalog lookups, etc.
 
 **Edge case:** Returns `""` for falsy values (`null`, `undefined`, `0`, empty string). Callers that need to distinguish between empty string and missing data should check before calling.
 
@@ -150,7 +150,7 @@ const safeAttachListener = (element, event, handler, description = "") => {
 
 **When to use it:** Whenever attaching a listener to an element that might not exist in every render context. Avoids crashing when optional UI elements are absent.
 
-**Companion — `optionalListener(el, event, handler, label)`:** A one-liner guard that calls `safeAttachListener` only if `el` is truthy. Use for truly optional elements where the listener is a no-op when the element is absent:
+**Companion: `optionalListener(el, event, handler, label)`:** A one-liner guard that calls `safeAttachListener` only if `el` is truthy. Use for truly optional elements where the listener is a no-op when the element is absent:
 
 ```js
 optionalListener(fileInput, "change", handleChange, "CSV file input");
@@ -164,9 +164,9 @@ optionalListener(fileInput, "change", handleChange, "CSV file input");
 
 **`about.js` has two lookup patterns** depending on when the function is called:
 
-1. **Early-init functions** (Ack modal: `showAckModal`, `hideAckModal`, `setupAckModalEvents`) use raw `document.getElementById()` with `if` guards — these are called during or immediately after script load, before `safeGetElement` exists.
+1. **Early-init functions** (Ack modal: `showAckModal`, `hideAckModal`, `setupAckModalEvents`) use raw `document.getElementById()` with `if` guards: these are called during or immediately after script load, before `safeGetElement` exists.
 
-2. **Late-call functions** (About tab + popup: `populateAboutTab`, `setupAboutCollapsibleCards`, `showWhatsNewPopup`, `hideWhatsNewPopup`, `setupWhatsNewPopupEvents`) use `safeGetElement()` — these are only called after `init.js` has run (triggered by Settings tab activation or DOMContentLoaded hooks), so `safeGetElement` is available.
+2. **Late-call functions** (About tab + popup: `populateAboutTab`, `setupAboutCollapsibleCards`, `showWhatsNewPopup`, `hideWhatsNewPopup`, `setupWhatsNewPopupEvents`) use `safeGetElement()`: these are only called after `init.js` has run (triggered by Settings tab activation or DOMContentLoaded hooks), so `safeGetElement` is available.
 
 ```js
 // EXPECTED — early-init function in about.js (runs before safeGetElement exists)
@@ -186,11 +186,11 @@ Code inside `init.js` itself CAN use `safeGetElement` after line 31, and all ele
 
 `init.js` includes two defense mechanisms for graceful service worker updates:
 
-**`controllerchange` listener** — registered at the top of `init.js`, _before_ `DOMContentLoaded`. When a new service worker takes control mid-session, the page auto-reloads. A `document._swReloading` flag prevents double-reload. The listener is guarded by `navigator.serviceWorker.controller` being truthy, so first-visit SW registration does not trigger a reload.
+**`controllerchange` listener**: registered at the top of `init.js`, _before_ `DOMContentLoaded`. When a new service worker takes control mid-session, the page auto-reloads. A `document._swReloading` flag prevents double-reload. The listener is guarded by `navigator.serviceWorker.controller` being truthy, so first-visit SW registration does not trigger a reload.
 
-**Smart error recovery** — the `initializeApp()` catch block detects known stale-cache errors (`ReferenceError` messages for missing asset globals such as `loadApiConfig` or `loadApiCache`). On first detection:
+**Smart error recovery**: the `initializeApp()` catch block detects known stale-cache errors (`ReferenceError` messages for missing asset globals such as `loadApiConfig` or `loadApiCache`). On first detection:
 
-1. Sets `window._initFailed = true` (consumed by cloud-sync guard — see Cloud Sync)
+1. Sets `window._initFailed = true` (consumed by cloud-sync guard: see Cloud Sync)
 2. Sets `sessionStorage.setItem('sw-recovery-attempted', '1')` to prevent reload loops
 3. Shows a dark-themed "Updating to new version..." overlay
 4. Reloads after 800ms
@@ -205,7 +205,7 @@ If the same known asset-global failure persists after the first reload, `init.js
 | `js/about.js` (late-call: About tab, popup)                                                                     | `safeGetElement()`                                       | Called after `init.js` defines it                                                                                                                                              |
 | `js/init.js` (after line 31)                                                                                    | `safeGetElement()`                                       | `safeGetElement` is available                                                                                                                                                  |
 | All other JS files                                                                                              | `safeGetElement()` (preferred)                           | Default pattern for new code                                                                                                                                                   |
-| DOM existence checks (e.g., popover toggle-off)                                                                 | `document.getElementById()` + `if` guard                 | Need real `null` when absent — dummy is always truthy (STAK-492)                                                                                                               |
+| DOM existence checks (e.g., popover toggle-off)                                                                 | `document.getElementById()` + `if` guard                 | Need real `null` when absent: dummy is always truthy (STAK-492)                                                                                                                |
 | Established modules (`card-view.js`, `events.js`, `inventory.js`, `image-cache-modal.js`, `inventory-table.js`) | `document.getElementById()` / `document.querySelector()` | Direct `document.getElementById()` and `document.querySelector()` calls still appear in several established modules. New code should prefer `safeGetElement()` for ID lookups. |
 
 ---
@@ -214,21 +214,21 @@ If the same known asset-global failure persists after the first reload, `init.js
 
 The market data module (`js/market-data.js`) introduces six new DOM elements, all looked up via `safeGetElement()`:
 
-| Element ID              | Type        | Purpose                                                                                                                                                                                                                                      |
-| ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bestPriceTickerEl`     | `<div>`     | Best Price Ticker ribbon — horizontal scrolling lowest-per-coin prices                                                                                                                                                                       |
-| `vendorPricesSectionEl` | `<section>` | Vendor Prices comparison table container                                                                                                                                                                                                     |
-| `vendorPricesContainer` | `<div>`     | Inner container for the tabbed vendor price tables                                                                                                                                                                                           |
-| `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                               |
-| `marketDetailContent`   | `<div>`     | Content area inside the market detail modal                                                                                                                                                                                                  |
-| `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                                     |
-| `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section) — opens the Market Settings panel. Added in STAK-545 alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
+| Element ID              | Type        | Purpose                                                                                                                                                                                                                                     |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bestPriceTickerEl`     | `<div>`     | Best Price Ticker ribbon: horizontal scrolling lowest-per-coin prices                                                                                                                                                                       |
+| `vendorPricesSectionEl` | `<section>` | Vendor Prices comparison table container                                                                                                                                                                                                    |
+| `vendorPricesContainer` | `<div>`     | Inner container for the tabbed vendor price tables                                                                                                                                                                                          |
+| `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                              |
+| `marketDetailContent`   | `<div>`     | Content area inside the market detail modal                                                                                                                                                                                                 |
+| `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                                    |
+| `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added in STAK-545 alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
 
 These elements are defined in `index.html` and are part of the `layoutSectionConfig` system (`bestPriceTicker` section). The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
 ### Market Filter Matrix Settings Panel (STAK-515)
 
-The `settingsPanel_market` panel in `index.html` was gutted and replaced with a **Market Filter Matrix** — a checkbox grid where rows are product slugs and columns are vendors. The panel is rendered dynamically by `renderMarketFilterMatrix()` in `js/settings.js` and wired by `bindMarketFilterListeners()` in `js/settings-listeners.js`. Metal filter tabs (Gold / Silver / Platinum / Palladium / Goldback) control which rows are visible in the matrix. The Sync Now button and last-sync timestamp are retained. CSS styles are scoped under `.market-filter-matrix` in `css/styles.css`.
+The `settingsPanel_market` panel in `index.html` was gutted and replaced with a **Market Filter Matrix**: a checkbox grid where rows are product slugs and columns are vendors. The panel is rendered dynamically by `renderMarketFilterMatrix()` in `js/settings.js` and wired by `bindMarketFilterListeners()` in `js/settings-listeners.js`. Metal filter tabs (Gold / Silver / Platinum / Palladium / Goldback) control which rows are visible in the matrix. The Sync Now button and last-sync timestamp are retained. CSS styles are scoped under `.market-filter-matrix` in `css/styles.css`.
 
 ---
 
@@ -298,7 +298,7 @@ modal.innerHTML = `<p>${sanitizeHtml(item.notes)}</p>`;
 
 ### Mistake 5 — Sanitizing developer-controlled template strings
 
-`sanitizeHtml` is for **user-supplied content only**. Do not wrap static developer-written HTML strings — that double-encodes intentional markup and produces visible `&lt;span&gt;` strings in the UI.
+`sanitizeHtml` is for **user-supplied content only**. Do not wrap static developer-written HTML strings: that double-encodes intentional markup and produces visible `&lt;span&gt;` strings in the UI.
 
 ```js
 // WRONG — sanitizing a static layout string; produces &lt;span&gt; in the DOM
@@ -326,5 +326,5 @@ optionalListener(optionalBtn, "click", handler, "optional button");
 
 ## Related
 
-- Frontend Overview — overall JS architecture and file load order
-- Storage Patterns — `saveData()` / `loadData()` and `ALLOWED_STORAGE_KEYS`
+- Frontend Overview: overall JS architecture and file load order
+- Storage Patterns: `saveData()` / `loadData()` and `ALLOWED_STORAGE_KEYS`

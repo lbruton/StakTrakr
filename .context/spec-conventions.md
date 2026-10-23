@@ -6,30 +6,30 @@ Per-project overrides for the `/spec-*` family. Pairs with the universal mechani
 
 ## Worktree & branch
 
-- **StakTrakr requires `patch/<version>` branches via `/release patch`** — NOT the generic `spec/{ISSUE-ID}-{slug}` convention (`/start-patch` only triages the issue pick, then hands off to `/release patch`). If a generated `tasks.md` uses the spec-style name, override it.
-- **Exception — no-bump campaigns:** a multi-PR refactor/cleanup campaign that ships its intermediate PRs **unbumped** (one closing `/release patch` bumps once for the whole campaign) does **not** use `patch/<version>` per cohort — `/release patch` claims a version lock per branch, which is incoherent when 19 cohorts share one bump. Such cohort PRs use descriptive **`chore/<issue>-<file>`** (or `refactor/<issue>-<file>`) branches off `origin/dev`. `patch/<version>` applies **only** to the single closing `/release patch` PR. Precedent: STRK-169 (split PRs on `feature/strk-169-*` / `refactor/strk-176-*`); see STRK-170.
+- **StakTrakr requires `patch/<version>` branches via `/release patch`**: NOT the generic `spec/{ISSUE-ID}-{slug}` convention (`/start-patch` only triages the issue pick, then hands off to `/release patch`). If a generated `tasks.md` uses the spec-style name, override it.
+- **Exception (no-bump campaigns:** a multi-PR refactor/cleanup campaign that ships its intermediate PRs **unbumped** (one closing `/release patch` bumps once for the whole campaign) does **not** use `patch/<version>` per cohort) `/release patch` claims a version lock per branch, which is incoherent when 19 cohorts share one bump. Such cohort PRs use descriptive **`chore/<issue>-<file>`** (or `refactor/<issue>-<file>`) branches off `origin/dev`. `patch/<version>` applies **only** to the single closing `/release patch` PR. Precedent: STRK-169 (split PRs on `feature/strk-169-*` / `refactor/strk-176-*`); see STRK-170.
 - Worktree path: `.worktrees/patch-<version>/` (`/release patch`) or `.worktrees/<issue>-<slug>/` (manually created chore/spec-cohort worktrees off `origin/dev`).
-- Cohort 0 setup invokes **`/release patch`** (lock + `patch/<version>` worktree + bump), not `using-git-worktrees` — except in a no-bump campaign, where Cohort 0 only enables tooling and each cohort creates its own `chore/<issue>-<file>` worktree.
+- Cohort 0 setup invokes **`/release patch`** (lock + `patch/<version>` worktree + bump), not `using-git-worktrees`: except in a no-bump campaign, where Cohort 0 only enables tooling and each cohort creates its own `chore/<issue>-<file>` worktree.
 - Full rules: `.context/git-topology.md` §Worktrees, §Merge Strategy, §Spec Branch Overrides.
 
 ## Version & release
 
-- **`/release patch` is the only valid version-bump path** — never hand-edit release artifacts.
+- **`/release patch` is the only valid version-bump path**: never hand-edit release artifacts.
 - **Run `/update-spot-bundle` before every version-bump PR** (dev or main). Run the worktree's own copy of the script so it writes into the worktree (see `git-topology.md` §Spot Bundle).
 - Version-lock high-water mark: derive the next version from `max(all version.lock entries incl. expired, APP_VERSION on origin/dev)`.
 
 ## Standard Closing Tasks roster
 
-StakTrakr uses the full Standard Closing Tasks block from the `spec` skill's `references/templates/tasks-template.md`, with these project bindings — reproduce skill names **verbatim**:
+StakTrakr uses the full Standard Closing Tasks block from the `spec` skill's `references/templates/tasks-template.md`, with these project bindings: reproduce skill names **verbatim**:
 
-| Task                       | Skill (verbatim)                                                                 |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| Full test suite            | `npm test` (core Playwright PR gate)                                             |
-| Security/quality scan      | `codacy-analysis analyze --diff` (Gen-3 Codacy CLI)                              |
-| Version bump               | `/release patch` — preceded by `/update-spot-bundle` if the PR bumps the version |
-| Vault update + close issue | `/vault-update` + mark issue Done in Plane                                       |
-| Resolve PR threads         | `/pr-resolve`                                                                    |
-| Archive spec               | `/spec archive {ISSUE-ID}`                                                       |
+| Task                       | Skill (verbatim)                                                                |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| Full test suite            | `npm test` (core Playwright PR gate)                                            |
+| Security/quality scan      | `codacy-analysis analyze --diff` (Gen-3 Codacy CLI)                             |
+| Version bump               | `/release patch`: preceded by `/update-spot-bundle` if the PR bumps the version |
+| Vault update + close issue | `/vault-update` + mark issue Done in Plane                                      |
+| Resolve PR threads         | `/pr-resolve`                                                                   |
+| Archive spec               | `/spec archive {ISSUE-ID}`                                                      |
 
 None of these are optional drops. If one genuinely doesn't apply, mark it `N/A — <one-line reason>` (audible skips beat silent skips).
 
@@ -40,6 +40,6 @@ None of these are optional drops. If one genuinely doesn't apply, mark it `N/A �
 
 ## Project doc pointers
 
-- `.context/testing.md` — Playwright tier policy; `AGENTS.md` — repo-wide agent rules.
-- `.context/coding-standards.md` — JS style, module boundaries, DOM/storage patterns.
-- `.context/implementation-gotchas.md`, `.context/review-and-ci.md`, `.context/GLOSSARY.md` — read before touching the areas they name.
+- `.context/testing.md` (Playwright tier policy; `AGENTS.md`) repo-wide agent rules.
+- `.context/coding-standards.md`: JS style, module boundaries, DOM/storage patterns.
+- `.context/implementation-gotchas.md`, `.context/review-and-ci.md`, `.context/GLOSSARY.md`: read before touching the areas they name.

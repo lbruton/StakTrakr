@@ -14,8 +14,8 @@ these rules elsewhere. Read before editing or running any Playwright test.
 ## TDD Rules
 
 - Never modify a TDD test to make it pass.
-- A failing test means the implementation is wrong — fix the implementation.
-- If the test itself is flawed, the spec was wrong — stop and restart the spec from Phase 1.
+- A failing test means the implementation is wrong: fix the implementation.
+- If the test itself is flawed, the spec was wrong: stop and restart the spec from Phase 1.
 
 ## Framework & Tiers
 
@@ -93,9 +93,9 @@ these rules elsewhere. Read before editing or running any Playwright test.
   layout, labels, visual sections, inline editing, or modal-behavior acceptance criteria.
 - Keep data fixtures in `tests/fixtures/` and shared binary/image fixtures
   (e.g. `test-obverse.png`) in `tests/playwright/helpers/`.
-- Custom dialogs (`showAppConfirm` etc.) are DOM modals, not native dialogs — see the
+- Custom dialogs (`showAppConfirm` etc.) are DOM modals, not native dialogs: see the
   dialog-testing pattern in `.context/implementation-gotchas.md`.
-- Wait on `window.appListenersReady` before header clicks — never sleep; early clicks
+- Wait on `window.appListenersReady` before header clicks: never sleep; early clicks
   silently no-op.
 - Import `test` and `expect` from `tests/playwright/helpers/mocks/extended-test.js`. Its
   `page` fixture installs the network mocks, and its `goto`/`reload` resolve only after
@@ -120,5 +120,5 @@ these rules elsewhere. Read before editing or running any Playwright test.
   in that worktree.
 - If Chromium fails with the macOS Mach port sandbox error, rerun the same Playwright
   command with escalation.
-- Do not pipe test output through `| tail` — it masks failures (exit 0). Redirect to a
+- Do not pipe test output through `| tail`: it masks failures (exit 0). Redirect to a
   file and check `$?`.

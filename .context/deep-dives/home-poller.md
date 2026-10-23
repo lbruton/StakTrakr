@@ -15,7 +15,7 @@ updated: "2026-04-11"
 
 ## Overview
 
-A secondary poller host running as Docker containers on an Ubuntu Server LXC. The home-poller container runs three cron-driven pollers: a **retail scraper** (`run-home.sh` at `:30`), a **spot price poller** (`spot-extract.js` at `:15/:45`), and a **goldback scraper** (`goldback-scraper.js` hourly at `:05` — `5 * * * *`, STRK-58: the CurrencyLayer-backed rate can shift intraday). Retail and spot offsets are staggered from Cloud - Fly.io to avoid write collisions.
+A secondary poller host running as Docker containers on an Ubuntu Server LXC. The home-poller container runs three cron-driven pollers: a **retail scraper** (`run-home.sh` at `:30`), a **spot price poller** (`spot-extract.js` at `:15/:45`), and a **goldback scraper** (`goldback-scraper.js` hourly at `:05`: `5 * * * *`, STRK-58: the CurrencyLayer-backed rate can shift intraday). Retail and spot offsets are staggered from Cloud - Fly.io to avoid write collisions.
 
 Both pollers write to the **same sqld database** (`staktrakr-sqld` on the Home VM, port 8080). The home-poller connects via Docker DNS (`http://staktrakr-sqld:8080`). `run-publish.sh` on Fly.io merges their data using `readLatestPerVendor()`. The home poller never touches Git. A nightly DR sync job (`turso-backup-sync.js`) replicates data from sqld to Turso Cloud (free tier).
 
@@ -83,14 +83,14 @@ Node.js HTTP/HTTPS server (`/app/dashboard.js` inside container) showing:
 - Spot price trend (15-min increments)
 - Home poller log tail (last 300 lines from persistent volume)
 - Failure trend (7-day chart)
-- **`/providers`** — Provider URL editor (inline CRUD against sqld — see Provider Database)
-- **`/failures`** — Failure queue (URLs with 3+ failures in last 7 days from sqld)
+- **`/providers`** (Provider URL editor (inline CRUD against sqld) see Provider Database)
+- **`/failures`**: Failure queue (URLs with 3+ failures in last 7 days from sqld)
 
 HTTPS on port 3011 uses a self-signed certificate generated at Docker build time. Used for iframe embedding in the spec-workflow MCP dashboard.
 
 ### Metrics Exporter (`http://192.168.1.81:9100/metrics`)
 
-`/app/metrics-exporter.js` — Prometheus text format. Exposes:
+`/app/metrics-exporter.js`: Prometheus text format. Exposes:
 
 - System: `poller_uptime_seconds`, `poller_cpu_load1/5/15`, `poller_mem_used_pct`, `poller_net_rx/tx_bytes`
 - Services: `poller_service_up{service, manager}` for supervisord services
@@ -119,20 +119,20 @@ The Cloud - Fly.io container routes scraper traffic through this proxy for resid
 
 The Tailscale sidecar (`tailscale-staktrakr`) runs in its own container with two roles:
 
-1. **Exit node** — Fly.io routes outbound traffic through the home residential IP
-2. **Subnet router** — advertises `192.168.1.0/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `192.168.1.81:8080`) without exit-node routing
+1. **Exit node**: Fly.io routes outbound traffic through the home residential IP
+2. **Subnet router**: advertises `192.168.1.0/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `192.168.1.81:8080`) without exit-node routing
 
 The compose file (`docker-compose.tinyproxy.yml`) sets `TS_ROUTES=192.168.1.0/24` and enables `net.ipv4.ip_forward=1` / `net.ipv6.conf.all.forwarding=1` via `sysctls`. The subnet route must be approved in the Tailscale admin console. On the Fly.io side, `--accept-routes` in `supervisord.conf` enables the container to use the advertised routes.
 
 > **Gotcha:** The `containerboot` entrypoint in the Tailscale Docker image does not re-apply `TS_ROUTES` when existing state exists in the volume. If the route is missing after a redeploy, manually run `tailscale set --advertise-routes=192.168.1.0/24` inside the container.
 
-Tinyproxy shares the sidecar's network namespace. The home-poller container does NOT share the Tailscale network — it uses the standard Docker bridge. Tailscale is needed for the proxy path from Fly.io and for subnet-routed access to home LAN services.
+Tinyproxy shares the sidecar's network namespace. The home-poller container does NOT share the Tailscale network: it uses the standard Docker bridge. Tailscale is needed for the proxy path from Fly.io and for subnet-routed access to home LAN services.
 
 ---
 
 ## CF-Clearance-Scraper Sidecar
 
-`staktrakr-byparr` runs Byparr (production: upstream 2.1.0 via `BYPARR_IMAGE`; compose default: upstream 3.0.4) — a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
+`staktrakr-byparr` runs Byparr (production: upstream 2.1.0 via `BYPARR_IMAGE`; compose default: upstream 3.0.4): a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
 
 | Property      | Value                                                                                                                 |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -160,7 +160,7 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 | 1     | Firecrawl           | Phase 0 fails or returns empty                                               |
 | 2     | CF sidecar (Byparr) | Phase 0+1 both return no price (including 200 Cloudflare JS-challenge pages) |
 
-Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which POSTs to Byparr's FlareSolverr-compatible `POST /v1` endpoint. Byparr returns the page HTML (`solution.response`) along with the `cf_clearance` cookie. The HTML is tag-stripped and parsed directly — **no second Playwright request** is needed. Results written to Turso with `source: "cf-clearance"`.
+Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which POSTs to Byparr's FlareSolverr-compatible `POST /v1` endpoint. Byparr returns the page HTML (`solution.response`) along with the `cf_clearance` cookie. The HTML is tag-stripped and parsed directly: **no second Playwright request** is needed. Results written to Turso with `source: "cf-clearance"`.
 
 > **Why HTML-first:** Byparr uses Camoufox (Firefox) to solve the challenge. Re-requesting the page via Playwright/Chromium would cause a TLS fingerprint mismatch (Firefox fingerprint on the `cf_clearance` cookie, Chromium browser making the request). Using Byparr's already-fetched HTML avoids this entirely.
 
@@ -168,18 +168,18 @@ Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which P
 
 After scraping, `price-extract.js` extracts the wire/ACH price via:
 
-1. **JSON-LD first** — `extractJsonLdPrice()` reads `<script type="application/ld+json">` Product schemas (`offers.price`). Authoritative price set by the merchant; avoids spot ticker / related-product false positives. Applies in Phase 0 and Phase 2.
-2. **Pipe-table first row** — `firstTableRowFirstPrice()` — standard pricing grid layout. Only matches Firecrawl markdown (which produces `| $price |` pipe tables). Phase 0 plain `innerText` has no pipe characters — configure the vendor module or `providerCfg()` resolution with `phase: "firecrawl"` when table parsing is required.
-3. **Prose price scan** — `firstInRangePriceProse()` — first `$XX.XX` value in the metal's price range (SPA fallback).
-4. **As Low As** — `asLowAsPrices()` — bulk-discount price as last resort.
+1. **JSON-LD first**: `extractJsonLdPrice()` reads `<script type="application/ld+json">` Product schemas (`offers.price`). Authoritative price set by the merchant; avoids spot ticker / related-product false positives. Applies in Phase 0 and Phase 2.
+2. **Pipe-table first row** (`firstTableRowFirstPrice()`) standard pricing grid layout. Only matches Firecrawl markdown (which produces `| $price |` pipe tables). Phase 0 plain `innerText` has no pipe characters: configure the vendor module or `providerCfg()` resolution with `phase: "firecrawl"` when table parsing is required.
+3. **Prose price scan** (`firstInRangePriceProse()`) first `$XX.XX` value in the metal's price range (SPA fallback).
+4. **As Low As** (`asLowAsPrices()`) bulk-discount price as last resort.
 
-**Nav stripping (Phase 0 + Phase 2):** Before capturing `innerText`, Phase 0 (`scrapeWithPlaywrightDirect`) removes `nav, header, footer, [role='navigation'], [role='banner']` from the DOM — the same treatment applied in Phase 2 (`scrapeViaCFClearance`). This prevents site-wide spot price tickers (e.g. Provident Metals gold ticker ~$5,320) from appearing before the product price in the text stream and being matched by `firstInRangePriceProse`.
+**Nav stripping (Phase 0 + Phase 2):** Before capturing `innerText`, Phase 0 (`scrapeWithPlaywrightDirect`) removes `nav, header, footer, [role='navigation'], [role='banner']` from the DOM: the same treatment applied in Phase 2 (`scrapeViaCFClearance`). This prevents site-wide spot price tickers (e.g. Provident Metals gold ticker ~$5,320) from appearing before the product price in the text stream and being matched by `firstInRangePriceProse`.
 
 **Vendor routing (`providerCfg()`):** Vendors where Phase 0 `innerText` extraction is structurally insufficient use `phase: "firecrawl"`:
 
-- `herobullion` — "As Low As" bulk price appears before the 1-unit table; pipe-table extraction via Firecrawl returns the correct 1-unit price.
-- `gainesvillecoins` — Phase 0 Playwright always times out; Firecrawl succeeds reliably.
-- `apmex`, `monumentmetals`, `jmbullion`, `bullionexchanges` — already Firecrawl-preferred (JS-rendering, bot-detection, or table-parsing requirements).
+- `herobullion`: "As Low As" bulk price appears before the 1-unit table; pipe-table extraction via Firecrawl returns the correct 1-unit price.
+- `gainesvillecoins`: Phase 0 Playwright always times out; Firecrawl succeeds reliably.
+- `apmex`, `monumentmetals`, `jmbullion`, `bullionexchanges`: already Firecrawl-preferred (JS-rendering, bot-detection, or table-parsing requirements).
 
 ### Enabling / Disabling
 
@@ -192,7 +192,7 @@ Controlled by `CF_CLEARANCE_ENABLED` env var on the home-poller container. Set t
 `/app/check-flyio.sh` runs every 5 min via cron inside the container. Checks:
 
 - HTTP GET to `https://api2.staktrakr.com/data/retail/providers.json`
-- Best-effort ICMP ping to Fly.io Tailscale IP (may fail from Docker bridge — expected)
+- Best-effort ICMP ping to Fly.io Tailscale IP (may fail from Docker bridge: expected)
 
 Results are displayed on the dashboard Fly.io card (Turso run summary + HTTP status).
 
@@ -351,13 +351,13 @@ rm -f /tmp/retail-poller.lock
 | Symptom                           | Check                                                                                                      |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | No rows from home poller in sqld  | Container running? Env vars present? `docker logs staktrakr-home-poller`                                   |
-| sqld queries fail                 | Missing env vars after redeploy — always pass `env` array. Check sqld container is running.                |
+| sqld queries fail                 | Missing env vars after redeploy: always pass `env` array. Check sqld container is running.                 |
 | Dashboard not loading             | `docker exec staktrakr-home-poller supervisorctl status dashboard`                                         |
 | Logs empty after redeploy         | Verify logs go to `/data/logs/` (persistent volume), not `/var/log/`                                       |
 | Firecrawl not responding          | `curl -sf http://localhost:3002/health` from VM                                                            |
 | Lockfile stuck                    | `docker exec staktrakr-home-poller rm -f /tmp/retail-poller.lock`                                          |
-| Container crash loop              | `docker logs --tail 50 staktrakr-home-poller` — check entrypoint errors                                    |
-| Tailscale sidecar down            | `docker logs tailscale-staktrakr` — check for auth issues                                                  |
+| Container crash loop              | `docker logs --tail 50 staktrakr-home-poller`: check entrypoint errors                                     |
+| Tailscale sidecar down            | `docker logs tailscale-staktrakr`: check for auth issues                                                   |
 | Tinyproxy unreachable from Fly.io | Verify tailscale sidecar is up, tinyproxy shares its network namespace                                     |
 | CF sidecar not resolving 403s     | Check `CF_CLEARANCE_ENABLED=1` on home-poller; `docker logs staktrakr-byparr` for Camoufox errors          |
 | CF sidecar crashes on start       | Verify `/dev/shm` volume is mounted in compose; container needs shared memory for Chromium                 |
@@ -367,7 +367,7 @@ rm -f /tmp/retail-poller.lock
 
 ## Related
 
-- Poller Parity (deprecated DocVault page) — Fly.io vs Home Poller comparison
-- Cloud - Fly.io — cron schedule and deployment
-- Provider Database — Turso provider CRUD and dashboard
-- Turso Schema — database tables
+- Poller Parity (deprecated DocVault page): Fly.io vs Home Poller comparison
+- Cloud - Fly.io: cron schedule and deployment
+- Provider Database: Turso provider CRUD and dashboard
+- Turso Schema: database tables

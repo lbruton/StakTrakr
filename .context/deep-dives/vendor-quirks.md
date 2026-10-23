@@ -82,26 +82,26 @@ The Goldback vendor price is sourced via `getGoldbackVendorPrice(slug)`, which r
 
 When a vendor is not polled in a given window (e.g., poller skipped or vendor was OOS for one window), the frontend applies **forward-fill** via `_forwardFillVendors()` in `retail-view-modal.js`. This carries the most recent seen price forward into gap windows. Forward-filled values are marked `_carriedVendors` on the window object. In the intraday table, carried values display as `~$XX.XX` in italic gray. In the intraday chart tooltip, carried values display with a `~` prefix.
 
-**Multi-hop carry logic (STAK-498):** Chart lines distinguish between single-hop and multi-hop carries. A vendor carried from the immediately preceding window (single-hop — just one missed poll) renders as a **solid** line. Only carries where the previous window _also_ carried that vendor (2+ consecutive hours missing, multi-hop) render as **dotted** lines. This prevents most vendor lines from appearing dotted during normal polling gaps. Vendors with zero real (non-carried) prices across all bucketed windows are excluded from the chart entirely via the `qualifiedVendors` filter.
+**Multi-hop carry logic (STAK-498):** Chart lines distinguish between single-hop and multi-hop carries. A vendor carried from the immediately preceding window (single-hop: just one missed poll) renders as a **solid** line. Only carries where the previous window _also_ carried that vendor (2+ consecutive hours missing, multi-hop) render as **dotted** lines. This prevents most vendor lines from appearing dotted during normal polling gaps. Vendors with zero real (non-carried) prices across all bucketed windows are excluded from the chart entirely via the `qualifiedVendors` filter.
 
 ### Anomaly Detection — Intraday Spikes
 
 The frontend applies a two-pass spike filter to intraday (15-min) data before chart/table rendering:
 
-**Pass 1 — Temporal spike detection:** For each vendor at window `t`, if the neighbors (`t-1`, `t+1`) are within +/-5% of each other (stable neighborhood) but the current price deviates by more than 5% from their average, the point is treated as a scrape spike. The anomalous value is nulled for the chart (Chart.js gaps over it via `spanGaps: true`) but preserved in `_anomalyOriginals` for the table, where it displays with strikethrough and 45% opacity.
+**Pass 1: Temporal spike detection:** For each vendor at window `t`, if the neighbors (`t-1`, `t+1`) are within +/-5% of each other (stable neighborhood) but the current price deviates by more than 5% from their average, the point is treated as a scrape spike. The anomalous value is nulled for the chart (Chart.js gaps over it via `spanGaps: true`) but preserved in `_anomalyOriginals` for the table, where it displays with strikethrough and 45% opacity.
 
-**Pass 2 — Cross-vendor median consensus:** For each window with 3+ vendors, any vendor deviating more than 40% from the median across that window is nulled. Catches multi-window vendor drift and extreme outliers.
+**Pass 2: Cross-vendor median consensus:** For each window with 3+ vendors, any vendor deviating more than 40% from the median across that window is nulled. Catches multi-window vendor drift and extreme outliers.
 
 Daily history is rendered from API aggregates. The retired card-list trend pipeline did not survive the card-list removal; do not add client-side interpolation to recreate it.
 
 Threshold constants:
 
-- `RETAIL_SPIKE_NEIGHBOR_TOLERANCE` — default `0.05` (5%)
-- `RETAIL_ANOMALY_THRESHOLD` — default `0.40` (40%)
+- `RETAIL_SPIKE_NEIGHBOR_TOLERANCE`: default `0.05` (5%)
+- `RETAIL_ANOMALY_THRESHOLD`: default `0.40` (40%)
 
 ### History Chart: OOS Creates Gaps, Not Carries
 
-In the daily history chart (`openRetailViewModal`), when a vendor entry has `inStock: false`, the chart dataset returns `null` for that day. `spanGaps: false` is used so Chart.js renders an actual gap in the line, not an interpolated bridge. This is the correct behavior — carried values would misrepresent availability.
+In the daily history chart (`openRetailViewModal`), when a vendor entry has `inStock: false`, the chart dataset returns `null` for that day. `spanGaps: false` is used so Chart.js renders an actual gap in the line, not an interpolated bridge. This is the correct behavior: carried values would misrepresent availability.
 
 The intraday chart uses `spanGaps: true` because short polling gaps are expected and bridging is preferred visually.
 
@@ -117,7 +117,7 @@ The retail sync log table's Time column uses timezone-aware formatting via `TIME
 | History chart (daily)    | `vendorData.avg`   | `history-30d.json` → `entry.vendors[id].avg`         |
 | Vendor comparison matrix | `vendorData.price` | Latest per-vendor value rendered by `market-data.js` |
 
-Do not mix `.price` and `.avg` — they represent different aggregation windows.
+Do not mix `.price` and `.avg`: they represent different aggregation windows.
 
 ### STRK-99: SDB + BE JSON-LD `offer.price` is the deepest bulk tier (2026-05-23)
 
@@ -129,7 +129,7 @@ Verified live 2026-05-23 via Playwright with real Chromium UA against `https://s
 
 ### STRK-99 hotfix: BE Byparr returns the React shell (2026-05-23)
 
-When `cf-clearance` Phase 2 fetches a Bullion Exchanges product page, Byparr returns the **un-hydrated React shell HTML** — the pricing grid is JavaScript-rendered AFTER Byparr's render window closes. The only `$XX.XX` values surviving in the resulting plain text are:
+When `cf-clearance` Phase 2 fetches a Bullion Exchanges product page, Byparr returns the **un-hydrated React shell HTML**: the pricing grid is JavaScript-rendered AFTER Byparr's render window closes. The only `$XX.XX` values surviving in the resulting plain text are:
 
 1. The spot ticker in `<header>` (silver `$75.92`, gold `$4,520.00`, etc.)
 2. "As low as: $X" entries in the "Related Products" sidebar (different product)
@@ -137,11 +137,11 @@ When `cf-clearance` Phase 2 fetches a Bullion Exchanges product page, Byparr ret
 Two mitigations in the poller:
 
 - `htmlToPlainText()` drops `<nav>`, `<header>`, `<footer>` blocks the same way it drops `<script>`/`<style>` (`CHROME_OR_RAWTEXT_TAGS` set). A partial-name guard ensures `<nav-bar>`-style custom elements are not mis-identified as `<nav>` (Gemini PR #1148 review catch).
-- For `UNTRUSTED_OFFER_PRICE_VENDORS`, `extractPrice()` uses pipe-table → tier-anchored prose only. `firstInRangePriceProse` is **not reachable** for these vendors, so spot tickers and sidebar prices can never poison the dashboard. Returns null when neither matcher hits — the dashboard records NULL (safe-OOS) rather than a wrong value.
+- For `UNTRUSTED_OFFER_PRICE_VENDORS`, `extractPrice()` uses pipe-table → tier-anchored prose only. `firstInRangePriceProse` is **not reachable** for these vendors, so spot tickers and sidebar prices can never poison the dashboard. Returns null when neither matcher hits: the dashboard records NULL (safe-OOS) rather than a wrong value.
 
 ### STRK-99 hotfix: SDB renders qty as `1 - 49` with whitespace around the dash
 
-The tier-anchored extractor's regex MUST accept both `1-49` and `1 - 49`. The v1 regex required no spaces and silently skipped the first qty row, recording the bulk-tier `50+ $78.23` instead of the 1-unit `$79.23`. Production regex: `/\b(?:\d{1,3}\s*-\s*\d{1,5}|\d{1,3}\+)\s+\$\s*([\d,]+\.\d{2})/g` — the `\d{1,3}` low-side cap also excludes year ranges like `2024 - 2025` from false-matching.
+The tier-anchored extractor's regex MUST accept both `1-49` and `1 - 49`. The v1 regex required no spaces and silently skipped the first qty row, recording the bulk-tier `50+ $78.23` instead of the 1-unit `$79.23`. Production regex: `/\b(?:\d{1,3}\s*-\s*\d{1,5}|\d{1,3}\+)\s+\$\s*([\d,]+\.\d{2})/g`: the `\d{1,3}` low-side cap also excludes year ranges like `2024 - 2025` from false-matching.
 
 ---
 
@@ -172,7 +172,7 @@ If a goldback slug appears in the manifest that does not match this pattern, `ge
 
 ## Common Mistakes
 
-**Checking the wrong OOS state.** `retailAvailability[slug][vendorId] === false` means OOS. The default for a vendor not present in the map is treated as in-stock (`isAvailable = availability[key] !== false`). Do not use `=== true` to check in-stock status — a missing key is also in-stock.
+**Checking the wrong OOS state.** `retailAvailability[slug][vendorId] === false` means OOS. The default for a vendor not present in the map is treated as in-stock (`isAvailable = availability[key] !== false`). Do not use `=== true` to check in-stock status: a missing key is also in-stock.
 
 **Assuming vendor price is always a number.** `vendorData.price` can be `null` (vendor polled but no price found) or `undefined` (vendor not present in this slug's vendor map). Always null-check before rendering.
 
@@ -186,14 +186,14 @@ If a goldback slug appears in the manifest that does not match this pattern, `ge
 
 ## Poller-Side: Vendor API Structures
 
-This section documents how each vendor's website is structured for scraping purposes — tech stack, available APIs, authentication requirements, and known bot-detection characteristics. Scraping-side poller code lives in `devops/pollers/` in the StakTrakr repo.
+This section documents how each vendor's website is structured for scraping purposes: tech stack, available APIs, authentication requirements, and known bot-detection characteristics. Scraping-side poller code lives in `devops/pollers/` in the StakTrakr repo.
 
 ### SD Bullion
 
 - **Stack:** Magento 2 (traditional SSR)
-- **Pricing API:** Unauthenticated REST endpoint at `/rest/V1/nfusions/cache/pricing` — returns the full catalog (~6,003 SKUs) with tiered pricing, cash/bitcoin/credit-card price breakdowns. Powered by nFusion Solutions pricing engine.
+- **Pricing API:** Unauthenticated REST endpoint at `/rest/V1/nfusions/cache/pricing`: returns the full catalog (~6,003 SKUs) with tiered pricing, cash/bitcoin/credit-card price breakdowns. Powered by nFusion Solutions pricing engine.
 - **No bot detection on this endpoint.** Direct HTTP request works without cookies or session.
-- **Note:** SD Bullion product pages redirect to `monumentmetals.com` (merger/acquisition — the two brands share a catalog).
+- **Note:** SD Bullion product pages redirect to `monumentmetals.com` (merger/acquisition: the two brands share a catalog).
 
 ### Bullion Exchanges
 
@@ -201,12 +201,12 @@ This section documents how each vendor's website is structured for scraping purp
 - **Pricing API:** Full GraphQL API at `/graphql` with tiered wire/crypto/PayPal price breakdowns.
   - `route(url: "slug")` → returns product ID
   - `LivePrices(ids: [ID])` → returns tier pricing
-- **Bot detection:** Cloudflare-gated. CF challenge blocks Docker headless Chromium. The block is **fingerprinting-based, not IP-based** — the same residential IP works from a Mac browser but fails from Docker. FlareSolverr or `curl_cffi` with exported `cf_clearance` cookies is required (see CF Bypass section below).
+- **Bot detection:** Cloudflare-gated. CF challenge blocks Docker headless Chromium. The block is **fingerprinting-based, not IP-based**: the same residential IP works from a Mac browser but fails from Docker. FlareSolverr or `curl_cffi` with exported `cf_clearance` cookies is required (see CF Bypass section below).
 
 ### Monument Metals
 
 - **Stack:** Magento 2 + ScandiPWA (React PWA)
-- **Pricing API:** GraphQL at `/graphql`, but **session-gated** — returns HTTP 403 without valid cookies from a prior page load.
+- **Pricing API:** GraphQL at `/graphql`, but **session-gated**: returns HTTP 403 without valid cookies from a prior page load.
   - `metalPrices` query → spot prices
   - `getProductDetailForProductPage` query → product pricing with tier breakdown
 - **Fallback:** JSON-LD structured data (`schema.org/Product`) is present in SSR HTML with price and availability. Useful as a scrape-only fallback when the GraphQL session cannot be established.
@@ -215,8 +215,8 @@ This section documents how each vendor's website is structured for scraping purp
 ### JM Bullion
 
 - **Stack:** Next.js App Router with RSC streaming
-- **Spot API:** `contentapi-managed.jmbullion.com/api/spot/summary` — unauthenticated, returns current spot prices.
-- **Product pricing:** No dedicated product price API. JM direct scraping is Webscale/reCAPTCHA-blocked, so product prices are gap-filled from **FindBullionPrices.com** JSON-LD `ItemList` via `price-extract-vendor-jmbullion-fbp.js` (`source: "fbp"`, STRK-334) — a plain HTTPS fetch + JSON-LD parse, no CF-bypass. See the JM-via-FBP subsection in `.context/data-pipelines.md`.
+- **Spot API:** `contentapi-managed.jmbullion.com/api/spot/summary`: unauthenticated, returns current spot prices.
+- **Product pricing:** No dedicated product price API. JM direct scraping is Webscale/reCAPTCHA-blocked, so product prices are gap-filled from **FindBullionPrices.com** JSON-LD `ItemList` via `price-extract-vendor-jmbullion-fbp.js` (`source: "fbp"`, STRK-334): a plain HTTPS fetch + JSON-LD parse, no CF-bypass. See the JM-via-FBP subsection in `.context/data-pipelines.md`.
 
 ### APMEX
 
@@ -239,23 +239,23 @@ Several vendors (primarily Bullion Exchanges, potentially others) sit behind Clo
 ### Current Tool: Byparr
 
 - Drop-in replacement for FlareSolverr with the same HTTP API.
-- Firefox-based (different browser fingerprint — useful if Chromium-based fingerprinting is specifically targeted).
+- Firefox-based (different browser fingerprint: useful if Chromium-based fingerprinting is specifically targeted).
 - Integrated via `cf-clearance.js` in `devops/pollers/shared/`.
 
 ### Historical (deprecated): FlareSolverr nodriver fork
 
 - **Image:** `21hsmw/flaresolverr:nodriver`
 - **Interface:** HTTP API on port `8191`
-- **Usage:** Send a POST request to `/v1` with `{"cmd": "request.get", "url": "..."}` — FlareSolverr solves the CF challenge and returns response body + cookies.
+- **Usage:** Send a POST request to `/v1` with `{"cmd": "request.get", "url": "..."}`: FlareSolverr solves the CF challenge and returns response body + cookies.
 - **Cookie export:** The `cf_clearance` cookie can be extracted from the response and reused for subsequent requests to the same domain without triggering another challenge.
-- **Status:** No longer integrated in current code. Byparr replaced it as the active CF bypass tool.
+- **Status:** Not integrated in current code. Byparr replaced it as the active CF bypass tool.
 
 ### cf_clearance Cookie Binding
 
 `cf_clearance` cookies are bound to a **triple: IP address + User-Agent string + TLS fingerprint**. All three must match between the FlareSolverr session that solved the challenge and the subsequent requests reusing the cookie. Mismatches result in an immediate new CF challenge.
 
 - Use `curl_cffi` (not Python `requests` or `httpx`) for HTTP calls that reuse `cf_clearance` cookies. `curl_cffi` uses `curl`'s TLS stack, which produces a browser-compatible TLS fingerprint. Standard Python HTTP libraries use a Python-native TLS stack that does not match browser fingerprints and will fail CF re-validation.
-- Rotate cookies proactively — `cf_clearance` has a finite TTL and will eventually expire, requiring a new FlareSolverr solve pass.
+- Rotate cookies proactively: `cf_clearance` has a finite TTL and will eventually expire, requiring a new FlareSolverr solve pass.
 
 > **Warning:** `cf_clearance` cookies solved from the home VM's residential IP will not work if requests are subsequently routed through a different IP (VPN, proxy, Cloud - Fly.io container). The solve and the requests must come from the same egress IP.
 
@@ -263,6 +263,6 @@ Several vendors (primarily Bullion Exchanges, potentially others) sit behind Clo
 
 ## Related
 
-- Retail Pipeline — end-to-end data pipeline from poller to frontend
-- Providers Config — `providers.json` schema and per-slug product URL mapping
-- Goldback Pipeline — separate goldback pricing pipeline
+- Retail Pipeline: end-to-end data pipeline from poller to frontend
+- Providers Config: `providers.json` schema and per-slug product URL mapping
+- Goldback Pipeline: separate goldback pricing pipeline

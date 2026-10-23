@@ -15,7 +15,7 @@ Two consequences follow, and both are mandatory:
    (sorted object keys, order-preserved arrays, scalar-as-JSON normalized to its
    logical value) before comparing or hashing. Identical logical content must
    compare/hash equal regardless of: lz-string `CMP2:` compression vs plain
-   (raw length `> 4096` compresses on one device, not the other — STRK-140),
+   (raw length `> 4096` compresses on one device, not the other: STRK-140),
    scalar stored as JSON (`"dark"`) vs raw (`dark`), object key insertion order,
    or date-time serialization variant.
 2. **Commutative merge.** `merge(A, B)` must equal `merge(B, A)`, **including on a
@@ -26,7 +26,7 @@ Two consequences follow, and both are mandatory:
    idempotent once both sides agree).
 
 The fixes are **self-healing**: existing diverged installs reconcile on the next
-sync with no user action — including tags that diverged with **no
+sync with no user action: including tags that diverged with **no
 `itemTagsLastModified` entry** (legacy installs, or Numista batch writes via
 `applyNumistaTags(persist=false)`), which the tie-union converges by content
 presence, not just by an equal timestamp. The one exception is data that cannot
@@ -48,7 +48,7 @@ whole store, wiping every tag/group (STRK-157 review finding).
 | Per-item tag merge            | `cloud-sync.js` `_mergeTagData` / `_unionTags`                                  | parsed+decompressed tag stores; sorted, case-insensitive union on tie                                                                                 | commutative + convergent   | STRK-155       |
 | Tag-change gate               | `cloud-sync.js` `_hasTagChanges`                                                | canonicalized logical content                                                                                                                         | logical equality           | STRK-159       |
 | Collections merge             | `collections-core.js` `mergeStates` via `cloud-sync.js` `_mergeCollectionState` | normalized state; per-Slot and per-artwork `modified`, Tombstones, `metaModified`; removals win artwork timestamp ties                                | commutative + idempotent   | STRK-370       |
-| Collections-change gate       | `cloud-sync.js` `_hasCollectionStateChange`                                     | `merge(local, remote)` vs `local`, canonicalized — true only when the remote contributes                                                              | logical, contribution-only | STRK-370       |
+| Collections-change gate       | `cloud-sync.js` `_hasCollectionStateChange`                                     | `merge(local, remote)` vs `local`, canonicalized: true only when the remote contributes                                                               | logical, contribution-only | STRK-370       |
 | Settings hash                 | `cloud-sync.js` `computeSettingsHash` / `_canonicalizeSettingValue`             | decompressed, JSON-parsed, sorted-key canonical form (push and poll)                                                                                  | logical equality           | STRK-156       |
 | Settings apply                | `cloud-sync.js` `_applyAndFinalize` / `_safeSettingWriteValue`                  | rejects `[object Object]` before persisting                                                                                                           | integrity guard            | STRK-157       |
 | Boot repair                   | `cloud-sync.js` `syncBootRepairCorruptSettings`                                 | removes un-round-trippable corruption                                                                                                                 | idempotent self-heal       | STRK-157       |
@@ -60,7 +60,7 @@ whole store, wiping every tag/group (STRK-157 review finding).
 
 ## Adding a new `SYNC_SCOPE_KEYS` entry
 
-1. **Scalar string preference** (theme, currency): no special handling — store the
+1. **Scalar string preference** (theme, currency): no special handling: store the
    raw string; `_canonicalizeSettingValue` parses-or-keeps it.
 2. **Object / array config**: always write with `JSON.stringify`; never let an
    object reach `localStorage.setItem` un-stringified (that is the `[object Object]`
