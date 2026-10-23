@@ -82,7 +82,7 @@ const locations = (selection) => selection.core.map((entry) => entry.location).s
 const unitFiles = (selection) => selection.unit.map((entry) => entry.file).sort();
 
 describe("parseDiff", () => {
-  test("reads old-side changed lines, and the insertion point for pure additions", () => {
+  test("reads old-side changed lines, and the old line each pure addition follows", () => {
     const diff = [
       "diff --git a/js/demo.js b/js/demo.js",
       "--- a/js/demo.js",
@@ -96,7 +96,7 @@ describe("parseDiff", () => {
       "@@ -0,0 +1,3 @@",
     ].join("\n");
     assert.deepEqual(parseDiff(diff), [
-      { file: "js/demo.js", lines: [7, 8, 24, 25] },
+      { file: "js/demo.js", lines: [7, 8], inserts: [24] },
       { file: "docs/note.md", lines: [] },
     ]);
   });
@@ -327,6 +327,104 @@ describe("selectTests", () => {
   test("an untracked file is judged by its path (AC-12)", () => {
     const selection = select([{ file: "tests/playwright/core/gamma.spec.js", lines: [] }]);
     assert.deepEqual(locations(selection), ["tests/playwright/core/gamma.spec.js"]);
+  });
+});
+
+// js/guard.js: an early return on line 2 and a branch on lines 4-6. Test "closed" stops at
+// the guard, "open" skips the branch, "deep" takes it. Line 10 is top-level code.
+const GUARD_SOURCE = [
+  "function guard(open, deep) {",
+  "  if (!open) return 0;",
+  "  let x = 1;",
+  "  if (deep) {",
+  "    x = 2;",
+  "  }",
+  "",
+  "  return x;",
+  "}",
+  "guard(true);",
+];
+const GUARD_TESTS = ["closed", "open", "deep"].map((name, i) => ({
+  id: `tests/playwright/core/guard.spec.js:${10 * (i + 1)}`,
+  title: `guard › ${name}`,
+  functions: [{ file: "js/guard.js", name: "guard", startLine: 1, endLine: 9 }],
+}));
+const GUARD_MAP = {
+  sha: MAP.sha,
+  files: { ...MAP.files, "js/guard.js": [[1, 9]] },
+  tests: [...MAP.tests, ...GUARD_TESTS],
+  // Set indexes point into `tests`; MAP.tests holds five entries before the guard tests.
+  // A blank line holds no code, so no test covers it.
+  sets: [[5, 6, 7], [6, 7], [7], []],
+  lines: {
+    "js/guard.js": [
+      [1, 2, 0],
+      [3, 4, 1],
+      [5, 5, 2],
+      [6, 6, 1],
+      [7, 7, 3],
+      [8, 10, 1],
+    ],
+  },
+};
+const guardId = (name) => GUARD_TESTS.find((t) => t.title.endsWith(name)).id;
+const selectLines = (changes, map = GUARD_MAP) =>
+  selectTests({
+    map,
+    changes,
+    unitIndex: UNIT_INDEX,
+    oldLine: (file, line) => (file === "js/guard.js" ? GUARD_SOURCE[line - 1] : undefined),
+  });
+
+describe("selectTests with the line index", () => {
+  test("a changed line after an early return skips the tests that returned (AC-13)", () => {
+    assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [3] }])), [
+      guardId("open"),
+      guardId("deep"),
+    ]);
+  });
+
+  test("a changed line in a branch selects only the tests that took it (AC-13)", () => {
+    assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [5] }])), [
+      guardId("deep"),
+    ]);
+  });
+
+  test("an inserted line takes the tests of the line after it", () => {
+    const selection = selectLines([{ file: "js/guard.js", lines: [], inserts: [4] }]);
+    assert.deepEqual(locations(selection), [guardId("deep")]);
+  });
+
+  test("an inserted line before a closing brace or a blank line also takes the line before", () => {
+    const beforeBrace = selectLines([{ file: "js/guard.js", lines: [], inserts: [5] }]);
+    assert.deepEqual(locations(beforeBrace), [guardId("open"), guardId("deep")]);
+    const beforeBlank = selectLines([{ file: "js/guard.js", lines: [], inserts: [6] }]);
+    assert.deepEqual(locations(beforeBlank), [guardId("open"), guardId("deep")]);
+  });
+
+  test("a top-level line still selects the full core suite (D-7)", () => {
+    const selection = selectLines([{ file: "js/guard.js", lines: [10] }]);
+    assert.equal(selection.full, true);
+    assert.ok(selection.reasons.some((reason) => reason.file === "js/guard.js"));
+  });
+
+  test("a map without a line index selects by function", () => {
+    const { lines, sets, ...functionsOnly } = GUARD_MAP;
+    assert.ok(lines && sets);
+    assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [5] }], functionsOnly)), [
+      guardId("closed"),
+      guardId("open"),
+      guardId("deep"),
+    ]);
+  });
+
+  test("without a line index an inserted line counts as the lines on both sides", () => {
+    const selection = select([{ file: "js/demo.js", lines: [], inserts: [12] }]);
+    assert.deepEqual(locations(selection), [
+      "tests/playwright/core/alpha.spec.js:10",
+      "tests/playwright/core/beta.spec.js:7",
+    ]);
+    assert.equal(selection.full, true, "line 13 is top-level code");
   });
 });
 

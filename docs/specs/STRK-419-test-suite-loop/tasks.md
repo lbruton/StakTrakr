@@ -225,12 +225,24 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Manual validation:** Each consolidation PR body holds the merge plan (each old test → the test or table row that replaces it, and why) built from `npm run test:redundancy`; the Codacy gate passes against the `dev` baseline.
   - **Maps to:** AC-23, AC-24, AC-25, AC-26
 
+- [ ] **B.8** — Failing tests for selection by line (added 2026-10-23, user-approved, D-19)
+  - **File(s):** `tests/unit/test-changed.test.js`, `tests/unit/coverage-merge.test.js`
+  - **Acceptance:** With an inline map holding `lines` and `sets`, the tests assert: a changed line after an early return selects only the tests whose set covers that line, not every test that entered the function (AC-13); an inserted line takes the set of the line after it, and also the line before when the line after is blank or starts with `}`; a top-level line still selects the full suite (D-7); a map without `lines` keeps function selection. `coverage-merge.test.js` asserts that the merge writes `lines` runs and deduplicated `sets` from two tests that take different branches. All fail because neither script knows `lines`.
+  - **Maps to:** AC-13, AC-20
+
 ### Sprint Cohort C — Implementation · GREEN (sequential, one PR per domain)
+
+- [ ] **C.17** — Select by line (added 2026-10-23, user-approved, D-19; lands before C.12)
+  - **File(s):** `devops/testing/coverage-merge.mjs`, `devops/testing/test-changed.mjs`
+  - **Acceptance:** `coverage-merge.mjs` writes `lines` and `sets` into the test map from the segments it already cuts for the block file. `test-changed.mjs` selects by line when the map has `lines`, else by function. All B.4 and B.8 cases pass. C.8 is measured again with a map that holds `lines`, and the hot case is recorded in the PR body.
+  - **Depends on:** B.8
+  - **Maps to:** AC-13, AC-20
 
 - [ ] **C.12** — Consolidate Collections
   - **File(s):** `tests/playwright/core/collections.spec.js`, `tests/playwright/core/collections-data-paths.spec.js`, `tests/unit/*.test.js`
   - **Acceptance:** Logic-only checks move to unit tests (through the C.3 harness) or one table-driven `page.evaluate` test per behavior group (approach D-14); each table row carries a message naming its case; the domain is green; the Codacy gate passes (AC-24); the PR body records domain test count and time before and after.
-  - **Depends on:** C.11, B.7
+  - **Scope (amended 2026-10-23, user-approved):** table-drive the logic-only groups in `collections-data-paths.spec.js` whose cases share a seed (CSV, standalone file and JSON, sync contract). UI tests in `collections.spec.js` stay separate unless two tests repeat the same setup and flow; the redundancy report's zero-unique theme and layout tests keep their own assertions. The environment toast that blocks Save clicks is an app bug, STRK-464, fixed in its own patch.
+  - **Depends on:** C.11, B.7, C.17
   - **Maps to:** AC-24, AC-25
 
 - [ ] **C.13** — Consolidate inventory math and CRUD

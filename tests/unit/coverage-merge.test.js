@@ -270,4 +270,52 @@ describe("coverage merge", () => {
       "the else-branch test covers a block the then-branch test does not"
     );
   });
+
+  test("the map's line index names the tests that ran each line, by branch", async () => {
+    const spec = "tests/playwright/core/branch.spec.js";
+    const { map } = await mergeFixture([
+      rawRecordFor(testInfo(spec, 5, "takes then"), ROOT, [branchEntry("then")]),
+      rawRecordFor(testInfo(spec, 9, "takes else"), ROOT, [branchEntry("else")]),
+    ]);
+    const at = testsAtLine(map, "js/branch.js");
+    const both = [`${spec}:5`, `${spec}:9`];
+    assert.deepEqual(at(1), both, "line 1 (function header)");
+    assert.deepEqual(at(2), both, "line 2 (the condition)");
+    assert.deepEqual(at(3), [`${spec}:5`], "line 3 (then branch)");
+    assert.deepEqual(at(5), [`${spec}:9`], "line 5 (else path)");
+    assert.deepEqual(at(6), both, "line 6 (closing brace)");
+  });
+
+  test("the line index covers every line once and stores each test set once", async () => {
+    const { map } = await mergeFixture();
+    const runs = map.lines["js/demo.js"];
+    assert.equal(runs[0][0], 1, "runs start at line 1");
+    runs
+      .slice(1)
+      .forEach(([start], i) => assert.equal(start, runs[i][1] + 1, "runs are contiguous"));
+    assert.equal(
+      runs.at(-1)[1],
+      DEMO_SOURCE.trimEnd().split("\n").length,
+      "runs end at the last line"
+    );
+    const keys = map.sets.map((set) => JSON.stringify(set));
+    assert.equal(new Set(keys).size, keys.length, "no set is stored twice");
+    const at = testsAtLine(map, "js/demo.js");
+    assert.deepEqual(at(5), ["tests/playwright/core/demo.spec.js:30"], "line 5 (other)");
+    assert.deepEqual(at(8), [], "line 8 (unused) is run by no test");
+  });
 });
+
+/**
+ * Test ids whose covered code overlaps one line, read from the map's line index.
+ * @param {object} map - Merged test map.
+ * @param {string} file - Repo-relative js/ path.
+ * @returns {(line: number) => string[]}
+ */
+function testsAtLine(map, file) {
+  return (line) => {
+    const run = map.lines[file].find(([start, end]) => start <= line && line <= end);
+    assert.ok(run, `${file} has a run for line ${line}`);
+    return map.sets[run[2]].map((index) => map.tests[index].id).sort();
+  };
+}
