@@ -580,6 +580,29 @@ test.describe("core/collections — link picker, builder, item view", () => {
   const slotHandle = (page, label) =>
     builderModal(page).getByRole("button", { name: `Reorder ${label}`, exact: true });
   /**
+   * Bounding box of a locator once the layout holds still: the builder's running CSS
+   * animations have finished and two reads in a row agree. A slow runner can read the
+   * box mid-layout, so pointer coordinates taken from it miss their target.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {import('@playwright/test').Locator} locator - Element to measure.
+   * @returns {Promise<{x: number, y: number, width: number, height: number}>}
+   */
+  const settledBox = async (page, locator) => {
+    await builderModal(page).evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished))
+    );
+    let previous = null;
+    await expect
+      .poll(async () => {
+        const box = await locator.boundingBox();
+        const same = Boolean(box && previous && JSON.stringify(box) === JSON.stringify(previous));
+        previous = box;
+        return same;
+      })
+      .toBe(true);
+    return previous;
+  };
+  /**
    * Locate the item view modal.
    * @param {import('@playwright/test').Page} page - Browser page.
    * @returns {import('@playwright/test').Locator} Item view modal.
@@ -1031,10 +1054,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
       return made.collection.id;
     });
     const builder = builderModal(page);
-    // hover() waits for the modal's opening animation to settle before anything is measured.
-    await slotHandle(page, "Alpha").hover();
-    const handle = await slotHandle(page, "Alpha").boundingBox();
-    const target = await builder.locator(".collections-builder-row").nth(2).boundingBox();
+    const handle = await settledBox(page, slotHandle(page, "Alpha"));
+    const target = await settledBox(page, builder.locator(".collections-builder-row").nth(2));
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
     await page.mouse.down();
     await page.mouse.move(handle.x + handle.width / 2, target.y + target.height * 0.8, {
