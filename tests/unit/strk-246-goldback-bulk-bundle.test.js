@@ -18,19 +18,20 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
+import { loadRecordBulkPriceHistory } from "./helpers/bulk-edit.js";
 import { sliceArrowConst, sliceConstArray } from "./test-helpers.js";
 
-const bulkSrc = readFileSync(new URL("../../js/bulkEdit.js", import.meta.url), "utf-8");
-const constantsSrc = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
+const bulkSrc = readSource("js/bulkEdit.js");
+const constantsSrc = readSource("js/constants.js");
 
 // Pull the REAL GOLDBACK_DENOMINATIONS out of js/constants.js (a pure literal of
 // primitives) rather than duplicating it — keeps the test locked to the production
 // denomination set and weights, and the `weight===1` default the picker relies on.
-const GOLDBACK_DENOMINATIONS = new Function(
-  sliceConstArray(constantsSrc, "const GOLDBACK_DENOMINATIONS = [") +
-    "\nreturn GOLDBACK_DENOMINATIONS;"
-)();
+const GOLDBACK_DENOMINATIONS = evalSource("js/constants.js", {
+  slice: rangeOf(constantsSrc, sliceConstArray(constantsSrc, "const GOLDBACK_DENOMINATIONS = [")),
+  suffix: "\nreturn GOLDBACK_DENOMINATIONS;",
+});
 
 /**
  * Minimal stand-in for the DOM `<select>` so the function's `instanceof
@@ -52,16 +53,13 @@ class FakeSelect {
  * @returns {(valuesToApply: Object<string, string>) => void} The bound function
  */
 function buildApplyBulkGoldbackBundle(denomSelect) {
-  const fnSrc = sliceArrowConst(bulkSrc, "const applyBulkGoldbackBundle = (");
-  const factory = new Function(
-    "safeGetElement",
-    "GOLDBACK_DENOMINATIONS",
-    "HTMLSelectElement",
-    fnSrc + "\nreturn applyBulkGoldbackBundle;"
-  );
   const safeGetElement = () =>
     denomSelect === undefined ? { value: "ignored-dummy" } : denomSelect;
-  return factory(safeGetElement, GOLDBACK_DENOMINATIONS, FakeSelect);
+  return evalSource("js/bulkEdit.js", {
+    params: { safeGetElement, GOLDBACK_DENOMINATIONS, HTMLSelectElement: FakeSelect },
+    slice: rangeOf(bulkSrc, sliceArrowConst(bulkSrc, "const applyBulkGoldbackBundle = (")),
+    suffix: "\nreturn applyBulkGoldbackBundle;",
+  });
 }
 
 describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle", () => {
@@ -101,30 +99,7 @@ describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle",
 // only {type} checked). Guards against weight/weightUnit/metal being dropped from
 // recordBulkPriceHistory's priceFields, which would re-stale the value chart.
 describe("STRK-246 — the injected gb bundle re-arms the STRK-244 recording gate", () => {
-  /**
-   * Slice recordBulkPriceHistory out of source and bind its globals to test stubs.
-   * @param {Object} env - Stubs: recordItemPrice, bulkEnabledFields, inventory,
-   *   bulkSelection, saveItemPriceHistory
-   * @returns {(valuesToApply: Object<string, string>) => void} The bound function
-   */
-  function buildRecordBulkPriceHistory(env) {
-    const fnSrc = sliceArrowConst(bulkSrc, "const recordBulkPriceHistory = (");
-    const factory = new Function(
-      "recordItemPrice",
-      "bulkEnabledFields",
-      "inventory",
-      "bulkSelection",
-      "saveItemPriceHistory",
-      fnSrc + "\nreturn recordBulkPriceHistory;"
-    );
-    return factory(
-      env.recordItemPrice,
-      env.bulkEnabledFields,
-      env.inventory,
-      env.bulkSelection,
-      env.saveItemPriceHistory
-    );
-  }
+  const buildRecordBulkPriceHistory = loadRecordBulkPriceHistory;
 
   test("Type→Goldback (only 'type' enabled) records once the bundle is injected", () => {
     const recorded = [];

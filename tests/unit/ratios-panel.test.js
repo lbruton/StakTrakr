@@ -19,22 +19,19 @@
 //     4 trend tiles, chart range control, provenance footer.
 //
 // Harness: like spot-ratio-chips.test.js, both script-tag-global modules are
-// evaluated with a mock `window` via new Function("window", src). The panel
+// evaluated with a mock `window` through evalSource. The panel
 // reads RATIO_PAIRS as a bare global at call time, so the surface keys are
 // mirrored onto globalThis for the duration of each test.
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const mathSrc = readFileSync(new URL("../../js/spot-ratio-math.js", import.meta.url), "utf-8");
-const panelSrc = readFileSync(new URL("../../js/ratios-panel.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 const surface = {
   document: { getElementById: () => null, querySelector: () => null },
 };
-new Function("window", mathSrc)(surface);
-new Function("window", panelSrc)(surface);
+evalSource("js/spot-ratio-math.js", { params: { window: surface } });
+evalSource("js/ratios-panel.js", { params: { window: surface } });
 
 // The panel reads engine globals (RATIO_PAIRS) bare; mirror the surface onto
 // globalThis while the suite runs, restoring afterward.

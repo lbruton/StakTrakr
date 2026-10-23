@@ -18,11 +18,12 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
+import { evalSource, readSource, sliceBetween } from "./helpers/source-extract.js";
+import { SYNC_FILE } from "./helpers/sync-blocks.js";
 
-const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf-8");
-const cloudSyncSrc = read("js/cloud-sync.js");
+const read = readSource;
+const cloudSyncSrc = read(SYNC_FILE);
 
 // ---------------------------------------------------------------------------------------
 // O — pinned old-build behavior (v3.36.45)
@@ -257,40 +258,46 @@ const deps = {
       .join(""),
 };
 
-/** Build a hash function from function source text, with the same stubs the STRK-241 test uses. */
-function buildHash(fnSrc) {
-  return new Function(
-    "crypto",
-    "TextEncoder",
-    "DiffEngine",
-    "_stableCanonicalString",
-    "sha256BufferToHex",
-    "debugLog",
-    `${fnSrc}\nreturn computeInventoryHash;`
-  )(webcrypto, TextEncoder, deps.DiffEngine, deps.stable, deps.hex, () => {});
+const hashDeps = {
+  crypto: webcrypto,
+  TextEncoder,
+  DiffEngine: deps.DiffEngine,
+  _stableCanonicalString: deps.stable,
+  sha256BufferToHex: deps.hex,
+  debugLog: () => {},
+};
+
+/** Build the pinned old-build (O) hash from its source text, with the live hash's stubs. */
+function buildPinnedHash(fnSrc) {
+  const names = Object.keys(hashDeps);
+  return new Function(...names, `${fnSrc}\nreturn computeInventoryHash;`)(
+    ...names.map((name) => hashDeps[name])
+  );
 }
 
 /** The live (N) hash, sliced from js/cloud-sync.js the way the STRK-241 test does. */
 function liveHash() {
-  const start = cloudSyncSrc.indexOf("async function computeInventoryHash(items) {");
-  assert.notEqual(start, -1, "could not locate computeInventoryHash in js/cloud-sync.js");
-  return buildHash(cloudSyncSrc.slice(start, cloudSyncSrc.indexOf("\n}", start) + 2));
+  return evalSource(SYNC_FILE, {
+    params: hashDeps,
+    slice: sliceBetween(cloudSyncSrc, "async function computeInventoryHash(items) {", "\n}"),
+    suffix: "\nreturn computeInventoryHash;",
+  });
 }
 
 const nHash = liveHash();
-const oHash = buildHash(O_HASH_SRC);
+const oHash = buildPinnedHash(O_HASH_SRC);
 const O = new Function(O_IMAGE_FRAME_SRC)();
 
 const nFrame = {};
-new Function("window", read("js/image-frame.js"))(nFrame);
+evalSource("js/image-frame.js", { params: { window: nFrame } });
 
 const diffWin = {};
-new Function("window", read("js/diff-engine.js"))(diffWin);
+evalSource("js/diff-engine.js", { params: { window: diffWin } });
 const { DiffEngine } = diffWin;
 
 const coreWin = { getUnitOztWeight: () => 1 };
-new Function("window", read("js/image-frame.js"))(coreWin);
-new Function("window", read("js/collections-core.js"))(coreWin);
+evalSource("js/image-frame.js", { params: { window: coreWin } });
+evalSource("js/collections-core.js", { params: { window: coreWin } });
 const core = coreWin.collectionsCore;
 
 /** Apply a writer result to a record: set its keys, delete its remove list. */

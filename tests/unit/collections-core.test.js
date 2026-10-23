@@ -23,9 +23,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const src = readFileSync(new URL("../../js/collections-core.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 // STRK-398: the core converts stored weight through the canonical window.getUnitOztWeight
 // (js/utils.js, STRK-316). Load the REAL module through the same boundary the browser uses —
@@ -44,18 +42,18 @@ assert.equal(
 // window.deriveImageShape. Load the REAL file into the default surface for the same reason as
 // utils.js above: a double could drift from production. `loadCoreWithoutResolver` keeps the
 // pre-STRK-427 surface for the fail-closed case, where the seam is absent.
-const imageFrameSrc = readFileSync(new URL("../../js/image-frame.js", import.meta.url), "utf-8");
-
 function loadCore(surface = { getUnitOztWeight }) {
-  if (!("deriveImageShape" in surface)) new Function("window", imageFrameSrc)(surface);
-  new Function("window", src)(surface);
+  if (!("deriveImageShape" in surface)) {
+    evalSource("js/image-frame.js", { params: { window: surface } });
+  }
+  evalSource("js/collections-core.js", { params: { window: surface } });
   return surface.collectionsCore;
 }
 
 /** Load the core on a surface that lacks image-frame.js, so the resolver seam is missing. */
 function loadCoreWithoutResolver() {
   const surface = { getUnitOztWeight };
-  new Function("window", src)(surface);
+  evalSource("js/collections-core.js", { params: { window: surface } });
   return surface.collectionsCore;
 }
 

@@ -39,37 +39,17 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource } from "./helpers/source-extract.js";
+import { loadSettingsHashBlock } from "./helpers/sync-blocks.js";
 
 // --- DiffEngine: whole-file eval with a mock window (pure data module) ---
-const diffSrc = readFileSync(new URL("../../js/diff-engine.js", import.meta.url), "utf-8");
 const win = {};
-new Function("window", diffSrc)(win);
+evalSource("js/diff-engine.js", { params: { window: win } });
 const DiffEngine = win.DiffEngine;
 assert.ok(
   DiffEngine && typeof DiffEngine.compareSettings === "function",
   "DiffEngine.compareSettings must load"
 );
-
-// --- cloud-sync.js settings-hash block (slice-and-eval, mirrors
-//     strk-313-catalog-usage-sync.test.js) ---
-const syncSrc = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-const start = syncSrc.indexOf("function _stableCanonicalString");
-const end = syncSrc.indexOf("function initSyncTabCoordination");
-assert.ok(start !== -1 && end !== -1 && end > start, "could not locate settings-hash block");
-const block = syncSrc.slice(start, end);
-
-/**
- * Hex-encode a SHA-256 digest ArrayBuffer (mirrors the cloud-sync helper).
- * @param {ArrayBuffer} buffer digest bytes
- * @returns {string} lowercase hex string
- */
-function sha256BufferToHex(buffer) {
-  const a = new Uint8Array(buffer);
-  let hex = "";
-  for (let j = 0; j < a.length; j++) hex += ("0" + a[j].toString(16)).slice(-2);
-  return hex;
-}
 
 const SCOPE = ["metalInventory", "appTheme", "metalApiConfig"];
 
@@ -80,26 +60,12 @@ const SCOPE = ["metalInventory", "appTheme", "metalApiConfig"];
  * @returns {{computeSettingsHash: Function, _mergeSpotUsageCounters: Function}}
  */
 function buildBlock(store) {
-  const localStorageMock = { getItem: (k) => (k in store ? store[k] : null) };
-  const factory = new Function(
-    "crypto",
-    "localStorage",
-    "SYNC_SCOPE_KEYS",
-    "__decompressIfNeeded",
-    "TextEncoder",
-    "sha256BufferToHex",
-    "debugLog",
-    block + "\nreturn { computeSettingsHash, _mergeSpotUsageCounters };"
-  );
-  return factory(
-    globalThis.crypto,
-    localStorageMock,
-    SCOPE,
-    (v) => v, // fixture blobs are far below the compression threshold
-    TextEncoder,
-    sha256BufferToHex,
-    () => {}
-  );
+  return loadSettingsHashBlock({
+    store,
+    scope: SCOPE,
+    decompress: (v) => v, // fixture blobs are far below the compression threshold
+    returns: ["computeSettingsHash", "_mergeSpotUsageCounters"],
+  });
 }
 
 // --- Fixtures --------------------------------------------------------------
@@ -514,11 +480,6 @@ describe("STRK-315 _mergeSpotUsageCounters on genuine config apply", () => {
 
 // --- Defect 3: honest labelling of the spot config blob --------------------
 
-const settingsSrc = readFileSync(
-  new URL("../../js/diff-modal-settings.js", import.meta.url),
-  "utf-8"
-);
-
 /**
  * Load js/diff-modal-settings.js against a mock window, optionally supplying
  * API_PROVIDERS so both the friendly-name and bare-id paths are reachable.
@@ -527,7 +488,7 @@ const settingsSrc = readFileSync(
  */
 function loadSettingsRenderers(providers) {
   const w = {};
-  new Function("window", "API_PROVIDERS", settingsSrc)(w, providers);
+  evalSource("js/diff-modal-settings.js", { params: { window: w, API_PROVIDERS: providers } });
   return w.DiffModalSettings;
 }
 

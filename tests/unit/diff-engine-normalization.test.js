@@ -16,11 +16,10 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/diff-engine.js", import.meta.url), "utf-8");
 const win = {};
-new Function("window", src)(win);
+evalSource("js/diff-engine.js", { params: { window: win } });
 const DiffEngine = win.DiffEngine;
 assert.ok(
   DiffEngine && typeof DiffEngine.compareItems === "function",

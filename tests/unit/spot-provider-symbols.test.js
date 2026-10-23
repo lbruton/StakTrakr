@@ -30,17 +30,13 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalConstantsWindow, evalSource, readSource } from "./helpers/source-extract.js";
 
 // --- constants.js: whole-file eval with a mock window ---
 // Top-level code reads window.location.search (debug flag) and
 // window.localStorage (app-version stamp), so both get inert stubs.
-const constSrc = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
-const win = {
-  location: { search: "", protocol: "https:" },
-  localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-};
-new Function("window", constSrc)(win);
+const constSrc = readSource("js/constants.js");
+const win = evalConstantsWindow();
 
 const {
   API_PROVIDERS,
@@ -53,21 +49,25 @@ const {
 
 assert.ok(API_PROVIDERS, "API_PROVIDERS must load from constants.js");
 
-const apiSrc = readFileSync(new URL("../../js/api.js", import.meta.url), "utf-8");
-const lookupSrc = readFileSync(new URL("../../js/spotLookup.js", import.meta.url), "utf-8");
-const settingsSrc = readFileSync(new URL("../../js/settings.js", import.meta.url), "utf-8");
+const apiSrc = readSource("js/api.js");
+const settingsSrc = readSource("js/settings.js");
 
 /**
- * Extract an object literal assigned to `const <name> = {...};` from source
- * text and evaluate it. Tolerates line comments inside the literal.
- * @param {string} src file source
+ * Extract an object literal assigned to `const <name> = {...};` from a source
+ * file and evaluate it. Tolerates line comments inside the literal.
+ * @param {string} file repo-relative source file
  * @param {string} name identifier to extract
  * @returns {Object} evaluated literal
  */
-const extractObjectLiteral = (src, name) => {
+const extractObjectLiteral = (file, name) => {
+  const src = readSource(file);
   const match = src.match(new RegExp(`const ${name} = (\\{[\\s\\S]*?\\});`));
   assert.ok(match, `could not locate const ${name} literal`);
-  return new Function(`return ${match[1]};`)();
+  const start = match.index + match[0].indexOf(match[1]);
+  return evalSource(file, {
+    slice: { start, end: start + match[1].length },
+    prefix: "return ",
+  });
 };
 
 /** Assert a is within relative tolerance of b. */
@@ -315,7 +315,7 @@ describe("METALS_DEV copper unit safety", () => {
 
 describe("map copies stay in sync across files", () => {
   test("api.js _V2_METAL_MAP agrees with the canonical map on shared metals", () => {
-    const v2Map = extractObjectLiteral(apiSrc, "_V2_METAL_MAP");
+    const v2Map = extractObjectLiteral("js/api.js", "_V2_METAL_MAP");
     for (const [iso, metal] of Object.entries(v2Map)) {
       const symbol = SPOT_PROVIDER_METAL_SYMBOLS[metal];
       if (symbol) {
@@ -326,7 +326,7 @@ describe("map copies stay in sync across files", () => {
   });
 
   test("spotLookup.js METAL_SYMBOLS agrees with the canonical map on shared metals", () => {
-    const lookupMap = extractObjectLiteral(lookupSrc, "METAL_SYMBOLS");
+    const lookupMap = extractObjectLiteral("js/spotLookup.js", "METAL_SYMBOLS");
     for (const [displayName, symbol] of Object.entries(lookupMap)) {
       const canonical = SPOT_PROVIDER_METAL_SYMBOLS[displayName.toLowerCase()];
       if (canonical) {

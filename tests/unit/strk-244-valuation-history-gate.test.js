@@ -18,35 +18,23 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
+import { loadRecordBulkPriceHistory } from "./helpers/bulk-edit.js";
 import { sliceArrowConst } from "./test-helpers.js";
 
-const eventsSrc = readFileSync(new URL("../../js/events.js", import.meta.url), "utf-8");
-const bulkSrc = readFileSync(new URL("../../js/bulkEdit.js", import.meta.url), "utf-8");
+const eventsSrc = readSource("js/events.js");
 
 function buildValuationFieldChanged() {
-  const fnSrc = sliceArrowConst(eventsSrc, "const valuationFieldChanged = (oldItem, newItem) => {");
-  return new Function(fnSrc + "\nreturn valuationFieldChanged;")();
+  return evalSource("js/events.js", {
+    slice: rangeOf(
+      eventsSrc,
+      sliceArrowConst(eventsSrc, "const valuationFieldChanged = (oldItem, newItem) => {")
+    ),
+    suffix: "\nreturn valuationFieldChanged;",
+  });
 }
 
-function buildRecordBulkPriceHistory(env) {
-  const fnSrc = sliceArrowConst(bulkSrc, "const recordBulkPriceHistory = (");
-  const factory = new Function(
-    "recordItemPrice",
-    "bulkEnabledFields",
-    "inventory",
-    "bulkSelection",
-    "saveItemPriceHistory",
-    fnSrc + "\nreturn recordBulkPriceHistory;"
-  );
-  return factory(
-    env.recordItemPrice,
-    env.bulkEnabledFields,
-    env.inventory,
-    env.bulkSelection,
-    env.saveItemPriceHistory
-  );
-}
+const buildRecordBulkPriceHistory = loadRecordBulkPriceHistory;
 
 describe("STRK-244 — single-edit valuation gate covers injected fields", () => {
   test("a junk-silver denomination swap with identical facePerCoin is detected", () => {

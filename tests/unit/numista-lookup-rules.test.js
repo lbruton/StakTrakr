@@ -10,7 +10,7 @@
 //      id AND seedImageId so previously-cached pattern images stay bound, dedupes
 //      by id, and supports merge vs. replace.
 //
-// The whole NumistaLookup IIFE is loaded via `new Function` with its free globals
+// The whole NumistaLookup IIFE is loaded through evalSource with its free globals
 // injected (mirrors the slice-and-eval pattern in
 // cloud-sync-item-price-history-merge.test.js): a localStorage stub, a silent
 // console, and a deterministic, content-sensitive simpleHash stand-in that
@@ -18,9 +18,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const src = readFileSync(new URL("../../js/numista-lookup.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 // Deterministic, content-sensitive stand-in for js/vault.js simpleHash. We only
 // rely on (a) equal inputs → equal output and (b) different inputs → (almost
@@ -45,14 +43,10 @@ function loadNumistaLookup(seed) {
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k),
   };
-  const factory = new Function(
-    "window",
-    "localStorage",
-    "simpleHash",
-    "console",
-    src + "\nreturn NumistaLookup;"
-  );
-  const NumistaLookup = factory({}, localStorage, simpleHash, { warn() {}, log() {} });
+  const NumistaLookup = evalSource("js/numista-lookup.js", {
+    params: { window: {}, localStorage, simpleHash, console: { warn() {}, log() {} } },
+    suffix: "\nreturn NumistaLookup;",
+  });
   return { NumistaLookup, store };
 }
 

@@ -271,19 +271,38 @@ describe("STRK-255 retail poller run lock", () => {
     // redirect creates the file before the PID is written, so a competing tick
     // could read an empty owner, judge the live lock malformed, delete it, and
     // run concurrently. Hard-linking a pre-filled temp file closes that window.
+    //
+    // Each contender is its own bash process, as each cron tick is: `$$` names the
+    // lock's temp file, and subshells would all share the parent's `$$`.
+    //
+    // The winner holds the lock until every contender has tried; otherwise a
+    // contender that starts after the winner released wins legitimately, which a
+    // slow runner does often.
+    const tried = join(workDir, "tried");
+    const contender = `
+      . "${LOCK_HELPER}"
+      if acquire_run_lock "${lockfile}" 600; then
+        echo WON
+        touch "${tried}/$1"
+        for _ in $(seq 1 400); do
+          [ "$(ls "${tried}" | wc -l)" -ge ${CONTENDERS} ] && break
+          sleep 0.05
+        done
+      else
+        touch "${tried}/$1"
+      fi
+    `;
     const script = `
+      mkdir -p "${tried}"
       for i in $(seq 1 ${CONTENDERS}); do
-        (
-          . "${LOCK_HELPER}"
-          if acquire_run_lock "${lockfile}" 600; then
-            echo WON
-            sleep 0.3
-          fi
-        ) &
+        bash -c "$CONTENDER" contender "$i" &
       done
       wait
     `;
-    const stdout = execFileSync("bash", ["-c", script], { encoding: "utf8" });
+    const stdout = execFileSync("bash", ["-c", script], {
+      encoding: "utf8",
+      env: { ...process.env, CONTENDER: contender },
+    });
     const wins = stdout.split("\n").filter((l) => l.trim() === "WON").length;
 
     assert.equal(wins, 1, `expected exactly one winner, got ${wins}`);

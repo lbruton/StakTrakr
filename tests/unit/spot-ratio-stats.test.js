@@ -29,20 +29,18 @@
 //
 // Harness: js/spot-ratio-math.js is a script-tag-global module (no ESM/CJS
 // exports — it assigns onto `window`). Mirroring spot-ratio-chips.test.js, the
-// whole file is evaluated with a mock `window` via new Function("window", src).
+// whole file is evaluated with a mock `window` through evalSource.
 
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const src = readFileSync(new URL("../../js/spot-ratio-math.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 // The stats layer reads no collaborators at load time; a bare surface suffices.
 function loadModule() {
   const surface = {
     document: { getElementById: () => null, querySelector: () => null },
   };
-  new Function("window", src)(surface);
+  evalSource("js/spot-ratio-math.js", { params: { window: surface } });
   return surface;
 }
 
@@ -425,11 +423,7 @@ describe("committed bundle sanity", () => {
     // The bundle calls window._loadSpotSeedBundle(bundle) on load; capture the
     // compact { year: { metal: [[MM-DD, px]] } } payload and expand it into the
     // same cache-entry shape js/spot.js produces.
-    const bundleSrc = readFileSync(
-      new URL("../../data/spot-history-bundle.js", import.meta.url),
-      "utf-8"
-    );
-    new Function("window", bundleSrc)({
+    const bundleWindow = {
       _loadSpotSeedBundle(bundle) {
         for (const yearStr of Object.keys(bundle)) {
           const entries = [];
@@ -441,7 +435,8 @@ describe("committed bundle sanity", () => {
           cache.set(parseInt(yearStr, 10), entries);
         }
       },
-    });
+    };
+    evalSource("data/spot-history-bundle.js", { params: { window: bundleWindow } });
     assert.ok(
       cache.size > 0,
       "seed bundle did not call _loadSpotSeedBundle — harness shape drifted"

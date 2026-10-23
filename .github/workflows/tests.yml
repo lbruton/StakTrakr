@@ -1,0 +1,266 @@
+name: Tests
+
+# A PR runs only the tests its change can affect: `select` builds the
+# `test:changed` plan from the test map of the latest dev run. A push to dev runs
+# the full unit and sharded core suites with V8 coverage, publishes the test map
+# and uploads lcov to Codacy. `Tests` is the single check to require.
+
+on:
+  pull_request:
+    branches:
+      - dev
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "26"
+
+jobs:
+  select:
+    name: Select tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      unit: ${{ steps.plan.outputs.unit }}
+      core: ${{ steps.plan.outputs.core }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Plan the full suite (push to dev)
+        if: ${{ github.event_name == 'push' }}
+        run: echo '{"full":true,"core":[],"unit":["tests/unit/*.test.js"],"reasons":[]}' > plan.json
+
+      - name: Plan the PR's tests from dev's test map
+        if: ${{ github.event_name == 'pull_request' }}
+        run: node devops/testing/test-changed.mjs --fetch --plan-only --json plan.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Publish the plan
+        id: plan
+        run: node devops/testing/ci-plan-outputs.mjs plan.json >> "$GITHUB_OUTPUT"
+
+      - name: Upload the plan
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-plan
+          path: plan.json
+          retention-days: 3
+
+  unit:
+    name: Unit
+    needs: select
+    if: ${{ needs.select.outputs.unit != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the selected unit tests
+        if: ${{ github.event_name == 'pull_request' }}
+        # Paths travel in an environment variable; ci-plan-outputs.mjs admits only plain paths.
+        run: node --test $UNIT_TESTS
+        env:
+          UNIT_TESTS: ${{ needs.select.outputs.unit }}
+
+      - name: Run the unit suite with coverage
+        if: ${{ github.event_name == 'push' }}
+        run: npm run test:unit
+        env:
+          COVERAGE: "1"
+
+      - name: Upload unit lcov
+        if: ${{ github.event_name == 'push' && !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: unit-lcov
+          path: coverage/unit-lcov.info
+          retention-days: 3
+          if-no-files-found: warn
+
+  core:
+    name: Core (shard ${{ matrix.shard }})
+    needs: select
+    if: ${{ needs.select.outputs.core != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.select.outputs.shards) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the selected core tests
+        run: npx playwright test $CORE_TESTS --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        env:
+          CORE_TESTS: ${{ needs.select.outputs.core }}
+          COVERAGE: ${{ github.event_name == 'push' && '1' || '' }}
+
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 3
+          if-no-files-found: warn
+
+      - name: Upload raw coverage
+        if: ${{ github.event_name == 'push' && !cancelled() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: raw-coverage-${{ matrix.shard }}
+          path: coverage/raw
+          retention-days: 3
+          if-no-files-found: warn
+
+  report:
+    name: Tests
+    if: ${{ !cancelled() }}
+    needs: [select, unit, core]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CORE_RAN: ${{ needs.core.result != 'skipped' }}
+      IS_PUSH: ${{ github.event_name == 'push' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Download the plan
+        continue-on-error: true
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: test-plan
+
+      - name: Summarize the plan
+        run: node devops/testing/ci-plan-outputs.mjs plan.json --summary >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install dependencies
+        if: ${{ env.CORE_RAN == 'true' }}
+        run: npm ci
+
+      - name: Download blob reports
+        if: ${{ env.CORE_RAN == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+
+      - name: Summarize core results
+        if: ${{ env.CORE_RAN == 'true' }}
+        run: |
+          npx playwright merge-reports --reporter=json ./all-blob-reports > core-report.json
+          started=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" --jq .run_started_at)
+          node devops/testing/ci-summary.mjs core-report.json "$started" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download raw coverage
+        if: ${{ env.IS_PUSH == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: raw-coverage-*
+          path: coverage/raw
+          merge-multiple: true
+
+      - name: Download unit lcov
+        if: ${{ env.IS_PUSH == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: unit-lcov
+          path: coverage
+
+      - name: Merge coverage and build the test map
+        if: ${{ env.IS_PUSH == 'true' }}
+        run: node devops/testing/coverage-merge.mjs
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      - name: Upload test map
+        if: ${{ env.IS_PUSH == 'true' }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-map
+          path: |
+            .cache/test-map.json
+            .cache/test-blocks.json
+          retention-days: 30
+
+      - name: Check for the Codacy token
+        id: codacy
+        if: ${{ env.IS_PUSH == 'true' }}
+        run: echo "enabled=${{ secrets.CODACY_PROJECT_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload coverage to Codacy
+        if: ${{ steps.codacy.outputs.enabled == 'true' }}
+        uses: codacy/codacy-coverage-reporter-action@v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage/lcov.info,coverage/unit-lcov.info
+
+      - name: Note the skipped Codacy upload
+        if: ${{ env.IS_PUSH == 'true' && steps.codacy.outputs.enabled != 'true' }}
+        run: |
+          echo "Codacy coverage upload skipped: CODACY_PROJECT_TOKEN is not available to this run." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail when a suite failed
+        if: >-
+          ${{ needs.select.result != 'success'
+          || (needs.unit.result != 'success' && needs.unit.result != 'skipped')
+          || (needs.core.result != 'success' && needs.core.result != 'skipped') }}
+        run: |
+          echo "Select: ${{ needs.select.result }}; unit: ${{ needs.unit.result }}; core: ${{ needs.core.result }}."
+          exit 1
