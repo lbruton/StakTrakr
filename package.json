@@ -16,6 +16,7 @@
     "test:core": "npx playwright test tests/playwright/core",
     "test:coverage": "COVERAGE=1 npx playwright test tests/playwright/core && node devops/testing/coverage-merge.mjs --no-map",
     "test:map": "COVERAGE=1 npx playwright test tests/playwright/core && node devops/testing/coverage-merge.mjs",
+    "test:changed": "node devops/testing/test-changed.mjs",
     "test:extended": "npx playwright test tests/playwright/extended --pass-with-no-tests",
     "test:legacy": "npx playwright test tests/playwright/archive",
     "test:all": "npm run test:unit && npm run test:core && npm run test:extended",

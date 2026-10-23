@@ -20,6 +20,8 @@ import {
 const COVERAGE = isCoverageEnabled();
 // Pages that collect coverage and are still open; a shared page outlives one test.
 const coveredPages = new Set();
+// Entries taken from pages a test closed itself, written with that test's record.
+const closedPageEntries = [];
 const APP_SHELL_PATHS = new Set(["/", "/index.html"]);
 // Precise coverage slows script execution, so boot gets more time when it is on.
 const BOOT_TIMEOUT_MS = COVERAGE ? 30000 : 15000;
@@ -67,6 +69,17 @@ async function prepareAppPage(page, baseURL = base.info().project.use.baseURL) {
   await page.coverage.startJSCoverage({ resetOnNavigation: false });
   coveredPages.add(page);
   page.once("close", () => coveredPages.delete(page));
+  // Coverage cannot be read from a closed page, so take it before the test closes one.
+  const keepBeforeClose = (target, method) => {
+    const close = target[method].bind(target);
+    target[method] = async (...args) => {
+      if (coveredPages.has(page))
+        closedPageEntries.push(...(await takeCoverage(page, baseURL, false)));
+      return close(...args);
+    };
+  };
+  keepBeforeClose(page, "close");
+  keepBeforeClose(page.context(), "close");
 }
 
 /**
@@ -94,8 +107,11 @@ const test = base.extend({
   appCoverage: [
     async ({ baseURL }, use, testInfo) => {
       const entries = [];
+      // Drop entries a previous test's afterAll left behind; they belong to no test.
+      closedPageEntries.length = 0;
       await use(entries);
       if (!COVERAGE) return;
+      entries.push(...closedPageEntries.splice(0));
       for (const page of [...coveredPages])
         entries.push(...(await takeCoverage(page, baseURL, true)));
       writeRawRecord(RAW_COVERAGE_DIR, rawRecordFor(testInfo, REPO_ROOT, entries));

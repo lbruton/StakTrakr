@@ -93,7 +93,7 @@ const fenceRegion = (text, lead = "") => {
  *   Offsets into the file; several slices run in file order.
  * @param {string} [options.opener] - Code placed in the last blank run before the first slice.
  * @param {string} [options.prefix] - Code placed directly before the first slice.
- * @param {string} [options.suffix] - Code placed directly after the last slice or file.
+ * @param {string} [options.suffix] - Code placed after the end of the file.
  * @returns {unknown} The body's return value.
  */
 export const evalSource = (
@@ -131,11 +131,9 @@ export const evalSource = (
       out += source.slice(start, end);
       if (i + 1 < slices.length) out += fenceRegion(source.slice(end, slices[i + 1].start), ";");
     });
-    const tail = source.slice(slices.at(-1).end);
-    body =
-      out +
-      suffix +
-      (tail.length > suffix.length ? fenceRegion(tail.slice(suffix.length), ";") : "");
+    // The suffix goes after the fenced tail, past the end of the file, so no harness
+    // statement takes the offsets of a production line.
+    body = out + fenceRegion(source.slice(slices.at(-1).end), ";") + suffix;
   }
   const names = Object.keys(params);
   const fn = vm.compileFunction(body, names, { filename });

@@ -102,6 +102,38 @@ function executedFunctions(entries) {
 }
 
 /**
+ * Line ranges of every function in each file, run or not, without the top-level
+ * function. Lets test selection tell a function no test runs from top-level code.
+ * @param {object[]} records - Loaded records.
+ * @returns {Record<string, Array<[number, number]>>}
+ */
+function functionRanges(records) {
+  const byFile = new Map();
+  for (const { entries } of records) {
+    for (const { file, functions, source, lineOf } of entries) {
+      if (!byFile.has(file)) byFile.set(file, new Map());
+      const ranges = byFile.get(file);
+      for (const fn of functions) {
+        const [{ startOffset, endOffset }] = fn.ranges;
+        if (startOffset === 0 && endOffset >= source.length) continue;
+        ranges.set(startOffset, [
+          lineOf(startOffset),
+          lineOf(Math.max(startOffset, endOffset - 1)),
+        ]);
+      }
+    }
+  }
+  return Object.fromEntries(
+    [...byFile]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([file, ranges]) => [
+        file,
+        [...ranges.values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]),
+      ])
+  );
+}
+
+/**
  * Covered V8 ranges of one test as `file:start-end` keys.
  * @param {object[]} entries - Loaded entries of one record.
  * @returns {string[]}
@@ -182,6 +214,7 @@ export async function mergeCoverage({ rawDir, outDir, mapDir, sha, root = REPO_R
     mapPath,
     JSON.stringify({
       sha,
+      files: functionRanges(records),
       tests: tests.map(([id, { title, entries }]) => ({
         id,
         title,

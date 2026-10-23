@@ -1,0 +1,357 @@
+#!/usr/bin/env node
+/**
+ * Runs only the tests a change can affect.
+ *
+ * Core tests come from the test map (.cache/test-map.json): a changed line inside a
+ * function selects the tests that ran it. Unit tests come from the paths each unit
+ * test, or a helper it imports, reads. Shared files and top-level code select the
+ * full core suite; docs and config paths select nothing.
+ *
+ * Usage: node devops/testing/test-changed.mjs [--fetch] [--plan-only] [--json <path>]
+ */
+
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const MAP_PATH = path.join(REPO_ROOT, ".cache", "test-map.json");
+const ALL_UNIT = "tests/unit/*.test.js";
+const MAP_HINT =
+  "Build the map with `npm run test:map`, or download dev's with `npm run test:changed -- --fetch`.";
+
+const SPEC_FILE = /^tests\/playwright\/(core|extended)\/.+\.spec\.js$/;
+const APP_SCRIPT = /^js\/[^/]+\.js$/;
+// Paths that change how every unit test runs.
+const ALL_UNIT_PATHS = [/^package(-lock)?\.json$/, /^devops\/testing\/run-unit\.mjs$/];
+// Paths no test exercises. Anything else the map cannot place selects the full core suite.
+const TEST_FREE_PATHS = [
+  /\.md$/,
+  /^(docs|\.context|\.claude|\.agents|\.codex|\.archive|\.vale|\.codacy|playground|screenshots)\//,
+  /^\.github\/(?!workflows\/tests\.yml$)/,
+  /^devops\//,
+  /^tests\/unit\//,
+  /^tests\/runbook\//,
+  /^tests\/playwright\/(archive|evidence)\//,
+  /^tests\/playwright\/[^/]+\.(md|csv)$/,
+  /^\.(gitignore|gitattributes|prettierrc|prettierignore|markdownlint\.json|markdownlintignore|vale\.ini|coderabbit\.yaml|codacy\.yml|pre-commit-config\.yaml|dockerignore|geminiignore|npmrc|eslintrc\.json|nojekyll)$/,
+  /^eslint\.config\.cjs$/,
+  /^LICENSE/,
+];
+const REPO_PATH =
+  /(?:^|[^\w.-])((?:js|css|data|vendor|devops|tests)\/[\w./-]+\.(?:m?js|json|css|html)|sw-router\.js|sw\.js|index\.html)/g;
+const RELATIVE_IMPORT = /(?:from\s+|import\(\s*)["'](\.{1,2}\/[^"']+)["']/g;
+
+/**
+ * Parses `git diff -U0` output into the changed lines on the old side of each file.
+ * A pure insertion contributes the old line it follows and the line after it.
+ * @param {string} text - Diff text.
+ * @returns {Array<{file: string, lines: number[]}>}
+ */
+export function parseDiff(text) {
+  const changes = [];
+  let current = null;
+  let removed = false;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      current = null;
+      removed = false;
+    } else if (line.startsWith("--- ")) {
+      removed = line === "--- /dev/null";
+    } else if (line.startsWith("+++ ")) {
+      const file = line === "+++ /dev/null" ? null : line.slice("+++ b/".length);
+      current = { file, lines: [] };
+      if (file) changes.push(current);
+      if (removed) current.lines = [];
+    } else if (current && line.startsWith("@@ ")) {
+      const match = line.match(/^@@ -(\d+)(?:,(\d+))? \+/);
+      if (!match || removed) continue;
+      const start = Number(match[1]);
+      const count = match[2] === undefined ? 1 : Number(match[2]);
+      if (count === 0) current.lines.push(start, start + 1);
+      else for (let n = start; n < start + count; n++) current.lines.push(n);
+    }
+  }
+  return changes;
+}
+
+/**
+ * Maps each unit test file to the repository paths it reads, directly or through the
+ * helper files it imports.
+ * @param {Record<string, string>} files - Unit test and helper sources by repo path.
+ * @returns {Map<string, Set<string>>} Unit test file → referenced paths.
+ */
+export function buildUnitIndex(files) {
+  const direct = new Map();
+  for (const [file, text] of Object.entries(files)) {
+    const refs = new Set();
+    for (const match of text.matchAll(REPO_PATH)) refs.add(match[1]);
+    for (const match of text.matchAll(RELATIVE_IMPORT)) {
+      refs.add(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
+    }
+    direct.set(file, refs);
+  }
+  const index = new Map();
+  for (const file of direct.keys()) {
+    if (!file.endsWith(".test.js")) continue;
+    const seen = new Set();
+    const queue = [...direct.get(file)];
+    while (queue.length) {
+      const ref = queue.pop();
+      if (seen.has(ref)) continue;
+      seen.add(ref);
+      if (direct.has(ref)) queue.push(...direct.get(ref));
+    }
+    index.set(file, seen);
+  }
+  return index;
+}
+
+/**
+ * Selects the core and unit tests a set of changes can affect.
+ * @param {object} options
+ * @param {object|null} options.map - Test map, or null when none exists.
+ * @param {Array<{file: string, lines: number[]}>} options.changes - Changed files.
+ * @param {Map<string, Set<string>>} options.unitIndex - From `buildUnitIndex`.
+ * @returns {{full: boolean, allUnit: boolean, reasons: Array<{file: string, why: string}>,
+ *   core: Array<{location: string, files: string[]}>, unit: Array<{file: string, files: string[]}>,
+ *   missingMap: boolean}}
+ */
+export function selectTests({ map, changes, unitIndex }) {
+  const core = new Map();
+  const unit = new Map();
+  const reasons = [];
+  let allUnit = false;
+  let missingMap = false;
+  const pick = (into, key, file) => {
+    if (!into.has(key)) into.set(key, new Set());
+    into.get(key).add(file);
+  };
+  const full = (file, why) => reasons.push({ file, why });
+
+  for (const { file, lines } of changes) {
+    for (const [unitFile, refs] of unitIndex) {
+      if (unitFile === file || refs.has(file)) pick(unit, unitFile, file);
+    }
+    if (ALL_UNIT_PATHS.some((re) => re.test(file))) allUnit = true;
+
+    if (SPEC_FILE.test(file)) {
+      pick(core, file, file);
+    } else if (APP_SCRIPT.test(file)) {
+      if (!map) {
+        missingMap = true;
+        full(file, "no test map to place this file");
+        continue;
+      }
+      const ranges = map.files?.[file];
+      const testsInFile = map.tests.filter((t) => t.functions.some((fn) => fn.file === file));
+      if (!ranges && testsInFile.length === 0) {
+        full(file, "no core test loads this file in the test map");
+        continue;
+      }
+      if (lines.length === 0) full(file, "the whole file changed");
+      for (const line of lines) {
+        const hits = testsInFile.filter((t) =>
+          t.functions.some((fn) => fn.file === file && fn.startLine <= line && line <= fn.endLine)
+        );
+        hits.forEach((t) => pick(core, t.id, file));
+        const inFunction = ranges?.some(([start, end]) => start <= line && line <= end);
+        if (hits.length === 0 && !inFunction) {
+          full(file, `line ${line} is top-level code that every boot runs`);
+        }
+      }
+    } else if (!TEST_FREE_PATHS.some((re) => re.test(file))) {
+      full(file, "a shared file no test map entry covers");
+    }
+  }
+
+  const list = (into, key) =>
+    [...into]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, files]) => ({ [key]: name, files: [...files].sort() }));
+  return {
+    full: reasons.length > 0,
+    allUnit,
+    reasons,
+    core: list(core, "location"),
+    unit: list(unit, "file"),
+    missingMap,
+  };
+}
+
+/**
+ * The plan as text: each selected test with the changed files that selected it.
+ * @param {ReturnType<typeof selectTests>} selection
+ * @returns {string}
+ */
+export function renderPlan(selection) {
+  const lines = [];
+  if (selection.full) {
+    lines.push("Core: the full suite, because:");
+    for (const { file, why } of selection.reasons) lines.push(`  ${file}: ${why}`);
+    if (selection.missingMap) lines.push(`  ${MAP_HINT}`);
+  } else if (selection.core.length) {
+    lines.push(`Core: ${selection.core.length} test location(s)`);
+    for (const { location, files } of selection.core)
+      lines.push(`  ${location}  ← ${files.join(", ")}`);
+  } else {
+    lines.push("Core: no test selected");
+  }
+  if (selection.allUnit) {
+    lines.push("Unit: the full suite (test tooling changed)");
+  } else if (selection.unit.length) {
+    lines.push(`Unit: ${selection.unit.length} file(s)`);
+    for (const { file, files } of selection.unit) lines.push(`  ${file}  ← ${files.join(", ")}`);
+  } else {
+    lines.push("Unit: no test selected");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The plan as JSON for CI.
+ * @param {ReturnType<typeof selectTests>} selection
+ * @returns {{full: boolean, core: string[], unit: string[], reasons: Array<{file: string, why: string}>}}
+ */
+export function toPlanJson(selection) {
+  return {
+    full: selection.full,
+    core: selection.full ? [] : selection.core.map((entry) => entry.location),
+    unit: selection.allUnit ? [ALL_UNIT] : selection.unit.map((entry) => entry.file),
+    reasons: selection.reasons,
+  };
+}
+
+/**
+ * A warning when the map was not built from this branch's history.
+ * @param {{mapSha: string, mergeBase: string, isAncestor: (a: string, b: string) => boolean}} options
+ * @returns {string|null}
+ */
+export function staleWarning({ mapSha, mergeBase, isAncestor }) {
+  if (!mapSha || !mergeBase || isAncestor(mapSha, mergeBase)) return null;
+  return `Warning: the test map is stale. It was built from ${mapSha.slice(0, 8)}, which is not in this branch's history from origin/dev. ${MAP_HINT}`;
+}
+
+// --- Command line -------------------------------------------------------------------
+
+const git = (args, options = {}) =>
+  execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf-8", maxBuffer: 64 << 20, ...options });
+const gitOk = (args) => spawnSync("git", args, { cwd: REPO_ROOT }).status === 0;
+
+/** Downloads the test map from the latest successful `dev` push run of the Tests workflow. */
+function fetchMap() {
+  const id = execFileSync(
+    "gh",
+    [
+      "run",
+      "list",
+      "--workflow",
+      "tests.yml",
+      "--branch",
+      "dev",
+      "--event",
+      "push",
+      "--status",
+      "success",
+      "--limit",
+      "1",
+      "--json",
+      "databaseId",
+      "--jq",
+      ".[0].databaseId",
+    ],
+    { cwd: REPO_ROOT, encoding: "utf-8" }
+  ).trim();
+  if (!id) {
+    console.log("No successful dev run has published a test map yet.");
+    return;
+  }
+  execFileSync("gh", ["run", "download", id, "-n", "test-map", "-D", path.dirname(MAP_PATH)], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+  });
+}
+
+/** Reads the unit tests and helpers that the unit index scans. */
+function unitSources() {
+  const files = {};
+  const walk = (dir) => {
+    for (const entry of readdirSync(path.join(REPO_ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(rel);
+      else if (/\.(m?js)$/.test(entry.name))
+        files[rel] = readFileSync(path.join(REPO_ROOT, rel), "utf-8");
+    }
+  };
+  walk("tests/unit");
+  return files;
+}
+
+/** Changed files against `base`, working tree and untracked files included. */
+function changesSince(base) {
+  const diff = git(["diff", "-U0", "--no-renames", "--no-color", base]);
+  const untracked = git(["ls-files", "--others", "--exclude-standard"])
+    .split("\n")
+    .filter(Boolean)
+    .map((file) => ({ file, lines: [] }));
+  return [...parseDiff(diff), ...untracked];
+}
+
+function main(argv) {
+  const flag = (name) => argv.includes(name);
+  const jsonAt = argv.indexOf("--json");
+  if (flag("--fetch")) fetchMap();
+
+  const map = existsSync(MAP_PATH) ? JSON.parse(readFileSync(MAP_PATH, "utf-8")) : null;
+  const mergeBase = gitOk(["rev-parse", "--verify", "-q", "origin/dev"])
+    ? git(["merge-base", "HEAD", "origin/dev"]).trim()
+    : null;
+  const mapUsable = map && gitOk(["cat-file", "-e", `${map.sha}^{commit}`]);
+  const base = mapUsable ? map.sha : mergeBase || "HEAD";
+  if (map && !mapUsable) {
+    console.log(
+      `Warning: the test map's commit ${map.sha.slice(0, 8)} is not in this clone. Run \`git fetch origin dev\`.`
+    );
+  }
+  const warning =
+    mapUsable && mergeBase
+      ? staleWarning({
+          mapSha: map.sha,
+          mergeBase,
+          isAncestor: (a, b) => gitOk(["merge-base", "--is-ancestor", a, b]),
+        })
+      : null;
+  if (warning) console.log(warning);
+
+  const selection = selectTests({
+    map,
+    changes: changesSince(base),
+    unitIndex: buildUnitIndex(unitSources()),
+  });
+  console.log(renderPlan(selection));
+  const plan = toPlanJson(selection);
+  if (jsonAt !== -1) writeFileSync(path.resolve(argv[jsonAt + 1]), JSON.stringify(plan, null, 2));
+  if (flag("--plan-only")) return 0;
+
+  let status = 0;
+  if (plan.unit.length) {
+    status ||= spawnSync(process.execPath, ["--test", ...plan.unit], {
+      cwd: REPO_ROOT,
+      stdio: "inherit",
+    }).status;
+  }
+  const coreArgs = plan.full ? ["tests/playwright/core"] : plan.core;
+  if (coreArgs.length) {
+    const run = spawnSync("npx", ["playwright", "test", ...coreArgs], {
+      cwd: REPO_ROOT,
+      stdio: "inherit",
+    });
+    status ||= run.status;
+  }
+  return status ?? 1;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  process.exit(main(process.argv.slice(2)));
+}

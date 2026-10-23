@@ -966,14 +966,18 @@ test.describe("core/collections — link picker, builder, item view", () => {
       const options = builder.locator(".collections-builder-title-option .collections-image-pick");
       await expect(options).toHaveCount(2);
       const [obverse, reverse] = [
-        await options.nth(0).boundingBox(),
-        await options.nth(1).boundingBox(),
+        await settledBox(page, options.nth(0)),
+        await settledBox(page, options.nth(1)),
       ];
-      const shape = await builder.getByRole("radiogroup", { name: "Image shape" }).boundingBox();
-      const body = await builder.locator(".collections-modal-body").boundingBox();
-      // Large, side by side, and centred as a pair in the modal body.
+      const shape = await settledBox(
+        page,
+        builder.getByRole("radiogroup", { name: "Image shape" })
+      );
+      const body = await settledBox(page, builder.locator(".collections-modal-body"));
+      // Large, side by side, and centred as a pair in the modal body. Font rasterizing
+      // differs by a fraction of a pixel between platforms.
       expect(obverse.width).toBeGreaterThanOrEqual(120);
-      expect(reverse.y).toBeCloseTo(obverse.y, 0);
+      expect(Math.abs(reverse.y - obverse.y)).toBeLessThan(1);
       expect(reverse.x).toBeGreaterThan(obverse.x + obverse.width);
       const pairCentre = (obverse.x + reverse.x + reverse.width) / 2;
       expect(Math.abs(pairCentre - (body.x + body.width / 2))).toBeLessThan(4);
