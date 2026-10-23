@@ -40,7 +40,7 @@ count from `playwright.config.js`.
   change can affect, and every merge to `dev` to run the full suite with coverage, so that
   a PR never waits on the full suite and a regression the selection misses is still caught.
   (Amended 2026-10-23: the PR check ran the full suite; the user rejected the wait.)
-- **US-3:** As the developer, I want the full core suite to finish in 3 minutes, so that a
+- **US-3:** As the developer, I want the full core suite to finish in 4 minutes, so that a
   full local run before a PR is practical.
 - **US-4:** As the developer, I want a report of tests that add no unique coverage, so that
   consolidation removes tests by evidence, not by guess.
@@ -122,8 +122,9 @@ count from `playwright.config.js`.
 
 ### Consolidation (US-3)
 
-- **AC-23:** WHEN consolidation is complete, the full core suite SHALL finish in 3 minutes
-  or less on the reference machine.
+- **AC-23:** (Amended 2026-10-23, user-approved: 3 minutes became 4.) WHEN consolidation
+  is complete, the full core suite SHALL finish in 4 minutes or less on the reference
+  machine at default workers.
 - **AC-24:** WHEN a consolidation PR merges, the Codacy coverage for `js/` SHALL be equal to
   or higher than the `dev` baseline before that PR.
 - **AC-25:** WHERE a core Playwright test checks only computed values with no DOM, layout or
@@ -174,7 +175,8 @@ count from `playwright.config.js`.
 - [x] Template change scope: global master in `Devops/skill-library` (decided 2026-10-22).
 - [x] CI strictness: required check on `dev`, full core suite (decided 2026-10-22).
 - [x] Archive: delete; git history keeps the files (decided 2026-10-22).
-- [x] Targets: 60 s targeted, 3 min full core (decided 2026-10-22).
+- [x] Targets: 60 s targeted, 3 min full core (decided 2026-10-22; full core amended to
+      4 min on 2026-10-23, approach D-22).
 - [x] Coverage gate threshold: "does not drop" against the `dev` baseline (issue body).
 
 ---
