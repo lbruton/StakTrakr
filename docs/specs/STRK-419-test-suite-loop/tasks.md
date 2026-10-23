@@ -82,11 +82,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Maps to:** AC-2, AC-3
   - **As built:** records hold whole `js/` entries (see B.1) without the `source` text; the merge reads the served file from the repository. An auto fixture `appCoverage` writes the record after the `page` fixture adds its entries, and pages made with `prepareAppPage` also report, a shared serial page per test. A page closed inside the test body reports nothing. The boot wait allows 30 s with coverage on and keeps 15 s without. Full core run with coverage: 1,021 records, 344 s against 278 s without (one boot timeout at 15 s, gone in isolation and over 10 repeats, led to the 30 s limit). Raw output is about 500 MB, which C.4 must account for in its artifact upload.
 
-- [ ] **C.2** — Merge script and local commands
+- [x] **C.2** — Merge script and local commands
   - **File(s):** `devops/testing/coverage-merge.mjs` (new), `playwright.config.js`, `package.json`
   - **Acceptance:** `npm run test:coverage` runs core with `COVERAGE=1` and writes `coverage/lcov.info` for `js/` (AC-1); `npm run test:map` also writes `.cache/test-map.json` and the block file with the commit SHA (AC-2). All B.1 cases pass. A normal `npm test` writes no coverage (AC-3).
   - **Depends on:** C.1
   - **Maps to:** AC-1, AC-2, AC-3
+  - **As built:** the block file is `.cache/test-blocks.json`. `playwright.config.js` gains `globalSetup: tests/playwright/helpers/coverage-setup.js` (new), which empties `coverage/raw/` when `COVERAGE=1` so an earlier run never leaks into the merge. `test:coverage` merges with `--no-map`. Measured on the full core run: all 1,021 tests pass; the merge takes 13 s at 1.9 GB peak memory; lcov covers 96 of 97 `js/` files (`js/types.js` has no entry) at 72.9% of lines. The map holds 972 ids for 1,021 tests because tests generated in a loop share one `file:line`; running that location runs all of them, which D-8 already accepts. The map is 73 MB and the block file 44 MB. For Part 2: 616 functions run in at least 95% of tests (boot code), 1,428 run in fewer than 10.
 
 - [ ] **C.3** — Unit harness evaluates source with file attribution
   - **File(s):** `tests/unit/helpers/source-extract.js`, `tests/unit/helpers/load-sw-router.js`, `package.json`, the 37 `tests/unit/*.test.js` files that call `new Function` on repo source

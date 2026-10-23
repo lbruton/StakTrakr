@@ -14,6 +14,8 @@
     "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\" \".context/**/*.md\" \".agents/**/*.md\" \".claude/**/*.md\"",
     "test": "npm run test:core",
     "test:core": "npx playwright test tests/playwright/core",
+    "test:coverage": "COVERAGE=1 npx playwright test tests/playwright/core && node devops/testing/coverage-merge.mjs --no-map",
+    "test:map": "COVERAGE=1 npx playwright test tests/playwright/core && node devops/testing/coverage-merge.mjs",
     "test:extended": "npx playwright test tests/playwright/extended --pass-with-no-tests",
     "test:legacy": "npx playwright test tests/playwright/archive",
     "test:all": "npm run test:unit && npm run test:core && npm run test:extended",
