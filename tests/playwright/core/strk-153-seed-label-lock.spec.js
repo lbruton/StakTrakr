@@ -8,6 +8,10 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 
 test.use({ locale: "en-US", timezoneId: "America/Chicago" });
 
+test("throwaway: the Tests check must fail", () => {
+  expect(1).toBe(2);
+});
+
 // Fixed "now" so the seed noon entry and the morning sync land on the same local day.
 const FIXED_NOW_ISO = "2026-06-04T18:00:00.000Z"; // 13:00 local (America/Chicago, CDT)
 const TODAY_LOCAL = "2026-06-04";
