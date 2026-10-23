@@ -23,7 +23,7 @@ const METALS = ["Silver", "Gold", "Platinum", "Palladium"];
  * restore the default and make the persistence test unable to fail.
  *
  * Waits on `window.appListenersReady` (STRK-294) before returning. init.js
- * Phase 14 attaches every header listener inside a `setTimeout(…, 200)`, so
+ * Phase 14 attaches every header listener inside a deferred `setTimeout`, so
  * `#spotPriceDisplaySilver` being visible and `cycleSpotTrend` being defined —
  * both true long before that timer fires — are NOT sufficient. Without this
  * wait, clicking #settingsBtn silently does nothing and the failure looks like
@@ -403,7 +403,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     // saying the gear "does NOT work under this project's fixture" and that the
     // limitation could not be papered over. That diagnosis was wrong — the gear
     // works fine; gotoApp() was simply returning before init.js Phase 14's
-    // 200ms setTimeout had attached its listener. gotoApp() now waits on
+    // deferred setTimeout had attached its listener. gotoApp() now waits on
     // window.appListenersReady, so the whole user route — gear → nav item →
     // panel — is exercised end to end.
     await gotoApp(page);
@@ -568,7 +568,7 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
   //
   // UPGRADED (STRK-294): this comment used to say #settingsBtn "still cannot be
   // clicked under this fixture". It can — gotoApp() was returning before Phase
-  // 14's 200ms timer attached the listener, and now waits on
+  // 14's deferred timer attached the listener, and now waits on
   // window.appListenersReady.
   test("Settings › Cloud is reachable by clicking the gear and the nav control", async ({
     page,
