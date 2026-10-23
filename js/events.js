@@ -2868,9 +2868,9 @@ window.filterTypesByMetal = filterTypesByMetal;
 window.validateItemFields = validateItemFields;
 
 /**
- * Prevent overlapping saves while an image swap or image write is pending.
- * The first commit clears editingIndex, so a second submit could otherwise add
- * a duplicate Item instead of editing it.
+ * Prevent overlapping saves while an image swap or image write is pending, and drop a
+ * submit that arrives after the save closed #itemModal. The first commit clears
+ * editingIndex, so either late submit would otherwise add a duplicate Item.
  * @param {Function} handler - Unified form submission handler
  * @returns {Function} Submission handler with a per-form in-flight guard
  */
@@ -2878,7 +2878,7 @@ const guardItemFormSubmission = (handler) => {
   let submitting = false;
   return async function (event) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitting || document.getElementById("itemModal")?.style.display === "none") return;
     submitting = true;
     try {
       await handler.call(this, event);
