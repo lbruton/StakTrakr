@@ -53,16 +53,18 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ### Sprint Cohort B — Tests · RED
 
-- [ ] **B.1 [P]** — Failing tests for coverage helpers and the merge script
+- [x] **B.1 [P]** — Failing tests for coverage helpers and the merge script
   - **File(s):** `tests/unit/coverage-merge.test.js` (new)
   - **Acceptance:** With inline raw V8 records for two tests, the tests assert: lcov contains `SF:js/<file>.js` with hit lines (AC-1); the test map holds each test's `file:line`, its executed functions as `{file, name, startLine, endLine}` and the build commit SHA (AC-2); the block file lists covered ranges per test (input to AC-21); the enable check returns false when `COVERAGE` is unset (AC-3); non-`js/` URLs are filtered out. All fail because `coverage.js` and `coverage-merge.mjs` do not exist.
   - **Depends on:** A.1
   - **Maps to:** AC-1, AC-2, AC-3
+  - **As built:** the contract is `isCoverageEnabled(env)`, `appCoverageEntries(entries, origin)`, `rawRecordFor(testInfo, root, entries)` and `writeRawRecord(dir, record)` in `coverage.js`, and `mergeCoverage({ rawDir, outDir, mapDir, sha })` returning `{ lcov, map, blocks }` paths. Raw records keep whole `js/` entries, zero-count functions included, which amends D-2: V8 marks uncalled code with zero-count ranges nested in a covered parent, so dropping them would mark every uncalled function covered. A test pins this.
 
-- [ ] **B.2 [P]** — Failing test for unit coverage attribution
+- [x] **B.2 [P]** — Failing test for unit coverage attribution
   - **File(s):** `tests/unit/source-extract-coverage.test.js` (new)
   - **Acceptance:** The test runs `node --test --experimental-test-coverage --test-reporter=lcov` on a child test that uses `evalConstantsWindow` and `extractConstFn`, then asserts the lcov holds `SF:js/constants.js` and that a branch inside an extracted function is recorded as hit. It fails because the harness uses `new Function`.
   - **Maps to:** AC-4
+  - **As built:** `extractConstFn` takes a fourth argument `{ file }` (repo-relative path) so a slice can be credited to its file; callers without it keep working unattributed. The child slices `_staktrakrBackfillHoursBack` from `js/api.js` and finds its line numbers from the source text. The child runs without `NODE_TEST_CONTEXT`, which otherwise routes its output to the outer runner. It fails on the missing `js/constants.js` entry.
 
 - [ ] **B.3** — Test justification: CI workflow and external gates
   - **File(s):** _no file changes — review anchor only_
