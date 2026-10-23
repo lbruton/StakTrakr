@@ -71,12 +71,13 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Maps to:** AC-4
   - **As built:** `extractConstFn` takes a fourth argument `{ file }` (repo-relative path) so a slice can be credited to its file; callers without it keep working unattributed. The child slices `_staktrakrBackfillHoursBack` from `js/api.js` and finds its line numbers from the source text. The child runs without `NODE_TEST_CONTEXT`, which otherwise routes its output to the outer runner. It fails on the missing `js/constants.js` entry.
 
-- [ ] **B.3** — Test justification: CI workflow and external gates
+- [x] **B.3** — Test justification: CI workflow and external gates
   - **File(s):** _no file changes — review anchor only_
   - **Acceptance:** Documented below; reviewers confirm no repo-local automated test is feasible.
   - **Justification:** AC-5 to AC-11 describe GitHub Actions, Codacy and ruleset behavior; they run only on GitHub.
   - **Manual validation (amended 2026-10-23, D-18):** On the Part 1 PR: the `Tests` check runs the selection (the full suite while no `dev` map exists, per AC-17) (AC-5); a throwaway commit with a failing test in a selected spec turns the check red (AC-8, revert after); a docs-only change starts no browser (AC-5). After merge: the `dev` push run runs the full suite, publishes the map and uploads to Codacy, or notes the skip (AC-6, AC-7, AC-10); the next PR's check uses that map and finishes within AC-11. AC-9 is retired.
   - **Maps to:** AC-5, AC-6, AC-7, AC-8, AC-10, AC-11
+  - **Validated (2026-10-23):** Part 1 PR #1623 ran the full four-shard suite with no `dev` map (AC-5, AC-17). The `dev` push runs ran the full suite, published the map and uploaded to Codacy (AC-6, AC-7); see C.4. PR #1625 used that map: its docs-only commit skipped Unit and Core, so no browser started (AC-5). A throwaway failing test in `strk-153-seed-label-lock.spec.js` selected one shard, failed `Tests` and left the PR `BLOCKED` (AC-8); the revert went green. That run finished in 1 min 45 s with a spec change, not a `js/` change. AC-10 (skip notice) is not exercised, because the token is set. The first `dev` run missed the 10 min AC-11 limit (see C.4).
 
 ### Sprint Cohort C — Implementation · GREEN (sequential)
 
@@ -120,11 +121,12 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **Maps to:** AC-5, AC-6, AC-7, AC-8, AC-10, AC-11
   - **As built (2026-10-23):** the first two `dev` push runs (39926539842 for `4c60a464`, 39927249803 for `c22499e3`) passed. Each ran the full suite in four shards, published the `test-map` artifact (about 23.7 MB) and uploaded lcov to Codacy (`Final notification received successfully`). Codacy reports `dev` coverage of 72.96 % (28,739 of 39,391 lines, 952 files). The second run took 9 min 10 s; the first took 20 min because `Install Chromium` took 13 min on one shard. Core shards are uneven (3 to 7 min of test time). Pushes to `dev` queue behind each other in one concurrency group.
 
-- [ ] **C.5** — User gate steps and Part 1 PR
+- [x] **C.5** — User gate steps and Part 1 PR
   - **File(s):** _no file changes — PR body and external settings_
   - **Acceptance:** The Part 1 PR body lists the user steps: create a Codacy repository API token and store it as the `CODACY_PROJECT_TOKEN` Actions secret; add `Tests` to the `Protect Dev` ruleset's required checks after the first green run. The agent verifies each step on GitHub after the user reports it done, and completes the B.3 manual validation. (Amended 2026-10-23: no Codacy PR coverage gate; AC-9 retired.)
   - **Depends on:** C.4
   - **Maps to:** AC-7, AC-8
+  - **Verified (2026-10-23):** the `CODACY_PROJECT_TOKEN` secret works (the `dev` runs uploaded with it). The `Protect Dev` ruleset requires `Codacy Static Code Analysis` and `Tests`. B.3 is validated.
 
 ---
 
