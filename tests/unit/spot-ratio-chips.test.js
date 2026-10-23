@@ -15,18 +15,17 @@
 //
 // Harness: js/spot-ratio-math.js is a script-tag-global module (no ESM/CJS
 // exports — it assigns onto `window`). Mirroring diff-engine-normalization.test.js,
-// the whole file is evaluated with a mock `window` via new Function("window", src).
+// the whole file is evaluated with a mock `window` through evalSource.
 // The module reads goldback collaborators as bare globals, so the same object is
 // shared as `globalThis` AND `window`, letting the tests inject doubles + freeze
 // "now" deterministically (never the real Date).
 
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource } from "./helpers/source-extract.js";
 
 // Math/freshness/resolve functions live in spot-ratio-math.js (render layer is in
 // spot-ratio-chips.js); this unit file tests the math layer.
-const src = readFileSync(new URL("../../js/spot-ratio-math.js", import.meta.url), "utf-8");
 
 // Build a fresh module surface. The module assigns its functions onto `window`;
 // it also reads goldback collaborators (goldbackPricingSource, spotPrices,
@@ -51,7 +50,7 @@ function loadModule(env = {}) {
     globalThis[k] = surface[k];
   }
 
-  new Function("window", src)(surface);
+  evalSource("js/spot-ratio-math.js", { params: { window: surface } });
 
   return {
     surface,

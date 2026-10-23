@@ -17,70 +17,22 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-// --- Real lz-string engine (UMD assigns IIFE to module.exports) ---
-const lzCode = readFileSync(new URL("../../vendor/lz-string.min.js", import.meta.url), "utf-8");
-const _lzModule = { exports: {} };
-new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports, undefined);
-const LZString = _lzModule.exports;
+import { loadStorageCodec } from "./helpers/storage-codec.js";
+import { loadSettingsHashBlock } from "./helpers/sync-blocks.js";
 
 // --- Real __compressIfNeeded / __decompressIfNeeded from utils-storage.js (STRK-177) ---
-const utilsSrc = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
-const cStart = utilsSrc.indexOf("const __ST_COMP_PREFIX");
-const cEnd = utilsSrc.indexOf("// Kick off the one-time");
-assert.ok(
-  cStart !== -1 && cEnd !== -1 && cEnd > cStart,
-  "could not locate compression block in utils-storage.js"
-);
-const compFactory = new Function(
-  "__LZ",
-  "__LZ_REAL",
-  utilsSrc.slice(cStart, cEnd) + "\nreturn { __compressIfNeeded, __decompressIfNeeded };"
-);
-const { __compressIfNeeded, __decompressIfNeeded } = compFactory(LZString, true);
-
-// --- Real computeSettingsHash block from cloud-sync.js ---
-const src = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-const start = src.indexOf("function _stableCanonicalString");
-const end = src.indexOf("function initSyncTabCoordination");
-assert.ok(
-  start !== -1 && end !== -1 && end > start,
-  "could not locate settings-hash block in cloud-sync.js"
-);
-const block = src.slice(start, end);
+const { __compressIfNeeded, __decompressIfNeeded } = loadStorageCodec();
 
 const SCOPE = ["metalInventory", "appTheme", "itemTags", "objConfig", "arrConfig"];
 
-function sha256BufferToHex(buffer) {
-  const a = new Uint8Array(buffer);
-  let hex = "";
-  for (let j = 0; j < a.length; j++) hex += ("0" + a[j].toString(16)).slice(-2);
-  return hex;
-}
-
 // Compute the settings hash over a given localStorage map.
 function hashOf(store) {
-  const localStorageMock = { getItem: (k) => (k in store ? store[k] : null) };
-  const factory = new Function(
-    "crypto",
-    "localStorage",
-    "SYNC_SCOPE_KEYS",
-    "__decompressIfNeeded",
-    "TextEncoder",
-    "sha256BufferToHex",
-    "debugLog",
-    block + "\nreturn computeSettingsHash;"
-  );
-  const computeSettingsHash = factory(
-    globalThis.crypto,
-    localStorageMock,
-    SCOPE,
-    __decompressIfNeeded,
-    TextEncoder,
-    sha256BufferToHex,
-    () => {}
-  );
+  const { computeSettingsHash } = loadSettingsHashBlock({
+    store,
+    scope: SCOPE,
+    decompress: __decompressIfNeeded,
+    returns: ["computeSettingsHash"],
+  });
   return computeSettingsHash();
 }
 

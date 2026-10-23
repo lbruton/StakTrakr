@@ -15,12 +15,11 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource } from "./helpers/source-extract.js";
 
 // diff-engine.js is pure data with `window.DiffEngine = DiffEngine`.
-const diffSrc = readFileSync(new URL("../../js/diff-engine.js", import.meta.url), "utf-8");
 const win = {};
-new Function("window", diffSrc)(win);
+evalSource("js/diff-engine.js", { params: { window: win } });
 const DiffEngine = win.DiffEngine;
 assert.ok(
   DiffEngine && typeof DiffEngine.computeItemKey === "function",
@@ -29,8 +28,7 @@ assert.ok(
 
 // changeLog.js exposes `window.computeItemKey` (:933). Load it into the SAME
 // window so its call-time delegation resolves window.DiffEngine.
-const clSrc = readFileSync(new URL("../../js/changeLog.js", import.meta.url), "utf-8");
-new Function("window", clSrc)(win);
+evalSource("js/changeLog.js", { params: { window: win } });
 const changeLogComputeItemKey = win.computeItemKey;
 assert.ok(
   typeof changeLogComputeItemKey === "function",
@@ -104,7 +102,7 @@ describe("AC-2 — changeLog and DiffEngine produce identical keys (3-site equiv
   // WITHOUT DiffEngine so computeItemKey exercises the inline fallback directly.
   describe("changeLog fallback (DiffEngine absent) mirrors the instance key", () => {
     const bareWin = {};
-    new Function("window", clSrc)(bareWin);
+    evalSource("js/changeLog.js", { params: { window: bareWin } });
     const fallbackKey = bareWin.computeItemKey;
 
     test("fallback is in use (no DiffEngine on this window)", () => {

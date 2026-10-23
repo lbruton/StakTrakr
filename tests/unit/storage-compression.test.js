@@ -11,41 +11,22 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-// Load the vendored lz-string via a synthetic CJS module context (the sw-router.test.js
-// pattern). The minified UMD assigns the IIFE result to module.exports here, the same
-// object a browser exposes as window.LZString.
-const lzCode = readFileSync(new URL("../../vendor/lz-string.min.js", import.meta.url), "utf-8");
-const _lzModule = { exports: {} };
-new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports, undefined);
-const LZString = _lzModule.exports;
+import { evalSource, readSource } from "./helpers/source-extract.js";
+import { loadLZString, loadStorageCodec } from "./helpers/storage-codec.js";
+
+const LZString = loadLZString();
 
 // Load the REAL compression helpers from source (not a reimplementation) by slicing the
 // block between the prefix constants and the boot-migration marker, then evaluating it
 // with the real LZString injected — mirrors the sw-router.test.js eval pattern.
 // STRK-177: the compression codec moved verbatim from js/utils.js to js/utils-storage.js.
-const src = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
-const start = src.indexOf("const __ST_COMP_PREFIX");
-const end = src.indexOf("// Kick off the one-time");
-assert.ok(
-  start !== -1 && end !== -1 && end > start,
-  "could not locate compression block in utils-storage.js"
-);
-const block = src.slice(start, end);
-const factory = new Function(
-  "__LZ",
-  "__LZ_REAL",
-  block +
-    "\nreturn { __compressIfNeeded, __decompressIfNeeded, __ST_COMP_PREFIX, __ST_LEGACY_PREFIX };"
-);
+const src = readSource("js/utils-storage.js");
 // Real-engine instance (vendor loaded).
-const { __compressIfNeeded, __decompressIfNeeded, __ST_COMP_PREFIX, __ST_LEGACY_PREFIX } = factory(
-  LZString,
-  true
-);
+const { __compressIfNeeded, __decompressIfNeeded, __ST_COMP_PREFIX, __ST_LEGACY_PREFIX } =
+  loadStorageCodec(LZString, true);
 // Fallback instance (vendor failed to load → identity no-op, __LZ_REAL=false).
 const identity = { compressToUTF16: (i) => i, decompressFromUTF16: (i) => i };
-const { __compressIfNeeded: __compressNoEngine } = factory(identity, false);
+const { __compressIfNeeded: __compressNoEngine } = loadStorageCodec(identity, false);
 
 const bigJson = JSON.stringify(
   Array.from({ length: 3000 }, (_, i) => ({
@@ -59,7 +40,6 @@ const bigJson = JSON.stringify(
 // mock localStorage, injecting the same deps it closes over in utils.js.
 const migStart = src.indexOf("const __migrateCompressionV2");
 const migEnd = src.indexOf("\n};", migStart) + 3;
-const migSrc = src.slice(migStart, migEnd);
 function makeMockLS(initial) {
   const store = new Map(Object.entries(initial));
   return {
@@ -81,14 +61,17 @@ function makeMockLS(initial) {
   };
 }
 function buildMigration(ls) {
-  return new Function(
-    "__LZ_REAL",
-    "__compressIfNeeded",
-    "__ST_LEGACY_PREFIX",
-    "__ST_COMP_PREFIX",
-    "localStorage",
-    migSrc + "\nreturn __migrateCompressionV2;"
-  )(true, __compressIfNeeded, "CMP1:", "CMP2:", ls);
+  return evalSource("js/utils-storage.js", {
+    params: {
+      __LZ_REAL: true,
+      __compressIfNeeded,
+      __ST_LEGACY_PREFIX: "CMP1:",
+      __ST_COMP_PREFIX: "CMP2:",
+      localStorage: ls,
+    },
+    slice: { start: migStart, end: migEnd },
+    suffix: "\nreturn __migrateCompressionV2;",
+  });
 }
 
 describe("storage compression (STRK-140)", () => {

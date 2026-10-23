@@ -13,14 +13,11 @@
 //
 // Harness: the store is a script-tag IIFE with free-variable dependencies (saveDataSync,
 // loadDataSync, inventory, document, ...). Mirroring collections-core.test.js, the file is
-// evaluated through `new Function`, which turns those globals into injectable parameters.
+// evaluated through evalSource, which turns those globals into injectable parameters.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const coreSrc = readFileSync(new URL("../../js/collections-core.js", import.meta.url), "utf-8");
-const storeSrc = readFileSync(new URL("../../js/collections-store.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 const STATE_KEY = "collectionState";
 const DISABLED_KEY = "disabledCollections";
@@ -43,7 +40,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
  */
 function makeHarness(seedState, options = {}) {
   const surface = {};
-  new Function("window", coreSrc)(surface);
+  evalSource("js/collections-core.js", { params: { window: surface } });
   surface.__COLLECTIONS_BUNDLE = {
     templates: { [TEMPLATE]: { slug: TEMPLATE, name: "American Silver Eagle", slots: [] } },
   };
@@ -95,36 +92,23 @@ function makeHarness(seedState, options = {}) {
   }
 
   let minted = 0;
-  new Function(
-    "window",
-    "document",
-    "CustomEvent",
-    "saveDataSync",
-    "loadDataSync",
-    "COLLECTION_STATE_KEY",
-    "DISABLED_COLLECTIONS_KEY",
-    "LS_KEY",
-    "inventory",
-    "isDisposed",
-    "generateUUID",
-    "saveInventory",
-    "localStorage",
-    storeSrc
-  )(
-    surface,
-    documentDouble,
-    CustomEventDouble,
-    saveDataSync,
-    loadDataSync,
-    STATE_KEY,
-    DISABLED_KEY,
-    INVENTORY_KEY,
-    inventory,
-    (item) => Boolean(item && item.disposed),
-    () => `00000000-0000-4000-8000-00000000000${(minted += 1)}`,
-    () => undefined,
-    localStorageDouble
-  );
+  evalSource("js/collections-store.js", {
+    params: {
+      window: surface,
+      document: documentDouble,
+      CustomEvent: CustomEventDouble,
+      saveDataSync,
+      loadDataSync,
+      COLLECTION_STATE_KEY: STATE_KEY,
+      DISABLED_COLLECTIONS_KEY: DISABLED_KEY,
+      LS_KEY: INVENTORY_KEY,
+      inventory,
+      isDisposed: (item) => Boolean(item && item.disposed),
+      generateUUID: () => `00000000-0000-4000-8000-00000000000${(minted += 1)}`,
+      saveInventory: () => undefined,
+      localStorage: localStorageDouble,
+    },
+  });
 
   return {
     store: surface.collectionsStore,

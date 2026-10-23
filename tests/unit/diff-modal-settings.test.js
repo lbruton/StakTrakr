@@ -2,7 +2,7 @@
 // Run: npm run test:unit  (node --test tests/unit/diff-modal-settings.test.js)
 //
 // The module is a browser IIFE that assigns window.DiffModalSettings. We load it
-// via new Function() with an injected `window` object so the IIFE's
+// through evalSource with an injected `window` object so the IIFE's
 // `typeof window !== "undefined"` guard fires and exposes the public API without
 // any DOM. sanitizeHtml / __decompressIfNeeded are intentionally left undefined
 // so _esc falls back to its inline HTML-escape branch (deterministic output).
@@ -13,11 +13,10 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
+import { evalSource, readSource } from "./helpers/source-extract.js";
 
-const code = readFileSync(new URL("../../js/diff-modal-settings.js", import.meta.url), "utf-8");
-const diffModalCode = readFileSync(new URL("../../js/diff-modal.js", import.meta.url), "utf-8");
+const DIFF_MODAL_FILE = "js/diff-modal.js";
+const diffModalCode = readSource(DIFF_MODAL_FILE);
 const window = {
   __COLLECTIONS_BUNDLE: {
     templates: {
@@ -57,48 +56,47 @@ const window = {
   },
 };
 window.collectionsStore.templates = window.__COLLECTIONS_BUNDLE.templates;
-new Function("window", code)(window);
+evalSource("js/diff-modal-settings.js", { params: { window } });
 const DMS = window.DiffModalSettings;
 
-const mergeSlugChipsSourceStart = diffModalCode.indexOf("  function _mergeSlugChips(");
-const mergeSlugChipsSourceEnd = diffModalCode.indexOf(
-  "\n  function _buildSelectedChanges()",
-  mergeSlugChipsSourceStart
-);
+const mergeSlugChipsStart = diffModalCode.indexOf("  function _mergeSlugChips(");
+const mergeSlugChipsSlice = {
+  start: mergeSlugChipsStart,
+  end: diffModalCode.indexOf("\n  function _buildSelectedChanges()", mergeSlugChipsStart),
+};
 const mergeSlugChips = (fieldSelections) =>
-  new Function(
-    "_fieldSelections",
-    diffModalCode.slice(mergeSlugChipsSourceStart, mergeSlugChipsSourceEnd) +
-      "\nreturn _mergeSlugChips;"
-  )(fieldSelections);
+  evalSource(DIFF_MODAL_FILE, {
+    params: { _fieldSelections: fieldSelections },
+    slice: mergeSlugChipsSlice,
+    suffix: "\nreturn _mergeSlugChips;",
+  });
 
-const settingsTypesSource = diffModalCode.match(/var SETTINGS_VALUE_TYPE = (\{[\s\S]*?\n  \});/)[1];
-const diffModalSettingsTypes = new Function(`return ${settingsTypesSource};`)();
+const settingsTypesMatch = diffModalCode.match(/var SETTINGS_VALUE_TYPE = (\{[\s\S]*?\n  \});/);
+const settingsTypesStart =
+  settingsTypesMatch.index + settingsTypesMatch[0].indexOf(settingsTypesMatch[1]);
+const diffModalSettingsTypes = evalSource(DIFF_MODAL_FILE, {
+  slice: { start: settingsTypesStart, end: settingsTypesStart + settingsTypesMatch[1].length },
+  prefix: "return ",
+});
 
 const collectSettingsChanges = ({ settingsDiff, fieldSelections, conflictResolutions }) => {
-  const sourceStart = diffModalCode.indexOf("  function _collectSettingsChanges(result) {");
-  const sourceEnd = diffModalCode.indexOf("\n  function _hasElementPicks(", sourceStart);
-  const collectSource = diffModalCode.slice(sourceStart, sourceEnd);
-  return new Function(
-    "_options",
-    "SETTINGS_VALUE_TYPE",
-    "_fieldSelections",
-    "_conflictResolutions",
-    "_parseSetting",
-    "_hasElementPicks",
-    "_mergeSettingElements",
-    `${collectSource}\nconst result = []; _collectSettingsChanges(result); return result;`
-  )(
-    { settingsDiff },
-    diffModalSettingsTypes,
-    fieldSelections,
-    conflictResolutions,
-    (value) => value,
-    (prefix) => Object.keys(fieldSelections).some((key) => key.startsWith(prefix)),
-    () => {
-      throw new Error("disabledCollections must not use a per-element merge");
-    }
-  );
+  const start = diffModalCode.indexOf("  function _collectSettingsChanges(result) {");
+  return evalSource(DIFF_MODAL_FILE, {
+    params: {
+      _options: { settingsDiff },
+      SETTINGS_VALUE_TYPE: diffModalSettingsTypes,
+      _fieldSelections: fieldSelections,
+      _conflictResolutions: conflictResolutions,
+      _parseSetting: (value) => value,
+      _hasElementPicks: (prefix) =>
+        Object.keys(fieldSelections).some((key) => key.startsWith(prefix)),
+      _mergeSettingElements: () => {
+        throw new Error("disabledCollections must not use a per-element merge");
+      },
+    },
+    slice: { start, end: diffModalCode.indexOf("\n  function _hasElementPicks(", start) },
+    suffix: "\nconst result = []; _collectSettingsChanges(result); return result;",
+  });
 };
 
 describe("DiffModalSettings public API", () => {

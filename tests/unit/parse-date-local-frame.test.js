@@ -16,11 +16,11 @@ process.env.TZ = "Pacific/Kiritimati";
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 import { sliceArrowConst, sliceFunctionDecl } from "./test-helpers.js";
 
-const src = readFileSync(new URL("../../js/utils-format.js", import.meta.url), "utf8");
+const FORMAT_FILE = "js/utils-format.js";
+const src = readSource(FORMAT_FILE);
 
 // parseDate depends on localIsoDate (→ pad2), validatedLocalDate, and
 // warnUnparseableDate — slice the whole chain so the eval runs the REAL
@@ -28,18 +28,16 @@ const src = readFileSync(new URL("../../js/utils-format.js", import.meta.url), "
 const pad2Match = src.match(/^const pad2 = .*;$/m);
 assert.ok(pad2Match, "could not locate the pad2 declaration in source");
 
-// `new Function(...)` here is NOT user input: the source is sliced from the
-// repo's own js/utils-format.js (same pattern as the cloud-sync unit tests).
-const parseDate = new Function(
-  [
+const parseDate = evalSource(FORMAT_FILE, {
+  slice: [
     pad2Match[0],
     sliceArrowConst(src, "const localIsoDate = ("),
     sliceArrowConst(src, "const validatedLocalDate = ("),
     sliceArrowConst(src, "const warnUnparseableDate = ("),
     sliceFunctionDecl(src, "function parseDate("),
-    "return parseDate;",
-  ].join("\n")
-)();
+  ].map((text) => rangeOf(src, text)),
+  suffix: "\nreturn parseDate;",
+});
 
 describe("parseDate — local-frame output (STRK-266)", () => {
   it("sanity: TZ pin took effect (exactly UTC+14)", () => {

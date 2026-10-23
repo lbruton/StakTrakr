@@ -19,48 +19,30 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
+import { evalSource, readSource, sliceBetween } from "./helpers/source-extract.js";
+import { SYNC_FILE, sha256BufferToHex } from "./helpers/sync-blocks.js";
 
-const src = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-
-// Slice the computeInventoryHash function body and wrap it so it can run with
-// stubbed deps. The function's closing brace is the first column-0 `}` after the
-// declaration (every nested brace is indented), so "\n}" bounds it precisely.
-//
-// `new Function(fnSrc)` here is NOT user input: `fnSrc` is sliced from the
-// repository's own js/cloud-sync.js read off disk — the same trusted
-// slice-and-eval idiom used by cloud-sync-pull-reentrancy.test.js for these
-// no-export script-global modules. No external/untrusted string is interpolated.
+// Slice the computeInventoryHash function and run it with stubbed deps. The
+// function's closing brace is the first column-0 `}` after the declaration (every
+// nested brace is indented), so "\n}" bounds it precisely.
 function buildHashFn() {
-  const start = src.indexOf("async function computeInventoryHash(items) {");
-  assert.ok(start !== -1, "could not locate computeInventoryHash in js/cloud-sync.js");
-  const end = src.indexOf("\n}", start) + 2;
-  assert.ok(
-    end > start + 1,
-    "could not locate the end of computeInventoryHash in js/cloud-sync.js"
-  );
-  const fnSrc = src.slice(start, end);
-  const factory = new Function(
-    "crypto",
-    "TextEncoder",
-    "DiffEngine",
-    "_stableCanonicalString",
-    "sha256BufferToHex",
-    "debugLog",
-    fnSrc + "\nreturn computeInventoryHash;"
-  );
-  return factory(
-    webcrypto,
-    TextEncoder,
-    { computeItemKey: (item) => item.uuid || "" },
-    (o) => JSON.stringify(o),
-    (buf) =>
-      Array.from(new Uint8Array(buf))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(""),
-    () => {}
-  );
+  return evalSource(SYNC_FILE, {
+    params: {
+      crypto: webcrypto,
+      TextEncoder,
+      DiffEngine: { computeItemKey: (item) => item.uuid || "" },
+      _stableCanonicalString: (o) => JSON.stringify(o),
+      sha256BufferToHex,
+      debugLog: () => {},
+    },
+    slice: sliceBetween(
+      readSource(SYNC_FILE),
+      "async function computeInventoryHash(items) {",
+      "\n}"
+    ),
+    suffix: "\nreturn computeInventoryHash;",
+  });
 }
 
 describe("STRK-241 — constitutional fields participate in the inventory hash", () => {

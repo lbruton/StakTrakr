@@ -23,13 +23,11 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
+import { evalSource } from "./helpers/source-extract.js";
 
 function loadPortfolioSeries() {
-  const code = readFileSync(new URL("../../js/portfolio-series.js", import.meta.url), "utf-8");
   const mod = { exports: {} };
-  new Function("module", "exports", code)(mod, mod.exports);
+  evalSource("js/portfolio-series.js", { params: { module: mod, exports: mod.exports } });
   return mod.exports;
 }
 

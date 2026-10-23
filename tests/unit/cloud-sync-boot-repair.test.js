@@ -17,16 +17,14 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, readSource, sliceUntil } from "./helpers/source-extract.js";
+import { SYNC_FILE } from "./helpers/sync-blocks.js";
 
-const src = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-const start = src.indexOf("function _isCorruptObjectString");
-const end = src.indexOf("function syncSaveOverrideBackup");
-assert.ok(
-  start !== -1 && end !== -1 && end > start,
-  "could not locate boot-repair helper block in cloud-sync.js"
+const block = sliceUntil(
+  readSource(SYNC_FILE),
+  "function _isCorruptObjectString",
+  "function syncSaveOverrideBackup"
 );
-const block = src.slice(start, end);
 
 function makeSandbox(seed, decompressFn) {
   const map = new Map(Object.entries(seed || {}));
@@ -46,15 +44,12 @@ function makeSandbox(seed, decompressFn) {
   ];
   const __decompressIfNeeded = decompressFn || ((s) => s);
   const debugLog = () => {};
-  const factory = new Function(
-    "localStorage",
-    "SYNC_SCOPE_KEYS",
-    "__decompressIfNeeded",
-    "debugLog",
-    block +
-      "\nreturn { _isCorruptObjectString, _safeSettingWriteValue, syncBootRepairCorruptSettings };"
-  );
-  const api = factory(localStorageMock, SYNC_SCOPE_KEYS, __decompressIfNeeded, debugLog);
+  const api = evalSource(SYNC_FILE, {
+    params: { localStorage: localStorageMock, SYNC_SCOPE_KEYS, __decompressIfNeeded, debugLog },
+    slice: block,
+    suffix:
+      "\nreturn { _isCorruptObjectString, _safeSettingWriteValue, syncBootRepairCorruptSettings };",
+  });
   return { map, ...api };
 }
 

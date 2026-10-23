@@ -17,61 +17,38 @@
 
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource, sliceUntil } from "./helpers/source-extract.js";
+import { loadLZString } from "./helpers/storage-codec.js";
 
 // ---------------------------------------------------------------------------
 // Harness
 // ---------------------------------------------------------------------------
 
-// Load the vendored lz-string via a synthetic CJS module context (the storage-compression
-// .test.js pattern). The minified UMD assigns the IIFE result to module.exports here, the
-// same object a browser exposes as window.LZString.
-const lzCode = readFileSync(new URL("../../vendor/lz-string.min.js", import.meta.url), "utf-8");
-const _lzModule = { exports: {} };
-new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports, undefined);
-const LZString = _lzModule.exports;
+const LZString = loadLZString();
 
-const storageSrc = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
-
-/**
- * Slices a named block out of a source file between two literal anchors.
- * @param {string} src - File contents.
- * @param {string} startAnchor - Literal text the block starts with.
- * @param {string} endAnchor - Literal text immediately following the block.
- * @param {string} label - Human-readable name for the assertion message.
- * @returns {string} The sliced block.
- */
-function sliceBlock(src, startAnchor, endAnchor, label) {
-  const start = src.indexOf(startAnchor);
-  const end = src.indexOf(endAnchor);
-  assert.ok(start !== -1 && end > start, `could not locate the ${label} block`);
-  return src.slice(start, end);
-}
+const STORAGE_FILE = "js/utils-storage.js";
+const storageSrc = readSource(STORAGE_FILE);
 
 // The compression codec (__compressIfNeeded / __decompressIfNeeded / the CMP prefixes) and
-// the save/load wrappers are non-contiguous in utils-storage.js. Concatenate codec-first so
-// the const prefixes are initialized before any wrapper call reaches them.
-const codecBlock = sliceBlock(
-  storageSrc,
-  "const __ST_COMP_PREFIX",
-  "// Kick off the one-time",
-  "compression codec"
-);
-const wrapperBlock = sliceBlock(
-  storageSrc,
-  "const __wouldClobberCompressed",
-  "/**\n * Keys that earlier builds wrote",
-  "save/load wrapper"
-);
+// the save/load wrappers are non-contiguous in utils-storage.js; both run, in file order,
+// before any wrapper call reaches the const prefixes.
+const storageSlices = [
+  sliceUntil(storageSrc, "const __ST_COMP_PREFIX", "// Kick off the one-time"),
+  sliceUntil(
+    storageSrc,
+    "const __wouldClobberCompressed",
+    "/**\n * Keys that earlier builds wrote"
+  ),
+];
 
-const storageFactory = new Function(
-  "__LZ",
-  "__LZ_REAL",
-  "localStorage",
-  codecBlock +
-    wrapperBlock +
-    "\nreturn { saveDataSync, loadDataSync, __compressIfNeeded, __decompressIfNeeded, __ST_COMP_PREFIX };"
-);
+/** Evaluates the codec and the save/load wrappers over the given engine and storage. */
+const storageFactory = (lz, real, localStorage) =>
+  evalSource(STORAGE_FILE, {
+    params: { __LZ: lz, __LZ_REAL: real, localStorage },
+    slice: storageSlices,
+    suffix:
+      "\nreturn { saveDataSync, loadDataSync, __compressIfNeeded, __decompressIfNeeded, __ST_COMP_PREFIX };",
+  });
 
 // The restore path is a small cluster of browser globals in js/retail.js closing over
 // module-level `let` bindings and the key constants: _isManifestMetaObject (shape guard),
@@ -79,7 +56,7 @@ const storageFactory = new Function(
 // _restoreRetailManifestCacheFromStorage entry point. Slice the whole cluster so the inner
 // references resolve, supply the bindings in the preamble, and hand back an accessor so
 // each test can observe the post-restore globals.
-const retailSrc = readFileSync(new URL("../../js/retail.js", import.meta.url), "utf-8");
+const retailSrc = readSource("js/retail.js");
 const restoreMatch = retailSrc.match(
   /const _isManifestMetaObject = \([\s\S]*?const _restoreRetailManifestCacheFromStorage = \(\) => \{[\s\S]*?\n\};/
 );
@@ -89,22 +66,34 @@ const SLUGS_KEY = "retailManifestSlugs";
 const COIN_META_KEY = "retailManifestCoinMeta";
 const VENDOR_META_KEY = "retailManifestVendorMeta";
 
-const restoreFactory = new Function(
-  "localStorage",
-  "loadDataSync",
-  "RETAIL_MANIFEST_SLUGS_KEY",
-  "RETAIL_MANIFEST_COIN_META_KEY",
-  "RETAIL_MANIFEST_VENDOR_META_KEY",
-  "let _manifestCacheRestored = false;\n" +
-    "let _manifestSlugs = null;\n" +
-    "let _manifestCoinMeta = null;\n" +
-    "let _manifestVendorMeta = null;\n" +
-    restoreMatch[0] +
-    "\nreturn () => {" +
-    "  _restoreRetailManifestCacheFromStorage();" +
-    "  return { _manifestSlugs, _manifestCoinMeta, _manifestVendorMeta };" +
-    "};"
-);
+// The module-level `let` bindings follow the slice: the cluster reads them only when
+// the returned accessor runs, after they are initialized.
+const restoreFactory = (
+  localStorage,
+  loadDataSync,
+  RETAIL_MANIFEST_SLUGS_KEY,
+  RETAIL_MANIFEST_COIN_META_KEY,
+  RETAIL_MANIFEST_VENDOR_META_KEY
+) =>
+  evalSource("js/retail.js", {
+    params: {
+      localStorage,
+      loadDataSync,
+      RETAIL_MANIFEST_SLUGS_KEY,
+      RETAIL_MANIFEST_COIN_META_KEY,
+      RETAIL_MANIFEST_VENDOR_META_KEY,
+    },
+    slice: rangeOf(retailSrc, restoreMatch[0]),
+    suffix:
+      "\nlet _manifestCacheRestored = false;" +
+      "\nlet _manifestSlugs = null;" +
+      "\nlet _manifestCoinMeta = null;" +
+      "\nlet _manifestVendorMeta = null;" +
+      "\nreturn () => {" +
+      "  _restoreRetailManifestCacheFromStorage();" +
+      "  return { _manifestSlugs, _manifestCoinMeta, _manifestVendorMeta };" +
+      "};",
+  });
 
 /**
  * Map-backed localStorage double implementing the surface the sliced code touches.

@@ -6,16 +6,14 @@
 // skip/already-cached accounting, URL repair, local-cache fallback, and abort.
 //
 // Loaded via slice-and-eval (the project's unit pattern): the whole IIFE in
-// js/bulk-image-cache.js is evaluated inside a new Function that supplies the
+// js/bulk-image-cache.js is evaluated through evalSource, which supplies the
 // browser globals it closes over (window, inventory, imageCache, catalogAPI,
 // applyNumistaTags, saveItemTags, saveInventory, setTimeout). The IIFE assigns
 // window.BulkImageCache, which we then read back out.
 
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const src = readFileSync(new URL("../../js/bulk-image-cache.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 /**
  * Build a fresh BulkImageCache instance wired to the supplied test doubles.
@@ -56,9 +54,10 @@ function loadModule(env) {
       return 0;
     },
   };
-  const keys = Object.keys(scope);
-  const fn = new Function(...keys, src + "\nreturn window.BulkImageCache;");
-  return fn(...keys.map((k) => scope[k]));
+  return evalSource("js/bulk-image-cache.js", {
+    params: scope,
+    suffix: "\nreturn window.BulkImageCache;",
+  });
 }
 
 /** A minimal in-memory imageCache double honoring the methods cacheAll() calls. */
