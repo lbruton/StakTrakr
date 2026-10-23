@@ -165,7 +165,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **As built:** `--fetch` downloads `dev`'s block file and map. `coverage-merge.mjs` cuts each file into segments at every V8 range boundary across all tests; a test covers a segment when the innermost range around it ran. On the `dev` records at `c22499e3` the merge takes 14 s, and the block file is 232 MB (51 MB gzipped) against 46 MB before. It moves to its own `test-blocks` artifact, so `test:changed --fetch` downloads only the map. `devops/testing/dev-artifacts.mjs` extracts each artifact into a temp folder first, because `gh run download` refuses to overwrite a file and a second `--fetch` failed. Tests that share a `file:line` (generated in a loop) form one entry in the map and the report.
   - **First report (`c22499e3`, branch-aware blocks):** 972 entries in 41 spec files; 481 cover no block unique in their spec, 255 are a subset of another test in their spec, and 126 have a peer with identical coverage. The old keys gave 492 and 268. Most zero-unique entries: `inventory-math` 86 of 131, `collections` 56 of 135, `image-frame-editor` 46 of 66, `inventory-crud` 42 of 80, `details-modal` 33 of 55.
 
-- [ ] **C.8** — Measure the targeted run (moved to Part 1, 2026-10-23; results go in the Part 1 PR body)
+- [x] **C.8** — Measure the targeted run (moved to Part 1, 2026-10-23; results go in the Part 1 PR body)
   - **File(s):** _no file changes — measurement only_
   - **Acceptance:** On the reference machine, with a fresh map, a one-line change inside a function in one `js/` file runs through `npm run test:changed` in 60 s or less; three such files (one hot, one mid, one cold by test count) are measured and listed in the Part 2 PR body.
   - **Depends on:** C.6
@@ -183,6 +183,7 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - AC-20 holds for every case but a change to code that every save path runs. The remaining levers are the `inventory-crud.spec.js` serial group and the cost of the save-flow tests (C.13 to C.15); the box stays unticked.
   - **Re-measured 2026-10-23 after C.13 (map at `a7a2f840`, no serial group left in `inventory-crud.spec.js`):** cold 6 core, 7 s and 5 s; mid 48 core, 16 s; hot after the early return 1 location (`details-modal.spec.js:1702`), 1 test, 3 s; hot first line 376 locations, 391 tests, 124 s. The hot first line runs in 376 of 949 locations across `retail-market`, `header-retirement`, `smoke`, `settings-search-images` and others, so no selection rule can shrink it. AC-20 for that case waits on the suite speed work in C.15 and C.16; the box stays unticked.
   - **After C.15 and C.16 (2026-10-23):** C.15 closed with no consolidation, so the hot first line still selects about 390 tests. At a median of 1.00 s per test and 5 workers, that run cannot reach 60 s. Whole-suite speed does not bound this case; the count of tests that run a line every save path shares does. AC-20 holds for the cold, mid and hot-after-the-early-return cases and fails for the hot first line. The box stays unticked; CLOSE-3 records the gap unless AC-20 is amended for that case.
+  - **Closed (2026-10-23, user-approved, D-23):** AC-20 is amended to bind when the changed lines select 100 or fewer core test locations. Every measured case within that bound passes: cold (6 locations, 7 s and 5 s), mid (48 locations, 16 s) and hot after the early return (1 location, 3 s). The hot first line selects 376 locations; the plan prints `Core: 376 test location(s)` before the run, as the amended AC-20 requires.
 
 ---
 
@@ -336,16 +337,18 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 ## Standard Closing Tasks
 
-- [ ] **CLOSE-1. Run full test suite** — zero regressions
+- [x] **CLOSE-1. Run full test suite** — zero regressions
   - **File:** _no file changes — verification only_
   - Run `npm test` (core Playwright PR gate) and `npm run test:unit`, then `npm run test:extended`. All pass with counts matching the final inventory.
   - If anything fails: fix the implementation, not the test. Tests are the spec — a failing test means the implementation is wrong, not the test.
+  - **Run (2026-10-23, `dev` at `77970266`):** unit 1,243 of 1,243 pass; core 922 of 922 pass in 4.1 min; extended 22 of 22 pass. Final inventory against the spec baseline (1,021 core): core −99 tests.
 
-- [ ] **CLOSE-2. Codacy CLI scan** — security + quality
+- [x] **CLOSE-2. Codacy CLI scan** — security + quality
   - **File:** _no file changes — scan only_
   - Run `codacy-analysis-cli` skill against changed files (`codacy-analysis analyze --diff`). Triage: Critical/High must fix, Medium fix-or-document, Low/Info advisory.
+  - **Run (2026-10-23):** the local mirror `.codacy/codacy.config.json` excludes `devops/**` and `tests/**`, so a scan with it analyzes no file. The scan used a fresh `init --default` config (the cloud `.codacy.yaml` excludes) on `devops/testing/`, `tests/playwright/helpers/` and `tests/unit/helpers/`. ESLint, Opengrep and Trivy report no issue. Lizard and PMD report Info and one Warning at default thresholds (complexity 5, length 50): the largest are `parseDiff` at complexity 23 and `serialSpecs` at 103 lines, both inside the project standard (complexity 25, length 150). No Critical, High or Medium finding. Every part PR passed the cloud `Codacy Static Code Analysis` check.
 
-- [ ] **CLOSE-3. Generate verification stamp**
+- [x] **CLOSE-3. Generate verification stamp**
   - **File:** Append to bottom of `tasks.md` (this file) under heading `## Verification Stamp`.
   - For EACH acceptance criterion in `requirements.md` (AC-1 to AC-34), write exactly one line in one of these formats:
     - `- [x] AC-N — verified at <relative/file/path>:<line>`, OR
@@ -355,12 +358,13 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
   - **UI verification requirement:** N/A — `approach.md` has no UI surface.
   - Refuse to proceed to CLOSE-4 if any `[ ]` remains in the stamp block.
 
-- [ ] **CLOSE-4. Version bump**
+- [x] **CLOSE-4. Version bump**
   - N/A — no part changes a release-bearing file (tests, CI, tooling and docs only); the no-bump campaign rule in `.context/spec-conventions.md` applies. `/release patch` is not invoked.
 
-- [ ] **CLOSE-5. Vault update + close issue**
+- [x] **CLOSE-5. Vault update + close issue**
   - **MUST invoke `/vault-update`** as a skill. This repo keeps project docs in `.context/` (updated in C.10); the skill audits the shared vault for cross-project testing references.
   - Mark STRK-419 Done in Plane: `mcp__plane__workitem` (`action: "update"`) to state "Done"; cross-link STRK-460 and STRK-461.
+  - **Run (2026-10-23):** `/vault-update` found no shared-vault page that STRK-419 makes stale; the only hits are dated drift reports, comment backups and archived specs. STRK-419 goes to Done in Plane after CLOSE-8, with the cross-links.
 
 - [ ] **CLOSE-6. Open PR**
   - Each part opens its own PR from its `chore/strk-419-<part>` branch to `dev`. Title: `chore(STRK-419): <short summary>`.
@@ -375,3 +379,40 @@ _Concrete checklist grouped into Sprint Cohorts. `[P]` marks tasks that can run 
 
 - [ ] **CLOSE-8. Archive spec** (after the last PR merges)
   - **MUST invoke `/spec archive STRK-419`** as a skill.
+
+## Verification Stamp
+
+- [x] AC-1 — verified by "lcov names js/ files repo-relative and counts hits across tests" (`tests/unit/coverage-merge.test.js`)
+- [x] AC-2 — verified by "the test map lists each test's location and executed functions" (`tests/unit/coverage-merge.test.js`)
+- [x] AC-3 — verified by "collection is off unless COVERAGE is 1" (`tests/unit/coverage-merge.test.js`)
+- [x] AC-4 — verified by "unit lcov credits js/ files loaded whole and by slice" (`tests/unit/source-extract-coverage.test.js:50`)
+- [x] AC-5 — verified at .github/workflows/tests.yml:53 (PR selection; PR #1625 docs-only commit started no browser, B.3 at tasks.md:80)
+- [x] AC-6 — verified at .github/workflows/tests.yml:153 (coverage on pushes; `dev` run 40032990189 published `test-map`)
+- [x] AC-7 — verified at .github/workflows/tests.yml:269 (Codacy upload with `CODACY_PROJECT_TOKEN`; C.4 and C.5)
+- [x] AC-8 — verified at docs/specs/STRK-419-test-suite-loop/tasks.md:80 (a failing selected test left PR #1625 `BLOCKED`; `Protect Dev` requires `Tests`)
+- [x] AC-9 — verified at docs/specs/STRK-419-test-suite-loop/requirements.md:80 (retired 2026-10-23, no PR coverage gate)
+- [x] AC-10 — verified at .github/workflows/tests.yml:276 (skip notice step; not exercised, because the token is set)
+- [x] AC-11 — verified at docs/specs/STRK-419-test-suite-loop/tasks.md:80 and by probe PR #1651 (one line in `js/retail.js`): PR check run 40036538634 took 1 min 52 s; `dev` push runs take 6.8 to 8.4 min of job time after the concurrency queue
+- [x] AC-12 — verified by "an untracked file is judged by its path (AC-12)" (`tests/unit/test-changed.test.js`)
+- [x] AC-13 — verified by "a changed line inside a mapped function selects exactly the tests that ran it (AC-13)" (`tests/unit/test-changed.test.js`)
+- [x] AC-14 — verified by "a changed spec file selects that whole file (AC-14)" (`tests/unit/test-changed.test.js`)
+- [x] AC-15 — verified by "a changed js/ file selects the unit tests that read it (AC-15)" (`tests/unit/test-changed.test.js`)
+- [x] AC-16 — verified by "shared files with no map entry select the full core suite and name the file (AC-16)" (`tests/unit/test-changed.test.js`)
+- [x] AC-17 — verified by "a missing map selects the full suite and names the command that builds one (AC-17)" (`tests/unit/test-changed.test.js`)
+- [x] AC-18 — verified by "a map built off the merge base's history yields a stale warning (AC-18)" (`tests/unit/test-changed.test.js`)
+- [x] AC-19 — verified by "the plan lists each selected test with the changed file that selected it (AC-19)" (`tests/unit/test-changed.test.js`)
+- [x] AC-20 — verified at docs/specs/STRK-419-test-suite-loop/tasks.md:186 (amended per D-23; cold, mid and hot-after-return cases finish in 3 to 16 s; the plan prints the location count at devops/testing/test-changed.mjs:347)
+- [x] AC-21 — verified by "names the tests whose blocks are a subset of another test's in the same spec" (`tests/unit/test-redundancy.test.js`)
+- [x] AC-22 — verified by "the Markdown states that equal coverage does not prove equal assertions" (`tests/unit/test-redundancy.test.js`)
+- [x] AC-23 — verified at docs/specs/STRK-419-test-suite-loop/tasks.md:323 (three runs: 228.2 s, 217.5 s, 233.5 s)
+- [x] AC-24 — verified at docs/specs/STRK-419-test-suite-loop/tasks.md:277 (C.12, C.13 and C.14 each hold `dev` coverage; C.15 merged no consolidation)
+- [x] AC-25 — verified at docs/specs/STRK-419-test-suite-loop/tasks.md:252 (C.12 to C.14 move logic-only checks to unit tests or table tests)
+- [x] AC-26 — verified at tests/playwright/core/ (no `strk-NNN-*.spec.js` file remains)
+- [x] AC-27 — verified at tests/playwright/ (no `archive/` directory)
+- [x] AC-28 — verified at package.json:9 (no `test:legacy` script; no reference in `.context/`, `AGENTS.md` or `CLAUDE.md`)
+- [x] AC-29 — verified at package.json:9 (`test:offline` removed with its doc references)
+- [x] AC-30 — verified at .claude/skills/spec/references/templates/tasks-template.md:49
+- [x] AC-31 — verified at .claude/skills/spec/references/templates/tasks-template.md:92
+- [x] AC-32 — verified at .agents/skills/spec/references/templates/tasks-template.md:1 (both copies byte-identical to the `Devops/skill-library` master)
+- [x] AC-33 — verified at .context/testing.md:67 (extend before add), .context/testing.md:35 (`test:changed`) and .context/testing.md:50 (coverage reporting)
+- [x] AC-34 — verified at tests/playwright/ (no `coverage-map.csv`; `.context/testing.md` holds no rule to edit it)
