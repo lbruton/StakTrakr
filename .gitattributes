@@ -8,6 +8,7 @@
 .agents/              export-ignore
 .claude/              export-ignore
 .codex/               export-ignore
+.context/             export-ignore
 .impeccable.md        export-ignore
 .jules/               export-ignore
 CLAUDE.md             export-ignore
@@ -23,6 +24,8 @@ package-lock.json     export-ignore
 
 # GitHub & hosting infrastructure
 .github/              export-ignore
+.nojekyll             export-ignore
+_routes.json          export-ignore
 
 # Git housekeeping (exclude themselves)
 .gitattributes        export-ignore
@@ -42,6 +45,8 @@ eslint.config.cjs     export-ignore
 .prettierrc           export-ignore
 .prettierignore       export-ignore
 ruleset.xml           export-ignore
+.vale/                export-ignore
+.vale.ini             export-ignore
 
 # Tests
 tests/                export-ignore
