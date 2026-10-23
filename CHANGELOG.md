@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.63] - 2026-10-23
+
+### Changed — STRK-463: No duplicate Item from a late Save
+
+- **Item form**: A Save that reaches the form after the previous Save closed the Item modal is ignored. The first save clears the edit index, so a late submit ran as Add and stored a duplicate Item (STRK-463).
+
+---
+
 ## [3.36.62] - 2026-10-22
 
 ### Changed — STRK-458: Bulk sync progress, cancel and activity log
