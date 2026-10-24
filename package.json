@@ -24,7 +24,8 @@
     "format:check": "prettier --check ."
   },
   "lint-staged": {
-    "*.{js,css,html,json,md}": "prettier --write"
+    "*.{js,css,html,json,md}": "prettier --write",
+    "{js/*.js,sw.js,sw-router.js,tests/unit/**/*.js}": "eslint"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
