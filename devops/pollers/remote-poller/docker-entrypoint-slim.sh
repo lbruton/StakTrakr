@@ -4,15 +4,20 @@ set -e
 echo "[entrypoint] Starting StakTrakr thin publisher..."
 
 # ── 1. Export env vars for cron jobs (cron doesn't inherit Docker env) ──
-printenv | grep -v '^_=' > /etc/environment
-chmod 600 /etc/environment
+# The jobs run as node, so node reads it through the group; nobody else can.
+# Root's HOME/USER/LOGNAME stay out: sourcing them would point node's git at /root.
+printenv | grep -vE '^(_|HOME|USER|LOGNAME)=' > /etc/environment
+chown root:node /etc/environment
+chmod 640 /etc/environment
 
 # ── 2. Configure git credentials ───────────────────────────────────────
+# The publish job pushes as node, so the store helper reads node's home.
 _GIT_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 if [ -n "$_GIT_TOKEN" ]; then
-  git config --global credential.helper store
-  printf 'https://x-access-token:%s@github.com\n' "$_GIT_TOKEN" > /root/.git-credentials
-  chmod 600 /root/.git-credentials
+  git config --system credential.helper store
+  printf 'https://x-access-token:%s@github.com\n' "$_GIT_TOKEN" > /home/node/.git-credentials
+  chown node:node /home/node/.git-credentials
+  chmod 600 /home/node/.git-credentials
 fi
 
 # ── 3. Write cron schedule ─────────────────────────────────────────────
@@ -35,10 +40,10 @@ fi
 # objects (~15s) and leaves the pre-flight floor as a true backstop.
 echo "[entrypoint] Writing cron schedule (spot + publish + provider-export + daily cleanup)..."
 : > /etc/cron.d/retail-poller
-echo "0,30 * * * * root . /etc/environment; flock -n /tmp/spot.flock timeout -k 30 600 /app/run-spot.sh >> /var/log/spot-poller.log 2>&1" >> /etc/cron.d/retail-poller
-echo "8,23,38,53 * * * * root . /etc/environment; flock -n /tmp/publish-cron.flock timeout -k 30 720 /app/run-publish.sh >> /var/log/publish.log 2>&1" >> /etc/cron.d/retail-poller
-echo "*/5 * * * * root . /etc/environment; cd /app && flock -n /tmp/provider-export.flock timeout -k 30 240 node export-providers-json.js >> /var/log/provider-export.log 2>&1" >> /etc/cron.d/retail-poller
-echo "17 3 * * * root . /etc/environment; flock -n /tmp/cleanup-cron.flock timeout -k 30 1800 /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1" >> /etc/cron.d/retail-poller
+echo "0,30 * * * * node . /etc/environment; flock -n /tmp/spot.flock timeout -k 30 600 /app/run-spot.sh >> /var/log/spot-poller.log 2>&1" >> /etc/cron.d/retail-poller
+echo "8,23,38,53 * * * * node . /etc/environment; flock -n /tmp/publish-cron.flock timeout -k 30 720 /app/run-publish.sh >> /var/log/publish.log 2>&1" >> /etc/cron.d/retail-poller
+echo "*/5 * * * * node . /etc/environment; cd /app && flock -n /tmp/provider-export.flock timeout -k 30 240 node export-providers-json.js >> /var/log/provider-export.log 2>&1" >> /etc/cron.d/retail-poller
+echo "17 3 * * * node . /etc/environment; flock -n /tmp/cleanup-cron.flock timeout -k 30 1800 /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1" >> /etc/cron.d/retail-poller
 chmod 0644 /etc/cron.d/retail-poller
 
 # ── 4. Tailscale state directory (on persistent /data volume) ──────────
@@ -47,6 +52,16 @@ mkdir -p /data/tailscale /var/run/tailscale /data/retail
 # ── 5. Create log files ────────────────────────────────────────────────
 touch /var/log/spot-poller.log /var/log/publish.log \
       /var/log/http-server.log /var/log/provider-export.log /var/log/cleanup.log
+chown node:node /var/log/spot-poller.log /var/log/publish.log \
+      /var/log/http-server.log /var/log/provider-export.log /var/log/cleanup.log
+
+# ── 6. Hand the data volume to node, except tailscaled's root-owned state ──
+# /data stays root-owned and sticky: node creates entries there (the reshallow
+# git-dir, the squash month marker) but cannot rename root's /data/tailscale.
+# The volume keeps files written by earlier root-run images; re-own only those.
+chown root:node /data
+chmod 1775 /data
+find /data -mindepth 1 -path /data/tailscale -prune -o ! -user node -exec chown -h node:node -- {} +
 
 echo "[entrypoint] Handing off to supervisord..."
 exec "$@"

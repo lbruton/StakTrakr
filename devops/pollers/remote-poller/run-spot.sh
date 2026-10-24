@@ -3,6 +3,11 @@
 # Runs spot-extract.js against the persistent volume data directory.
 # Cron: 0,30 * * * *  (2x/hr, on the hour and half-hour)
 
+# Root callers re-run as node; see the same guard in run-publish.sh.
+if [ "$(id -u)" = 0 ] && id node >/dev/null 2>&1; then
+  exec runuser -u node -- env HOME=/home/node "$0" "$@"
+fi
+
 set -e
 
 DATA_DIR="/data/staktrakr-api-export/data"

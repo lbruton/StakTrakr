@@ -7,14 +7,13 @@
  *
  * Sources:
  *   - /proc (CPU, memory, network, uptime)
- *   - supervisorctl (service health inside container)
+ *   - /run/supervisor-status (supervisorctl snapshot; service health inside container)
  *   - sqld poller_runs (last run stats per poller)
  *   - sqld provider_failures (failure queue stats)
  */
 
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
-import { execSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 
 const PORT = parseInt(process.env.METRICS_PORT || "9100", 10);
@@ -95,10 +94,8 @@ function collectServices() {
   const metrics = [];
 
   try {
-    const out = execSync(
-      "/usr/bin/supervisorctl -c /etc/supervisor/supervisord.conf status 2>/dev/null",
-      { timeout: 3000 }
-    ).toString();
+    // Written by the root-run status-snapshot program; node cannot reach the socket.
+    const out = readFileSync("/run/supervisor-status", "utf8");
     for (const line of out.trim().split("\n")) {
       const m = line.match(/^(\S+)\s+(\S+)/);
       if (m) {

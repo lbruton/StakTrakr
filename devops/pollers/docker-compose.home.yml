@@ -17,7 +17,7 @@ services:
       - POLLER_ID=home
       - BROWSER_MODE=local
       - PLAYWRIGHT_LAUNCH=1
-      - PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
       - DASHBOARD_PORT=3010
       - METRICS_PORT=9100
       - NET_IFACE=eth0

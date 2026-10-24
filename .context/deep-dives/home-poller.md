@@ -206,10 +206,19 @@ The home poller runs Playwright with **local Chromium** inside the Docker contai
 | --------------- | ---------------------------------------------------- | ------------------------------ |
 | `BROWSER_MODE`  | `local`                                              | `local`                        |
 | Chromium source | `npx playwright install chromium` (in Dockerfile)    | Dockerfile-installed           |
-| Browser path    | `/root/.cache/ms-playwright/`                        | `/usr/local/share/playwright/` |
+| Browser path    | `/ms-playwright/`                                    | `/usr/local/share/playwright/` |
 | System deps     | Dockerfile `apt-get install` (libnss3, libatk, etc.) | Dockerfile `apt-get install`   |
 
 Playwright version is locked to whatever is in `shared/package.json` at build time.
+
+### Process users
+
+PID 1 (supervisord) and the cron daemon run as root. Every cron job, the dashboard and the metrics exporter run as `node`.
+
+- `/etc/environment` is `root:node` with mode 640, so jobs read it through the group.
+- The entrypoint re-owns any `/data` file that `node` does not own.
+- The entrypoint adds `node` to the group that owns the mounted Docker socket. A socket with gid 0 is skipped, and the dashboard container list stays empty.
+- The supervisor control socket stays root-only. A root `status-snapshot` program writes `supervisorctl status` to `/run/supervisor-status` every 15 seconds; the dashboard and metrics exporter read that file.
 
 ---
 

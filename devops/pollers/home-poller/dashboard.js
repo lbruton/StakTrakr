@@ -206,9 +206,13 @@ function getLockStatus() {
   });
 }
 
+/**
+ * Reads the `supervisorctl status` snapshot that the root-run status-snapshot
+ * program writes; the control socket itself stays closed to the node user.
+ */
 function getSupervisordStatus() {
   try {
-    const out = execSync("supervisorctl status 2>/dev/null", { timeout: 3000 }).toString();
+    const out = readFileSync("/run/supervisor-status", "utf8");
     return out
       .trim()
       .split("\n")
@@ -2934,13 +2938,9 @@ async function handleRequest(req, res) {
               method: "POST",
               headers: { Authorization: `Bearer ${flyToken}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                command: [
-                  "/bin/bash",
-                  "-c",
-                  "git config --global user.name 'StakTrakr Poller' && " +
-                    "git config --global user.email 'poller@staktrakr.local' && " +
-                    "/app/run-publish.sh",
-                ],
+                // Machines exec runs as root; run-publish.sh re-runs itself as node,
+                // and the git identity is system-wide in the image.
+                command: ["/app/run-publish.sh"],
                 timeout: 60,
               }),
             }

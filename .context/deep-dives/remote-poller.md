@@ -46,6 +46,13 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 | `cron`         | `cron -f`                                            | 10       | Active — runs spot + publish + provider export + cleanup     |
 | `http-server`  | `node /app/serve.js` on port 8080                    | 10       | Active — health/proxy endpoint                               |
 
+`tailscaled`, `tailscale-up` and the cron daemon run as root. `http-server` and every cron job run as `node`.
+
+- `/etc/environment` is `root:node` with mode 640.
+- Git identity is set with `git config --system`. The push token is in `/home/node/.git-credentials`.
+- `/data` is `root:node` with mode 1775 (sticky), so `node` can create entries but cannot rename the root-owned `/data/tailscale`.
+- The entrypoint re-owns any file below `/data` that `node` does not own, except `/data/tailscale`.
+
 > **Rollback:** `cp Dockerfile.full Dockerfile && fly deploy` from `devops/pollers/` with `--config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`.
 
 ---
