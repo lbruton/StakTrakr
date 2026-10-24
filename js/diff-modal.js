@@ -322,41 +322,24 @@
     var localOnly = (diff.deleted || []).length;
 
     var cards = [
-      {
-        count: matched,
-        label: "Matched",
-        target: "diffSectionModified",
-        color: "",
-        style: "opacity:0.5",
-      },
+      { count: matched, label: "Matched", target: "diffSectionModified", mod: "muted" },
       {
         count: conflictCount,
         label: "Conflicts",
         target: "diffSectionModified",
-        color: conflictCount > 0 ? "color:var(--warning)" : "",
-        style: "",
+        mod: conflictCount > 0 ? "warning" : "",
       },
-      {
-        count: remoteOnly,
-        label: "Remote Only",
-        target: "diffSectionOrphans",
-        color: "",
-        style: "",
-      },
-      { count: localOnly, label: "Local Only", target: "diffSectionOrphans", color: "", style: "" },
+      { count: remoteOnly, label: "Remote Only", target: "diffSectionOrphans", mod: "" },
+      { count: localOnly, label: "Local Only", target: "diffSectionOrphans", mod: "" },
     ];
 
-    var cardStyle =
-      "flex:1;min-width:120px;border-radius:8px;padding:0.6rem;background:var(--bg-tertiary,transparent);cursor:pointer;text-align:center";
-    var html = '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.75rem 0">';
+    var html = '<div class="dm-summary">';
     for (var i = 0; i < cards.length; i++) {
       var card = cards[i];
-      var numStyle = "font-size:1.4rem;font-weight:700";
-      if (card.style) numStyle += ";" + card.style;
-      if (card.color) numStyle += ";" + card.color;
-      html += '<div data-scroll-target="' + _esc(card.target) + '" style="' + cardStyle + '">';
-      html += '<div style="' + numStyle + '">' + card.count + "</div>";
-      html += '<div style="font-size:0.7rem;opacity:0.6">' + _esc(card.label) + "</div>";
+      var numClass = "dm-summary-num" + (card.mod ? " dm-summary-num--" + card.mod : "");
+      html += '<div class="dm-summary-card" data-scroll-target="' + _esc(card.target) + '">';
+      html += '<div class="' + numClass + '">' + card.count + "</div>";
+      html += '<div class="dm-summary-label">' + _esc(card.label) + "</div>";
       html += "</div>";
     }
     html += "</div>";
@@ -423,10 +406,8 @@
 
     // Visual separator between Items and Settings sections
     var collapsed = _collapsedCategories.settings;
-    var html =
-      '<div style="margin:1.2rem 0 0.8rem;border-top:2px solid var(--border);padding-top:0.6rem">';
-    html +=
-      '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.4rem">User Configuration</div>';
+    var html = '<div class="dm-settings-divider">';
+    html += '<div class="dm-settings-eyebrow">User Configuration</div>';
     html += "</div>";
 
     // Section wrapper (matches item card section structure)
@@ -466,16 +447,13 @@
         if (res === "local") localCount++;
         else remoteCount++;
       }
-      html +=
-        '<div style="background:var(--bg-secondary);border-radius:8px;padding:0.5rem 0.75rem;margin:0.4rem 0">';
-      html +=
-        '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem">';
+      html += '<div class="dm-settings-summary">';
+      html += '<div class="dm-settings-summary-row">';
       html += "<span>Using <strong>remote</strong> for <strong>" + remoteCount + "</strong>";
       if (localCount > 0)
         html += ", <strong>local</strong> for <strong>" + localCount + "</strong>";
       html += " of " + totalChanged + " settings</span>";
-      html +=
-        '<span style="font-size:0.7rem;color:var(--text-muted)">Click values to switch</span>';
+      html += '<span class="dm-hint">Click values to switch</span>';
       html += "</div>";
       html += "</div>";
     }
@@ -495,18 +473,12 @@
       var catIcon = catDef ? catDef.icon : "\u2699\uFE0F";
 
       // Category card (bordered, matches dm-card style)
-      html += '<div class="dm-card" style="margin-bottom:0.75rem;padding:0.75rem">';
+      html += '<div class="dm-card dm-settings-card">';
 
       // Card header with category name + diff badge
-      html +=
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">';
-      html += '<div style="display:flex;align-items:center;gap:0.4rem">';
-      html +=
-        '<span style="font-weight:600;font-size:0.85rem">' +
-        catIcon +
-        " " +
-        _esc(catKey) +
-        "</span>";
+      html += '<div class="dm-settings-card-head">';
+      html += '<div class="dm-settings-card-title">';
+      html += '<span class="dm-settings-card-name">' + catIcon + " " + _esc(catKey) + "</span>";
       if (catChanged.length > 0) {
         html +=
           '<span class="dm-pill dm-pill-warning">' +
@@ -518,15 +490,15 @@
       html += "</div>";
       // Per-category bulk actions
       if (catChanged.length > 0) {
-        html += '<div style="display:flex;gap:0.3rem">';
+        html += '<div class="dm-settings-card-actions">';
         html +=
-          '<button class="dm-btn dm-btn-sm dm-btn-secondary" data-cat-bulk="' +
+          '<button class="dm-btn dm-btn-sm dm-btn-xs dm-btn-secondary" data-cat-bulk="' +
           _esc(catKey) +
-          '" data-side="local" style="font-size:0.68rem;padding:0.15rem 0.4rem">Keep Local</button>';
+          '" data-side="local">Keep Local</button>';
         html +=
-          '<button class="dm-btn dm-btn-sm dm-btn-secondary" data-cat-bulk="' +
+          '<button class="dm-btn dm-btn-sm dm-btn-xs dm-btn-secondary" data-cat-bulk="' +
           _esc(catKey) +
-          '" data-side="remote" style="font-size:0.68rem;padding:0.15rem 0.4rem">Use Remote</button>';
+          '" data-side="remote">Use Remote</button>';
         html += "</div>";
       }
       html += "</div>";
@@ -545,11 +517,8 @@
           _conflictResolutions
         );
         if (expandedHtml !== null) {
-          html += '<div style="padding:0.4rem 0;border-top:1px solid var(--border)">';
-          html +=
-            '<div style="font-size:0.78rem;font-weight:500;margin-bottom:0.3rem">' +
-            _esc(label) +
-            "</div>";
+          html += '<div class="dm-setting-row">';
+          html += '<div class="dm-setting-row-label">' + _esc(label) + "</div>";
           html += expandedHtml;
           html += "</div>";
           continue;
@@ -561,15 +530,14 @@
         var localSel = selected === "local" ? " selected" : "";
         var remoteSel = selected === "remote" ? " selected" : "";
 
-        html +=
-          '<div class="dm-field-diff" style="border-top:1px solid var(--border);padding:0.4rem 0">';
+        html += '<div class="dm-field-diff dm-setting-row">';
         html += '<div class="dm-field-label">' + _esc(label) + "</div>";
         html +=
           '<div class="dm-field-value local' +
           localSel +
           '" data-setting-resolution="' +
           _esc(resKey) +
-          '" data-side="local" style="cursor:pointer" title="' +
+          '" data-side="local" title="' +
           _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal)) +
           '">' +
           window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal) +
@@ -580,7 +548,7 @@
           remoteSel +
           '" data-setting-resolution="' +
           _esc(resKey) +
-          '" data-side="remote" style="cursor:pointer" title="' +
+          '" data-side="remote" title="' +
           _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal)) +
           '">' +
           window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal) +
@@ -591,10 +559,7 @@
       // Matched settings section (collapsed by default)
       if (catMatched.length > 0) {
         var isExpanded = _expandedSettingsCategories[catKey] || false;
-        html +=
-          '<div data-toggle-matched="' +
-          _esc(catKey) +
-          '" style="font-size:0.73rem;cursor:pointer;color:var(--primary);margin-top:0.4rem;padding-top:0.3rem;border-top:1px solid var(--border)">';
+        html += '<div class="dm-matched-toggle" data-toggle-matched="' + _esc(catKey) + '">';
         html +=
           (isExpanded ? "\u25BC Hide" : "\u25B6 Show") +
           " " +
@@ -607,10 +572,9 @@
           for (var mi = 0; mi < catMatched.length; mi++) {
             var mEntry = catMatched[mi];
             var mLabel = SETTINGS_LABELS[mEntry.key] || _titleCase(mEntry.key);
-            html +=
-              '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0;opacity:0.45;font-size:0.78rem">';
+            html += '<div class="dm-matched-row">';
             html += "<span>\u2713</span>";
-            html += '<span style="min-width:120px">' + _esc(mLabel) + "</span>";
+            html += '<span class="dm-matched-label">' + _esc(mLabel) + "</span>";
             html +=
               "<span>" +
               window.DiffModalSettings.formatSettingValue(mEntry.key, mEntry.localVal) +
@@ -718,17 +682,17 @@
       grad +
       '"' +
       (uuid ? ' data-uuid="' + _esc(uuid) + '" data-side="obverse"' : "") +
-      '><span style="color:' +
+      '><span class="dm-item-thumb-label" style="color:' +
       mColor +
-      ';font-size:0.55rem">OBV</span></div>';
+      '">OBV</span></div>';
     html +=
       '<div class="dm-item-thumb" style="background:' +
       grad +
       '"' +
       (uuid ? ' data-uuid="' + _esc(uuid) + '" data-side="reverse"' : "") +
-      '><span style="color:' +
+      '><span class="dm-item-thumb-label" style="color:' +
       mColor +
-      ';font-size:0.55rem">REV</span></div>';
+      '">REV</span></div>';
     html += "</div>";
     return html;
   }
@@ -738,12 +702,10 @@
     if (!items || items.length === 0) return "";
     var collapsed = _collapsedCategories[type];
     var isAdded = type === "added";
-    var sectionColor = isAdded ? "var(--info)" : "var(--danger)";
     var sectionIcon = isAdded ? "&#8595;" : "&#8593;";
     var sectionLabel = isAdded ? "Added / Remote Only" : "Deleted / Local Only";
 
-    var html =
-      '<div class="dm-section-wrapper" data-section="' + type + '" style="margin-top:1rem">';
+    var html = '<div class="dm-section-wrapper dm-section-spaced" data-section="' + type + '">';
 
     // Section header
     html += '<div class="dm-section-header">';
@@ -756,7 +718,8 @@
       '">' +
       (collapsed ? "&#9654;" : "&#9660;") +
       "</span>";
-    html += '<span style="color:' + sectionColor + '">' + sectionIcon + "</span> " + sectionLabel;
+    html +=
+      '<span class="dm-section-icon--' + type + '">' + sectionIcon + "</span> " + sectionLabel;
     html +=
       '<span class="dm-chip">' +
       items.length +
@@ -884,9 +847,9 @@
     }
     if (!showAll && items.length > 30) {
       html +=
-        '<div class="dm-show-more" data-show-more="' +
+        '<div class="dm-show-more dm-show-more--block" data-show-more="' +
         type +
-        '" style="text-align:center;padding:0.5rem;font-size:0.78rem;cursor:pointer;color:var(--primary)">Show ' +
+        '">Show ' +
         (items.length - 30) +
         " more...</div>";
     }
@@ -899,7 +862,7 @@
     if (!modifiedItems || modifiedItems.length === 0) return "";
 
     var collapsed = _collapsedCategories.modified;
-    var html = '<div class="dm-section-wrapper" data-section="modified" style="margin-top:1rem">';
+    var html = '<div class="dm-section-wrapper dm-section-spaced" data-section="modified">';
 
     // Section header
     html += '<div class="dm-section-header">';
@@ -910,7 +873,7 @@
       '" data-cat-toggle="modified">' +
       (collapsed ? "&#9654;" : "&#9660;") +
       "</span>";
-    html += '<span style="color:var(--warning)">&#9888;</span> Modified / Conflicts';
+    html += '<span class="dm-section-icon--modified">&#9888;</span> Modified / Conflicts';
     html +=
       '<span class="dm-chip">' +
       modifiedItems.length +
@@ -990,10 +953,7 @@
         '">';
 
       // Card header
-      html +=
-        '<div class="dm-conflict-card-header" data-toggle-conflict="' +
-        i +
-        '" style="cursor:pointer">';
+      html += '<div class="dm-conflict-card-header" data-toggle-conflict="' + i + '">';
       html += _renderCardHeader(item, uuid);
       // Identity
       html += '<div class="dm-item-identity">';
@@ -1008,7 +968,7 @@
           _esc(item.weightUnit || "oz") +
           "</span>";
       html +=
-        '<span>&#8226;</span><span class="dm-chip" style="font-size:0.65rem">ID: ' +
+        '<span>&#8226;</span><span class="dm-chip dm-chip-id">ID: ' +
         _esc(itemKey).substring(0, 16) +
         "</span>";
       html += "</div></div>";
@@ -1335,8 +1295,7 @@
                   var img = document.createElement("img");
                   img.src = imgUrl;
                   img.alt = side;
-                  img.style.cssText =
-                    "width:100%;height:100%;object-fit:cover;border-radius:var(--radius,8px)";
+                  img.className = "dm-item-thumb-img";
                   el.textContent = "";
                   el.appendChild(img);
                 }
@@ -1388,15 +1347,13 @@
 
     // Source badge + meta
     if (sourceEl) {
-      var sourceHtml =
-        '<div style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.78rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:6px;background:color-mix(in srgb, var(--primary) 12%, transparent);color:var(--primary)">';
+      var sourceHtml = '<div class="dm-source-badge">';
       sourceHtml += _getSourceIcon(source) + _esc(source.label || "");
       sourceHtml += "</div>";
 
       // Meta row (sync only)
       if (meta && source.type === "sync") {
-        sourceHtml +=
-          '<div class="cloud-sync-update-meta" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:0.5rem;margin-top:0.6rem;padding:0.5rem 0.65rem;border-radius:8px;background:var(--bg-secondary);font-size:0.8rem">';
+        sourceHtml += '<div class="cloud-sync-update-meta dm-source-meta">';
         sourceHtml += _metaCell(
           "Remote Items",
           meta.itemCount != null ? String(meta.itemCount) : "\u2014"
@@ -1456,8 +1413,7 @@
       } else {
         var totalChanges = added.length + deleted.length;
         if (totalChanges === 0) {
-          modHtml =
-            '<div style="padding:2rem;text-align:center;opacity:0.45;font-size:0.85rem">No item changes detected</div>';
+          modHtml = '<div class="dm-empty-state">No item changes detected</div>';
         }
       }
       modifiedEl.innerHTML = modHtml;
@@ -1476,11 +1432,11 @@
   /** Render a meta cell for the source info row */
   function _metaCell(label, value) {
     return (
-      '<div style="display:flex;flex-direction:column;gap:0.1rem">' +
-      '<span style="font-size:0.65rem;opacity:0.5;text-transform:uppercase;letter-spacing:0.05em">' +
+      '<div class="dm-meta-cell">' +
+      '<span class="dm-meta-label">' +
       _esc(label) +
       "</span>" +
-      '<strong style="font-weight:600">' +
+      '<strong class="dm-meta-value">' +
       _esc(value) +
       "</strong>" +
       "</div>"
