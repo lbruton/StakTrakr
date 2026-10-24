@@ -46,8 +46,9 @@ these rules elsewhere. Read before editing or running any Playwright test.
   docs-only PR starts no browser.
 - A push to `dev` runs the full unit and core suites with coverage. It publishes the
   `test-map` and `test-blocks` artifacts and uploads lcov to Codacy.
-- The `dev` ruleset requires two checks: `Codacy Static Code Analysis` and `Tests`. There is
-  no coverage gate on PRs; Codacy tracks `dev` coverage from the push runs.
+- The `dev` ruleset requires `Codacy Static Code Analysis`, `Tests` and `Vale`
+  (`.context/review-and-ci.md`). There is no coverage gate on PRs; Codacy tracks `dev`
+  coverage from the push runs.
 - A regression outside the PR selection fails the next `dev` push run. Fix it before other
   work.
 

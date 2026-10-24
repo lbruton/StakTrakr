@@ -85,7 +85,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 ## Git Topology
 
 - Branch model: `feature/* → dev → main`. **Every change to `dev` needs a PR — no
-  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` and `Tests` checks,
+  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis`, `Tests` and `Vale` checks,
   signed commits, no bypass actors) blocks direct pushes of any file type. CodeQL runs on
   `dev` but is not a required check there.
 - Config/tooling edits (`.claude/`, `.agents/`, instruction files, skill files, devops

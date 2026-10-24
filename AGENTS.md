@@ -129,7 +129,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Comment `@codex review` to request another Codex pass.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
-- Required status checks differ by branch: `dev` requires `Codacy Static Code Analysis` **and** `Tests`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
+- Required status checks differ by branch: `dev` requires `Codacy Static Code Analysis`, `Tests` **and** `Vale`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
 - CodeRabbit's 75% docstring-coverage pre-merge check blocks merge invisibly (green checks + 0 threads but `CHANGES_REQUESTED`). Write JSDoc / shell docstrings pre-emptively.
 
 ## Pre-Flight Triggers
