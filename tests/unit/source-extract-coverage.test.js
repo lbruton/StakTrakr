@@ -94,10 +94,19 @@ test("unit lcov credits js/ files loaded whole and by slice", async () => {
     );
     assert.deepEqual(outside, [], "no line outside the slice is hit");
 
-    const takenInSlice = [...api.matchAll(/^BRDA:(\d+),[^,]*,[^,]*,(\d+)$/gm)].filter(
-      ([, line, taken]) => Number(line) >= startLine && Number(line) <= endLine && Number(taken) > 0
+    const branches = [...api.matchAll(/^BRDA:(\d+),[^,]*,[^,]*,(\d+)$/gm)].map(
+      ([, line, taken]) => [Number(line), Number(taken)]
     );
-    assert.ok(takenInSlice.length > 0, `a branch between lines ${startLine} and ${endLine} is hit`);
+    const inSlice = (line) => line >= startLine && line <= endLine;
+    assert.ok(
+      branches.some(([line, taken]) => inSlice(line) && taken > 0),
+      `a branch between lines ${startLine} and ${endLine} is hit`
+    );
+    assert.deepEqual(
+      branches.filter(([line]) => !inSlice(line)),
+      [],
+      "the harness's unreached tail after the slice is not a branch"
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -115,32 +124,51 @@ const DEMO_SOURCE = [
   "  return 3;",
   "}",
   "// A comment is not a code line.",
+  "function d(x) {",
+  "  if (x) {",
+  "    return 1;",
+  "  }",
+  "  return 2;",
+  "}",
+  "if (globalThis.neverSet) {",
+  "  d(0);",
+  "}",
   "",
 ].join("\n");
 
-const fnRange = (name, count) => {
-  const start = DEMO_SOURCE.indexOf(`function ${name}(`);
+const at = (text) => DEMO_SOURCE.indexOf(text);
+const range = (startOffset, endOffset, count) => ({ startOffset, endOffset, count });
+const D_END = at("\n}\nif") + 2;
+const D_IF_START = at("{\n    return 1;");
+const D_IF_END = at("  }\n  return 2;") + 3;
+const TOP_IF = range(at("{\n  d(0);"), at("d(0);\n}") + 7, 0);
+
+const fnRange = (name, count, inner = []) => {
+  const start = at(`function ${name}(`);
   return {
     functionName: name,
     isBlockCoverage: true,
-    ranges: [{ startOffset: start, endOffset: DEMO_SOURCE.indexOf("\n}", start) + 2, count }],
+    ranges: [
+      range(start, name === "d" ? D_END : DEMO_SOURCE.indexOf("\n}", start) + 2, count),
+      ...inner,
+    ],
   };
 };
 
-/** One process's raw V8 coverage file: the harness top level plus the named counts. */
-const rawFile = (url, counts, topEnd = DEMO_SOURCE.length) => ({
+/**
+ * One process's raw V8 coverage file: the harness top level plus the named counts.
+ * `d` runs once; `dBlock` is the only inner range V8 emits for it, the path not taken.
+ */
+const rawFile = (url, counts, { topEnd = DEMO_SOURCE.length, dBlock } = {}) => ({
   result: [
     { scriptId: "1", url: "node:internal/main", functions: [] },
     {
       scriptId: "2",
       url,
       functions: [
-        {
-          functionName: "",
-          isBlockCoverage: true,
-          ranges: [{ startOffset: 0, endOffset: topEnd, count: 1 }],
-        },
+        { functionName: "", isBlockCoverage: true, ranges: [range(0, topEnd, 1), TOP_IF] },
         ...Object.entries(counts).map(([name, count]) => fnRange(name, count)),
+        fnRange("d", 1, [dBlock]),
       ],
     },
   ],
@@ -155,14 +183,21 @@ test("unit lcov keeps the union of slices run in different processes", async () 
     writeFileSync(demoPath, DEMO_SOURCE);
     // The harness compiles slices under a plain path; a module carries a file URL.
     // The second process's top level runs past the end of the file, as a suffix does.
+    // The first process calls d(true), the second d(false).
     writeFileSync(
       path.join(root, "raw", "coverage-1.json"),
-      JSON.stringify(rawFile(demoPath, { a: 3, b: 0, c: 0 }))
+      JSON.stringify(
+        rawFile(demoPath, { a: 3, b: 0, c: 0 }, { dBlock: range(D_IF_END, D_END - 1, 0) })
+      )
     );
     writeFileSync(
       path.join(root, "raw", "coverage-2.json"),
       JSON.stringify(
-        rawFile(pathToFileURL(demoPath).href, { a: 0, b: 1, c: 0 }, DEMO_SOURCE.length + 40)
+        rawFile(
+          pathToFileURL(demoPath).href,
+          { a: 0, b: 1, c: 0 },
+          { topEnd: DEMO_SOURCE.length + 40, dBlock: range(D_IF_START, D_IF_END, 0) }
+        )
       )
     );
     const outFile = path.join(root, "out", "unit-lcov.info");
@@ -178,6 +213,20 @@ test("unit lcov keeps the union of slices run in different processes", async () 
     assert.equal(hits.get(5), 1, "the second process's slice is hit");
     assert.equal(hits.get(8), 0, "a function neither process ran is not hit");
     assert.equal(hits.has(10), false, "the comment line under the run top level is not listed");
+    assert.equal(hits.get(13), 1, "d's if body ran in the first process");
+    assert.equal(hits.get(15), 1, "d's fall-through ran in the second process");
+
+    const branches = Object.fromEntries(
+      [...lcov.matchAll(/^BRDA:(\d+),[^,]*,[^,]*,(\d+)$/gm)].map(([, line, taken]) => [
+        line,
+        Number(taken),
+      ])
+    );
+    assert.deepEqual(
+      branches,
+      { 12: 1, 14: 1, 17: 0 },
+      "each path of d ran in one process; the top-level if body never ran"
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

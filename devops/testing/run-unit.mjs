@@ -133,22 +133,42 @@ function markLines(text, segments, hit) {
 }
 
 /**
- * Block ranges of the entry's functions as `start-end` keys with whether each ran.
- * The top-level function is left out: on a sliced file its blocks are harness fences.
+ * Adds the entry's block ranges to `blocks` as `start-end` keys. A top-level block
+ * that reaches the end of the file is the unreachable tail after the harness's
+ * `return` before a slice, not a branch of the file.
  * @param {object[]} functions - V8 functions of one entry.
  * @param {number} length - Length of the file's source.
- * @param {Map<string, boolean>} blocks - Blocks seen so far, updated in place.
+ * @param {Set<string>} blocks - Block keys seen so far, updated in place.
  */
-function markBlocks(functions, length, blocks) {
+function collectBlocks(functions, length, blocks) {
   for (const fn of functions) {
     const [outer, ...inner] = fn.ranges;
-    if (outer.startOffset === 0 && outer.endOffset >= length) continue;
+    const topLevel = outer.startOffset === 0 && outer.endOffset >= length;
     for (const range of inner) {
-      if (range.startOffset >= length) continue;
-      const key = `${range.startOffset}-${Math.min(range.endOffset, length)}`;
-      blocks.set(key, blocks.get(key) === true || range.count > 0);
+      if (range.startOffset >= length || (topLevel && range.endOffset >= length)) continue;
+      blocks.add(`${range.startOffset}-${Math.min(range.endOffset, length)}`);
     }
   }
+}
+
+/**
+ * Count of the innermost range at `offset` in one entry's segments, or 0 outside them.
+ * V8 leaves out a block whose count equals its parent's, so a block one entry ran may
+ * appear only in another entry; the enclosing range holds its count.
+ * @param {Array<{start: number, end: number, count: number}>} segments - From innermostSegments.
+ * @param {number} offset - Source offset.
+ * @returns {number}
+ */
+function countAt(segments, offset) {
+  let lo = 0;
+  let hi = segments.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (segments[mid].end <= offset) lo = mid + 1;
+    else if (segments[mid].start > offset) hi = mid - 1;
+    else return segments[mid].count;
+  }
+  return 0;
 }
 
 /**
@@ -158,13 +178,16 @@ function markBlocks(functions, length, blocks) {
  * @param {string} file - Repo-relative path.
  * @param {ReturnType<typeof indexSource>} text - Indexed source.
  * @param {Set<number>} hit - Hit lines.
- * @param {Map<string, boolean>} blocks - Blocks from markBlocks.
+ * @param {Set<string>} blocks - Block keys from collectBlocks.
+ * @param {Array<Array<{start: number, end: number, count: number}>>} entries - Segments
+ *   of every entry for the file.
  * @returns {string}
  */
-function lcovSection(file, text, hit, blocks) {
+function lcovSection(file, text, hit, blocks, entries) {
   const out = [`SF:${file}`];
   const branches = [...blocks]
-    .map(([key, ran]) => [...key.split("-").map(Number), ran])
+    .map((key) => key.split("-").map(Number))
+    .map(([start, end]) => [start, end, entries.some((segs) => countAt(segs, start) > 0)])
     .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   branches.forEach(([start, , ran], i) => {
     out.push(`BRDA:${text.lineOf(start)},${i},0,${ran ? 1 : 0}`);
@@ -199,16 +222,18 @@ export async function mergeUnitCoverage({ rawDir, outFile, root = REPO_ROOT }) {
       if (!file) continue;
       if (!files.has(file)) {
         const text = indexSource(readFileSync(path.join(root, file), "utf-8"));
-        files.set(file, { text, hit: new Set(), blocks: new Map() });
+        files.set(file, { text, hit: new Set(), blocks: new Set(), entries: [] });
       }
-      const { text, hit, blocks } = files.get(file);
-      markLines(text, innermostSegments(functions, text.source.length), hit);
-      markBlocks(functions, text.source.length, blocks);
+      const { text, hit, blocks, entries } = files.get(file);
+      const segments = innermostSegments(functions, text.source.length);
+      entries.push(segments);
+      markLines(text, segments, hit);
+      collectBlocks(functions, text.source.length, blocks);
     }
   }
   const sections = [...files]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([file, { text, hit, blocks }]) => lcovSection(file, text, hit, blocks));
+    .map(([file, { text, hit, blocks, entries }]) => lcovSection(file, text, hit, blocks, entries));
   mkdirSync(path.dirname(outFile), { recursive: true });
   writeFileSync(outFile, sections.length ? `${sections.join("\n")}\n` : "");
   return outFile;
