@@ -1,9 +1,10 @@
-// STRK-450: status colours set from JS come from per-theme tokens and meet WCAG AA.
+// Colours that JS used to pick come from per-theme tokens and meet WCAG AA.
 //
-// Covers the Numista bulk sync table status cells (Synced / Needs sync / Failed), the sync
-// activity log lines (success / warn / error) and the spot lookup flash on a price input.
-// Each is measured in all four themes, switched in place. The measure composites a
-// translucent background over the nearest opaque ancestor before taking the ratio.
+// STRK-450 covers the Numista bulk sync table status cells (Synced / Needs sync / Failed),
+// the sync activity log lines (success / warn / error) and the spot lookup flash on a price
+// input. STRK-452 covers the metal-tinted Item View header. Each is measured in all four
+// themes, switched in place. The measure composites a translucent background over the
+// nearest opaque ancestor before taking the ratio.
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { suppressWhatsNewPopup } from "../helpers/seed.js";
@@ -165,5 +166,122 @@ test.describe("STRK-450 status colours from theme tokens", () => {
         })
         .toBe(rest.background);
     }
+  });
+});
+
+const METALS = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
+
+/** Seeds one Item per metal and boots the inventory page. */
+async function gotoAppWithMetalItems(page) {
+  const items = METALS.map((metal, i) => ({
+    uuid: `strk452-${metal.toLowerCase()}`,
+    serial: i + 1,
+    name: `${metal} Round`,
+    metal,
+    composition: metal,
+    type: "Round",
+    qty: 1,
+    weight: 1,
+    weightUnit: "oz",
+    purity: 0.999,
+    price: 30,
+    date: "2026-04-01",
+  }));
+  await page.addInitScript((inv) => {
+    localStorage.setItem("metalInventory", JSON.stringify(inv));
+  }, items);
+  await suppressWhatsNewPopup(page);
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.appListenersReady === true);
+}
+
+/**
+ * Measures the open Item View header: the WCAG ratio of the title and the close (X) over each stop of the header
+ * gradient (the extremes of a two-stop gradient bound every pixel between them), plus any
+ * inline background JS left on the header or the image section.
+ */
+function measureViewHeader(page) {
+  return page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const toRgb = (css) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = "#000";
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+    };
+    const channel = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const luminance = ([r, g, b]) =>
+      0.2126 * channel(r / 255) + 0.7152 * channel(g / 255) + 0.0722 * channel(b / 255);
+    const ratio = (a, b) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+    };
+    const header = document.querySelector("#viewItemModal .modal-header");
+    const title = document.getElementById("viewModalTitle");
+    const image = document.getElementById("viewImageSection");
+    const gradient = getComputedStyle(header).backgroundImage;
+    const stops = gradient.match(/(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)/g) || [];
+    const close = document.getElementById("viewModalCloseX");
+    const fores = [title, close].map((el) => toRgb(getComputedStyle(el).color));
+    return {
+      gradient,
+      stops: stops.map((s) => toRgb(s).join(",")),
+      ratios: stops.flatMap((s) => fores.map((fore) => ratio(toRgb(s), fore))),
+      inline: [header.style.background, image?.style.background ?? ""].filter(Boolean).join(" | "),
+    };
+  });
+}
+
+/**
+ * Opens the Item View for each metal and switches through all four themes with the modal
+ * open: the header must be a two-stop metal gradient whose title meets AA at both ends.
+ */
+async function expectAaViewHeadersInEveryTheme(page, { inlineTitleColour }) {
+  for (const [index, metal] of METALS.entries()) {
+    await page.evaluate((i) => window.showViewModal(i), index);
+    await expect(page.locator("#viewModalTitle")).toHaveText(`${metal} Round`);
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const what = `${theme} ${metal} header`;
+      await expect
+        .poll(async () => Math.min(...(await measureViewHeader(page)).ratios), {
+          message: `${what} title and close (X) meet AA at every gradient stop`,
+        })
+        .toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+      const header = await measureViewHeader(page);
+      expect(header.stops.length, `${what} gradient: ${header.gradient}`).toBe(2);
+      expect(header.stops[0], `${what} gradient darkens toward the end`).not.toBe(header.stops[1]);
+      expect(header.inline, `${what} sets no inline header or image background`).toBe("");
+      const titleInline = await page.locator("#viewModalTitle").evaluate((el) => el.style.color);
+      expect(titleInline !== "", `${what} inline title colour`).toBe(inlineTitleColour);
+    }
+    await page.evaluate(() => window.closeViewModal());
+  }
+}
+
+test.describe("STRK-452 metal-tinted Item View header", () => {
+  test("the header title meets AA for every metal in all four themes, switched in place", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await gotoAppWithMetalItems(page);
+    await expectAaViewHeadersInEveryTheme(page, { inlineTitleColour: false });
+  });
+
+  test("the JS fallback (no CSS contrast-color) also meets AA and re-picks on theme switch", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await page.addInitScript(() => {
+      const native = CSS.supports.bind(CSS);
+      CSS.supports = (...args) =>
+        String(args.join(" ")).includes("contrast-color") ? false : native(...args);
+    });
+    await gotoAppWithMetalItems(page);
+    await expectAaViewHeadersInEveryTheme(page, { inlineTitleColour: true });
   });
 });

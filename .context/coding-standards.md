@@ -979,6 +979,13 @@ theme-reactive expression. Let the stylesheet do the rest:
   `contrast-color(var(--chip-bg))`. Never write `chip.style.color` or
   `style.backgroundColor` for a chip. The only exception is the `CHIP_CONTRAST_IN_CSS`
   fallback for browsers without `contrast-color()`.
+- **Metal-tinted surfaces:** `_applyHeaderMetal` (`js/viewModal.js`) sets only
+  `data-metal` on `#viewItemModal`. The stylesheet maps it to `--view-metal` and paints
+  the header gradient, the image section and the `contrast-color()` title from that
+  token. The diff modal builds its thumbnail tint from the metal token in `color-mix()`.
+  Do not keep a metal RGB table in JS. The only inline colour is the
+  `CHIP_CONTRAST_IN_CSS` fallback: `_refreshViewHeaderTextColor()` sets the header and
+  title colour with `getContrastColor()`, and `setTheme()` calls it again.
 - **Hashed colours:** `getColor()` (`js/inventory-table.js`) returns
   `hsl(<hue>, var(--hashed-color-s), var(--hashed-color-l))`. Only the hue is data; the
   saturation and lightness are per-theme tokens. Do not branch on `data-theme` in JS.

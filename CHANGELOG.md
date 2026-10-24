@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.66] - 2026-10-24
+
+### Changed — STRK-452: Item View header colours come from the theme
+
+- **Item View header**: The metal-tinted header and image band take their colours from the metal theme tokens in CSS. The title meets 4.5:1 contrast for every metal in all four themes and follows a theme switch while the Item View is open. The header gradient darkens 25% instead of 30%, so the black title on slate copper meets AA (STRK-452).
+- **Diff modal thumbnails**: The metal tint behind Item thumbnails uses the metal theme token instead of a fixed RGB table (STRK-452).
+
+---
+
 ## [3.36.65] - 2026-10-23
 
 ### Changed — STRK-466: Buttons respond sooner after the app loads
