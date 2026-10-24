@@ -229,6 +229,14 @@ jobs:
           path: coverage/raw
           merge-multiple: true
 
+      - name: Merge coverage and build the test map
+        if: ${{ env.IS_PUSH == 'true' }}
+        run: node devops/testing/coverage-merge.mjs
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      # The merge empties coverage/ before it writes lcov.info, so the unit lcov
+      # downloads after it.
       - name: Download unit lcov
         if: ${{ env.IS_PUSH == 'true' }}
         continue-on-error: true
@@ -236,12 +244,6 @@ jobs:
         with:
           name: unit-lcov
           path: coverage
-
-      - name: Merge coverage and build the test map
-        if: ${{ env.IS_PUSH == 'true' }}
-        run: node devops/testing/coverage-merge.mjs
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Upload test map
         if: ${{ env.IS_PUSH == 'true' }}
