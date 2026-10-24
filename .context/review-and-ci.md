@@ -94,6 +94,8 @@ configured for Copilot beyond GitHub's defaults (GitHub + Playwright); Plane is 
 
 `Tests` is the report job of `.github/workflows/tests.yml`. On a PR it runs the
 `test:changed` selection; `.context/testing.md` describes the selection and the `dev` push run.
+The report job also needs the `Lint` job, which runs `npm run lint` and `npm run format:check`
+on every PR and every `dev` push. A lint or format failure fails `Tests`.
 
 `Vale` is the job in `.github/workflows/vale.yml`. It runs on every PR, so the required check
 always reports. A PR that changes no `README.md`, `.context/**/*.md` or Vale config file passes
@@ -135,7 +137,7 @@ are easy to hit unexpectedly:
 | `stamp-sw-cache`     | stamps the service-worker cache on staged asset changes                  |
 | `check-release-sync` | release-artifact version sync (a **subset**: see `git-topology.md`)      |
 | `check-claude-md`    | verifies CLAUDE.md exists (it is tracked; restore with `git restore`)    |
-| `lint-staged`        | prettier on staged files                                                 |
+| `lint-staged`        | prettier on staged files, then ESLint on staged files in the lint scope  |
 | `lint-markdown`      | markdownlint on staged Markdown                                          |
 
 **Order matters: prettier runs before markdownlint.** Reversed (as it was until
