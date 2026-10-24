@@ -1033,7 +1033,6 @@ function getSyncPassword(forcePrompt) {
     if (silent) return Promise.resolve(silent);
   }
 
-  var accountId = localStorage.getItem("cloud_dropbox_account_id");
   var isNewAccount = !localStorage.getItem("cloud_vault_password");
 
   return new Promise(function (resolve) {
@@ -1989,7 +1988,6 @@ async function pushSyncVault() {
     var localItemCount = typeof inventory !== "undefined" ? inventory.length : 0;
     if (localItemCount === 0) {
       debugLog("[CloudSync] Empty-vault guard: local inventory is 0 — checking remote metadata");
-      var guardBlocked = false;
       try {
         var guardApiArg = JSON.stringify({ path: SYNC_META_PATH });
         var guardResp = await fetch("https://content.dropboxapi.com/2/files/download", {
@@ -2037,7 +2035,6 @@ async function pushSyncVault() {
               "Empty local vault, remote has " + guardMeta.itemCount + " items"
             );
             updateSyncStatusIndicator("error", "Empty vault — pull first");
-            guardBlocked = true;
             _syncPushInFlight = false;
             // STAK-410: showAppConfirm is Promise-based (message, title) — use .then()
             // instead of passing the callback as arg 2 (old callback-style API).
@@ -4419,10 +4416,6 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
     debugLog("[CloudSync] DiffModal not available — falling back");
     return null;
   }
-
-  var addedCount = diffResult.added ? diffResult.added.length : 0;
-  var removedCount = diffResult.deleted ? diffResult.deleted.length : 0;
-  var modifiedCount = diffResult.modified ? diffResult.modified.length : 0;
 
   return new Promise(function (resolve) {
     DiffModal.show({

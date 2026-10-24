@@ -131,6 +131,7 @@ describe("utils.js sanitizeImportedItem — STRK-235 constitutional field round-
   }
 
   // Needed globals that sanitizeImportedItem may reference:
+  // eslint-disable-next-line no-control-regex -- mirrors the production control-character strip
   const controlChars = new RegExp("[\\u0000-\\u001F\\u007F]", "g");
   const stubGlobals = {
     cleanString: (s = "") => s.toString().trim().replace(controlChars, ""),

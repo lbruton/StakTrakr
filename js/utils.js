@@ -442,12 +442,15 @@ const cleanString = (str = "") => {
     prev = s;
     s = s.replace(/<[^>]*>/g, "");
   } while (s !== prev);
-  return s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[\u0000-\u001F\u007F]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    s
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      // eslint-disable-next-line no-control-regex -- strips control characters on purpose
+      .replace(/[\u0000-\u001F\u007F]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 };
 
 /**
@@ -721,14 +724,17 @@ const sanitizeImportedItem = (item) => {
       prev = s;
       s = s.replace(/<[^>]*>/g, "");
     } while (s !== prev);
-    return s
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "")
-      .replace(/\r\n?/g, "\n")
-      .replace(/[ \t]+/g, " ")
-      .replace(/ *\n */g, "\n")
-      .trim();
+    return (
+      s
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        // eslint-disable-next-line no-control-regex -- strips control characters except tab and newline
+        .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "")
+        .replace(/\r\n?/g, "\n")
+        .replace(/[ \t]+/g, " ")
+        .replace(/ *\n */g, "\n")
+        .trim()
+    );
   };
   for (const field of basicFields) {
     sanitized[field] = cleanString(sanitized[field]);

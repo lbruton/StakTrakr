@@ -448,29 +448,29 @@ class CatalogProvider {
 
   /**
    * Lookup item by catalog ID - MUST be implemented by providers
-   * @param {string} catalogId - Catalog identifier
+   * @param {string} _catalogId - Catalog identifier
    * @returns {Promise<Object>} Standardized item data
    */
-  async lookupItem(catalogId) {
+  async lookupItem(_catalogId) {
     throw new Error("lookupItem must be implemented by provider");
   }
 
   /**
    * Search for items by query - MUST be implemented by providers
-   * @param {string} query - Search term
-   * @param {Object} filters - Search filters
+   * @param {string} _query - Search term
+   * @param {Object} _filters - Search filters
    * @returns {Promise<Array>} Array of standardized item data
    */
-  async searchItems(query, filters = {}) {
+  async searchItems(_query, _filters = {}) {
     throw new Error("searchItems must be implemented by provider");
   }
 
   /**
    * Get current market value for item - MUST be implemented by providers
-   * @param {string} catalogId - Catalog identifier
+   * @param {string} _catalogId - Catalog identifier
    * @returns {Promise<number>} Current market value in USD
    */
-  async getMarketValue(catalogId) {
+  async getMarketValue(_catalogId) {
     throw new Error("getMarketValue must be implemented by provider");
   }
 }
@@ -1486,7 +1486,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       try {
         if (typeof verifyPcgsCert === "function") {
-          const result = await verifyPcgsCert("00000000");
+          await verifyPcgsCert("00000000");
           // Even a "not found" response means the API is reachable
           if (pcgsStatus) pcgsStatus.textContent = "Connected — API reachable.";
           appAlert("PCGS API connection successful!");

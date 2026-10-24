@@ -220,7 +220,7 @@ async function main() {
 
   log(`Merging prices for ${dateStr} (${coins.length} coins)`);
 
-  for (const [coinSlug, coin] of coins) {
+  for (const [coinSlug] of coins) {
     // Read Firecrawl result
     const fcPath = join(DATA_DIR, "retail", coinSlug, `${dateStr}.json`);
     const fcData = readJsonSafe(fcPath);

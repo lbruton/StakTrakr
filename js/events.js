@@ -1891,7 +1891,7 @@ const parseItemFormFields = (isEditing, existingItem) => {
  * @param {Object} existingItem
  * @returns {Object} Numista data fields with source tracking
  */
-const parseNumistaDataFields = (isEditing, existingItem, catalog = "") => {
+const parseNumistaDataFields = (isEditing, existingItem, _catalog = "") => {
   const prev = isEditing && existingItem?.numistaData ? existingItem.numistaData : {};
 
   // STAK-487: Respect intentional clearing — if the form element exists, trust its
@@ -2401,10 +2401,10 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
 /**
  * Builds a Numista search query, optionally rewriting via NumistaLookup patterns.
  * @param {string} nameVal - Item name input value
- * @param {string} metalVal - Metal composition value (currently unused; kept for API compatibility)
+ * @param {string} _metalVal - Metal composition value, unused and kept for API compatibility
  * @returns {{ query: string, numistaId: string|null, matched: boolean }}
  */
-const buildNumistaSearchQuery = (nameVal, metalVal) => {
+const buildNumistaSearchQuery = (nameVal, _metalVal) => {
   const combined = nameVal;
 
   // Try pattern-based lookup if available

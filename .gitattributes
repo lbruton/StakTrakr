@@ -37,7 +37,6 @@ _routes.json          export-ignore
 .codacy/              export-ignore
 .codacy.yml           export-ignore
 .coderabbit.yaml      export-ignore
-.eslintrc.json        export-ignore
 eslint.config.js      export-ignore
 eslint.config.cjs     export-ignore
 .markdownlint.json    export-ignore

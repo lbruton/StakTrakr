@@ -1611,7 +1611,6 @@ const syncSettingsUI = () => {
 
   // Chip min count — sync with inline control
   const chipMinSetting = document.getElementById("settingsChipMinCount");
-  const chipMinInline = document.getElementById("chipMinCount");
   if (chipMinSetting) {
     chipMinSetting.value = localStorage.getItem("chipMinCount") || "3";
   }

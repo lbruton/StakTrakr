@@ -274,7 +274,7 @@
     );
   };
 
-  const recalcItem = (item) => {
+  const recalcItem = (_item) => {
     // No-op: premium calculations removed in portfolio redesign
   };
 

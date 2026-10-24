@@ -208,19 +208,22 @@ a command, and do not `npm install`/`npx` the CLI per scan. Verify presence with
   `codacy-analysis-cli` skill (which drives the `codacy-analysis` command) for local scans.
   These are skill names invoked via the Skill tool, not shell commands.
 
-## Dual ESLint config — `.eslintrc.json` is read by Codacy and CodeRabbit
+## ESLint: one config for local, CI and Codacy
 
-The repo carries two ESLint configs: `eslint.config.cjs` (flat: used by local `npm run lint`). The other is `.eslintrc.json` (legacy: read server-side by Codacy's ESLint **and** by CodeRabbit's sandbox, which resolves the legacy eslintrc over the flat config). With a flat config present, ESLint 9 ignores the legacy file locally.
+`eslint.config.cjs` is the only ESLint config. `npm run lint` (`eslint .`), lint-staged, the
+Tests check and Codacy ESLint9 all read it. Codacy's "Use configuration file" toggle for
+ESLint9 is on, so the dashboard pattern list does not apply.
 
-- The `no-restricted-globals` ban on native `alert`/`confirm`/`prompt` (use `showAppAlert`/`showAppConfirm`/`showAppPrompt`) lives **only** in `.eslintrc.json`, so a native `confirm()` passes `npm run lint` but Codacy flags it.
-- The legacy config defaults `sourceType` to `script`, so an `overrides` block sets `sourceType: module` for `tests/**/*.js`. Without it, CodeRabbit fails to parse ES-module Playwright/unit specs (`'import' and 'export' may appear only with 'sourceType: module'`) on every PR that touches a spec. `npm run lint` never globs `tests/playwright/**`, so it can't catch this.
-- Before deleting `.eslintrc.json` or bumping to ESLint 10 (Dependabot PR #1228 is deferred pending Codacy support), migrate the `no-restricted-globals` rule into `eslint.config.cjs`.
-
-Project-specific noise: the app uses script-tag globals. Local ESLint uses the repo's
-`eslint.config.cjs` (which disables `no-undef`). The dashboard's managed ESLint
-patterns may still flag browser globals. Thus, local and dashboard ESLint can differ on
-`no-undef`. Treat pre-existing browser-global findings as noise; verify findings on
-changed lines only. Global `Action Gates` covers the fresh-worktree empty-diff issue.
+- **Rule changes:** edit `eslint.config.cjs`, never the Codacy dashboard patterns.
+- **Ignores:** the config's ignore list mirrors `exclude_paths` in `.codacy.yml`. Change both together.
+- **Errors fail the Tests check.** `eslint-plugin-security` rules are warnings: they show in
+  local output and on the Codacy dashboard but do not block a merge.
+- **One-off exceptions:** use `// eslint-disable-next-line <rule> -- <reason>`, which local
+  ESLint and Codacy both honor. A dashboard "ignore" on a single issue stays in Codacy only.
+- **Script-tag globals:** `no-undef` is off for `js/`, `sw*.js`, `data/` and the tests,
+  and `no-unused-vars` checks locals only there. Every other file is an ES module with
+  `no-undef` on.
+- ESLint 10 waits on Codacy support: Codacy's ESLint9 runs 9.39.5, the same version as the repo.
 
 ## Codacy Agentlint
 

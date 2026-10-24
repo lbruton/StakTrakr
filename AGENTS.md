@@ -40,7 +40,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 ## Commands
 
 - `python3 -m http.server 8000` — run locally at `http://localhost:8000`
-- `npm run lint` — ESLint on `js/*.js`, `sw.js`, `sw-router.js` and `tests/unit/`
+- `npm run lint` — ESLint on every JS file Codacy scans; rules in `eslint.config.cjs`
 - `npm run lint:md:all` — lint Markdown
 - `npm run format` / `npm run format:check` — Prettier, repo-wide.
 - Prettier scope is governed by `.prettierignore` (excludes `data/`, `vendor/`, minified assets).

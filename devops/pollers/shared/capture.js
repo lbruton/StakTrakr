@@ -17,7 +17,7 @@
  */
 
 import { chromium } from "playwright-core";
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { config } from "dotenv";

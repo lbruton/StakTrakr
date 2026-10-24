@@ -1272,7 +1272,7 @@ const _reportV2SyncSuccess = (successCount, generatedAt, ui, syncStatus) => {
  * @param {Element} [options.syncBtn] - Optional sync button element (may be enabled/disabled by the caller).
  * @param {Element} [options.syncStatus] - Optional element whose textContent will be set with sync status or error messages.
  */
-async function _syncRetailV2({ ui, syncBtn, syncStatus }) {
+async function _syncRetailV2({ ui, syncStatus }) {
   const result = await _pickFreshestV2Endpoint();
   if (!result) {
     debugLog("[retail-v2] All v2 endpoints unreachable", "warn");

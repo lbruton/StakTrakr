@@ -366,7 +366,7 @@ const API_PROVIDERS = {
     custom: true,
     batchSupported: false, // Custom providers will use individual requests by default
     batchEndpoint: "",
-    parseBatchResponse: (data) => {
+    parseBatchResponse: (_data) => {
       // Custom batch parsing would depend on the provider's API format
       return { current: {}, history: {} };
     },

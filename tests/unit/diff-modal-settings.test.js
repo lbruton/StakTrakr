@@ -71,7 +71,7 @@ const mergeSlugChips = (fieldSelections) =>
     suffix: "\nreturn _mergeSlugChips;",
   });
 
-const settingsTypesMatch = diffModalCode.match(/var SETTINGS_VALUE_TYPE = (\{[\s\S]*?\n  \});/);
+const settingsTypesMatch = diffModalCode.match(/var SETTINGS_VALUE_TYPE = (\{[\s\S]*?\n {2}\});/);
 const settingsTypesStart =
   settingsTypesMatch.index + settingsTypesMatch[0].indexOf(settingsTypesMatch[1]);
 const diffModalSettingsTypes = evalSource(DIFF_MODAL_FILE, {

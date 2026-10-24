@@ -6,7 +6,7 @@
   "type": "module",
   "description": "Precious metals inventory tracker",
   "scripts": {
-    "lint": "eslint js/*.js sw.js sw-router.js \"tests/unit/**/*.js\"",
+    "lint": "eslint .",
     "test:unit": "node devops/testing/run-unit.mjs",
     "build:collections": "node devops/collections/build-collections-bundle.mjs",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
@@ -25,12 +25,15 @@
   },
   "lint-staged": {
     "*.{js,css,html,json,md}": "prettier --write",
-    "{js/*.js,sw.js,sw-router.js,tests/unit/**/*.js}": "eslint"
+    "*.{js,mjs,cjs}": "eslint --no-warn-ignored"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.64.1",
     "acorn": "^8.19.0",
     "eslint": "^9.39.5",
+    "eslint-plugin-security": "^3.0.1",
+    "globals": "^14.0.0",
     "lint-staged": "^17.6.0",
     "monocart-coverage-reports": "^3.0.0",
     "prettier": "^3.9.10"

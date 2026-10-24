@@ -350,7 +350,7 @@ export function extractJsonLdAvailability(jsonLdScripts) {
       const av = offer.availability;
       if (!av) continue;
       const m = String(av)
-        .split(/[\/#]/)
+        .split(/[/#]/)
         .pop()
         .match(/([A-Za-z]+)/);
       if (m) {

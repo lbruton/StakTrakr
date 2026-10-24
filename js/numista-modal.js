@@ -10,9 +10,9 @@
  * Opens the Numista page for the specified coin in a popup window.
  *
  * @param {string} numistaId - The Numista catalog ID
- * @param {string} coinName - The name of the coin (used for window title)
+ * @param {string} _coinName - The name of the coin, unused
  */
-function openNumistaModal(numistaId, coinName) {
+function openNumistaModal(numistaId, _coinName) {
   const rawId = String(numistaId || "").trim();
   if (!rawId) {
     appAlert("Preview unavailable: missing Numista catalog id.");

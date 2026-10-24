@@ -592,7 +592,7 @@
    * @returns {number|undefined} Parsed amount, or undefined
    */
   const _parseDispositionAmount = (raw) => {
-    const n = parseFloat(String(raw).replace(/[^0-9.\-]/g, ""));
+    const n = parseFloat(String(raw).replace(/[^0-9.-]/g, ""));
     return raw !== "" && Number.isFinite(n) ? n : undefined;
   };
 
@@ -1946,9 +1946,9 @@
 
       let disposition;
       if (dispositionType) {
-        const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
+        const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.-]/g, ""));
         const _parsedGainLoss = parseFloat(
-          String(dispositionRealizedGainLoss).replace(/[^0-9.\-]/g, "")
+          String(dispositionRealizedGainLoss).replace(/[^0-9.-]/g, "")
         );
         const dispositionTypeKey =
           typeof DISPOSITION_TYPES !== "undefined"
@@ -2061,7 +2061,7 @@
       const headerCurrencyMatch = key.match(/\(([^)]+)\)/);
       const headerCurrency = headerCurrencyMatch ? headerCurrencyMatch[1] : displayCurrency;
       const currency = valueCurrency || headerCurrency;
-      const amount = parseFloat(rawVal.replace(/[^0-9.\-]/g, ""));
+      const amount = parseFloat(rawVal.replace(/[^0-9.-]/g, ""));
       return isNaN(amount) ? 0 : convertToUsd(amount, currency);
     };
 

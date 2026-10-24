@@ -320,8 +320,8 @@
     var overflowRemote = "";
 
     for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
+      var lv = Object.hasOwn(localObj, k) ? localObj[k] : undefined;
+      var rv = Object.hasOwn(remoteObj, k) ? remoteObj[k] : undefined;
       var fieldKey = "setting-" + key + "-" + k;
       var selSide = fieldSelections[fieldKey] || "";
       var humanLabel = _titleCase(k);
@@ -497,8 +497,8 @@
     var overflowRemote = "";
 
     for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
+      var lv = Object.hasOwn(localObj, k) ? localObj[k] : undefined;
+      var rv = Object.hasOwn(remoteObj, k) ? remoteObj[k] : undefined;
       var fieldKey = "setting-" + key + "-" + k;
       var selSide = fieldSelections[fieldKey] || "";
       var humanKey = _titleCase(k);
