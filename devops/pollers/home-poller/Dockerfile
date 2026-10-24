@@ -121,10 +121,6 @@ RUN openssl req -x509 -newkey rsa:2048 -nodes \
     && chown node:node /app/tls-key.pem /app/tls-cert.pem
 
 # ── Supervisord config ───────────────────────────────────
-# The dashboard and metrics exporter run as node and call `supervisorctl
-# status`, so the control socket is group-readable for node.
-RUN sed -i 's/^chmod=0700.*/chmod=0770\nchown=root:node/' /etc/supervisor/supervisord.conf \
-    && grep -q '^chown=root:node' /etc/supervisor/supervisord.conf
 COPY home-poller/supervisord.conf /etc/supervisor/conf.d/home-poller.conf
 
 # ── Entrypoint ────────────────────────────────────────────

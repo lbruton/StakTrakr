@@ -218,7 +218,7 @@ PID 1 (supervisord) and the cron daemon run as root. Every cron job, the dashboa
 - `/etc/environment` is `root:node` with mode 640, so jobs read it through the group.
 - The entrypoint re-owns any `/data` file that `node` does not own.
 - The entrypoint adds `node` to the group that owns the mounted Docker socket. A socket with gid 0 is skipped, and the dashboard container list stays empty.
-- The supervisor control socket is `root:node` with mode 770, so `supervisorctl status` works for `node`.
+- The supervisor control socket stays root-only. A root `status-snapshot` program writes `supervisorctl status` to `/run/supervisor-status` every 15 seconds; the dashboard and metrics exporter read that file.
 
 ---
 

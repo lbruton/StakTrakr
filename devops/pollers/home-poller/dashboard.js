@@ -206,9 +206,13 @@ function getLockStatus() {
   });
 }
 
+/**
+ * Reads the `supervisorctl status` snapshot that the root-run status-snapshot
+ * program writes; the control socket itself stays closed to the node user.
+ */
 function getSupervisordStatus() {
   try {
-    const out = execSync("supervisorctl status 2>/dev/null", { timeout: 3000 }).toString();
+    const out = readFileSync("/run/supervisor-status", "utf8");
     return out
       .trim()
       .split("\n")

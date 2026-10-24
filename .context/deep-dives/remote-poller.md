@@ -50,7 +50,8 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 
 - `/etc/environment` is `root:node` with mode 640.
 - Git identity is set with `git config --system`. The push token is in `/home/node/.git-credentials`.
-- The entrypoint re-owns any `/data` file that `node` does not own, except `/data/tailscale`.
+- `/data` is `root:node` with mode 1775 (sticky), so `node` can create entries but cannot rename the root-owned `/data/tailscale`.
+- The entrypoint re-owns any file below `/data` that `node` does not own, except `/data/tailscale`.
 
 > **Rollback:** `cp Dockerfile.full Dockerfile && fly deploy` from `devops/pollers/` with `--config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`.
 

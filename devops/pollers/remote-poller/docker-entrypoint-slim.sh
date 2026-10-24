@@ -56,8 +56,12 @@ chown node:node /var/log/spot-poller.log /var/log/publish.log \
       /var/log/http-server.log /var/log/provider-export.log /var/log/cleanup.log
 
 # ── 6. Hand the data volume to node, except tailscaled's root-owned state ──
+# /data stays root-owned and sticky: node creates entries there (the reshallow
+# git-dir, the squash month marker) but cannot rename root's /data/tailscale.
 # The volume keeps files written by earlier root-run images; re-own only those.
-find /data -path /data/tailscale -prune -o ! -user node -exec chown node:node {} +
+chown root:node /data
+chmod 1775 /data
+find /data -mindepth 1 -path /data/tailscale -prune -o ! -user node -exec chown -h node:node -- {} +
 
 echo "[entrypoint] Handing off to supervisord..."
 exec "$@"

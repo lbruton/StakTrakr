@@ -47,7 +47,7 @@ ln -sf /data/logs/retail-poller.log /var/log/retail-poller.log
 
 # ── 5. Hand the data volume to node ─────────────────────────────────────
 # The volume keeps files written by earlier root-run images; re-own only those.
-find /data ! -user node -exec chown node:node {} +
+find /data ! -user node -exec chown -h node:node -- {} +
 
 # ── 6. Docker socket access for the dashboard container list ────────────
 # The socket's group id comes from the host, so match it at runtime. A gid-0
