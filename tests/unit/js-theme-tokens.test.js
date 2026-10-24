@@ -126,7 +126,7 @@ const GUARD_CASES = [
 /** Counts the colour-guard reports ESLint gives for code linted as the given repo file. */
 async function guardReports(eslint, code, file) {
   const [result] = await eslint.lintText(code, { filePath: fileURLToPath(new URL(file, root)) });
-  return result.messages.filter((m) => m.ruleId === "no-restricted-syntax").length;
+  return result.messages.filter((m) => m.ruleId === "staktrakr/no-colour-literal").length;
 }
 
 test("the ESLint colour guard reports colour literals in js/ and nothing else", async () => {
@@ -142,6 +142,23 @@ test("the ESLint colour guard reports colour literals in js/ and nothing else", 
     0,
     "theme.js is the token bridge"
   );
+});
+
+test("js/ holds no colour literal and the guard fails the lint", async () => {
+  const eslint = new ESLint({
+    cwd: fileURLToPath(root),
+    ruleFilter: ({ ruleId }) => ruleId === "staktrakr/no-colour-literal",
+  });
+  const results = await eslint.lintFiles(["js/**/*.js"]);
+  const hits = results.flatMap((r) =>
+    r.messages
+      .filter((m) => m.ruleId === "staktrakr/no-colour-literal")
+      .map((m) => `${r.filePath.split("/js/").pop()}:${m.line}`)
+  );
+  assert.deepEqual(hits, []);
+  const config = await eslint.calculateConfigForFile(fileURLToPath(new URL("js/app.js", root)));
+  const [severity] = [config.rules["staktrakr/no-colour-literal"]].flat();
+  assert.equal(severity, 2, "the colour guard is an error");
 });
 
 test("the sweep finds a known-undefined token, so it is not vacuous", () => {

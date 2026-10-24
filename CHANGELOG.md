@@ -7,11 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.69] - 2026-10-24
+
+### Changed — STRK-453: Chart colours read theme tokens
+
+- **Card charts**: the grid of the Item card chart reads `--border` and its tooltip uses the `--bg-primary` surface with `--text-primary` text and a `--border` outline, the same as the Item View chart. Both follow a theme switch (STRK-453).
+- **Dead fallbacks**: the ratio panel chart and the metal sparkline colour fall back to theme tokens instead of hex literals (STRK-453).
+- **Colour guard**: `staktrakr/no-colour-literal` is an error, so a new colour literal in `js/` fails the lint and the Tests check (STRK-453).
+
+---
+
 ## [3.36.68] - 2026-10-24
 
 ### Changed — STRK-455: Colour-literal guard and theme token check
 
-- **ESLint colour guard**: `eslint.config.cjs` warns on hex, colour-function and named-colour literals in `js/` outside `js/theme.js`. The pre-CSS update screens, the printable backup, the contrast fallback, the hue hash and the chart gradient carry a reasoned disable comment (STRK-455).
+- **ESLint colour guard**: the local rule `staktrakr/no-colour-literal` (`devops/eslint/no-colour-literal.cjs`) warns on hex, colour-function and named-colour literals in `js/` outside `js/theme.js`. The pre-CSS update screens, the printable backup, the contrast fallback, the hue hash and the chart gradient carry a reasoned disable comment (STRK-455).
 - **Undefined tokens**: `tests/unit/js-theme-tokens.test.js` fails on any `var(--x)` in `js/` or `css/` that names an undefined custom property. The 64 Bootstrap-era and misspelled references in `css/styles.css` now use defined theme tokens (STRK-455).
 - **Dead fallbacks**: the literal fallbacks on `--danger` and `--success` in the catalog and cloud logs, the gain/loss column and the spot lookup error are removed (STRK-455).
 

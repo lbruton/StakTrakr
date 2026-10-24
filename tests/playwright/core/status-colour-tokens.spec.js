@@ -285,3 +285,46 @@ test.describe("STRK-452 metal-tinted Item View header", () => {
     await expectAaViewHeadersInEveryTheme(page, { inlineTitleColour: true });
   });
 });
+
+test.describe("card chart colours from theme tokens", () => {
+  test("the card chart grid and tooltip follow each of the four themes", async ({ page }) => {
+    await gotoApp(page);
+    const byTheme = await page.evaluate((themes) => {
+      const host = document.createElement("div");
+      host.style.width = "300px";
+      host.innerHTML =
+        '<div style="height:120px"><canvas class="card-a-canvas" data-metal="Silver" data-weight="1"' +
+        ' data-qty="1" data-purity="0.999" data-price="30" data-market="35" data-date="2026-09-01"></canvas></div>';
+      document.body.appendChild(host);
+      const result = {};
+      for (const theme of themes) {
+        window.setTheme(theme);
+        _initCardCharts(host);
+        const chart = Chart.getChart(host.querySelector("canvas"));
+        const border = getThemeColorRGB("border");
+        result[theme] = {
+          grid: chart.options.scales.y.grid.color,
+          tooltipBg: chart.options.plugins.tooltip.backgroundColor,
+          tooltipTitle: chart.options.plugins.tooltip.titleColor,
+          tooltipBody: chart.options.plugins.tooltip.bodyColor,
+          expectedGrid: resolveColor(`color-mix(in srgb, ${border} 40%, transparent)`),
+          expectedBg: getThemeColorRGB("bg-primary"),
+          expectedText: getThemeColorRGB("text-primary"),
+        };
+      }
+      host.remove();
+      return result;
+    }, THEMES);
+    for (const theme of THEMES) {
+      const c = byTheme[theme];
+      expect(c.grid, `${theme} grid reads --border`).toBe(c.expectedGrid);
+      expect(c.tooltipBg, `${theme} tooltip surface reads --bg-primary`).toBe(c.expectedBg);
+      expect([c.tooltipTitle, c.tooltipBody], `${theme} tooltip text reads --text-primary`).toEqual(
+        [c.expectedText, c.expectedText]
+      );
+    }
+    expect(byTheme.light.tooltipBg, "the tooltip surface differs by theme").not.toBe(
+      byTheme.dark.tooltipBg
+    );
+  });
+});

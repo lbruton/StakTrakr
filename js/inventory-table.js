@@ -162,7 +162,7 @@
     }
     // Only the hue is data; saturation and lightness are per-theme tokens in css/styles.css,
     // so the colour follows a theme switch through the cascade (STRK-446).
-    // eslint-disable-next-line no-restricted-syntax -- legit: CSS cannot hash, JS passes only the hue
+    // eslint-disable-next-line staktrakr/no-colour-literal -- legit: CSS cannot hash, JS passes only the hue
     return `hsl(${map[key]}, var(--hashed-color-s), var(--hashed-color-l))`;
   };
 

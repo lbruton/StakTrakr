@@ -1425,7 +1425,7 @@ function _resolveCssColorChannels(css) {
  */
 function getContrastColor(bg) {
   const channels = _resolveCssColorChannels(bg);
-  // eslint-disable-next-line no-restricted-syntax -- legit: the contrast-color() fallback returns black or white
+  // eslint-disable-next-line staktrakr/no-colour-literal -- legit: the contrast-color() fallback returns black or white
   if (!channels) return "#000000";
   const lin = (v) => {
     const c = v / 255;
@@ -1434,7 +1434,7 @@ function getContrastColor(bg) {
   const L = 0.2126 * lin(channels[0]) + 0.7152 * lin(channels[1]) + 0.0722 * lin(channels[2]);
   // Black's ratio is (L + 0.05) / 0.05, white's is 1.05 / (L + 0.05); black wins when
   // (L + 0.05)^2 >= 0.0525. The better pick is always >= 4.58:1, so AA holds for any opaque bg.
-  // eslint-disable-next-line no-restricted-syntax -- legit: the contrast-color() fallback returns black or white
+  // eslint-disable-next-line staktrakr/no-colour-literal -- legit: the contrast-color() fallback returns black or white
   return (L + 0.05) * (L + 0.05) >= 0.0525 ? "#000000" : "#ffffff";
 }
 
