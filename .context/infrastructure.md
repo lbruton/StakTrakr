@@ -477,7 +477,10 @@ Related: **provider enable/disable** (`provider_vendors.enabled` in sqld) only t
 
 ### Webscale-Protected Vendors (JM Bullion, Provident)
 
-JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare; Byparr/Firecrawl can't solve it). Bypass = an operator-solved `wspc` cookie injected into the phase-0 Playwright path. Needs a **~weekly manual re-solve**. Procedure: .context/deep-dives/webscale-cookie-re-solve.md. Automation follow-up: cookie solving.
+JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare; Byparr/Firecrawl can't solve it).
+
+- **JM Bullion** is priced from FindBullionPrices JSON-LD, with no cookie. See `.context/data-pipelines.md`.
+- **Provident** needs an operator-solved `wspc` cookie injected into the phase-0 Playwright path. Every Provident provider row is disabled. Re-solve the cookie when the poller logs a Webscale challenge. Procedure: .context/deep-dives/webscale-cookie-re-solve.md.
 
 ---
 

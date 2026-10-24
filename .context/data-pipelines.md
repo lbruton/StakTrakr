@@ -303,12 +303,12 @@ MintBuilder is the **first vendor with a first-party price feed** (offered by Mi
 
 ### JM Bullion via FindBullionPrices
 
-JM Bullion direct scraping is Webscale/reCAPTCHA-blocked, so `jmbullion` prices are gap-filled from **FindBullionPrices.com (FBP)**. `price-extract-vendor-jmbullion-fbp.js` `scrape(context)` fetches the coin's FBP product page and reads the embedded schema.org `ItemList`, picking the JM Bullion offer and recording `source: "fbp"`. Extraction is a **plain HTTPS `fetch` + JSON-LD parse** (`fbp-jsonld.js`, browser `User-Agent`, AbortController timeout): no Firecrawl, no Byparr/CF-bypass. It runs on the same polite hourly retail cadence as every other vendor.
+JM Bullion product pages are Webscale/reCAPTCHA-protected, so every `jmbullion` price comes from **FindBullionPrices.com (FBP)**. The poller never scrapes JM directly. `price-extract-vendor-jmbullion-fbp.js` `scrape(context)` fetches the coin's FBP product page and reads the embedded schema.org `ItemList`, picking the JM Bullion offer and recording `source: "fbp"`. Extraction is a **plain HTTPS `fetch` + JSON-LD parse** (`fbp-jsonld.js`, browser `User-Agent`, AbortController timeout): no Firecrawl, no Byparr/CF-bypass. It runs on the same polite hourly retail cadence as every other vendor.
 
 - **Fetch seam:** the network call is injected as `context.fetchFbpPage` (test double), falling back to the real `fetchFbpPage`. `scrape` never throws: misses return a failed result (`no-fbp-url`, `jm-not-listed`, or the fetch error).
 - **URL source: direct hand-assignment:** each coin's `provider_coins.fbp_url` is set by hand to the exact FBP product page. An auto-resolver (`resolve-fbp-slugs.js` + an `fbp_match` keyword-hint column) shipped with the feed integration but was later removed as unused. FBP lists a single 1 oz coin alongside a `Tube-of-50`, `Monster-Box`, and `1-10-oz` fractional for the same coin+year. Positive-token matching (ranked by year only) can't prefer the single coin. Therefore, hand-assignment is both simpler and more correct. The vendor module reads `coin.fbp_url` directly and host-allowlists it to `findbullionprices.com` before fetching (SSRF fail-closed).
 - **Annual refresh:** FBP's dated slugs roll each January (`2026-…` → `2027-…`). Prefer FBP **Random-Year** product URLs where they exist (those don't roll) otherwise re-point the affected `fbp_url` values by hand once a year.
-- **Live JM re-enable is a post-deploy step**: the vendor module and FBP sourcing ship on this branch, but flipping JM back on in provider config happens after deploy.
+- **Status:** every `jmbullion` provider row is enabled in production.
 - **Attribution:** the market footer carries a FindBullionPrices attribution link.
 
 ### Vendor Module Boundary
@@ -321,13 +321,13 @@ scrape through a standard Vendor module interface.
 
 Migrated Vendors:
 
-| Vendor         | Module                                  | Notes                                                                                                                                                                                                              |
-| -------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apmex`        | `price-extract-vendor-apmex.js`         | Owns APMEX Firecrawl-preferred config and delegates to shared generic scraping                                                                                                                                     |
-| `goldback`     | `price-extract-vendor-goldback.js`      | Owns the Goldback Phase 0 bypass predicate and delegates to shared generic scraping                                                                                                                                |
-| `summitmetals` | `price-extract-vendor-summit.js`        | Owns Summit cutoff patterns + qty-tier-first extract strategy (JSON-LD offer price untrusted: it is the 100+ bulk tier)                                                                                            |
-| `mintbuilder`  | `price-extract-vendor-mintbuilder.js`   | **Feed-first**: direct vendor API with page-scrape fallback; see #MintBuilder Direct API Feed                                                                                                                      |
-| `jmbullion`    | `price-extract-vendor-jmbullion-fbp.js` | **FBP-backed**: JM direct is Webscale/reCAPTCHA-blocked, so prices are sourced from FindBullionPrices.com JSON-LD (`source: "fbp"`); consumes a `context.fetchFbpPage` seam. See #JM Bullion via FindBullionPrices |
+| Vendor         | Module                                  | Notes                                                                                                                                                                                                                |
+| -------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apmex`        | `price-extract-vendor-apmex.js`         | Owns APMEX Firecrawl-preferred config and delegates to shared generic scraping                                                                                                                                       |
+| `goldback`     | `price-extract-vendor-goldback.js`      | Owns the Goldback Phase 0 bypass predicate and delegates to shared generic scraping                                                                                                                                  |
+| `summitmetals` | `price-extract-vendor-summit.js`        | Owns Summit cutoff patterns + qty-tier-first extract strategy (JSON-LD offer price untrusted: it is the 100+ bulk tier)                                                                                              |
+| `mintbuilder`  | `price-extract-vendor-mintbuilder.js`   | **Feed-first**: direct vendor API with page-scrape fallback; see #MintBuilder Direct API Feed                                                                                                                        |
+| `jmbullion`    | `price-extract-vendor-jmbullion-fbp.js` | **FBP-backed**: JM pages are Webscale/reCAPTCHA-protected, so prices are sourced from FindBullionPrices.com JSON-LD (`source: "fbp"`); consumes a `context.fetchFbpPage` seam. See #JM Bullion via FindBullionPrices |
 
 All not-yet-migrated Vendors still route through `price-extract-vendor-legacy.js`,
 which preserves the pre-refactor generic scrape behavior. To migrate another Vendor,

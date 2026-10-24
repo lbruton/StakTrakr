@@ -9,9 +9,11 @@ updated: "2026-07-30"
 
 # Webscale Cookie Re-Solve Runbook
 
-**When:** ~weekly, or whenever `retail-poller.log` shows `⚠️ WEBSCALE CHALLENGE … RE-SOLVE NEEDED`, or JM Bullion / Provident drop to "no price". The `wspc` cookie lasts ~7 days.
+**Scope:** Provident only. JM Bullion is priced from FindBullionPrices (see `.context/data-pipelines.md`) and needs no cookie. Every Provident provider row is disabled, so run this runbook only when you re-enable Provident.
 
-**Why:** JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare). The poller injects a human-solved `wspc` cookie. Background: the product-page cookie bypass (PR #1303). Automation plan: CapSolver. Full diagnosis: Home Poller, `infrastructure.md`.
+**When:** whenever `retail-poller.log` shows `⚠️ WEBSCALE CHALLENGE … RE-SOLVE NEEDED`, or Provident drops to "no price". Re-solve on failure, not on a schedule.
+
+**Why:** Provident sits behind **Webscale Protection Mode** (Google reCAPTCHA v2 on product pages: NOT Cloudflare). The poller injects a human-solved `wspc` cookie. Background: the product-page cookie bypass (PR #1303). Full diagnosis: Home Poller, `infrastructure.md`.
 
 **Must run on a machine sharing the poller's public IP** (your home network / same Cox IP). The cookie is bound to IP + UA.
 
@@ -22,7 +24,7 @@ updated: "2026-07-30"
 ```bash
 curl -s -o /tmp/ws.html -w "%{http_code} %{size_download}\n" --max-time 25 \
   -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" \
-  "https://www.jmbullion.com/1-oz-american-gold-eagle/"
+  "https://www.providentmetals.com/1-oz-american-silver-eagle-coin.html"
 grep -o -m1 -E "grecaptcha.render|i-am-a-human" /tmp/ws.html
 ```
 
@@ -37,23 +39,20 @@ grep -o -m1 -E "grecaptcha.render|i-am-a-human" /tmp/ws.html
 
 ## Step 1 — Solve & capture (your Mac terminal)
 
-Pass **explicit product URLs**: do not rely on the built-in defaults:
+Pass an **explicit product URL**: do not rely on the built-in defaults, which also target JM Bullion:
 
 ```bash
 cd /Volumes/DATA/GitHub/StakTrakr
 git checkout dev && git pull origin dev
 node devops/pollers/shared/webscale-solve.mjs \
-  "https://www.jmbullion.com/1-oz-american-gold-eagle/" \
   "https://www.providentmetals.com/1-oz-american-silver-eagle-coin.html"
 ```
 
 > ⚠️ **Why explicit URLs matter (2026-07-30):** the tool's built-in default target for `providentmetals.com` is the **bare homepage**, which does _not_ throw the challenge. Solving there captures an **uncleared** `wspc` that fails silently on the poller. Only a page that returns the 401 interstitial yields a cleared cookie — verify with Step 0 before solving.
 
-A real Chrome window opens. For each site: go to **any product page**, solve the "confirm your humanity" check so the product loads, then press **Enter** in the terminal. After both sites it prints 4 paste-ready lines:
+A real Chrome window opens. Go to **any product page**, solve the "confirm your humanity" check so the product loads, then press **Enter** in the terminal. It prints 2 paste-ready lines:
 
 ```text
-WEBSCALE_WSPC_WWW_JMBULLION_COM=<token>
-WEBSCALE_UA_WWW_JMBULLION_COM=<base64 UA>
 WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM=<token>
 WEBSCALE_UA_WWW_PROVIDENTMETALS_COM=<base64 UA>
 ```
@@ -107,17 +106,17 @@ rm -f /tmp/retail-poller.lock      # clear a stale lock if present
 
 ## Step 5 — Verify
 
-`tail -f /data/logs/retail-poller.log`: JM/Provident should show prices, and you should see
-`(playwright-direct) injected Webscale wspc for jmbullion …`. If you see `⚠️ WEBSCALE CHALLENGE`, the cookie didn't take (stale or wrong IP).
+`tail -f /data/logs/retail-poller.log`: Provident should show prices, and you should see
+`(playwright-direct) injected Webscale wspc for providentmetals …`. If you see `⚠️ WEBSCALE CHALLENGE`, the cookie didn't take (stale or wrong IP).
 
 **If you can't reach that logfile** (container stdout is only supervisord noise, and `exec` may be blocked), use the **public feed** as the practical success signal:
 
 ```bash
-curl -s "https://api.staktrakr.com/data/v2/retail/latest.json" \
-  | jq '{generated_at, ase: .data.coins.ase.vendor_count, age: .data.coins.age.vendor_count}'
+curl -s "https://api.staktrakr.com/data/v2/retail/ase/latest.json" \
+  | jq '{generated_at, provident: .data.vendors.providentmetals}'
 ```
 
-`vendor_count` reference points for ASE/AGE: **7** = both blocked · **9** = both working (2026-07-29) · **10** = both working (2026-07-30). Also confirm both vendors are exported to `providers.json`: the poller reads that **file**, not live sqld, so a dashboard toggle only takes effect after the `*/5` `export-providers-json.js` cron.
+A fresh scrape landed only when `provident.price` is a number and `"carried": false`. A failed scrape with no carry-forward row also writes `"carried": false`, but with `"price": null`. Also confirm Provident is enabled in `providers.json`: the poller reads that **file**, not live sqld, so a dashboard toggle only takes effect after the `*/5` `export-providers-json.js` cron.
 
 ---
 
@@ -125,7 +124,7 @@ curl -s "https://api.staktrakr.com/data/v2/retail/latest.json" \
 
 - UA env value is **base64** (`/etc/environment` is sourced as shell; a raw UA breaks it).
 - Env vars: **replaced not merged** on Portainer redeploy → always keep the full set.
-- Cookie per-host (`www.jmbullion.com`, `www.providentmetals.com`). The ~7-day life appears to be **browser-side**. The cookie injected into the headless Linux poller has run ~3 weeks without a re-solve. Do not treat "weekly" as a hard requirement: re-solve when it actually fails.
+- Cookie per-host (`www.providentmetals.com`). The ~7-day life appears to be **browser-side**. The cookie injected into the headless Linux poller has run ~3 weeks without a re-solve (observed 2026-07-30).
 - Manual env-var override always beats the dev-only file store (`WEBSCALE_COOKIE_FILE`).
 - **TLS/JA3 pinning is ruled out** (2026-07-30). A macOS-solved cookie replays fine from Linux headless Chromium; the earlier "open unknown" is closed. Failures are IP reputation or a stale/uncleared cookie: not fingerprinting.
-- Both hosts' vars are already in the `docker-compose.home.yml` allow-list. **Any _new_ Webscale host needs its vars added to compose too**, or the Portainer value never reaches the container.
+- The Provident vars are in the `docker-compose.home.yml` allow-list. **Any _new_ Webscale host needs its vars added to compose too**, or the Portainer value never reaches the container.
