@@ -80,7 +80,7 @@ module.exports = [
     ignores: ["js/theme.js"],
     plugins: { staktrakr },
     rules: {
-      "staktrakr/no-colour-literal": "warn",
+      "staktrakr/no-colour-literal": "error",
     },
   },
   {

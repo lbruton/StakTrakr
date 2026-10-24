@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.69] - 2026-10-24
+
+### Changed — STRK-453: Chart colours read theme tokens
+
+- **Card charts**: the grid of the Item card chart reads `--border` and its tooltip uses the `--bg-primary` surface with `--text-primary` text and a `--border` outline, the same as the Item View chart. Both follow a theme switch (STRK-453).
+- **Dead fallbacks**: the ratio panel chart and the metal sparkline colour fall back to theme tokens instead of hex literals (STRK-453).
+- **Colour guard**: `staktrakr/no-colour-literal` is an error, so a new colour literal in `js/` fails the lint and the Tests check (STRK-453).
+
+---
+
 ## [3.36.68] - 2026-10-24
 
 ### Changed — STRK-455: Colour-literal guard and theme token check
