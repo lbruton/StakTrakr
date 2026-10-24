@@ -196,7 +196,7 @@ async function gotoAppWithMetalItems(page) {
 }
 
 /**
- * Measures the open Item View header: the title's WCAG ratio over each stop of the header
+ * Measures the open Item View header: the WCAG ratio of the title and the close (X) over each stop of the header
  * gradient (the extremes of a two-stop gradient bound every pixel between them), plus any
  * inline background JS left on the header or the image section.
  */
@@ -224,11 +224,12 @@ function measureViewHeader(page) {
     const image = document.getElementById("viewImageSection");
     const gradient = getComputedStyle(header).backgroundImage;
     const stops = gradient.match(/(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)/g) || [];
-    const fore = toRgb(getComputedStyle(title).color);
+    const close = document.getElementById("viewModalCloseX");
+    const fores = [title, close].map((el) => toRgb(getComputedStyle(el).color));
     return {
       gradient,
       stops: stops.map((s) => toRgb(s).join(",")),
-      ratios: stops.map((s) => ratio(toRgb(s), fore)),
+      ratios: stops.flatMap((s) => fores.map((fore) => ratio(toRgb(s), fore))),
       inline: [header.style.background, image?.style.background ?? ""].filter(Boolean).join(" | "),
     };
   });
@@ -248,7 +249,7 @@ async function expectAaViewHeadersInEveryTheme(page, { inlineTitleColour }) {
       const what = `${theme} ${metal} header`;
       await expect
         .poll(async () => Math.min(...(await measureViewHeader(page)).ratios), {
-          message: `${what} title meets AA at every gradient stop`,
+          message: `${what} title and close (X) meet AA at every gradient stop`,
         })
         .toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
       const header = await measureViewHeader(page);

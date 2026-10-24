@@ -7060,6 +7060,16 @@ td input:checked + .slider:before {
   );
 }
 
+/* The close (X) takes the header's contrast pick; a theme surface hover would hide it. */
+#viewItemModal[data-metal] .view-modal-close {
+  color: inherit;
+}
+
+#viewItemModal[data-metal] .view-modal-close:hover {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
 @supports (color: contrast-color(red)) {
   #viewItemModal[data-metal] .modal-header,
   #viewItemModal[data-metal] .modal-header h2 {
