@@ -1,9 +1,10 @@
 /**
  * Webscale "Protection Mode" cookie store (STRK-230).
  *
- * JM Bullion and Provident Metals (both A-Mark/JMB properties, shared front end)
- * sit behind **Webscale** — NOT Cloudflare — which throws a Google reCAPTCHA v2
- * interstitial on product pages. Byparr/Firecrawl cannot solve it. The only
+ * Provident Metals (A-Mark/JMB front end) sits behind **Webscale** — NOT
+ * Cloudflare — which throws a Google reCAPTCHA v2 interstitial on product pages.
+ * (JM Bullion shares that front end but is priced from FindBullionPrices, so it
+ * no longer uses this store — STRK-471.) Byparr/Firecrawl cannot solve it. The only
  * no-cost bypass is to clone a `wspc` cookie ("WebScale Protection Cookie",
  * ~7-day life) that an operator solves manually in a browser on the SAME public
  * IP as the poller, then inject it into the poller's headless Chromium with a
@@ -17,14 +18,14 @@
  *   1. Environment variables (recommended for the home poller — Portainer path).
  *      Per host: WEBSCALE_WSPC_<HOST> and WEBSCALE_UA_<HOST>, where <HOST> is the
  *      hostname upper-cased with non-alphanumerics → "_" (see webscaleEnvKeys).
- *      e.g. WEBSCALE_WSPC_WWW_JMBULLION_COM / WEBSCALE_UA_WWW_JMBULLION_COM.
+ *      e.g. WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM / WEBSCALE_UA_WWW_PROVIDENTMETALS_COM.
  *      The entrypoint dumps Docker env into /etc/environment and the scrape cron
  *      sources it as shell, so a pasted var reaches the poller after a container
  *      recreate. The UA value is **base64** (see encodeUaForEnv) — a raw UA's
  *      spaces/parens/semicolons would be a shell syntax error when sourced.
  *
  *   2. JSON file keyed by hostname (dev / file-based deploys):
- *      { "www.jmbullion.com": { "wspc": "...", "userAgent": "...", "updatedAt": "..." } }
+ *      { "www.providentmetals.com": { "wspc": "...", "userAgent": "...", "updatedAt": "..." } }
  *      Path from WEBSCALE_COOKIE_FILE (default module-local). Point it OUTSIDE any
  *      git checkout on the poller; `.gitignore` also guards the filename.
  *
@@ -61,8 +62,8 @@ export function loadWebscaleStore(env = process.env) {
 
 /**
  * Per-host environment variable names. Derived from the hostname so there is no
- * mapping table to keep in sync — e.g. www.jmbullion.com →
- * { wspcKey: "WEBSCALE_WSPC_WWW_JMBULLION_COM", uaKey: "WEBSCALE_UA_WWW_JMBULLION_COM" }.
+ * mapping table to keep in sync — e.g. www.providentmetals.com →
+ * { wspcKey: "WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM", uaKey: "WEBSCALE_UA_WWW_PROVIDENTMETALS_COM" }.
  * The solve helper prints these so they can be pasted straight into Portainer.
  */
 export function webscaleEnvKeys(hostname) {
