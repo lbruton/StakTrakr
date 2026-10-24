@@ -161,8 +161,8 @@ listed here. One hook line each:
 **Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
 pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-triggered via `coderabbit-review`,
 Codacy AI bundled with the static-analysis stage, Copilot on Balanced, Codex once per PR), where each gate is
-configured, per-branch required checks, the invisible 75% docstring gate, and the dual
-ESLint config all live there.
+configured, per-branch required checks, the invisible 75% docstring gate, and the single
+ESLint config (with the local colour-literal rule) all live there.
 
 ## Pre-flight (StakTrakr-specific)
 
