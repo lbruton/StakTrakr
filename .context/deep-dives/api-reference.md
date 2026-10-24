@@ -48,13 +48,19 @@ All v2 endpoints live under `data/v2/`:
 | `data/v2/spot/{metal}/{YYYY}/{MM}/{DD}.json` | Today's hourly OHLCA                                                                      | Every 15 min        |
 | `data/v2/spot/{metal}/{YYYY}/{MM}.json`      | Current month's daily OHLCA                                                               | Every 15 min        |
 | `data/v2/spot/history/{7,30,90}d.json`       | Rolling daily OHLCA per metal; queried one metal at a time                                | Every 15 min        |
+| `data/v2/retail/latest.json`                 | Median, low and high price plus vendor count for every coin                               | Every 15 min        |
 | `data/v2/retail/{slug}/latest.json`          | Per-coin vendor prices with carry-forward metadata                                        | Every 15 min        |
+| `data/v2/retail/{slug}/intraday.json`        | Rolling 24h of 15-min windows: median, low and per-vendor price                           | Every 15 min        |
+| `data/v2/retail/{slug}/{YYYY}/{MM}.json`     | Current month's daily aggregates                                                          | Every 15 min        |
 | `data/v2/retail/{slug}/history-7d.json`      | 7-day hourly OHLCA buckets                                                                | Every 15 min        |
 | `data/v2/retail/{slug}/history-30d.json`     | 30-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
 | `data/v2/retail/{slug}/history-90d.json`     | 90-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
 | `data/v2/goldback/latest.json`               | G1 rate + denomination multipliers with OHLCA; `data.t` stamped at scrape hour            | Every publish cycle |
 | `data/v2/goldback/intraday.json`             | Raw hourly G1 point series `[{ t, ts, g1_usd }]` for the last 72 h                        | Every publish cycle |
-| `data/v2/goldback/{slug}/latest.json`        | Per-state goldback vendor prices                                                          | Every 15 min        |
+| `data/v2/goldback/{YYYY}/{MM}.json`          | Current month's daily G1 OHLCA                                                            | Every publish cycle |
+| `data/v2/goldback/history-30d.json`          | 30-day daily G1 OHLCA                                                                     | Every publish cycle |
+| `data/v2/retail/vendors/index.json`          | Vendor list                                                                               | Every 15 min        |
+| `data/v2/retail/vendors/{vendor}.json`       | Every coin price from one vendor                                                          | Every 15 min        |
 | `data/v2/providers.json`                     | Vendor to product URL mapping per coin (reference data: stable)                           | Every 15 min        |
 
 ### v2 Envelope Format
