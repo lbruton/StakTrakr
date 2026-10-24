@@ -2,4 +2,6 @@
 logs/
 generated/
 tmp/
+# Run report written by the configure-codacy-cloud skill; the Codacy dashboard holds the live config
+configure-codacy-cloud-summary.json
 
