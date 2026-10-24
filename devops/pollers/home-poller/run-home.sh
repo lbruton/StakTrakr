@@ -38,7 +38,7 @@ fi
 # STRK-230: cron runs `. /etc/environment` before this script, but plain
 # assignments sourced that way are NOT exported, so this child script (→ node)
 # never sees them. Re-export ONLY the WEBSCALE_* cookie vars (wspc cookie for
-# JM/Provident) plus MB_API_KEY (STRK-321 MintBuilder direct feed) from the
+# Provident) plus MB_API_KEY (STRK-321 MintBuilder direct feed) from the
 # container env. Scoped deliberately, to leave every other var's behavior
 # untouched. Without the MB_API_KEY hop the feed silently falls back to page
 # scraping under cron while the dashboard retry (which inherits the Docker
