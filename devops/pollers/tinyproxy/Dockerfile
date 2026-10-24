@@ -10,4 +10,8 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 8888
 
+# Ports 8888 and 8191 are unprivileged and the log dir is owned above, so the
+# proxy and the socat forwarder need no root.
+USER tinyproxy
+
 ENTRYPOINT ["/entrypoint.sh"]

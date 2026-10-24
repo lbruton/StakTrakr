@@ -10,4 +10,7 @@ FROM tailscale/tailscale:latest
 COPY docker-entrypoint.sh /usr/local/bin/strk-tailscale-entrypoint.sh
 RUN chmod +x /usr/local/bin/strk-tailscale-entrypoint.sh
 
+# Runs as root by design: tailscaled opens /dev/net/tun and sets routes under
+# NET_ADMIN (docker-compose.tinyproxy.yml), as the upstream image does.
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["/usr/local/bin/strk-tailscale-entrypoint.sh"]
