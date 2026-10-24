@@ -7946,7 +7946,7 @@
         gap: 0.35rem;
         font-size: 0.78rem;
         font-weight: 500;
-        padding: 0.2rem 0.55rem;
+        padding: var(--spacing-xs) 0.55rem;
         border-radius: 6px;
         background: color-mix(in srgb, var(--primary) 12%, transparent);
         color: var(--primary);
@@ -7955,10 +7955,10 @@
       #diffReviewModal .dm-source-meta {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-        gap: 0.5rem;
+        gap: var(--spacing-md);
         margin-top: 0.6rem;
-        padding: 0.5rem 0.65rem;
-        border-radius: 8px;
+        padding: var(--spacing-md) 0.65rem;
+        border-radius: var(--radius);
         background: var(--bg-secondary);
         font-size: 0.8rem;
       }
@@ -7978,14 +7978,14 @@
       }
       #diffReviewModal .dm-summary {
         display: flex;
-        gap: 0.5rem;
+        gap: var(--spacing-md);
         flex-wrap: wrap;
-        margin: 0.75rem 0;
+        margin: var(--spacing) 0;
       }
       #diffReviewModal .dm-summary-card {
         flex: 1;
         min-width: 120px;
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 0.6rem;
         background: var(--bg-tertiary);
         cursor: pointer;
@@ -8031,7 +8031,7 @@
       }
       #diffReviewModal .dm-show-more.dm-show-more--block {
         text-align: center;
-        padding: 0.5rem;
+        padding: var(--spacing-md);
         font-size: 0.78rem;
         color: var(--primary);
       }
@@ -8051,13 +8051,13 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--text-muted);
-        margin-bottom: 0.4rem;
+        margin-bottom: var(--spacing-sm);
       }
       #diffReviewModal .dm-settings-summary {
         background: var(--bg-secondary);
-        border-radius: 8px;
-        padding: 0.5rem 0.75rem;
-        margin: 0.4rem 0;
+        border-radius: var(--radius);
+        padding: var(--spacing-md) var(--spacing);
+        margin: var(--spacing-sm) 0;
       }
       #diffReviewModal .dm-settings-summary-row {
         display: flex;
@@ -8070,19 +8070,19 @@
         color: var(--text-muted);
       }
       #diffReviewModal .dm-card.dm-settings-card {
-        margin-bottom: 0.75rem;
-        padding: 0.75rem;
+        margin-bottom: var(--spacing);
+        padding: var(--spacing);
       }
       #diffReviewModal .dm-settings-card-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 0.5rem;
+        margin-bottom: var(--spacing-md);
       }
       #diffReviewModal .dm-settings-card-title {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
+        gap: var(--spacing-sm);
       }
       #diffReviewModal .dm-settings-card-name {
         font-weight: 600;
@@ -8094,11 +8094,11 @@
       }
       #diffReviewModal .dm-btn.dm-btn-xs {
         font-size: 0.68rem;
-        padding: 0.15rem 0.4rem;
+        padding: 0.15rem var(--spacing-sm);
       }
       /* Follows .dm-field-diff so its padding wins on the fallback setting row. */
       #diffReviewModal .dm-setting-row {
-        padding: 0.4rem 0;
+        padding: var(--spacing-sm) 0;
         border-top: 1px solid var(--border);
       }
       #diffReviewModal .dm-setting-row-label {
@@ -8110,15 +8110,15 @@
         font-size: 0.73rem;
         cursor: pointer;
         color: var(--primary);
-        margin-top: 0.4rem;
+        margin-top: var(--spacing-sm);
         padding-top: 0.3rem;
         border-top: 1px solid var(--border);
       }
       #diffReviewModal .dm-matched-row {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
-        padding: 0.2rem 0;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-xs) 0;
         opacity: 0.45;
         font-size: 0.78rem;
       }
