@@ -1060,6 +1060,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       sessionStorage.setItem("sw-recovery-attempted", "1");
       console.warn("[Init] Stale cache detected — reloading for new version");
       document.body.innerHTML =
+        // eslint-disable-next-line no-restricted-syntax -- legit: written before the app CSS loads
         '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Updating to new version\u2026</p></div>';
       setTimeout(() => window.location.reload(), 800);
       return;
@@ -1076,6 +1077,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       sessionStorage.setItem("sw-recovery-nuked", "1");
       console.warn("[Init] Persistent stale cache detected — clearing service worker caches");
       document.body.innerHTML =
+        // eslint-disable-next-line no-restricted-syntax -- legit: written before the app CSS loads
         '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#ccc;background:#0f172a"><p>Resetting cached app files\u2026</p></div>';
       nukeStakTrakrCachesAndReload().catch((recoveryError) => {
         console.error("[Init] Service worker cache reset failed:", recoveryError);

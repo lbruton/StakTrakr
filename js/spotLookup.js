@@ -592,7 +592,7 @@ const renderSpotLookupEmpty = (container, metalName, dateStr) => {
         // Show inline error
         const errEl = document.createElement("p");
         errEl.className = "spot-lookup-hint";
-        errEl.style.color = "var(--danger, #dc3545)";
+        errEl.style.color = "var(--danger)";
         errEl.textContent = err.message || "Failed to fetch spot price.";
         container.appendChild(errEl);
         fetchBtn.textContent = "Retry";

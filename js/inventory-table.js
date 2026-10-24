@@ -162,6 +162,7 @@
     }
     // Only the hue is data; saturation and lightness are per-theme tokens in css/styles.css,
     // so the colour follows a theme switch through the cascade (STRK-446).
+    // eslint-disable-next-line no-restricted-syntax -- legit: CSS cannot hash, JS passes only the hue
     return `hsl(${map[key]}, var(--hashed-color-s), var(--hashed-color-l))`;
   };
 
@@ -578,11 +579,7 @@
     const gainLossDisplay =
       gainLoss !== null && hasRetailSignal ? formatCurrency(Math.abs(gainLoss)) : "—";
     const gainLossColor =
-      gainLoss > 0
-        ? "var(--success, #4caf50)"
-        : gainLoss < 0
-          ? "var(--danger, #f44336)"
-          : "var(--text-primary)";
+      gainLoss > 0 ? "var(--success)" : gainLoss < 0 ? "var(--danger)" : "var(--text-primary)";
     const gainLossPrefix = gainLoss > 0 ? "+" : gainLoss < 0 ? "-" : "";
     const retailCellClass =
       gbDenomPrice || isManualRetail ? "retail-confirmed" : "retail-estimated";

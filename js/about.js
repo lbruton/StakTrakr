@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.68 &ndash; STRK-455: Borders and hover colors follow the theme</strong>: Borders, hover highlights and focus rings in Settings, the retail price window, the Market filters, Numista lookup, bulk edit and the inventory table take their colors from the active theme. Several of them drew no border or no hover color, or kept a light-theme gray in dark, slate and sepia. The delete icon in the inventory table is red again, and the Market sync button text uses the readable success color (STRK-455).</li>
     <li><strong>v3.36.67 &ndash; STRK-468: Slot notes stay open</strong>: A Slot note you open in a Collection stays open while prices refresh in the background. A spot, retail or Goldback update or a currency change no longer closes it while you read. Escape or a click elsewhere still closes it (STRK-468).</li>
     <li><strong>v3.36.66 &ndash; STRK-452: Readable Item View header in every theme</strong>: The metal-colored header of the Item window takes its colors from the theme, and its title stays readable for every metal in light, dark, slate and sepia. Switching the theme with the Item window open recolors the header at once. The metal tint behind Item thumbnails in the sync review window follows the theme too (STRK-452).</li>
     <li><strong>v3.36.65 &ndash; STRK-466: Buttons respond sooner after loading</strong>: The app wires its buttons and inputs as soon as the first screen is drawn, instead of after a fixed short wait. Clicks right after the page opens take effect sooner (STRK-466).</li>
-    <li><strong>v3.36.64 &ndash; STRK-464: Toasts no longer block clicks</strong>: Clicks pass through the small notice in the bottom-right corner to the page beneath it. On the beta and preview sites, the notice about separate data covered the Save button in the Item window for five seconds, so Save did nothing until it faded (STRK-464).</li>
-    <li><strong>v3.36.63 &ndash; STRK-463: No duplicate Item from a double Save</strong>: Saving an Item twice in quick succession, for example while an image swap is still loading, stores one Item. A second Save that arrives after the first closed the window is ignored instead of adding a copy (STRK-463).</li>      `;
+    <li><strong>v3.36.64 &ndash; STRK-464: Toasts no longer block clicks</strong>: Clicks pass through the small notice in the bottom-right corner to the page beneath it. On the beta and preview sites, the notice about separate data covered the Save button in the Item window for five seconds, so Save did nothing until it faded (STRK-464).</li>      `;
 };
 
 // Expose globally for access from other modules

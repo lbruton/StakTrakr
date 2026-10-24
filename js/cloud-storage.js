@@ -115,7 +115,7 @@ function renderCloudActivityTable() {
       pad(d.getMinutes()) +
       ":" +
       pad(d.getSeconds());
-    var resultStyle = e.result === "fail" ? ' style="color: var(--danger, #e74c3c);"' : "";
+    var resultStyle = e.result === "fail" ? ' style="color: var(--danger);"' : "";
     var durationStr = e.duration != null ? e.duration + "ms" : "—";
     var safeDetail = sanitizeHtml(e.detail);
     return (
