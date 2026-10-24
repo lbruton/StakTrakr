@@ -32,9 +32,10 @@ repos:
       # prettier runs BEFORE lint-markdown so markdownlint validates the content that
       # actually gets committed. Reversed, prettier's rewrites land unlinted and fail the
       # next commit that touches the same file.
+      # Serial tasks: a JS file matches both globs, and ESLint must read prettier's output.
       - id: lint-staged
-        name: Format staged files with prettier
-        entry: npx lint-staged
+        name: Format staged files with prettier, then lint JavaScript with ESLint
+        entry: npx lint-staged --concurrent false
         language: system
         pass_filenames: false
         always_run: true

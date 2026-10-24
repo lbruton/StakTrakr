@@ -3,7 +3,8 @@ name: Tests
 # A PR runs only the tests its change can affect: `select` builds the
 # `test:changed` plan from the test map of the latest dev run. A push to dev runs
 # the full unit and sharded core suites with V8 coverage, publishes the test map
-# and uploads lcov to Codacy. `Tests` is the single check to require.
+# and uploads lcov to Codacy. Every run also lints with ESLint and checks Prettier
+# formatting. `Tests` is the single check to require.
 
 on:
   pull_request:
@@ -64,6 +65,30 @@ jobs:
           name: test-plan
           path: plan.json
           retention-days: 3
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier
+        if: ${{ !cancelled() }}
+        run: npm run format:check
 
   unit:
     name: Unit
@@ -173,7 +198,7 @@ jobs:
   report:
     name: Tests
     if: ${{ !cancelled() }}
-    needs: [select, unit, core]
+    needs: [select, lint, unit, core]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -283,8 +308,9 @@ jobs:
       - name: Fail when a suite failed
         if: >-
           ${{ needs.select.result != 'success'
+          || needs.lint.result != 'success'
           || (needs.unit.result != 'success' && needs.unit.result != 'skipped')
           || (needs.core.result != 'success' && needs.core.result != 'skipped') }}
         run: |
-          echo "Select: ${{ needs.select.result }}; unit: ${{ needs.unit.result }}; core: ${{ needs.core.result }}."
+          echo "Select: ${{ needs.select.result }}; lint: ${{ needs.lint.result }}; unit: ${{ needs.unit.result }}; core: ${{ needs.core.result }}."
           exit 1
