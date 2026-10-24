@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.70] - 2026-10-24
+
+### Changed — STRK-454: Sync review window styles move to CSS classes
+
+- **Diff modal classes**: the renderers in `js/diff-modal.js` style their markup through named classes in the `#diffReviewModal` block of `index.html`. Template `style=` strings drop from 45 to 8 and `style.cssText` from 1 to 0; the 8 left carry the metal tint and the progress width (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px (STRK-454).
+
+---
+
 ## [3.36.69] - 2026-10-24
 
 ### Changed — STRK-453: Chart colours read theme tokens

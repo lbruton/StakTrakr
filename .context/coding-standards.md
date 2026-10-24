@@ -1002,6 +1002,11 @@ theme-reactive expression. Let the stylesheet do the rest:
 - **Never fade a chip with `opacity`** (excluded, hover, `×`). Opacity blends text and
   background toward the page and breaks the 4.58:1 floor. Use an outline, shadow or lift
   to show state instead.
+- **Markup built in JS takes its static styles from classes.** A template `style=` or
+  `style.cssText` carries only a per-instance runtime value: a metal tint, a measured or
+  data-driven width, a show/hide toggle. The diff modal keeps its classes in the
+  `#diffReviewModal` style block of `index.html`; a test in
+  `tests/playwright/core/diff-modal-merge.spec.js` fails on any other inline property.
 
 ### Toggle standard
 
