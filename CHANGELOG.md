@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.67] - 2026-10-24
+
+### Changed — STRK-468: Slot notes stay open through price refreshes
+
+- **Slot notes**: An open Slot note in the Album or Ledger stays open when a spot, retail or Goldback price refresh or a currency change re-renders the Collections tab. Escape, a click or focus outside, resize, a hash change and leaving the Collection still close it (STRK-468).
+
+---
+
 ## [3.36.66] - 2026-10-24
 
 ### Changed — STRK-452: Item View header colours come from the theme
