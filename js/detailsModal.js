@@ -1071,9 +1071,9 @@ const _dmRenderChart = () => {
     if (!gradient || gradientKey !== key) {
       gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
       const [r, g, b] = _dmRgbTriple(accent);
-      // eslint-disable-next-line no-restricted-syntax -- legit: canvas gradient from the token's RGB
+      // eslint-disable-next-line staktrakr/no-colour-literal -- legit: canvas gradient from the token's RGB
       gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-      // eslint-disable-next-line no-restricted-syntax -- legit: canvas gradient from the token's RGB
+      // eslint-disable-next-line staktrakr/no-colour-literal -- legit: canvas gradient from the token's RGB
       gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.28)`);
       gradientKey = key;
     }

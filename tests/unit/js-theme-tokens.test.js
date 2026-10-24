@@ -126,7 +126,7 @@ const GUARD_CASES = [
 /** Counts the colour-guard reports ESLint gives for code linted as the given repo file. */
 async function guardReports(eslint, code, file) {
   const [result] = await eslint.lintText(code, { filePath: fileURLToPath(new URL(file, root)) });
-  return result.messages.filter((m) => m.ruleId === "no-restricted-syntax").length;
+  return result.messages.filter((m) => m.ruleId === "staktrakr/no-colour-literal").length;
 }
 
 test("the ESLint colour guard reports colour literals in js/ and nothing else", async () => {
