@@ -238,7 +238,7 @@ pullWithPreview(remoteMeta)
 
 ### Silent Auto-Merge Exceptions (no DiffModal)
 
-Two cases resolve without user interaction inside the manifest-first path:
+Three cases resolve without user interaction inside the manifest-first path:
 
 1. **No changes at all:** Manifest confirms no item or settings changes. Pull recorded silently.
 2. **Version-upgrade settings drift:** No item changes, and every non-tag settings diff is one-sided (key exists on only one side). Remote-only keys are applied immediately; local-only keys kept and a push queued. If any key has genuine values on both sides, the settings-only auto-merge is skipped and DiffModal shown normally.
@@ -487,11 +487,11 @@ The user never types the composite key. The legacy restore click tried only the 
 | OAuth tokens                              | No  |     No     |     No      |        No         |
 | Spot history (`metalSpotHistory`)         | No  |     No     |     No      |        No         |
 | Retail history (`v2RetailHistory`)        | No  |     No     |     No      |        No         |
-| Item price history (`item-price-history`) | Yes |    Yes     |     No      |        No         |
+| Item price history (`item-price-history`) | Yes |    Yes     |     No      |  Yes (companion)  |
 
 Full recovery requires BOTH a ZIP (for IDB blobs) AND a vault (for localStorage including API keys).
 
-**Market-history backup scope (v3.35.3):** Spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history moved from localStorage to the `StakTrakrHistory` IndexedDB store (see architecture#IndexedDB Stores). They are now **excluded from both manual vault export and ZIP export**. They are API-reproducible. There is no value in carrying them in a backup. Exclusion is driven by a dedicated `HISTORY_IDB_KEYS` skip set in `js/constants.js`. These keys are skipped on export **and** on restore: an older backup that still contains these keys is ignored. They are written to neither localStorage nor IDB. Exclusion is **not** driven by removing the keys from `ALLOWED_STORAGE_KEYS` (which stays the cleanup/fallback allowlist. `item-price-history` is **not** in the skip set, so it is still included in manual vault + ZIP backup (it is user-authored, not reproducible). **Cloud auto-sync scope is unchanged**: no market-history key was added to `SYNC_SCOPE_KEYS`; cross-device item-price sync is deferred to STRK-147.
+**Market-history backup scope (v3.35.3):** Spot (`metalSpotHistory`) and retail (`v2RetailHistory`) history moved from localStorage to the `StakTrakrHistory` IndexedDB store (see architecture#IndexedDB Stores). They are now **excluded from both manual vault export and ZIP export**. They are API-reproducible. There is no value in carrying them in a backup. Exclusion is driven by a dedicated `HISTORY_IDB_KEYS` skip set in `js/constants.js`. These keys are skipped on export **and** on restore: an older backup that still contains these keys is ignored. They are written to neither localStorage nor IDB. Exclusion is **not** driven by removing the keys from `ALLOWED_STORAGE_KEYS` (which stays the cleanup/fallback allowlist). `item-price-history` is **not** in the skip set, so it is still included in manual vault + ZIP backup (it is user-authored, not reproducible). No market-history key is in `SYNC_SCOPE_KEYS`. Per-Item price history syncs across devices through its own companion vault (see Item-Price-History Companion Vault).
 
 ### Encrypted Vault (.stvault) Binary Format
 

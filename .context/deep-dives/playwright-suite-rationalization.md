@@ -16,7 +16,7 @@ updated: "2026-05-21"
 
 ## Executive Summary
 
-StakTrakr's Playwright suite has become a product-history archive as much as a regression suite. On 2026-05-21, `npx playwright test --list` reported **703 tests across 61 files**. The Playwright config currently runs one Chromium project with `fullyParallel: false` and `workers` defaulting to `1`, so every duplicated browser startup, every old acceptance-criterion test, and every static-content assertion directly contributes to the roughly 20-minute full-suite runtime.
+StakTrakr's Playwright suite has become a product-history archive as much as a regression suite. On 2026-05-21, `npx playwright test --list` reported **703 tests across 61 files**. At that date the Playwright config ran one Chromium project with `fullyParallel: false` and `workers` defaulting to `1`. Every duplicated browser startup, old acceptance-criterion test and static-content assertion added to the roughly 20-minute full-suite runtime. The live config is `playwright.config.js`.
 
 The recommended direction is not "delete most tests." The better move is to reshape the suite into a smaller risk-based baseline:
 
@@ -69,7 +69,7 @@ This is a normal failure mode for a one-person product with a strong spec workfl
 4. Full regression becomes expensive enough that agents and humans avoid running it.
 5. The suite still grows because each new feature feels safer with its own local test stack.
 
-The current suite has obvious examples: issue-prefixed files such as `stak-443-api-tab.spec.js`, `stak-573-api-tab-qa.spec.js`, `stak-580-required-metal-type.spec.js`, and `strk-89-gold-api.spec.js` are useful while a feature is landing, but they should be reconciled into durable domain suites after merge.
+The 2026-05-21 suite had obvious examples: issue-prefixed files such as `stak-443-api-tab.spec.js`, `stak-573-api-tab-qa.spec.js`, `stak-580-required-metal-type.spec.js`, and `strk-89-gold-api.spec.js`. Such files are useful while a feature is landing. After merge, fold them into durable domain suites.
 
 ## Testing Principles
 
@@ -266,7 +266,7 @@ After the suite is reshaped, update scripts:
 }
 ```
 
-Consider setting `workers` above 1 after isolation is cleaned up. Playwright's docs recommend isolation and note that tests run in parallel workers and can be sharded for faster CI runs: [Isolation](https://playwright.dev/docs/browser-contexts), [Parallelism](https://playwright.dev/docs/test-parallel), and [Sharding](https://playwright.dev/docs/test-sharding). Because StakTrakr currently has duplicated localStorage setup and some serial assumptions, parallelism should come after the helper cleanup, not before.
+Consider setting `workers` above 1 after isolation is cleaned up. Playwright's docs recommend isolation and note that tests run in parallel workers and can be sharded for faster CI runs: [Isolation](https://playwright.dev/docs/browser-contexts), [Parallelism](https://playwright.dev/docs/test-parallel), and [Sharding](https://playwright.dev/docs/test-sharding). Because the 2026-05-21 suite had duplicated localStorage setup and some serial assumptions, this proposal put parallelism after the helper cleanup.
 
 ## Migration Plan
 
