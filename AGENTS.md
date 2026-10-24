@@ -122,7 +122,8 @@ window exposure, `en-CA`/UTC date frames, and the four-theme rule (`light`, `dar
 Full detail (routing table, throttle, false positives) in `.context/review-and-ci.md`.
 
 - After modifying instruction files, run `npx agentlinter --local`.
-- CodeRabbit is **comment-triggered**: it reviews only a PR where someone has commented `@coderabbitai review` (post it once the PR is out of draft). The `coderabbit-review` label no longer triggers it on the free OSS plan. Unasked, it still flags, approves and passes its check but omits the full review — that is expected.
+- CodeRabbit is **label-triggered**: it reviews a PR that carries the `coderabbit-review` label. On an unlabelled PR it still flags, approves and passes its check but omits the full review; that is expected.
+- When CodeRabbit pauses on a busy branch ("Reviews paused"), comment `@coderabbitai resume` to restart its reviews.
 - Codacy AI is **automatic**, now running as part of the Codacy static-analysis stage.
 - Copilot is **automatic** at **Balanced** review effort, and loads `.github/skills/code-review/SKILL.md`.
 - Codex is **on PR**: one review when a PR is opened or marked ready, none on later pushes.
