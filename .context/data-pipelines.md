@@ -193,7 +193,7 @@ Frontend fetches `data/hourly/YYYY/MM/DD/HH.json` for live spot prices. `api-hea
 | ---------------------------- | -------------------------------------------------- | -------------------------------------------------------------- |
 | Hourly file > 75 min stale   | External-feed credential expired or quota exceeded | Check the provider dashboard and operator-managed secret store |
 | Hourly file missing entirely | `run-spot.sh` not running                          | `fly logs --app staktrakr \| grep spot`                        |
-| Stale data after deploy      | Cron schedule wiped by deploy                      | `fly ssh console -C "crontab -l"` to verify                    |
+| Stale data after deploy      | Cron schedule wiped by deploy                      | `fly ssh console -C "cat /etc/cron.d/retail-poller"` to verify |
 
 ### Frontend Spot Source Selection
 
