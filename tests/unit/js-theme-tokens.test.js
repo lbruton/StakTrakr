@@ -144,6 +144,22 @@ test("the ESLint colour guard reports colour literals in js/ and nothing else", 
   );
 });
 
+test("js/ holds no colour literal and the guard fails the lint", async () => {
+  const eslint = new ESLint({
+    cwd: fileURLToPath(root),
+    ruleFilter: ({ ruleId }) => ruleId === "no-restricted-syntax",
+  });
+  const results = await eslint.lintFiles(["js/**/*.js"]);
+  const hits = results.flatMap((r) =>
+    r.messages
+      .filter((m) => m.ruleId === "no-restricted-syntax")
+      .map((m) => `${r.filePath.split("/js/").pop()}:${m.line}`)
+  );
+  assert.deepEqual(hits, []);
+  const config = await eslint.calculateConfigForFile(fileURLToPath(new URL("js/app.js", root)));
+  assert.equal(config.rules["no-restricted-syntax"][0], 2, "the colour guard is an error");
+});
+
 test("the sweep finds a known-undefined token, so it is not vacuous", () => {
   const defined = definedTokens(listDir("js/", ".js"));
   assert.ok(defined.has("--success"), "--success is a defined theme token");
