@@ -20,3 +20,5 @@ exclude_paths:
   - "vendor/**"
   - "playground/**"
   - ".context/*.html"
+  # Upstream Firecrawl container config; its Dockerfile and SQL findings belong upstream.
+  - "devops/firecrawl-docker/**"
