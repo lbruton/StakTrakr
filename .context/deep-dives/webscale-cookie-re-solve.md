@@ -116,7 +116,7 @@ curl -s "https://api.staktrakr.com/data/v2/retail/ase/latest.json" \
   | jq '{generated_at, provident: .data.vendors.providentmetals}'
 ```
 
-A non-null `provident` entry with `"carried": false` means a fresh scrape landed. Also confirm Provident is enabled in `providers.json`: the poller reads that **file**, not live sqld, so a dashboard toggle only takes effect after the `*/5` `export-providers-json.js` cron.
+A fresh scrape landed only when `provident.price` is a number and `"carried": false`. A failed scrape with no carry-forward row also writes `"carried": false`, but with `"price": null`. Also confirm Provident is enabled in `providers.json`: the poller reads that **file**, not live sqld, so a dashboard toggle only takes effect after the `*/5` `export-providers-json.js` cron.
 
 ---
 
