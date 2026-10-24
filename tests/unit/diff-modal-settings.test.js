@@ -293,9 +293,13 @@ describe("metal color helpers", () => {
     assert.equal(DMS.metalColor("unobtanium"), "var(--text-muted)");
   });
 
-  it("builds an rgb-tinted gradient per metal", () => {
-    assert.match(DMS.metalBgGradient("silver"), /192,192,192/);
-    assert.match(DMS.metalBgGradient("platinum"), /229,228,226/);
-    assert.match(DMS.metalBgGradient("unknown"), /128,128,128/);
+  it("builds the thumbnail gradient from the metal theme token", () => {
+    assert.equal(
+      DMS.metalBgGradient("silver"),
+      "linear-gradient(135deg, color-mix(in srgb, var(--silver) 15%, transparent), " +
+        "color-mix(in srgb, var(--silver) 5%, transparent))"
+    );
+    assert.match(DMS.metalBgGradient("Platinum"), /var\(--platinum\) 15%/);
+    assert.match(DMS.metalBgGradient("unknown"), /var\(--text-muted\) 15%/);
   });
 });

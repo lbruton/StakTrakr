@@ -7031,6 +7031,50 @@ td input:checked + .slider:before {
   white-space: nowrap;
 }
 
+/* --- Metal tint, keyed by data-metal (set from the Item's metal by _applyHeaderMetal) --- */
+#viewItemModal[data-metal="silver"] {
+  --view-metal: var(--silver);
+}
+#viewItemModal[data-metal="gold"] {
+  --view-metal: var(--gold);
+}
+#viewItemModal[data-metal="platinum"] {
+  --view-metal: var(--platinum);
+}
+#viewItemModal[data-metal="palladium"] {
+  --view-metal: var(--palladium);
+}
+#viewItemModal[data-metal="copper"] {
+  --view-metal: var(--copper);
+}
+
+/* The title reads over the metal at the start and 25% darker at the end. Every metal
+   token keeps the contrast-color() pick at or above 4.5:1 across both stops in all four
+   themes; a darker end drops black text on slate copper below AA. Browsers without
+   contrast-color() get an inline pick from _refreshViewHeaderTextColor() instead. */
+#viewItemModal[data-metal] .modal-header {
+  background: linear-gradient(
+    135deg,
+    var(--view-metal),
+    color-mix(in srgb, var(--view-metal) 75%, black)
+  );
+}
+
+@supports (color: contrast-color(red)) {
+  #viewItemModal[data-metal] .modal-header,
+  #viewItemModal[data-metal] .modal-header h2 {
+    color: contrast-color(var(--view-metal));
+  }
+}
+
+#viewItemModal[data-metal] .view-image-section {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--view-metal) 15%, var(--bg-primary)),
+    color-mix(in srgb, var(--view-metal) 8%, var(--bg-secondary))
+  );
+}
+
 /* Title row — title left, padded so text can't run under the absolute-pos close (X) */
 .view-header-title-row {
   display: flex;

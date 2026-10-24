@@ -39,6 +39,32 @@ test("js/ reads no undefined CSS custom properties", () => {
   assert.deepEqual(undefinedReads, []);
 });
 
+// A quoted hex or a colour function call in JS is a colour no theme block can reach.
+const COLOUR_LITERAL = /["'`]#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab)\(/;
+const COLOUR_TOKEN_ONLY_FILES = ["js/viewModal.js", "js/diff-modal-settings.js"];
+
+/** Returns "file:line: text" for each code line (comments skipped) holding a colour literal. */
+function colourLiterals(file) {
+  return read(file)
+    .split("\n")
+    .map((line, i) => ({ line, n: i + 1 }))
+    .filter(({ line }) => !/^\s*(\/\/|\/?\*)/.test(line) && COLOUR_LITERAL.test(line))
+    .map(({ line, n }) => `${file}:${n}: ${line.trim()}`);
+}
+
+test("metal-tinted surfaces take every colour from theme tokens", () => {
+  assert.deepEqual(COLOUR_TOKEN_ONLY_FILES.flatMap(colourLiterals), []);
+});
+
+test("the colour-literal sweep matches hex and colour functions, not prose", () => {
+  for (const hit of ['x = "#1e293b";', "`rgba(${rgb},0.15)`", "oklch(0.5 0.1 50)"]) {
+    assert.ok(COLOUR_LITERAL.test(hit), `${hit} is a colour literal`);
+  }
+  for (const miss of ["review on PR #1494", 'getThemeColorRGB("text-primary")', "var(--gold)"]) {
+    assert.ok(!COLOUR_LITERAL.test(miss), `${miss} is not a colour literal`);
+  }
+});
+
 test("the sweep finds a known-undefined token, so it is not vacuous", () => {
   const defined = definedTokens(listDir("js/", ".js"));
   assert.ok(defined.has("--success"), "--success is a defined theme token");
