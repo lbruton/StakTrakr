@@ -38,6 +38,11 @@
 # STRK-406: after the re-shallow, squash-api-history.sh collapses the remote
 # `api` history to one orphan commit once per UTC month (see that script).
 
+# Root callers re-run as node; see the same guard in run-publish.sh.
+if [ "$(id -u)" = 0 ] && id node >/dev/null 2>&1; then
+  exec runuser -u node -- env HOME=/home/node "$0" "$@"
+fi
+
 set -e
 
 REPO_DIR="/data/staktrakr-api-export"

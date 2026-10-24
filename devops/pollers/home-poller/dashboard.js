@@ -2934,13 +2934,9 @@ async function handleRequest(req, res) {
               method: "POST",
               headers: { Authorization: `Bearer ${flyToken}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                command: [
-                  "/bin/bash",
-                  "-c",
-                  "git config --global user.name 'StakTrakr Poller' && " +
-                    "git config --global user.email 'poller@staktrakr.local' && " +
-                    "/app/run-publish.sh",
-                ],
+                // Machines exec runs as root; run-publish.sh re-runs itself as node,
+                // and the git identity is system-wide in the image.
+                command: ["/app/run-publish.sh"],
                 timeout: 60,
               }),
             }
