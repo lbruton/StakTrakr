@@ -1662,7 +1662,7 @@ function _appendSectionsInConfiguredOrder(frag, sectionBuilders) {
   }
 }
 
-function _renderHeaderActions(item, index) {
+function _renderHeaderActions(item, _index) {
   const headerActions = document.getElementById("viewHeaderActions");
   if (!headerActions) return;
   headerActions.textContent = "";

@@ -39,12 +39,10 @@ import {
   getRunStats,
   getCoverageStats,
   getSpotCoverage,
-  getMissingItems,
   exportProvidersJson,
   batchToggleVendor,
   batchDeleteVendor,
   getVendorSummary,
-  loadProviders,
   getLastScanFailures,
   clearChronicFailure,
   clearAllChronicFailures,
@@ -108,25 +106,6 @@ function getSqldClient() {
   }
 }
 
-/**
- * Check Turso Cloud DR backup connectivity (separate from primary sqld).
- * Uses TURSO_BACKUP_URL + TURSO_BACKUP_TOKEN env vars.
- * Returns { up: boolean, error?: string }
- */
-async function checkTursoBackup() {
-  const url = process.env.TURSO_BACKUP_URL;
-  const authToken = process.env.TURSO_BACKUP_TOKEN;
-  if (!url) return { up: false, error: "TURSO_BACKUP_URL not set" };
-  try {
-    const client = createClient({ url, ...(authToken ? { authToken } : {}) });
-    await client.execute("SELECT 1");
-    await client.close();
-    return { up: true };
-  } catch (err) {
-    return { up: false, error: err.message };
-  }
-}
-
 async function fetchRunsFromTurso() {
   const client = getSqldClient();
   if (!client) return null;
@@ -149,26 +128,6 @@ async function fetchRunsFromTurso() {
     } catch {
       /* ignore */
     }
-    return null;
-  }
-}
-
-async function fetchFlyioRuns(client) {
-  if (!client) return null;
-  try {
-    const result = await client.execute({
-      sql: `
-        SELECT poller_id, started_at, finished_at, status,
-               total, captured, failures, error
-        FROM poller_runs
-        WHERE poller_id LIKE 'fly-%'
-        ORDER BY started_at DESC
-        LIMIT 10
-      `,
-      args: [],
-    });
-    return result.rows;
-  } catch {
     return null;
   }
 }
@@ -263,11 +222,6 @@ function getSupervisordStatus() {
   }
 }
 
-function getSystemdStatus() {
-  // No systemd inside Docker — redis, rabbitmq, tinyproxy run in separate containers
-  return [];
-}
-
 function getDockerContainers() {
   try {
     const raw = execSync(
@@ -313,51 +267,6 @@ function getFlyioHealth() {
 // ---------------------------------------------------------------------------
 // HTML helpers
 // ---------------------------------------------------------------------------
-
-function stateColor(state) {
-  if (state === "RUNNING") return "#22c55e";
-  if (state === "STOPPED" || state === "FATAL" || state === "EXITED") return "#ef4444";
-  return "#f59e0b";
-}
-
-function statusColor(status) {
-  if (status === "ok") return "#22c55e";
-  if (status === "error") return "#ef4444";
-  if (status === "running") return "#38bdf8";
-  return "#f59e0b";
-}
-
-function pollerBadgeColor(pollerId) {
-  const colorMap = {
-    home: "#34d399", // green — home retail
-    "home-spot": "#818cf8", // indigo — home spot
-    api: "#fb923c", // orange — fly retail
-    "fly-spot": "#38bdf8", // sky blue — fly spot
-    // Future names (STAK-367)
-    "home-retail": "#34d399",
-    "home-goldback": "#a3e635",
-    "fly-retail": "#fb923c",
-    "fly-goldback": "#fbbf24",
-  };
-  return colorMap[pollerId] || "#94a3b8";
-}
-
-/** Map current poller_id to display label (bridges old→new naming) */
-function pollerDisplayName(pollerId) {
-  const nameMap = {
-    home: "home-retail",
-    api: "fly-retail",
-  };
-  return nameMap[pollerId] || pollerId;
-}
-
-function fmtDateTime(iso) {
-  if (!iso) return "\u2014";
-  return iso
-    .replace("T", " ")
-    .replace(/\.\d+Z$/, "")
-    .replace("Z", " UTC");
-}
 
 function fmtDuration(startedAt, finishedAt) {
   if (!finishedAt) return "running\u2026";
@@ -827,373 +736,6 @@ function renderInfraRow(data) {
   </div>`;
 }
 
-// renderMissingItems kept for backward compat but simplified
-function renderMissingItems(items) {
-  if (!items || items.length === 0) {
-    return '<p style="color:var(--green);font-size:12px;padding:8px 0;">All items have prices this hour.</p>';
-  }
-  return `<p style="color:var(--muted);font-size:12px;margin-bottom:8px;">${items.length} items missing prices this hour.</p>`;
-}
-
-// Legacy coverage rendering — replaced by Chart.js in new dashboard
-function renderCoverageCards_LEGACY(cov, spotCov) {
-  if (!cov || !cov.hours || cov.hours.length === 0) return "";
-
-  // ── Style values (from playground Compact preset + user tweaks) ─────
-  const P = 8,
-    G = 24,
-    R = 6,
-    VS = 33,
-    LS = 10,
-    TS = 11,
-    BH = 80,
-    CP = 8,
-    SG = 12;
-
-  function covCard(label, value, sub, color) {
-    return (
-      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
-      R +
-      "px;padding:" +
-      P +
-      'px;text-align:center;">' +
-      '<div style="color:var(--muted);font-size:' +
-      LS +
-      'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">' +
-      label +
-      "</div>" +
-      '<div style="color:' +
-      color +
-      ";font-size:" +
-      VS +
-      "px;font-weight:700;font-family:'Cascadia Code','Fira Code',monospace;\">" +
-      value +
-      (sub
-        ? '<span style="font-size:' +
-          Math.round(VS * 0.58) +
-          'px;color:var(--muted)">' +
-          sub +
-          "</span>"
-        : "") +
-      "</div>" +
-      "</div>"
-    );
-  }
-
-  // ── Retail section ──────────────────────────────────────────────────
-  const latest = cov.hours[0];
-  const last24 = cov.hours.slice(0, 24);
-  const avg =
-    last24.length > 0
-      ? Math.min(100, Math.round(last24.reduce((s, h) => s + h.pct, 0) / last24.length))
-      : 0;
-  const covColor =
-    latest.pct >= 90 ? "var(--green)" : latest.pct >= 70 ? "var(--amber)" : "var(--red)";
-  const avgColor = avg >= 90 ? "var(--green)" : avg >= 70 ? "var(--amber)" : "var(--red)";
-  const missingCount = Math.max(0, cov.totalEnabled - latest.covered);
-
-  const retailStatCards =
-    "" +
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:' +
-    G +
-    "px;margin-bottom:" +
-    G +
-    'px;">' +
-    covCard("Coverage (latest hour)", latest.pct + "%", "", covColor) +
-    covCard("Avg Coverage (24h)", avg + "%", "", avgColor) +
-    covCard(
-      "Items Covered",
-      Math.min(latest.covered, cov.totalEnabled),
-      "/" + cov.totalEnabled,
-      "var(--accent)"
-    ) +
-    covCard("Missing Items", missingCount, "", missingCount > 0 ? "var(--red)" : "var(--green)") +
-    "</div>";
-
-  // Use all available hours (up to 48h)
-  const allHours = cov.hours.slice(0, 48).reverse();
-  const retailBars = allHours
-    .map((h, i) => {
-      // Use per-hour effectiveTotal (how many vendors existed at that hour)
-      // so adding new items doesn't retroactively penalize historical bars.
-      const denom = h.effectiveTotal || cov.totalEnabled;
-      const adjPct = denom > 0 ? Math.min(100, Math.round((h.covered / denom) * 100)) : 0;
-      const barH = Math.max(2, Math.round(adjPct * 0.5));
-      const c = adjPct >= 90 ? "#22c55e" : adjPct >= 70 ? "#f59e0b" : "#ef4444";
-      const hLabel = h.hour.slice(11, 16);
-      return (
-        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' +
-        hLabel +
-        ": " +
-        h.covered +
-        "/" +
-        denom +
-        " (" +
-        adjPct +
-        '%)">' +
-        '<div style="height:' +
-        barH +
-        "px;background:" +
-        c +
-        ';border-radius:2px;"></div>' +
-        '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:var(--muted);white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' +
-        hLabel +
-        "</span></div>" +
-        "</div>"
-      );
-    })
-    .join("");
-
-  const retailBarCard =
-    "" +
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
-    R +
-    "px;padding:" +
-    CP +
-    "px " +
-    CP +
-    "px " +
-    Math.round(CP * 0.5) +
-    'px;">' +
-    '<div style="color:var(--muted);font-size:' +
-    LS +
-    'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Retail Coverage Trend (' +
-    allHours.length +
-    "h)</div>" +
-    '<div style="display:flex;gap:1px;align-items:flex-end;height:' +
-    BH +
-    'px;">' +
-    retailBars +
-    "</div>" +
-    "</div>";
-
-  // ── Spot section ────────────────────────────────────────────────────
-  let spotSection = "";
-
-  if (spotCov) {
-    const spotPct =
-      spotCov.totalIntervals > 0
-        ? Math.round((spotCov.coveredIntervals / spotCov.totalIntervals) * 100)
-        : 0;
-    const spotColor =
-      spotPct >= 90 ? "var(--green)" : spotPct >= 70 ? "var(--amber)" : "var(--red)";
-
-    // Build poller breakdown data for 4th card
-    const pollerEntries = Object.entries(spotCov.byPoller || {});
-    const pollerColors = { "home-spot": "#818cf8", "fly-spot": "#38bdf8", backfill: "#f59e0b" };
-    const pollers = pollerEntries.map(([id, cnt]) => {
-      const pPct =
-        spotCov.totalIntervals > 0 ? Math.round((cnt / spotCov.totalIntervals) * 100) : 0;
-      return { name: id, count: cnt, pct: pPct, color: pollerColors[id] || "#94a3b8" };
-    });
-    const maxPct = Math.max(...pollers.map((p) => p.pct), 1);
-
-    // Combined sources %
-    const combinedPct = pollers.reduce((s, p) => s + p.pct, 0);
-    const combinedColor =
-      combinedPct >= 90 ? "var(--green)" : combinedPct >= 70 ? "var(--amber)" : "var(--red)";
-
-    // Card 4: Source Breakdown with mini horizontal bars
-    const breakdownCard =
-      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
-      R +
-      "px;padding:" +
-      P +
-      'px;text-align:center;">' +
-      '<div style="color:var(--muted);font-size:' +
-      LS +
-      'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;">Source Breakdown</div>' +
-      '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">' +
-      pollers
-        .map(
-          (p) =>
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-            '<div style="width:8px;height:8px;border-radius:50%;background:' +
-            p.color +
-            ';flex-shrink:0;"></div>' +
-            '<span style="font-size:10px;color:var(--muted);min-width:64px;text-align:left;">' +
-            p.name +
-            "</span>" +
-            '<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
-            '<div style="height:100%;width:' +
-            (maxPct > 0 ? Math.round((p.pct / maxPct) * 100) : 0) +
-            "%;background:" +
-            p.color +
-            ';border-radius:3px;"></div>' +
-            "</div>" +
-            '<span style="font-size:10px;min-width:28px;text-align:right;font-family:monospace;color:' +
-            p.color +
-            ';">' +
-            p.pct +
-            "%</span>" +
-            "</div>"
-        )
-        .join("") +
-      "</div>" +
-      "</div>";
-
-    const spotStatCards =
-      "" +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:' +
-      G +
-      "px;margin-bottom:" +
-      G +
-      'px;">' +
-      covCard("Spot Coverage (" + spotCov.hours + "h)", spotPct + "%", "", spotColor) +
-      covCard(
-        "Intervals Hit",
-        spotCov.coveredIntervals,
-        "/" + spotCov.totalIntervals,
-        "var(--accent)"
-      ) +
-      covCard("Combined Sources", combinedPct + "%", "", combinedColor) +
-      breakdownCard +
-      "</div>";
-
-    // Spot bars — generate placeholders for ALL expected 15-min slots
-    const spotIntervals = spotCov.intervals || [];
-    const spotMap = new Map(spotIntervals.map((q) => [q.quarter, q]));
-
-    const allQuarters = [];
-    const now = new Date();
-    const hoursBack = spotCov.hours || 6;
-    const start = new Date(now.getTime() - hoursBack * 3600000);
-    start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0);
-    for (let t = new Date(start); t <= now; t = new Date(t.getTime() + 15 * 60000)) {
-      const iso = t.toISOString();
-      const q =
-        iso.slice(0, 13) + ":" + String(Math.floor(t.getUTCMinutes() / 15) * 15).padStart(2, "0");
-      allQuarters.push(q);
-    }
-
-    const spotBars = allQuarters
-      .map((q, i) => {
-        const data = spotMap.get(q);
-        const label = q.slice(11);
-        if (!data) {
-          return (
-            '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' +
-            label +
-            ': no data">' +
-            '<div style="height:2px;background:#334155;border-radius:2px;"></div>' +
-            '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:#475569;white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' +
-            label +
-            "</span></div>" +
-            "</div>"
-          );
-        }
-        const full = data.metals >= 4;
-        const c = full ? "#22c55e" : data.metals >= 2 ? "#f59e0b" : "#ef4444";
-        const barH = full ? 28 : Math.max(6, data.metals * 7);
-        const srcLabel = data.sources > 1 ? data.sources + " sources" : "1 source";
-        return (
-          '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;" title="' +
-          label +
-          ": " +
-          data.metals +
-          "/4 metals, " +
-          srcLabel +
-          '">' +
-          '<div style="height:' +
-          barH +
-          "px;background:" +
-          c +
-          ';border-radius:2px;"></div>' +
-          '<div style="text-align:center;overflow:hidden;height:28px;display:flex;align-items:flex-start;justify-content:center;"><span style="font-size:7px;color:var(--muted);white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);">' +
-          label +
-          "</span></div>" +
-          "</div>"
-        );
-      })
-      .join("");
-
-    const spotBarCard =
-      "" +
-      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:' +
-      R +
-      "px;padding:" +
-      CP +
-      "px " +
-      CP +
-      "px " +
-      Math.round(CP * 0.5) +
-      'px;">' +
-      '<div style="color:var(--muted);font-size:' +
-      LS +
-      'px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;">Spot Price Trend (15-min intervals, ' +
-      hoursBack +
-      "h)</div>" +
-      '<div style="display:flex;gap:1px;align-items:flex-end;height:' +
-      BH +
-      'px;">' +
-      spotBars +
-      "</div>" +
-      "</div>";
-
-    spotSection =
-      "" +
-      '<div style="margin-bottom:' +
-      SG +
-      'px;">' +
-      '<h3 style="font-size:' +
-      TS +
-      'px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;">Spot Price Coverage</h3>' +
-      spotStatCards +
-      spotBarCard +
-      "</div>";
-  }
-
-  // ── Assemble ────────────────────────────────────────────────────────
-  return (
-    '<div style="margin-bottom:' +
-    SG +
-    'px;">' +
-    '<h3 style="font-size:' +
-    TS +
-    'px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;">Retail Price Coverage</h3>' +
-    retailStatCards +
-    retailBarCard +
-    "</div>" +
-    spotSection
-  );
-}
-
-// Legacy SVG trend chart — replaced by Chart.js
-function renderFailureTrendChart_LEGACY(trend) {
-  if (!trend || trend.length === 0) {
-    return '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No failure data available.</p>';
-  }
-
-  const maxF = Math.max(...trend.map((d) => d.failures), 1);
-  const chartW = 500,
-    chartH = 140,
-    barGap = 8;
-  const barW = Math.min(50, (chartW - barGap * (trend.length + 1)) / trend.length);
-  const startX = (chartW - (barW + barGap) * trend.length + barGap) / 2;
-
-  let bars = "";
-  trend.forEach((d, i) => {
-    const barH = Math.max(2, (d.failures / maxF) * (chartH - 30));
-    const x = startX + i * (barW + barGap);
-    const y = chartH - 20 - barH;
-    const color = d.failures >= 20 ? "#ef4444" : d.failures >= 10 ? "#f59e0b" : "#22c55e";
-    const dayLabel = d.day.slice(5); // MM-DD
-    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" rx="3"/>`;
-    bars += `<text x="${x + barW / 2}" y="${chartH - 6}" text-anchor="middle" fill="#94a3b8" font-size="10">${dayLabel}</text>`;
-    bars += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" fill="#e2e8f0" font-size="10">${d.failures}</text>`;
-  });
-
-  return `<svg width="${chartW}" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" style="max-width:100%;height:auto;">
-    <line x1="0" y1="${chartH - 20}" x2="${chartW}" y2="${chartH - 20}" stroke="#334155" stroke-width="1"/>
-    ${bars}
-  </svg>
-  <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);">
-    <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;"></span>&lt; 10 failures</span>
-    <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;margin-right:4px;"></span>10-19</span>
-    <span><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;"></span>20+</span>
-  </div>`;
-}
-
 function renderMainPage(data) {
   const {
     net,
@@ -1208,8 +750,6 @@ function renderMainPage(data) {
     failureCount,
     coverageStats,
     spotCoverage,
-    failureTrend,
-    flyRuns,
     dockerContainers,
     lockStatus,
     chronicFailures,
@@ -1234,8 +774,8 @@ function renderMainPage(data) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="60">
 <title>StakTrakr Poller Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"><\/script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
   ${SHARED_CSS}
   .chart-wrap { position: relative; height: 180px; }
@@ -1563,7 +1103,7 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
 
   // Build vendorsByMetal map for bulk operations
   const vendorsByMetal = {};
-  for (const [slug, coin] of coinEntries) {
+  for (const [, coin] of coinEntries) {
     const metal = coin.metal || "silver";
     if (!vendorsByMetal[metal]) vendorsByMetal[metal] = new Set();
     for (const p of coin.providers || []) {
@@ -1581,19 +1121,16 @@ function renderProvidersPage(providers, scrapeStatus, failureCount, readOnly, ve
       const metal = coin.metal || "silver";
 
       const vendorRows = (coin.providers || [])
-        .map((p, i) => {
+        .map((p) => {
           const key = `${slug}:${p.id}`;
           const isFbpBacked = FBP_VENDOR_IDS.has(p.id);
           const status = scrapeStatus ? scrapeStatus.get(key) : null;
           let dot = '<span class="dot dot-gray" title="No data"></span>';
-          let hoverText = "No data";
           if (status) {
             if (status.isFailed) {
               dot = `<span class="dot dot-red" title="Failed \u2014 ${escAttr(status.scrapedAt)}"></span>`;
-              hoverText = `Failed \u2014 ${status.scrapedAt}`;
             } else if (status.price != null) {
               dot = `<span class="dot dot-green" title="$${status.price} \u2014 ${escAttr(status.scrapedAt)}"></span>`;
-              hoverText = `$${status.price} \u2014 ${status.scrapedAt}`;
             }
           }
 
@@ -2399,14 +1936,11 @@ async function fetchV2Endpoints() {
 }
 
 function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
-  const now = new Date().toUTCString();
-
   // Endpoint health table
   const epRows = ["manifest", "spot_latest", "spot_7d", "retail_latest", "vendors", "goldback"]
     .map((key) => {
       const ep = v2[key];
       if (!ep) return "";
-      const statusColor = ep.ok ? "var(--green)" : "var(--red)";
       const ageStr =
         ep.ageSec != null
           ? ep.ageSec < 60
@@ -2455,7 +1989,7 @@ function renderApiHealthPage(v2, failureCount, vendorMetalAvgs) {
   if (v2.retail_latest?.ok) {
     const coins = v2.retail_latest.data.data.coins;
     const retailRows = Object.entries(coins)
-      .map(([slug, c]) => {
+      .map(([, c]) => {
         const metalColor =
           { xau: "#fbbf24", xag: "#c0c0c0", xpt: "#a78bfa", goldback: "#a3e635" }[c.metal] ||
           "#94a3b8";
@@ -2687,8 +2221,6 @@ ${renderNav("api-health", failureCount)}
 // ---------------------------------------------------------------------------
 
 function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, failureTrend) {
-  const now = new Date().toUTCString();
-
   // Last scan failures
   const scanRows =
     !lastScanFailures || lastScanFailures.length === 0
@@ -2750,7 +2282,7 @@ function renderFailuresPage(lastScanFailures, chronicFailures, failureCount, fai
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="300">
 <title>Failures \u2014 StakTrakr</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <style>
   ${SHARED_CSS}
 </style>

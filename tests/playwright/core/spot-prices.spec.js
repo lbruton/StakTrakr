@@ -250,7 +250,6 @@ async function configureMetalPriceApi(page) {
     window.saveDataSync("spotPricingSource", "METAL_PRICE_API");
     // loadApiConfig/saveApiConfig are script-tag globals (not on window) — reach
     // them as bare identifiers within the page realm.
-    /* eslint-disable no-undef */
     const config = loadApiConfig();
     config.keys = { ...(config.keys || {}), METAL_PRICE_API: "test-key" };
     config.metals = {
@@ -258,7 +257,6 @@ async function configureMetalPriceApi(page) {
       METAL_PRICE_API: { silver: true, gold: true, platinum: false, palladium: false },
     };
     saveApiConfig(config);
-    /* eslint-enable no-undef */
   });
 }
 

@@ -197,7 +197,7 @@
   function _checkedCount() {
     var count = 0;
     for (var k in _checkedItems) {
-      if (_checkedItems.hasOwnProperty(k) && _checkedItems[k]) count++;
+      if (Object.hasOwn(_checkedItems, k) && _checkedItems[k]) count++;
     }
     return count;
   }
@@ -419,12 +419,7 @@
     }
     if (changedByCat["Other"] && changedByCat["Other"].length > 0) orderedCats.push("Other");
 
-    // Count total changed settings and how many are resolved
     var totalChanged = changed.length;
-    var resolvedCount = 0;
-    for (i = 0; i < changed.length; i++) {
-      if (_conflictResolutions["setting-" + changed[i].key]) resolvedCount++;
-    }
 
     // Visual separator between Items and Settings sections
     var collapsed = _collapsedCategories.settings;
@@ -1259,7 +1254,7 @@
               if (mergedItem === modItem) {
                 mergedItem = {};
                 for (var mk in modItem) {
-                  if (modItem.hasOwnProperty(mk)) mergedItem[mk] = modItem[mk];
+                  if (Object.hasOwn(modItem, mk)) mergedItem[mk] = modItem[mk];
                 }
               }
               mergedItem[ch.field] = ch.remoteVal;
@@ -1293,7 +1288,7 @@
                     if (resolvedMerged === resolved) {
                       resolvedMerged = {};
                       for (var rk in resolved) {
-                        if (resolved.hasOwnProperty(rk)) resolvedMerged[rk] = resolved[rk];
+                        if (Object.hasOwn(resolved, rk)) resolvedMerged[rk] = resolved[rk];
                       }
                     }
                     resolvedMerged[rch.field] = rch.remoteVal;
@@ -1944,7 +1939,7 @@
   /** Clear every currently-tracked item checkbox (set all _checkedItems false). */
   function _clearCheckedItems() {
     for (var k in _checkedItems) {
-      if (_checkedItems.hasOwnProperty(k)) _checkedItems[k] = false;
+      if (Object.hasOwn(_checkedItems, k)) _checkedItems[k] = false;
     }
   }
 
@@ -2082,13 +2077,13 @@
     for (k in rObj) allKeys[k] = true;
     for (k in allKeys) {
       var kSel = _fieldSelections[prefix + k];
-      if (kSel === "local" && lObj.hasOwnProperty(k)) {
+      if (kSel === "local" && Object.hasOwn(lObj, k)) {
         result[k] = lObj[k];
-      } else if (kSel === "remote" && rObj.hasOwnProperty(k)) {
+      } else if (kSel === "remote" && Object.hasOwn(rObj, k)) {
         result[k] = rObj[k];
-      } else if (rObj.hasOwnProperty(k)) {
+      } else if (Object.hasOwn(rObj, k)) {
         result[k] = rObj[k]; // default: remote
-      } else if (lObj.hasOwnProperty(k)) {
+      } else if (Object.hasOwn(lObj, k)) {
         result[k] = lObj[k]; // only in local
       }
     }
@@ -2389,7 +2384,7 @@
   /** True when any _fieldSelections key targets this setting's per-element prefix. */
   function _hasElementPicks(sPrefix) {
     for (var fk in _fieldSelections) {
-      if (_fieldSelections.hasOwnProperty(fk) && fk.indexOf(sPrefix) === 0) {
+      if (Object.hasOwn(_fieldSelections, fk) && fk.indexOf(sPrefix) === 0) {
         return true;
       }
     }

@@ -1144,23 +1144,23 @@ const updateSparkline = async (metalKey) => {
   const isIntraday = days === 1;
   let effectiveDays = isIntraday ? 1 : days;
 
-  let labels, data;
+  let data;
 
   if (effectiveDays > 180) {
     // Historical range — async fetch year files (STACK-69)
     if (rangeSelect) rangeSelect.disabled = true;
     try {
-      ({ labels, data } = await getHistoricalSparklineData(metalConfig.name, effectiveDays));
+      ({ data } = await getHistoricalSparklineData(metalConfig.name, effectiveDays));
     } finally {
       if (rangeSelect) rangeSelect.disabled = false;
     }
   } else {
-    ({ labels, data } = getSparklineData(metalConfig.name, effectiveDays, isIntraday));
+    ({ data } = getSparklineData(metalConfig.name, effectiveDays, isIntraday));
   }
 
   // Adaptive fallback: if 1-day window has too few points, widen to 3 days
   if (isIntraday && data.length < 2) {
-    ({ labels, data } = getSparklineData(metalConfig.name, 3, true));
+    ({ data } = getSparklineData(metalConfig.name, 3, true));
   }
 
   // Need at least 2 data points for a meaningful line

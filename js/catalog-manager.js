@@ -171,10 +171,10 @@ class CatalogManager {
    * Gets catalog ID for an item serial
    *
    * @param {number|string} serial - Item serial number
-   * @param {string} [provider='numista'] - Provider key
+   * @param {string} [_provider='numista'] - Provider key
    * @returns {string|null} Catalog ID or null if not found
    */
-  getCatalogId(serial, provider = "numista") {
+  getCatalogId(serial, _provider = "numista") {
     if (!serial) return null;
 
     // For backward compatibility, directly return the mapping
@@ -218,10 +218,10 @@ class CatalogManager {
    * Gets item serials associated with a catalog ID
    *
    * @param {string} catalogId - Catalog ID to look up
-   * @param {string} [provider='numista'] - Provider key
+   * @param {string} [_provider='numista'] - Provider key
    * @returns {Array<string>} Array of serials (may be empty)
    */
-  getSerialsByCatalogId(catalogId, provider = "numista") {
+  getSerialsByCatalogId(catalogId, _provider = "numista") {
     if (!catalogId) return [];
 
     return Object.entries(this._mappings)

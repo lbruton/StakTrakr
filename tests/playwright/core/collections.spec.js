@@ -3702,7 +3702,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
   }) => {
     await seedAndGoto(page);
     const fixture = await page.evaluate(() => {
-      const live = window.collectionsStore.createCustom({
+      window.collectionsStore.createCustom({
         name: "Live Morgan Set",
         metal: "Silver",
         slots: [{ label: "First" }, { label: "Second" }],
@@ -3794,7 +3794,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       if (new URL(request.url()).origin !== pageOrigin) networkRequests.push(request.url());
     });
     const pageUrl = page.url();
-    let settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     for (const label of ["American Silver Eagle Type 2", "Toggle Morgan Set"]) {
       const group = settingsVisibilityGroup(page, label);
       await group.getByRole("button", { name: "Off", exact: true }).click();
@@ -3829,7 +3829,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toHaveCount(0);
     }
 
-    settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     for (const label of ["American Silver Eagle Type 2", "Toggle Morgan Set"]) {
       const group = settingsVisibilityGroup(page, label);
       await group.getByRole("button", { name: "On", exact: true }).click();
@@ -3848,7 +3848,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     page,
   }) => {
     await seedAndGoto(page);
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const group = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
     await group.getByRole("button", { name: "Off", exact: true }).click();
     await expect(group.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
@@ -3897,7 +3897,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-b", { asSpare: true });
     });
 
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const group = settingsVisibilityGroup(page, "American Silver Eagle Type 2");
     const on = group.getByRole("button", { name: "On", exact: true });
     const off = group.getByRole("button", { name: "Off", exact: true });
@@ -4083,7 +4083,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     );
     await openCollectionsTab(page);
     await expect(panel(page).locator(`[data-collection-id="${customId}"]`)).toBeVisible();
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const group = settingsVisibilityGroup(page, "Refresh Custom");
     await expect(group.getByRole("button", { name: "On", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -4113,7 +4113,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     );
     const countBefore = await progressRow.locator(".collections-count").innerText();
     const percentageBefore = await progressRow.locator(".collections-pct").innerText();
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const hidden = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
     await hidden.getByRole("button", { name: "Off", exact: true }).click();
     await closeSettingsCollections(page);
@@ -4147,7 +4147,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
   }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     for (const label of ["American Silver Eagle Type 1", "American Silver Eagle Type 2"]) {
       await settingsVisibilityGroup(page, label)
         .getByRole("button", { name: "Off", exact: true })
@@ -4175,7 +4175,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
   test("hidden-count link and toolbar Manage both open Settings Collections", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     await settingsVisibilityGroup(page, "American Silver Eagle Type 1")
       .getByRole("button", { name: "Off", exact: true })
       .click();

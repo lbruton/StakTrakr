@@ -83,34 +83,6 @@ async function batchInsert(target, table, columns, rows) {
 }
 
 // ---------------------------------------------------------------------------
-// Full sync helper (small tables — delete all + reinsert)
-// ---------------------------------------------------------------------------
-
-async function fullSync(source, target, table, columns) {
-  const result = await source.execute(`SELECT ${columns.join(", ")} FROM ${table}`);
-  const rows = result.rows;
-
-  await target.execute(`DELETE FROM ${table}`);
-
-  if (rows.length === 0) return 0;
-
-  const placeholders = columns.map(() => "?").join(", ");
-  const sql = `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`;
-
-  const stmts = rows.map((row) => ({
-    sql,
-    args: columns.map((col) => row[col] ?? null),
-  }));
-
-  // Batch in groups for safety
-  for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
-    await target.batch(stmts.slice(i, i + BATCH_SIZE));
-  }
-
-  return rows.length;
-}
-
-// ---------------------------------------------------------------------------
 // Main sync
 // ---------------------------------------------------------------------------
 

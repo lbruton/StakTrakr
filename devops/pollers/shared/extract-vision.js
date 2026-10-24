@@ -356,8 +356,8 @@ async function main() {
       }
 
       log(`Vision: ${result.coin}/${result.provider}`);
+      const firecrawlPrice = firecrawlPrices[result.coin]?.[result.provider] ?? null;
       try {
-        const firecrawlPrice = firecrawlPrices[result.coin]?.[result.provider] ?? null;
         const extracted = await extractPriceFromImage(
           imagePath,
           coin.name,

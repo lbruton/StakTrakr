@@ -182,7 +182,6 @@ async function main() {
   const mm = pad(now.getUTCMonth() + 1);
   const dd = pad(now.getUTCDate());
   const hh = pad(now.getUTCHours());
-  const min = pad(now.getUTCMinutes());
 
   let filesWritten = 0;
 

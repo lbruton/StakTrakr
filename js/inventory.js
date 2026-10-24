@@ -439,18 +439,21 @@ const validateFieldValue = (field, value) => {
   const trimmedValue = typeof value === "string" ? value.trim() : String(value).trim();
 
   switch (field) {
-    case "qty":
+    case "qty": {
       const qty = parseInt(value, 10);
       return /^\d+$/.test(value) && qty > 0 && qty <= 999999;
+    }
 
-    case "weight":
+    case "weight": {
       const weight = parseFloat(value);
       return !isNaN(weight) && weight > 0 && weight <= 999999;
+    }
 
     case "price":
-    case "marketValue":
+    case "marketValue": {
       const price = parseFloat(value);
       return !isNaN(price) && price >= 0 && price <= 999999999;
+    }
 
     case "name":
       return trimmedValue.length > 0 && trimmedValue.length <= 200;
@@ -462,7 +465,7 @@ const validateFieldValue = (field, value) => {
     case "notes":
       return trimmedValue.length <= 1000; // Allow long notes but with limit
 
-    case "date":
+    case "date": {
       if (!trimmedValue) return false;
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(trimmedValue)) return false;
@@ -470,13 +473,15 @@ const validateFieldValue = (field, value) => {
       const today = new Date();
       const minDate = new Date("1900-01-01");
       return date >= minDate && date <= today;
+    }
 
     case "type":
       return VALID_TYPES.includes(trimmedValue);
 
-    case "metal":
+    case "metal": {
       const validMetals = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
       return validMetals.includes(trimmedValue);
+    }
 
     default:
       return true;
@@ -3285,7 +3290,6 @@ function _openThumbPopover(cell, item) {
   // Refresh the row thumbnails after a change
   const _refreshRowThumbs = () => {
     if (!featureFlags.isEnabled("COIN_IMAGES") || !window.imageCache?.isAvailable()) return;
-    const row = document.querySelector(`#inventoryTable tr[data-idx]`);
     // Find by uuid via data attribute on the img
     const thumbImg = document.querySelector(
       `#inventoryTable .table-thumb[data-item-uuid="${CSS.escape(item.uuid || "")}"]`
