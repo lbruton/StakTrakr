@@ -19,6 +19,7 @@ const CODACY_EXCLUDES = [
   "deprecated/**",
   "vendor/**",
   "playground/**",
+  "devops/firecrawl-docker/**",
 ];
 
 const DIALOG_BAN = [
