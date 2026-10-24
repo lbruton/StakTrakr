@@ -229,12 +229,12 @@ Then mark draft → ready (no MCP equivalent — use `gh` CLI):
 
 ```bash
 gh pr ready PR_NUMBER
-gh pr comment PR_NUMBER --body "@coderabbitai review"
+gh pr edit PR_NUMBER --add-label coderabbit-review
 ```
 
-CodeRabbit runs only when asked (free OSS plan, 2026-10-17). Without the comment its
-required `CodeRabbit` check on `main` still **passes**, but nothing gets reviewed, so the
-label alone is not enough. Ask again after any follow-up push you want it to look at.
+CodeRabbit reviews only labelled PRs. Without the `coderabbit-review` label its required
+`CodeRabbit` check on `main` still **passes**, but nothing gets reviewed. If it pauses after
+follow-up pushes ("Reviews paused"), comment `@coderabbitai resume`.
 
 Then run `/pr-resolve` to clear all open Codacy, Copilot and CodeRabbit review threads
 before the PR goes to final review.
