@@ -87,13 +87,19 @@ configured for Copilot beyond GitHub's defaults (GitHub + Playwright); Plane is 
 
 ### Required checks differ by branch
 
-| Branch | Required status checks                                                        | Other enforced rules                                                                                                          |
-| ------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `dev`  | `Codacy Static Code Analysis` (56611) **and `Tests`** (GitHub Actions, 15368) | thread resolution required, **0 approvals required**, `allowed_merge_methods: ["merge"]`, signed commits, no bypass actors    |
-| `main` | `Codacy Static Code Analysis` **and `CodeRabbit`** (347564)                   | plus a **CodeQL `code_scanning` rule** (`alerts_threshold: errors`, `security_alerts_threshold: critical`), thread resolution |
+| Branch | Required status checks                                                                | Other enforced rules                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `dev`  | `Codacy Static Code Analysis` (56611), **`Tests` and `Vale`** (GitHub Actions, 15368) | thread resolution required, **0 approvals required**, `allowed_merge_methods: ["merge"]`, signed commits, no bypass actors    |
+| `main` | `Codacy Static Code Analysis` **and `CodeRabbit`** (347564)                           | plus a **CodeQL `code_scanning` rule** (`alerts_threshold: errors`, `security_alerts_threshold: critical`), thread resolution |
 
 `Tests` is the report job of `.github/workflows/tests.yml`. On a PR it runs the
 `test:changed` selection; `.context/testing.md` describes the selection and the `dev` push run.
+
+`Vale` is the job in `.github/workflows/vale.yml`. It runs on every PR, so the required check
+always reports. A PR that changes no `README.md`, `.context/**/*.md` or Vale config file passes
+without running Vale. Otherwise the check fails on any Prose alert on a line the PR adds;
+existing alerts never fail it. A second, informational check named `vale` (reviewdog) carries
+the annotations.
 
 **CodeQL is not a required status check on `dev`.** On `main` it is enforced as a
 code-scanning rule rather than a status check. That distinction is why a `dev` PR can
