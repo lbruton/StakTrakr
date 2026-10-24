@@ -992,6 +992,13 @@ theme-reactive expression. Let the stylesheet do the rest:
 - **`getContrastColor(bg)`** (`js/utils.js`) accepts any CSS colour, including `var()`. It
   returns the black or white text colour with the higher WCAG 2.x ratio. The better of
   the two is always at least 4.58:1 on an opaque background.
+- **No colour literals in `js/`.** The `no-restricted-syntax` colour guard in
+  `eslint.config.cjs` reports hex, colour functions and named colours outside
+  `js/theme.js`. A legitimate site carries
+  `// eslint-disable-next-line no-restricted-syntax -- legit: <reason>`.
+- **Every `var(--x)` names a defined token.** `tests/unit/js-theme-tokens.test.js` fails on
+  an undefined custom property in `js/` or `css/`. Do not write a literal fallback for a
+  defined token.
 - **Never fade a chip with `opacity`** (excluded, hover, `×`). Opacity blends text and
   background toward the page and breaks the 4.58:1 floor. Use an outline, shadow or lift
   to show state instead.

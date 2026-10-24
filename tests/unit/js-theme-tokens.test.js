@@ -3,6 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { ESLint } from "eslint";
 
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf-8");
@@ -27,11 +29,11 @@ function definedTokens(jsFiles) {
   return defined;
 }
 
-test("js/ reads no undefined CSS custom properties", () => {
+test("js/ and css/ read no undefined CSS custom properties", () => {
   const jsFiles = listDir("js/", ".js");
   const defined = definedTokens(jsFiles);
   const undefinedReads = [];
-  for (const file of jsFiles) {
+  for (const file of [...jsFiles, ...listDir("css/", ".css")]) {
     for (const [, name] of read(file).matchAll(VAR_READ)) {
       if (!defined.has(name)) undefinedReads.push(`${file}: ${name}`);
     }
@@ -63,6 +65,83 @@ test("the colour-literal sweep matches hex and colour functions, not prose", () 
   for (const miss of ["review on PR #1494", 'getThemeColorRGB("text-primary")', "var(--gold)"]) {
     assert.ok(!COLOUR_LITERAL.test(miss), `${miss} is not a colour literal`);
   }
+});
+
+// The ESLint colour guard in eslint.config.cjs, checked case by case: [code, reports].
+const GUARD_CASES = [
+  ['el.style.color = "#123456";', 1],
+  ['el.style.color = "Orange";', 1],
+  ['x = "var(--x, Green)";', 1],
+  ['x = "LAB(50% 40 59)";', 1],
+  ['x = "color(srgb 1 0 0)";', 1],
+  ['x = "hwb(0 0% 0%)";', 1],
+  ['x = "oklab(0.5 0.1 0.1)";', 1],
+  ['x = "#ABCDEF";', 1],
+  ['x = "#abcd";', 1],
+  ['x = "#11223344";', 1],
+  ['el.style.background = "linear-gradient(red, blue)";', 1],
+  ["el.style.color = `red`;", 1],
+  ["el.style.background = `linear-gradient(${a}, Navy)`;", 1],
+  ['x = "linear-gradient(#fff, red)";', 1],
+  ["x = '<span style=\"color:red\">';", 1],
+  ['x = `<td style="border: 1px solid Navy">`;', 1],
+  ['el.style.cssText = "display:block;background-color: white";', 1],
+  ["x = '<b style=\"color: var(--x, red)\">';", 1],
+  ["x = '<i style=\"caret-color: purple\">';", 1],
+  ['el.style.border = "1px solid red";', 1],
+  ['el.style.outline = "2px dotted navy";', 1],
+  ['el.style.boxShadow = "0 0 2px blue";', 1],
+  ["el.style.borderLeft = `3px solid ${a} green`;", 1],
+  ['el.style.caretColor = "orange";', 1],
+  ['el.style.textDecorationColor = "red";', 1],
+  ['el.style.borderInlineStartColor = "Teal";', 1],
+  ["x = '<b style=\"background: url(/a.svg) red\">';", 1],
+  ['el.style.color = failed ? "red" : "green";', 2],
+  ['el.style.borderColor = "solid " + "navy";', 1],
+  ['el.style.setProperty("color", "red");', 1],
+  ['el.style.setProperty("background-color", failed ? "white" : "black");', 2],
+  ['el.style.setProperty("--accent-color", `navy`);', 1],
+  ['el.style.background = "none"; el.style.outline = "none"; el.style.borderRadius = "4px";', 0],
+  ['x = "var(--layout-mode, auto)"; x = "var(--gold)"; x = "var(--type-gold-bg)";', 0],
+  [
+    "x = '<b style=\"color:var(--gold)\">'; x = '<b style=\"background:none;color:var(--text-muted)\">';",
+    0,
+  ],
+  ['x = "#12345"; x = "#1234567"; getContrastColor(x); x = "&#128196;";', 0],
+  ['x = "color-mix(in oklch, var(--a), var(--b))"; x = "contrast-color(red)";', 0],
+  ["x = '<b style=\"background: url(/icons/red/status.svg) no-repeat\">';", 0],
+  ['el.style.cssText = "background-image: url(/img/gold-bar.png)";', 0],
+  ['el.style.background = "url(/icons/red/x.svg)"; el.style.filter = "url(#fade)";', 0],
+  ["x = 'url(\"data:image/svg+xml,<svg fill=rgb(1 2 3)>\")';", 0],
+  ['el.style.backgroundImage = "url(\\"data:image/svg+xml,<svg fill=\'hsl(1 2% 3%)\'/>\\")";', 0],
+  ["x = \"url(\\\"data:image/svg+xml,<g transform='translate(1 2)' fill='rgb(1 2 3)'/>\\\")\";", 0],
+  ['el.style.color = failed ? "var(--danger)" : "var(--success)";', 0],
+  [
+    'el.style.setProperty("width", "red"); el.style.setProperty("color", "var(--text-primary)");',
+    0,
+  ],
+  ['x = "Red alert: the color is wrong"; y = "red";', 0],
+];
+
+/** Counts the colour-guard reports ESLint gives for code linted as the given repo file. */
+async function guardReports(eslint, code, file) {
+  const [result] = await eslint.lintText(code, { filePath: fileURLToPath(new URL(file, root)) });
+  return result.messages.filter((m) => m.ruleId === "no-restricted-syntax").length;
+}
+
+test("the ESLint colour guard reports colour literals in js/ and nothing else", async () => {
+  const eslint = new ESLint({ cwd: fileURLToPath(root) });
+  const wrong = [];
+  for (const [code, expected] of GUARD_CASES) {
+    const reports = await guardReports(eslint, code, "js/colour-guard-fixture.js");
+    if (reports !== expected) wrong.push(`${code} → ${reports}, expected ${expected}`);
+  }
+  assert.deepEqual(wrong, []);
+  assert.equal(
+    await guardReports(eslint, 'x = "#123456";', "js/theme.js"),
+    0,
+    "theme.js is the token bridge"
+  );
 });
 
 test("the sweep finds a known-undefined token, so it is not vacuous", () => {

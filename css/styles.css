@@ -1559,7 +1559,7 @@ section {
 #removeItemModal select:focus,
 #removeItemModal input:focus,
 #removeItemModal textarea:focus {
-  border-color: var(--accent, #3b82f6);
+  border-color: var(--primary);
   outline: none;
   box-shadow: 0 0 0 2px hsla(217, 91%, 60%, 0.15);
 }
@@ -3162,7 +3162,7 @@ input[type="submit"] {
 
 .settings-modal-content > .modal-header {
   background: transparent;
-  border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   padding: var(--spacing) var(--spacing-xl);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   flex-shrink: 0;
@@ -3565,7 +3565,7 @@ input[type="submit"] {
 
 .storage-data-table td {
   padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--border-light, var(--border));
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
@@ -4465,7 +4465,7 @@ input[type="submit"] {
 }
 
 .chip-grouping-delete:hover {
-  background: rgba(var(--danger-rgb, 220, 53, 69), 0.12);
+  background: color-mix(in oklch, var(--danger) 12%, transparent);
 }
 
 .chip-grouping-actions {
@@ -4492,7 +4492,7 @@ input[type="submit"] {
 
 .chip-grouping-edit:hover {
   color: var(--info);
-  background: rgba(var(--info-rgb, 13, 110, 253), 0.12);
+  background: color-mix(in oklch, var(--info) 12%, transparent);
 }
 
 .chip-grouping-save {
@@ -4500,7 +4500,7 @@ input[type="submit"] {
 }
 
 .chip-grouping-save:hover {
-  background: rgba(var(--success-rgb, 25, 135, 84), 0.12);
+  background: color-mix(in oklch, var(--success) 12%, transparent);
 }
 
 .chip-grouping-cancel {
@@ -4509,7 +4509,7 @@ input[type="submit"] {
 
 .chip-grouping-cancel:hover {
   color: var(--danger);
-  background: rgba(var(--danger-rgb, 220, 53, 69), 0.12);
+  background: color-mix(in oklch, var(--danger) 12%, transparent);
 }
 
 /* Image-cache modal: catalog ID + activity log line */
@@ -4583,7 +4583,7 @@ input.spot-lookup-flash {
   font-size: var(--font-size-base);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-input, var(--bg));
+  background: var(--bg);
   color: var(--text);
   box-sizing: border-box;
 }
@@ -5765,7 +5765,7 @@ input.spot-lookup-flash {
   padding: 0.25rem 0.5rem;
   color: var(--text-secondary);
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -6255,7 +6255,7 @@ table {
 }
 
 .toggle-all-btn:hover {
-  background: var(--primary-dark);
+  background: var(--primary-hover);
   transform: translateY(-1px);
 }
 
@@ -8207,7 +8207,7 @@ a.about-badge:hover {
    ============================================================================= */
 
 .faq-item {
-  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary, #f8fafc);
   margin-bottom: 0.5rem;
@@ -8273,7 +8273,7 @@ a.about-badge:hover {
 
 /* Nested technical sub-accordion */
 .faq-technical {
-  border: 1px dashed var(--border-color, rgba(0, 0, 0, 0.15));
+  border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-primary, #f1f5f9);
   margin-top: 0.75rem;
@@ -9040,7 +9040,7 @@ table.dm-ledger {
   border-right: 1px solid var(--border);
 }
 .chart-metric-btn:hover {
-  background: var(--bg-hover);
+  background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .chart-metric-btn.active {
   background: var(--primary);
@@ -9417,7 +9417,7 @@ table.dm-ledger {
 .control-select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-alpha);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 20%, transparent);
 }
 
 .control-select:hover {
@@ -9663,7 +9663,7 @@ table.dm-ledger {
 }
 
 .chip-context-menu-item:hover {
-  background: var(--bg-hover, var(--border));
+  background: var(--border);
 }
 
 .chip-confirm-message {
@@ -9708,7 +9708,7 @@ table.dm-ledger {
 }
 
 .chip-confirm-no:hover {
-  background: var(--bg-hover, var(--border));
+  background: var(--border);
 }
 
 .search-results-info {
@@ -9750,7 +9750,7 @@ table.dm-ledger {
 }
 
 .filter-clear-btn:hover {
-  background: var(--error-dark);
+  background: var(--danger-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
@@ -10300,7 +10300,7 @@ input:disabled + .slider {
 }
 
 #inventoryTable td[data-column="actions"] .edit-toggle:hover {
-  color: var(--primary-dark);
+  color: var(--primary-hover);
 }
 
 /* Actions header styling */
@@ -12087,7 +12087,7 @@ th {
 
 /* Numista tag picker (STAK-556) */
 .numista-tag-separator {
-  border-top: 1px solid var(--border-color, #ddd);
+  border-top: 1px solid var(--border);
   margin: 0.5rem 0;
   grid-column: 1 / -1;
 }
@@ -12130,7 +12130,7 @@ th {
 .numista-tag-actions {
   font-size: var(--font-size-sm);
   cursor: pointer;
-  color: var(--accent-color, #4a90d9);
+  color: var(--primary);
   margin-left: 0.5rem;
 }
 
@@ -12183,9 +12183,9 @@ th {
 .numista-retry-input {
   flex: 1;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-input);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--font-size-lg);
 }
@@ -12215,7 +12215,7 @@ th {
   align-items: center;
   gap: var(--spacing-md);
   padding: 0.45rem 0.65rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
   cursor: pointer;
@@ -12224,7 +12224,7 @@ th {
 }
 
 .numista-quick-pick:hover {
-  background: var(--bg-hover);
+  background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 
 .quick-pick-id {
@@ -12246,7 +12246,7 @@ th {
 .quick-pick-count {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
-  background: var(--bg-input);
+  background: var(--bg-tertiary);
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-lg);
 }
@@ -12908,7 +12908,7 @@ th {
 
 /* Enhanced delete button styling - restore red */
 #inventoryTable td.icon-col .action-icon.danger {
-  color: var(--error) !important;
+  color: var(--danger) !important;
   border-radius: var(--radius-sm);
   padding: 0.25rem;
   /* Removed transition: var(--transition); */
@@ -14171,7 +14171,7 @@ th {
 }
 
 #settingsChangeLogTable tbody tr:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
 }
 
 #settingsChangeLogTable .action-btn {
@@ -14421,7 +14421,7 @@ th {
 }
 
 .bulk-edit-field-row:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
 }
 
 .bulk-edit-field-row input[type="checkbox"] {
@@ -14696,7 +14696,7 @@ th {
 }
 
 .bulk-edit-table tbody tr:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
 }
 
 .bulk-edit-selected {
@@ -16128,7 +16128,7 @@ input[type="number"] {
 .retail-tf-btn {
   padding: 0.2rem 0.6rem;
   font-size: var(--font-size-base);
-  border: 1px solid var(--border-color, var(--bs-border-color));
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-primary);
@@ -16155,7 +16155,7 @@ input[type="number"] {
 .retail-history-table th,
 .retail-history-table td {
   padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
@@ -16170,7 +16170,7 @@ input[type="number"] {
   text-align: left;
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  color: var(--text-muted, var(--bs-secondary-color));
+  color: var(--text-muted);
 }
 
 /* Retail view modal */
@@ -16179,7 +16179,7 @@ input[type="number"] {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, var(--bs-secondary-color));
+  color: var(--text-muted);
   margin: 1.25rem 0 0.5rem;
 }
 
@@ -16197,7 +16197,7 @@ input[type="number"] {
 .retail-view-table th,
 .retail-view-table td {
   padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
@@ -16212,7 +16212,7 @@ input[type="number"] {
   text-align: left;
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  color: var(--text-muted, var(--bs-secondary-color));
+  color: var(--text-muted);
 }
 
 .retail-view-chart-wrap {
@@ -16226,7 +16226,7 @@ input[type="number"] {
   color: var(--text-muted);
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-top: 1px solid var(--border);
 }
 
 /* Retail view modal — vendor legend (replaces "Current Prices" table) */
@@ -16273,7 +16273,7 @@ input[type="number"] {
   gap: 0.2rem;
   margin: 0 0 0.5rem;
   padding: 0.2rem;
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.06));
+  background: color-mix(in oklch, var(--text-primary), transparent 94%);
   border-radius: var(--radius);
 }
 
@@ -16299,7 +16299,7 @@ input[type="number"] {
 
 .retail-view-tab.active {
   color: var(--text-primary);
-  background: var(--bg-card, var(--bs-body-bg));
+  background: var(--bg-card);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
@@ -16307,8 +16307,8 @@ input[type="number"] {
 /* Retail view modal — intraday/history panels */
 #retailViewIntradaySection,
 #retailViewHistorySection {
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
-  border: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.75rem;
 }
@@ -16378,7 +16378,7 @@ input[type="number"] {
 }
 .market-filter-pill {
   background: transparent;
-  border: 1px solid var(--border, var(--bs-border-color));
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   padding: 4px 12px;
   font-size: var(--font-size-xs);
@@ -16390,7 +16390,7 @@ input[type="number"] {
 }
 .market-filter-pill:hover {
   border-color: var(--border-hover, #475569);
-  color: var(--text-primary, var(--bs-body-color));
+  color: var(--text-primary);
 }
 .market-filter-pill.active[data-metal="all"] {
   background: var(--primary);
@@ -16404,7 +16404,7 @@ input[type="number"] {
 }
 .market-filter-pill.active[data-metal="silver"] {
   background: rgba(139, 147, 166, 0.15);
-  color: var(--bs-secondary-color, #6c757d);
+  color: var(--text-muted);
   border-color: #6c757d;
 }
 .market-filter-pill.active[data-metal="platinum"] {
@@ -16425,8 +16425,8 @@ input[type="number"] {
 /* Sync button — status-aware: green=current, amber=stale */
 .market-sync-btn {
   background: transparent;
-  border: 1.5px solid var(--bs-success, #059669);
-  color: var(--bs-success, #059669);
+  border: 1.5px solid var(--success);
+  color: var(--success-text);
   border-radius: var(--radius-pill);
   padding: 6px 16px;
   font-size: var(--font-size-sm);
@@ -16459,7 +16459,7 @@ input[type="number"] {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-top: 0.75rem;
-  border: 1px solid var(--border, var(--bs-border-color));
+  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 .market-filter-matrix {
@@ -16471,7 +16471,7 @@ input[type="number"] {
 .market-filter-matrix td {
   padding: 4px 5px;
   text-align: center;
-  border-bottom: 1px solid var(--border, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .market-filter-matrix th:first-child,
@@ -16479,7 +16479,7 @@ input[type="number"] {
   text-align: left;
   position: sticky;
   left: 0;
-  background: var(--bg-primary, var(--bs-body-bg, #1a1d23));
+  background: var(--bg-primary);
   z-index: 1;
   padding-left: 10px;
   font-weight: 500;
@@ -16493,7 +16493,7 @@ input[type="number"] {
   color: var(--text-muted, #6c757d);
   padding-top: 8px;
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--border, var(--bs-border-color));
+  border-bottom: 2px solid var(--border);
 }
 .market-filter-matrix thead th:first-child {
   z-index: 2;
@@ -16502,7 +16502,7 @@ input[type="number"] {
   background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .market-filter-matrix tbody tr:hover td:first-child {
-  background: var(--bg-hover, color-mix(in oklch, var(--text-primary), transparent 96%));
+  background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .market-filter-matrix tbody tr:last-child td {
   border-bottom: none;
@@ -16519,7 +16519,7 @@ input[type="number"] {
 }
 .market-filter-matrix input[type="checkbox"] {
   cursor: pointer;
-  accent-color: var(--bs-primary, #3b82f6);
+  accent-color: var(--primary);
   width: 15px;
   height: 15px;
   vertical-align: middle;
@@ -16529,19 +16529,19 @@ input[type="number"] {
   cursor: not-allowed;
 }
 .market-filter-matrix .mfm-all-row td {
-  border-bottom: 2px solid var(--border, var(--bs-border-color));
+  border-bottom: 2px solid var(--border);
   font-weight: 600;
 }
 .market-filter-matrix .mfm-all-row td:first-child {
-  background: var(--bg-primary, var(--bs-body-bg, #1a1d23));
+  background: var(--bg-primary);
 }
 .market-filter-matrix th:nth-child(2),
 .market-filter-matrix td:nth-child(2) {
-  border-right: 1px solid var(--border, var(--bs-border-color));
+  border-right: 1px solid var(--border);
 }
 .market-filter-matrix .mfm-product-name {
   font-size: var(--font-size-sm);
-  color: var(--text-primary, var(--bs-body-color));
+  color: var(--text-primary);
 }
 .market-filter-matrix .mfm-status-line {
   font-size: var(--font-size-sm);
@@ -16549,7 +16549,7 @@ input[type="number"] {
   padding: 6px 0 2px;
 }
 .market-filter-matrix .mfm-status-line strong {
-  color: var(--text-primary, var(--bs-body-color));
+  color: var(--text-primary);
   font-weight: 600;
 }
 @media (max-width: 640px) {
@@ -17627,7 +17627,6 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  font-family: var(--font-sans, inherit);
 }
 .gsr-panel[data-accent="silver"] {
   --gsr-accent: var(--silver);

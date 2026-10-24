@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.68] - 2026-10-24
+
+### Changed — STRK-455: Colour-literal guard and theme token check
+
+- **ESLint colour guard**: `eslint.config.cjs` warns on hex, colour-function and named-colour literals in `js/` outside `js/theme.js`. The pre-CSS update screens, the printable backup, the contrast fallback, the hue hash and the chart gradient carry a reasoned disable comment (STRK-455).
+- **Undefined tokens**: `tests/unit/js-theme-tokens.test.js` fails on any `var(--x)` in `js/` or `css/` that names an undefined custom property. The 64 Bootstrap-era and misspelled references in `css/styles.css` now use defined theme tokens (STRK-455).
+- **Dead fallbacks**: the literal fallbacks on `--danger` and `--success` in the catalog and cloud logs, the gain/loss column and the spot lookup error are removed (STRK-455).
+
+---
+
 ## [3.36.67] - 2026-10-24
 
 ### Changed — STRK-468: Slot notes stay open through price refreshes

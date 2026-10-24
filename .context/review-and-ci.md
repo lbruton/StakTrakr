@@ -215,7 +215,9 @@ ESLint9 is on, so the dashboard pattern list does not apply.
 - **Rule changes:** edit `eslint.config.cjs`, never the Codacy dashboard patterns.
 - **Ignores:** the config's ignore list mirrors `exclude_paths` in `.codacy.yml`. Change both together.
 - **Errors fail the Tests check.** `eslint-plugin-security` rules are warnings: they show in
-  local output and on the Codacy dashboard but do not block a merge.
+  local output and on the Codacy dashboard but do not block a merge. The `js/` colour guard
+  (`no-restricted-syntax`) is a warning too; its cases live in
+  `tests/unit/js-theme-tokens.test.js`.
 - **One-off exceptions:** use `// eslint-disable-next-line <rule> -- <reason>`, which local
   ESLint and Codacy both honor. A dashboard "ignore" on a single issue stays in Codacy only.
 - **Script-tag globals:** `no-undef` is off for `js/`, `sw*.js`, `data/` and the tests,

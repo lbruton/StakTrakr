@@ -1065,6 +1065,7 @@
   };
 
   const generateBackupHtml = (sortedInventory, timeFormatted) => {
+    // eslint-disable-next-line no-restricted-syntax -- legit: standalone printable page without the app CSS
     return `<!DOCTYPE html>
 <html lang="en">
 <head>

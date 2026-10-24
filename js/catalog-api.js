@@ -1134,7 +1134,7 @@ const renderCatalogHistoryTable = () => {
   let html =
     '<tr><th data-column="timestamp">Time</th><th data-column="action">Action</th><th data-column="query">Query</th><th data-column="result">Result</th><th data-column="itemCount">Items</th><th data-column="provider">Provider</th><th data-column="duration">Duration</th></tr>';
   data.forEach((e) => {
-    const resultClass = e.result === "fail" ? ' style="color: var(--danger, #e74c3c);"' : "";
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger);"' : "";
     const errorTitle = e.error ? ` title="${e.error.replace(/"/g, "&quot;")}"` : "";
     html += `<tr><td>${e.timestamp}</td><td>${e.action}</td><td>${e.query}</td><td${resultClass}${errorTitle}>${e.result}</td><td>${e.itemCount}</td><td>${e.provider || ""}</td><td>${e.duration}ms</td></tr>`;
   });
@@ -1240,7 +1240,7 @@ const renderCatalogHistoryForSettings = () => {
   }
 
   const rows = data.map((e) => {
-    const resultClass = e.result === "fail" ? ' style="color: var(--danger, #e74c3c);"' : "";
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger);"' : "";
     const errorTitle = e.error ? ` title="${String(e.error).replace(/"/g, "&quot;")}"` : "";
     return `<tr><td>${e.timestamp || ""}</td><td>${e.action || ""}</td><td>${e.query || ""}</td><td${resultClass}${errorTitle}>${e.result || ""}</td><td>${e.itemCount || 0}</td><td>${e.provider || ""}</td><td>${e.duration || 0}ms</td></tr>`;
   });
