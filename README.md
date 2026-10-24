@@ -18,7 +18,8 @@
   <a href="https://www.staktrakr.com">Launch App</a> &bull;
   <a href="https://beta.staktrakr.com">Beta</a> &bull;
   <a href="https://lbruton.github.io/StakTrakr/about.html">About</a> &bull;
-  <a href="CHANGELOG.md">Changelog</a>
+  <a href="CHANGELOG.md">Changelog</a> &bull;
+  <a href="https://github.com/lbruton/StakTrakrApi">Price API</a>
 </p>
 
 ---
@@ -56,7 +57,7 @@ Optional [sponsorships](https://github.com/sponsors/lbruton) pay for the free AP
 
 ### Pricing: Spot and Market
 
-Spot prices come from several providers with automatic failover. The free, keyless `api.staktrakr.com` works out of the box. Add Metals.dev, MetalPriceAPI, GoldAPI or a custom URL for more frequent updates. Manual mode prices items fully offline. Sparkline charts offer 7d, 30d, 60d and 90d ranges, with health indicators and seed history back to 1968.
+Spot prices come from several providers with automatic failover. The free, keyless `api.staktrakr.com` works out of the box, and anyone can query it: the [StakTrakrApi](https://github.com/lbruton/StakTrakrApi) repo lists every endpoint. Add Metals.dev, MetalPriceAPI, GoldAPI or a custom URL for more frequent updates. Manual mode prices items fully offline. Sparkline charts offer 7d, 30d, 60d and 90d ranges, with health indicators and seed history back to 1968.
 
 For retail, the Best Price Ticker shows the cheapest vendor for each coin, with a direct buy link. The Vendor Prices Matrix compares Gold, Silver, Platinum, Palladium and Goldbacks across major bullion dealers. It shows premium badges and links to each product page. Click a coin to open a TradingView chart of spot history with a price line per vendor.
 
