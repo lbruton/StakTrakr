@@ -2381,14 +2381,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
       "src",
       /test-reverse\.png$/
     );
-    // A Collections render closes an open note, and a boot-time price refresh can render
-    // the tab again just after the click, so open the note until it stays open.
-    await expect(async () => {
-      await slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" }).click();
-      await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date", {
-        timeout: 1000,
-      });
-    }).toPass();
+    await slotOf(page, "maple").getByRole("button", { name: "Show note for Maple" }).click();
+    await expect(page.getByRole("region", { name: "Note for Maple" })).toHaveText("Key date");
   });
 
   /**
@@ -2574,6 +2568,19 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(coin).toHaveAttribute("data-resolved-image-side", "obverse");
   });
 
+  /**
+   * Dispatches each background refresh event that re-renders the Collections tab.
+   * @param {import("@playwright/test").Page} page - Test page
+   * @returns {Promise<void>}
+   */
+  const dispatchPriceRefreshes = (page) =>
+    page.evaluate(() => {
+      ["spot:updated", "retail:updated", "goldback:updated"].forEach((type) =>
+        document.dispatchEvent(new CustomEvent(type))
+      );
+      window.dispatchEvent(new CustomEvent("currencychange"));
+    });
+
   test("long Slot notes stay compact and keyboard reachable in Album cards", async ({
     page,
   }, testInfo) => {
@@ -2617,6 +2624,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
 
     await noteButton.click();
     await expect(popover).toBeVisible();
+    await dispatchPriceRefreshes(page);
+    await expect(popover).toHaveText(LONG_SLOT_NOTE);
+    await expect(popover).toBeVisible();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "true");
     await page.getByRole("button", { name: "Collections" }).click();
     await expect(popover).toBeHidden();
   });
@@ -2644,6 +2655,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(noteButton).toHaveAttribute("aria-expanded", "true");
     expect(await row.evaluate((element) => element.getBoundingClientRect().height)).toBe(rowHeight);
     await page.screenshot({ path: testInfo.outputPath("strk-399-ledger-desktop.png") });
+
+    await dispatchPriceRefreshes(page);
+    await expect(popover).toHaveText(LONG_SLOT_NOTE);
+    await expect(popover).toBeVisible();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(popover).toBeHidden();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "false");
   });
 
   test("Slot note popover fits a 375px touch viewport without reserving blank-note space", async ({
