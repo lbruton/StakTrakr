@@ -266,7 +266,7 @@ After the suite is reshaped, update scripts:
 }
 ```
 
-Consider setting `workers` above 1 after isolation is cleaned up. Playwright's docs recommend isolation and note that tests run in parallel workers and can be sharded for faster CI runs: [Isolation](https://playwright.dev/docs/browser-contexts), [Parallelism](https://playwright.dev/docs/test-parallel), and [Sharding](https://playwright.dev/docs/test-sharding). Because the 2026-05-21 suite had duplicated localStorage setup and some serial assumptions, this proposal put parallelism after the helper cleanup.
+Consider setting `workers` above 1 after isolation is cleaned up. Playwright's docs recommend isolation and explain that tests run in parallel workers and can be sharded for faster CI runs: [Isolation](https://playwright.dev/docs/browser-contexts), [Parallelism](https://playwright.dev/docs/test-parallel), and [Sharding](https://playwright.dev/docs/test-sharding). Because the 2026-05-21 suite had duplicated localStorage setup and some serial assumptions, this proposal put parallelism after the helper cleanup.
 
 ## Migration Plan
 
