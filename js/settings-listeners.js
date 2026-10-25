@@ -809,7 +809,6 @@ const bindPatternRuleModeListeners = () => {
       // Auto-collapse + reset form after successful add (STAK-439)
       _resetPatternRuleForm();
       renderCustomPatternRules();
-      renderImageStorageStats();
     });
   }
 
