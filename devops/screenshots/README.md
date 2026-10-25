@@ -16,9 +16,10 @@ network request and two runs on one build write the same images.
 ## Shot entries
 
 Each entry in `shots.json` names the file, the set, the theme, the viewport and the hash route.
-`steps` runs in order: `click` and `wait` take a selector, and `call` runs a global app function
-with `args`. `target` must be visible before the capture, so a renamed screen fails the run. `clip`
-is `viewport`, `element` (the target only) or `full`.
+`steps` runs in order: `click` and `wait` take a selector, and `call` runs an app function with
+`args`. `runStep` in `capture.spec.js` lists the functions a `call` step may name. `target` must be
+visible before the capture, so a renamed screen fails the run. `clip` is `viewport`, `element` (the
+target only) or `full`.
 
 ## Recording
 

@@ -116,10 +116,19 @@ async function runStep(page, step) {
   } else if (step.wait) {
     await expect(page.locator(step.wait).first()).toBeVisible();
   } else if (step.call) {
+    // A fixed list of app functions: shots.json names one, never an arbitrary global.
     await page.evaluate(
       ([name, args]) => {
-        if (typeof window[name] !== "function") throw new Error(`${name} is not a function`);
-        return window[name](...args);
+        switch (name) {
+          case "showViewModal":
+            return window.showViewModal(...args);
+          case "editItem":
+            return window.editItem(...args);
+          case "openMarketDetailModal":
+            return window.openMarketDetailModal(...args);
+          default:
+            throw new Error(`Unsupported call step: ${name}`);
+        }
       },
       [step.call, step.args || []]
     );
