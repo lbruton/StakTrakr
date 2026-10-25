@@ -333,9 +333,9 @@ Frontend v2 data flow:
 
 | Dimension      | Source             | Stored?                            | Formula                          |
 | -------------- | ------------------ | ---------------------------------- | -------------------------------- |
-| Purchase Price | User entry         | Yes: `item.price` (per-unit)       | —                                |
+| Purchase Price | User entry         | Yes: `item.price` (per-unit)       | None                             |
 | Melt Value     | Computed at render | **No**                             | `weightOz × qty × spot × purity` |
-| Retail Price   | Live API ask       | No: cached in `retailPrices[slug]` | —                                |
+| Retail Price   | Live API ask       | No: cached in `retailPrices[slug]` | None                             |
 
 `meltValue` is **never stored**. Spot moves constantly; deriving at render keeps stored schema simple. `realizedGainLoss` is the sole exception: computed once at disposition time and stored.
 

@@ -332,7 +332,7 @@ On a genuine credential apply, each blob merges its counters so applying a chang
 
 The `changed` entries from `compareSettings` still carry the full original blob, so apply paths write counters through unchanged.
 
-**Diff-modal display:** `unchanged` entries from `compareSettings` now carry `localVal`/`remoteVal` in the same shape as `changed` entries. The legacy entries emitted `{key, val}` while `diff-modal.js` read `mEntry.localVal` for both lists. Therefore, **every matched settings row rendered `undefined`**: "not set" for the masked API-key rows, "—" for everything else, regardless of what was actually stored. That false "not set" on a demonstrably configured Numista key is what sent the catalog-store investigation after the wrong store. `metalApiConfig` is also relabeled **"Spot API Config"** (it holds twelve fields, only one of which is credentials) and renders provider + key count rather than a blanket `••• configured`.
+**Diff-modal display:** `unchanged` entries from `compareSettings` now carry `localVal`/`remoteVal` in the same shape as `changed` entries. The legacy entries emitted `{key, val}` while `diff-modal.js` read `mEntry.localVal` for both lists. Therefore, **every matched settings row rendered `undefined`**: "not set" for the masked API-key rows and a dash for everything else, regardless of what was actually stored. That false "not set" on a demonstrably configured Numista key is what sent the catalog-store investigation after the wrong store. `metalApiConfig` is also relabeled **"Spot API Config"** (it holds twelve fields, only one of which is credentials) and renders provider + key count rather than a blanket `••• configured`.
 
 ### Tag Sync Merge
 

@@ -1004,18 +1004,19 @@ theme-reactive expression. Let the stylesheet do the rest:
   to show state instead.
 - **Markup built in JS takes its static styles from classes.** A template `style=` or
   `style.cssText` carries only a per-instance runtime value: a metal tint, a measured or
-  data-driven width, a show/hide toggle. The diff modal keeps its classes in the
-  `#diffReviewModal` style block of `index.html`; a test in
-  `tests/playwright/core/diff-modal-merge.spec.js` fails on any other inline property.
+  data-driven width, a show/hide toggle. The `#diffReviewModal` style block in `index.html` holds the diff
+  modal classes. A test in `tests/playwright/core/diff-modal-merge.spec.js` fails on any
+  other inline property.
   The settings tables, image lists and Numista tag blacklist that `js/settings.js` builds
-  take theirs from `css/styles.css`; `tests/playwright/core/settings-search-images.spec.js`
-  allows only `width` and `display` inline there. The Market filter matrix keeps its
+  take theirs from `css/styles.css`. There, a test in
+  `tests/playwright/core/settings-search-images.spec.js` allows only `width` and `display`
+  inline. The Market filter matrix keeps its
   vendor dot colour inline because it comes from the vendor token. The static Pattern Image
   Rules form in `index.html` shares the `pattern-rule-card` classes with the inline rule
   editor and inlines only `display`. The ticker, Market block and detail
-  modal that `js/market-data.js` builds also use `css/styles.css`; a test in
-  `tests/playwright/core/retail-market.spec.js` allows only vendor and stock colours and the
-  ticker track's phase and hand-off positioning. Inventory rows from `js/inventory-table.js`
+  modal that `js/market-data.js` builds also use `css/styles.css`. A test in
+  `tests/playwright/core/retail-market.spec.js` allows only vendor and stock colours there,
+  plus the ticker track's phase and hand-off positioning. Inventory rows from `js/inventory-table.js`
   inline only hashed or metal chip colours, the Gain/Loss colour and weight, and thumbnail
   visibility, as a test in `tests/playwright/core/inventory-crud.spec.js` checks. Pass
   `null` to `filterLink` for primary text; it adds `.filter-text--primary`. New checks of this kind call
