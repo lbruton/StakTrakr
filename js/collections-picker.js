@@ -748,11 +748,11 @@
     const wrap = el("div", "collections-builder-choice");
     const caption = el("span", "collections-builder-caption", labelText);
     caption.id = `collectionsSeg${Math.random().toString(36).slice(2, 9)}`;
-    const group = el("div", "collections-segmented");
+    const group = el("div", "segmented");
     group.setAttribute("role", "radiogroup");
     group.setAttribute("aria-labelledby", caption.id);
     const inputs = options.map((option) => {
-      const choice = el("label", "collections-segmented-option");
+      const choice = el("label", "segmented-option");
       const input = el("input");
       input.type = "radio";
       input.name = caption.id;
