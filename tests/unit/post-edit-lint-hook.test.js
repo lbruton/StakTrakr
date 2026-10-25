@@ -7,7 +7,7 @@
 // Both harnesses drop plain stdout from PostToolUse hooks, so findings must be
 // emitted as hookSpecificOutput.additionalContext JSON. A clean edit is silent.
 //
-// Each test writes scratch files into a temp dir inside the repo (files outside
+// Each test writes scratch files into an ignored temp dir under tests/ (files outside
 // the repo root are deliberately skipped by the hook) and pipes a synthetic
 // payload to the script.
 
@@ -53,7 +53,7 @@ function scratch(name, body) {
 
 describe("post-edit-lint hook", () => {
   before(() => {
-    dir = mkdtempSync(join(repoRoot, ".tmp-hooktest-"));
+    dir = mkdtempSync(join(repoRoot, "tests", ".tmp-hooktest-"));
   });
   after(() => {
     rmSync(dir, { recursive: true, force: true });

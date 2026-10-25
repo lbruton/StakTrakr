@@ -5739,7 +5739,7 @@ test.describe("STRK-444 Collection title image links", () => {
   });
   test("four themes keep title link controls usable at desktop and mobile sizes", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await start(page, { obverseImageUrl: front, reverseImageUrl: back });
     await page.addStyleTag({
       content:
@@ -5763,10 +5763,14 @@ test.describe("STRK-444 Collection title image links", () => {
         });
         expect(geometry.left).toBeGreaterThanOrEqual(0);
         expect(geometry.right).toBeLessThanOrEqual(geometry.width);
-        await page.screenshot({ path: `playground/images/STRK-444/${width}-${theme}-builder.png` });
+        await page.screenshot({
+          path: testInfo.outputPath(`title-link-${width}-${theme}-builder.png`),
+        });
         await button.click();
         await expect(page.locator("#appDialogInput")).toHaveValue(front);
-        await page.screenshot({ path: `playground/images/STRK-444/${width}-${theme}-dialog.png` });
+        await page.screenshot({
+          path: testInfo.outputPath(`title-link-${width}-${theme}-dialog.png`),
+        });
         await page.locator("#appDialogCancel").click();
       }
     }

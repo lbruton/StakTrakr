@@ -112,7 +112,7 @@ jobs:
       - name: Run the selected unit tests
         if: ${{ github.event_name == 'pull_request' }}
         # Paths travel in an environment variable; ci-plan-outputs.mjs admits only plain paths.
-        run: node --test $UNIT_TESTS
+        run: node --test --test-global-setup=devops/testing/tree-guard.mjs $UNIT_TESTS
         env:
           UNIT_TESTS: ${{ needs.select.outputs.unit }}
 

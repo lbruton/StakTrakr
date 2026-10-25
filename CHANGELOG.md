@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.78] - 2026-10-25
+
+### Changed — STRK-474: Tests write only to temp output
+
+- **Tree guard**: `devops/testing/tree-guard.mjs` compares `git status` and file content before and after a test run, and fails the run with the list of changed paths. Playwright runs it as global setup and teardown; `run-unit.mjs`, `test-changed.mjs` and the CI unit step pass it to `node --test` as `--test-global-setup`. Edits made before the run do not trip it (STRK-474).
+- **Screenshot test**: the title-link theme test in `collections.spec.js` writes its screenshots to `testInfo.outputPath()` instead of the tracked `playground/images/STRK-444/` folder, so a core run no longer dirties the tree (STRK-474).
+- **Hook test scratch**: `post-edit-lint-hook.test.js` keeps its scratch directory under `tests/`, still ignored and removed after the run (STRK-474).
+- **Docs**: `.context/testing.md` gains a Test Output section with the rule and the guard (STRK-474).
+
 ## [3.36.77] - 2026-10-25
 
 ### Changed — STRK-431: Neutral class name for the shared segmented control

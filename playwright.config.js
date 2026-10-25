@@ -17,7 +17,11 @@ const PORT = Number(process.env.PW_PORT) || portFromCwd();
 
 export default defineConfig({
   testDir: "./tests/playwright",
-  globalSetup: "./tests/playwright/helpers/coverage-setup.js",
+  globalSetup: [
+    "./tests/playwright/helpers/coverage-setup.js",
+    "./tests/playwright/helpers/tree-guard-setup.js",
+  ],
+  globalTeardown: "./tests/playwright/helpers/tree-guard-teardown.js",
   // Every test boots its own context, so tests in one file are independent and can
   // spread across workers. Specs that share state opt out with describe.serial.
   fullyParallel: true,
