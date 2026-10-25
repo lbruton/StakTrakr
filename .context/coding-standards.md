@@ -1007,6 +1007,9 @@ theme-reactive expression. Let the stylesheet do the rest:
   data-driven width, a show/hide toggle. The diff modal keeps its classes in the
   `#diffReviewModal` style block of `index.html`; a test in
   `tests/playwright/core/diff-modal-merge.spec.js` fails on any other inline property.
+  The settings tables, image lists and Numista tag blacklist that `js/settings.js` builds
+  take theirs from `css/styles.css`; `tests/playwright/core/settings-search-images.spec.js`
+  allows only `width` and `display` inline there.
 
 ### Toggle standard
 

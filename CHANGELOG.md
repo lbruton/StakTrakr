@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.71] - 2026-10-24
+
+### Changed — STRK-454: Settings table and image list styles move to CSS classes
+
+- **Settings classes**: the Chips, Numista pattern and section-config tables, the Images lists, the inline pattern rule editor and the Numista tag blacklist built in `js/settings.js` take their static styles from classes in `css/styles.css`. `style.cssText` and template `style=` in the file drop from 37 to 6; the 6 left are display toggles and storage-bar widths (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px, with lists populated and empty (STRK-454).
+
+---
+
 ## [3.36.70] - 2026-10-24
 
 ### Changed — STRK-454: Sync review window styles move to CSS classes

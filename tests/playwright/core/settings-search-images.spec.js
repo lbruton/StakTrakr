@@ -160,6 +160,76 @@ test.describe("core/settings-search-images", () => {
     await expect(page.locator("#patternRuleSwapBtn")).toHaveCount(1);
   });
 
+  test("Settings markup built in JS carries inline styles only for runtime values", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await page.evaluate(async () => {
+      await window.imageCache.cachePatternImage(
+        "orphan-styling",
+        new Blob(["obv"], { type: "image/png" }),
+        null
+      );
+      await window.imageCache.cachePatternImage(
+        "rule-styling-seed",
+        new Blob(["obv"], { type: "image/png" }),
+        new Blob(["rev"], { type: "image/png" })
+      );
+      window.NumistaLookup.addRule("styling", "Styling Bullion", "4242", "rule-styling-seed");
+    });
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    await expect(page.locator("#orphanedPatternImages")).toContainText("orphan-styling");
+
+    const offenders = await page.evaluate(async () => {
+      const RUNTIME = new Set(["width", "display"]);
+      const ROOTS = [
+        "#filterChipCategoryContainer",
+        "#customRuleTableContainer",
+        "#layoutSectionConfigContainer",
+        "#orphanedPatternImages",
+        "#customPatternImageRules",
+        "#userImageGrid",
+        "#numistaTagSettingsGroup",
+      ];
+      const found = [];
+      const collect = (label) => {
+        for (const sel of ROOTS) {
+          const root = document.querySelector(sel);
+          if (!root) continue;
+          for (const el of root.querySelectorAll("[style]")) {
+            for (let i = 0; i < el.style.length; i++) {
+              const prop = el.style[i];
+              if (!RUNTIME.has(prop)) found.push(`${label} ${sel} <${el.tagName}> ${prop}`);
+            }
+          }
+        }
+      };
+      const renderAll = async () => {
+        renderFilterChipCategoryTable();
+        renderCustomRuleTable();
+        renderLayoutSectionConfigTable();
+        await renderOrphanedPatternImages();
+        await renderCustomPatternRules();
+        await renderUserImageGrid();
+        window.renderNumistaTagSettings();
+      };
+
+      await renderAll();
+      collect("empty-blacklist");
+      window.addToTagBlacklist("Circulation");
+      await renderAll();
+      collect("populated");
+
+      window.NumistaLookup.importRules([], false);
+      await window.imageCache.clearAll();
+      await renderAll();
+      collect("empty");
+      return found;
+    });
+    expect(offenders).toEqual([]);
+  });
+
   // Characterization lock for STRK-195: pins the #addPatternRuleBtn handler's
   // observable behavior (keyword→regex compile, image requirement, rule add,
   // form reset/collapse, persistence) before it is decomposed into helpers.

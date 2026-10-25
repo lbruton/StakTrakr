@@ -2851,6 +2851,20 @@ input[type="submit"] {
   font-size: var(--font-size-lg);
 }
 
+/* Empty-state and status lines inside the Settings image lists. */
+.settings-note {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.orphan-images-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
 /* Header toggle buttons (STACK-54) */
 .header-toggle-btn {
   width: 56px;
@@ -3835,6 +3849,31 @@ input[type="submit"] {
   gap: 0.35rem;
   margin-top: 0.4rem;
 }
+/* The inline rule editor that renderCustomPatternRules builds. Two classes outrank
+   `.chip-sort-toggle` and `.image-swap-wrapper .btn-icon`, which load later or match first. */
+.cloud-provider-card.pattern-rule-edit-card {
+  margin-top: var(--spacing);
+  padding: 1rem;
+}
+.pattern-rule-edit-card .pattern-mode-toggle {
+  display: inline-flex;
+  margin-left: var(--spacing-sm);
+  vertical-align: middle;
+}
+.pattern-rule-edit-card .image-upload-sides {
+  margin-top: var(--spacing-md);
+}
+.pattern-rule-edit-card .image-swap-wrapper .edit-swap-btn {
+  font-size: 1.1rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  line-height: 1;
+}
+.pattern-rule-edit-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing);
+}
 
 /* Image upload UI — dual obverse/reverse (STACK-32) */
 .image-upload-group {
@@ -4441,6 +4480,44 @@ input[type="submit"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Header and control columns of the settings tables that js/settings.js builds. Two classes
+   outrank `.chip-grouping-table th` and `.chip-grouping-table td`. */
+.chip-grouping-table .chip-grouping-head {
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  opacity: 0.6;
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.chip-grouping-table .chip-grouping-col-check {
+  width: 2rem;
+  text-align: center;
+}
+
+.chip-grouping-table .chip-grouping-col-group {
+  width: 3rem;
+  text-align: center;
+}
+
+.chip-grouping-table .chip-grouping-col-move {
+  width: 3.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.chip-grouping-table .chip-grouping-col-id {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.chip-grouping-table .chip-grouping-group-select {
+  width: auto;
+  min-width: 3.2rem;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.8rem;
 }
 
 .chip-grouping-empty {
@@ -15936,6 +16013,58 @@ input[type="number"] {
 .tag-chip-remove:hover,
 .tag-chip-remove:focus-visible {
   opacity: 1;
+}
+
+/* --- Numista tag blacklist (Settings > API > Numista) -------------------- */
+/* The ids outrank the theme rules on `.tag-chip`: blacklist chips keep one neutral style. */
+#numistaTagSettingsGroup .settings-group {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing);
+}
+.tag-blacklist-input-row {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+#numistaTagBlacklistInput {
+  flex: 1;
+  padding: 0.35rem var(--spacing-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+#numistaTagSettingsGroup .tag-blacklist-add-btn {
+  font-size: 0.85rem;
+}
+#numistaTagBlacklistList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+#numistaTagBlacklistList .settings-subtext {
+  font-size: 0.8rem;
+}
+#numistaTagBlacklistList .tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-lg);
+  font-size: 0.8rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+#numistaTagBlacklistList .tag-blacklist-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  color: var(--text-secondary);
 }
 
 /* --- Add tag button ------------------------------------------------------ */
