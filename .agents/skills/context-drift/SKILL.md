@@ -3,14 +3,15 @@ name: context-drift
 description: >-
   Audit a project's in-repo `.context/` foundation docs against source-code truth, and surface
   promotion candidates — recurring patterns/decisions that belong in `.context/` + CLAUDE.md but
-  aren't captured yet. Runs claude-context queries against the factual claims in each `.context/`
+  aren't captured yet. Checks the factual claims in each `.context/`
   doc (infrastructure.md, architecture.md, coding-standards.md, design-philosophy.md,
-  reusable-patterns.md, plus any project extras) and flags mismatches. Report-only by default;
+  reusable-patterns.md, plus any project extras) against the source with grep and direct reads,
+  and flags mismatches. Report-only by default;
   fixes are user-gated and land via worktree + PR (the repo's branch policy). Supersedes
   `/vault-drift` for projects migrated to `.context/` (DEVS-37). Triggers: "context drift", "vault drift", "drift audit", "drift check",
   "context-drift", "audit .context", "check context docs", "foundation drift", "verify foundation",
   "what should be in .context".
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # Context Drift
@@ -64,19 +65,9 @@ Classify each `.context/*.md`:
 
 If `.claude/project-conventions.json` exists, it's a **frozen snapshot** of release-hygiene facts (test framework and command, version lock, changelog) from the retired SpecFlow MCP. Cross-check it against source alongside the docs. When it disagrees with source, report the JSON as the stale side and offer to update it by hand. If it's absent, skip this step.
 
-## Phase 2: Index freshness
+## Phase 2: Dispatch the drift-audit agent
 
-```
-mcp__claude-context__get_indexing_status(path="/Volumes/DATA/GitHub/{project}")
-```
-
-If `Last updated` > 7 days old, warn and offer `index_codebase(path=..., force=true)`. Do not block
-on completion — searches return partial results; note the index state in the report. A stale index
-produces confident wrong answers, so flag it loudly if reindex was declined.
-
-## Phase 3: Dispatch the drift-audit agent
-
-The audit is heavy (multiple CC queries per doc). Dispatch one general-purpose agent in isolation
+The audit is heavy (several searches per doc). Dispatch one general-purpose agent in isolation
 to keep the main context clean.
 
 ### Audit agent prompt template
@@ -84,15 +75,14 @@ to keep the main context clean.
 ```
 CONTEXT DRIFT AUDIT — {project}
 
-Compare factual claims in the .context/ foundation docs against actual source-code truth using
-claude-context semantic search. Flag every discrepancy. Do NOT trust the docs — they are what
-we're testing.
+Compare factual claims in the .context/ foundation docs against actual source-code truth. Flag
+every discrepancy. Do NOT trust the docs — they are what we're testing.
 
 ## Setup
 - Repo: /Volumes/DATA/GitHub/{project}/
 - Docs: /Volumes/DATA/GitHub/{project}/.context/*.md
-- Use mcp__claude-context__search_code against the repo path for truth.
-- Use Grep/Read as a verification pass, not the entry point.
+- Find the truth with Grep and Glob on the identifiers, paths and values each claim names, then Read
+  the hits. Search for synonyms when the literal name returns nothing.
 
 ## For each .context/ doc (skip GLOSSARY.md and unpopulated stubs)
 1. Read the doc.
@@ -100,7 +90,7 @@ we're testing.
    (module/dir locations) · function/symbol names (exports, constants, interfaces) · commands
    (scripts, build/test invocations) · URLs/endpoints · schema (env vars, table/column names) ·
    version numbers · issue prefix / branch policy.
-3. For each claim run a CC query (or targeted Grep) to locate the source truth.
+3. For each claim run a targeted Grep (or Glob for paths) to locate the source truth.
 4. Compare claim vs truth.
 
 ## Output per doc
@@ -120,12 +110,12 @@ Plus: total claims checked, per-doc health %.
 
 Run with `run_in_background: true` for large projects; await for small ones.
 
-## Phase 3b: Promotion-candidate scan (skip if `--no-promote`)
+## Phase 2b: Promotion-candidate scan (skip if `--no-promote`)
 
 Separate, lighter pass — what *should* be in `.context/` but isn't. Sources of signal:
 
 - **Code reality not documented** — a `lib/` module, a shared helper, a config constant, an env
-  var, a hook, or a CI gate that no `.context/` doc mentions. Query CC / Grep for high-fan-in
+  var, a hook, or a CI gate that no `.context/` doc mentions. Grep for high-fan-in
   symbols and config files, cross-check against doc contents.
 - **Recurring gotchas** — search the repo for `// HACK`, `// NOTE`, `# gotcha`, workaround comments,
   and `.github/` CI config that encode rules not in `coding-standards.md`.
@@ -138,7 +128,7 @@ Output each candidate as: *what* (the fact), *where it should live* (`.context/<
 whether CLAUDE.md should point at it), *evidence* (file:line / session ref). **Suggestions only** —
 never auto-write.
 
-## Phase 4: Write the report
+## Phase 3: Write the report
 
 Write to the project's **private companion** in the shared vault. This keeps dated audit history out of the code repo (no PR churn) and out of public repos:
 
@@ -156,10 +146,10 @@ tags: [drift, audit, context, {project}]
 ---
 ```
 
-Body: the audit agent's per-doc output + the priority fix list + the promotion candidates +
-index state. Commit it to the shared vault with `/vault-sweep` (a direct commit to Devops `main`, scoped to `DocVault/`), or mention the pending file.
+Body: the audit agent's per-doc output + the priority fix list + the promotion candidates.
+Commit it to the shared vault with `/vault-sweep` (a direct commit to Devops `main`, scoped to `DocVault/`), or mention the pending file.
 
-## Phase 5: Present findings
+## Phase 4: Present findings
 
 ```
 ## {project} Context Drift — {YYYY-MM-DD}
@@ -168,7 +158,6 @@ index state. Commit it to the shared vault with `/vault-sweep` (a direct commit 
 Drift: X CRITICAL, Y MODERATE, Z MINOR
 Needs fill (stubs): [list or none]
 Promotion candidates: P  (top: "...")
-Index: fresh / stale
 
 CRITICAL drift:
 - {doc}: "{claim}" -> actual "{truth}" ({file:line})
@@ -178,7 +167,7 @@ Report: $(vault-path private)/drift-reports/{date}-context.md
 Fix drift now? Add promotion candidates? [drift / promote / both / no]
 ```
 
-## Phase 6: Apply fixes (user-gated)
+## Phase 5: Apply fixes (user-gated)
 
 `.context/` lives in the **project repo**, which is branch-protected. Fixes therefore go through the
 repo's normal branch policy — **NOT** a direct commit.
@@ -193,14 +182,13 @@ repo's normal branch policy — **NOT** a direct commit.
 5. Commit signed, `chore:` (docs-only — no version bump), open a PR per project policy.
 6. Report the PR URL. Do not merge — hand off to `/pr-resolve`.
 
-## Phase 7: Final summary
+## Phase 6: Final summary
 
 ```
 ## Context Drift Complete — {project}
 Report: $(vault-path private)/drift-reports/{date}-context.md
 Fixes: PR <url> ({N} docs) — or "report-only, no fixes"
 Foundation health: {before %} -> {after %}
-Index: fresh / reindex suggested
 ```
 
 ## Rules
@@ -210,10 +198,9 @@ Index: fresh / reindex suggested
   user says the code is wrong).
 - **Fixes go through the repo's branch policy** — worktree + PR, signed, `chore:`. Never a direct
   push. Respect each project's default branch.
-- **Verify index freshness first.** A stale index produces confident wrong answers.
 - **Factual mismatches only.** Don't flag stylistic/wording differences as drift.
 - **Promotion candidates are suggestions.** Surface evidence; let the user decide. Never auto-add.
-- **UNVERIFIABLE is a real verdict.** CC returns nothing for a claim → the doc may be describing a
+- **UNVERIFIABLE is a real verdict.** Grep finds nothing for a claim → the doc may be describing a
   removed feature. Note it.
 
 ## What this skill does NOT do

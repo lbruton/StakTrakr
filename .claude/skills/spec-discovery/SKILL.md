@@ -4,10 +4,9 @@ description: "Spec Phase 2 — research the codebase + prior art into discovery.
 user-invocable: true
 allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep, Workflow, ToolSearch,
-  mcp__claude-context__search_code,
   mcp__context7__resolve-library-id,
   mcp__brave-search__brave_web_search
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # /spec-discovery ISSUE
@@ -31,9 +30,8 @@ Read **`.claude/skills/spec/references/conventions.md`** and the project's **`.c
 1. **Resolve the spec folder** per conventions.md. Read `requirements.md` first — it's the input.
 2. **Unreconciled-marks PRE-CHECK** (per conventions.md): scan `requirements.md` for reviewer marks outside `## Review Archive`. If any exist, STOP: "requirements has not been reconciled — run `/spec-reconcile {ISSUE-ID} requirements` first." Do not research on top of un-reconciled review.
 3. **Research sweep — four read-only angles.**
-   Dispatch them as a read-only Workflow fan-out. This is pure read work across independent angles, so it's the canonical Workflow use. Run the four angles as parallel agents, each returning structured findings:
+   Dispatch them as a read-only Workflow fan-out. This is pure read work across independent angles, so it's the canonical Workflow use. Run the three angles as parallel agents, each returning structured findings:
    - **Structural** — Grep/Glob for affected modules, callers, dependencies. Grep each candidate identifier repo-wide and read the hits; that is the exhaustive path to a call list.
-   - **Semantic** — claude-context `search_code` for the feature domain, reusable patterns, integration points.
    - **Prior decisions** — mem0 (and sessionflow if useful) for past choices on this area. Record exact query strings.
    - **External** — context7 / Brave for libraries, RFCs, platform docs — only if the work involves them.
 

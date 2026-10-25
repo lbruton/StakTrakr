@@ -2,7 +2,7 @@
 name: spec-tasks
 description: "Spec Phase 4 — break approach into a TDD sprint-cohort checklist in tasks.md. Standalone, ISSUE-first. Reads universal + per-project conventions and the tasks template."
 user-invocable: true
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # /spec-tasks ISSUE

@@ -8,7 +8,7 @@ description: >
   Triggers on "/discover", "/brainstorm", "research this issue", "explore this
   before we spec it".
 user-invocable: true
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # Discover — Phase 1 Structured Brainstorm
@@ -67,8 +67,8 @@ Glob `{specs-root}/{ISSUE-ID}-*/` (ignore `archive/`), where `{specs-root}` is `
 
 Steps 1–3 are pure read work across independent angles — the canonical use for the `Workflow` orchestration tool. When the research surface is broad (multiple subsystems, prior art *and* external docs *and* mem0 history), dispatch the sweep as a **`Workflow` fan-out**: one parallel agent per angle —
 
-1. **Prior context** — mem0 + the project and shared vaults (claude-context).
-2. **Codebase impact** — claude-context semantic + Grep/Glob structural.
+1. **Prior context** — mem0 + sessionflow + the project and shared vaults (Grep).
+2. **Codebase impact** — Grep/Glob structural, plus the `Explore` subagent for broad sweeps.
 3. **External** — context7 + Brave (only if libraries/APIs/platform features are involved).
 
 Each agent returns structured findings; **you** synthesize them into the Discovery Brief — do not let an agent write the brief. **Record every query string used** (they become Step 6 Context Pointers so future sessions re-hydrate deterministically). For a narrow issue where one or two angles obviously suffice, skip the Workflow and run the searches inline below — match the fan-out to the surface area.
@@ -89,42 +89,40 @@ search_memories
 ```
 
 ### Vault search
-Search both: the project vault (in-repo, so the repo index covers it) and the shared vault.
+Search both the project vault and the shared vault. Grep for the key terms and their synonyms, then
+Read the hits.
 ```
-mcp__claude-context__search_code
-  query: "{topic}"
-  path: "<repo root>"            # includes <repo>/DocVault/
-mcp__claude-context__search_code
-  query: "{topic}"
-  path: "/Volumes/DATA/GitHub/Devops"   # shared vault lives in Devops/DocVault/
+Grep  pattern: "{term|synonym}"  path: "$PROJECT_VAULT"   output_mode: "files_with_matches"  -i: true
+Grep  pattern: "{term|synonym}"  path: "$SHARED_VAULT"    output_mode: "files_with_matches"  -i: true
+```
+
+### Session history
+```
+mcp__sessionflow__search_all_sessions
+  query: "{issue title} {key terms}"
+  project_root: "<repo root>"
+  n: 5
+  sort_by: "hybrid"
 ```
 
 Present any relevant past decisions, related work, or prior discussions.
 
-**Track for Step 6:** the exact query strings used (mem0 + claude-context) and any Research Brief / KB / Foundation page hits — these become the Context Pointers list.
+**Track for Step 6:** the exact query strings and patterns used (mem0, sessionflow, vault Grep) and any Research Brief / KB / Foundation page hits — these become the Context Pointers list.
 
 ---
 
 ## Step 2: Codebase Impact Research
 
-Run the codebase search tier protocol (minimum tiers 1-2):
-
-### Tier 1: Claude-Context — Semantic
-```
-mcp__claude-context__search_code
-  query: "{feature domain}"
-```
-
-Run 2-3 queries covering:
+Cover three areas:
 1. The feature/domain being planned
 2. Existing patterns that should be reused
 3. Integration points and dependencies
 
-### Tier 2: Grep/Glob — Structural and literal
-Take the identifiers Tier 1 surfaced and grep each one repo-wide to find every call site,
-import, and reference. Also use Grep directly for specific identifiers, storage keys, and
-constants you already know the name of. Semantic search ranks by similarity and will not
-return all N references — Grep is what makes the impact list exhaustive.
+### Tier 1: Grep/Glob — Structural and literal
+Grep the domain terms, their synonyms and the identifiers, storage keys and constants you already
+know the name of. Grep each identifier the hits surface repo-wide to find every call site, import
+and reference. Grep is what makes the impact list exhaustive.
+
 
 ### Produce Impact Summary
 

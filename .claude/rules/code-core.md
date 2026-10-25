@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # Code-core rules
@@ -155,15 +155,16 @@ to local memory, not mem0. Durable foundations go to `.context/`.
 
 ## Code search order (cheapest first)
 
-- `claude-context`: semantic, "find code related to X".
 - Native harness search: grep and glob for exact identifiers, filenames and call sites.
 - Read the source directly.
 - The `Explore` subagent: broad fan-out when the answer spans many files and you need only the
    conclusion, not the file dumps.
+- `mcp__sessionflow__search_all_sessions`: where code was discussed or changed in past sessions.
 
 Structural questions (callers, call chains, imports, dead code) are answered by grepping the identifier
-across the repo and reading the hits, not by a graph index. `code-graph-context` is retired and its
-`mcp__code-graph-context__*` tools do not exist: do not re-add or call it.
+across the repo and reading the hits, not by a graph index. `code-graph-context` and `claude-context`
+are retired. Their `mcp__code-graph-context__*` and `mcp__claude-context__*` tools do not exist: do not
+re-add or call them.
 
 ## MCP servers
 
@@ -171,7 +172,6 @@ across the repo and reading the hits, not by a graph index. `code-graph-context`
 |---|---|
 | `mem0` (hosted connector) | Cross-session memory, sole backend |
 | `sessionflow` | Session history search: semantic retrieval over past conversation turns |
-| `claude-context` | Semantic code search |
 | `context7` | Library documentation lookup |
 | `chrome-devtools` | Browser-page inspection and debugging |
 | `infisical` | Secret inventory; fallback only, use the `infisical-agent` CLI first |

@@ -3,9 +3,8 @@ name: spec-approach
 description: "Spec Phase 3 — architecture, key decisions, file map (+ UI Contract) into approach.md. Standalone, ISSUE-first. Reads universal + per-project conventions."
 user-invocable: true
 allowed-tools: >-
-  Bash, Read, Write, Edit, Glob, Grep,
-  mcp__claude-context__search_code
-library-version: 3d109ab6d1d5
+  Bash, Read, Write, Edit, Glob, Grep
+library-version: b9ae376f5f2b
 ---
 
 # /spec-approach ISSUE

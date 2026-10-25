@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: Codacy
   version: 1.6.1
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # Codacy Cloud CLI
