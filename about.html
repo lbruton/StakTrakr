@@ -6,7 +6,7 @@
     <title>StakTrakr — Track Your Precious Metals Stack</title>
     <meta
       name="description"
-      content="Free, open-source, privacy-first precious metals portfolio tracker. Live spot prices, market comparison, cloud sync. No account required."
+      content="Free, open-source, privacy-first precious metals portfolio tracker. Live spot prices, market comparison, coin Collections, encrypted cloud sync. No account required."
     />
     <style>
       /* ========================================================================
@@ -275,6 +275,10 @@
       }
 
       /* ---- API section ---- */
+      .api-table-wrap {
+        overflow-x: auto;
+      }
+
       .api-table {
         width: 100%;
         border-collapse: collapse;
@@ -497,9 +501,9 @@
         <div class="hero-logo">Stak<span class="accent">Trakr</span></div>
         <p class="hero-tagline">Track your precious metals stack. Your way.</p>
         <p class="hero-sub">
-          A free, open-source portfolio tracker for Silver, Gold, Platinum, Palladium, and
-          Goldbacks. Live spot prices, real-time market comparison, and encrypted cloud sync &mdash;
-          all running in your browser with zero data collection.
+          A free, open-source portfolio tracker for Silver, Gold, Platinum, Palladium, Copper and
+          Goldbacks. Live spot prices, dealer price comparison, coin Collections and encrypted cloud
+          sync. It runs in your browser and collects no data.
         </p>
         <div class="hero-buttons">
           <a href="https://www.staktrakr.com" class="btn btn-primary">Open StakTrakr</a>
@@ -507,7 +511,7 @@
         </div>
         <img
           src="./screenshots/01-hero-overview.png"
-          alt="StakTrakr dashboard showing spot prices, market ticker, and portfolio summary"
+          alt="StakTrakr dashboard with five spot price cards, the Best Price Ticker and per-metal totals"
           class="screenshot"
           style="margin-top: 2.5rem; max-width: 900px; margin-left: auto; margin-right: auto"
         />
@@ -563,10 +567,10 @@
     <!-- ================================================================== -->
     <section>
       <div class="container">
-        <h2>Live Market Prices <span class="badge badge-new">New in v3.33</span></h2>
+        <h2>Live Market Prices</h2>
         <p style="color: var(--text-secondary); margin-bottom: 1.5rem">
-          StakTrakr doesn't just track spot &mdash; it scrapes real prices from major bullion
-          dealers hourly and shows you exactly where the deals are.
+          Beyond spot, StakTrakr collects retail prices from major bullion dealers every hour and
+          shows which dealer sells each coin for the least.
         </p>
         <div class="feature-grid">
           <div class="feature-card">
@@ -586,15 +590,15 @@
           <div class="feature-card">
             <h3>Market Detail Charts</h3>
             <p>
-              Click any coin for a TradingView-powered chart with 7-day spot history and per-vendor
-              price lines overlaid.
+              Click any coin for a TradingView Lightweight Chart of spot history with one price line
+              per vendor. It also shows Median, Low, High and Spread for the chosen period.
             </p>
           </div>
           <div class="feature-card">
-            <h3>7-Day Trend Cards</h3>
+            <h3>Trend Cards</h3>
             <p>
-              Full-width cards with inline trend charts, brand-colored vendor chips, medal rankings,
-              and MED/LOW/AVG stats.
+              One card per coin with an inline trend chart and brand-coloured vendor chips. Hide any
+              coin or vendor you do not buy from in Settings &gt; Market.
             </p>
           </div>
         </div>
@@ -605,7 +609,7 @@
           style="margin-top: 1.5rem"
         />
         <p class="screenshot-caption">
-          Best Price Ticker &mdash; scrolling strip with cheapest vendor per coin
+          Best Price Ticker: a scrolling strip with the cheapest vendor per coin
         </p>
         <img
           src="./screenshots/04-vendor-prices.png"
@@ -613,13 +617,98 @@
           class="screenshot"
         />
         <p class="screenshot-caption">
-          Vendor Price Matrix &mdash; side-by-side dealer comparison with buy links
+          Vendor Price Matrix: side-by-side dealer comparison with buy links
+        </p>
+        <img
+          src="./screenshots/11-market-detail-modal.png"
+          alt="Market detail chart for the American Silver Eagle with one price line per vendor"
+          class="screenshot"
+        />
+        <p class="screenshot-caption">
+          Market detail chart: spot history with one price line per vendor
         </p>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1.25rem">
           Market price data is provided on a best-effort basis. Prices are scraped from public
           vendor pages hourly and may not reflect real-time changes, flash sales, or volume
           discounts. Always verify pricing directly with the dealer before purchasing.
         </p>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- FEATURES: COLLECTIONS                                              -->
+    <!-- ================================================================== -->
+    <section id="collections">
+      <div class="container">
+        <h2>Collections</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+          A Collection is a digital coin album over your inventory. Each Slot is one coin in the
+          series, and you link the Item you own to fill it. Your Items stay where they are: a Slot
+          only points at them.
+        </p>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Series Templates</h3>
+            <p>
+              Prebuilt date runs for the American Silver Eagle (Type 1 and Type 2) with mintages,
+              specifications and stock images for every Slot.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Custom Collections</h3>
+            <p>
+              Build your own from scratch or clone a template. Add, insert and reorder Slots, set a
+              mintage and a note for each, and choose obverse and reverse title images.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Album and Ledger</h3>
+            <p>
+              Browse a Collection as a coin album or as a sortable ledger. The ledger shows paid,
+              melt and retail value with gain or loss for every owned Slot.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Cost to Complete</h3>
+            <p>
+              Missing Slots are priced at the best current dealer price, shown as a floor estimate.
+              Key dates carry premiums above that floor.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Image Shapes</h3>
+            <p>
+              Round, Bar, Note or Slab frames, with portrait or landscape for Bars and Notes. Items
+              and Custom Collections share one image editor.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Your Order, Your Choice</h3>
+            <p>
+              Order the Collections hub, hide empty Collections and edit links from the Collections
+              tab in Settings.
+            </p>
+          </div>
+        </div>
+        <img
+          src="./screenshots/12-collections-album.png"
+          alt="American Silver Eagle Type 1 Collection in Album view with owned and missing Slots"
+          class="screenshot"
+          style="margin-top: 1.5rem"
+        />
+        <p class="screenshot-caption">
+          Album view: owned Slots show your Item, missing Slots show the best dealer price
+        </p>
+        <div class="screenshot-grid">
+          <img
+            src="./screenshots/13-collections-ledger.png"
+            alt="Collection Ledger view with mintage, paid, melt, retail and gain or loss per Slot"
+          />
+          <img
+            src="./screenshots/14-collection-builder.png"
+            alt="Clone and customize dialog with title images, image shape picker and editable Slots"
+          />
+        </div>
       </div>
     </section>
 
@@ -659,28 +748,50 @@
             </p>
           </div>
           <div class="feature-card">
-            <h3>Four Card Styles + Table</h3>
+            <h3>Three Card Styles + Table</h3>
             <p>
               Sparkline header, full-bleed overlay, split card, or accessible table layout.
               Multi-column sorting. Toggle with one click.
             </p>
           </div>
           <div class="feature-card">
-            <h3>Goldback Support</h3>
+            <h3>Goldbacks and Junk Silver</h3>
             <p>
-              Full denomination-aware pricing for G&frac12; through G50 across multiple state series
-              with live estimation.
+              Denomination-aware Goldback pricing from &frac14; to 100. Constitutional silver (90%,
+              40% and 35%) leads with face value and prices the actual silver weight.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Metal Detail View</h3>
+            <p>
+              Click a metal total for its cost basis, melt, retail and realized gain. The chart
+              marks your buys and sales, and the Acquisitions ledger follows the chosen range.
+            </p>
+          </div>
+          <div class="feature-card">
+            <h3>Metal Ratios</h3>
+            <p>
+              Gold:Silver, Gold:Platinum, Gold:Palladium, Platinum:Palladium and Silver:Copper, each
+              with a 52-week range and history. Gold:Silver goes back to 1968.
             </p>
           </div>
         </div>
         <div class="screenshot-grid">
           <img
             src="./screenshots/03-inventory-table.png"
-            alt="Inventory table with coin images, chip badges, and vendor prices"
+            alt="Inventory table with coin images, filter chips and melt, retail and gain or loss"
           />
           <img
             src="./screenshots/06-item-view-modal.png"
-            alt="Item view modal showing Canadian Gold Maple with price history chart"
+            alt="Item view modal with images, details and a price history chart"
+          />
+          <img
+            src="./screenshots/15-metal-detail-modal.png"
+            alt="Silver detail view with cost basis, a chart of acquisitions and an Acquisitions ledger"
+          />
+          <img
+            src="./screenshots/16-ratios-panel.png"
+            alt="Metal Ratios panel showing the Gold to Silver ratio, its 52-week range and history"
           />
         </div>
       </div>
@@ -700,7 +811,7 @@
           <div class="feature-card">
             <h3>Zero-Knowledge Encryption</h3>
             <p>
-              AES-256-GCM with PBKDF2-SHA256 (100k iterations) via the Web Crypto API. Your cloud
+              AES-256-GCM with PBKDF2-SHA256 (600,000 iterations) via the Web Crypto API. Your cloud
               provider receives only ciphertext.
             </p>
           </div>
@@ -719,22 +830,12 @@
             </p>
           </div>
           <div class="feature-card">
-            <h3>Dropbox Today, More Coming</h3>
+            <h3>Dropbox, With Backups</h3>
             <p>
-              Dropbox via OAuth PKCE with multi-account support. Google Drive, OneDrive, pCloud, and
-              Box are on the roadmap.
+              Dropbox via OAuth PKCE with several accounts. Each sync keeps a restorable backup of
+              what it replaced, and encrypted backups include your pattern images.
             </p>
           </div>
-        </div>
-        <div class="screenshot-grid">
-          <img
-            src="./screenshots/07-settings-about.png"
-            alt="Settings modal About tab showing version info and What's New"
-          />
-          <img
-            src="./screenshots/08-settings-appearance.png"
-            alt="Settings Appearance tab with theme selector and header button configuration"
-          />
         </div>
       </div>
     </section>
@@ -749,73 +850,83 @@
           StakTrakr works fully out of the box with its bundled free API. Two optional integrations
           can enhance the experience &mdash; both are free and completely optional.
         </p>
-        <table class="api-table">
-          <thead>
-            <tr>
-              <th>Integration</th>
-              <th>What It Does</th>
-              <th>Key</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>StakTrakr API</strong></td>
-              <td>
-                Live spot prices and retail market data from major dealers. Powers spot cards,
-                sparklines, ticker, and vendor comparison.
-              </td>
-              <td><span class="badge badge-free">Bundled</span></td>
-            </tr>
-            <tr>
-              <td><strong>Numista</strong></td>
-              <td>
-                Coin catalog search, automatic image population, composition/weight/series metadata
-                sync, and tag import. Dramatically enriches your inventory.
-              </td>
-              <td><span class="badge badge-optional">Optional</span></td>
-            </tr>
-            <tr>
-              <td><strong>PCGS CoinFacts</strong></td>
-              <td>
-                PCGS number lookup and cert verification for graded coins. One-click verification
-                badges in the inventory table.
-              </td>
-              <td><span class="badge badge-optional">Optional</span></td>
-            </tr>
-            <tr>
-              <td><strong>Metals.dev</strong></td>
-              <td>
-                Higher-frequency spot price updates (15-min intervals). Add as a secondary provider
-                in Settings for faster refresh.
-              </td>
-              <td><span class="badge badge-optional">Optional</span></td>
-            </tr>
-            <tr>
-              <td><strong>MetalPriceAPI</strong></td>
-              <td>
-                Alternative spot price provider with broad metal coverage. Configurable as primary
-                or fallback in the provider priority chain.
-              </td>
-              <td><span class="badge badge-optional">Optional</span></td>
-            </tr>
-            <tr>
-              <td><strong>Metals-API</strong></td>
-              <td>
-                Another spot price source option. Supports gold, silver, platinum, and palladium
-                with historical lookups.
-              </td>
-              <td><span class="badge badge-optional">Optional</span></td>
-            </tr>
-            <tr>
-              <td><strong>Custom API</strong></td>
-              <td>
-                Bring your own spot price endpoint. Point StakTrakr at any JSON API that returns
-                metal prices in your preferred format.
-              </td>
-              <td><span class="badge badge-optional">Optional</span></td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="api-table-wrap">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Integration</th>
+                <th>What It Does</th>
+                <th>Key</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>StakTrakr API</strong></td>
+                <td>
+                  Live spot prices and retail market data from major dealers. Powers spot cards,
+                  sparklines, ticker, and vendor comparison.
+                </td>
+                <td><span class="badge badge-free">Bundled</span></td>
+              </tr>
+              <tr>
+                <td><strong>Numista</strong></td>
+                <td>
+                  Coin catalog search, automatic image population, composition/weight/series
+                  metadata sync, and tag import. Dramatically enriches your inventory.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+              <tr>
+                <td><strong>PCGS CoinFacts</strong></td>
+                <td>
+                  PCGS number lookup and cert verification for graded coins. One-click verification
+                  badges in the inventory table.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+              <tr>
+                <td><strong>Metals.dev</strong></td>
+                <td>
+                  Higher-frequency spot price updates (15-min intervals). Add as a secondary
+                  provider in Settings for faster refresh.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+              <tr>
+                <td><strong>MetalPriceAPI</strong></td>
+                <td>
+                  Alternative spot price provider with broad metal coverage. Configurable as primary
+                  or fallback in the provider priority chain.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+              <tr>
+                <td><strong>Metals-API</strong></td>
+                <td>
+                  Another spot price source option. Supports gold, silver, platinum, and palladium
+                  with historical lookups.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+              <tr>
+                <td><strong>Gold API</strong></td>
+                <td>
+                  Keyless spot price source for all five metals, with an optional key. Add it to the
+                  provider priority chain in Settings.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+              <tr>
+                <td><strong>Custom API</strong></td>
+                <td>
+                  Bring your own spot price endpoint. Point StakTrakr at any JSON API that returns
+                  metal prices in your preferred format.
+                </td>
+                <td><span class="badge badge-optional">Optional</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem">
           Numista keys are free at <a href="https://en.numista.com/api/">numista.com/api</a>. PCGS
           keys are free at <a href="https://www.pcgs.com/coinfacts">pcgs.com/coinfacts</a>.
@@ -908,10 +1019,9 @@
         <h2>Thank You</h2>
         <div class="shoutout">
           <p>
-            To the beta testers who stuck with the project through the cloud sync saga, the market
-            page rewrites, and the occasional "why is my inventory empty" moment &mdash; your
-            patience and detailed bug reports are the reason v3.33 is as solid as it is. This one's
-            for you.
+            Thank you to the beta testers who stayed through the cloud sync saga, the market page
+            rewrites and the odd "why is my inventory empty" moment. Your patience and detailed bug
+            reports are the reason StakTrakr is as solid as it is.
           </p>
           <p>
             Join us on <a href="https://www.reddit.com/r/staktrakr/">r/staktrakr</a> for updates,

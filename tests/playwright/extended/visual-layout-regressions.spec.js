@@ -25,6 +25,13 @@ test.describe("extended/visual-layout-regressions", () => {
     await expect(page.locator(".pillar")).toHaveCount(4);
     expect(await page.locator(".api-table tbody tr").count()).toBeGreaterThan(2);
     await expect(page.locator("footer a")).toHaveCount(5);
+    await expect(page.locator("section#collections h2")).toHaveText("Collections");
+    expect(await page.locator("body").innerText()).not.toMatch(/\bv\d+\.\d+/);
+    const images = page.locator("img.screenshot, .screenshot-grid img");
+    for (const img of await images.all()) {
+      await img.scrollIntoViewIfNeeded();
+      expect(await img.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+    }
   });
 
   test("log/changelog tabs retain renamed labels and order", async ({ page }) => {
