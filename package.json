@@ -28,7 +28,7 @@
     "*.{js,mjs,cjs}": "eslint --no-warn-ignored"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
     "acorn": "^8.19.0",
     "eslint": "^9.39.5",
