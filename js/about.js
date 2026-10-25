@@ -134,11 +134,12 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.72 &ndash; STRK-454: Market styling cleanup</strong>: The price ticker, the Market block and the retail price window take their layout and type styles from the app stylesheet instead of from inline code. They look the same in every theme and on phones, and future design changes reach them in one place (STRK-454).</li>
     <li><strong>v3.36.71 &ndash; STRK-454: Settings styling cleanup</strong>: The Chips and Numista pattern tables, the Images lists, the pattern rule editor and the Numista tag blacklist in Settings take their layout and type styles from the app stylesheet instead of from inline code. They look the same in every theme and on phones, and future design changes reach them in one place (STRK-454).</li>
     <li><strong>v3.36.70 &ndash; STRK-454: Sync review window styling cleanup</strong>: The window that reviews sync and import changes takes its layout and type styles from the app stylesheet instead of from inline code. It looks the same in every theme and on phones, and future design changes reach it in one place (STRK-454).</li>
     <li><strong>v3.36.69 &ndash; STRK-453: Card chart tooltips follow the theme</strong>: The price chart on an Item card draws its grid in the theme's border color, and its tooltip uses the theme's surface and text colors, the same as the chart in the Item window. Switching the theme recolors both (STRK-453).</li>
     <li><strong>v3.36.68 &ndash; STRK-455: Borders and hover colors follow the theme</strong>: Borders, hover highlights and focus rings in Settings, the retail price window, the Market filters, Numista lookup, bulk edit and the inventory table take their colors from the active theme. Several of them drew no border or no hover color, or kept a light-theme gray in dark, slate and sepia. The delete icon in the inventory table is red again, and the Market sync button text uses the readable success color (STRK-455).</li>
-    <li><strong>v3.36.67 &ndash; STRK-468: Slot notes stay open</strong>: A Slot note you open in a Collection stays open while prices refresh in the background. A spot, retail or Goldback update or a currency change no longer closes it while you read. Escape or a click elsewhere still closes it (STRK-468).</li>      `;
+      `;
 };
 
 // Expose globally for access from other modules
