@@ -2129,7 +2129,7 @@ const renderFilterChipCategoryTable = () => {
   ["", "Category", "Group", ""].forEach((text) => {
     const th = document.createElement("th");
     th.textContent = text;
-    th.style.cssText = "font-size:0.75rem;font-weight:normal;opacity:0.6;padding:0.2rem 0.4rem";
+    th.className = "chip-grouping-head";
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -2143,7 +2143,7 @@ const renderFilterChipCategoryTable = () => {
 
     // Checkbox cell
     const tdCheck = document.createElement("td");
-    tdCheck.style.cssText = "width:2rem;text-align:center";
+    tdCheck.className = "chip-grouping-col-check";
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = cat.enabled;
@@ -2166,12 +2166,10 @@ const renderFilterChipCategoryTable = () => {
 
     // Group dropdown cell
     const tdGroup = document.createElement("td");
-    tdGroup.style.cssText = "width:3rem;text-align:center";
+    tdGroup.className = "chip-grouping-col-group";
     const groupSelect = document.createElement("select");
-    groupSelect.className = "control-select";
+    groupSelect.className = "control-select chip-grouping-group-select";
     groupSelect.title = "Merge group — same letter = chips sort together";
-    groupSelect.style.cssText =
-      "width:auto;min-width:3.2rem;padding:0.15rem 0.3rem;font-size:0.8rem";
     const groupOptions = ["\u2014", "A", "B", "C", "D", "E"];
     groupOptions.forEach((letter) => {
       const opt = document.createElement("option");
@@ -2194,7 +2192,7 @@ const renderFilterChipCategoryTable = () => {
 
     // Arrow buttons cell
     const tdMove = document.createElement("td");
-    tdMove.style.cssText = "width:3.5rem;text-align:right;white-space:nowrap";
+    tdMove.className = "chip-grouping-col-move";
 
     const makeBtn = (dir, disabled) => {
       const btn = document.createElement("button");
@@ -2252,7 +2250,7 @@ const renderCustomRuleTable = () => {
   ["Pattern", "Numista Query", "N#", ""].forEach((text) => {
     const th = document.createElement("th");
     th.textContent = text;
-    th.style.cssText = "font-size:0.75rem;font-weight:normal;opacity:0.6;padding:0.2rem 0.4rem";
+    th.className = "chip-grouping-head";
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -2270,11 +2268,11 @@ const renderCustomRuleTable = () => {
     tdReplacement.textContent = rule.replacement;
 
     const tdId = document.createElement("td");
-    tdId.style.cssText = "font-size:0.85rem;opacity:0.7;white-space:nowrap";
+    tdId.className = "chip-grouping-col-id";
     tdId.textContent = rule.numistaId || "\u2014";
 
     const tdDelete = document.createElement("td");
-    tdDelete.style.cssText = "width:2rem;text-align:center";
+    tdDelete.className = "chip-grouping-col-check";
     const delBtn = document.createElement("button");
     delBtn.type = "button";
     delBtn.className = "inline-chip-move";
@@ -2631,7 +2629,7 @@ const _renderSectionConfigTable = (opts) => {
 
     // Checkbox cell
     const tdCheck = document.createElement("td");
-    tdCheck.style.cssText = "width:2rem;text-align:center";
+    tdCheck.className = "chip-grouping-col-check";
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = section.enabled;
@@ -2657,7 +2655,7 @@ const _renderSectionConfigTable = (opts) => {
 
     // Arrow buttons cell (locked items get none)
     const tdMove = document.createElement("td");
-    tdMove.style.cssText = "width:3.5rem;text-align:right;white-space:nowrap";
+    tdMove.className = "chip-grouping-col-move";
 
     const pos = sortable.indexOf(row);
     if (!section.locked && !opts.noReorder) {
@@ -3240,8 +3238,7 @@ const renderOrphanedPatternImages = async () => {
   const container = safeGetElement("orphanedPatternImages");
   if (!(container instanceof HTMLElement)) return;
 
-  const emptyMsg =
-    '<p style="font-size:0.85em;color:var(--text-secondary)">No orphaned pattern images.</p>';
+  const emptyMsg = '<p class="settings-note">No orphaned pattern images.</p>';
 
   if (typeof NumistaLookup === "undefined" || !window.imageCache?.isAvailable()) {
     container.innerHTML = emptyMsg;
@@ -3270,10 +3267,9 @@ const renderOrphanedPatternImages = async () => {
   container.textContent = "";
 
   const header = document.createElement("div");
-  header.style.cssText =
-    "display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem";
+  header.className = "orphan-images-header";
   const label = document.createElement("span");
-  label.style.cssText = "font-size:0.85em;color:var(--text-secondary)";
+  label.className = "settings-note";
   label.textContent = `${orphans.length} orphaned image${
     orphans.length === 1 ? "" : "s"
   } — no matching rule, safe to delete.`;
@@ -3319,15 +3315,14 @@ const renderCustomPatternRules = async () => {
   if (!container) return;
 
   if (typeof NumistaLookup === "undefined") {
-    container.innerHTML =
-      '<p style="font-size:0.85em;color:var(--text-secondary)">NumistaLookup not available.</p>';
+    container.innerHTML = '<p class="settings-note">NumistaLookup not available.</p>';
     return;
   }
 
   const rules = NumistaLookup.getCustomRules();
   if (!rules.length) {
     container.innerHTML =
-      '<p style="font-size:0.85em;color:var(--text-secondary)">No custom pattern rules yet. Use the form above to add one.</p>';
+      '<p class="settings-note">No custom pattern rules yet. Use the form above to add one.</p>';
     return;
   }
 
@@ -3395,12 +3390,12 @@ const renderCustomPatternRules = async () => {
     editForm.className = "pattern-rule-edit-form";
     editForm.style.display = "none";
     editForm.innerHTML = `
-      <div class="cloud-provider-card" style="margin-top: 0.75rem; padding: 1rem">
+      <div class="cloud-provider-card pattern-rule-edit-card">
         <div class="pattern-rule-form-row">
           <div class="pattern-rule-field">
             <label>
               Name Pattern
-              <div class="chip-sort-toggle pattern-mode-toggle" style="display: inline-flex; margin-left: 0.4rem; vertical-align: middle;">
+              <div class="chip-sort-toggle pattern-mode-toggle">
                 <button type="button" class="chip-sort-btn edit-mode-keywords active" title="Comma or semicolon separated keywords">Keywords</button>
                 <button type="button" class="chip-sort-btn edit-mode-regex" title="Regular expression">Regex</button>
               </div>
@@ -3408,7 +3403,7 @@ const renderCustomPatternRules = async () => {
             <input type="text" class="edit-pattern form-control" value="${sanitizeHtml(rule.pattern)}" placeholder="e.g. morgan, peace, walking liberty" />
           </div>
         </div>
-        <div class="image-upload-sides" style="margin-top: 0.5rem">
+        <div class="image-upload-sides">
           <div class="image-upload-side">
             <span class="image-side-label">Obverse</span>
             <div class="image-card">
@@ -3422,8 +3417,8 @@ const renderCustomPatternRules = async () => {
             </div>
             <span class="image-upload-filename edit-obverse-name"></span>
           </div>
-          <div class="image-swap-wrapper" style="display: flex; align-items: center; padding-top: 1.2rem">
-            <button type="button" class="btn btn-icon edit-swap-btn" title="Swap obverse &amp; reverse" style="font-size: 1.1rem; padding: 0.2rem 0.4rem; line-height: 1">⇄</button>
+          <div class="image-swap-wrapper">
+            <button type="button" class="btn btn-icon edit-swap-btn" title="Swap obverse &amp; reverse">⇄</button>
           </div>
           <div class="image-upload-side">
             <span class="image-side-label">Reverse</span>
@@ -3439,7 +3434,7 @@ const renderCustomPatternRules = async () => {
             <span class="image-upload-filename edit-reverse-name"></span>
           </div>
         </div>
-        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem">
+        <div class="pattern-rule-edit-actions">
           <button type="button" class="btn img-btn img-btn-upload edit-save-btn">Save</button>
           <button type="button" class="btn img-btn img-btn-remove edit-cancel-btn">Cancel</button>
         </div>
@@ -3736,8 +3731,7 @@ const renderUserImageGrid = async () => {
   if (!container) return;
 
   if (!window.imageCache?.isAvailable()) {
-    container.innerHTML =
-      '<p style="font-size:0.85em;color:var(--text-secondary)">IndexedDB unavailable.</p>';
+    container.innerHTML = '<p class="settings-note">IndexedDB unavailable.</p>';
     return;
   }
 
@@ -3745,14 +3739,12 @@ const renderUserImageGrid = async () => {
   try {
     userImages = await imageCache.exportAllUserImages();
   } catch {
-    container.innerHTML =
-      '<p style="font-size:0.85em;color:var(--text-secondary)">Could not load user images.</p>';
+    container.innerHTML = '<p class="settings-note">Could not load user images.</p>';
     return;
   }
 
   if (!userImages?.length) {
-    container.innerHTML =
-      '<p style="font-size:0.85em;color:var(--text-secondary)">No user-uploaded images yet.</p>';
+    container.innerHTML = '<p class="settings-note">No user-uploaded images yet.</p>';
     return;
   }
 
@@ -4250,8 +4242,6 @@ const renderNumistaTagSettings = () => {
   // ── 1. Auto-apply toggle ──────────────────────────────────────────────
   const autoGroup = document.createElement("div");
   autoGroup.className = "settings-group";
-  autoGroup.style.cssText =
-    "margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem;";
 
   const autoLabel = document.createElement("div");
   autoLabel.className = "settings-group-label";
@@ -4301,8 +4291,6 @@ const renderNumistaTagSettings = () => {
   // ── 2. Tag blacklist section ──────────────────────────────────────────
   const blGroup = document.createElement("div");
   blGroup.className = "settings-group";
-  blGroup.style.cssText =
-    "margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem;";
 
   const blLabel = document.createElement("div");
   blLabel.className = "settings-group-label";
@@ -4317,19 +4305,16 @@ const renderNumistaTagSettings = () => {
 
   // Input row
   const inputRow = document.createElement("div");
-  inputRow.style.cssText = "display:flex;gap:0.5rem;margin-bottom:0.5rem;";
+  inputRow.className = "tag-blacklist-input-row";
 
   const tagInput = document.createElement("input");
   tagInput.type = "text";
   tagInput.id = "numistaTagBlacklistInput";
   tagInput.placeholder = "e.g. Circulation";
-  tagInput.style.cssText =
-    "flex:1;padding:0.35rem 0.5rem;border:1px solid var(--border);border-radius:4px;font-size:0.85rem;background:var(--bg);color:var(--text);";
 
   const addBtn = document.createElement("button");
   addBtn.type = "button";
-  addBtn.className = "btn info";
-  addBtn.style.fontSize = "0.85rem";
+  addBtn.className = "btn info tag-blacklist-add-btn";
   addBtn.textContent = "Add";
 
   inputRow.appendChild(tagInput);
@@ -4339,7 +4324,6 @@ const renderNumistaTagSettings = () => {
   // Tag list container
   const tagList = document.createElement("div");
   tagList.id = "numistaTagBlacklistList";
-  tagList.style.cssText = "display:flex;flex-wrap:wrap;gap:0.35rem;";
   blGroup.appendChild(tagList);
 
   container.appendChild(blGroup);
@@ -4352,7 +4336,6 @@ const renderNumistaTagSettings = () => {
     if (blacklist.length === 0) {
       const hint = document.createElement("span");
       hint.className = "settings-subtext";
-      hint.style.fontSize = "0.8rem";
       hint.textContent = "No blacklisted tags.";
       tagList.appendChild(hint);
       return;
@@ -4360,8 +4343,6 @@ const renderNumistaTagSettings = () => {
     for (const tag of blacklist) {
       const chip = document.createElement("span");
       chip.className = "tag-chip";
-      chip.style.cssText =
-        "display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:12px;font-size:0.8rem;background:var(--bg-secondary);color:var(--text);";
 
       const nameSpan = document.createElement("span");
       nameSpan.textContent = sanitizeHtml(tag);
@@ -4371,8 +4352,7 @@ const renderNumistaTagSettings = () => {
       removeBtn.type = "button";
       removeBtn.textContent = "\u00d7";
       removeBtn.title = "Remove from blacklist";
-      removeBtn.style.cssText =
-        "background:none;border:none;cursor:pointer;font-size:1rem;line-height:1;padding:0 0.15rem;color:var(--text-secondary);";
+      removeBtn.className = "tag-blacklist-remove";
       removeBtn.addEventListener("click", () => {
         if (typeof window.removeFromTagBlacklist === "function") {
           window.removeFromTagBlacklist(tag);
