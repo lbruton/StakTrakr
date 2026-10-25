@@ -16,7 +16,7 @@
     5. Empty frames stay visible with a dashed "+" (AC-1.5); Swap appears only when BOTH sides hold an image.
     6. P2: table thumb 28px tall with width clamped to 40px (approved); images use object-fit: contain.
 
-  This file reuses the real css/styles.css (tokens, four themes, .collections-segmented*, .btn.img-btn*).
+  This file reuses the real css/styles.css (tokens, four themes, .segmented*, .btn.img-btn*).
   Only the `.ife*` and mock-chrome rules below are new; the `.ife*` block is what task C.3 ships.
 -->
 <html lang="en" data-theme="dark">
@@ -363,11 +363,11 @@
       .ife-orient[hidden] {
         display: none;
       }
-      .ife .collections-segmented {
+      .ife .segmented {
         flex-wrap: wrap;
         justify-content: center;
       }
-      .ife .collections-segmented-option span {
+      .ife .segmented-option span {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
@@ -414,12 +414,12 @@
           flex-shrink: 0;
           justify-content: center;
         }
-        .ife .collections-segmented-option span {
+        .ife .segmented-option span {
           min-height: 44px; /* 44px touch target (design philosophy) */
           padding: 0.4rem 0.6rem;
           box-sizing: border-box;
         }
-        .ife .collections-segmented-option {
+        .ife .segmented-option {
           flex: 1 1 auto;
         }
         .ife-remove {
@@ -447,13 +447,13 @@
       /* Narrow phones: orientation options become icon-only (text stays for assistive tech)
          so the two-option pill never wraps into two rows. */
       @media (max-width: 560px) {
-        .ife-orient .collections-segmented-option span {
+        .ife-orient .segmented-option span {
           font-size: 0;
           gap: 0;
           min-width: 44px;
           justify-content: center;
         }
-        .ife-orient .collections-segmented-option span svg {
+        .ife-orient .segmented-option span svg {
           width: 20px;
           height: 20px;
         }
@@ -749,10 +749,10 @@
             }
             <div class="ife-shape">
               <span class="ife-cap" id="cap-shape-${uid}">Image shape</span>
-              <div class="collections-segmented" role="radiogroup" aria-labelledby="cap-shape-${uid}">
+              <div class="segmented" role="radiogroup" aria-labelledby="cap-shape-${uid}">
                 ${SHAPES.map(
                   ([v, l, ic]) =>
-                    `<label class="collections-segmented-option"><input type="radio" name="shape-${uid}" value="${v}" /><span>${ICON(ic)}${l}</span></label>`
+                    `<label class="segmented-option"><input type="radio" name="shape-${uid}" value="${v}" /><span>${ICON(ic)}${l}</span></label>`
                 ).join("")}
               </div>
             </div>
@@ -782,11 +782,11 @@
             </div>
             <div class="ife-orient" hidden>
               <span class="ife-cap" id="cap-${k}-${uid}">${label} orientation</span>
-              <div class="collections-segmented" role="radiogroup" aria-labelledby="cap-${k}-${uid}">
+              <div class="segmented" role="radiogroup" aria-labelledby="cap-${k}-${uid}">
                 ${["portrait", "landscape"]
                   .map(
                     (v) =>
-                      `<label class="collections-segmented-option"><input type="radio" name="orient-${k}-${uid}" value="${v}" /><span>${ICON(GLYPH[v])}${v[0].toUpperCase() + v.slice(1)}</span></label>`
+                      `<label class="segmented-option"><input type="radio" name="orient-${k}-${uid}" value="${v}" /><span>${ICON(GLYPH[v])}${v[0].toUpperCase() + v.slice(1)}</span></label>`
                   )
                   .join("")}
               </div>

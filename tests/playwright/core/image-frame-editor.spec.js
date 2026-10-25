@@ -817,7 +817,7 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
           };
           const frame = document.querySelector("#itemModal .ife .ife-frame");
           const frameStyle = getComputedStyle(frame);
-          const group = document.querySelector("#itemModal .ife .collections-segmented");
+          const group = document.querySelector("#itemModal .ife .segmented");
           return {
             frameOpaque: rgba(frameStyle.backgroundColor)[3] === 255,
             groupOpaque: rgba(getComputedStyle(group).backgroundColor)[3] === 255,
@@ -829,7 +829,7 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
         expect(report.frameOpaque, `${label}: frame background is a real token`).toBe(true);
         expect(report.groupOpaque, `${label}: control background is a real token`).toBe(true);
         expect(report.plusContrast, `${label}: empty-frame glyph`).toBeGreaterThanOrEqual(3);
-        // The selected option's colors are the shipped .collections-segmented pairing, the same
+        // The selected option's colors are the shipped .segmented pairing, the same
         // control the builder has had since STRK-368, so its contrast is not this feature's to
         // assert here (it measures 2.39:1 in every theme; filed as a separate follow-up).
         expect(report.overflow, `${label}: no horizontal overflow`).toBeLessThanOrEqual(0);

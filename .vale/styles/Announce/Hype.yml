@@ -1,0 +1,32 @@
+extends: existence
+message: "Cut the sales phrase '%s' and state the change (voice.md, Release announcements)."
+level: warning
+ignorecase: true
+tokens:
+  - excited to
+  - thrilled
+  - hard at work
+  - dive in
+  - dive into
+  - game[- ]changer
+  - level up
+  - elevate[sd]?
+  - supercharge[sd]?
+  - packed with
+  - whether you're
+  - whether you are
+  - say goodbye to
+  - stay tuned
+  - take .{1,20} to the next level
+  - unleash
+  - streamline[sd]?
+  - effortless(?:ly)?
+  - delightful
+  - awesome
+  - amazing
+  - huge
+  - massive
+  - brand new
+  - all-new
+  - best yet
+  - under the hood
