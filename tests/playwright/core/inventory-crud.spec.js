@@ -1,5 +1,6 @@
 import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import seedInventoryFixture from "../../fixtures/seed-inventory.js";
 
@@ -137,6 +138,47 @@ test.describe("core/inventory-crud", () => {
     await page.locator("#itemModalSubmit").click({ timeout: 2000 });
     await expect(page.locator("#itemModal")).toBeHidden({ timeout: 2000 });
     await expect(toast).toBeVisible();
+  });
+
+  // Inventory rows take their static styles from classes in css/styles.css. An inline
+  // style may carry only a runtime value: a hashed or metal chip colour, the Gain/Loss
+  // sign colour and weight, or a thumbnail's load visibility.
+  test("inventory row markup carries inline styles only for runtime values", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "inlineChipConfig",
+        JSON.stringify([
+          { id: "year", enabled: true },
+          { id: "purity", enabled: true },
+        ])
+      );
+    });
+    await seedAndGoto(page);
+    const row = page.locator("#inventoryTable tbody tr[data-idx]");
+    await expect(row).toHaveCount(1);
+    await expect(row.locator(".purchase-link-icon")).toHaveCount(1);
+    await expect(row.locator(".year-tag")).toHaveCount(1);
+    await expect(row.locator(".purity-tag")).toHaveCount(1);
+
+    const offenders = await collectInlineStyleOffenders(page, {
+      roots: ["#inventoryTable tbody"],
+      runtime: ["color", "font-weight", "visibility"],
+      label: "row",
+    });
+    offenders.push(
+      ...(await page.evaluate(() => {
+        const found = [];
+        for (const el of document.querySelectorAll("#inventoryTable tbody [style]")) {
+          const where = `<${el.tagName}> ${el.dataset.column || el.className}`;
+          if (el.style.color === "var(--text-primary)") found.push(`${where} static color`);
+          if (el.style.fontWeight && el.dataset.column !== "gainLoss") {
+            found.push(`${where} font-weight`);
+          }
+        }
+        return found;
+      }))
+    );
+    expect(offenders).toEqual([]);
   });
 });
 
