@@ -1009,7 +1009,11 @@ theme-reactive expression. Let the stylesheet do the rest:
   `tests/playwright/core/diff-modal-merge.spec.js` fails on any other inline property.
   The settings tables, image lists and Numista tag blacklist that `js/settings.js` builds
   take theirs from `css/styles.css`; `tests/playwright/core/settings-search-images.spec.js`
-  allows only `width` and `display` inline there.
+  allows only `width` and `display` inline there. The ticker, Market block and detail
+  modal that `js/market-data.js` builds also use `css/styles.css`; a test in
+  `tests/playwright/core/retail-market.spec.js` allows only vendor and stock colours and the
+  ticker track's phase and hand-off positioning. New checks of this kind call
+  `collectInlineStyleOffenders` in `tests/playwright/helpers/inline-styles.js`.
 
 ### Toggle standard
 

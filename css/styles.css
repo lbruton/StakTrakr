@@ -17001,7 +17001,9 @@ input[type="number"] {
 }
 
 /* ── Carried Price ── */
-/* .vp-carried border removed — too distracting */
+.vp-carried {
+  opacity: 0.5;
+}
 
 /* ── Out of Stock ── */
 .vp-oos {
@@ -17020,6 +17022,56 @@ input[type="number"] {
 .vp-coin-link:hover {
   color: var(--primary);
   text-decoration: underline;
+}
+
+.vp-scroll {
+  overflow-x: auto;
+}
+
+/* ── Market Block Status Lines ── */
+.vp-message {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.market-disclaimer {
+  padding: 8px 0 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Market Block Header ── */
+.market-block-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.market-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.market-block-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ticker-item--link {
+  cursor: pointer;
 }
 
 /* Market detail: stat values + vendor price cells */
@@ -17111,6 +17163,38 @@ input[type="number"] {
 .market-detail-header h2 {
   font-size: var(--font-size-xl);
   font-weight: 700;
+}
+
+.market-detail-weight {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.market-detail-loading,
+.market-detail-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.market-detail-loading {
+  padding: 48px;
+}
+
+.market-detail-empty {
+  padding: 16px;
+}
+
+.market-detail-vendors {
+  margin-top: 0.5rem;
+}
+
+.market-detail-buy {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12px;
 }
 
 /* ── Modal Period Controls ── */

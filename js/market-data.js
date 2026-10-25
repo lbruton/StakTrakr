@@ -596,7 +596,7 @@ const _buildTickerItemEl = (item) => {
   const el = document.createElement("div");
   el.className = "ticker-item";
   if (_isSafeUrl(item.vendorUrl)) {
-    el.style.cursor = "pointer";
+    el.classList.add("ticker-item--link");
     el.addEventListener("click", () => {
       _openVendorPopup(item.vendorUrl, item.bestVid);
     });
@@ -1114,7 +1114,7 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
     const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
     const metalName = metalNames[metalCode] || metalLower;
     const weightInfo = document.createElement("div");
-    weightInfo.style.cssText = "font-size:12px;color:var(--text-muted);margin-top:2px;";
+    weightInfo.className = "market-detail-weight";
     weightInfo.textContent = weightOz + " oz " + metalName;
     header.appendChild(weightInfo);
   }
@@ -1297,8 +1297,7 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
     const buyBtn = document.createElement("a");
     buyBtn.textContent = "Buy";
     buyBtn.href = "#";
-    buyBtn.style.cssText =
-      "color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;";
+    buyBtn.className = "market-detail-buy";
     buyBtn.addEventListener("click", (e) => {
       e.preventDefault();
       _openVendorPopup(url, entry.vid);
@@ -1306,7 +1305,7 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
     tdBuy.appendChild(buyBtn);
   } else {
     tdBuy.textContent = "—";
-    tdBuy.style.color = "var(--text-muted)";
+    tdBuy.className = "vp-muted";
   }
   return tdBuy;
 };
@@ -1355,7 +1354,7 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
     tdPrem.appendChild(badge);
   } else {
     tdPrem.textContent = "—";
-    tdPrem.style.color = "var(--text-muted)";
+    tdPrem.className = "vp-muted";
   }
   tr.appendChild(tdPrem);
 
@@ -1410,11 +1409,10 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
 
     if (vendorEntries.length > 0) {
       const scrollWrap = document.createElement("div");
-      scrollWrap.style.overflowX = "auto";
+      scrollWrap.className = "vp-scroll";
 
       const table = document.createElement("table");
-      table.className = "vendor-prices-table";
-      table.style.marginTop = "0.5rem";
+      table.className = "vendor-prices-table market-detail-vendors";
 
       const thead = document.createElement("thead");
       const headRow = document.createElement("tr");
@@ -1441,7 +1439,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
     }
   } else {
     const noData = document.createElement("div");
-    noData.style.cssText = "padding:16px;text-align:center;color:var(--text-muted);font-size:13px;";
+    noData.className = "market-detail-empty";
     noData.textContent = "Vendor data unavailable for this coin";
     content.appendChild(noData);
   }
@@ -1457,8 +1455,7 @@ const _appendModalDisclaimer = (content) => {
   const currencyDisclaimer = _getRetailCurrencyDisclaimer();
   if (currencyDisclaimer) {
     const disclaimer = document.createElement("div");
-    disclaimer.style.cssText =
-      "padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;";
+    disclaimer.className = "market-disclaimer";
     disclaimer.textContent = currencyDisclaimer;
     content.appendChild(disclaimer);
   }
@@ -1491,8 +1488,7 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   document.addEventListener("keydown", _modalEscHandler);
 
   const loadingEl = document.createElement("div");
-  loadingEl.style.cssText =
-    "padding:48px;text-align:center;color:var(--text-muted);font-size:13px;";
+  loadingEl.className = "market-detail-loading";
   loadingEl.textContent = "Loading coin details\u2026";
   content.appendChild(loadingEl);
 
@@ -1591,7 +1587,7 @@ const _getCachedRetailDetail = (slug, coins) => {
 const _renderVendorTableMessage = (tableWrap, text) => {
   tableWrap.textContent = "";
   const msg = document.createElement("div");
-  msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
+  msg.className = "vp-message";
   msg.textContent = text;
   tableWrap.appendChild(msg);
 };
@@ -1808,7 +1804,7 @@ const _buildVendorPriceCell = (
 
   if (!vInfo) {
     td.textContent = "—";
-    td.style.color = "var(--text-muted)";
+    td.className = "vp-muted";
     return td;
   }
 
@@ -1821,7 +1817,7 @@ const _buildVendorPriceCell = (
   }
 
   if (vInfo.carried && vInfo.price != null) {
-    td.style.opacity = "0.5";
+    td.classList.add("vp-carried");
   }
 
   if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
@@ -1829,7 +1825,6 @@ const _buildVendorPriceCell = (
   const priceSpan = document.createElement("span");
   priceSpan.className = "vp-price";
   priceSpan.textContent = formatCurrency(vInfo.price);
-  priceSpan.style.cursor = "pointer";
   priceSpan.addEventListener("click", () => {
     const url = _resolveVendorUrl(slug, vid, vendorMeta);
     if (_isSafeUrl(url)) _openVendorPopup(url, vid);
@@ -1882,7 +1877,6 @@ const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) 
   const displayName = meta.name || slug;
   nameSpan.textContent = displayName;
   nameSpan.className = "vp-coin-link";
-  nameSpan.style.cursor = "pointer";
   nameSpan.addEventListener("click", () => {
     openMarketDetailModal(slug);
   });
@@ -1952,7 +1946,7 @@ const _renderVendorTable = async (metalCode) => {
 
   tableWrap.textContent = "";
   const scrollWrap = document.createElement("div");
-  scrollWrap.style.overflowX = "auto";
+  scrollWrap.className = "vp-scroll";
 
   const table = document.createElement("table");
   table.className = "vendor-prices-table";
@@ -2075,12 +2069,10 @@ const _runMarketRefresh = async () => {
  */
 const _buildMarketBlockHeader = () => {
   const headerRow = document.createElement("div");
-  headerRow.style.cssText =
-    "display:flex;justify-content:flex-end;align-items:center;margin-bottom:0.75rem;";
+  headerRow.className = "market-block-header";
 
   const rightGroup = document.createElement("div");
-  rightGroup.style.cssText =
-    "display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text-muted);";
+  rightGroup.className = "market-block-actions";
 
   const tsSpan = document.createElement("span");
   tsSpan.id = "marketDataTimestamp";
@@ -2112,8 +2104,7 @@ const _buildMarketBlockHeader = () => {
   refreshBtn.type = "button";
   refreshBtn.title = "Refresh market prices";
   refreshBtn.setAttribute("aria-label", "Refresh market prices");
-  refreshBtn.style.cssText =
-    "background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;";
+  refreshBtn.className = "market-block-btn";
   // Painted from the module flag rather than hardcoded to the idle state: a sync
   // ends by calling refreshMarketData(), which re-runs this whole function, so a
   // freshly built button must be able to render mid-flight in the syncing state.
@@ -2127,8 +2118,7 @@ const _buildMarketBlockHeader = () => {
   settingsBtn.id = "marketSettingsBtn";
   settingsBtn.title = "Market settings";
   settingsBtn.setAttribute("aria-label", "Market settings");
-  settingsBtn.style.cssText =
-    "background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;";
+  settingsBtn.className = "market-block-btn";
   settingsBtn.textContent = "\u2699";
   settingsBtn.addEventListener("click", () => {
     if (typeof showSettingsModal === "function") showSettingsModal("market");
@@ -2151,7 +2141,7 @@ const renderVendorPrices = () => {
   const coins = _getRetailCoins();
   if (!coins || Object.keys(coins).length === 0) {
     const msg = document.createElement("div");
-    msg.style.cssText = "padding:24px;text-align:center;color:var(--text-muted);font-size:13px;";
+    msg.className = "vp-message";
     msg.textContent = "Retail data unavailable";
     container.appendChild(msg);
     if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
@@ -2218,8 +2208,7 @@ const renderVendorPrices = () => {
 
   // ── Footer disclaimer ──
   const footer = document.createElement("div");
-  footer.style.cssText =
-    "padding:8px 0 0;font-size:10px;color:var(--text-muted);text-align:center;";
+  footer.className = "market-disclaimer";
   footer.appendChild(
     document.createTextNode(
       "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor."
