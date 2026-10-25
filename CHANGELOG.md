@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.79] - 2026-10-25
+
+### Changed — STRK-482: Copper in the app description
+
+- **About blurb**: the Settings > About description names Copper with the other four metals, and its em-dash aside becomes two sentences (STRK-482).
+- **Page and install descriptions**: the `description` and `og:description` meta tags in `index.html` and the `manifest.json` description name copper (STRK-482).
+- **Comments**: the `index.html` header and inventory form comments list Copper (STRK-482).
+
 ## [3.36.78] - 2026-10-25
 
 ### Changed — STRK-474: Tests write only to temp output
