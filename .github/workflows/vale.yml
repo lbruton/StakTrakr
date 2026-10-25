@@ -27,7 +27,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
-          if printf '%s\n' "$files" | grep -qE '^(README\.md|\.context/.*\.md|\.vale\.ini|\.vale/.*)$'; then
+          if printf '%s\n' "$files" | grep -qE '^(README\.md|about\.html|\.context/.*\.md|docs/announcements/.*\.md|\.vale\.ini|\.vale/.*)$'; then
             echo "prose=true" >> "$GITHUB_OUTPUT"
           else
             echo "prose=false" >> "$GITHUB_OUTPUT"
@@ -38,14 +38,15 @@ jobs:
         if: ${{ steps.changes.outputs.prose == 'true' }}
         uses: actions/checkout@v4
 
-      # Every Prose rule is a warning, so the check fails on a warning. The added
-      # filter limits that to lines this PR adds; existing alerts never fail it.
+      # Every Prose and Announce rule is a warning, so the check fails on a warning. The added
+      # filter limits that to lines this PR adds; existing alerts never fail it. Vale skips
+      # files under docs/ that no .vale.ini section matches.
       - name: Vale
         if: ${{ steps.changes.outputs.prose == 'true' }}
         uses: errata-ai/vale-action@v3.0.0
         with:
           version: 3.24.0
-          files: README.md,.context
+          files: README.md,about.html,.context,docs
           separator: ","
           sync: false
           reporter: github-pr-check

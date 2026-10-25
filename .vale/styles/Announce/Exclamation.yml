@@ -1,0 +1,6 @@
+extends: existence
+message: "End the sentence with a full stop, not an exclamation mark (voice.md)."
+level: warning
+nonword: true
+tokens:
+  - '\w!(?:\s|$)'
