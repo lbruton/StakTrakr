@@ -3,7 +3,7 @@ title: "StakTrakr — Testing Policy"
 project: StakTrakr
 audience: agent
 canonical: .context/testing.md
-updated: "2026-10-22"
+updated: "2026-10-25"
 ---
 
 # Testing Policy — StakTrakr
@@ -112,6 +112,22 @@ these rules elsewhere. Read before editing or running any Playwright test.
   element: per-element calls cost seconds on large chart datasets.
 - Hash a displayed image from its decoded pixels, not by re-fetching its `blob:` URL. The
   app revokes blob URLs when it re-renders.
+
+## Test Output
+
+- A test writes only to temp output: `testInfo.outputPath()` in Playwright and
+  `os.tmpdir()` in unit tests.
+- A test that needs a file inside the repo writes to an ignored directory under `tests/`
+  and removes it afterwards.
+- A test never creates, edits or deletes a tracked file. This includes `playground/`
+  mockups and evidence images.
+- Name an output file after the surface and state it shows, not after an issue ID.
+- `devops/testing/tree-guard.mjs` enforces these rules. It compares `git status` and file
+  content before and after a run, and fails the run with the list of changed paths.
+- Playwright runs the guard as `globalSetup` and `globalTeardown`. `npm run test:unit`,
+  `test:changed` and CI pass it to `node --test` as `--test-global-setup`.
+- Edits made before a run do not trip the guard. Edits made in the same work tree during a
+  run do, so do not edit files while a suite runs.
 
 ## Running Locally
 

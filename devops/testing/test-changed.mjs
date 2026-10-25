@@ -513,7 +513,8 @@ function main(argv) {
 
   let status = 0;
   if (plan.unit.length) {
-    status ||= spawnSync(process.execPath, ["--test", ...plan.unit], {
+    const guard = `--test-global-setup=${path.join(REPO_ROOT, "devops/testing/tree-guard.mjs")}`;
+    status ||= spawnSync(process.execPath, ["--test", guard, ...plan.unit], {
       cwd: REPO_ROOT,
       stdio: "inherit",
     }).status;

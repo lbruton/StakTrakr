@@ -243,7 +243,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const coverage = process.env.COVERAGE === "1";
   const rawDir = coverage ? mkdtempSync(path.join(tmpdir(), "strk-unit-raw-")) : null;
   const env = coverage ? { ...process.env, NODE_V8_COVERAGE: rawDir } : process.env;
-  const run = spawnSync(process.execPath, ["--test", "tests/unit/*.test.js"], {
+  const guard = `--test-global-setup=${path.join(REPO_ROOT, "devops/testing/tree-guard.mjs")}`;
+  const run = spawnSync(process.execPath, ["--test", guard, "tests/unit/*.test.js"], {
     cwd: REPO_ROOT,
     env,
     stdio: "inherit",
