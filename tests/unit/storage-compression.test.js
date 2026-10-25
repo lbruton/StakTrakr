@@ -74,7 +74,7 @@ function buildMigration(ls) {
   });
 }
 
-describe("storage compression (STRK-140)", () => {
+describe("storage compression", () => {
   test("vendored lz-string round-trips via UTF16", () => {
     const c = LZString.compressToUTF16(bigJson);
     assert.equal(LZString.decompressFromUTF16(c), bigJson);

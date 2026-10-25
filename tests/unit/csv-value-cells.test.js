@@ -45,7 +45,7 @@ function build(spotPrices, computeItemValuation, computeMeltValue) {
   });
 }
 
-describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
+describe("utils.js buildCsvValueCells — valuation path", () => {
   const fn = build(
     { silver: 30 },
     () => ({ purchasePrice: 25, meltValue: 28, gainLoss: 3 }),
@@ -54,7 +54,7 @@ describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
     }
   );
 
-  test("emits the 15 value cells in BACKUP_CSV_HEADERS[0..14] order (STRK-235 adds constitutional columns)", () => {
+  test("emits the 15 value cells in BACKUP_CSV_HEADERS[0..14] order (adds constitutional columns)", () => {
     const cells = fn({
       date: "2026-01-01",
       metal: "Silver",
@@ -87,7 +87,7 @@ describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
   });
 });
 
-describe("utils.js buildCsvValueCells — degenerate item guards (STRK-211/212 class)", () => {
+describe("utils.js buildCsvValueCells — degenerate item guards", () => {
   // No spot prices → currentSpot is 0 for any metal; valuation forced null → legacy fallback.
   const fn = build(
     {},
@@ -116,7 +116,7 @@ describe("utils.js buildCsvValueCells — degenerate item guards (STRK-211/212 c
 // sanitize pipeline intact (hyphenated variant id must NOT be stripped, and
 // entryMode must NOT be stripped by sanitizeObjectFields).
 // ---------------------------------------------------------------------------
-describe("utils.js sanitizeImportedItem — STRK-235 constitutional field round-trip", () => {
+describe("utils.js sanitizeImportedItem — constitutional field round-trip", () => {
   // Slice both sanitize helpers from utils.js.  sanitizeImportedItem depends on:
   //   cleanString, stripNonAlphanumeric, normalizeType, sanitizeObjectFields.
   // We extract each in dependency order and build them in a shared eval context.

@@ -39,7 +39,7 @@ const parseDate = evalSource(FORMAT_FILE, {
   suffix: "\nreturn parseDate;",
 });
 
-describe("parseDate — local-frame output (STRK-266)", () => {
+describe("parseDate — local-frame output", () => {
   it("sanity: TZ pin took effect (exactly UTC+14)", () => {
     // getTimezoneOffset() is minutes to ADD to local time to reach UTC, so
     // UTC+14 reports exactly -840. Asserting the exact value (not merely a
@@ -104,7 +104,7 @@ describe("parseDate — local-frame output (STRK-266)", () => {
 // also rolls "2026/02/31" → Mar 3, so falling through to the generic
 // new Date(string) fallback would resurrect the corruption. This supersedes
 // the STRK-266 test that documented the rollover as expected behavior.
-describe("parseDate — impossible calendar dates rejected (STRK-267)", () => {
+describe("parseDate — impossible calendar dates rejected", () => {
   it("strict ISO shape with an impossible day is rejected, not returned verbatim", () => {
     // V8 rolls new Date("2024-02-31") to Mar 1 (NOT Invalid Date), so the
     // pre-fix ISO branch handed the impossible string back unchanged.

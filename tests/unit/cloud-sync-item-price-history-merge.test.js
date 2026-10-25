@@ -124,7 +124,7 @@ const RECENT = FIXED_NOW - 24 * 60 * 60 * 1000; // 1 day ago
 // explicitly only when a test asserts on a different value.
 const e = (ts, itemName, retail, spot = 9, melt = 8) => ({ ts, itemName, retail, spot, melt });
 
-describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
+describe("pure item-price-history merge / canonicalize / hash", () => {
   test("AC-1: cross-device union — different entries for the same UUID merge to the union", () => {
     const { mergeItemPriceHistories } = loadHelpers();
     const deviceA = { [U1]: [e(RECENT, "A", 10)] };
@@ -315,7 +315,7 @@ function loadRealRetention(clearedAt = 0) {
   });
 }
 
-describe("STRK-223 item-price clear-watermark drop-filter", () => {
+describe("item-price clear-watermark drop-filter", () => {
   test("AC-5: drops entries at/older than the watermark, keeps strictly newer", () => {
     const applyRet = loadRealRetention(RECENT); // watermark = RECENT (1 day ago, in-window)
     const h = {

@@ -24,7 +24,7 @@ const isDisposed = evalSource("js/constants.js", {
   suffix: "\nreturn isDisposed;",
 });
 
-describe("isDisposed() — canonical disposition predicate (STRK-83 AC-1)", () => {
+describe("isDisposed() — canonical disposition predicate (AC-1)", () => {
   test("returns false for an empty disposition object {}", () => {
     assert.equal(isDisposed({ disposition: {} }), false);
   });

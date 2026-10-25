@@ -332,9 +332,7 @@ test.describe("core/numista-catalog", () => {
     expect(state.removed[ITEM_UUID] || []).not.toContain("Eagle");
   });
 
-  test("STRK-437: picker on a Duplicate defaults the source's customised fields off", async ({
-    page,
-  }) => {
+  test("picker on a Duplicate defaults the source's customised fields off", async ({ page }) => {
     await seedData(page, {
       inventory: [
         {
@@ -355,7 +353,7 @@ test.describe("core/numista-catalog", () => {
     await expect(fieldCb("year")).toBeChecked();
   });
 
-  test("STRK-437: picker on a Duplicate re-pointed at another catalog number ignores the source's flags", async ({
+  test("picker on a Duplicate re-pointed at another catalog number ignores the source's flags", async ({
     page,
   }) => {
     await seedData(page, {

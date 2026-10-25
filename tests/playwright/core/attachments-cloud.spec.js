@@ -631,7 +631,7 @@ test.describe("core/attachments-cloud", () => {
     expect(manifest.changes.map((change) => change.itemKey)).not.toContain(ITEM_KEY);
   });
 
-  test("vault-first cancel does not advance the image/attachment hash, so a later accept still re-pulls (STRK-225)", async ({
+  test("vault-first cancel does not advance the image/attachment hash, so a later accept still re-pulls", async ({
     page,
   }) => {
     // STRK-225. The vault-first image-vault AND attachment-vault pulls

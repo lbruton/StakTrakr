@@ -88,7 +88,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2)", () => {
+describe("BulkImageCache.cacheAll() — observable behavior (cohort 3.2)", () => {
   let logs;
   let progress;
   let saveItemTagsCalls;
@@ -524,7 +524,7 @@ describe("BulkImageCache.cacheAll() — observable behavior (STRK-170 cohort 3.2
     );
   });
 
-  test("tag map ignores a reassigned exported resolveCatalogId (STRK-218)", async () => {
+  test("tag map ignores a reassigned exported resolveCatalogId", async () => {
     // buildCatalogIdToUuids() must use the closure-local resolveCatalogId, not the
     // module export. Reassigning the export mimics a shadow/monkeypatch: before the
     // fix the UUID map keyed off the mutated export and diverged from the eligible

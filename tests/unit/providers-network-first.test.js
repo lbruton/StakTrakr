@@ -36,7 +36,7 @@ const API1 = "https://api.staktrakr.com";
 const API2 = "https://api2.staktrakr.com";
 const SELF = "https://staktrakr.com";
 
-describe("STRK-264 providers is network-first", () => {
+describe("providers is network-first", () => {
   it("emits networkFirst:true on both API hosts", () => {
     for (const host of [API1, API2]) {
       const r = classifyEndpoint(`${host}/v2/providers.json`, SELF);

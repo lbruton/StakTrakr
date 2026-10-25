@@ -37,7 +37,7 @@ function fakeResponse({ status, type = "basic" }) {
   return { ok: status >= 200 && status < 300, status, type };
 }
 
-describe("STRK-256 shouldFallBackToCache", () => {
+describe("shouldFallBackToCache", () => {
   it("does not fall back on a successful response", () => {
     assert.equal(shouldFallBackToCache(fakeResponse({ status: 200 })), false);
     assert.equal(shouldFallBackToCache(fakeResponse({ status: 204 })), false);

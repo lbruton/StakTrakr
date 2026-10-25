@@ -13,7 +13,7 @@
 //
 // applyBulkGoldbackBundle is sliced out of source and evaluated with stubbed deps —
 // the project's slice-and-eval idiom for no-export script-global modules (mirrors
-// strk-244-valuation-history-gate.test.js). The sliced source is read from the
+// valuation-history-gate.test.js). The sliced source is read from the
 // repo's own js/ files, never external input.
 
 import { test, describe } from "node:test";
@@ -62,7 +62,7 @@ function buildApplyBulkGoldbackBundle(denomSelect) {
   });
 }
 
-describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle", () => {
+describe("applyBulkGoldbackBundle injects a valid goldback bundle", () => {
   test("stages weightUnit='gb', metal='Gold', and the picked denomination as weight", () => {
     const valuesToApply = { type: "Goldback" };
     const apply = buildApplyBulkGoldbackBundle(new FakeSelect("5"));
@@ -98,7 +98,7 @@ describe("STRK-246 — applyBulkGoldbackBundle injects a valid goldback bundle",
 // STRK-244 recordBulkPriceHistory gate fires for a bulk Type→Goldback (which has
 // only {type} checked). Guards against weight/weightUnit/metal being dropped from
 // recordBulkPriceHistory's priceFields, which would re-stale the value chart.
-describe("STRK-246 — the injected gb bundle re-arms the STRK-244 recording gate", () => {
+describe("the injected gb bundle re-arms the recording gate", () => {
   const buildRecordBulkPriceHistory = loadRecordBulkPriceHistory;
 
   test("Type→Goldback (only 'type' enabled) records once the bundle is injected", () => {

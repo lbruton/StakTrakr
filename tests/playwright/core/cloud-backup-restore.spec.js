@@ -141,7 +141,7 @@ async function submitVaultPassword(page, password) {
   await page.locator("#vaultActionBtn").click();
 }
 
-test.describe("core/cloud-backup-restore (STRK-413)", () => {
+test.describe("core/cloud-backup-restore", () => {
   test("a pre-sync backup restores with the device's sync key, without a password prompt", async ({
     page,
   }) => {

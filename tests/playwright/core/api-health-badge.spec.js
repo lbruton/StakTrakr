@@ -80,7 +80,7 @@ async function gotoAppAndReadBadge(page) {
   return badge;
 }
 
-test.describe("STRK-331 — footer health badge two-signal model", () => {
+test.describe("footer health badge two-signal model", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });

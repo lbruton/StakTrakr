@@ -333,7 +333,7 @@ const displayedImageHash = (image) =>
     return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
   });
 
-test.describe("core/collections — STRK-376 saved image swaps", () => {
+test.describe("core/collections — saved image swaps", () => {
   test("Save waits for an image swap still reading its source", async ({ page }) => {
     await seedAndGoto(page);
     await page.evaluate(async () => {
@@ -800,7 +800,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(panel(page)).toContainText("1881-CC");
   });
 
-  test("STRK-389 inserts and moves Slots with stable links and saved Album/Ledger order", async ({
+  test("inserts and moves Slots with stable links and saved Album/Ledger order", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -881,7 +881,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByLabel("Slot label").nth(2)).toHaveValue("2020");
   });
 
-  test("STRK-421 Slot handle boundaries, mobile themes, Cancel and close preserve saved Slots", async ({
+  test("Slot handle boundaries, mobile themes, Cancel and close preserve saved Slots", async ({
     page,
   }, testInfo) => {
     await seedAndGoto(page);
@@ -932,7 +932,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByLabel("Slot label").first()).toHaveValue("2019");
   });
 
-  test("STRK-421 the builder shows large centred title images with the shape picker beneath", async ({
+  test("the builder shows large centred title images with the shape picker beneath", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -978,7 +978,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(note.width).toBeGreaterThan(note.height);
   });
 
-  test("STRK-426 the title image remove badge is legible in every theme", async ({ page }) => {
+  test("the title image remove badge is legible in every theme", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     await panel(page)
@@ -1023,9 +1023,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await page.evaluate(() => window.setTheme("light"));
   });
 
-  test("STRK-421 dragging a Slot handle reorders the cards and the order is saved", async ({
-    page,
-  }) => {
+  test("dragging a Slot handle reorders the cards and the order is saved", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     // Tall enough that all three cards are on screen, so the drop lands on a visible card.
@@ -1176,7 +1174,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
         .toBe("matched");
     }
     await builder.screenshot({
-      path: testInfo.outputPath("strk-395-builder-390.png"),
+      path: testInfo.outputPath("collections-builder-390.png"),
       animations: "disabled",
     });
     const shape = builder.getByRole("radiogroup", { name: "Image shape" });
@@ -1218,7 +1216,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => window.setTheme("light"));
     await panel(page).screenshot({
-      path: testInfo.outputPath("strk-395-album-metadata.png"),
+      path: testInfo.outputPath("collections-album-metadata.png"),
       animations: "disabled",
     });
 
@@ -1348,7 +1346,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition).toMatchObject({ itemType: "Goldback", metal: "Gold", weightUnit: "gb" });
   });
 
-  test("STRK-422 opening and saving a mismatched denomination Collection never relabels its weight", async ({
+  test("opening and saving a mismatched denomination Collection never relabels its weight", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1382,7 +1380,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition.weight || null).toBeNull();
   });
 
-  test("STRK-422 leaving a denomination type clears the weight along with the rewritten unit", async ({
+  test("leaving a denomination type clears the weight along with the rewritten unit", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1406,9 +1404,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByLabel("Weight", { exact: true })).toHaveValue("");
   });
 
-  test("STRK-422 a matching denomination Collection keeps its weight on open and save", async ({
-    page,
-  }) => {
+  test("a matching denomination Collection keeps its weight on open and save", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {
       const created = window.collectionsStore.createCustom({
@@ -1431,7 +1427,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition).toMatchObject({ weight: 2, weightUnit: "gb" });
   });
 
-  test("STRK-422 a negative Diameter, Gross weight or Thickness blocks the save and keeps the builder open", async ({
+  test("a negative Diameter, Gross weight or Thickness blocks the save and keeps the builder open", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1481,7 +1477,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(specs.diameterMm).toBe(32);
   });
 
-  test("STRK-422 an incomplete number such as a lone minus blocks the save instead of reading as blank", async ({
+  test("an incomplete number such as a lone minus blocks the save instead of reading as blank", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1508,7 +1504,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.locator("body")).toContainText(/Diameter must be a non-negative number/);
   });
 
-  test("STRK-424 the builder offers Portrait / Landscape only for Bar and Note and previews it", async ({
+  test("the builder offers Portrait / Landscape only for Bar and Note and previews it", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1550,7 +1546,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect.poll(frameRatio).toBeCloseTo(1 / 2.05, 1);
   });
 
-  test("STRK-424 a Type change that keeps the derived shape keeps the chosen orientation", async ({
+  test("a Type change that keeps the derived shape keeps the chosen orientation", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1573,7 +1569,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(orientation.getByLabel("Landscape")).toBeChecked();
   });
 
-  test("STRK-424 a saved orientation reaches the Album frame, the editor, and survives a reload", async ({
+  test("a saved orientation reaches the Album frame, the editor, and survives a reload", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1650,9 +1646,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect((await read(id)).imageOrientation).toBe("portrait");
   });
 
-  test("STRK-424 a Bar saved before the choice existed keeps its landscape frame", async ({
-    page,
-  }) => {
+  test("a Bar saved before the choice existed keeps its landscape frame", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {
       const created = window.collectionsStore.createCustom({
@@ -1681,9 +1675,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(id).toBeTruthy();
   });
 
-  test("STRK-424 a clone without a stored orientation starts at the shape default", async ({
-    page,
-  }) => {
+  test("a clone without a stored orientation starts at the shape default", async ({ page }) => {
     await seedAndGoto(page);
     // A source with no stored orientation stands in for a Series Template Bar: cloning it is a
     // NEW Collection, so it starts at the Bar default, not the legacy landscape frame.
@@ -1778,7 +1770,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     return id;
   };
 
-  test("STRK-427 a mixed pair saved in the builder reopens with both orientations and renders per side everywhere", async ({
+  test("a mixed pair saved in the builder reopens with both orientations and renders per side everywhere", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1856,7 +1848,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     }
   });
 
-  test("STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame ratios and take the shared 200px box (STRK-434)", async ({
+  test("legacy uniform pairs and a legacy Bar keep their builder frame ratios and take the shared 200px box", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1918,7 +1910,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(old.ratio).toBeCloseTo(1.6, 1);
   });
 
-  test("STRK-427 the builder Slab box moves to the shared 0.68 ratio inside the shared 200px box (STRK-434)", async ({
+  test("the builder Slab box moves to the shared 0.68 ratio inside the shared 200px box", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1977,9 +1969,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     });
   };
 
-  test("STRK-427 Swap in the builder exchanges the images and their orientations", async ({
-    page,
-  }) => {
+  test("Swap in the builder exchanges the images and their orientations", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     await panel(page)
@@ -2015,7 +2005,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     ).toBeChecked();
   });
 
-  test("STRK-427 a stored pair, Remove one side, Swap, Save and reopen keeps the image on the swapped side only", async ({
+  test("a stored pair, Remove one side, Swap, Save and reopen keeps the image on the swapped side only", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2069,7 +2059,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     ).toBeHidden();
   });
 
-  test("STRK-427 a failed stored-image read swaps nothing and says so", async ({ page }) => {
+  test("a failed stored-image read swaps nothing and says so", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     const id = await createMixedBars(page, "Swap read failure", "obverse");
@@ -2124,9 +2114,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
    */
   const releaseStoredReads = (page) => page.evaluate(() => window.__releaseStoredReads());
 
-  test("STRK-427 Swap stays unavailable until both stored previews have loaded", async ({
-    page,
-  }) => {
+  test("Swap stays unavailable until both stored previews have loaded", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     const id = await createMixedBars(page, "Swap waits for previews", "obverse");
@@ -2156,7 +2144,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(await chooserImageHash(page, 1)).toBe(obverse);
   });
 
-  test("STRK-427 a throwing stored preview is logged, not unhandled, and Swap still settles", async ({
+  test("a throwing stored preview is logged, not unhandled, and Swap still settles", async ({
     page,
   }) => {
     const errors = [];
@@ -2197,7 +2185,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(errors).toEqual([]);
   });
 
-  test("STRK-427 Save right after Swap waits for the stored swap and saves the swapped pair", async ({
+  test("Save right after Swap waits for the stored swap and saves the swapped pair", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2258,7 +2246,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(distance(await chooserImageColor(page, 1), obverseColor)).toBeLessThan(12);
   });
 
-  test("STRK-427 a Collection with no grading still follows Type while the shape is derived", async ({
+  test("a Collection with no grading still follows Type while the shape is derived", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -3341,7 +3329,7 @@ test.describe("core/collections — tab UI", () => {
     await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toHaveText("—");
   });
 
-  test("STRK-382 collection totals show retail value with melt, using the inventory rule", async ({
+  test("collection totals show retail value with melt, using the inventory rule", async ({
     page,
   }) => {
     // Silver spot is 25 and purity 1, so unit melt is a clean $25.00.
@@ -3715,7 +3703,7 @@ const closeSettingsCollections = async (page) => {
   await expect(page.locator("#settingsModal")).toBeHidden();
 };
 
-test.describe("core/collections — STRK-393 Collections Settings", () => {
+test.describe("core/collections — Collections Settings", () => {
   test("Settings lists every template and live Custom Collection, with progress and the tab after Images", async ({
     page,
   }) => {
@@ -4611,7 +4599,7 @@ const restoreHubPreferenceSaves = (page) =>
 
 const FIXTURE_ORDER = ledgerFixtures.map((entry) => entry.name);
 
-test.describe("core/collections — STRK-378 My order and hub sorting", () => {
+test.describe("core/collections — My order and hub sorting", () => {
   test("Settings shows one My order list with Type badges, chronological on a fresh profile", async ({
     page,
   }) => {
@@ -5020,7 +5008,7 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
   });
 });
 
-test.describe("STRK-391 Slot Mintage", () => {
+test.describe("Slot Mintage", () => {
   const builder = (page) => page.locator("#collectionsBuilderModal");
   const openBuilder = async (page, request = {}) => {
     await page.evaluate((value) => window.collectionsPicker.openBuilder(value), request);
@@ -5196,7 +5184,7 @@ test.describe("STRK-391 Slot Mintage", () => {
 // can hold artwork stamps older than the record another tab wrote to the shared
 // IndexedDB store. Rendering must never delete stored artwork: a record that looks stale
 // against memory is re-judged against the persisted state, and is never removed here.
-test.describe("core/collections — STRK-439 rendering never deletes artwork", () => {
+test.describe("core/collections — rendering never deletes artwork", () => {
   const ART_SLOT = "2020";
   const OBVERSE_BYTES = Array.from(readFileSync("tests/playwright/helpers/test-obverse.png"));
   const T_THIS_TAB = Date.parse("2026-10-01T10:00:00.000Z");
@@ -5334,7 +5322,7 @@ test.describe("core/collections — STRK-439 rendering never deletes artwork", (
 // browser tells each tab about the OTHER tab's writes only through a `storage` event. The
 // store must re-hydrate on it, or this tab overwrites the other tab's work on its next save
 // and leaves the other tab's newer artwork out of its exports.
-test.describe("core/collections — STRK-440 cross-tab Collections state", () => {
+test.describe("core/collections — cross-tab Collections state", () => {
   const ART_SLOT = "one";
   const OBVERSE_BYTES = Array.from(readFileSync("tests/playwright/helpers/test-obverse.png"));
 
@@ -5489,7 +5477,7 @@ test.describe("core/collections — STRK-440 cross-tab Collections state", () =>
   });
 });
 
-test.describe("STRK-444 Collection title image links", () => {
+test.describe("Collection title image links", () => {
   const front = "https://images.example.com/front.png";
   const back = "https://images.example.com/back.png";
   const builder = (page) => page.locator("#collectionsBuilderModal");

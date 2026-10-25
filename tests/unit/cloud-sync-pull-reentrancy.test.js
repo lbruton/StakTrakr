@@ -59,7 +59,7 @@ afterEach(() => {
   delete globalThis._previewPullMeta;
 });
 
-describe("STRK-234 — empty-diff silent pull survives a concurrent _previewPullMeta null", () => {
+describe("empty-diff silent pull survives a concurrent _previewPullMeta null", () => {
   test("AC-1/AC-4: nulling the shared global mid-await does not throw, and the pull records every companion hash", async () => {
     let recorded;
     // Seed the shared global exactly as pullWithPreview does at branch entry.
@@ -150,7 +150,7 @@ describe("STRK-234 — empty-diff silent pull survives a concurrent _previewPull
   });
 });
 
-describe("STRK-234 — pullWithPreview re-entrancy guard serializes overlapping pulls (AC-3)", () => {
+describe("pullWithPreview re-entrancy guard serializes overlapping pulls (AC-3)", () => {
   // pullWithPreview awaits getSyncPassword()/cloudGetToken() near its top, BEFORE
   // it reaches the shared-global work. The guard is therefore only sound if the
   // check-and-set is atomic — claimed BEFORE that password await. These models

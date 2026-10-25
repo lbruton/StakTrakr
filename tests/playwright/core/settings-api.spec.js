@@ -240,7 +240,7 @@ test.describe("core/settings-api", () => {
     await expect(page.locator("#goldbackHistoryModal")).toBeVisible();
   });
 
-  test('STRK-161: "Show spot ratios" toggle is in the Currency panel, defaults ON, and persists to localStorage (AC-10)', async ({
+  test('"Show spot ratios" toggle is in the Currency panel, defaults ON, and persists to localStorage (AC-10)', async ({
     page,
   }) => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
@@ -273,7 +273,7 @@ test.describe("core/settings-api", () => {
     expect(await page.evaluate(() => localStorage.getItem("show-spot-ratios"))).toBe("true");
   });
 
-  test("STRK-161: toggling the spot-ratios setting shows/hides all five chips live without reload (AC-11)", async ({
+  test("toggling the spot-ratios setting shows/hides all five chips live without reload (AC-11)", async ({
     page,
   }) => {
     await seedRatioState(page, "api");
@@ -296,7 +296,7 @@ test.describe("core/settings-api", () => {
     await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(5);
   });
 
-  test("STRK-161: while the toggle is OFF, all chips stay hidden regardless of goldback mode or spot validity (AC-12)", async ({
+  test("while the toggle is OFF, all chips stay hidden regardless of goldback mode or spot validity (AC-12)", async ({
     page,
   }) => {
     await seedRatioState(page, "api");
@@ -330,7 +330,7 @@ test.describe("core/settings-api", () => {
     await expect(page.locator(SPOT_RATIO_CHIP)).toHaveCount(0);
   });
 
-  test('STRK-161: switching goldback pricing mode to "off" hides the gold chip live while the other three remain (AC-7)', async ({
+  test('switching goldback pricing mode to "off" hides the gold chip live while the other three remain (AC-7)', async ({
     page,
   }) => {
     await seedRatioState(page, "api");

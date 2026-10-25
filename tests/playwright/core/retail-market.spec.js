@@ -1327,9 +1327,7 @@ test.describe("core/retail-market", () => {
   // The result was silent provider staleness: price sync reported success while
   // retailProviders never refreshed. This test deletes AbortSignal.timeout, runs one sync,
   // and asserts the flattened provider map is still fetched and persisted.
-  test("refreshes retail providers when AbortSignal.timeout is unavailable (STRK-213)", async ({
-    page,
-  }) => {
+  test("refreshes retail providers when AbortSignal.timeout is unavailable", async ({ page }) => {
     // Deep-link into the Market tab (STRK-282) — see bootMarketDataPage.
     await page.goto("/index.html#/market", { waitUntil: "domcontentloaded" });
 
@@ -1494,7 +1492,7 @@ test.describe("core/retail-market", () => {
   // (2) _shortVendor resolves vendors missing from its hardcoded map via the
   //     manifest vendor-meta display name instead of leaking the raw lowercase
   //     vid (the "mintbuilder" bug), with mintbuilder now also in the map.
-  test("STRK-317 — ticker renders full long names and resolves vendor labels", async ({ page }) => {
+  test("ticker renders full long names and resolves vendor labels", async ({ page }) => {
     await setupRetailFixture(page);
 
     // 38 chars — the pre-fix cap truncated anything over 30.
@@ -1556,7 +1554,7 @@ test.describe("core/retail-market", () => {
   // Object.keys(RETAIL_VENDOR_NAMES)-gated path blind to it — only the
   // _shortVendor map (STRK-317) papered over the label. Pins the registration,
   // the NAMES/URLS/COLORS parity invariant, and the user-visible legend item.
-  test("STRK-322 — MintBuilder is registered in all vendor registries and renders in the detail-modal legend", async ({
+  test("MintBuilder is registered in all vendor registries and renders in the detail-modal legend", async ({
     page,
   }) => {
     // Serve a latest.json where mintbuilder is the vendor for one slug — the
@@ -1628,7 +1626,7 @@ test.describe("core/retail-market", () => {
     expect(openedUrls[0]).toBe("https://mintbuilder.com");
   });
 
-  test("STRK-451 — vendor labels meet AA in every theme and chart colors follow theme changes", async ({
+  test("vendor labels meet AA in every theme and chart colors follow theme changes", async ({
     page,
   }) => {
     const vendorIds = [
@@ -1834,9 +1832,7 @@ test.describe("core/retail-market", () => {
   // window._manifestVendorMeta property that market-data.js's _getVendorMeta
   // prefers, so a vendor added by a sync stayed invisible to the fallback until
   // reload. This drives the real populate function and pins the mirror.
-  test("STRK-317 — manifest sync refreshes the vendor meta the ticker fallback reads", async ({
-    page,
-  }) => {
+  test("manifest sync refreshes the vendor meta the ticker fallback reads", async ({ page }) => {
     await setupRetailFixture(page);
 
     await page.evaluate(
@@ -1884,7 +1880,7 @@ test.describe("core/retail-market", () => {
   // full-length name on a narrow viewport used to clip at BOTH edges (the
   // track was plain justify-content:center). The static track now allows
   // horizontal scroll with `safe center`, keeping every character reachable.
-  test("STRK-317 — static ticker (<4 items) keeps long names reachable on narrow viewports", async ({
+  test("static ticker (<4 items) keeps long names reachable on narrow viewports", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -1941,9 +1937,7 @@ test.describe("core/retail-market", () => {
   // why the separate `previousTrack` argument it used to receive was redundant
   // and was dropped. This pins the invariant that makes it redundant; without
   // it, the removal rests on reading the code rather than on a test.
-  test("STRK-275 — rapid ticker re-renders leave exactly one track (STAK-513)", async ({
-    page,
-  }) => {
+  test("rapid ticker re-renders leave exactly one track", async ({ page }) => {
     await setupRetailFixture(page);
 
     const track = page.locator("#bestPriceTickerEl .ticker-track");
@@ -2009,9 +2003,7 @@ test.describe("core/retail-market", () => {
   // Lives here rather than in tab-shell.spec.js (where the sibling
   // updatePortalHeight guard sits) because it needs the seeded retail fixture to
   // reach a >=4-item animated track at all.
-  test("STRK-327 — a ticker rendered while Dashboard is hidden animates on reveal", async ({
-    page,
-  }) => {
+  test("a ticker rendered while Dashboard is hidden animates on reveal", async ({ page }) => {
     await setupRetailFixture(page);
 
     const track = page.locator("#bestPriceTickerEl .ticker-track");
@@ -2070,9 +2062,7 @@ test.describe("core/retail-market", () => {
   // on the duplicate block would strip it here and animate a single-block track
   // against nothing, exposing a gap at the wrap point and losing STRK-317's
   // centering and scrollbar.
-  test("STRK-327 — a legitimately static track stays static across tab switches", async ({
-    page,
-  }) => {
+  test("a legitimately static track stays static across tab switches", async ({ page }) => {
     await setupRetailFixture(page);
 
     await page.evaluate((slug) => {
@@ -2378,9 +2368,7 @@ test.describe("core/retail-market", () => {
     );
   });
 
-  test("market detail modal fails over to api2 when the primary API is down (STRK-188)", async ({
-    page,
-  }) => {
+  test("market detail modal fails over to api2 when the primary API is down", async ({ page }) => {
     await setupRetailFixture(page, { failPrimary: true });
 
     await page
@@ -2427,7 +2415,7 @@ test.describe("core/retail-market", () => {
   // api2 and both rendered surfaces below reflect the api2 values.
   // =========================================================================
 
-  test("AC-8: goldback-G1 fetch fails over to api2 so the goldback premium reflects the api2 G1 rate (STRK-249)", async ({
+  test("AC-8: goldback-G1 fetch fails over to api2 so the goldback premium reflects the api2 G1 rate", async ({
     page,
   }) => {
     // api1 down, api2 serves goldback/latest.json with g1_usd = GOLDBACK_G1_RATE
@@ -2471,7 +2459,7 @@ test.describe("core/retail-market", () => {
   // to api2's fresh 200, and the premium reflects the api2 rate (+2.0%). Production
   // (finding #1) is out of scope here -- this RED test only locks the contract.
   // =========================================================================
-  test("AC-8/AC-9 guard: a stale-but-200 api1 goldback envelope is rejected by the strict gate and fails over to the api2 fresh rate (STRK-249)", async ({
+  test("AC-8/AC-9 guard: a stale-but-200 api1 goldback envelope is rejected by the strict gate and fails over to the api2 fresh rate", async ({
     page,
   }) => {
     // api1 = stale-but-200 (generated_at 3h before FIXED_NOW, > the incoming 2h
@@ -2494,7 +2482,7 @@ test.describe("core/retail-market", () => {
     await expect(matrixBadge.first()).toHaveText("+2.0%");
   });
 
-  test("AC-9: retail-detail latest.json fetch fails over to api2 so the matrix consumes the api2 price (STRK-249)", async ({
+  test("AC-9: retail-detail latest.json fetch fails over to api2 so the matrix consumes the api2 price", async ({
     page,
   }) => {
     // Boot with api1 DOWN and api2 serving fulfillV2, but pin the seeded summary
@@ -2567,7 +2555,7 @@ test.describe("core/retail-market", () => {
     await expect.poll(apmexCell, { timeout: 8000 }).toContain("$38.00");
   });
 
-  test.describe("STRK-260 market detail ranges", () => {
+  test.describe("market detail ranges", () => {
     test.use({ timezoneId: "Pacific/Auckland" });
 
     test("period controls expose the exact order, default, class, ARIA, and keyboard contract", async ({
@@ -2656,7 +2644,7 @@ test.describe("core/retail-market", () => {
     // observations. The duplicate is a chart-rendering constraint, so the fix
     // belongs at the presentation boundary; the summary keeps counting every
     // real observation. The summary assertion below pins that deliberately.
-    test("STRK-276 — same-second intraday duplicates collapse in the chart but not the summary", async ({
+    test("same-second intraday duplicates collapse in the chart but not the summary", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page, {
@@ -3203,7 +3191,7 @@ test.describe("core/retail-market", () => {
 // The seed below matters more than usual — every one of the three guard
 // conditions has to be FALSE or the old code path syncs anyway and the test
 // passes against the bug. Mirrors the AC-9 seed above (`:1885`).
-test.describe("STRK-290 — market block refresh control", () => {
+test.describe("market block refresh control", () => {
   /**
    * Counting v2 handler — serves the standard fixtures while tallying
    * providers.json fetches.
@@ -3415,7 +3403,7 @@ test.describe("STRK-290 — market block refresh control", () => {
 // endpoint can be chosen.
 //
 // The runners-up from the manifest race are now retained and retried per file.
-test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
+test.describe("retail per-slug fallback across endpoints", () => {
   const FRESH_MANIFEST_AT = "2026-05-26T12:00:00.000Z";
   const OLDER_MANIFEST_AT = "2026-05-26T11:00:00.000Z";
   const GAP_SLUG = SLUG_SILVER_A;
@@ -3559,7 +3547,7 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
   });
 });
 
-test.describe("STRK-338 — manifest cache survives a compressed stored value", () => {
+test.describe("manifest cache survives a compressed stored value", () => {
   // js/market-data.js writes retailManifestCoinMeta and retailManifestSlugs through
   // saveDataSync, which wraps anything over 4096 chars in a "CMP2:" envelope. js/retail.js
   // read them back with a bare localStorage.getItem + JSON.parse, so a compressed value

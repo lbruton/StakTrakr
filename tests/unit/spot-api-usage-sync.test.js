@@ -107,7 +107,7 @@ function spotBlob({
 
 // --- Defect 1, layer 2: DiffEngine.compareSettings -------------------------
 
-describe("STRK-315 compareSettings ignores volatile spot usage counters", () => {
+describe("compareSettings ignores volatile spot usage counters", () => {
   test("keyless STAKTRAKR counter tick with NO keys saved → unchanged", () => {
     // The reporter's exact configuration: zero API keys, StakTrakr feed, the
     // counter ticking once per app boot on each device.
@@ -201,7 +201,7 @@ describe("STRK-315 compareSettings ignores volatile spot usage counters", () => 
     assert.equal(res.changed.length, 0);
   });
 
-  test("STRK-313 catalog behavior is preserved (no regression)", () => {
+  test("catalog behavior is preserved (no regression)", () => {
     const catalog = (used) =>
       JSON.stringify({
         numista: { apiKey: "FAKE-k", quota: 2000 },
@@ -217,7 +217,7 @@ describe("STRK-315 compareSettings ignores volatile spot usage counters", () => 
 
 // --- Defect 2: unchanged entries carry localVal/remoteVal ------------------
 
-describe("STRK-315 compareSettings unchanged entries carry renderable values", () => {
+describe("compareSettings unchanged entries carry renderable values", () => {
   test("unchanged entry exposes localVal (diff-modal.js reads mEntry.localVal)", () => {
     const raw = JSON.stringify({ numista: { apiKey: "FAKE-configured" } });
     const res = DiffEngine.compareSettings(
@@ -257,7 +257,7 @@ describe("STRK-315 compareSettings unchanged entries carry renderable values", (
 
 // --- Defect 1, layer 1: computeSettingsHash --------------------------------
 
-describe("STRK-315 computeSettingsHash ignores volatile spot usage counters", () => {
+describe("computeSettingsHash ignores volatile spot usage counters", () => {
   test("identical config, different counters → EQUAL hash", async () => {
     const h1 = await buildBlock({
       appTheme: "dark",
@@ -317,7 +317,7 @@ describe("STRK-315 computeSettingsHash ignores volatile spot usage counters", ()
 
 // --- Defect 1, layer 3: _mergeSpotUsageCounters ----------------------------
 
-describe("STRK-315 _mergeSpotUsageCounters on genuine config apply", () => {
+describe("_mergeSpotUsageCounters on genuine config apply", () => {
   const { _mergeSpotUsageCounters } = buildBlock({});
 
   test("same month, keyless provider → max(used) wins", () => {
@@ -492,7 +492,7 @@ function loadSettingsRenderers(providers) {
   return w.DiffModalSettings;
 }
 
-describe("STRK-315 formatSettingValue reports the spot blob honestly", () => {
+describe("formatSettingValue reports the spot blob honestly", () => {
   const withNames = loadSettingsRenderers({
     STAKTRAKR: { name: "StakTrakr" },
     METALS_DEV: { name: "Metals.dev" },

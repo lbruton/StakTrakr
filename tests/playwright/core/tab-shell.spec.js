@@ -29,7 +29,7 @@ const gotoApp = async (page) => {
   await page.waitForFunction(() => window.appListenersReady === true);
 };
 
-test.describe("core/STRK-282 tab shell", () => {
+test.describe("core/tab shell", () => {
   test("boots on Dashboard with the other three panels hidden", async ({ page }) => {
     await gotoApp(page);
 
@@ -40,7 +40,7 @@ test.describe("core/STRK-282 tab shell", () => {
     await expect(page.locator("#tabBtnDashboard")).toHaveAttribute("aria-selected", "true");
   });
 
-  test("arrow keys, Home and End move through the tablist (STRK-282)", async ({ page }) => {
+  test("arrow keys, Home and End move through the tablist", async ({ page }) => {
     await gotoApp(page);
 
     // Declaring role="tablist"/"tab" promises arrow-key movement to assistive
@@ -63,7 +63,7 @@ test.describe("core/STRK-282 tab shell", () => {
     expect(tabIndexes.filter((i) => i === 0)).toHaveLength(1);
   });
 
-  test("a hashless URL from Back restores the default tab (STRK-282)", async ({ page }) => {
+  test("a hashless URL from Back restores the default tab", async ({ page }) => {
     await gotoApp(page);
 
     await page.locator("#tabBtnInventory").click();
@@ -76,7 +76,7 @@ test.describe("core/STRK-282 tab shell", () => {
     await expect(page.locator("#tabViewInventory")).toBeHidden();
   });
 
-  test("the inventory portal is sized after its panel is revealed (STRK-282)", async ({ page }) => {
+  test("the inventory portal is sized after its panel is revealed", async ({ page }) => {
     // REGRESSION GUARD. updatePortalHeight sizes the table portal from
     // getBoundingClientRect on the header and first row, which report 0 inside
     // a display:none panel. init.js renders the table at boot while Dashboard
@@ -254,7 +254,7 @@ const gotoWithLayout = async (page, disabled, hash = "") => {
   await page.waitForFunction(() => window.appListenersReady === true);
 };
 
-test.describe("core/STRK-326 tab visibility", () => {
+test.describe("core/tab visibility", () => {
   test("a disabled tab is dropped from both nav surfaces", async ({ page }) => {
     await gotoWithLayout(page, { vendorPrices: false });
 
@@ -436,7 +436,7 @@ test.describe("core/STRK-326 tab visibility", () => {
   });
 });
 
-test.describe("core/STRK-328 Inventory tab is locked", () => {
+test.describe("core/Inventory tab is locked", () => {
   test("Inventory reports locked and its checkbox is disabled", async ({ page }) => {
     // Inventory is the only surface that can add or edit an item (#newItemBtn
     // lives in its panel) and the Dashboard is derived from that data, so hiding

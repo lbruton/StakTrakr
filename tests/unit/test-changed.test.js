@@ -183,14 +183,29 @@ describe("selectTests", () => {
         'readFileSync(new URL("../../_routes.json", import.meta.url), "utf-8");',
         'execFileSync("git", ["ls-files"], { cwd: new URL("../..", import.meta.url) });',
       ].join("\n"),
+      "tests/unit/naming.test.js":
+        'execFileSync("git", ["ls-files", "-z", "--", "tests"], { cwd: root });',
       "tests/unit/lock.test.js":
         'const LOCK = join(REPO_ROOT, "devops", "pollers", "shared", "run-lock.sh");',
     });
     const unitFor = (file) =>
       unitFiles(selectTests({ map: MAP, changes: [{ file, lines: [1] }], unitIndex }));
     assert.deepEqual(unitFor("functions/_middleware.js"), ["tests/unit/pages.test.js"]);
-    assert.deepEqual(unitFor("_routes.json"), ["tests/unit/pages.test.js"]);
-    assert.deepEqual(unitFor("privacy.html"), ["tests/unit/pages.test.js"]);
+    assert.deepEqual(unitFor("_routes.json"), [
+      "tests/unit/naming.test.js",
+      "tests/unit/pages.test.js",
+    ]);
+    assert.deepEqual(unitFor("privacy.html"), [
+      "tests/unit/naming.test.js",
+      "tests/unit/pages.test.js",
+    ]);
+    for (const file of [
+      "tests/unit/renamed.test.js",
+      "tests/playwright/core/renamed.spec.js",
+      "tests/playwright/evidence/renamed.png",
+    ]) {
+      assert.deepEqual(unitFor(file), ["tests/unit/naming.test.js"]);
+    }
     assert.deepEqual(unitFor("devops/pollers/shared/run-lock.sh"), ["tests/unit/lock.test.js"]);
   });
 
@@ -220,6 +235,20 @@ describe("selectTests", () => {
       unitFiles(select([{ file: "devops/testing/coverage-merge.mjs", lines: [2] }])),
       ["tests/unit/merge.test.js"]
     );
+  });
+
+  test("a renamed unit test selects its current path", () => {
+    const unitIndex = buildUnitIndex({ "tests/unit/renamed.test.js": "" });
+    const selection = selectTests({
+      map: MAP,
+      unitIndex,
+      changes: [
+        { file: "tests/unit/old.test.js", lines: [], deleted: true },
+        { file: "tests/unit/renamed.test.js", lines: [] },
+      ],
+    });
+    assert.equal(selection.full, false);
+    assert.deepEqual(unitFiles(selection), ["tests/unit/renamed.test.js"]);
   });
 
   test("a deleted script selects the full suite; a deleted spec selects nothing to run", () => {

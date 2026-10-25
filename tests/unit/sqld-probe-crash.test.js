@@ -78,7 +78,7 @@ beforeEach(() => {
 });
 
 describe("closeQuietly", () => {
-  it("does not throw when close() returns undefined (the STRK-277 crash)", () => {
+  it("does not throw when close() returns undefined", () => {
     const client = fakeClient({ close: () => undefined });
     assert.doesNotThrow(() => closeQuietly(client));
     assert.equal(client.closeCalls, 1);

@@ -63,7 +63,7 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe("STRK-255 withDeadline", () => {
+describe("withDeadline", () => {
   it("passes through a value that arrives in time", async () => {
     const result = await withDeadline(Promise.resolve("ok"), 1000);
     assert.equal(result, "ok");
@@ -110,7 +110,7 @@ describe("STRK-255 withDeadline", () => {
   });
 });
 
-describe("STRK-255 closeBrowserSafely", () => {
+describe("closeBrowserSafely", () => {
   it("reports a clean close", async () => {
     const browser = { close: async () => {} };
     assert.equal(await closeBrowserSafely(browser), "closed");
@@ -199,7 +199,7 @@ describe("STRK-255 closeBrowserSafely", () => {
   });
 });
 
-describe("STRK-255 listChildPids", () => {
+describe("listChildPids", () => {
   it("finds a spawned child of this process", async () => {
     const child = spawn("sleep", ["30"], { stdio: "ignore" });
     const pids = listChildPids();
@@ -215,7 +215,7 @@ describe("STRK-255 listChildPids", () => {
   });
 });
 
-describe("STRK-255 budget resolution", () => {
+describe("budget resolution", () => {
   it("falls back to defaults when unset", () => {
     assert.equal(resolveVendorBudgetMs({}), DEFAULT_VENDOR_BUDGET_MS);
     assert.equal(resolveCloseTimeoutMs({}), DEFAULT_CLOSE_TIMEOUT_MS);

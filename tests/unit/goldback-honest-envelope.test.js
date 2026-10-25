@@ -1,5 +1,5 @@
 // Unit tests for STRK-250: honest envelope timestamp for goldback/latest.json
-// Run: node --test tests/unit/strk-250-goldback-honest-envelope.test.js
+// Run: node --test tests/unit/goldback-honest-envelope.test.js
 //      or: npm run test:unit
 
 import { describe, it } from "node:test";
@@ -16,7 +16,7 @@ const NOW_MS = NOW.getTime();
 // wrapEnvelope — optional generatedAt override
 // ---------------------------------------------------------------------------
 
-describe("wrapEnvelope — generatedAt override (STRK-250)", () => {
+describe("wrapEnvelope — generatedAt override", () => {
   it("R3.1 — override: produced generated_at equals the injected timestamp (normalised ISO)", () => {
     const injected = new Date("2026-06-01T00:00:00Z");
     const env = wrapEnvelope({ x: 1 }, 7200, injected);
@@ -75,10 +75,10 @@ describe("wrapEnvelope — envelope shape regression (R2.1/R2.2)", () => {
 // deleted, flipped to the current contract, so the reversal stays visible in
 // history. The stale, guard and envelope-shape cases are unchanged: those were
 // always correct and still pass. New coverage lives in
-// tests/unit/strk-257-goldback-generated-at.test.js.
+// tests/unit/goldback-generated-at.test.js.
 // ---------------------------------------------------------------------------
 
-describe("resolveGoldbackGeneratedAt (STRK-250, amended by STRK-257)", () => {
+describe("resolveGoldbackGeneratedAt", () => {
   it("R3.3 — stale: row > budget old → returns normalised scraped_at ISO", () => {
     // 3 h ago. Unchanged by STRK-257 — this case always returned the scrape time.
     const scrapedAt = new Date(NOW_MS - 3 * 60 * 60 * 1000).toISOString();
@@ -87,7 +87,7 @@ describe("resolveGoldbackGeneratedAt (STRK-250, amended by STRK-257)", () => {
     assert.equal(result, expected);
   });
 
-  it("R3.4 (STRK-257) — fresh: row ≤ budget old → NOW returns scraped_at, not undefined", () => {
+  it("R3.4 — fresh: row ≤ budget old → NOW returns scraped_at, not undefined", () => {
     // Was: `assert.equal(result, undefined)` — the publish-time default.
     // A fresh row must still be anchored to its own scrape time so the
     // stale_after window counts down from capture, not from publish.
@@ -104,7 +104,7 @@ describe("resolveGoldbackGeneratedAt (STRK-250, amended by STRK-257)", () => {
     assert.equal(resolveGoldbackGeneratedAt(null), undefined);
   });
 
-  it("R3.3b (STRK-257) — exactly on the budget boundary → returns scraped_at", () => {
+  it("R3.3b — exactly on the budget boundary → returns scraped_at", () => {
     // Was: undefined, because the old strict `age > budget` treated the exact
     // boundary as fresh. With no age gate the boundary is no longer special.
     const scrapedAt = new Date(NOW_MS - 7200 * 1000).toISOString();

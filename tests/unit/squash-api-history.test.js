@@ -97,7 +97,7 @@ function remoteCommitCount() {
   return git(remoteDir, "rev-list", "--count", `refs/heads/${BRANCH}`);
 }
 
-describe("STRK-406 squash-api-history.sh", () => {
+describe("squash-api-history.sh", () => {
   beforeEach(() => {
     workDir = mkdtempSync(join(tmpdir(), "strk406-"));
     remoteDir = join(workDir, "remote.git");
@@ -194,7 +194,7 @@ describe("STRK-406 squash-api-history.sh", () => {
     assert.equal(existsSync(markerFile), false, "marker must not be written so it retries");
   });
 
-  it("logs git's push error so a rejected squash is diagnosable (STRK-406 first run: GH013)", () => {
+  it("logs git's push error so a rejected squash is diagnosable (first run: GH013)", () => {
     publish(seedDir, "data-concurrent.json", "x\n");
 
     const { out } = runSquash();

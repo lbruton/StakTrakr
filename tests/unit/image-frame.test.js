@@ -534,7 +534,7 @@ describe("resolveImageFrame is a thin wrapper over the shared reader (P2: AC-9.1
       assert.equal(api.imageFrameThumbWidth("note", "portrait"), 16);
     });
 
-    test("STRK-436: imageFrameThumbHeight is 36px for portrait Bar/Note, 28px otherwise", () => {
+    test("imageFrameThumbHeight is 36px for portrait Bar/Note, 28px otherwise", () => {
       assert.equal(api.imageFrameThumbHeight("bar", "portrait"), 36);
       assert.equal(api.imageFrameThumbHeight("note", "portrait"), 36);
       assert.equal(api.imageFrameThumbHeight("round", ""), 28);
@@ -543,7 +543,7 @@ describe("resolveImageFrame is a thin wrapper over the shared reader (P2: AC-9.1
       assert.equal(api.imageFrameThumbHeight("note", "landscape"), 28);
     });
 
-    test("STRK-436: imageFrameThumbWidth derives from a given height, same clamp", () => {
+    test("imageFrameThumbWidth derives from a given height, same clamp", () => {
       assert.equal(api.imageFrameThumbWidth("bar", "portrait", 36), 22);
       assert.equal(api.imageFrameThumbWidth("note", "portrait", 36), 18);
       assert.equal(api.imageFrameThumbWidth("note", "landscape", 28), 40);

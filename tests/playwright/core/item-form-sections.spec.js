@@ -140,7 +140,7 @@ const readOpenStates = (page) =>
     return out;
   }, SECTION_KEYS);
 
-test.describe("STRK-301 — collapsible add/edit form sections", () => {
+test.describe("collapsible add/edit form sections", () => {
   test("all seven collapsible sections are native <details> with first-visit defaults", async ({
     page,
   }) => {
@@ -322,7 +322,7 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
     );
   });
 
-  test("constitutional card is not a <details> and has no disclosure affordance (STRK-329)", async ({
+  test("constitutional card is not a <details> and has no disclosure affordance", async ({
     page,
   }) => {
     await showConstitutionalCard(page);
@@ -343,9 +343,7 @@ test.describe("STRK-301 — collapsible add/edit form sections", () => {
     await expect(body, "header click must not hide the body").toBeVisible();
   });
 
-  test("stale remembered {constitutional: false} does not hide the card (STRK-329)", async ({
-    page,
-  }) => {
+  test("stale remembered {constitutional: false} does not hide the card", async ({ page }) => {
     await showConstitutionalCard(page, { constitutional: false });
     const body = page.locator("#item-constitutional-group .form-section-body");
     await expect(body, "stale remembered-closed must not hide constitutional").toBeVisible();
@@ -814,7 +812,7 @@ async function readInlineTypeOptions(page, uuid) {
   ]);
 }
 
-test.describe("STRK-138 — Type drives Metal on the item form", () => {
+test.describe("Type drives Metal on the item form", () => {
   test("the Add form couples Type, Metal, unit and the spot lookup", async ({ page }) => {
     await seedTypeFormAndGoto(page, []);
     await runAddFormCases(page, TYPE_DRIVES_METAL_CASES);
@@ -858,7 +856,7 @@ test.describe("STRK-138 — Type drives Metal on the item form", () => {
 
   // The Add/Edit form shows Goldback and Silverback for any Metal, but bulk edit
   // and the inline table edit still hide incompatible Types through TYPE_METAL_FILTER.
-  test("Inline table-edit hides the Type options the row's Metal excludes (STAK-580 guard)", async ({
+  test("Inline table-edit hides the Type options the row's Metal excludes (guard)", async ({
     page,
   }) => {
     await seedTypeFormAndGoto(page, [TYPE_ITEM, GOLDBACK_ITEM]);

@@ -228,7 +228,7 @@ test.describe("core/mobile-and-layout", () => {
 // Written RED in Cohort B: the Variant A shell does not exist yet. The modal
 // opens from the DASHBOARD totals cards, so this block boots without the
 // #/inventory deep-link the suites above need.
-test.describe("STRK-352 detail modal — mobile", () => {
+test.describe("detail modal — mobile", () => {
   const DM_ITEMS = [
     {
       ...BASE_ITEM,

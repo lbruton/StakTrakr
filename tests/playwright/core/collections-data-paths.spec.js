@@ -705,7 +705,7 @@ const remoteDeviceState = (page, link) =>
     return JSON.stringify(state);
   }, link);
 
-test.describe("core/collections-data-paths — cloud sync contract (STRK-370)", () => {
+test.describe("core/collections-data-paths — cloud sync contract", () => {
   test.beforeEach(async ({ page }) => {
     await seedAndGoto(page);
     await page.waitForFunction(
@@ -1243,7 +1243,7 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
     });
   });
 
-  test("STRK-389 an inserted and reordered Custom Slot list reaches a second device with its links, by manifest and by vault", async ({
+  test("an inserted and reordered Custom Slot list reaches a second device with its links, by manifest and by vault", async ({
     browser,
     page,
   }) => {
@@ -1721,7 +1721,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     slots: [{ label: "One" }],
   };
 
-  test("STRK-427 a mixed pair round-trips through the standalone Collections export and import", async ({
+  test("a mixed pair round-trips through the standalone Collections export and import", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1759,7 +1759,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     });
   });
 
-  test("STRK-427 a mixed pair round-trips through a ZIP backup and restore", async ({ page }) => {
+  test("a mixed pair round-trips through a ZIP backup and restore", async ({ page }) => {
     await seedAndGoto(page);
     await page.waitForFunction(() => typeof window.createBackupZip === "function");
     const id = await page.evaluate(
@@ -1791,7 +1791,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     ).toMatchObject({ imageOrientation: "portrait", reverseImageOrientation: "landscape" });
   });
 
-  test("STRK-427 a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)", async ({
+  test("a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2177,9 +2177,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
   });
 });
 
-test("STRK-444 live title links survive ZIP restore and change the sync settings hash", async ({
-  page,
-}) => {
+test("live title links survive ZIP restore and change the sync settings hash", async ({ page }) => {
   await seedAndGoto(page);
   const id = await page.evaluate(
     () =>
@@ -2225,7 +2223,7 @@ test("STRK-444 live title links survive ZIP restore and change the sync settings
   expect(linkHash.restored).toBe(restored.hash);
 });
 
-test("STRK-444 live title links reach a second device by manifest and encrypted vault", async ({
+test("live title links reach a second device by manifest and encrypted vault", async ({
   browser,
   page,
 }) => {

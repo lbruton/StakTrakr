@@ -9,7 +9,7 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 
 const MOUNT = "#ratiosPanelTestMount";
 
-test.describe("core/ratios-panel — shared Layout C component (STRK-270)", () => {
+test.describe("core/ratios-panel — shared Layout C component", () => {
   /** @type {string[]} */
   let pageErrors;
 
@@ -147,7 +147,7 @@ test.describe("core/ratios-panel — shared Layout C component (STRK-270)", () =
 // =============================================================================
 // STRK-271 — spot-card ratio chips open the panel modal (in-app host)
 // =============================================================================
-test.describe("core/ratios-panel — chip → modal host (STRK-271)", () => {
+test.describe("core/ratios-panel — chip → modal host", () => {
   const MODAL = "#ratiosPanelModal";
 
   test.beforeEach(async ({ page }) => {
@@ -255,7 +255,7 @@ test.describe("core/ratios-panel — chip → modal host (STRK-271)", () => {
 // =============================================================================
 // STRK-273 — standalone /ratios/ page (second host, installable PWA)
 // =============================================================================
-test.describe("core/ratios-panel — standalone /ratios/ page (STRK-273)", () => {
+test.describe("core/ratios-panel — standalone /ratios/ page", () => {
   const PAGE_MOUNT = "#ratiosPageMount";
   // Fresh v2 envelope: generated_at now, within its own stale_after budget.
   const spotFixture = (generatedAt = new Date().toISOString()) => ({

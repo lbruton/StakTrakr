@@ -134,11 +134,12 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.80 &ndash; STRK-476: Test naming cleanup</strong>: Automated test names describe the behavior they check, and a naming guard keeps that convention in place. This maintenance update preserves the existing test checks and app behavior (STRK-476).</li>
     <li><strong>v3.36.79 &ndash; STRK-482: Copper in the app description</strong>: The Settings &gt; About blurb, the page description and the install description name Copper next to Silver, Gold, Platinum and Palladium. Copper has its own spot card, dashboard total and Market tab, and the descriptions match that (STRK-482).</li>
     <li><strong>v3.36.78 &ndash; STRK-474: Test runs leave the project untouched</strong>: The automated tests write their screenshots and scratch files only to temporary folders, and a test run fails if it changes any project file. Nothing in the app looks or works differently (STRK-474).</li>
     <li><strong>v3.36.77 &ndash; STRK-431: Shared control styling cleanup</strong>: The shape and orientation pickers in the Add/Edit Item modal and the Collection builder use one neutral style name instead of a Collections-only one. Nothing looks or works differently, and future design changes to the picker reach both modals in one place (STRK-431).</li>
     <li><strong>v3.36.76 &ndash; STRK-429: Cloud sync catches image frame edits</strong>: Changing only the round or rectangular frame of an item's photo counts as a change for cloud sync, so the edit reaches your other devices without waiting for another field to change. If any of your items carry a frame, the first sync after this update uploads once (STRK-429).</li>
-    <li><strong>v3.36.75 &ndash; STRK-461: Reduced motion turns transitions off</strong>: With the reduced-motion setting on, StakTrakr turns style transitions off instead of shortening them. Theme switches and status colours show their new values at once, and colour checks read the current theme. Animations keep their short single-run timing (STRK-461).</li>      `;
+      `;
 };
 
 // Expose globally for access from other modules

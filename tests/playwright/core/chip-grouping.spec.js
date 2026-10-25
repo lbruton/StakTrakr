@@ -278,7 +278,7 @@ async function excludeOneChip(page) {
   await expect(page.locator("#activeFilters .filter-chip-excluded")).toHaveCount(1);
 }
 
-test.describe("STRK-446 filter chip contrast", () => {
+test.describe("filter chip contrast", () => {
   test("every chip meets WCAG AA text contrast in all four themes, switched in place", async ({
     page,
   }) => {

@@ -31,7 +31,7 @@ async function bootVault(page) {
   );
 }
 
-test.describe("STRK-170 vault modal characterization (cohort 1.4)", () => {
+test.describe("vault modal characterization (cohort 1.4)", () => {
   test("openVaultModal renders local export-mode layout", async ({ page }) => {
     await bootVault(page);
     const r = await page.evaluate(() => {
@@ -292,7 +292,7 @@ function readPersistedKey(page) {
   });
 }
 
-test.describe("STRK-186 catalog key vault restore", () => {
+test.describe("catalog key vault restore", () => {
   test("full restore rehydrates CatalogConfig and key survives usage-counter save + reload", async ({
     page,
   }) => {

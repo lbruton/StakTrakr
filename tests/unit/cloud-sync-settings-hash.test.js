@@ -36,7 +36,7 @@ function hashOf(store) {
   return computeSettingsHash();
 }
 
-describe("STRK-156 computeSettingsHash hashes logical content", () => {
+describe("computeSettingsHash hashes logical content", () => {
   test("compressed (CMP2) vs plain value of identical content hash EQUAL", async () => {
     // Build a value large enough that __compressIfNeeded emits a CMP2 body.
     const big = JSON.stringify({ u1: Array.from({ length: 600 }, (_, i) => "tag-" + i) });

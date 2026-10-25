@@ -219,7 +219,7 @@ test("preference persistence reports write failures without accepting the new va
   );
 });
 
-test("the value sort orders by retail value and migrates the legacy melt key to Value (STRK-382)", () => {
+test("the value sort orders by retail value and migrates the legacy melt key to Value", () => {
   const entries = [
     { id: "none", ledgerRetail: null, ledgerMelt: 5 },
     { id: "low", ledgerRetail: 10, ledgerMelt: 90 },

@@ -636,7 +636,7 @@ async function seedAndOpenBulkEdit(page, inventory) {
   );
 }
 
-test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
+test.describe("core/inventory-math — constitutional silver", () => {
   // Logic-only cases on the default seed. Each runs as a step of one test, after the
   // valuation basis is reset to its default.
   const VALUATION_CASES = [
@@ -1541,10 +1541,8 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
 // STRK-243 — constitutional pre-ship fix (surfaced by the v3.35.55 dev→main ship
 // review). Picking the cu weight-unit option directly dead-ends the save.
 // ---------------------------------------------------------------------------
-test.describe("core/inventory-math — STRK-243 constitutional pre-ship fix", () => {
-  test("STRK-243 — the constitutional unit is Type-driven, not a manual dropdown choice", async ({
-    page,
-  }) => {
+test.describe("core/inventory-math — constitutional unit selection", () => {
+  test("the constitutional unit is Type-driven, not a manual dropdown choice", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
     await openAddModal(page);
@@ -1600,8 +1598,8 @@ const OZ_COIN_FOR_CONVERT = {
   serial: 61,
 };
 
-test.describe("core/inventory-math — STRK-244/245 constitutional valuation history + purity reset", () => {
-  test("STRK-244 — a denomination-only edit (con-90-half → con-40-half) records a price-history point", async ({
+test.describe("core/inventory-math — constitutional valuation history + purity reset", () => {
+  test("a denomination-only edit (con-90-half → con-40-half) records a price-history point", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [CU_HALVES_90] });
@@ -1630,7 +1628,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
       .toBe(1);
   });
 
-  test("STRK-245 — converting a Custom-purity item to Constitutional hides the wrapper and saves the reset purity", async ({
+  test("converting a Custom-purity item to Constitutional hides the wrapper and saves the reset purity", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
@@ -1658,7 +1656,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     expect(saved.purity).toBeCloseTo(0.999, 4);
   });
 
-  test("STRK-245 — converting an item with a NON-custom preset purity to Constitutional preserves the preset", async ({
+  test("converting an item with a NON-custom preset purity to Constitutional preserves the preset", async ({
     page,
   }) => {
     // Copilot review guard: the purity reset must fire ONLY for "custom". Forcing a
@@ -1681,7 +1679,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     expect(purityValue).toBe("0.925");
   });
 
-  test("STRK-245 — backing out of Constitutional before saving preserves a custom purity (no data loss)", async ({
+  test("backing out of Constitutional before saving preserves a custom purity (no data loss)", async ({
     page,
   }) => {
     // Codex review guard: the purity reset must land at SAVE time (final type = cu), not
@@ -1710,7 +1708,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
   });
 });
 
-test.describe("core/inventory-math — STRK-247 purity-wrapper visibility centralization", () => {
+test.describe("core/inventory-math — purity-wrapper visibility centralization", () => {
   test("custom purity → Constitutional → Goldback re-shows the custom-purity wrapper", async ({
     page,
   }) => {
@@ -1922,7 +1920,7 @@ async function captureJsonExport(page) {
   );
 }
 
-test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () => {
+test.describe("core/inventory-math — constitutional lot pricing", () => {
   // ---- B.1: toggle visibility + default + live re-resolve (AC-1, AC-2, AC-5, AC-9) ----
   test("denomination mode shows the purchase toggle defaulted to LOT (AC-1, AC-2)", async ({
     page,
@@ -2231,7 +2229,7 @@ async function seedAndLoadCards(page, inventory, style) {
   await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
 }
 
-test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
+test.describe("core/inventory-math — ASW labels", () => {
   /** A face-mode constitutional lot: $14.75 total face → ~10.5 ozt ASW on the worn basis. */
   const CU_ASW_LOT = {
     ...CU_FACE_50,
@@ -2347,7 +2345,7 @@ const CU_FACE_1475 = {
   serial: 301,
 };
 
-test.describe("core/inventory-math — STRK-300 constitutional face-value display flip", () => {
+test.describe("core/inventory-math — constitutional face value and ASW tooltip", () => {
   test("denomination mode shows the coin count in Qty and total face in Weight", async ({
     page,
   }) => {
@@ -2667,7 +2665,7 @@ const weightCellFor = (page, name) =>
 const rowsNamed = (page, name) =>
   page.locator("#inventoryTable tbody tr").filter({ hasText: name });
 
-test.describe("core/inventory-math — STRK-316 goldback weight sort and filter key", () => {
+test.describe("core/inventory-math — goldback weight sort and filter key", () => {
   test("a 2 gb note and a 2.00 oz round no longer share a weight filter bucket", async ({
     page,
   }) => {
@@ -2983,7 +2981,7 @@ const GB_HALF = {
   serial: 331,
 };
 
-test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW tooltip", () => {
+test.describe("core/inventory-math — gb/sb denomination display + AGW tooltip", () => {
   test("fractional Goldback denominations render exactly, never rounded", async ({ page }) => {
     await seedAndLoad(page, [GB_QUARTER, GB_HALF]);
     await expect(weightCellFor(page, "Core STRK318 Quarter Goldback")).toHaveText("¼ gb");
@@ -3192,7 +3190,7 @@ const G_BAR_3165 = {
   serial: 343,
 };
 
-test.describe("core/inventory-math — STRK-319 unit rendering across every weight unit", () => {
+test.describe("core/inventory-math — unit rendering across every weight unit", () => {
   test("no weight renders as zero, whatever unit it is stored in", async ({ page }) => {
     await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
     // Was "0.03 g" — a 20% overstatement of a 25 mg note.
@@ -3512,7 +3510,7 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
   });
 });
 
-test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () => {
+test.describe("core/inventory-math — copper + avoirdupois unit", () => {
   const AVDP_OZT = 0.9114583;
 
   const COPPER_ROUND = {
@@ -3649,9 +3647,7 @@ test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () =
     await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
   });
 
-  test("an avdp item survives the edit round trip unchanged (STRK-319 bug class)", async ({
-    page,
-  }) => {
+  test("an avdp item survives the edit round trip unchanged", async ({ page }) => {
     await seedMoneyData(page, { inventory: [COPPER_ROUND] });
     await gotoApp(page);
     await openEditModal(page, 0);

@@ -127,7 +127,7 @@ function loadSync(opts = {}) {
   return Object.assign(fns, { calls, callOptions });
 }
 
-describe("STRK-370 SCOPE + EXCLUDE", () => {
+describe("Collection state sync scope and settings exclusion", () => {
   test("collectionState is in SYNC_SCOPE_KEYS", () => {
     const constants = read("js/constants.js");
     const block = constants.slice(
@@ -146,7 +146,7 @@ describe("STRK-370 SCOPE + EXCLUDE", () => {
   });
 });
 
-describe("STRK-370 RE-DETECT — _hasCollectionStateChange", () => {
+describe("_hasCollectionStateChange compares logical Collection state", () => {
   test("no remote settings, or a remote without the key, is not a change", () => {
     const sync = loadSync({ local: linked("2024", U.a, T2) });
     assert.equal(sync._hasCollectionStateChange(null), false);
@@ -202,7 +202,7 @@ describe("STRK-370 RE-DETECT — _hasCollectionStateChange", () => {
   });
 });
 
-describe("STRK-370 APPLY + HOLD — _mergeCollectionState", () => {
+describe("_mergeCollectionState merges and holds Collection state", () => {
   test("hands the PARSED remote state to collectionsStore.mergeIn", () => {
     const sync = loadSync({ local: started() });
     const remote = linked("2024", U.b, T2);
@@ -244,7 +244,7 @@ describe("STRK-370 APPLY + HOLD — _mergeCollectionState", () => {
   });
 });
 
-describe("STRK-370 convergence — the merge the sync path relies on (STRK-154)", () => {
+describe("convergence — the merge the sync path relies on", () => {
   test("device A fills 2023 while device B fills 2024: both survive, in either order", () => {
     const a = linked("2023", U.a, T2);
     const b = linked("2024", U.b, T2);
@@ -282,7 +282,7 @@ describe("STRK-370 convergence — the merge the sync path relies on (STRK-154)"
 // branch and assert the merge is observed before the image pull.
 // ---------------------------------------------------------------------------
 
-describe("STRK-370 commit ordering — Collections merge precedes artwork restore", () => {
+describe("commit ordering — Collections merge precedes artwork restore", () => {
   test("_mergeCollectionState runs BEFORE _pullImageVaultIfChanged", async () => {
     const order = [];
     // Free identifier resolved via globalThis: the branch guards it with typeof,
@@ -328,7 +328,7 @@ describe("STRK-370 commit ordering — Collections merge precedes artwork restor
   });
 });
 
-describe("STRK-393 post-apply populated Collection reconciliation", () => {
+describe("post-apply populated Collection reconciliation", () => {
   test("_applyAndFinalize refreshes after Collection merge and ordinary setting writes", () => {
     const apply = topLevelFunction("_applyAndFinalize");
     assertReloadFollows(
@@ -379,7 +379,7 @@ describe("STRK-393 post-apply populated Collection reconciliation", () => {
   });
 });
 
-test("STRK-391 managed sync detects, merges and converges after Mintage edits and clearing", () => {
+test("managed sync detects, merges and converges after Mintage edits and clearing", () => {
   const local = core.createEmptyState();
   core.createCustomCollection(local, {
     id: "mintage",

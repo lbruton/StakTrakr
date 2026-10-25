@@ -123,7 +123,7 @@ async function bootMarketFooter(page) {
   await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
 }
 
-test.describe("STRK-334 market footer FindBullionPrices attribution", () => {
+test.describe("market footer FindBullionPrices attribution", () => {
   test("footer links to findbullionprices.com in a new tab with noopener noreferrer", async ({
     page,
   }) => {

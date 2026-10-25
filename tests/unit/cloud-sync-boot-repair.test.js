@@ -53,7 +53,7 @@ function makeSandbox(seed, decompressFn) {
   return { map, ...api };
 }
 
-describe("STRK-157 apply-path corruption guard", () => {
+describe("apply-path corruption guard", () => {
   test("_safeSettingWriteValue returns null for [object Object] corruption (skip, don't persist)", () => {
     const { _safeSettingWriteValue } = makeSandbox();
     assert.equal(_safeSettingWriteValue("[object Object]"), null);
@@ -74,7 +74,7 @@ describe("STRK-157 apply-path corruption guard", () => {
   });
 });
 
-describe("STRK-157 boot-repair for corrupt object-valued keys", () => {
+describe("boot-repair for corrupt object-valued keys", () => {
   test("removes corrupt keys, leaves clean keys intact, reports what it repaired", () => {
     const sb = makeSandbox({
       appTheme: "dark",
@@ -126,7 +126,7 @@ describe("STRK-157 boot-repair for corrupt object-valued keys", () => {
 // otherwise a user-entered free-text tag/chip named "[object Object]" (valid JSON,
 // under the 50-char tag limit) would make boot-repair delete the ENTIRE itemTags /
 // chipCustomGroups store, wiping all tags/groups for all items.
-describe("STRK-157 corruption sentinel is exact-match, not substring (free-text safety)", () => {
+describe("corruption sentinel is exact-match, not substring (free-text safety)", () => {
   test("a legitimate tag literally named [object Object] does NOT wipe the itemTags store", () => {
     const legit = JSON.stringify({ u1: ["silver", "[object Object]", "1oz"], u2: ["proof"] });
     const sb = makeSandbox({

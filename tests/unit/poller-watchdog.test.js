@@ -146,7 +146,7 @@ function waitForExit(child, timeoutMs = 15000) {
   });
 }
 
-describe("STRK-255 retail poller run lock", () => {
+describe("retail poller run lock", () => {
   beforeEach(() => {
     workDir = mkdtempSync(join(tmpdir(), "strk255-"));
   });

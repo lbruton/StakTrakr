@@ -78,7 +78,7 @@ const assertClose = (actual, expected, message, tolerance = 1e-9) => {
   );
 };
 
-describe("canonical provider symbol map (STRK-342 + STRK-303 Part 2)", () => {
+describe("canonical provider symbol map (Part 2)", () => {
   test("maps exactly the five wired metals, palladium and copper explicit", () => {
     // Spread copies onto a plain object — the canonical maps carry a null
     // prototype so inherited names can never resolve as mapped metals.

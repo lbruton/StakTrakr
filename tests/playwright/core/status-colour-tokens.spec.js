@@ -115,7 +115,7 @@ async function writeLogLines(page) {
   await expect(page.locator("#numistaSyncLog .cache-log-line")).toHaveCount(3);
 }
 
-test.describe("STRK-450 status colours from theme tokens", () => {
+test.describe("status colours from theme tokens", () => {
   test.beforeEach(async ({ page }) => {
     await gotoApp(page);
   });
@@ -263,7 +263,7 @@ async function expectAaViewHeadersInEveryTheme(page, { inlineTitleColour }) {
   }
 }
 
-test.describe("STRK-452 metal-tinted Item View header", () => {
+test.describe("metal-tinted Item View header", () => {
   test("the header title meets AA for every metal in all four themes, switched in place", async ({
     page,
   }) => {

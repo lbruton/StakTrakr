@@ -292,7 +292,7 @@ async function waitForStableSpotHistory(page) {
   }, SPOT_KEY);
 }
 
-test.describe("core/history-store-migration (STRK-141)", () => {
+test.describe("core/history-store-migration", () => {
   // Isolation: this spec creates and populates the StakTrakrHistory IndexedDB on
   // boot. With workers:1 the browser process is shared, so a leaked DB bleeds
   // into later core specs (e.g. retail-market.spec.js). Start each test from a

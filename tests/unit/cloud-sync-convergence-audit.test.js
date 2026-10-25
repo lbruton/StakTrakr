@@ -60,7 +60,7 @@ function makeHasTagChanges(store, decompress) {
   });
 }
 
-describe("STRK-159 computeInventoryHash canonicalizes disposition", () => {
+describe("computeInventoryHash canonicalizes disposition", () => {
   test("disposition key-order variance hashes EQUAL", async () => {
     const h1 = await inventoryHash([
       { uuid: "x", disposition: { soldDate: "2026-01-01", soldPrice: 100 } },
@@ -78,7 +78,7 @@ describe("STRK-159 computeInventoryHash canonicalizes disposition", () => {
   });
 });
 
-describe("STRK-159 _hasTagChanges compares logical content", () => {
+describe("_hasTagChanges compares logical content", () => {
   const plain = JSON.stringify({ u1: ["a", "b"] });
 
   test("compressed (CMP2) vs plain of identical tags -> NOT changed", () => {
