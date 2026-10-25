@@ -1,0 +1,6 @@
+extends: existence
+message: "Remove the emoji (voice.md)."
+level: warning
+nonword: true
+tokens:
+  - '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B50}\x{2B55}]'
