@@ -508,19 +508,11 @@ describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
     const inventory = [
       base,
       { uuid: "u-2", name: "Bar", type: "Bar", obverseImageUrl: "https://example.test/o.png" },
-      { uuid: "u-3", type: "Coin", obverseImageFrame: "circle", reverseImageFrame: "rectangle" },
+      { uuid: "u-3", type: "Coin", obverseImageFrame: "auto", reverseImageFrame: "" },
       { uuid: "u-4", weightUnit: "cu", constitutionalVariant: "con-90-half", pricingType: "lot" },
     ];
     assert.equal(await nHash(inventory), await oHash(inventory));
   });
-
-  test("D-12: the legacy frame fields stay out of the hash", async () => {
-    assert.equal(
-      await nHash([{ ...base, obverseImageFrame: "circle", reverseImageFrame: "rectangle" }]),
-      await nHash([base])
-    );
-  });
-
   test("the new segment is tagged so it cannot be confused with the STRK-241/242 block", async () => {
     const constitutional = { uuid: "u-5", constitutionalVariant: "slab" };
     const framed = { uuid: "u-5", imageShape: "slab" };
@@ -535,6 +527,52 @@ describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
     for (const key of ["imageShape", "obverseImageOrientation"]) {
       assert.equal(applied[0][key], withFields[key], `an add keeps ${key}`);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// STRK-429: the legacy *ImageFrame fields join the hash (supersedes D-12)
+// ---------------------------------------------------------------------------------------
+
+describe("STRK-429 — legacy frame fields in the inventory hash", () => {
+  test("a legacy frame on either side changes the hash", async () => {
+    const plain = await nHash([base]);
+    const obverseCircle = await nHash([{ ...base, obverseImageFrame: "circle" }]);
+    const obverseRect = await nHash([{ ...base, obverseImageFrame: "rectangle" }]);
+    const reverseCircle = await nHash([{ ...base, reverseImageFrame: "circle" }]);
+    assert.equal(new Set([plain, obverseCircle, obverseRect, reverseCircle]).size, 4);
+  });
+
+  test("a frame-only edit is detected: N's sparse save that removes the legacy keys", async () => {
+    const legacy = { ...base, obverseImageFrame: "rectangle", reverseImageFrame: "rectangle" };
+    const saved = nFrame.writeImageFraming(
+      { shape: "round", obverseOrientation: null, reverseOrientation: null },
+      legacy
+    );
+    const after = applyWrite(legacy, saved);
+    assert.notEqual(await nHash([legacy]), await nHash([after]));
+  });
+
+  test("auto, empty and invalid legacy values hash as absent", async () => {
+    const plain = await nHash([base]);
+    for (const value of ["auto", "", "banana", undefined]) {
+      assert.equal(
+        await nHash([{ ...base, obverseImageFrame: value, reverseImageFrame: value }]),
+        plain,
+        `legacy frame ${String(value)}`
+      );
+    }
+  });
+
+  test("an inventory carrying a legacy frame hashes differently on O (one push after upgrade)", async () => {
+    const framed = [{ ...base, obverseImageFrame: "circle", reverseImageFrame: "rectangle" }];
+    assert.notEqual(await nHash(framed), await oHash(framed));
+  });
+
+  test("the legacy segment is tagged apart from the shape segment", async () => {
+    const legacy = { uuid: "u-6", obverseImageFrame: "circle" };
+    const shaped = { uuid: "u-6", imageShape: "circle" };
+    assert.notEqual(await nHash([legacy]), await nHash([shaped]));
   });
 });
 
