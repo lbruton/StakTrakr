@@ -16745,7 +16745,9 @@ input[type="number"] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     animation-delay: 0s !important;
-    transition-duration: 0.01ms !important;
+    /* A non-zero duration gives every element an all-property transition (initial
+       transition-property), so a style read right after a change returns the old value. */
+    transition-duration: 0s !important;
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
