@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.75] - 2026-10-25
+
+### Changed — STRK-461: Reduced motion turns transitions off
+
+- **No transition under reduced motion**: the global `prefers-reduced-motion: reduce` block in `css/styles.css` sets `transition-duration: 0s` instead of `0.01ms`. The non-zero duration gave every element an all-property transition, so `getComputedStyle()` right after a style change returned the old value (STRK-461).
+- **Animations unchanged**: `animation-duration` stays at `0.01ms`, so toasts that remove themselves on `animationend` still fire it (STRK-461).
+- **Test**: a core case in `status-colour-tokens.spec.js` emulates reduced motion and asserts a theme switch reads the new token colours at once. The full core suite passes with `reducedMotion: "reduce"` (STRK-461).
+
+---
+
 ## [3.36.74] - 2026-10-24
 
 ### Changed — STRK-454: Pattern Image Rules form styles move to CSS classes
