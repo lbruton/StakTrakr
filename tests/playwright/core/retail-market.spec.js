@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
 
 const MARKET_FILTER_KEY = "staktrakr.market_filter";
 const GOLDBACK_G1_RATE = 4.25;
@@ -2272,6 +2273,69 @@ test.describe("core/retail-market", () => {
     const modalContent = page.locator("#marketDetailContent");
     await expect(modalContent).toContainText("€");
     await expect(modalContent).toContainText(CURRENCY_DISCLAIMER);
+  });
+
+  // The ticker, the Market block and the detail modal style their markup through classes
+  // in css/styles.css. An inline style may carry only a runtime value: a vendor or stock
+  // colour, or the ticker track's animation phase and hand-off positioning.
+  test("market markup built in JS carries inline styles only for runtime values", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page, { displayCurrency: "EUR" });
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    await expect(page.locator("#vendorPricesContainer")).toContainText(CURRENCY_DISCLAIMER);
+
+    const runtime = [
+      "color",
+      "animation-delay",
+      "visibility",
+      "position",
+      "left",
+      "top",
+      "pointer-events",
+    ];
+    const blockRoots = ["#bestPriceTickerEl", "#vendorPricesContainer"];
+    const modalRoots = ["#marketDetailContent"];
+    const offenders = await collectInlineStyleOffenders(page, {
+      roots: blockRoots,
+      runtime,
+      label: "block",
+    });
+
+    const gate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+    const pendingOpen = page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await gate.requested;
+    await expect(page.locator("#marketDetailContent")).toHaveText("Loading coin details…");
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: modalRoots, runtime, label: "loading" }))
+    );
+    gate.release();
+    await pendingOpen;
+    await expect(page.locator("#marketDetailContent")).toContainText(CURRENCY_DISCLAIMER);
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: modalRoots, runtime, label: "detail" }))
+    );
+
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SYNTHETIC_UNKNOWN_METAL);
+    await expect(page.locator("#marketDetailContent")).toContainText(
+      "Vendor data unavailable for this coin"
+    );
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: modalRoots, runtime, label: "no-data" }))
+    );
+
+    await page.evaluate(() => {
+      window._v2RetailData = null;
+      localStorage.removeItem("v2RetailPrices");
+      localStorage.removeItem("retailPrices");
+      window.renderVendorPrices();
+    });
+    await expect(page.locator("#vendorPricesContainer")).toContainText("Retail data unavailable");
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: blockRoots, runtime, label: "empty" }))
+    );
+
+    expect(offenders).toEqual([]);
   });
 
   test("unresolved retail slugs are rejected before filter and render paths", async ({ page }) => {

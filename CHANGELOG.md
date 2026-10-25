@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.72] - 2026-10-24
+
+### Changed — STRK-454: Market ticker, block and detail window styles move to CSS classes
+
+- **Market classes**: the price ticker, the Market block header, matrix and status lines, and the retail detail window built in `js/market-data.js` take their static styles from classes in `css/styles.css`. `style.cssText` in the file drops from 12 to 0; vendor and stock colours and the ticker track position stay inline as runtime values (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px, for the Market block with data and empty, the detail window, and its no-data state (STRK-454).
+
+---
+
 ## [3.36.71] - 2026-10-24
 
 ### Changed — STRK-454: Settings table and image list styles move to CSS classes
