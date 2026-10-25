@@ -123,6 +123,29 @@ function sha256BufferToHex(buffer) {
 async function computeInventoryHash(items) {
   try {
     if (!crypto || !crypto.subtle || !crypto.subtle.digest) return null;
+    // Image framing segments, each present only for items that carry its fields and under its
+    // own tag, so an item without them keeps its existing hash and no upgrade prompts a sync.
+    // A legacy frame counts only as "circle" or "rectangle": "auto", "" and junk read as absent.
+    var framingSegment = function (item) {
+      var shape =
+        item.imageShape || item.obverseImageOrientation || item.reverseImageOrientation
+          ? "|frame:" +
+            (item.imageShape || "") +
+            "|" +
+            (item.obverseImageOrientation || "") +
+            "|" +
+            (item.reverseImageOrientation || "")
+          : "";
+      var legacy = function (value) {
+        return value === "circle" || value === "rectangle" ? value : "";
+      };
+      var obverseFrame = legacy(item.obverseImageFrame);
+      var reverseFrame = legacy(item.reverseImageFrame);
+      return (
+        shape +
+        (obverseFrame || reverseFrame ? "|legacyFrame:" + obverseFrame + "|" + reverseFrame : "")
+      );
+    };
     var arr = Array.isArray(items) ? items : [];
     var keys = [];
     for (var i = 0; i < arr.length; i++) {
@@ -163,18 +186,7 @@ async function computeInventoryHash(items) {
             "|" +
             (item.pricingType || "")
           : "") +
-        // STRK-427: the chosen frame shape and per-side orientation, ONLY for items that carry
-        // them, under a distinct "frame:" tag so it cannot be confused with the block above.
-        // An inventory with none of the fields keeps its existing hash (no spurious one-time
-        // sync prompt on upgrade); the legacy *ImageFrame fields stay out (D-12).
-        (item.imageShape || item.obverseImageOrientation || item.reverseImageOrientation
-          ? "|frame:" +
-            (item.imageShape || "") +
-            "|" +
-            (item.obverseImageOrientation || "") +
-            "|" +
-            (item.reverseImageOrientation || "")
-          : "");
+        framingSegment(item);
       keys.push(itemKey + "::" + contentSample);
     }
     keys.sort();

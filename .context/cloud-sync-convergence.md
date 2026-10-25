@@ -41,20 +41,20 @@ whole store, wiping every tag/group (the corruption-detection failure).
 
 ## Surface matrix
 
-| Surface                       | Location                                                                        | Compares / merges on                                                                                                                                  | Guarantee                  | Issue          |
-| ----------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------- |
-| Per-item tag merge            | `cloud-sync.js` `_mergeTagData` / `_unionTags`                                  | parsed+decompressed tag stores; sorted, case-insensitive union on tie                                                                                 | commutative + convergent   | STRK-155       |
-| Tag-change gate               | `cloud-sync.js` `_hasTagChanges`                                                | canonicalized logical content                                                                                                                         | logical equality           | STRK-159       |
-| Collections merge             | `collections-core.js` `mergeStates` via `cloud-sync.js` `_mergeCollectionState` | normalized state; per-Slot and per-artwork `modified`, Tombstones, `metaModified`; removals win artwork timestamp ties                                | commutative + idempotent   | STRK-370       |
-| Collections-change gate       | `cloud-sync.js` `_hasCollectionStateChange`                                     | `merge(local, remote)` vs `local`, canonicalized: true only when the remote contributes                                                               | logical, contribution-only | STRK-370       |
-| Settings hash                 | `cloud-sync.js` `computeSettingsHash` / `_canonicalizeSettingValue`             | decompressed, JSON-parsed, sorted-key canonical form (push and poll)                                                                                  | logical equality           | STRK-156       |
-| Settings apply                | `cloud-sync.js` `_applyAndFinalize` / `_safeSettingWriteValue`                  | rejects `[object Object]` before persisting                                                                                                           | integrity guard            | STRK-157       |
-| Boot repair                   | `cloud-sync.js` `syncBootRepairCorruptSettings`                                 | removes un-round-trippable corruption                                                                                                                 | idempotent self-heal       | STRK-157       |
-| `.stvault` snapshot / restore | `cloud-sync.js` `syncSaveOverrideBackup` / `syncRestoreOverrideBackup`          | raw strings for backup, but skips corruption; restore drift is invisible because the hash is logical                                                  | byte-stable round-trip     | STRK-157 / 159 |
-| Inventory hash                | `cloud-sync.js` `computeInventoryHash`                                          | item key + content fingerprint; `disposition` canonicalized; a truthiness-gated `\|frame:` segment for `imageShape` / per-side orientation (STRK-427) | logical equality           | STRK-159       |
-| Inventory item diff           | `diff-engine.js` `compareItems` / `_valuesEqual`                                | logical; instant-aware for `lastModified` (`INSTANT_FIELDS`)                                                                                          | logical equality           | STRK-158       |
-| Attachments diff              | `diff-engine.js` `_diffAttachments`                                             | UUID / fileName keyed (order-independent); pill count reconciled with rendered rows                                                                   | order-independent          | STRK-158       |
-| Settings diff (modal)         | `diff-engine.js` `compareSettings` / `_settingsValuesEqual`                     | type-coerced + sorted-key stringify                                                                                                                   | logical equality           | pre-existing   |
+| Surface                       | Location                                                                        | Compares / merges on                                                                                                                     | Guarantee                  |
+| ----------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| Per-item tag merge            | `cloud-sync.js` `_mergeTagData` / `_unionTags`                                  | parsed+decompressed tag stores; sorted, case-insensitive union on tie                                                                    | commutative + convergent   |
+| Tag-change gate               | `cloud-sync.js` `_hasTagChanges`                                                | canonicalized logical content                                                                                                            | logical equality           |
+| Collections merge             | `collections-core.js` `mergeStates` via `cloud-sync.js` `_mergeCollectionState` | normalized state; per-Slot and per-artwork `modified`, Tombstones, `metaModified`; removals win artwork timestamp ties                   | commutative + idempotent   |
+| Collections-change gate       | `cloud-sync.js` `_hasCollectionStateChange`                                     | `merge(local, remote)` vs `local`, canonicalized: true only when the remote contributes                                                  | logical, contribution-only |
+| Settings hash                 | `cloud-sync.js` `computeSettingsHash` / `_canonicalizeSettingValue`             | decompressed, JSON-parsed, sorted-key canonical form (push and poll)                                                                     | logical equality           |
+| Settings apply                | `cloud-sync.js` `_applyAndFinalize` / `_safeSettingWriteValue`                  | rejects `[object Object]` before persisting                                                                                              | integrity guard            |
+| Boot repair                   | `cloud-sync.js` `syncBootRepairCorruptSettings`                                 | removes un-round-trippable corruption                                                                                                    | idempotent self-heal       |
+| `.stvault` snapshot / restore | `cloud-sync.js` `syncSaveOverrideBackup` / `syncRestoreOverrideBackup`          | raw strings for backup, but skips corruption; restore drift is invisible because the hash is logical                                     | byte-stable round-trip     |
+| Inventory hash                | `cloud-sync.js` `computeInventoryHash`                                          | item key + content fingerprint; `disposition` canonicalized; gated `\|frame:` and `\|legacyFrame:` segments for the image framing fields | logical equality           |
+| Inventory item diff           | `diff-engine.js` `compareItems` / `_valuesEqual`                                | logical; instant-aware for `lastModified` (`INSTANT_FIELDS`)                                                                             | logical equality           |
+| Attachments diff              | `diff-engine.js` `_diffAttachments`                                             | UUID / fileName keyed (order-independent); pill count reconciled with rendered rows                                                      | order-independent          |
+| Settings diff (modal)         | `diff-engine.js` `compareSettings` / `_settingsValuesEqual`                     | type-coerced + sorted-key stringify                                                                                                      | logical equality           |
 
 ## Adding a new `SYNC_SCOPE_KEYS` entry
 
@@ -76,9 +76,16 @@ whole store, wiping every tag/group (the corruption-detection failure).
 (Images group), the `changeLog.js` field array and a truthiness-gated `|frame:` hash segment.
 An absent field and `""` hash and diff identically (`_valuesEqual` normalizes `""`). An
 inventory with none of the fields hashes byte-identically to the previous build. The upgrade
-raises no spurious sync prompt. The legacy `obverseImageFrame` / `reverseImageFrame` stay out of
-the hash (adding them would re-hash every framed inventory; tracked as a separate hash change). Known,
-accepted limits, pinned in `tests/unit/cloud-sync-image-frame-hash.test.js`:
+raises no spurious sync prompt.
+
+The legacy `obverseImageFrame` / `reverseImageFrame` are in `DIFF_FIELDS`, the `changeLog.js`
+field array and a separate `|legacyFrame:` hash segment. The segment counts only `circle` and
+`rectangle`. `auto`, `""` and any other value hash as absent. A frame-only edit, such as a
+sparse save that removes the legacy keys, changes the hash. An inventory that carries a legacy
+frame hashes differently from v3.36.75 and older builds. Its first sync after the upgrade sees a
+hash-only mismatch and pushes once.
+
+Known, accepted limits, pinned in `tests/unit/cloud-sync-image-frame-hash.test.js`:
 
 - An older build's hash lacks the segment. For an inventory that carries the fields, the poll
   sees a mismatch with an empty field diff (a hash-only mismatch, matrix H-3). Only inventories

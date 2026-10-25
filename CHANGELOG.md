@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.76] - 2026-10-25
+
+### Changed — STRK-429: Cloud sync detects a frame-only image edit
+
+- **Legacy frames in the inventory hash**: `computeInventoryHash` hashes `obverseImageFrame` and `reverseImageFrame` under a separate `|legacyFrame:` tag. An edit that changes only an item's frame, such as a save that drops the legacy keys, changes the hash and is pushed (STRK-429).
+- **No change for unframed inventories**: the segment counts only `circle` and `rectangle`; `auto`, empty and other values hash as absent. An inventory that carries a frame sees one hash-only mismatch after the upgrade and pushes once (STRK-429).
+- **Lower complexity**: both framing segments move into a nested helper, which takes `computeInventoryHash` from cyclomatic complexity 25 to 19 (STRK-429).
+- **Tests**: the D-12 pin in `cloud-sync-image-frame-hash.test.js` becomes five cases for the new segment; H-4 keeps an `auto`/empty-frame item in its byte-identical inventory (STRK-429).
+
 ## [3.36.75] - 2026-10-25
 
 ### Changed — STRK-461: Reduced motion turns transitions off
