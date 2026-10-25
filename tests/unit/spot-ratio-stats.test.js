@@ -208,7 +208,7 @@ describe("buildRatioSeries", () => {
     assert.deepEqual(series, [["1990-01-02", 3.99]]);
   });
 
-  test("a monthly leg joins a daily leg only on shared dates — no fabricated points (STRK-341)", () => {
+  test("a monthly leg joins a daily leg only on shared dates — no fabricated points", () => {
     // Pre-2013 copper is MONTHLY (World Bank Pink Sheet rows stamped on the
     // 1st at 12:00) while silver is daily. The Ag:Cu series must emit only
     // where both printed — roughly one point per month — and must never
@@ -269,7 +269,7 @@ describe("buildRatioSeries", () => {
     assert.deepEqual(mod.buildRatioSeries(entries, "Gold", "Silver"), [["2024-01-02", 80]]);
   });
 
-  test("equal timestamps: the entry later in source order (the overlay) wins (STRK-403)", () => {
+  test("equal timestamps: the entry later in source order (the overlay) wins", () => {
     // Both hosts append the API/live overlay AFTER the seed-bundle cache, and
     // the API year file stamps its daily averages at the same "12:00:00" as
     // the bundle. A stale cached bundle (e.g. a frozen partial-day value from

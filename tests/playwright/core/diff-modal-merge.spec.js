@@ -99,7 +99,7 @@ async function applyDiff(page, options, clicks) {
 const byField = (payload, field) => payload.find((r) => r.type === "modify" && r.field === field);
 const setting = (payload, key) => payload.find((r) => r.type === "setting" && r.key === key);
 
-test.describe("DiffModal merge/apply characterization (STRK-170 cohort 2.3)", () => {
+test.describe("DiffModal merge/apply characterization (cohort 2.3)", () => {
   test.beforeEach(async ({ page }) => {
     await gotoApp(page);
   });
@@ -390,7 +390,7 @@ test.describe("DiffModal markup styling", () => {
 // matching "Remote Items" (meta.itemCount, populated from cloudSafeItemCount()) rather
 // than a raw inventory.length row count. Regression coverage for a fix that was missed
 // when 424a6b3f moved every other item-count display to qty-summed semantics.
-test.describe("DiffModal sync meta row — Local Items count (STRK-258)", () => {
+test.describe("DiffModal sync meta row — Local Items count", () => {
   test.beforeEach(async ({ page }) => {
     await gotoApp(page);
   });

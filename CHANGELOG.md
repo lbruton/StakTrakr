@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.80] - 2026-10-25
+
+### Changed — STRK-476: Name tests by behavior and enforce test naming
+
+- **Test names**: Suite and test titles describe their behavior without issue IDs. Unit filenames and evidence images follow the same rule (STRK-476).
+- **Naming guard**: A unit check rejects issue IDs in tracked test filenames and titles. The test selector runs the guard when test files change (STRK-476).
+- **Selection coverage**: Unit checks verify that renamed tests select their current paths (STRK-476).
+
+---
+
 ## [3.36.79] - 2026-10-25
 
 ### Changed — STRK-482: Copper in the app description

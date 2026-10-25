@@ -41,7 +41,7 @@ function agoIso(seconds) {
   return new Date(NOW_MS - seconds * 1000).toISOString().replace(".000Z", "Z");
 }
 
-describe("STRK-257 resolveGoldbackGeneratedAt anchors to scraped_at", () => {
+describe("resolveGoldbackGeneratedAt anchors to scraped_at", () => {
   it("returns the scrape time for a FRESH row (was undefined before)", () => {
     // The regression STRK-257 fixes. Under STRK-250 this returned undefined,
     // so wrapEnvelope fell back to publish time.
@@ -49,7 +49,7 @@ describe("STRK-257 resolveGoldbackGeneratedAt anchors to scraped_at", () => {
     assert.equal(resolveGoldbackGeneratedAt(scrapedAt), scrapedAt);
   });
 
-  it("returns the scrape time for a STALE row (STRK-250 behaviour preserved)", () => {
+  it("returns the scrape time for a STALE row (behaviour preserved)", () => {
     const scrapedAt = agoIso(3 * 60 * 60);
     assert.equal(resolveGoldbackGeneratedAt(scrapedAt), scrapedAt);
   });
@@ -79,7 +79,7 @@ describe("STRK-257 resolveGoldbackGeneratedAt anchors to scraped_at", () => {
   });
 });
 
-describe("STRK-257 remaining freshness is measured from the scrape", () => {
+describe("remaining freshness is measured from the scrape", () => {
   it("a row scraped 1h59m ago has ~1 minute of budget left, not a full 2h", () => {
     // The concrete failure in the issue. Publish-time anchoring reported
     // 7200 s of remaining life for data that had 60 s left, letting the SW

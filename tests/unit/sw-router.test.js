@@ -254,7 +254,7 @@ describe("classifyEndpoint — negative cases", () => {
 // STRK-190: production requests are built from V2_API_ENDPOINTS
 // (https://api{,2}.staktrakr.com/data/v2), so every real pathname carries a
 // /data prefix. These tests pin classification of the REAL URL shapes.
-describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
+describe("classifyEndpoint — production /data/v2 prefix", () => {
   const PROD_CASES = [
     ["/data/v2/manifest.json", "manifest", 1800],
     ["/data/v2/spot/latest.json", "spot-latest", 1200],
@@ -299,7 +299,7 @@ describe("classifyEndpoint — production /data/v2 prefix (STRK-190)", () => {
 // realtime families (spot-latest, goldback-latest, retail-latest) and must
 // NOT emit the key at all on the other 7 families. C.1 is implemented in
 // this PR — these assertions are green.
-describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", () => {
+describe("classifyEndpoint — networkFirst on realtime families", () => {
   // A representative classifiable path per family (on an API host) so we can
   // inspect the descriptor classifyEndpoint returns for each.
   const FAMILY_PATHS = {
@@ -319,7 +319,7 @@ describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", ()
   // realtime data, but cache-first let a provider_vendors change sit behind a
   // 24h SW-cached copy while the price feed updated immediately, so the UI
   // could show a current price under a stale vendor URL. Dedicated coverage
-  // lives in tests/unit/strk-264-providers-network-first.test.js.
+  // lives in tests/unit/providers-network-first.test.js.
   const REALTIME_FAMILIES = ["spot-latest", "goldback-latest", "retail-latest", "providers"];
   const NON_REALTIME_FAMILIES = [
     "manifest",
@@ -349,7 +349,7 @@ describe("classifyEndpoint — networkFirst on realtime families (STRK-249)", ()
   }
 });
 
-describe("parseGeneratedAtSeconds — STRK-189", () => {
+describe("parseGeneratedAtSeconds", () => {
   it("parses an ISO-8601 string (production envelope format) to unix seconds", () => {
     assert.equal(parseGeneratedAtSeconds({ generated_at: "2026-06-11T22:14:00Z" }), 1781216040);
   });
@@ -379,7 +379,7 @@ describe("parseGeneratedAtSeconds — STRK-189", () => {
   });
 });
 
-describe("isRootShellNavigation — STRK-273 nav-cache guard", () => {
+describe("isRootShellNavigation — nav-cache guard", () => {
   const { isRootShellNavigation } = loadSwRouter();
 
   it("only the root shell may use the './' nav-cache key", () => {
@@ -398,7 +398,7 @@ describe("isRootShellNavigation — STRK-273 nav-cache guard", () => {
   });
 });
 
-describe("navShellCacheKey — STRK-274 per-shell nav caching", () => {
+describe("navShellCacheKey — per-shell nav caching", () => {
   const { navShellCacheKey } = loadSwRouter();
 
   it("the tracker shell maps to './'", () => {
@@ -421,7 +421,7 @@ describe("navShellCacheKey — STRK-274 per-shell nav caching", () => {
   });
 });
 
-describe("navShellCacheKey — STRK-310 subpath-deployment scope", () => {
+describe("navShellCacheKey — subpath-deployment scope", () => {
   const { navShellCacheKey, isRootShellNavigation } = loadSwRouter();
   const SCOPE = "/StakTrakr/";
 

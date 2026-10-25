@@ -74,7 +74,7 @@ function runMerge(localSeed, remote) {
   };
 }
 
-describe("STRK-155 convergent per-item tag merge", () => {
+describe("convergent per-item tag merge", () => {
   test("commutativity: divergent tags with EQUAL timestamps converge identically in both directions", () => {
     const A = {
       itemTags: { u1: ["alpha", "beta"] },

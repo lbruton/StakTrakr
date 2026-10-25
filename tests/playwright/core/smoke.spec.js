@@ -220,7 +220,7 @@ test.describe("core/smoke — app shell boot", () => {
 // Exercises the live renderRatioChips() path: DOM structure + interaction
 // (not bare "text exists" — STRK-123 lesson).
 // ===========================================================================
-test.describe("core/STRK-161 — spot card ratio chips", () => {
+test.describe("core/spot card ratio chips", () => {
   // Card metals as they appear in the markup (id suffix = TitleCase metal name).
   const RATIO_CARDS = [
     { metal: "Silver", label: "Au:Ag" },

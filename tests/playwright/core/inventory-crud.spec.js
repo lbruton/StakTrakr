@@ -919,7 +919,7 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemPaymentMethod")).toHaveValue("PayPal");
   });
 
-  test("STRK-433: duplicate carries the Numista Data tab into the new item", async ({ page }) => {
+  test("duplicate carries the Numista Data tab into the new item", async ({ page }) => {
     await seedData(page, [
       makeItem({
         serial: 1,
@@ -989,7 +989,7 @@ test.describe("payment-method", () => {
     return stored.find((i) => i.serial !== 1);
   }
 
-  test("STRK-437: duplicate keeps the source item's fieldMeta provenance", async ({ page }) => {
+  test("duplicate keeps the source item's fieldMeta provenance", async ({ page }) => {
     await openDuplicateOfCustomisedItem(page);
     await submitItemModal(page);
 
@@ -1005,9 +1005,7 @@ test.describe("payment-method", () => {
     expect(shared).toBe(false);
   });
 
-  test("STRK-437: a field changed on the Duplicate form is marked userModified", async ({
-    page,
-  }) => {
+  test("a field changed on the Duplicate form is marked userModified", async ({ page }) => {
     await openDuplicateOfCustomisedItem(page);
     await page.fill("#itemName", "STRK-437 Renamed Copy");
     await page.fill("#numistaDenomination", "10 Dollars");
@@ -1020,7 +1018,7 @@ test.describe("payment-method", () => {
     expect(dup.fieldMeta.country).toEqual({ source: "manual", userModified: true });
   });
 
-  test("STRK-437: duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
+  test("duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
     page,
   }) => {
     await openDuplicateOfCustomisedItem(page);
@@ -1032,9 +1030,7 @@ test.describe("payment-method", () => {
     expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
   });
 
-  test("STRK-437: Add after a cancelled duplicate does not inherit its fieldMeta", async ({
-    page,
-  }) => {
+  test("Add after a cancelled duplicate does not inherit its fieldMeta", async ({ page }) => {
     await openDuplicateOfCustomisedItem(page);
     await page.click("#cancelItem");
     await expect(page.locator("#itemModal")).toBeHidden();
@@ -1056,9 +1052,7 @@ test.describe("payment-method", () => {
     expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
   });
 
-  test("STRK-433: stale Numista cache load cannot write into a later form context", async ({
-    page,
-  }) => {
+  test("stale Numista cache load cannot write into a later form context", async ({ page }) => {
     await seedData(page, [makeItem({ serial: 1, name: "STRK-433 Stale", numistaId: "1234" })]);
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -1081,9 +1075,7 @@ test.describe("payment-method", () => {
     expect(country).toBe("");
   });
 
-  test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
-    page,
-  }) => {
+  test("applyBulkEdit field-application across types (characterization)", async ({ page }) => {
     // Pins applyBulkEdit's per-field application semantics before the cohort-3.3
     // complexity refactor: plain text passthrough, numeric clamp coercion,
     // custom-purity acceptance, and gram→ozt weight-unit conversion. The
@@ -1198,9 +1190,7 @@ test.describe("payment-method", () => {
   // selection, the storageLocation "Unknown" sentinel→blank, and the date-N/A
   // toggle. MUST pass on current code BEFORE the refactor and stay green after —
   // it goes red only if the refactor changes observable behavior.
-  test("STRK-170: editItem populates form fields from item (characterization)", async ({
-    page,
-  }) => {
+  test("editItem populates form fields from item (characterization)", async ({ page }) => {
     await seedData(page, [
       // 0 — kitchen-sink oz item: full metadata + preset purity + present date
       makeItem({
@@ -2790,7 +2780,7 @@ const COIN_SERIES_INVENTORY = [
   coinSeriesItem(COIN_SERIES_UUIDS.GML, "Gold Maple Leaf", "Gold"),
 ];
 
-test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", () => {
+test.describe("filter-coin-series — cross-metal disambiguation", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript((inv) => {
       localStorage.setItem("metalInventory", JSON.stringify(inv));
@@ -2912,7 +2902,7 @@ async function trackSpaceDefault(page) {
 
 // ─── STRK-208: year/purity inline-tag click-to-filter (onclick escaping) ─────
 
-test.describe("year-purity-filter-tags — STRK-208", () => {
+test.describe("year-purity-filter-tags", () => {
   test("year/purity tag onclick is well-formed (not truncated) and click filters the table", async ({
     page,
   }) => {
@@ -2945,7 +2935,7 @@ test.describe("year-purity-filter-tags — STRK-208", () => {
 
 // ─── STRK-209: keyboard activation a11y for filter tags + name cell ──────────
 
-test.describe("keyboard-a11y-activation — STRK-209", () => {
+test.describe("keyboard-a11y-activation", () => {
   const TWO_ITEMS = [
     { ...SEED_ITEM, uuid: "strk-209-a", name: "STRK-209 Item A", year: "2026", purity: 0.999 },
     { ...SEED_ITEM, uuid: "strk-209-b", name: "STRK-209 Item B", year: "2020", purity: 0.5 },
@@ -3017,7 +3007,7 @@ test.describe("keyboard-a11y-activation — STRK-209", () => {
 
 // ─── STRK-232: keyboard activation a11y for delegated reference tags ──────────
 
-test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
+test.describe("keyboard-a11y-reference-tags", () => {
   // The N#/PCGS#/grade chips activate via a delegated document click handler
   // (not inline onclick like the year/purity chips), so STRK-209's inline
   // onkeydown did not reach them. This block exercises the delegated keydown
@@ -3193,7 +3183,7 @@ async function expectSearchRows(page, term, expectedNames) {
   }
 }
 
-test.describe("STRK-205 broad-origin single-word search", () => {
+test.describe("broad-origin single-word search", () => {
   test("a lone origin word matches its origin; one with no items shows the empty state", async ({
     page,
   }) => {
@@ -3235,7 +3225,7 @@ const OBVERSE_ONLY_ITEM = {
 // _loadBulkRowImages (js/bulkEdit.js) must render a reverse placeholder when the
 // table shows reverse images and the item has none. The gate sits past the
 // imageCache.isAvailable() guard, so the test forces the IndexedDB path.
-test.describe("STRK-173 — bulk-edit reverse image render", () => {
+test.describe("bulk-edit reverse image render", () => {
   test("reverse display + item with no reverse image renders a placeholder without throwing", async ({
     page,
   }) => {

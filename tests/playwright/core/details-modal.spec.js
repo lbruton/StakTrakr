@@ -540,7 +540,7 @@ async function hoverLongNameBuyMarker(page) {
   return page.locator("#dmChartTooltip");
 }
 
-test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
+test("a long buy-tooltip line wraps inside the box — no bleed past the border", async ({
   page,
 }) => {
   const tip = await hoverLongNameBuyMarker(page);
@@ -551,9 +551,7 @@ test("STRK-354: a long buy-tooltip line wraps inside the box — no bleed past t
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("STRK-355: a realistic long buy line stays on ONE line — the box extends to fit", async ({
-  page,
-}) => {
+test("a realistic long buy line stays on ONE line — the box extends to fit", async ({ page }) => {
   const tip = await hoverLongNameBuyMarker(page);
   await expect(tip).toBeVisible();
   await expect(tip).toContainText("Canadian Silver Maple");
@@ -576,9 +574,7 @@ test("STRK-355: a realistic long buy line stays on ONE line — the box extends 
 
 // ── AC-15 display + layer-2 close + D-16 footer ─────────────────────────────
 
-test("STRK-362: invested shows its since-disposed slice in a parenthetical on ALL", async ({
-  page,
-}) => {
+test("invested shows its since-disposed slice in a parenthetical on ALL", async ({ page }) => {
   await installSeed(page);
   await bootApp(page);
   await openScope(page, "Silver");
@@ -674,7 +670,7 @@ test("D-16: footer provenance renders the last-sync surface, no per-sample claim
 
 // ── AC-16 / AC-17: composition ──────────────────────────────────────────────
 
-test("STRK-358: composition lists cap at 5 rows with a +N more row", async ({ page }) => {
+test("composition lists cap at 5 rows with a +N more row", async ({ page }) => {
   // desktop-class viewport (AC-2's fit target) — meaningless at 720p, where
   // the 90vh cap + inner modal scroll is the designed behavior
   await page.setViewportSize({ width: 1600, height: 1350 });
@@ -747,9 +743,7 @@ test("AC-16/AC-17: two panels, |metric| ranking with +N more, metric toggle re-r
 
 // ── AC-18 / AC-19: ledger ───────────────────────────────────────────────────
 
-test("STRK-356: ledger keeps metal dot + name, no type pill; amounts render in full", async ({
-  page,
-}) => {
+test("ledger keeps metal dot + name, no type pill; amounts render in full", async ({ page }) => {
   // big-ticket amount that exceeded the old 80px Paid column width
   const items = SEED_ITEMS.map((it) => (it.uuid === "s1" ? { ...it, price: 3450 } : it));
   await installSeed(page, { items });
@@ -1028,7 +1022,7 @@ async function dmSubstripStats(page) {
   });
 }
 
-test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset with danger accent", async ({
+test("AC-1: disposition markers render as a distinct scatter dataset with danger accent", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1051,7 +1045,7 @@ test("STRK-363 AC-1: disposition markers render as a distinct scatter dataset wi
   expect(info.hidden).toBe(false);
 });
 
-test("STRK-363 AC-2: hovering a disposition marker shows Disposed tooltip with melt-out values", async ({
+test("AC-2: hovering a disposition marker shows Disposed tooltip with melt-out values", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1079,7 +1073,7 @@ test("STRK-363 AC-2: hovering a disposition marker shows Disposed tooltip with m
   expect(tooltipText).toMatch(/\$/);
 });
 
-test("STRK-363 AC-3: buys count, pace, and invested are unchanged by disposition presence", async ({
+test("AC-3: buys count, pace, and invested are unchanged by disposition presence", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1117,9 +1111,7 @@ test("STRK-363 AC-3: buys count, pace, and invested are unchanged by disposition
   expect(disps.pointCount).toBeGreaterThan(0);
 });
 
-test("STRK-363 AC-4: Dispositions toggle chip hides/shows the disposition markers", async ({
-  page,
-}) => {
+test("AC-4: Dispositions toggle chip hides/shows the disposition markers", async ({ page }) => {
   await installSeed(page);
   await bootApp(page);
   await openScope(page, "Silver");
@@ -1183,7 +1175,7 @@ async function dmTokenComputedColor(page, token) {
   }, token);
 }
 
-test("STRK-361 AC-1: markers are comfortably large — radius floor ≥ 5, hit radius ≥ 12, hover grows", async ({
+test("AC-1: markers are comfortably large — radius floor ≥ 5, hit radius ≥ 12, hover grows", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1201,7 +1193,7 @@ test("STRK-361 AC-1: markers are comfortably large — radius floor ≥ 5, hit r
 });
 
 for (const theme of ["light", "dark", "slate", "sepia"]) {
-  test(`STRK-361 AC-2 (${theme}): buy markers carry a bg-primary halo ≥ 2.5px that differs from the melt line`, async ({
+  test(`AC-2 (${theme}): buy markers carry a bg-primary halo ≥ 2.5px that differs from the melt line`, async ({
     page,
   }) => {
     await installSeed(page);
@@ -1220,7 +1212,7 @@ for (const theme of ["light", "dark", "slate", "sepia"]) {
   });
 }
 
-test("STRK-361 AC-3: a buy-marker tooltip carries the day's Melt / Basis / Spot / gap footer, honoring the basis toggle", async ({
+test("AC-3: a buy-marker tooltip carries the day's Melt / Basis / Spot / gap footer, honoring the basis toggle", async ({
   page,
 }) => {
   const tip = await hoverLongNameBuyMarker(page);
@@ -1261,9 +1253,7 @@ test("STRK-361 AC-3: a buy-marker tooltip carries the day's Melt / Basis / Spot 
   await expect(tip.locator(".dm-tt-foot")).not.toContainText("Basis");
 });
 
-test("STRK-361 AC-3: a disposition-marker tooltip carries the same day-stats footer", async ({
-  page,
-}) => {
+test("AC-3: a disposition-marker tooltip carries the same day-stats footer", async ({ page }) => {
   await installSeed(page);
   await bootApp(page);
   await openScope(page, "Silver");
@@ -1284,7 +1274,7 @@ test("STRK-361 AC-3: a disposition-marker tooltip carries the same day-stats foo
   await expect(tip.locator(".dm-tt-foot")).toContainText(`Melt ${expectedMelt}`);
 });
 
-test("STRK-361 AC-4: each buy tooltip line names its purchase location in the By Purchase Location panel's color", async ({
+test("AC-4: each buy tooltip line names its purchase location in the By Purchase Location panel's color", async ({
   page,
 }) => {
   const tip = await hoverLongNameBuyMarker(page);
@@ -1313,7 +1303,7 @@ test("STRK-361 AC-4: each buy tooltip line names its purchase location in the By
   expect(colors.tooltip).toBe(colors.panel);
 });
 
-test("STRK-361 AC-4: an item with no purchase location reads Unknown in the neutral muted token", async ({
+test("AC-4: an item with no purchase location reads Unknown in the neutral muted token", async ({
   page,
 }) => {
   const items = SEED_ITEMS.map((it) => (it.uuid === "s1" ? { ...it, purchaseLocation: "" } : it));
@@ -1340,7 +1330,7 @@ test("STRK-361 AC-4: an item with no purchase location reads Unknown in the neut
 // dated acquisitions on/after the window start for 30D/90D/1Y, the full
 // scope including undated Items on ALL.
 
-test("STRK-365 AC-1: 1Y and 30D scope the ledger and panels to dated acquisitions in the window; ALL restores undated", async ({
+test("AC-1: 1Y and 30D scope the ledger and panels to dated acquisitions in the window; ALL restores undated", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1365,7 +1355,7 @@ test("STRK-365 AC-1: 1Y and 30D scope the ledger and panels to dated acquisition
   await expect(locNames).toHaveCount(4);
 });
 
-test("STRK-365 AC-2: on 30D the ledger's row count and Paid total reconcile with the substrip's buys and invested", async ({
+test("AC-2: on 30D the ledger's row count and Paid total reconcile with the substrip's buys and invested", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1390,7 +1380,7 @@ test("STRK-365 AC-2: on 30D the ledger's row count and Paid total reconcile with
   ]);
 });
 
-test("STRK-365 AC-3: every panel carries a scope caption that tracks the active range pill", async ({
+test("AC-3: every panel carries a scope caption that tracks the active range pill", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1415,7 +1405,7 @@ test("STRK-365 AC-3: every panel carries a scope caption that tracks the active 
   }
 });
 
-test("STRK-365 AC-4: after narrowing to 30D, a real marker click still flashes its ledger row", async ({
+test("AC-4: after narrowing to 30D, a real marker click still flashes its ledger row", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1433,7 +1423,7 @@ test("STRK-365 AC-4: after narrowing to 30D, a real marker click still flashes i
   ).toBeVisible();
 });
 
-test("STRK-365: the ledger caption says how many undated items a bounded range hides; ALL drops it", async ({
+test("the ledger caption says how many undated items a bounded range hides; ALL drops it", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1452,7 +1442,7 @@ test("STRK-365: the ledger caption says how many undated items a bounded range h
 // Three low-priority follow-ups closing out the STRK-352 detail modal:
 // terminology (Acquisitions), initial focus on open, and Realized tile color.
 
-test("STRK-357 AC-1/AC-2: user-facing copy says Acquisitions on the chip and substrip; the tooltip title stays Acquired; dmRole stays buys", async ({
+test("AC-1/AC-2: user-facing copy says Acquisitions on the chip and substrip; the tooltip title stays Acquired; dmRole stays buys", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1481,7 +1471,7 @@ test("STRK-357 AC-1/AC-2: user-facing copy says Acquisitions on the chip and sub
   await expect(page.locator("#dmChartTooltip .dm-tt-title")).toContainText(/^Acquired /);
 });
 
-test("STRK-359 AC-1/AC-2: opening parks focus on the modal container, not the close button; Tab reaches the close button with a themed focus ring", async ({
+test("AC-1/AC-2: opening parks focus on the modal container, not the close button; Tab reaches the close button with a themed focus ring", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1527,7 +1517,7 @@ test("STRK-359 AC-1/AC-2: opening parks focus on the modal container, not the cl
   expect(tabbed.outlineColor).toBe(primaryRgb);
 });
 
-test("STRK-359: Shift+Tab from the parked container wraps to the modal's last control — the focus trap still encloses the modal", async ({
+test("Shift+Tab from the parked container wraps to the modal's last control — the focus trap still encloses the modal", async ({
   page,
 }) => {
   await installSeed(page);
@@ -1586,7 +1576,7 @@ async function realizedParity(page) {
   });
 }
 
-test("STRK-360 AC-1: a positive Realized figure takes the gain class and the dashboard's realized color", async ({
+test("AC-1: a positive Realized figure takes the gain class and the dashboard's realized color", async ({
   page,
 }) => {
   await installSeed(page); // canonical s4: realizedGainLoss 30
@@ -1600,7 +1590,7 @@ test("STRK-360 AC-1: a positive Realized figure takes the gain class and the das
   expect(p.tileColor).toBe(p.dashColor);
 });
 
-test("STRK-360 AC-1: a negative Realized figure takes the loss class and the dashboard's realized color", async ({
+test("AC-1: a negative Realized figure takes the loss class and the dashboard's realized color", async ({
   page,
 }) => {
   await installSeed(page, { items: seedWithRealized(-15) });
@@ -1615,7 +1605,7 @@ test("STRK-360 AC-1: a negative Realized figure takes the loss class and the das
   expect(p.tileColor).toBe(p.dashColor);
 });
 
-test("STRK-360 AC-2: zero Realized renders neutral — no gain/loss class, matching the dashboard's plain $0.00", async ({
+test("AC-2: zero Realized renders neutral — no gain/loss class, matching the dashboard's plain $0.00", async ({
   page,
 }) => {
   await installSeed(page, { items: seedWithRealized(0) });

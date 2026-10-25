@@ -65,7 +65,7 @@ function makeHarness() {
   return { io: surface.collectionsIO, store: surface.collectionsStore };
 }
 
-describe("collections io — CSV Collections cell (STRK-371)", () => {
+describe("collections io — CSV Collections cell", () => {
   test("a primary and a spare round-trip through the cell", () => {
     const h = makeHarness();
     h.store.link(TEMPLATE, "2024", U.a);

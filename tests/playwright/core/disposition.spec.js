@@ -307,9 +307,7 @@ test.describe("core/disposition", () => {
   // (plain delete, full disposition, validation reject) before the complexity
   // refactor. Green on current code; goes red only if the refactor changes
   // observable behavior (inventory mutation, changelog, modal state).
-  test("STRK-170: confirmRemoveItem path characterization (delete / dispose / reject)", async ({
-    page,
-  }) => {
+  test("confirmRemoveItem path characterization (delete / dispose / reject)", async ({ page }) => {
     const baseCoin = (over) => ({
       metal: "Silver",
       composition: "Silver",
@@ -720,7 +718,7 @@ test.describe("core/disposition", () => {
     expect(wrapperCount).toBe(0);
   });
 
-  test("empty-disposition items stay active across filter modes, badge, and styling (STRK-83)", async ({
+  test("empty-disposition items stay active across filter modes, badge, and styling", async ({
     page,
   }) => {
     // idx 0 = active, idx 1 = empty disposition {}, idx 2 = real disposed.
@@ -949,9 +947,7 @@ test.describe("core/disposition", () => {
       await expect(page.locator("#viewItemModal")).toContainText("Trade Re-disposed");
     });
 
-    test("cost basis divides by actually-linked count, not raw input length (STRK-196)", async ({
-      page,
-    }) => {
+    test("cost basis divides by actually-linked count, not raw input length", async ({ page }) => {
       // Source is Rhodium (no seeded spot) so computeTradeValue() returns null,
       // pinning givenUpValue to disposition.amount for a deterministic divisor.
       const TRADE_SOURCE = {
@@ -1039,7 +1035,7 @@ test.describe("core/disposition", () => {
       expect(result.tradeLinkEntries).toBe(2);
     });
 
-    test("edit-add re-balances the whole trade so basis sums to given-up value (STRK-229)", async ({
+    test("edit-add re-balances the whole trade so basis sums to given-up value", async ({
       page,
     }) => {
       // Rhodium source has no seeded spot, so computeTradeValue() returns null and
@@ -1106,7 +1102,7 @@ test.describe("core/disposition", () => {
       expect(result.priceRowsAdded).toBe(2);
     });
 
-    test("edit-remove re-inflates the remaining trade items to the given-up value (STRK-229)", async ({
+    test("edit-remove re-inflates the remaining trade items to the given-up value", async ({
       page,
     }) => {
       const TRADE_SOURCE = {
@@ -1176,7 +1172,7 @@ test.describe("core/disposition", () => {
   });
 });
 
-test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () => {
+test.describe("core/changeLog undo (cohort 2.2 characterization)", () => {
   // Pin js/changeLog.js toggleChange (field-dispatch) and confirmCascadeUndo
   // (two-phase-commit rollback / drift downgrade / fallback) BEFORE the
   // complexity refactor. Green on current code; goes red only if the refactor
@@ -1184,7 +1180,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
   // result contract). Undo-critical — these are the surfaces the helper
   // extraction most risks.
 
-  test("STRK-170: toggleChange scalar-field undo/redo round-trip", async ({ page }) => {
+  test("toggleChange scalar-field undo/redo round-trip", async ({ page }) => {
     await seedDispositionData(page, { inventory: [{ ...BASE_ITEM, notes: "edited" }] });
     await gotoApp(page);
 
@@ -1208,7 +1204,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(result.undoneAfterRedo).toBe(false);
   });
 
-  test("STRK-170: toggleChange Deleted-undo restores, Added-undo removes", async ({ page }) => {
+  test("toggleChange Deleted-undo restores, Added-undo removes", async ({ page }) => {
     await seedDispositionData(page, { inventory: [] });
     await gotoApp(page);
 
@@ -1264,9 +1260,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(result.afterAddedUndo.hasRedoSnapshot).toBe(true);
   });
 
-  test("STRK-170: toggleChange guards are no-ops (neutralized / attachment / missing)", async ({
-    page,
-  }) => {
+  test("toggleChange guards are no-ops (neutralized / attachment / missing)", async ({ page }) => {
     await seedDispositionData(page, { inventory: [{ ...BASE_ITEM, notes: "untouched" }] });
     await gotoApp(page);
 
@@ -1306,7 +1300,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(result.missingThrew).toBe(false);
   });
 
-  test("STRK-170: confirmCascadeUndo rolls back on inventory-persist failure", async ({ page }) => {
+  test("confirmCascadeUndo rolls back on inventory-persist failure", async ({ page }) => {
     await seedDispositionData(page, { inventory: [BASE_ITEM] });
     await gotoApp(page);
     const split = await splitBaseItem(page);
@@ -1345,7 +1339,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(after).toEqual(before);
   });
 
-  test("STRK-170: confirmCascadeUndo rolls back both stores on changelog-persist failure", async ({
+  test("confirmCascadeUndo rolls back both stores on changelog-persist failure", async ({
     page,
   }) => {
     await seedDispositionData(page, { inventory: [BASE_ITEM] });
@@ -1384,9 +1378,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(after).toEqual(before);
   });
 
-  test("STRK-170: confirmCascadeUndo downgrades to single-entry undo on drift", async ({
-    page,
-  }) => {
+  test("confirmCascadeUndo downgrades to single-entry undo on drift", async ({ page }) => {
     await seedDispositionData(page, { inventory: [BASE_ITEM] });
     await gotoApp(page);
     const split = await splitBaseItem(page);
@@ -1405,9 +1397,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
     expect(result.applied).toBe("single-entry");
   });
 
-  test("STRK-170: confirmCascadeUndo with no paired entries returns no_paired_entries", async ({
-    page,
-  }) => {
+  test("confirmCascadeUndo with no paired entries returns no_paired_entries", async ({ page }) => {
     await seedDispositionData(page, { inventory: [BASE_ITEM] });
     await gotoApp(page);
 
@@ -1425,7 +1415,7 @@ test.describe("core/changeLog undo (STRK-170 cohort 2.2 characterization)", () =
   // same way its sibling undo helpers do — a user-facing toast + no-op return
   // instead of an unhandled SyntaxError. Pins the throw → graceful-toast behavior
   // change deferred out of the behavior-preserving cohort 2.2 refactor (PR #1272).
-  test("STRK-204: priceHistoryDelete undo fails safe on corrupt snapshot", async ({ page }) => {
+  test("priceHistoryDelete undo fails safe on corrupt snapshot", async ({ page }) => {
     await seedDispositionData(page, { inventory: [] });
     await gotoApp(page);
 

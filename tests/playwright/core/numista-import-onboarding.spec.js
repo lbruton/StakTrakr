@@ -115,7 +115,7 @@ async function captureDiff(page, csvText) {
   }, csvText);
 }
 
-test.describe("STRK-167 Numista instance-aware merge", () => {
+test.describe("Numista instance-aware merge", () => {
   test("AC-7/AC-12 — non-empty import opens the diff-review modal, not a replace dialog", async ({
     page,
   }) => {

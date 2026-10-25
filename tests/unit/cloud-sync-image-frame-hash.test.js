@@ -319,7 +319,7 @@ const base = { uuid: "u-1", name: "Silver Eagle", metal: "Silver", type: "Coin" 
 // Items I-1 … I-10
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 matrix — items (I-1 … I-10)", () => {
+describe("matrix — items (I-1 … I-10)", () => {
   /** N writes the final state for a record; returns the stored record. */
   const nSave = (record, shape, orientations = {}) =>
     applyWrite(
@@ -452,7 +452,7 @@ describe("STRK-427 matrix — items (I-1 … I-10)", () => {
 // Sync, hash and diff H-1 … H-5
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
+describe("matrix — sync, hash and diff (H-1 … H-5)", () => {
   const withFields = { ...base, imageShape: "note", obverseImageOrientation: "portrait" };
 
   test("H-1: absent and empty new fields hash the same and produce no diff on N", async () => {
@@ -513,7 +513,7 @@ describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
     ];
     assert.equal(await nHash(inventory), await oHash(inventory));
   });
-  test("the new segment is tagged so it cannot be confused with the STRK-241/242 block", async () => {
+  test("the new segment is tagged so it cannot be confused with the block", async () => {
     const constitutional = { uuid: "u-5", constitutionalVariant: "slab" };
     const framed = { uuid: "u-5", imageShape: "slab" };
     assert.notEqual(await nHash([constitutional]), await nHash([framed]));
@@ -534,7 +534,7 @@ describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
 // STRK-429: the legacy *ImageFrame fields join the hash (supersedes D-12)
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-429 — legacy frame fields in the inventory hash", () => {
+describe("legacy frame fields in the inventory hash", () => {
   test("a legacy frame on either side changes the hash", async () => {
     const plain = await nHash([base]);
     const obverseCircle = await nHash([{ ...base, obverseImageFrame: "circle" }]);
@@ -580,7 +580,7 @@ describe("STRK-429 — legacy frame fields in the inventory hash", () => {
 // Import / export E-2 and Collections C-1
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 matrix — import/export and Custom Collections", () => {
+describe("matrix — import/export and Custom Collections", () => {
   test("E-2: an N export read by O's JSON and CSV readers loses the new keys and the frames", () => {
     const exported = {
       ...base,
@@ -645,7 +645,7 @@ describe("STRK-427 matrix — import/export and Custom Collections", () => {
 // Registration (AC-8.6)
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 registration at the enumeration sites (AC-8.6)", () => {
+describe("registration at the enumeration sites (AC-8.6)", () => {
   test("the three fields are in the changeLog.js field array next to the legacy frames", () => {
     const changeLogSrc = read("js/changeLog.js");
     const at = changeLogSrc.indexOf('"obverseImageFrame"');

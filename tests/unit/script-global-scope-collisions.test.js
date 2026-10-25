@@ -112,7 +112,7 @@ describe("js/ modules share one global scope without colliding", () => {
     );
   });
 
-  test("the STRK-315 pair specifically stays collision-free", () => {
+  test("the pair specifically stays collision-free", () => {
     // diff-engine.js and cloud-sync.js each carry a deliberately duplicated
     // volatile-field strip (marked duplication-ok, since diff-engine is
     // dependency-free by design). Duplicated LOGIC is fine; duplicated NAMES

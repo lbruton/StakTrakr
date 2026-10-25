@@ -36,7 +36,7 @@ function buildValuationFieldChanged() {
 
 const buildRecordBulkPriceHistory = loadRecordBulkPriceHistory;
 
-describe("STRK-244 — single-edit valuation gate covers injected fields", () => {
+describe("single-edit valuation gate covers injected fields", () => {
   test("a junk-silver denomination swap with identical facePerCoin is detected", () => {
     // con-90-half → con-40-half: both facePerCoin 0.5 (stored `weight` unchanged),
     // but the 90%→40% variant swings melt ~2.4x. Only constitutionalVariant changes,
@@ -117,7 +117,7 @@ describe("STRK-244 — single-edit valuation gate covers injected fields", () =>
   });
 });
 
-describe("STRK-244 — bulk guard records on Type-coercion-injected valuation fields", () => {
+describe("bulk guard records on Type-coercion-injected valuation fields", () => {
   function makeEnv({ enabled, inventory }) {
     const recorded = [];
     let saved = 0;

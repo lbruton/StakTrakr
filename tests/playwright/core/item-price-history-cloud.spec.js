@@ -484,7 +484,7 @@ async function expectWriteThrowRetries(page, { manifest, syncId } = {}) {
   expect(ts).toContain(REMOTE_TS);
 }
 
-test.describe("core/item-price-history-cloud (STRK-147)", () => {
+test.describe("core/item-price-history-cloud", () => {
   test("two devices converge on the union of item-price-history entries and a re-sync is idempotent", async ({
     page,
   }) => {
@@ -767,7 +767,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
   // STRK-224 — companion failure/cancel/retry edges (deferred from STRK-147)
   // ===========================================================================
 
-  test("Edge 1: cancelling a DiffModal that also carries a companion change does not merge or record it (STRK-224)", async ({
+  test("Edge 1: cancelling a DiffModal that also carries a companion change does not merge or record it", async ({
     page,
   }) => {
     // AC-1 / AC-2 / AC-9(a). A poll detects a remote sync with BOTH an inventory
@@ -815,7 +815,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     expect(lastPull.syncId).toBe("local-before-acceptance");
   });
 
-  test("Edge 1 guard: a companion-only change still merges silently and records its hash (STRK-224 non-regression)", async ({
+  test("Edge 1 guard: a companion-only change still merges silently and records its hash (non-regression)", async ({
     page,
   }) => {
     // AC-3 / AC-9. Non-regression guard for the STRK-147 D-11 silent fast-path: a
@@ -851,7 +851,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     expect(lastPullHash).toBe(await canonicalHash(page, merged));
   });
 
-  test("Edge 2: a transient companion download failure holds lastPull stale and retries on the next poll (STRK-224)", async ({
+  test("Edge 2: a transient companion download failure holds lastPull stale and retries on the next poll", async ({
     page,
   }) => {
     // AC-4 / AC-6 / AC-9(b). A companion-only remote change (matching inv +
@@ -902,7 +902,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     expect(ts).toContain(REMOTE_TS);
   });
 
-  test("Edge 3 (manifest-first): a post-apply companion write-throw does not advance lastPull, and retries (STRK-224)", async ({
+  test("Edge 3 (manifest-first): a post-apply companion write-throw does not advance lastPull, and retries", async ({
     page,
   }) => {
     // AC-7 / AC-8 / AC-9(c-manifest-first). The manifest-first deferred apply
@@ -930,7 +930,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     });
   });
 
-  test("Edge 3 (vault-first): a post-apply companion write-throw restores the prior lastPull, and retries (STRK-224)", async ({
+  test("Edge 3 (vault-first): a post-apply companion write-throw restores the prior lastPull, and retries", async ({
     page,
   }) => {
     // AC-7 / AC-8 / AC-9(c-vault-first). The vault-first apply records syncId inside
@@ -940,7 +940,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     await expectWriteThrowRetries(page, { syncId: "remote-sync-vaultfirst" });
   });
 
-  test("Edge 1/2 (local-newer): a transient companion failure does not push or advance lastPull (STRK-224)", async ({
+  test("Edge 1/2 (local-newer): a transient companion failure does not push or advance lastPull", async ({
     page,
   }) => {
     // A1 (Codacy HIGH). On a local-newer poll cycle the companion is merged before
@@ -976,7 +976,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     expect(lastPull.syncId).toBe("local-before-acceptance"); // held stale for retry
   });
 
-  test("Edge 3 (first-ever pull): a write-throw with null lastPull resets the watermark, not sticks it (STRK-224)", async ({
+  test("Edge 3 (first-ever pull): a write-throw with null lastPull resets the watermark, not sticks it", async ({
     page,
   }) => {
     // A3 (Copilot). When lastPull is null (first sync) the snapshot is null; restoring
@@ -1013,7 +1013,7 @@ test.describe("core/item-price-history-cloud (STRK-147)", () => {
     expect(await historyTsForItemA(page)).toContain(REMOTE_TS);
   });
 
-  test("Edge (full-overwrite): pullSyncVault pulls the companion and records its hash (STRK-224)", async ({
+  test("Edge (full-overwrite): pullSyncVault pulls the companion and records its hash", async ({
     page,
   }) => {
     // Finding 1 (Codex). The full-overwrite restore path (pullSyncVault) advanced
@@ -1098,7 +1098,7 @@ async function captureDeletes(page) {
   return deleted;
 }
 
-test.describe("core/item-price-history-cloud (STRK-223 clear tombstone)", () => {
+test.describe("core/item-price-history-cloud (clear tombstone)", () => {
   test("AC-1: confirming 'Clear all' stamps the clear watermark and wipes local history", async ({
     page,
   }) => {

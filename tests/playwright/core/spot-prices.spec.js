@@ -47,7 +47,7 @@ const forceSync = (page) => page.evaluate(() => window.syncSpotProvider({ forceS
 // reading localStorage directly is unreliable — saveDataSync may compress the value
 const readSpotHistory = (page) => page.evaluate(() => window.spotHistory || []);
 
-test.describe("STRK-189 — spot payload freshness gate", () => {
+test.describe("spot payload freshness gate", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -82,9 +82,7 @@ test.describe("STRK-189 — spot payload freshness gate", () => {
     expect(history.some((row) => row.spot === 11.11)).toBe(false);
   });
 
-  test("STRK-331 strict-first: api1 in the 20m–2h window loses to a fresh api2", async ({
-    page,
-  }) => {
+  test("strict-first: api1 in the 20m–2h window loses to a fresh api2", async ({ page }) => {
     // The gap v3.35.96 left open: 25m passes the LENIENT gate (max(20m × 6, 2h)),
     // so first-acceptable selection served api1's stale payload for up to 2h
     // while api2 sat fresh — the badge's cry-wolf window was really a
@@ -260,7 +258,7 @@ async function configureMetalPriceApi(page) {
   });
 }
 
-test.describe("STRK-170 — fetchLatestPrices per-provider dispatch (characterization)", () => {
+test.describe("fetchLatestPrices per-provider dispatch (characterization)", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -443,7 +441,7 @@ async function expectAllIconsAt(page, expected) {
   expect(await readIconFreshness(page)).toEqual(SPOT_METALS.map(() => expected));
 }
 
-test.describe("STRK-291 — spot-card refresh icon freshness colour", () => {
+test.describe("spot-card refresh icon freshness colour", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
     await installBootSyncProbe(page);
@@ -683,7 +681,7 @@ test.describe("STRK-291 — spot-card refresh icon freshness colour", () => {
 // visible — deliberately NOT a polling timer (the acceptance criteria forbid
 // one, and page.clock.setFixedTime freezes Date without faking timers, so a
 // timer-based fix would also be untestable this way).
-test.describe("STRK-320 — freshness repaint when the tab becomes visible", () => {
+test.describe("freshness repaint when the tab becomes visible", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
     await installBootSyncProbe(page);
@@ -753,7 +751,7 @@ test.describe("STRK-320 — freshness repaint when the tab becomes visible", () 
 // in memory: a missing metal is filled from the next-freshest envelope that has
 // it, at no extra network cost, and only from candidates that already cleared
 // the same lenient STRK-189 gate.
-test.describe("STRK-333 — spot metal coverage across endpoints", () => {
+test.describe("spot metal coverage across endpoints", () => {
   // Every case in this block is "serve these two envelopes, sync once, inspect
   // what landed", so the scaffolding is shared rather than repeated four times.
   const FRESH_MINUTES = 5;
@@ -943,7 +941,7 @@ async function renderSilverLabel(page, { withMorningSync }) {
   );
 }
 
-test.describe("STRK-153 seed label lock", () => {
+test.describe("seed label lock", () => {
   test.use({ locale: "en-US", timezoneId: "America/Chicago" });
 
   test("a today-noon seed tail shows the Seed label until a same-day API sync replaces it", async ({

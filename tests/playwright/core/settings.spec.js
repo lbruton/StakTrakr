@@ -238,7 +238,7 @@ async function gotoDashboard(page) {
   await page.waitForFunction(() => window.appListenersReady === true);
 }
 
-test.describe("core/settings STRK-306 copper dashboard cards", () => {
+test.describe("core/settings copper dashboard cards", () => {
   test("copper is hidden by default and the four/five-card layouts are untouched", async ({
     page,
   }) => {
@@ -286,7 +286,7 @@ test.describe("core/settings STRK-306 copper dashboard cards", () => {
     await expect(firstVisibleTitle).toHaveText("All Metals");
   });
 
-  test("the Ag:Cu ratio chip follows copper's Metal Order opt-in (STRK-341)", async ({ page }) => {
+  test("the Ag:Cu ratio chip follows copper's Metal Order opt-in", async ({ page }) => {
     await gotoDashboard(page);
 
     // Copper disabled (default): the chip renders into the copper card, which

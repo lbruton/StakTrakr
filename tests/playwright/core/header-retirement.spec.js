@@ -165,7 +165,7 @@ function watchPageErrors(page) {
   return errors;
 }
 
-test.describe("STRK-283 — Trend header button retired to the spot-card period chip", () => {
+test.describe("Trend header button retired to the spot-card period chip", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -284,7 +284,7 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
 // The epic's "click = metal, shift-click = all" was dropped (user-confirmed):
 // _performSingleProviderFetch returns all four metals in one payload, so a
 // per-metal sync would repeat the same request and discard three results.
-test.describe("STRK-284 — Spot Sync header button retired to the per-card refresh icon", () => {
+test.describe("Spot Sync header button retired to the per-card refresh icon", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -373,7 +373,7 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
 //
 // NOTE the panel is `settingsPanel_system`, not `_storage` as both issues
 // originally said — corrected after reading the listeners.
-test.describe("STRK-285/286 — Backup and Restore header buttons retired", () => {
+test.describe("Backup and Restore header buttons retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -467,7 +467,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
 // storage key IS `headerAboutBtnVisible` and the config id is `aboutBtn`.
 // Grepping the wrong one returns zero hits and reads like the button does not
 // exist.
-test.describe("STRK-289 — About header button retired", () => {
+test.describe("About header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -529,7 +529,7 @@ test.describe("STRK-289 — About header button retired", () => {
 // not the button, because the dot lives beside the button inside it. Asserting
 // only #headerCloudSyncBtn is gone would pass while leaving an empty wrapper
 // (and its flex/gap CSS) in the header.
-test.describe("STRK-287 — Cloud Sync header button retired", () => {
+test.describe("Cloud Sync header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -656,7 +656,7 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
 // it is the first retirement that removes something every existing user can see
 // today. toHaveCount(0) is doubly required — toBeHidden() would have been false
 // before the change, not merely vacuous.
-test.describe("STRK-288 — Currency header button retired", () => {
+test.describe("Currency header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -740,7 +740,7 @@ test.describe("STRK-288 — Currency header button retired", () => {
 // market data with no working manual refresh outside Settings. The behavioural
 // half lives in core/retail-market.spec.js (STRK-290 describe); this block pins
 // the removal half.
-test.describe("STRK-290 — Market header button retired to the in-block refresh control", () => {
+test.describe("Market header button retired to the in-block refresh control", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });

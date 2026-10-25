@@ -128,7 +128,10 @@ function directRefs(file, text) {
     const segments = [...match[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
     refs.add(path.posix.normalize(segments.join("/")));
   }
-  if (LISTS_REPO.test(text)) refs.add(ROOT_FILES);
+  if (LISTS_REPO.test(text)) {
+    refs.add(ROOT_FILES);
+    if (/["']tests["']/.test(text)) refs.add("tests/");
+  }
   for (const match of text.matchAll(DATA_DIRECTORY)) refs.add(`${match[1]}/`);
   if (DIRECTORY_SCAN.test(text)) {
     for (const match of text.matchAll(DIRECTORY_NAME)) refs.add(`${match[1]}/`);

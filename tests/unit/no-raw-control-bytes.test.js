@@ -145,7 +145,7 @@ const findControlBytes = (rel) => {
   return found;
 };
 
-describe("STRK-280 no raw control bytes in tracked source", () => {
+describe("no raw control bytes in tracked source", () => {
   it("finds no disallowed control byte in any tracked first-party text file", () => {
     const offenders = listTrackedTextFiles()
       .map((rel) => ({ rel, hits: findControlBytes(rel) }))

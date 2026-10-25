@@ -483,9 +483,7 @@ test.describe("core/import-export", () => {
     expect(clean.slice(reverseUrl + 1, reverseUrl + 3)).toEqual(["Obverse Frame", "Reverse Frame"]);
   };
 
-  test("STRK-427 item framing round-trips through JSON export and JSON import", async ({
-    page,
-  }) => {
+  test("item framing round-trips through JSON export and JSON import", async ({ page }) => {
     await bootFramed(page);
     const [download] = await Promise.all([
       page.waitForEvent("download"),
@@ -510,9 +508,7 @@ test.describe("core/import-export", () => {
     expect(await frameFieldsOf(page)).toMatchObject({ imageShape: "note" });
   });
 
-  test("STRK-427 item framing round-trips through the standard CSV export and import", async ({
-    page,
-  }) => {
+  test("item framing round-trips through the standard CSV export and import", async ({ page }) => {
     await bootFramed(page);
     const csv = await page.evaluate(() => window.exportInventoryCSV());
     const headers = await page.evaluate((text) => {
@@ -532,7 +528,7 @@ test.describe("core/import-export", () => {
     );
   });
 
-  test("STRK-427 item framing round-trips through the ZIP backup JSON, ZIP CSV and restore parse", async ({
+  test("item framing round-trips through the ZIP backup JSON, ZIP CSV and restore parse", async ({
     page,
   }) => {
     await bootFramed(page);
@@ -578,7 +574,7 @@ test.describe("core/import-export", () => {
       expect(parsed[key], `${key} in the restore parse`).toBe(FRAMED_ITEM[key]);
   });
 
-  test("STRK-427 a sparse item exports no new keys and never writes empty legacy frames", async ({
+  test("a sparse item exports no new keys and never writes empty legacy frames", async ({
     page,
   }) => {
     const sparse = { ...FRAME_ITEM, uuid: "strk427-sparse" };
@@ -603,7 +599,7 @@ test.describe("core/import-export", () => {
     }
   });
 
-  test("STRK-427 invalid enum values in an imported CSV read as absent", async ({ page }) => {
+  test("invalid enum values in an imported CSV read as absent", async ({ page }) => {
     await bootFramed(page);
     const csv = await page.evaluate(
       (text) => {
@@ -631,9 +627,7 @@ test.describe("core/import-export", () => {
     expect(fields.obverseImageFrame).toBe("rectangle");
   });
 
-  test("CSV and ZIP exports survive items missing metal/weight (STRK-211, STRK-212)", async ({
-    page,
-  }) => {
+  test("CSV and ZIP exports survive items missing metal/weight", async ({ page }) => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(
       () =>
@@ -740,7 +734,7 @@ test.describe("core/import-export", () => {
     expect(result.backupReceived.tradedFromUuid).toBe("strk123-trade-source");
   });
 
-  test("copper item with avdp weightUnit survives the CSV export→import round trip (STRK-305)", async ({
+  test("copper item with avdp weightUnit survives the CSV export→import round trip", async ({
     page,
   }) => {
     const copperItem = {
@@ -1466,7 +1460,7 @@ test.describe("core/import-export", () => {
   // lists a photo for an item that was de-duplicated away — so its UUID is absent
   // from the restored inventory — must NOT import that photo, or it lingers in
   // IndexedDB forever as an un-editable orphan row in Settings (field-reported).
-  test("ZIP user-image restore skips photos whose item UUID is not in the inventory (STRK-200)", async ({
+  test("ZIP user-image restore skips photos whose item UUID is not in the inventory", async ({
     page,
   }) => {
     await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
@@ -1580,7 +1574,7 @@ test.describe("core/import-export", () => {
   // sink) gets the same guard. A decrypted payload can carry photo records for
   // items no longer in the inventory; importing them is what produced the field
   // orphans. The guard skips them while still importing live records.
-  test(".stvault image restore skips photos whose item UUID is not in the inventory (STRK-200)", async ({
+  test(".stvault image restore skips photos whose item UUID is not in the inventory", async ({
     page,
   }) => {
     await page.addInitScript(() => localStorage.setItem("seedImagesVer", "1"));
@@ -1753,7 +1747,7 @@ async function captureStrk220State(page, uuid) {
   }, uuid);
 }
 
-test.describe("core/import-export — STRK-220 merge tags on existing items", () => {
+test.describe("core/import-export — merge tags on existing items", () => {
   test("merge modify (UUID match) persists Tags and removedTags for the existing item", async ({
     page,
   }) => {

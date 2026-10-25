@@ -101,7 +101,7 @@ async function installStubs(page) {
   });
 }
 
-test.describe("STRK-166 bulk Sync Image URLs", () => {
+test.describe("bulk Sync Image URLs", () => {
   test("backfills missing image URLs, dedups by catalog ID, preserves existing", async ({
     page,
   }) => {
@@ -137,7 +137,7 @@ test.describe("STRK-166 bulk Sync Image URLs", () => {
 
 // STRK-458: the bulk sync modal's Start / Cancel buttons, progress bar and activity log
 // are static markup that startBulkSync and logSyncActivity drive.
-test.describe("STRK-458 bulk sync modal controls", () => {
+test.describe("bulk sync modal controls", () => {
   const overview = "#numistaSyncOverview";
   const startBtn = "#numistaSyncStartBtn";
   const cancelBtn = "#numistaSyncCancelBtn";

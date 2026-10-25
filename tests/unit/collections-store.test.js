@@ -134,7 +134,7 @@ function startedHarness() {
   return makeHarness(persisted(boot.disk));
 }
 
-describe("collections store — failed storage write (STRK-377)", () => {
+describe("collections store — failed storage write", () => {
   test("a CSV membership batch saves once and rolls back every link on quota failure", () => {
     const h = makeHarness();
     const pending = [
@@ -287,7 +287,7 @@ describe("collections store — failed storage write (STRK-377)", () => {
   });
 });
 
-describe("collections store — disabled Collections preference (STRK-393)", () => {
+describe("collections store — disabled Collections preference", () => {
   test("normalizes missing, malformed, duplicate, and unknown disabled IDs", () => {
     const missing = makeHarness();
     assert.deepEqual(missing.store.getDisabledIds(), []);
@@ -537,7 +537,7 @@ describe("readPersisted — fail-closed snapshot of the stored Collections state
 // STRK-440: another tab's write reaches this tab only as a `storage` event. Without a
 // listener this tab keeps a stale copy: its next save overwrites the other tab's work and
 // its exports judge artwork against old stamps.
-describe("cross-tab storage listener (STRK-440)", () => {
+describe("cross-tab storage listener", () => {
   /**
    * This tab (h) and another tab that links U.b to Slot 2024 and persists it.
    * @returns {Object} Harness for this tab, after the other tab's write landed on disk
@@ -655,7 +655,7 @@ describe("cross-tab storage listener (STRK-440)", () => {
 
 // STRK-440: backup and image-vault export judge artwork against what storage holds, and
 // fall back to memory only when the persisted state cannot be read reliably.
-describe("exportState — persisted first, memory as the fail-safe fallback (STRK-440)", () => {
+describe("exportState — persisted first, memory as the fail-safe fallback", () => {
   test("prefers the persisted state over a stale in-memory copy", () => {
     const h = startedHarness();
     h.store.getState(); // hydrate this tab BEFORE the other tab writes (hydration is lazy)

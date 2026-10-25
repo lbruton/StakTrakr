@@ -45,7 +45,7 @@ function buildHashFn() {
   });
 }
 
-describe("STRK-241 — constitutional fields participate in the inventory hash", () => {
+describe("constitutional fields participate in the inventory hash", () => {
   test("denomination-only change on the same uuid yields a different hash", async () => {
     const computeInventoryHash = buildHashFn();
     const base = {

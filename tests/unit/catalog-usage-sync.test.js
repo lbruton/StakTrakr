@@ -72,7 +72,7 @@ function catalogBlob({
 
 // --- Layer 2: DiffEngine.compareSettings -----------------------------------
 
-describe("STRK-313 compareSettings ignores volatile catalog usage counters", () => {
+describe("compareSettings ignores volatile catalog usage counters", () => {
   test("raw strings, identical credentials, different Numista counters → unchanged", () => {
     const local = { catalog_api_config: catalogBlob({ nUsed: 41 }) };
     const remote = { catalog_api_config: catalogBlob({ nUsed: 42 }) };
@@ -140,7 +140,7 @@ describe("STRK-313 compareSettings ignores volatile catalog usage counters", () 
 
 // --- Layer 1: computeSettingsHash ------------------------------------------
 
-describe("STRK-313 computeSettingsHash ignores volatile catalog usage counters", () => {
+describe("computeSettingsHash ignores volatile catalog usage counters", () => {
   test("identical credentials, different counters → EQUAL hash", async () => {
     const h1 = await buildBlock({
       appTheme: "dark",
@@ -166,7 +166,7 @@ describe("STRK-313 computeSettingsHash ignores volatile catalog usage counters",
 
 // --- Layer 3: _mergeCatalogUsageCounters ------------------------------------
 
-describe("STRK-313 _mergeCatalogUsageCounters on genuine credential apply", () => {
+describe("_mergeCatalogUsageCounters on genuine credential apply", () => {
   const { _mergeCatalogUsageCounters } = buildBlock({});
 
   test("same period, changed numista key, unchanged pcgs token → numista kept remote, pcgs max", () => {

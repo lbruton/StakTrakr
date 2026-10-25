@@ -259,7 +259,7 @@ async function saveCloneWithout(page, controlSelector, { grading = false } = {})
   );
 }
 
-test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
+test.describe("core/image-frame-editor — item modal", () => {
   test("E-empty: shape control and both empty frames show before any image exists, flag off hides the group", async ({
     page,
   }) => {
@@ -723,7 +723,7 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
   });
 });
 
-test.describe("core/image-frame-editor — layout, themes and builder parity (STRK-427)", () => {
+test.describe("core/image-frame-editor — layout, themes and builder parity", () => {
   test("AC-6.1: desktop previews are larger than the old 140px cap and fit the 700px dialog", async ({
     page,
   }) => {
@@ -989,7 +989,7 @@ const measureShapeOption = (page, modal) =>
     };
   });
 
-test.describe("core/image-frame-editor — item modal vs builder visual parity (STRK-434)", () => {
+test.describe("core/image-frame-editor — item modal vs builder visual parity", () => {
   for (const kind of ["item", "builder"]) {
     test(`row 6: ${kind} modal puts the Images section below Type, Metal and Name`, async ({
       page,
@@ -1712,7 +1712,7 @@ const measureSlotThumbs = (page) =>
     })
   );
 
-test.describe("core/image-frame-editor — builder Slot thumbnails follow the Image shape (STRK-442)", () => {
+test.describe("core/image-frame-editor — builder Slot thumbnails follow the Image shape", () => {
   for (const width of [1280, 390]) {
     test(`every Slot thumbnail takes the collection's shape inside the 44px box at ${width}px`, async ({
       page,
@@ -1924,7 +1924,7 @@ async function expectNoPatternAfterRelease(page) {
   await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
 }
 
-test.describe("core/image-frame-editor — item image options (STRK-443)", () => {
+test.describe("core/image-frame-editor — item image options", () => {
   test("each item frame has an image options button that opens the link and pattern options", async ({
     page,
   }) => {

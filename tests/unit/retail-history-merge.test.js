@@ -57,7 +57,7 @@ function entry(over) {
   };
 }
 
-describe("_mergeRetailHistory — per-slug history merge (STRK-170 AC-4)", () => {
+describe("_mergeRetailHistory — per-slug history merge (AC-4)", () => {
   test("returns [] for an empty input list", () => {
     assert.deepEqual(_mergeRetailHistory([]), []);
   });

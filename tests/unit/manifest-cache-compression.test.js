@@ -148,7 +148,7 @@ function bigCoinMeta(count) {
 // The regression: a compressed value must restore, not clear the cache
 // ---------------------------------------------------------------------------
 
-describe("STRK-338 — manifest cache restores through the compression helpers", () => {
+describe("manifest cache restores through the compression helpers", () => {
   test("coin meta written by saveDataSync above the threshold restores intact", () => {
     const meta = bigCoinMeta(60);
     assert.ok(
@@ -203,7 +203,7 @@ describe("STRK-338 — manifest cache restores through the compression helpers",
 // Back-compat: every existing user, and every Playwright seed, stores raw JSON
 // ---------------------------------------------------------------------------
 
-describe("STRK-338 — uncompressed values still restore", () => {
+describe("uncompressed values still restore", () => {
   test("raw JSON written straight to localStorage restores for all three keys", () => {
     // This is the shape existing users have on disk and the shape the Playwright specs
     // seed via writeJson() — __decompressIfNeeded is a no-op on an unprefixed string.
@@ -245,7 +245,7 @@ describe("STRK-338 — uncompressed values still restore", () => {
 // Self-healing: a bad value must still be evicted, not left to re-fail forever
 // ---------------------------------------------------------------------------
 
-describe("STRK-338 — corrupt and wrong-shape values still self-heal", () => {
+describe("corrupt and wrong-shape values still self-heal", () => {
   test("non-JSON garbage leaves the global null and evicts the key", () => {
     storage.setItem(COIN_META_KEY, "{not valid json at all");
 

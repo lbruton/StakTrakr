@@ -50,7 +50,7 @@ function loadNumistaLookup(seed) {
   return { NumistaLookup, store };
 }
 
-describe("NumistaLookup id hardening + import (STRK-202)", () => {
+describe("NumistaLookup id hardening + import", () => {
   test("loadCustomRules derives stable, non-colliding ids for id-less rules", () => {
     const seed = [
       { pattern: "morgan", replacement: "Morgan Dollar", seedImageId: "img-a" },
