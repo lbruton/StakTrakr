@@ -44,9 +44,10 @@ let workDir;
  * @param {string} [body] - Extra bash to run after a successful acquire.
  * @param {string} [claimStub] - Bash run at the top of each `_run_lock_claim`
  *   call, with `$_claim_calls` set to the call number; it may `return 1` early.
+ * @param {Record<string, string>} [env] - Extra environment for the bash run.
  * @returns {{status: number, stdout: string}} Exit status and combined output.
  */
-function runAcquire(lockfile, maxAge, body = "", claimStub = "") {
+function runAcquire(lockfile, maxAge, body = "", claimStub = "", env = {}) {
   const stub = claimStub
     ? `
     eval "$(declare -f _run_lock_claim | sed '1s/_run_lock_claim/_real_run_lock_claim/')"
@@ -76,6 +77,9 @@ function runAcquire(lockfile, maxAge, body = "", claimStub = "") {
     const stdout = execFileSync("bash", ["-c", script], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, ...env },
+      // A retry loop that never ends must fail the test, not hang the suite.
+      timeout: 20000,
     });
     return { status: 0, stdout };
   } catch (err) {
@@ -385,6 +389,21 @@ describe("STRK-255 retail poller run lock", () => {
     assert.match(res.stdout, /SKIPPED/);
     assert.doesNotMatch(res.stdout, /WATCHDOG:/);
   });
+
+  for (const attempts of ["abc", "0", "99999999999999999999"]) {
+    it(`bounds the retries when RUN_LOCK_CLAIM_ATTEMPTS is '${attempts}'`, () => {
+      const lockfile = join(workDir, "poller.lock");
+      // `[ "$attempt" -ge abc ]` errors and reads as false, so a junk limit
+      // would retry forever against a lock directory that never accepts a claim.
+      const res = runAcquire(lockfile, 600, "", "return 1", {
+        RUN_LOCK_CLAIM_ATTEMPTS: attempts,
+      });
+
+      assert.equal(res.status, 0, "a junk retry limit must not hang or abort the run");
+      assert.match(res.stdout, /SKIPPED/);
+      assert.match(res.stdout, /changed owner 3 times/);
+    });
+  }
 
   it("falls back to the default budget instead of aborting on a junk budget", () => {
     const lockfile = join(workDir, "poller.lock");
