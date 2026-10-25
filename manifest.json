@@ -1,7 +1,7 @@
 {
   "name": "StakTrakr — Precious Metals Inventory Tracker",
   "short_name": "StakTrakr",
-  "description": "Track your silver, gold, platinum, and palladium portfolio. Live spot prices, melt values, gain/loss tracking.",
+  "description": "Track your silver, gold, platinum, palladium, and copper portfolio. Live spot prices, melt values, gain/loss tracking.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
