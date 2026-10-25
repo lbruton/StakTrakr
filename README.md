@@ -17,7 +17,7 @@
 <p align="center">
   <a href="https://www.staktrakr.com">Launch App</a> &bull;
   <a href="https://beta.staktrakr.com">Beta</a> &bull;
-  <a href="https://lbruton.github.io/StakTrakr/about.html">About</a> &bull;
+  <a href="https://www.staktrakr.com/about.html">About</a> &bull;
   <a href="CHANGELOG.md">Changelog</a> &bull;
   <a href="https://github.com/lbruton/StakTrakrApi">Price API</a>
 </p>
