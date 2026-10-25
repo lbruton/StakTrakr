@@ -102,10 +102,10 @@ existing alerts never fail it. A second, informational check named `vale` (revie
 the annotations.
 
 A `dev → main` ship PR adds every line changed since the last release, so its `Vale` check can
-fail on alerts that no single `dev` PR reported. Before opening the ship PR, run Vale on the
-changed docs and keep only the alerts on lines in `git diff -U0 origin/main...origin/dev`. Fix
-them in a chore PR to `dev`. Vale does not end a sentence at a period after a code span at the
-end of a line, so it can report a long sentence at the start of the sentence before it.
+fail on alerts that no single `dev` PR reported. Before you open the ship PR, run Vale on the
+changed docs. Keep the alerts on lines that `git diff -U0 origin/main...origin/dev` adds, and
+fix them in a chore PR to `dev`. Vale does not end a sentence at a period that follows a code
+span at the end of a line. It then reports the long sentence where the earlier sentence starts.
 
 **CodeQL is not a required status check on `dev`.** On `main` it is enforced as a
 code-scanning rule rather than a status check. That distinction is why a `dev` PR can
