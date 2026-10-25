@@ -16033,8 +16033,8 @@ input[type="number"] {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 #numistaTagSettingsGroup .tag-blacklist-add-btn {
   font-size: 0.85rem;
@@ -16055,7 +16055,7 @@ input[type="number"] {
   border-radius: var(--radius-lg);
   font-size: 0.8rem;
   background: var(--bg-secondary);
-  color: var(--text);
+  color: var(--text-primary);
 }
 #numistaTagBlacklistList .tag-blacklist-remove {
   background: none;
