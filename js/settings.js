@@ -3036,7 +3036,6 @@ window.applyLayoutOrder = applyLayoutOrder;
  * Populate all sub-sections of the Images settings tab.
  */
 const populateImagesSection = () => {
-  renderImageStorageStats();
   renderCustomPatternRules();
   renderOrphanedPatternImages();
   renderUserImageGrid();
@@ -3292,7 +3291,6 @@ const renderOrphanedPatternImages = async () => {
       }
     }
     renderOrphanedPatternImages();
-    renderImageStorageStats();
   });
   header.appendChild(label);
   header.appendChild(deleteAllBtn);
@@ -3300,7 +3298,6 @@ const renderOrphanedPatternImages = async () => {
 
   const onDelete = () => {
     renderOrphanedPatternImages();
-    renderImageStorageStats();
   };
   // Build rows concurrently (each does IndexedDB lookups), then append in order.
   const rows = await Promise.all(orphans.map((rec) => _buildOrphanImageRow(rec, onDelete)));
@@ -3378,7 +3375,6 @@ const renderCustomPatternRules = async () => {
         await imageCache.deletePatternImage(rule.seedImageId);
       }
       renderCustomPatternRules();
-      renderImageStorageStats();
     });
 
     actions.appendChild(editBtn);
@@ -3390,7 +3386,7 @@ const renderCustomPatternRules = async () => {
     editForm.className = "pattern-rule-edit-form";
     editForm.style.display = "none";
     editForm.innerHTML = `
-      <div class="cloud-provider-card pattern-rule-edit-card">
+      <div class="cloud-provider-card pattern-rule-card">
         <div class="pattern-rule-form-row">
           <div class="pattern-rule-field">
             <label>
@@ -3434,7 +3430,7 @@ const renderCustomPatternRules = async () => {
             <span class="image-upload-filename edit-reverse-name"></span>
           </div>
         </div>
-        <div class="pattern-rule-edit-actions">
+        <div class="pattern-rule-card-actions">
           <button type="button" class="btn img-btn img-btn-upload edit-save-btn">Save</button>
           <button type="button" class="btn img-btn img-btn-remove edit-cancel-btn">Cancel</button>
         </div>
@@ -3658,68 +3654,10 @@ const renderCustomPatternRules = async () => {
       }
 
       renderCustomPatternRules();
-      renderImageStorageStats();
     });
 
     row.appendChild(editForm);
     container.appendChild(row);
-  }
-};
-
-/**
- * Render storage statistics for the image system.
- */
-const renderImageStorageStats = async () => {
-  const container = document.getElementById("imageStorageStats");
-  if (!container) return;
-
-  if (!window.imageCache?.isAvailable()) {
-    container.innerHTML = '<span class="stat-item">IndexedDB unavailable</span>';
-    return;
-  }
-
-  const usage = await imageCache.getStorageUsage();
-  const limitBytes = usage.limitBytes || 1;
-
-  const fmt = (b) => {
-    if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + " MB";
-    return Math.round(b / 1024) + " KB";
-  };
-
-  const pct = (b) => Math.min(100, (b / limitBytes) * 100).toFixed(1);
-
-  const barColor = (b) => {
-    const p = (b / limitBytes) * 100;
-    if (p > 90) return "var(--danger)";
-    if (p > 70) return "var(--warning)";
-    return "var(--primary)";
-  };
-
-  const userBar = document.getElementById("gaugeUserBar");
-  const userSize = document.getElementById("gaugeUserSize");
-  const persistLine = document.getElementById("gaugePersistLine");
-
-  if (userBar) {
-    userBar.style.width = pct(usage.userImageBytes || 0) + "%";
-    userBar.style.background = barColor(usage.userImageBytes || 0);
-  }
-  if (userSize) {
-    userSize.textContent = `${fmt(usage.userImageBytes || 0)} (${usage.userImageCount} items)`;
-  }
-  if (persistLine) {
-    const granted = localStorage.getItem(STORAGE_PERSIST_GRANTED_KEY);
-    if (granted === "true") {
-      persistLine.textContent =
-        "✅ Persistent storage granted — browser will not auto-clear your images";
-      persistLine.style.color = "var(--success)";
-    } else if (granted === "false") {
-      persistLine.textContent =
-        "⚠️ Persistent storage not granted — consider using Full Backup regularly";
-      persistLine.style.color = "var(--warning)";
-    } else {
-      persistLine.textContent = "Upload a photo to request persistent storage protection";
-      persistLine.style.color = "var(--text-secondary)";
-    }
   }
 };
 
@@ -3821,7 +3759,6 @@ const renderUserImageGrid = async () => {
       if (!confirmed) return;
       await imageCache.deleteUserImage(rec.uuid);
       renderUserImageGrid();
-      renderImageStorageStats();
     });
     actions.appendChild(deleteBtn);
     row.appendChild(actions);

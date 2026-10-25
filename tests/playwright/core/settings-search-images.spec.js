@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
 
 const openSettingsModal = async (page) => {
   await page.waitForFunction(() => typeof window.showSettingsModal === "function");
@@ -226,6 +227,24 @@ test.describe("core/settings-search-images", () => {
       await renderAll();
       collect("empty");
       return found;
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  test("Pattern Image Rules form carries inline styles only for show/hide toggles", async ({
+    page,
+  }) => {
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    await page.locator("#newPatternRuleBtn").click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+
+    const root = ".settings-fieldset:has(#patternRuleFormContainer)";
+    await expect(page.locator(root)).toHaveCount(1);
+    const offenders = await collectInlineStyleOffenders(page, {
+      roots: [root],
+      runtime: ["display"],
+      label: "new-rule-form",
     });
     expect(offenders).toEqual([]);
   });

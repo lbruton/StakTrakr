@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.74] - 2026-10-24
+
+### Changed — STRK-454: Pattern Image Rules form styles move to CSS classes
+
+- **Shared form classes**: the static Pattern Image Rules form in `index.html` takes its static styles from `css/styles.css`. It shares `pattern-rule-card` and `pattern-rule-card-actions` with the inline rule editor (renamed from `pattern-rule-edit-card` and `pattern-rule-edit-actions`, same values) and adds `pattern-rule-toolbar`. Only `display` toggles stay inline (STRK-454).
+- **Dead gauge removed**: `renderImageStorageStats()` wrote state colours into storage gauge elements that left `index.html` in v3.34.21, so it returned early on every call. The function, its seven call sites and the `.image-storage-stats` and `.storage-gauge-*` rules are removed (STRK-454).
+- **Same rendering**: computed styles and layout boxes of the form and the inline editor match the previous build in all four themes at 1280 and 390 px (STRK-454).
+
+---
+
 ## [3.36.73] - 2026-10-24
 
 ### Changed — STRK-454: Inventory table row styles move to CSS classes

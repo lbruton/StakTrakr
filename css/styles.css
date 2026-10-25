@@ -3370,53 +3370,6 @@ input[type="submit"] {
   justify-content: center;
   line-height: 1;
 }
-.image-storage-stats {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  font-size: var(--font-size-md);
-}
-.image-storage-stats .stat-item {
-  background: var(--bg-secondary);
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--radius);
-  color: var(--text-primary);
-}
-.storage-gauge-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  margin-bottom: 0.4rem;
-  font-size: var(--font-size-base);
-}
-.storage-gauge-label {
-  min-width: 7rem;
-  color: var(--text-secondary);
-}
-.storage-gauge-bar-wrap {
-  flex: 1;
-  height: 6px;
-  background: var(--border, #333);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  min-width: 60px;
-}
-.storage-gauge-bar {
-  height: 100%;
-  border-radius: var(--radius-sm);
-  transition: width 0.3s ease;
-  width: 0%;
-}
-.storage-gauge-size {
-  min-width: 8rem;
-  text-align: right;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.storage-gauge-persist {
-  font-size: var(--font-size-sm);
-  margin-top: 0.3rem;
-}
 .image-pattern-table {
   width: 100%;
   font-size: var(--font-size-base);
@@ -3841,30 +3794,40 @@ input[type="submit"] {
   gap: 0.35rem;
   margin-top: 0.4rem;
 }
-/* The inline rule editor that renderCustomPatternRules builds. Two classes outrank
-   `.chip-sort-toggle` and `.image-swap-wrapper .btn-icon`, which load later or match first. */
-.cloud-provider-card.pattern-rule-edit-card {
+/* The new-rule form in index.html and the inline rule editor that renderCustomPatternRules
+   builds. Two classes outrank `.chip-sort-toggle` and `.image-swap-wrapper .btn-icon`,
+   which load later or match first. */
+.cloud-provider-card.pattern-rule-card {
   margin-top: var(--spacing);
   padding: 1rem;
 }
-.pattern-rule-edit-card .pattern-mode-toggle {
+.pattern-rule-card .pattern-mode-toggle {
   display: inline-flex;
   margin-left: var(--spacing-sm);
   vertical-align: middle;
 }
-.pattern-rule-edit-card .image-upload-sides {
+.pattern-rule-card .image-upload-sides {
   margin-top: var(--spacing-md);
 }
-.pattern-rule-edit-card .image-swap-wrapper .edit-swap-btn {
+.pattern-rule-card .image-swap-wrapper .btn-icon {
   font-size: 1.1rem;
   padding: var(--spacing-xs) var(--spacing-sm);
   line-height: 1;
 }
-.pattern-rule-edit-actions {
+.pattern-rule-card-actions {
   display: flex;
   gap: var(--spacing-md);
   justify-content: flex-end;
   margin-top: var(--spacing);
+}
+.pattern-rule-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--spacing-md);
+}
+.pattern-rule-toolbar .btn.img-btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
 }
 
 /* Image upload UI — dual obverse/reverse (STACK-32) */
