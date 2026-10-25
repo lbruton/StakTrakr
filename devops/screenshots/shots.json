@@ -53,16 +53,6 @@
       "clip": "viewport"
     },
     {
-      "name": "07-settings-about",
-      "set": "site",
-      "theme": "light",
-      "viewport": "desktop",
-      "route": "#/dashboard",
-      "steps": [{ "click": "#settingsBtn" }],
-      "target": "#settingsModal",
-      "clip": "viewport"
-    },
-    {
       "name": "11-market-detail-modal",
       "set": "site",
       "theme": "dark",

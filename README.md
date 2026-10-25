@@ -24,17 +24,21 @@
 
 ---
 
-A privacy-first portfolio tracker for Silver, Gold, Platinum, Palladium and Goldbacks. It runs entirely in your browser, and your data stays on your device.
+A privacy-first portfolio tracker for Silver, Gold, Platinum, Palladium, Copper and Goldbacks. It runs entirely in your browser, and your data stays on your device.
 
 ![StakTrakr Dashboard](screenshots/01-hero-overview.png)
 
-| Vendor Price Matrix                                | Item View Modal                                  |
-| -------------------------------------------------- | ------------------------------------------------ |
-| ![Vendor Prices](screenshots/04-vendor-prices.png) | ![Item View](screenshots/06-item-view-modal.png) |
+| Collection Album                                          | Collection Ledger                                           |
+| --------------------------------------------------------- | ----------------------------------------------------------- |
+| ![Collection Album](screenshots/12-collections-album.png) | ![Collection Ledger](screenshots/13-collections-ledger.png) |
 
-| Settings: About                                      | Appearance                                                     | Inventory                                                    |
-| ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
-| ![Settings About](screenshots/07-settings-about.png) | ![Settings Appearance](screenshots/08-settings-appearance.png) | ![Settings Inventory](screenshots/09-settings-inventory.png) |
+| Vendor Price Matrix                                | Metal Detail View                                           |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| ![Vendor Prices](screenshots/04-vendor-prices.png) | ![Metal Detail View](screenshots/15-metal-detail-modal.png) |
+
+| Item View                                        | Metal Ratios                                     | Mobile                                                   |
+| ------------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------- |
+| ![Item View](screenshots/06-item-view-modal.png) | ![Metal Ratios](screenshots/16-ratios-panel.png) | ![Mobile Dashboard](screenshots/18-mobile-dashboard.png) |
 
 Release notes are in the [Changelog](CHANGELOG.md) and in the What's New panel in Settings.
 
@@ -57,15 +61,25 @@ Optional [sponsorships](https://github.com/sponsors/lbruton) pay for the free AP
 
 ### Pricing: Spot and Market
 
-Spot prices come from several providers with automatic failover. The free, keyless `api.staktrakr.com` works out of the box, and anyone can query it: the [StakTrakrApi](https://github.com/lbruton/StakTrakrApi) repo lists every endpoint. Add Metals.dev, MetalPriceAPI, GoldAPI or a custom URL for more frequent updates. Manual mode prices items fully offline. Sparkline charts offer 7d, 30d, 60d and 90d ranges, with health indicators and seed history back to 1968.
+Spot prices for Silver, Gold, Platinum, Palladium and Copper come from several providers with automatic failover. The free, keyless `api.staktrakr.com` works out of the box, and anyone can query it: the [StakTrakrApi](https://github.com/lbruton/StakTrakrApi) repo lists every endpoint. Add Metals.dev, Metals-API, MetalPriceAPI, Gold API or a custom URL for more frequent updates. Manual mode prices items fully offline. Each spot card shows a sparkline, how current its price is and a ratio chip. Seed history goes back to 1968.
 
-For retail, the Best Price Ticker shows the cheapest vendor for each coin, with a direct buy link. The Vendor Prices Matrix compares Gold, Silver, Platinum, Palladium and Goldbacks across major bullion dealers. It shows premium badges and links to each product page. Click a coin to open a TradingView chart of spot history with a price line per vendor.
+For retail, the Best Price Ticker shows the cheapest vendor for each coin, with a direct buy link. The Vendor Prices Matrix compares Gold, Silver, Platinum, Palladium and Goldbacks across major bullion dealers. It shows premium badges and links to each product page. Click a coin to open a TradingView chart of spot history with a price line per vendor and the period's Median, Low, High and Spread.
+
+### Collections
+
+A Collection is a digital coin album over your inventory. Each Slot is one coin in the series, and you link the Item you own to fill it. Links live on the Collection, so your Items stay unchanged.
+
+Series Templates for the American Silver Eagle (Type 1 and Type 2) ship with mintages, specifications and stock images. A Custom Collection starts blank or as a clone of a template. Add, insert and reorder Slots, set a mintage and note per Slot, and choose obverse and reverse title images by upload or URL. Image shapes are Round, Bar, Note and Slab, with portrait or landscape for Bars and Notes.
+
+Each Collection opens as an Album or as a sortable Ledger with paid, melt, retail and gain or loss per owned Slot. Cost to Complete prices the missing Slots at the best current dealer price as a floor estimate. The Collections tab in Settings orders the hub and hides empty Collections.
 
 ### Portfolio Tracking
 
-Each item records Purchase Price, Melt and Retail, with Gain/Loss per item and across the portfolio. Sold, Traded, Lost, Gifted and Returned dispositions record realized gains and losses with full transaction history. Items switch between lot and each purchase. Weights in troy ounces, kilograms and pounds convert automatically.
+Each item records Purchase Price, Melt and Retail, with Gain/Loss per item and across the portfolio. Sold, Traded, Lost, Gifted and Returned dispositions record realized gains and losses with full transaction history. A trade links the items on both sides and carries the cost basis across. Items switch between lot and each purchase. Weights in troy ounces, grams, milligrams, kilograms and pounds convert automatically.
 
-Graded coins store year, grade, grading authority and cert number. Bars and notes store serial numbers. Every item can hold notes, photos (your own or from the Numista CDN), price history and a storage location. Goldbacks and Silverbacks use denomination-aware pricing.
+Graded coins store year, grade, grading authority and cert number. Bars and notes store serial numbers. Every item can hold notes, photos (your own or from the Numista CDN), price history and a storage location. Goldbacks (¼ to 100) and Silverbacks use denomination-aware pricing. Constitutional silver (90%, 40% and 35%) leads with face value and prices the actual silver weight.
+
+Click a metal total on the dashboard for its detail view: cost basis, melt, retail and realized gain. Its chart marks every acquisition and disposition, and the composition panels and Acquisitions ledger follow the chart range. Ratio chips open the Metal Ratios panel with Gold:Silver, Gold:Platinum, Gold:Palladium, Platinum:Palladium and Silver:Copper.
 
 ### Browse: Cards, Table, Filters, Tags
 
@@ -81,7 +95,7 @@ Each field records its origin: Numista, PCGS, CSV import or manual entry. A two-
 
 Connect Dropbox through OAuth PKCE to sync an encrypted `.stvault` file across devices. Encryption uses AES-256-GCM with PBKDF2-SHA256 (600,000 iterations) through the Web Crypto API. The cloud provider receives only ciphertext.
 
-Sync runs both ways and detects conflicts. The DiffModal shows item and settings changes, and you pick each field with a click. An encrypted image vault syncs photos. Leader election across tabs prevents concurrent sync runs. Sync also supports several accounts and keeps a configurable number of backups before each overwrite. Support for Google Drive, OneDrive, pCloud and Box is planned, with the same client-side encryption.
+Sync runs both ways and detects conflicts. The DiffModal shows item and settings changes, and you pick each field with a click. An encrypted image vault syncs photos, and item price history syncs with the inventory. Leader election across tabs prevents concurrent sync runs. Sync also supports several accounts and keeps a configurable number of restorable backups before each overwrite.
 
 ### Data Tools: Import, Export, Backup, Bulk Edit
 
@@ -91,22 +105,7 @@ Clone an item inline with Save & Clone Another. Bulk Edit in Settings → Invent
 
 ### Settings
 
-Settings groups every option behind a sidebar:
-
-| Tab            | Contents                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------- |
-| **About**      | Version info, API status badge, What's New, badges, changelog, force refresh                            |
-| **Appearance** | Theme (Light / Dark / Slate / Sepia), header button visibility and order, layout section toggles        |
-| **Inventory**  | Card styles (A/B/C/D), default sort, visible rows, import/export/backup controls, bulk edit, data reset |
-| **Filters**    | Category toggles, sort order, grouping rules, blacklist, max chip count, search behavior                |
-| **Images**     | Image cache management, upload settings, bulk image sync                                                |
-| **Currency**   | Display currency (17 currencies), exchange rates, Goldback pricing controls                             |
-| **Market**     | Market data toggles, vendor display preferences                                                         |
-| **Storage**    | localStorage and IndexedDB usage dashboard                                                              |
-| **API**        | Spot price source selection, Numista and PCGS catalog integration, usage tracking                       |
-| **Cloud**      | Dropbox connection, cloud backup/restore, sync history, multi-account management                        |
-| **Log**        | Activity Log with full change history and undo/redo                                                     |
-| **FAQ**        | Privacy, backup, security and limitations                                                               |
+Settings groups every option behind a sidebar. Its tabs are About, Appearance, Inventory, Filters, Images, Collections, Currency, Market, Storage, API, Cloud, Log and FAQ. The Log tab keeps the full change history with undo and redo.
 
 The app also installs as a PWA and converts between 17 currencies at live exchange rates. Search matches fuzzily across all fields. Shift+click or long-press edits a value inline. Dates follow your timezone, and the disposed filter has three states. Non-production domains show a BETA, PREVIEW or LOCAL badge.
 
@@ -136,20 +135,20 @@ The [Privacy Policy](https://www.staktrakr.com/privacy.html) and the FAQ tab in 
 
 ## Tech Stack
 
-| Layer            | Technology                                                                     |
-| ---------------- | ------------------------------------------------------------------------------ |
-| Runtime          | Client-side JavaScript (no framework, no build step)                           |
-| Storage          | Browser localStorage + IndexedDB                                               |
-| Encryption       | Web Crypto API: AES-256-GCM via PBKDF2                                         |
-| Styling          | Vanilla CSS with CSS custom properties (oklch token system), four themes       |
-| Charts           | Chart.js 3.9.1 + TradingView Lightweight Charts                                |
-| CSV / PDF / ZIP  | PapaParse 5.4.1, jsPDF 2.5.1 + AutoTable 3.5.25, JSZip 3.10.1                  |
-| Hosting          | Cloudflare Pages                                                               |
-| Spot API         | api.staktrakr.com (free, keyless) + Metals.dev, MetalPriceAPI, GoldAPI, others |
-| Market API       | api.staktrakr.com v2 (free, keyless): retail prices from major bullion dealers |
-| Catalog          | Numista API, PCGS CoinFacts                                                    |
-| Exchange Rates   | Open Exchange Rates                                                            |
-| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint                                      |
+| Layer            | Technology                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| Runtime          | Client-side JavaScript (no framework, no build step)                                        |
+| Storage          | Browser localStorage + IndexedDB                                                            |
+| Encryption       | Web Crypto API: AES-256-GCM via PBKDF2                                                      |
+| Styling          | Vanilla CSS with CSS custom properties (oklch token system), four themes                    |
+| Charts           | Chart.js 3.9.1 + TradingView Lightweight Charts                                             |
+| CSV / PDF / ZIP  | PapaParse 5.4.1, jsPDF 2.5.1 + AutoTable 3.5.25, JSZip 3.10.1                               |
+| Hosting          | Cloudflare Pages                                                                            |
+| Spot API         | api.staktrakr.com (free, keyless) + Metals.dev, Metals-API, MetalPriceAPI, Gold API, custom |
+| Market API       | api.staktrakr.com v2 (free, keyless): retail prices from major bullion dealers              |
+| Catalog          | Numista API, PCGS CoinFacts                                                                 |
+| Exchange Rates   | Open Exchange Rates                                                                         |
+| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint                                                   |
 
 ---
 
