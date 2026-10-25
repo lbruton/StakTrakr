@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.78 &ndash; STRK-474: Test runs leave the project untouched</strong>: The automated tests write their screenshots and scratch files only to temporary folders, and a test run fails if it changes any project file. Nothing in the app looks or works differently (STRK-474).</li>
     <li><strong>v3.36.76 &ndash; STRK-429: Cloud sync catches image frame edits</strong>: Changing only the round or rectangular frame of an item's photo counts as a change for cloud sync, so the edit reaches your other devices without waiting for another field to change. If any of your items carry a frame, the first sync after this update uploads once (STRK-429).</li>
     <li><strong>v3.36.75 &ndash; STRK-461: Reduced motion turns transitions off</strong>: With the reduced-motion setting on, StakTrakr turns style transitions off instead of shortening them. Theme switches and status colours show their new values at once, and colour checks read the current theme. Animations keep their short single-run timing (STRK-461).</li>
     <li><strong>v3.36.74 &ndash; STRK-454: Pattern rule form styling cleanup</strong>: The New Rule form in Settings &gt; Images shares its layout and type styles with the pattern rule editor in the app stylesheet. It looks the same in every theme and on phones. An unused storage gauge renderer, hidden since the Images tab redesign, is removed (STRK-454).</li>
-    <li><strong>v3.36.73 &ndash; STRK-454: Inventory table styling cleanup</strong>: The rows of the inventory table, with their links, year and purity chips, and price cells, take their layout and type styles from the app stylesheet instead of from inline code. They look the same in every theme and on phones, and future design changes reach them in one place (STRK-454).</li>
-    <li><strong>v3.36.72 &ndash; STRK-454: Market styling cleanup</strong>: The price ticker, the Market block and the retail price window take their layout and type styles from the app stylesheet instead of from inline code. They look the same in every theme and on phones, and future design changes reach them in one place (STRK-454).</li>      `;
+    <li><strong>v3.36.73 &ndash; STRK-454: Inventory table styling cleanup</strong>: The rows of the inventory table, with their links, year and purity chips, and price cells, take their layout and type styles from the app stylesheet instead of from inline code. They look the same in every theme and on phones, and future design changes reach them in one place (STRK-454).</li>      `;
 };
 
 // Expose globally for access from other modules
