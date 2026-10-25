@@ -1012,7 +1012,10 @@ theme-reactive expression. Let the stylesheet do the rest:
   allows only `width` and `display` inline there. The ticker, Market block and detail
   modal that `js/market-data.js` builds also use `css/styles.css`; a test in
   `tests/playwright/core/retail-market.spec.js` allows only vendor and stock colours and the
-  ticker track's phase and hand-off positioning. New checks of this kind call
+  ticker track's phase and hand-off positioning. Inventory rows from `js/inventory-table.js`
+  inline only hashed or metal chip colours, the Gain/Loss colour and weight, and thumbnail
+  visibility, as a test in `tests/playwright/core/inventory-crud.spec.js` checks. Pass
+  `null` to `filterLink` for primary text; it adds `.filter-text--primary`. New checks of this kind call
   `collectInlineStyleOffenders` in `tests/playwright/helpers/inline-styles.js`.
 
 ### Toggle standard

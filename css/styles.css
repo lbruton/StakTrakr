@@ -216,8 +216,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors */
@@ -367,8 +365,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors */
@@ -512,8 +508,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors (inherit dark values) */
@@ -647,8 +641,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors */
@@ -6700,6 +6692,10 @@ td .filter-text {
   font-weight: 600;
 }
 
+td .filter-text.filter-text--primary {
+  color: var(--text-primary);
+}
+
 .na-value {
   color: var(--text-muted);
   font-style: italic;
@@ -10994,6 +10990,7 @@ th {
   vertical-align: middle;
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 /* Dark theme overrides */
@@ -11025,6 +11022,7 @@ th {
   vertical-align: middle;
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .purity-tag {
@@ -13068,6 +13066,10 @@ th {
 
 .purchase-link-icon {
   flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  margin-right: 4px;
 }
 
 /* Purchase Price column — fixed width */
@@ -13168,12 +13170,9 @@ th {
   color: var(--col-weight);
 }
 
-#inventoryTable td[data-column="purchasePrice"] {
-  color: var(--col-purchase);
-}
-
+#inventoryTable td[data-column="purchasePrice"],
 #inventoryTable td[data-column="meltValue"] {
-  color: var(--col-melt);
+  color: var(--text-primary);
 }
 
 #inventoryTable td[data-column="retailPrice"] {

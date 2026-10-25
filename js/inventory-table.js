@@ -175,6 +175,8 @@
   const ACTIVATE_ON_KEY =
     "if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}";
 
+  // A null color takes the static primary text colour from .filter-text--primary;
+  // any other value is a runtime chip colour and goes inline.
   const filterLink = (field, value, color, displayValue = value, title, allowHtml = false) => {
     const handler = `applyColumnFilter('${field}', ${JSON.stringify(value)})`;
     const escaped = escapeAttribute(handler);
@@ -187,8 +189,9 @@
       displayStr === "Numista Import" ||
       displayStr === "Unknown" ||
       displayStr === "—";
-    const classNames = `filter-text${isNA ? " na-value" : ""}`;
-    const styleAttr = isNA ? "" : ` style="color: ${color};"`;
+    const isPrimary = !isNA && color === null;
+    const classNames = `filter-text${isNA ? " na-value" : ""}${isPrimary ? " filter-text--primary" : ""}`;
+    const styleAttr = isNA || isPrimary ? "" : ` style="color: ${color};"`;
     return `<span class="${classNames}"${styleAttr} onclick="${escaped}" tabindex="0" role="button" onkeydown="${ACTIVATE_ON_KEY}" title="${safeTitle}">${safe}</span>`;
   };
 
@@ -249,7 +252,7 @@
       }
       const safeHref = escapeAttribute(href);
       return `<a href="#" data-href="${safeHref}" onclick="_openPurchaseLink(this.dataset.href, event); return false;" class="purchase-link" title="${safeHref}">
-      <svg class="purchase-link-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: currentColor; margin-right: 4px;" aria-hidden="true">
+      <svg class="purchase-link-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
       </svg>
     </a>${filterSpan}`;
@@ -693,7 +696,7 @@
       ? `<span class="year-tag" title="Filter by year: ${escapeAttribute(String(item.year))}"
                  onclick="${escapeAttribute(`applyColumnFilter('year', ${JSON.stringify(String(item.year))})`)}"
                  onkeydown="${ACTIVATE_ON_KEY}"
-                 tabindex="0" role="button" style="cursor:pointer;">${sanitizeHtml(String(item.year))}</span>`
+                 tabindex="0" role="button">${sanitizeHtml(String(item.year))}</span>`
       : "";
   }
 
@@ -741,7 +744,7 @@
       ? `<span class="purity-tag" title="Purity: ${escapeAttribute(String(purityVal))}"
                  onclick="${escapeAttribute(`applyColumnFilter('purity', ${JSON.stringify(String(purityVal))})`)}"
                  onkeydown="${ACTIVATE_ON_KEY}"
-                 tabindex="0" role="button" style="cursor:pointer;">${purityVal}</span>`
+                 tabindex="0" role="button">${purityVal}</span>`
       : "";
   }
 
@@ -799,8 +802,8 @@
    */
   function _buildNameCellMain(item, originalIdx) {
     return featureFlags.isEnabled("COIN_IMAGES")
-      ? `<span class="filter-text" style="color: var(--text-primary); cursor: pointer;" onclick="${escapeAttribute(`showViewModal(${originalIdx})`)}" tabindex="0" role="button" onkeydown="${ACTIVATE_ON_KEY}" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
-      : filterLink("name", item.name, "var(--text-primary)", undefined, item.name);
+      ? `<span class="filter-text filter-text--primary" onclick="${escapeAttribute(`showViewModal(${originalIdx})`)}" tabindex="0" role="button" onkeydown="${ACTIVATE_ON_KEY}" title="View ${escapeAttribute(item.name)}">${sanitizeHtml(item.name)}</span>`
+      : filterLink("name", item.name, null, undefined, item.name);
   }
 
   /**
@@ -935,23 +938,23 @@
 
     return `
       <tr data-idx="${originalIdx}"${disposedRowClass}>
-  <td class="shrink" data-column="date" data-label="Date">${filterLink("date", item.date, "var(--text-primary)", item.date ? formatDisplayDate(item.date) : "—")}</td>
+  <td class="shrink" data-column="date" data-label="Date">${filterLink("date", item.date, null, item.date ? formatDisplayDate(item.date) : "—")}</td>
       <td class="shrink" data-column="metal" data-label="Metal" data-metal="${escapeAttribute(item.composition || item.metal || "")}">${filterLink("metal", item.composition || item.metal || "Silver", METAL_COLORS[item.metal] || "var(--primary)", getDisplayComposition(item.composition || item.metal || "Silver"))}</td>
       <td class="shrink" data-column="type" data-label="Type">${filterLink("type", item.type, getTypeColor(item.type))}</td>
-      <td class="shrink" data-column="image" data-label="Image" style="text-align: center;">${thumbHtml}</td>
-      <td class="expand" data-column="name" data-label="" style="text-align: left;">
+      <td class="shrink" data-column="image" data-label="Image">${thumbHtml}</td>
+      <td class="expand" data-column="name" data-label="">
         <div class="name-cell-content">
         ${nameCellMain}${dispositionBadge}${orderedChips}
         </div>
       </td>
-      <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, "var(--text-primary)")}</td>
-      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", weightFilterValue, "var(--text-primary)", weightCellText, weightCellTitle)}</td>
-      <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings" style="color: var(--text-primary);">
+      <td class="shrink" data-column="qty" data-label="Qty">${filterLink("qty", item.qty, null)}</td>
+      <td class="shrink" data-column="weight" data-label="Weight">${filterLink("weight", weightFilterValue, null, weightCellText, weightCellTitle)}</td>
+      <td class="shrink" data-column="purchasePrice" data-label="Purchase" title="Purchase Total (${displayCurrency}) - Click to search eBay active listings">
         <a href="#" class="ebay-buy-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay active listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${formatCurrency(purchaseTotal)} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </a>
       </td>
-      <td class="shrink" data-column="meltValue" data-label="Melt" title="Melt Value (${displayCurrency})" style="color: var(--text-primary);">${meltDisplay}</td>
+      <td class="shrink" data-column="meltValue" data-label="Melt" title="Melt Value (${displayCurrency})">${meltDisplay}</td>
       <td class="shrink ${retailCellClass}" data-column="retailPrice" data-label="Retail" title="${retailCellTitle} - Click to search eBay sold listings">
         <a href="#" class="ebay-sold-link ebay-price-link" data-search="${escapeAttribute(item.metal + (item.year ? " " + item.year : "") + " " + item.name)}" title="Search eBay sold listings for ${escapeAttribute(item.metal)} ${escapeAttribute(item.name)}">
           ${retailDisplay} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
