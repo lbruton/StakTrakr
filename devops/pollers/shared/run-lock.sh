@@ -184,6 +184,17 @@ acquire_run_lock() {
   # A failed claim followed by a missing lockfile means the holder released in
   # between. That lock is free, not malformed: claim it again rather than force-
   # claiming, whose `rm -f` would delete a lock a third contender just published.
+  # A junk limit would make `-ge` error and read as false, so the loop would
+  # never end. Accept 1 to 999 only.
+  local max_attempts="$RUN_LOCK_CLAIM_ATTEMPTS"
+  case "$max_attempts" in
+    [1-9] | [1-9][0-9] | [1-9][0-9][0-9]) ;;
+    *)
+      _run_lock_log "Ignoring run lock claim attempts '$max_attempts', using 3"
+      max_attempts=3
+      ;;
+  esac
+
   local owner=""
   local attempt=0
   while :; do
@@ -194,7 +205,7 @@ acquire_run_lock() {
       break
     fi
     attempt=$((attempt + 1))
-    if [ "$attempt" -ge "$RUN_LOCK_CLAIM_ATTEMPTS" ]; then
+    if [ "$attempt" -ge "$max_attempts" ]; then
       _run_lock_log "Run lock at $lockfile changed owner ${attempt} times, skipping this tick"
       return 1
     fi
