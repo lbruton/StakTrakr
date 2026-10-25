@@ -486,15 +486,17 @@ Triggered from Settings via `startBulkSync()` → `BulkImageCache.cacheAll()`. S
 
 ## Version History
 
-| Version  | Ticket       | Change                                                                                                                                                                                       |
-| -------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v3.36.56 | STRK-443     | `ignorePatternImages` gets UI again: the item modal's image options dialog toggles it, and the open modal clears or refills pattern-image sides live (`refreshPatternPreviews`, `events.js`) |
-| v3.33.79 | STAK-432     | Removed Image Cache settings card (Import/Export/Download URLs/Purge Numista/Clear Cache) and Numista Cache storage gauge: superseded by cloud sync image vault and stored-URL architecture  |
-| v3.33.73 | STAK-488/489 | Stored URLs as single source of truth for images; removed on-the-fly Numista image fetching from view modal                                                                                  |
-| v3.32.42 | —            | Pattern rule promotion reads from existing per-item `userImages` IDB when no pending blobs are in memory; per-item record deleted after promotion (two-session workflow fix)                 |
-| v3.32.41 | STAK-339     | Removed `coinImages` layer; per-side cascade; `cacheUserImage` accepts reverse-only records; `ignorePatternImages` UI hidden, field preserved                                                |
-| v3.32.40 | STAK-337     | Fixed race condition in `cacheImages` re-render                                                                                                                                              |
-| v3.32.39 | STAK-333     | Fixed CDN URL writeback; added per-item pattern opt-out flag (`ignorePatternImages`)                                                                                                         |
+`CHANGELOG.md` carries the issue for each version.
+
+| Version  | Change                                                                                                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v3.36.56 | `ignorePatternImages` gets UI again: the item modal's image options dialog toggles it, and the open modal clears or refills pattern-image sides live (`refreshPatternPreviews`, `events.js`) |
+| v3.33.79 | Removed the Image Cache settings card and the Numista Cache storage gauge. The cloud sync image vault and stored URLs replace them                                                           |
+| v3.33.73 | Stored URLs as single source of truth for images; removed on-the-fly Numista image fetching from view modal                                                                                  |
+| v3.32.42 | Pattern rule promotion reads from existing per-item `userImages` IDB when no pending blobs are in memory; per-item record deleted after promotion (two-session workflow fix)                 |
+| v3.32.41 | Removed `coinImages` layer; per-side cascade; `cacheUserImage` accepts reverse-only records; `ignorePatternImages` UI hidden, field preserved                                                |
+| v3.32.40 | Fixed race condition in `cacheImages` re-render                                                                                                                                              |
+| v3.32.39 | Fixed CDN URL writeback; added per-item pattern opt-out flag (`ignorePatternImages`)                                                                                                         |
 
 ---
 
