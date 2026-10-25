@@ -2,7 +2,7 @@
 name: spec-discovery
 description: "Spec Phase 2 — research the codebase + prior art into discovery.md. Standalone, ISSUE-first. Uses a read-only Workflow fan-out for the research sweep."
 user-invocable: true
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # /spec-discovery ISSUE
@@ -28,7 +28,6 @@ Read **`.agents/skills/spec/references/conventions.md`** and the project's **`.c
 3. **Research sweep — four read-only angles.**
    Default to inline research. If the user explicitly asks for parallel agents, use read-only `explorer` subagents for independent angles. Subagents never edit files.
    - **Structural** — Grep/Glob for affected modules, callers, dependencies. Grep each candidate identifier repo-wide and read the hits; that is the exhaustive path to a call list.
-   - **Semantic** — claude-context `search_code` for the feature domain, reusable patterns, integration points.
    - **Prior decisions** — mem0 (and sessionflow if useful) for past choices on this area. Record exact query strings.
    - **External** — context7 / Brave for libraries, RFCs, platform docs — only if the work involves them.
 

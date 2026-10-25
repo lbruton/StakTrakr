@@ -8,7 +8,7 @@ description: >
   "vault update", "docvault", "update docs", "add to vault", "vault"
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
-library-version: 3d109ab6d1d5
+library-version: b9ae376f5f2b
 ---
 
 # Vault Update
@@ -39,7 +39,7 @@ Check visibility when unsure: `gh repo view --json visibility -q .visibility`. P
 
 ### Step 1: Find the page
 
-Grep the right vault (`output_mode="files_with_matches"`), e.g. `path="$SHARED_VAULT/KnowledgeBase/Infrastructure/"` or `path="$PROJECT_VAULT"`. For semantic search: `mcp__claude-context__search_code(path="<vault path>", query="<topic>")`.
+Grep the right vault (`output_mode="files_with_matches"`), e.g. `path="$SHARED_VAULT/KnowledgeBase/Infrastructure/"` or `path="$PROJECT_VAULT"`. Search synonyms too; Grep matches only literal text.
 
 ### Step 2: Edit
 
