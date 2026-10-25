@@ -286,6 +286,42 @@ test.describe("STRK-452 metal-tinted Item View header", () => {
   });
 });
 
+test.describe("theme colours with reduced motion", () => {
+  test("a theme switch reads the new token colours at once when reduced motion is on", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoApp(page);
+    const reads = await page.evaluate(async (themes) => {
+      const probe = document.createElement("span");
+      probe.textContent = "probe";
+      probe.style.cssText = "color: var(--text-primary); background: var(--bg-primary);";
+      document.body.appendChild(probe);
+      const read = () => {
+        const cs = getComputedStyle(probe);
+        return `${cs.color} on ${cs.backgroundColor}`;
+      };
+      const settle = () =>
+        new Promise((resolve) => setTimeout(() => requestAnimationFrame(resolve), 50));
+      const result = [];
+      for (const theme of themes) {
+        window.setTheme(theme);
+        const immediate = read();
+        await settle();
+        result.push({ theme, immediate, settled: read() });
+      }
+      probe.remove();
+      return result;
+    }, THEMES);
+    for (const { theme, immediate, settled } of reads) {
+      expect(immediate, `${theme} colours read right after the switch`).toBe(settled);
+    }
+    expect(new Set(reads.map((r) => r.settled)).size, "each theme has its own colours").toBe(
+      THEMES.length
+    );
+  });
+});
+
 test.describe("card chart colours from theme tokens", () => {
   test("the card chart grid and tooltip follow each of the four themes", async ({ page }) => {
     await gotoApp(page);
