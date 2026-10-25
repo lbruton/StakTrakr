@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.73] - 2026-10-24
+
+### Changed — STRK-454: Inventory table row styles move to CSS classes
+
+- **Inventory classes**: the inventory table rows built in `js/inventory-table.js` take their static styles from classes in `css/styles.css`. Template `style=` in the file drops from 10 to 2, and `filterLink` takes a `null` colour for primary text (`.filter-text--primary`). Hashed and metal chip colours, the Gain/Loss colour and weight, and thumbnail visibility stay inline as runtime values (STRK-454).
+- **Token cleanup**: the Purchase and Melt cell rules read `--text-primary`, the colour the inline style applied; the unused `--col-purchase` and `--col-melt` tokens are removed (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px, with every inline chip enabled (STRK-454).
+
+---
+
 ## [3.36.72] - 2026-10-24
 
 ### Changed — STRK-454: Market ticker, block and detail window styles move to CSS classes
