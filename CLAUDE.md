@@ -29,6 +29,7 @@ npm run lint          # ESLint
 npm run lint:md:all   # Markdown lint
 npm run format        # Prettier, repo-wide; scope governed by .prettierignore (excludes data/, vendor/, minified)
 npm run format:check
+npm run screenshots   # About/README screenshots from demo data (--set=release --version=vX.Y.Z for release shots)
 ```
 
 ## Foundation Context

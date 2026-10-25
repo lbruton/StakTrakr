@@ -52,6 +52,7 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 - `npm run test:extended` — slower extended coverage
 - `npm run test:all` — unit + core + extended suites
 - `npm run test:unit` — Node/unit tests
+- `npm run screenshots` — about.html and README screenshots from demo data; `devops/screenshots/README.md` has the options
 
 ## Coding Style
 
