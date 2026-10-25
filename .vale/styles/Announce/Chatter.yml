@@ -1,0 +1,16 @@
+extends: existence
+message: "Drop the greeting or sign-off '%s'; the post ends on the links and screenshots (voice.md)."
+level: warning
+ignorecase: true
+tokens:
+  - hey (?:everyone|all|folks|stackers)
+  - hi (?:everyone|all|folks|stackers)
+  - hello (?:everyone|all|folks|stackers)
+  - happy stacking
+  - let us know
+  - let me know
+  - feedback (?:is )?welcome
+  - as always
+  - enjoy
+  - thanks for (?:your support|using)
+  - we hope

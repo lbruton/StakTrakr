@@ -10,7 +10,7 @@ updated: "2026-09-26"
 
 Situational foot-guns in specific modules and runtime patterns. Read when touching the
 named file or feature. CLAUDE.md carries a one-line index of these; this file is the
-authority — do not duplicate the detail back into CLAUDE.md or AGENTS.md.
+authority: do not duplicate the detail back into CLAUDE.md or AGENTS.md.
 
 > **Maintenance note.** Entries here describe _bugs_, so they go stale when the bug gets
 > fixed — a gotcha describing an already-solved hazard sends an agent to "fix" correct
@@ -28,13 +28,13 @@ Two separate localStorage stores. Confusing them = silent data loss.
 | Catalog providers | `catalog_api_config` | Numista apiKey, Professional Coin Grading Service bearerToken | `catalogConfig.getNumistaConfig()` / `getPcgsConfig()` | `catalogConfig.setNumistaConfig()` / `setPcgsConfig()` |
 
 Reading catalog keys via `loadApiConfig().keys["numista"]` returns `undefined`; that is the
-wrong store and the root cause of STRK-573.
+wrong store and the root cause of the catalog-key failure.
 `saveData()` wraps in `JSON.stringify`. Read saved data via `loadData()` / `loadDataSync()`.
 After saving a catalog key, call `catalogAPI.initializeProviders()` to refresh stale
 provider instances.
 
 When adding a synced hidden-list preference, define its key constant, then mirror
-`chipBlacklist` at all seven registration sites; missing any one can make the value disappear
+`chipBlacklist` at all seven registration sites. Missing any one can make the value disappear
 from sync, restore, diff, or Storage:
 
 1. `SYNC_SCOPE_KEYS` in `js/constants.js` so cloud sync exports it.
@@ -52,13 +52,13 @@ from sync, restore, diff, or Storage:
 7. `STORAGE_KEY_LABELS` in `js/settings.js` so the Storage panel shows a human-readable name.
 
 `disabledCollections` is the current example. It is a normal whole-setting synced list like
-`chipBlacklist`; a new hidden-list key still needs all seven registrations even when its
+`chipBlacklist`. A new hidden-list key still needs all seven registrations even when its
 storage and sync paths already use `saveDataSync()`.
 
-## Boot storage sweep is downgrade-safe — never delete unknown keys (STRK-412)
+## Boot storage sweep is downgrade-safe — never delete unknown keys
 
 `cleanupStorage()` removes only `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`). Never make it
-delete keys "not in `ALLOWED_STORAGE_KEYS`": an older build (rolled-back `main`, beta alias
+delete keys "not in `ALLOWED_STORAGE_KEYS`". An older build (rolled-back `main`, beta alias
 pointed at the wrong branch, stale service worker) would wipe every newer-feature key on that
 origin. This wiped Collections on 2026-09-30 (every build through 3.36.34 still does this; 3.36.35 is the first safe one). Retiring a key =
 append it to `RETIRED_STORAGE_KEYS`.
@@ -66,8 +66,8 @@ append it to `RETIRED_STORAGE_KEYS`.
 ## `check-release-sync` hook is a SUBSET
 
 Validates `constants.js ↔ package.json ↔ version.json ↔ CHANGELOG.md`, plus the
-`js/about.js` What's New block — it asserts the current-version `<li>` entry is present
-**and** enforces the 5-entry cap (STRK-194, #1262).
+`js/about.js` What's New block: it asserts the current-version `<li>` entry is present
+**and** enforces the 5-entry cap (#1262).
 Does not check `manifest.json`, README badges, or `sw.js` cache.
 **Hook green ≠ release complete.** `/release` is the only path that touches all
 release-bearing files.
@@ -79,7 +79,7 @@ Top-level code in `events.js` that calls `safeGetElement` throws a silent Refere
 Use `document.getElementById` for event wiring that runs at parse time.
 Factory closures such as `createLotEachToggle` are fine because they call `safeGetElement`
 at runtime.
-Related: `safeGetElement` returns a partial dummy when the element is missing — shimmed
+Related: `safeGetElement` returns a partial dummy when the element is missing: shimmed
 members no-op silently; only `instanceof HTMLElement` discriminates a real element.
 
 ## Playwright dialog testing — `showAppConfirm` is not `window.confirm`
@@ -99,7 +99,7 @@ Any new state variable that tests or other modules need via `window.X` should fo
 same pattern.
 Related: all `js/` files share ONE global scope, and redeclaring a top-level binding across
 two files behaves differently by keyword. `const`/`let`/`class` throw a **parse-time
-SyntaxError that silently kills the second script**. `var` is legal — the later script
+SyntaxError that silently kills the second script**. `var` is legal: the later script
 silently overwrites the earlier value, with no error at all and a symptom far from the
 cause. Prefix new sync-related globals `SYNC_` (precedent: `SYNC_SCOPE_KEYS`,
 `SYNC_BACKUP_PREFIX`).
@@ -110,7 +110,7 @@ Use `toLocaleDateString('en-CA')` (Canadian English) to produce **local, user-fa
 dates in year-month-day format (form defaults, filenames, display).
 Do not use `toISOString().slice(0, 10)` for those; it returns a UTC date and shifts a day
 for users in negative UTC offsets.
-**Inverse case — UTC-keyed data values** (publisher feed business days, chart time keys):
+**Inverse case: UTC-keyed data values** (publisher feed business days, chart time keys):
 keep the UTC calendar date. Derive it from the feed row's ISO timestamp field
 (`row.t.split("T")[0]`) or `toLocaleDateString('en-CA', { timeZone: 'UTC' })`.
 Local `en-CA` on a UTC-stamped key shifts a day for users in positive UTC offsets.
@@ -121,7 +121,7 @@ formatting) unless the conversion is deliberate and commented at the call site.
 
 StakTrakr has **four** CSS themes: `light`, `dark`, `slate`, `sepia`. There is no
 `contrast` theme. AI reviewers frequently hallucinate "three themes" or a "contrast"
-theme — both are wrong.
+theme: both are wrong.
 
 ## `applyBulkEdit()` — contracts to preserve
 
@@ -130,23 +130,23 @@ as contracts to avoid regressing, not as live bugs to fix.
 
 - **Nested paths** route through `BULK_FIELD_STORAGE_MAP` via `applyBulkFieldToItem()` (grep
   either name in `js/bulkEdit.js`). A new bulk-editable field at a nested path (e.g.
-  `item.numistaData.shape`) still needs its own map entry — without one, a flat
-  `item[fieldId] = value` write lands on a bogus top-level key (precedent: STRK-91).
+  `item.numistaData.shape`) still needs its own map entry. Without one, a flat
+  `item[fieldId] = value` write lands on a bogus top-level key (a nested-field write failure).
 - **Change-log snapshots** use `structuredClone` for `oldItem.numistaData` and
   `oldItem.fieldMeta` (grep `structuredClone` in `js/bulkEdit.js`). A plain
-  `Object.assign({}, item)` is shallow — mutating a nested object would also mutate
+  `Object.assign({}, item)` is shallow: mutating a nested object would also mutate
   `oldItem`, making before/after diffs come out empty.
-- **`BULK_COLUMN_PRIORITY` length: grep it, never quote it.** This entry previously
-  hard-coded "30 entries" while listing 32 among its examples of wrong guesses — and 32 was
+- **`BULK_COLUMN_PRIORITY` length: grep it, never quote it.** The older entry
+  hard-coded "30 entries" while listing 32 among its examples of wrong guesses: and 32 was
   the correct answer. Counts in docs invert into misinformation.
 
 ## `loadDataSync` behaviors
 
-- **Swallows parse errors** — returns the default value on parse/decompression error instead of throwing.
+- **Swallows parse errors**: returns the default value on parse/decompression error instead of throwing.
 - Outer `try/catch` around `loadDataSync` will not fire for parse failures.
 - `console.warn` in a catch block is dead code in this scenario.
-- **Default is `[]`, not `null`** — `[]` is truthy. When the caller checks `if (!storedValue)` before merging defaults, pass `null` explicitly: `loadDataSync("key", null)`. The default `[]` silently skips the merge.
-- **`saveDataSync` re-throws** — unlike raw `localStorage.setItem`, it re-throws on quota errors. Fire-and-forget callers need a `try/catch` wrapper when migrating from raw storage calls.
+- **Default is `[]`, not `null`**: `[]` is truthy. When the caller checks `if (!storedValue)` before merging defaults, pass `null` explicitly: `loadDataSync("key", null)`. The default `[]` silently skips the merge.
+- **`saveDataSync` re-throws**: unlike raw `localStorage.setItem`, it re-throws on quota errors. Fire-and-forget callers need a `try/catch` wrapper when migrating from raw storage calls.
 
 ## CSS sticky columns — required setup
 
@@ -158,43 +158,46 @@ Missing the corner tier causes data cells to paint over the frozen header corner
 ## Daily close — TWO per-day dedup policies coexist in `js/spot.js`
 
 The legacy sparkline path (grep `getHistoricalSparklineData` in `js/spot.js`) keeps the FIRST live row per day.
-`getSpotDayMap` (STRK-352) deliberately keeps the LATEST live timestamp per day, and a live row always beats a seed/bundle row for that day.
-The divergence is intentional — the detail chart wants the daily close; the sparkline dedup predates it and its consumers expect the old behavior.
+`getSpotDayMap` deliberately keeps the LATEST live timestamp per day, and a live row always beats a seed/bundle row for that day.
+The divergence is intentional: the detail chart wants the daily close; the sparkline dedup predates it and its consumers expect the old behavior.
 Do not "unify" one policy into the other; `details-modal.spec.js` pins the latest-live-wins close.
 
-## STACK-70 Phase 4 mobile hide rules — RETIRED by STRK-352
+## Phase 4 mobile hide rules: retired by the chart rebuild
 
-STACK-70's Phase 4 hid the old pie canvases and metric toggle on mobile (`css/styles.css`, MOBILE-OPTIMIZED MODALS block — a tombstone comment marks the spot).
+Phase 4 hid the old pie canvases and metric toggle on mobile (`css/styles.css`, MOBILE-OPTIMIZED MODALS block: a tombstone comment marks the spot).
 The redesigned detail modal's hero chart and toggle MUST render on mobile (AC-17/AC-22); its responsive rules live in the `dm-` block's own 768px section.
-Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdown selectors — that DOM no longer exists and the suite asserts zero legacy pie DOM.
+Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdown selectors: that DOM does not exist and the suite asserts zero legacy pie DOM.
 
 ## `--warning` color — accessibility fail on small text in light/sepia
 
 `--warning` (oklch L≈0.666) on `--bg-secondary` produces ≈1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
 That fails WCAG level AA for small text.
-Use a darker custom amber (≈`oklch(0.55 0.15 60)`) for ticker or `font-size-xs` contexts in these themes.
+Color status words with the text tokens `--success-text`, `--warning-text` and `--danger-text`.
+Each of the four theme blocks in `css/styles.css` sets all three at 4.5:1 or more on `--bg-secondary`.
+Keep the base `--success`, `--warning` and `--danger` tokens for fills, borders and icons.
+`tests/unit/js-theme-tokens.test.js` fails when `js/` reads a custom property that no stylesheet defines.
 
 ## `--success` color — non-text contrast fail on sepia icons
 
 Sibling of the `--warning` gotcha above, at a different WCAG bar.
-Sepia `--success` (`oklch(0.603 0.117 130.4)`) on the sepia spot-card surface (`oklch(0.892 0.032 89.1)`) measures **2.72:1** — under the WCAG 1.4.11 Non-text Contrast bar of **3:1** for icons and graphical objects.
-STRK-291 fixed it in `css/styles.css` with a same-hue, lower-lightness override: `[data-theme="sepia"] .spot-sync-icon--fresh { color: oklch(0.52 0.13 130.4) }`, measured at 3.83:1.
-Light `--success` measures 3.35:1 — passing, but with little margin. Dark and slate are 5.6–5.8:1 and fine.
+Sepia `--success` (`oklch(0.603 0.117 130.4)`) on the sepia spot-card surface (`oklch(0.892 0.032 89.1)`) measures **2.72:1**. This is under the WCAG 1.4.11 Non-text Contrast bar of **3:1** for icons and graphical objects.
+The contrast fix uses `css/styles.css` with a same-hue, lower-lightness override: `[data-theme="sepia"] .spot-sync-icon--fresh { color: oklch(0.52 0.13 130.4) }`, measured at 3.83:1.
+Light `--success` measures 3.35:1: passing, but with little margin. Dark and slate are 5.6–5.8:1 and fine.
 
-Two method notes, both of which cost real debugging time in STRK-291:
+Two method notes for contrast tests:
 
-- **Judge icon strokes and borders at 3:1, not 4.5:1.** Non-text Contrast (1.4.11) governs icons and graphical objects; the 4.5:1 small-text bar implied by the `--warning` entry above does not apply to them.
-- **Never parse `oklch(...)` numbers as RGB.** `getComputedStyle` returns these tokens verbatim as `oklch(...)` strings, and treating the three components as RGB yields silently wrong ratios — during STRK-291 that mistake reported all four themes as failing, including ones that were fine. Resolve to sRGB by painting the color into a 1×1 canvas and reading the pixel back; working implementation is `__resolveRgb` in `tests/playwright/core/strk-189-spot-freshness.spec.js`.
+- **Judge icon strokes and borders at 3:1, not 4.5:1.** Non-text Contrast (1.4.11) governs icons and graphical objects. The 4.5:1 small-text bar from the `--warning` entry above does not apply to them.
+- **Never parse `oklch(...)` numbers as RGB.** `getComputedStyle` returns these tokens as `oklch(...)` strings. Reading the three components as RGB gives wrong contrast ratios, so a theme that passes can read as failing. Resolve the color to sRGB: paint it into a 1×1 canvas and read the pixel back. `__resolveRgb` in `tests/playwright/core/spot-prices.spec.js` does this.
 
 ## `_isMarketItemEnabled` guard — RESOLVED, do not re-add
 
 Historically the filter had to be applied on both the All-tab path and the per-metal `else`
-branch of `_renderVendorTable()`, and missing the `else` branch surfaced disabled vendors as
+branch of `_renderVendorTable()`. Missing the `else` branch surfaced disabled vendors as
 column headers.
 
-**This is no longer a hazard.** `_renderVendorTable` now delegates to
+**This is not a hazard.** `_renderVendorTable` now delegates to
 `_collectVendorTableRows` (grep both in `js/market-data.js`), where the `_isMarketItemEnabled`
-guard sits **above** the `isAllScope` branch rather than inside either arm of it — so it
+guard sits **above** the `isAllScope` branch rather than inside either arm of it: so it
 cannot be missed. Adding a second guard in a branch is a redundant duplicate, not a fix.
 
 ## `// duplication-ok` hook escape hatch
@@ -214,7 +217,7 @@ Follow this sequence:
 **Warning:** Mark Plane issues Done only after the PR merges.
 Plane closure tasks (close task number) follow `/spec archive` after merging.
 
-**Spec git add discipline:** Specs live in-repo at `docs/specs/` (`specs.path` in `.claude/project.json`, STRK-411) and ride the feature PR. When committing spec archives, stage with surgical precision:
+**Spec git add discipline:** Specs live in-repo at `docs/specs/` (`specs.path` in `.claude/project.json`) and ride the feature PR. When committing spec archives, stage with surgical precision:
 
 - Stage by exact file paths: `git add docs/specs/STRK-74/requirements.md ...`
 - Do not use broad staging: `git add docs/specs/` or `git add .`

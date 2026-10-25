@@ -242,16 +242,16 @@
       font-size: var(--font-size-xs);
       color: var(--text-muted);
     }
-    .cb-form .collections-segmented {
+    .cb-form .segmented {
       flex-wrap: wrap;
       padding: 2px;
     }
-    .cb-form .collections-segmented-option {
+    .cb-form .segmented-option {
       margin: 0;
       text-transform: none;
       letter-spacing: 0;
     }
-    .cb-form .collections-segmented-option span {
+    .cb-form .segmented-option span {
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
@@ -324,7 +324,7 @@
     .cb-hero .cb-covers[data-shape="slab"] {
       --cover: 100px;
     }
-    .cb-hero .collections-segmented {
+    .cb-hero .segmented {
       justify-content: center;
     }
     .cb-hero select {
@@ -974,12 +974,12 @@
           const label = h("label", { for: control.id, text: labelText });
           return h("div", {}, label, control, extra);
         };
-        /** Radio-backed segmented control (existing .collections-segmented component). */
+        /** Radio-backed segmented control (existing .segmented component). */
         const segmented = (labelText, options, value, onChange) => {
           const id = `cb${++uid}`;
           const group = h(
             "div",
-            { class: "collections-segmented", role: "radiogroup", "aria-labelledby": id },
+            { class: "segmented", role: "radiogroup", "aria-labelledby": id },
             options.map(([optionValue, text, glyph]) => {
               const radio = h("input", { type: "radio", name: id, value: optionValue });
               radio.checked = optionValue === value;
@@ -990,7 +990,7 @@
                   : "",
               });
               face.append(text);
-              return h("label", { class: "collections-segmented-option" }, radio, face);
+              return h("label", { class: "segmented-option" }, radio, face);
             })
           );
           const set = (next) =>

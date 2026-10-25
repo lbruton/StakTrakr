@@ -17,10 +17,19 @@ const PORT = Number(process.env.PW_PORT) || portFromCwd();
 
 export default defineConfig({
   testDir: "./tests/playwright",
-  fullyParallel: false,
-  workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) || 1 : 1,
+  globalSetup: [
+    "./tests/playwright/helpers/coverage-setup.js",
+    "./tests/playwright/helpers/tree-guard-setup.js",
+  ],
+  globalTeardown: "./tests/playwright/helpers/tree-guard-teardown.js",
+  // Every test boots its own context, so tests in one file are independent and can
+  // spread across workers. Specs that share state opt out with describe.serial.
+  fullyParallel: true,
+  // Boot is renderer-bound: workers past the performance-core count only slow each test.
+  workers: process.env.PW_WORKERS ? parseInt(process.env.PW_WORKERS, 10) || 1 : "50%",
   retries: process.env.CI ? 1 : 0,
-  reporter: "html",
+  // CI shards write blob reports that the Tests workflow merges into one report.
+  reporter: process.env.CI ? "blob" : "html",
   use: {
     baseURL: `http://localhost:${PORT}`,
     serviceWorkers: "block",

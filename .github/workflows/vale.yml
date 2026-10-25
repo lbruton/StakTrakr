@@ -1,0 +1,54 @@
+name: Vale
+
+# Runs on every PR so the check always reports when the ruleset requires it.
+# A PR that changes no linted prose passes without running Vale.
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
+
+jobs:
+  prose:
+    name: Vale
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Find changed prose
+        id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
+          if printf '%s\n' "$files" | grep -qE '^(README\.md|about\.html|\.context/.*\.md|docs/announcements/.*\.md|\.vale\.ini|\.vale/.*)$'; then
+            echo "prose=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prose=false" >> "$GITHUB_OUTPUT"
+            echo "No linted prose changed; Vale did not run." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Checkout
+        if: ${{ steps.changes.outputs.prose == 'true' }}
+        uses: actions/checkout@v4
+
+      # Every Prose and Announce rule is a warning, so the check fails on a warning. The added
+      # filter limits that to lines this PR adds; existing alerts never fail it. Vale skips
+      # files under docs/ that no .vale.ini section matches.
+      - name: Vale
+        if: ${{ steps.changes.outputs.prose == 'true' }}
+        uses: errata-ai/vale-action@v3.0.0
+        with:
+          version: 3.24.0
+          files: README.md,about.html,.context,docs
+          separator: ","
+          sync: false
+          reporter: github-pr-check
+          filter_mode: added
+          fail_level: warning

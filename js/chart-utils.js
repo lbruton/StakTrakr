@@ -66,11 +66,21 @@
     const carriedIndices = o.carriedIndices || null;
 
     return vendors.map(function (vendorId, vendorIdx) {
-      const color = colorMap[vendorId] || getThemeColorRGB("text-muted");
+      const colorValue = colorMap[vendorId];
+      const isCssColor =
+        typeof colorValue === "string" &&
+        typeof window.CSS?.supports === "function" &&
+        window.CSS.supports("color", colorValue);
+      const color = colorValue
+        ? isCssColor
+          ? resolveColor(colorValue)
+          : getThemeColorRGB(colorValue)
+        : getThemeColorRGB("text-muted");
       const carried = carriedIndices ? carriedIndices[vendorIdx] : null;
 
       return {
         label: labelFn(vendorId),
+        _vendorId: vendorId,
         data: dataRows.map(function (row) {
           return valueExtractor(row, vendorId);
         }),

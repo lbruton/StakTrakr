@@ -252,7 +252,7 @@ function closeViewModal() {
 /**
  * Compute shared metrics used by all view modal section renderers.
  * @param {Object} item - Inventory item
- * @returns {Object} Metrics object with currentSpot, qty, weight, purity, isGb, isSb, weightOz, metalColor
+ * @returns {Object} Metrics object with currentSpot, qty, weight, purity, isGb, isSb, weightOz, metalKey
  */
 function _getViewMetrics(item) {
   const metalKey = (item.metal || "silver").toLowerCase();
@@ -278,7 +278,6 @@ function _getViewMetrics(item) {
     weightOz = qty > 0 ? totalOz / qty : totalOz;
     effectivePurity = 1.0;
   }
-  const metalColor = typeof getMetalColor === "function" ? getMetalColor(metalKey) : null;
   return {
     currentSpot,
     qty,
@@ -288,7 +287,7 @@ function _getViewMetrics(item) {
     isSb,
     isCu,
     weightOz,
-    metalColor,
+    metalKey,
   };
 }
 
@@ -296,7 +295,7 @@ function _renderHeaderMeta(item, metrics) {
   const header = safeGetElement("viewModalTitle");
   if (header) header.textContent = item.name || "Untitled Item";
   _renderCatalogBadge(item);
-  _applyHeaderGradient(header, metrics.metalColor);
+  _applyHeaderMetal(metrics.metalKey);
   _renderCountChip(item);
 }
 
@@ -324,13 +323,37 @@ function _renderCatalogBadge(item) {
   };
 }
 
-function _applyHeaderGradient(header, metalColor) {
-  const modalHeader = document.getElementById("viewItemModal")?.querySelector(".modal-header");
-  if (!modalHeader || !metalColor) return;
-  modalHeader.style.background = `linear-gradient(135deg, ${metalColor}, ${_darkenColor(metalColor, 0.3)})`;
-  const textColor = _isLightColor(metalColor) ? "#1e293b" : "#f8fafc";
+/** Metals with a theme token; the stylesheet tints the Item View from `data-metal`. */
+const VIEW_TINTED_METALS = new Set(["silver", "gold", "platinum", "palladium", "copper"]);
+
+/**
+ * Keys the Item View's metal tint (header gradient, image section) to `data-metal`.
+ * An unknown metal clears the key, so the header falls back to the flat theme surface.
+ * @param {string} metalKey - Lowercase metal key
+ */
+function _applyHeaderMetal(metalKey) {
+  const modal = document.getElementById("viewItemModal");
+  if (!modal) return;
+  if (VIEW_TINTED_METALS.has(metalKey)) modal.dataset.metal = metalKey;
+  else delete modal.dataset.metal;
+  _refreshViewHeaderTextColor();
+}
+
+/**
+ * Browsers without CSS contrast-color() get the header text colour inline, picked against
+ * the metal token. setTheme() re-runs this so an open Item View follows a theme switch.
+ */
+function _refreshViewHeaderTextColor() {
+  const modal = document.getElementById("viewItemModal");
+  const modalHeader = modal?.querySelector(".modal-header");
+  if (!modalHeader) return;
+  const title = document.getElementById("viewModalTitle");
+  const metalKey = modal.dataset.metal;
+  const needsInline =
+    metalKey && typeof CHIP_CONTRAST_IN_CSS !== "undefined" && !CHIP_CONTRAST_IN_CSS;
+  const textColor = needsInline ? getContrastColor(`var(--${metalKey})`) : "";
   modalHeader.style.color = textColor;
-  if (header) header.style.color = textColor;
+  if (title) title.style.color = textColor;
 }
 
 function _renderCountChip(item) {
@@ -345,7 +368,7 @@ function _renderCountChip(item) {
   countChip.style.display = totalQty > 1 ? "" : "none";
 }
 
-function _buildImageSection(item, metrics) {
+function _buildImageSection(item) {
   const imgSection = _el("div", "view-image-section");
   imgSection.id = "viewImageSection";
   const obverseSlot = _imageSlot("obverse", "Obverse");
@@ -354,11 +377,6 @@ function _buildImageSection(item, metrics) {
   _applyViewSlotFrame(reverseSlot, item, "reverse");
   imgSection.appendChild(obverseSlot);
   imgSection.appendChild(reverseSlot);
-  if (metrics.metalColor) {
-    const surfaceDeep = getThemeColor("bg-primary") || "#1a1a2e";
-    const surfaceDeeper = getThemeColor("bg-secondary") || "#16213e";
-    imgSection.style.background = `linear-gradient(145deg, color-mix(in srgb, ${metrics.metalColor} 15%, ${surfaceDeep}), color-mix(in srgb, ${metrics.metalColor} 8%, ${surfaceDeeper}))`;
-  }
   const badge = _buildImageCertBadge(item);
   if (badge) imgSection.appendChild(badge);
   return imgSection;
@@ -1662,7 +1680,7 @@ function _appendSectionsInConfiguredOrder(frag, sectionBuilders) {
   }
 }
 
-function _renderHeaderActions(item, index) {
+function _renderHeaderActions(item, _index) {
   const headerActions = document.getElementById("viewHeaderActions");
   if (!headerActions) return;
   headerActions.textContent = "";
@@ -1768,7 +1786,7 @@ function buildViewContent(item, index) {
 
   const chartCtx = _getPriceHistoryContext(item, metrics);
   const sectionBuilders = {
-    images: () => _buildImageSection(item, metrics),
+    images: () => _buildImageSection(item),
     priceHistory: () => _buildPriceHistorySection(chartCtx),
     valuation: () => _buildValuationSection(item, metrics),
     inventory: () => _buildInventorySection(item, metrics),
@@ -2210,67 +2228,6 @@ function _openExternalPopup(url, name) {
     popup.opener = null; // Security: prevent reverse tabnabbing
     popup.focus();
   }
-}
-
-// ---------------------------------------------------------------------------
-// Color helpers (private)
-// ---------------------------------------------------------------------------
-
-/**
- * Parse a color string (hex #rrggbb or rgb(r,g,b)) into [r, g, b].
- * @param {string} color
- * @returns {number[]} [r, g, b] in 0-255
- */
-function _parseColor(color) {
-  if (!color) return [99, 102, 241]; // fallback indigo
-  const s = color.trim();
-  // Handle #rrggbb / #rgb
-  if (s.startsWith("#")) {
-    let hex = s.slice(1);
-    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-    return [
-      parseInt(hex.slice(0, 2), 16),
-      parseInt(hex.slice(2, 4), 16),
-      parseInt(hex.slice(4, 6), 16),
-    ];
-  }
-  // Handle rgb(r, g, b) / rgba(r, g, b, a)
-  const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
-  // Delegate to the shared resolveColor (theme.js) for oklch, hsl, lab, etc.
-  if (typeof resolveColor === "function") {
-    const resolved = resolveColor(s);
-    const rm = resolved.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-    if (rm) return [parseInt(rm[1], 10), parseInt(rm[2], 10), parseInt(rm[3], 10)];
-  }
-  return [99, 102, 241];
-}
-
-/**
- * Darken a hex/rgb color by a factor (0–1). 0 = no change, 1 = black.
- * @param {string} color - Hex or rgb() string
- * @param {number} amount - Darkening factor
- * @returns {string} Hex color
- */
-function _darkenColor(color, amount) {
-  const [r, g, b] = _parseColor(color);
-  const f = 1 - Math.min(Math.max(amount, 0), 1);
-  const toHex = (v) =>
-    Math.round(v * f)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/**
- * Check if a color is light based on relative luminance.
- * @param {string} color - Hex or rgb() string
- * @returns {boolean} True if light (needs dark text)
- */
-function _isLightColor(color) {
-  const [r, g, b] = _parseColor(color);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5;
 }
 
 // ---------------------------------------------------------------------------
@@ -3079,4 +3036,5 @@ document.addEventListener("keydown", (e) => {
 if (typeof window !== "undefined") {
   window.showViewModal = showViewModal;
   window.closeViewModal = closeViewModal;
+  window._refreshViewHeaderTextColor = _refreshViewHeaderTextColor;
 }

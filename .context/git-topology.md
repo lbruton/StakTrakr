@@ -10,7 +10,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 - `sw.js` is auto-stamped by the `stamp-sw-cache` pre-commit hook. Don't add manually.
 - **`/release` is the only valid version-bump path.**
 - When `/spec` shipping tasks 10-12 say "version bump", invoke `/release patch`; do not hand-edit release artifacts.
-- A spec PR that bumps `package.json` but forgets `manifest.json` data, README badges, or the `sw.js` cache can still pass `check-release-sync` and ship incomplete. (The hook _does_ catch a mismatched `version.json` and a missing `about.js` What's New current-version entry, and enforces the 5-entry What's New cap — STRK-194.)
+- A spec PR that bumps `package.json` but forgets `manifest.json` data, README badges, or the `sw.js` cache can still pass `check-release-sync` and ship incomplete. (The hook _does_ catch a mismatched `version.json` and a missing `about.js` What's New current-version entry, and enforces the 5-entry What's New cap.)
 - If spec workflow appears to do its own bump, treat it as a workflow bug and invoke `/release`.
 - Release recipe: `.claude/skills/release/SKILL.md`.
 - Version lock: `devops/version.lock` is gitignored (local coordination only).
@@ -32,18 +32,18 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
   git worktree add .worktrees/<name> -b <branch> origin/dev
   ```
 
-  - **Why it is blocked:** `worktree.baseRef` accepts only `"fresh"` (the remote default branch — `main` here) and `"head"` (the main checkout's current `HEAD`). It **cannot** be set to a branch name, so the tool has no setting that expresses a `dev`-based worktree. `"head"` is the worse failure of the two: the base silently depends on wherever the main checkout is parked, so it is right some days and a full release behind on others.
-  - **Symptom when the base is wrong:** a `dev`-targeted PR inherits an ancient merge-base, so GitHub's three-dot diff balloons into thousands of lines of false "scope creep" (Copilot/Codacy flag it as unrelated tickets).
+  - **Why it is blocked:** `worktree.baseRef` accepts only `"fresh"` (the remote default branch: `main` here) and `"head"` (the main checkout's current `HEAD`). It **cannot** be set to a branch name, so the tool has no setting that expresses a `dev`-based worktree. `"head"` is the worse failure of the two. The base silently depends on wherever the main checkout is parked. It is right some days and a full release behind on others.
+  - **Symptom when the base is wrong:** a `dev`-targeted PR inherits an ancient merge-base. Therefore, GitHub's three-dot diff balloons into thousands of lines of false "scope creep" (Copilot/Codacy flag it as unrelated tickets).
   - **Fetch before you search.** In a stale worktree, `grep` for code that exists on `dev` returns nothing, which is indistinguishable from "this identifier was never written." Always `git fetch origin dev` before trusting a negative search result.
   - Always verify before opening the PR: `git merge-base origin/dev HEAD` must equal `git rev-parse origin/dev`.
 
 ## Merge Strategy
 
-- **feature→dev:** merge commit via `gh pr merge --merge`. Squash was the original model but is **disabled repo-wide** and the `dev` ruleset pins `allowed_merge_methods: ["merge"]` — see Enforcement below. A squash to `dev` is not possible.
+- **feature→dev:** merge commit via `gh pr merge --merge`. Squash was the original model but is **disabled repo-wide** and the `dev` ruleset pins `allowed_merge_methods: ["merge"]`: see Enforcement below. A squash to `dev` is not possible.
 - **dev→main (ship):** merge commit via `gh pr merge --merge`. Preserves common ancestry so the next ship finds a clean merge base.
 - Decline requests to squash to `main`; squash severs ancestry and causes full-tree conflicts on the next ship.
-- **Squash-slip recovery** — if a past `dev→main` squash froze the merge base (symptom: a `dev→main` PR conflicts on `sw.js` or balloons to a whole-tree diff): heal with a **zero-content** `git merge -s ours origin/dev` onto `main`, landed via a chore PR merged with `--merge`. It records the shared ancestry without changing `main`'s tree. Verify that `git merge-base origin/main origin/dev` equals `git rev-parse origin/dev`. `/ship` Steps 1.5 (pre-flight) and 6.6 (post-merge) automate this detect-and-heal.
-- **Enforcement (2026-06-03)** — squash merge is **disabled repo-wide** and the `dev` ruleset pins `allowed_merge_methods: ["merge"]`, so a squash-ship is blocked at the source (the model is merge-commits everywhere). The `/ship` ancestry gates remain as defense-in-depth and to detect a pre-existing severance from older squash-ships.
+- **Squash-slip recovery**: if a past `dev→main` squash froze the merge base (a `dev→main` PR conflicts on `sw.js` or balloons to a whole-tree diff), heal with a **zero-content** `git merge -s ours origin/dev` onto `main`. Land it via a chore PR merged with `--merge`. It records the shared ancestry without changing `main`'s tree. Verify that `git merge-base origin/main origin/dev` equals `git rev-parse origin/dev`. `/ship` Steps 1.5 (pre-flight) and 6.6 (post-merge) automate this detect-and-heal.
+- **Enforcement (2026-06-03)**: squash merge is **disabled repo-wide** and the `dev` ruleset pins `allowed_merge_methods: ["merge"]`, so a squash-ship is blocked at the source (the model is merge-commits everywhere). The `/ship` ancestry gates remain as defense-in-depth and to detect a pre-existing severance from older squash-ships.
 - **Rebase merge:** prohibited for protected branches. GitHub cannot sign rebase-created commits, which violates the `required_signatures` ruleset on both `dev` and `main`.
 - Alternative: local merge with SSH signing.
 
@@ -52,9 +52,9 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 - **Run `/update-spot-bundle` before every version-bump PR** whether it targets `dev` or `main`.
 - The command queries sqld, merges new days into the `data/spot-history-<year>.json` files, and rebuilds `data/spot-history-bundle.js`.
 - Copilot's reminder is correct, not a false positive.
-- **Worktree note:** the script resolves its paths relative to itself, so run the **worktree's own copy** (`SQLD_URL=http://192.168.1.81:8080 /usr/bin/python3 .claude/skills/update-spot-bundle/update-spot-bundle.py` from the worktree root) and it writes into that worktree. Running the main checkout's copy writes to the main checkout instead (see `.claude/rules/worktree-cwd.md`).
+- **Worktree note:** the script resolves its paths relative to itself. Run the **worktree's own copy** (`SQLD_URL=http://192.168.1.81:8080 /usr/bin/python3 .claude/skills/update-spot-bundle/update-spot-bundle.py` from the worktree root). It writes into that worktree. Running the main checkout's copy writes to the main checkout instead (see `.claude/rules/worktree-cwd.md`).
 - The script updates two kinds of file: `data/spot-history-bundle.js` and the `data/spot-history-<year>.json` files it merged new days into. Both must ship in the PR.
-- Stage the results from the worktree root: `git add data/spot-history-bundle.js data/spot-history-*.json`. When sqld has no new complete UTC day since the last run, the script leaves both unchanged and there is nothing to commit; the check still has to be run.
+- Stage the results from the worktree root: `git add data/spot-history-bundle.js data/spot-history-*.json`. When sqld has no new complete UTC day since the last run, the script leaves both unchanged and there is nothing to commit. The check still has to be run.
 
 ## Spec Branch Overrides
 
@@ -66,7 +66,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 ## Stale Branch Detection
 
 - **Stale dev-targeting branches** → `/pr-cleanup` only detects `[gone]` refs, which requires the upstream branch to have been deleted.
-- A local branch that tracks `origin/dev` rather than its own pushed ref never shows as `[gone]`, whatever the merge method. (This previously described squash-merged branches; squash is now disabled, but the tracking-ref case still occurs.)
+- A local branch that tracks `origin/dev` rather than its own pushed ref never shows as `[gone]`, whatever the merge method. (The older description covered squash-merged branches; squash is now disabled, but the tracking-ref case still occurs.)
 - `git branch -vv | grep ': gone]'` will not find those branches.
 - Cross-check by branch name instead.
 - List merged PR heads with `gh pr list --state merged --base dev --json headRefName --jq '.[].headRefName' | grep '^patch/'`.

@@ -1,0 +1,7 @@
+extends: existence
+message: "Keep the title line to 80 characters or fewer (voice.md)."
+level: warning
+scope: raw
+nonword: true
+tokens:
+  - '(?m)^# .{81,}$'

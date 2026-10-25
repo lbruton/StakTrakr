@@ -29,20 +29,18 @@
 //
 // Harness: js/spot-ratio-math.js is a script-tag-global module (no ESM/CJS
 // exports — it assigns onto `window`). Mirroring spot-ratio-chips.test.js, the
-// whole file is evaluated with a mock `window` via new Function("window", src).
+// whole file is evaluated with a mock `window` through evalSource.
 
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const src = readFileSync(new URL("../../js/spot-ratio-math.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 // The stats layer reads no collaborators at load time; a bare surface suffices.
 function loadModule() {
   const surface = {
     document: { getElementById: () => null, querySelector: () => null },
   };
-  new Function("window", src)(surface);
+  evalSource("js/spot-ratio-math.js", { params: { window: surface } });
   return surface;
 }
 
@@ -210,7 +208,7 @@ describe("buildRatioSeries", () => {
     assert.deepEqual(series, [["1990-01-02", 3.99]]);
   });
 
-  test("a monthly leg joins a daily leg only on shared dates — no fabricated points (STRK-341)", () => {
+  test("a monthly leg joins a daily leg only on shared dates — no fabricated points", () => {
     // Pre-2013 copper is MONTHLY (World Bank Pink Sheet rows stamped on the
     // 1st at 12:00) while silver is daily. The Ag:Cu series must emit only
     // where both printed — roughly one point per month — and must never
@@ -271,7 +269,7 @@ describe("buildRatioSeries", () => {
     assert.deepEqual(mod.buildRatioSeries(entries, "Gold", "Silver"), [["2024-01-02", 80]]);
   });
 
-  test("equal timestamps: the entry later in source order (the overlay) wins (STRK-403)", () => {
+  test("equal timestamps: the entry later in source order (the overlay) wins", () => {
     // Both hosts append the API/live overlay AFTER the seed-bundle cache, and
     // the API year file stamps its daily averages at the same "12:00:00" as
     // the bundle. A stale cached bundle (e.g. a frozen partial-day value from
@@ -425,11 +423,7 @@ describe("committed bundle sanity", () => {
     // The bundle calls window._loadSpotSeedBundle(bundle) on load; capture the
     // compact { year: { metal: [[MM-DD, px]] } } payload and expand it into the
     // same cache-entry shape js/spot.js produces.
-    const bundleSrc = readFileSync(
-      new URL("../../data/spot-history-bundle.js", import.meta.url),
-      "utf-8"
-    );
-    new Function("window", bundleSrc)({
+    const bundleWindow = {
       _loadSpotSeedBundle(bundle) {
         for (const yearStr of Object.keys(bundle)) {
           const entries = [];
@@ -441,7 +435,8 @@ describe("committed bundle sanity", () => {
           cache.set(parseInt(yearStr, 10), entries);
         }
       },
-    });
+    };
+    evalSource("data/spot-history-bundle.js", { params: { window: bundleWindow } });
     assert.ok(
       cache.size > 0,
       "seed bundle did not call _loadSpotSeedBundle — harness shape drifted"

@@ -23,7 +23,7 @@ const METALS = ["Silver", "Gold", "Platinum", "Palladium"];
  * restore the default and make the persistence test unable to fail.
  *
  * Waits on `window.appListenersReady` (STRK-294) before returning. init.js
- * Phase 14 attaches every header listener inside a `setTimeout(…, 200)`, so
+ * Phase 14 attaches every header listener inside a deferred `setTimeout`, so
  * `#spotPriceDisplaySilver` being visible and `cycleSpotTrend` being defined —
  * both true long before that timer fires — are NOT sufficient. Without this
  * wait, clicking #settingsBtn silently does nothing and the failure looks like
@@ -165,7 +165,7 @@ function watchPageErrors(page) {
   return errors;
 }
 
-test.describe("STRK-283 — Trend header button retired to the spot-card period chip", () => {
+test.describe("Trend header button retired to the spot-card period chip", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -284,7 +284,7 @@ test.describe("STRK-283 — Trend header button retired to the spot-card period 
 // The epic's "click = metal, shift-click = all" was dropped (user-confirmed):
 // _performSingleProviderFetch returns all four metals in one payload, so a
 // per-metal sync would repeat the same request and discard three results.
-test.describe("STRK-284 — Spot Sync header button retired to the per-card refresh icon", () => {
+test.describe("Spot Sync header button retired to the per-card refresh icon", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -373,7 +373,7 @@ test.describe("STRK-284 — Spot Sync header button retired to the per-card refr
 //
 // NOTE the panel is `settingsPanel_system`, not `_storage` as both issues
 // originally said — corrected after reading the listeners.
-test.describe("STRK-285/286 — Backup and Restore header buttons retired", () => {
+test.describe("Backup and Restore header buttons retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -403,7 +403,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
     // saying the gear "does NOT work under this project's fixture" and that the
     // limitation could not be papered over. That diagnosis was wrong — the gear
     // works fine; gotoApp() was simply returning before init.js Phase 14's
-    // 200ms setTimeout had attached its listener. gotoApp() now waits on
+    // deferred setTimeout had attached its listener. gotoApp() now waits on
     // window.appListenersReady, so the whole user route — gear → nav item →
     // panel — is exercised end to end.
     await gotoApp(page);
@@ -467,7 +467,7 @@ test.describe("STRK-285/286 — Backup and Restore header buttons retired", () =
 // storage key IS `headerAboutBtnVisible` and the config id is `aboutBtn`.
 // Grepping the wrong one returns zero hits and reads like the button does not
 // exist.
-test.describe("STRK-289 — About header button retired", () => {
+test.describe("About header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -529,7 +529,7 @@ test.describe("STRK-289 — About header button retired", () => {
 // not the button, because the dot lives beside the button inside it. Asserting
 // only #headerCloudSyncBtn is gone would pass while leaving an empty wrapper
 // (and its flex/gap CSS) in the header.
-test.describe("STRK-287 — Cloud Sync header button retired", () => {
+test.describe("Cloud Sync header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -568,7 +568,7 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
   //
   // UPGRADED (STRK-294): this comment used to say #settingsBtn "still cannot be
   // clicked under this fixture". It can — gotoApp() was returning before Phase
-  // 14's 200ms timer attached the listener, and now waits on
+  // 14's deferred timer attached the listener, and now waits on
   // window.appListenersReady.
   test("Settings › Cloud is reachable by clicking the gear and the nav control", async ({
     page,
@@ -656,7 +656,7 @@ test.describe("STRK-287 — Cloud Sync header button retired", () => {
 // it is the first retirement that removes something every existing user can see
 // today. toHaveCount(0) is doubly required — toBeHidden() would have been false
 // before the change, not merely vacuous.
-test.describe("STRK-288 — Currency header button retired", () => {
+test.describe("Currency header button retired", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
@@ -740,7 +740,7 @@ test.describe("STRK-288 — Currency header button retired", () => {
 // market data with no working manual refresh outside Settings. The behavioural
 // half lives in core/retail-market.spec.js (STRK-290 describe); this block pins
 // the removal half.
-test.describe("STRK-290 — Market header button retired to the in-block refresh control", () => {
+test.describe("Market header button retired to the in-block refresh control", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });

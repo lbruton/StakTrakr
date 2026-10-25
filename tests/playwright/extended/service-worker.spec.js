@@ -15,7 +15,7 @@
 // one postMessage read. lastStrategy is a module-scoped variable in the SW so the
 // read always reflects the most recent classified request in this SW lifetime.
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../helpers/app-test.js";
 
 test.describe("SW classified caching", () => {
   // Override the global serviceWorkers: "block" setting for this test file only.
@@ -307,14 +307,14 @@ test.describe("SW classified caching", () => {
   // network-first branch here. These drive the cache-first branch instead, using a
   // same-origin annual-spot-history URL the dev server genuinely 404s on. Both branches
   // route through the same resolveWithCacheFallback helper, and the decision itself is
-  // pinned directly in tests/unit/strk-256-sw-cache-fallback.test.js.
+  // pinned directly in tests/unit/sw-cache-fallback.test.js.
   // Real spot history spans 1968–2026, so these two years are genuinely absent
   // from the dev server and produce an authentic 404 through the SW's own
   // network stack — which page.route() could not have faked.
   const MISSING_ANNUAL = "/data/spot-history-1900.json";
   const MISSING_ANNUAL_UNSEEDED = "/data/spot-history-1901.json";
 
-  test("SC-10 — non-OK response falls back to the cached copy (STRK-256)", async ({ page }) => {
+  test("SC-10 — non-OK response falls back to the cached copy", async ({ page }) => {
     await bootPage(page);
 
     const cacheName = await page.evaluate(async () => {
@@ -352,9 +352,7 @@ test.describe("SW classified caching", () => {
     expect(body).toEqual({ strk256: "cached" });
   });
 
-  test("SC-11 — non-OK with no cached copy still surfaces the real status (STRK-256)", async ({
-    page,
-  }) => {
+  test("SC-11 — non-OK with no cached copy still surfaces the real status", async ({ page }) => {
     await bootPage(page);
 
     // Nothing seeded for this URL. The fallback must not mask a genuine error as
@@ -369,10 +367,7 @@ test.describe("SW classified caching", () => {
     expect(status).toBe(404);
   });
 
-  test("SC-12 — /ratios/ renders offline from the precached shell (STRK-274)", async ({
-    page,
-    context,
-  }) => {
+  test("SC-12 — /ratios/ renders offline from the precached shell", async ({ page, context }) => {
     // First online visit: the ratios page itself registers the root SW
     // (../sw.js → scope "/"), and SW control implies the install-time precache
     // (which now includes "./ratios/" + its assets) completed successfully.

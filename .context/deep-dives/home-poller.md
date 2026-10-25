@@ -15,7 +15,7 @@ updated: "2026-04-11"
 
 ## Overview
 
-A secondary poller host running as Docker containers on an Ubuntu Server LXC. The home-poller container runs three cron-driven pollers: a **retail scraper** (`run-home.sh` at `:30`), a **spot price poller** (`spot-extract.js` at `:15/:45`), and a **goldback scraper** (`goldback-scraper.js` hourly at `:05` — `5 * * * *`, STRK-58: the CurrencyLayer-backed rate can shift intraday). Retail and spot offsets are staggered from Cloud - Fly.io to avoid write collisions.
+A secondary poller host running as Docker containers on an Ubuntu Server LXC. The home-poller container runs three cron-driven pollers. There is a **retail scraper** (`run-home.sh` at `:30`), a **spot price poller** (`spot-extract.js` at `:15/:45`). There is also a **goldback scraper** (`goldback-scraper.js` hourly at `:05`: `5 * * * *`, the CurrencyLayer-backed rate can shift intraday). Retail and spot offsets are staggered from Cloud - Fly.io to avoid write collisions.
 
 Both pollers write to the **same sqld database** (`staktrakr-sqld` on the Home VM, port 8080). The home-poller connects via Docker DNS (`http://staktrakr-sqld:8080`). `run-publish.sh` on Fly.io merges their data using `readLatestPerVendor()`. The home poller never touches Git. A nightly DR sync job (`turso-backup-sync.js`) replicates data from sqld to Turso Cloud (free tier).
 
@@ -83,14 +83,14 @@ Node.js HTTP/HTTPS server (`/app/dashboard.js` inside container) showing:
 - Spot price trend (15-min increments)
 - Home poller log tail (last 300 lines from persistent volume)
 - Failure trend (7-day chart)
-- **`/providers`** — Provider URL editor (inline CRUD against sqld — see Provider Database)
-- **`/failures`** — Failure queue (URLs with 3+ failures in last 7 days from sqld)
+- **`/providers`**: Provider URL editor (inline CRUD against sqld: see Provider Database)
+- **`/failures`**: Failure queue (URLs with 3+ failures in last 7 days from sqld)
 
 HTTPS on port 3011 uses a self-signed certificate generated at Docker build time. Used for iframe embedding in the spec-workflow MCP dashboard.
 
 ### Metrics Exporter (`http://192.168.1.81:9100/metrics`)
 
-`/app/metrics-exporter.js` — Prometheus text format. Exposes:
+`/app/metrics-exporter.js`: Prometheus text format. Exposes:
 
 - System: `poller_uptime_seconds`, `poller_cpu_load1/5/15`, `poller_mem_used_pct`, `poller_net_rx/tx_bytes`
 - Services: `poller_service_up{service, manager}` for supervisord services
@@ -119,29 +119,36 @@ The Cloud - Fly.io container routes scraper traffic through this proxy for resid
 
 The Tailscale sidecar (`tailscale-staktrakr`) runs in its own container with two roles:
 
-1. **Exit node** — Fly.io routes outbound traffic through the home residential IP
-2. **Subnet router** — advertises `192.168.1.0/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `192.168.1.81:8080`) without exit-node routing
+1. **Exit node**: Fly.io routes outbound traffic through the home residential IP
+2. **Subnet router**: advertises `192.168.1.0/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `192.168.1.81:8080`) without exit-node routing
 
 The compose file (`docker-compose.tinyproxy.yml`) sets `TS_ROUTES=192.168.1.0/24` and enables `net.ipv4.ip_forward=1` / `net.ipv6.conf.all.forwarding=1` via `sysctls`. The subnet route must be approved in the Tailscale admin console. On the Fly.io side, `--accept-routes` in `supervisord.conf` enables the container to use the advertised routes.
 
 > **Gotcha:** The `containerboot` entrypoint in the Tailscale Docker image does not re-apply `TS_ROUTES` when existing state exists in the volume. If the route is missing after a redeploy, manually run `tailscale set --advertise-routes=192.168.1.0/24` inside the container.
 
-Tinyproxy shares the sidecar's network namespace. The home-poller container does NOT share the Tailscale network — it uses the standard Docker bridge. Tailscale is needed for the proxy path from Fly.io and for subnet-routed access to home LAN services.
+Tinyproxy shares the sidecar's network namespace. The home-poller container does NOT share the Tailscale network: it uses the standard Docker bridge. Tailscale is needed for the proxy path from Fly.io and for subnet-routed access to home LAN services.
 
 ---
 
 ## CF-Clearance-Scraper Sidecar
 
-`staktrakr-byparr` runs `ghcr.io/thephaseless/byparr:latest` — a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
+`staktrakr-byparr` runs Byparr (production: upstream 2.1.0 via `BYPARR_IMAGE`; compose default: upstream 3.0.4). This is a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
 
 | Property      | Value                                                                                                                 |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Image         | `ghcr.io/thephaseless/byparr:latest`                                                                                  |
+| Image         | `${BYPARR_IMAGE:-ghcr.io/thephaseless/byparr:3.0.4}` (pinned; bump only after the test below)                         |
+| Init          | `init: true` (Docker's init as PID 1 reaps orphaned browser processes)                                                |
 | Internal URL  | `http://staktrakr-byparr:8191` (Docker DNS via container name)                                                        |
 | Host URL      | `http://192.168.1.81:8191` (host-exposed on port 8191 for debugging and Fly.io → Tailscale → Byparr CF bypass access) |
 | Purpose       | Phase 2 fallback for CF-protected vendors (Bullion Exchanges, JM Bullion)                                             |
 | Network       | `staktrakr-net` bridge, port 8191 exposed to host                                                                     |
-| Shared memory | `/dev/shm` mounted from host (required by Camoufox Firefox)                                                           |
+| Shared memory | `shm_size: "1g"` (required by Camoufox Firefox)                                                                       |
+
+**Image source.** The compose default is upstream `ghcr.io/thephaseless/byparr:3.0.4`, so self-hosters need no extra config and get a maintained image with `tini`. Production overrides it: stack 7's env sets `BYPARR_IMAGE` to upstream 2.1.0 (image ID `sha256:ac7e6554…`) in the private homelab Gitea registry. Portainer pulls that with a read-only (`read:package`) registry credential. If the stack env is lost (for example by an API redeploy), prod uses 3.0.4 as its fallback. Byparr keeps running, but Bullion Exchanges degrades to mostly un-hydrated pages; restore `BYPARR_IMAGE` and redeploy. Once an upstream release passes the side-by-side test below, bump the compose default and remove the override.
+
+> **Failure mode: zombie leak → silent hang.** Each Byparr request leaves Firefox `Socket`/`RDD`/`Utility Process` children behind. If nothing at PID 1 reaps them, they pile up as zombies (~2,000/day on our load). The pile grows until it fills the container's cgroup task cap (systemd `DefaultTasksMax`, 15% of `kernel.threads-max`, ~11.8k here). Byparr can then start no browser, every Phase 2 call fails, and Bullion Exchanges reads all-OOS. The container stays `Up (unhealthy)`, and `restart: unless-stopped` never restarts an unhealthy container. Signs: `docker exec` fails with `Resource temporarily unavailable`; on the host, `ps -eo ppid,stat | awk '$2 ~ /Z/' | wc -l` runs into the thousands. The 2.1.0 image has this bug (its PID 1 is `uv run main.py`). The fix is `init: true`, which makes Docker's init PID 1. Verified 2026-10-18: 0 zombies after repeated requests, versus 27 in 20 minutes without it. A restart clears the zombies as a stopgap.
+
+**Why not upstream 3.x yet.** 3.0.4 runs `tini` and fixes the timeout-0 hang (ThePhaseless/Byparr#405), but for pages with no Cloudflare challenge it returns the HTML captured at `domcontentloaded`. For Bullion Exchanges that is the un-hydrated React shell: 1 of 8 fetches had prices, versus 6 of 6 on 2.1.0 with init. Upstream fixed this on `main` in `c653b10` ("read the page after the idle wait"), but no release carries it yet. The `:main` image, meanwhile, returned HTTP 500 (`Browser.new_context: the pipe is closed`) on every second back-to-back request. Before bumping, re-run the side-by-side comparison against a real Bullion Exchanges product page on a spare port.
 
 ### 3-Phase Scraping Pipeline
 
@@ -153,7 +160,7 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 | 1     | Firecrawl           | Phase 0 fails or returns empty                                               |
 | 2     | CF sidecar (Byparr) | Phase 0+1 both return no price (including 200 Cloudflare JS-challenge pages) |
 
-Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which POSTs to Byparr's FlareSolverr-compatible `POST /v1` endpoint. Byparr returns the page HTML (`solution.response`) along with the `cf_clearance` cookie. The HTML is tag-stripped and parsed directly — **no second Playwright request** is needed. Results written to Turso with `source: "cf-clearance"`.
+Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which POSTs to Byparr's FlareSolverr-compatible `POST /v1` endpoint. Byparr returns the page HTML (`solution.response`) along with the `cf_clearance` cookie. The HTML is tag-stripped and parsed directly: **no second Playwright request** is needed. Results written to Turso with `source: "cf-clearance"`.
 
 > **Why HTML-first:** Byparr uses Camoufox (Firefox) to solve the challenge. Re-requesting the page via Playwright/Chromium would cause a TLS fingerprint mismatch (Firefox fingerprint on the `cf_clearance` cookie, Chromium browser making the request). Using Byparr's already-fetched HTML avoids this entirely.
 
@@ -161,18 +168,18 @@ Phase 2 calls `getCFClearanceCookie(url)` from `shared/cf-clearance.js`, which P
 
 After scraping, `price-extract.js` extracts the wire/ACH price via:
 
-1. **JSON-LD first** — `extractJsonLdPrice()` reads `<script type="application/ld+json">` Product schemas (`offers.price`). Authoritative price set by the merchant; avoids spot ticker / related-product false positives. Applies in Phase 0 and Phase 2.
-2. **Pipe-table first row** — `firstTableRowFirstPrice()` — standard pricing grid layout. Only matches Firecrawl markdown (which produces `| $price |` pipe tables). Phase 0 plain `innerText` has no pipe characters — configure the vendor module or `providerCfg()` resolution with `phase: "firecrawl"` when table parsing is required.
-3. **Prose price scan** — `firstInRangePriceProse()` — first `$XX.XX` value in the metal's price range (SPA fallback).
-4. **As Low As** — `asLowAsPrices()` — bulk-discount price as last resort.
+1. **JSON-LD first**: `extractJsonLdPrice()` reads `<script type="application/ld+json">` Product schemas (`offers.price`). Authoritative price set by the merchant; avoids spot ticker / related-product false positives. Applies in Phase 0 and Phase 2.
+2. **Pipe-table first row** (`firstTableRowFirstPrice()`) standard pricing grid layout. Only matches Firecrawl markdown (which produces `| $price |` pipe tables). Phase 0 plain `innerText` has no pipe characters: configure the vendor module or `providerCfg()` resolution with `phase: "firecrawl"` when table parsing is required.
+3. **Prose price scan** (`firstInRangePriceProse()`) first `$XX.XX` value in the metal's price range (SPA fallback).
+4. **As Low As** (`asLowAsPrices()`) bulk-discount price as last resort.
 
-**Nav stripping (Phase 0 + Phase 2):** Before capturing `innerText`, Phase 0 (`scrapeWithPlaywrightDirect`) removes `nav, header, footer, [role='navigation'], [role='banner']` from the DOM — the same treatment applied in Phase 2 (`scrapeViaCFClearance`). This prevents site-wide spot price tickers (e.g. Provident Metals gold ticker ~$5,320) from appearing before the product price in the text stream and being matched by `firstInRangePriceProse`.
+**Nav stripping (Phase 0 + Phase 2):** Before capturing `innerText`, Phase 0 (`scrapeWithPlaywrightDirect`) removes `nav, header, footer, [role='navigation'], [role='banner']` from the DOM: the same treatment applied in Phase 2 (`scrapeViaCFClearance`). This prevents site-wide spot price tickers, such as the Provident Metals gold ticker at ~$5,320, from appearing before the product price. It also prevents them from being matched by `firstInRangePriceProse`.
 
 **Vendor routing (`providerCfg()`):** Vendors where Phase 0 `innerText` extraction is structurally insufficient use `phase: "firecrawl"`:
 
-- `herobullion` — "As Low As" bulk price appears before the 1-unit table; pipe-table extraction via Firecrawl returns the correct 1-unit price.
-- `gainesvillecoins` — Phase 0 Playwright always times out; Firecrawl succeeds reliably.
-- `apmex`, `monumentmetals`, `jmbullion`, `bullionexchanges` — already Firecrawl-preferred (JS-rendering, bot-detection, or table-parsing requirements).
+- `herobullion`: "As Low As" bulk price appears before the 1-unit table; pipe-table extraction via Firecrawl returns the correct 1-unit price.
+- `gainesvillecoins`: Phase 0 Playwright always times out; Firecrawl succeeds reliably.
+- `apmex`, `monumentmetals`, `jmbullion`, `bullionexchanges`: already Firecrawl-preferred (JS-rendering, bot-detection, or table-parsing requirements).
 
 ### Enabling / Disabling
 
@@ -185,7 +192,7 @@ Controlled by `CF_CLEARANCE_ENABLED` env var on the home-poller container. Set t
 `/app/check-flyio.sh` runs every 5 min via cron inside the container. Checks:
 
 - HTTP GET to `https://api2.staktrakr.com/data/retail/providers.json`
-- Best-effort ICMP ping to Fly.io Tailscale IP (may fail from Docker bridge — expected)
+- Best-effort ICMP ping to Fly.io Tailscale IP (may fail from Docker bridge: expected)
 
 Results are displayed on the dashboard Fly.io card (Turso run summary + HTTP status).
 
@@ -199,10 +206,19 @@ The home poller runs Playwright with **local Chromium** inside the Docker contai
 | --------------- | ---------------------------------------------------- | ------------------------------ |
 | `BROWSER_MODE`  | `local`                                              | `local`                        |
 | Chromium source | `npx playwright install chromium` (in Dockerfile)    | Dockerfile-installed           |
-| Browser path    | `/root/.cache/ms-playwright/`                        | `/usr/local/share/playwright/` |
+| Browser path    | `/ms-playwright/`                                    | `/usr/local/share/playwright/` |
 | System deps     | Dockerfile `apt-get install` (libnss3, libatk, etc.) | Dockerfile `apt-get install`   |
 
 Playwright version is locked to whatever is in `shared/package.json` at build time.
+
+### Process users
+
+PID 1 (supervisord) and the cron daemon run as root. Every cron job, the dashboard and the metrics exporter run as `node`.
+
+- `/etc/environment` is `root:node` with mode 640, so jobs read it through the group.
+- The entrypoint re-owns any `/data` file that `node` does not own.
+- The entrypoint adds `node` to the group that owns the mounted Docker socket. A socket with gid 0 is skipped, and the dashboard container list stays empty.
+- The supervisor control socket stays root-only. A root `status-snapshot` program writes `supervisorctl status` to `/run/supervisor-status` every 15 seconds; the dashboard and metrics exporter read that file.
 
 ---
 
@@ -238,7 +254,7 @@ Playwright version is locked to whatever is in `shared/package.json` at build ti
 Portainer stack environment is the authority for the home poller's secret-backed configuration.
 This public context intentionally does not inventory deployed variable names, values, endpoint
 addresses, or operator identifiers. For self-hosting, identify required configuration from the
-enabled compose and poller scripts, then provide equivalent database, backup, external-feed,
+enabled compose and poller scripts. Then provide equivalent database, backup, external-feed,
 optional-integration, and service-discovery settings in the operator's stack environment.
 
 `docker-compose.home.yml` is an explicit allow-list: a value configured in Portainer reaches the
@@ -344,13 +360,13 @@ rm -f /tmp/retail-poller.lock
 | Symptom                           | Check                                                                                                      |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | No rows from home poller in sqld  | Container running? Env vars present? `docker logs staktrakr-home-poller`                                   |
-| sqld queries fail                 | Missing env vars after redeploy — always pass `env` array. Check sqld container is running.                |
+| sqld queries fail                 | Missing env vars after redeploy: always pass `env` array. Check sqld container is running.                 |
 | Dashboard not loading             | `docker exec staktrakr-home-poller supervisorctl status dashboard`                                         |
 | Logs empty after redeploy         | Verify logs go to `/data/logs/` (persistent volume), not `/var/log/`                                       |
 | Firecrawl not responding          | `curl -sf http://localhost:3002/health` from VM                                                            |
 | Lockfile stuck                    | `docker exec staktrakr-home-poller rm -f /tmp/retail-poller.lock`                                          |
-| Container crash loop              | `docker logs --tail 50 staktrakr-home-poller` — check entrypoint errors                                    |
-| Tailscale sidecar down            | `docker logs tailscale-staktrakr` — check for auth issues                                                  |
+| Container crash loop              | `docker logs --tail 50 staktrakr-home-poller`: check entrypoint errors                                     |
+| Tailscale sidecar down            | `docker logs tailscale-staktrakr`: check for auth issues                                                   |
 | Tinyproxy unreachable from Fly.io | Verify tailscale sidecar is up, tinyproxy shares its network namespace                                     |
 | CF sidecar not resolving 403s     | Check `CF_CLEARANCE_ENABLED=1` on home-poller; `docker logs staktrakr-byparr` for Camoufox errors          |
 | CF sidecar crashes on start       | Verify `/dev/shm` volume is mounted in compose; container needs shared memory for Chromium                 |
@@ -360,7 +376,7 @@ rm -f /tmp/retail-poller.lock
 
 ## Related
 
-- Poller Parity (deprecated DocVault page) — Fly.io vs Home Poller comparison
-- Cloud - Fly.io — cron schedule and deployment
-- Provider Database — Turso provider CRUD and dashboard
-- Turso Schema — database tables
+- Poller Parity (deprecated DocVault page): Fly.io vs Home Poller comparison
+- Cloud - Fly.io: cron schedule and deployment
+- Provider Database: Turso provider CRUD and dashboard
+- Turso Schema: database tables

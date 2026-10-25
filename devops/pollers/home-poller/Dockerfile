@@ -105,8 +105,11 @@ COPY home-poller/check-flyio.sh ./check-flyio.sh
 RUN chmod +x run-home.sh check-flyio.sh
 
 # ── Install Playwright Chromium ──────────────────────────
+# Outside /root so the node user that runs every job can launch it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx playwright install chromium \
-    && npx playwright install-deps chromium
+    && npx playwright install-deps chromium \
+    && chmod -R a+rX /ms-playwright
 
 # Move tracker blocklist into app dir
 RUN mv /tmp/tracker-blocklist.txt /app/tracker-blocklist.txt
@@ -114,7 +117,8 @@ RUN mv /tmp/tracker-blocklist.txt /app/tracker-blocklist.txt
 # ── Self-signed TLS cert for dashboard HTTPS (port 3011) ──
 RUN openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout /app/tls-key.pem -out /app/tls-cert.pem \
-    -days 3650 -subj "/CN=staktrakr-home-poller"
+    -days 3650 -subj "/CN=staktrakr-home-poller" \
+    && chown node:node /app/tls-key.pem /app/tls-cert.pem
 
 # ── Supervisord config ───────────────────────────────────
 COPY home-poller/supervisord.conf /etc/supervisor/conf.d/home-poller.conf
@@ -126,5 +130,10 @@ RUN chmod +x /app/docker-entrypoint.sh
 # Dashboard (HTTP + HTTPS) + Metrics ports
 EXPOSE 3010 3011 9100
 
+# PID 1 stays root: the entrypoint edits /etc/hosts and chowns /data, and the
+# cron daemon needs root to switch to each job's user. Every job, the
+# dashboard and the metrics exporter run as node (supervisord.conf, cron.d).
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# nosemgrep: dockerfile.security.missing-user.missing-user
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

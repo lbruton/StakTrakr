@@ -12,16 +12,11 @@
 //   Apply order  — primaries land before spares, and a primary whose seat is taken
 //                  becomes a spare instead of being dropped.
 //
-// Harness: script-tag IIFEs evaluated through `new Function` (see collections-store.test.js).
+// Harness: script-tag IIFEs evaluated through evalSource (see collections-store.test.js).
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const read = (name) => readFileSync(new URL(`../../js/${name}`, import.meta.url), "utf-8");
-const coreSrc = read("collections-core.js");
-const storeSrc = read("collections-store.js");
-const ioSrc = read("collections-io.js");
+import { evalSource } from "./helpers/source-extract.js";
 
 const TEMPLATE = "ase-type2";
 const U = {
@@ -35,7 +30,7 @@ const U = {
  */
 function makeHarness() {
   const surface = {};
-  new Function("window", coreSrc)(surface);
+  evalSource("js/collections-core.js", { params: { window: surface } });
   surface.__COLLECTIONS_BUNDLE = { templates: { [TEMPLATE]: { slug: TEMPLATE, slots: [] } } };
 
   const disk = new Map();
@@ -48,38 +43,29 @@ function makeHarness() {
     }
   }
 
-  new Function(
-    "window",
-    "document",
-    "CustomEvent",
-    "saveDataSync",
-    "loadDataSync",
-    "COLLECTION_STATE_KEY",
-    "DISABLED_COLLECTIONS_KEY",
-    "LS_KEY",
-    "inventory",
-    "generateUUID",
-    "saveInventory",
-    storeSrc
-  )(
-    surface,
-    documentDouble,
-    CustomEventDouble,
-    (key, value) => disk.set(key, JSON.stringify(value)),
-    (key, fallback) => (disk.has(key) ? JSON.parse(disk.get(key)) : fallback),
-    "collectionState",
-    "disabledCollections",
-    "metalInventory",
-    inventory,
-    () => "00000000-0000-4000-8000-000000000001",
-    () => undefined
-  );
-  new Function("window", "document", "debugLog", ioSrc)(surface, documentDouble, () => undefined);
+  evalSource("js/collections-store.js", {
+    params: {
+      window: surface,
+      document: documentDouble,
+      CustomEvent: CustomEventDouble,
+      saveDataSync: (key, value) => disk.set(key, JSON.stringify(value)),
+      loadDataSync: (key, fallback) => (disk.has(key) ? JSON.parse(disk.get(key)) : fallback),
+      COLLECTION_STATE_KEY: "collectionState",
+      DISABLED_COLLECTIONS_KEY: "disabledCollections",
+      LS_KEY: "metalInventory",
+      inventory,
+      generateUUID: () => "00000000-0000-4000-8000-000000000001",
+      saveInventory: () => undefined,
+    },
+  });
+  evalSource("js/collections-io.js", {
+    params: { window: surface, document: documentDouble, debugLog: () => undefined },
+  });
 
   return { io: surface.collectionsIO, store: surface.collectionsStore };
 }
 
-describe("collections io — CSV Collections cell (STRK-371)", () => {
+describe("collections io — CSV Collections cell", () => {
   test("a primary and a spare round-trip through the cell", () => {
     const h = makeHarness();
     h.store.link(TEMPLATE, "2024", U.a);

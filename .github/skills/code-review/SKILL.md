@@ -70,7 +70,8 @@ main app's `index.html`. Judge any other browser surface (for example `ratios/in
 - **Tests.** A TDD test written for the change under review and then loosened to make the
   implementation pass is a defect. For an existing test updated with an intentional behavior
   change, check the new assertion against the changed requirement instead of flagging the edit.
-  A change to the Playwright test inventory needs `tests/playwright/coverage-map.csv` updated.
+  A new test that repeats the behavior of an existing test in the same suite should extend
+  that test instead.
 - **Version bump.** `js/constants.js`, `package.json`, `package-lock.json`, `version.json`,
   `sw.js` `CACHE_NAME`, `CHANGELOG.md`, and the `js/about.js` What's New entry must agree, and
   the spot bundle should be refreshed (`/update-spot-bundle`). `devops/version.lock` must never

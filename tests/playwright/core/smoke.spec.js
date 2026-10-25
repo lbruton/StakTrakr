@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
-import { DEFAULT_RETAIL_LATEST } from "../helpers/mocks/fixtures.js";
+import { DEFAULT_RETAIL_LATEST, makeSpotLatest } from "../helpers/mocks/fixtures.js";
+import { V2_PRIMARY } from "../helpers/mocks/routes.js";
 
 async function allowWhatsNew(page) {
   await page.addInitScript(() => {
@@ -155,7 +156,7 @@ test.describe("core/smoke — app shell boot", () => {
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
 
     // Deliberately NOT a fixed wait — the point of the flag is that callers no
-    // longer have to guess how long init.js Phase 14's 200ms timer needs.
+    // longer have to guess how long init.js Phase 14's deferred listener setup needs.
     await page.waitForFunction(() => window.appListenersReady === true);
 
     // The flag is only meaningful if it actually implies interactivity, so
@@ -175,8 +176,8 @@ test.describe("core/smoke — app shell boot", () => {
   // market-data and retail) would simply have sat silent forever. This pins the
   // dispatch target so that cannot regress.
   //
-  // The listener is installed via addInitScript because the event fires ~200ms
-  // into boot; attaching after page.goto() would miss it and the test would
+  // The listener is installed via addInitScript because the event fires during
+  // boot; attaching after page.goto() would miss it and the test would
   // fail for the wrong reason.
   test("app:listeners-ready reaches a window listener", async ({ page }) => {
     await page.addInitScript(() => {
@@ -219,7 +220,7 @@ test.describe("core/smoke — app shell boot", () => {
 // Exercises the live renderRatioChips() path: DOM structure + interaction
 // (not bare "text exists" — STRK-123 lesson).
 // ===========================================================================
-test.describe("core/STRK-161 — spot card ratio chips", () => {
+test.describe("core/spot card ratio chips", () => {
   // Card metals as they appear in the markup (id suffix = TitleCase metal name).
   const RATIO_CARDS = [
     { metal: "Silver", label: "Au:Ag" },
@@ -480,6 +481,13 @@ test.describe("core/STRK-161 — spot card ratio chips", () => {
     const valEl = chip(page, "Silver").locator(".val");
     const before = await valEl.textContent();
 
+    // The sync reads silver from the API, so the API must serve a new price: a local
+    // spotSilver write alone is overwritten by the boot sync's value.
+    await page.route(V2_PRIMARY, (route) =>
+      new URL(route.request().url()).pathname.endsWith("/spot/latest.json")
+        ? route.fulfill({ json: makeSpotLatest({ xag: { price: 40 } }) })
+        : route.fallback()
+    );
     // Drive the sync path; the implementation must re-render chips at its tail.
     await page.evaluate(() => {
       localStorage.setItem("spotSilver", "40");

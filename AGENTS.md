@@ -15,13 +15,14 @@ duplicating its rules here; on any conflict with source code, code wins.
 - `.context/data-pipelines.md` — spot/retail/goldback/image pipelines, cron, failure modes.
 - `.context/cloud-sync.md` — Dropbox OAuth, AES-GCM encryption, rollback, backup/restore.
 - `.context/cloud-sync-convergence.md` — STRK-154 sync compare/merge/hash invariant.
-- `.context/testing.md` — test tiers, TDD rules, coverage-map requirement. **Read before editing or running tests.**
+- `.context/testing.md` — test tiers, TDD rules, targeted runs and CI. **Read before editing or running tests.**
 - `.context/issue-tracking.md` — Plane state UUIDs, epic conventions.
 - `.context/git-topology.md` — branch model, worktrees, version locks, release flow, spot bundle, merge strategy, stale branch checks.
 - `.context/implementation-gotchas.md` — runtime and module foot-guns (dual config store, script load order, date frames, storage behavior, sticky columns, goldback predicates, spec closing order).
 - `.context/review-and-ci.md` — Codacy CLI behavior, agentlint requirements, reviewer false positives, CI/review triage.
 - `.context/spec-conventions.md` — per-project `/spec-*` overrides, branch naming, closing tasks.
 - `.context/GLOSSARY.md` — canonical StakTrakr domain terms, avoided aliases, relationships, and naming ambiguities.
+- `.context/voice.md` — project prose dials for docs, comments, docstrings, UI copy, commits and PR bodies.
 - `.context/deep-dives/` — 13 deep-dive docs (data model, DOM patterns, pollers, API reference, health checks, vendor quirks, …) for subsystem-deep work.
 
 Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, Model Context Protocol (MCP), and protected-branch policy.
@@ -39,17 +40,19 @@ Use the global repository-level `AGENTS.md` rules for DocVault, Plane, memory, M
 ## Commands
 
 - `python3 -m http.server 8000` — run locally at `http://localhost:8000`
-- `npm run lint` — ESLint on `js/*.js` and `sw.js`
+- `npm run lint` — ESLint on every JS file Codacy scans; rules in `eslint.config.cjs`
 - `npm run lint:md:all` — lint Markdown
 - `npm run format` / `npm run format:check` — Prettier, repo-wide.
 - Prettier scope is governed by `.prettierignore` (excludes `data/`, `vendor/`, minified assets).
 - `npm test` — core Playwright PR gate
 - `npm run test:core` — core Playwright suite
+- `npm run test:changed` — only the tests a change can affect (`-- --fetch` downloads `dev`'s test map)
+- `npm run test:map` — full core run with coverage; writes the test map and lcov
+- `npm run test:redundancy` — tests that cover nothing unique in their spec (`-- --fetch` uses `dev`'s block file)
 - `npm run test:extended` — slower extended coverage
-- `npm run test:legacy` — archived issue acceptance matrices
 - `npm run test:all` — unit + core + extended suites
 - `npm run test:unit` — Node/unit tests
-- `npm run test:offline` — legacy full suite excluding `@network` scenarios
+- `npm run screenshots` — about.html and README screenshots from demo data; `devops/screenshots/README.md` has the options
 
 ## Coding Style
 
@@ -65,7 +68,8 @@ Full policy in `.context/testing.md` — read it before editing or running any t
 Non-negotiables:
 
 - Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
-- Update `tests/playwright/coverage-map.csv` whenever a PR changes the Playwright test inventory.
+- Extend an existing test of the same behavior before adding a new one.
+- Run `npm run test:changed` before every push.
 - Include a test inventory delta in the PR body (`+N -M tests, +X -Y files`).
 
 ## Issue, Worktree, And PR Gates
@@ -119,13 +123,15 @@ window exposure, `en-CA`/UTC date frames, and the four-theme rule (`light`, `dar
 Full detail (routing table, throttle, false positives) in `.context/review-and-ci.md`.
 
 - After modifying instruction files, run `npx agentlinter --local`.
-- CodeRabbit is **label-gated**: it reviews only a PR carrying the `coderabbit-review` label. Untagged, it still flags and approves but omits the full review — that is expected.
+- CodeRabbit is **label-triggered**: it reviews a PR that carries the `coderabbit-review` label. On an unlabelled PR it still flags, approves and passes its check but omits the full review; that is expected.
+- When CodeRabbit pauses on a busy branch ("Reviews paused"), comment `@coderabbitai resume` to restart its reviews.
 - Codacy AI is **automatic**, now running as part of the Codacy static-analysis stage.
 - Copilot is **automatic** at **Balanced** review effort, and loads `.github/skills/code-review/SKILL.md`.
-- Codex is **dynamic** — it may or may not weigh in; its absence is not a signal.
+- Codex is **on PR**: one review when a PR is opened or marked ready, none on later pushes.
+- Comment `@codex review` to request another Codex pass.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
-- Required status checks differ by branch: `dev` requires **only** `Codacy Static Code Analysis`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
+- Required status checks differ by branch: `dev` requires `Codacy Static Code Analysis`, `Tests` **and** `Vale`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
 - CodeRabbit's 75% docstring-coverage pre-merge check blocks merge invisibly (green checks + 0 threads but `CHANGES_REQUESTED`). Write JSDoc / shell docstrings pre-emptively.
 
 ## Pre-Flight Triggers
@@ -163,4 +169,5 @@ to all work in this repo. They are copies of the skill library masters; edit the
 the copy, and do not edit this block (skills-deploy rewrites it).
 
 - `.agents/rules/code-core.md`
+- `.agents/rules/prose-core.md`
 <!-- skills-deploy:rules end -->

@@ -30,16 +30,13 @@ import Database from "better-sqlite3";
 import { loadProviders } from "./provider-db.js";
 import {
   openTursoDb,
-  openLocalDb,
   readLatestWindow,
   readCoinSlugs,
-  readCoinWindow,
   readLatestPerVendor,
   readRecentWindows,
   readRecentWindowStarts,
   readDailyAggregates,
   writeConfidenceScores,
-  readSpotCurrent,
   readSpotHourly,
   readSpot15min,
   windowFloor,

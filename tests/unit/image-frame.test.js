@@ -17,15 +17,12 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const frameSrc = readFileSync(new URL("../../js/image-frame.js", import.meta.url), "utf-8");
-const utilsSrc = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 /** Evaluate image-frame.js against a fresh mock window and return that window. */
 function loadFrame() {
   const surface = {};
-  new Function("window", frameSrc)(surface);
+  evalSource("js/image-frame.js", { params: { window: surface } });
   return surface;
 }
 
@@ -368,7 +365,7 @@ describe("enum values survive the item sanitizer (risk note: sanitizeObjectField
   // sanitizeObjectFields strips non-alphanumerics from every string field. All enum values are
   // single lowercase words, so they must pass through untouched. Load the REAL helper.
   const mod = { exports: {} };
-  new Function("window", "module", utilsSrc)({}, mod);
+  evalSource("js/utils.js", { params: { window: {}, module: mod } });
   const { sanitizeObjectFields } = mod.exports;
 
   test("js/utils.js exports sanitizeObjectFields", () => {
@@ -537,7 +534,7 @@ describe("resolveImageFrame is a thin wrapper over the shared reader (P2: AC-9.1
       assert.equal(api.imageFrameThumbWidth("note", "portrait"), 16);
     });
 
-    test("STRK-436: imageFrameThumbHeight is 36px for portrait Bar/Note, 28px otherwise", () => {
+    test("imageFrameThumbHeight is 36px for portrait Bar/Note, 28px otherwise", () => {
       assert.equal(api.imageFrameThumbHeight("bar", "portrait"), 36);
       assert.equal(api.imageFrameThumbHeight("note", "portrait"), 36);
       assert.equal(api.imageFrameThumbHeight("round", ""), 28);
@@ -546,7 +543,7 @@ describe("resolveImageFrame is a thin wrapper over the shared reader (P2: AC-9.1
       assert.equal(api.imageFrameThumbHeight("note", "landscape"), 28);
     });
 
-    test("STRK-436: imageFrameThumbWidth derives from a given height, same clamp", () => {
+    test("imageFrameThumbWidth derives from a given height, same clamp", () => {
       assert.equal(api.imageFrameThumbWidth("bar", "portrait", 36), 22);
       assert.equal(api.imageFrameThumbWidth("note", "portrait", 36), 18);
       assert.equal(api.imageFrameThumbWidth("note", "landscape", 28), 40);

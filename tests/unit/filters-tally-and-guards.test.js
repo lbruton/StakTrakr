@@ -21,20 +21,29 @@
 
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/filters.js", import.meta.url), "utf-8");
+const src = readSource("js/filters.js");
 
-/** Slice a named `const NAME = (...) => { ... };` block (col-0 terminator) out of the source. */
-function sliceConst(name) {
-  const re = new RegExp(`const ${name} = \\([\\s\\S]*?\\n\\};`);
-  const m = src.match(re);
+/**
+ * Evaluates a named `const NAME = (...) => { ... };` block (col-0 terminator) of the
+ * source with the given collaborators injected.
+ * @param {string} name - Declared name.
+ * @param {Record<string, unknown>} [params] - Injected collaborators.
+ * @returns {Function}
+ */
+function loadConst(name, params = {}) {
+  const m = src.match(new RegExp(`const ${name} = \\([\\s\\S]*?\\n\\};`));
   assert.ok(m, `could not locate ${name} in js/filters.js`);
-  return m[0];
+  return evalSource("js/filters.js", {
+    params,
+    slice: rangeOf(src, m[0]),
+    suffix: `\nreturn ${name};`,
+  });
 }
 
-describe("filters.js _tallyLocation — STRK-206 Numista-Import normalization", () => {
-  const _tallyLocation = new Function(sliceConst("_tallyLocation") + "\nreturn _tallyLocation;")();
+describe("filters.js _tallyLocation — Numista-Import normalization", () => {
+  const _tallyLocation = loadConst("_tallyLocation");
 
   test("tallies a real purchase location", () => {
     const map = {};
@@ -50,23 +59,21 @@ describe("filters.js _tallyLocation — STRK-206 Numista-Import normalization", 
     assert.deepEqual(map, {});
   });
 
-  test("does NOT tally the synthetic 'Numista Import' origin (STRK-206)", () => {
+  test("does NOT tally the synthetic 'Numista Import' origin", () => {
     const map = {};
     _tallyLocation(map, "Numista Import");
     assert.deepEqual(map, {}, "'Numista Import' must not produce a location chip");
   });
 });
 
-describe("filters.js _tallyTags — STRK-207 getItemTags null guard", () => {
+describe("filters.js _tallyTags — getItemTags null guard", () => {
   /**
    * Builds an isolated _tallyTags with the given getItemTags collaborator injected.
    * @param {(uuid: string) => (string[]|null|undefined)} getItemTags - Tag-lookup stub
    * @returns {(tags: object, item: object) => void} The isolated _tallyTags
    */
   function build(getItemTags) {
-    return new Function("getItemTags", sliceConst("_tallyTags") + "\nreturn _tallyTags;")(
-      getItemTags
-    );
+    return loadConst("_tallyTags", { getItemTags });
   }
 
   test("does not throw when getItemTags returns null", () => {
@@ -85,17 +92,14 @@ describe("filters.js _tallyTags — STRK-207 getItemTags null guard", () => {
   });
 });
 
-describe("filters.js _filterFieldMatchesWord — STRK-207 getItemTags null guard (audit site)", () => {
+describe("filters.js _filterFieldMatchesWord — getItemTags null guard (audit site)", () => {
   /**
    * Builds an isolated _filterFieldMatchesWord with getItemTags injected.
    * @param {(uuid: string) => (string[]|null|undefined)} getItemTags - Tag-lookup stub
    * @returns {(item: object, wordRegex: RegExp, word: string, formattedDate: string, catalogText: string) => boolean}
    */
   function build(getItemTags) {
-    return new Function(
-      "getItemTags",
-      sliceConst("_filterFieldMatchesWord") + "\nreturn _filterFieldMatchesWord;"
-    )(getItemTags);
+    return loadConst("_filterFieldMatchesWord", { getItemTags });
   }
 
   test("does not throw on the tags branch when getItemTags returns null", () => {
@@ -108,7 +112,7 @@ describe("filters.js _filterFieldMatchesWord — STRK-207 getItemTags null guard
   });
 });
 
-describe("filters.js _filterResolveSearchCache — STRK-207 getItemTags null guard (audit site)", () => {
+describe("filters.js _filterResolveSearchCache — getItemTags null guard (audit site)", () => {
   /**
    * Builds an isolated _filterResolveSearchCache with all collaborators injected.
    * Only getItemTags varies per test; the rest are inert doubles so evaluation never throws.
@@ -120,14 +124,13 @@ describe("filters.js _filterResolveSearchCache — STRK-207 getItemTags null gua
     const formatDisplayDate = () => "";
     const getItemSearchHaystack = (_item, searchTags) => searchTags;
     const collectNumistaStrings = () => [];
-    return new Function(
-      "searchCache",
-      "getItemTags",
-      "formatDisplayDate",
-      "getItemSearchHaystack",
-      "collectNumistaStrings",
-      sliceConst("_filterResolveSearchCache") + "\nreturn _filterResolveSearchCache;"
-    )(searchCache, getItemTags, formatDisplayDate, getItemSearchHaystack, collectNumistaStrings);
+    return loadConst("_filterResolveSearchCache", {
+      searchCache,
+      getItemTags,
+      formatDisplayDate,
+      getItemSearchHaystack,
+      collectNumistaStrings,
+    });
   }
 
   test("does not throw and yields empty tag text when getItemTags returns null", () => {
@@ -148,7 +151,7 @@ describe("filters.js _filterResolveSearchCache — STRK-207 getItemTags null gua
   });
 });
 
-describe("filters.js _resetDisposedFilter — STRK-207 disposedFilterGroup guard", () => {
+describe("filters.js _resetDisposedFilter — disposedFilterGroup guard", () => {
   before(() => {
     // The fix guards with `instanceof HTMLElement`; provide the type in the Node context.
     if (typeof globalThis.HTMLElement === "undefined") {
@@ -167,16 +170,15 @@ describe("filters.js _resetDisposedFilter — STRK-207 disposedFilterGroup guard
     const saveData = (k, v) => calls.push(["saveData", k, v]);
     const renderTable = () => calls.push(["renderTable"]);
     const renderActiveFilters = () => calls.push(["renderActiveFilters"]);
-    return new Function(
-      "safeGetElement",
-      "saveData",
-      "renderTable",
-      "renderActiveFilters",
-      sliceConst("_resetDisposedFilter") + "\nreturn _resetDisposedFilter;"
-    )(safeGetElement, saveData, renderTable, renderActiveFilters);
+    return loadConst("_resetDisposedFilter", {
+      safeGetElement,
+      saveData,
+      renderTable,
+      renderActiveFilters,
+    });
   }
 
-  test("does not throw on the truthy-dummy element, still persists + re-renders (STRK-207)", () => {
+  test("does not throw on the truthy-dummy element, still persists + re-renders", () => {
     const calls = [];
     // safeGetElement's truthy dummy: not an HTMLElement and has no querySelectorAll.
     const fn = build({}, calls);

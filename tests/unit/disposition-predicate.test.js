@@ -10,18 +10,21 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/constants.js", import.meta.url), "utf-8");
+const src = readSource("js/constants.js");
 
 // Slice the isDisposed function block out of constants.js and evaluate it in isolation.
 // Match the whole function up to its own closing brace (column-0 `\n}`) so the extraction
 // stays valid if surrounding definitions are reordered or inserted.
 const match = src.match(/function isDisposed\s*\([\s\S]*?\n\}/);
 assert.ok(match, "could not locate isDisposed in js/constants.js");
-const isDisposed = new Function(match[0] + "\nreturn isDisposed;")();
+const isDisposed = evalSource("js/constants.js", {
+  slice: rangeOf(src, match[0]),
+  suffix: "\nreturn isDisposed;",
+});
 
-describe("isDisposed() — canonical disposition predicate (STRK-83 AC-1)", () => {
+describe("isDisposed() — canonical disposition predicate (AC-1)", () => {
   test("returns false for an empty disposition object {}", () => {
     assert.equal(isDisposed({ disposition: {} }), false);
   });

@@ -15,23 +15,23 @@ StakTrakr stores item images entirely client-side using **IndexedDB** (database 
 
 Key design decisions:
 
-- **IndexedDB, not localStorage** — blobs live in IDB; localStorage holds only metadata keys.
-- **No raw uploads** — every image passes through `ImageProcessor` (resize → WebP/JPEG → byte-budget loop) before being stored.
-- **Per-side cascade** — obverse and reverse resolve independently, so a user obverse + pattern reverse is a valid configuration.
-- **Numista CDN URLs** are stored as plain strings on inventory items (`item.obverseImageUrl`, `item.reverseImageUrl`) — no blob is fetched or stored for CDN images.
-- **`coinImages`** is a legacy IDB store retained for cleanup/reporting -- `deleteImages()`, `clearAll()`, and `getStorageUsage()` still reference it. It was deprecated in STAK-339 (v3.32.41). Do not add new code that touches it beyond these existing references.
+- **IndexedDB, not localStorage**: blobs live in IDB; localStorage holds only metadata keys.
+- **No raw uploads**: every image passes through `ImageProcessor` (resize → WebP/JPEG → byte-budget loop) before being stored.
+- **Per-side cascade**: obverse and reverse resolve independently, so a user obverse + pattern reverse is a valid configuration.
+- **Numista CDN URLs** are stored as plain strings on inventory items (`item.obverseImageUrl`, `item.reverseImageUrl`): no blob is fetched or stored for CDN images.
+- **`coinImages`** is a legacy IDB store retained for cleanup/reporting -- `deleteImages()`, `clearAll()`, and `getStorageUsage()` still reference it. It was deprecated in v3.32.41. Do not add new code that touches it beyond these existing references.
 
 ---
 
 ## Key Rules (read before touching this area)
 
 - Prefer `safeGetElement()` for ID lookups on image elements.
-- **Never** write directly to the `userImages` IDB store — always go through `imageCache.cacheUserImage()`.
-- **Do not** assume obverse is always populated — reverse-only records are valid since v3.32.41.
-- `resolveImageForItem()` is the legacy item-level function — use `resolveImageUrlForItem(item, side)` for per-side resolution in all new code.
-- Always **revoke object URLs** after use — uncollected object URLs leak memory.
+- **Never** write directly to the `userImages` IDB store: always go through `imageCache.cacheUserImage()`.
+- **Do not** assume obverse is always populated: reverse-only records are valid since v3.32.41.
+- `resolveImageForItem()` is the legacy item-level function: use `resolveImageUrlForItem(item, side)` for per-side resolution in all new code.
+- Always **revoke object URLs** after use: uncollected object URLs leak memory.
 - Call `renderTable()` after any IDB write or thumbnails will not update.
-- **Do not add new code that touches the `coinImages` store** — it is retained for cleanup/reporting only (`deleteImages()`, `clearAll()`, `getStorageUsage()`).
+- **Do not add new code that touches the `coinImages` store**: it is retained for cleanup/reporting only (`deleteImages()`, `clearAll()`, `getStorageUsage()`).
 
 ---
 
@@ -69,7 +69,7 @@ quota = min(60% of available browser storage, 4 GB)
 
 Default (when `navigator.storage.estimate` is unavailable, e.g. `file://`): **500 MB**.
 
-The quota is stored in `this._quotaBytes` and is surfaced via `getStorageUsage().limitBytes`. It is advisory — IDB itself enforces the actual browser limit. When the browser's storage limit is hit, `put()` operations throw and `cacheUserImage()` returns `false`.
+The quota is stored in `this._quotaBytes` and is surfaced via `getStorageUsage().limitBytes`. It is advisory: IDB itself enforces the actual browser limit. When the browser's storage limit is hit, `put()` operations throw and `cacheUserImage()` returns `false`.
 
 ### Image constants (from `js/constants.js`)
 
@@ -83,7 +83,7 @@ The quota is stored in `this._quotaBytes` and is surfaced via `getStorageUsage()
 
 ## Image Storage Format
 
-All images are stored as **Blobs** inside IDB records. No base64 strings are stored in IDB (base64 is only used in `seed-images.js` as an embedded source format, immediately converted to a Blob before being written to IDB).
+All images are stored as **Blobs** inside IDB records. No base64 strings are stored in IDB. Base64 is only used in `seed-images.js` as an embedded source format. It is immediately converted to a Blob before being written to IDB.
 
 **User image record shape:**
 
@@ -128,7 +128,7 @@ All images are stored as **Blobs** inside IDB records. No base64 strings are sto
 
 ## image-cache.js: Caching Strategy and Retrieval
 
-`ImageCache` is a singleton (`window.imageCache`) opened lazily on first use. The DB connection is guarded by `_ensureDb()` before every public operation, which probes the connection with a lightweight readonly transaction and reconnects if it is stale (browser can close IDB connections under storage pressure or tab backgrounding).
+`ImageCache` is a singleton (`window.imageCache`) opened lazily on first use. The DB connection is guarded by `_ensureDb()` before every public operation. It probes the connection with a lightweight readonly transaction and reconnects if it is stale. The browser can close IDB connections under storage pressure or tab backgrounding.
 
 ### Image resolution cascade
 
@@ -144,40 +144,51 @@ Per-side resolution order:
 | 2           | Pattern rule image | `patternImages[NumistaLookup.matchQuery(item.name).rule.seedImageId][side]`    |
 | 3 (not IDB) | Numista CDN URL    | `item.obverseImageUrl` / `item.reverseImageUrl` (string on item, not from IDB) |
 
-Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is handled by the caller (viewModal, inventory, card-view), not by the cascade function itself — `resolveImageUrlForItem` returns null at step 3 and callers fall back to the string URL directly.
+Returns a **object URL** (caller must revoke) or `null`. The CDN URL step is handled by the caller (viewModal, inventory, card-view), not by the cascade function itself. Here, `resolveImageUrlForItem` returns null at step 3 and callers fall back to the string URL directly.
 
 ### Key public methods
 
-| Method                                                             | Description                                                                                |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `imageCache.init()`                                                | Opens/creates IDB. Safe to call multiple times.                                            |
-| `imageCache.isAvailable()`                                         | Returns `true` if IDB is open and accessible.                                              |
-| `imageCache.cacheUserImage(uuid, obverse, reverse, sharedImageId)` | Write user upload blobs to `userImages`.                                                   |
-| `imageCache.getUserImage(uuid)`                                    | Read the full user image record.                                                           |
-| `imageCache.getUserImageUrl(uuid, side)`                           | Read and return an object URL for one side.                                                |
-| `imageCache.deleteUserImage(uuid)`                                 | Delete user image record.                                                                  |
-| `imageCache.cachePatternImage(ruleId, obverseBlob, reverseBlob)`   | Write pattern image blobs.                                                                 |
-| `imageCache.getPatternImage(ruleId)`                               | Read the full pattern image record.                                                        |
-| `imageCache.getPatternImageUrl(ruleId, side)`                      | Read and return an object URL for one side.                                                |
-| `imageCache.deletePatternImage(ruleId)`                            | Delete pattern image record.                                                               |
-| `imageCache.deletePatternImageIf(ruleId, shouldDelete)`            | Delete the record only if the predicate approves it, check + delete in one transaction.    |
-| `imageCache.cacheMetadata(catalogId, numistaResult)`               | Write Numista metadata.                                                                    |
-| `imageCache.getMetadata(catalogId)`                                | Read Numista metadata.                                                                     |
-| `imageCache.deleteMetadata(catalogId)`                             | Delete Numista metadata.                                                                   |
-| `imageCache.resolveImageForItem(item)`                             | Legacy per-item resolver — returns `{catalogId, source}`. Prefer `resolveImageUrlForItem`. |
-| `imageCache.resolveImageUrlForItem(item, side)`                    | Per-side URL resolver — returns object URL or null.                                        |
-| `imageCache.getStorageUsage()`                                     | Detailed byte/count breakdown across all stores.                                           |
-| `imageCache.clearAll()`                                            | Wipe all four IDB stores.                                                                  |
-| `imageCache.exportAllMetadata()`                                   | Dump all `coinMetadata` records (ZIP backup).                                              |
-| `imageCache.exportAllUserImages()`                                 | Dump all `userImages` records (ZIP backup).                                                |
-| `imageCache.exportAllPatternImages()`                              | Dump all `patternImages` records (ZIP backup).                                             |
-| `imageCache.importMetadataRecord(record)`                          | Restore one metadata record from ZIP.                                                      |
-| `imageCache.importUserImageRecord(record)`                         | Restore one user image record from ZIP.                                                    |
-| `imageCache.importPatternImageRecord(record)`                      | Restore one pattern image record from ZIP.                                                 |
+| Method                                                             | Description                                                                               |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `imageCache.init()`                                                | Opens/creates IDB. Safe to call multiple times.                                           |
+| `imageCache.isAvailable()`                                         | Returns `true` if IDB is open and accessible.                                             |
+| `imageCache.cacheUserImage(uuid, obverse, reverse, sharedImageId)` | Write user upload blobs to `userImages`.                                                  |
+| `imageCache.getUserImage(uuid)`                                    | Read the full user image record.                                                          |
+| `imageCache.getUserImageUrl(uuid, side)`                           | Read and return an object URL for one side.                                               |
+| `imageCache.deleteUserImage(uuid)`                                 | Delete user image record.                                                                 |
+| `imageCache.cachePatternImage(ruleId, obverseBlob, reverseBlob)`   | Write pattern image blobs.                                                                |
+| `imageCache.getPatternImage(ruleId)`                               | Read the full pattern image record.                                                       |
+| `imageCache.getPatternImageUrl(ruleId, side)`                      | Read and return an object URL for one side.                                               |
+| `imageCache.deletePatternImage(ruleId)`                            | Delete pattern image record.                                                              |
+| `imageCache.deletePatternImageIf(ruleId, shouldDelete)`            | Delete the record only if the predicate approves it, check + delete in one transaction.   |
+| `imageCache.cacheMetadata(catalogId, numistaResult)`               | Write Numista metadata.                                                                   |
+| `imageCache.getMetadata(catalogId)`                                | Read Numista metadata.                                                                    |
+| `imageCache.deleteMetadata(catalogId)`                             | Delete Numista metadata.                                                                  |
+| `imageCache.resolveImageForItem(item)`                             | Legacy per-item resolver: returns `{catalogId, source}`. Prefer `resolveImageUrlForItem`. |
+| `imageCache.resolveImageUrlForItem(item, side)`                    | Per-side URL resolver: returns object URL or null.                                        |
+| `imageCache.getStorageUsage()`                                     | Detailed byte/count breakdown across all stores.                                          |
+| `imageCache.clearAll()`                                            | Wipe all four IDB stores.                                                                 |
+| `imageCache.exportAllMetadata()`                                   | Dump all `coinMetadata` records (ZIP backup).                                             |
+| `imageCache.exportAllUserImages()`                                 | Dump all `userImages` records (ZIP backup).                                               |
+| `imageCache.exportAllPatternImages()`                              | Dump all `patternImages` records (ZIP backup).                                            |
+| `imageCache.importMetadataRecord(record)`                          | Restore one metadata record from ZIP.                                                     |
+| `imageCache.importUserImageRecord(record)`                         | Restore one user image record from ZIP.                                                   |
+| `imageCache.importPatternImageRecord(record)`                      | Restore one pattern image record from ZIP.                                                |
 
 ### Custom Collection title artwork
 
-Custom Collection art uses the existing `patternImages` store and image-vault / ZIP paths.
+Custom Collection uploads use the existing `patternImages` store and image-vault / ZIP paths.
+Title images may instead carry sparse `definition.obverseImageUrl` / `reverseImageUrl`
+HTTP(S) live links. These travel with the definition through sync, ZIP/vault,
+JSON and standalone export/import; the image bytes stay on the remote host. `getImageUrl`
+resolves a title link before looking for an uploaded Blob. The builder's per-side Image
+options prompt, preview, Remove and Swap support both sources. An upload clears that side's
+link, and replacing an upload with a link removes the old Blob through an artwork tombstone.
+Replacing a link with an upload retains the saved URL until processing, cache storage and
+the artwork-state transaction succeed. That transaction clears the matching URL and advances
+`metaModified` atomically. A failed upload preserves the prior linked image.
+An untouched title URL is omitted from a builder update so a newer cross-tab URL survives.
+Link normalization is shared with Item image options through `collectionsCore.normalizeImageUrl`.
 The legacy obverse title image remains `collection--<id>`; reverse title art uses the
 reserved `collection--<id>--@title-reverse` id so it cannot collide with a Slot id; Slot
 art remains `collection--<id>--<slotId>`. The
@@ -185,36 +196,67 @@ Collection artwork stamps use `cover`, `title:reverse`, and `slot:<slotId>` keys
 lookups validate those stamps after sync merge, and collection removal deletes both title
 records and all current Slot records. Renderers own and revoke returned `blob:` URLs.
 
-**Orphan cleanup (STRK-438).** Settings ▸ Images ▸ Orphaned Pattern Images shares this
+**Rendering never deletes artwork.** `collectionsPicker.getImageUrl` is
+read-only: a record that is not current is hidden (null), never removed. It checks this
+tab's in-memory stamps first and, when they say stale, re-judges against the persisted
+state (`collectionsStore.readPersisted()`). Another tab may have uploaded, replaced
+or restored the artwork before its `storage` event reached this tab. An unreadable persisted state
+hides the record. Deleting there was unsafe even with a fresh read, since `saveImage`
+stores the IndexedDB record before it persists the stamp. Stale records are removed only
+by the explicit paths: `deleteImage`, `cleanupCollectionImages` on Collection delete, and
+the Settings orphan cleanup below. Backup, vault and sync already leave them out.
+
+**Cross-tab Collections state.** `collectionsStore` listens for `storage` events
+on `collectionState` and `disabledCollections` (and a `null` key, a storage clear) and calls
+`reload()`. Another tab's write re-hydrates this tab and repaints open views. Before this listener,
+this tab's next save wrote its stale copy over the other tab's links, Custom Collections and
+artwork stamps. The browser never delivers `storage` to the writing tab, so it cannot echo.
+An open builder keeps its draft (it lives only in the form) and Save applies it to the
+re-hydrated state. A Collection the other tab deleted fails Save with "This collection was
+deleted in another tab." The event is asynchronous, so backup (`_addPatternImagesToBackup`)
+and image-vault export (`collectAndHashImageVault`) judge artwork with
+`collectionsStore.exportState()`: the persisted snapshot (`readPersisted()`), falling back
+to the in-memory state when it is unreadable. For the same reason every writer (`transact`,
+`link`, `mergeIn`) first calls `syncWithStorage()`. When the stored raw value differs from
+the one this tab last read or wrote, it adopts `readPersisted()` before mutating. A
+change made in the gap before the event lands cannot overwrite the other tab's save. A
+stored value that does not read cleanly never replaces memory.
+
+**Orphan cleanup.** Settings ▸ Images ▸ Orphaned Pattern Images shares this
 store, so it must not treat `collection--*` records as Numista orphans. `settings.js`
 `_isOrphanedPatternImage` judges them with `collectionsCore.isCurrentArtwork` against the
-live Collections store (the check backup, vault and sync use) and **fails closed**: if
+live Collections store (the check backup, vault and sync use) and **fails closed**. If
 `collectionsCore` / `collectionsStore` is missing or the check throws, a Collection record is
 never listed or deleted. Artwork of a removed or unknown Collection, and a record older than
-its stamp, is orphaned. The list is a snapshot, so each delete re-runs the same check
+its stamp, is orphaned. The list is a snapshot. Each delete re-runs the same check
 (`_deleteOrphanIfStillOrphaned`) against the stored record inside the delete's own IndexedDB
-transaction (`imageCache.deletePatternImageIf`), so a concurrent write is serialized around
+transaction (`imageCache.deletePatternImageIf`). A concurrent write is serialized around
 the delete rather than removed by it. The stored record must also still match the listed one
 (`cachedAt`, `digest`, `size`); a record replaced since the scan is skipped, never
-reclassified, because an upload stores its image before its artwork stamp. Ownership is read
-from a private snapshot of the persisted state (`_persistedCollectionsState`, normalized with
-`collectionsCore.normalizeState`; never the memoized `getState()` and never
-`collectionsStore.load()`, which swaps the shared state without a change event) at scan time
-and INSIDE the delete predicate, because `deletePatternImageIf` awaits the database before
-its transaction opens and the store has no cross-tab listener: another tab's cloud restore
-can change who owns an image without changing the record. `loadDataSync` swallows parse
-errors and `normalizeState` turns any wrong shape into an empty state, so the reader uses a
-sentinel default and checks the shape (an object holding a `collections` map), refuses a
+reclassified. An upload stores its image before its artwork stamp. Ownership is read
+from a private snapshot of the persisted state (`collectionsStore.readPersisted()`, shared
+with `getImageUrl` and wrapped by `settings.js` `_persistedCollectionsState`;
+normalized with `collectionsCore.normalizeState`). It never uses the memoized `getState()` and never
+`collectionsStore.load()`, which swaps the shared state without a change event). The snapshot is read at scan time
+and INSIDE the delete predicate. This is because `deletePatternImageIf` awaits the database before
+its transaction opens and the store's cross-tab listener is asynchronous. Another
+tab's cloud restore can change who owns an image without changing the record. `loadDataSync` swallows parse
+errors and `normalizeState` turns any wrong shape into an empty state. The reader uses a
+sentinel default and checks the shape (an object holding a `collections` map). It refuses a
 snapshot from which normalization dropped an entry (a null entry, or an `id` that differs
-from its key), and refuses a retained artwork stamp whose `present` is not a boolean
-(`normalizeState` would coerce it to `false`) or whose `modified` is not exactly
-`Date#toISOString()` output (`isCurrentArtwork` compares it lexically, so even a valid
-`...:00Z` without fractional seconds reads as newer than its own image). That Collection could still own stored
-artwork, so an unreadable, wrongly shaped or partly damaged value returns `null` and fails
+from its key). It also refuses a retained artwork stamp whose `present` is not a boolean
+(`normalizeState` would coerce it to `false`). It also refuses a stamp whose `modified` is not exactly
+`Date#toISOString()` output (`isCurrentArtwork` compares it lexically). Even a valid
+`...:00Z` without fractional seconds reads as newer than its own image. It also refuses an
+artwork entry that is not an object or whose `modified` is missing, empty or not a string.
+Normalization drops such an entry and `isCurrentArtwork` reads a missing entry as pre-stamp
+art (current). A damaged removal tombstone would otherwise revive stale art (removal-timestamp
+review). That Collection could still own stored
+artwork. An unreadable, wrongly shaped or partly damaged value returns `null` and fails
 closed instead of reading as "no Collections". Only an absent key means no Collections.
 Numista rule references get the same treatment: `NumistaLookup` hydrates its rule cache once
-at boot and has no cross-tab listener, so `_referencedPatternImageIds` reads the persisted
-`numistaLookupRules` value at scan time and inside the delete predicate, and returns `null`
+at boot and has no cross-tab listener. Therefore, `_referencedPatternImageIds` reads the persisted
+`numistaLookupRules` value at scan time and inside the delete predicate. It returns `null`
 (nothing orphaned, nothing deletable) when it is not an array of rule objects with string or
 absent `seedImageId`. Deleting an orphan never writes an artwork stamp: a tombstone stamped
 at delete time would out-rank newer art on another device in a merge.
@@ -276,7 +318,7 @@ All parameters can be overridden per-call via the `opts` argument.
 
 ## image-cache-modal.js: Settings UI for Numista Sync
 
-This file is **not** a modal in the traditional sense — it is the inline Numista sync panel rendered inside **Settings > API > Numista**. It has no dedicated `<dialog>` element.
+This file renders the Overview panel of `#bulkSyncModal`, which opens from **Settings > API > Numista > Advanced Settings** (`openBulkSyncModal` in `js/catalog-manager.js`). All the elements below are static markup in `index.html`, inside `#numistaSyncOverview`.
 
 ### Components
 
@@ -286,7 +328,6 @@ This file is **not** a modal in the traditional sense — it is the inline Numis
 | `renderSyncStats()`                        | `#numistaSyncStats`                                                     | Shows "N API cache · M eligible" counts                            |
 | `renderEligibleItemsTable()`               | `#numistaSyncTableContainer`                                            | Table of N#-linked items with cache status and action buttons      |
 | `startBulkSync()`                          | `#numistaSyncStartBtn`, `#numistaSyncCancelBtn`, `#numistaSyncProgress` | Triggers `BulkImageCache.cacheAll()`, wires progress/log callbacks |
-| `clearAllCachedData()`                     | —                                                                       | Confirms then calls `imageCache.clearAll()`                        |
 | `logSyncActivity(message, type)`           | `#numistaSyncLog`                                                       | Appends timestamped monospaced log lines                           |
 | `updateStatusCell(catalogId, text, color)` | `_statusCells` Map                                                      | Live-updates per-row status during bulk sync                       |
 | `resyncCachedEntry(catalogId)`             | —                                                                       | Deletes metadata then re-fetches from Numista API for one entry    |
@@ -299,7 +340,7 @@ This file is **not** a modal in the traditional sense — it is the inline Numis
 
 ## bulk-image-cache.js: Batch Metadata Sync
 
-`BulkImageCache` is an IIFE singleton (`window.BulkImageCache`). It syncs **Numista metadata** (not image blobs) for all inventory items that have a Numista catalog ID. Image blobs are not downloaded during bulk sync — images come from stored CDN URLs or user uploads only (on-the-fly Numista image fetching was removed in STAK-489).
+`BulkImageCache` is an IIFE singleton (`window.BulkImageCache`). It syncs **Numista metadata** (not image blobs) for all inventory items that have a Numista catalog ID. Image blobs are not downloaded during bulk sync: images come from stored CDN URLs or user uploads only (on-the-fly Numista image fetching was removed).
 
 ### Catalog ID resolution
 
@@ -355,7 +396,7 @@ A pre-built `Map<catalogId, uuid[]>` enables O(1) tag application per catalog ID
 
 ## seed-images.js: Default Images for First-Time Users
 
-`seed-images.js` provides a first-run demo experience. On first launch, it creates two custom pattern rules (American Silver Eagle and Canadian Gold Maple Leaf) with real coin photos embedded as base64 WebP data URIs. These appear in **Settings > Images > Custom Pattern Rules** where users can interact with them (edit, delete, export) to learn the pattern image feature before uploading their own images.
+`seed-images.js` provides a first-run demo experience. On first launch, it creates two custom pattern rules (American Silver Eagle and Canadian Gold Maple Leaf). These have real coin photos embedded as base64 WebP data URIs. These appear in **Settings > Images > Custom Pattern Rules**. Users can interact with them (edit, delete, export) to learn the pattern image feature before uploading their own images.
 
 ### How it works
 
@@ -375,7 +416,7 @@ loadSeedImages()   // called at app init
 
 | Identifier               | Description                                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SEED_IMAGES_VERSION`    | Version string (currently `'1'`). Bump this to force a re-load of seed images on existing installs.                                                    |
+| `SEED_IMAGES_VERSION`    | Version string (`'1'`). Bump this to force a re-load of seed images on existing installs.                                                              |
 | `SEED_CUSTOM_RULES`      | Array of `{pattern, replacement, numistaId, obverse, reverse}` entries. `obverse` and `reverse` are base64 WebP data URIs embedded in the source file. |
 | `dataUriToBlob(dataUri)` | Converts a base64 data URI to a Blob.                                                                                                                  |
 | `loadSeedImages()`       | Entry point, exposed as `window.loadSeedImages`.                                                                                                       |
@@ -395,9 +436,9 @@ Seed image loading is gated by `localStorage` key `seedImagesVer`. If the stored
 The effective quota is computed dynamically at IDB init (see image-cache.js quota section above). When the limit is approached or exceeded:
 
 - `imageCache.cacheUserImage()` returns `false` if the IDB `put()` throws.
-- `imageProcessor.processFile()` iteratively reduces quality (down to `minQuality = 0.30`) before giving up — this reduces the chance of hitting the limit on individual images.
-- No automatic eviction is performed. The user must manually clear cached data via the **Settings > API > Numista** panel (Clear API Cache button, which calls `clearAllCachedData()`).
-- `getStorageUsage()` returns a breakdown by store (`numistaBytes`, `userImageBytes`, `patternImageBytes`, `metadataBytes`, `totalBytes`, `limitBytes`). The settings UI displays only the user photos gauge (Numista Cache gauge was removed in STAK-432).
+- `imageProcessor.processFile()` iteratively reduces quality (down to `minQuality = 0.30`) before giving up: this reduces the chance of hitting the limit on individual images.
+- No automatic eviction is performed. The settings UI has no cache-only clear control. The full local data wipe in `js/events.js` calls `imageCache.clearAll()`.
+- `getStorageUsage()` returns a breakdown by store (`numistaBytes`, `userImageBytes`, `patternImageBytes`, `metadataBytes`, `totalBytes`, `limitBytes`). The settings UI displays only the user photos gauge (Numista Cache gauge was removed).
 
 ---
 
@@ -418,7 +459,7 @@ All three active IDB stores participate in ZIP backup:
 
 ### Bulk metadata sync
 
-Triggered from Settings via `startBulkSync()` → `BulkImageCache.cacheAll()`. See the bulk-image-cache.js section for loop details. Image blobs are not downloaded during bulk sync — only metadata.
+Triggered from Settings via `startBulkSync()` → `BulkImageCache.cacheAll()`. See the bulk-image-cache.js section for loop details. Image blobs are not downloaded during bulk sync: only metadata.
 
 ### Clear all
 
@@ -428,31 +469,34 @@ Triggered from Settings via `startBulkSync()` → `BulkImageCache.cacheAll()`. S
 
 ## Common Mistakes
 
-| Mistake                                                | Correct approach                                                                                   |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `document.getElementById('img-el')`                    | Prefer `safeGetElement('img-el')` for ID lookups                                                   |
-| Writing directly to `userImages` IDB                   | `imageCache.cacheUserImage(uuid, obvBlob, revBlob)`                                                |
-| Assuming obverse is always set                         | Always null-check both sides; reverse-only records are valid since v3.32.41                        |
-| Using `resolveImageForItem()` (legacy)                 | `resolveImageUrlForItem(item, side)` for per-side resolution                                       |
-| Not revoking object URLs                               | Track URLs in an array, call `URL.revokeObjectURL()` on cleanup                                    |
-| IDB write without `renderTable()`                      | Always call `renderTable()` after writes so thumbnails refresh                                     |
-| Adding new code that touches `coinImages` IDB store    | Store is legacy — only `deleteImages()`, `clearAll()`, and `getStorageUsage()` should reference it |
-| Storing base64 strings in IDB                          | Always convert to Blob first (`dataUriToBlob`); IDB stores Blobs, not base64                       |
-| Assuming WebP is always used                           | `ImageProcessor` falls back to JPEG when browser does not support WebP canvas encoding             |
-| Running `BulkImageCache.cacheAll()` twice concurrently | Check `BulkImageCache.isRunning()` before calling `cacheAll()`                                     |
+| Mistake                                                | Correct approach                                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `document.getElementById('img-el')`                    | Prefer `safeGetElement('img-el')` for ID lookups                                                  |
+| Writing directly to `userImages` IDB                   | `imageCache.cacheUserImage(uuid, obvBlob, revBlob)`                                               |
+| Assuming obverse is always set                         | Always null-check both sides; reverse-only records are valid since v3.32.41                       |
+| Using `resolveImageForItem()` (legacy)                 | `resolveImageUrlForItem(item, side)` for per-side resolution                                      |
+| Not revoking object URLs                               | Track URLs in an array, call `URL.revokeObjectURL()` on cleanup                                   |
+| IDB write without `renderTable()`                      | Always call `renderTable()` after writes so thumbnails refresh                                    |
+| Adding new code that touches `coinImages` IDB store    | Store is legacy: only `deleteImages()`, `clearAll()`, and `getStorageUsage()` should reference it |
+| Storing base64 strings in IDB                          | Always convert to Blob first (`dataUriToBlob`); IDB stores Blobs, not base64                      |
+| Assuming WebP is always used                           | `ImageProcessor` falls back to JPEG when browser does not support WebP canvas encoding            |
+| Running `BulkImageCache.cacheAll()` twice concurrently | Check `BulkImageCache.isRunning()` before calling `cacheAll()`                                    |
 
 ---
 
 ## Version History
 
-| Version  | Ticket       | Change                                                                                                                                                                                       |
-| -------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v3.33.79 | STAK-432     | Removed Image Cache settings card (Import/Export/Download URLs/Purge Numista/Clear Cache) and Numista Cache storage gauge — superseded by cloud sync image vault and stored-URL architecture |
-| v3.33.73 | STAK-488/489 | Stored URLs as single source of truth for images; removed on-the-fly Numista image fetching from view modal                                                                                  |
-| v3.32.42 | —            | Pattern rule promotion reads from existing per-item `userImages` IDB when no pending blobs are in memory; per-item record deleted after promotion (two-session workflow fix)                 |
-| v3.32.41 | STAK-339     | Removed `coinImages` layer; per-side cascade; `cacheUserImage` accepts reverse-only records; `ignorePatternImages` UI hidden, field preserved                                                |
-| v3.32.40 | STAK-337     | Fixed race condition in `cacheImages` re-render                                                                                                                                              |
-| v3.32.39 | STAK-333     | Fixed CDN URL writeback; added per-item pattern opt-out flag (`ignorePatternImages`)                                                                                                         |
+`CHANGELOG.md` carries the issue for each version.
+
+| Version  | Change                                                                                                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v3.36.56 | `ignorePatternImages` gets UI again: the item modal's image options dialog toggles it, and the open modal clears or refills pattern-image sides live (`refreshPatternPreviews`, `events.js`) |
+| v3.33.79 | Removed the Image Cache settings card and the Numista Cache storage gauge. The cloud sync image vault and stored URLs replace them                                                           |
+| v3.33.73 | Stored URLs as single source of truth for images; removed on-the-fly Numista image fetching from view modal                                                                                  |
+| v3.32.42 | Pattern rule promotion reads from existing per-item `userImages` IDB when no pending blobs are in memory; per-item record deleted after promotion (two-session workflow fix)                 |
+| v3.32.41 | Removed `coinImages` layer; per-side cascade; `cacheUserImage` accepts reverse-only records; `ignorePatternImages` UI hidden, field preserved                                                |
+| v3.32.40 | Fixed race condition in `cacheImages` re-render                                                                                                                                              |
+| v3.32.39 | Fixed CDN URL writeback; added per-item pattern opt-out flag (`ignorePatternImages`)                                                                                                         |
 
 ---
 

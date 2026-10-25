@@ -366,7 +366,7 @@ const API_PROVIDERS = {
     custom: true,
     batchSupported: false, // Custom providers will use individual requests by default
     batchEndpoint: "",
-    parseBatchResponse: (data) => {
+    parseBatchResponse: (_data) => {
       // Custom batch parsing would depend on the provider's API format
       return { current: {}, history: {} };
     },
@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.52";
+const APP_VERSION = "3.36.80";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.

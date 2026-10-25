@@ -19,25 +19,19 @@ process.env.TZ = "America/Chicago";
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 import { sliceFunctionDecl } from "./test-helpers.js";
 
-const src = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf8");
+const src = readSource("js/utils.js");
 
-// `new Function(...)` here is NOT user input: the source is sliced from the
-// repo's own js/utils.js (same pattern as parse-date-local-frame.test.js).
-// The two threshold constants are inlined rather than sliced so a change to
+// The two threshold constants are injected rather than sliced so a change to
 // their VALUES does not silently rewrite what this test asserts — the bucket
 // boundaries are pinned here on purpose.
-const getHealthStatusClass = new Function(
-  [
-    "const SPOT_FRESH_MAX_MIN = 60;",
-    "const SPOT_STALE_MAX_MIN = 1440;",
-    sliceFunctionDecl(src, "function getHealthStatusClass("),
-    "return getHealthStatusClass;",
-  ].join("\n")
-)();
+const getHealthStatusClass = evalSource("js/utils.js", {
+  params: { SPOT_FRESH_MAX_MIN: 60, SPOT_STALE_MAX_MIN: 1440 },
+  slice: rangeOf(src, sliceFunctionDecl(src, "function getHealthStatusClass(")),
+  suffix: "\nreturn getHealthStatusClass;",
+});
 
 /** Builds a timestamp `minutesAgo` in the past, rendered in the given form. */
 const at = (minutesAgo, render) => render(new Date(Date.now() - minutesAgo * 60000));

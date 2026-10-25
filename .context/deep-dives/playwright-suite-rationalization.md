@@ -11,18 +11,19 @@ updated: "2026-05-21"
 
 > **Historical planning artifact.** This document records a rationalization proposal, not the
 > live test inventory. Before acting on a file path, test count, or suite grouping here, check
-> `tests/playwright/coverage-map.csv` and the current `tests/playwright/` tree.
+> the current `tests/playwright/` tree and `.context/testing.md`. The archive tier it proposes
+> does not exist in the repository; `npm run test:redundancy` replaces a hand-kept coverage map.
 
 ## Executive Summary
 
-StakTrakr's Playwright suite has become a product-history archive as much as a regression suite. On 2026-05-21, `npx playwright test --list` reported **703 tests across 61 files**. The Playwright config currently runs one Chromium project with `fullyParallel: false` and `workers` defaulting to `1`, so every duplicated browser startup, every old acceptance-criterion test, and every static-content assertion directly contributes to the roughly 20-minute full-suite runtime.
+StakTrakr's Playwright suite has become a product-history archive as much as a regression suite. On 2026-05-21, `npx playwright test --list` reported **703 tests across 61 files**. At that date the Playwright config ran one Chromium project with `fullyParallel: false` and `workers` defaulting to `1`. Every duplicated browser startup, old acceptance-criterion test and static-content assertion added to the roughly 20-minute full-suite runtime. The live config is `playwright.config.js`.
 
 The recommended direction is not "delete most tests." The better move is to reshape the suite into a smaller risk-based baseline:
 
 - **~100 always-run Playwright tests** focused on user-facing critical journeys, money/math correctness, persistence, import/export, cloud/backup safety, and high-risk integrations.
 - **A smaller unit/component layer** for pure math, formatting, config, validators, service-worker routing, parser/conversion helpers, and schema-ish checks that do not need a browser.
 - **Archived or manual-run historical specs** for one-time design assertions, old issue acceptance matrices, static marketing page copy, and visual micro-details.
-- **A governance rule for new features:** add to an existing domain spec or shared fixture first; create a new spec file only when the product domain is genuinely new.
+- **A governance rule for new features:** add to an existing domain spec or shared fixture first. Create a new spec file only when the product domain is genuinely new.
 
 This document is a roadmap for the cleanup, not an implementation diff.
 
@@ -68,7 +69,7 @@ This is a normal failure mode for a one-person product with a strong spec workfl
 4. Full regression becomes expensive enough that agents and humans avoid running it.
 5. The suite still grows because each new feature feels safer with its own local test stack.
 
-The current suite has obvious examples: issue-prefixed files such as `stak-443-api-tab.spec.js`, `stak-573-api-tab-qa.spec.js`, `stak-580-required-metal-type.spec.js`, and `strk-89-gold-api.spec.js` are useful while a feature is landing, but they should be reconciled into durable domain suites after merge.
+The 2026-05-21 suite had obvious examples: issue-prefixed files such as `stak-443-api-tab.spec.js`, `stak-573-api-tab-qa.spec.js`, `stak-580-required-metal-type.spec.js`, and `strk-89-gold-api.spec.js`. Such files are useful while a feature is landing. After merge, fold them into durable domain suites.
 
 ## Testing Principles
 
@@ -76,7 +77,7 @@ Use these as the durable policy:
 
 - **Test product risk, not issue history.** Once an issue ships, fold its lasting behavior into a domain suite.
 - **Keep browser tests for browser risk.** Browser tests should prove real flows, rendering, storage boundaries, modals, IndexedDB, downloads/uploads, route mocking, and event integration.
-- **Move pure logic out of Playwright.** Currency fraction digits, lot/each math, premiums, provider config validation, URL classifiers, data migrations, backup manifest shape, and date windows should run in Node-level tests when possible.
+- **Move pure logic out of Playwright.** Currency fraction digits, lot/each math, premiums, provider config validation and URL classifiers should run in Node-level tests when possible. So should data migrations, backup manifest shape and date windows.
 - **Use one journey to cover many nearby assertions.** Prefer one realistic Add Item flow that checks storage, table row, view modal, and valuation over six separate tests that each reload the app.
 - **Keep money and inventory math explicit.** Do not over-consolidate tests that protect decimals, rounding, lot/item totals, premiums, realized disposition, or import/export fidelity.
 - **Prefer user-visible locators and assertions.** This aligns with Playwright's official guidance to test user-visible behavior and avoid implementation details: [Playwright best practices](https://playwright.dev/docs/best-practices).
@@ -220,7 +221,7 @@ Then make new tests consume shared helpers by default.
 The cleanup should be guided by a dogfood pass, not just a spreadsheet of test counts. Recommended cadence:
 
 1. Run the current app locally with representative seed data.
-2. Walk the product like a collector: add bullion, add coins, add Goldbacks, edit quantities, dispose partial stacks, import/export, switch currencies, view valuation, inspect retail market data, backup/restore.
+2. Walk the product like a collector: add bullion, add coins, add Goldbacks, edit quantities. Then dispose partial stacks, import/export, switch currencies, view valuation, inspect retail market data, and backup/restore.
 3. Record user-facing workflows that feel critical or fragile.
 4. Map those workflows to the proposed core suite.
 5. Any old test that does not support a dogfood workflow, money/data safety, or a known fragile integration becomes an archive/delete candidate.
@@ -260,13 +261,12 @@ After the suite is reshaped, update scripts:
   "test": "npm run test:core",
   "test:core": "npx playwright test tests/playwright/core",
   "test:extended": "npx playwright test tests/playwright/extended",
-  "test:legacy": "npx playwright test tests/playwright/archive",
   "test:unit": "node --test tests/unit/**/*.test.js",
   "test:all": "npm run test:unit && npx playwright test"
 }
 ```
 
-Consider setting `workers` above 1 after isolation is cleaned up. Playwright's docs recommend isolation and note that tests run in parallel workers and can be sharded for faster CI runs: [Isolation](https://playwright.dev/docs/browser-contexts), [Parallelism](https://playwright.dev/docs/test-parallel), and [Sharding](https://playwright.dev/docs/test-sharding). Because StakTrakr currently has duplicated localStorage setup and some serial assumptions, parallelism should come after the helper cleanup, not before.
+Consider setting `workers` above 1 after isolation is cleaned up. Playwright's docs recommend isolation and explain that tests run in parallel workers and can be sharded for faster CI runs: [Isolation](https://playwright.dev/docs/browser-contexts), [Parallelism](https://playwright.dev/docs/test-parallel), and [Sharding](https://playwright.dev/docs/test-sharding). Because the 2026-05-21 suite had duplicated localStorage setup and some serial assumptions, this proposal put parallelism after the helper cleanup.
 
 ## Migration Plan
 

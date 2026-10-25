@@ -85,14 +85,7 @@
     GOLDAPI: "GoldAPI",
   };
 
-  // ── Metal color lookup tables ──
-  var _metalRgb = {
-    gold: "255,215,0",
-    silver: "192,192,192",
-    platinum: "229,228,226",
-    palladium: "206,208,206",
-    copper: "184,115,51",
-  };
+  // ── Metal color lookup table ──
   var _metalCssVar = {
     gold: "var(--gold)",
     silver: "var(--silver)",
@@ -320,8 +313,8 @@
     var overflowRemote = "";
 
     for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
+      var lv = Object.hasOwn(localObj, k) ? localObj[k] : undefined;
+      var rv = Object.hasOwn(remoteObj, k) ? remoteObj[k] : undefined;
       var fieldKey = "setting-" + key + "-" + k;
       var selSide = fieldSelections[fieldKey] || "";
       var humanLabel = _titleCase(k);
@@ -497,8 +490,8 @@
     var overflowRemote = "";
 
     for (k in allKeys) {
-      var lv = localObj.hasOwnProperty(k) ? localObj[k] : undefined;
-      var rv = remoteObj.hasOwnProperty(k) ? remoteObj[k] : undefined;
+      var lv = Object.hasOwn(localObj, k) ? localObj[k] : undefined;
+      var rv = Object.hasOwn(remoteObj, k) ? remoteObj[k] : undefined;
       var fieldKey = "setting-" + key + "-" + k;
       var selSide = fieldSelections[fieldKey] || "";
       var humanKey = _titleCase(k);
@@ -746,9 +739,14 @@
 
   /** Build a subtle metal-tinted background gradient for item thumbnails */
   function _metalBgGradient(metal) {
-    var key = (metal || "").toLowerCase();
-    var rgb = _metalRgb[key] || "128,128,128";
-    return "linear-gradient(135deg, rgba(" + rgb + ",0.15), rgba(" + rgb + ",0.05))";
+    var token = _metalColor(metal);
+    return (
+      "linear-gradient(135deg, color-mix(in srgb, " +
+      token +
+      " 15%, transparent), color-mix(in srgb, " +
+      token +
+      " 5%, transparent))"
+    );
   }
 
   /** Convert a camelCase / snake / kebab key into a human Title Case label */

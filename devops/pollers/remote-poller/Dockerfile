@@ -59,15 +59,15 @@ COPY shared/*.sh ./
 COPY remote-poller/run-spot.sh remote-poller/run-publish.sh remote-poller/cleanup-export.sh remote-poller/squash-api-history.sh ./
 RUN chmod +x run-spot.sh run-publish.sh cleanup-export.sh squash-api-history.sh
 
-# Git config for committing to api branch
-RUN git config --global user.name "StakTrakr Poller" \
-    && git config --global user.email "poller@staktrakr.local"
+# Git config for committing to api branch (system-wide: the jobs run as node)
+RUN git config --system user.name "StakTrakr Poller" \
+    && git config --system user.email "poller@staktrakr.local"
 
 # ── Cron jobs (baked-in defaults — entrypoint overwrites) ──
-RUN (echo "0,30 * * * * root . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1"; \
-     echo "8,23,38,53 * * * * root . /etc/environment; /app/run-publish.sh >> /var/log/publish.log 2>&1"; \
-     echo "*/5 * * * * root . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1"; \
-     echo "17 3 * * * root . /etc/environment; /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1") \
+RUN (echo "0,30 * * * * node . /etc/environment; /app/run-spot.sh >> /var/log/spot-poller.log 2>&1"; \
+     echo "8,23,38,53 * * * * node . /etc/environment; /app/run-publish.sh >> /var/log/publish.log 2>&1"; \
+     echo "*/5 * * * * node . /etc/environment; cd /app && node export-providers-json.js >> /var/log/provider-export.log 2>&1"; \
+     echo "17 3 * * * node . /etc/environment; /app/cleanup-export.sh >> /var/log/cleanup.log 2>&1") \
     > /etc/cron.d/retail-poller \
     && chmod 0644 /etc/cron.d/retail-poller
 
@@ -80,5 +80,10 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 8080
 
+# PID 1 stays root: tailscaled needs root for its tun device, and the cron
+# daemon needs root to switch to each job's user. Every job and the HTTP server
+# run as node (supervisord-slim.conf, cron.d).
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# nosemgrep: dockerfile.security.missing-user.missing-user
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

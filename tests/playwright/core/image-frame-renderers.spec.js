@@ -108,7 +108,7 @@ const cardCoinOf = (page, style, uuid, side = "obverse") =>
     `.card-${style.toLowerCase()} .coin-img:has(img[data-item-uuid="${uuid}"][data-side="${side}"])`
   );
 
-test.describe("core/image-frame-renderers (STRK-427 P2)", () => {
+test.describe("core/image-frame-renderers (P2)", () => {
   test("table thumbs carry shape and orientation, stay 28px tall and clamp their width (AC-9.1)", async ({
     page,
   }) => {
@@ -366,7 +366,7 @@ async function expectSquareish(locator, label) {
 const setTheme = (page, theme) =>
   page.evaluate((name) => document.documentElement.setAttribute("data-theme", name), theme);
 
-test.describe("core/image-frame-renderers sizing (STRK-436)", () => {
+test.describe("core/image-frame-renderers sizing", () => {
   test("table: non-round thumbs are not pills and portrait Bar/Note grow to 36px", async ({
     page,
   }) => {

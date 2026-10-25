@@ -4,6 +4,12 @@
 # Single writer. No merge conflicts possible.
 # Cron: 8,23,38,53 * * * *  (4x/hr, runs ~3 min after spot poll completes)
 
+# Root callers (Machines exec, fly ssh) re-run as node: a root run leaves
+# root-owned locks and repo objects that the node cron jobs cannot write.
+if [ "$(id -u)" = 0 ] && id node >/dev/null 2>&1; then
+  exec runuser -u node -- env HOME=/home/node "$0" "$@"
+fi
+
 set -e
 
 # Lockfile guard — skip if previous publish is still running.

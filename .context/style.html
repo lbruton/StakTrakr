@@ -1656,10 +1656,30 @@
                 <strong>Frame controls (STRK-434):</strong> in both modals the frame is the upload
                 target (item modal: a transparent <code>.ife-upload</code> button over the frame),
                 <code>.collections-image-remove</code> is the × badge (upper right, a CSS-drawn
-                cross), and the item modal alone has a lower-right <code>.ife-link</code> icon that
-                opens the shared prompt dialog for an external URL; the URL fields only hold the
-                value and stay hidden. A frame holding an image draws no fill or border, and photos
-                are fitted whole (<code>object-fit: contain</code>) in both modals.
+                cross), and both modals have a lower-right <code>.ife-link</code> image options
+                button ("Obverse/Reverse image options", a sliders icon; STRK-443). It opens the
+                shared prompt dialog (<code>showAppPromptWithOption</code>) with the external URL
+                and a "Use a matching pattern image" checkbox, the inverse of the Item's
+                <code>ignorePatternImages</code> flag; the URL fields only hold the value and stay
+                hidden. The builder uses the same button and a plain <code>showAppPrompt</code> for
+                each title side's live URL (STRK-444), without the Item-only pattern checkbox. A
+                frame holding an image draws no fill or border, and photos are fitted whole (<code
+                  >object-fit: contain</code
+                >) in both modals.
+              </li>
+              <li>
+                <strong>Builder Slot thumbnails (STRK-442):</strong> the builder's Slot list
+                (<code>.collections-builder-rows</code>) carries <code>data-shape</code> and the
+                OBVERSE <code>data-orientation</code>, refreshed through the editor's
+                <code>onChange</code>, and shares the renderer-frame <code>--frame-r</code> rules
+                below. Each Slot's <code>.collections-image-pick</code> is the largest frame of that
+                ratio inside a 44px box (the row keeps a 44px track minimum, so landscape Slots do
+                not shorten it), with the scaled corner radius and <code>object-fit: contain</code>.
+                A Slot holding a photo drops its dashed outline; an empty Slot keeps it. The button
+                does not clip (the photo rounds itself) so a transparent, centred 44px
+                <code>::after</code> keeps the full touch target in every shape, and
+                <code>min-height: 0</code> stops the visible-overflow box from growing past its
+                <code>aspect-ratio</code>.
               </li>
               <li>
                 <strong>Ratios:</strong> the shared tokens <code>--frame-bar-portrait</code> (0.6),
@@ -1678,10 +1698,10 @@
                 same <code>--ife-box</code> box. Settings → Images keeps its own 140px cap.
               </li>
               <li>
-                <strong>Controls:</strong> the shipped <code>.collections-segmented</code> pill (no
-                new control look), 44px options at 768px and narrower, icon-only orientation options
-                at 560px and narrower. Theme tokens only (<code>--bg-tertiary</code>,
-                <code>--border</code>, <code>--border-hover</code>); never <code>--surface</code>.
+                <strong>Controls:</strong> the shipped <code>.segmented</code> pill (no new control
+                look), 44px options at 768px and narrower, icon-only orientation options at 560px
+                and narrower. Theme tokens only (<code>--bg-tertiary</code>, <code>--border</code>,
+                <code>--border-hover</code>); never <code>--surface</code>.
               </li>
             </ul>
           </div>

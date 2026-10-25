@@ -1,0 +1,6 @@
+extends: existence
+message: "State the change instead of asking a question (voice.md)."
+level: warning
+nonword: true
+tokens:
+  - '\w\?(?:\s|$)'

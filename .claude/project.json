@@ -28,7 +28,7 @@
   },
   "skills": {
     "profiles": ["code-core", "web"],
-    "extra": [],
+    "extra": ["vale:Prose"],
     "exclude": ["release"]
   }
 }

@@ -17,7 +17,7 @@ services:
       - POLLER_ID=home
       - BROWSER_MODE=local
       - PLAYWRIGHT_LAUNCH=1
-      - PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
       - DASHBOARD_PORT=3010
       - METRICS_PORT=9100
       - NET_IFACE=eth0
@@ -50,8 +50,6 @@ services:
       # Webscale Protection Mode bypass — per-host wspc cookie + base64 UA (STRK-230).
       # Values supplied by the Portainer stack env; re-solve ~weekly via webscale-solve.mjs.
       # MUST be listed here or compose drops them (the stack env array alone is not enough).
-      - WEBSCALE_WSPC_WWW_JMBULLION_COM=${WEBSCALE_WSPC_WWW_JMBULLION_COM:-}
-      - WEBSCALE_UA_WWW_JMBULLION_COM=${WEBSCALE_UA_WWW_JMBULLION_COM:-}
       - WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM=${WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM:-}
       - WEBSCALE_UA_WWW_PROVIDENTMETALS_COM=${WEBSCALE_UA_WWW_PROVIDENTMETALS_COM:-}
     ports:
@@ -68,9 +66,20 @@ services:
         max-file: "3"
 
   byparr:
-    image: ghcr.io/lbruton/byparr:2.1.0
+    # Default: upstream release, pinned. Production overrides it with
+    # BYPARR_IMAGE (Portainer stack env) to keep running 2.1.0 from its own
+    # registry, because 3.0.4 returns the HTML it captured at
+    # domcontentloaded for unchallenged pages, i.e. the un-hydrated
+    # Bullion Exchanges shell (1/8 usable in testing vs 6/6 on 2.1.0).
+    # Once an upstream release contains ThePhaseless/Byparr c653b10, bump
+    # this default and drop the override. STRK-448.
+    image: ${BYPARR_IMAGE:-ghcr.io/thephaseless/byparr:3.0.4}
     container_name: staktrakr-byparr
     restart: unless-stopped
+    # Docker's init runs as PID 1 and reaps orphaned Camoufox processes.
+    # Without it, 2.1.0 leaks ~2,000 zombies/day until the cgroup task cap
+    # (~11.8k) is hit and Byparr hangs (ThePhaseless/Byparr#379). STRK-448.
+    init: true
     shm_size: "1g"
     environment:
       LOG_LEVEL: info

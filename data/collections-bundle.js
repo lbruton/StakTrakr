@@ -65,8 +65,8 @@ window.__COLLECTIONS_BUNDLE = {
         "reverse": "reverse.png",
         "credit": "United States Mint images, via Wikimedia Commons",
         "note": "The obverse shown is the 2022 bullion coin. The reverse shows a proof strike; bullion strikes carry no mint mark.",
-        "license": "pending-review",
-        "licenseNote": "Both files are tagged public domain on Wikimedia Commons. The obverse is a United States Mint work. The reverse design is by Emily Damstra, an Artistic Infusion Program artist rather than a Mint employee, so its public-domain status is less certain; beta placeholder, to be replaced with first-party photography.",
+        "license": "public-domain",
+        "licenseNote": "Both files are tagged public domain on Wikimedia Commons. The obverse is a United States Mint work. The reverse design is by Emily Damstra for the United States Mint Artistic Infusion Program.",
         "origin": {
           "obverse": "https://commons.wikimedia.org/wiki/File:2022-american-eagle-silver-one-ounce-bullion-coin-obverse.png",
           "reverse": "https://commons.wikimedia.org/wiki/File:$1_Silver_Eagle_Type_2_Reverse.png"

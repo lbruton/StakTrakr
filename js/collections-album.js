@@ -95,11 +95,24 @@
         const artwork = entry.collection.artwork || {};
         const titleSides = [];
         const hasTitleStamps =
-          Object.hasOwn(artwork, "cover") || Object.hasOwn(artwork, "title:reverse");
+          Object.hasOwn(artwork, "cover") ||
+          Object.hasOwn(artwork, "title:reverse") ||
+          Boolean(
+            entry.collection.definition.obverseImageUrl ||
+            entry.collection.definition.reverseImageUrl
+          );
         // An unstamped legacy cover may exist, so retain it as obverse while allowing a
         // cloned Collection to show its source Template's reverse until art is customized.
-        if (artwork.cover ? artwork.cover.present : !hasTitleStamps) titleSides.push("obverse");
-        if (artwork["title:reverse"]?.present || (!hasTitleStamps && entry.reverse))
+        if (
+          entry.collection.definition.obverseImageUrl ||
+          (artwork.cover ? artwork.cover.present : !hasTitleStamps)
+        )
+          titleSides.push("obverse");
+        if (
+          entry.collection.definition.reverseImageUrl ||
+          artwork["title:reverse"]?.present ||
+          (!hasTitleStamps && entry.reverse)
+        )
           titleSides.push("reverse");
         if (!titleSides.length && entry.obverse) titleSides.push("obverse");
         if (!titleSides.length)
@@ -350,6 +363,93 @@
     };
 
     /**
+     * Opens one Slot note popover beside its control and wires the listeners that close it.
+     * Focus stays where it is.
+     * @param {HTMLButtonElement} control - Note control
+     * @param {HTMLElement} popover - Note content, still inside the rendered Slot
+     * @returns {void}
+     */
+    const openSlotNotePopover = (control, popover) => {
+      closeSlotNotePopover();
+      const origin = popover.parentElement;
+      if (!origin) return;
+      document.body.appendChild(popover);
+      popover.hidden = false;
+      positionSlotNotePopover(control, popover);
+      control.setAttribute("aria-expanded", "true");
+
+      const onPointerDown = (pointerEvent) => {
+        if (!control.contains(pointerEvent.target) && !popover.contains(pointerEvent.target))
+          closeSlotNotePopover();
+      };
+      const onFocusIn = (focusEvent) => {
+        if (!control.contains(focusEvent.target) && !popover.contains(focusEvent.target))
+          closeSlotNotePopover();
+      };
+      const onKeyDown = (keyEvent) => {
+        if (keyEvent.key !== "Escape") return;
+        keyEvent.preventDefault();
+        keyEvent.stopPropagation();
+        closeSlotNotePopover(true);
+      };
+      const onScroll = () => {
+        if (!control.isConnected) {
+          closeSlotNotePopover();
+          return;
+        }
+        positionSlotNotePopover(control, popover);
+      };
+      const onResize = () => closeSlotNotePopover();
+      const onHashChange = () => closeSlotNotePopover();
+      activeSlotNotePopover = {
+        button: control,
+        popover,
+        origin,
+        onPointerDown,
+        onFocusIn,
+        onKeyDown,
+        onScroll,
+        onResize,
+        onHashChange,
+      };
+      document.addEventListener("pointerdown", onPointerDown, true);
+      document.addEventListener("focusin", onFocusIn, true);
+      document.addEventListener("keydown", onKeyDown, true);
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", onResize);
+      window.addEventListener("hashchange", onHashChange);
+    };
+
+    /**
+     * Closes the open Slot note before a re-render and returns what is needed to reopen it.
+     * @returns {{focusKey: string, className: string}|null} The open note's identity
+     */
+    const suspendSlotNotePopover = () => {
+      if (!activeSlotNotePopover) return null;
+      const { button: control } = activeSlotNotePopover;
+      const surface = control.classList.contains("is-ledger") ? "is-ledger" : "is-album";
+      const identity = { focusKey: control.dataset.focusKey, className: surface };
+      closeSlotNotePopover();
+      return identity;
+    };
+
+    /**
+     * Reopens the note that suspendSlotNotePopover closed, when the new render still shows
+     * the same Slot on the same surface (Album or Ledger).
+     * @param {HTMLElement} root - Rendered Collections root
+     * @param {{focusKey: string, className: string}|null} identity - Suspended note identity
+     * @returns {void}
+     */
+    const restoreSlotNotePopover = (root, identity) => {
+      if (!identity) return;
+      const control = Array.from(
+        root.querySelectorAll(`.collections-note-toggle.${identity.className}`)
+      ).find((node) => node.dataset.focusKey === identity.focusKey);
+      const popover = control && document.getElementById(control.getAttribute("aria-controls"));
+      if (popover) openSlotNotePopover(control, popover);
+    };
+
+    /**
      * Builds an accessible disclosure control for the complete Slot note.
      * @param {Object} slot - Slot view model
      * @param {string} surface - Album or Ledger rendering context
@@ -372,55 +472,7 @@
             closeSlotNotePopover();
             return;
           }
-          closeSlotNotePopover();
-
-          const origin = popover.parentElement;
-          if (!origin) return;
-          document.body.appendChild(popover);
-          popover.hidden = false;
-          positionSlotNotePopover(control, popover);
-          control.setAttribute("aria-expanded", "true");
-
-          const onPointerDown = (pointerEvent) => {
-            if (!control.contains(pointerEvent.target) && !popover.contains(pointerEvent.target))
-              closeSlotNotePopover();
-          };
-          const onFocusIn = (focusEvent) => {
-            if (!control.contains(focusEvent.target) && !popover.contains(focusEvent.target))
-              closeSlotNotePopover();
-          };
-          const onKeyDown = (keyEvent) => {
-            if (keyEvent.key !== "Escape") return;
-            keyEvent.preventDefault();
-            keyEvent.stopPropagation();
-            closeSlotNotePopover(true);
-          };
-          const onScroll = () => {
-            if (!control.isConnected) {
-              closeSlotNotePopover();
-              return;
-            }
-            positionSlotNotePopover(control, popover);
-          };
-          const onResize = () => closeSlotNotePopover();
-          const onHashChange = () => closeSlotNotePopover();
-          activeSlotNotePopover = {
-            button: control,
-            popover,
-            origin,
-            onPointerDown,
-            onFocusIn,
-            onKeyDown,
-            onScroll,
-            onResize,
-            onHashChange,
-          };
-          document.addEventListener("pointerdown", onPointerDown, true);
-          document.addEventListener("focusin", onFocusIn, true);
-          document.addEventListener("keydown", onKeyDown, true);
-          window.addEventListener("scroll", onScroll, true);
-          window.addEventListener("resize", onResize);
-          window.addEventListener("hashchange", onHashChange);
+          openSlotNotePopover(control, popover);
         }
       );
       control.type = "button";
@@ -850,6 +902,6 @@
       return album;
     };
 
-    return { buildAlbum, closeSlotNotePopover };
+    return { buildAlbum, closeSlotNotePopover, suspendSlotNotePopover, restoreSlotNotePopover };
   };
 })();

@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
 
 const MARKET_FILTER_KEY = "staktrakr.market_filter";
 const GOLDBACK_G1_RATE = 4.25;
@@ -535,6 +536,9 @@ const lightweightChartsStub = `
             if (type === "histogram") root.dataset.histogramCount = String(data.length);
             if (type === "area") root.dataset.areaCount = String(data.length);
           },
+          applyOptions(next) {
+            Object.assign(record.options, next);
+          },
         };
       };
       return {
@@ -807,6 +811,7 @@ async function setupRetailFixture(page, options = {}) {
     stalePrimaryAgeMs, // age of the api1 envelope's generated_at vs FIXED_NOW
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
     retailFeeds = {},
+    retailHistory = {},
     failedRetailFeeds = [],
   } = options;
 
@@ -836,7 +841,12 @@ async function setupRetailFixture(page, options = {}) {
       if (filter) writeJson("staktrakr.market_filter", filter);
     },
     {
-      seeded: { prices, history: historyRows, intraday: intradayRows, generatedAt: GENERATED_AT },
+      seeded: {
+        prices,
+        history: { ...historyRows, ...retailHistory },
+        intraday: intradayRows,
+        generatedAt: GENERATED_AT,
+      },
       meta: coinMeta,
       vendors: vendorMeta,
       saved: savedTab,
@@ -1317,9 +1327,7 @@ test.describe("core/retail-market", () => {
   // The result was silent provider staleness: price sync reported success while
   // retailProviders never refreshed. This test deletes AbortSignal.timeout, runs one sync,
   // and asserts the flattened provider map is still fetched and persisted.
-  test("refreshes retail providers when AbortSignal.timeout is unavailable (STRK-213)", async ({
-    page,
-  }) => {
+  test("refreshes retail providers when AbortSignal.timeout is unavailable", async ({ page }) => {
     // Deep-link into the Market tab (STRK-282) — see bootMarketDataPage.
     await page.goto("/index.html#/market", { waitUntil: "domcontentloaded" });
 
@@ -1484,7 +1492,7 @@ test.describe("core/retail-market", () => {
   // (2) _shortVendor resolves vendors missing from its hardcoded map via the
   //     manifest vendor-meta display name instead of leaking the raw lowercase
   //     vid (the "mintbuilder" bug), with mintbuilder now also in the map.
-  test("STRK-317 — ticker renders full long names and resolves vendor labels", async ({ page }) => {
+  test("ticker renders full long names and resolves vendor labels", async ({ page }) => {
     await setupRetailFixture(page);
 
     // 38 chars — the pre-fix cap truncated anything over 30.
@@ -1546,7 +1554,7 @@ test.describe("core/retail-market", () => {
   // Object.keys(RETAIL_VENDOR_NAMES)-gated path blind to it — only the
   // _shortVendor map (STRK-317) papered over the label. Pins the registration,
   // the NAMES/URLS/COLORS parity invariant, and the user-visible legend item.
-  test("STRK-322 — MintBuilder is registered in all vendor registries and renders in the detail-modal legend", async ({
+  test("MintBuilder is registered in all vendor registries and renders in the detail-modal legend", async ({
     page,
   }) => {
     // Serve a latest.json where mintbuilder is the vendor for one slug — the
@@ -1579,7 +1587,7 @@ test.describe("core/retail-market", () => {
     }));
     expect(registries.name).toBe("MintBuilder");
     expect(registries.url).toBe("https://mintbuilder.com");
-    expect(registries.color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(registries.color).toBe("vendor-mintbuilder");
     // Parity invariant: the three registries must describe the same vendor set,
     // so a future vendor can never land half-registered again.
     expect(registries.urlKeys).toEqual(registries.nameKeys);
@@ -1618,6 +1626,205 @@ test.describe("core/retail-market", () => {
     expect(openedUrls[0]).toBe("https://mintbuilder.com");
   });
 
+  test("vendor labels meet AA in every theme and chart colors follow theme changes", async ({
+    page,
+  }) => {
+    const vendorIds = [
+      "apmex",
+      "jmbullion",
+      "sdbullion",
+      "monumentmetals",
+      "herobullion",
+      "bullionexchanges",
+      "summitmetals",
+      "goldback",
+      "providentmetals",
+      "gainesvillecoins",
+      "mintbuilder",
+    ];
+    const vendors = Object.fromEntries(
+      vendorIds.map((id, index) => [id, { price: 40 + index, in_stock: true }])
+    );
+    const vendorHistory = ["2026-05-25", "2026-05-26"].map((date, day) => ({
+      date,
+      avg_median: 50 + day,
+      avg_low: 40 + day,
+      vendors: Object.fromEntries(vendorIds.map((id, index) => [id, { avg: 40 + index + day }])),
+    }));
+    await setupRetailFixture(page, {
+      retailHistory: {
+        [SLUG_SILVER_A]: vendorHistory,
+        ase: vendorHistory,
+      },
+      retailFeeds: {
+        [SLUG_SILVER_A]: {
+          latest: {
+            weight_oz: 1,
+            median_price: 50,
+            lowest_price: 40,
+            window_start: GENERATED_AT,
+            vendors,
+            windows_24h: [
+              { window: "2026-05-26T15:00:00.000Z", vendors: { apmex: 48 } },
+              { window: "2026-05-26T16:00:00.000Z", vendors: {} },
+              { window: "2026-05-26T17:00:00.000Z", vendors: {} },
+            ],
+          },
+        },
+        ase: {
+          latest: {
+            weight_oz: 1,
+            median_price: 50,
+            lowest_price: 40,
+            window_start: GENERATED_AT,
+            vendors,
+            windows_24h: [
+              { window: "2026-05-26T15:00:00.000Z", vendors: { apmex: 48 } },
+              { window: "2026-05-26T16:00:00.000Z", vendors: {} },
+              { window: "2026-05-26T17:00:00.000Z", vendors: {} },
+            ],
+          },
+        },
+      },
+    });
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await expect(page.locator("#marketDetailModal")).toBeVisible();
+
+    const marketChartVendorTitles = {
+      apmex: "APMEX",
+      jmbullion: "JM",
+      sdbullion: "SD",
+      monumentmetals: "Monument",
+      herobullion: "Hero",
+      bullionexchanges: "BullionX",
+      summitmetals: "Summit",
+      goldback: "Goldback",
+      providentmetals: "Provident",
+      gainesvillecoins: "Gville",
+      mintbuilder: "mintbuilder",
+    };
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      const chartColors = await page.evaluate(() => {
+        const chart = window.__marketChartHarness.instances.find(
+          (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
+        );
+        return {
+          series: (chart?.series || []).map((series) => ({
+            title: series.options.title,
+            color: series.options.color,
+          })),
+        };
+      });
+      expect(chartColors.series, `${theme} market chart vendor lines`).not.toHaveLength(0);
+      for (const vendorSeries of chartColors.series) {
+        const vendorId = Object.entries(marketChartVendorTitles).find(
+          ([, title]) => title === vendorSeries.title
+        )?.[0];
+        expect(vendorId, `${theme} market chart series title ${vendorSeries.title}`).toBeTruthy();
+        expect(vendorSeries.color, `${theme} market chart ${vendorId} color`).toBe(
+          await page.evaluate((id) => window.getRetailVendorColorRGB(id), vendorId)
+        );
+      }
+    }
+    await page.evaluate(() => window.closeMarketDetailModal());
+
+    await page.evaluate(() => window.openRetailViewModal("ase"));
+    await page.waitForLoadState("networkidle");
+    const names = page.locator("#retailViewVendorLegend .retail-legend-name");
+    await expect(names).toHaveCount(vendorIds.length);
+    const contrastFailures = [];
+
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      const report = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const toRgb = (css) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = "#000";
+          ctx.fillStyle = css;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+        };
+        const toRgba = (css) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = "#000";
+          ctx.fillStyle = css;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+        };
+        const linear = (channel) => {
+          const value = channel / 255;
+          return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        };
+        const luminance = (rgb) =>
+          0.2126 * linear(rgb[0]) + 0.7152 * linear(rgb[1]) + 0.0722 * linear(rgb[2]);
+        const contrast = (a, b) => {
+          const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+          return (high + 0.05) / (low + 0.05);
+        };
+        const modal = document.querySelector("#retailViewModal .modal-content");
+        const background = toRgb(getComputedStyle(modal).backgroundColor);
+        const labels = Array.from(
+          document.querySelectorAll("#retailViewVendorLegend .retail-legend-name")
+        );
+        const chart = Object.values(window.Chart?.instances || {}).find(
+          (candidate) => candidate.canvas?.id === "retailViewChart"
+        );
+        const intradayChart = Object.values(window.Chart?.instances || {}).find(
+          (candidate) => candidate.canvas?.id === "retailViewIntradayChart"
+        );
+        const carriedDataset = intradayChart?.data.datasets.find(
+          (dataset) => dataset._vendorId === "apmex"
+        );
+        return {
+          labels: labels.map((label) => ({
+            name: label.textContent.trim(),
+            ratio: contrast(toRgb(getComputedStyle(label).color), background),
+          })),
+          datasets: (chart?.data.datasets || [])
+            .filter((dataset) => dataset._vendorId)
+            .map((dataset) => ({
+              id: dataset._vendorId,
+              color: dataset.borderColor,
+              expected: window.getRetailVendorColorRGB(dataset._vendorId),
+            })),
+          carriedSegmentRGBA: toRgba(
+            carriedDataset?.segment?.borderColor({
+              p0DataIndex: 1,
+              p1DataIndex: 2,
+              dataset: carriedDataset,
+            })
+          ),
+          carriedBaseRGBA: toRgba(carriedDataset?.borderColor),
+          unknownColor: window.getRetailVendorColor("unknown-vendor"),
+        };
+      });
+      expect(report.labels, `${theme} vendor labels`).toHaveLength(vendorIds.length);
+      expect(report.datasets, `${theme} vendor chart datasets`).toHaveLength(vendorIds.length);
+      for (const label of report.labels) {
+        if (label.ratio < 4.5) {
+          contrastFailures.push(`${theme} ${label.name}: ${label.ratio.toFixed(2)}:1`);
+        }
+      }
+      for (const dataset of report.datasets) {
+        expect(dataset.color, `${theme} ${dataset.id} chart color`).toBe(dataset.expected);
+      }
+      expect(report.carriedSegmentRGBA, `${theme} carried intraday segment`).toBeTruthy();
+      report.carriedSegmentRGBA.slice(0, 3).forEach((channel, index) => {
+        expect(
+          Math.abs(channel - report.carriedBaseRGBA[index]),
+          `${theme} carried segment hue`
+        ).toBeLessThanOrEqual(1);
+      });
+      expect(report.carriedSegmentRGBA[3], `${theme} carried segment opacity`).toBeGreaterThan(120);
+      expect(report.carriedSegmentRGBA[3], `${theme} carried segment opacity`).toBeLessThan(135);
+      expect(report.unknownColor).toBe("var(--text-muted)");
+    }
+    expect(contrastFailures).toEqual([]);
+  });
+
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
   // which cannot catch the dual-store gap — retail.js's _populateManifestState
   // (the REAL mid-session manifest sync path) updates its lexical
@@ -1625,9 +1832,7 @@ test.describe("core/retail-market", () => {
   // window._manifestVendorMeta property that market-data.js's _getVendorMeta
   // prefers, so a vendor added by a sync stayed invisible to the fallback until
   // reload. This drives the real populate function and pins the mirror.
-  test("STRK-317 — manifest sync refreshes the vendor meta the ticker fallback reads", async ({
-    page,
-  }) => {
+  test("manifest sync refreshes the vendor meta the ticker fallback reads", async ({ page }) => {
     await setupRetailFixture(page);
 
     await page.evaluate(
@@ -1675,7 +1880,7 @@ test.describe("core/retail-market", () => {
   // full-length name on a narrow viewport used to clip at BOTH edges (the
   // track was plain justify-content:center). The static track now allows
   // horizontal scroll with `safe center`, keeping every character reachable.
-  test("STRK-317 — static ticker (<4 items) keeps long names reachable on narrow viewports", async ({
+  test("static ticker (<4 items) keeps long names reachable on narrow viewports", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -1732,9 +1937,7 @@ test.describe("core/retail-market", () => {
   // why the separate `previousTrack` argument it used to receive was redundant
   // and was dropped. This pins the invariant that makes it redundant; without
   // it, the removal rests on reading the code rather than on a test.
-  test("STRK-275 — rapid ticker re-renders leave exactly one track (STAK-513)", async ({
-    page,
-  }) => {
+  test("rapid ticker re-renders leave exactly one track", async ({ page }) => {
     await setupRetailFixture(page);
 
     const track = page.locator("#bestPriceTickerEl .ticker-track");
@@ -1800,9 +2003,7 @@ test.describe("core/retail-market", () => {
   // Lives here rather than in tab-shell.spec.js (where the sibling
   // updatePortalHeight guard sits) because it needs the seeded retail fixture to
   // reach a >=4-item animated track at all.
-  test("STRK-327 — a ticker rendered while Dashboard is hidden animates on reveal", async ({
-    page,
-  }) => {
+  test("a ticker rendered while Dashboard is hidden animates on reveal", async ({ page }) => {
     await setupRetailFixture(page);
 
     const track = page.locator("#bestPriceTickerEl .ticker-track");
@@ -1861,9 +2062,7 @@ test.describe("core/retail-market", () => {
   // on the duplicate block would strip it here and animate a single-block track
   // against nothing, exposing a gap at the wrap point and losing STRK-317's
   // centering and scrollbar.
-  test("STRK-327 — a legitimately static track stays static across tab switches", async ({
-    page,
-  }) => {
+  test("a legitimately static track stays static across tab switches", async ({ page }) => {
     await setupRetailFixture(page);
 
     await page.evaluate((slug) => {
@@ -2066,6 +2265,69 @@ test.describe("core/retail-market", () => {
     await expect(modalContent).toContainText(CURRENCY_DISCLAIMER);
   });
 
+  // The ticker, the Market block and the detail modal style their markup through classes
+  // in css/styles.css. An inline style may carry only a runtime value: a vendor or stock
+  // colour, or the ticker track's animation phase and hand-off positioning.
+  test("market markup built in JS carries inline styles only for runtime values", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page, { displayCurrency: "EUR" });
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    await expect(page.locator("#vendorPricesContainer")).toContainText(CURRENCY_DISCLAIMER);
+
+    const runtime = [
+      "color",
+      "animation-delay",
+      "visibility",
+      "position",
+      "left",
+      "top",
+      "pointer-events",
+    ];
+    const blockRoots = ["#bestPriceTickerEl", "#vendorPricesContainer"];
+    const modalRoots = ["#marketDetailContent"];
+    const offenders = await collectInlineStyleOffenders(page, {
+      roots: blockRoots,
+      runtime,
+      label: "block",
+    });
+
+    const gate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+    const pendingOpen = page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await gate.requested;
+    await expect(page.locator("#marketDetailContent")).toHaveText("Loading coin details…");
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: modalRoots, runtime, label: "loading" }))
+    );
+    gate.release();
+    await pendingOpen;
+    await expect(page.locator("#marketDetailContent")).toContainText(CURRENCY_DISCLAIMER);
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: modalRoots, runtime, label: "detail" }))
+    );
+
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SYNTHETIC_UNKNOWN_METAL);
+    await expect(page.locator("#marketDetailContent")).toContainText(
+      "Vendor data unavailable for this coin"
+    );
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: modalRoots, runtime, label: "no-data" }))
+    );
+
+    await page.evaluate(() => {
+      window._v2RetailData = null;
+      localStorage.removeItem("v2RetailPrices");
+      localStorage.removeItem("retailPrices");
+      window.renderVendorPrices();
+    });
+    await expect(page.locator("#vendorPricesContainer")).toContainText("Retail data unavailable");
+    offenders.push(
+      ...(await collectInlineStyleOffenders(page, { roots: blockRoots, runtime, label: "empty" }))
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
   test("unresolved retail slugs are rejected before filter and render paths", async ({ page }) => {
     await setupRetailFixture(page);
 
@@ -2106,9 +2368,7 @@ test.describe("core/retail-market", () => {
     );
   });
 
-  test("market detail modal fails over to api2 when the primary API is down (STRK-188)", async ({
-    page,
-  }) => {
+  test("market detail modal fails over to api2 when the primary API is down", async ({ page }) => {
     await setupRetailFixture(page, { failPrimary: true });
 
     await page
@@ -2155,7 +2415,7 @@ test.describe("core/retail-market", () => {
   // api2 and both rendered surfaces below reflect the api2 values.
   // =========================================================================
 
-  test("AC-8: goldback-G1 fetch fails over to api2 so the goldback premium reflects the api2 G1 rate (STRK-249)", async ({
+  test("AC-8: goldback-G1 fetch fails over to api2 so the goldback premium reflects the api2 G1 rate", async ({
     page,
   }) => {
     // api1 down, api2 serves goldback/latest.json with g1_usd = GOLDBACK_G1_RATE
@@ -2199,7 +2459,7 @@ test.describe("core/retail-market", () => {
   // to api2's fresh 200, and the premium reflects the api2 rate (+2.0%). Production
   // (finding #1) is out of scope here -- this RED test only locks the contract.
   // =========================================================================
-  test("AC-8/AC-9 guard: a stale-but-200 api1 goldback envelope is rejected by the strict gate and fails over to the api2 fresh rate (STRK-249)", async ({
+  test("AC-8/AC-9 guard: a stale-but-200 api1 goldback envelope is rejected by the strict gate and fails over to the api2 fresh rate", async ({
     page,
   }) => {
     // api1 = stale-but-200 (generated_at 3h before FIXED_NOW, > the incoming 2h
@@ -2222,7 +2482,7 @@ test.describe("core/retail-market", () => {
     await expect(matrixBadge.first()).toHaveText("+2.0%");
   });
 
-  test("AC-9: retail-detail latest.json fetch fails over to api2 so the matrix consumes the api2 price (STRK-249)", async ({
+  test("AC-9: retail-detail latest.json fetch fails over to api2 so the matrix consumes the api2 price", async ({
     page,
   }) => {
     // Boot with api1 DOWN and api2 serving fulfillV2, but pin the seeded summary
@@ -2295,7 +2555,7 @@ test.describe("core/retail-market", () => {
     await expect.poll(apmexCell, { timeout: 8000 }).toContain("$38.00");
   });
 
-  test.describe("STRK-260 market detail ranges", () => {
+  test.describe("market detail ranges", () => {
     test.use({ timezoneId: "Pacific/Auckland" });
 
     test("period controls expose the exact order, default, class, ARIA, and keyboard contract", async ({
@@ -2384,7 +2644,7 @@ test.describe("core/retail-market", () => {
     // observations. The duplicate is a chart-rendering constraint, so the fix
     // belongs at the presentation boundary; the summary keeps counting every
     // real observation. The summary assertion below pins that deliberately.
-    test("STRK-276 — same-second intraday duplicates collapse in the chart but not the summary", async ({
+    test("same-second intraday duplicates collapse in the chart but not the summary", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page, {
@@ -2843,7 +3103,7 @@ test.describe("core/retail-market", () => {
         // slightly over 1000 — an assertion the helper's own semantics permit but
         // `toBeLessThan(1000)` would fail. Enforcing the deadline in one place
         // (the helper) is what makes this deterministic. Raise deadlineMs there
-        // to change the contract, and update this file's coverage-map row.
+        // to change the contract.
         expect(measurement.completed, JSON.stringify(measurement)).toBe(true);
       }
 
@@ -2931,7 +3191,7 @@ test.describe("core/retail-market", () => {
 // The seed below matters more than usual — every one of the three guard
 // conditions has to be FALSE or the old code path syncs anyway and the test
 // passes against the bug. Mirrors the AC-9 seed above (`:1885`).
-test.describe("STRK-290 — market block refresh control", () => {
+test.describe("market block refresh control", () => {
   /**
    * Counting v2 handler — serves the standard fixtures while tallying
    * providers.json fetches.
@@ -3143,7 +3403,7 @@ test.describe("STRK-290 — market block refresh control", () => {
 // endpoint can be chosen.
 //
 // The runners-up from the manifest race are now retained and retried per file.
-test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
+test.describe("retail per-slug fallback across endpoints", () => {
   const FRESH_MANIFEST_AT = "2026-05-26T12:00:00.000Z";
   const OLDER_MANIFEST_AT = "2026-05-26T11:00:00.000Z";
   const GAP_SLUG = SLUG_SILVER_A;
@@ -3287,7 +3547,7 @@ test.describe("STRK-332 — retail per-slug fallback across endpoints", () => {
   });
 });
 
-test.describe("STRK-338 — manifest cache survives a compressed stored value", () => {
+test.describe("manifest cache survives a compressed stored value", () => {
   // js/market-data.js writes retailManifestCoinMeta and retailManifestSlugs through
   // saveDataSync, which wraps anything over 4096 chars in a "CMP2:" envelope. js/retail.js
   // read them back with a bare localStorage.getItem + JSON.parse, so a compressed value

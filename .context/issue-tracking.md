@@ -10,10 +10,11 @@ updated: "2026-09-28"
 
 Plane project: `https://plane.lbruton.cc/lbruton/projects/026dbe54-fe52-4a9f-9f1b-7edcb9bbdceb/`
 (workspace `lbruton`, prefix **STRK**). Create issues via `/issue` or `mcp__plane__workitem` (`action: "create"`).
-Backend config lives in the `plane` block of `.claude/project.json` (`plane.workspace`, `plane.projectId`); Codex reads the mirrored `.codex/project.json`. The old `.specflow/config.json` was retired in DEVS-71 and removed in DEVS-74.
+Backend config lives in the `plane` block of `.claude/project.json` (`plane.workspace`, `plane.projectId`); Codex reads the mirrored `.codex/project.json`. The old `.specflow/config.json` was retired and then removed.
 
-Pre-migration issues are in the **archived central DocVault** repo (`lbruton/DocVault`, frozen
-in DEVS-78), under `Archive/Issues-Pre-Plane/StakTrakr/`. They are not part of this repo.
+Pre-migration issues are in the **archived central DocVault** repo (`homelab/DocVault` on the
+home Gitea, read-only and not cloned locally), under `Archive/Issues-Pre-Plane/StakTrakr/`.
+They are not part of this repo.
 
 ## State conventions
 
@@ -34,8 +35,8 @@ in DEVS-78), under `Archive/Issues-Pre-Plane/StakTrakr/`. They are not part of t
 - UUIDs are convenience references. Re-fetch via `mcp__plane__state` (`action: "list"`) if a session
   boundary or compaction may have introduced drift.
 - Mark issues Done only after the PR merges.
-- Issue scans: use `mcp__plane__workitem` (`action: "list"`) scoped to this project — no
+- Issue scans: use `mcp__plane__workitem` (`action: "list"`) scoped to this project: no
   cross-project globs unless the user asks.
-- `workitem` `list` includes `parent` on every item (DEVS-77), so epic children can be counted
-  from the list directly — the old per-issue fetch workaround is no longer needed.
-- Plane comments (`mcp__plane__workitem_comment`) accept HTML and can be edited (`update`) or deleted (`delete`) since DEVS-77. Never send pre-escaped HTML (`&lt;p&gt;`); it renders as literal tags.
+- `workitem` `list` includes `parent` on every item, so epic children can be counted
+  from the list directly: the old per-issue fetch workaround is not needed.
+- Plane comments (`mcp__plane__workitem_comment`) accept HTML and can be edited (`update`) or deleted (`delete`). Never send pre-escaped HTML (`&lt;p&gt;`); it renders as literal tags.

@@ -378,7 +378,7 @@ async function vaultEncryptToBytesScoped(password) {
 async function vaultDecryptAndRestore(fileBytes, password) {
   // STAK-427: Block restore while cloud sync is applying remote changes
   if (window.CloudSync && window.CloudSync.isSyncActive()) {
-    showToast("Cloud sync is in progress — please wait a moment and try again.", "warning");
+    showToast("Cloud sync is in progress. Wait for it to finish, then try again.", "warning");
     return;
   }
   var payload = await vaultDecryptToData(fileBytes, password);
@@ -764,7 +764,7 @@ async function vaultRestoreWithPreview(fileBytes, password, decryptedPayload) {
   if (typeof DiffEngine === "undefined" || typeof DiffModal === "undefined") {
     debugLog("[Vault] DiffEngine/DiffModal not available — falling back to full restore");
     if (typeof showToast === "function") {
-      showToast("Diff preview unavailable — restoring full backup");
+      showToast("Diff preview unavailable. Restoring the full backup.");
     }
     await restoreVaultData(payload);
     return;
@@ -837,7 +837,7 @@ async function vaultRestoreWithPreview(fileBytes, password, decryptedPayload) {
       return;
     }
     if (typeof showToast === "function") {
-      showToast("No differences found \u2014 backup matches current data");
+      showToast("No differences found. The backup matches current data.");
     }
     return;
   }
@@ -931,7 +931,14 @@ async function collectAndHashImageVault() {
       ? (await imageCache.exportAllPatternImages()) || []
       : [];
   if (window.collectionsCore && window.collectionsStore) {
-    var artworkState = window.collectionsStore.getState();
+    // STRK-440: judge against what storage holds, so artwork another tab stamped a moment
+    // ago is not left out of the push (falls back to memory when storage is unreadable).
+    // The service worker can serve this file beside a cached pre-3.36.54 store that has no
+    // exportState, so feature-detect it and fall back to getState().
+    var artworkState =
+      typeof window.collectionsStore.exportState === "function"
+        ? window.collectionsStore.exportState()
+        : window.collectionsStore.getState();
     patternSource = patternSource.filter(function (record) {
       return window.collectionsCore.isCurrentArtwork(
         artworkState,

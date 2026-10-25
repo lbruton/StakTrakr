@@ -15,9 +15,10 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+const UTILS_FILE = "js/utils.js";
+const src = readSource(UTILS_FILE);
 
 /** Slice a named `const NAME = (...) => { ... };` block (col-0 terminator) out of the source. */
 function sliceConst(name) {
@@ -37,16 +38,14 @@ const fmt = (n) => `$${Number(n).toFixed(2)}`;
  * @returns {(item: object) => Array} The isolated buildCsvValueCells
  */
 function build(spotPrices, computeItemValuation, computeMeltValue) {
-  return new Function(
-    "spotPrices",
-    "computeItemValuation",
-    "computeMeltValue",
-    "formatCurrency",
-    sliceConst("buildCsvValueCells") + "\nreturn buildCsvValueCells;"
-  )(spotPrices, computeItemValuation, computeMeltValue, fmt);
+  return evalSource(UTILS_FILE, {
+    params: { spotPrices, computeItemValuation, computeMeltValue, formatCurrency: fmt },
+    slice: rangeOf(src, sliceConst("buildCsvValueCells")),
+    suffix: "\nreturn buildCsvValueCells;",
+  });
 }
 
-describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
+describe("utils.js buildCsvValueCells — valuation path", () => {
   const fn = build(
     { silver: 30 },
     () => ({ purchasePrice: 25, meltValue: 28, gainLoss: 3 }),
@@ -55,7 +54,7 @@ describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
     }
   );
 
-  test("emits the 15 value cells in BACKUP_CSV_HEADERS[0..14] order (STRK-235 adds constitutional columns)", () => {
+  test("emits the 15 value cells in BACKUP_CSV_HEADERS[0..14] order (adds constitutional columns)", () => {
     const cells = fn({
       date: "2026-01-01",
       metal: "Silver",
@@ -88,7 +87,7 @@ describe("utils.js buildCsvValueCells — valuation path (STRK-227)", () => {
   });
 });
 
-describe("utils.js buildCsvValueCells — degenerate item guards (STRK-211/212 class)", () => {
+describe("utils.js buildCsvValueCells — degenerate item guards", () => {
   // No spot prices → currentSpot is 0 for any metal; valuation forced null → legacy fallback.
   const fn = build(
     {},
@@ -117,7 +116,7 @@ describe("utils.js buildCsvValueCells — degenerate item guards (STRK-211/212 c
 // sanitize pipeline intact (hyphenated variant id must NOT be stripped, and
 // entryMode must NOT be stripped by sanitizeObjectFields).
 // ---------------------------------------------------------------------------
-describe("utils.js sanitizeImportedItem — STRK-235 constitutional field round-trip", () => {
+describe("utils.js sanitizeImportedItem — constitutional field round-trip", () => {
   // Slice both sanitize helpers from utils.js.  sanitizeImportedItem depends on:
   //   cleanString, stripNonAlphanumeric, normalizeType, sanitizeObjectFields.
   // We extract each in dependency order and build them in a shared eval context.
@@ -132,27 +131,26 @@ describe("utils.js sanitizeImportedItem — STRK-235 constitutional field round-
   }
 
   // Needed globals that sanitizeImportedItem may reference:
-  const stubGlobals = `
-    const cleanString = (s = "") => s.toString().trim().replace(/[\\u0000-\\u001F\\u007F]/g,"");
-    const stripNonAlphanumeric = (s = "", opts = {}) => {
+  // eslint-disable-next-line no-control-regex -- mirrors the production control-character strip
+  const controlChars = new RegExp("[\\u0000-\\u001F\\u007F]", "g");
+  const stubGlobals = {
+    cleanString: (s = "") => s.toString().trim().replace(controlChars, ""),
+    stripNonAlphanumeric: (s = "", opts = {}) => {
       const str = s.toString();
-      if (opts.allowHyphen) return str.replace(/[^a-zA-Z0-9 .\\-]/g, "").trim();
+      if (opts.allowHyphen) return str.replace(/[^a-zA-Z0-9 .-]/g, "").trim();
       return str.replace(/[^a-zA-Z0-9 .]/g, "").trim();
-    };
-    const normalizeType = (t = "") => t.toString().trim();
-    const parseFloat = globalThis.parseFloat;
-  `;
+    },
+    normalizeType: (t = "") => t.toString().trim(),
+    parseFloat: globalThis.parseFloat,
+  };
 
-  const sanitizeObjSrc = sliceFn("sanitizeObjectFields");
-  const sanitizeItemSrc = sliceFn("sanitizeImportedItem");
-
-  const evalSanitize = new Function(
-    stubGlobals +
-      sanitizeObjSrc +
-      sanitizeItemSrc +
-      "\nreturn { sanitizeObjectFields, sanitizeImportedItem };"
-  );
-  const { sanitizeObjectFields, sanitizeImportedItem } = evalSanitize();
+  const { sanitizeObjectFields, sanitizeImportedItem } = evalSource(UTILS_FILE, {
+    params: stubGlobals,
+    slice: [sliceFn("sanitizeObjectFields"), sliceFn("sanitizeImportedItem")].map((text) =>
+      rangeOf(src, text)
+    ),
+    suffix: "\nreturn { sanitizeObjectFields, sanitizeImportedItem };",
+  });
 
   test("constitutionalVariant hyphenated id survives sanitizeObjectFields", () => {
     const result = sanitizeObjectFields({

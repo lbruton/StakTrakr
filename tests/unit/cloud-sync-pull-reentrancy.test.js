@@ -24,81 +24,42 @@
 
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { loadSilentPullBranch } from "./helpers/sync-blocks.js";
 
-const src = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-
-// Slice the full empty-diff "silently record pull" `if` block. Both boundary
-// markers exist in the pre-fix AND post-fix source, so the test reproduces the
-// crash (RED) and then verifies the snapshot fix (GREEN) without the markers
-// moving when the fix lands inside the block.
-function sliceSilentBranch() {
-  const start = src.indexOf("if (_noItemChanges && _noSettingsChanges) {");
-  const end = src.indexOf("// STRK-224 (Edge 3, D-3): capture the FULL prior lastPull");
-  assert.ok(
-    start !== -1 && end !== -1 && end > start,
-    "could not locate the empty-diff silent-record branch in js/cloud-sync.js"
-  );
-  return src.slice(start, end);
-}
-
-// Build an async runner for the sliced branch with all of its free globals
-// injected as stubs. `_previewPullMeta` is intentionally NOT a parameter: leaving
-// it a free identifier makes it resolve to globalThis (new Function bodies run
-// non-strict), so an injected stub can null it mid-await exactly as a second
-// concurrent pull flow would.
+// Build an async runner for the empty-diff "silently record pull" branch with all
+// of its free globals injected as stubs. `_previewPullMeta` stays a free
+// identifier (see loadSilentPullBranch), so an injected stub can null it
+// mid-await exactly as a second concurrent pull flow would.
 function buildRunner(stubs) {
-  const block = sliceSilentBranch();
-  const factory = new Function(
-    "_noItemChanges",
-    "_noSettingsChanges",
-    "remoteMeta",
-    "remotePayload",
-    "token",
-    "password",
-    "SYNC_IMAGES_PATH",
-    "fetch",
-    "vaultDecryptAndRestoreImages",
-    "_pullImageVaultIfChanged",
-    "syncGetLastPull",
-    "syncSetLastPull",
-    "_pullAttachmentVault",
-    "_pullItemPriceHistoryVault",
-    "_currentInventoryUuids",
-    "_mergeItemPriceClearWatermark",
-    "logCloudSyncActivity",
-    "updateSyncStatusIndicator",
-    "debugLog",
-    "return (async function () {\n" + block + "\n});"
-  );
-  return factory(
-    true, // _noItemChanges — force the empty-diff branch
-    true, // _noSettingsChanges
-    stubs.remoteMeta,
-    stubs.remotePayload,
-    stubs.token,
-    stubs.password,
-    stubs.SYNC_IMAGES_PATH,
-    stubs.fetch,
-    stubs.vaultDecryptAndRestoreImages,
-    async (meta) => ({ hash: meta.imageVault ? meta.imageVault.hash : null, failed: false }),
-    stubs.syncGetLastPull,
-    stubs.syncSetLastPull,
-    stubs._pullAttachmentVault,
-    stubs._pullItemPriceHistoryVault,
-    stubs._currentInventoryUuids,
-    stubs._mergeItemPriceClearWatermark,
-    stubs.logCloudSyncActivity,
-    stubs.updateSyncStatusIndicator,
-    stubs.debugLog
-  );
+  return loadSilentPullBranch({
+    remoteMeta: stubs.remoteMeta,
+    remotePayload: stubs.remotePayload,
+    token: stubs.token,
+    password: stubs.password,
+    SYNC_IMAGES_PATH: stubs.SYNC_IMAGES_PATH,
+    fetch: stubs.fetch,
+    vaultDecryptAndRestoreImages: stubs.vaultDecryptAndRestoreImages,
+    _pullImageVaultIfChanged: async (meta) => ({
+      hash: meta.imageVault ? meta.imageVault.hash : null,
+      failed: false,
+    }),
+    syncGetLastPull: stubs.syncGetLastPull,
+    syncSetLastPull: stubs.syncSetLastPull,
+    _pullAttachmentVault: stubs._pullAttachmentVault,
+    _pullItemPriceHistoryVault: stubs._pullItemPriceHistoryVault,
+    _currentInventoryUuids: stubs._currentInventoryUuids,
+    _mergeItemPriceClearWatermark: stubs._mergeItemPriceClearWatermark,
+    logCloudSyncActivity: stubs.logCloudSyncActivity,
+    updateSyncStatusIndicator: stubs.updateSyncStatusIndicator,
+    debugLog: stubs.debugLog,
+  });
 }
 
 afterEach(() => {
   delete globalThis._previewPullMeta;
 });
 
-describe("STRK-234 — empty-diff silent pull survives a concurrent _previewPullMeta null", () => {
+describe("empty-diff silent pull survives a concurrent _previewPullMeta null", () => {
   test("AC-1/AC-4: nulling the shared global mid-await does not throw, and the pull records every companion hash", async () => {
     let recorded;
     // Seed the shared global exactly as pullWithPreview does at branch entry.
@@ -189,7 +150,7 @@ describe("STRK-234 — empty-diff silent pull survives a concurrent _previewPull
   });
 });
 
-describe("STRK-234 — pullWithPreview re-entrancy guard serializes overlapping pulls (AC-3)", () => {
+describe("pullWithPreview re-entrancy guard serializes overlapping pulls (AC-3)", () => {
   // pullWithPreview awaits getSyncPassword()/cloudGetToken() near its top, BEFORE
   // it reaches the shared-global work. The guard is therefore only sound if the
   // check-and-set is atomic — claimed BEFORE that password await. These models

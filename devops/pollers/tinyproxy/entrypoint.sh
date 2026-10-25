@@ -7,9 +7,11 @@
 
 set -e
 
-# Ensure log directory exists (Alpine package may not create it)
-mkdir -p /var/log/tinyproxy
-chown tinyproxy:tinyproxy /var/log/tinyproxy
+# The image creates and owns the log directory; a root override must keep it.
+if [ "$(id -u)" = 0 ]; then
+  mkdir -p /var/log/tinyproxy
+  chown tinyproxy:tinyproxy /var/log/tinyproxy
+fi
 
 # Wait for a routable (non-loopback) network interface
 # With depends_on + healthcheck this should be near-instant, but we retry

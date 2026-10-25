@@ -10,7 +10,7 @@
   </script>
   <link rel="stylesheet" href="../css/styles.css" />
   <style>
-    /* Mockup chrome only. Real controls reuse .collections-segmented and the builder hero. */
+    /* Mockup chrome only. Real controls reuse .segmented and the builder hero. */
     body {
       padding: 1.5rem;
       background: var(--bg-primary);
@@ -169,7 +169,7 @@
     .rot-icon-btn:focus-visible,
     .rot-text-btn:focus-visible,
     .rot-chip:focus-visible,
-    .collections-segmented-option input:focus-visible + span {
+    .segmented-option input:focus-visible + span {
       outline: 2px solid var(--primary);
       outline-offset: 2px;
     }
@@ -281,12 +281,12 @@
             cap.id = `orient-${api.uid}`;
             cap.textContent = "Orientation";
             const group = document.createElement("div");
-            group.className = "collections-segmented";
+            group.className = "segmented";
             group.setAttribute("role", "radiogroup");
             group.setAttribute("aria-labelledby", cap.id);
             const inputs = ["portrait", "landscape"].map((value) => {
               const label = document.createElement("label");
-              label.className = "collections-segmented-option";
+              label.className = "segmented-option";
               const input = document.createElement("input");
               input.type = "radio";
               input.name = `orient-${api.uid}`;
@@ -379,12 +379,12 @@
         const built = variant.control(api);
 
         const group = document.createElement("div");
-        group.className = "collections-segmented";
+        group.className = "segmented";
         group.setAttribute("role", "radiogroup");
         group.setAttribute("aria-label", "Image shape");
         SHAPES.forEach((shape) => {
           const label = document.createElement("label");
-          label.className = "collections-segmented-option";
+          label.className = "segmented-option";
           const input = document.createElement("input");
           input.type = "radio";
           input.name = `shape-${uid}`;

@@ -8,12 +8,12 @@ description: >
   "vault update", "docvault", "update docs", "add to vault", "vault"
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
-library-version: 5834a2dcd445
+library-version: 3d109ab6d1d5
 ---
 
 # Vault Update
 
-Since DEVS-78 (2026-09-28), docs are split across three vaults. There is no central repo to commit to anymore. The old `lbruton/DocVault` is a frozen archive.
+Since DEVS-78 (2026-09-28), docs are split across three vaults. There is no central repo to commit to anymore. The old central vault is a frozen, read-only archive on the home Gitea (`homelab/DocVault`), not cloned locally by default.
 
 ## Vault locations
 

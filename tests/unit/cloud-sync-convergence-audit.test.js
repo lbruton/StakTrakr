@@ -12,86 +12,55 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, readSource, sliceUntil } from "./helpers/source-extract.js";
+import { loadLZString, loadStorageCodec } from "./helpers/storage-codec.js";
+import { SYNC_FILE, loadStableCanonicalString, sha256BufferToHex } from "./helpers/sync-blocks.js";
 
 // --- Real lz-string + __decompressIfNeeded (for genuine compressed-vs-plain) ---
-const lzCode = readFileSync(new URL("../../vendor/lz-string.min.js", import.meta.url), "utf-8");
-const _lzModule = { exports: {} };
-new Function("module", "exports", "window", lzCode)(_lzModule, _lzModule.exports, undefined);
-const LZString = _lzModule.exports;
-// STRK-177: compression codec moved verbatim from js/utils.js to js/utils-storage.js.
-const utilsSrc = readFileSync(new URL("../../js/utils-storage.js", import.meta.url), "utf-8");
-const compFactory = new Function(
-  "__LZ",
-  "__LZ_REAL",
-  utilsSrc.slice(
-    utilsSrc.indexOf("const __ST_COMP_PREFIX"),
-    utilsSrc.indexOf("// Kick off the one-time")
-  ) + "\nreturn { __decompressIfNeeded };"
-);
-const { __decompressIfNeeded } = compFactory(LZString, true);
+const LZString = loadLZString();
+const { __decompressIfNeeded } = loadStorageCodec(LZString);
 
-const src = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-
-function slice(from, to) {
-  const a = src.indexOf(from);
-  const b = src.indexOf(to);
-  assert.ok(a !== -1 && b !== -1 && b > a, `could not locate block ${from} .. ${to}`);
-  return src.slice(a, b);
-}
+const src = readSource(SYNC_FILE);
+const slice = (from, to) => sliceUntil(src, from, to);
 
 // Extract the real _stableCanonicalString once and reuse it as an injected dep.
-const _stableCanonicalString = new Function(
-  slice("function _stableCanonicalString", "function _canonicalizeSettingValue") +
-    "\nreturn _stableCanonicalString;"
-)();
+const _stableCanonicalString = loadStableCanonicalString();
 
-// NOTE: include the `async` keyword — computeInventoryHash awaits crypto.subtle,
-// so a slice that drops `async` yields "await in non-async function" SyntaxError.
+// The slice keeps the `async` keyword: computeInventoryHash awaits crypto.subtle.
 const invBlock = slice("async function computeInventoryHash", "function summarizeMetals");
 const tagBlock = slice("function _tagSyncKeys()", "function _unionTags");
 
-function sha256BufferToHex(buffer) {
-  const a = new Uint8Array(buffer);
-  let hex = "";
-  for (let j = 0; j < a.length; j++) hex += ("0" + a[j].toString(16)).slice(-2);
-  return hex;
-}
-
 function inventoryHash(items) {
-  const factory = new Function(
-    "crypto",
-    "DiffEngine",
-    "TextEncoder",
-    "sha256BufferToHex",
-    "_stableCanonicalString",
-    "debugLog",
-    invBlock + "\nreturn computeInventoryHash;"
-  );
-  const fn = factory(
-    globalThis.crypto,
-    { computeItemKey: (it) => String(it.uuid) },
-    TextEncoder,
-    sha256BufferToHex,
-    _stableCanonicalString,
-    () => {}
-  );
+  const fn = evalSource(SYNC_FILE, {
+    params: {
+      crypto: globalThis.crypto,
+      DiffEngine: { computeItemKey: (it) => String(it.uuid) },
+      TextEncoder,
+      sha256BufferToHex,
+      _stableCanonicalString,
+      debugLog: () => {},
+    },
+    slice: invBlock,
+    suffix: "\nreturn computeInventoryHash;",
+  });
   return fn(items);
 }
 
 function makeHasTagChanges(store, decompress) {
   const localStorageMock = { getItem: (k) => (k in store ? store[k] : null) };
-  const factory = new Function(
-    "localStorage",
-    "__decompressIfNeeded",
-    "_stableCanonicalString",
-    "console",
-    tagBlock + "\nreturn _hasTagChanges;"
-  );
-  return factory(localStorageMock, decompress || ((s) => s), _stableCanonicalString, console);
+  return evalSource(SYNC_FILE, {
+    params: {
+      localStorage: localStorageMock,
+      __decompressIfNeeded: decompress || ((s) => s),
+      _stableCanonicalString,
+      console,
+    },
+    slice: tagBlock,
+    suffix: "\nreturn _hasTagChanges;",
+  });
 }
 
-describe("STRK-159 computeInventoryHash canonicalizes disposition", () => {
+describe("computeInventoryHash canonicalizes disposition", () => {
   test("disposition key-order variance hashes EQUAL", async () => {
     const h1 = await inventoryHash([
       { uuid: "x", disposition: { soldDate: "2026-01-01", soldPrice: 100 } },
@@ -109,7 +78,7 @@ describe("STRK-159 computeInventoryHash canonicalizes disposition", () => {
   });
 });
 
-describe("STRK-159 _hasTagChanges compares logical content", () => {
+describe("_hasTagChanges compares logical content", () => {
   const plain = JSON.stringify({ u1: ["a", "b"] });
 
   test("compressed (CMP2) vs plain of identical tags -> NOT changed", () => {

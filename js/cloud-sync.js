@@ -123,6 +123,29 @@ function sha256BufferToHex(buffer) {
 async function computeInventoryHash(items) {
   try {
     if (!crypto || !crypto.subtle || !crypto.subtle.digest) return null;
+    // Image framing segments, each present only for items that carry its fields and under its
+    // own tag, so an item without them keeps its existing hash and no upgrade prompts a sync.
+    // A legacy frame counts only as "circle" or "rectangle": "auto", "" and junk read as absent.
+    var framingSegment = function (item) {
+      var shape =
+        item.imageShape || item.obverseImageOrientation || item.reverseImageOrientation
+          ? "|frame:" +
+            (item.imageShape || "") +
+            "|" +
+            (item.obverseImageOrientation || "") +
+            "|" +
+            (item.reverseImageOrientation || "")
+          : "";
+      var legacy = function (value) {
+        return value === "circle" || value === "rectangle" ? value : "";
+      };
+      var obverseFrame = legacy(item.obverseImageFrame);
+      var reverseFrame = legacy(item.reverseImageFrame);
+      return (
+        shape +
+        (obverseFrame || reverseFrame ? "|legacyFrame:" + obverseFrame + "|" + reverseFrame : "")
+      );
+    };
     var arr = Array.isArray(items) ? items : [];
     var keys = [];
     for (var i = 0; i < arr.length; i++) {
@@ -163,18 +186,7 @@ async function computeInventoryHash(items) {
             "|" +
             (item.pricingType || "")
           : "") +
-        // STRK-427: the chosen frame shape and per-side orientation, ONLY for items that carry
-        // them, under a distinct "frame:" tag so it cannot be confused with the block above.
-        // An inventory with none of the fields keeps its existing hash (no spurious one-time
-        // sync prompt on upgrade); the legacy *ImageFrame fields stay out (D-12).
-        (item.imageShape || item.obverseImageOrientation || item.reverseImageOrientation
-          ? "|frame:" +
-            (item.imageShape || "") +
-            "|" +
-            (item.obverseImageOrientation || "") +
-            "|" +
-            (item.reverseImageOrientation || "")
-          : "");
+        framingSegment(item);
       keys.push(itemKey + "::" + contentSample);
     }
     keys.sort();
@@ -1033,7 +1045,6 @@ function getSyncPassword(forcePrompt) {
     if (silent) return Promise.resolve(silent);
   }
 
-  var accountId = localStorage.getItem("cloud_dropbox_account_id");
   var isNewAccount = !localStorage.getItem("cloud_vault_password");
 
   return new Promise(function (resolve) {
@@ -1349,12 +1360,12 @@ async function changeVaultPassword(newPassword) {
       _syncPasswordJustChanged = false;
     }
     if (typeof showCloudToast === "function")
-      showCloudToast("Vault password updated — syncing now", 3000);
+      showCloudToast("Vault password updated. Syncing.", 3000);
     return true;
   } catch (err) {
     if (typeof debugLog === "function") debugLog("[CloudSync] changeVaultPassword failed:", err);
     if (typeof showCloudToast === "function")
-      showCloudToast("Failed to update password — try again", 3000);
+      showCloudToast("Password update failed. Try again.", 3000);
     return false;
   }
 }
@@ -1989,7 +2000,6 @@ async function pushSyncVault() {
     var localItemCount = typeof inventory !== "undefined" ? inventory.length : 0;
     if (localItemCount === 0) {
       debugLog("[CloudSync] Empty-vault guard: local inventory is 0 — checking remote metadata");
-      var guardBlocked = false;
       try {
         var guardApiArg = JSON.stringify({ path: SYNC_META_PATH });
         var guardResp = await fetch("https://content.dropboxapi.com/2/files/download", {
@@ -2037,7 +2047,6 @@ async function pushSyncVault() {
               "Empty local vault, remote has " + guardMeta.itemCount + " items"
             );
             updateSyncStatusIndicator("error", "Empty vault — pull first");
-            guardBlocked = true;
             _syncPushInFlight = false;
             // STAK-410: showAppConfirm is Promise-based (message, title) — use .then()
             // instead of passing the callback as arg 2 (old callback-style API).
@@ -4420,10 +4429,6 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
     return null;
   }
 
-  var addedCount = diffResult.added ? diffResult.added.length : 0;
-  var removedCount = diffResult.deleted ? diffResult.deleted.length : 0;
-  var modifiedCount = diffResult.modified ? diffResult.modified.length : 0;
-
   return new Promise(function (resolve) {
     DiffModal.show({
       source: { type: "sync", label: _syncProvider || "Cloud" },
@@ -6140,7 +6145,7 @@ async function enableCloudSync(provider) {
     }
     refreshSyncUI();
     if (typeof showCloudToast === "function") {
-      showCloudToast("Cloud sync setup incomplete — please reconnect your Dropbox account.");
+      showCloudToast("Cloud sync setup is incomplete. Reconnect your Dropbox account.");
     }
     return;
   }
@@ -6261,7 +6266,7 @@ function initCloudSync() {
           // Copy updated for STRK-287: the cloud icon this used to point at is
           // retired, so send users to where the control actually lives now.
           showCloudToast(
-            "Cloud sync paused — open Settings › Cloud to set your vault password",
+            "Cloud sync paused. Open Settings › Cloud to set your vault password.",
             5000
           );
         }

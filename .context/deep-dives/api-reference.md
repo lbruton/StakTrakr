@@ -19,15 +19,14 @@ updated: "2026-08-12"
 All endpoints are static JSON files served via GitHub Pages from the `api` branch of
 `lbruton/StakTrakrApi`. Feed generation code lives in `devops/pollers/` in the `StakTrakr`
 repo; `StakTrakrApi` hosts the `api` branch for GitHub Pages serving. There is no dynamic
-server — `serve.js` on Fly.io port 8080 is a redundancy proxy serving the same files.
+server: `serve.js` on Fly.io port 8080 is a redundancy proxy serving the same files.
 
-**v2 is the sole API layer consumed by the frontend.** v2 (STAK-503) shipped as default in
-STAK-506 and v1 was removed from frontend code in STAK-509 (v3.33.92) — all frontend
+**v2 is the sole API layer consumed by the frontend.** v2 shipped as the default API, and v1 was removed from frontend code (v3.33.92): all frontend
 fetches target `data/v2/`. The v1 exporter (`api-export.js`) still _writes_ `data/api/`
 files each publish cycle for external/legacy consumers, but nothing in the app reads them
 (see Legacy v1 API below).
 
-**Update cadence:** Every 15 minutes via `run-publish.sh` (cron `8,23,38,53 * * * *`) —
+**Update cadence:** Every 15 minutes via `run-publish.sh` (cron `8,23,38,53 * * * *`):
 it runs `api-export.js` (legacy v1) then `api-export-v2.js` (v2, non-fatal on error).
 
 ---
@@ -48,15 +47,21 @@ All v2 endpoints live under `data/v2/`:
 | `data/v2/spot/{metal}/intraday.json`         | Rolling 24h of 15-min OHLCA                                                               | Every 15 min        |
 | `data/v2/spot/{metal}/{YYYY}/{MM}/{DD}.json` | Today's hourly OHLCA                                                                      | Every 15 min        |
 | `data/v2/spot/{metal}/{YYYY}/{MM}.json`      | Current month's daily OHLCA                                                               | Every 15 min        |
-| `data/v2/spot/history/{7,30,90}d.json`       | Rolling daily OHLCA per metal; queried one metal at a time (STRK-407)                     | Every 15 min        |
+| `data/v2/spot/history/{7,30,90}d.json`       | Rolling daily OHLCA per metal; queried one metal at a time                                | Every 15 min        |
+| `data/v2/retail/latest.json`                 | Median, low and high price plus vendor count for every coin                               | Every 15 min        |
 | `data/v2/retail/{slug}/latest.json`          | Per-coin vendor prices with carry-forward metadata                                        | Every 15 min        |
+| `data/v2/retail/{slug}/intraday.json`        | Rolling 24h of 15-min windows: median, low and per-vendor price                           | Every 15 min        |
+| `data/v2/retail/{slug}/{YYYY}/{MM}.json`     | Current month's daily aggregates                                                          | Every 15 min        |
 | `data/v2/retail/{slug}/history-7d.json`      | 7-day hourly OHLCA buckets                                                                | Every 15 min        |
 | `data/v2/retail/{slug}/history-30d.json`     | 30-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
 | `data/v2/retail/{slug}/history-90d.json`     | 90-day daily aggregates with OHLCA and per-vendor breakdown                               | Every 15 min        |
-| `data/v2/goldback/latest.json`               | G1 rate + denomination multipliers with OHLCA; `data.t` stamped at scrape hour (STRK-248) | Every publish cycle |
-| `data/v2/goldback/intraday.json`             | Raw hourly G1 point series `[{ t, ts, g1_usd }]` for the last 72 h (STRK-248)             | Every publish cycle |
-| `data/v2/goldback/{slug}/latest.json`        | Per-state goldback vendor prices                                                          | Every 15 min        |
-| `data/v2/providers.json`                     | Vendor to product URL mapping per coin (reference data — stable)                          | Every 15 min        |
+| `data/v2/goldback/latest.json`               | G1 rate + denomination multipliers with OHLCA; `data.t` stamped at scrape hour            | Every publish cycle |
+| `data/v2/goldback/intraday.json`             | Raw hourly G1 point series `[{ t, ts, g1_usd }]` for the last 72 h                        | Every publish cycle |
+| `data/v2/goldback/{YYYY}/{MM}.json`          | Current month's daily G1 OHLCA                                                            | Every publish cycle |
+| `data/v2/goldback/history-30d.json`          | 30-day daily G1 OHLCA                                                                     | Every publish cycle |
+| `data/v2/retail/vendors/index.json`          | Vendor list                                                                               | Every 15 min        |
+| `data/v2/retail/vendors/{vendor}.json`       | Every coin price from one vendor                                                          | Every 15 min        |
+| `data/v2/providers.json`                     | Vendor to product URL mapping per coin (reference data: stable)                           | Every 15 min        |
 
 ### v2 Envelope Format
 
@@ -71,13 +76,13 @@ Every v2 endpoint returns a self-describing envelope:
 }
 ```
 
-- `v` — schema version (always `2`)
-- `generated_at` — ISO 8601 UTC publish timestamp
-- `stale_after` — seconds after `generated_at` before this endpoint should be considered stale
-- `data` — payload (varies by endpoint type)
+- `v`: schema version (always `2`)
+- `generated_at`: ISO 8601 UTC publish timestamp
+- `stale_after`: seconds after `generated_at` before this endpoint should be considered stale
+- `data`: payload (varies by endpoint type)
 
-Health logic reads `stale_after` from the envelope — no hardcoded thresholds in the
-frontend (see Health Checks deep dive). Per STRK-331, data paths and the health badge
+Health logic reads `stale_after` from the envelope: no hardcoded thresholds in the
+frontend (see Health Checks deep dive). For endpoint selection, data paths and the health badge
 resolve freshness from the freshest `generated_at` per feed across serving endpoints.
 
 ### Stale Thresholds (per endpoint type)
@@ -172,12 +177,12 @@ Goldback price API; catalog slugs can include compatibility forms accepted by `r
 
 ### Vendor Source Values (retail `latest.json`)
 
-| Source             | Meaning                                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| `firecrawl+vision` | Both Firecrawl and Gemini Vision agreed (<=3% diff) — 99 confidence                     |
-| `firecrawl`        | Firecrawl text extraction only                                                          |
-| `vision`           | Gemini Vision screenshot extraction only                                                |
-| `turso_last_known` | T4 fallback — most recent in-stock price from database history (includes `stale: true`) |
+| Source             | Meaning                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `firecrawl+vision` | Both Firecrawl and Gemini Vision agreed (<=3% diff): 99 confidence                     |
+| `firecrawl`        | Firecrawl text extraction only                                                         |
+| `vision`           | Gemini Vision screenshot extraction only                                               |
+| `turso_last_known` | T4 fallback: most recent in-stock price from database history (includes `stale: true`) |
 
 ### Confidence Tiers
 
@@ -194,11 +199,11 @@ Goldback price API; catalog slugs can include compatibility forms accepted by `r
 
 These are writer-side paths (still actively written), not part of the v2 serving contract:
 
-| Endpoint Pattern                  | Description                                                                              | Updated                                   |
-| --------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `data/hourly/YYYY/MM/DD/HH.json`  | Hourly spot prices (5 metals) — overwritten each poll                                    | 4x/hr (remote at `0,30`, home at `15,45`) |
-| `data/15min/YYYY/MM/DD/HHMM.json` | Immutable 15-min spot snapshots                                                          | Per poll (immutable)                      |
-| `data/spot-history-YYYY.json`     | Annual daily spot history — one UTC-day average per metal, complete days only (STRK-403) | Each publish; changes once/day            |
+| Endpoint Pattern                  | Description                                                                  | Updated                                   |
+| --------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| `data/hourly/YYYY/MM/DD/HH.json`  | Hourly spot prices (5 metals): overwritten each poll                         | 4x/hr (remote at `0,30`, home at `15,45`) |
+| `data/15min/YYYY/MM/DD/HHMM.json` | Immutable 15-min spot snapshots                                              | Per poll (immutable)                      |
+| `data/spot-history-YYYY.json`     | Annual daily spot history: one UTC-day average per metal, complete days only | Each publish; changes once/day            |
 
 ### Hourly File Schema
 
@@ -221,9 +226,9 @@ These are writer-side paths (still actively written), not part of the v2 serving
 ]
 ```
 
-**Metals:** Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU) — all quoted USD per troy oz (STRK-303)
-**Data source:** MetalPriceAPI (`metalpriceapi.com`)
-**Rate conversion:** `derivePrice()` in `devops/pollers/shared/spot-metals.js` prefers the direct `USD{code}` key from the `base=USD` response; only if absent does it invert the bare-symbol reciprocal (`1 / rate`). The old `rate >= 1` magnitude heuristic was removed in STRK-303 — it misread sub-dollar metals like copper (~$0.41/ozt). A per-metal `assertPriceInRange()` sanity check follows.
+**Metals:** Gold (XAU), Silver (XAG), Platinum (XPT), Palladium (XPD), Copper (XCU): all quoted USD per troy oz.
+**Data source:** MetalPriceAPI (`metalpriceapi.com`).
+**Rate conversion:** `derivePrice()` in `devops/pollers/shared/spot-metals.js` prefers the direct `USD{code}` key from the `base=USD` response. Only if absent does it invert the bare-symbol reciprocal (`1 / rate`). The old `rate >= 1` magnitude heuristic was removed: it misread sub-dollar metals like copper (~$0.41/ozt). A per-metal `assertPriceInRange()` sanity check follows.
 
 ---
 
@@ -401,23 +406,23 @@ not in the committed manifest.
 
 **Strengths:**
 
-- Static file serving — zero dynamic attack surface
+- Static file serving: zero dynamic attack surface
 - Proper CORS configuration with preflight handling
 - Cache-Control headers appropriate for 15-min update cycle
 - sqld as single source of truth for retail data
 - Dual-source verification (Firecrawl + Vision) with confidence scoring
-- v2 self-describing envelopes — thresholds travel with the data
+- v2 self-describing envelopes: thresholds travel with the data
 
 **Recommendations:**
 
 1. _(Aspirational)_ Add `/_health` endpoint returning `{"status":"ok","generated_at":"..."}` for Fly.io health checks
 2. Add `Last-Modified` header from `stat.mtime` for conditional caching (`If-Modified-Since`)
-3. Retire the v1 exporter once external consumers (if any) confirm migration — dual-publishing doubles the publish surface for no frontend benefit
+3. Retire the v1 exporter once external consumers (if any) confirm migration: dual-publishing doubles the publish surface for no frontend benefit
 
 ---
 
 ## Related
 
-- Architecture — system diagram, repo boundaries, v1-vs-v2 status
-- Health Checks — envelope-driven staleness, diagnostic script
-- Remote Poller — scraping pipeline, Firecrawl, tiered recovery
+- Architecture: system diagram, repo boundaries, v1-vs-v2 status
+- Health Checks: envelope-driven staleness, diagnostic script
+- Remote Poller: scraping pipeline, Firecrawl, tiered recovery

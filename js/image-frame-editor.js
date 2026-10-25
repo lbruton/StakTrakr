@@ -123,7 +123,7 @@
   };
 
   /**
-   * Build a segmented radiogroup with the shared `.collections-segmented` look.
+   * Build a segmented radiogroup with the shared `.segmented` look.
    * @param {string} caption - Group label (the accessible name; visible unless suppressed)
    * @param {string} name - Radio group name
    * @param {string} idBase - Unique id prefix for the caption
@@ -134,7 +134,7 @@
    */
   const radioGroup = (caption, name, idBase, options, { visibleCaption = true } = {}) => {
     const wrap = make("div", "ife-group");
-    const group = make("div", "collections-segmented");
+    const group = make("div", "segmented");
     group.setAttribute("role", "radiogroup");
     // A self-explanatory group (the shape selector) has no visible caption but keeps its name.
     if (visibleCaption) {
@@ -146,7 +146,7 @@
       group.setAttribute("aria-label", caption);
     }
     const inputs = options.map(([value, label, inner]) => {
-      const option = make("label", "collections-segmented-option");
+      const option = make("label", "segmented-option");
       const input = make("input");
       input.type = "radio";
       input.name = name;

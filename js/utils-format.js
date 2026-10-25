@@ -198,7 +198,7 @@ function parseDate(dateStr) {
   }
 
   // Try YYYY/MM/DD format (unambiguous)
-  const ymdMatch = cleanDateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  const ymdMatch = cleanDateStr.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
   if (ymdMatch) {
     const year = parseInt(ymdMatch[1], 10);
     const month = parseInt(ymdMatch[2], 10) - 1;
@@ -213,7 +213,7 @@ function parseDate(dateStr) {
   }
 
   // Handle ambiguous MM/DD/YYYY vs DD/MM/YYYY formats
-  const ambiguousMatch = cleanDateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const ambiguousMatch = cleanDateStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (ambiguousMatch) {
     const first = parseInt(ambiguousMatch[1], 10);
     const second = parseInt(ambiguousMatch[2], 10);

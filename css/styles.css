@@ -54,9 +54,14 @@
   --info-hover: oklch(0.588 0.139 242);
   --warning: oklch(0.666 0.157 58.3);
   --warning-hover: oklch(0.555 0.146 49);
-  --warning-text: oklch(0.55 0.15 60);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
+
+  /* Status text: each theme sets all three, at 4.5:1 or more on --bg-secondary.
+     Use these for status words; the base tokens above are for fills and icons. */
+  --success-text: oklch(0.48 0.11 163);
+  --warning-text: oklch(0.49 0.13 55);
+  --danger-text: oklch(0.5 0.19 27);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--warning);
@@ -82,6 +87,21 @@
   --text-primary: var(--text);
   --text-secondary: var(--text-muted);
   --chip-text: oklch(0.252 0.021 251.6);
+  /* Vendor hues tuned for WCAG AA text contrast on light surfaces. */
+  --vendor-apmex: #1d4ed8;
+  --vendor-jmbullion: #854d0e;
+  --vendor-sdbullion: #065f46;
+  --vendor-monumentmetals: #6d28d9;
+  --vendor-herobullion: #b91c1c;
+  --vendor-bullionexchanges: #9d174d;
+  --vendor-summitmetals: #155e75;
+  --vendor-goldback: #713f12;
+  --vendor-providentmetals: #3f6212;
+  --vendor-gainesvillecoins: #9a3412;
+  --vendor-mintbuilder: #4338ca;
+  /* Hashed colours (name/location/tag chips + table filter links): JS supplies only the hue */
+  --hashed-color-s: 70%;
+  --hashed-color-l: 35%;
   --chip-active-outline: oklch(0 0 0 / 0.75);
   --chip-search-outline: oklch(0.723 0.192 149.6 / 0.75);
 
@@ -196,8 +216,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors */
@@ -227,6 +245,9 @@
   --warning-hover: oklch(0.63 0.16 80);
   --danger: oklch(0.58 0.22 25);
   --danger-hover: oklch(0.5 0.22 25);
+  --success-text: oklch(0.72 0.16 155);
+  --warning-text: oklch(0.78 0.15 80);
+  --danger-text: oklch(0.72 0.17 25);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -277,6 +298,20 @@
   --text-secondary: oklch(0.8 0.008 85);
   --text-muted: oklch(0.65 0.012 85);
   --chip-text: oklch(0.95 0.005 85);
+  /* Bright vendor hues remain legible on the dark card and table surfaces. */
+  --vendor-apmex: #60a5fa;
+  --vendor-jmbullion: #fbbf24;
+  --vendor-sdbullion: #34d399;
+  --vendor-monumentmetals: #c4b5fd;
+  --vendor-herobullion: #f87171;
+  --vendor-bullionexchanges: #f472b6;
+  --vendor-summitmetals: #22d3ee;
+  --vendor-goldback: #d4a017;
+  --vendor-providentmetals: #a3e635;
+  --vendor-gainesvillecoins: #fb923c;
+  --vendor-mintbuilder: #818cf8;
+  --hashed-color-s: 70%;
+  --hashed-color-l: 65%;
   --chip-active-outline: oklch(0.95 0.005 85 / 0.9);
   --chip-search-outline: oklch(0.7 0.18 150 / 0.8);
 
@@ -330,8 +365,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors */
@@ -360,6 +393,9 @@
   --warning-hover: #d97706;
   --danger: #ef4444;
   --danger-hover: #dc2626;
+  --success-text: #34d399;
+  --warning-text: #fbbf24;
+  --danger-text: #f87171;
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -405,6 +441,20 @@
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   --chip-text: #f8fafc;
+  /* Keep the original slate palette while meeting AA on slate surfaces. */
+  --vendor-apmex: #60a5fa;
+  --vendor-jmbullion: #fbbf24;
+  --vendor-sdbullion: #34d399;
+  --vendor-monumentmetals: #c4b5fd;
+  --vendor-herobullion: #f87171;
+  --vendor-bullionexchanges: #f472b6;
+  --vendor-summitmetals: #22d3ee;
+  --vendor-goldback: #d4a017;
+  --vendor-providentmetals: #a3e635;
+  --vendor-gainesvillecoins: #fb923c;
+  --vendor-mintbuilder: #818cf8;
+  --hashed-color-s: 70%;
+  --hashed-color-l: 65%;
   --chip-active-outline: rgba(255, 255, 255, 0.9);
   --chip-search-outline: rgba(34, 197, 94, 0.8);
 
@@ -458,8 +508,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors (inherit dark values) */
@@ -483,9 +531,11 @@
   --info-hover: oklch(0.455 0.072 212.2);
   --warning: oklch(0.666 0.157 58.3);
   --warning-hover: oklch(0.555 0.146 49);
-  --warning-text: oklch(0.55 0.15 60);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
+  --success-text: oklch(0.47 0.1 130);
+  --warning-text: oklch(0.48 0.12 55);
+  --danger-text: oklch(0.48 0.18 27);
 
   /* Metal-specific Colors - Sepia tone (darkened for WCAG AA text contrast on warm bg) */
   --silver: oklch(0.531 0.01 67.6);
@@ -529,6 +579,20 @@
   --text-secondary: oklch(0.403 0.039 85.2);
   --text-muted: oklch(0.514 0.033 84.5);
   --chip-text: oklch(0.314 0.039 86.7);
+  /* Warm, darkened vendor hues preserve identity on parchment surfaces. */
+  --vendor-apmex: #1d4ed8;
+  --vendor-jmbullion: #854d0e;
+  --vendor-sdbullion: #065f46;
+  --vendor-monumentmetals: #6d28d9;
+  --vendor-herobullion: #b91c1c;
+  --vendor-bullionexchanges: #9d174d;
+  --vendor-summitmetals: #155e75;
+  --vendor-goldback: #713f12;
+  --vendor-providentmetals: #3f6212;
+  --vendor-gainesvillecoins: #9a3412;
+  --vendor-mintbuilder: #4338ca;
+  --hashed-color-s: 70%;
+  --hashed-color-l: 35%;
   --chip-active-outline: oklch(0.314 0.039 86.7 / 0.8);
   --chip-search-outline: oklch(0.526 0.109 133.6 / 0.75);
 
@@ -577,8 +641,6 @@
   /* STRK-25 — Table column accent colors (alias to themed family tokens) */
   --col-qty: var(--primary);
   --col-weight: var(--secondary);
-  --col-purchase: var(--success);
-  --col-melt: var(--warning);
   --col-retail: var(--info);
 
   /* STRK-65 — Attachment icon type colors */
@@ -1489,7 +1551,7 @@ section {
 #removeItemModal select:focus,
 #removeItemModal input:focus,
 #removeItemModal textarea:focus {
-  border-color: var(--accent, #3b82f6);
+  border-color: var(--primary);
   outline: none;
   box-shadow: 0 0 0 2px hsla(217, 91%, 60%, 0.15);
 }
@@ -1516,6 +1578,30 @@ section {
 }
 .modal-footer .btn.danger {
   border: 1px solid var(--danger);
+}
+
+/* STRK-443: the one optional checkbox a shared app prompt can carry (image options). The row is
+   a 44px-tall label so the whole line is the touch target. Theme tokens only. */
+.app-dialog-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+  margin-top: var(--spacing-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.app-dialog-option input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  /* The global input rule's padding and 2px border would shrink the painted box (PR 1598). */
+  padding: 0;
+  border: 0;
+  accent-color: var(--primary);
 }
 
 /* --- Toggle switch (iOS-style) ------------------------------------------- */
@@ -2757,6 +2843,20 @@ input[type="submit"] {
   font-size: var(--font-size-lg);
 }
 
+/* Empty-state and status lines inside the Settings image lists. */
+.settings-note {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.orphan-images-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
 /* Header toggle buttons (STACK-54) */
 .header-toggle-btn {
   width: 56px;
@@ -3068,7 +3168,7 @@ input[type="submit"] {
 
 .settings-modal-content > .modal-header {
   background: transparent;
-  border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   padding: var(--spacing) var(--spacing-xl);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   flex-shrink: 0;
@@ -3270,53 +3370,6 @@ input[type="submit"] {
   justify-content: center;
   line-height: 1;
 }
-.image-storage-stats {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  font-size: var(--font-size-md);
-}
-.image-storage-stats .stat-item {
-  background: var(--bg-secondary);
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--radius);
-  color: var(--text-primary);
-}
-.storage-gauge-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  margin-bottom: 0.4rem;
-  font-size: var(--font-size-base);
-}
-.storage-gauge-label {
-  min-width: 7rem;
-  color: var(--text-secondary);
-}
-.storage-gauge-bar-wrap {
-  flex: 1;
-  height: 6px;
-  background: var(--border, #333);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  min-width: 60px;
-}
-.storage-gauge-bar {
-  height: 100%;
-  border-radius: var(--radius-sm);
-  transition: width 0.3s ease;
-  width: 0%;
-}
-.storage-gauge-size {
-  min-width: 8rem;
-  text-align: right;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.storage-gauge-persist {
-  font-size: var(--font-size-sm);
-  margin-top: 0.3rem;
-}
 .image-pattern-table {
   width: 100%;
   font-size: var(--font-size-base);
@@ -3471,7 +3524,7 @@ input[type="submit"] {
 
 .storage-data-table td {
   padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--border-light, var(--border));
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
@@ -3741,6 +3794,41 @@ input[type="submit"] {
   gap: 0.35rem;
   margin-top: 0.4rem;
 }
+/* The new-rule form in index.html and the inline rule editor that renderCustomPatternRules
+   builds. Two classes outrank `.chip-sort-toggle` and `.image-swap-wrapper .btn-icon`,
+   which load later or match first. */
+.cloud-provider-card.pattern-rule-card {
+  margin-top: var(--spacing);
+  padding: 1rem;
+}
+.pattern-rule-card .pattern-mode-toggle {
+  display: inline-flex;
+  margin-left: var(--spacing-sm);
+  vertical-align: middle;
+}
+.pattern-rule-card .image-upload-sides {
+  margin-top: var(--spacing-md);
+}
+.pattern-rule-card .image-swap-wrapper .btn-icon {
+  font-size: 1.1rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  line-height: 1;
+}
+.pattern-rule-card-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing);
+}
+.pattern-rule-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--spacing-md);
+}
+.pattern-rule-toolbar .btn.img-btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
+}
 
 /* Image upload UI — dual obverse/reverse (STACK-32) */
 .image-upload-group {
@@ -3945,7 +4033,7 @@ input[type="submit"] {
 
 /* ── STRK-427: shared image-frame editor (.ife) ────────────────────────────────────────
    Mounted by js/image-frame-editor.js in the Add/Edit Item modal and the Edit Collection
-   builder. Controls reuse the shipped .collections-segmented look; frames read the shared
+   builder. Controls reuse the shipped .segmented look; frames read the shared
    --frame-* ratio tokens (Round is 1). Theme tokens only: --bg-tertiary, --border,
    --border-hover (never --surface, which only the light :root defines — STRK-426). */
 .ife {
@@ -3981,12 +4069,12 @@ input[type="submit"] {
   letter-spacing: 0.04em;
 }
 
-.ife .collections-segmented {
+.ife .segmented {
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.ife .collections-segmented-option span {
+.ife .segmented-option span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -4226,13 +4314,13 @@ input[type="submit"] {
     --ife-box: 140px; /* the existing mobile preview cap */
   }
 
-  .ife .collections-segmented-option span {
+  .ife .segmented-option span {
     min-height: 44px; /* 44px touch target (design philosophy) */
     padding: 0.4rem 0.6rem;
     box-sizing: border-box;
   }
 
-  .ife .collections-segmented-option {
+  .ife .segmented-option {
     flex: 1 1 auto;
   }
 }
@@ -4245,7 +4333,7 @@ input[type="submit"] {
   :is(.collections-builder-form, #inventoryForm)
     .ife
     [data-ife-orientation]
-    .collections-segmented-option
+    .segmented-option
     span {
     font-size: 0;
     gap: 0;
@@ -4256,7 +4344,7 @@ input[type="submit"] {
   :is(.collections-builder-form, #inventoryForm)
     .ife
     [data-ife-orientation]
-    .collections-segmented-option
+    .segmented-option
     span
     svg {
     width: 20px;
@@ -4349,6 +4437,44 @@ input[type="submit"] {
   white-space: nowrap;
 }
 
+/* Header and control columns of the settings tables that js/settings.js builds. Two classes
+   outrank `.chip-grouping-table th` and `.chip-grouping-table td`. */
+.chip-grouping-table .chip-grouping-head {
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  opacity: 0.6;
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.chip-grouping-table .chip-grouping-col-check {
+  width: 2rem;
+  text-align: center;
+}
+
+.chip-grouping-table .chip-grouping-col-group {
+  width: 3rem;
+  text-align: center;
+}
+
+.chip-grouping-table .chip-grouping-col-move {
+  width: 3.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.chip-grouping-table .chip-grouping-col-id {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.chip-grouping-table .chip-grouping-group-select {
+  width: auto;
+  min-width: 3.2rem;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.8rem;
+}
+
 .chip-grouping-empty {
   text-align: center;
   padding: 1rem;
@@ -4371,7 +4497,7 @@ input[type="submit"] {
 }
 
 .chip-grouping-delete:hover {
-  background: rgba(var(--danger-rgb, 220, 53, 69), 0.12);
+  background: color-mix(in oklch, var(--danger) 12%, transparent);
 }
 
 .chip-grouping-actions {
@@ -4398,7 +4524,7 @@ input[type="submit"] {
 
 .chip-grouping-edit:hover {
   color: var(--info);
-  background: rgba(var(--info-rgb, 13, 110, 253), 0.12);
+  background: color-mix(in oklch, var(--info) 12%, transparent);
 }
 
 .chip-grouping-save {
@@ -4406,7 +4532,7 @@ input[type="submit"] {
 }
 
 .chip-grouping-save:hover {
-  background: rgba(var(--success-rgb, 25, 135, 84), 0.12);
+  background: color-mix(in oklch, var(--success) 12%, transparent);
 }
 
 .chip-grouping-cancel {
@@ -4415,7 +4541,7 @@ input[type="submit"] {
 
 .chip-grouping-cancel:hover {
   color: var(--danger);
-  background: rgba(var(--danger-rgb, 220, 53, 69), 0.12);
+  background: color-mix(in oklch, var(--danger) 12%, transparent);
 }
 
 /* Image-cache modal: catalog ID + activity log line */
@@ -4428,6 +4554,33 @@ input[type="submit"] {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   padding: 0.1rem 0;
+}
+.cache-status {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+/* Two classes outrank .chip-grouping-table td, which sets the cell colour. */
+.cache-status.cache-status--synced,
+.cache-log-line--success {
+  color: var(--success-text);
+}
+.cache-status.cache-status--pending,
+.cache-log-line--warn {
+  color: var(--warning-text);
+}
+.cache-status.cache-status--failed,
+.cache-log-line--error {
+  color: var(--danger-text);
+}
+.cache-status.cache-status--muted {
+  color: var(--text-secondary);
+}
+
+/* Spot lookup: brief tint on the input a lookup just filled (flashSpotLookupTarget).
+   The ID selector outranks #inventoryForm input, which sets the field background. */
+#inventoryForm input.spot-lookup-flash,
+input.spot-lookup-flash {
+  background-color: color-mix(in oklch, var(--warning) 35%, transparent);
 }
 
 /* Inline chip config — up/down reorder buttons */
@@ -4462,7 +4615,7 @@ input[type="submit"] {
   font-size: var(--font-size-base);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-input, var(--bg));
+  background: var(--bg);
   color: var(--text);
   box-sizing: border-box;
 }
@@ -4780,8 +4933,9 @@ input[type="submit"] {
   text-align: center;
 }
 
-/* Cloud toast */
+/* Cloud toast: text only, so clicks pass through to the page beneath it. */
 .cloud-toast {
+  pointer-events: none;
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
@@ -5643,7 +5797,7 @@ input[type="submit"] {
   padding: 0.25rem 0.5rem;
   color: var(--text-secondary);
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -6133,7 +6287,7 @@ table {
 }
 
 .toggle-all-btn:hover {
-  background: var(--primary-dark);
+  background: var(--primary-hover);
   transform: translateY(-1px);
 }
 
@@ -6499,6 +6653,10 @@ td .action-icon.success {
 td .filter-text {
   cursor: pointer;
   font-weight: 600;
+}
+
+td .filter-text.filter-text--primary {
+  color: var(--text-primary);
 }
 
 .na-value {
@@ -6907,6 +7065,60 @@ td input:checked + .slider:before {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* --- Metal tint, keyed by data-metal (set from the Item's metal by _applyHeaderMetal) --- */
+#viewItemModal[data-metal="silver"] {
+  --view-metal: var(--silver);
+}
+#viewItemModal[data-metal="gold"] {
+  --view-metal: var(--gold);
+}
+#viewItemModal[data-metal="platinum"] {
+  --view-metal: var(--platinum);
+}
+#viewItemModal[data-metal="palladium"] {
+  --view-metal: var(--palladium);
+}
+#viewItemModal[data-metal="copper"] {
+  --view-metal: var(--copper);
+}
+
+/* The title reads over the metal at the start and 25% darker at the end. Every metal
+   token keeps the contrast-color() pick at or above 4.5:1 across both stops in all four
+   themes; a darker end drops black text on slate copper below AA. Browsers without
+   contrast-color() get an inline pick from _refreshViewHeaderTextColor() instead. */
+#viewItemModal[data-metal] .modal-header {
+  background: linear-gradient(
+    135deg,
+    var(--view-metal),
+    color-mix(in srgb, var(--view-metal) 75%, black)
+  );
+}
+
+/* The close (X) takes the header's contrast pick; a theme surface hover would hide it. */
+#viewItemModal[data-metal] .view-modal-close {
+  color: inherit;
+}
+
+#viewItemModal[data-metal] .view-modal-close:hover {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+@supports (color: contrast-color(red)) {
+  #viewItemModal[data-metal] .modal-header,
+  #viewItemModal[data-metal] .modal-header h2 {
+    color: contrast-color(var(--view-metal));
+  }
+}
+
+#viewItemModal[data-metal] .view-image-section {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--view-metal) 15%, var(--bg-primary)),
+    color-mix(in srgb, var(--view-metal) 8%, var(--bg-secondary))
+  );
 }
 
 /* Title row — title left, padded so text can't run under the absolute-pos close (X) */
@@ -8031,7 +8243,7 @@ a.about-badge:hover {
    ============================================================================= */
 
 .faq-item {
-  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary, #f8fafc);
   margin-bottom: 0.5rem;
@@ -8097,7 +8309,7 @@ a.about-badge:hover {
 
 /* Nested technical sub-accordion */
 .faq-technical {
-  border: 1px dashed var(--border-color, rgba(0, 0, 0, 0.15));
+  border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-primary, #f1f5f9);
   margin-top: 0.75rem;
@@ -8864,7 +9076,7 @@ table.dm-ledger {
   border-right: 1px solid var(--border);
 }
 .chart-metric-btn:hover {
-  background: var(--bg-hover);
+  background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .chart-metric-btn.active {
   background: var(--primary);
@@ -9241,7 +9453,7 @@ table.dm-ledger {
 .control-select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-alpha);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 20%, transparent);
 }
 
 .control-select:hover {
@@ -9303,6 +9515,8 @@ table.dm-ledger {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
+  /* --chip-bg is set per chip by JS (a theme token or a hashed hsl on theme tokens) */
+  background-color: var(--chip-bg, transparent);
   color: var(--chip-text);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius);
@@ -9322,14 +9536,23 @@ table.dm-ledger {
   box-sizing: border-box;
 }
 
+/* STRK-446: black or white text, whichever has the higher WCAG contrast over the chip.
+   The better of the two is always >= 4.58:1, so every opaque chip colour meets AA.
+   Browsers without contrast-color() get an inline pick from getContrastColor() instead.
+   Never fade a chip with opacity (excluded, hover, ×): it blends text and background
+   toward the page and drops the pair below AA. Signal state with outline/shadow/lift. */
+@supports (color: contrast-color(red)) {
+  .filter-chip {
+    color: contrast-color(var(--chip-bg, var(--bg-card)));
+  }
+}
+
 .filter-chip-excluded {
-  outline: 1px dashed rgba(0, 0, 0, 0.35);
+  outline: 1px dashed var(--text-muted);
   outline-offset: 1px;
-  opacity: 0.86;
 }
 
 .filter-chip:hover {
-  opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
@@ -9337,7 +9560,6 @@ table.dm-ledger {
 .chip-close {
   margin-left: 0.35rem;
   font-weight: 700;
-  opacity: 0.95;
   cursor: pointer;
 }
 
@@ -9477,7 +9699,7 @@ table.dm-ledger {
 }
 
 .chip-context-menu-item:hover {
-  background: var(--bg-hover, var(--border));
+  background: var(--border);
 }
 
 .chip-confirm-message {
@@ -9522,7 +9744,7 @@ table.dm-ledger {
 }
 
 .chip-confirm-no:hover {
-  background: var(--bg-hover, var(--border));
+  background: var(--border);
 }
 
 .search-results-info {
@@ -9564,7 +9786,7 @@ table.dm-ledger {
 }
 
 .filter-clear-btn:hover {
-  background: var(--error-dark);
+  background: var(--danger-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
@@ -10114,7 +10336,7 @@ input:disabled + .slider {
 }
 
 #inventoryTable td[data-column="actions"] .edit-toggle:hover {
-  color: var(--primary-dark);
+  color: var(--primary-hover);
 }
 
 /* Actions header styling */
@@ -10731,6 +10953,7 @@ th {
   vertical-align: middle;
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 /* Dark theme overrides */
@@ -10762,6 +10985,7 @@ th {
   vertical-align: middle;
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .purity-tag {
@@ -11901,7 +12125,7 @@ th {
 
 /* Numista tag picker (STAK-556) */
 .numista-tag-separator {
-  border-top: 1px solid var(--border-color, #ddd);
+  border-top: 1px solid var(--border);
   margin: 0.5rem 0;
   grid-column: 1 / -1;
 }
@@ -11944,7 +12168,7 @@ th {
 .numista-tag-actions {
   font-size: var(--font-size-sm);
   cursor: pointer;
-  color: var(--accent-color, #4a90d9);
+  color: var(--primary);
   margin-left: 0.5rem;
 }
 
@@ -11958,7 +12182,7 @@ th {
 
 .numista-field-edited {
   font-size: var(--font-size-sm);
-  color: var(--warning-color, orange);
+  color: var(--warning-text);
   font-style: italic;
   grid-column: 3;
 }
@@ -11997,9 +12221,9 @@ th {
 .numista-retry-input {
   flex: 1;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-input);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--font-size-lg);
 }
@@ -12029,7 +12253,7 @@ th {
   align-items: center;
   gap: var(--spacing-md);
   padding: 0.45rem 0.65rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
   cursor: pointer;
@@ -12038,7 +12262,7 @@ th {
 }
 
 .numista-quick-pick:hover {
-  background: var(--bg-hover);
+  background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 
 .quick-pick-id {
@@ -12060,7 +12284,7 @@ th {
 .quick-pick-count {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
-  background: var(--bg-input);
+  background: var(--bg-tertiary);
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-lg);
 }
@@ -12722,7 +12946,7 @@ th {
 
 /* Enhanced delete button styling - restore red */
 #inventoryTable td.icon-col .action-icon.danger {
-  color: var(--error) !important;
+  color: var(--danger) !important;
   border-radius: var(--radius-sm);
   padding: 0.25rem;
   /* Removed transition: var(--transition); */
@@ -12805,6 +13029,10 @@ th {
 
 .purchase-link-icon {
   flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  margin-right: 4px;
 }
 
 /* Purchase Price column — fixed width */
@@ -12905,12 +13133,9 @@ th {
   color: var(--col-weight);
 }
 
-#inventoryTable td[data-column="purchasePrice"] {
-  color: var(--col-purchase);
-}
-
+#inventoryTable td[data-column="purchasePrice"],
 #inventoryTable td[data-column="meltValue"] {
-  color: var(--col-melt);
+  color: var(--text-primary);
 }
 
 #inventoryTable td[data-column="retailPrice"] {
@@ -13542,6 +13767,38 @@ th {
   display: block;
 }
 
+/* Numista bulk sync controls: progress, actions and activity log */
+.bulk-sync-progress {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  accent-color: var(--primary);
+}
+.bulk-sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.bulk-sync-log-details {
+  margin-top: 12px;
+}
+.bulk-sync-log-details > summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.bulk-sync-log {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 /* Overview stats */
 .bulk-stat-row {
   display: grid;
@@ -13953,7 +14210,7 @@ th {
 }
 
 #settingsChangeLogTable tbody tr:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
 }
 
 #settingsChangeLogTable .action-btn {
@@ -14203,7 +14460,7 @@ th {
 }
 
 .bulk-edit-field-row:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
 }
 
 .bulk-edit-field-row input[type="checkbox"] {
@@ -14478,7 +14735,7 @@ th {
 }
 
 .bulk-edit-table tbody tr:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
 }
 
 .bulk-edit-selected {
@@ -15720,6 +15977,58 @@ input[type="number"] {
   opacity: 1;
 }
 
+/* --- Numista tag blacklist (Settings > API > Numista) -------------------- */
+/* The ids outrank the theme rules on `.tag-chip`: blacklist chips keep one neutral style. */
+#numistaTagSettingsGroup .settings-group {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: var(--spacing);
+}
+.tag-blacklist-input-row {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+#numistaTagBlacklistInput {
+  flex: 1;
+  padding: 0.35rem var(--spacing-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+#numistaTagSettingsGroup .tag-blacklist-add-btn {
+  font-size: 0.85rem;
+}
+#numistaTagBlacklistList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+#numistaTagBlacklistList .settings-subtext {
+  font-size: 0.8rem;
+}
+#numistaTagBlacklistList .tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-lg);
+  font-size: 0.8rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+#numistaTagBlacklistList .tag-blacklist-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  color: var(--text-secondary);
+}
+
 /* --- Add tag button ------------------------------------------------------ */
 .tag-add-btn {
   display: inline-flex;
@@ -15910,7 +16219,7 @@ input[type="number"] {
 .retail-tf-btn {
   padding: 0.2rem 0.6rem;
   font-size: var(--font-size-base);
-  border: 1px solid var(--border-color, var(--bs-border-color));
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-primary);
@@ -15937,7 +16246,7 @@ input[type="number"] {
 .retail-history-table th,
 .retail-history-table td {
   padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
@@ -15952,7 +16261,7 @@ input[type="number"] {
   text-align: left;
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  color: var(--text-muted, var(--bs-secondary-color));
+  color: var(--text-muted);
 }
 
 /* Retail view modal */
@@ -15961,7 +16270,7 @@ input[type="number"] {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, var(--bs-secondary-color));
+  color: var(--text-muted);
   margin: 1.25rem 0 0.5rem;
 }
 
@@ -15979,7 +16288,7 @@ input[type="number"] {
 .retail-view-table th,
 .retail-view-table td {
   padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
@@ -15994,7 +16303,7 @@ input[type="number"] {
   text-align: left;
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  color: var(--text-muted, var(--bs-secondary-color));
+  color: var(--text-muted);
 }
 
 .retail-view-chart-wrap {
@@ -16008,7 +16317,7 @@ input[type="number"] {
   color: var(--text-muted);
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  border-top: 1px solid var(--border);
 }
 
 /* Retail view modal — vendor legend (replaces "Current Prices" table) */
@@ -16055,7 +16364,7 @@ input[type="number"] {
   gap: 0.2rem;
   margin: 0 0 0.5rem;
   padding: 0.2rem;
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.06));
+  background: color-mix(in oklch, var(--text-primary), transparent 94%);
   border-radius: var(--radius);
 }
 
@@ -16081,7 +16390,7 @@ input[type="number"] {
 
 .retail-view-tab.active {
   color: var(--text-primary);
-  background: var(--bg-card, var(--bs-body-bg));
+  background: var(--bg-card);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
@@ -16089,8 +16398,8 @@ input[type="number"] {
 /* Retail view modal — intraday/history panels */
 #retailViewIntradaySection,
 #retailViewHistorySection {
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
-  border: 1px solid var(--border-color-subtle, var(--bs-border-color));
+  background: color-mix(in oklch, var(--text-primary), transparent 97%);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.75rem;
 }
@@ -16160,7 +16469,7 @@ input[type="number"] {
 }
 .market-filter-pill {
   background: transparent;
-  border: 1px solid var(--border, var(--bs-border-color));
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   padding: 4px 12px;
   font-size: var(--font-size-xs);
@@ -16172,7 +16481,7 @@ input[type="number"] {
 }
 .market-filter-pill:hover {
   border-color: var(--border-hover, #475569);
-  color: var(--text-primary, var(--bs-body-color));
+  color: var(--text-primary);
 }
 .market-filter-pill.active[data-metal="all"] {
   background: var(--primary);
@@ -16186,7 +16495,7 @@ input[type="number"] {
 }
 .market-filter-pill.active[data-metal="silver"] {
   background: rgba(139, 147, 166, 0.15);
-  color: var(--bs-secondary-color, #6c757d);
+  color: var(--text-muted);
   border-color: #6c757d;
 }
 .market-filter-pill.active[data-metal="platinum"] {
@@ -16207,8 +16516,8 @@ input[type="number"] {
 /* Sync button — status-aware: green=current, amber=stale */
 .market-sync-btn {
   background: transparent;
-  border: 1.5px solid var(--bs-success, #059669);
-  color: var(--bs-success, #059669);
+  border: 1.5px solid var(--success);
+  color: var(--success-text);
   border-radius: var(--radius-pill);
   padding: 6px 16px;
   font-size: var(--font-size-sm);
@@ -16241,7 +16550,7 @@ input[type="number"] {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-top: 0.75rem;
-  border: 1px solid var(--border, var(--bs-border-color));
+  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 .market-filter-matrix {
@@ -16253,7 +16562,7 @@ input[type="number"] {
 .market-filter-matrix td {
   padding: 4px 5px;
   text-align: center;
-  border-bottom: 1px solid var(--border, var(--bs-border-color));
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .market-filter-matrix th:first-child,
@@ -16261,7 +16570,7 @@ input[type="number"] {
   text-align: left;
   position: sticky;
   left: 0;
-  background: var(--bg-primary, var(--bs-body-bg, #1a1d23));
+  background: var(--bg-primary);
   z-index: 1;
   padding-left: 10px;
   font-weight: 500;
@@ -16275,7 +16584,7 @@ input[type="number"] {
   color: var(--text-muted, #6c757d);
   padding-top: 8px;
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--border, var(--bs-border-color));
+  border-bottom: 2px solid var(--border);
 }
 .market-filter-matrix thead th:first-child {
   z-index: 2;
@@ -16284,7 +16593,7 @@ input[type="number"] {
   background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .market-filter-matrix tbody tr:hover td:first-child {
-  background: var(--bg-hover, color-mix(in oklch, var(--text-primary), transparent 96%));
+  background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .market-filter-matrix tbody tr:last-child td {
   border-bottom: none;
@@ -16301,7 +16610,7 @@ input[type="number"] {
 }
 .market-filter-matrix input[type="checkbox"] {
   cursor: pointer;
-  accent-color: var(--bs-primary, #3b82f6);
+  accent-color: var(--primary);
   width: 15px;
   height: 15px;
   vertical-align: middle;
@@ -16311,19 +16620,19 @@ input[type="number"] {
   cursor: not-allowed;
 }
 .market-filter-matrix .mfm-all-row td {
-  border-bottom: 2px solid var(--border, var(--bs-border-color));
+  border-bottom: 2px solid var(--border);
   font-weight: 600;
 }
 .market-filter-matrix .mfm-all-row td:first-child {
-  background: var(--bg-primary, var(--bs-body-bg, #1a1d23));
+  background: var(--bg-primary);
 }
 .market-filter-matrix th:nth-child(2),
 .market-filter-matrix td:nth-child(2) {
-  border-right: 1px solid var(--border, var(--bs-border-color));
+  border-right: 1px solid var(--border);
 }
 .market-filter-matrix .mfm-product-name {
   font-size: var(--font-size-sm);
-  color: var(--text-primary, var(--bs-body-color));
+  color: var(--text-primary);
 }
 .market-filter-matrix .mfm-status-line {
   font-size: var(--font-size-sm);
@@ -16331,7 +16640,7 @@ input[type="number"] {
   padding: 6px 0 2px;
 }
 .market-filter-matrix .mfm-status-line strong {
-  color: var(--text-primary, var(--bs-body-color));
+  color: var(--text-primary);
   font-weight: 600;
 }
 @media (max-width: 640px) {
@@ -16436,7 +16745,9 @@ input[type="number"] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     animation-delay: 0s !important;
-    transition-duration: 0.01ms !important;
+    /* A non-zero duration gives every element an all-property transition (initial
+       transition-property), so a style read right after a change returns the old value. */
+    transition-duration: 0s !important;
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
@@ -16654,7 +16965,9 @@ input[type="number"] {
 }
 
 /* ── Carried Price ── */
-/* .vp-carried border removed — too distracting */
+.vp-carried {
+  opacity: 0.5;
+}
 
 /* ── Out of Stock ── */
 .vp-oos {
@@ -16673,6 +16986,56 @@ input[type="number"] {
 .vp-coin-link:hover {
   color: var(--primary);
   text-decoration: underline;
+}
+
+.vp-scroll {
+  overflow-x: auto;
+}
+
+/* ── Market Block Status Lines ── */
+.vp-message {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.market-disclaimer {
+  padding: 8px 0 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Market Block Header ── */
+.market-block-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.market-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.market-block-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ticker-item--link {
+  cursor: pointer;
 }
 
 /* Market detail: stat values + vendor price cells */
@@ -16764,6 +17127,38 @@ input[type="number"] {
 .market-detail-header h2 {
   font-size: var(--font-size-xl);
   font-weight: 700;
+}
+
+.market-detail-weight {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.market-detail-loading,
+.market-detail-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.market-detail-loading {
+  padding: 48px;
+}
+
+.market-detail-empty {
+  padding: 16px;
+}
+
+.market-detail-vendors {
+  margin-top: 0.5rem;
+}
+
+.market-detail-buy {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12px;
 }
 
 /* ── Modal Period Controls ── */
@@ -17409,7 +17804,6 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  font-family: var(--font-sans, inherit);
 }
 .gsr-panel[data-accent="silver"] {
   --gsr-accent: var(--silver);
@@ -19961,20 +20355,20 @@ input[type="number"] {
 
 /* STRK-434: the item modal's shared image-frame editor (#inventoryForm .ife) takes the same
    segmented look as the builder, so the Image shape selector is identical in both modals. */
-:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented {
+:is(.collections-builder-form, #inventoryForm .ife) .segmented {
   flex-wrap: wrap;
   justify-content: center;
   padding: 2px;
 }
 
 /* Segmented options are <label>s: undo the form's uppercase micro-label treatment. */
-:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option {
+:is(.collections-builder-form, #inventoryForm .ife) .segmented-option {
   margin: 0;
   text-transform: none;
   letter-spacing: 0;
 }
 
-:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option span {
+:is(.collections-builder-form, #inventoryForm .ife) .segmented-option span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -19983,7 +20377,7 @@ input[type="number"] {
   line-height: 1.2;
 }
 
-.collections-builder-form .collections-segmented-option span.collections-builder-icon,
+.collections-builder-form .segmented-option span.collections-builder-icon,
 .collections-builder-icon {
   display: inline-flex;
   padding: 0;
@@ -19992,7 +20386,7 @@ input[type="number"] {
 /* Phone touch targets: text options (Orientation) meet the 44px baseline. */
 @media (max-width: 767px) {
   :is(.collections-builder-form, #inventoryForm .ife)
-    .collections-segmented-option
+    .segmented-option
     span:not(.collections-builder-icon) {
     min-height: 44px;
   }
@@ -20017,7 +20411,7 @@ input[type="number"] {
 }
 
 /* Segmented either/or control — radios styled as a pill pair. */
-.collections-segmented {
+.segmented {
   display: inline-flex;
   padding: 3px;
   gap: 2px;
@@ -20026,13 +20420,13 @@ input[type="number"] {
   background: var(--bg-tertiary);
 }
 
-.collections-segmented-option {
+.segmented-option {
   position: relative;
   margin: 0;
   cursor: pointer;
 }
 
-.collections-segmented-option input {
+.segmented-option input {
   position: absolute;
   inset: 0;
   margin: 0;
@@ -20040,7 +20434,7 @@ input[type="number"] {
   cursor: pointer;
 }
 
-.collections-segmented-option span {
+.segmented-option span {
   display: block;
   padding: 0.5rem 1.5rem;
   border-radius: 999px;
@@ -20052,16 +20446,16 @@ input[type="number"] {
     color 0.15s;
 }
 
-.collections-segmented-option:hover span {
+.segmented-option:hover span {
   color: var(--text-primary);
 }
 
-.collections-segmented-option input:checked + span {
+.segmented-option input:checked + span {
   background: var(--primary);
   color: var(--text-inverse);
 }
 
-.collections-segmented-option input:focus-visible + span {
+.segmented-option input:focus-visible + span {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -20651,30 +21045,108 @@ input[type="number"] {
    classes stay on the elements; this block is later in the file than their rules on purpose.
    Ratios come from the shared :root --frame-* tokens, never literals.
    ========================================================================== */
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape] {
+/* STRK-442: the builder's Slot list (.collections-builder-rows) carries the same attributes, set
+   from the collection's shape and the obverse orientation; its Slot thumbnails inherit the ratio. */
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape] {
   --frame-r: 1;
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="slab"] {
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="slab"] {
   --frame-r: var(--frame-slab);
   --frame-radius-max: var(--frame-radius-slab);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"] {
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="bar"] {
   --frame-radius-max: var(--frame-radius-bar);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"] {
+:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="note"] {
   --frame-radius-max: var(--frame-radius-note);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="portrait"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="bar"][data-orientation="portrait"] {
   --frame-r: var(--frame-bar-portrait);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="bar"][data-orientation="landscape"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="bar"][data-orientation="landscape"] {
   --frame-r: var(--frame-bar-landscape);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="portrait"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="note"][data-orientation="portrait"] {
   --frame-r: var(--frame-note-portrait);
 }
-:is(.coin-img, .table-thumb, .view-image-slot)[data-shape="note"][data-orientation="landscape"] {
+:is(
+    .coin-img,
+    .table-thumb,
+    .view-image-slot,
+    .collections-builder-rows
+  )[data-shape="note"][data-orientation="landscape"] {
   --frame-r: var(--frame-note-landscape);
+}
+
+/* STRK-442: a Slot thumbnail is the largest frame of the collection's ratio inside the row's
+   44px box (so the row keeps its height), centred in its grid column, and fits the photo whole
+   like the title images and the item modal: neither modal crops (STRK-434). */
+.collections-builder-rows[data-shape] .collections-builder-row {
+  /* A landscape thumbnail is shorter than 44px; the track minimum keeps every row the height a
+     round one gives it, while the chooser (and its remove badge) stays the thumbnail's size. */
+  grid-auto-rows: minmax(44px, auto);
+}
+.collections-builder-rows[data-shape] .collections-builder-row > .collections-image-chooser {
+  justify-self: center;
+}
+.collections-builder-rows[data-shape] .collections-image-pick {
+  --frame-w: min(44px, calc(44px * var(--frame-r)));
+  width: var(--frame-w);
+  aspect-ratio: var(--frame-r);
+  /* Lets the 44px touch target below overflow the shaped button. A visible-overflow box gets an
+     automatic content minimum height that would override aspect-ratio, so zero it. */
+  position: relative;
+  overflow: visible;
+  min-height: 0;
+}
+.collections-builder-rows[data-shape]:not([data-shape="round"]) .collections-image-pick {
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-w) / var(--frame-r)) * var(--frame-radius-scale))
+  );
+}
+.collections-builder-rows[data-shape] .collections-image-pick img {
+  /* Pinned to the frame: as a grid child its auto track would grow to the photo's own height and
+     spill past a landscape frame, so contain would fit it to the wrong box. */
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+  /* The button no longer clips (see the touch target below), so the photo rounds itself. */
+  border-radius: inherit;
+}
+/* A shaped Slot button is narrower (portrait) or shorter (landscape) than 44px, and the rounded
+   corners of any shape are not hit-tested, so a transparent 44px square centred on it keeps the
+   full touch target (the item modal's .ife-link pattern). */
+.collections-builder-rows[data-shape] .collections-image-pick::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+/* A Slot holding a photo drops the dashed drop-zone outline, as the title frames do
+   (.ife-frame.has-image), so the letterbox bands read as part of the photo. The border keeps its
+   width so the frame's size does not change. */
+.collections-builder-rows[data-shape] .collections-image-pick:has(img) {
+  border-color: transparent;
+  background: transparent;
 }
 
 /* Cards: the box each style already gave its image wrapper. */

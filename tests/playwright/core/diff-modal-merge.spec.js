@@ -99,7 +99,7 @@ async function applyDiff(page, options, clicks) {
 const byField = (payload, field) => payload.find((r) => r.type === "modify" && r.field === field);
 const setting = (payload, key) => payload.find((r) => r.type === "setting" && r.key === key);
 
-test.describe("DiffModal merge/apply characterization (STRK-170 cohort 2.3)", () => {
+test.describe("DiffModal merge/apply characterization (cohort 2.3)", () => {
   test.beforeEach(async ({ page }) => {
     await gotoApp(page);
   });
@@ -319,11 +319,78 @@ test.describe("DiffModal merge/apply characterization (STRK-170 cohort 2.3)", ()
   });
 });
 
+// The diff modal renderers style their markup through classes in index.html. An inline
+// style may carry only a per-item runtime value: the metal tint, the progress width, or
+// the show/hide toggle.
+test.describe("DiffModal markup styling", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+  });
+
+  test("rendered markup carries inline styles only for runtime values", async ({ page }) => {
+    const offenders = await page.evaluate((itemDiff) => {
+      const RUNTIME = new Set(["color", "background", "width", "display"]);
+      const ROOTS = [
+        "#diffReviewSource",
+        "#diffSummaryDashboard",
+        "#diffSectionOrphans",
+        "#diffSectionModified",
+        "#diffReviewSettings",
+      ];
+      const found = [];
+      const collect = (label) => {
+        for (const sel of ROOTS) {
+          const root = document.querySelector(sel);
+          if (!root) continue;
+          for (const el of root.querySelectorAll("[style]")) {
+            for (let i = 0; i < el.style.length; i++) {
+              const prop = el.style[i];
+              const base = prop.startsWith("background") ? "background" : prop;
+              if (!RUNTIME.has(base)) found.push(`${label} ${sel} <${el.tagName}> ${prop}`);
+            }
+          }
+        }
+      };
+      const show = (opts) =>
+        window.DiffModal.show(Object.assign({ onApply: () => {}, onCancel: () => {} }, opts));
+      show({
+        source: { type: "sync", label: "Dropbox" },
+        meta: { itemCount: 3, deviceId: "styling-device", appVersion: "3.36.70" },
+        conflicts: { conflicts: [{}] },
+        diff: itemDiff,
+        settingsDiff: {
+          changed: [
+            { key: "appTheme", localVal: "dark", remoteVal: "light" },
+            {
+              key: "layoutSectionConfig",
+              localVal: [{ id: "a", label: "Alpha", enabled: true }],
+              remoteVal: [{ id: "a", label: "Alpha", enabled: false }],
+            },
+          ],
+          matched: [{ key: "cardViewStyle", localVal: "a", remoteVal: "a" }],
+        },
+      });
+      const settingsToggle = document.querySelector('[data-cat-toggle="settings"]');
+      if (settingsToggle && settingsToggle.classList.contains("collapsed")) settingsToggle.click();
+      const matchedToggle = document.querySelector("[data-toggle-matched]");
+      if (matchedToggle) matchedToggle.click();
+      collect("sync");
+      show({
+        source: { type: "csv", label: "Backup" },
+        diff: { added: [], modified: [], deleted: [] },
+      });
+      collect("empty");
+      return found;
+    }, ITEM_DIFF);
+    expect(offenders).toEqual([]);
+  });
+});
+
 // STRK-258 — "Local Items" in the sync meta row must be qty-summed (physical pieces),
 // matching "Remote Items" (meta.itemCount, populated from cloudSafeItemCount()) rather
 // than a raw inventory.length row count. Regression coverage for a fix that was missed
 // when 424a6b3f moved every other item-count display to qty-summed semantics.
-test.describe("DiffModal sync meta row — Local Items count (STRK-258)", () => {
+test.describe("DiffModal sync meta row — Local Items count", () => {
   test.beforeEach(async ({ page }) => {
     await gotoApp(page);
   });

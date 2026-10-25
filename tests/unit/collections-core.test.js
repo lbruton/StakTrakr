@@ -23,9 +23,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const src = readFileSync(new URL("../../js/collections-core.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 // STRK-398: the core converts stored weight through the canonical window.getUnitOztWeight
 // (js/utils.js, STRK-316). Load the REAL module through the same boundary the browser uses —
@@ -44,18 +42,18 @@ assert.equal(
 // window.deriveImageShape. Load the REAL file into the default surface for the same reason as
 // utils.js above: a double could drift from production. `loadCoreWithoutResolver` keeps the
 // pre-STRK-427 surface for the fail-closed case, where the seam is absent.
-const imageFrameSrc = readFileSync(new URL("../../js/image-frame.js", import.meta.url), "utf-8");
-
 function loadCore(surface = { getUnitOztWeight }) {
-  if (!("deriveImageShape" in surface)) new Function("window", imageFrameSrc)(surface);
-  new Function("window", src)(surface);
+  if (!("deriveImageShape" in surface)) {
+    evalSource("js/image-frame.js", { params: { window: surface } });
+  }
+  evalSource("js/collections-core.js", { params: { window: surface } });
   return surface.collectionsCore;
 }
 
 /** Load the core on a surface that lacks image-frame.js, so the resolver seam is missing. */
 function loadCoreWithoutResolver() {
   const surface = { getUnitOztWeight };
-  new Function("window", src)(surface);
+  evalSource("js/collections-core.js", { params: { window: surface } });
   return surface.collectionsCore;
 }
 
@@ -860,7 +858,7 @@ describe("custom collections", () => {
     assert.equal(state.collections["custom-2"].definition.imageShape, "bar");
   });
 
-  test("STRK-424 Bar and Note carry an image orientation; Round and Slab never do", () => {
+  test("Bar and Note carry an image orientation; Round and Slab never do", () => {
     const state = core.createEmptyState();
     const made = (id, spec) => {
       core.createCustomCollection(state, {
@@ -892,7 +890,7 @@ describe("custom collections", () => {
     }
   });
 
-  test("STRK-424 a stored Bar or Note with no orientation is pinned to landscape", () => {
+  test("a stored Bar or Note with no orientation is pinned to landscape", () => {
     const restored = core.normalizeState({
       version: 1,
       collections: {
@@ -954,7 +952,7 @@ describe("custom collections", () => {
     assert.equal(core.defaultImageOrientationForShape("slab"), "");
   });
 
-  test("STRK-424 an edit keeps, changes or drops the orientation with the shape", () => {
+  test("an edit keeps, changes or drops the orientation with the shape", () => {
     const state = core.createEmptyState();
     core.createCustomCollection(state, {
       id: "custom-1",
@@ -1397,7 +1395,7 @@ describe("suggestItemsForSlot", () => {
   });
 });
 
-describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () => {
+describe("mergeStates — commutative and idempotent (invariant)", () => {
   function build(steps) {
     const state = core.createEmptyState();
     steps(state);
@@ -1570,7 +1568,7 @@ describe("mergeStates — commutative and idempotent (STRK-154 invariant)", () =
   });
 });
 
-test("STRK-389 reserves existing ids before duplicate-label insertion and preserves reordered links", () => {
+test("reserves existing ids before duplicate-label insertion and preserves reordered links", () => {
   const state = core.createEmptyState();
   core.createCustomCollection(state, {
     id: "custom-order",
@@ -1614,7 +1612,7 @@ test("STRK-389 reserves existing ids before duplicate-label insertion and preser
   }
 });
 
-test("STRK-389 never reuses a removed Slot id for a same-labelled replacement row", () => {
+test("never reuses a removed Slot id for a same-labelled replacement row", () => {
   const state = core.createEmptyState();
   core.createCustomCollection(state, {
     id: "custom-replace",
@@ -1649,7 +1647,7 @@ test("STRK-389 never reuses a removed Slot id for a same-labelled replacement ro
   assert.equal(collection.artwork["slot:2020-2"], undefined);
 });
 
-describe("STRK-391 Slot Mintage", () => {
+describe("Slot Mintage", () => {
   const spec = (mintage) => ({
     id: "mintages",
     name: "Tuvalu",
@@ -1741,7 +1739,7 @@ describe("STRK-391 Slot Mintage", () => {
 
 // STRK-427 (task B.2): the shared resolver seam and the per-side reverse orientation key.
 // Written before the implementation; every case that exercises new behavior fails until C.2.
-describe("STRK-427 shared resolver seam and reverse image orientation", () => {
+describe("shared resolver seam and reverse image orientation", () => {
   const SLOTS = [{ id: "one", label: "One" }];
 
   /** Create one Custom Collection on a fresh state and return the state and its definition. */
@@ -1994,7 +1992,7 @@ describe("STRK-427 shared resolver seam and reverse image orientation", () => {
       }
     });
 
-    test("a legacy Bar saved before STRK-424 with no orientation still reopens landscape", () => {
+    test("a legacy Bar saved with no orientation still reopens landscape", () => {
       const definition = restored({ itemType: "Bar", imageShape: "bar" });
       assert.equal(definition.imageOrientation, "landscape");
       assert.equal(core.reverseImageOrientationFor("bar", definition), "landscape");
@@ -2039,4 +2037,82 @@ describe("STRK-427 shared resolver seam and reverse image orientation", () => {
       assert.equal(ab.collections.later.definition.reverseImageOrientation, "landscape");
     });
   });
+});
+
+describe("live Collection title links", () => {
+  const make = () => {
+    const state = core.createEmptyState();
+    core.createCustomCollection(state, {
+      id: "linked-titles",
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: " https://images.example.com/front.png ",
+      reverseImageUrl: "https://images.example.com/back.png",
+      now: T1,
+    });
+    return state;
+  };
+  test("links normalize, round-trip and preserve on unrelated edits", () => {
+    const state = core.normalizeState(JSON.parse(JSON.stringify(make())));
+    core.updateCustomDefinition(state, "linked-titles", {
+      name: "Renamed",
+      slots: [{ label: "2026" }],
+      now: T2,
+    });
+    const def = state.collections["linked-titles"].definition;
+    assert.equal(def.obverseImageUrl, "https://images.example.com/front.png");
+    assert.equal(def.reverseImageUrl, "https://images.example.com/back.png");
+    core.updateCustomDefinition(state, "linked-titles", {
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: "",
+      now: T3,
+    });
+    assert.equal(state.collections["linked-titles"].definition.obverseImageUrl, undefined);
+  });
+  test("unsafe links are dropped and URL edits converge on ties", () => {
+    const a = make();
+    const b = make();
+    core.updateCustomDefinition(a, "linked-titles", {
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: "javascript:alert(1)",
+      now: T2,
+    });
+    core.updateCustomDefinition(b, "linked-titles", {
+      name: "Linked titles",
+      slots: [{ label: "2026" }],
+      obverseImageUrl: "https://images.example.com/new.png",
+      now: T2,
+    });
+    assert.equal(a.collections["linked-titles"].definition.obverseImageUrl, undefined);
+    assert.deepEqual(core.mergeStates(a, b), core.mergeStates(b, a));
+    const merged = core.mergeStates(a, b);
+    assert.deepEqual(core.mergeStates(merged, merged), merged);
+  });
+});
+
+test("title upload stamps clear only their matching link and advance merge metadata", () => {
+  const state = core.createEmptyState();
+  core.createCustomCollection(state, {
+    id: "title-links",
+    name: "Linked",
+    slots: [{ label: "First" }],
+    now: T1,
+    obverseImageUrl: "https://example.com/front.png",
+    reverseImageUrl: "https://example.com/back.png",
+  });
+  const collection = state.collections["title-links"];
+  const before = collection.metaModified;
+  core.setArtwork(state, "title-links", "first", true, { now: T2 });
+  assert.equal(collection.metaModified, before);
+  assert.equal(collection.definition.obverseImageUrl, "https://example.com/front.png");
+  core.setArtwork(state, "title-links", null, true, { now: T2 });
+  assert.equal(collection.definition.obverseImageUrl, undefined);
+  assert.equal(collection.definition.reverseImageUrl, "https://example.com/back.png");
+  assert.ok(collection.metaModified > before);
+  const frontStamp = collection.metaModified;
+  core.setArtwork(state, "title-links", "title:reverse", true, { now: T2 });
+  assert.equal(collection.definition.reverseImageUrl, undefined);
+  assert.ok(collection.metaModified > frontStamp);
 });

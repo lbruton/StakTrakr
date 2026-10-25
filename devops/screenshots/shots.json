@@ -1,0 +1,151 @@
+{
+  "viewports": {
+    "desktop": { "width": 1440, "height": 900 },
+    "mobile": { "width": 390, "height": 844 }
+  },
+  "shots": [
+    {
+      "name": "01-hero-overview",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/dashboard",
+      "target": ".spot-cards-grid",
+      "clip": "viewport"
+    },
+    {
+      "name": "03-market-ticker",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/dashboard",
+      "target": "#bestPriceTickerEl",
+      "clip": "element"
+    },
+    {
+      "name": "04-vendor-prices",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/market",
+      "steps": [{ "click": ".vp-tab[data-metal=\"xag\"]" }],
+      "target": "#vendorPricesContainer",
+      "clip": "viewport"
+    },
+    {
+      "name": "03-inventory-table",
+      "set": "site",
+      "theme": "light",
+      "viewport": "desktop",
+      "route": "#/inventory",
+      "steps": [{ "click": "button[title=\"Table view\"]" }],
+      "target": "#inventoryTable",
+      "clip": "viewport"
+    },
+    {
+      "name": "06-item-view-modal",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/inventory",
+      "steps": [{ "call": "showViewModal", "args": [14] }],
+      "target": "#viewItemModal",
+      "clip": "viewport"
+    },
+    {
+      "name": "11-market-detail-modal",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/market",
+      "steps": [{ "call": "openMarketDetailModal", "args": ["ase"] }],
+      "target": "#marketDetailModal",
+      "clip": "viewport"
+    },
+    {
+      "name": "12-collections-album",
+      "set": "site",
+      "theme": "light",
+      "viewport": "desktop",
+      "route": "#/collections/ase-type1",
+      "steps": [{ "click": "button[aria-label=\"Album view\"], button[title=\"Album view\"]" }],
+      "target": ".collections-note-toggle",
+      "clip": "viewport"
+    },
+    {
+      "name": "13-collections-ledger",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/collections/ase-type1",
+      "steps": [{ "click": "button[aria-label=\"Ledger view\"], button[title=\"Ledger view\"]" }],
+      "target": "#tabViewCollections",
+      "clip": "viewport"
+    },
+    {
+      "name": "14-collection-builder",
+      "set": "site",
+      "theme": "slate",
+      "viewport": "desktop",
+      "route": "#/collections/ase-type2",
+      "steps": [{ "click": "button:has-text(\"Clone & customize\")" }],
+      "target": "#collectionsBuilderModal",
+      "clip": "viewport"
+    },
+    {
+      "name": "15-metal-detail-modal",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/dashboard",
+      "steps": [
+        { "click": ".total-title[data-metal=\"Silver\"]" },
+        { "click": "#detailsModal button:text-is(\"ALL\")" }
+      ],
+      "target": "#detailsModal",
+      "clip": "viewport"
+    },
+    {
+      "name": "16-ratios-panel",
+      "set": "site",
+      "theme": "sepia",
+      "viewport": "desktop",
+      "route": "#/dashboard",
+      "steps": [{ "click": ".spot-ratio-chip.metal-silver" }],
+      "target": ".ratios-modal-content",
+      "clip": "viewport"
+    },
+    {
+      "name": "18-mobile-dashboard",
+      "set": "site",
+      "theme": "dark",
+      "viewport": "mobile",
+      "route": "#/dashboard",
+      "target": ".spot-cards-grid",
+      "clip": "viewport"
+    },
+    {
+      "name": "image-options",
+      "set": "release",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/inventory",
+      "steps": [
+        { "call": "editItem", "args": [14] },
+        { "wait": "#itemModal" },
+        { "click": "#itemModal button[aria-label=\"Obverse image options\"]" }
+      ],
+      "target": "#itemModal",
+      "clip": "viewport"
+    },
+    {
+      "name": "chips-sepia",
+      "set": "release",
+      "theme": "sepia",
+      "viewport": "desktop",
+      "route": "#/inventory",
+      "target": "#searchSectionEl",
+      "clip": "element"
+    }
+  ]
+}

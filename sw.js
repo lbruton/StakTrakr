@@ -2,16 +2,14 @@
 // Enables offline support and installable PWA experience
 // Cache version: auto-stamped by devops/hooks/stamp-sw-cache.sh pre-commit hook
 //
-// Service-worker globals plus the symbols sw-router.js publishes via
-// importScripts. Declared here because the repo's legacy .eslintrc.json sets
-// no-undef: off while Codacy's ESLint 9 config enforces it, so these read as
-// undefined there without an explicit declaration.
+// The symbols sw-router.js publishes via importScripts. eslint.config.cjs turns
+// no-undef off for script files; the declaration keeps them explicit.
 //
 // List only what sw.js actually calls — a name declared here but never used is
 // itself a lint finding. isRootShellNavigation is deliberately absent: it is
 // exported by sw-router.js and covered by tests/unit/sw-router.test.js, but
 // sw.js calls navShellCacheKey directly (STRK-310).
-/* global self, caches, importScripts, classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, navShellCacheKey */
+/* global classifyEndpoint, parseGeneratedAtSeconds, shouldFallBackToCache, navShellCacheKey */
 
 importScripts("sw-router.js");
 
@@ -25,7 +23,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 // base the relative "./" cache keys resolve against.
 const SW_SCOPE_PATH = new URL("./", self.location.href).pathname;
 
-const CACHE_NAME = "staktrakr-v3.36.52-b1792244235";
+const CACHE_NAME = "staktrakr-v3.36.80-b1792953521";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =

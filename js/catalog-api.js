@@ -448,29 +448,29 @@ class CatalogProvider {
 
   /**
    * Lookup item by catalog ID - MUST be implemented by providers
-   * @param {string} catalogId - Catalog identifier
+   * @param {string} _catalogId - Catalog identifier
    * @returns {Promise<Object>} Standardized item data
    */
-  async lookupItem(catalogId) {
+  async lookupItem(_catalogId) {
     throw new Error("lookupItem must be implemented by provider");
   }
 
   /**
    * Search for items by query - MUST be implemented by providers
-   * @param {string} query - Search term
-   * @param {Object} filters - Search filters
+   * @param {string} _query - Search term
+   * @param {Object} _filters - Search filters
    * @returns {Promise<Array>} Array of standardized item data
    */
-  async searchItems(query, filters = {}) {
+  async searchItems(_query, _filters = {}) {
     throw new Error("searchItems must be implemented by provider");
   }
 
   /**
    * Get current market value for item - MUST be implemented by providers
-   * @param {string} catalogId - Catalog identifier
+   * @param {string} _catalogId - Catalog identifier
    * @returns {Promise<number>} Current market value in USD
    */
-  async getMarketValue(catalogId) {
+  async getMarketValue(_catalogId) {
     throw new Error("getMarketValue must be implemented by provider");
   }
 }
@@ -1134,7 +1134,7 @@ const renderCatalogHistoryTable = () => {
   let html =
     '<tr><th data-column="timestamp">Time</th><th data-column="action">Action</th><th data-column="query">Query</th><th data-column="result">Result</th><th data-column="itemCount">Items</th><th data-column="provider">Provider</th><th data-column="duration">Duration</th></tr>';
   data.forEach((e) => {
-    const resultClass = e.result === "fail" ? ' style="color: var(--danger, #e74c3c);"' : "";
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger);"' : "";
     const errorTitle = e.error ? ` title="${e.error.replace(/"/g, "&quot;")}"` : "";
     html += `<tr><td>${e.timestamp}</td><td>${e.action}</td><td>${e.query}</td><td${resultClass}${errorTitle}>${e.result}</td><td>${e.itemCount}</td><td>${e.provider || ""}</td><td>${e.duration}ms</td></tr>`;
   });
@@ -1240,7 +1240,7 @@ const renderCatalogHistoryForSettings = () => {
   }
 
   const rows = data.map((e) => {
-    const resultClass = e.result === "fail" ? ' style="color: var(--danger, #e74c3c);"' : "";
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger);"' : "";
     const errorTitle = e.error ? ` title="${String(e.error).replace(/"/g, "&quot;")}"` : "";
     return `<tr><td>${e.timestamp || ""}</td><td>${e.action || ""}</td><td>${e.query || ""}</td><td${resultClass}${errorTitle}>${e.result || ""}</td><td>${e.itemCount || 0}</td><td>${e.provider || ""}</td><td>${e.duration || 0}ms</td></tr>`;
   });
@@ -1486,7 +1486,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       try {
         if (typeof verifyPcgsCert === "function") {
-          const result = await verifyPcgsCert("00000000");
+          await verifyPcgsCert("00000000");
           // Even a "not found" response means the API is reachable
           if (pcgsStatus) pcgsStatus.textContent = "Connected — API reachable.";
           appAlert("PCGS API connection successful!");

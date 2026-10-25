@@ -22,8 +22,8 @@ historical retail pricing data for a single coin slug (for example, `ase`, `age`
 
 The modal contains two tabs:
 
-- **24h Chart** (default on open) — a Chart.js line chart of per-vendor retail prices over the past 24 hours, with a "Recent windows" data table beneath it.
-- **Price History** — a Chart.js line chart with per-vendor daily average lines plus a 30-day history table showing per-vendor average prices per day.
+- **24h Chart** (default on open): a Chart.js line chart of per-vendor retail prices over the past 24 hours. A "Recent windows" data table sits beneath it.
+- **Price History**: a Chart.js line chart with per-vendor daily average lines plus a 30-day history table showing per-vendor average prices per day.
 
 On open, the modal displays cached data from localStorage immediately, then fires async fetches to `api.staktrakr.com` to refresh both the intraday and history data. If the refresh fails entirely, a staleness warning banner is injected at the top of the modal body.
 
@@ -33,7 +33,7 @@ On open, the modal displays cached data from localStorage immediately, then fire
 
 - **Prefer `safeGetElement(id)` for ID lookups.** Direct selectors still appear in stale-banner handling, but `safeGetElement()` should be the default for all new DOM lookups in both files.
 - **Never read/write localStorage directly.** All retail data flows through `saveData()`/`loadData()` from `js/utils.js`, and specifically the retail helpers exported by `retail.js`: `saveRetailPrices`, `saveRetailIntradayData`, `saveRetailPriceHistory`, `saveRetailProviders`, `saveRetailAvailability`.
-- `_buildIntradayChart` always calls `_buildIntradayTable` at the end. Do not call both independently — the table will be built twice, with the second call re-bucketing from scratch and potentially producing stale output.
+- `_buildIntradayChart` always calls `_buildIntradayTable` at the end. Do not call both independently: the table will be built twice, with the second call re-bucketing from scratch and potentially producing stale output.
 - `_buildVendorLegend` clears its container on every call. It is called on modal open and again after the async background refresh. It must remain idempotent.
 - The two Chart.js instances (`_retailViewModalChart`, `_retailViewIntradayChart`) are module-level variables. They **must** be explicitly destroyed before reassignment. Skipping this leaks canvas rendering contexts and causes "Canvas is already in use" errors on subsequent modal opens.
 - `_forwardFillVendors` must never mutate its input array. Always shallow-copy each window object before adding `_carriedVendors`.
@@ -51,9 +51,9 @@ On open, the modal displays cached data from localStorage immediately, then fire
 - All module-level state: `retailPrices`, `retailPriceHistory`, `retailIntradayData`, `retailProviders`, `retailAvailability`, `retailLastKnownPrices`, `retailLastAvailableDates`.
 - All persistence helpers: `loadRetailPrices`, `saveRetailPrices`, `loadRetailPriceHistory`, `saveRetailPriceHistory`, `loadRetailIntradayData`, `saveRetailIntradayData`, `loadRetailProviders`, `saveRetailProviders`, `loadRetailAvailability`, `saveRetailAvailability`.
 - The full sync pipeline: `syncRetailPrices` (fetches manifest, per-slug `latest.json` + `history-30d.json`, providers.json, and writes all results to localStorage).
-- Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of STAK-521 (v3.33.96), `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path — slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape (e.g. bare `goldback-gN` denomination stubs, unmapped manifest slugs) are quarantined before any downstream plane sees them. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
+- Manifest-driven slug/metadata resolution: `getActiveRetailSlugs`, `getRetailCoinMeta`, `getVendorDisplay`. As of v3.33.96, `getActiveRetailSlugs` applies an upstream `_isSlugResolved` predicate on every return path. Slugs whose metadata falls back to the default `{name: slug, metal: "unknown"}` shape are quarantined before any downstream plane sees them. Examples include bare `goldback-gN` denomination stubs and unmapped manifest slugs. This is the single chokepoint all market consumers must trust; do not add per-consumer re-filters.
 - The sync log, sync-in-progress flags, and error state. The sync log Time column uses timezone-aware formatting via `TIMEZONE_KEY` from localStorage, matching the `_fmtIntradayTime` pattern in `retail-view-modal.js`. Falls back gracefully if the stored timezone is invalid.
-- Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, and `_invalidateMarketFilterCache` (STAK-515). `market-data.js` consumes that state when rendering the vendor comparison matrix.
+- Market filter matrix persistence and query helpers: `_loadMarketFilter`, `_saveMarketFilter`, `_isMarketItemEnabled(slug, vendorId)`, and `_invalidateMarketFilterCache`. `market-data.js` consumes that state when rendering the vendor comparison matrix.
 - The retail data cache consumed by the market matrix. Matrix rendering, metal tabs, vendor cells, and row ordering live in `js/market-data.js`, not `retail.js`.
 
 **`retail-view-modal.js`** owns:
@@ -63,7 +63,7 @@ On open, the modal displays cached data from localStorage immediately, then fire
 - The async background refresh that fires when `openRetailViewModal` is called (per-coin `latest.json` + `history-30d.json` fetch, independent of the full sync).
 - Both Chart.js instances for the modal (`_retailViewModalChart`, `_retailViewIntradayChart`).
 
-`retail-view-modal.js` reads from globals defined in `retail.js` but never imports them — they are shared through the global scope (`window`). Script load order in `index.html` guarantees `retail.js` is evaluated before `retail-view-modal.js`.
+`retail-view-modal.js` reads from globals defined in `retail.js` but never imports them: they are shared through the global scope (`window`). Script load order in `index.html` guarantees `retail.js` is evaluated before `retail-view-modal.js`.
 
 ### Vendor Roster
 
@@ -84,9 +84,9 @@ Declared in `retail.js`. All three maps must be updated together when adding a n
 
 ### Module-Level State (retail.js)
 
-| Variable             | Type             | Purpose                                                                                                                   |
-| -------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `_marketFilterCache` | `object \| null` | In-memory cache of the market filter matrix from localStorage (STAK-515). Invalidated by `_invalidateMarketFilterCache()` |
+| Variable             | Type             | Purpose                                                                                                        |
+| -------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `_marketFilterCache` | `object \| null` | In-memory cache of the market filter matrix from localStorage. Invalidated by `_invalidateMarketFilterCache()` |
 
 ### Module-Level State (retail-view-modal.js)
 
@@ -96,35 +96,35 @@ Declared in `retail.js`. All three maps must be updated together when adding a n
 | `_retailViewIntradayChart` | `Chart \| null` | 24h intraday Chart.js instance                                                  |
 | `_intradayRowCount`        | `number`        | Number of rows in the Recent windows table (default 24, controlled by dropdown) |
 
-### Globals Consumed from `chart-utils.js` (STAK-484)
+### Globals Consumed from `chart-utils.js`
 
-| Global                  | Purpose                                                                                                                                                        |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `replaceChart`          | Safely destroys an existing Chart.js instance before creating a replacement (avoids "Canvas is already in use" errors)                                         |
-| `buildVendorDatasets`   | Creates per-vendor Chart.js datasets with standard color/style configuration                                                                                   |
-| `chartPriceTooltip`     | Shared tooltip callback for dollar-formatted chart values                                                                                                      |
-| `chartDollarTicks`      | Y-axis tick formatter for dollar values                                                                                                                        |
-| `createTimeSeriesChart` | Factory for time-series line charts with standard options                                                                                                      |
-| `createSparkline`       | Lightweight mini chart builder for inline trend sparklines (defined in `chart-utils.js`; no longer called by `retail.js` after STAK-473 removed the grid view) |
+| Global                  | Purpose                                                                                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `replaceChart`          | Safely destroys an existing Chart.js instance before creating a replacement (avoids "Canvas is already in use" errors)                              |
+| `buildVendorDatasets`   | Creates per-vendor Chart.js datasets with standard color/style configuration                                                                        |
+| `chartPriceTooltip`     | Shared tooltip callback for dollar-formatted chart values                                                                                           |
+| `chartDollarTicks`      | Y-axis tick formatter for dollar values                                                                                                             |
+| `createTimeSeriesChart` | Factory for time-series line charts with standard options                                                                                           |
+| `createSparkline`       | Lightweight mini chart builder for inline trend sparklines (defined in `chart-utils.js`; not called by `retail.js` after the grid view was removed) |
 
-These helpers were extracted from duplicated patterns across `retail.js`, `retail-view-modal.js`, and `spot.js` in STAK-484 (v3.33.71). Both `retail.js` and `retail-view-modal.js` consume them via `window` globals. Script load order in `index.html` places `chart-utils.js` before both retail files.
+These helpers were extracted from duplicated patterns across `retail.js`, `retail-view-modal.js`, and `spot.js` in v3.33.71. Both `retail.js` and `retail-view-modal.js` consume them via `window` globals. Script load order in `index.html` places `chart-utils.js` before both retail files.
 
 ### Globals Consumed from `retail.js`
 
-| Global                     | Purpose                                                                                                         |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `retailPrices`             | Current price snapshot: `{ prices: { [slug]: { vendors, median_price, lowest_price } } }`                       |
-| `retailIntradayData`       | Per-slug 24h window data: `{ [slug]: { window_start, windows_24h: Array } }`                                    |
-| `retailPriceHistory`       | Per-slug daily history array: `{ [slug]: Array }`                                                               |
-| `retailProviders`          | Per-slug per-vendor deep-link URLs (overrides `RETAIL_VENDOR_URLS` when present)                                |
-| `retailAvailability`       | Per-slug per-vendor OOS flags: `{ [slug]: { [vendorId]: false } }`                                              |
-| `retailLastKnownPrices`    | Last-seen price per vendor per slug — used by market list OOS rendering in `retail.js`, not by the modal legend |
-| `retailLastAvailableDates` | ISO date of last availability per vendor per slug — used by market list OOS metadata in `retail.js`             |
-| `RETAIL_VENDOR_NAMES`      | `{ [vendorId]: displayName }` — canonical vendor list and display order                                         |
-| `RETAIL_VENDOR_COLORS`     | `{ [vendorId]: hexColor }` — brand colors for chart lines and legend swatches                                   |
-| `RETAIL_VENDOR_URLS`       | `{ [vendorId]: url }` — fallback homepage URLs                                                                  |
-| `RETAIL_COIN_META`         | `{ [slug]: { name, weight, metal } }` — metadata for each tracked product                                       |
-| `_lastSuccessfulApiBase`   | Last API base URL that returned a valid manifest — used for per-coin background refreshes                       |
+| Global                     | Purpose                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `retailPrices`             | Current price snapshot: `{ prices: { [slug]: { vendors, median_price, lowest_price } } }`                      |
+| `retailIntradayData`       | Per-slug 24h window data: `{ [slug]: { window_start, windows_24h: Array } }`                                   |
+| `retailPriceHistory`       | Per-slug daily history array: `{ [slug]: Array }`                                                              |
+| `retailProviders`          | Per-slug per-vendor deep-link URLs (overrides `RETAIL_VENDOR_URLS` when present)                               |
+| `retailAvailability`       | Per-slug per-vendor OOS flags: `{ [slug]: { [vendorId]: false } }`                                             |
+| `retailLastKnownPrices`    | Last-seen price per vendor per slug: used by market list OOS rendering in `retail.js`, not by the modal legend |
+| `retailLastAvailableDates` | ISO date of last availability per vendor per slug: used by market list OOS metadata in `retail.js`             |
+| `RETAIL_VENDOR_NAMES`      | `{ [vendorId]: displayName }`: canonical vendor list and display order                                         |
+| `RETAIL_VENDOR_COLORS`     | `{ [vendorId]: themeToken }`: maps vendors to `--vendor-*` tokens for DOM labels and canvas chart lines        |
+| `RETAIL_VENDOR_URLS`       | `{ [vendorId]: url }`: fallback homepage URLs                                                                  |
+| `RETAIL_COIN_META`         | `{ [slug]: { name, weight, metal } }`: metadata for each tracked product                                       |
+| `_lastSuccessfulApiBase`   | Last API base URL that returned a valid manifest: used for per-coin background refreshes                       |
 
 ---
 
@@ -218,14 +218,14 @@ _pickFreshestEndpoint()        -> tries each RETAIL_API_ENDPOINTS in order, pick
 
 ## Key Functions
 
-### `_processSlugResult(slug, latest, hist30)` — live-price patching (STAK-483)
+### `_processSlugResult(slug, latest, hist30)` — live-price patching
 
 Internal function in `retail.js`. Called by `syncRetailPrices` after each per-slug fetch resolves.
 
 **Responsibilities:**
 
 1. Normalizes `latest.json` fields into the internal result shape: `price`, `intraday`, `availabilityBySite`, `lastKnownPriceBySite`, `lastAvailableDateBySite`.
-2. **Live-price patch (STAK-483):** When both `latest.json` and `history-30d.json` are available, locates today's date entry in `hist30` (matched via `latest.window_start.slice(0, 10)`) and overwrites it with current vendor prices from `latest.vendors`. This ensures the Price History tab chart and trend badge reflect the same prices shown on the market card instead of lagging behind a daily average.
+2. **Live-price patch:** When both `latest.json` and `history-30d.json` are available, locates today's date entry in `hist30` (matched via `latest.window_start.slice(0, 10)`) and overwrites it with current vendor prices from `latest.vendors`. This ensures the Price History tab chart and trend badge reflect the same prices shown on the market card. This avoids lagging behind a daily average.
 
 **Patch logic detail:**
 
@@ -248,7 +248,7 @@ if (todayEntry) {
 
 The patch mutates `todayEntry` in-place within `result.history30` before that array is written to `retailPriceHistory[slug]`. If no today-matching entry exists in `hist30`, the patch is skipped silently.
 
-**Scope:** Full sync path only. The modal's background refresh in `retail-view-modal.js` does not call `_processSlugResult` — it writes `retailPriceHistory[slug]` directly from the raw `history-30d.json` array. See the Data Flow note in the Full Sync Flow section.
+**Scope:** Full sync path only. The modal's background refresh in `retail-view-modal.js` does not call `_processSlugResult`: it writes `retailPriceHistory[slug]` directly from the raw `history-30d.json` array. See the Data Flow note in the Full Sync Flow section.
 
 ---
 
@@ -262,7 +262,7 @@ Entry point. Called from card click handlers.
 2. Populates `#retailViewCoinName` (title) and `#retailViewModalSubtitle` (weight and metal).
 3. Removes any stale `.retail-stale-data-warning` banner from a previous open.
 4. Calls `_buildVendorLegend(slug)`.
-5. Builds the 30-day history table from `getRetailHistoryForSlug(slug)` — 7 columns: date, avg_median, avg_low, apmex, monument, sdb, jm.
+5. Builds the 30-day history table from `getRetailHistoryForSlug(slug)`: 7 columns: date, avg_median, avg_low, apmex, monument, sdb, jm.
 6. Destroys `_retailViewModalChart` if it exists, then builds the daily history Chart.js chart (per-vendor lines from `.avg` fields; gaps rendered as breaks via `spanGaps: false` for OOS entries).
 7. Calls `_buildIntradayChart(slug)` (which internally calls `_buildIntradayTable`).
 8. Wires the row-count `<select>` dropdown (`#retailViewIntradayRowCount`) to rebuild the table on change.
@@ -292,7 +292,7 @@ Renders the colored vendor legend (swatch + clickable name + current price) into
 - Per-vendor row guard: only vendors with a non-null current `price` render a legend row.
 - OOS vendors: out-of-stock vendors with `price == null` are omitted from the legend entirely (`_buildVendorLegend` returns early at the `if (price == null) return` guard on line 94).
 
-### `_trimTo24h(windows)` (STAK-498)
+### `_trimTo24h(windows)`
 
 Filters the raw `windows_24h` array to only include entries within the last 24 hours, relative to the **newest timestamp in the data** (not `Date.now()`). This prevents the chart from displaying multi-day spans when the API returns more than 24h of data.
 
@@ -314,11 +314,11 @@ Groups raw 15-min API windows into 60-min (hourly) aligned slots.
 
 ### `_forwardFillVendors(bucketed)`
 
-Fills vendor price gaps so the chart never shows a false "vendor dropped out" dip when a vendor simply had no poll for a slot.
+Fills vendor price gaps so the chart never shows a false "vendor dropped out" dip when a vendor had no poll for a slot.
 
-- Pure function — never mutates input objects.
+- Pure function: never mutates input objects.
 - Iterates windows chronologically, maintaining `lastSeen[vendorId]` across the array.
-- For each vendor in `RETAIL_VENDOR_NAMES`: if the current window has no price but `lastSeen` has one, the carry-forward value is copied in and the vendor ID is added to the window's `_carriedVendors: Set`.
+- For each vendor in `RETAIL_VENDOR_NAMES`: if the current window has no price but `lastSeen` has one, the carry-forward value is copied in. In that case, the vendor ID is added to the window's `_carriedVendors: Set`.
 - Returns `[]` on empty input.
 - Only vendors in `RETAIL_VENDOR_NAMES` are eligible for forward-fill. A vendor that never appeared in any window is never filled (no `lastSeen` entry).
 
@@ -326,9 +326,9 @@ Fills vendor price gaps so the chart never shows a false "vendor dropped out" di
 
 Two-pass anomaly filter that nulls scraper spike prices before charting. Preserves original values in `_anomalyOriginals` for table display.
 
-**Pass 1 — Temporal spike detection (primary):** For each vendor at window `t`, if neighbors at `t-1` and `t+1` are stable (within `RETAIL_SPIKE_NEIGHBOR_TOLERANCE`, default 5%) but the price at `t` deviates beyond that tolerance from the neighbor average, the price is replaced with `null` and the original is saved in `_anomalyOriginals`. Boundary windows (`t=0`, `t=last`) are skipped — Pass 2 provides coverage there.
+**Pass 1: Temporal spike detection (primary):** For each vendor at window `t`, consider neighbors at `t-1` and `t+1`. Stable neighbors are within `RETAIL_SPIKE_NEIGHBOR_TOLERANCE`, default 5%. If they are stable but the price at `t` deviates beyond that tolerance from their average, replace the price with `null`. When replacing it, save the original in `_anomalyOriginals`. Boundary windows (`t=0`, `t=last`) are skipped: Pass 2 provides coverage there.
 
-**Pass 2 — Cross-vendor median consensus (safety net):** For each window with 3+ vendors, any vendor deviating more than `RETAIL_ANOMALY_THRESHOLD` (default 40%) from the median is nulled. Guard: if all vendors would be flagged, none are (prevents false consensus collapse).
+**Pass 2: Cross-vendor median consensus (safety net):** For each window with 3+ vendors, any vendor deviating more than `RETAIL_ANOMALY_THRESHOLD` (default 40%) from the median is nulled. Guard: if all vendors would be flagged, none are (prevents false consensus collapse).
 
 > **Note:** `_flagAnomalies` is the intraday-only pipeline. Daily history is rendered from the API aggregates; there is no separate client-side trend-card correction pipeline.
 
@@ -342,10 +342,10 @@ Renders the Chart.js 24h intraday line chart into `#retailViewIntradayChart`.
 2. Runs `_trimTo24h` → `_bucketWindows` → `_forwardFillVendors` → `_flagAnomalies`.
 3. Shows `#retailViewIntradayNoData` placeholder if fewer than 2 windows survive.
 4. Destroys any existing `_retailViewIntradayChart` before creating a new one.
-5. Filters `activeVendors` to `qualifiedVendors` — excludes vendors with zero real (non-carried) prices across all bucketed windows (STAK-498). Fully-OOS vendors do not appear as chart lines.
-6. Builds one dataset per qualified vendor, using `RETAIL_VENDOR_NAMES` for order and `RETAIL_VENDOR_COLORS` for line colors.
+5. Filters `activeVendors` to `qualifiedVendors`: excludes vendors with zero real (non-carried) prices across all bucketed windows. Fully-OOS vendors do not appear as chart lines.
+6. Builds one dataset per qualified vendor, using `RETAIL_VENDOR_NAMES` for order and `getRetailVendorColorRGB()` to resolve the theme token for line colors.
 7. Falls back to Median + Low aggregate datasets when no per-vendor data exists (pre-vendor-format windows).
-8. Attaches `_carriedIndices: Set<number>` to each dataset — uses **multi-hop carry logic** (STAK-498): only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
+8. Attaches `_carriedIndices: Set<number>` to each dataset: uses **multi-hop carry logic**. Only indices where the previous window also carried that vendor (2+ consecutive hours missing) are marked as carried. Single-hop carries (previous window had real data) render solid.
 9. Tooltip callback: returns nothing if `ctx.raw == null`; prefixes with `~` for carried values.
 10. Chart options: `spanGaps: true`; legend hidden in vendor mode; X-axis HH:00 labels rendered at full opacity, HH:30 at reduced opacity and smaller font.
 11. Calls `_buildIntradayTable(slug, bucketed)` at the end.
@@ -376,7 +376,7 @@ Trend glyphs compare each row to the row immediately below it (the next-older wi
 
 ### Current Prices (Vendor Legend)
 
-Sourced from `retailPrices.prices[slug].vendors[vendorId].price` — the latest single-poll snapshot stored during the most recent full sync or background refresh.
+Sourced from `retailPrices.prices[slug].vendors[vendorId].price`: the latest single-poll snapshot stored during the most recent full sync or background refresh.
 
 - In-stock: `$XX.XX`
 - OOS-only vendors with `price == null` are not rendered in the modal legend.
@@ -384,7 +384,7 @@ Sourced from `retailPrices.prices[slug].vendors[vendorId].price` — the latest 
 
 ### Historical (Price History Tab)
 
-Sourced from `retailPriceHistory[slug]` — daily averages computed by the API from polling windows throughout the day.
+Sourced from `retailPriceHistory[slug]`: daily averages computed by the API from polling windows throughout the day.
 
 Each history entry shape: `{ date, avg_median, avg_low, vendors: { [vendorId]: { avg, inStock } } }`.
 
@@ -394,9 +394,9 @@ OOS entries (`inStock === false`) produce `null` in the chart dataset, rendering
 
 Trend glyphs in the intraday table compare each time-slot to the prior slot. Color classes:
 
-- `text-success` (green) — price increased.
-- `text-danger` (red) — price decreased.
-- No class (neutral) — price unchanged.
+- `text-success` (green): price increased.
+- `text-danger` (red): price decreased.
+- No class (neutral): price unchanged.
 
 Carried (forward-filled) values never show a trend glyph because the movement is artificially flat.
 
@@ -406,13 +406,13 @@ Carried (forward-filled) values never show a trend glyph because the movement is
 
 Vendor URL resolution priority (checked in order):
 
-1. `retailProviders[slug][vendorId]` — deep-link URL to the specific product page, populated from `providers.json`.
-2. `RETAIL_VENDOR_URLS[vendorId]` — fallback homepage URL hardcoded in `retail.js`.
-3. No URL — vendor element rendered as `<span>` instead of `<a>`.
+1. `retailProviders[slug][vendorId]`: deep-link URL to the specific product page, populated from `providers.json`.
+2. `RETAIL_VENDOR_URLS[vendorId]`: fallback homepage URL hardcoded in `retail.js`.
+3. No URL: vendor element rendered as `<span>` instead of `<a>`.
 
 Vendor popup behavior: `window.open(url, 'retail_vendor_{vendorId}', 'width=1250,height=800,...')`. If the popup is blocked, falls back to `window.open(url, '_blank')`.
 
-Vendor color is always sourced from `RETAIL_VENDOR_COLORS[vendorId]` in `retail.js`. Colors were brightened in v3.33.06 for better contrast on dark backgrounds.
+Vendor colors are selected by `RETAIL_VENDOR_COLORS[vendorId]` in `retail.js`, then resolved from the active `--vendor-*` token in `css/styles.css`. Light and sepia use darker hues; dark and slate retain the bright palette. Vendor label colors meet at least 4.5:1 contrast on their rendered surfaces across all four themes. Unknown vendors use `--text-muted`.
 
 ---
 
@@ -420,7 +420,7 @@ Vendor color is always sourced from `RETAIL_VENDOR_COLORS[vendorId]` in `retail.
 
 ### Opening
 
-`openRetailViewModal(slug)` is exported to `window` and called from retail card click handlers in `retail.js`. It reads `RETAIL_COIN_META[slug]` — if the slug is not present in that map, the function returns early without opening the modal.
+`openRetailViewModal(slug)` is exported to `window` and called from retail card click handlers in `retail.js`. It reads `RETAIL_COIN_META[slug]`: if the slug is not present in that map, the function returns early without opening the modal.
 
 The modal uses `openModalById("retailViewModal")` from the shared modal system (`js/dialogs.js`).
 
@@ -440,7 +440,7 @@ The modal uses `openModalById("retailViewModal")` from the shared modal system (
 
 **On Sync button click:** `syncRetailPrices({ ui: true })` runs the full sync pipeline for all slugs.
 
-**On modal open:** `openRetailViewModal` fires a targeted `Promise.all` for just the opened slug's `latest.json` and `history-30d.json`. This is intentionally narrow — it gives the modal fresh per-vendor intraday data even when the full sync has not run recently. On success, it re-renders the intraday chart and vendor legend in-place without closing the modal. The history tab is **not** rebuilt until the modal is reopened — only the intraday chart and vendor legend are refreshed during the background update.
+**On modal open:** `openRetailViewModal` fires a targeted `Promise.all` for just the opened slug's `latest.json` and `history-30d.json`. This is intentionally narrow: it gives the modal fresh per-vendor intraday data even when the full sync has not run recently. On success, it re-renders the intraday chart and vendor legend in-place without closing the modal. The history tab is **not** rebuilt until the modal is reopened: only the intraday chart and vendor legend are refreshed during the background update.
 
 **Intraday data cap:** `saveRetailIntradayData` prunes each slug's `windows_24h` to the last 96 entries before writing to localStorage (24 hours of hourly data).
 
@@ -462,7 +462,7 @@ window.retailTrimTo24h; // exported for console/smoke-test inspection (STAK-498)
 window._buildIntradayTable; // called by row-count dropdown onchange
 ```
 
-`_buildIntradayChart` and `_buildVendorLegend` are module-private — not exported to `window`.
+`_buildIntradayChart` and `_buildVendorLegend` are module-private: not exported to `window`.
 
 ---
 
@@ -470,11 +470,11 @@ window._buildIntradayTable; // called by row-count dropdown onchange
 
 ### Calling `_buildIntradayChart` and `_buildIntradayTable` independently
 
-`_buildIntradayChart` always calls `_buildIntradayTable` at the end with the same `bucketed` array. Calling both independently builds the table twice — the second call re-buckets from `retailIntradayData` and may show stale data if the background refresh updated the cached object between calls.
+`_buildIntradayChart` always calls `_buildIntradayTable` at the end with the same `bucketed` array. Calling both independently builds the table twice. The second call re-buckets from `retailIntradayData` and may show stale data if the background refresh updated the cached object between calls.
 
 ### Missing the null guard in Chart.js tooltip callbacks
 
-Chart.js passes `ctx.raw = null` for gap points when `spanGaps: true`. Calling `Number(null).toFixed(2)` returns `"0.00"` — no error, but silently wrong. Always guard: `if (ctx.raw == null) return;`.
+Chart.js passes `ctx.raw = null` for gap points when `spanGaps: true`. Calling `Number(null).toFixed(2)` returns `"0.00"`: no error, but silently wrong. Always guard: `if (ctx.raw == null) return;`.
 
 ### Mutating the `bucketed` input in `_forwardFillVendors`
 
@@ -482,7 +482,7 @@ Chart.js passes `ctx.raw = null` for gap points when `spanGaps: true`. Calling `
 
 ### Adding a vendor without updating all three vendor maps
 
-`RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_COLORS`, and `RETAIL_VENDOR_URLS` in `retail.js` must all be updated together. A vendor missing from `RETAIL_VENDOR_NAMES` will never appear in the chart, table, or legend regardless of the other two maps — `RETAIL_VENDOR_NAMES` keys drive the iteration order everywhere.
+`RETAIL_VENDOR_NAMES`, `RETAIL_VENDOR_COLORS`, and `RETAIL_VENDOR_URLS` in `retail.js` must all be updated together. A vendor missing from `RETAIL_VENDOR_NAMES` will never appear in the chart, table, or legend regardless of the other two maps: `RETAIL_VENDOR_NAMES` keys drive the iteration order everywhere.
 
 ### Not destroying Chart.js instances before reassignment
 
@@ -496,7 +496,7 @@ Both `_retailViewModalChart` and `_retailViewIntradayChart` must be explicitly d
 
 `openRetailViewModal` reads `RETAIL_COIN_META[slug]` and returns early if not found. Dynamic slugs (Goldbacks, manifest-added coins) are resolved via `getRetailCoinMeta(slug)` in `retail.js`, but the modal uses the raw `RETAIL_COIN_META` constant directly. If a new slug from the manifest is not in that constant and has no Goldback pattern match, the modal will silently refuse to open.
 
-As of v3.33.57, `RETAIL_COIN_META` includes 15 hardcoded entries covering all standard coins plus the three Australian silver coins (Kangaroo, Koala, Kookaburra). The manifest's `coins_meta` field provides runtime metadata but is not persisted to localStorage — on page reload before the manifest re-fetches, only the hardcoded entries are available.
+As of v3.33.57, `RETAIL_COIN_META` includes 15 hardcoded entries covering all standard coins plus the three Australian silver coins (Kangaroo, Koala, Kookaburra). The manifest's `coins_meta` field provides runtime metadata but is not persisted to localStorage: on page reload before the manifest re-fetches, only the hardcoded entries are available.
 
 ---
 

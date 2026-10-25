@@ -55,7 +55,7 @@ async function gotoApp(page) {
       typeof window.catalogConfig !== "undefined"
   );
   // STRK-294: wait for the listener-readiness flag instead of sleeping. Phase 14
-  // of init.js attaches every listener inside a `setTimeout(…, 200)`, so the
+  // of init.js attaches every listener inside a deferred `setTimeout`, so the
   // waitForFunction above goes true well before the UI is actually interactive.
   // This replaced a bare `waitForTimeout(300)` — a 100ms margin over that timer,
   // which is thin enough to flake on a loaded CI runner and would fail in a way
@@ -238,7 +238,7 @@ async function gotoDashboard(page) {
   await page.waitForFunction(() => window.appListenersReady === true);
 }
 
-test.describe("core/settings STRK-306 copper dashboard cards", () => {
+test.describe("core/settings copper dashboard cards", () => {
   test("copper is hidden by default and the four/five-card layouts are untouched", async ({
     page,
   }) => {
@@ -286,7 +286,7 @@ test.describe("core/settings STRK-306 copper dashboard cards", () => {
     await expect(firstVisibleTitle).toHaveText("All Metals");
   });
 
-  test("the Ag:Cu ratio chip follows copper's Metal Order opt-in (STRK-341)", async ({ page }) => {
+  test("the Ag:Cu ratio chip follows copper's Metal Order opt-in", async ({ page }) => {
     await gotoDashboard(page);
 
     // Copper disabled (default): the chip renders into the copper card, which

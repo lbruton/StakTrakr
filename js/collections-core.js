@@ -331,6 +331,33 @@
   };
 
   /**
+   * Canonical HTTP(S) image link, shared with Item image options. Empty/unsafe values
+   * stay absent from definitions so legacy states do not acquire new hash content.
+   * @param {*} value - Candidate image address
+   * @returns {string} Normalized link, or an empty string
+   */
+  const normalizeImageUrl = (value) => {
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (!/^https?:\/\/.+\..+/i.test(trimmed)) return "";
+    try {
+      const parsed = new URL(trimmed);
+      return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
+    } catch {
+      return "";
+    }
+  };
+
+  /** Sparse title links; omission preserves older definitions byte-for-byte. */
+  const titleImageFields = (source) => {
+    const fields = Object.create(null);
+    for (const key of ["obverseImageUrl", "reverseImageUrl"]) {
+      const url = normalizeImageUrl(source[key]);
+      if (url) fields[key] = url;
+    }
+    return fields;
+  };
+
+  /**
    * Normalizes a custom collection definition and drops fields outside its schema.
    * @param {*} raw - Persisted definition
    * @returns {Object} Clean definition
@@ -374,6 +401,7 @@
       ...(Number.isFinite(purity) && purity > 0 && purity <= 1 ? { purity } : {}),
       specs: normalizeSpecs(source.specs),
       imageShape: shape,
+      ...titleImageFields(source),
       ...orientationField(obverseOrientation),
       ...reverseOrientationField(obverseOrientation, source.reverseImageOrientation),
       about: text(legacyAbout),
@@ -444,7 +472,18 @@
       modified,
       digest: present && isId(opts && opts.digest) ? opts.digest : "",
     };
-    collection.lastModified = laterOf(collection.lastModified, modified);
+    // Commit a title upload and its link replacement in the same state transaction.
+    // A failed persistence write then rolls both back, retaining the prior live URL.
+    const titleUrlKey =
+      slotId == null ? "obverseImageUrl" : slotId === "title:reverse" ? "reverseImageUrl" : null;
+    if (present === true && titleUrlKey && collection.definition?.[titleUrlKey]) {
+      delete collection.definition[titleUrlKey];
+      collection.metaModified = nextStamp(collection.metaModified, modified);
+    }
+    collection.lastModified = laterOf(
+      laterOf(collection.lastModified, modified),
+      collection.metaModified
+    );
     return { ok: true, changed: true };
   };
 
@@ -687,6 +726,7 @@
           : {}),
         specs: normalizeSpecs(spec.specs),
         imageShape: shape,
+        ...titleImageFields(spec),
         ...orientationField(newImageOrientation(shape, spec.imageOrientation)),
         ...reverseOrientationField(
           newImageOrientation(shape, spec.imageOrientation),
@@ -810,6 +850,12 @@
           : {}),
       specs: spec.specs == null ? normalizeSpecs(previous.specs) : normalizeSpecs(spec.specs),
       imageShape: shape,
+      ...titleImageFields({
+        obverseImageUrl:
+          spec.obverseImageUrl === undefined ? previous.obverseImageUrl : spec.obverseImageUrl,
+        reverseImageUrl:
+          spec.reverseImageUrl === undefined ? previous.reverseImageUrl : spec.reverseImageUrl,
+      }),
       ...orientationField(orientation),
       ...reverseOrientationField(orientation, submittedReverse),
       about:
@@ -1332,6 +1378,7 @@
   // ---------------------------------------------------------------------------
   window.collectionsCore = Object.freeze({
     SCHEMA_VERSION,
+    normalizeImageUrl,
     MAX_SLOT_SPARES,
     createEmptyState,
     normalizeState,

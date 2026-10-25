@@ -225,11 +225,16 @@ async function chartSnapshot(page) {
 }
 
 function expectVisibleDatasetsWithinScale(snapshot) {
+  // One assertion per dataset: an expect() per point costs seconds on the "All" range.
+  // NaN fails every comparison, so finiteness is checked explicitly on both sides.
+  expect(Number.isFinite(snapshot.yMin) && Number.isFinite(snapshot.yMax)).toBe(true);
   for (const dataset of snapshot.datasets.filter((candidate) => candidate.visible)) {
-    for (const value of dataset.data) {
-      expect(value).toBeGreaterThanOrEqual(snapshot.yMin);
-      expect(value).toBeLessThanOrEqual(snapshot.yMax);
-    }
+    const outside = dataset.data.filter(
+      (value) => !Number.isFinite(value) || value < snapshot.yMin || value > snapshot.yMax
+    );
+    expect(outside, `${dataset.label} values outside [${snapshot.yMin}, ${snapshot.yMax}]`).toEqual(
+      []
+    );
   }
 }
 

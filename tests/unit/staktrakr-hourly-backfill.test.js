@@ -52,8 +52,8 @@ const covered = (metal) => [row(metal, 2), row(metal, 150)];
 const LEGACY_FOUR = ["Gold", "Silver", "Platinum", "Palladium"];
 const ALL_METALS = Object.values(METALS).map((m) => m.name);
 
-describe("STRK-343 — _staktrakrBackfillHoursBack requires per-metal recency AND depth", () => {
-  test("legacy four covered but copper absent → 7-day window (the STRK-343 bug case)", () => {
+describe("_staktrakrBackfillHoursBack requires per-metal recency AND depth", () => {
+  test("legacy four covered but copper absent → 7-day window (the bug case)", () => {
     const history = LEGACY_FOUR.flatMap(covered);
     assert.equal(hoursBackFor(history, NOW), 7 * 24);
   });

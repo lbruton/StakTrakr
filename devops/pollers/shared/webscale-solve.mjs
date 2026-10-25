@@ -2,8 +2,9 @@
 /**
  * Interactive Webscale re-solve helper (STRK-230).
  *
- * The weekly ritual: JM Bullion / Provident sit behind Webscale Protection Mode
- * (Google reCAPTCHA v2 on product pages). The bypass is a cloned ~7-day `wspc`
+ * The weekly ritual: Provident sits behind Webscale Protection Mode (Google
+ * reCAPTCHA v2 on product pages). JM Bullion no longer needs it — it is priced
+ * from FindBullionPrices (STRK-471). The bypass is a cloned ~7-day `wspc`
  * cookie. This helper opens a real browser so you can solve the captcha once per
  * site, then captures the cleared `wspc` AND the exact user-agent and prints
  * lines you paste straight into the home poller's Portainer env (then recreate
@@ -14,7 +15,7 @@
  *
  *   node devops/pollers/shared/webscale-solve.mjs
  *   node devops/pollers/shared/webscale-solve.mjs --write   # also write the file store
- *   node devops/pollers/shared/webscale-solve.mjs https://www.jmbullion.com/  # custom start URLs
+ *   node devops/pollers/shared/webscale-solve.mjs https://www.providentmetals.com/  # custom start URLs
  */
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -30,7 +31,6 @@ import {
 // page in the window to trigger (and solve) the challenge; the cleared wspc is
 // site-wide, so the exact product does not matter.
 const DEFAULT_TARGETS = [
-  { host: "www.jmbullion.com", start: "https://www.jmbullion.com/1-oz-american-gold-eagle/" },
   { host: "www.providentmetals.com", start: "https://www.providentmetals.com/" },
 ];
 

@@ -4,6 +4,7 @@
 // NOTE: Uses v4 API (chart.addLineSeries) — NOT v5 (chart.addSeries(LineSeries)).
 
 const _marketChartContainers = new WeakMap();
+const _marketVendorCharts = new Set();
 
 const getChartThemeColors = () => {
   const get = (token) =>
@@ -196,12 +197,16 @@ const _createVendorRangeChart = (
   try {
     chart = LightweightCharts.createChart(container, _chartConfig(colors, timeVisible, context));
     _marketChartContainers.set(chart, container);
+    chart._retailVendorSeries = [];
+    _marketVendorCharts.add(chart);
 
     for (const vendorSeries of validSeries) {
       const vendorId = vendorSeries.vendorId;
-      const vMeta = vendorMeta && vendorMeta[vendorId];
       const series = chart.addLineSeries({
-        color: (vMeta && vMeta.color) || colors.textMuted,
+        color:
+          typeof getRetailVendorColorRGB === "function"
+            ? getRetailVendorColorRGB(vendorId)
+            : colors.textMuted,
         lineWidth: 2,
         crosshairMarkerVisible: true,
         priceLineVisible: false,
@@ -214,6 +219,7 @@ const _createVendorRangeChart = (
           value: point.usdPrice * context.rate,
         }))
       );
+      chart._retailVendorSeries.push({ vendorId, series });
     }
 
     _fitAfterLayout(chart);
@@ -273,8 +279,18 @@ const destroyCoinChart = (chart) => {
     debugLog("[market-charts] Vendor chart removal error: " + e.message, "warn");
   } finally {
     _clearMarketChartContainer(container);
+    _marketVendorCharts.delete(chart);
     if (isChartObject) _marketChartContainers.delete(chart);
   }
+};
+
+/** Re-resolves Vendor line colors in every open Market chart after a theme change. */
+const refreshMarketVendorChartsTheme = () => {
+  _marketVendorCharts.forEach((chart) => {
+    (chart._retailVendorSeries || []).forEach(({ vendorId, series }) => {
+      series.applyOptions({ color: getRetailVendorColorRGB(vendorId) });
+    });
+  });
 };
 
 if (typeof window !== "undefined") {
@@ -282,4 +298,5 @@ if (typeof window !== "undefined") {
   window.createVendorIntradayChart = createVendorIntradayChart;
   window.createVendorHistoryChart = createVendorHistoryChart;
   window.destroyCoinChart = destroyCoinChart;
+  window._refreshMarketVendorChartsTheme = refreshMarketVendorChartsTheme;
 }

@@ -46,6 +46,7 @@ _TDD red phase. Write tests that encode the acceptance criteria BEFORE implement
 - [ ] **B.1** — Write failing tests for _feature_
   - **File(s):** `tests/feature.test.ts` (new)
   - **Acceptance:** Each testable AC from requirements.md has at least one test. All new tests fail (red) because the implementation does not exist yet.
+  - **Extend before add:** For each AC, search the project's suites for a test of the same behavior first. Extend that test with the new assertion; add a new test only when no existing test fits. List each extended test here.
   - **Depends on:** A.1, A.2 (if tests import scaffolding from Cohort A)
   - **Maps to:** All AC
 
@@ -88,11 +89,16 @@ _TDD green phase. Write the minimum code that makes all Cohort B tests pass. Tas
   - Run the project's complete test command. All existing tests pass; all new tests from Cohort B pass (green after Cohort C implementation).
   - If anything fails: fix the implementation, not the test. Tests are the spec — a failing test means the implementation is wrong, not the test.
 
-- [ ] **CLOSE-2. Codacy CLI scan** — security + quality
+- [ ] **CLOSE-2. Fold new tests** — net test-count delta
+  - **File:** test files only — no behavior change
+  - For each test this spec added, fold it into an existing test of its domain suite. Keep it separate only when it covers code no other test covers, or asserts something no other test asserts; write that reason here.
+  - Record the net delta against the count before the spec: `+N -M tests, +X -Y files`. Rerun the affected tests after folding.
+
+- [ ] **CLOSE-3. Codacy CLI scan** — security + quality
   - **File:** _no file changes — scan only_
   - Run `codacy-analysis-cli` skill against changed files (`codacy-analysis analyze --diff`). Triage: Critical/High must fix, Medium fix-or-document, Low/Info advisory.
 
-- [ ] **CLOSE-3. Generate verification stamp**
+- [ ] **CLOSE-4. Generate verification stamp**
   - **File:** Append to bottom of `tasks.md` (this file) under heading `## Verification Stamp`.
   - For EACH acceptance criterion in `requirements.md` (AC-1, AC-2, …), write exactly one line in one of these formats:
     - `- [x] AC-N — verified at <relative/file/path>:<line>` (cite the test or implementation line that proves it), OR
@@ -105,31 +111,31 @@ _TDD green phase. Write the minimum code that makes all Cohort B tests pass. Tas
       - `- [x] AC-N — verified by <test name> + screenshot compared: <path-to-screenshot>` (captured evidence).
     - If the AC has UI surface but no visual verification was performed, mark it `- [ ] AC-N — gap: test passes but UI not visually verified against mockup`.
     - **Rationale:** A Playwright test can pass while the UI is wrong if it only checks that text exists or data is stored. The UI Contract in approach.md defines the visual/interaction specification — tests verify behavior, visual QA verifies fidelity.
-  - Refuse to proceed to CLOSE-4 if any `[ ]` remains in the stamp block.
+  - Refuse to proceed to CLOSE-5 if any `[ ]` remains in the stamp block.
 
-- [ ] **CLOSE-4. Version bump**
+- [ ] **CLOSE-5. Version bump**
   - **File:** project version files (e.g., `package.json`, `js/constants.js`, `sw.js`)
   - **MUST invoke `/release patch`** as a skill — paraphrasing the version-bump steps inline is not equivalent because the skill enforces version-lock claim, file enumeration, and pre-commit interactions the prose cannot carry.
   - If the project opts out of version management (no `devops/version.lock`, or explicit project policy), write `N/A — project opts out of version management (<reason>)` as the acceptance line. Do not silently drop this task.
 
-- [ ] **CLOSE-5. Vault update + close issue**
+- [ ] **CLOSE-6. Vault update + close issue**
   - **MUST invoke `/vault-update`** as a skill — even if you believe no foundation docs are affected, the skill performs the audit. If no docs need updating, the skill reports zero changes and the task is done; that is a clean N/A by audit, not a skip.
   - Mark the source issue Done in Plane: `mcp__plane__workitem` (`action: "update"`) to state "Done".
   - Vault edits go in the repo's `DocVault/` (if it has one) inside this worktree and ride this PR; there is no separate vault commit. Shared-vault edits (`vault-path shared`) commit directly to Devops `main`.
   - If the project genuinely has no DocVault footprint, write `vault-update: N/A — <reason>` as a sub-line on this task and proceed with the issue close. Do not drop the task.
 
-- [ ] **CLOSE-6. Open PR**
+- [ ] **CLOSE-7. Open PR**
   - Use worktree branch from `/spec run`. Title: `chore({{ISSUE-ID}}): <short summary>` or `feat({{ISSUE-ID}}): …` if user-facing.
   - Body must include: link to source issue, link to spec folder (`{{ISSUE-ID}}-{{SLUG}}/` under this repo's specs root — `specs.path` in `.claude/project.json`, default `DocVault/specs/`), test plan checklist.
 
-- [ ] **CLOSE-7. Resolve PR review threads**
+- [ ] **CLOSE-8. Resolve PR review threads**
   - **File:** _GitHub PR threads only — code fixes land via the worktree as needed_
   - **MUST invoke `/pr-resolve`** as a skill — the skill knows how to triage findings, fix-or-classify, and reply to threads consistently.
   - Coverage: the resolver MUST scan **both** inline diff threads AND review-body findings. Many code review tools (Codacy, Copilot, etc.) post critical findings as "comments outside of the diff" or in summary-style review prose, not as inline threads. Inline-only sweeps miss real bugs hiding in summary blocks.
   - All Critical/High findings must be either fixed or marked false-positive with explicit reasoning. Medium: fix or document waiver. Low/Info: advisory.
   - Note: scanners often re-post findings on each new commit. After running `/pr-resolve`, check whether new threads appeared from auto-scanners and address those before merge.
 
-- [ ] **CLOSE-8. Archive spec** (after PR merges)
+- [ ] **CLOSE-9. Archive spec** (after PR merges)
   - **MUST invoke `/spec archive {{ISSUE-ID}}`** as a skill — moves folder to `archive/YYYY-MM-DD-{{ISSUE-ID}}-{{SLUG}}/` and saves mem0 summary.
 
 ---

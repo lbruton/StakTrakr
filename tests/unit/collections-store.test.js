@@ -13,14 +13,11 @@
 //
 // Harness: the store is a script-tag IIFE with free-variable dependencies (saveDataSync,
 // loadDataSync, inventory, document, ...). Mirroring collections-core.test.js, the file is
-// evaluated through `new Function`, which turns those globals into injectable parameters.
+// evaluated through evalSource, which turns those globals into injectable parameters.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-
-const coreSrc = readFileSync(new URL("../../js/collections-core.js", import.meta.url), "utf-8");
-const storeSrc = readFileSync(new URL("../../js/collections-store.js", import.meta.url), "utf-8");
+import { evalSource } from "./helpers/source-extract.js";
 
 const STATE_KEY = "collectionState";
 const DISABLED_KEY = "disabledCollections";
@@ -43,9 +40,14 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
  */
 function makeHarness(seedState, options = {}) {
   const surface = {};
-  new Function("window", coreSrc)(surface);
+  evalSource("js/collections-core.js", { params: { window: surface } });
   surface.__COLLECTIONS_BUNDLE = {
     templates: { [TEMPLATE]: { slug: TEMPLATE, name: "American Silver Eagle", slots: [] } },
+  };
+  // Window listeners the store registers (STRK-440 cross-tab `storage` listener).
+  const windowListeners = Object.create(null);
+  surface.addEventListener = (type, listener) => {
+    (windowListeners[type] ||= []).push(listener);
   };
 
   const disk = new Map();
@@ -65,8 +67,18 @@ function makeHarness(seedState, options = {}) {
     }
     disk.set(key, JSON.stringify(value));
   };
-  const loadDataSync = (key, fallback) =>
-    disk.has(key) ? JSON.parse(disk.get(key)) : fallback === undefined ? [] : fallback;
+  // Mirrors js/utils.js loadDataSync: an absent key AND an unparsable value both yield
+  // the fallback, so only localStorage.getItem can tell the two apart.
+  const loadDataSync = (key, fallback) => {
+    const missing = fallback === undefined ? [] : fallback;
+    if (!disk.has(key)) return missing;
+    try {
+      return JSON.parse(disk.get(key));
+    } catch {
+      return missing;
+    }
+  };
+  const localStorageDouble = { getItem: (key) => (disk.has(key) ? disk.get(key) : null) };
 
   const events = [];
   const documentDouble = {
@@ -80,34 +92,23 @@ function makeHarness(seedState, options = {}) {
   }
 
   let minted = 0;
-  new Function(
-    "window",
-    "document",
-    "CustomEvent",
-    "saveDataSync",
-    "loadDataSync",
-    "COLLECTION_STATE_KEY",
-    "DISABLED_COLLECTIONS_KEY",
-    "LS_KEY",
-    "inventory",
-    "isDisposed",
-    "generateUUID",
-    "saveInventory",
-    storeSrc
-  )(
-    surface,
-    documentDouble,
-    CustomEventDouble,
-    saveDataSync,
-    loadDataSync,
-    STATE_KEY,
-    DISABLED_KEY,
-    INVENTORY_KEY,
-    inventory,
-    (item) => Boolean(item && item.disposed),
-    () => `00000000-0000-4000-8000-00000000000${(minted += 1)}`,
-    () => undefined
-  );
+  evalSource("js/collections-store.js", {
+    params: {
+      window: surface,
+      document: documentDouble,
+      CustomEvent: CustomEventDouble,
+      saveDataSync,
+      loadDataSync,
+      COLLECTION_STATE_KEY: STATE_KEY,
+      DISABLED_COLLECTIONS_KEY: DISABLED_KEY,
+      LS_KEY: INVENTORY_KEY,
+      inventory,
+      isDisposed: (item) => Boolean(item && item.disposed),
+      generateUUID: () => `00000000-0000-4000-8000-00000000000${(minted += 1)}`,
+      saveInventory: () => undefined,
+      localStorage: localStorageDouble,
+    },
+  });
 
   return {
     store: surface.collectionsStore,
@@ -118,6 +119,8 @@ function makeHarness(seedState, options = {}) {
       failedKey = key;
       failuresArmed += 1;
     },
+    /** Delivers a `storage` event, as the browser does after ANOTHER tab writes `key`. */
+    fireStorage: (key) => (windowListeners.storage || []).forEach((listener) => listener({ key })),
   };
 }
 
@@ -131,7 +134,7 @@ function startedHarness() {
   return makeHarness(persisted(boot.disk));
 }
 
-describe("collections store — failed storage write (STRK-377)", () => {
+describe("collections store — failed storage write", () => {
   test("a CSV membership batch saves once and rolls back every link on quota failure", () => {
     const h = makeHarness();
     const pending = [
@@ -284,7 +287,7 @@ describe("collections store — failed storage write (STRK-377)", () => {
   });
 });
 
-describe("collections store — disabled Collections preference (STRK-393)", () => {
+describe("collections store — disabled Collections preference", () => {
   test("normalizes missing, malformed, duplicate, and unknown disabled IDs", () => {
     const missing = makeHarness();
     assert.deepEqual(missing.store.getDisabledIds(), []);
@@ -431,5 +434,246 @@ describe("collections store — disabled Collections preference (STRK-393)", () 
     merged.store.reload();
     assert.deepEqual(merged.store.getDisabledIds(), []);
     assert.deepEqual(merged.events, ["collections:changed", "collections:changed"]);
+  });
+});
+
+// STRK-439: the store hydrates once and has no cross-tab listener, so callers that must
+// judge artwork ownership against what another tab persisted read a private snapshot.
+describe("readPersisted — fail-closed snapshot of the stored Collections state", () => {
+  const T2 = "2026-09-19T10:00:00.000Z";
+
+  /** A harness holding one Custom Collection whose Slot "one" has artwork stamped at T1. */
+  const artworkHarness = () => {
+    const h = makeHarness();
+    const id = h.store.createCustom({ name: "Second tab", slots: [{ label: "One" }] }).collection
+      .id;
+    assert.equal(h.store.setArtwork(id, "one", true, T1, "digest-a").ok, true);
+    h.events.length = 0;
+    return { ...h, id };
+  };
+
+  /** Rewrites the persisted state the way another tab's save would. */
+  const rewriteDisk = (h, mutate) => {
+    const raw = JSON.parse(h.disk.get(STATE_KEY));
+    mutate(raw);
+    h.disk.set(STATE_KEY, JSON.stringify(raw));
+  };
+
+  test("an absent key reads as an empty state, not as unreadable", () => {
+    const h = makeHarness();
+    const snapshot = h.store.readPersisted();
+    assert.notEqual(snapshot, null);
+    assert.deepEqual(Object.keys(snapshot.collections), []);
+  });
+
+  test("returns what another tab persisted without touching memory or firing events", () => {
+    const h = artworkHarness();
+    rewriteDisk(h, (raw) => {
+      raw.collections[h.id].artwork["slot:one"] = {
+        present: true,
+        modified: T2,
+        digest: "digest-b",
+      };
+    });
+
+    const snapshot = h.store.readPersisted();
+
+    assert.equal(snapshot.collections[h.id].artwork["slot:one"].digest, "digest-b");
+    assert.equal(h.store.getState().collections[h.id].artwork["slot:one"].digest, "digest-a");
+    assert.deepEqual(h.events, []);
+    assert.equal(
+      h.core.isCurrentArtwork(snapshot, `collection--${h.id}--one`, Date.parse(T2), "digest-b"),
+      true
+    );
+  });
+
+  test("an unparsable value is unreadable (null), never an empty state", () => {
+    const h = artworkHarness();
+    h.disk.set(STATE_KEY, "{not json");
+    assert.equal(h.store.readPersisted(), null);
+  });
+
+  for (const [label, value] of [
+    ["is an array", []],
+    ["has no collections map", {}],
+    ["has an array for collections", { collections: [] }],
+  ]) {
+    test(`a persisted value that ${label} is unreadable (null)`, () => {
+      const h = artworkHarness();
+      h.disk.set(STATE_KEY, JSON.stringify(value));
+      assert.equal(h.store.readPersisted(), null);
+    });
+  }
+
+  for (const [label, entry] of [
+    ["a non-boolean present", { present: "true", modified: T2, digest: "" }],
+    ["a non-canonical modified", { present: true, modified: "2026-09-19T10:00:00Z", digest: "" }],
+    // Normalization DROPS these entries, and isCurrentArtwork reads a missing entry as
+    // pre-stamp art (current), so a damaged removal tombstone would revive stale art.
+    ["a missing modified", { present: false, digest: "" }],
+    ["an empty modified", { present: false, modified: "", digest: "" }],
+    ["a non-string modified", { present: false, modified: 1760000000000, digest: "" }],
+    ["a null entry", null],
+    ["a string entry", "present"],
+  ]) {
+    test(`a stamp with ${label} makes the snapshot unreadable (null)`, () => {
+      const h = artworkHarness();
+      rewriteDisk(h, (raw) => {
+        raw.collections[h.id].artwork["slot:one"] = entry;
+      });
+      assert.equal(h.store.readPersisted(), null);
+    });
+  }
+
+  test("a Collection entry that normalization would drop makes the snapshot unreadable (null)", () => {
+    const h = artworkHarness();
+    rewriteDisk(h, (raw) => {
+      raw.collections["damaged-entry"] = 42;
+    });
+    assert.equal(h.store.readPersisted(), null);
+  });
+});
+
+// STRK-440: another tab's write reaches this tab only as a `storage` event. Without a
+// listener this tab keeps a stale copy: its next save overwrites the other tab's work and
+// its exports judge artwork against old stamps.
+describe("cross-tab storage listener", () => {
+  /**
+   * This tab (h) and another tab that links U.b to Slot 2024 and persists it.
+   * @returns {Object} Harness for this tab, after the other tab's write landed on disk
+   */
+  const afterOtherTabLinks = () => {
+    const h = startedHarness();
+    h.store.getState(); // hydrate this tab BEFORE the other tab writes (hydration is lazy)
+    const other = makeHarness(persisted(h.disk));
+    assert.equal(other.store.link(TEMPLATE, "2024", U.b).ok, true);
+    h.disk.set(STATE_KEY, other.disk.get(STATE_KEY));
+    h.events.length = 0;
+    return h;
+  };
+
+  test("another tab's write re-hydrates memory and announces a repaint", () => {
+    const h = afterOtherTabLinks();
+    assert.equal(h.store.getState().collections[TEMPLATE].slots["2024"], undefined);
+
+    h.fireStorage(STATE_KEY);
+
+    assert.equal(h.store.getState().collections[TEMPLATE].slots["2024"].primary, U.b);
+    assert.ok(h.events.includes("collections:changed"));
+  });
+
+  test("this tab's next mutation keeps the other tab's link", () => {
+    const h = afterOtherTabLinks();
+    h.fireStorage(STATE_KEY);
+
+    assert.equal(h.store.createCustom({ name: "Mine", slots: [{ label: "One" }] }).ok, true);
+
+    const disk = persisted(h.disk);
+    assert.equal(disk.collections[TEMPLATE].slots["2024"].primary, U.b);
+    assert.equal(disk.collections[TEMPLATE].slots["2023"].primary, U.a);
+    assert.ok(Object.values(disk.collections).some((entry) => entry.name === "Mine"));
+  });
+
+  // `storage` is delivered asynchronously, so a mutation here can run AFTER the other tab
+  // saved but BEFORE its event lands. Every writer must re-check storage synchronously.
+  test("a mutation before the other tab's storage event lands keeps that tab's link", () => {
+    const h = afterOtherTabLinks();
+
+    assert.equal(h.store.createCustom({ name: "Mine", slots: [{ label: "One" }] }).ok, true);
+
+    const disk = persisted(h.disk);
+    assert.equal(disk.collections[TEMPLATE].slots["2024"].primary, U.b);
+    assert.ok(Object.values(disk.collections).some((entry) => entry.name === "Mine"));
+  });
+
+  test("a link before the other tab's storage event lands sees that tab's link", () => {
+    const h = afterOtherTabLinks();
+
+    // U.b now fills 2024 in storage, so linking it again elsewhere must be refused.
+    const result = h.store.link(TEMPLATE, "2025", U.b);
+
+    assert.equal(result.reason, "already-linked");
+    assert.equal(persisted(h.disk).collections[TEMPLATE].slots["2024"].primary, U.b);
+  });
+
+  test("a merge before the other tab's storage event lands keeps that tab's link", () => {
+    const h = afterOtherTabLinks();
+    const incoming = makeHarness();
+    assert.equal(
+      incoming.store.createCustom({ name: "Restored", slots: [{ label: "One" }] }).ok,
+      true
+    );
+
+    assert.equal(h.store.mergeIn(persisted(incoming.disk)).ok, true);
+
+    const disk = persisted(h.disk);
+    assert.equal(disk.collections[TEMPLATE].slots["2024"].primary, U.b);
+    assert.ok(Object.values(disk.collections).some((entry) => entry.name === "Restored"));
+  });
+
+  test("an unreadable stored value never replaces this tab's state before a mutation", () => {
+    const h = startedHarness();
+    h.store.getState();
+    h.disk.set(STATE_KEY, "{not json");
+
+    assert.equal(h.store.createCustom({ name: "Mine", slots: [{ label: "One" }] }).ok, true);
+
+    assert.equal(persisted(h.disk).collections[TEMPLATE].slots["2023"].primary, U.a);
+  });
+
+  test("a write to an unrelated key leaves memory alone and stays quiet", () => {
+    const h = afterOtherTabLinks();
+
+    h.fireStorage(INVENTORY_KEY);
+
+    assert.equal(h.store.getState().collections[TEMPLATE].slots["2024"], undefined);
+    assert.deepEqual(h.events, []);
+  });
+
+  test("a storage clear (null key) re-hydrates", () => {
+    const h = startedHarness();
+    h.store.getState();
+    h.disk.delete(STATE_KEY);
+    h.events.length = 0;
+
+    h.fireStorage(null);
+
+    assert.deepEqual(Object.keys(h.store.getState().collections), []);
+    assert.ok(h.events.includes("collections:changed"));
+  });
+
+  test("another tab's hidden-Collections change announces a repaint", () => {
+    const h = startedHarness();
+    h.disk.set(DISABLED_KEY, JSON.stringify(["some-collection"]));
+    h.events.length = 0;
+
+    h.fireStorage(DISABLED_KEY);
+
+    assert.ok(h.events.includes("collections:changed"));
+  });
+});
+
+// STRK-440: backup and image-vault export judge artwork against what storage holds, and
+// fall back to memory only when the persisted state cannot be read reliably.
+describe("exportState — persisted first, memory as the fail-safe fallback", () => {
+  test("prefers the persisted state over a stale in-memory copy", () => {
+    const h = startedHarness();
+    h.store.getState(); // hydrate this tab BEFORE the other tab writes (hydration is lazy)
+    const other = makeHarness(persisted(h.disk));
+    assert.equal(other.store.link(TEMPLATE, "2024", U.b).ok, true);
+    h.disk.set(STATE_KEY, other.disk.get(STATE_KEY));
+
+    assert.equal(h.store.exportState().collections[TEMPLATE].slots["2024"].primary, U.b);
+  });
+
+  test("falls back to the in-memory state when the persisted value is unreadable", () => {
+    const h = startedHarness();
+    h.store.getState(); // hydrate this tab BEFORE storage is damaged (hydration is lazy)
+    h.disk.set(STATE_KEY, "{not json");
+
+    const state = h.store.exportState();
+
+    assert.equal(state, h.store.getState());
+    assert.equal(state.collections[TEMPLATE].slots["2023"].primary, U.a);
   });
 });

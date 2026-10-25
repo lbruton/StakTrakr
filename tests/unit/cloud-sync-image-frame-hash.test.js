@@ -18,11 +18,12 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
+import { evalSource, readSource, sliceBetween } from "./helpers/source-extract.js";
+import { SYNC_FILE } from "./helpers/sync-blocks.js";
 
-const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf-8");
-const cloudSyncSrc = read("js/cloud-sync.js");
+const read = readSource;
+const cloudSyncSrc = read(SYNC_FILE);
 
 // ---------------------------------------------------------------------------------------
 // O — pinned old-build behavior (v3.36.45)
@@ -257,40 +258,46 @@ const deps = {
       .join(""),
 };
 
-/** Build a hash function from function source text, with the same stubs the STRK-241 test uses. */
-function buildHash(fnSrc) {
-  return new Function(
-    "crypto",
-    "TextEncoder",
-    "DiffEngine",
-    "_stableCanonicalString",
-    "sha256BufferToHex",
-    "debugLog",
-    `${fnSrc}\nreturn computeInventoryHash;`
-  )(webcrypto, TextEncoder, deps.DiffEngine, deps.stable, deps.hex, () => {});
+const hashDeps = {
+  crypto: webcrypto,
+  TextEncoder,
+  DiffEngine: deps.DiffEngine,
+  _stableCanonicalString: deps.stable,
+  sha256BufferToHex: deps.hex,
+  debugLog: () => {},
+};
+
+/** Build the pinned old-build (O) hash from its source text, with the live hash's stubs. */
+function buildPinnedHash(fnSrc) {
+  const names = Object.keys(hashDeps);
+  return new Function(...names, `${fnSrc}\nreturn computeInventoryHash;`)(
+    ...names.map((name) => hashDeps[name])
+  );
 }
 
 /** The live (N) hash, sliced from js/cloud-sync.js the way the STRK-241 test does. */
 function liveHash() {
-  const start = cloudSyncSrc.indexOf("async function computeInventoryHash(items) {");
-  assert.notEqual(start, -1, "could not locate computeInventoryHash in js/cloud-sync.js");
-  return buildHash(cloudSyncSrc.slice(start, cloudSyncSrc.indexOf("\n}", start) + 2));
+  return evalSource(SYNC_FILE, {
+    params: hashDeps,
+    slice: sliceBetween(cloudSyncSrc, "async function computeInventoryHash(items) {", "\n}"),
+    suffix: "\nreturn computeInventoryHash;",
+  });
 }
 
 const nHash = liveHash();
-const oHash = buildHash(O_HASH_SRC);
+const oHash = buildPinnedHash(O_HASH_SRC);
 const O = new Function(O_IMAGE_FRAME_SRC)();
 
 const nFrame = {};
-new Function("window", read("js/image-frame.js"))(nFrame);
+evalSource("js/image-frame.js", { params: { window: nFrame } });
 
 const diffWin = {};
-new Function("window", read("js/diff-engine.js"))(diffWin);
+evalSource("js/diff-engine.js", { params: { window: diffWin } });
 const { DiffEngine } = diffWin;
 
 const coreWin = { getUnitOztWeight: () => 1 };
-new Function("window", read("js/image-frame.js"))(coreWin);
-new Function("window", read("js/collections-core.js"))(coreWin);
+evalSource("js/image-frame.js", { params: { window: coreWin } });
+evalSource("js/collections-core.js", { params: { window: coreWin } });
 const core = coreWin.collectionsCore;
 
 /** Apply a writer result to a record: set its keys, delete its remove list. */
@@ -312,7 +319,7 @@ const base = { uuid: "u-1", name: "Silver Eagle", metal: "Silver", type: "Coin" 
 // Items I-1 … I-10
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 matrix — items (I-1 … I-10)", () => {
+describe("matrix — items (I-1 … I-10)", () => {
   /** N writes the final state for a record; returns the stored record. */
   const nSave = (record, shape, orientations = {}) =>
     applyWrite(
@@ -445,7 +452,7 @@ describe("STRK-427 matrix — items (I-1 … I-10)", () => {
 // Sync, hash and diff H-1 … H-5
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
+describe("matrix — sync, hash and diff (H-1 … H-5)", () => {
   const withFields = { ...base, imageShape: "note", obverseImageOrientation: "portrait" };
 
   test("H-1: absent and empty new fields hash the same and produce no diff on N", async () => {
@@ -501,20 +508,12 @@ describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
     const inventory = [
       base,
       { uuid: "u-2", name: "Bar", type: "Bar", obverseImageUrl: "https://example.test/o.png" },
-      { uuid: "u-3", type: "Coin", obverseImageFrame: "circle", reverseImageFrame: "rectangle" },
+      { uuid: "u-3", type: "Coin", obverseImageFrame: "auto", reverseImageFrame: "" },
       { uuid: "u-4", weightUnit: "cu", constitutionalVariant: "con-90-half", pricingType: "lot" },
     ];
     assert.equal(await nHash(inventory), await oHash(inventory));
   });
-
-  test("D-12: the legacy frame fields stay out of the hash", async () => {
-    assert.equal(
-      await nHash([{ ...base, obverseImageFrame: "circle", reverseImageFrame: "rectangle" }]),
-      await nHash([base])
-    );
-  });
-
-  test("the new segment is tagged so it cannot be confused with the STRK-241/242 block", async () => {
+  test("the new segment is tagged so it cannot be confused with the block", async () => {
     const constitutional = { uuid: "u-5", constitutionalVariant: "slab" };
     const framed = { uuid: "u-5", imageShape: "slab" };
     assert.notEqual(await nHash([constitutional]), await nHash([framed]));
@@ -532,10 +531,56 @@ describe("STRK-427 matrix — sync, hash and diff (H-1 … H-5)", () => {
 });
 
 // ---------------------------------------------------------------------------------------
+// STRK-429: the legacy *ImageFrame fields join the hash (supersedes D-12)
+// ---------------------------------------------------------------------------------------
+
+describe("legacy frame fields in the inventory hash", () => {
+  test("a legacy frame on either side changes the hash", async () => {
+    const plain = await nHash([base]);
+    const obverseCircle = await nHash([{ ...base, obverseImageFrame: "circle" }]);
+    const obverseRect = await nHash([{ ...base, obverseImageFrame: "rectangle" }]);
+    const reverseCircle = await nHash([{ ...base, reverseImageFrame: "circle" }]);
+    assert.equal(new Set([plain, obverseCircle, obverseRect, reverseCircle]).size, 4);
+  });
+
+  test("a frame-only edit is detected: N's sparse save that removes the legacy keys", async () => {
+    const legacy = { ...base, obverseImageFrame: "rectangle", reverseImageFrame: "rectangle" };
+    const saved = nFrame.writeImageFraming(
+      { shape: "round", obverseOrientation: null, reverseOrientation: null },
+      legacy
+    );
+    const after = applyWrite(legacy, saved);
+    assert.notEqual(await nHash([legacy]), await nHash([after]));
+  });
+
+  test("auto, empty and invalid legacy values hash as absent", async () => {
+    const plain = await nHash([base]);
+    for (const value of ["auto", "", "banana", undefined]) {
+      assert.equal(
+        await nHash([{ ...base, obverseImageFrame: value, reverseImageFrame: value }]),
+        plain,
+        `legacy frame ${String(value)}`
+      );
+    }
+  });
+
+  test("an inventory carrying a legacy frame hashes differently on O (one push after upgrade)", async () => {
+    const framed = [{ ...base, obverseImageFrame: "circle", reverseImageFrame: "rectangle" }];
+    assert.notEqual(await nHash(framed), await oHash(framed));
+  });
+
+  test("the legacy segment is tagged apart from the shape segment", async () => {
+    const legacy = { uuid: "u-6", obverseImageFrame: "circle" };
+    const shaped = { uuid: "u-6", imageShape: "circle" };
+    assert.notEqual(await nHash([legacy]), await nHash([shaped]));
+  });
+});
+
+// ---------------------------------------------------------------------------------------
 // Import / export E-2 and Collections C-1
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 matrix — import/export and Custom Collections", () => {
+describe("matrix — import/export and Custom Collections", () => {
   test("E-2: an N export read by O's JSON and CSV readers loses the new keys and the frames", () => {
     const exported = {
       ...base,
@@ -600,7 +645,7 @@ describe("STRK-427 matrix — import/export and Custom Collections", () => {
 // Registration (AC-8.6)
 // ---------------------------------------------------------------------------------------
 
-describe("STRK-427 registration at the enumeration sites (AC-8.6)", () => {
+describe("registration at the enumeration sites (AC-8.6)", () => {
   test("the three fields are in the changeLog.js field array next to the legacy frames", () => {
     const changeLogSrc = read("js/changeLog.js");
     const at = changeLogSrc.indexOf('"obverseImageFrame"');

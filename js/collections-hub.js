@@ -15,7 +15,6 @@
       render,
       core,
       store,
-      buildTag,
       buildCoin,
       buildCount,
       buildProgress,

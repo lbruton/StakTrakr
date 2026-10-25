@@ -1,0 +1,7 @@
+extends: existence
+message: "Name what the user sees instead of the code span %s (voice.md)."
+level: warning
+scope: raw
+nonword: true
+tokens:
+  - '`[^`\n]+`'

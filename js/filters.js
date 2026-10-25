@@ -757,6 +757,12 @@ const _attachChipCloseControl = (close, f, isActiveFilter, displayValue) => {
   };
 };
 
+/** True when the browser can pick chip text colour in CSS (contrast-color(), Baseline 2026). */
+const CHIP_CONTRAST_IN_CSS =
+  typeof CSS !== "undefined" &&
+  typeof CSS.supports === "function" &&
+  CSS.supports("color", "contrast-color(red)");
+
 /**
  * Builds a single filter-chip element (color, classes, label, close marker, and
  * all interaction handlers) and appends it to the container.
@@ -771,9 +777,11 @@ const _buildFilterChipElement = (f, i, container) => {
   // All chip categories render visually identical — no italic/bold distinction
   const firstValue = String(f.value).split(", ")[0];
   const colorKey = f.field === "customGroup" ? f.displayLabel || firstValue : firstValue;
-  const { bg, text: textColor } = getChipColors(f.field, colorKey, i);
-  chip.style.backgroundColor = bg;
-  chip.style.color = textColor || getContrastColor(bg);
+  // STRK-446: JS hands CSS the background; the stylesheet picks the text colour with
+  // contrast-color(). Only browsers without contrast-color() get an inline JS pick.
+  const { bg } = getChipColors(f.field, colorKey, i);
+  chip.style.setProperty("--chip-bg", bg);
+  if (!CHIP_CONTRAST_IN_CSS) chip.style.color = getContrastColor(bg);
 
   const isActiveFilter = _resolveChipActiveState(f);
   if (isActiveFilter) chip.classList.add("filter-chip-active");
@@ -955,11 +963,13 @@ const applyMinCountThreshold = (data, minCount) => {
 };
 
 /**
- * Returns chip color and text color for a given field/value combination.
+ * Returns the chip background colour for a given field/value combination. The value is a
+ * theme-reactive CSS expression (a var() token or an hsl() built on theme tokens), never a
+ * resolved colour, so chips recolour on theme switch without re-rendering (STRK-446).
  * @param {string} field - Chip field type
  * @param {string} value - Chip value
  * @param {number} index - Chip index for fallback color cycling
- * @returns {{ bg: string, text: string|undefined }} Background and optional text color
+ * @returns {{ bg: string }} Background colour expression
  */
 const getChipColors = (field, value, index) => {
   const fallbackColors = [
@@ -971,19 +981,13 @@ const getChipColors = (field, value, index) => {
     "var(--info)",
   ];
   let color;
-  let textColor;
 
   switch (field) {
     case "type":
       color = getTypeColor(value);
       break;
     case "metal":
-      if (!METAL_COLORS[value]) {
-        color = getColor(nameColors, value);
-      } else {
-        color = METAL_COLORS[value];
-        textColor = METAL_TEXT_COLORS[value] ? METAL_TEXT_COLORS[value]() : undefined;
-      }
+      color = METAL_COLORS[value] || getColor(nameColors, value);
       break;
     case "name":
     case "dynamicName":
@@ -1005,7 +1009,7 @@ const getChipColors = (field, value, index) => {
       color = fallbackColors[index % fallbackColors.length];
   }
 
-  return { bg: color || fallbackColors[index % fallbackColors.length], text: textColor };
+  return { bg: color || fallbackColors[index % fallbackColors.length] };
 };
 
 /**

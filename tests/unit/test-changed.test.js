@@ -1,0 +1,555 @@
+// Test selection for `npm run test:changed`: which core and unit tests a change can
+// affect, judged from the test map (functions each core test ran) and the paths each
+// unit test reads. Everything here runs on inline fixtures; no git and no browser.
+
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+import {
+  buildUnitIndex,
+  parseDiff,
+  renderPlan,
+  selectTests,
+  staleWarning,
+  toPlanJson,
+} from "../../devops/testing/test-changed.mjs";
+
+// `files` lists every function's line range per file, run or not; `tests` lists only the
+// functions each test ran. js/demo.js lines 40-50 hold a function no test runs.
+const MAP = {
+  sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  files: {
+    "js/demo.js": [
+      [5, 12],
+      [20, 28],
+      [40, 50],
+    ],
+    "js/other.js": [[1, 9]],
+    // A module wrapper (lines 1-100) with one inner function (lines 10-20).
+    "js/wrapped.js": [
+      [1, 100],
+      [10, 20],
+    ],
+  },
+  tests: [
+    {
+      id: "tests/playwright/core/wrap.spec.js:5",
+      title: "wrap › boots and calls inner",
+      functions: [
+        { file: "js/wrapped.js", name: "", startLine: 1, endLine: 100 },
+        { file: "js/wrapped.js", name: "inner", startLine: 10, endLine: 20 },
+      ],
+    },
+    {
+      id: "tests/playwright/core/wrap.spec.js:9",
+      title: "wrap › boots only",
+      functions: [{ file: "js/wrapped.js", name: "", startLine: 1, endLine: 100 }],
+    },
+    {
+      id: "tests/playwright/core/alpha.spec.js:10",
+      title: "alpha › uses foo",
+      functions: [{ file: "js/demo.js", name: "foo", startLine: 5, endLine: 12 }],
+    },
+    {
+      id: "tests/playwright/core/alpha.spec.js:30",
+      title: "alpha › uses bar",
+      functions: [{ file: "js/demo.js", name: "bar", startLine: 20, endLine: 28 }],
+    },
+    {
+      id: "tests/playwright/core/beta.spec.js:7",
+      title: "beta › uses foo and baz",
+      functions: [
+        { file: "js/demo.js", name: "foo", startLine: 5, endLine: 12 },
+        { file: "js/other.js", name: "baz", startLine: 1, endLine: 9 },
+      ],
+    },
+  ],
+};
+
+const UNIT_INDEX = buildUnitIndex({
+  "tests/unit/demo.test.js": [
+    'import { evalSource } from "./helpers/source-extract.js";',
+    'evalSource("js/demo.js", { params: {} });',
+  ].join("\n"),
+  "tests/unit/codec.test.js": 'import { loadStorageCodec } from "./helpers/storage-codec.js";',
+  "tests/unit/helpers/storage-codec.js": 'evalSource("js/utils-storage.js", {});',
+  "tests/unit/helpers/source-extract.js": "export const evalSource = () => {};",
+  "tests/unit/merge.test.js":
+    'import { mergeCoverage } from "../../devops/testing/coverage-merge.mjs";',
+});
+
+const select = (changes, map = MAP) => selectTests({ map, changes, unitIndex: UNIT_INDEX });
+const locations = (selection) => selection.core.map((entry) => entry.location).sort();
+const unitFiles = (selection) => selection.unit.map((entry) => entry.file).sort();
+
+describe("parseDiff", () => {
+  test("reads old-side changed lines, and the old line each pure addition follows", () => {
+    const diff = [
+      "diff --git a/js/demo.js b/js/demo.js",
+      "--- a/js/demo.js",
+      "+++ b/js/demo.js",
+      "@@ -7,2 +7,3 @@ function foo() {",
+      "@@ -24,0 +26,4 @@ function bar() {",
+      "diff --git a/docs/note.md b/docs/note.md",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/docs/note.md",
+      "@@ -0,0 +1,3 @@",
+    ].join("\n");
+    assert.deepEqual(parseDiff(diff), [
+      { file: "js/demo.js", lines: [7, 8], inserts: [24] },
+      { file: "docs/note.md", lines: [] },
+    ]);
+  });
+
+  test("keeps a binary or mode-only change that has no +++ header", () => {
+    const diff = [
+      "diff --git a/tests/playwright/helpers/test-obverse.png b/tests/playwright/helpers/test-obverse.png",
+      "index 1111111..2222222 100644",
+      "Binary files a/tests/playwright/helpers/test-obverse.png and b/tests/playwright/helpers/test-obverse.png differ",
+      "diff --git a/devops/run.sh b/devops/run.sh",
+      "old mode 100644",
+      "new mode 100755",
+    ].join("\n");
+    assert.deepEqual(parseDiff(diff), [
+      { file: "tests/playwright/helpers/test-obverse.png", lines: [] },
+      { file: "devops/run.sh", lines: [] },
+    ]);
+  });
+
+  test("keeps a deleted file under its old path", () => {
+    const diff = [
+      "diff --git a/js/old.js b/js/old.js",
+      "deleted file mode 100644",
+      "--- a/js/old.js",
+      "+++ /dev/null",
+      "@@ -1,10 +0,0 @@",
+    ].join("\n");
+    assert.deepEqual(parseDiff(diff), [{ file: "js/old.js", lines: [], deleted: true }]);
+  });
+});
+
+describe("selectTests", () => {
+  test("a changed line inside a mapped function selects exactly the tests that ran it (AC-13)", () => {
+    const selection = select([{ file: "js/demo.js", lines: [21] }]);
+    assert.equal(selection.full, false);
+    assert.deepEqual(locations(selection), ["tests/playwright/core/alpha.spec.js:30"]);
+  });
+
+  test("a function shared by two specs selects both (AC-13)", () => {
+    assert.deepEqual(locations(select([{ file: "js/demo.js", lines: [6] }])), [
+      "tests/playwright/core/alpha.spec.js:10",
+      "tests/playwright/core/beta.spec.js:7",
+    ]);
+  });
+
+  test("a changed spec file selects that whole file (AC-14)", () => {
+    const selection = select([{ file: "tests/playwright/core/beta.spec.js", lines: [40] }]);
+    assert.deepEqual(locations(selection), ["tests/playwright/core/beta.spec.js"]);
+  });
+
+  test("a changed js/ file selects the unit tests that read it (AC-15)", () => {
+    assert.deepEqual(unitFiles(select([{ file: "js/demo.js", lines: [6] }])), [
+      "tests/unit/demo.test.js",
+    ]);
+  });
+
+  test("a path a unit test reads through its helper selects that unit test (AC-15)", () => {
+    const selection = select([{ file: "js/utils-storage.js", lines: [3] }]);
+    assert.deepEqual(unitFiles(selection), ["tests/unit/codec.test.js"]);
+  });
+
+  test("a unit test that lists a repo directory depends on every file in it (AC-15)", () => {
+    const unitIndex = buildUnitIndex({
+      "tests/unit/tokens.test.js": [
+        "const listDir = (dir) => readdirSync(new URL(dir, root));",
+        'const files = [...listDir("js/"), ...listDir("css/")];',
+      ].join("\n"),
+      "tests/unit/copy.test.js": 'const jsDir = join(repoRoot, "js"); readdirSync(jsDir);',
+      "tests/unit/plain.test.js": 'const label = "css/";',
+    });
+    const unitFor = (file) =>
+      unitFiles(selectTests({ map: MAP, changes: [{ file, lines: [1] }], unitIndex }));
+    assert.deepEqual(unitFor("css/styles.css"), ["tests/unit/tokens.test.js"]);
+    assert.deepEqual(unitFor("js/demo.js"), [
+      "tests/unit/copy.test.js",
+      "tests/unit/tokens.test.js",
+    ]);
+  });
+
+  test("relative URLs, joined segments and repo listings count as reads (AC-15)", () => {
+    const unitIndex = buildUnitIndex({
+      "tests/unit/pages.test.js": [
+        'const mw = await import(new URL("../../functions/_middleware.js", import.meta.url));',
+        'readFileSync(new URL("../../_routes.json", import.meta.url), "utf-8");',
+        'execFileSync("git", ["ls-files"], { cwd: new URL("../..", import.meta.url) });',
+      ].join("\n"),
+      "tests/unit/naming.test.js":
+        'execFileSync("git", ["ls-files", "-z", "--", "tests"], { cwd: root });',
+      "tests/unit/lock.test.js":
+        'const LOCK = join(REPO_ROOT, "devops", "pollers", "shared", "run-lock.sh");',
+    });
+    const unitFor = (file) =>
+      unitFiles(selectTests({ map: MAP, changes: [{ file, lines: [1] }], unitIndex }));
+    assert.deepEqual(unitFor("functions/_middleware.js"), ["tests/unit/pages.test.js"]);
+    assert.deepEqual(unitFor("_routes.json"), [
+      "tests/unit/naming.test.js",
+      "tests/unit/pages.test.js",
+    ]);
+    assert.deepEqual(unitFor("privacy.html"), [
+      "tests/unit/naming.test.js",
+      "tests/unit/pages.test.js",
+    ]);
+    for (const file of [
+      "tests/unit/renamed.test.js",
+      "tests/playwright/core/renamed.spec.js",
+      "tests/playwright/evidence/renamed.png",
+    ]) {
+      assert.deepEqual(unitFor(file), ["tests/unit/naming.test.js"]);
+    }
+    assert.deepEqual(unitFor("devops/pollers/shared/run-lock.sh"), ["tests/unit/lock.test.js"]);
+  });
+
+  test("a data directory an imported module names counts as read (AC-15)", () => {
+    const unitIndex = buildUnitIndex({
+      "tests/unit/bundle.test.js":
+        'import { buildBundleObject } from "../../devops/collections/build.mjs";',
+      "devops/collections/build.mjs": 'const COLLECTIONS_DIR = "data/collections";',
+    });
+    const selection = selectTests({
+      map: MAP,
+      changes: [{ file: "data/collections/index.json", lines: [2] }],
+      unitIndex,
+    });
+    assert.deepEqual(unitFiles(selection), ["tests/unit/bundle.test.js"]);
+  });
+
+  test("a changed unit test or unit helper selects the unit tests that use it (AC-15)", () => {
+    assert.deepEqual(unitFiles(select([{ file: "tests/unit/merge.test.js", lines: [1] }])), [
+      "tests/unit/merge.test.js",
+    ]);
+    assert.deepEqual(
+      unitFiles(select([{ file: "tests/unit/helpers/source-extract.js", lines: [1] }])),
+      ["tests/unit/demo.test.js"]
+    );
+    assert.deepEqual(
+      unitFiles(select([{ file: "devops/testing/coverage-merge.mjs", lines: [2] }])),
+      ["tests/unit/merge.test.js"]
+    );
+  });
+
+  test("a renamed unit test selects its current path", () => {
+    const unitIndex = buildUnitIndex({ "tests/unit/renamed.test.js": "" });
+    const selection = selectTests({
+      map: MAP,
+      unitIndex,
+      changes: [
+        { file: "tests/unit/old.test.js", lines: [], deleted: true },
+        { file: "tests/unit/renamed.test.js", lines: [] },
+      ],
+    });
+    assert.equal(selection.full, false);
+    assert.deepEqual(unitFiles(selection), ["tests/unit/renamed.test.js"]);
+  });
+
+  test("a deleted script selects the full suite; a deleted spec selects nothing to run", () => {
+    const script = select([{ file: "js/demo.js", lines: [], deleted: true }]);
+    assert.equal(script.full, true);
+    assert.ok(script.reasons.some((reason) => reason.file === "js/demo.js"));
+    const spec = select([{ file: "tests/playwright/core/beta.spec.js", lines: [], deleted: true }]);
+    assert.equal(spec.full, false);
+    assert.deepEqual(spec.core, []);
+  });
+
+  test("a deleted spec is not brought back through the map", () => {
+    const selection = select([
+      { file: "tests/playwright/core/alpha.spec.js", lines: [], deleted: true },
+      { file: "js/demo.js", lines: [6] },
+    ]);
+    assert.deepEqual(locations(selection), ["tests/playwright/core/beta.spec.js:7"]);
+  });
+
+  test("a full-suite fallback keeps a selected extended spec", () => {
+    const plan = toPlanJson(
+      select([
+        { file: "tests/playwright/extended/service-worker.spec.js", lines: [3] },
+        { file: "sw-router.js", lines: [1] },
+      ])
+    );
+    assert.equal(plan.full, true);
+    assert.deepEqual(plan.core, ["tests/playwright/extended/service-worker.spec.js"]);
+  });
+
+  test("a selected test in a spec with a serial group runs the whole spec", () => {
+    const selection = selectTests({
+      map: MAP,
+      changes: [{ file: "js/demo.js", lines: [21] }],
+      unitIndex: UNIT_INDEX,
+      serialSpecs: new Set(["tests/playwright/core/alpha.spec.js"]),
+    });
+    assert.deepEqual(locations(selection), ["tests/playwright/core/alpha.spec.js"]);
+  });
+
+  test("a changed line selects by its innermost function, not the wrapper around it", () => {
+    assert.deepEqual(locations(select([{ file: "js/wrapped.js", lines: [15] }])), [
+      "tests/playwright/core/wrap.spec.js:5",
+    ]);
+    assert.deepEqual(locations(select([{ file: "js/wrapped.js", lines: [50] }])), [
+      "tests/playwright/core/wrap.spec.js:5",
+      "tests/playwright/core/wrap.spec.js:9",
+    ]);
+  });
+
+  test("a changed line in a function no core test runs selects no core test", () => {
+    const selection = select([{ file: "js/demo.js", lines: [45] }]);
+    assert.equal(selection.full, false);
+    assert.deepEqual(selection.core, []);
+    assert.deepEqual(unitFiles(selection), ["tests/unit/demo.test.js"]);
+  });
+
+  test("a changed line outside every mapped function selects the full core suite (AC-16)", () => {
+    const selection = select([{ file: "js/demo.js", lines: [2] }]);
+    assert.equal(selection.full, true);
+    assert.ok(selection.reasons.some((reason) => reason.file === "js/demo.js"));
+  });
+
+  test("shared files with no map entry select the full core suite and name the file (AC-16)", () => {
+    for (const file of [
+      "index.html",
+      "css/styles.css",
+      "tests/playwright/helpers/app-test.js",
+      "playwright.config.js",
+      "js/not-in-map.js",
+      ".github/workflows/tests.yml",
+    ]) {
+      const selection = select([{ file, lines: [1] }]);
+      assert.equal(selection.full, true, `${file} selects the full suite`);
+      assert.ok(
+        selection.reasons.some((reason) => reason.file === file),
+        `${file} is named`
+      );
+    }
+  });
+
+  test("docs and config paths select nothing", () => {
+    const selection = select(
+      [
+        "README.md",
+        "docs/specs/STRK-419-test-suite-loop/tasks.md",
+        ".context/testing.md",
+        ".claude/rules/code-core.md",
+        ".agents/skills/start/SKILL.md",
+        ".github/skills/code-review/SKILL.md",
+        "playground/images/STRK-444/390-dark-builder.png",
+      ].map((file) => ({ file, lines: [1] }))
+    );
+    assert.equal(selection.full, false);
+    assert.deepEqual(selection.core, []);
+    assert.deepEqual(selection.unit, []);
+  });
+
+  test("a missing map selects the full suite and names the command that builds one (AC-17)", () => {
+    const selection = select([{ file: "js/demo.js", lines: [21] }], null);
+    assert.equal(selection.full, true);
+    assert.match(renderPlan(selection), /npm run test:map/);
+  });
+
+  test("an untracked file is judged by its path (AC-12)", () => {
+    const selection = select([{ file: "tests/playwright/core/gamma.spec.js", lines: [] }]);
+    assert.deepEqual(locations(selection), ["tests/playwright/core/gamma.spec.js"]);
+  });
+});
+
+// js/guard.js: an early return on line 2 and a branch on lines 4-6. Test "closed" stops at
+// the guard, "open" skips the branch, "deep" takes it. Line 10 is top-level code.
+const GUARD_SOURCE = [
+  "function guard(open, deep) {",
+  "  if (!open) return 0;",
+  "  let x = 1;",
+  "  if (deep) {",
+  "    x = 2;",
+  "  }",
+  "",
+  "  return x;",
+  "}",
+  "guard(true);",
+];
+const GUARD_TESTS = ["closed", "open", "deep"].map((name, i) => ({
+  id: `tests/playwright/core/guard.spec.js:${10 * (i + 1)}`,
+  title: `guard › ${name}`,
+  functions: [{ file: "js/guard.js", name: "guard", startLine: 1, endLine: 9 }],
+}));
+const GUARD_MAP = {
+  sha: MAP.sha,
+  files: { ...MAP.files, "js/guard.js": [[1, 9]] },
+  tests: [...MAP.tests, ...GUARD_TESTS],
+  // Set indexes point into `tests`; MAP.tests holds five entries before the guard tests.
+  // A blank line holds no code, so no test covers it.
+  sets: [[5, 6, 7], [6, 7], [7], []],
+  lines: {
+    "js/guard.js": [
+      [1, 2, 0],
+      [3, 4, 1],
+      [5, 5, 2],
+      [6, 6, 1],
+      [7, 7, 3],
+      [8, 10, 1],
+    ],
+  },
+};
+const guardId = (name) => GUARD_TESTS.find((t) => t.title.endsWith(name)).id;
+const selectLines = (changes, map = GUARD_MAP) =>
+  selectTests({
+    map,
+    changes,
+    unitIndex: UNIT_INDEX,
+    oldLine: (file, line) => (file === "js/guard.js" ? GUARD_SOURCE[line - 1] : undefined),
+  });
+
+describe("selectTests with the line index", () => {
+  test("a changed line after an early return skips the tests that returned (AC-13)", () => {
+    assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [3] }])), [
+      guardId("open"),
+      guardId("deep"),
+    ]);
+  });
+
+  test("an insertion beside a nested function takes the tests of the scope around it", () => {
+    // A module wrapper (lines 1-8) declares `list` (lines 3-5); "boots" never calls it.
+    const source = [
+      "(function () {",
+      "  const ready = true;",
+      "  function list() {",
+      "    return [];",
+      "  }",
+      "",
+      "  window.nested = { list, ready };",
+      "})();",
+    ];
+    const tests = [
+      { id: "tests/playwright/core/nested.spec.js:5", title: "nested › boots", functions: [] },
+      { id: "tests/playwright/core/nested.spec.js:9", title: "nested › lists", functions: [] },
+    ];
+    tests[0].functions = [{ file: "js/nested.js", name: "", startLine: 1, endLine: 8 }];
+    tests[1].functions = [
+      ...tests[0].functions,
+      { file: "js/nested.js", name: "list", startLine: 3, endLine: 5 },
+    ];
+    const map = {
+      sha: MAP.sha,
+      files: {
+        "js/nested.js": [
+          [1, 8],
+          [3, 5],
+        ],
+      },
+      tests,
+      sets: [[0, 1], [1], []],
+      lines: {
+        "js/nested.js": [
+          [1, 2, 0],
+          [3, 5, 1],
+          [6, 6, 2],
+          [7, 8, 0],
+        ],
+      },
+    };
+    for (const before of [2, 5]) {
+      const selection = selectTests({
+        map,
+        changes: [{ file: "js/nested.js", lines: [], inserts: [before] }],
+        unitIndex: UNIT_INDEX,
+        oldLine: (file, line) => (file === "js/nested.js" ? source[line - 1] : undefined),
+      });
+      assert.deepEqual(
+        locations(selection),
+        tests.map((t) => t.id),
+        `an insertion after line ${before} runs whenever the wrapper runs`
+      );
+    }
+  });
+
+  test("a changed line in a branch selects only the tests that took it (AC-13)", () => {
+    assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [5] }])), [
+      guardId("deep"),
+    ]);
+  });
+
+  test("an inserted line takes the tests of the line after it", () => {
+    const selection = selectLines([{ file: "js/guard.js", lines: [], inserts: [4] }]);
+    assert.deepEqual(locations(selection), [guardId("deep")]);
+  });
+
+  test("an inserted line before a closing brace or a blank line also takes the line before", () => {
+    const beforeBrace = selectLines([{ file: "js/guard.js", lines: [], inserts: [5] }]);
+    assert.deepEqual(locations(beforeBrace), [guardId("open"), guardId("deep")]);
+    const beforeBlank = selectLines([{ file: "js/guard.js", lines: [], inserts: [6] }]);
+    assert.deepEqual(locations(beforeBlank), [guardId("open"), guardId("deep")]);
+  });
+
+  test("an insertion just before or just after a function is top-level code (D-7)", () => {
+    for (const before of [0, 9]) {
+      const selection = selectLines([{ file: "js/guard.js", lines: [], inserts: [before] }]);
+      assert.equal(
+        selection.full,
+        true,
+        `an insertion after line ${before} selects the full suite`
+      );
+      assert.ok(selection.reasons.some((reason) => reason.file === "js/guard.js"));
+    }
+  });
+
+  test("a top-level line still selects the full core suite (D-7)", () => {
+    const selection = selectLines([{ file: "js/guard.js", lines: [10] }]);
+    assert.equal(selection.full, true);
+    assert.ok(selection.reasons.some((reason) => reason.file === "js/guard.js"));
+  });
+
+  test("a map without a line index selects by function", () => {
+    const { lines, sets, ...functionsOnly } = GUARD_MAP;
+    assert.ok(lines && sets);
+    assert.deepEqual(locations(selectLines([{ file: "js/guard.js", lines: [5] }], functionsOnly)), [
+      guardId("closed"),
+      guardId("open"),
+      guardId("deep"),
+    ]);
+  });
+
+  test("without a line index an inserted line selects the tests of its enclosing function", () => {
+    const inside = select([{ file: "js/demo.js", lines: [], inserts: [6] }]);
+    assert.equal(inside.full, false);
+    assert.deepEqual(locations(inside), [
+      "tests/playwright/core/alpha.spec.js:10",
+      "tests/playwright/core/beta.spec.js:7",
+    ]);
+    for (const before of [4, 12]) {
+      const outside = select([{ file: "js/demo.js", lines: [], inserts: [before] }]);
+      assert.equal(outside.full, true, `an insertion after line ${before} is top-level code`);
+    }
+  });
+});
+
+describe("plan output", () => {
+  test("the plan lists each selected test with the changed file that selected it (AC-19)", () => {
+    const text = renderPlan(select([{ file: "js/demo.js", lines: [6] }]));
+    assert.match(text, /tests\/playwright\/core\/alpha\.spec\.js:10.*js\/demo\.js/);
+    assert.match(text, /tests\/playwright\/core\/beta\.spec\.js:7.*js\/demo\.js/);
+    assert.match(text, /tests\/unit\/demo\.test\.js.*js\/demo\.js/);
+  });
+
+  test("the plan serializes to JSON for CI", () => {
+    const plan = toPlanJson(select([{ file: "js/demo.js", lines: [21] }]));
+    assert.deepEqual(plan, {
+      full: false,
+      core: ["tests/playwright/core/alpha.spec.js:30"],
+      unit: ["tests/unit/demo.test.js"],
+      reasons: [],
+    });
+    assert.deepEqual(JSON.parse(JSON.stringify(plan)), plan);
+  });
+
+  test("a map built off the merge base's history yields a stale warning (AC-18)", () => {
+    const isAncestor = (a, b) => a === "old" && b === "base";
+    assert.equal(staleWarning({ mapSha: "old", mergeBase: "base", isAncestor }), null);
+    assert.match(staleWarning({ mapSha: "other", mergeBase: "base", isAncestor }), /stale/i);
+  });
+});

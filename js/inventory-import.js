@@ -139,7 +139,7 @@
     } catch (error) {
       if (typeof showToast === "function") {
         showToast(
-          "Import incomplete — Collections could not be saved. Free storage and retry.",
+          "Import incomplete: Collections could not be saved. Free storage and retry.",
           "error"
         );
       }
@@ -515,7 +515,7 @@
         return;
       }
       if (typeof showToast === "function")
-        showToast("No changes detected \u2014 inventory is up to date");
+        showToast("No changes detected. Inventory is up to date.");
       return;
     }
 
@@ -592,7 +592,7 @@
    * @returns {number|undefined} Parsed amount, or undefined
    */
   const _parseDispositionAmount = (raw) => {
-    const n = parseFloat(String(raw).replace(/[^0-9.\-]/g, ""));
+    const n = parseFloat(String(raw).replace(/[^0-9.-]/g, ""));
     return raw !== "" && Number.isFinite(n) ? n : undefined;
   };
 
@@ -898,7 +898,7 @@
     );
     if (attachCount > 0 && typeof showToast === "function") {
       showToast(
-        `${attachCount} attachment(s) imported as metadata only — use a backup ZIP to restore files.`,
+        `${attachCount} attachment(s) imported as metadata only. Use a backup ZIP to restore files.`,
         "warning"
       );
     }
@@ -935,7 +935,7 @@
     if (typeof tryPersistInventory !== "function" || !tryPersistInventory()) {
       _restoreOverrideState(priorOverride);
       if (typeof showToast === "function")
-        showToast("Import incomplete — Items could not be saved. Free storage and retry.", "error");
+        showToast("Import incomplete: Items could not be saved. Free storage and retry.", "error");
       return;
     }
     _applyCsvAddedTags(imported, pendingTagsByUuid);
@@ -1723,7 +1723,7 @@
             _restoreOverrideState(priorOverride);
             if (typeof showToast === "function")
               showToast(
-                "Import incomplete — Items could not be saved. Free storage and retry.",
+                "Import incomplete: Items could not be saved. Free storage and retry.",
                 "error"
               );
             return;
@@ -1946,9 +1946,9 @@
 
       let disposition;
       if (dispositionType) {
-        const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.\-]/g, ""));
+        const _parsedAmount = parseFloat(String(dispositionAmount).replace(/[^0-9.-]/g, ""));
         const _parsedGainLoss = parseFloat(
-          String(dispositionRealizedGainLoss).replace(/[^0-9.\-]/g, "")
+          String(dispositionRealizedGainLoss).replace(/[^0-9.-]/g, "")
         );
         const dispositionTypeKey =
           typeof DISPOSITION_TYPES !== "undefined"
@@ -2061,7 +2061,7 @@
       const headerCurrencyMatch = key.match(/\(([^)]+)\)/);
       const headerCurrency = headerCurrencyMatch ? headerCurrencyMatch[1] : displayCurrency;
       const currency = valueCurrency || headerCurrency;
-      const amount = parseFloat(rawVal.replace(/[^0-9.\-]/g, ""));
+      const amount = parseFloat(rawVal.replace(/[^0-9.-]/g, ""));
       return isNaN(amount) ? 0 : convertToUsd(amount, currency);
     };
 

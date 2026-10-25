@@ -35,9 +35,11 @@ logs/
 __pycache__/
 *.pyc
 
+# Release screenshots from `npm run screenshots -- --set=release`; uploaded to the release, never committed
+docs/announcements/images/
+
 # DevOps tooling — hooks and protocol docs tracked; build artifacts and secrets excluded
 devops/**/.env
-devops/screenshots/
 devops/node_modules/
 devops/docs/
 devops/claude-backup/
@@ -54,6 +56,13 @@ webscale-cookies.json
 # Playwright test artifacts
 test-results/
 playwright-report/
+blob-report/
+all-blob-reports/
+core-report.json
+
+# Coverage outputs and the local test map
+coverage/
+.cache/
 
 # AI/MCP configuration files are tracked for project consistency
 .firecrawl/

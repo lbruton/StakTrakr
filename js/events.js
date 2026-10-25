@@ -407,6 +407,22 @@ let _urlPreviewGenObv = 0;
 /** @type {number} Reverse URL preview generation token */
 let _urlPreviewGenRev = 0;
 const _urlPreviewTimers = { obverse: null, reverse: null };
+/**
+ * Sides whose preview is a pattern-rule image rather than the Item's own upload or link
+ * (STRK-443). The image options pattern toggle clears or refills only these sides.
+ */
+const _patternPreviewSides = { obverse: false, reverse: false };
+/** Token for the latest pattern-preview refresh; an older one still reading an image yields. */
+let _patternRefreshGeneration = 0;
+
+/**
+ * Record whether a side's preview is a pattern-rule image.
+ * @param {'obverse'|'reverse'} side
+ * @param {boolean} isPattern
+ */
+const markPatternPreview = (side, isPattern) => {
+  _patternPreviewSides[side === "reverse" ? "reverse" : "obverse"] = Boolean(isPattern);
+};
 
 /** @type {{id:number, file:File}[]} Queued attachment entries — written to IDB on item commit (STRK-45, STRK-65) */
 let _pendingAttachments = [];
@@ -431,6 +447,7 @@ const processUploadedImage = async (file, side = "obverse") => {
   }
 
   const suffix = side === "reverse" ? "Rev" : "Obv";
+  markPatternPreview(side, false);
 
   if (side === "reverse") {
     _pendingReverseBlob = result.blob;
@@ -568,16 +585,7 @@ const _setUrlPreviewGeneration = (side) => {
 const _getUrlPreviewGeneration = (side) =>
   side === "reverse" ? _urlPreviewGenRev : _urlPreviewGenObv;
 
-const _normalizeHttpImageUrl = (value = "") => {
-  const trimmed = value.trim();
-  if (!/^https?:\/\/.+\..+/i.test(trimmed)) return "";
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
-  } catch {
-    return "";
-  }
-};
+const _normalizeHttpImageUrl = (value = "") => window.collectionsCore.normalizeImageUrl(value);
 
 const previewImageUrlForSide = (side = "obverse", url = "") => {
   const suffix = _frameSuffix(side);
@@ -587,6 +595,7 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
   const sizeInfo = document.getElementById("itemImageSizeInfo" + suffix);
   const imageUrl = _normalizeHttpImageUrl(url || "");
   const gen = _setUrlPreviewGeneration(side);
+  markPatternPreview(side, false);
 
   if (!preview || !img) return;
 
@@ -629,6 +638,136 @@ const previewImageUrlForSide = (side = "obverse", url = "") => {
   updateSwapButtonVisibility();
 };
 
+/**
+ * A snapshot to check a pattern-image read against when it finishes (STRK-443).
+ * @returns {{edit: number, refresh: number}}
+ */
+const patternPreviewToken = () => ({
+  edit: _itemImageEditGeneration,
+  refresh: _patternRefreshGeneration,
+});
+
+/**
+ * Whether a pattern image read under `token` may still be shown on `side`. While it was read the
+ * modal may have closed or reopened, a pattern refresh started, the setting been turned off, or
+ * the side been filled; any of those makes the image stale (PR 1598 review). Used by both the
+ * edit-modal loader and refreshPatternPreviews.
+ * @param {{edit: number, refresh: number}} token - From patternPreviewToken() before the read
+ * @param {'obverse'|'reverse'} side
+ * @returns {boolean}
+ */
+const canShowPatternPreview = (token, side) => {
+  const preview = document.getElementById("itemImagePreview" + _frameSuffix(side));
+  return (
+    token.edit === _itemImageEditGeneration &&
+    token.refresh === _patternRefreshGeneration &&
+    !document.getElementById("itemIgnorePatternImages")?.checked &&
+    Boolean(preview) &&
+    preview.style.display === "none"
+  );
+};
+
+/**
+ * Apply the Item's pattern-image setting to the open modal (STRK-443). With it off, every side
+ * that shows a pattern image is cleared; with it on, each empty side is filled from the rule that
+ * matches the current name. The Item's own uploads and links are never touched, and nothing is
+ * queued for save: a pattern image is resolved again whenever the Item is shown.
+ * Each call supersedes any earlier one still reading an image, so a slow read never lands after
+ * the setting changed again (PR 1598 review).
+ * @returns {Promise<void>}
+ */
+const refreshPatternPreviews = async () => {
+  const ignore = Boolean(document.getElementById("itemIgnorePatternImages")?.checked);
+  ++_patternRefreshGeneration;
+  const token = patternPreviewToken();
+  for (const side of ["obverse", "reverse"]) {
+    const suffix = _frameSuffix(side);
+    const preview = document.getElementById("itemImagePreview" + suffix);
+    const img = document.getElementById("itemImagePreviewImg" + suffix);
+    const removeBtn = document.getElementById("itemImageRemoveBtn" + suffix);
+    if (!preview || !img) continue;
+    if (ignore) {
+      if (!_patternPreviewSides[side]) continue;
+      preview.style.display = "none";
+      img.removeAttribute("src");
+      if (removeBtn) removeBtn.style.display = "none";
+      setEditPreviewUrl(null, side);
+      markPatternPreview(side, false);
+      continue;
+    }
+    const field = side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+    const pendingBlob = side === "reverse" ? _pendingReverseBlob : _pendingObverseBlob;
+    const sideIsEmpty =
+      preview.style.display === "none" && !pendingBlob && !(field && field.value.trim());
+    if (!sideIsEmpty || !window.imageCache?.isAvailable() || typeof NumistaLookup === "undefined") {
+      continue;
+    }
+    const match = NumistaLookup.matchQuery(document.getElementById("itemName")?.value || "");
+    const ruleImageId = match?.rule?.seedImageId;
+    if (!ruleImageId) continue;
+    const url = await imageCache.getPatternImageUrl(ruleImageId, side).catch(() => null);
+    if (!url) continue;
+    if (!canShowPatternPreview(token, side)) {
+      URL.revokeObjectURL(url);
+      continue;
+    }
+    img.src = url;
+    preview.style.display = "block";
+    if (removeBtn) removeBtn.style.display = "";
+    setEditPreviewUrl(url, side);
+    markPatternPreview(side, true);
+  }
+  updateSwapButtonVisibility();
+};
+
+/**
+ * Open one frame's image options (STRK-443): the image link and the Item-wide "use a matching
+ * pattern image" setting (the inverse of the stored ignorePatternImages flag). OK applies both;
+ * a malformed link is rejected with a message and never reaches the hidden URL field, which
+ * still takes part in native form validation and would silently block Save.
+ * @param {'obverse'|'reverse'} side
+ * @returns {Promise<void>}
+ */
+const openItemImageOptions = async (side) => {
+  const field = side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
+  const ignoreBox = document.getElementById("itemIgnorePatternImages");
+  if (!field || typeof showAppPromptWithOption !== "function") return;
+  const sideTitle = side === "reverse" ? "Reverse image" : "Obverse image";
+  const result = await showAppPromptWithOption(
+    "Paste a link to the image, for example from imgur.",
+    field.value,
+    sideTitle,
+    {
+      label: "Use a matching pattern image when this Item has no image of its own (both sides)",
+      checked: !(ignoreBox && ignoreBox.checked),
+    }
+  );
+  if (!result) return;
+  if (ignoreBox) ignoreBox.checked = !result.checked;
+  const trimmed = String(result.value || "").trim();
+  const link = trimmed ? _normalizeHttpImageUrl(trimmed) : "";
+  if (trimmed && !link) {
+    await refreshPatternPreviews();
+    if (typeof showAppAlert === "function") {
+      await showAppAlert(
+        "That doesn't look like a web link. Use a full address that starts with http:// or https://.",
+        sideTitle
+      );
+    }
+    return;
+  }
+  if (link !== field.value) {
+    field.value = link;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    // Preview now rather than after the input debounce, so the pattern refresh below sees this
+    // side's final state and the late debounced preview cannot undo it.
+    if (_urlPreviewTimers[side]) clearTimeout(_urlPreviewTimers[side]);
+    _urlPreviewTimers[side] = null;
+    previewImageUrlForSide(side, link);
+  }
+  await refreshPatternPreviews();
+};
+
 const scheduleUrlPreview = (side = "obverse") => {
   const field = side === "reverse" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
   if (!field) return;
@@ -664,6 +803,8 @@ const clearUploadState = () => {
   _pendingReverseBlob = null;
   _deleteObverseOnSave = false;
   _deleteReverseOnSave = false;
+  markPatternPreview("obverse", false);
+  markPatternPreview("reverse", false);
   _urlPreviewGenObv++;
   _urlPreviewGenRev++;
   if (_urlPreviewTimers.obverse) clearTimeout(_urlPreviewTimers.obverse);
@@ -1750,7 +1891,7 @@ const parseItemFormFields = (isEditing, existingItem) => {
  * @param {Object} existingItem
  * @returns {Object} Numista data fields with source tracking
  */
-const parseNumistaDataFields = (isEditing, existingItem, catalog = "") => {
+const parseNumistaDataFields = (isEditing, existingItem, _catalog = "") => {
   const prev = isEditing && existingItem?.numistaData ? existingItem.numistaData : {};
 
   // STAK-487: Respect intentional clearing — if the form element exists, trust its
@@ -2260,10 +2401,10 @@ const commitItemToInventory = (f, isEditing, editIdx) => {
 /**
  * Builds a Numista search query, optionally rewriting via NumistaLookup patterns.
  * @param {string} nameVal - Item name input value
- * @param {string} metalVal - Metal composition value (currently unused; kept for API compatibility)
+ * @param {string} _metalVal - Metal composition value, unused and kept for API compatibility
  * @returns {{ query: string, numistaId: string|null, matched: boolean }}
  */
-const buildNumistaSearchQuery = (nameVal, metalVal) => {
+const buildNumistaSearchQuery = (nameVal, _metalVal) => {
   const combined = nameVal;
 
   // Try pattern-based lookup if available
@@ -2727,9 +2868,9 @@ window.filterTypesByMetal = filterTypesByMetal;
 window.validateItemFields = validateItemFields;
 
 /**
- * Prevent overlapping saves while an image swap or image write is pending.
- * The first commit clears editingIndex, so a second submit could otherwise add
- * a duplicate Item instead of editing it.
+ * Prevent overlapping saves while an image swap or image write is pending, and drop a
+ * submit that arrives after the save closed #itemModal. The first commit clears
+ * editingIndex, so either late submit would otherwise add a duplicate Item.
  * @param {Function} handler - Unified form submission handler
  * @returns {Function} Submission handler with a per-form in-flight guard
  */
@@ -2737,7 +2878,7 @@ const guardItemFormSubmission = (handler) => {
   let submitting = false;
   return async function (event) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitting || document.getElementById("itemModal")?.style.display === "none") return;
     submitting = true;
     try {
       await handler.call(this, event);
@@ -2964,7 +3105,7 @@ const setupItemFormListeners = () => {
           saveInventory();
         } else if (_pendingAttachments.length > 0) {
           if (typeof showToast === "function")
-            showToast("Attachments could not be saved — storage is unavailable", "error");
+            showToast("Attachments could not be saved: storage is unavailable.", "error");
           clearAttachmentQueue();
         } else {
           clearAttachmentQueue();
@@ -3135,41 +3276,18 @@ const setupItemFormListeners = () => {
     });
   }
 
-  // IMAGE URL LINK ICONS — one small icon per frame (STRK-434). It opens the shared prompt
-  // dialog with the current URL; the (always hidden) URL field keeps the value, so the save
-  // and preview paths are unchanged. Cancel changes nothing; an empty entry clears the link.
+  // IMAGE OPTIONS BUTTONS — one per frame (STRK-434 link icon, STRK-443 options). It opens the
+  // shared prompt dialog with the current URL and the Item's pattern-image setting; the (always
+  // hidden) URL field keeps the link, so the save and preview paths are unchanged. Cancel changes
+  // nothing; an empty entry clears the link.
   if (featureFlags.isEnabled("COIN_IMAGES")) {
     ["Obv", "Rev"].forEach((suffix) => {
       const urlBtn = document.getElementById("itemImageUrlBtn" + suffix);
       if (!urlBtn) return;
       urlBtn.style.display = "";
-      urlBtn.addEventListener("click", async () => {
-        const field =
-          suffix === "Rev" ? elements.itemReverseImageUrl : elements.itemObverseImageUrl;
-        if (!field || typeof showAppPrompt !== "function") return;
-        const sideName = suffix === "Rev" ? "reverse" : "obverse";
-        const entered = await showAppPrompt(
-          "Paste a link to the image, for example from imgur.",
-          field.value,
-          `Link ${sideName} image`
-        );
-        if (entered === null || entered === undefined) return;
-        const trimmed = String(entered).trim();
-        // The URL field is hidden but still takes part in native form validation, so a malformed
-        // link must never reach it: it would silently block Save with nothing to fix on screen.
-        const link = trimmed ? _normalizeHttpImageUrl(trimmed) : "";
-        if (trimmed && !link) {
-          if (typeof showAppAlert === "function") {
-            await showAppAlert(
-              "That doesn't look like a web link. Use a full address that starts with http:// or https://.",
-              `Link ${sideName} image`
-            );
-          }
-          return;
-        }
-        field.value = link;
-        field.dispatchEvent(new Event("input", { bubbles: true }));
-      });
+      urlBtn.addEventListener("click", () =>
+        openItemImageOptions(suffix === "Rev" ? "reverse" : "obverse")
+      );
     });
   }
 
@@ -3262,9 +3380,12 @@ const setupItemFormListeners = () => {
           // STAK-332: Flag item to ignore pattern rule images after explicit removal
           const ignorePatternCheckbox = document.getElementById("itemIgnorePatternImages");
           if (ignorePatternCheckbox) ignorePatternCheckbox.checked = true;
+          markPatternPreview(side, false);
           // STRK-427: Remove resets that side's orientation and keeps the shared shape (AC-3.3)
           if (_imageFrameHost) _imageFrameHost.resetSide(side);
-          updateSwapButtonVisibility();
+          // The flag is Item-wide, so a pattern image on the other side goes too (PR 1598 review);
+          // the refresh also supersedes any pattern read still in flight.
+          await refreshPatternPreviews();
 
           // STAK-244: Also clear Numista image cache if user is removing a catalog-synced image
           const catalogId = elements.itemCatalog?.value?.trim() || "";
@@ -3354,6 +3475,9 @@ const setupItemFormListeners = () => {
         // replace either of the chosen sides (especially a URL-only side).
         const ignorePattern = safeGetElement("itemIgnorePatternImages");
         if (ignorePattern) ignorePattern.checked = true;
+        // Both sides now save as the Item's own images, so neither is a pattern preview (STRK-443).
+        markPatternPreview("obverse", false);
+        markPatternPreview("reverse", false);
 
         // Swap per-side orientation with the images it describes; the shape is shared (AC-3.1)
         if (_imageFrameHost) _imageFrameHost.swapSides();
@@ -5134,7 +5258,7 @@ const setupApiEvents = () => {
                   : "API";
                 showToast(`\u2713 Synced ${updatedCount} prices from ${label}`);
               } else if (!anySucceeded) {
-                showToast("Spot sync failed \u2014 check API settings");
+                showToast("Spot sync failed. Check the API settings.");
               }
             }
           }

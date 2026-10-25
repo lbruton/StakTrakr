@@ -259,7 +259,7 @@ async function saveCloneWithout(page, controlSelector, { grading = false } = {})
   );
 }
 
-test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
+test.describe("core/image-frame-editor — item modal", () => {
   test("E-empty: shape control and both empty frames show before any image exists, flag off hides the group", async ({
     page,
   }) => {
@@ -723,7 +723,7 @@ test.describe("core/image-frame-editor — item modal (STRK-427)", () => {
   });
 });
 
-test.describe("core/image-frame-editor — layout, themes and builder parity (STRK-427)", () => {
+test.describe("core/image-frame-editor — layout, themes and builder parity", () => {
   test("AC-6.1: desktop previews are larger than the old 140px cap and fit the 700px dialog", async ({
     page,
   }) => {
@@ -817,7 +817,7 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
           };
           const frame = document.querySelector("#itemModal .ife .ife-frame");
           const frameStyle = getComputedStyle(frame);
-          const group = document.querySelector("#itemModal .ife .collections-segmented");
+          const group = document.querySelector("#itemModal .ife .segmented");
           return {
             frameOpaque: rgba(frameStyle.backgroundColor)[3] === 255,
             groupOpaque: rgba(getComputedStyle(group).backgroundColor)[3] === 255,
@@ -829,7 +829,7 @@ test.describe("core/image-frame-editor — layout, themes and builder parity (ST
         expect(report.frameOpaque, `${label}: frame background is a real token`).toBe(true);
         expect(report.groupOpaque, `${label}: control background is a real token`).toBe(true);
         expect(report.plusContrast, `${label}: empty-frame glyph`).toBeGreaterThanOrEqual(3);
-        // The selected option's colors are the shipped .collections-segmented pairing, the same
+        // The selected option's colors are the shipped .segmented pairing, the same
         // control the builder has had since STRK-368, so its contrast is not this feature's to
         // assert here (it measures 2.39:1 in every theme; filed as a separate follow-up).
         expect(report.overflow, `${label}: no horizontal overflow`).toBeLessThanOrEqual(0);
@@ -989,7 +989,7 @@ const measureShapeOption = (page, modal) =>
     };
   });
 
-test.describe("core/image-frame-editor — item modal vs builder visual parity (STRK-434)", () => {
+test.describe("core/image-frame-editor — item modal vs builder visual parity", () => {
   for (const kind of ["item", "builder"]) {
     test(`row 6: ${kind} modal puts the Images section below Type, Metal and Name`, async ({
       page,
@@ -1598,4 +1598,512 @@ test.describe("core/image-frame-editor — item modal vs builder visual parity (
       });
     }
   }
+});
+
+// STRK-442 (STRK-435 part 1) — the builder's Slot row thumbnails follow the collection's Image
+// shape and show the whole photo.
+//
+// Written BEFORE the fix (TDD red phase). Each Slot row's image is a 44px circle that crops
+// (object-fit cover) whatever the shape. The contract, measured on rendered geometry:
+//
+//   1. Every Slot thumbnail, empty or holding an image, renders the collection's shape at the
+//      shared ratio tokens, as the largest frame of that ratio inside the 44px box (its long
+//      side is 44px, neither side exceeds it), at 1280 and 390.
+//   2. Bar and Note follow the OBVERSE orientation; Round is a circle; the other shapes are
+//      rectangles with a small radius, not pills.
+//   3. A Slot photo is fit whole (object-fit contain), never cropped.
+//   4. The Slot row keeps its height in every shape, and the remove badge stays on the
+//      thumbnail's upper-right corner.
+//   5. Changing the shape or the obverse orientation re-shapes every Slot at once, and a Slot
+//      added afterwards takes the current shape.
+
+/** Shape and obverse orientation states a Slot thumbnail must render, keyed to RATIO. */
+const SLOT_SHAPES = [
+  { shape: "Round", orientation: null, ratio: "round" },
+  { shape: "Bar", orientation: "Portrait", ratio: "bar-portrait" },
+  { shape: "Bar", orientation: "Landscape", ratio: "bar-landscape" },
+  { shape: "Note", orientation: "Portrait", ratio: "note-portrait" },
+  { shape: "Note", orientation: "Landscape", ratio: "note-landscape" },
+  { shape: "Slab", orientation: null, ratio: "slab" },
+];
+
+/**
+ * Opens a blank builder (it starts with several empty Slot rows) and uploads a photo to the
+ * first Slot, so both a filled and an empty thumbnail are measured.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<import('@playwright/test').Locator>} The builder's frame-editor root
+ */
+async function openBuilderWithSlots(page) {
+  await seedAndGoto(page);
+  await openBuilderModal(page);
+  const builder = page.locator("#collectionsBuilderModal");
+  const rows = builder.locator(".collections-builder-row");
+  expect(await rows.count()).toBeGreaterThanOrEqual(2);
+  await rows
+    .first()
+    .locator("input[type=file]")
+    .setInputFiles("tests/playwright/helpers/test-obverse.png");
+  await expect(rows.first().locator(".collections-image-pick img")).toHaveCount(1);
+  return builder.locator(".ife");
+}
+
+/**
+ * Picks a shape and, for Bar and Note, the obverse orientation in the builder.
+ * @param {import('@playwright/test').Locator} root - The builder's frame-editor root
+ * @param {{shape: string, orientation: string|null}} state - Target shape state
+ * @returns {Promise<void>}
+ */
+async function pickSlotShape(root, { shape, orientation }) {
+  await root.getByRole("radiogroup", { name: "Image shape" }).getByLabel(shape).check();
+  if (orientation) {
+    await root
+      .getByRole("radiogroup", { name: "Obverse orientation" })
+      .getByLabel(orientation)
+      .check();
+  }
+}
+
+/**
+ * Rendered geometry of every Slot thumbnail in the builder.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<object[]>} One entry per Slot row
+ */
+const measureSlotThumbs = (page) =>
+  page.locator("#collectionsBuilderModal .collections-builder-row").evaluateAll((rows) =>
+    rows.map((row) => {
+      const pick = row.querySelector(".collections-image-pick");
+      const box = pick.getBoundingClientRect();
+      const img = pick.querySelector("img");
+      const badge = row.querySelector(".collections-image-remove");
+      const badgeBox = badge && !badge.hidden ? badge.getBoundingClientRect() : null;
+      const style = getComputedStyle(pick);
+      const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = style.borderTopColor;
+      ctx.fillRect(0, 0, 1, 1);
+      return {
+        width: box.width,
+        height: box.height,
+        borderVisible:
+          (parseFloat(style.borderTopWidth) || 0) > 0 && ctx.getImageData(0, 0, 1, 1).data[3] > 0,
+        radius: parseFloat(style.borderTopLeftRadius) || 0,
+        fit: img ? getComputedStyle(img).objectFit : null,
+        // How far the photo's box spills past the frame on any side (0 when it sits inside).
+        imgSpill: img
+          ? (() => {
+              const imgBox = img.getBoundingClientRect();
+              return Math.max(
+                0,
+                box.left - imgBox.left,
+                box.top - imgBox.top,
+                imgBox.right - box.right,
+                imgBox.bottom - box.bottom
+              );
+            })()
+          : null,
+        rowHeight: row.getBoundingClientRect().height,
+        badgeOffset: badgeBox
+          ? Math.hypot(
+              badgeBox.left + badgeBox.width / 2 - box.right,
+              badgeBox.top + badgeBox.height / 2 - box.top
+            )
+          : null,
+      };
+    })
+  );
+
+test.describe("core/image-frame-editor — builder Slot thumbnails follow the Image shape", () => {
+  for (const width of [1280, 390]) {
+    test(`every Slot thumbnail takes the collection's shape inside the 44px box at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 1500 });
+      const root = await openBuilderWithSlots(page);
+      await pickSlotShape(root, SLOT_SHAPES[0]);
+      const [baseline] = await measureSlotThumbs(page);
+      for (const state of SLOT_SHAPES) {
+        await pickSlotShape(root, state);
+        const label = `${state.shape}${state.orientation ? ` ${state.orientation}` : ""} at ${width}px`;
+        const thumbs = await measureSlotThumbs(page);
+        thumbs.forEach((thumb, index) => {
+          const which = `${label}, Slot ${index + 1}`;
+          expect(thumb.width / thumb.height, `${which}: ratio`).toBeCloseTo(RATIO[state.ratio], 1);
+          expect(Math.max(thumb.width, thumb.height), `${which}: long side`).toBeGreaterThan(43);
+          expect(Math.max(thumb.width, thumb.height), `${which}: fits the box`).toBeLessThanOrEqual(
+            44.5
+          );
+          expect(thumb.rowHeight, `${which}: row height`).toBeCloseTo(baseline.rowHeight, 0);
+          if (state.ratio === "round") {
+            expect(thumb.radius, `${which}: circle`).toBeGreaterThanOrEqual(thumb.width / 2 - 0.5);
+          } else {
+            expect(thumb.radius, `${which}: not a pill`).toBeLessThan(
+              Math.min(thumb.width, thumb.height) / 4
+            );
+          }
+        });
+        expect(thumbs[0].fit, `${label}: photo fits whole`).toBe("contain");
+        // contain only fits the photo whole if the img box is the frame: a box that spills past
+        // the frame is either drawn outside it or clipped (a crop).
+        expect(thumbs[0].imgSpill, `${label}: photo stays inside the frame`).toBeLessThanOrEqual(
+          0.5
+        );
+        // Like the title frames (STRK-434 row 11), a Slot holding a photo draws no outline around
+        // the letterbox bands; an empty Slot keeps its dashed drop-zone outline.
+        expect(thumbs[0].borderVisible, `${label}: filled Slot has no outline`).toBe(false);
+        expect(thumbs[1].borderVisible, `${label}: empty Slot keeps its outline`).toBe(true);
+        expect(thumbs[0].badgeOffset, `${label}: badge on the corner`).toBeLessThanOrEqual(12);
+      }
+    });
+  }
+
+  // Review finding on PR 1597 (Codex P2): a shaped Slot button is narrower or shorter than 44px,
+  // so the tap target must stay a full 44px square around it.
+  test("every Slot thumbnail keeps a true 44px touch target in every shape on phones", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const root = await openBuilderWithSlots(page);
+    // The second Slot is empty, so no remove badge covers its corner.
+    const pick = page
+      .locator("#collectionsBuilderModal .collections-builder-row")
+      .nth(1)
+      .locator(".collections-image-pick");
+    for (const state of SLOT_SHAPES) {
+      await pickSlotShape(root, state);
+      await pick.scrollIntoViewIfNeeded();
+      const box = await pick.boundingBox();
+      const hits = await page.evaluate(
+        ({ cx, cy }) =>
+          [
+            [-21, -21],
+            [21, -21],
+            [-21, 21],
+            [21, 21],
+          ].map(([dx, dy]) => {
+            const hit = document.elementFromPoint(cx + dx, cy + dy);
+            return hit && hit.closest("button") ? hit.closest("button").className : "";
+          }),
+        { cx: box.x + box.width / 2, cy: box.y + box.height / 2 }
+      );
+      const label = `${state.shape}${state.orientation ? ` ${state.orientation}` : ""}`;
+      for (const hit of hits)
+        expect(hit, `${label}: corner of the 44px target`).toContain("collections-image-pick");
+    }
+  });
+
+  test("a shape or orientation change re-shapes every Slot, and a new Slot takes the current shape", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 });
+    const root = await openBuilderWithSlots(page);
+    const ratios = async () =>
+      (await measureSlotThumbs(page)).map((thumb) => thumb.width / thumb.height);
+
+    await pickSlotShape(root, { shape: "Bar", orientation: null });
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-portrait"], 1);
+
+    await pickSlotShape(root, { shape: "Bar", orientation: "Landscape" });
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-landscape"], 1);
+
+    // The reverse orientation never drives the Slot list.
+    await root
+      .getByRole("radiogroup", { name: "Reverse orientation" })
+      .getByLabel("Portrait")
+      .check();
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-landscape"], 1);
+
+    const rows = page.locator("#collectionsBuilderModal .collections-builder-row");
+    const before = await rows.count();
+    await rows
+      .last()
+      .getByRole("button", { name: /^Add Slot after/ })
+      .click();
+    await expect(rows).toHaveCount(before + 1);
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO["bar-landscape"], 1);
+
+    await pickSlotShape(root, { shape: "Round", orientation: null });
+    for (const ratio of await ratios()) expect(ratio).toBeCloseTo(RATIO.round, 1);
+  });
+});
+
+// STRK-443 (STRK-435 part 2) — the item modal's per-frame link icon becomes an Advanced (image
+// options) button. Written BEFORE the change (TDD red phase). Decided by Lonnie, 2026-10-17:
+//
+//   1. Each item frame's lower-right button is named "<Side> image options" and opens the shared
+//      app dialog titled "<Side> image": the image link field (today's flow, unchanged) plus a
+//      "Use a matching pattern image" checkbox. Plain prompts elsewhere show no checkbox.
+//   2. The checkbox is the Item's existing ignorePatternImages flag, inverted: it starts from the
+//      record, OK applies it, Cancel changes nothing, and Save stores it.
+//   3. Turning it off clears any side that shows a pattern image; turning it back on fills empty
+//      sides from the matching rule again, without reopening the modal.
+//   4. In the builder, only the two title frames carry an image options button (their link
+//      action); Slot thumbnails carry none.
+
+const PATTERN_IMAGE_ID = "custom-img-strk443";
+
+/**
+ * Adds a custom pattern rule matching the seed item's name, with a stored obverse and reverse.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function seedPatternRule(page) {
+  await page.waitForFunction(() => Boolean(window.NumistaLookup) && Boolean(window.imageCache));
+  await page.evaluate(
+    async ({ id, png }) => {
+      const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
+      await window.imageCache.init();
+      window.NumistaLookup.addRule("Frame Fixture", "Frame Fixture", null, id);
+      await window.imageCache.cachePatternImage(
+        id,
+        new Blob([bytes], { type: "image/png" }),
+        new Blob([bytes], { type: "image/png" })
+      );
+    },
+    { id: PATTERN_IMAGE_ID, png: TINY_PNG.toString("base64") }
+  );
+}
+
+/**
+ * Opens one item frame's image options dialog.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {"Obverse"|"Reverse"} side - Which frame
+ * @returns {Promise<import('@playwright/test').Locator>} The dialog
+ */
+async function openImageOptions(page, side) {
+  await page.getByRole("button", { name: `${side} image options` }).click();
+  const dialog = page.locator("#appDialogModal");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** The pattern image checkbox inside the open dialog. */
+const patternOption = (page) =>
+  page.locator("#appDialogModal").getByRole("checkbox", { name: /use a matching pattern image/i });
+
+/**
+ * Holds every pattern-image read open until `window.__releasePatternReads()` runs.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function holdPatternReads(page) {
+  await page.evaluate(() => {
+    const read = window.imageCache.getPatternImageUrl.bind(window.imageCache);
+    let release;
+    window.__patternGate = new Promise((resolve) => (release = resolve));
+    window.__releasePatternReads = release;
+    window.imageCache.getPatternImageUrl = async (...args) => {
+      await window.__patternGate;
+      return read(...args);
+    };
+  });
+}
+
+/**
+ * Sets the pattern option through the obverse frame's options dialog and confirms it.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @param {boolean} on - Whether to use a matching pattern image
+ * @returns {Promise<void>}
+ */
+async function setPatternOption(page, on) {
+  await openImageOptions(page, "Obverse");
+  await patternOption(page).setChecked(on);
+  await page.locator("#appDialogOk").click();
+}
+
+/**
+ * Releases the held reads and asserts that neither side ends up showing a pattern image.
+ * @param {import('@playwright/test').Page} page - Page under test
+ * @returns {Promise<void>}
+ */
+async function expectNoPatternAfterRelease(page) {
+  await page.evaluate(() => window.__releasePatternReads());
+  // Let the released reads settle before asserting the sides stayed empty.
+  await page.waitForTimeout(300);
+  await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+  await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+  await expect(page.locator("#itemIgnorePatternImages")).toBeChecked();
+}
+
+test.describe("core/image-frame-editor — item image options", () => {
+  test("each item frame has an image options button that opens the link and pattern options", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openAddModal(page);
+    for (const side of ["Obverse", "Reverse"]) {
+      const button = page.getByRole("button", { name: `${side} image options` });
+      await expect(button).toBeVisible();
+      const dialog = await openImageOptions(page, side);
+      await expect(dialog.locator("#appDialogTitle")).toHaveText(`${side} image`);
+      await expect(page.locator("#appDialogInput")).toBeVisible();
+      await expect(patternOption(page)).toBeVisible();
+      await expect(patternOption(page)).toBeChecked();
+      await page.locator("#appDialogCancel").click();
+      await expect(dialog).toBeHidden();
+    }
+    // A plain prompt elsewhere in the app never shows the checkbox.
+    const pending = page.evaluate(() => window.showAppPrompt("Plain prompt", "", "Plain"));
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+    await expect(patternOption(page)).toBeHidden();
+    await page.locator("#appDialogCancel").click();
+    await pending;
+  });
+
+  test("the pattern option starts from the record, Cancel changes nothing, and Save stores it", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openEditModal(page);
+    await openImageOptions(page, "Obverse");
+    await expect(patternOption(page)).toBeChecked();
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogCancel").click();
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page), "Cancel kept the flag").toBeChecked();
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    // The link was left as it was.
+    await expect(page.locator("#itemReverseImageUrl")).toHaveValue(
+      "https://images.example/rev.png"
+    );
+    await submit(page);
+    expect((await storedItem(page)).ignorePatternImages).toBe(true);
+
+    await openEditModal(page);
+    await openImageOptions(page, "Obverse");
+    await expect(patternOption(page), "reopened from the record").not.toBeChecked();
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await submit(page);
+    expect((await storedItem(page)).ignorePatternImages).toBe(false);
+  });
+
+  test("turning the pattern option off clears pattern sides, and on fills them again", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await expect(page.locator("#itemImageRemoveBtnObv")).toBeHidden();
+
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page)).not.toBeChecked();
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeVisible();
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+
+    // A pattern image is not the Item's own: turning it back on stores no link or upload.
+    await submit(page);
+    const stored = await storedItem(page);
+    expect(stored.ignorePatternImages).toBe(false);
+    expect(stored.obverseImageUrl || "").toBe("");
+    expect(stored.reverseImageUrl || "").toBe("");
+  });
+
+  // Review finding on PR 1598 (Codex P2, round 3): Remove turns the Item-wide setting off, so the
+  // other side's pattern image must go too, matching what the options dialog then reports.
+  test("Remove on one pattern side clears the other pattern side and turns the option off", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+    await page.locator("#itemImageRemoveBtnObv").click();
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+    await openImageOptions(page, "Reverse");
+    await expect(patternOption(page)).not.toBeChecked();
+    await page.locator("#appDialogCancel").click();
+  });
+
+  test("turning the pattern option off keeps an Item's own link", async ({ page }) => {
+    await seedAndGoto(page, { items: [{ ...SEED_ITEM, reverseImageUrl: "" }] });
+    await seedPatternRule(page);
+    await openEditModal(page);
+    await expect(page.locator("#itemImagePreviewRev")).toBeVisible();
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).uncheck();
+    await page.locator("#appDialogOk").click();
+    // The obverse is the Item's own link and stays; the pattern reverse goes.
+    await expect(page.locator("#itemImagePreviewObv")).toBeVisible();
+    await expect(page.locator("#itemImagePreviewImgObv")).toHaveAttribute(
+      "src",
+      "https://images.example/obv.png"
+    );
+    await expect(page.locator("#itemImagePreviewRev")).toBeHidden();
+  });
+
+  // Review finding on PR 1598 (Codex P2): a slow pattern-image read must not land after the user
+  // has turned the option off again.
+  test("a pattern image still loading when the option is turned off again never appears", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [
+        { ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "", ignorePatternImages: true },
+      ],
+    });
+    await seedPatternRule(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await settleModal(page);
+    await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+    await holdPatternReads(page);
+    await openImageOptions(page, "Obverse");
+    await patternOption(page).check();
+    await page.locator("#appDialogOk").click();
+    await setPatternOption(page, false);
+    await expectNoPatternAfterRelease(page);
+  });
+
+  // Review finding on PR 1598 (Codex P2, round 2): the same race in the modal's initial load,
+  // which resolved pattern images with the flag saved on the record.
+  test("a pattern image still loading when the modal opens never appears once the option is off", async ({
+    page,
+  }) => {
+    await seedAndGoto(page, {
+      items: [{ ...SEED_ITEM, obverseImageUrl: "", reverseImageUrl: "" }],
+    });
+    await seedPatternRule(page);
+    await holdPatternReads(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+    await settleModal(page);
+    await setPatternOption(page, false);
+    await expectNoPatternAfterRelease(page);
+  });
+
+  test("the builder shows image options only on the two title frames", async ({ page }) => {
+    await seedAndGoto(page);
+    await openBuilderModal(page);
+    const options = page
+      .locator("#collectionsBuilderModal")
+      .getByRole("button", { name: /image options/i });
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toHaveAccessibleName("Obverse image options");
+    await expect(options.nth(1)).toHaveAccessibleName("Reverse image options");
+    for (const side of ["obverse", "reverse"]) {
+      await expect(
+        page.locator(
+          `#collectionsBuilderModal .collections-image-chooser:has([data-ife-frame="${side}"]) .ife-link`
+        )
+      ).toHaveCount(1);
+    }
+    const slotRows = page.locator("#collectionsBuilderModal .collections-builder-row");
+    expect(await slotRows.count()).toBeGreaterThanOrEqual(2);
+    await expect(slotRows.locator(".ife-link")).toHaveCount(0);
+  });
 });

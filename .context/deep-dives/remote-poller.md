@@ -13,9 +13,9 @@ updated: "2026-04-11"
 
 Single Cloud - Fly.io app (`staktrakr`) that runs **spot price polling** and **data publishing** to the `api` branch on GitHub Pages. Managed by **supervisord** inside one container.
 
-**Database connectivity (STAK-486):** The Fly.io container reaches the home sqld service through Tailscale subnet routing. The home side advertises the required subnet route and the Fly.io container accepts it. Database connection configuration belongs in the operator's Fly.io secret store. Tailscale must be connected and the subnet route approved for DB reads to succeed.
+**Database connectivity:** The Fly.io container reaches the home sqld service through Tailscale subnet routing. The home side advertises the required subnet route and the Fly.io container accepts it. Database connection configuration belongs in the operator's Fly.io secret store. Tailscale must be connected and the subnet route approved for DB reads to succeed.
 
-**Goldback data flow (STAK-491):** The Home Poller scrapes goldback.com and writes the G1 rate to sqld as `coin_slug=goldback-g1`. The Fly.io publisher's `api-export.js` reads this from sqld and generates `goldback-spot.json` + `goldback-{YYYY}.json` as part of its normal publish cycle. The old `run-goldback.sh` (git-commit-and-push) path is disabled via `GOLDBACK_ENABLED=0`.
+**Goldback data flow:** The Home Poller scrapes goldback.com and writes the G1 rate to sqld as `coin_slug=goldback-g1`. The Fly.io publisher's `api-export.js` reads this from sqld and generates `goldback-spot.json` + `goldback-{YYYY}.json` as part of its normal publish cycle. The old `run-goldback.sh` (git-commit-and-push) path is disabled via `GOLDBACK_ENABLED=0`.
 
 ---
 
@@ -46,13 +46,20 @@ Slim image runs only 4 services. Config: `supervisord-slim.conf`.
 | `cron`         | `cron -f`                                            | 10       | Active — runs spot + publish + provider export + cleanup     |
 | `http-server`  | `node /app/serve.js` on port 8080                    | 10       | Active — health/proxy endpoint                               |
 
+`tailscaled`, `tailscale-up` and the cron daemon run as root. `http-server` and every cron job run as `node`.
+
+- `/etc/environment` is `root:node` with mode 640.
+- Git identity is set with `git config --system`. The push token is in `/home/node/.git-credentials`.
+- `/data` is `root:node` with mode 1775 (sticky), so `node` can create entries but cannot rename the root-owned `/data/tailscale`.
+- The entrypoint re-owns any file below `/data` that `node` does not own, except `/data/tailscale`.
+
 > **Rollback:** `cp Dockerfile.full Dockerfile && fly deploy` from `devops/pollers/` with `--config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile`.
 
 ---
 
 ## Cron Schedule
 
-Written by `docker-entrypoint-slim.sh` at container start. Slim image has no retail/goldback toggles — only spot, publish, provider export, and the daily cleanup.
+Written by `docker-entrypoint-slim.sh` at container start. Slim image has no retail/goldback toggles: only spot, publish, provider export, and the daily cleanup.
 
 **Current state** (slim publisher):
 
@@ -69,7 +76,7 @@ Written by `docker-entrypoint-slim.sh` at container start. Slim image has no ret
 **Data flow:**
 
 1. `run-spot.sh` polls MetalPriceAPI at `:00` and `:30` → writes to sqld
-2. `run-publish.sh` runs at `:08`, `:23`, `:38`, `:53` → exports all data from sqld via `api-export.js` → generates static JSON files (manifest, per-coin, spot hourly, goldback) → commits and force-pushes to `api` branch → GitHub Pages serves at `api.staktrakr.com`
+2. `run-publish.sh` runs at `:08`, `:23`, `:38`, `:53`. It exports all data from sqld via `api-export.js`. It generates static JSON files (manifest, per-coin, spot hourly, goldback). It commits and force-pushes to `api` branch. GitHub Pages serves at `api.staktrakr.com`
 
 ---
 
@@ -77,17 +84,17 @@ Written by `docker-entrypoint-slim.sh` at container start. Slim image has no ret
 
 This is the Fly.io container's primary job. Runs 4x/hour, ~3 min after spot polls complete.
 
-1. **`api-export.js`** — Syncs `price_snapshots` from sqld into a local SQLite cache, then generates:
-   - `data/api/manifest.json` — coin list, last updated, window counts
-   - `data/api/latest.json` — all coins, current 15-min window prices
-   - `data/api/{slug}/latest.json` — per-coin detail + 24h series
-   - `data/api/{slug}/history-7d.json`, `history-30d.json` — daily aggregates
-   - `data/api/goldback-spot.json` — G1 rate from `goldback-g1` rows in sqld (STAK-491)
-   - `data/goldback-{YYYY}.json` — daily goldback history from sqld (STAK-491)
-   - `data/api/providers.json` — frontend provider URLs
-   - `data/hourly/YYYY/MM/DD/HH.json` — spot price hourly files
-2. **`api-export-v2.js`** (STAK-503) — generates v2 endpoints under `data/v2/` (spot, retail, goldback, providers, manifest). Called after v1 export. **Non-fatal** — if v2 export throws, it is caught and logged; v1 publish continues unaffected. `providers.json` was added to the v2 surface to fix a frontend 404 regression (2026-04-11) — v1 already had `data/api/providers.json` but v2 never got its equivalent during the STAK-503 redesign, so frontend clicks on vendor prices silently fell back to vendor homepages for fresh-browser users.
-3. **`git add data/ && git commit && git push --force origin HEAD:api`** — sole Git writer for `api` branch
+1. **`api-export.js`**: Syncs `price_snapshots` from sqld into a local SQLite cache, then generates:
+   - `data/api/manifest.json`: coin list, last updated, window counts
+   - `data/api/latest.json`: all coins, current 15-min window prices
+   - `data/api/{slug}/latest.json`: per-coin detail + 24h series
+   - `data/api/{slug}/history-7d.json`, `history-30d.json`: daily aggregates
+   - `data/api/goldback-spot.json`: G1 rate from `goldback-g1` rows in sqld
+   - `data/goldback-{YYYY}.json`: daily goldback history from sqld
+   - `data/api/providers.json`: frontend provider URLs
+   - `data/hourly/YYYY/MM/DD/HH.json`: spot price hourly files
+2. **`api-export-v2.js`**: generates v2 endpoints under `data/v2/` (spot, retail, goldback, providers, manifest). Called after v1 export. **Non-fatal**: if v2 export throws, it is caught and logged; v1 publish continues unaffected. `providers.json` was added to the v2 surface to fix a frontend 404 regression (2026-04-11). The v1 API already had `data/api/providers.json` but v2 never got its equivalent during the v2 redesign. Therefore, frontend clicks on vendor prices silently fell back to vendor homepages for fresh-browser users.
+3. **`git add data/ && git commit && git push --force origin HEAD:api`**: sole Git writer for `api` branch
 
 ---
 
@@ -99,7 +106,7 @@ See Poller Parity (deprecated DocVault page) for the current comparison between 
 
 ### Phase 0: Playwright direct (tried first)
 
-`scrapeWithPlaywrightDirect(url, providerId)` — lightweight scrape using the poller's own IP. 15-second timeout, no retries, no proxy.
+`scrapeWithPlaywrightDirect(url, providerId)`: lightweight scrape using the poller's own IP. 15-second timeout, no retries, no proxy.
 
 ### Phase 1: Firecrawl with proxy (fallback)
 
@@ -107,7 +114,7 @@ Only runs if Phase 0 fails. Routes through Firecrawl (self-hosted on home VM at 
 
 ### Phase 2: CF-clearance bypass (home-poller only)
 
-Calls a Byparr sidecar (`http://staktrakr-byparr:8191`) to solve Cloudflare challenges. Home-poller-only component — not available on Fly.io.
+Calls a Byparr sidecar (`http://staktrakr-byparr:8191`) to solve Cloudflare challenges. Home-poller-only component: not available on Fly.io.
 
 ---
 
@@ -115,12 +122,12 @@ Calls a Byparr sidecar (`http://staktrakr-byparr:8191`) to solve Cloudflare chal
 
 > **Archival context:** Tiered recovery was relevant when Fly.io ran retail scraping. Now that retail is on the Home Poller, these tiers apply there instead. T4 (Turso last-known-good) still applies in `api-export.js` on Fly.io during the publish step.
 
-| Tier | Method                               | Current Status                                                              |
-| ---- | ------------------------------------ | --------------------------------------------------------------------------- |
-| T1   | Tailscale exit node (residential IP) | Inactive on Fly.io — no retail scraping                                     |
-| T2   | Fly.io datacenter IP fallback        | Inactive — no retail scraping                                               |
-| T3   | `:15` cron retry of failed SKUs      | Disabled (`RETAIL_ENABLED=0`)                                               |
-| T4   | Turso last-known-good price fill     | **Active** — `api-export.js` still fills stale vendor slots at publish time |
+| Tier | Method                               | Current Status                                                             |
+| ---- | ------------------------------------ | -------------------------------------------------------------------------- |
+| T1   | Tailscale exit node (residential IP) | Inactive on Fly.io: no retail scraping                                     |
+| T2   | Fly.io datacenter IP fallback        | Inactive: no retail scraping                                               |
+| T3   | `:15` cron retry of failed SKUs      | Disabled (`RETAIL_ENABLED=0`)                                              |
+| T4   | Turso last-known-good price fill     | **Active**: `api-export.js` still fills stale vendor slots at publish time |
 
 ---
 
@@ -129,7 +136,7 @@ Calls a Byparr sidecar (`http://staktrakr-byparr:8191`) to solve Cloudflare chal
 The active slim image has non-secret operational settings in `fly.toml` and secret-backed
 configuration in the operator's Fly.io secret store. This document deliberately does not list
 deployed secret names, values, or network endpoints. For a self-hosted deployment, consult the
-enabled scripts and container configuration to identify the required categories: database access,
+enabled scripts and container configuration to identify the required categories. These are database access,
 publisher access, external price-feed access, and network identity.
 
 The former full retail-and-goldback image is historical. The slim image schedules only spot,
@@ -142,7 +149,7 @@ See `.context/deep-dives/secret-keys.md` for store ownership and safe troublesho
 
 ## Deployment
 
-All poller code lives in **StakTrakr** at `devops/pollers/`. The build context must be `devops/pollers/` (parent directory). **Do not run `fly deploy` from `remote-poller/`** — the `context = ".."` in fly.toml does not resolve correctly with Depot or Docker Desktop.
+All poller code lives in **StakTrakr** at `devops/pollers/`. The build context must be `devops/pollers/` (parent directory). **Do not run `fly deploy` from `remote-poller/`**: the `context = ".."` in fly.toml does not resolve correctly with Depot or Docker Desktop.
 
 ```bash
 # Deploy from StakTrakr repo (MUST run from pollers/ dir)
@@ -160,7 +167,7 @@ fly logs --app staktrakr | grep -E 'publish|spot|ERROR'
 fly ssh console --app staktrakr -C "tailscale status"
 ```
 
-**Code changes** require `fly deploy`. **Provider URL changes** do not — pollers read from sqld on each run. Use the dashboard at `http://192.168.1.81:3010/providers` or `provider-db.js` CRUD functions.
+**Code changes** require `fly deploy`. **Provider URL changes** do not: pollers read from sqld on each run. Use the dashboard at `http://192.168.1.81:3010/providers` or `provider-db.js` CRUD functions.
 
 > **Migration note (2026-03-07):** Fly.io code was previously deployed from `StakTrakrApi/devops/fly-poller/`. All code has been consolidated into `StakTrakr/devops/pollers/` with shared JS in `shared/` and Fly-specific files in `remote-poller/`.
 
@@ -168,33 +175,33 @@ fly ssh console --app staktrakr -C "tailscale status"
 
 ## Volume and Git Repo
 
-The persistent volume at `/data/staktrakr-api-export` is a clone of `StakTrakrApi` on the `api` branch. `run-publish.sh` expects a pre-existing git repo on the mounted volume — it exits with an error if `.git` is missing. The repo must be seeded manually on first deploy. After that it persists across deploys.
+The persistent volume at `/data/staktrakr-api-export` is a clone of `StakTrakrApi` on the `api` branch. `run-publish.sh` expects a pre-existing git repo on the mounted volume: it exits with an error if `.git` is missing. The repo must be seeded manually on first deploy. After that it persists across deploys.
 
 `run-publish.sh` commits from this directory and force-pushes `HEAD:api`. This is the **sole Git writer** for the `api` branch data files.
 
-Tailscale state lives at `/data/tailscale/tailscaled.state` — also on the persistent volume, so node identity survives redeploys without re-registering in the Tailscale admin console.
+Tailscale state lives at `/data/tailscale/tailscaled.state`: also on the persistent volume, so node identity survives redeploys without re-registering in the Tailscale admin console.
 
 ---
 
 ## Common Issues
 
-| Symptom                      | Check                                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Services not running         | `fly ssh console --app staktrakr -C "supervisorctl status"`                                                                    |
-| Spot prices stale            | Check `run-spot.sh` cron and the operator-managed external-feed configuration.                                                 |
-| Publish not pushing          | Check `run-publish.sh` logs, publisher authorization, and the repository working copy.                                         |
-| Goldback stale               | Verify Home Poller goldback cron is running and writing to sqld; check `api-export.js` logs for `goldback-g1`                  |
-| Tailscale not connecting     | Check container status, the operator-managed network identity, and the approved subnet route.                                  |
-| Volume not mounted           | `fly volumes list --app staktrakr`; verify `staktrakr_data` exists                                                             |
-| Git push rejected in publish | Run `git fetch origin api && git rebase origin/api` inside the volume                                                          |
-| OOM despite 1GB              | Concurrent processes — check if idle services (Firecrawl, Postgres) are consuming memory; future slim Dockerfile will fix this |
-| Deploy context "2B" error    | Run from `devops/pollers/` dir, not `remote-poller/`; use `--config` and `--dockerfile` flags                                  |
+| Symptom                      | Check                                                                                                                         |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Services not running         | `fly ssh console --app staktrakr -C "supervisorctl status"`                                                                   |
+| Spot prices stale            | Check `run-spot.sh` cron and the operator-managed external-feed configuration.                                                |
+| Publish not pushing          | Check `run-publish.sh` logs, publisher authorization, and the repository working copy.                                        |
+| Goldback stale               | Verify Home Poller goldback cron is running and writing to sqld; check `api-export.js` logs for `goldback-g1`                 |
+| Tailscale not connecting     | Check container status, the operator-managed network identity, and the approved subnet route.                                 |
+| Volume not mounted           | `fly volumes list --app staktrakr`; verify `staktrakr_data` exists                                                            |
+| Git push rejected in publish | Run `git fetch origin api && git rebase origin/api` inside the volume                                                         |
+| OOM despite 1GB              | Concurrent processes: check if idle services (Firecrawl, Postgres) are consuming memory; future slim Dockerfile will fix this |
+| Deploy context "2B" error    | Run from `devops/pollers/` dir, not `remote-poller/`; use `--config` and `--dockerfile` flags                                 |
 
 ---
 
 ## Related
 
-- Home Poller — retail + goldback scraping, dashboard, metrics
+- Home Poller: retail + goldback scraping, dashboard, metrics
 - Poller Parity (deprecated DocVault page) -- scrape pipeline comparison between pollers
 - Cloud - Fly.io -- Fly.io platform reference, deploy workflow
 - Architecture -- system diagram, repo boundaries, data feeds

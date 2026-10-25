@@ -388,7 +388,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("Semantic Versioning");
   });
 
-  test("CL-2 — [3.34.09] entry is present (STAK-548 hotfix)", () => {
+  test("CL-2 — [3.34.09] entry is present (hotfix)", () => {
     expect(content).toContain("## [3.34.09]");
   });
 
@@ -396,14 +396,14 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.09] - 2026-04-17");
   });
 
-  test("CL-4 — [3.34.09] mentions STAK-548", () => {
+  test("CL-4 — [3.34.09] names the linked issue", () => {
     const entryStart = content.indexOf("## [3.34.09]");
     const entryEnd = content.indexOf("## [3.34.08]");
     const entry = content.substring(entryStart, entryEnd);
     expect(entry).toContain("STAK-548");
   });
 
-  test("CL-5 — [3.34.08] entry is present (STAK-548 SQLD rename)", () => {
+  test("CL-5 — [3.34.08] entry is present (SQLD rename)", () => {
     expect(content).toContain("## [3.34.08]");
   });
 
@@ -418,7 +418,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("SQLD_URL");
   });
 
-  test("CL-8 — [3.34.07] entry is present (STAK-517 market filter cache)", () => {
+  test("CL-8 — [3.34.07] entry is present (market filter cache)", () => {
     expect(content).toContain("## [3.34.07]");
   });
 
@@ -433,7 +433,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("_invalidateMarketFilterCache");
   });
 
-  test("CL-11 — [3.34.06] entry is present (STAK-551 filter chip logic)", () => {
+  test("CL-11 — [3.34.06] entry is present (filter chip logic)", () => {
     expect(content).toContain("## [3.34.06]");
   });
 
@@ -448,7 +448,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(entry).toContain("isAccumulate");
   });
 
-  test("CL-14 — [3.34.05] entry is present (STAK-546 AND semantics)", () => {
+  test("CL-14 — [3.34.05] entry is present (AND semantics)", () => {
     expect(content).toContain("## [3.34.05]");
   });
 
@@ -456,7 +456,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.05] - 2026-04-16");
   });
 
-  test("CL-16 — [3.34.04] entry is present (STAK-549 cloud sync)", () => {
+  test("CL-16 — [3.34.04] entry is present (cloud sync)", () => {
     expect(content).toContain("## [3.34.04]");
   });
 
@@ -535,7 +535,7 @@ test.describe("CHANGELOG.md — new entries", () => {
 
   // ── 3.34.10 entry (STAK-553: Last Modified sort) ──────────────────────────
 
-  test("CL-25 — [3.34.10] entry is present (STAK-553 Last Modified sort)", () => {
+  test("CL-25 — [3.34.10] entry is present (Last Modified sort)", () => {
     expect(content).toContain("## [3.34.10]");
   });
 
@@ -543,7 +543,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.10] - 2026-04-18");
   });
 
-  test("CL-27 — [3.34.10] mentions STAK-553", () => {
+  test("CL-27 — [3.34.10] names the linked issue", () => {
     const entryStart = content.indexOf("## [3.34.10]");
     const entryEnd = content.indexOf("## [3.34.09]");
     const entry = content.substring(entryStart, entryEnd);
@@ -566,7 +566,7 @@ test.describe("CHANGELOG.md — new entries", () => {
 
   // ── 3.34.13 entry (STAK-556: Numista tags cherry-pick) ───────────────────
 
-  test("CL-30 — [3.34.13] entry is present (STAK-556 Numista tag cherry-pick)", () => {
+  test("CL-30 — [3.34.13] entry is present (Numista tag cherry-pick)", () => {
     expect(content).toContain("## [3.34.13]");
   });
 
@@ -574,7 +574,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.13] - 2026-04-19");
   });
 
-  test("CL-32 — [3.34.13] mentions STAK-556", () => {
+  test("CL-32 — [3.34.13] names the linked issue", () => {
     const entryStart = content.indexOf("## [3.34.13]");
     const entryEnd = content.indexOf("## [3.34.12]");
     const entry = content.substring(entryStart, entryEnd);
@@ -604,7 +604,7 @@ test.describe("CHANGELOG.md — new entries", () => {
 
   // ── 3.34.14 entry (STAK-558: Tag delimiter splitting) ────────────────────
 
-  test("CL-37 — [3.34.14] entry is present (STAK-558 tag delimiter splitting)", () => {
+  test("CL-37 — [3.34.14] entry is present (tag delimiter splitting)", () => {
     expect(content).toContain("## [3.34.14]");
   });
 
@@ -612,7 +612,7 @@ test.describe("CHANGELOG.md — new entries", () => {
     expect(content).toContain("## [3.34.14] - 2026-04-19");
   });
 
-  test("CL-39 — [3.34.14] mentions STAK-558", () => {
+  test("CL-39 — [3.34.14] names the linked issue", () => {
     const entryStart = content.indexOf("## [3.34.14]");
     const entryEnd = content.indexOf("## [3.34.13]");
     const entry = content.substring(entryStart, entryEnd);

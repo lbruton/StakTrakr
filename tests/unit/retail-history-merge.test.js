@@ -14,9 +14,9 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/retail.js", import.meta.url), "utf-8");
+const src = readSource("js/retail.js");
 
 // _mergeRetailHistory delegates to a small self-contained cluster of pure sibling
 // helpers (_weightedHistoryAverage, _mergeSameRankHistory, _mergeCrossRankHistory,
@@ -28,7 +28,10 @@ const match = src.match(
   /const _weightedHistoryAverage = \([\s\S]*?const _mergeRetailHistory = \([\s\S]*?\n\};/
 );
 assert.ok(match, "could not locate the merge-helper cluster in js/retail.js");
-const _mergeRetailHistory = new Function(match[0] + "\nreturn _mergeRetailHistory;")();
+const _mergeRetailHistory = evalSource("js/retail.js", {
+  slice: rangeOf(src, match[0]),
+  suffix: "\nreturn _mergeRetailHistory;",
+});
 
 /**
  * Builds one history entry matching the shape produced by addHistory() in
@@ -54,7 +57,7 @@ function entry(over) {
   };
 }
 
-describe("_mergeRetailHistory — per-slug history merge (STRK-170 AC-4)", () => {
+describe("_mergeRetailHistory — per-slug history merge (AC-4)", () => {
   test("returns [] for an empty input list", () => {
     assert.deepEqual(_mergeRetailHistory([]), []);
   });

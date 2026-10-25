@@ -18,9 +18,10 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, readSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/priceHistory.js", import.meta.url), "utf-8");
+const HISTORY_FILE = "js/priceHistory.js";
+const src = readSource(HISTORY_FILE);
 const start = src.indexOf("const _ITEM_PRICE_UUID_RE");
 // End marker: the SETTINGS LOG TABLE banner that immediately follows the A.3 block.
 const end = src.indexOf("ITEM PRICE HISTORY", start + 1);
@@ -29,7 +30,7 @@ assert.ok(
   "could not locate the STRK-147 companion-merge block in js/priceHistory.js"
 );
 // Trim back to the last full line before the trailing banner's `// ====` fence.
-const block = src.slice(start, src.lastIndexOf("// ===", end));
+const block = { start, end: src.lastIndexOf("// ===", end) };
 
 // Injected retention constants (mirror js/constants.js values).
 const ITEM_PRICE_HISTORY_MAX_DAYS = 365;
@@ -96,31 +97,22 @@ function loadHelpers(seedHistory) {
   let itemPriceHistory = seedHistory ? JSON.parse(JSON.stringify(seedHistory)) : {};
   const saveDataSync = () => {};
 
-  const factory = new Function(
-    "getSnapshotItemName",
-    "applyItemPriceRetention",
-    "__decompressIfNeeded",
-    "simpleHash",
-    "saveDataSync",
-    "itemPriceHistory",
-    "ITEM_PRICE_HISTORY_KEY",
-    "ITEM_PRICE_HISTORY_MAX_DAYS",
-    "ITEM_PRICE_HISTORY_MAX_ENTRIES",
-    block +
-      "\nreturn { canonicalizeItemPriceHistory, mergeItemPriceHistories, collectAndHashItemPriceHistory };"
-  );
-
-  return factory(
-    getSnapshotItemName,
-    applyItemPriceRetention,
-    __decompressIfNeeded,
-    simpleHash,
-    saveDataSync,
-    itemPriceHistory,
-    ITEM_PRICE_HISTORY_KEY,
-    ITEM_PRICE_HISTORY_MAX_DAYS,
-    ITEM_PRICE_HISTORY_MAX_ENTRIES
-  );
+  return evalSource(HISTORY_FILE, {
+    params: {
+      getSnapshotItemName,
+      applyItemPriceRetention,
+      __decompressIfNeeded,
+      simpleHash,
+      saveDataSync,
+      itemPriceHistory,
+      ITEM_PRICE_HISTORY_KEY,
+      ITEM_PRICE_HISTORY_MAX_DAYS,
+      ITEM_PRICE_HISTORY_MAX_ENTRIES,
+    },
+    slice: block,
+    suffix:
+      "\nreturn { canonicalizeItemPriceHistory, mergeItemPriceHistories, collectAndHashItemPriceHistory };",
+  });
 }
 
 // All fixture timestamps are recent so the retention age cutoff never drops them
@@ -132,7 +124,7 @@ const RECENT = FIXED_NOW - 24 * 60 * 60 * 1000; // 1 day ago
 // explicitly only when a test asserts on a different value.
 const e = (ts, itemName, retail, spot = 9, melt = 8) => ({ ts, itemName, retail, spot, melt });
 
-describe("STRK-147 pure item-price-history merge / canonicalize / hash", () => {
+describe("pure item-price-history merge / canonicalize / hash", () => {
   test("AC-1: cross-device union — different entries for the same UUID merge to the union", () => {
     const { mergeItemPriceHistories } = loadHelpers();
     const deviceA = { [U1]: [e(RECENT, "A", 10)] };
@@ -312,17 +304,18 @@ function loadRealRetention(clearedAt = 0) {
   const rStart = src.indexOf("const applyItemPriceRetention");
   const rEnd = src.indexOf("};", rStart) + 2;
   assert.ok(rStart !== -1 && rEnd > rStart, "could not locate applyItemPriceRetention");
-  const rBlock = src.slice(rStart, rEnd);
-  const factory = new Function(
-    "ITEM_PRICE_HISTORY_MAX_DAYS",
-    "ITEM_PRICE_HISTORY_MAX_ENTRIES",
-    "loadItemPriceClearedAt",
-    rBlock + "\nreturn applyItemPriceRetention;"
-  );
-  return factory(ITEM_PRICE_HISTORY_MAX_DAYS, ITEM_PRICE_HISTORY_MAX_ENTRIES, () => clearedAt);
+  return evalSource(HISTORY_FILE, {
+    params: {
+      ITEM_PRICE_HISTORY_MAX_DAYS,
+      ITEM_PRICE_HISTORY_MAX_ENTRIES,
+      loadItemPriceClearedAt: () => clearedAt,
+    },
+    slice: { start: rStart, end: rEnd },
+    suffix: "\nreturn applyItemPriceRetention;",
+  });
 }
 
-describe("STRK-223 item-price clear-watermark drop-filter", () => {
+describe("item-price clear-watermark drop-filter", () => {
   test("AC-5: drops entries at/older than the watermark, keeps strictly newer", () => {
     const applyRet = loadRealRetention(RECENT); // watermark = RECENT (1 day ago, in-window)
     const h = {

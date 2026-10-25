@@ -52,7 +52,7 @@ const coveredHistory = (metal) => [live(metal, 1), live(metal, 45), live(metal, 
 const call = (existing, seedEntries) =>
   seedEntriesToMerge(existing, seedEntries, METAL_NAMES, NOW, WINDOW_DAYS, COVERAGE_DAYS);
 
-describe("STRK-344 — _seedEntriesToMerge is per-metal, live-wins, window-bounded", () => {
+describe("_seedEntriesToMerge is per-metal, live-wins, window-bounded", () => {
   test("copper with only recent live rows gets its seed window; covered metals get nothing", () => {
     const existing = [...METAL_NAMES.slice(0, 4).flatMap(coveredHistory), live("Copper", 2)];
     const seeds = METAL_NAMES.flatMap((m) => [seed(m, 10), seed(m, 90), seed(m, 170)]);

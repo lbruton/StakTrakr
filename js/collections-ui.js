@@ -1473,7 +1473,7 @@
     updateHubArrangement,
     wireReorderHandle,
   });
-  const { buildAlbum, closeSlotNotePopover } = window.createCollectionsAlbumRenderer({
+  const albumRenderer = window.createCollectionsAlbumRenderer({
     el,
     button,
     icon,
@@ -1516,6 +1516,7 @@
     SORT_OLDEST,
     SORT_NEWEST,
   });
+  const { buildAlbum, suspendSlotNotePopover, restoreSlotNotePopover } = albumRenderer;
 
   // ---------------------------------------------------------------------------
   // Images — resolved after the synchronous render
@@ -1688,7 +1689,7 @@
    * @returns {void}
    */
   const render = () => {
-    closeSlotNotePopover();
+    const openNote = suspendSlotNotePopover();
     // getElementById, not safeGetElement: this can run before init.js defines it, and
     // the existence check needs a real null rather than the truthy dummy.
     const root = document.getElementById(ROOT_ID);
@@ -1740,6 +1741,9 @@
         break;
       }
     }
+    // A background refresh keeps the open note; a new Collection closes it, because Slot
+    // ids repeat across Collections.
+    if (entry && !routeChanged) restoreSlotNotePopover(root, openNote);
     // Opening an album from far down the hub must not leave the user mid-page.
     if (routeChanged && root.getBoundingClientRect().top < 0)
       root.scrollIntoView({ block: "start" });

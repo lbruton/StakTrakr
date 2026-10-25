@@ -19,15 +19,17 @@ Senior engineering partner for a solo-dev precious metals tracker. Direct, opini
 python3 -m http.server 8000   # Run locally at http://localhost:8000
 npm test              # Core Playwright PR gate
 npm run test:core     # Core Playwright suite
+npm run test:changed  # Only the tests a change can affect (test map; -- --fetch for dev's map)
+npm run test:map      # Full core run with coverage; writes the test map and lcov
+npm run test:redundancy # Tests that cover nothing unique in their spec (-- --fetch for dev's blocks)
 npm run test:extended # Slower/edge Playwright suite
-npm run test:legacy   # Archived issue acceptance-criteria (AC) matrices
 npm run test:all      # Unit + core + extended
 npm run test:unit     # Node/unit tests
-npm run test:offline  # Legacy full-suite command excluding @network-tagged tests
 npm run lint          # ESLint
 npm run lint:md:all   # Markdown lint
 npm run format        # Prettier, repo-wide; scope governed by .prettierignore (excludes data/, vendor/, minified)
 npm run format:check
+npm run screenshots   # About/README screenshots from demo data (--set=release --version=vX.Y.Z for release shots)
 ```
 
 ## Foundation Context
@@ -59,18 +61,19 @@ docs and infra pages with LAN IPs live in the Devops repo vault, `Devops/DocVaul
 | `.context/data-pipelines.md`         | Spot/retail/goldback/image pipeline work — cron, thresholds, failures  |
 | `.context/cloud-sync.md`             | Dropbox sync — OAuth, AES-GCM encryption, rollback, backup/restore     |
 | `.context/cloud-sync-convergence.md` | Any sync compare/merge/hash change — STRK-154 invariant                |
-| `.context/testing.md`                | **Editing or running any test** — tiers, TDD rules, coverage-map       |
+| `.context/testing.md`                | **Editing or running any test** — tiers, TDD rules, `test:changed`     |
 | `.context/issue-tracking.md`         | Plane issue work — state UUIDs, epic conventions                       |
 | `.context/git-topology.md`           | Worktrees, merges, releases, version lock, spot bundle                 |
 | `.context/implementation-gotchas.md` | The modules/patterns in the gotcha index below                         |
 | `.context/review-and-ci.md`          | Codacy scans, agentlint, pre-PR checks, reviewer false positives       |
 | `.context/spec-conventions.md`       | Any `/spec-*` phase work — branch naming, closing tasks                |
 | `.context/GLOSSARY.md`               | Writing requirements, ACs, issue descriptions, commit messages         |
+| `.context/voice.md`                  | Writing docs, comments, docstrings, UI copy, commits or PR bodies      |
 
 ## Testing
 
 Read `.context/testing.md` before editing or running any test — it is the single authority
-for test tiers, TDD rules, file placement, and the coverage-map requirement.
+for test tiers, TDD rules, file placement, targeted runs and the `Tests` CI check.
 Never modify a TDD test to make it pass; a failing test means the implementation is wrong.
 If the test itself is flawed, the spec was wrong — stop and restart the spec (see `.context/testing.md`).
 
@@ -83,8 +86,9 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 ## Git Topology
 
 - Branch model: `feature/* → dev → main`. **Every change to `dev` needs a PR — no
-  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis` + CodeQL
-  checks, signed commits, no bypass actors) blocks direct pushes of any file type.
+  exceptions.** The `Protect Dev` ruleset (required `Codacy Static Code Analysis`, `Tests` and `Vale` checks,
+  signed commits, no bypass actors) blocks direct pushes of any file type. CodeQL runs on
+  `dev` but is not a required check there.
 - Config/tooling edits (`.claude/`, `.agents/`, instruction files, skill files, devops
   config) are **lightweight** — a small chore PR to `dev`, no Plane issue or version lock.
 - Runtime code (`js/`, `css/`, `index.html`, `data/`, `pollers/`, tests) requires the
@@ -156,10 +160,10 @@ listed here. One hook line each:
   `// duplication-ok`, closing-task ordering.
 
 **Review & CI:** read `.context/review-and-ci.md` before Codacy scans, agentlint runs,
-pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-gated,
-Codacy AI bundled with the static-analysis stage, Copilot on Balanced, Codex dynamic), where each gate is
-configured, per-branch required checks, the invisible 75% docstring gate, and the dual
-ESLint config all live there.
+pre-PR checks, or triaging reviewer feedback — per-reviewer routing (CodeRabbit label-triggered via `coderabbit-review`,
+Codacy AI bundled with the static-analysis stage, Copilot on Balanced, Codex once per PR), where each gate is
+configured, per-branch required checks, the invisible 75% docstring gate, and the single
+ESLint config (with the local colour-literal rule) all live there.
 
 ## Pre-flight (StakTrakr-specific)
 

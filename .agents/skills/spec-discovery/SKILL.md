@@ -2,7 +2,7 @@
 name: spec-discovery
 description: "Spec Phase 2 — research the codebase + prior art into discovery.md. Standalone, ISSUE-first. Uses a read-only Workflow fan-out for the research sweep."
 user-invocable: true
-library-version: 5834a2dcd445
+library-version: 3d109ab6d1d5
 ---
 
 # /spec-discovery ISSUE

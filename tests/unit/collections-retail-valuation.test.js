@@ -2,22 +2,29 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, rangeOf, readSource } from "./helpers/source-extract.js";
 import { sliceArrowConst } from "./test-helpers.js";
 
-const src = readFileSync(new URL("../../js/utils.js", import.meta.url), "utf-8");
+const src = readSource("js/utils.js");
 
-const computeItemUnitValuation = new Function(
-  "computeMeltValue",
-  "isGoldbackPricingActive",
-  "getGoldbackDenominationPrice",
-  [
-    sliceArrowConst(src, "const getGoldbackRetailPrice = ("),
-    sliceArrowConst(src, "const calculateRetailPrice = ("),
-    sliceArrowConst(src, "const computeItemValuation = ("),
-    sliceArrowConst(src, "const computeItemUnitValuation = ("),
-  ].join("\n") + "\nreturn computeItemUnitValuation;"
-)(
+/** Evaluates computeItemUnitValuation and its retail-price chain with injected doubles. */
+const loadUnitValuation = (
+  computeMeltValue,
+  isGoldbackPricingActive,
+  getGoldbackDenominationPrice
+) =>
+  evalSource("js/utils.js", {
+    params: { computeMeltValue, isGoldbackPricingActive, getGoldbackDenominationPrice },
+    slice: [
+      "const getGoldbackRetailPrice = (",
+      "const calculateRetailPrice = (",
+      "const computeItemValuation = (",
+      "const computeItemUnitValuation = (",
+    ].map((head) => rangeOf(src, sliceArrowConst(src, head))),
+    suffix: "\nreturn computeItemUnitValuation;",
+  });
+
+const computeItemUnitValuation = loadUnitValuation(
   (item, spot) =>
     (Number(item.weight) || 0) * (Number(item.qty) || 1) * spot * (Number(item.purity) || 1),
   () => false,
@@ -50,17 +57,7 @@ describe("computeItemUnitValuation", () => {
   });
 
   test("uses the Goldback denomination price from the inventory hierarchy", () => {
-    const goldbackValuation = new Function(
-      "computeMeltValue",
-      "isGoldbackPricingActive",
-      "getGoldbackDenominationPrice",
-      [
-        sliceArrowConst(src, "const getGoldbackRetailPrice = ("),
-        sliceArrowConst(src, "const calculateRetailPrice = ("),
-        sliceArrowConst(src, "const computeItemValuation = ("),
-        sliceArrowConst(src, "const computeItemUnitValuation = ("),
-      ].join("\n") + "\nreturn computeItemUnitValuation;"
-    )(
+    const goldbackValuation = loadUnitValuation(
       (item, spot) => (Number(item.weight) || 0) * (Number(item.qty) || 1) * spot,
       () => true,
       (denomination) => (denomination === 5 ? 60 : null)

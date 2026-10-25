@@ -230,7 +230,7 @@ const tryPersistInventory = () => {
       debugLog("tryPersistInventory: inventory write failed", e);
     }
     if (e && e.name === "QuotaExceededError" && typeof showToast === "function") {
-      showToast("Storage is full — partial disposition was not saved.", "error");
+      showToast("Storage is full. The partial disposition was not saved.", "error");
     }
     return false;
   }
@@ -439,18 +439,21 @@ const validateFieldValue = (field, value) => {
   const trimmedValue = typeof value === "string" ? value.trim() : String(value).trim();
 
   switch (field) {
-    case "qty":
+    case "qty": {
       const qty = parseInt(value, 10);
       return /^\d+$/.test(value) && qty > 0 && qty <= 999999;
+    }
 
-    case "weight":
+    case "weight": {
       const weight = parseFloat(value);
       return !isNaN(weight) && weight > 0 && weight <= 999999;
+    }
 
     case "price":
-    case "marketValue":
+    case "marketValue": {
       const price = parseFloat(value);
       return !isNaN(price) && price >= 0 && price <= 999999999;
+    }
 
     case "name":
       return trimmedValue.length > 0 && trimmedValue.length <= 200;
@@ -462,7 +465,7 @@ const validateFieldValue = (field, value) => {
     case "notes":
       return trimmedValue.length <= 1000; // Allow long notes but with limit
 
-    case "date":
+    case "date": {
       if (!trimmedValue) return false;
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(trimmedValue)) return false;
@@ -470,13 +473,15 @@ const validateFieldValue = (field, value) => {
       const today = new Date();
       const minDate = new Date("1900-01-01");
       return date >= minDate && date <= today;
+    }
 
     case "type":
       return VALID_TYPES.includes(trimmedValue);
 
-    case "metal":
+    case "metal": {
       const validMetals = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
       return validMetals.includes(trimmedValue);
+    }
 
     default:
       return true;
@@ -1351,7 +1356,7 @@ const _deleteInventoryItem = async (item, idx) => {
     inventory.splice(idx, 0, item);
     closeModalById("removeItemModal");
     if (typeof showToast === "function") {
-      showToast("Item could not be deleted — the inventory write did not complete.", "error");
+      showToast("Item could not be deleted: the inventory write did not complete.", "error");
     }
     return;
   }
@@ -1493,7 +1498,7 @@ const undoDisposition = async (idx) => {
     inventorySnapshot.forEach((i) => inventory.push(i));
     changeLog.length = 0;
     changeLogSnapshot.forEach((e) => changeLog.push(e));
-    showToast("Couldn't merge — storage failed. Try again.", "error");
+    showToast("Merge failed: storage write failed. Try again.", "error");
     return;
   }
 
@@ -1507,7 +1512,7 @@ const undoDisposition = async (idx) => {
       showToast("Critical: storage failure left state inconsistent. Reload to recover.", "error");
       return;
     }
-    showToast("Couldn't save audit log — merge was reverted.", "error");
+    showToast("Audit log save failed. The merge was reverted.", "error");
     return;
   }
 
@@ -1657,7 +1662,7 @@ const splitInventoryItem = async (originalIdx, disposedQty, dispositionInput) =>
     if (!revertOk) {
       if (typeof showToast === "function") {
         showToast(
-          "Storage failure left audit log out of sync — reload the app to recover.",
+          "A storage failure left the audit log out of sync. Reload the app to recover.",
           "error"
         );
       }
@@ -2248,17 +2253,23 @@ const _editLoadImages = (item) => {
             type: item.type || "",
             ignorePatternImages: !!item.ignorePatternImages,
           };
-          if (!loaded.obverse) {
-            const obvUrl = await imageCache
-              .resolveImageUrlForItem(itemMeta, "obverse")
-              .catch(() => null);
-            if (obvUrl && !item.obverseImageUrl) showPreview(obvUrl, "Obv", "obverse");
-          }
-          if (!loaded.reverse) {
-            const revUrl = await imageCache
-              .resolveImageUrlForItem(itemMeta, "reverse")
-              .catch(() => null);
-            if (revUrl && !item.reverseImageUrl) showPreview(revUrl, "Rev", "reverse");
+          // STRK-443: the read can outlive a change to the Item's image options (or the modal);
+          // a pattern image that went stale meanwhile is dropped, not shown.
+          const token = typeof patternPreviewToken === "function" ? patternPreviewToken() : null;
+          for (const [side, suffix, ownUrl] of [
+            ["obverse", "Obv", item.obverseImageUrl],
+            ["reverse", "Rev", item.reverseImageUrl],
+          ]) {
+            if (loaded[side]) continue;
+            const url = await imageCache.resolveImageUrlForItem(itemMeta, side).catch(() => null);
+            if (!url) continue;
+            if (ownUrl || (token && !canShowPatternPreview(token, side))) {
+              URL.revokeObjectURL(url);
+              continue;
+            }
+            showPreview(url, suffix, side);
+            // A pattern-rule image, not the Item's own, for the options toggle.
+            if (typeof markPatternPreview === "function") markPatternPreview(side, true);
           }
         }
       })
@@ -2896,7 +2907,7 @@ const printInventory = () => {
   // Revoke after a short delay to allow the popup to load the blob before the URL is released
   setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
   if (!popup) {
-    appAlert("Your browser blocked the print window — allow popups for this page.");
+    appAlert("Your browser blocked the print window. Allow pop-ups for this page.");
   }
 };
 /**
@@ -3279,7 +3290,6 @@ function _openThumbPopover(cell, item) {
   // Refresh the row thumbnails after a change
   const _refreshRowThumbs = () => {
     if (!featureFlags.isEnabled("COIN_IMAGES") || !window.imageCache?.isAvailable()) return;
-    const row = document.querySelector(`#inventoryTable tr[data-idx]`);
     // Find by uuid via data attribute on the img
     const thumbImg = document.querySelector(
       `#inventoryTable .table-thumb[data-item-uuid="${CSS.escape(item.uuid || "")}"]`

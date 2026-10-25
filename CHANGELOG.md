@@ -7,6 +7,257 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.80] - 2026-10-25
+
+### Changed — STRK-476: Name tests by behavior and enforce test naming
+
+- **Test names**: Suite and test titles describe their behavior without issue IDs. Unit filenames and evidence images follow the same rule (STRK-476).
+- **Naming guard**: A unit check rejects issue IDs in tracked test filenames and titles. The test selector runs the guard when test files change (STRK-476).
+- **Selection coverage**: Unit checks verify that renamed tests select their current paths (STRK-476).
+
+---
+
+## [3.36.79] - 2026-10-25
+
+### Changed — STRK-482: Copper in the app description
+
+- **About blurb**: the Settings > About description names Copper with the other four metals, and its em-dash aside becomes two sentences (STRK-482).
+- **Page and install descriptions**: the `description` and `og:description` meta tags in `index.html` and the `manifest.json` description name copper (STRK-482).
+- **Comments**: the `index.html` header and inventory form comments list Copper (STRK-482).
+
+## [3.36.78] - 2026-10-25
+
+### Changed — STRK-474: Tests write only to temp output
+
+- **Tree guard**: `devops/testing/tree-guard.mjs` compares `git status` and file content before and after a test run, and fails the run with the list of changed paths. Playwright runs it as global setup and teardown; `run-unit.mjs`, `test-changed.mjs` and the CI unit step pass it to `node --test` as `--test-global-setup`. Edits made before the run do not trip it (STRK-474).
+- **Screenshot test**: the title-link theme test in `collections.spec.js` writes its screenshots to `testInfo.outputPath()` instead of the tracked `playground/images/STRK-444/` folder, so a core run no longer dirties the tree (STRK-474).
+- **Hook test scratch**: `post-edit-lint-hook.test.js` keeps its scratch directory under `tests/`, still ignored and removed after the run (STRK-474).
+- **Docs**: `.context/testing.md` gains a Test Output section with the rule and the guard (STRK-474).
+
+## [3.36.77] - 2026-10-25
+
+### Changed — STRK-431: Neutral class name for the shared segmented control
+
+- **Rename**: `.collections-segmented` and `.collections-segmented-option` become `.segmented` and `.segmented-option` in `css/styles.css`, `js/collections-picker.js` and `js/image-frame-editor.js`. The Add/Edit Item modal and the Collection builder share the control, so a Collections prefix was misleading. No visual change (STRK-431).
+- **References**: the image frame editor spec, `.context/style.html` and the STRK-421, STRK-424 and STRK-427 playground mockups use the new names. Archived spec docs keep the old names as history (STRK-431).
+
+## [3.36.76] - 2026-10-25
+
+### Changed — STRK-429: Cloud sync detects a frame-only image edit
+
+- **Legacy frames in the inventory hash**: `computeInventoryHash` hashes `obverseImageFrame` and `reverseImageFrame` under a separate `|legacyFrame:` tag. An edit that changes only an item's frame, such as a save that drops the legacy keys, changes the hash and is pushed (STRK-429).
+- **No change for unframed inventories**: the segment counts only `circle` and `rectangle`; `auto`, empty and other values hash as absent. An inventory that carries a frame sees one hash-only mismatch after the upgrade and pushes once (STRK-429).
+- **Lower complexity**: both framing segments move into a nested helper, which takes `computeInventoryHash` from cyclomatic complexity 25 to 19 (STRK-429).
+- **Tests**: the D-12 pin in `cloud-sync-image-frame-hash.test.js` becomes five cases for the new segment; H-4 keeps an `auto`/empty-frame item in its byte-identical inventory (STRK-429).
+
+## [3.36.75] - 2026-10-25
+
+### Changed — STRK-461: Reduced motion turns transitions off
+
+- **No transition under reduced motion**: the global `prefers-reduced-motion: reduce` block in `css/styles.css` sets `transition-duration: 0s` instead of `0.01ms`. The non-zero duration gave every element an all-property transition, so `getComputedStyle()` right after a style change returned the old value (STRK-461).
+- **Animations unchanged**: `animation-duration` stays at `0.01ms`, so toasts that remove themselves on `animationend` still fire it (STRK-461).
+- **Test**: a core case in `status-colour-tokens.spec.js` emulates reduced motion and asserts a theme switch reads the new token colours at once. The full core suite passes with `reducedMotion: "reduce"` (STRK-461).
+
+---
+
+## [3.36.74] - 2026-10-24
+
+### Changed — STRK-454: Pattern Image Rules form styles move to CSS classes
+
+- **Shared form classes**: the static Pattern Image Rules form in `index.html` takes its static styles from `css/styles.css`. It shares `pattern-rule-card` and `pattern-rule-card-actions` with the inline rule editor (renamed from `pattern-rule-edit-card` and `pattern-rule-edit-actions`, same values) and adds `pattern-rule-toolbar`. Only `display` toggles stay inline (STRK-454).
+- **Dead gauge removed**: `renderImageStorageStats()` wrote state colours into storage gauge elements that left `index.html` in v3.34.21, so it returned early on every call. The function, its seven call sites and the `.image-storage-stats` and `.storage-gauge-*` rules are removed (STRK-454).
+- **Same rendering**: computed styles and layout boxes of the form and the inline editor match the previous build in all four themes at 1280 and 390 px (STRK-454).
+
+---
+
+## [3.36.73] - 2026-10-24
+
+### Changed — STRK-454: Inventory table row styles move to CSS classes
+
+- **Inventory classes**: the inventory table rows built in `js/inventory-table.js` take their static styles from classes in `css/styles.css`. Template `style=` in the file drops from 10 to 2, and `filterLink` takes a `null` colour for primary text (`.filter-text--primary`). Hashed and metal chip colours, the Gain/Loss colour and weight, and thumbnail visibility stay inline as runtime values (STRK-454).
+- **Token cleanup**: the Purchase and Melt cell rules read `--text-primary`, the colour the inline style applied; the unused `--col-purchase` and `--col-melt` tokens are removed (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px, with every inline chip enabled (STRK-454).
+
+---
+
+## [3.36.72] - 2026-10-24
+
+### Changed — STRK-454: Market ticker, block and detail window styles move to CSS classes
+
+- **Market classes**: the price ticker, the Market block header, matrix and status lines, and the retail detail window built in `js/market-data.js` take their static styles from classes in `css/styles.css`. `style.cssText` in the file drops from 12 to 0; vendor and stock colours and the ticker track position stay inline as runtime values (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px, for the Market block with data and empty, the detail window, and its no-data state (STRK-454).
+
+---
+
+## [3.36.71] - 2026-10-24
+
+### Changed — STRK-454: Settings table and image list styles move to CSS classes
+
+- **Settings classes**: the Chips, Numista pattern and section-config tables, the Images lists, the inline pattern rule editor and the Numista tag blacklist built in `js/settings.js` take their static styles from classes in `css/styles.css`. `style.cssText` and template `style=` in the file drop from 37 to 6; the 6 left are display toggles and storage-bar widths (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px, with lists populated and empty (STRK-454).
+
+---
+
+## [3.36.70] - 2026-10-24
+
+### Changed — STRK-454: Sync review window styles move to CSS classes
+
+- **Diff modal classes**: the renderers in `js/diff-modal.js` style their markup through named classes in the `#diffReviewModal` block of `index.html`. Template `style=` strings drop from 45 to 8 and `style.cssText` from 1 to 0; the 8 left carry the metal tint and the progress width (STRK-454).
+- **Same rendering**: computed styles and layout boxes match the previous build in all four themes at 1280 and 390 px (STRK-454).
+
+---
+
+## [3.36.69] - 2026-10-24
+
+### Changed — STRK-453: Chart colours read theme tokens
+
+- **Card charts**: the grid of the Item card chart reads `--border` and its tooltip uses the `--bg-primary` surface with `--text-primary` text and a `--border` outline, the same as the Item View chart. Both follow a theme switch (STRK-453).
+- **Dead fallbacks**: the ratio panel chart and the metal sparkline colour fall back to theme tokens instead of hex literals (STRK-453).
+- **Colour guard**: `staktrakr/no-colour-literal` is an error, so a new colour literal in `js/` fails the lint and the Tests check (STRK-453).
+
+---
+
+## [3.36.68] - 2026-10-24
+
+### Changed — STRK-455: Colour-literal guard and theme token check
+
+- **ESLint colour guard**: the local rule `staktrakr/no-colour-literal` (`devops/eslint/no-colour-literal.cjs`) warns on hex, colour-function and named-colour literals in `js/` outside `js/theme.js`. The pre-CSS update screens, the printable backup, the contrast fallback, the hue hash and the chart gradient carry a reasoned disable comment (STRK-455).
+- **Undefined tokens**: `tests/unit/js-theme-tokens.test.js` fails on any `var(--x)` in `js/` or `css/` that names an undefined custom property. The 64 Bootstrap-era and misspelled references in `css/styles.css` now use defined theme tokens (STRK-455).
+- **Dead fallbacks**: the literal fallbacks on `--danger` and `--success` in the catalog and cloud logs, the gain/loss column and the spot lookup error are removed (STRK-455).
+
+---
+
+## [3.36.67] - 2026-10-24
+
+### Changed — STRK-468: Slot notes stay open through price refreshes
+
+- **Slot notes**: An open Slot note in the Album or Ledger stays open when a spot, retail or Goldback price refresh or a currency change re-renders the Collections tab. Escape, a click or focus outside, resize, a hash change and leaving the Collection still close it (STRK-468).
+
+---
+
+## [3.36.66] - 2026-10-24
+
+### Changed — STRK-452: Item View header colours come from the theme
+
+- **Item View header**: The metal-tinted header and image band take their colours from the metal theme tokens in CSS. The title meets 4.5:1 contrast for every metal in all four themes and follows a theme switch while the Item View is open. The header gradient darkens 25% instead of 30%, so the black title on slate copper meets AA (STRK-452).
+- **Diff modal thumbnails**: The metal tint behind Item thumbnails uses the metal theme token instead of a fixed RGB table (STRK-452).
+
+---
+
+## [3.36.65] - 2026-10-23
+
+### Changed — STRK-466: Buttons respond sooner after the app loads
+
+- **Startup**: The app wires its buttons and inputs right after the first render instead of waiting a fixed 200 ms first. The delay dated from the first release and had no recorded reason (STRK-466).
+
+---
+
+## [3.36.64] - 2026-10-23
+
+### Changed — STRK-464: Toasts no longer block clicks
+
+- **Toasts**: Clicks pass through the bottom-right toast to the page beneath it. On localhost, beta and preview, the environment toast covered the item modal's Save button for 5 seconds, so a click on Save did nothing until the toast faded (STRK-464).
+
+---
+
+## [3.36.63] - 2026-10-23
+
+### Changed — STRK-463: No duplicate Item from a late Save
+
+- **Item form**: A Save that reaches the form after the previous Save closed the Item modal is ignored. The first save clears the edit index, so a late submit ran as Add and stored a duplicate Item (STRK-463).
+
+---
+
+## [3.36.62] - 2026-10-22
+
+### Changed — STRK-458: Bulk sync progress, cancel and activity log
+
+- **Sync controls**: The Numista Bulk Sync modal has static Sync Unsynced and Cancel sync buttons, a progress bar and an Activity log; the STAK-443 modal rebuild dropped this markup, so a running sync showed no progress and could not be cancelled (STRK-458).
+- **PCGS view**: Opening the PCGS bulk sync hides the Numista controls instead of deleting the Overview panel, which left the Numista view empty until reload (STRK-458).
+- **Dead code**: Removed the `numistaSyncClearBtn` binding and `clearAllCachedData`, which had no button since v3.32.0 (STRK-458).
+
+---
+
+## [3.36.61] - 2026-10-22
+
+### Changed — STRK-450: Theme-aware sync status colors
+
+- **Status text tokens**: New `--success-text`, `--warning-text` and `--danger-text` tokens in all four themes meet at least 4.5:1 on `--bg-secondary`; `--warning-text` was missing from dark and slate (STRK-450).
+- **Numista sync status**: Status cells and activity log lines use classes on those tokens instead of the undefined `--success-color`, `--warning-color` and `--danger-color` tokens; Failed reads as danger, apart from Needs sync (STRK-450).
+- **Spot lookup flash**: The filled price input takes a `.spot-lookup-flash` tint mixed from `--warning` instead of the undefined `--accent` (STRK-450).
+- **Guard test**: A unit test fails when `js/` reads a custom property that no stylesheet defines (STRK-450).
+
+---
+
+## [3.36.60] - 2026-10-22
+
+### Changed — STRK-456: Clearer error and status messages
+
+- **Message punctuation**: Toasts, alerts and confirmations join clauses with a full stop or a colon instead of an em-dash, and state what failed and what to do next (STRK-456).
+- **Spot fetch docstring**: The `_fetchFreshestSpotEnvelopes` docstring states its constraint in four lines (STRK-456).
+- **Guard test**: A unit test fails when a toast or alert string in `js/` contains an em-dash (STRK-456).
+
+---
+
+## [3.36.59] - 2026-10-21
+
+### Changed — STRK-451: Theme-aware retail vendor colors
+
+- **Vendor label contrast**: Retail vendor colors now use per-theme tokens that preserve distinct vendor identities and meet at least 4.5:1 contrast in all four themes; unknown vendors use the theme's muted text color (STRK-451).
+- **Live chart recoloring**: Market and retail vendor charts now use the active theme tokens and recolor when the theme changes without closing the view (STRK-451).
+
+---
+
+## [3.36.58] - 2026-10-18
+
+### Changed — STRK-444: Custom Collection title images by live URL
+
+- **Title image links**: Each Custom Collection title frame now has an image options button for a live HTTP(S) image link. Obverse and reverse links can be previewed, swapped with links or uploads, and removed independently (STRK-444).
+- **Persistence and cleanup**: Title links survive reload, ZIP restore, Collections export/import and cloud sync. Replacing an upload with a link removes the old stored image; an untouched link in an open builder preserves another tab's newer edit (STRK-444).
+
+---
+
+## [3.36.57] - 2026-10-18
+
+### Changed — STRK-446: Readable filter chips in every theme
+
+- **Chip text contrast**: Filter chip text is now black or white, whichever has the higher WCAG contrast over the chip colour, so every chip meets AA (at least 4.5:1) in light, dark, slate and sepia. Before, every chip got black text, which was barely readable on the dark chips in the light and sepia themes (STRK-446).
+- **CSS owns chip colours**: JavaScript now gives each chip only its background as a theme token (`--chip-bg`), and the stylesheet picks the text colour with CSS `contrast-color()`. Hashed name, location and tag colours take their saturation and lightness from the new per-theme `--hashed-color-s` and `--hashed-color-l` tokens, so chips and table links recolour on a theme switch without a reload (STRK-446).
+- **Fallback for older browsers**: `getContrastColor()` now reads any CSS colour (hex, `rgb()`, `hsl()`, `oklch()`, `var()`) and chooses by WCAG ratio. Browsers without `contrast-color()` use it for chip text and re-pick it on a theme switch. The dashed outline on excluded chips uses `--text-muted`, so it shows on the dark themes too (STRK-446).
+- **No faded chips**: Excluded and hovered chips no longer use opacity, which blended text and background toward the page and dropped them below AA (3.71:1 for an excluded chip in light). An excluded chip is marked by its dashed outline, and a hovered chip by a lift and shadow (STRK-446).
+
+---
+
+## [3.36.56] - 2026-10-17
+
+### Changed — STRK-443: Image options button in the Add/Edit Item modal
+
+- **Image options**: The small link icon on each Item image frame is now an image options button. It opens one dialog with the image link (unchanged: paste a URL, leave it empty to clear it, a malformed link is rejected) and a new "Use a matching pattern image" checkbox (STRK-443).
+- **Pattern image on/off per Item**: The checkbox is the Item's existing pattern-image setting, which until now only Remove and Swap could change. Turning it off clears any side showing a pattern-rule image right away; turning it back on fills empty sides from the matching rule again. The Item's own uploads and links are never touched, and Save stores the setting (STRK-443).
+- **Scope note**: The planned "Clear image cache" action was dropped: catalog images are no longer cached per Item, so it would have had no visible effect. The Collection builder gets its options button with its first action, the title-image URL, in STRK-444 (STRK-443).
+
+## [3.36.55] - 2026-10-17
+
+### Changed — STRK-442: Builder Slot thumbnails follow the collection's Image shape
+
+- **Slot thumbnails take the shape**: In the Custom Collection builder, each Slot row's image now takes the collection's Image shape (Round, Bar, Note or Slab, with Bar and Note following the obverse orientation) instead of always being a circle. It re-shapes as soon as the shape or obverse orientation changes, including Slots added afterwards, and stays inside the 44px box so the rows keep their height (STRK-442).
+- **Whole photo, no crop**: A Slot photo is fit whole instead of cropped to a circle, and a Slot holding a photo drops its dashed drop-zone outline, matching the title images and the Add/Edit Item modal (STRK-442).
+
+## [3.36.54] - 2026-10-17
+
+### Fixed — STRK-440: Two open tabs no longer overwrite each other's Collections
+
+- **Cross-tab listener**: The Collections store now re-reads its saved state when another tab saves Collections or the hidden-Collections preference (or clears storage), and repaints open views. Before, this tab kept a stale copy, and its next change wrote that copy over the other tab's links, Custom Collections and artwork. Because that notice arrives a moment after the other tab saves, every change also re-checks the saved state first, so a change made in that gap cannot overwrite the other tab's save either (STRK-440).
+- **Builder open in both tabs**: An open Collection builder keeps what you typed while another tab saves, and Save applies it on top of the other tab's changes. If the other tab deleted that Collection, Save says "This collection was deleted in another tab." instead of bringing it back (STRK-440).
+- **Backups include the newest artwork**: Backup All Data and the image-vault push judge Collection artwork with the new `collectionsStore.exportState()`, which reads the saved state (falling back to this tab's state when the saved state is unreadable). Artwork another tab just replaced is no longer left out (STRK-440).
+
+## [3.36.53] - 2026-10-17
+
+### Fixed — STRK-439: A second tab no longer deletes Collection artwork
+
+- **Rendering is read-only**: Showing a Collection cover, title image or Slot never deletes stored artwork. A record that looks stale against this tab's in-memory Collections state is re-checked against the saved state. Artwork another tab uploaded, replaced or restored is shown once that saved state stamps it as current. An upload whose stamp has not been saved yet stays stored but hidden until it is. Art saved before artwork stamps existed (no stamp at all) still shows. A record that is really stale is hidden and left for Remove, Collection delete or Settings ▸ Images to clear (STRK-439).
+- **One fail-closed reader**: The saved-state reader Settings ▸ Images uses (STRK-438) moved into the Collections store as `collectionsStore.readPersisted()`, so the orphan cleanup and the artwork renderer judge ownership the same way. It now also refuses a saved artwork stamp that is not an object or has a missing, empty or non-string time, which would otherwise be dropped and let stale art show again (STRK-439).
+
 ## [3.36.52] - 2026-10-15
 
 ### Fixed — STRK-436: Portrait Bar and Note thumbnails are rectangles at full size

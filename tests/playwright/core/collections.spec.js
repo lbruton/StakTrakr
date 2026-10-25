@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 // real delete funnel, real storage cleanup) rather than re-proving the pure rules already
 // pinned by tests/unit/collections-core.test.js.
 
-import { test, expect } from "../helpers/mocks/extended-test.js";
+import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import {
   collectionItem as baseItem,
@@ -54,25 +54,6 @@ test.describe("core/collections", () => {
       return store.progress(store.getState().collections["ase-type2"]);
     });
     expect(progress).toEqual({ owned: 1, total: 6, missing: 5, pct: 17 });
-  });
-
-  test("an item fills at most one slot per collection", async ({ page }) => {
-    await seedAndGoto(page);
-    const results = await page.evaluate(() => {
-      const store = window.collectionsStore;
-      return [
-        store.link("ase-type2", "2022", "col-ase-2022-a"),
-        store.link("ase-type2", "2023", "col-ase-2022-a"),
-      ];
-    });
-    expect(results[0]).toEqual({ ok: true, changed: true });
-    expect(results[1]).toEqual({
-      ok: false,
-      changed: false,
-      reason: "already-linked",
-      slotId: "2022",
-    });
-    expect(await readSlot(page, "2023")).toBeNull();
   });
 
   test("Add new item from a slot opens Add Item prefilled and auto-links on save", async ({
@@ -334,19 +315,25 @@ const createSlotNoteFixture = async (page) => {
 };
 
 /**
- * Fingerprint the displayed image rather than its disposable blob URL.
+ * Fingerprint the decoded pixels of the displayed image. The app revokes a blob URL
+ * when it re-renders, so re-fetching the URL can fail after the image has loaded.
  * @param {import('@playwright/test').Locator} image - Image locator.
  * @returns {Promise<string|null>} SHA-256 hex digest, or null before image load.
  */
 const displayedImageHash = (image) =>
   image.evaluate(async (img) => {
     if (!img.complete || !img.naturalWidth) return null;
-    const bytes = await (await fetch(img.currentSrc || img.src)).arrayBuffer();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(img, 0, 0);
+    const bytes = context.getImageData(0, 0, canvas.width, canvas.height).data;
     const hash = await crypto.subtle.digest("SHA-256", bytes);
     return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
   });
 
-test.describe("core/collections — STRK-376 saved image swaps", () => {
+test.describe("core/collections — saved image swaps", () => {
   test("Save waits for an image swap still reading its source", async ({ page }) => {
     await seedAndGoto(page);
     await page.evaluate(async () => {
@@ -574,6 +561,29 @@ test.describe("core/collections — link picker, builder, item view", () => {
   const slotHandle = (page, label) =>
     builderModal(page).getByRole("button", { name: `Reorder ${label}`, exact: true });
   /**
+   * Bounding box of a locator once the layout holds still: the builder's running CSS
+   * animations have finished and two reads in a row agree. A slow runner can read the
+   * box mid-layout, so pointer coordinates taken from it miss their target.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {import('@playwright/test').Locator} locator - Element to measure.
+   * @returns {Promise<{x: number, y: number, width: number, height: number}>}
+   */
+  const settledBox = async (page, locator) => {
+    await builderModal(page).evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished))
+    );
+    let previous = null;
+    await expect
+      .poll(async () => {
+        const box = await locator.boundingBox();
+        const same = Boolean(box && previous && JSON.stringify(box) === JSON.stringify(previous));
+        previous = box;
+        return same;
+      })
+      .toBe(true);
+    return previous;
+  };
+  /**
    * Locate the item view modal.
    * @param {import('@playwright/test').Page} page - Browser page.
    * @returns {import('@playwright/test').Locator} Item view modal.
@@ -790,7 +800,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(panel(page)).toContainText("1881-CC");
   });
 
-  test("STRK-389 inserts and moves Slots with stable links and saved Album/Ledger order", async ({
+  test("inserts and moves Slots with stable links and saved Album/Ledger order", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -871,7 +881,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByLabel("Slot label").nth(2)).toHaveValue("2020");
   });
 
-  test("STRK-421 Slot handle boundaries, mobile themes, Cancel and close preserve saved Slots", async ({
+  test("Slot handle boundaries, mobile themes, Cancel and close preserve saved Slots", async ({
     page,
   }, testInfo) => {
     await seedAndGoto(page);
@@ -922,7 +932,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByLabel("Slot label").first()).toHaveValue("2019");
   });
 
-  test("STRK-421 the builder shows large centred title images with the shape picker beneath", async ({
+  test("the builder shows large centred title images with the shape picker beneath", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -937,14 +947,18 @@ test.describe("core/collections — link picker, builder, item view", () => {
       const options = builder.locator(".collections-builder-title-option .collections-image-pick");
       await expect(options).toHaveCount(2);
       const [obverse, reverse] = [
-        await options.nth(0).boundingBox(),
-        await options.nth(1).boundingBox(),
+        await settledBox(page, options.nth(0)),
+        await settledBox(page, options.nth(1)),
       ];
-      const shape = await builder.getByRole("radiogroup", { name: "Image shape" }).boundingBox();
-      const body = await builder.locator(".collections-modal-body").boundingBox();
-      // Large, side by side, and centred as a pair in the modal body.
+      const shape = await settledBox(
+        page,
+        builder.getByRole("radiogroup", { name: "Image shape" })
+      );
+      const body = await settledBox(page, builder.locator(".collections-modal-body"));
+      // Large, side by side, and centred as a pair in the modal body. Font rasterizing
+      // differs by a fraction of a pixel between platforms.
       expect(obverse.width).toBeGreaterThanOrEqual(120);
-      expect(reverse.y).toBeCloseTo(obverse.y, 0);
+      expect(Math.abs(reverse.y - obverse.y)).toBeLessThan(1);
       expect(reverse.x).toBeGreaterThan(obverse.x + obverse.width);
       const pairCentre = (obverse.x + reverse.x + reverse.width) / 2;
       expect(Math.abs(pairCentre - (body.x + body.width / 2))).toBeLessThan(4);
@@ -964,7 +978,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(note.width).toBeGreaterThan(note.height);
   });
 
-  test("STRK-426 the title image remove badge is legible in every theme", async ({ page }) => {
+  test("the title image remove badge is legible in every theme", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     await panel(page)
@@ -1009,9 +1023,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await page.evaluate(() => window.setTheme("light"));
   });
 
-  test("STRK-421 dragging a Slot handle reorders the cards and the order is saved", async ({
-    page,
-  }) => {
+  test("dragging a Slot handle reorders the cards and the order is saved", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     // Tall enough that all three cards are on screen, so the drop lands on a visible card.
@@ -1025,10 +1037,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
       return made.collection.id;
     });
     const builder = builderModal(page);
-    // hover() waits for the modal's opening animation to settle before anything is measured.
-    await slotHandle(page, "Alpha").hover();
-    const handle = await slotHandle(page, "Alpha").boundingBox();
-    const target = await builder.locator(".collections-builder-row").nth(2).boundingBox();
+    const handle = await settledBox(page, slotHandle(page, "Alpha"));
+    const target = await settledBox(page, builder.locator(".collections-builder-row").nth(2));
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
     await page.mouse.down();
     await page.mouse.move(handle.x + handle.width / 2, target.y + target.height * 0.8, {
@@ -1145,12 +1155,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
         390
       );
       // The About textarea is themed like every other control (it used to keep the
-      // browser's light background in dark themes). Polled: a theme switch animates the
-      // visible input's colours, while the collapsed textarea snaps to its final value.
+      // browser's light background in dark themes). A theme switch starts colour
+      // transitions, and one on the collapsed textarea can stall while it is not rendered,
+      // so each read finishes them first: the assertion is about the final theme colours.
       await expect
         .poll(() =>
           builder.evaluate((modal) => {
             const read = (node) => {
+              node.getAnimations().forEach((animation) => animation.finish());
               const style = getComputedStyle(node);
               return `${style.backgroundColor}|${style.color}|${style.borderTopColor}`;
             };
@@ -1162,7 +1174,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
         .toBe("matched");
     }
     await builder.screenshot({
-      path: testInfo.outputPath("strk-395-builder-390.png"),
+      path: testInfo.outputPath("collections-builder-390.png"),
       animations: "disabled",
     });
     const shape = builder.getByRole("radiogroup", { name: "Image shape" });
@@ -1204,7 +1216,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => window.setTheme("light"));
     await panel(page).screenshot({
-      path: testInfo.outputPath("strk-395-album-metadata.png"),
+      path: testInfo.outputPath("collections-album-metadata.png"),
       animations: "disabled",
     });
 
@@ -1334,7 +1346,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition).toMatchObject({ itemType: "Goldback", metal: "Gold", weightUnit: "gb" });
   });
 
-  test("STRK-422 opening and saving a mismatched denomination Collection never relabels its weight", async ({
+  test("opening and saving a mismatched denomination Collection never relabels its weight", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1368,7 +1380,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition.weight || null).toBeNull();
   });
 
-  test("STRK-422 leaving a denomination type clears the weight along with the rewritten unit", async ({
+  test("leaving a denomination type clears the weight along with the rewritten unit", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1392,9 +1404,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(builder.getByLabel("Weight", { exact: true })).toHaveValue("");
   });
 
-  test("STRK-422 a matching denomination Collection keeps its weight on open and save", async ({
-    page,
-  }) => {
+  test("a matching denomination Collection keeps its weight on open and save", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {
       const created = window.collectionsStore.createCustom({
@@ -1417,7 +1427,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(definition).toMatchObject({ weight: 2, weightUnit: "gb" });
   });
 
-  test("STRK-422 a negative Diameter, Gross weight or Thickness blocks the save and keeps the builder open", async ({
+  test("a negative Diameter, Gross weight or Thickness blocks the save and keeps the builder open", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1467,7 +1477,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(specs.diameterMm).toBe(32);
   });
 
-  test("STRK-422 an incomplete number such as a lone minus blocks the save instead of reading as blank", async ({
+  test("an incomplete number such as a lone minus blocks the save instead of reading as blank", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1494,7 +1504,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.locator("body")).toContainText(/Diameter must be a non-negative number/);
   });
 
-  test("STRK-424 the builder offers Portrait / Landscape only for Bar and Note and previews it", async ({
+  test("the builder offers Portrait / Landscape only for Bar and Note and previews it", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1536,7 +1546,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect.poll(frameRatio).toBeCloseTo(1 / 2.05, 1);
   });
 
-  test("STRK-424 a Type change that keeps the derived shape keeps the chosen orientation", async ({
+  test("a Type change that keeps the derived shape keeps the chosen orientation", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1559,7 +1569,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(orientation.getByLabel("Landscape")).toBeChecked();
   });
 
-  test("STRK-424 a saved orientation reaches the Album frame, the editor, and survives a reload", async ({
+  test("a saved orientation reaches the Album frame, the editor, and survives a reload", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1600,7 +1610,8 @@ test.describe("core/collections — link picker, builder, item view", () => {
           return box.width / box.height;
         });
     };
-    expect(await coinRatio()).toBeCloseTo(1.6, 1);
+    // Polled: the Album lays out after openCollection returns, and an unlaid box reads 0/0.
+    await expect.poll(coinRatio).toBeCloseTo(1.6, 1);
 
     await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
     const orientation = builderModal(page).getByRole("radiogroup", {
@@ -1610,10 +1621,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await orientation.getByLabel("Portrait").check();
     await builderModal(page).getByRole("button", { name: "Save changes" }).click();
     expect((await read(id)).imageOrientation).toBe("portrait");
-    expect(await coinRatio()).toBeCloseTo(0.6, 1);
+    await expect.poll(coinRatio).toBeCloseTo(0.6, 1);
 
     // The Hub card and both Ledger levels read the same saved orientation as the Album.
-    const ratioIn = (scope) =>
+    const ratioIn = (scope) => () =>
       panel(page)
         .locator(`${scope} .collections-coin--shape-bar`)
         .first()
@@ -1622,20 +1633,20 @@ test.describe("core/collections — link picker, builder, item view", () => {
           return box.width / box.height;
         });
     await panel(page).getByRole("button", { name: "Collections", exact: true }).click();
-    expect(await ratioIn(`.collections-card[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
+    await expect.poll(ratioIn(`.collections-card[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
     await panel(page).getByRole("button", { name: "Ledger view" }).click();
-    expect(await ratioIn(`.collections-hubrow[data-collection-id="${id}"]`)).toBeCloseTo(0.6, 1);
+    await expect
+      .poll(ratioIn(`.collections-hubrow[data-collection-id="${id}"]`))
+      .toBeCloseTo(0.6, 1);
     await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
-    expect(await ratioIn(".collections-lrow[data-slot-id]")).toBeCloseTo(0.6, 1);
+    await expect.poll(ratioIn(".collections-lrow[data-slot-id]")).toBeCloseTo(0.6, 1);
 
     await page.reload();
     await page.waitForFunction(() => window.appListenersReady);
     expect((await read(id)).imageOrientation).toBe("portrait");
   });
 
-  test("STRK-424 a Bar saved before the choice existed keeps its landscape frame", async ({
-    page,
-  }) => {
+  test("a Bar saved before the choice existed keeps its landscape frame", async ({ page }) => {
     await seedAndGoto(page);
     const id = await page.evaluate(() => {
       const created = window.collectionsStore.createCustom({
@@ -1664,9 +1675,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(id).toBeTruthy();
   });
 
-  test("STRK-424 a clone without a stored orientation starts at the shape default", async ({
-    page,
-  }) => {
+  test("a clone without a stored orientation starts at the shape default", async ({ page }) => {
     await seedAndGoto(page);
     // A source with no stored orientation stands in for a Series Template Bar: cloning it is a
     // NEW Collection, so it starts at the Bar default, not the legacy landscape frame.
@@ -1761,7 +1770,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     return id;
   };
 
-  test("STRK-427 a mixed pair saved in the builder reopens with both orientations and renders per side everywhere", async ({
+  test("a mixed pair saved in the builder reopens with both orientations and renders per side everywhere", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1839,7 +1848,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     }
   });
 
-  test("STRK-427 legacy uniform pairs and a pre-STRK-424 Bar keep their builder frame ratios and take the shared 200px box (STRK-434)", async ({
+  test("legacy uniform pairs and a legacy Bar keep their builder frame ratios and take the shared 200px box", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1901,7 +1910,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(old.ratio).toBeCloseTo(1.6, 1);
   });
 
-  test("STRK-427 the builder Slab box moves to the shared 0.68 ratio inside the shared 200px box (STRK-434)", async ({
+  test("the builder Slab box moves to the shared 0.68 ratio inside the shared 200px box", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1960,9 +1969,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     });
   };
 
-  test("STRK-427 Swap in the builder exchanges the images and their orientations", async ({
-    page,
-  }) => {
+  test("Swap in the builder exchanges the images and their orientations", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     await panel(page)
@@ -1998,7 +2005,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     ).toBeChecked();
   });
 
-  test("STRK-427 a stored pair, Remove one side, Swap, Save and reopen keeps the image on the swapped side only", async ({
+  test("a stored pair, Remove one side, Swap, Save and reopen keeps the image on the swapped side only", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2052,7 +2059,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     ).toBeHidden();
   });
 
-  test("STRK-427 a failed stored-image read swaps nothing and says so", async ({ page }) => {
+  test("a failed stored-image read swaps nothing and says so", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     const id = await createMixedBars(page, "Swap read failure", "obverse");
@@ -2107,9 +2114,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
    */
   const releaseStoredReads = (page) => page.evaluate(() => window.__releaseStoredReads());
 
-  test("STRK-427 Swap stays unavailable until both stored previews have loaded", async ({
-    page,
-  }) => {
+  test("Swap stays unavailable until both stored previews have loaded", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
     const id = await createMixedBars(page, "Swap waits for previews", "obverse");
@@ -2139,7 +2144,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(await chooserImageHash(page, 1)).toBe(obverse);
   });
 
-  test("STRK-427 a throwing stored preview is logged, not unhandled, and Swap still settles", async ({
+  test("a throwing stored preview is logged, not unhandled, and Swap still settles", async ({
     page,
   }) => {
     const errors = [];
@@ -2180,7 +2185,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(errors).toEqual([]);
   });
 
-  test("STRK-427 Save right after Swap waits for the stored swap and saves the swapped pair", async ({
+  test("Save right after Swap waits for the stored swap and saves the swapped pair", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2241,7 +2246,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(distance(await chooserImageColor(page, 1), obverseColor)).toBeLessThan(12);
   });
 
-  test("STRK-427 a Collection with no grading still follows Type while the shape is derived", async ({
+  test("a Collection with no grading still follows Type while the shape is derived", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2551,6 +2556,19 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(coin).toHaveAttribute("data-resolved-image-side", "obverse");
   });
 
+  /**
+   * Dispatches each background refresh event that re-renders the Collections tab.
+   * @param {import("@playwright/test").Page} page - Test page
+   * @returns {Promise<void>}
+   */
+  const dispatchPriceRefreshes = (page) =>
+    page.evaluate(() => {
+      ["spot:updated", "retail:updated", "goldback:updated"].forEach((type) =>
+        document.dispatchEvent(new CustomEvent(type))
+      );
+      window.dispatchEvent(new CustomEvent("currencychange"));
+    });
+
   test("long Slot notes stay compact and keyboard reachable in Album cards", async ({
     page,
   }, testInfo) => {
@@ -2594,6 +2612,10 @@ test.describe("core/collections — link picker, builder, item view", () => {
 
     await noteButton.click();
     await expect(popover).toBeVisible();
+    await dispatchPriceRefreshes(page);
+    await expect(popover).toHaveText(LONG_SLOT_NOTE);
+    await expect(popover).toBeVisible();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "true");
     await page.getByRole("button", { name: "Collections" }).click();
     await expect(popover).toBeHidden();
   });
@@ -2621,6 +2643,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(noteButton).toHaveAttribute("aria-expanded", "true");
     expect(await row.evaluate((element) => element.getBoundingClientRect().height)).toBe(rowHeight);
     await page.screenshot({ path: testInfo.outputPath("strk-399-ledger-desktop.png") });
+
+    await dispatchPriceRefreshes(page);
+    await expect(popover).toHaveText(LONG_SLOT_NOTE);
+    await expect(popover).toBeVisible();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(popover).toBeHidden();
+    await expect(noteButton).toHaveAttribute("aria-expanded", "false");
   });
 
   test("Slot note popover fits a 375px touch viewport without reserving blank-note space", async ({
@@ -2631,6 +2661,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
       hasTouch: true,
     });
     const page = await context.newPage();
+    await prepareAppPage(page);
     await installStakTrakrNetworkMocks(page);
     try {
       const { slotId, blankSlotId } = await createSlotNoteFixture(page);
@@ -2813,21 +2844,6 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
     await reloadApp(page);
     await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveCount(0);
-  });
-
-  test("the year-range shortcut accepts sane ranges only", async ({ page }) => {
-    await seedAndGoto(page);
-    const parsed = await page.evaluate(() => {
-      const parse = window.collectionsPicker.parseYearRange;
-      return [
-        parse("1986-1990"),
-        parse("1999"),
-        parse("2005-1986"),
-        parse("abc"),
-        parse("1000-2999"),
-      ];
-    });
-    expect(parsed).toEqual([[1986, 1987, 1988, 1989, 1990], [1999], null, null, null]);
   });
 
   test("the item view shows a Collections chip and section, and Unlink clears both", async ({
@@ -3313,7 +3329,7 @@ test.describe("core/collections — tab UI", () => {
     await expect(slotOf(page, "2024").locator(":scope > .collections-num").nth(3)).toHaveText("—");
   });
 
-  test("STRK-382 collection totals show retail value with melt, using the inventory rule", async ({
+  test("collection totals show retail value with melt, using the inventory rule", async ({
     page,
   }) => {
     // Silver spot is 25 and purity 1, so unit melt is a clean $25.00.
@@ -3687,13 +3703,13 @@ const closeSettingsCollections = async (page) => {
   await expect(page.locator("#settingsModal")).toBeHidden();
 };
 
-test.describe("core/collections — STRK-393 Collections Settings", () => {
+test.describe("core/collections — Collections Settings", () => {
   test("Settings lists every template and live Custom Collection, with progress and the tab after Images", async ({
     page,
   }) => {
     await seedAndGoto(page);
     const fixture = await page.evaluate(() => {
-      const live = window.collectionsStore.createCustom({
+      window.collectionsStore.createCustom({
         name: "Live Morgan Set",
         metal: "Silver",
         slots: [{ label: "First" }, { label: "Second" }],
@@ -3785,7 +3801,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       if (new URL(request.url()).origin !== pageOrigin) networkRequests.push(request.url());
     });
     const pageUrl = page.url();
-    let settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     for (const label of ["American Silver Eagle Type 2", "Toggle Morgan Set"]) {
       const group = settingsVisibilityGroup(page, label);
       await group.getByRole("button", { name: "Off", exact: true }).click();
@@ -3820,7 +3836,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       await expect(panel(page).locator(`[data-collection-id="${id}"]`)).toHaveCount(0);
     }
 
-    settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     for (const label of ["American Silver Eagle Type 2", "Toggle Morgan Set"]) {
       const group = settingsVisibilityGroup(page, label);
       await group.getByRole("button", { name: "On", exact: true }).click();
@@ -3839,7 +3855,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     page,
   }) => {
     await seedAndGoto(page);
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const group = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
     await group.getByRole("button", { name: "Off", exact: true }).click();
     await expect(group.getByRole("button", { name: "Off", exact: true })).toHaveAttribute(
@@ -3888,7 +3904,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
       window.collectionsStore.link("ase-type2", "2022", "col-ase-2022-b", { asSpare: true });
     });
 
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const group = settingsVisibilityGroup(page, "American Silver Eagle Type 2");
     const on = group.getByRole("button", { name: "On", exact: true });
     const off = group.getByRole("button", { name: "Off", exact: true });
@@ -4016,7 +4032,10 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await cancel.focus();
     await page.keyboard.press("Enter");
     await expect(builder).toBeHidden();
-    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    // The background page stays scroll-locked. Assert the axis that locks it: index.html
+    // pins body overflow-x to clip (!important), and Chromium 156 serializes the shorthand
+    // as "clip hidden" where older builds said "hidden" (STRK-441).
+    await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
     await expect(editTrigger).toBeFocused();
     await expect(page.locator("#settingsModal")).toBeVisible();
     expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
@@ -4024,7 +4043,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await openEdit();
     await page.keyboard.press("Escape");
     await expect(builder).toBeHidden();
-    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
     await expect(editTrigger).toBeFocused();
     await expect(page.locator("#settingsModal")).toBeVisible();
     expect(await originalEditTrigger.evaluate((button) => button.isConnected)).toBe(true);
@@ -4037,7 +4056,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     await saveChanges.focus();
     await page.keyboard.press("Enter");
     await expect(builder).toBeHidden();
-    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await expect(page.locator("body")).toHaveCSS("overflow-y", "hidden");
     const refreshedEdit = settings.getByRole("button", { name: "Edit After Edit" });
     await expect(refreshedEdit).toBeVisible();
     await expect(refreshedEdit).toBeFocused();
@@ -4071,7 +4090,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     );
     await openCollectionsTab(page);
     await expect(panel(page).locator(`[data-collection-id="${customId}"]`)).toBeVisible();
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const group = settingsVisibilityGroup(page, "Refresh Custom");
     await expect(group.getByRole("button", { name: "On", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -4101,7 +4120,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
     );
     const countBefore = await progressRow.locator(".collections-count").innerText();
     const percentageBefore = await progressRow.locator(".collections-pct").innerText();
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     const hidden = settingsVisibilityGroup(page, "American Silver Eagle Type 1");
     await hidden.getByRole("button", { name: "Off", exact: true }).click();
     await closeSettingsCollections(page);
@@ -4135,7 +4154,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
   }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     for (const label of ["American Silver Eagle Type 1", "American Silver Eagle Type 2"]) {
       await settingsVisibilityGroup(page, label)
         .getByRole("button", { name: "Off", exact: true })
@@ -4163,7 +4182,7 @@ test.describe("core/collections — STRK-393 Collections Settings", () => {
   test("hidden-count link and toolbar Manage both open Settings Collections", async ({ page }) => {
     await seedAndGoto(page);
     await openCollectionsTab(page);
-    const settings = await openSettingsCollections(page);
+    await openSettingsCollections(page);
     await settingsVisibilityGroup(page, "American Silver Eagle Type 1")
       .getByRole("button", { name: "Off", exact: true })
       .click();
@@ -4580,7 +4599,7 @@ const restoreHubPreferenceSaves = (page) =>
 
 const FIXTURE_ORDER = ledgerFixtures.map((entry) => entry.name);
 
-test.describe("core/collections — STRK-378 My order and hub sorting", () => {
+test.describe("core/collections — My order and hub sorting", () => {
   test("Settings shows one My order list with Type badges, chronological on a fresh profile", async ({
     page,
   }) => {
@@ -4989,7 +5008,7 @@ test.describe("core/collections — STRK-378 My order and hub sorting", () => {
   });
 });
 
-test.describe("STRK-391 Slot Mintage", () => {
+test.describe("Slot Mintage", () => {
   const builder = (page) => page.locator("#collectionsBuilderModal");
   const openBuilder = async (page, request = {}) => {
     await page.evaluate((value) => window.collectionsPicker.openBuilder(value), request);
@@ -5158,5 +5177,661 @@ test.describe("STRK-391 Slot Mintage", () => {
         });
       }
     }
+  });
+});
+
+// STRK-439: the Collections store hydrates once and has no cross-tab listener, so a tab
+// can hold artwork stamps older than the record another tab wrote to the shared
+// IndexedDB store. Rendering must never delete stored artwork: a record that looks stale
+// against memory is re-judged against the persisted state, and is never removed here.
+test.describe("core/collections — rendering never deletes artwork", () => {
+  const ART_SLOT = "2020";
+  const OBVERSE_BYTES = Array.from(readFileSync("tests/playwright/helpers/test-obverse.png"));
+  const T_THIS_TAB = Date.parse("2026-10-01T10:00:00.000Z");
+  const T_OTHER_TAB = Date.parse("2026-10-02T10:00:00.000Z");
+
+  /**
+   * Seeds a Custom Collection whose Slot artwork this tab uploaded at T_THIS_TAB.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<string>} Collection id.
+   */
+  const seedTabArtwork = async (page) => {
+    await seedAndGoto(page);
+    await waitForApp(page);
+    return page.evaluate(
+      async ({ bytes, slotId, cachedAt }) => {
+        const made = window.collectionsStore.createCustom({
+          name: "Second tab art",
+          slots: [{ label: slotId, year: slotId }],
+        });
+        const id = made.collection.id;
+        await window.imageCache.importPatternImageRecord({
+          ruleId: `collection--${id}--${slotId}`,
+          obverse: new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+          reverse: null,
+          cachedAt,
+          size: bytes.length,
+          digest: "this-tab",
+        });
+        window.collectionsStore.setArtwork(id, slotId, true, cachedAt, "this-tab");
+        return id;
+      },
+      { bytes: OBVERSE_BYTES, slotId: ART_SLOT, cachedAt: T_THIS_TAB }
+    );
+  };
+
+  /**
+   * Plays another tab replacing the Slot artwork: it writes a newer IndexedDB record and,
+   * unless `persistStamp` is false (the window between an upload's two writes), persists
+   * the matching stamp. This tab's in-memory store is left untouched, as it would be.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string} id - Collection id.
+   * @param {{persistStamp?: boolean}} [opts] - Whether the other tab's stamp has landed.
+   * @returns {Promise<void>}
+   */
+  const otherTabReplacesArtwork = (page, id, { persistStamp = true } = {}) =>
+    page.evaluate(
+      async ({ collectionId, bytes, slotId, cachedAt, persist }) => {
+        await window.imageCache.importPatternImageRecord({
+          ruleId: `collection--${collectionId}--${slotId}`,
+          obverse: new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+          reverse: null,
+          cachedAt,
+          size: bytes.length,
+          digest: "other-tab",
+        });
+        if (!persist) return;
+        const other = window.collectionsCore.normalizeState(
+          loadDataSync(COLLECTION_STATE_KEY, null)
+        );
+        window.collectionsCore.setArtwork(other, collectionId, slotId, true, {
+          now: new Date(cachedAt).toISOString(),
+          digest: "other-tab",
+        });
+        saveDataSync(COLLECTION_STATE_KEY, other);
+      },
+      {
+        collectionId: id,
+        bytes: OBVERSE_BYTES,
+        slotId: ART_SLOT,
+        cachedAt: T_OTHER_TAB,
+        persist: persistStamp,
+      }
+    );
+
+  /**
+   * Resolves the Slot artwork through the render path and reports what survived.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {string} id - Collection id.
+   * @returns {Promise<{shown: boolean, storedDigest: string|null}>} Render result + record.
+   */
+  const renderAndInspect = (page, id) =>
+    page.evaluate(
+      async ({ collectionId, slotId }) => {
+        const url = await window.collectionsPicker.getImageUrl(collectionId, slotId);
+        if (url) URL.revokeObjectURL(url);
+        const record = await window.imageCache.getPatternImage(
+          `collection--${collectionId}--${slotId}`
+        );
+        return { shown: Boolean(url), storedDigest: record ? record.digest : null };
+      },
+      { collectionId: id, slotId: ART_SLOT }
+    );
+
+  test("artwork another tab replaced is shown in the album and stays stored", async ({ page }) => {
+    const id = await seedTabArtwork(page);
+    await otherTabReplacesArtwork(page, id);
+
+    await openCollectionsTab(page);
+    await page.evaluate((collectionId) => window.collectionsUI.openCollection(collectionId), id);
+
+    await expect(slotOf(page, ART_SLOT).locator(".collections-coin img")).toHaveCount(1);
+    expect(await renderAndInspect(page, id)).toEqual({ shown: true, storedDigest: "other-tab" });
+  });
+
+  test("an upload whose stamp has not landed yet is not shown and is not deleted", async ({
+    page,
+  }) => {
+    const id = await seedTabArtwork(page);
+    await otherTabReplacesArtwork(page, id, { persistStamp: false });
+
+    expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "other-tab" });
+  });
+
+  test("a stale record is hidden but left for the explicit cleanup paths", async ({ page }) => {
+    const id = await seedTabArtwork(page);
+    // A removal tombstone (as a merged remote removal leaves it) without the blob delete.
+    await page.evaluate(
+      ({ collectionId, slotId }) => window.collectionsStore.setArtwork(collectionId, slotId, false),
+      { collectionId: id, slotId: ART_SLOT }
+    );
+
+    expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "this-tab" });
+  });
+
+  test("an unreadable persisted state hides the record and never deletes it", async ({ page }) => {
+    const id = await seedTabArtwork(page);
+    await otherTabReplacesArtwork(page, id, { persistStamp: false });
+    await page.evaluate(() => localStorage.setItem(COLLECTION_STATE_KEY, "{not json"));
+
+    expect(await renderAndInspect(page, id)).toEqual({ shown: false, storedDigest: "other-tab" });
+  });
+});
+
+// STRK-440: two real tabs in one browser context share localStorage and IndexedDB, and the
+// browser tells each tab about the OTHER tab's writes only through a `storage` event. The
+// store must re-hydrate on it, or this tab overwrites the other tab's work on its next save
+// and leaves the other tab's newer artwork out of its exports.
+test.describe("core/collections — cross-tab Collections state", () => {
+  const ART_SLOT = "one";
+  const OBVERSE_BYTES = Array.from(readFileSync("tests/playwright/helpers/test-obverse.png"));
+
+  /**
+   * Runs `body` in a second tab of the same browser context, then closes it.
+   * @param {import('@playwright/test').Page} page - This tab.
+   * @param {(other: import('@playwright/test').Page) => Promise<*>} body - Other tab's work.
+   * @returns {Promise<*>} Whatever `body` returns.
+   */
+  const inOtherTab = async (page, body) => {
+    const other = await page.context().newPage();
+    await installStakTrakrNetworkMocks(other);
+    try {
+      await seedAndGoto(other);
+      return await body(other);
+    } finally {
+      await other.close();
+    }
+  };
+
+  /**
+   * Stores Slot artwork through the image cache and stamps it, the way an upload does.
+   * @param {import('@playwright/test').Page} tab - Tab doing the upload.
+   * @param {string} id - Collection id.
+   * @param {string} digest - Digest naming the upload.
+   * @param {number} cachedAt - Upload time (epoch ms).
+   * @returns {Promise<void>}
+   */
+  const uploadArtwork = (tab, id, digest, cachedAt) =>
+    tab.evaluate(
+      async ({ collectionId, slotId, bytes, tag, at }) => {
+        await window.imageCache.importPatternImageRecord({
+          ruleId: `collection--${collectionId}--${slotId}`,
+          obverse: new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+          reverse: null,
+          cachedAt: at,
+          size: bytes.length,
+          digest: tag,
+        });
+        window.collectionsStore.setArtwork(collectionId, slotId, true, at, tag);
+      },
+      { collectionId: id, slotId: ART_SLOT, bytes: OBVERSE_BYTES, tag: digest, at: cachedAt }
+    );
+
+  /**
+   * Creates a one-Slot Custom Collection in a tab.
+   * @param {import('@playwright/test').Page} tab - Tab doing the create.
+   * @param {string} name - Collection name.
+   * @returns {Promise<string>} Collection id.
+   */
+  const createCustomIn = (tab, name) =>
+    tab.evaluate(
+      (collectionName) =>
+        window.collectionsStore.createCustom({ name: collectionName, slots: [{ label: "One" }] })
+          .collection.id,
+      name
+    );
+
+  /**
+   * Reads the persisted Collections map, as a fresh boot would see it.
+   * @param {import('@playwright/test').Page} tab - Any tab of the context.
+   * @returns {Promise<Object>} Persisted `collections` map.
+   */
+  const persistedCollections = (tab) =>
+    tab.evaluate(() => loadDataSync(COLLECTION_STATE_KEY, null).collections);
+
+  test("a Slot another tab links shows here without a reload, and this tab's next change keeps it", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await openAseAlbum(page);
+    await expect(slotOf(page, "2024")).not.toHaveClass(/is-owned/);
+
+    await inOtherTab(page, (other) =>
+      other.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "col-ase-2024"))
+    );
+
+    await expect(slotOf(page, "2024")).toHaveClass(/is-owned/);
+    expect(await linkItems(page, [["2022", "col-ase-2022-a"]])).toEqual([
+      { ok: true, changed: true },
+    ]);
+    const slots = (await persistedCollections(page))[ASE].slots;
+    expect(slots["2024"].primary).toBe("col-ase-2024");
+    expect(slots["2022"].primary).toBe("col-ase-2022-a");
+  });
+
+  test("artwork another tab replaced goes into this tab's ZIP backup and image vault", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await waitForApp(page);
+    const id = await createCustomIn(page, "Two tab art");
+    await uploadArtwork(page, id, "this-tab", Date.parse("2026-10-01T10:00:00.000Z"));
+
+    await inOtherTab(page, (other) =>
+      uploadArtwork(other, id, "other-tab", Date.parse("2026-10-02T10:00:00.000Z"))
+    );
+
+    const exported = await page.evaluate(async (ruleId) => {
+      const zip = await window.JSZip.loadAsync(
+        await (await window.createBackupZip()).arrayBuffer()
+      );
+      const manifest = JSON.parse(await zip.file("pattern_image_manifest.json").async("string"));
+      const vault = await collectAndHashImageVault();
+      const pick = (records) =>
+        (records || []).filter((rec) => rec.ruleId === ruleId).map((rec) => rec.digest);
+      return { backup: pick(manifest), vault: pick(vault && vault.payload.patternRecords) };
+    }, `collection--${id}--${ART_SLOT}`);
+
+    expect(exported).toEqual({ backup: ["other-tab"], vault: ["other-tab"] });
+  });
+
+  test("a builder open here keeps its draft, and Save keeps the Collection another tab created", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createCustomIn(page, "Edited here");
+    await page.evaluate((editId) => window.collectionsPicker.openBuilder({ editId }), id);
+    const builder = page.locator("#collectionsBuilderModal");
+    const name = builder.getByPlaceholder("e.g. Goldback state set");
+    await name.fill("Renamed here");
+
+    await inOtherTab(page, (other) => createCustomIn(other, "Made in the other tab"));
+
+    await expect(name).toHaveValue("Renamed here");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(builder).toBeHidden();
+    const names = Object.values(await persistedCollections(page)).map((entry) => entry.name);
+    expect(names).toEqual(expect.arrayContaining(["Renamed here", "Made in the other tab"]));
+  });
+
+  test("Save on a Collection another tab deleted says so and keeps the builder open", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    const id = await createCustomIn(page, "Deleted elsewhere");
+    await page.evaluate((editId) => window.collectionsPicker.openBuilder({ editId }), id);
+    const builder = page.locator("#collectionsBuilderModal");
+
+    await inOtherTab(page, (other) =>
+      other.evaluate((collectionId) => window.collectionsStore.remove(collectionId), id)
+    );
+
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(
+      page.locator(".cloud-toast", { hasText: "This collection was deleted in another tab." })
+    ).toBeVisible();
+    await expect(builder).toBeVisible();
+  });
+});
+
+test.describe("Collection title image links", () => {
+  const front = "https://images.example.com/front.png";
+  const back = "https://images.example.com/back.png";
+  const builder = (page) => page.locator("#collectionsBuilderModal");
+  const setLink = async (page, side, url) => {
+    await builder(page)
+      .getByRole("button", { name: `${side} image options`, exact: true })
+      .click();
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+    await page.locator("#appDialogInput").fill(url);
+    await page.locator("#appDialogOk").click();
+  };
+  const start = async (page, definition = {}) => {
+    await page.route("https://images.example.com/**", (route) =>
+      route.fulfill({
+        contentType: "image/png",
+        body: readFileSync("tests/playwright/helpers/test-obverse.png"),
+      })
+    );
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    return page.evaluate((extra) => {
+      const result = window.collectionsStore.createCustom({
+        name: "Linked title set",
+        slots: [{ label: "First" }],
+        ...extra,
+      });
+      window.collectionsUI.openCollection(result.collection.id);
+      window.collectionsPicker.openBuilder({ editId: result.collection.id });
+      return result.collection.id;
+    }, definition);
+  };
+  const save = async (page) => {
+    await builder(page).getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(builder(page)).toBeHidden();
+  };
+
+  test("links preview, swap, render, reload and round-trip through standalone state", async ({
+    page,
+  }) => {
+    const id = await start(page);
+    await setLink(page, "Obverse", front);
+    await setLink(page, "Reverse", back);
+    const previews = builder(page).locator(".collections-builder-title-option img");
+    await expect(previews.nth(0)).toHaveAttribute("src", front);
+    await expect(previews.nth(1)).toHaveAttribute("src", back);
+    await builder(page).getByRole("button", { name: "Swap obverse and reverse images" }).click();
+    await expect(previews.nth(0)).toHaveAttribute("src", back);
+    await save(page);
+    const titles = panel(page).locator(".collections-album-head .collections-coin img");
+    await expect(titles).toHaveCount(2);
+    await expect(titles.nth(0)).toHaveAttribute("src", back);
+    await expect(slotOf(page, "first").locator(".collections-coin img")).toHaveAttribute(
+      "src",
+      back
+    );
+    await reloadCollections(page);
+    await page.evaluate((key) => window.collectionsUI.openCollection(key), id);
+    await expect(titles.nth(0)).toHaveAttribute("src", back);
+    const roundTrip = await page.evaluate(async (key) => {
+      const payload = window.collectionsIO.buildPayload();
+      saveDataSync(COLLECTION_STATE_KEY, window.collectionsCore.createEmptyState());
+      window.collectionsStore.reload();
+      const result = await window.collectionsIO.importFile(
+        new File([JSON.stringify(payload)], "collections.json")
+      );
+      return { result, definition: window.collectionsStore.getState().collections[key].definition };
+    }, id);
+    expect(roundTrip.result.ok).toBe(true);
+    expect(roundTrip.definition.obverseImageUrl).toBe(back);
+    expect(roundTrip.definition.reverseImageUrl).toBe(front);
+  });
+
+  test("invalid links and Cancel preserve the saved image; Remove clears it", async ({ page }) => {
+    const id = await start(page, { obverseImageUrl: front });
+    await expect(builder(page).locator(".collections-builder-title-option img")).toHaveAttribute(
+      "src",
+      front
+    );
+    await setLink(page, "Obverse", "javascript:alert(1)");
+    await expect(page.locator("#appDialogModal")).toContainText("full address");
+    await page.locator("#appDialogOk").click();
+    await expect(builder(page).locator(".collections-builder-title-option img")).toHaveAttribute(
+      "src",
+      front
+    );
+    await setLink(page, "Obverse", back);
+    await builder(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+        id
+      )
+    ).toBe(front);
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await builder(page).getByRole("button", { name: "Remove cover image", exact: true }).click();
+    await save(page);
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+        id
+      )
+    ).toBeUndefined();
+    await expect(panel(page).locator(".collections-album-head .collections-coin img")).toHaveCount(
+      0
+    );
+  });
+
+  test("a stored upload swaps with a link and URL replacement cleans up the old Blob", async ({
+    page,
+  }) => {
+    const id = await start(page, { reverseImageUrl: back });
+    await builder(page)
+      .locator(".collections-builder-title-option input[type=file]")
+      .first()
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+          id
+        )
+      )
+      .toBe(true);
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    const swap = builder(page).getByRole("button", { name: "Swap obverse and reverse images" });
+    await expect(swap).toBeEnabled();
+    await swap.click();
+    await expect(
+      builder(page).locator(".collections-builder-title-option img").first()
+    ).toHaveAttribute("src", back);
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => ({
+            old: Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+            moved: Boolean(
+              await window.imageCache.getPatternImage(`collection--${key}--@title-reverse`)
+            ),
+            url: window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+          }),
+          id
+        )
+      )
+      .toEqual({ old: false, moved: true, url: back });
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ editId: key }), id);
+    await setLink(page, "Reverse", front);
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) =>
+            Boolean(await window.imageCache.getPatternImage(`collection--${key}--@title-reverse`)),
+          id
+        )
+      )
+      .toBe(false);
+  });
+
+  for (const failure of ["processing", "cache", "quota", "none"]) {
+    test(`replacement uploads preserve prior links on ${failure} failure or commit on success`, async ({
+      page,
+    }) => {
+      const id = await start(page, { obverseImageUrl: front, reverseImageUrl: back });
+      await page.evaluate((mode) => {
+        if (mode === "processing") {
+          window.imageProcessor.processFile = async () => {
+            throw new Error("Injected processing failure");
+          };
+        } else if (mode === "cache") {
+          window.imageCache.importPatternImageRecord = async () => false;
+        } else if (mode === "quota") {
+          const original = Storage.prototype.setItem;
+          let writes = 0;
+          Storage.prototype.setItem = function (key, value) {
+            if (key === COLLECTION_STATE_KEY && writes++ > 0) {
+              throw new DOMException("Injected artwork quota failure", "QuotaExceededError");
+            }
+            return original.call(this, key, value);
+          };
+          window.restoreTitleStorage = () => {
+            Storage.prototype.setItem = original;
+          };
+        }
+      }, failure);
+      const inputs = builder(page).locator(".collections-builder-title-option input[type=file]");
+      await inputs.nth(0).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      await inputs.nth(1).setInputFiles("tests/playwright/helpers/test-obverse.png");
+      await expect(
+        builder(page).locator(".collections-builder-title-option img").first()
+      ).toHaveAttribute("src", /^blob:/);
+      await save(page);
+      const titles = panel(page).locator(".collections-album-head .collections-coin img");
+      if (failure === "none") {
+        await expect(titles.nth(0)).toHaveAttribute("src", /^blob:/);
+        await expect(titles.nth(1)).toHaveAttribute("src", /^blob:/);
+      } else {
+        await expect(
+          page.locator(".cloud-toast", {
+            hasText: "Some collection image changes could not be saved.",
+          })
+        ).toBeVisible();
+        await expect(titles.nth(0)).toHaveAttribute("src", front);
+        await expect(titles.nth(1)).toHaveAttribute("src", back);
+      }
+      await page.evaluate(() => window.restoreTitleStorage?.());
+      await reloadCollections(page);
+      await page.evaluate((key) => {
+        window.collectionsUI.openCollection(key);
+        window.collectionsPicker.openBuilder({ editId: key });
+      }, id);
+      const previews = builder(page).locator(".collections-builder-title-option img");
+      await expect(previews.nth(0)).toHaveAttribute("src", failure === "none" ? /^blob:/ : front);
+      await expect(previews.nth(1)).toHaveAttribute("src", failure === "none" ? /^blob:/ : back);
+      const saved = await page.evaluate(
+        (key) => ({
+          front: window.collectionsStore.getState().collections[key].definition.obverseImageUrl,
+          back: window.collectionsStore.getState().collections[key].definition.reverseImageUrl,
+        }),
+        id
+      );
+      expect(saved).toEqual(failure === "none" ? {} : { front, back });
+    });
+  }
+
+  test("an untouched URL in an open builder preserves another tab's update", async ({ page }) => {
+    const id = await start(page, { obverseImageUrl: front });
+    await page.evaluate(
+      ({ key, url }) => {
+        const state = window.collectionsStore.exportState();
+        window.collectionsCore.updateCustomDefinition(state, key, {
+          name: "Linked title set",
+          slots: state.collections[key].definition.slots,
+          obverseImageUrl: url,
+          now: new Date(Date.now() + 1000).toISOString(),
+        });
+        // Another tab's write can precede this tab's queued storage event.
+        saveDataSync(COLLECTION_STATE_KEY, state);
+      },
+      { key: id, url: back }
+    );
+    await save(page);
+    await expect(
+      panel(page).locator(".collections-album-head .collections-coin img").first()
+    ).toHaveAttribute("src", back);
+  });
+  test("four themes keep title link controls usable at desktop and mobile sizes", async ({
+    page,
+  }, testInfo) => {
+    await start(page, { obverseImageUrl: front, reverseImageUrl: back });
+    await page.addStyleTag({
+      content:
+        "*, *::before, *::after { animation: none !important; transition: none !important; }",
+    });
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      for (const theme of ["light", "dark", "slate", "sepia"]) {
+        await page.evaluate(
+          (value) => document.documentElement.setAttribute("data-theme", value),
+          theme
+        );
+        const button = builder(page).getByRole("button", {
+          name: "Obverse image options",
+          exact: true,
+        });
+        await expect(button).toBeVisible();
+        const geometry = await button.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, width: window.innerWidth };
+        });
+        expect(geometry.left).toBeGreaterThanOrEqual(0);
+        expect(geometry.right).toBeLessThanOrEqual(geometry.width);
+        await page.screenshot({
+          path: testInfo.outputPath(`title-link-${width}-${theme}-builder.png`),
+        });
+        await button.click();
+        await expect(page.locator("#appDialogInput")).toHaveValue(front);
+        await page.screenshot({
+          path: testInfo.outputPath(`title-link-${width}-${theme}-dialog.png`),
+        });
+        await page.locator("#appDialogCancel").click();
+      }
+    }
+  });
+  test("cloning a linked Collection seeds previews and preserves links on create", async ({
+    page,
+  }) => {
+    const id = await start(page, { reverseImageUrl: back });
+    await builder(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.evaluate((key) => window.collectionsPicker.openBuilder({ cloneFrom: key }), id);
+    await expect(builder(page).locator(".collections-builder-title-option img")).toHaveAttribute(
+      "src",
+      back
+    );
+    await builder(page).getByRole("button", { name: "Create collection", exact: true }).click();
+    await expect(builder(page)).toBeHidden();
+    const clone = await page.evaluate(
+      (key) =>
+        Object.values(window.collectionsStore.getState().collections).find(
+          (entry) => entry.id !== key && entry.clonedFrom === key
+        ),
+      id
+    );
+    expect(clone.definition.reverseImageUrl).toBe(back);
+    await expect(panel(page).locator(".collections-album-head .collections-coin img")).toHaveCount(
+      1
+    );
+  });
+
+  test("a URL saved before the stored preview resolves still deletes the replaced Blob", async ({
+    page,
+  }) => {
+    const id = await start(page);
+    await builder(page)
+      .locator(".collections-builder-title-option input[type=file]")
+      .first()
+      .setInputFiles("tests/playwright/helpers/test-obverse.png");
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+          id
+        )
+      )
+      .toBe(true);
+    await page.evaluate((key) => {
+      const original = window.imageCache.getPatternImage.bind(window.imageCache);
+      let first = true;
+      window.imageCache.getPatternImage = async (ruleId) => {
+        if (first && ruleId === `collection--${key}`) {
+          first = false;
+          await new Promise((resolve) => {
+            window.__releaseTitleRead = resolve;
+          });
+        }
+        return original(ruleId);
+      };
+      window.collectionsPicker.openBuilder({ editId: key });
+    }, id);
+    await setLink(page, "Obverse", front);
+    await save(page);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async (key) => Boolean(await window.imageCache.getPatternImage(`collection--${key}`)),
+          id
+        )
+      )
+      .toBe(false);
+    await page.evaluate(() => window.__releaseTitleRead());
+    await expect(
+      panel(page).locator(".collections-album-head .collections-coin img")
+    ).toHaveAttribute("src", front);
   });
 });

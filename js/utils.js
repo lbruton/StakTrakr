@@ -442,12 +442,15 @@ const cleanString = (str = "") => {
     prev = s;
     s = s.replace(/<[^>]*>/g, "");
   } while (s !== prev);
-  return s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[\u0000-\u001F\u007F]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    s
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      // eslint-disable-next-line no-control-regex -- strips control characters on purpose
+      .replace(/[\u0000-\u001F\u007F]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 };
 
 /**
@@ -721,14 +724,17 @@ const sanitizeImportedItem = (item) => {
       prev = s;
       s = s.replace(/<[^>]*>/g, "");
     } while (s !== prev);
-    return s
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "")
-      .replace(/\r\n?/g, "\n")
-      .replace(/[ \t]+/g, " ")
-      .replace(/ *\n */g, "\n")
-      .trim();
+    return (
+      s
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        // eslint-disable-next-line no-control-regex -- strips control characters except tab and newline
+        .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "")
+        .replace(/\r\n?/g, "\n")
+        .replace(/[ \t]+/g, " ")
+        .replace(/ *\n */g, "\n")
+        .trim()
+    );
   };
   for (const field of basicFields) {
     sanitized[field] = cleanString(sanitized[field]);
@@ -1383,34 +1389,53 @@ const openModalById = (id) => {
     /* ignore */
   }
 };
+// Hidden probe that lets the cascade resolve var() references against the active theme.
+let _contrastProbe = null;
+
 /**
- * Returns black or white contrast color for a given background.
- * Supports hex strings and CSS variables.
- * @param {string} bg - Background color in hex or CSS var format
+ * Resolves any CSS colour (hex, rgb(), hsl(), oklch(), color-mix(), var(), or a mix of them)
+ * to [r, g, b] in 0–255, using the active theme's tokens.
+ * @param {string} css - CSS colour expression
+ * @returns {number[]|null} sRGB channels, or null when the value cannot be resolved
+ */
+function _resolveCssColorChannels(css) {
+  if (!css || typeof document === "undefined" || typeof resolveColor !== "function") return null;
+  if (!_contrastProbe) {
+    _contrastProbe = document.createElement("span");
+    _contrastProbe.style.display = "none";
+  }
+  if (!_contrastProbe.isConnected) document.documentElement.appendChild(_contrastProbe);
+  _contrastProbe.style.color = "";
+  _contrastProbe.style.color = String(css).trim();
+  if (!_contrastProbe.style.color) return null;
+  // The computed value is rgb()/rgba() or a modern space (oklch(), color()) — never hex —
+  // and resolveColor() (theme.js) flattens the modern spaces to rgb() via its canvas bridge.
+  const rgb = resolveColor(getComputedStyle(_contrastProbe).color);
+  const m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/.exec(String(rgb));
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/**
+ * Returns black or white — whichever has the higher WCAG 2.x contrast ratio against the
+ * given background. Accepts any CSS colour syntax, including var() and nested var()
+ * (STRK-446: the old hex-only parser returned black for every oklch/hsl chip). Filter chips
+ * use CSS contrast-color() where the browser has it; this is the fallback and the general helper.
+ * @param {string} bg - Background colour in any CSS syntax
  * @returns {string} '#000000' or '#ffffff'
  */
 function getContrastColor(bg) {
-  if (!bg) return "#000000";
-  let hex = bg.trim();
-  if (hex.startsWith("var(")) {
-    const varName = hex.slice(4, -1).trim();
-    hex = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  }
-  if (hex.startsWith("#")) {
-    hex = hex.slice(1);
-  }
-  if (hex.length === 3) {
-    hex = hex
-      .split("")
-      .map((c) => c + c)
-      .join("");
-  }
-  if (hex.length !== 6) return "#000000";
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? "#000000" : "#ffffff";
+  const channels = _resolveCssColorChannels(bg);
+  // eslint-disable-next-line staktrakr/no-colour-literal -- legit: the contrast-color() fallback returns black or white
+  if (!channels) return "#000000";
+  const lin = (v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const L = 0.2126 * lin(channels[0]) + 0.7152 * lin(channels[1]) + 0.0722 * lin(channels[2]);
+  // Black's ratio is (L + 0.05) / 0.05, white's is 1.05 / (L + 0.05); black wins when
+  // (L + 0.05)^2 >= 0.0525. The better pick is always >= 4.58:1, so AA holds for any opaque bg.
+  // eslint-disable-next-line staktrakr/no-colour-literal -- legit: the contrast-color() fallback returns black or white
+  return (L + 0.05) * (L + 0.05) >= 0.0525 ? "#000000" : "#ffffff";
 }
 
 /**

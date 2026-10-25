@@ -23,13 +23,11 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
+import { evalSource } from "./helpers/source-extract.js";
 
 function loadPortfolioSeries() {
-  const code = readFileSync(new URL("../../js/portfolio-series.js", import.meta.url), "utf-8");
   const mod = { exports: {} };
-  new Function("module", "exports", code)(mod, mod.exports);
+  evalSource("js/portfolio-series.js", { params: { module: mod, exports: mod.exports } });
   return mod.exports;
 }
 
@@ -129,7 +127,7 @@ describe("AC-5 — series boundaries", () => {
     assert.equal(s.baseline.basis, 0);
   });
 
-  it("holds undated Items from the series start; the baseline stays empty (STRK-353)", () => {
+  it("holds undated Items from the series start; the baseline stays empty", () => {
     const items = [
       mkItem({ date: "2024-03-01", price: 10 }),
       mkItem({ date: "", weight: 5, price: 40 }), // undated: held-since-start
@@ -260,7 +258,7 @@ describe("AC-8 — spot fill", () => {
 // rather than shipping a throw (or, with a `|| []` guard, a silent zero
 // series). AC-8 above covers the mixed-scope case; this block covers the
 // degenerate spotDayMaps shapes and the disposition path.
-describe("STRK-364 — unmapped metals never break the fold", () => {
+describe("unmapped metals never break the fold", () => {
   const unmapped = (maps, scope = "Palladium") =>
     build([mkItem({ metal: "Palladium", weight: 2, price: 30 })], maps, scope, { silver: 10 });
 
@@ -362,7 +360,7 @@ describe("buys — acquisition markers", () => {
 
 // ── STRK-363: dispositions index ────────────────────────────────────────────
 
-describe("dispositions — disposition markers (STRK-363)", () => {
+describe("dispositions — disposition markers", () => {
   it("groups by disposition date, ascending, with per-item melt-out values", () => {
     const a = mkItem({
       date: "2024-03-01",
@@ -580,7 +578,7 @@ describe("AC-15 — computeWindowStats", () => {
 // its held-from-start melt/basis treatment — so ALL-range invested/market
 // always reconcile with the user's actual inventory totals.
 
-describe("STRK-353 — undated acquisition flows", () => {
+describe("undated acquisition flows", () => {
   // shared fixture: dated 1 oz @ cost 10 (2024-03-01) + undated 5 oz @ cost 40,
   // flat spot 10 → melt[end] = 60, total cost 50
   const mixed = () => [
@@ -692,7 +690,7 @@ describe("STRK-353 — undated acquisition flows", () => {
 // investedDisposed reports the window's since-disposed buy flows so the UI can
 // show `invested $X (− $Y disposed)` where X − Y = active cost basis on ALL.
 
-describe("STRK-362 — investedDisposed", () => {
+describe("investedDisposed", () => {
   const soldMix = () => [
     mkItem({ date: "2024-03-01", price: 10, weight: 1 }), // active
     mkItem({

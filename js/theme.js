@@ -19,12 +19,21 @@ const setTheme = (theme) => {
   if (typeof renderTable === "function") {
     renderTable();
   }
+  // Chips and the Item View header follow the cascade where CSS contrast-color() exists;
+  // older browsers carry an inline JS text colour that must be re-picked for the new theme.
+  if (typeof CHIP_CONTRAST_IN_CSS !== "undefined" && !CHIP_CONTRAST_IN_CSS) {
+    if (typeof renderActiveFilters === "function") renderActiveFilters();
+    window._refreshViewHeaderTextColor?.();
+  }
   if (typeof updateAllSparklines === "function") {
     updateAllSparklines();
   }
   // canvas colors are resolved rgb, not var() — the open detail modal must
   // re-resolve them (D-7); DOM surfaces follow the cascade on their own
   window._refreshDetailsModalTheme?.();
+  // Retail vendor lines also store resolved RGB values in Chart.js datasets.
+  window._refreshRetailVendorChartsTheme?.();
+  window._refreshMarketVendorChartsTheme?.();
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
 };
 

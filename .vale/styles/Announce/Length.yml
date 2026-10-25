@@ -1,0 +1,5 @@
+extends: metric
+message: "Keep the title, sentence and bullets under 150 words (voice.md)."
+level: warning
+formula: words
+condition: "> 165"

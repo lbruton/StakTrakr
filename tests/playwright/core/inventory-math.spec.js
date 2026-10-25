@@ -142,12 +142,24 @@ async function gotoApp(page) {
       Array.isArray(window.inventory)
   );
   // STRK-294: wait for the listener-readiness flag instead of sleeping. Phase 14
-  // of init.js attaches every listener inside a `setTimeout(…, 200)`, so the
+  // of init.js attaches every listener inside a deferred `setTimeout`, so the
   // waitForFunction above goes true well before the UI is actually interactive.
   // This replaced a bare `waitForTimeout(300)` — a 100ms margin over that timer,
   // which is thin enough to flake on a loaded CI runner and would fail in a way
   // that looks unrelated to whatever the spec is testing.
   await page.waitForFunction(() => window.appListenersReady === true);
+}
+
+/**
+ * Clears storage and leaves the app before a table step, so the step's own seed helper
+ * boots a new document. A goto to the current URL changes only the hash and keeps the page.
+ * @param {import('@playwright/test').Page} page - Playwright page
+ * @returns {Promise<void>}
+ */
+async function freshPage(page) {
+  if (page.url() === "about:blank") return;
+  await page.evaluate(() => localStorage.clear());
+  await page.goto("about:blank");
 }
 
 async function openAddModal(page) {
@@ -624,261 +636,289 @@ async function seedAndOpenBulkEdit(page, inventory) {
   );
 }
 
-test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
-  // ---- Group A: constants + registration (R3 data, R4-AC5, R6-AC3) -------
-  test("CONSTITUTIONAL_VARIANTS exposes all 7 variants with mint-spec silver weights", async ({
-    page,
-  }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const variants = await page.evaluate(() => window.CONSTITUTIONAL_VARIANTS || null);
-    expect(Array.isArray(variants)).toBe(true);
-    expect(variants).toHaveLength(7);
-    const byId = Object.fromEntries(variants.map((v) => [v.id, v]));
-    for (const [id, fresh] of Object.entries(CU_VARIANT_FRESH)) {
-      expect(byId[id]).toBeTruthy();
-      expect(byId[id].silverOzFresh).toBeCloseTo(fresh, 5);
-    }
-    // R3-AC2: silver dollar is 0.77344/coin, NOT the 0.7234 subsidiary per-$ rate.
-    expect(byId["con-90-dollar"].silverOzFresh).toBeCloseTo(0.77344, 5);
-    expect(byId["con-90-dollar"].silverOzFresh).not.toBeCloseTo(0.7234, 3);
-  });
+test.describe("core/inventory-math — constitutional silver", () => {
+  // Logic-only cases on the default seed. Each runs as a step of one test, after the
+  // valuation basis is reset to its default.
+  const VALUATION_CASES = [
+    // ---- Group A: constants + registration (R3 data, R4-AC5, R6-AC3) -------
+    {
+      name: "CONSTITUTIONAL_VARIANTS exposes all 7 variants with mint-spec silver weights",
+      run: async (page) => {
+        const variants = await page.evaluate(() => window.CONSTITUTIONAL_VARIANTS || null);
+        expect(Array.isArray(variants)).toBe(true);
+        expect(variants).toHaveLength(7);
+        const byId = Object.fromEntries(variants.map((v) => [v.id, v]));
+        for (const [id, fresh] of Object.entries(CU_VARIANT_FRESH)) {
+          expect(byId[id]).toBeTruthy();
+          expect(byId[id].silverOzFresh).toBeCloseTo(fresh, 5);
+        }
+        // R3-AC2: silver dollar is 0.77344/coin, NOT the 0.7234 subsidiary per-$ rate.
+        expect(byId["con-90-dollar"].silverOzFresh).toBeCloseTo(0.77344, 5);
+        expect(byId["con-90-dollar"].silverOzFresh).not.toBeCloseTo(0.7234, 3);
+      },
+    },
+    {
+      name: "subsidiary-per-dollar and worn-scalar constants match the design",
+      run: async (page) => {
+        const c = await page.evaluate(() => ({
+          sub: window.CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR,
+          worn: window.CONSTITUTIONAL_WORN_SCALAR,
+          key: window.CONSTITUTIONAL_BASIS_KEY,
+        }));
+        expect(c.sub).toBeCloseTo(0.7234, 5);
+        expect(c.worn).toBeCloseTo(0.98839, 5);
+        expect(c.key).toBe("constitutionalValuationBasis");
+      },
+    },
+    {
+      name: "constitutionalValuationBasis is registered for storage survival and cloud sync",
+      run: async (page) => {
+        const reg = await page.evaluate(() => ({
+          allowed: (window.ALLOWED_STORAGE_KEYS || []).includes("constitutionalValuationBasis"),
+          sync: (window.SYNC_SCOPE_KEYS || []).includes("constitutionalValuationBasis"),
+        }));
+        expect(reg.allowed).toBe(true); // R6-AC3 survives cleanupStorage
+        expect(reg.sync).toBe(true); // R4-AC5 included in cloud sync scope
+      },
+    },
+    // ---- Group B: silver-content math (R1-AC2, R3-AC1/AC2, R4-AC1/AC2) -----
+    {
+      name: "fresh basis returns each variant's exact mint silver weight",
+      run: async (page) => {
+        for (const [id, fresh] of Object.entries(CU_VARIANT_FRESH)) {
+          const item = {
+            weightUnit: "cu",
+            constitutionalEntryMode: "denom",
+            constitutionalVariant: id,
+            weight: 0.1,
+            qty: 1,
+          };
+          const { oz, wearFactor } = await setBasisAndCompute(page, "fresh", item);
+          expect(wearFactor).toBeCloseTo(1, 6);
+          expect(oz).toBeCloseTo(fresh, 5);
+        }
+      },
+    },
+    {
+      name: "worn basis (default) scales every variant by the worn factor",
+      run: async (page) => {
+        const item = {
+          weightUnit: "cu",
+          constitutionalEntryMode: "denom",
+          constitutionalVariant: "con-90-quarter",
+          weight: 0.25,
+          qty: 1,
+        };
+        const worn = await setBasisAndCompute(page, "worn", item);
+        expect(worn.wearFactor).toBeCloseTo(0.98839, 5);
+        expect(worn.oz).toBeCloseTo(0.18084 * 0.98839, 6);
+        // R4-AC1: no key set → default is worn.
+        const dflt = await page.evaluate((it) => {
+          localStorage.removeItem("constitutionalValuationBasis");
+          return {
+            oz: window.getConstitutionalSilverOz(it),
+            wf: window.getConstitutionalWearFactor(),
+          };
+        }, item);
+        expect(dflt.wf).toBeCloseTo(0.98839, 5);
+        expect(dflt.oz).toBeCloseTo(0.18084 * 0.98839, 6);
+      },
+    },
+    {
+      name: "denomination mode multiplies per-coin silver by coin count",
+      run: async (page) => {
+        const item = {
+          weightUnit: "cu",
+          constitutionalEntryMode: "denom",
+          constitutionalVariant: "con-90-quarter",
+          weight: 0.25,
+          qty: 40,
+        };
+        const fresh = await setBasisAndCompute(page, "fresh", item);
+        expect(fresh.oz).toBeCloseTo(7.2336, 4); // 40 × 0.18084
+      },
+    },
+    {
+      name: "silver dollars carry more silver per face-dollar than subsidiary coinage",
+      run: async (page) => {
+        const result = await page.evaluate(() => {
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("fresh"));
+          const dollar = window.getConstitutionalSilverOz({
+            weightUnit: "cu",
+            constitutionalEntryMode: "denom",
+            constitutionalVariant: "con-90-dollar",
+            weight: 1,
+            qty: 1,
+          });
+          const fourQuarters = window.getConstitutionalSilverOz({
+            weightUnit: "cu",
+            constitutionalEntryMode: "denom",
+            constitutionalVariant: "con-90-quarter",
+            weight: 0.25,
+            qty: 4,
+          });
+          return { dollar, fourQuarters };
+        });
+        // Same $1 face value, more silver in the dollar (R3-AC2).
+        expect(result.dollar).toBeCloseTo(0.77344, 5);
+        expect(result.fourQuarters).toBeCloseTo(0.72336, 5);
+        expect(result.dollar).toBeGreaterThan(result.fourQuarters);
+      },
+    },
+    {
+      name: "unknown or missing variant yields zero silver oz without throwing",
+      run: async (page) => {
+        const oz = await page.evaluate(() =>
+          window.getConstitutionalSilverOz({
+            weightUnit: "cu",
+            constitutionalEntryMode: "denom",
+            constitutionalVariant: "con-bogus-xyz",
+            weight: 0.25,
+            qty: 5,
+          })
+        );
+        expect(oz).toBe(0);
+      },
+    },
+    // ---- Group C: melt value (R3-AC3/AC4/AC5) -----------------------------
+    {
+      name: "$10 face 90% subsidiary on the worn basis melts to ~7.15 ozt x spot",
+      run: async (page) => {
+        const item = {
+          weightUnit: "cu",
+          constitutionalEntryMode: "face",
+          constitutionalVariant: "con-90-subsidiary",
+          weight: 10,
+          qty: 1,
+          purity: 0.9,
+        };
+        const r = await page.evaluate((it) => {
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
+          return {
+            oz: window.getConstitutionalSilverOz(it),
+            melt: window.computeMeltValue(it, 33.25),
+          };
+        }, item);
+        expect(r.oz).toBeCloseTo(7.15, 2);
+        expect(r.melt).toBeCloseTo(7.15 * 33.25, 1);
+      },
+    },
+    {
+      name: "melt value never double-applies coin purity",
+      run: async (page) => {
+        const r = await page.evaluate(() => {
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("fresh"));
+          const base = {
+            weightUnit: "cu",
+            constitutionalEntryMode: "denom",
+            constitutionalVariant: "con-90-dollar",
+            weight: 1,
+            qty: 1,
+          };
+          const oz = window.getConstitutionalSilverOz(base);
+          return {
+            oz,
+            meltPurity09: window.computeMeltValue({ ...base, purity: 0.9 }, 30),
+            meltPurity1: window.computeMeltValue({ ...base, purity: 1 }, 30),
+          };
+        });
+        // ASW is already pure silver — purity must be ignored, never multiplied again.
+        expect(r.meltPurity09).toBeCloseTo(r.oz * 30, 4);
+        expect(r.meltPurity1).toBeCloseTo(r.oz * 30, 4);
+        expect(r.meltPurity09).toBeCloseTo(r.meltPurity1, 6);
+      },
+    },
+    {
+      name: "missing silver spot degrades to zero without crashing",
+      run: async (page) => {
+        const item = {
+          weightUnit: "cu",
+          constitutionalEntryMode: "face",
+          constitutionalVariant: "con-90-subsidiary",
+          weight: 10,
+          qty: 1,
+        };
+        // Exercise the genuinely-missing-spot path (undefined), not just 0 — the cu branch
+        // must coerce to 0 rather than returning NaN.
+        const results = await page.evaluate(
+          (it) => ({
+            undef: window.computeMeltValue(it, undefined),
+            zero: window.computeMeltValue(it, 0),
+          }),
+          item
+        );
+        expect(Number.isFinite(results.undef)).toBe(true);
+        expect(results.undef).toBe(0);
+        expect(results.zero).toBe(0);
+      },
+    },
+    {
+      name: "constitutional value is melt-only (no retail premium added)",
+      run: async (page) => {
+        const r = await page.evaluate(() => {
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
+          const item = {
+            weightUnit: "cu",
+            constitutionalEntryMode: "denom",
+            constitutionalVariant: "con-90-half",
+            weight: 0.5,
+            qty: 3,
+          };
+          return {
+            oz: window.getConstitutionalSilverOz(item),
+            melt: window.computeMeltValue(item, 30),
+          };
+        });
+        expect(r.melt).toBeCloseTo(r.oz * 30, 6);
+      },
+    },
+    // ---- Group D: recompute on basis change (R4-AC3) ----------------------
+    {
+      name: "changing the global basis reprices an unedited item",
+      run: async (page) => {
+        const item = {
+          weightUnit: "cu",
+          constitutionalEntryMode: "denom",
+          constitutionalVariant: "con-90-quarter",
+          weight: 0.25,
+          qty: 40,
+        };
+        const r = await page.evaluate((it) => {
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
+          const worn = window.getConstitutionalSilverOz(it);
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("fresh"));
+          const fresh = window.getConstitutionalSilverOz(it);
+          return { worn, fresh, sameItem: JSON.stringify(it) };
+        }, item);
+        expect(r.fresh).toBeGreaterThan(r.worn);
+        expect(r.fresh / r.worn).toBeCloseTo(1 / 0.98839, 4);
+        // The item object itself was never mutated — no per-item edit was required.
+        expect(r.sameItem).toBe(JSON.stringify(item));
+      },
+    },
+    {
+      name: "constitutional rows have a dedicated type-color token defined",
+      run: async (page) => {
+        const token = await page.evaluate(() =>
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--type-constitutional-bg")
+            .trim()
+        );
+        expect(token.length).toBeGreaterThan(0);
+      },
+    },
+  ];
 
-  test("subsidiary-per-dollar and worn-scalar constants match the design", async ({ page }) => {
+  test("constitutional valuation helpers, one step per case", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
-    const c = await page.evaluate(() => ({
-      sub: window.CONSTITUTIONAL_SUBSIDIARY_OZT_PER_DOLLAR,
-      worn: window.CONSTITUTIONAL_WORN_SCALAR,
-      key: window.CONSTITUTIONAL_BASIS_KEY,
-    }));
-    expect(c.sub).toBeCloseTo(0.7234, 5);
-    expect(c.worn).toBeCloseTo(0.98839, 5);
-    expect(c.key).toBe("constitutionalValuationBasis");
-  });
-
-  test("constitutionalValuationBasis is registered for storage survival and cloud sync", async ({
-    page,
-  }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const reg = await page.evaluate(() => ({
-      allowed: (window.ALLOWED_STORAGE_KEYS || []).includes("constitutionalValuationBasis"),
-      sync: (window.SYNC_SCOPE_KEYS || []).includes("constitutionalValuationBasis"),
-    }));
-    expect(reg.allowed).toBe(true); // R6-AC3 survives cleanupStorage
-    expect(reg.sync).toBe(true); // R4-AC5 included in cloud sync scope
-  });
-
-  // ---- Group B: silver-content math (R1-AC2, R3-AC1/AC2, R4-AC1/AC2) -----
-  test("fresh basis returns each variant's exact mint silver weight", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    for (const [id, fresh] of Object.entries(CU_VARIANT_FRESH)) {
-      const item = {
-        weightUnit: "cu",
-        constitutionalEntryMode: "denom",
-        constitutionalVariant: id,
-        weight: 0.1,
-        qty: 1,
-      };
-      const { oz, wearFactor } = await setBasisAndCompute(page, "fresh", item);
-      expect(wearFactor).toBeCloseTo(1, 6);
-      expect(oz).toBeCloseTo(fresh, 5);
-    }
-  });
-
-  test("worn basis (default) scales every variant by the worn factor", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const item = {
-      weightUnit: "cu",
-      constitutionalEntryMode: "denom",
-      constitutionalVariant: "con-90-quarter",
-      weight: 0.25,
-      qty: 1,
-    };
-    const worn = await setBasisAndCompute(page, "worn", item);
-    expect(worn.wearFactor).toBeCloseTo(0.98839, 5);
-    expect(worn.oz).toBeCloseTo(0.18084 * 0.98839, 6);
-    // R4-AC1: no key set → default is worn.
-    const dflt = await page.evaluate((it) => {
-      localStorage.removeItem("constitutionalValuationBasis");
-      return { oz: window.getConstitutionalSilverOz(it), wf: window.getConstitutionalWearFactor() };
-    }, item);
-    expect(dflt.wf).toBeCloseTo(0.98839, 5);
-    expect(dflt.oz).toBeCloseTo(0.18084 * 0.98839, 6);
-  });
-
-  test("denomination mode multiplies per-coin silver by coin count", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const item = {
-      weightUnit: "cu",
-      constitutionalEntryMode: "denom",
-      constitutionalVariant: "con-90-quarter",
-      weight: 0.25,
-      qty: 40,
-    };
-    const fresh = await setBasisAndCompute(page, "fresh", item);
-    expect(fresh.oz).toBeCloseTo(7.2336, 4); // 40 × 0.18084
-  });
-
-  test("silver dollars carry more silver per face-dollar than subsidiary coinage", async ({
-    page,
-  }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const result = await page.evaluate(() => {
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("fresh"));
-      const dollar = window.getConstitutionalSilverOz({
-        weightUnit: "cu",
-        constitutionalEntryMode: "denom",
-        constitutionalVariant: "con-90-dollar",
-        weight: 1,
-        qty: 1,
+    test.setTimeout(test.info().timeout * VALUATION_CASES.length);
+    for (const { name, run } of VALUATION_CASES) {
+      await test.step(name, async () => {
+        await page.evaluate(() => localStorage.removeItem("constitutionalValuationBasis"));
+        await run(page);
       });
-      const fourQuarters = window.getConstitutionalSilverOz({
-        weightUnit: "cu",
-        constitutionalEntryMode: "denom",
-        constitutionalVariant: "con-90-quarter",
-        weight: 0.25,
-        qty: 4,
-      });
-      return { dollar, fourQuarters };
-    });
-    // Same $1 face value, more silver in the dollar (R3-AC2).
-    expect(result.dollar).toBeCloseTo(0.77344, 5);
-    expect(result.fourQuarters).toBeCloseTo(0.72336, 5);
-    expect(result.dollar).toBeGreaterThan(result.fourQuarters);
-  });
-
-  test("unknown or missing variant yields zero silver oz without throwing", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const oz = await page.evaluate(() =>
-      window.getConstitutionalSilverOz({
-        weightUnit: "cu",
-        constitutionalEntryMode: "denom",
-        constitutionalVariant: "con-bogus-xyz",
-        weight: 0.25,
-        qty: 5,
-      })
-    );
-    expect(oz).toBe(0);
-  });
-
-  // ---- Group C: melt value (R3-AC3/AC4/AC5) -----------------------------
-  test("$10 face 90% subsidiary on the worn basis melts to ~7.15 ozt x spot", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const item = {
-      weightUnit: "cu",
-      constitutionalEntryMode: "face",
-      constitutionalVariant: "con-90-subsidiary",
-      weight: 10,
-      qty: 1,
-      purity: 0.9,
-    };
-    const r = await page.evaluate((it) => {
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
-      return { oz: window.getConstitutionalSilverOz(it), melt: window.computeMeltValue(it, 33.25) };
-    }, item);
-    expect(r.oz).toBeCloseTo(7.15, 2);
-    expect(r.melt).toBeCloseTo(7.15 * 33.25, 1);
-  });
-
-  test("melt value never double-applies coin purity", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const r = await page.evaluate(() => {
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("fresh"));
-      const base = {
-        weightUnit: "cu",
-        constitutionalEntryMode: "denom",
-        constitutionalVariant: "con-90-dollar",
-        weight: 1,
-        qty: 1,
-      };
-      const oz = window.getConstitutionalSilverOz(base);
-      return {
-        oz,
-        meltPurity09: window.computeMeltValue({ ...base, purity: 0.9 }, 30),
-        meltPurity1: window.computeMeltValue({ ...base, purity: 1 }, 30),
-      };
-    });
-    // ASW is already pure silver — purity must be ignored, never multiplied again.
-    expect(r.meltPurity09).toBeCloseTo(r.oz * 30, 4);
-    expect(r.meltPurity1).toBeCloseTo(r.oz * 30, 4);
-    expect(r.meltPurity09).toBeCloseTo(r.meltPurity1, 6);
-  });
-
-  test("missing silver spot degrades to zero without crashing", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const item = {
-      weightUnit: "cu",
-      constitutionalEntryMode: "face",
-      constitutionalVariant: "con-90-subsidiary",
-      weight: 10,
-      qty: 1,
-    };
-    // Exercise the genuinely-missing-spot path (undefined), not just 0 — the cu branch
-    // must coerce to 0 rather than returning NaN.
-    const results = await page.evaluate(
-      (it) => ({
-        undef: window.computeMeltValue(it, undefined),
-        zero: window.computeMeltValue(it, 0),
-      }),
-      item
-    );
-    expect(Number.isFinite(results.undef)).toBe(true);
-    expect(results.undef).toBe(0);
-    expect(results.zero).toBe(0);
-  });
-
-  test("constitutional value is melt-only (no retail premium added)", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const r = await page.evaluate(() => {
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
-      const item = {
-        weightUnit: "cu",
-        constitutionalEntryMode: "denom",
-        constitutionalVariant: "con-90-half",
-        weight: 0.5,
-        qty: 3,
-      };
-      return {
-        oz: window.getConstitutionalSilverOz(item),
-        melt: window.computeMeltValue(item, 30),
-      };
-    });
-    expect(r.melt).toBeCloseTo(r.oz * 30, 6);
-  });
-
-  // ---- Group D: recompute on basis change (R4-AC3) ----------------------
-  test("changing the global basis reprices an unedited item", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const item = {
-      weightUnit: "cu",
-      constitutionalEntryMode: "denom",
-      constitutionalVariant: "con-90-quarter",
-      weight: 0.25,
-      qty: 40,
-    };
-    const r = await page.evaluate((it) => {
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
-      const worn = window.getConstitutionalSilverOz(it);
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("fresh"));
-      const fresh = window.getConstitutionalSilverOz(it);
-      return { worn, fresh, sameItem: JSON.stringify(it) };
-    }, item);
-    expect(r.fresh).toBeGreaterThan(r.worn);
-    expect(r.fresh / r.worn).toBeCloseTo(1 / 0.98839, 4);
-    // The item object itself was never mutated — no per-item edit was required.
-    expect(r.sameItem).toBe(JSON.stringify(item));
+    }
   });
 
   // ---- Group E: add flow (R1, R2, R3 metal forcing) ---------------------
@@ -1277,15 +1317,6 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
     expect(totals.zeroQty).toBe(0); // mirrors getConstitutionalSilverOz's qty handling
   });
 
-  test("constitutional rows have a dedicated type-color token defined", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const token = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--type-constitutional-bg").trim()
-    );
-    expect(token.length).toBeGreaterThan(0);
-  });
-
   test("bulk edit type to Constitutional coerces unit to cu and metal to Silver", async ({
     page,
   }) => {
@@ -1510,10 +1541,8 @@ test.describe("core/inventory-math — STRK-235 constitutional silver", () => {
 // STRK-243 — constitutional pre-ship fix (surfaced by the v3.35.55 dev→main ship
 // review). Picking the cu weight-unit option directly dead-ends the save.
 // ---------------------------------------------------------------------------
-test.describe("core/inventory-math — STRK-243 constitutional pre-ship fix", () => {
-  test("STRK-243 — the constitutional unit is Type-driven, not a manual dropdown choice", async ({
-    page,
-  }) => {
+test.describe("core/inventory-math — constitutional unit selection", () => {
+  test("the constitutional unit is Type-driven, not a manual dropdown choice", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
     await openAddModal(page);
@@ -1569,8 +1598,8 @@ const OZ_COIN_FOR_CONVERT = {
   serial: 61,
 };
 
-test.describe("core/inventory-math — STRK-244/245 constitutional valuation history + purity reset", () => {
-  test("STRK-244 — a denomination-only edit (con-90-half → con-40-half) records a price-history point", async ({
+test.describe("core/inventory-math — constitutional valuation history + purity reset", () => {
+  test("a denomination-only edit (con-90-half → con-40-half) records a price-history point", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [CU_HALVES_90] });
@@ -1599,7 +1628,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
       .toBe(1);
   });
 
-  test("STRK-245 — converting a Custom-purity item to Constitutional hides the wrapper and saves the reset purity", async ({
+  test("converting a Custom-purity item to Constitutional hides the wrapper and saves the reset purity", async ({
     page,
   }) => {
     await seedMoneyData(page, { inventory: [OZ_COIN_FOR_CONVERT] });
@@ -1627,7 +1656,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     expect(saved.purity).toBeCloseTo(0.999, 4);
   });
 
-  test("STRK-245 — converting an item with a NON-custom preset purity to Constitutional preserves the preset", async ({
+  test("converting an item with a NON-custom preset purity to Constitutional preserves the preset", async ({
     page,
   }) => {
     // Copilot review guard: the purity reset must fire ONLY for "custom". Forcing a
@@ -1650,7 +1679,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
     expect(purityValue).toBe("0.925");
   });
 
-  test("STRK-245 — backing out of Constitutional before saving preserves a custom purity (no data loss)", async ({
+  test("backing out of Constitutional before saving preserves a custom purity (no data loss)", async ({
     page,
   }) => {
     // Codex review guard: the purity reset must land at SAVE time (final type = cu), not
@@ -1679,7 +1708,7 @@ test.describe("core/inventory-math — STRK-244/245 constitutional valuation his
   });
 });
 
-test.describe("core/inventory-math — STRK-247 purity-wrapper visibility centralization", () => {
+test.describe("core/inventory-math — purity-wrapper visibility centralization", () => {
   test("custom purity → Constitutional → Goldback re-shows the custom-purity wrapper", async ({
     page,
   }) => {
@@ -1891,7 +1920,7 @@ async function captureJsonExport(page) {
   );
 }
 
-test.describe("core/inventory-math — STRK-242 constitutional lot pricing", () => {
+test.describe("core/inventory-math — constitutional lot pricing", () => {
   // ---- B.1: toggle visibility + default + live re-resolve (AC-1, AC-2, AC-5, AC-9) ----
   test("denomination mode shows the purchase toggle defaulted to LOT (AC-1, AC-2)", async ({
     page,
@@ -2200,7 +2229,7 @@ async function seedAndLoadCards(page, inventory, style) {
   await page.waitForSelector("#cardViewGrid article", { state: "attached", timeout: 15000 });
 }
 
-test.describe("core/inventory-math — STRK-299 ASW relabel", () => {
+test.describe("core/inventory-math — ASW labels", () => {
   /** A face-mode constitutional lot: $14.75 total face → ~10.5 ozt ASW on the worn basis. */
   const CU_ASW_LOT = {
     ...CU_FACE_50,
@@ -2316,7 +2345,7 @@ const CU_FACE_1475 = {
   serial: 301,
 };
 
-test.describe("core/inventory-math — STRK-300 constitutional face-value display flip", () => {
+test.describe("core/inventory-math — constitutional face value and ASW tooltip", () => {
   test("denomination mode shows the coin count in Qty and total face in Weight", async ({
     page,
   }) => {
@@ -2636,50 +2665,7 @@ const weightCellFor = (page, name) =>
 const rowsNamed = (page, name) =>
   page.locator("#inventoryTable tbody tr").filter({ hasText: name });
 
-test.describe("core/inventory-math — STRK-316 goldback weight sort and filter key", () => {
-  test("descending weight sort ranks goldbacks by ozt equivalent, below every bullion row", async ({
-    page,
-  }) => {
-    await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN]);
-    const names = await rowNames(page);
-    // 10 ozt > 2 ozt > 1 ozt > 0.005 ozt (5 gb) > 0.002 ozt (2 gb).
-    // Before the fix the raw denomination put 5 gb between the 10 oz and 2 oz rows.
-    expect(names[0]).toContain("Ten Oz Bar");
-    expect(names[1]).toContain("Two Oz Round");
-    expect(names[2]).toContain("One Oz Coin");
-    expect(names[3]).toContain("Five Goldback");
-    expect(names[4]).toContain("Two Goldback");
-  });
-
-  test("ascending weight sort is the exact reverse", async ({ page }) => {
-    await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN], "asc");
-    const names = await rowNames(page);
-    expect(names[0]).toContain("Two Goldback");
-    expect(names[1]).toContain("Five Goldback");
-    expect(names[2]).toContain("One Oz Coin");
-    expect(names[3]).toContain("Two Oz Round");
-    expect(names[4]).toContain("Ten Oz Bar");
-  });
-
-  test("bullion-only weight sort is unchanged by the gb/sb conversion", async ({ page }) => {
-    // AC2 guard: oz/g/kg/lb rows must be byte-identical to the pre-fix ordering.
-    const GRAM_BAR = {
-      ...MONEY_ITEM,
-      uuid: "core-strk316-gram",
-      name: "Core STRK316 Gram Bar",
-      weight: 31.65 / 31.1034768, // ~1.0176 ozt, displayed as 31.65 g
-      weightUnit: "g",
-      qty: 1,
-      serial: 321,
-    };
-    await seedWeightSorted(page, [OZ_1_COIN, OZ_10_BAR, GRAM_BAR, OZ_2_ROUND]);
-    const names = await rowNames(page);
-    expect(names[0]).toContain("Ten Oz Bar");
-    expect(names[1]).toContain("Two Oz Round");
-    expect(names[2]).toContain("Gram Bar"); // ~1.0176 ozt slots above the 1.00 oz coin
-    expect(names[3]).toContain("One Oz Coin");
-  });
-
+test.describe("core/inventory-math — goldback weight sort and filter key", () => {
   test("a 2 gb note and a 2.00 oz round no longer share a weight filter bucket", async ({
     page,
   }) => {
@@ -2741,60 +2727,6 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
     await expect(chips.filter({ hasText: "0.00500" })).toHaveCount(0);
   });
 
-  test("getUnitOztWeight converts gb/sb and passes every other unit through untouched", async ({
-    page,
-  }) => {
-    await seedAndLoad(page, [GB_5_NOTE]);
-    const result = await page.evaluate(() => ({
-      gb5: window.getUnitOztWeight({ weight: 5, weightUnit: "gb" }),
-      gbQuarter: window.getUnitOztWeight({ weight: 0.25, weightUnit: "gb" }),
-      sb1: window.getUnitOztWeight({ weight: 1, weightUnit: "sb" }),
-      oz10: window.getUnitOztWeight({ weight: 10, weightUnit: "oz" }),
-      gram: window.getUnitOztWeight({ weight: 1.0175, weightUnit: "g" }),
-      kg: window.getUnitOztWeight({ weight: 2, weightUnit: "kg" }),
-      missing: window.getUnitOztWeight({}),
-      nullish: window.getUnitOztWeight(null),
-    }));
-    expect(result.gb5).toBeCloseTo(0.005, 10);
-    expect(result.gbQuarter).toBeCloseTo(0.00025, 10);
-    expect(result.sb1).toBeCloseTo(0.001, 10);
-    // Non-gb/sb units already store troy oz — identical to the previous parseFloat(item.weight).
-    expect(result.oz10).toBe(10);
-    expect(result.gram).toBe(1.0175);
-    expect(result.kg).toBe(2);
-    expect(result.missing).toBe(0);
-    expect(result.nullish).toBe(0);
-  });
-
-  test("gb/sb filter keys are 5-decimal ozt; bullion keys are unchanged raw weight", async ({
-    page,
-  }) => {
-    await seedAndLoad(page, [GB_5_NOTE]);
-    const keys = await page.evaluate(() => ({
-      gbQuarter: window.getItemFilterWeight({ weight: 0.25, weightUnit: "gb" }),
-      gbHalf: window.getItemFilterWeight({ weight: 0.5, weightUnit: "gb" }),
-      gb1: window.getItemFilterWeight({ weight: 1, weightUnit: "gb" }),
-      gb2: window.getItemFilterWeight({ weight: 2, weightUnit: "gb" }),
-      gb5: window.getItemFilterWeight({ weight: 5, weightUnit: "gb" }),
-      gb9: window.getItemFilterWeight({ weight: 9, weightUnit: "gb" }),
-      oz10: window.getItemFilterWeight({ weight: 10, weightUnit: "oz" }),
-      gram: window.getItemFilterWeight({ weight: 1.0175, weightUnit: "g" }),
-    }));
-    // ¼ / ½ / 1 gb all collapse to "0.00" at 2 decimals and ½/1 still collide at 3 — the
-    // 5-decimal width is what keeps every denomination in its own bucket.
-    expect(keys.gbQuarter).toBe("0.00025");
-    expect(keys.gbHalf).toBe("0.00050");
-    expect(keys.gb1).toBe("0.00100");
-    expect(keys.gb2).toBe("0.00200");
-    expect(keys.gb5).toBe("0.00500");
-    // 9 * 0.001 is 0.009000000000000001 in IEEE-754; the fixed width absorbs the artifact.
-    expect(keys.gb9).toBe("0.00900");
-    expect(new Set(Object.values(keys)).size).toBe(Object.keys(keys).length);
-    // Bullion keys byte-identical to the legacy raw-weight string.
-    expect(keys.oz10).toBe("10");
-    expect(keys.gram).toBe("1.0175");
-  });
-
   // PR #1405 review (Codex P2 + Copilot, independently): gb and sb share a 0.001 ozt conversion
   // factor, so 1 gb and 1 sb produce the SAME key and the filter genuinely selects both — correct
   // for a metal-agnostic weight column. The original label resolved by inventory order, so a
@@ -2820,82 +2752,203 @@ test.describe("core/inventory-math — STRK-316 goldback weight sort and filter 
     await expect(page.locator("#inventoryTable tbody tr")).toHaveCount(2);
   });
 
-  test("the chip label is deterministic regardless of inventory order", async ({ page }) => {
-    await seedAndLoad(page, [GB_5_NOTE]);
-    const labels = await page.evaluate(() => ({
-      bothGbFirst: window.getWeightFilterLabel("0.00100", [
-        { weight: 1, weightUnit: "gb" },
-        { weight: 1, weightUnit: "sb" },
-      ]),
-      bothSbFirst: window.getWeightFilterLabel("0.00100", [
-        { weight: 1, weightUnit: "sb" },
-        { weight: 1, weightUnit: "gb" },
-      ]),
-      gbOnly: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
-      sbOnly: window.getWeightFilterLabel("0.00100", [{ weight: 1, weightUnit: "sb" }]),
-      bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
-      cuKey: window.getWeightFilterLabel("7.15", []),
-      noMatch: window.getWeightFilterLabel("0.09900", [{ weight: 5, weightUnit: "gb" }]),
-      empty: window.getWeightFilterLabel("", []),
-    }));
-    // Same answer whichever unit happens to come first in the inventory.
-    expect(labels.bothGbFirst).toBe("1 gb/sb");
-    expect(labels.bothSbFirst).toBe("1 gb/sb");
-    // Unambiguous keys keep the plain denomination label.
-    expect(labels.gbOnly).toBe("5 gb");
-    expect(labels.sbOnly).toBe("1 sb");
-    // Non gb/sb keys pass through untouched — bullion and cu chips are unaffected.
-    expect(labels.bullionKey).toBe("10");
-    expect(labels.cuKey).toBe("7.15");
-    expect(labels.noMatch).toBe("0.09900");
-    expect(labels.empty).toBe("");
-  });
+  // Logic-only cases. Each step seeds and loads its own inventory on a fresh page.
+  const GOLDBACK_WEIGHT_CASES = [
+    {
+      name: "descending weight sort ranks goldbacks by ozt equivalent, below every bullion row",
+      run: async (page) => {
+        await seedWeightSorted(page, [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN]);
+        const names = await rowNames(page);
+        // 10 ozt > 2 ozt > 1 ozt > 0.005 ozt (5 gb) > 0.002 ozt (2 gb).
+        // Before the fix the raw denomination put 5 gb between the 10 oz and 2 oz rows.
+        expect(names[0]).toContain("Ten Oz Bar");
+        expect(names[1]).toContain("Two Oz Round");
+        expect(names[2]).toContain("One Oz Coin");
+        expect(names[3]).toContain("Five Goldback");
+        expect(names[4]).toContain("Two Goldback");
+      },
+    },
+    {
+      name: "ascending weight sort is the exact reverse",
+      run: async (page) => {
+        await seedWeightSorted(
+          page,
+          [GB_5_NOTE, OZ_10_BAR, GB_2_NOTE, OZ_2_ROUND, OZ_1_COIN],
+          "asc"
+        );
+        const names = await rowNames(page);
+        expect(names[0]).toContain("Two Goldback");
+        expect(names[1]).toContain("Five Goldback");
+        expect(names[2]).toContain("One Oz Coin");
+        expect(names[3]).toContain("Two Oz Round");
+        expect(names[4]).toContain("Ten Oz Bar");
+      },
+    },
+    {
+      name: "bullion-only weight sort is unchanged by the gb/sb conversion",
+      run: async (page) => {
+        // AC2 guard: oz/g/kg/lb rows must be byte-identical to the pre-fix ordering.
+        const GRAM_BAR = {
+          ...MONEY_ITEM,
+          uuid: "core-strk316-gram",
+          name: "Core STRK316 Gram Bar",
+          weight: 31.65 / 31.1034768, // ~1.0176 ozt, displayed as 31.65 g
+          weightUnit: "g",
+          qty: 1,
+          serial: 321,
+        };
+        await seedWeightSorted(page, [OZ_1_COIN, OZ_10_BAR, GRAM_BAR, OZ_2_ROUND]);
+        const names = await rowNames(page);
+        expect(names[0]).toContain("Ten Oz Bar");
+        expect(names[1]).toContain("Two Oz Round");
+        expect(names[2]).toContain("Gram Bar"); // ~1.0176 ozt slots above the 1.00 oz coin
+        expect(names[3]).toContain("One Oz Coin");
+      },
+    },
+    {
+      name: "getUnitOztWeight converts gb/sb and passes every other unit through untouched",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_5_NOTE]);
+        const result = await page.evaluate(() => ({
+          gb5: window.getUnitOztWeight({ weight: 5, weightUnit: "gb" }),
+          gbQuarter: window.getUnitOztWeight({ weight: 0.25, weightUnit: "gb" }),
+          sb1: window.getUnitOztWeight({ weight: 1, weightUnit: "sb" }),
+          oz10: window.getUnitOztWeight({ weight: 10, weightUnit: "oz" }),
+          gram: window.getUnitOztWeight({ weight: 1.0175, weightUnit: "g" }),
+          kg: window.getUnitOztWeight({ weight: 2, weightUnit: "kg" }),
+          missing: window.getUnitOztWeight({}),
+          nullish: window.getUnitOztWeight(null),
+        }));
+        expect(result.gb5).toBeCloseTo(0.005, 10);
+        expect(result.gbQuarter).toBeCloseTo(0.00025, 10);
+        expect(result.sb1).toBeCloseTo(0.001, 10);
+        // Non-gb/sb units already store troy oz — identical to the previous parseFloat(item.weight).
+        expect(result.oz10).toBe(10);
+        expect(result.gram).toBe(1.0175);
+        expect(result.kg).toBe(2);
+        expect(result.missing).toBe(0);
+        expect(result.nullish).toBe(0);
+      },
+    },
+    {
+      name: "gb/sb filter keys are 5-decimal ozt; bullion keys are unchanged raw weight",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_5_NOTE]);
+        const keys = await page.evaluate(() => ({
+          gbQuarter: window.getItemFilterWeight({ weight: 0.25, weightUnit: "gb" }),
+          gbHalf: window.getItemFilterWeight({ weight: 0.5, weightUnit: "gb" }),
+          gb1: window.getItemFilterWeight({ weight: 1, weightUnit: "gb" }),
+          gb2: window.getItemFilterWeight({ weight: 2, weightUnit: "gb" }),
+          gb5: window.getItemFilterWeight({ weight: 5, weightUnit: "gb" }),
+          gb9: window.getItemFilterWeight({ weight: 9, weightUnit: "gb" }),
+          oz10: window.getItemFilterWeight({ weight: 10, weightUnit: "oz" }),
+          gram: window.getItemFilterWeight({ weight: 1.0175, weightUnit: "g" }),
+        }));
+        // ¼ / ½ / 1 gb all collapse to "0.00" at 2 decimals and ½/1 still collide at 3 — the
+        // 5-decimal width is what keeps every denomination in its own bucket.
+        expect(keys.gbQuarter).toBe("0.00025");
+        expect(keys.gbHalf).toBe("0.00050");
+        expect(keys.gb1).toBe("0.00100");
+        expect(keys.gb2).toBe("0.00200");
+        expect(keys.gb5).toBe("0.00500");
+        // 9 * 0.001 is 0.009000000000000001 in IEEE-754; the fixed width absorbs the artifact.
+        expect(keys.gb9).toBe("0.00900");
+        expect(new Set(Object.values(keys)).size).toBe(Object.keys(keys).length);
+        // Bullion keys byte-identical to the legacy raw-weight string.
+        expect(keys.oz10).toBe("10");
+        expect(keys.gram).toBe("1.0175");
+      },
+    },
+    {
+      name: "the chip label is deterministic regardless of inventory order",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_5_NOTE]);
+        const labels = await page.evaluate(() => ({
+          bothGbFirst: window.getWeightFilterLabel("0.00100", [
+            { weight: 1, weightUnit: "gb" },
+            { weight: 1, weightUnit: "sb" },
+          ]),
+          bothSbFirst: window.getWeightFilterLabel("0.00100", [
+            { weight: 1, weightUnit: "sb" },
+            { weight: 1, weightUnit: "gb" },
+          ]),
+          gbOnly: window.getWeightFilterLabel("0.00500", [{ weight: 5, weightUnit: "gb" }]),
+          sbOnly: window.getWeightFilterLabel("0.00100", [{ weight: 1, weightUnit: "sb" }]),
+          bullionKey: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+          cuKey: window.getWeightFilterLabel("7.15", []),
+          noMatch: window.getWeightFilterLabel("0.09900", [{ weight: 5, weightUnit: "gb" }]),
+          empty: window.getWeightFilterLabel("", []),
+        }));
+        // Same answer whichever unit happens to come first in the inventory.
+        expect(labels.bothGbFirst).toBe("1 gb/sb");
+        expect(labels.bothSbFirst).toBe("1 gb/sb");
+        // Unambiguous keys keep the plain denomination label.
+        expect(labels.gbOnly).toBe("5 gb");
+        expect(labels.sbOnly).toBe("1 sb");
+        // Non gb/sb keys pass through untouched — bullion and cu chips are unaffected.
+        expect(labels.bullionKey).toBe("10");
+        expect(labels.cuKey).toBe("7.15");
+        expect(labels.noMatch).toBe("0.09900");
+        expect(labels.empty).toBe("");
+      },
+    },
+    {
+      name: "isDerivedWeightUnit is the single source for which units get a rewritten key",
+      run: async (page) => {
+        // The table's Weight cell keys off this predicate rather than its own unit list, so the
+        // cell can no longer drift out of sync with getItemFilterWeight (PR #1405 review, Codacy).
+        await seedAndLoad(page, [GB_5_NOTE]);
+        const derived = await page.evaluate(() =>
+          ["cu", "gb", "sb", "oz", "g", "kg", "lb", undefined].map((u) => [
+            String(u),
+            window.isDerivedWeightUnit({ weightUnit: u }),
+          ])
+        );
+        expect(Object.fromEntries(derived)).toEqual({
+          cu: true,
+          gb: true,
+          sb: true,
+          oz: false,
+          g: false,
+          kg: false,
+          lb: false,
+          undefined: false,
+        });
+        // Every unit the predicate reports as derived must actually get a rewritten key.
+        const rewritten = await page.evaluate(() =>
+          ["gb", "sb", "oz"].map((u) => [
+            u,
+            window.getItemFilterWeight({ weight: 2, weightUnit: u }) !== String(2),
+          ])
+        );
+        expect(Object.fromEntries(rewritten)).toEqual({ gb: true, sb: true, oz: false });
+      },
+    },
+    {
+      name: "computeMeltValue is numerically unchanged after routing through the shared helper",
+      run: async (page) => {
+        // AC5 guard: the gb/sb ternary moved out of computeMeltValue into getUnitOztWeight.
+        await seedAndLoad(page, [GB_5_NOTE]);
+        const melt = await page.evaluate(() => ({
+          gb: window.computeMeltValue({ weight: 5, weightUnit: "gb", qty: 3, purity: 1 }, 4000),
+          sb: window.computeMeltValue({ weight: 1, weightUnit: "sb", qty: 10, purity: 1 }, 30),
+          oz: window.computeMeltValue({ weight: 2, weightUnit: "oz", qty: 4, purity: 0.999 }, 30),
+        }));
+        expect(melt.gb).toBeCloseTo(0.005 * 3 * 4000, 9); // $60.00
+        expect(melt.sb).toBeCloseTo(0.001 * 10 * 30, 9); // $0.30
+        expect(melt.oz).toBeCloseTo(2 * 4 * 30 * 0.999, 9); // unchanged bullion path
+      },
+    },
+  ];
 
-  test("isDerivedWeightUnit is the single source for which units get a rewritten key", async ({
-    page,
-  }) => {
-    // The table's Weight cell keys off this predicate rather than its own unit list, so the
-    // cell can no longer drift out of sync with getItemFilterWeight (PR #1405 review, Codacy).
-    await seedAndLoad(page, [GB_5_NOTE]);
-    const derived = await page.evaluate(() =>
-      ["cu", "gb", "sb", "oz", "g", "kg", "lb", undefined].map((u) => [
-        String(u),
-        window.isDerivedWeightUnit({ weightUnit: u }),
-      ])
-    );
-    expect(Object.fromEntries(derived)).toEqual({
-      cu: true,
-      gb: true,
-      sb: true,
-      oz: false,
-      g: false,
-      kg: false,
-      lb: false,
-      undefined: false,
-    });
-    // Every unit the predicate reports as derived must actually get a rewritten key.
-    const rewritten = await page.evaluate(() =>
-      ["gb", "sb", "oz"].map((u) => [
-        u,
-        window.getItemFilterWeight({ weight: 2, weightUnit: u }) !== String(2),
-      ])
-    );
-    expect(Object.fromEntries(rewritten)).toEqual({ gb: true, sb: true, oz: false });
-  });
-
-  test("computeMeltValue is numerically unchanged after routing through the shared helper", async ({
-    page,
-  }) => {
-    // AC5 guard: the gb/sb ternary moved out of computeMeltValue into getUnitOztWeight.
-    await seedAndLoad(page, [GB_5_NOTE]);
-    const melt = await page.evaluate(() => ({
-      gb: window.computeMeltValue({ weight: 5, weightUnit: "gb", qty: 3, purity: 1 }, 4000),
-      sb: window.computeMeltValue({ weight: 1, weightUnit: "sb", qty: 10, purity: 1 }, 30),
-      oz: window.computeMeltValue({ weight: 2, weightUnit: "oz", qty: 4, purity: 0.999 }, 30),
-    }));
-    expect(melt.gb).toBeCloseTo(0.005 * 3 * 4000, 9); // $60.00
-    expect(melt.sb).toBeCloseTo(0.001 * 10 * 30, 9); // $0.30
-    expect(melt.oz).toBeCloseTo(2 * 4 * 30 * 0.999, 9); // unchanged bullion path
+  test("goldback weight sort and filter keys, one step per case", async ({ page }) => {
+    test.setTimeout(test.info().timeout * GOLDBACK_WEIGHT_CASES.length);
+    for (const { name, run } of GOLDBACK_WEIGHT_CASES) {
+      await test.step(name, async () => {
+        await freshPage(page);
+        await run(page);
+      });
+    }
   });
 });
 
@@ -2928,7 +2981,7 @@ const GB_HALF = {
   serial: 331,
 };
 
-test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW tooltip", () => {
+test.describe("core/inventory-math — gb/sb denomination display + AGW tooltip", () => {
   test("fractional Goldback denominations render exactly, never rounded", async ({ page }) => {
     await seedAndLoad(page, [GB_QUARTER, GB_HALF]);
     await expect(weightCellFor(page, "Core STRK318 Quarter Goldback")).toHaveText("¼ gb");
@@ -2941,51 +2994,6 @@ test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW
     await seedAndLoad(page, [GB_5_NOTE, SB_1_NOTE]);
     await expect(weightCellFor(page, "Core STRK316 Five Goldback")).toHaveText("5 gb");
     await expect(weightCellFor(page, "Core STRK316 One Silverback")).toHaveText("1 sb");
-  });
-
-  test("formatDenomination never rounds a denomination into a neighbouring one", async ({
-    page,
-  }) => {
-    await seedAndLoad(page, [GB_QUARTER]);
-    const out = await page.evaluate(() => ({
-      quarter: window.formatDenomination(0.25),
-      half: window.formatDenomination(0.5),
-      one: window.formatDenomination(1),
-      hundred: window.formatDenomination(100),
-      // Previously (0.125).toFixed(1) silently displayed "0.1" — a different denomination.
-      eighth: window.formatDenomination(0.125),
-      oddFraction: window.formatDenomination(2.5),
-      stringInput: window.formatDenomination("0.25"),
-      garbage: window.formatDenomination("abc"),
-      nullish: window.formatDenomination(null),
-    }));
-    expect(out.quarter).toBe("¼");
-    expect(out.half).toBe("½");
-    expect(out.one).toBe("1");
-    expect(out.hundred).toBe("100");
-    expect(out.eighth).toBe("0.125");
-    expect(out.oddFraction).toBe("2.5");
-    expect(out.stringInput).toBe("¼");
-    expect(out.garbage).toBe("abc");
-    expect(out.nullish).toBe("");
-  });
-
-  test("a Goldback weight cell tooltip reports its AGW in troy ounces", async ({ page }) => {
-    await seedAndLoad(page, [GB_QUARTER]);
-    const title = await weightCellFor(page, "Core STRK318 Quarter Goldback").getAttribute("title");
-    // ¼ Goldback = 0.00025 ozt of gold — the figure the cell itself cannot show.
-    expect(title).toContain("0.00025 ozt");
-    expect(title).toContain("AGW (Actual Gold Weight)");
-    // The old static string named no weight at all.
-    expect(title).not.toBe("Goldback denomination");
-  });
-
-  test("a Silverback weight cell tooltip reports its ASW, not AGW", async ({ page }) => {
-    await seedAndLoad(page, [SB_1_NOTE]);
-    const title = await weightCellFor(page, "Core STRK316 One Silverback").getAttribute("title");
-    expect(title).toContain("0.001 ozt");
-    expect(title).toContain("ASW (Actual Silver Weight)");
-    expect(title).not.toContain("AGW");
   });
 
   test("a multi-note lot shows both the per-note and total metal content", async ({ page }) => {
@@ -3009,40 +3017,6 @@ test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW
   // equivalent. This locks that shortcut (denomination × conversion constant) to the
   // authoritative per-denomination tables: if a future denomination ever carries non-linear
   // metal content, this fails and forces a table lookup rather than silently mis-sorting.
-  test("the gb/sb sort key equals the metal content in the denomination tables", async ({
-    page,
-  }) => {
-    await seedAndLoad(page, [GB_QUARTER]);
-    const rows = await page.evaluate(() => ({
-      gb: GOLDBACK_DENOMINATIONS.map((d) => ({
-        denom: d.weight,
-        table: d.goldOz,
-        sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "gb" }),
-      })),
-      sb: SILVERBACK_DENOMINATIONS.map((d) => ({
-        denom: d.weight,
-        table: d.silverOz,
-        sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "sb" }),
-      })),
-    }));
-    expect(rows.gb.length).toBe(9); // ¼, ½, 1, 2, 5, 10, 25, 50, 100
-    expect(rows.sb.length).toBeGreaterThan(0);
-    for (const r of rows.gb) expect(r.sortKey).toBeCloseTo(r.table, 12);
-    for (const r of rows.sb) expect(r.sortKey).toBeCloseTo(r.table, 12);
-  });
-
-  test("fractional denominations sort by gold content, below every larger note", async ({
-    page,
-  }) => {
-    await seedWeightSorted(page, [GB_5_NOTE, GB_QUARTER, GB_HALF, GB_2_NOTE], "asc");
-    const names = await rowNames(page);
-    // 0.00025 < 0.0005 < 0.002 < 0.005 ozt
-    expect(names[0]).toContain("Quarter Goldback");
-    expect(names[1]).toContain("Half Goldback");
-    expect(names[2]).toContain("Two Goldback");
-    expect(names[3]).toContain("Five Goldback");
-  });
-
   test("the filter chip follows the corrected denomination text", async ({ page }) => {
     // getWeightFilterLabel builds the chip via formatWeight, so the fix propagates for free —
     // the chip must not go on saying "0.3 gb" after the cell stopped.
@@ -3052,6 +3026,107 @@ test.describe("core/inventory-math — STRK-318 gb/sb denomination display + AGW
     await expect(chips.filter({ hasText: "¼ gb" })).toHaveCount(1);
     await expect(chips.filter({ hasText: "0.3" })).toHaveCount(0);
     await expect(chips.filter({ hasText: "0.00025" })).toHaveCount(0);
+  });
+
+  // Logic-only cases. Each step seeds and loads its own inventory on a fresh page.
+  const DENOMINATION_CASES = [
+    {
+      name: "formatDenomination never rounds a denomination into a neighbouring one",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_QUARTER]);
+        const out = await page.evaluate(() => ({
+          quarter: window.formatDenomination(0.25),
+          half: window.formatDenomination(0.5),
+          one: window.formatDenomination(1),
+          hundred: window.formatDenomination(100),
+          // Previously (0.125).toFixed(1) silently displayed "0.1" — a different denomination.
+          eighth: window.formatDenomination(0.125),
+          oddFraction: window.formatDenomination(2.5),
+          stringInput: window.formatDenomination("0.25"),
+          garbage: window.formatDenomination("abc"),
+          nullish: window.formatDenomination(null),
+        }));
+        expect(out.quarter).toBe("¼");
+        expect(out.half).toBe("½");
+        expect(out.one).toBe("1");
+        expect(out.hundred).toBe("100");
+        expect(out.eighth).toBe("0.125");
+        expect(out.oddFraction).toBe("2.5");
+        expect(out.stringInput).toBe("¼");
+        expect(out.garbage).toBe("abc");
+        expect(out.nullish).toBe("");
+      },
+    },
+    {
+      name: "a Goldback weight cell tooltip reports its AGW in troy ounces",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_QUARTER]);
+        const title = await weightCellFor(page, "Core STRK318 Quarter Goldback").getAttribute(
+          "title"
+        );
+        // ¼ Goldback = 0.00025 ozt of gold — the figure the cell itself cannot show.
+        expect(title).toContain("0.00025 ozt");
+        expect(title).toContain("AGW (Actual Gold Weight)");
+        // The old static string named no weight at all.
+        expect(title).not.toBe("Goldback denomination");
+      },
+    },
+    {
+      name: "a Silverback weight cell tooltip reports its ASW, not AGW",
+      run: async (page) => {
+        await seedAndLoad(page, [SB_1_NOTE]);
+        const title = await weightCellFor(page, "Core STRK316 One Silverback").getAttribute(
+          "title"
+        );
+        expect(title).toContain("0.001 ozt");
+        expect(title).toContain("ASW (Actual Silver Weight)");
+        expect(title).not.toContain("AGW");
+      },
+    },
+    {
+      name: "the gb/sb sort key equals the metal content in the denomination tables",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_QUARTER]);
+        const rows = await page.evaluate(() => ({
+          gb: GOLDBACK_DENOMINATIONS.map((d) => ({
+            denom: d.weight,
+            table: d.goldOz,
+            sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "gb" }),
+          })),
+          sb: SILVERBACK_DENOMINATIONS.map((d) => ({
+            denom: d.weight,
+            table: d.silverOz,
+            sortKey: window.getUnitOztWeight({ weight: d.weight, weightUnit: "sb" }),
+          })),
+        }));
+        expect(rows.gb.length).toBe(9); // ¼, ½, 1, 2, 5, 10, 25, 50, 100
+        expect(rows.sb.length).toBeGreaterThan(0);
+        for (const r of rows.gb) expect(r.sortKey).toBeCloseTo(r.table, 12);
+        for (const r of rows.sb) expect(r.sortKey).toBeCloseTo(r.table, 12);
+      },
+    },
+    {
+      name: "fractional denominations sort by gold content, below every larger note",
+      run: async (page) => {
+        await seedWeightSorted(page, [GB_5_NOTE, GB_QUARTER, GB_HALF, GB_2_NOTE], "asc");
+        const names = await rowNames(page);
+        // 0.00025 < 0.0005 < 0.002 < 0.005 ozt
+        expect(names[0]).toContain("Quarter Goldback");
+        expect(names[1]).toContain("Half Goldback");
+        expect(names[2]).toContain("Two Goldback");
+        expect(names[3]).toContain("Five Goldback");
+      },
+    },
+  ];
+
+  test("gb/sb denomination text, tooltips and sort keys, one step per case", async ({ page }) => {
+    test.setTimeout(test.info().timeout * DENOMINATION_CASES.length);
+    for (const { name, run } of DENOMINATION_CASES) {
+      await test.step(name, async () => {
+        await freshPage(page);
+        await run(page);
+      });
+    }
   });
 });
 
@@ -3115,62 +3190,13 @@ const G_BAR_3165 = {
   serial: 343,
 };
 
-test.describe("core/inventory-math — STRK-319 unit rendering across every weight unit", () => {
+test.describe("core/inventory-math — unit rendering across every weight unit", () => {
   test("no weight renders as zero, whatever unit it is stored in", async ({ page }) => {
     await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
     // Was "0.03 g" — a 20% overstatement of a 25 mg note.
     await expect(weightCellFor(page, "Core STRK319 Gram-Stored Aurum")).toHaveText("0.025 g");
     // The new native unit reads the way the product is sold.
     await expect(weightCellFor(page, "Core STRK319 Aurum 25mg")).toHaveText("25 mg");
-  });
-
-  test("adaptive precision leaves ordinary weights byte-identical", async ({ page }) => {
-    // The fix must not restyle every row — only values the base precision cannot represent.
-    await seedAndLoad(page, [MONEY_ITEM]);
-    const out = await page.evaluate(() => ({
-      oz1: window.formatWeight(1, "oz"),
-      oz2: window.formatWeight(2, "oz"),
-      oz10: window.formatWeight(10, "oz"),
-      ozTenth: window.formatWeight(0.1, "oz"),
-      ozTwentieth: window.formatWeight(0.05, "oz"),
-      oz100: window.formatWeight(100, "oz"),
-      g1: window.formatWeight(1 / 31.1035, "g"),
-      g3165: window.formatWeight(31.65 / 31.1035, "g"),
-      kg1: window.formatWeight(32.15075, "kg"),
-      lb1: window.formatWeight(14.58333, "lb"),
-    }));
-    expect(out.oz1).toBe("1.00 oz");
-    expect(out.oz2).toBe("2.00 oz");
-    expect(out.oz10).toBe("10.00 oz");
-    expect(out.ozTenth).toBe("0.10 oz");
-    expect(out.ozTwentieth).toBe("0.05 oz");
-    expect(out.oz100).toBe("100.00 oz");
-    expect(out.g1).toBe("1.00 g");
-    expect(out.g3165).toBe("31.65 g");
-    expect(out.kg1).toBe("1.0000 kg");
-    expect(out.lb1).toBe("1.0000 lb");
-  });
-
-  test("adaptive precision grows only for values the base precision cannot represent", async ({
-    page,
-  }) => {
-    await seedAndLoad(page, [MONEY_ITEM]);
-    const out = await page.evaluate(() => {
-      const oztFor = (mg) => window.mgToOzt(mg);
-      return {
-        gramsOf25mg: window.formatWeight(oztFor(25), "g"), // was "0.03 g"
-        ozOf25mg: window.formatWeight(oztFor(25), "oz"), // was "0.00 oz"
-        ozOf1mg: window.formatWeight(oztFor(1), "oz"), // was "0.00 oz"
-        kgOf25mg: window.formatWeight(oztFor(25), "kg"), // was "0.0000 kg"
-        zero: window.formatWeight(0, "oz"), // a genuine zero keeps base precision
-      };
-    });
-    expect(out.gramsOf25mg).toBe("0.025 g");
-    // Never zero, and never more decimals than the cap allows.
-    expect(parseFloat(out.ozOf25mg)).toBeGreaterThan(0);
-    expect(parseFloat(out.ozOf1mg)).toBeGreaterThan(0);
-    expect(parseFloat(out.kgOf25mg)).toBeGreaterThan(0);
-    expect(out.zero).toBe("0.00 oz");
   });
 
   test("the edit modal preserves the stored unit instead of rewriting it to grams", async ({
@@ -3196,19 +3222,6 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
     expect(parseFloat(entered)).toBeCloseTo(25, 1);
   });
 
-  test("every unit survives an edit-modal round trip", async ({ page }) => {
-    await seedAndLoad(page, [OZ_TENTH, G_BAR_3165, MG_AURUM_25, GB_QUARTER, SB_1_NOTE]);
-    const expected = ["oz", "g", "mg", "gb", "sb"];
-    for (let i = 0; i < expected.length; i += 1) {
-      const unit = await page.evaluate(async (idx) => {
-        window.editItem(idx);
-        return document.getElementById("itemWeightUnit").value;
-      }, i);
-      expect(unit).toBe(expected[i]);
-      await page.evaluate(() => document.getElementById("cancelItemBtn")?.click());
-    }
-  });
-
   test("a legacy item with no stored unit still falls back to grams when small", async ({
     page,
   }) => {
@@ -3228,22 +3241,6 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
     await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
   });
 
-  test("mg converts to the canonical troy ounce on save and back on display", async ({ page }) => {
-    await seedAndLoad(page, [MONEY_ITEM]);
-    const trip = await page.evaluate(() => {
-      const stored = parseFloat(window.mgToOzt(25).toFixed(6)); // parseWeight stores at 6dp
-      return {
-        stored,
-        backToMg: window.oztToMg(stored),
-        display: window.formatWeight(stored, "mg"),
-      };
-    });
-    // Storage stays troy ounces, so melt/totals/sort need no mg special case.
-    expect(trip.stored).toBeCloseTo(0.000804, 6);
-    expect(trip.backToMg).toBeCloseTo(25, 1);
-    expect(trip.display).toBe("25 mg");
-  });
-
   test("gram and milligram chips show the cell text, not the stored troy-ounce float", async ({
     page,
   }) => {
@@ -3253,35 +3250,6 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
     const chips = page.locator("#activeFilters .filter-chip");
     await expect(chips.filter({ hasText: "31.65 g" })).toHaveCount(1);
     await expect(chips.filter({ hasText: "1.0175" })).toHaveCount(0);
-  });
-
-  test("plain ounce chips are unchanged — they already read as their own key", async ({ page }) => {
-    await seedAndLoad(page, [OZ_10_BAR, G_BAR_3165]);
-    const labels = await page.evaluate(() => ({
-      oz: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
-      gram: window.getWeightFilterLabel(String(31.65 / 31.1035), [
-        { weight: 31.65 / 31.1035, weightUnit: "g" },
-      ]),
-      mg: window.getWeightFilterLabel(String(window.mgToOzt(25)), [
-        { weight: window.mgToOzt(25), weightUnit: "mg" },
-      ]),
-      noMatch: window.getWeightFilterLabel("99", [{ weight: 10, weightUnit: "oz" }]),
-      empty: window.getWeightFilterLabel("", []),
-    }));
-    expect(labels.oz).toBe("10"); // bullion byte-identical
-    expect(labels.gram).toBe("31.65 g");
-    expect(labels.mg).toBe("25 mg");
-    expect(labels.noMatch).toBe("99");
-    expect(labels.empty).toBe("");
-  });
-
-  test("a measured weight cell tooltip reports its canonical troy ounces", async ({ page }) => {
-    // Was a static unit name ("Grams (g)") that added nothing the cell did not already say.
-    await seedAndLoad(page, [G_BAR_3165]);
-    const title = await weightCellFor(page, "Core STRK319 Gram Bar").getAttribute("title");
-    expect(title).toContain("ozt");
-    expect(title).toMatch(/1\.0[12]/); // 31.65 g ≈ 1.0176 ozt
-    expect(title).toContain("Grams (g)");
   });
 
   // PR #1407 review (Codex P1): the INLINE weight editor is a second, independent edit path
@@ -3309,97 +3277,240 @@ test.describe("core/inventory-math — STRK-319 unit rendering across every weig
     }, name);
   }
 
-  test("the inline weight editor preserves mg and does not rewrite the value", async ({ page }) => {
-    await seedAndLoad(page, [MG_AURUM_25]);
-    const editor = await openInlineWeightEditor(page, "Core STRK319 Aurum 25mg");
-    // Was dataset.unit "g" with value "0.03" — and saving converted that back through
-    // gramsToOzt, turning a 25 mg note into 30 mg while weightUnit still claimed mg.
-    expect(editor.unit).toBe("mg");
-    expect(parseFloat(editor.value)).toBeCloseTo(25, 1);
-  });
+  // Logic-only cases. Each step seeds and loads its own inventory on a fresh page.
+  const WEIGHT_UNIT_CASES = [
+    {
+      name: "adaptive precision leaves ordinary weights byte-identical",
+      run: async (page) => {
+        // The fix must not restyle every row — only values the base precision cannot represent.
+        await seedAndLoad(page, [MONEY_ITEM]);
+        const out = await page.evaluate(() => ({
+          oz1: window.formatWeight(1, "oz"),
+          oz2: window.formatWeight(2, "oz"),
+          oz10: window.formatWeight(10, "oz"),
+          ozTenth: window.formatWeight(0.1, "oz"),
+          ozTwentieth: window.formatWeight(0.05, "oz"),
+          oz100: window.formatWeight(100, "oz"),
+          g1: window.formatWeight(1 / 31.1035, "g"),
+          g3165: window.formatWeight(31.65 / 31.1035, "g"),
+          kg1: window.formatWeight(32.15075, "kg"),
+          lb1: window.formatWeight(14.58333, "lb"),
+        }));
+        expect(out.oz1).toBe("1.00 oz");
+        expect(out.oz2).toBe("2.00 oz");
+        expect(out.oz10).toBe("10.00 oz");
+        expect(out.ozTenth).toBe("0.10 oz");
+        expect(out.ozTwentieth).toBe("0.05 oz");
+        expect(out.oz100).toBe("100.00 oz");
+        expect(out.g1).toBe("1.00 g");
+        expect(out.g3165).toBe("31.65 g");
+        expect(out.kg1).toBe("1.0000 kg");
+        expect(out.lb1).toBe("1.0000 lb");
+      },
+    },
+    {
+      name: "adaptive precision grows only for values the base precision cannot represent",
+      run: async (page) => {
+        await seedAndLoad(page, [MONEY_ITEM]);
+        const out = await page.evaluate(() => {
+          const oztFor = (mg) => window.mgToOzt(mg);
+          return {
+            gramsOf25mg: window.formatWeight(oztFor(25), "g"), // was "0.03 g"
+            ozOf25mg: window.formatWeight(oztFor(25), "oz"), // was "0.00 oz"
+            ozOf1mg: window.formatWeight(oztFor(1), "oz"), // was "0.00 oz"
+            kgOf25mg: window.formatWeight(oztFor(25), "kg"), // was "0.0000 kg"
+            zero: window.formatWeight(0, "oz"), // a genuine zero keeps base precision
+          };
+        });
+        expect(out.gramsOf25mg).toBe("0.025 g");
+        // Never zero, and never more decimals than the cap allows.
+        expect(parseFloat(out.ozOf25mg)).toBeGreaterThan(0);
+        expect(parseFloat(out.ozOf1mg)).toBeGreaterThan(0);
+        expect(parseFloat(out.kgOf25mg)).toBeGreaterThan(0);
+        expect(out.zero).toBe("0.00 oz");
+      },
+    },
+    {
+      name: "every unit survives an edit-modal round trip",
+      run: async (page) => {
+        await seedAndLoad(page, [OZ_TENTH, G_BAR_3165, MG_AURUM_25, GB_QUARTER, SB_1_NOTE]);
+        const expected = ["oz", "g", "mg", "gb", "sb"];
+        for (let i = 0; i < expected.length; i += 1) {
+          const unit = await page.evaluate(async (idx) => {
+            window.editItem(idx);
+            return document.getElementById("itemWeightUnit").value;
+          }, i);
+          expect(unit).toBe(expected[i]);
+          await page.evaluate(() => document.getElementById("cancelItemBtn")?.click());
+        }
+      },
+    },
+    {
+      name: "mg converts to the canonical troy ounce on save and back on display",
+      run: async (page) => {
+        await seedAndLoad(page, [MONEY_ITEM]);
+        const trip = await page.evaluate(() => {
+          const stored = parseFloat(window.mgToOzt(25).toFixed(6)); // parseWeight stores at 6dp
+          return {
+            stored,
+            backToMg: window.oztToMg(stored),
+            display: window.formatWeight(stored, "mg"),
+          };
+        });
+        // Storage stays troy ounces, so melt/totals/sort need no mg special case.
+        expect(trip.stored).toBeCloseTo(0.000804, 6);
+        expect(trip.backToMg).toBeCloseTo(25, 1);
+        expect(trip.display).toBe("25 mg");
+      },
+    },
+    {
+      name: "plain ounce chips are unchanged — they already read as their own key",
+      run: async (page) => {
+        await seedAndLoad(page, [OZ_10_BAR, G_BAR_3165]);
+        const labels = await page.evaluate(() => ({
+          oz: window.getWeightFilterLabel("10", [{ weight: 10, weightUnit: "oz" }]),
+          gram: window.getWeightFilterLabel(String(31.65 / 31.1035), [
+            { weight: 31.65 / 31.1035, weightUnit: "g" },
+          ]),
+          mg: window.getWeightFilterLabel(String(window.mgToOzt(25)), [
+            { weight: window.mgToOzt(25), weightUnit: "mg" },
+          ]),
+          noMatch: window.getWeightFilterLabel("99", [{ weight: 10, weightUnit: "oz" }]),
+          empty: window.getWeightFilterLabel("", []),
+        }));
+        expect(labels.oz).toBe("10"); // bullion byte-identical
+        expect(labels.gram).toBe("31.65 g");
+        expect(labels.mg).toBe("25 mg");
+        expect(labels.noMatch).toBe("99");
+        expect(labels.empty).toBe("");
+      },
+    },
+    {
+      name: "a measured weight cell tooltip reports its canonical troy ounces",
+      run: async (page) => {
+        // Was a static unit name ("Grams (g)") that added nothing the cell did not already say.
+        await seedAndLoad(page, [G_BAR_3165]);
+        const title = await weightCellFor(page, "Core STRK319 Gram Bar").getAttribute("title");
+        expect(title).toContain("ozt");
+        expect(title).toMatch(/1\.0[12]/); // 31.65 g ≈ 1.0176 ozt
+        expect(title).toContain("Grams (g)");
+      },
+    },
+    {
+      name: "the inline weight editor preserves mg and does not rewrite the value",
+      run: async (page) => {
+        await seedAndLoad(page, [MG_AURUM_25]);
+        const editor = await openInlineWeightEditor(page, "Core STRK319 Aurum 25mg");
+        // Was dataset.unit "g" with value "0.03" — and saving converted that back through
+        // gramsToOzt, turning a 25 mg note into 30 mg while weightUnit still claimed mg.
+        expect(editor.unit).toBe("mg");
+        expect(parseFloat(editor.value)).toBeCloseTo(25, 1);
+      },
+    },
+    {
+      name: "the inline weight editor shows a Goldback denomination, not grams",
+      run: async (page) => {
+        await seedAndLoad(page, [GB_QUARTER]);
+        const editor = await openInlineWeightEditor(page, "Core STRK318 Quarter Goldback");
+        expect(editor.unit).toBe("gb");
+        // The denomination itself — a ¼ Goldback previously opened as "7.78" grams of gold.
+        expect(parseFloat(editor.value)).toBeCloseTo(0.25, 6);
+      },
+    },
+    {
+      name: "the inline weight editor still converts grams and ounces as before",
+      run: async (page) => {
+        await seedAndLoad(page, [G_BAR_3165, OZ_TENTH]);
+        const gram = await openInlineWeightEditor(page, "Core STRK319 Gram Bar");
+        expect(gram.unit).toBe("g");
+        expect(parseFloat(gram.value)).toBeCloseTo(31.65, 2);
+        const ounce = await openInlineWeightEditor(page, "Core STRK319 Tenth Oz Gold");
+        // Was forced to grams by the same `< 1` catch the modal had.
+        expect(ounce.unit).toBe("oz");
+        expect(parseFloat(ounce.value)).toBeCloseTo(0.1, 6);
+      },
+    },
+    {
+      name: "a chip for colliding metric units spells out each unit's own value",
+      run: async (page) => {
+        // PR #1407 review (Codex P2 + Copilot): "0.025 g/mg" implies 0.025 applies to both units,
+        // or reads as a ratio. The gb/sb shorthand only works because both render the same numeral.
+        await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
+        const labels = await page.evaluate(() => {
+          const gramItem = { weight: window.mgToOzt(25), weightUnit: "g" };
+          const mgItem = { weight: window.mgToOzt(25), weightUnit: "mg" };
+          const key = window.getItemFilterWeight(gramItem);
+          return {
+            sameKey: key === window.getItemFilterWeight(mgItem),
+            collision: window.getWeightFilterLabel(key, [gramItem, mgItem]),
+            reversed: window.getWeightFilterLabel(key, [mgItem, gramItem]),
+            // gb/sb still compact, because 1 gb and 1 sb genuinely render the same numeral.
+            gbSb: window.getWeightFilterLabel("0.00100", [
+              { weight: 1, weightUnit: "gb" },
+              { weight: 1, weightUnit: "sb" },
+            ]),
+          };
+        });
+        expect(labels.sameKey).toBe(true);
+        expect(labels.collision).toBe("0.025 g / 25 mg");
+        expect(labels.reversed).toBe("0.025 g / 25 mg"); // order-independent
+        expect(labels.collision).not.toContain("g/mg");
+        expect(labels.gbSb).toBe("1 gb/sb");
+      },
+    },
+    {
+      name: "bulk edit converts mg through its own conversion path",
+      run: async (page) => {
+        // The first version of this test only re-checked mgToOzt and queried the SINGLE-item
+        // modal's select — it never touched js/bulkEdit.js, so the bulk conversion path was
+        // untested despite the test's name (PR #1407 review, CodeRabbit).
+        await seedAndLoad(page, [MONEY_ITEM]);
+        const out = await page.evaluate(() => ({
+          mg: convertBulkWeightToOzt("25", "mg"),
+          g: convertBulkWeightToOzt("1", "g"),
+          kg: convertBulkWeightToOzt("1", "kg"),
+          lb: convertBulkWeightToOzt("1", "lb"),
+          oz: convertBulkWeightToOzt("10", "oz"),
+          gb: convertBulkWeightToOzt("5", "gb"),
+        }));
+        expect(parseFloat(out.mg)).toBeCloseTo(0.000803768, 9);
+        expect(parseFloat(out.g)).toBeCloseTo(1 / 31.1035, 9);
+        expect(parseFloat(out.kg)).toBeCloseTo(32.15075, 6);
+        expect(parseFloat(out.lb)).toBeCloseTo(14.58333, 6);
+        // oz needs no conversion, and gb/sb store the denomination itself — both pass through.
+        expect(out.oz).toBe("10");
+        expect(out.gb).toBe("5");
+      },
+    },
+    {
+      name: "the bulk edit weight-unit field offers milligram",
+      run: async (page) => {
+        await seedAndLoad(page, [MONEY_ITEM]);
+        const units = await page.evaluate(() => {
+          const field = BULK_EDITABLE_FIELDS.find((f) => f.id === "weightUnit");
+          return field.options.map((o) => o.value);
+        });
+        expect(units).toContain("mg");
+        // The full set stays in sync with the add/edit modal's own dropdown.
+        expect(units).toEqual(
+          expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "avdp", "gb", "sb", "cu"])
+        );
+      },
+    },
+  ];
 
-  test("the inline weight editor shows a Goldback denomination, not grams", async ({ page }) => {
-    await seedAndLoad(page, [GB_QUARTER]);
-    const editor = await openInlineWeightEditor(page, "Core STRK318 Quarter Goldback");
-    expect(editor.unit).toBe("gb");
-    // The denomination itself — a ¼ Goldback previously opened as "7.78" grams of gold.
-    expect(parseFloat(editor.value)).toBeCloseTo(0.25, 6);
-  });
-
-  test("the inline weight editor still converts grams and ounces as before", async ({ page }) => {
-    await seedAndLoad(page, [G_BAR_3165, OZ_TENTH]);
-    const gram = await openInlineWeightEditor(page, "Core STRK319 Gram Bar");
-    expect(gram.unit).toBe("g");
-    expect(parseFloat(gram.value)).toBeCloseTo(31.65, 2);
-    const ounce = await openInlineWeightEditor(page, "Core STRK319 Tenth Oz Gold");
-    // Was forced to grams by the same `< 1` catch the modal had.
-    expect(ounce.unit).toBe("oz");
-    expect(parseFloat(ounce.value)).toBeCloseTo(0.1, 6);
-  });
-
-  test("a chip for colliding metric units spells out each unit's own value", async ({ page }) => {
-    // PR #1407 review (Codex P2 + Copilot): "0.025 g/mg" implies 0.025 applies to both units,
-    // or reads as a ratio. The gb/sb shorthand only works because both render the same numeral.
-    await seedAndLoad(page, [G_AURUM_25, MG_AURUM_25]);
-    const labels = await page.evaluate(() => {
-      const gramItem = { weight: window.mgToOzt(25), weightUnit: "g" };
-      const mgItem = { weight: window.mgToOzt(25), weightUnit: "mg" };
-      const key = window.getItemFilterWeight(gramItem);
-      return {
-        sameKey: key === window.getItemFilterWeight(mgItem),
-        collision: window.getWeightFilterLabel(key, [gramItem, mgItem]),
-        reversed: window.getWeightFilterLabel(key, [mgItem, gramItem]),
-        // gb/sb still compact, because 1 gb and 1 sb genuinely render the same numeral.
-        gbSb: window.getWeightFilterLabel("0.00100", [
-          { weight: 1, weightUnit: "gb" },
-          { weight: 1, weightUnit: "sb" },
-        ]),
-      };
-    });
-    expect(labels.sameKey).toBe(true);
-    expect(labels.collision).toBe("0.025 g / 25 mg");
-    expect(labels.reversed).toBe("0.025 g / 25 mg"); // order-independent
-    expect(labels.collision).not.toContain("g/mg");
-    expect(labels.gbSb).toBe("1 gb/sb");
-  });
-
-  test("bulk edit converts mg through its own conversion path", async ({ page }) => {
-    // The first version of this test only re-checked mgToOzt and queried the SINGLE-item
-    // modal's select — it never touched js/bulkEdit.js, so the bulk conversion path was
-    // untested despite the test's name (PR #1407 review, CodeRabbit).
-    await seedAndLoad(page, [MONEY_ITEM]);
-    const out = await page.evaluate(() => ({
-      mg: convertBulkWeightToOzt("25", "mg"),
-      g: convertBulkWeightToOzt("1", "g"),
-      kg: convertBulkWeightToOzt("1", "kg"),
-      lb: convertBulkWeightToOzt("1", "lb"),
-      oz: convertBulkWeightToOzt("10", "oz"),
-      gb: convertBulkWeightToOzt("5", "gb"),
-    }));
-    expect(parseFloat(out.mg)).toBeCloseTo(0.000803768, 9);
-    expect(parseFloat(out.g)).toBeCloseTo(1 / 31.1035, 9);
-    expect(parseFloat(out.kg)).toBeCloseTo(32.15075, 6);
-    expect(parseFloat(out.lb)).toBeCloseTo(14.58333, 6);
-    // oz needs no conversion, and gb/sb store the denomination itself — both pass through.
-    expect(out.oz).toBe("10");
-    expect(out.gb).toBe("5");
-  });
-
-  test("the bulk edit weight-unit field offers milligram", async ({ page }) => {
-    await seedAndLoad(page, [MONEY_ITEM]);
-    const units = await page.evaluate(() => {
-      const field = BULK_EDITABLE_FIELDS.find((f) => f.id === "weightUnit");
-      return field.options.map((o) => o.value);
-    });
-    expect(units).toContain("mg");
-    // The full set stays in sync with the add/edit modal's own dropdown.
-    expect(units).toEqual(
-      expect.arrayContaining(["oz", "g", "mg", "kg", "lb", "avdp", "gb", "sb", "cu"])
-    );
+  test("weight-unit rendering and conversion, one step per case", async ({ page }) => {
+    test.setTimeout(test.info().timeout * WEIGHT_UNIT_CASES.length);
+    for (const { name, run } of WEIGHT_UNIT_CASES) {
+      await test.step(name, async () => {
+        await freshPage(page);
+        await run(page);
+      });
+    }
   });
 });
 
-test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () => {
+test.describe("core/inventory-math — copper + avoirdupois unit", () => {
   const AVDP_OZT = 0.9114583;
 
   const COPPER_ROUND = {
@@ -3440,52 +3551,90 @@ test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () =
     expect(item.weight).toBeCloseTo(AVDP_OZT, 6);
   });
 
-  test("copper-alloy compositions stay Alloy — only pure copper imports as Copper", async ({
-    page,
-  }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const r = await page.evaluate(() => {
-      // normalizeMetal lives on NumistaProvider and reads no instance state.
-      const norm = NumistaProvider.prototype.normalizeMetal;
-      return {
-        pure: parseNumistaMetal("Copper"),
-        fineness: parseNumistaMetal("Copper (.999)"),
-        cuNi: parseNumistaMetal("Copper-nickel"),
-        plated: parseNumistaMetal("Copper plated steel"),
-        exactStored: parseWeight("1", "avdp", false, {}),
-        catalogPure: norm.call(null, "Copper"),
-        catalogCuNi: norm.call(null, "Copper-nickel"),
-        catalogBronze: norm.call(null, "Bronze"),
-      };
-    });
-    // Pure copper is first-class; every copper alloy keeps its pre-STRK-305
-    // classification so it cannot slip through the import gate at purity 1.0
-    // (PR #1457 review — Codacy + Codex).
-    expect(r.pure).toBe("Copper");
-    expect(r.fineness).toBe("Copper");
-    expect(r.cuNi).toBe("Alloy");
-    expect(r.plated).toBe("Alloy");
-    // parseWeight keeps 7dp for avdp so the conversion constant is stored exactly.
-    expect(r.exactStored).toBe(0.9114583);
-    if (r.catalogPure !== null) {
-      expect(r.catalogPure).toBe("Copper");
-      expect(r.catalogCuNi).toBe("Alloy/Other");
-      expect(r.catalogBronze).toBe("Alloy/Other");
-    }
-  });
+  // Logic-only cases on the default seed, run as steps of one test.
+  const COPPER_HELPER_CASES = [
+    {
+      name: "copper-alloy compositions stay Alloy — only pure copper imports as Copper",
+      run: async (page) => {
+        const r = await page.evaluate(() => {
+          // normalizeMetal lives on NumistaProvider and reads no instance state.
+          const norm = NumistaProvider.prototype.normalizeMetal;
+          return {
+            pure: parseNumistaMetal("Copper"),
+            fineness: parseNumistaMetal("Copper (.999)"),
+            cuNi: parseNumistaMetal("Copper-nickel"),
+            plated: parseNumistaMetal("Copper plated steel"),
+            exactStored: parseWeight("1", "avdp", false, {}),
+            catalogPure: norm.call(null, "Copper"),
+            catalogCuNi: norm.call(null, "Copper-nickel"),
+            catalogBronze: norm.call(null, "Bronze"),
+          };
+        });
+        // Pure copper is first-class; every copper alloy keeps its pre-STRK-305
+        // classification so it cannot slip through the import gate at purity 1.0
+        // (PR #1457 review — Codacy + Codex).
+        expect(r.pure).toBe("Copper");
+        expect(r.fineness).toBe("Copper");
+        expect(r.cuNi).toBe("Alloy");
+        expect(r.plated).toBe("Alloy");
+        // parseWeight keeps 7dp for avdp so the conversion constant is stored exactly.
+        expect(r.exactStored).toBe(0.9114583);
+        if (r.catalogPure !== null) {
+          expect(r.catalogPure).toBe("Copper");
+          expect(r.catalogCuNi).toBe("Alloy/Other");
+          expect(r.catalogBronze).toBe("Alloy/Other");
+        }
+      },
+    },
+    {
+      name: "copper melt value matches the hand calculation on the stored troy weight",
+      run: async (page) => {
+        const melt = await page.evaluate(
+          (it) => window.computeMeltValue({ ...it, purity: 1 }, 0.41),
+          COPPER_ROUND
+        );
+        // 0.9114583 ozt × qty 1 × $0.41/ozt × purity 1
+        expect(melt).toBeCloseTo(0.9114583 * 0.41, 6);
+      },
+    },
+    {
+      name: "constitutional 'cu' items are provably untouched by the avdp unit",
+      run: async (page) => {
+        const r = await page.evaluate(() => {
+          localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
+          const cuItem = {
+            weightUnit: "cu",
+            constitutionalEntryMode: "face",
+            constitutionalVariant: "con-90-subsidiary",
+            weight: 10,
+            qty: 1,
+            purity: 0.9,
+          };
+          return {
+            oz: window.getConstitutionalSilverOz(cuItem),
+            melt: window.computeMeltValue(cuItem, 33.25),
+            // The bulk converter must treat "cu" as a pass-through, never an avdp alias.
+            // (Top-level const — reachable as a bare global, not via window.)
+            bulkCu: convertBulkWeightToOzt("10", "cu"),
+            bulkAvdp: convertBulkWeightToOzt("1", "avdp"),
+          };
+        });
+        // Identical to the pre-STRK-305 constitutional contract.
+        expect(r.oz).toBeCloseTo(7.15, 2);
+        expect(r.melt).toBeCloseTo(7.15 * 33.25, 1);
+        expect(r.bulkCu).toBe("10");
+        expect(parseFloat(r.bulkAvdp)).toBeCloseTo(0.9114583, 6);
+      },
+    },
+  ];
 
-  test("copper melt value matches the hand calculation on the stored troy weight", async ({
-    page,
-  }) => {
+  test("copper and avdp helpers, one step per case", async ({ page }) => {
     await seedMoneyData(page);
     await gotoApp(page);
-    const melt = await page.evaluate(
-      (it) => window.computeMeltValue({ ...it, purity: 1 }, 0.41),
-      COPPER_ROUND
-    );
-    // 0.9114583 ozt × qty 1 × $0.41/ozt × purity 1
-    expect(melt).toBeCloseTo(0.9114583 * 0.41, 6);
+    test.setTimeout(test.info().timeout * COPPER_HELPER_CASES.length);
+    for (const { name, run } of COPPER_HELPER_CASES) {
+      await test.step(name, () => run(page));
+    }
   });
 
   test("picking Copper never clobbers an explicit non-oz unit choice", async ({ page }) => {
@@ -3498,9 +3647,7 @@ test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () =
     await expect(page.locator("#itemWeightUnit")).toHaveValue("g");
   });
 
-  test("an avdp item survives the edit round trip unchanged (STRK-319 bug class)", async ({
-    page,
-  }) => {
+  test("an avdp item survives the edit round trip unchanged", async ({ page }) => {
     await seedMoneyData(page, { inventory: [COPPER_ROUND] });
     await gotoApp(page);
     await openEditModal(page, 0);
@@ -3511,35 +3658,6 @@ test.describe("core/inventory-math — STRK-305 copper + avoirdupois unit", () =
     const item = await getInventoryItem(page, "Core Copper Round");
     expect(item.weightUnit).toBe("avdp");
     expect(item.weight).toBeCloseTo(AVDP_OZT, 6);
-  });
-
-  test("constitutional 'cu' items are provably untouched by the avdp unit", async ({ page }) => {
-    await seedMoneyData(page);
-    await gotoApp(page);
-    const r = await page.evaluate(() => {
-      localStorage.setItem("constitutionalValuationBasis", JSON.stringify("worn"));
-      const cuItem = {
-        weightUnit: "cu",
-        constitutionalEntryMode: "face",
-        constitutionalVariant: "con-90-subsidiary",
-        weight: 10,
-        qty: 1,
-        purity: 0.9,
-      };
-      return {
-        oz: window.getConstitutionalSilverOz(cuItem),
-        melt: window.computeMeltValue(cuItem, 33.25),
-        // The bulk converter must treat "cu" as a pass-through, never an avdp alias.
-        // (Top-level const — reachable as a bare global, not via window.)
-        bulkCu: convertBulkWeightToOzt("10", "cu"),
-        bulkAvdp: convertBulkWeightToOzt("1", "avdp"),
-      };
-    });
-    // Identical to the pre-STRK-305 constitutional contract.
-    expect(r.oz).toBeCloseTo(7.15, 2);
-    expect(r.melt).toBeCloseTo(7.15 * 33.25, 1);
-    expect(r.bulkCu).toBe("10");
-    expect(parseFloat(r.bulkAvdp)).toBeCloseTo(0.9114583, 6);
   });
 
   test("copper renders in the metal dropdown and the four legacy metals are unchanged", async ({

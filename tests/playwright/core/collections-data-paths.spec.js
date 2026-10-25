@@ -109,6 +109,9 @@ test.describe("core/collections-data-paths — encrypted vault", () => {
 
   test("a matching .stvault restores missing companion artwork", async ({ page }) => {
     await seedAndGoto(page);
+    // The startup spot sync writes metalApiConfig. A backup taken before that write
+    // differs from storage at restore, and the restore then waits on the diff modal.
+    await page.evaluate(() => window.syncSpotProvider({ forceSync: false }));
     const art = await page.evaluate(async () => {
       const created = window.collectionsStore.createCustom({
         name: "Vault art",
@@ -293,341 +296,392 @@ const runCsvImportCapturingParse = async (page, spec) => {
   return { toast, parsed: await page.evaluate(() => window.lastCsvImportParse) };
 };
 
-test.describe("core/collections-data-paths — standalone Collections file", () => {
-  test("Settings offers Export and Import Collections, and the file restores links AND an empty Custom Collection", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    const customId = await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
-      return window.collectionsStore.createCustom({
-        name: "Carson City Morgans",
-        slots: [{ label: "1881-CC", mintage: 296000 }],
-      }).collection.id;
+/**
+ * Run logic-only cases on one booted page, one step each. Every case starts from
+ * cleared storage holding only its seed, and the reload drops any global an earlier
+ * case patched. Each step gets the configured per-test timeout.
+ * @param {import('@playwright/test').Page} page - A page booted with seedAndGoto.
+ * @param {Array<{name: string, seed?: object[], run: Function}>} cases - Named cases.
+ * @param {Function} [ready] - Extra boot condition, evaluated in the page.
+ * @returns {Promise<void>}
+ */
+const runCases = async (page, cases, ready) => {
+  test.setTimeout(test.info().timeout * cases.length);
+  for (const { name, seed = SEED, run } of cases) {
+    await test.step(name, async () => {
+      await page.evaluate((items) => {
+        localStorage.clear();
+        localStorage.setItem("metalInventory", JSON.stringify(items));
+      }, seed);
+      await reloadCollections(page);
+      if (ready) await page.waitForFunction(ready);
+      await run(page);
     });
+  }
+};
 
-    await expect(page.locator("#exportCollectionsBtn")).toHaveCount(1);
-    await expect(page.locator("#importCollectionsBtn")).toHaveCount(1);
+const FILE_AND_JSON_CASES = [
+  {
+    name: "Settings offers Export and Import Collections, and the file restores links AND an empty Custom Collection",
+    run: async (page) => {
+      const customId = await page.evaluate(() => {
+        window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+        return window.collectionsStore.createCustom({
+          name: "Carson City Morgans",
+          slots: [{ label: "1881-CC", mintage: 296000 }],
+        }).collection.id;
+      });
 
-    const file = await captureDownload(page, "collectionsIO.exportFile");
-    expect(file.name).toMatch(/^staktrakr_collections_\d{8}\.json$/);
-    const payload = JSON.parse(file.text);
-    expect(payload.kind).toBe("staktrakr-collections");
-    expect(payload.state.collections["ase-type2"].slots["2024"].primary).toBe("cdp-ase-2024");
+      await expect(page.locator("#exportCollectionsBtn")).toHaveCount(1);
+      await expect(page.locator("#importCollectionsBtn")).toHaveCount(1);
 
-    await wipeCollections(page);
-    expect(await primaryOf(page, "2024")).toBeNull();
+      const file = await captureDownload(page, "collectionsIO.exportFile");
+      expect(file.name).toMatch(/^staktrakr_collections_\d{8}\.json$/);
+      const payload = JSON.parse(file.text);
+      expect(payload.kind).toBe("staktrakr-collections");
+      expect(payload.state.collections["ase-type2"].slots["2024"].primary).toBe("cdp-ase-2024");
 
-    const result = await page.evaluate(
-      (text) =>
-        window.collectionsIO.importFile(
-          new File([text], "collections.json", { type: "application/json" })
-        ),
-      file.text
-    );
-    expect(result).toEqual({ ok: true, changed: true });
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-    const custom = await page.evaluate(
-      (id) => window.collectionsStore.getState().collections[id]?.name,
-      customId
-    );
-    expect(custom).toBe("Carson City Morgans");
-    expect(
-      await page.evaluate(
-        (id) => window.collectionsStore.getState().collections[id].definition.slots[0].mintage,
+      await wipeCollections(page);
+      expect(await primaryOf(page, "2024")).toBeNull();
+
+      const result = await page.evaluate(
+        (text) =>
+          window.collectionsIO.importFile(
+            new File([text], "collections.json", { type: "application/json" })
+          ),
+        file.text
+      );
+      expect(result).toEqual({ ok: true, changed: true });
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      const custom = await page.evaluate(
+        (id) => window.collectionsStore.getState().collections[id]?.name,
         customId
-      )
-    ).toBe(296000);
-  });
+      );
+      expect(custom).toBe("Carson City Morgans");
+      expect(
+        await page.evaluate(
+          (id) => window.collectionsStore.getState().collections[id].definition.slots[0].mintage,
+          customId
+        )
+      ).toBe(296000);
+    },
+  },
+  {
+    name: "importing a file that is not a Collections export changes nothing and reports why",
+    run: async (page) => {
+      await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
 
-  test("importing a file that is not a Collections export changes nothing and reports why", async ({
-    page,
-  }) => {
+      const result = await page.evaluate(() =>
+        window.collectionsIO.importFile(
+          new File(['{"items":[]}'], "inventory.json", { type: "application/json" })
+        )
+      );
+
+      expect(result).toEqual({ ok: false, changed: false, reason: "not-collections-file" });
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    },
+  },
+  {
+    name: "Export JSON carries the Collections state and Import JSON merges it even when no item changed",
+    run: async (page) => {
+      await page.waitForFunction(
+        () => typeof window.exportJson === "function" && typeof window.importJson === "function"
+      );
+      await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+
+      const file = await captureDownload(page, "exportJson");
+      const payload = JSON.parse(file.text);
+      expect(payload.collectionState.collections["ase-type2"].slots["2024"].primary).toBe(
+        "cdp-ase-2024"
+      );
+
+      // Same items, no Collections: the item diff is empty, so only the zero-diff branch runs.
+      await wipeCollections(page);
+      const toast = await runImport(page, {
+        fn: "importJson",
+        name: "inventory.json",
+        type: "application/json",
+        text: file.text,
+      });
+
+      expect(toast).toBe("Import complete: collections updated");
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    },
+  },
+];
+
+test.describe("core/collections-data-paths — standalone Collections file and JSON", () => {
+  test("Collections file and JSON round trips, one step per case", async ({ page }) => {
     await seedAndGoto(page);
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
-
-    const result = await page.evaluate(() =>
-      window.collectionsIO.importFile(
-        new File(['{"items":[]}'], "inventory.json", { type: "application/json" })
-      )
-    );
-
-    expect(result).toEqual({ ok: false, changed: false, reason: "not-collections-file" });
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    await runCases(page, FILE_AND_JSON_CASES);
   });
 });
 
-test.describe("core/collections-data-paths — JSON export and import", () => {
-  test("Export JSON carries the Collections state and Import JSON merges it even when no item changed", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await page.waitForFunction(
-      () => typeof window.exportJson === "function" && typeof window.importJson === "function"
-    );
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+const TRADED_SEED = [{ ...SEED[0], tradedFromUuid: "cdp-ase-2024" }, SEED[1]];
 
-    const file = await captureDownload(page, "exportJson");
-    const payload = JSON.parse(file.text);
-    expect(payload.collectionState.collections["ase-type2"].slots["2024"].primary).toBe(
-      "cdp-ase-2024"
-    );
+const CSV_CASES = [
+  {
+    name: "a real CSV download uses CRLF and re-imports non-final trade and Collections values",
+    seed: TRADED_SEED,
+    run: async (page) => {
+      await page.evaluate(() => {
+        window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+      });
+      const file = await captureDownload(page, "exportCsv");
+      expect(file.text).toMatch(/^# exportOrigin: [^\r\n]*\r\n/);
+      expect(file.text.replace(/\r\n/g, "")).not.toContain("\n");
+      const parsed = await page.evaluate(
+        (csv) => window.Papa.parse(csv, { header: true, comments: "#", skipEmptyLines: true }),
+        file.text
+      );
+      expect(parsed.meta.linebreak).toBe("\r\n");
+      expect(parsed.meta.fields.at(-1)).toBe("Collections");
+      expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
+      expect(parsed.data[0]["Collections"]).toBe("ase-type2:2022");
+      expect(parsed.data[0]["Traded From UUID"]).toBe("cdp-ase-2024");
+      expect(
+        parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))
+      ).toBe(true);
 
-    // Same items, no Collections: the item diff is empty, so only the zero-diff branch runs.
-    await wipeCollections(page);
-    const toast = await runImport(page, {
-      fn: "importJson",
-      name: "inventory.json",
-      type: "application/json",
-      text: file.text,
-    });
+      await resetForCsvImport(page);
+      expect(
+        await runImport(page, {
+          fn: "importCsv",
+          name: file.name,
+          type: "text/csv",
+          text: file.text,
+        })
+      ).toContain("2 added");
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+      expect(
+        await page.evaluate(
+          () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
+        )
+      ).toBe("cdp-ase-2024");
+    },
+  },
+  {
+    name: "a legacy mixed-ending CSV imports clean non-final Collections values",
+    seed: TRADED_SEED,
+    run: async (page) => {
+      await page.evaluate(() => {
+        window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+      });
+      const file = await captureDownload(page, "exportCsv");
+      const legacyCsv = file.text.replace(/^(# exportOrigin: [^\r\n]*)\r\n/, "$1\n");
+      expect(legacyCsv).toMatch(/^# exportOrigin: [^\r\n]*\n[^\r]/);
+      expect(legacyCsv).toContain("\r\n");
+      await resetForCsvImport(page);
+      const { toast, parsed } = await runCsvImportCapturingParse(page, {
+        fn: "importCsv",
+        name: "legacy.csv",
+        type: "text/csv",
+        text: legacyCsv,
+      });
+      expect(toast).toContain("2 added");
+      expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
+      expect(
+        parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))
+      ).toBe(true);
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+      expect(
+        await page.evaluate(
+          () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
+        )
+      ).toBe("cdp-ase-2024");
+    },
+  },
+  {
+    name: "a lowercase Collections header retains membership on import",
+    run: async (page) => {
+      await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
+      const file = await captureDownload(page, "exportCsv");
+      const csv = file.text.replace(/,Collections\r\n/, ", collections \r\n");
+      expect(csv).not.toBe(file.text);
 
-    expect(toast).toBe("Import complete: collections updated");
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-  });
-});
+      await resetForCsvImport(page);
+      expect(
+        await runImport(page, {
+          fn: "importCsv",
+          name: "lowercase.csv",
+          type: "text/csv",
+          text: csv,
+        })
+      ).toContain("2 added");
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    },
+  },
+  {
+    name: "CSV parsing preserves a quoted terminal carriage return before Notes sanitization",
+    seed: [{ ...SEED[0], notes: "Line with a terminal CR" }, SEED[1]],
+    run: async (page) => {
+      const file = await captureDownload(page, "exportCsv");
+      const csv = file.text.replace("Line with a terminal CR", '"Line with a terminal CR\r"');
+      expect(csv).toContain('"Line with a terminal CR\r"');
+      await resetForCsvImport(page);
+      const { toast, parsed } = await runCsvImportCapturingParse(page, {
+        fn: "importCsv",
+        name: file.name,
+        type: "text/csv",
+        text: csv,
+      });
+      expect(toast).toContain("2 added");
+      expect(parsed.data[0]["Notes"]).toBe("Line with a terminal CR\r");
+      expect(
+        await page.evaluate(
+          () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.notes
+        )
+      ).toBe("Line with a terminal CR");
+    },
+  },
+  {
+    name: "Export CSV writes a Collections column, and a CSV whose ONLY change is that column still applies",
+    run: async (page) => {
+      await page.waitForFunction(
+        () => typeof window.exportCsv === "function" && typeof window.importCsv === "function"
+      );
+      await page.evaluate(() => {
+        window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+        window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+      });
+
+      const file = await captureDownload(page, "exportCsv");
+      const header = file.text.split("\n").find((line) => line.includes("UUID")) || "";
+      expect(header).toContain("Collections");
+      expect(file.text).toContain("ase-type2:2024");
+      expect(file.text).toContain("ase-type2:2022");
+
+      // Establish the items VIA an import (the STRK-220 pattern in import-export.spec.js): a
+      // seeded item carries pcgsVerified:false where a CSV row yields null, so it never settles
+      // to a zero diff. Items the importer created are already in CSV-normalized form.
+      await page.evaluate(() => {
+        window.inventory.length = 0;
+        localStorage.setItem("metalInventory", "[]");
+      });
+      const csvImport = {
+        fn: "importCsv",
+        name: "inventory.csv",
+        type: "text/csv",
+        text: file.text,
+      };
+      expect(await runImport(page, csvImport)).toContain("2 added");
+
+      // Existing items, Collections wiped: totalChanges === 0 (the STRK-220 trap).
+      await wipeCollections(page);
+      const toast = await runImport(page, {
+        fn: "importCsv",
+        name: "inventory.csv",
+        type: "text/csv",
+        text: file.text,
+      });
+
+      expect(toast).toBe("Import complete: collections updated");
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+    },
+  },
+  {
+    name: "a CSV import links the Items it CREATES, after their identity is stamped",
+    run: async (page) => {
+      await page.waitForFunction(
+        () => typeof window.exportCsv === "function" && typeof window.importCsv === "function"
+      );
+      await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
+      const file = await captureDownload(page, "exportCsv");
+
+      // A fresh device: no inventory and no Collections.
+      await page.evaluate(() => {
+        window.inventory.length = 0;
+        // "[]" (not a removed key) so the init script does not re-seed on the reload below.
+        localStorage.setItem("metalInventory", "[]");
+      });
+      await wipeCollections(page);
+
+      const toast = await runImport(page, {
+        fn: "importCsv",
+        name: "inventory.csv",
+        type: "text/csv",
+        text: file.text,
+      });
+
+      expect(toast).toContain("2 added");
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      await reloadCollections(page);
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    },
+  },
+  {
+    name: "a quota failure leaves no partial CSV links and reports an incomplete import",
+    run: async (page) => {
+      await page.evaluate(() => {
+        window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
+        window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+      });
+      const file = await captureDownload(page, "exportCsv");
+      await wipeCollections(page);
+      await injectCollectionQuota(page);
+      const csv = { fn: "importCsv", name: "inventory.csv", type: "text/csv", text: file.text };
+      const toast = await runImport(page, { ...csv, failure: true });
+      expect(toast).toContain("Collections could not be saved");
+      expect(await primaryOf(page, "2022")).toBeNull();
+      expect(await primaryOf(page, "2024")).toBeNull();
+      await clearCollectionQuota(page);
+      expect(await runImport(page, csv)).toMatch(/^Import complete/);
+      expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+      expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+    },
+  },
+  {
+    name: "an older CSV with a carriage return on its final Traded From UUID header keeps the link",
+    run: async (page) => {
+      await page.evaluate(() => {
+        window.inventory[0].tradedFromUuid = "cdp-ase-2024";
+      });
+      const file = await captureDownload(page, "exportCsv");
+      const legacyCsv = await page.evaluate((csv) => {
+        const parsed = window.Papa.parse(csv, {
+          header: true,
+          comments: "#",
+          skipEmptyLines: true,
+          transformHeader: (header) => header.trim(),
+        });
+        // An older export predates Collections AND the STRK-427 image-framing columns, so the
+        // derived legacy file drops all four; the assertions below are unchanged.
+        const newerColumns = [
+          "Collections",
+          "Image Shape",
+          "Obverse Image Orientation",
+          "Reverse Image Orientation",
+        ];
+        const fields = parsed.meta.fields.filter((field) => !newerColumns.includes(field));
+        return `# older export\n${window.Papa.unparse({ fields, data: parsed.data }, { newline: "\r\n" })}`;
+      }, file.text);
+      expect(legacyCsv).toContain("Traded From UUID\r\n");
+      await page.evaluate(() => {
+        window.inventory.length = 0;
+        localStorage.setItem("metalInventory", "[]");
+      });
+      const { toast, parsed } = await runCsvImportCapturingParse(page, {
+        fn: "importCsv",
+        name: "legacy.csv",
+        type: "text/csv",
+        text: legacyCsv,
+      });
+      expect(toast).toMatch(/^Import complete/);
+      expect(parsed.data[0]["Traded From UUID"]).toBe("cdp-ase-2024");
+      expect(
+        await page.evaluate(
+          () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
+        )
+      ).toBe("cdp-ase-2024");
+    },
+  },
+];
 
 test.describe("core/collections-data-paths — CSV export and import", () => {
-  test("a real CSV download uses CRLF and re-imports non-final trade and Collections values", async ({
-    page,
-  }) => {
-    await seedAndGoto(page, [{ ...SEED[0], tradedFromUuid: "cdp-ase-2024" }, SEED[1]]);
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
-    });
-    const file = await captureDownload(page, "exportCsv");
-    expect(file.text).toMatch(/^# exportOrigin: [^\r\n]*\r\n/);
-    expect(file.text.replace(/\r\n/g, "")).not.toContain("\n");
-    const parsed = await page.evaluate(
-      (csv) => window.Papa.parse(csv, { header: true, comments: "#", skipEmptyLines: true }),
-      file.text
-    );
-    expect(parsed.meta.linebreak).toBe("\r\n");
-    expect(parsed.meta.fields.at(-1)).toBe("Collections");
-    expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
-    expect(parsed.data[0]["Collections"]).toBe("ase-type2:2022");
-    expect(parsed.data[0]["Traded From UUID"]).toBe("cdp-ase-2024");
-    expect(parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))).toBe(
-      true
-    );
-
-    await resetForCsvImport(page);
-    expect(
-      await runImport(page, { fn: "importCsv", name: file.name, type: "text/csv", text: file.text })
-    ).toContain("2 added");
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-    expect(
-      await page.evaluate(
-        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
-      )
-    ).toBe("cdp-ase-2024");
-  });
-
-  test("a legacy mixed-ending CSV imports clean non-final Collections values", async ({ page }) => {
-    await seedAndGoto(page, [{ ...SEED[0], tradedFromUuid: "cdp-ase-2024" }, SEED[1]]);
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
-    });
-    const file = await captureDownload(page, "exportCsv");
-    const legacyCsv = file.text.replace(/^(# exportOrigin: [^\r\n]*)\r\n/, "$1\n");
-    expect(legacyCsv).toMatch(/^# exportOrigin: [^\r\n]*\n[^\r]/);
-    expect(legacyCsv).toContain("\r\n");
-    await resetForCsvImport(page);
-    const { toast, parsed } = await runCsvImportCapturingParse(page, {
-      fn: "importCsv",
-      name: "legacy.csv",
-      type: "text/csv",
-      text: legacyCsv,
-    });
-    expect(toast).toContain("2 added");
-    expect(parsed.meta.fields.every((field) => !field.endsWith("\r"))).toBe(true);
-    expect(parsed.data.flatMap(Object.values).every((value) => !String(value).endsWith("\r"))).toBe(
-      true
-    );
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-    expect(
-      await page.evaluate(
-        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
-      )
-    ).toBe("cdp-ase-2024");
-  });
-
-  test("a lowercase Collections header retains membership on import", async ({ page }) => {
+  test("CSV round trips, one step per case", async ({ page }) => {
     await seedAndGoto(page);
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
-    const file = await captureDownload(page, "exportCsv");
-    const csv = file.text.replace(/,Collections\r\n/, ", collections \r\n");
-    expect(csv).not.toBe(file.text);
-
-    await resetForCsvImport(page);
-    expect(
-      await runImport(page, { fn: "importCsv", name: "lowercase.csv", type: "text/csv", text: csv })
-    ).toContain("2 added");
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-  });
-
-  test("CSV parsing preserves a quoted terminal carriage return before Notes sanitization", async ({
-    page,
-  }) => {
-    await seedAndGoto(page, [{ ...SEED[0], notes: "Line with a terminal CR" }, SEED[1]]);
-    const file = await captureDownload(page, "exportCsv");
-    const csv = file.text.replace("Line with a terminal CR", '"Line with a terminal CR\r"');
-    expect(csv).toContain('"Line with a terminal CR\r"');
-    await resetForCsvImport(page);
-    const { toast, parsed } = await runCsvImportCapturingParse(page, {
-      fn: "importCsv",
-      name: file.name,
-      type: "text/csv",
-      text: csv,
-    });
-    expect(toast).toContain("2 added");
-    expect(parsed.data[0]["Notes"]).toBe("Line with a terminal CR\r");
-    expect(
-      await page.evaluate(
-        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.notes
-      )
-    ).toBe("Line with a terminal CR");
-  });
-
-  test("Export CSV writes a Collections column, and a CSV whose ONLY change is that column still applies", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await page.waitForFunction(
-      () => typeof window.exportCsv === "function" && typeof window.importCsv === "function"
-    );
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
-      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
-    });
-
-    const file = await captureDownload(page, "exportCsv");
-    const header = file.text.split("\n").find((line) => line.includes("UUID")) || "";
-    expect(header).toContain("Collections");
-    expect(file.text).toContain("ase-type2:2024");
-    expect(file.text).toContain("ase-type2:2022");
-
-    // Establish the items VIA an import (the STRK-220 pattern in import-export.spec.js): a
-    // seeded item carries pcgsVerified:false where a CSV row yields null, so it never settles
-    // to a zero diff. Items the importer created are already in CSV-normalized form.
-    await page.evaluate(() => {
-      window.inventory.length = 0;
-      localStorage.setItem("metalInventory", "[]");
-    });
-    const csvImport = { fn: "importCsv", name: "inventory.csv", type: "text/csv", text: file.text };
-    expect(await runImport(page, csvImport)).toContain("2 added");
-
-    // Existing items, Collections wiped: totalChanges === 0 (the STRK-220 trap).
-    await wipeCollections(page);
-    const toast = await runImport(page, {
-      fn: "importCsv",
-      name: "inventory.csv",
-      type: "text/csv",
-      text: file.text,
-    });
-
-    expect(toast).toBe("Import complete: collections updated");
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-  });
-
-  test("a CSV import links the Items it CREATES, after their identity is stamped", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await page.waitForFunction(
-      () => typeof window.exportCsv === "function" && typeof window.importCsv === "function"
-    );
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024"));
-    const file = await captureDownload(page, "exportCsv");
-
-    // A fresh device: no inventory and no Collections.
-    await page.evaluate(() => {
-      window.inventory.length = 0;
-      // "[]" (not a removed key) so the init script does not re-seed on the reload below.
-      localStorage.setItem("metalInventory", "[]");
-    });
-    await wipeCollections(page);
-
-    const toast = await runImport(page, {
-      fn: "importCsv",
-      name: "inventory.csv",
-      type: "text/csv",
-      text: file.text,
-    });
-
-    expect(toast).toContain("2 added");
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-    await reloadCollections(page);
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-  });
-
-  test("a quota failure leaves no partial CSV links and reports an incomplete import", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022");
-      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
-    });
-    const file = await captureDownload(page, "exportCsv");
-    await wipeCollections(page);
-    await injectCollectionQuota(page);
-    const csv = { fn: "importCsv", name: "inventory.csv", type: "text/csv", text: file.text };
-    const toast = await runImport(page, { ...csv, failure: true });
-    expect(toast).toContain("Collections could not be saved");
-    expect(await primaryOf(page, "2022")).toBeNull();
-    expect(await primaryOf(page, "2024")).toBeNull();
-    await clearCollectionQuota(page);
-    expect(await runImport(page, csv)).toMatch(/^Import complete/);
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-  });
-
-  test("an older CSV with a carriage return on its final Traded From UUID header keeps the link", async ({
-    page,
-  }) => {
-    await seedAndGoto(page);
-    await page.evaluate(() => {
-      window.inventory[0].tradedFromUuid = "cdp-ase-2024";
-    });
-    const file = await captureDownload(page, "exportCsv");
-    const legacyCsv = await page.evaluate((csv) => {
-      const parsed = window.Papa.parse(csv, {
-        header: true,
-        comments: "#",
-        skipEmptyLines: true,
-        transformHeader: (header) => header.trim(),
-      });
-      // An older export predates Collections AND the STRK-427 image-framing columns, so the
-      // derived legacy file drops all four; the assertions below are unchanged.
-      const newerColumns = [
-        "Collections",
-        "Image Shape",
-        "Obverse Image Orientation",
-        "Reverse Image Orientation",
-      ];
-      const fields = parsed.meta.fields.filter((field) => !newerColumns.includes(field));
-      return `# older export\n${window.Papa.unparse({ fields, data: parsed.data }, { newline: "\r\n" })}`;
-    }, file.text);
-    expect(legacyCsv).toContain("Traded From UUID\r\n");
-    await page.evaluate(() => {
-      window.inventory.length = 0;
-      localStorage.setItem("metalInventory", "[]");
-    });
-    const { toast, parsed } = await runCsvImportCapturingParse(page, {
-      fn: "importCsv",
-      name: "legacy.csv",
-      type: "text/csv",
-      text: legacyCsv,
-    });
-    expect(toast).toMatch(/^Import complete/);
-    expect(parsed.data[0]["Traded From UUID"]).toBe("cdp-ase-2024");
-    expect(
-      await page.evaluate(
-        () => window.inventory.find((item) => item.uuid === "cdp-ase-2022")?.tradedFromUuid
-      )
-    ).toBe("cdp-ase-2024");
+    await runCases(page, CSV_CASES);
   });
 });
 
@@ -651,7 +705,7 @@ const remoteDeviceState = (page, link) =>
     return JSON.stringify(state);
   }, link);
 
-test.describe("core/collections-data-paths — cloud sync contract (STRK-370)", () => {
+test.describe("core/collections-data-paths — cloud sync contract", () => {
   test.beforeEach(async ({ page }) => {
     await seedAndGoto(page);
     await page.waitForFunction(
@@ -660,121 +714,139 @@ test.describe("core/collections-data-paths — cloud sync contract (STRK-370)", 
     );
   });
 
-  test("SCOPE + EXCLUDE: collectionState rides the sync vault and is a managed key", async ({
-    page,
-  }) => {
-    const result = await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
-      return {
-        inSyncVault: Object.prototype.hasOwnProperty.call(
-          window.collectVaultData("sync").data,
-          "collectionState"
-        ),
-        managed: window.CloudSyncTest.isManagedSyncKey("collectionState"),
-      };
-    });
-    expect(result).toEqual({ inSyncVault: true, managed: true });
-  });
+  const SYNC_CASES = [
+    {
+      name: "SCOPE + EXCLUDE: collectionState rides the sync vault and is a managed key",
+      run: async (page) => {
+        const result = await page.evaluate(() => {
+          window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+          return {
+            inSyncVault: Object.prototype.hasOwnProperty.call(
+              window.collectVaultData("sync").data,
+              "collectionState"
+            ),
+            managed: window.CloudSyncTest.isManagedSyncKey("collectionState"),
+          };
+        });
+        expect(result).toEqual({ inSyncVault: true, managed: true });
+      },
+    },
+    {
+      name: "two devices: a Slot filled here and a Slot filled there BOTH survive the pull, durably and idempotently",
+      run: async (page) => {
+        await page.evaluate(() =>
+          window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022")
+        );
+        const remote = await remoteDeviceState(page, {
+          slotId: "2024",
+          uuid: "cdp-ase-2024",
+          now: "2026-09-18T11:00:00.000Z",
+        });
 
-  test("two devices: a Slot filled here and a Slot filled there BOTH survive the pull, durably and idempotently", async ({
-    page,
-  }) => {
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
-    const remote = await remoteDeviceState(page, {
-      slotId: "2024",
-      uuid: "cdp-ase-2024",
-      now: "2026-09-18T11:00:00.000Z",
-    });
+        const before = await page.evaluate(
+          (raw) => window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw }),
+          remote
+        );
+        expect(before).toBe(true); // the manifest fast path must NOT swallow this
 
-    const before = await page.evaluate(
-      (raw) => window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw }),
-      remote
+        await page.evaluate(
+          (raw) => window.CloudSyncTest.mergeCollectionState({ collectionState: raw }),
+          remote
+        );
+        expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+        expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+
+        // Converged: the same remote no longer reads as a change, so no apply loop.
+        const after = await page.evaluate(
+          (raw) => window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw }),
+          remote
+        );
+        expect(after).toBe(false);
+
+        await reloadCollections(page);
+        expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+        expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
+      },
+    },
+    {
+      name: "a newer unlink here beats an OLDER link arriving from the other device",
+      run: async (page) => {
+        await page.evaluate(() => {
+          window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+          window.collectionsStore.unlink("ase-type2", "2024", "cdp-ase-2024");
+        });
+        const staleRemote = await remoteDeviceState(page, {
+          slotId: "2024",
+          uuid: "cdp-ase-2024",
+          now: "2020-01-01T00:00:00.000Z",
+        });
+
+        const result = await page.evaluate((raw) => {
+          const changed = window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw });
+          window.CloudSyncTest.mergeCollectionState({ collectionState: raw });
+          return changed;
+        }, staleRemote);
+
+        expect(result).toBe(false);
+        expect(await primaryOf(page, "2024")).toBeNull();
+      },
+    },
+    {
+      name: "HOLD: a failed write throws for the caller and leaves local Collections untouched",
+      run: async (page) => {
+        await page.evaluate(() =>
+          window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022")
+        );
+        const remote = await remoteDeviceState(page, {
+          slotId: "2024",
+          uuid: "cdp-ase-2024",
+          now: "2026-09-18T11:00:00.000Z",
+        });
+
+        const outcome = await page.evaluate((raw) => {
+          const realSetItem = Storage.prototype.setItem;
+          Storage.prototype.setItem = function (key, value) {
+            if (key === "collectionState") throw new DOMException("full", "QuotaExceededError");
+            return realSetItem.call(this, key, value);
+          };
+          try {
+            window.CloudSyncTest.mergeCollectionState({ collectionState: raw });
+            return "no-throw";
+          } catch (error) {
+            return String(error.message);
+          } finally {
+            Storage.prototype.setItem = realSetItem;
+          }
+        }, remote);
+
+        expect(outcome).toContain("save-failed");
+        expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
+        expect(await primaryOf(page, "2024")).toBeNull();
+      },
+    },
+    {
+      name: "a Collections-only edit schedules its own sync push",
+      run: async (page) => {
+        const pushes = await page.evaluate(() => {
+          let count = 0;
+          window.scheduleSyncPush = () => {
+            count += 1;
+          };
+          window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
+          return count;
+        });
+        expect(pushes).toBeGreaterThan(0);
+      },
+    },
+  ];
+
+  test("the sync contract for collectionState, one step per case", async ({ page }) => {
+    await runCases(
+      page,
+      SYNC_CASES,
+      () =>
+        !!window.CloudSyncTest && typeof window.CloudSyncTest.mergeCollectionState === "function"
     );
-    expect(before).toBe(true); // the manifest fast path must NOT swallow this
-
-    await page.evaluate(
-      (raw) => window.CloudSyncTest.mergeCollectionState({ collectionState: raw }),
-      remote
-    );
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-
-    // Converged: the same remote no longer reads as a change, so no apply loop.
-    const after = await page.evaluate(
-      (raw) => window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw }),
-      remote
-    );
-    expect(after).toBe(false);
-
-    await reloadCollections(page);
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-    expect(await primaryOf(page, "2024")).toBe("cdp-ase-2024");
-  });
-
-  test("a newer unlink here beats an OLDER link arriving from the other device", async ({
-    page,
-  }) => {
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
-      window.collectionsStore.unlink("ase-type2", "2024", "cdp-ase-2024");
-    });
-    const staleRemote = await remoteDeviceState(page, {
-      slotId: "2024",
-      uuid: "cdp-ase-2024",
-      now: "2020-01-01T00:00:00.000Z",
-    });
-
-    const result = await page.evaluate((raw) => {
-      const changed = window.CloudSyncTest.hasCollectionStateChange({ collectionState: raw });
-      window.CloudSyncTest.mergeCollectionState({ collectionState: raw });
-      return changed;
-    }, staleRemote);
-
-    expect(result).toBe(false);
-    expect(await primaryOf(page, "2024")).toBeNull();
-  });
-
-  test("HOLD: a failed write throws for the caller and leaves local Collections untouched", async ({
-    page,
-  }) => {
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "cdp-ase-2022"));
-    const remote = await remoteDeviceState(page, {
-      slotId: "2024",
-      uuid: "cdp-ase-2024",
-      now: "2026-09-18T11:00:00.000Z",
-    });
-
-    const outcome = await page.evaluate((raw) => {
-      const realSetItem = Storage.prototype.setItem;
-      Storage.prototype.setItem = function (key, value) {
-        if (key === "collectionState") throw new DOMException("full", "QuotaExceededError");
-        return realSetItem.call(this, key, value);
-      };
-      try {
-        window.CloudSyncTest.mergeCollectionState({ collectionState: raw });
-        return "no-throw";
-      } catch (error) {
-        return String(error.message);
-      } finally {
-        Storage.prototype.setItem = realSetItem;
-      }
-    }, remote);
-
-    expect(outcome).toContain("save-failed");
-    expect(await primaryOf(page, "2022")).toBe("cdp-ase-2022");
-    expect(await primaryOf(page, "2024")).toBeNull();
-  });
-
-  test("a Collections-only edit schedules its own sync push", async ({ page }) => {
-    const pushes = await page.evaluate(() => {
-      let count = 0;
-      window.scheduleSyncPush = () => {
-        count += 1;
-      };
-      window.collectionsStore.link("ase-type2", "2024", "cdp-ase-2024");
-      return count;
-    });
-    expect(pushes).toBeGreaterThan(0);
   });
 
   test("a JSON import cannot blind-overwrite Collections through its settings block", async ({
@@ -1171,7 +1243,7 @@ test.describe("core/collections-data-paths — mock Dropbox two-device pulls", (
     });
   });
 
-  test("STRK-389 an inserted and reordered Custom Slot list reaches a second device with its links, by manifest and by vault", async ({
+  test("an inserted and reordered Custom Slot list reaches a second device with its links, by manifest and by vault", async ({
     browser,
     page,
   }) => {
@@ -1649,7 +1721,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     slots: [{ label: "One" }],
   };
 
-  test("STRK-427 a mixed pair round-trips through the standalone Collections export and import", async ({
+  test("a mixed pair round-trips through the standalone Collections export and import", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -1687,7 +1759,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     });
   });
 
-  test("STRK-427 a mixed pair round-trips through a ZIP backup and restore", async ({ page }) => {
+  test("a mixed pair round-trips through a ZIP backup and restore", async ({ page }) => {
     await seedAndGoto(page);
     await page.waitForFunction(() => typeof window.createBackupZip === "function");
     const id = await page.evaluate(
@@ -1719,7 +1791,7 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
     ).toMatchObject({ imageOrientation: "portrait", reverseImageOrientation: "landscape" });
   });
 
-  test("STRK-427 a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)", async ({
+  test("a uniform pair carries no reverse key, so older and newer builds never diverge (C-5)", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -2102,5 +2174,107 @@ test.describe("core/collections-data-paths — hidden Collections persistence an
       .locator(".storage-key-row")
       .filter({ hasText: "disabledCollections" });
     await expect(hiddenKeyRow.locator(".storage-key-label")).toContainText("Hidden Collections");
+  });
+});
+
+test("live title links survive ZIP restore and change the sync settings hash", async ({ page }) => {
+  await seedAndGoto(page);
+  const id = await page.evaluate(
+    () =>
+      window.collectionsStore.createCustom({
+        name: "Linked titles backup",
+        slots: [{ label: "One" }],
+        obverseImageUrl: "https://images.example.com/front.png",
+        reverseImageUrl: "https://images.example.com/back.png",
+      }).collection.id
+  );
+  const beforeHash = await page.evaluate(() => window.computeSettingsHash());
+  const exported = await captureDownload(page, "createBackupZip");
+  await wipeCollections(page);
+  expect(await page.evaluate(() => window.computeSettingsHash())).not.toBe(beforeHash);
+  const toasts = await restoreBackupZipAndAccept(page, exported.bytes);
+  expect(toasts).toContain("ZIP backup restored successfully");
+  const restored = await page.evaluate(
+    async (key) => ({
+      definition: window.collectionsStore.getState().collections[key].definition,
+      hash: await window.computeSettingsHash(),
+      resolved: await window.collectionsPicker.getTitleImage(key, "reverse"),
+    }),
+    id
+  );
+  expect(restored.definition).toMatchObject({
+    obverseImageUrl: "https://images.example.com/front.png",
+    reverseImageUrl: "https://images.example.com/back.png",
+  });
+  expect(restored.resolved).toEqual({
+    url: "https://images.example.com/back.png",
+    side: "reverse",
+  });
+  const linkHash = await page.evaluate(async (key) => {
+    const original = localStorage.getItem(COLLECTION_STATE_KEY);
+    const state = window.collectionsStore.exportState();
+    delete state.collections[key].definition.obverseImageUrl;
+    saveDataSync(COLLECTION_STATE_KEY, state);
+    const withoutLink = await window.computeSettingsHash();
+    localStorage.setItem(COLLECTION_STATE_KEY, original);
+    return { withoutLink, restored: await window.computeSettingsHash() };
+  }, id);
+  expect(linkHash.withoutLink).not.toBe(restored.hash);
+  expect(linkHash.restored).toBe(restored.hash);
+});
+
+test("live title links reach a second device by manifest and encrypted vault", async ({
+  browser,
+  page,
+}) => {
+  await withDevices(browser, page, async (deviceA) => {
+    const id = await deviceA.evaluate(
+      () =>
+        window.collectionsStore.createCustom({
+          name: "Linked titles sync",
+          slots: [{ label: "One" }],
+          obverseImageUrl: "https://images.example.com/front.png",
+          reverseImageUrl: "https://images.example.com/back.png",
+        }).collection.id
+    );
+    const files = { manifest: await deviceManifest(deviceA) };
+    await routeCollectionDropbox(page, files);
+    await page.evaluate(() => {
+      window.DiffModal.show = (options) => options.onApply([]);
+    });
+    await page.evaluate(
+      (meta) => window.pullWithPreview(meta),
+      remoteCollectionMeta("linked-titles-manifest")
+    );
+    expect(
+      await page.evaluate(
+        (key) => window.collectionsStore.getState().collections[key].definition,
+        id
+      )
+    ).toMatchObject({
+      obverseImageUrl: "https://images.example.com/front.png",
+      reverseImageUrl: "https://images.example.com/back.png",
+    });
+    await deviceA.evaluate((key) => {
+      const def = window.collectionsStore.getState().collections[key].definition;
+      window.collectionsStore.updateCustom(key, {
+        name: "Linked titles sync",
+        slots: def.slots,
+        obverseImageUrl: "",
+        reverseImageUrl: "https://images.example.com/new.png",
+      });
+    }, id);
+    files.manifest = null;
+    files.vault = await deviceVault(deviceA);
+    await page.evaluate(
+      (meta) => window.pullWithPreview(meta),
+      remoteCollectionMeta("linked-titles-vault")
+    );
+    const definition = await page.evaluate(
+      (key) => window.collectionsStore.getState().collections[key].definition,
+      id
+    );
+    expect(definition.obverseImageUrl).toBeUndefined();
+    expect(definition.reverseImageUrl).toBe("https://images.example.com/new.png");
   });
 });

@@ -4,6 +4,12 @@
 # Only differences from Fly.io: POLLER_ID=home, cron times, .env loading.
 # Cron: 30 * * * * (hourly at :30, offset from Fly.io :00 run)
 
+# Root callers (a Portainer console run) re-run as node: a root run leaves
+# root-owned locks and /data files that the node cron jobs cannot write.
+if [ "$(id -u)" = 0 ] && id node >/dev/null 2>&1; then
+  exec runuser -u node -- env HOME=/home/node "$0" "$@"
+fi
+
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,7 +44,7 @@ fi
 # STRK-230: cron runs `. /etc/environment` before this script, but plain
 # assignments sourced that way are NOT exported, so this child script (→ node)
 # never sees them. Re-export ONLY the WEBSCALE_* cookie vars (wspc cookie for
-# JM/Provident) plus MB_API_KEY (STRK-321 MintBuilder direct feed) from the
+# Provident) plus MB_API_KEY (STRK-321 MintBuilder direct feed) from the
 # container env. Scoped deliberately, to leave every other var's behavior
 # untouched. Without the MB_API_KEY hop the feed silently falls back to page
 # scraping under cron while the dashboard retry (which inherits the Docker

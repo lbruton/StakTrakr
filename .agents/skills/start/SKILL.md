@@ -7,7 +7,7 @@ description: >
   for continuing same-day work or resuming after a short break.
   No indexing, no code search, no agent dispatch.
   Triggers: "start", "quick start", "resume", "orient me", "where were we".
-library-version: 5834a2dcd445
+library-version: 3d109ab6d1d5
 ---
 
 # Start
@@ -37,6 +37,7 @@ If `.claude/project.json` is missing OR `pwd` differs from `git rev-parse --show
 (e.g., launched from a subdir whose parent is a different git repo — common when a project
 like Devops/ sits inside an outer workspace repo), STOP the flow and warn prominently.
 Call the verified root `ROOT`; every later command anchors to it.
+
 
 ### Step 1 — Git state snapshot
 
@@ -204,9 +205,13 @@ mcp__sessionflow__search_all_sessions(
 )
 ```
 
-Still omit `provider` so the fallback remains cross-harness. Do NOT try to omit `query`
-entirely to "list recent chronologically" — this Milvus deployment errors out ("query
-results exceed the limit size") on an empty query.
+Still omit `provider` so the fallback remains cross-harness.
+
+If both keyword passes come back empty, omit `query` and pass `sort_by="recency"` to list
+the project's most recent turns, newest first (SESF-16; streamed since SESF-36, so it no
+longer hits the Milvus "query results exceed the limit size" error). Listing rows show
+`Relevance: 0.00` because nothing was matched, not because the call failed (SESF-68
+tracks hiding it).
 
 **Pass 2a — unscoped Antigravity Desktop fallback (temporary):**
 

@@ -426,9 +426,10 @@ const renderRatiosPanel = (mountEl, options = {}) => {
     // attribute — read --gsr-accent from it rather than re-mapping in JS.
     const panelEl = mountEl.querySelector(".gsr-panel");
     const accent =
-      (panelEl && getComputedStyle(panelEl).getPropertyValue("--gsr-accent").trim()) || "#fbbf24";
-    const gridColor = css.getPropertyValue("--border").trim() || "#333";
-    const textColor = css.getPropertyValue("--text-muted").trim() || "#888";
+      (panelEl && getComputedStyle(panelEl).getPropertyValue("--gsr-accent").trim()) ||
+      css.getPropertyValue("--gold").trim();
+    const gridColor = css.getPropertyValue("--border").trim();
+    const textColor = css.getPropertyValue("--text-muted").trim();
     const fillColor = resolveCssColor(
       canvas,
       `color-mix(in oklch, ${accent}, transparent 88%)`,

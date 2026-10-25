@@ -497,7 +497,7 @@ async function scrapeWithPlaywrightDirect(url, providerId, coin, cfg = null) {
     });
     browserPids = listChildPids().filter((pid) => !pidsBeforeLaunch.has(pid));
 
-    // Webscale-protected vendors (jmbullion, providentmetals): if an operator
+    // Webscale-protected vendors (providentmetals): if an operator
     // has stashed a solved wspc cookie for this host, inject it with the UA it
     // was solved under. Webscale binds clearance to IP + Chrome-class UA + wspc,
     // and the poller shares the operator's public IP (STRK-230). No cookie → we

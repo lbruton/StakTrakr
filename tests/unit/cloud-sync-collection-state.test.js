@@ -21,28 +21,20 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, readSource, sliceUntil } from "./helpers/source-extract.js";
+import { loadLZString, loadStorageCodec } from "./helpers/storage-codec.js";
+import {
+  SYNC_FILE,
+  loadSilentPullBranch,
+  loadStableCanonicalString,
+} from "./helpers/sync-blocks.js";
 
-const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf-8");
+const read = readSource;
 
-const lzModule = { exports: {} };
-new Function("module", "exports", "window", read("vendor/lz-string.min.js"))(
-  lzModule,
-  lzModule.exports,
-  undefined
-);
-const LZString = lzModule.exports;
-const utilsSrc = read("js/utils-storage.js");
-const { __decompressIfNeeded } = new Function(
-  "__LZ",
-  "__LZ_REAL",
-  utilsSrc.slice(
-    utilsSrc.indexOf("const __ST_COMP_PREFIX"),
-    utilsSrc.indexOf("// Kick off the one-time")
-  ) + "\nreturn { __decompressIfNeeded };"
-)(LZString, true);
+const LZString = loadLZString();
+const { __decompressIfNeeded } = loadStorageCodec(LZString);
 
-const syncSrc = read("js/cloud-sync.js");
+const syncSrc = read(SYNC_FILE);
 
 /** Slice one top-level sync function without copying its implementation into the test. */
 function topLevelFunction(name) {
@@ -64,15 +56,10 @@ function assertReloadFollows(block, mergeNeedle, settingWriteNeedle) {
   assert.ok(reloadAt > writeAt, "store reload must follow ordinary setting writes");
 }
 
-function slice(from, to) {
-  const a = syncSrc.indexOf(from);
-  const b = syncSrc.indexOf(to);
-  assert.ok(a !== -1 && b !== -1 && b > a, `could not locate block ${from} .. ${to}`);
-  return syncSrc.slice(a, b);
-}
+const slice = (from, to) => sliceUntil(syncSrc, from, to);
 
 const coreSurface = {};
-new Function("window", read("js/collections-core.js"))(coreSurface);
+evalSource("js/collections-core.js", { params: { window: coreSurface } });
 const core = coreSurface.collectionsCore;
 
 const T1 = "2026-09-18T10:00:00.000Z";
@@ -126,29 +113,21 @@ function loadSync(opts = {}) {
       },
     },
   };
-  const _stableCanonicalString = new Function(
-    slice("function _stableCanonicalString", "function _canonicalizeSettingValue") +
-      "\nreturn _stableCanonicalString;"
-  )();
-  const fns = new Function(
-    "window",
-    "localStorage",
-    "__decompressIfNeeded",
-    "_stableCanonicalString",
-    "console",
-    slice("function _tagSyncKeys()", "function _restoreRawStorageValues") +
-      "\nreturn { _isManagedSyncKey, _hasCollectionStateChange, _mergeCollectionState };"
-  )(
-    windowDouble,
-    { getItem: (key) => (key === "collectionState" ? local : null) },
-    __decompressIfNeeded,
-    _stableCanonicalString,
-    { warn: () => {} }
-  );
+  const fns = evalSource(SYNC_FILE, {
+    params: {
+      window: windowDouble,
+      localStorage: { getItem: (key) => (key === "collectionState" ? local : null) },
+      __decompressIfNeeded,
+      _stableCanonicalString: loadStableCanonicalString(),
+      console: { warn: () => {} },
+    },
+    slice: slice("function _tagSyncKeys()", "function _restoreRawStorageValues"),
+    suffix: "\nreturn { _isManagedSyncKey, _hasCollectionStateChange, _mergeCollectionState };",
+  });
   return Object.assign(fns, { calls, callOptions });
 }
 
-describe("STRK-370 SCOPE + EXCLUDE", () => {
+describe("Collection state sync scope and settings exclusion", () => {
   test("collectionState is in SYNC_SCOPE_KEYS", () => {
     const constants = read("js/constants.js");
     const block = constants.slice(
@@ -167,7 +146,7 @@ describe("STRK-370 SCOPE + EXCLUDE", () => {
   });
 });
 
-describe("STRK-370 RE-DETECT — _hasCollectionStateChange", () => {
+describe("_hasCollectionStateChange compares logical Collection state", () => {
   test("no remote settings, or a remote without the key, is not a change", () => {
     const sync = loadSync({ local: linked("2024", U.a, T2) });
     assert.equal(sync._hasCollectionStateChange(null), false);
@@ -223,7 +202,7 @@ describe("STRK-370 RE-DETECT — _hasCollectionStateChange", () => {
   });
 });
 
-describe("STRK-370 APPLY + HOLD — _mergeCollectionState", () => {
+describe("_mergeCollectionState merges and holds Collection state", () => {
   test("hands the PARSED remote state to collectionsStore.mergeIn", () => {
     const sync = loadSync({ local: started() });
     const remote = linked("2024", U.b, T2);
@@ -265,7 +244,7 @@ describe("STRK-370 APPLY + HOLD — _mergeCollectionState", () => {
   });
 });
 
-describe("STRK-370 convergence — the merge the sync path relies on (STRK-154)", () => {
+describe("convergence — the merge the sync path relies on", () => {
   test("device A fills 2023 while device B fills 2024: both survive, in either order", () => {
     const a = linked("2023", U.a, T2);
     const b = linked("2024", U.b, T2);
@@ -303,15 +282,7 @@ describe("STRK-370 convergence — the merge the sync path relies on (STRK-154)"
 // branch and assert the merge is observed before the image pull.
 // ---------------------------------------------------------------------------
 
-describe("STRK-370 commit ordering — Collections merge precedes artwork restore", () => {
-  /** Slices the empty-diff "silently record pull" branch out of the real source. */
-  function sliceSilentBranch() {
-    return slice(
-      "if (_noItemChanges && _noSettingsChanges) {",
-      "// STRK-224 (Edge 3, D-3): capture the FULL prior lastPull"
-    );
-  }
-
+describe("commit ordering — Collections merge precedes artwork restore", () => {
   test("_mergeCollectionState runs BEFORE _pullImageVaultIfChanged", async () => {
     const order = [];
     // Free identifier resolved via globalThis: the branch guards it with typeof,
@@ -319,54 +290,31 @@ describe("STRK-370 commit ordering — Collections merge precedes artwork restor
     globalThis._previewPullMeta = { syncId: "order-1", timestamp: 1, rev: "r1" };
     globalThis._mergeCollectionState = () => order.push("merge");
 
-    const factory = new Function(
-      "_noItemChanges",
-      "_noSettingsChanges",
-      "remoteMeta",
-      "remotePayload",
-      "token",
-      "password",
-      "SYNC_IMAGES_PATH",
-      "fetch",
-      "vaultDecryptAndRestoreImages",
-      "_pullImageVaultIfChanged",
-      "syncGetLastPull",
-      "syncSetLastPull",
-      "_pullAttachmentVault",
-      "_pullItemPriceHistoryVault",
-      "_currentInventoryUuids",
-      "_mergeItemPriceClearWatermark",
-      "logCloudSyncActivity",
-      "updateSyncStatusIndicator",
-      "debugLog",
-      "return (async function () {\n" + sliceSilentBranch() + "\n});"
-    );
+    const silentBranch = loadSilentPullBranch({
+      remoteMeta: { imageVault: { hash: "img-hash" } },
+      remotePayload: { data: {} },
+      token: "tok",
+      password: "pw",
+      SYNC_IMAGES_PATH: "/images.stvault",
+      fetch: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }),
+      vaultDecryptAndRestoreImages: async () => 1,
+      _pullImageVaultIfChanged: async () => {
+        order.push("images");
+        return { hash: "img-hash", failed: false };
+      },
+      syncGetLastPull: () => null,
+      syncSetLastPull: () => {},
+      _pullAttachmentVault: async () => ({ hash: "attach" }),
+      _pullItemPriceHistoryVault: async () => ({ hash: "iph" }),
+      _currentInventoryUuids: () => [],
+      _mergeItemPriceClearWatermark: () => {},
+      logCloudSyncActivity: () => {},
+      updateSyncStatusIndicator: () => {},
+      debugLog: () => {},
+    });
 
     try {
-      await factory(
-        true,
-        true,
-        { imageVault: { hash: "img-hash" } },
-        { data: {} },
-        "tok",
-        "pw",
-        "/images.stvault",
-        async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }),
-        async () => 1,
-        async () => {
-          order.push("images");
-          return { hash: "img-hash", failed: false };
-        },
-        () => null,
-        () => {},
-        async () => ({ hash: "attach" }),
-        async () => ({ hash: "iph" }),
-        () => [],
-        () => {},
-        () => {},
-        () => {},
-        () => {}
-      )();
+      await silentBranch();
     } finally {
       delete globalThis._previewPullMeta;
       delete globalThis._mergeCollectionState;
@@ -380,7 +328,7 @@ describe("STRK-370 commit ordering — Collections merge precedes artwork restor
   });
 });
 
-describe("STRK-393 post-apply populated Collection reconciliation", () => {
+describe("post-apply populated Collection reconciliation", () => {
   test("_applyAndFinalize refreshes after Collection merge and ordinary setting writes", () => {
     const apply = topLevelFunction("_applyAndFinalize");
     assertReloadFollows(
@@ -431,7 +379,7 @@ describe("STRK-393 post-apply populated Collection reconciliation", () => {
   });
 });
 
-test("STRK-391 managed sync detects, merges and converges after Mintage edits and clearing", () => {
+test("managed sync detects, merges and converges after Mintage edits and clearing", () => {
   const local = core.createEmptyState();
   core.createCustomCollection(local, {
     id: "mintage",

@@ -25,6 +25,13 @@ test.describe("extended/visual-layout-regressions", () => {
     await expect(page.locator(".pillar")).toHaveCount(4);
     expect(await page.locator(".api-table tbody tr").count()).toBeGreaterThan(2);
     await expect(page.locator("footer a")).toHaveCount(5);
+    await expect(page.locator("section#collections h2")).toHaveText("Collections");
+    expect(await page.locator("body").innerText()).not.toMatch(/\bv\d+\.\d+/);
+    const images = page.locator("img.screenshot, .screenshot-grid img");
+    for (const img of await images.all()) {
+      await img.scrollIntoViewIfNeeded();
+      expect(await img.evaluate((el) => el.complete && el.naturalWidth > 0)).toBe(true);
+    }
   });
 
   test("log/changelog tabs retain renamed labels and order", async ({ page }) => {
@@ -110,9 +117,7 @@ test.describe("extended/visual-layout-regressions", () => {
     });
   }
 
-  test("STRK-161 spot ratio chips resolve a legible token color in all four themes", async ({
-    page,
-  }) => {
+  test("spot ratio chips resolve a legible token color in all four themes", async ({ page }) => {
     await waitForSpotChips(page);
 
     for (const theme of THEMES) {
@@ -134,7 +139,7 @@ test.describe("extended/visual-layout-regressions", () => {
     }
   });
 
-  test("STRK-161 chip stays inside its card and timestamp uses the short Last Synced form on mobile", async ({
+  test("chip stays inside its card and timestamp uses the short Last Synced form on mobile", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -175,9 +180,7 @@ test.describe("extended/visual-layout-regressions", () => {
     expect(disp.short).not.toBe("none"); // short "Last Synced" shown
   });
 
-  test("STRK-161 a hidden chip reserves its row so all card timestamps stay aligned", async ({
-    page,
-  }) => {
+  test("a hidden chip reserves its row so all card timestamps stay aligned", async ({ page }) => {
     await waitForSpotChips(page);
     // Hide exactly one card's chip (silver invalid spot); the other three remain.
     await page.evaluate(() => {

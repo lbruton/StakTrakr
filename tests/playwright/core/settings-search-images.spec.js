@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
 
 const openSettingsModal = async (page) => {
   await page.waitForFunction(() => typeof window.showSettingsModal === "function");
@@ -158,6 +159,94 @@ test.describe("core/settings-search-images", () => {
     await expect(page.locator("#patternRuleObverseUploadBtn")).toHaveCount(1);
     await expect(page.locator("#patternRuleReverseUploadBtn")).toHaveCount(1);
     await expect(page.locator("#patternRuleSwapBtn")).toHaveCount(1);
+  });
+
+  test("Settings markup built in JS carries inline styles only for runtime values", async ({
+    page,
+  }) => {
+    await bootCleanPatternImageStore(page);
+    await page.evaluate(async () => {
+      await window.imageCache.cachePatternImage(
+        "orphan-styling",
+        new Blob(["obv"], { type: "image/png" }),
+        null
+      );
+      await window.imageCache.cachePatternImage(
+        "rule-styling-seed",
+        new Blob(["obv"], { type: "image/png" }),
+        new Blob(["rev"], { type: "image/png" })
+      );
+      window.NumistaLookup.addRule("styling", "Styling Bullion", "4242", "rule-styling-seed");
+    });
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    await expect(page.locator("#orphanedPatternImages")).toContainText("orphan-styling");
+
+    const offenders = await page.evaluate(async () => {
+      const RUNTIME = new Set(["width", "display"]);
+      const ROOTS = [
+        "#filterChipCategoryContainer",
+        "#customRuleTableContainer",
+        "#layoutSectionConfigContainer",
+        "#orphanedPatternImages",
+        "#customPatternImageRules",
+        "#userImageGrid",
+        "#numistaTagSettingsGroup",
+      ];
+      const found = [];
+      const collect = (label) => {
+        for (const sel of ROOTS) {
+          const root = document.querySelector(sel);
+          if (!root) continue;
+          for (const el of root.querySelectorAll("[style]")) {
+            for (let i = 0; i < el.style.length; i++) {
+              const prop = el.style[i];
+              if (!RUNTIME.has(prop)) found.push(`${label} ${sel} <${el.tagName}> ${prop}`);
+            }
+          }
+        }
+      };
+      const renderAll = async () => {
+        renderFilterChipCategoryTable();
+        renderCustomRuleTable();
+        renderLayoutSectionConfigTable();
+        await renderOrphanedPatternImages();
+        await renderCustomPatternRules();
+        await renderUserImageGrid();
+        window.renderNumistaTagSettings();
+      };
+
+      await renderAll();
+      collect("empty-blacklist");
+      window.addToTagBlacklist("Circulation");
+      await renderAll();
+      collect("populated");
+
+      window.NumistaLookup.importRules([], false);
+      await window.imageCache.clearAll();
+      await renderAll();
+      collect("empty");
+      return found;
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  test("Pattern Image Rules form carries inline styles only for show/hide toggles", async ({
+    page,
+  }) => {
+    await openSettingsModal(page);
+    await openSettingsSection(page, "images", "#settingsPanel_images");
+    await page.locator("#newPatternRuleBtn").click();
+    await expect(page.locator("#patternRuleFormContainer")).toBeVisible();
+
+    const root = ".settings-fieldset:has(#patternRuleFormContainer)";
+    await expect(page.locator(root)).toHaveCount(1);
+    const offenders = await collectInlineStyleOffenders(page, {
+      roots: [root],
+      runtime: ["display"],
+      label: "new-rule-form",
+    });
+    expect(offenders).toEqual([]);
   });
 
   // Characterization lock for STRK-195: pins the #addPatternRuleBtn handler's
@@ -864,5 +953,328 @@ test.describe("core/settings-search-images", () => {
       afterRemove: false,
       missing: false,
     });
+  });
+});
+
+// User image storage: the soft-cap pre-flight in cacheUserImageResult, its
+// pressure-band toasts, and the cached userImages byte total that spares the
+// pre-flight a store scan. Steps pin `_quotaBytes` for deterministic bands.
+const QUOTA_TINY = 1000; // bytes, below any real image
+const QUOTA_1MB = 1_000_000;
+const QUOTA_HUGE = 100_000_000;
+
+/**
+ * Boots the app, settles the async quota estimate so it cannot overwrite a pinned
+ * `_quotaBytes`, and wraps `_userImagesBytes` (the only store scan) in a counter.
+ * @param {import('@playwright/test').Page} page - Page to boot.
+ * @returns {Promise<void>}
+ */
+async function bootImageCache(page) {
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () => window.imageCache && typeof window.imageCache.init === "function"
+  );
+  await page.evaluate(async () => {
+    const ic = window.imageCache;
+    await ic.init();
+    if (typeof ic._initQuota === "function") await ic._initQuota();
+    const scan = ic._userImagesBytes.bind(ic);
+    ic._userImagesBytes = async function countingUserImagesBytes() {
+      window.__userImagesScanCount = (window.__userImagesScanCount || 0) + 1;
+      return scan();
+    };
+  });
+}
+
+/**
+ * Runs each case as a step on one booted page. Before each step the store is
+ * emptied (which also drops the cached total), the warned band is reset, and
+ * toasts and the scan counter are cleared.
+ * @param {import('@playwright/test').Page} page - Page booted by bootImageCache.
+ * @param {Array<{name: string, run: Function}>} cases - Steps to run.
+ * @returns {Promise<void>}
+ */
+const runImageCacheCases = async (page, cases) => {
+  test.setTimeout(test.info().timeout * cases.length);
+  for (const { name, run } of cases) {
+    await test.step(name, async () => {
+      await page.evaluate(async (quota) => {
+        const ic = window.imageCache;
+        await ic.clearAll();
+        ic._quotaBytes = quota;
+        ic._lastWarnedLevel = "ok";
+        window.__userImagesScanCount = 0;
+        document.querySelectorAll(".cloud-toast").forEach((toast) => toast.remove());
+      }, QUOTA_HUGE);
+      await run(page);
+    });
+  }
+};
+
+const scanCount = (page) => page.evaluate(() => window.__userImagesScanCount || 0);
+
+const QUOTA_CASES = [
+  {
+    name: "cacheUserImageResult refuses the write and reports quotaExceeded when over the soft cap (REQ-4)",
+    run: async (page) => {
+      const out = await page.evaluate(async (quota) => {
+        const uuid = "strk146-preflight";
+        window.imageCache._quotaBytes = quota;
+        const res = await window.imageCache.cacheUserImageResult(
+          uuid,
+          new Blob([new Uint8Array(50000)])
+        );
+        const stored = await window.imageCache.getUserImage(uuid);
+        return { ok: res.ok, quotaExceeded: res.quotaExceeded, stored: !!stored };
+      }, QUOTA_TINY);
+      expect(out).toEqual({ ok: false, quotaExceeded: true, stored: false });
+    },
+  },
+  {
+    name: "cacheUserImageWithFeedback shows an explicit error toast on quota failure (REQ-3)",
+    run: async (page) => {
+      const ok = await page.evaluate(async (quota) => {
+        window.imageCache._quotaBytes = quota;
+        return window.imageCache.cacheUserImageWithFeedback(
+          "strk146-err",
+          new Blob([new Uint8Array(50000)])
+        );
+      }, QUOTA_TINY);
+      expect(ok).toBe(false);
+      await expect(page.locator(".cloud-toast")).toContainText("Storage full");
+    },
+  },
+  {
+    name: "warns when an accepted save crosses the 85% pressure band (REQ-1)",
+    run: async (page) => {
+      const out = await page.evaluate(async (quota) => {
+        window.imageCache._quotaBytes = quota;
+        // 90% of the quota: the save fits.
+        const ok = await window.imageCache.cacheUserImageWithFeedback(
+          "strk146-warn",
+          new Blob([new Uint8Array(900000)])
+        );
+        const stored = await window.imageCache.getUserImage("strk146-warn");
+        return { ok, stored: !!stored };
+      }, QUOTA_1MB);
+      expect(out).toEqual({ ok: true, stored: true });
+      await expect(page.locator(".cloud-toast")).toContainText("full");
+    },
+  },
+  {
+    name: "ample quota: save succeeds with no toast and a usable image URL (NFR-2 regression)",
+    run: async (page) => {
+      const out = await page.evaluate(async () => {
+        const ok = await window.imageCache.cacheUserImageWithFeedback(
+          "strk146-ok",
+          new Blob([new Uint8Array(50000)])
+        );
+        const url = await window.imageCache.getUserImageUrl("strk146-ok");
+        const legacy = await window.imageCache.cacheUserImage(
+          "strk146-ok-legacy",
+          new Blob([new Uint8Array(40000)])
+        );
+        return { ok, urlIsBlob: typeof url === "string" && url.startsWith("blob:"), legacy };
+      });
+      expect(out).toEqual({ ok: true, urlIsBlob: true, legacy: true });
+      await expect(page.locator(".cloud-toast")).toHaveCount(0);
+    },
+  },
+  {
+    name: "does not re-warn while staying in the same pressure band (REQ-2)",
+    run: async (page) => {
+      await page.evaluate(async (quota) => {
+        window.imageCache._quotaBytes = quota;
+        // 88%, then a small save that stays in the warn band.
+        await window.imageCache.cacheUserImageWithFeedback(
+          "strk146-spamA",
+          new Blob([new Uint8Array(880000)])
+        );
+        await window.imageCache.cacheUserImageWithFeedback(
+          "strk146-spamB",
+          new Blob([new Uint8Array(10000)])
+        );
+      }, QUOTA_1MB);
+      await expect(page.locator(".cloud-toast")).toHaveCount(1);
+    },
+  },
+  {
+    name: "escalates the warning when usage crosses from the warn band into the critical band (REQ-1)",
+    run: async (page) => {
+      await page.evaluate(async (quota) => {
+        window.imageCache._quotaBytes = quota;
+        // 88% (warn band), then 98% (critical band).
+        await window.imageCache.cacheUserImageWithFeedback(
+          "strk146-escA",
+          new Blob([new Uint8Array(880000)])
+        );
+        await window.imageCache.cacheUserImageWithFeedback(
+          "strk146-escB",
+          new Blob([new Uint8Array(100000)])
+        );
+      }, QUOTA_1MB);
+      await expect(page.locator(".cloud-toast")).toHaveCount(2);
+      await expect(page.locator(".cloud-toast").last()).toContainText("saves may start failing");
+    },
+  },
+];
+
+const USAGE_CACHE_CASES = [
+  {
+    name: "AC-1: a warm cache serves the pre-flight without re-scanning userImages",
+    run: async (page) => {
+      await page.evaluate(async () => {
+        await window.imageCache.cacheUserImageResult(
+          "ac1-warmup",
+          new Blob([new Uint8Array(1000)])
+        );
+        window.__userImagesScanCount = 0;
+        await window.imageCache.cacheUserImageResult(
+          "ac1-second",
+          new Blob([new Uint8Array(2000)])
+        );
+      });
+      expect(await scanCount(page)).toBe(0);
+    },
+  },
+  {
+    name: "AC-2: usage is computed once and retained across needs",
+    run: async (page) => {
+      await page.evaluate(async () => {
+        await window.imageCache.cacheUserImageResult("ac2-a", new Blob([new Uint8Array(1000)]));
+        await window.imageCache.cacheUserImageResult("ac2-b", new Blob([new Uint8Array(1000)]));
+      });
+      expect(await scanCount(page)).toBe(1);
+    },
+  },
+  {
+    name: "AC-3: the cached total tracks the signed delta, including a shrinking replace",
+    run: async (page) => {
+      const out = await page.evaluate(async () => {
+        const ic = window.imageCache;
+        await ic.cacheUserImageResult("ac3-a", new Blob([new Uint8Array(1000)]));
+        const afterA = ic._userImagesBytesCache;
+        await ic.cacheUserImageResult("ac3-b", new Blob([new Uint8Array(2000)]));
+        const afterB = ic._userImagesBytesCache;
+        // Replacing ac3-a with a smaller blob applies a delta of 500 - 1000.
+        await ic.cacheUserImageResult("ac3-a", new Blob([new Uint8Array(500)]));
+        const afterShrink = ic._userImagesBytesCache;
+        return { afterA, afterB, afterShrink };
+      });
+      expect(out).toEqual({ afterA: 1000, afterB: 3000, afterShrink: 2500 });
+    },
+  },
+  {
+    // A cold-to-warm scan is allowed; no delta may be applied. The cache is warm here.
+    name: "AC-4: a blocked write and a failed _put leave the cached total unmoved",
+    run: async (page) => {
+      const out = await page.evaluate(async (quota) => {
+        const ic = window.imageCache;
+        await ic.cacheUserImageResult("ac4-base", new Blob([new Uint8Array(1000)]));
+        const base = ic._userImagesBytesCache;
+
+        ic._quotaBytes = 1000;
+        const blocked = await ic.cacheUserImageResult("ac4-big", new Blob([new Uint8Array(50000)]));
+        const afterBlock = ic._userImagesBytesCache;
+
+        ic._quotaBytes = quota;
+        const origPut = ic._put.bind(ic);
+        ic._put = async () => false;
+        const failed = await ic.cacheUserImageResult(
+          "ac4-putfail",
+          new Blob([new Uint8Array(2000)])
+        );
+        const afterFail = ic._userImagesBytesCache;
+        ic._put = origPut;
+
+        return {
+          base,
+          blockedQuota: blocked.quotaExceeded,
+          afterBlock,
+          failOk: failed.ok,
+          afterFail,
+        };
+      }, QUOTA_HUGE);
+      expect(out).toEqual({
+        base: 1000,
+        blockedQuota: true,
+        afterBlock: 1000,
+        failOk: false,
+        afterFail: 1000,
+      });
+    },
+  },
+  {
+    name: "AC-5: delete / clearAll / import invalidate the cache so the next read recomputes",
+    run: async (page) => {
+      const out = await page.evaluate(async () => {
+        const ic = window.imageCache;
+
+        await ic.cacheUserImageResult("ac5-a", new Blob([new Uint8Array(1000)]));
+        await ic.cacheUserImageResult("ac5-b", new Blob([new Uint8Array(2000)]));
+        await ic.deleteUserImage("ac5-a");
+        await ic.cacheUserImageResult("ac5-c", new Blob([new Uint8Array(500)]));
+        const afterDeleteSave = ic._userImagesBytesCache;
+
+        await ic.clearAll();
+        await ic.cacheUserImageResult("ac5-d", new Blob([new Uint8Array(700)]));
+        const afterClearSave = ic._userImagesBytesCache;
+
+        await ic.clearAll();
+        await ic.cacheUserImageResult("ac5-e", new Blob([new Uint8Array(400)]));
+        await ic.importUserImageRecord({
+          uuid: "ac5-imp",
+          obverse: new Blob([new Uint8Array(600)]),
+          reverse: null,
+          size: 600,
+          cachedAt: 1,
+        });
+        await ic.cacheUserImageResult("ac5-f", new Blob([new Uint8Array(100)]));
+        const afterImportSave = ic._userImagesBytesCache;
+
+        return { afterDeleteSave, afterClearSave, afterImportSave };
+      });
+      // 2000 + 500 after the delete; 700 after clearAll; 400 + 600 imported + 100.
+      expect(out).toEqual({ afterDeleteSave: 2500, afterClearSave: 700, afterImportSave: 1100 });
+    },
+  },
+  {
+    name: "AC-6: STRK-146 quota contract intact (block report + warn toast)",
+    run: async (page) => {
+      const out = await page.evaluate(async () => {
+        const ic = window.imageCache;
+        ic._quotaBytes = 1000;
+        const res = await ic.cacheUserImageResult("ac6-block", new Blob([new Uint8Array(50000)]));
+        return {
+          ok: res.ok,
+          quotaExceeded: res.quotaExceeded,
+          usageBytes: res.usageBytes,
+          limitBytes: res.limitBytes,
+        };
+      });
+      expect(out.ok).toBe(false);
+      expect(out.quotaExceeded).toBe(true);
+      expect(out.limitBytes).toBe(1000);
+      expect(typeof out.usageBytes).toBe("number");
+
+      await page.evaluate(async () => {
+        const ic = window.imageCache;
+        ic._quotaBytes = 1_000_000;
+        await ic.cacheUserImageWithFeedback("ac6-warn", new Blob([new Uint8Array(900000)]));
+      });
+      await expect(page.locator(".cloud-toast")).toContainText("full");
+    },
+  },
+];
+
+test.describe("core/settings-search-images — user image storage", () => {
+  test("the soft-cap pre-flight and its pressure-band toasts", async ({ page }) => {
+    await bootImageCache(page);
+    await runImageCacheCases(page, QUOTA_CASES);
+  });
+
+  test("the cached userImages byte total", async ({ page }) => {
+    await bootImageCache(page);
+    await runImageCacheCases(page, USAGE_CACHE_CASES);
   });
 });

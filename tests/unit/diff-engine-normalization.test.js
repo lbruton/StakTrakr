@@ -16,11 +16,10 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource } from "./helpers/source-extract.js";
 
-const src = readFileSync(new URL("../../js/diff-engine.js", import.meta.url), "utf-8");
 const win = {};
-new Function("window", src)(win);
+evalSource("js/diff-engine.js", { params: { window: win } });
 const DiffEngine = win.DiffEngine;
 assert.ok(
   DiffEngine && typeof DiffEngine.compareItems === "function",
@@ -29,7 +28,7 @@ assert.ok(
 
 const base = { uuid: "item-1", name: "Silver Eagle", metal: "Silver" };
 
-describe("STRK-158 Problem A — lastModified instant-awareness", () => {
+describe("Problem A — lastModified instant-awareness", () => {
   test("compact vs extended ISO of the SAME instant is NOT a conflict", () => {
     const res = DiffEngine.compareItems(
       [{ ...base, lastModified: "20260603T061930904Z" }],
@@ -60,7 +59,7 @@ describe("STRK-158 Problem A — lastModified instant-awareness", () => {
   });
 });
 
-describe("STRK-158 Problem B — attachments phantom conflict", () => {
+describe("Problem B — attachments phantom conflict", () => {
   const a1 = { attachmentUuid: "att-1", fileName: "receipt.pdf" };
   const a2 = { attachmentUuid: "att-2", fileName: "cert.pdf" };
 

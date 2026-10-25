@@ -18,16 +18,14 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { evalSource, readSource, sliceUntil } from "./helpers/source-extract.js";
+import { SYNC_FILE } from "./helpers/sync-blocks.js";
 
-const src = readFileSync(new URL("../../js/cloud-sync.js", import.meta.url), "utf-8");
-const start = src.indexOf("function _tagSyncKeys()");
-const end = src.indexOf("function _mergeOneSidedTagSettings");
-assert.ok(
-  start !== -1 && end !== -1 && end > start,
-  "could not locate tag-merge block in cloud-sync.js"
+const block = sliceUntil(
+  readSource(SYNC_FILE),
+  "function _tagSyncKeys()",
+  "function _mergeOneSidedTagSettings"
 );
-const block = src.slice(start, end);
 
 const FIXED_NOW = 9_999_000;
 
@@ -49,25 +47,19 @@ function makeMerge(seed) {
   function MockDate() {}
   MockDate.now = () => FIXED_NOW;
 
-  const factory = new Function(
-    "localStorage",
-    "loadDataSync",
-    "saveDataSync",
-    "loadTagTimestamps",
-    "loadItemTags",
-    "__decompressIfNeeded",
-    "Date",
-    block + "\nreturn { _mergeTagData: _mergeTagData };"
-  );
-  const { _mergeTagData } = factory(
-    localStorageMock,
-    loadDataSync,
-    saveDataSync,
-    loadTagTimestamps,
-    loadItemTags,
-    __decompressIfNeeded,
-    MockDate
-  );
+  const { _mergeTagData } = evalSource(SYNC_FILE, {
+    params: {
+      localStorage: localStorageMock,
+      loadDataSync,
+      saveDataSync,
+      loadTagTimestamps,
+      loadItemTags,
+      __decompressIfNeeded,
+      Date: MockDate,
+    },
+    slice: block,
+    suffix: "\nreturn { _mergeTagData: _mergeTagData };",
+  });
   return { store, _mergeTagData };
 }
 
@@ -82,7 +74,7 @@ function runMerge(localSeed, remote) {
   };
 }
 
-describe("STRK-155 convergent per-item tag merge", () => {
+describe("convergent per-item tag merge", () => {
   test("commutativity: divergent tags with EQUAL timestamps converge identically in both directions", () => {
     const A = {
       itemTags: { u1: ["alpha", "beta"] },

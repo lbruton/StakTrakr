@@ -1,5 +1,6 @@
-import { test, expect } from "../helpers/mocks/extended-test.js";
+import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
+import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import seedInventoryFixture from "../../fixtures/seed-inventory.js";
 
@@ -115,6 +116,69 @@ test.describe("core/inventory-crud", () => {
 
     await expect(page.locator("#itemMetal")).toHaveValue("Silver");
     await expect(page.locator("#itemType")).toHaveValue("Coin");
+  });
+
+  // The environment toast shows for 5 s on localhost, beta and preview, and sits
+  // over the item modal's Save button. Clicks pass through it.
+  test("Save works while the environment toast is on screen", async ({ page }) => {
+    await seedAndGoto(page);
+    await page.evaluate(() => window.editItem(0));
+    await expect(page.locator("#itemModal")).toBeVisible();
+
+    const toast = page.locator(".cloud-toast", { hasText: "Running locally" });
+    await expect(toast).toBeVisible({ timeout: 5000 });
+    const hitsToast = await toast.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return el.contains(hit);
+    });
+    expect(hitsToast, "the toast must not take pointer events").toBe(false);
+
+    // Shorter than the toast's 5 s life, so a blocked click fails here.
+    await page.locator("#itemModalSubmit").click({ timeout: 2000 });
+    await expect(page.locator("#itemModal")).toBeHidden({ timeout: 2000 });
+    await expect(toast).toBeVisible();
+  });
+
+  // Inventory rows take their static styles from classes in css/styles.css. An inline
+  // style may carry only a runtime value: a hashed or metal chip colour, the Gain/Loss
+  // sign colour and weight, or a thumbnail's load visibility.
+  test("inventory row markup carries inline styles only for runtime values", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "inlineChipConfig",
+        JSON.stringify([
+          { id: "year", enabled: true },
+          { id: "purity", enabled: true },
+        ])
+      );
+    });
+    await seedAndGoto(page);
+    const row = page.locator("#inventoryTable tbody tr[data-idx]");
+    await expect(row).toHaveCount(1);
+    await expect(row.locator(".purchase-link-icon")).toHaveCount(1);
+    await expect(row.locator(".year-tag")).toHaveCount(1);
+    await expect(row.locator(".purity-tag")).toHaveCount(1);
+
+    const offenders = await collectInlineStyleOffenders(page, {
+      roots: ["#inventoryTable tbody"],
+      runtime: ["color", "font-weight", "visibility"],
+      label: "row",
+    });
+    offenders.push(
+      ...(await page.evaluate(() => {
+        const found = [];
+        for (const el of document.querySelectorAll("#inventoryTable tbody [style]")) {
+          const where = `<${el.tagName}> ${el.dataset.column || el.className}`;
+          if (el.style.color === "var(--text-primary)") found.push(`${where} static color`);
+          if (el.style.fontWeight && el.dataset.column !== "gainLoss") {
+            found.push(`${where} font-weight`);
+          }
+        }
+        return found;
+      }))
+    );
+    expect(offenders).toEqual([]);
   });
 });
 
@@ -855,7 +919,7 @@ test.describe("payment-method", () => {
     await expect(page.locator("#itemPaymentMethod")).toHaveValue("PayPal");
   });
 
-  test("STRK-433: duplicate carries the Numista Data tab into the new item", async ({ page }) => {
+  test("duplicate carries the Numista Data tab into the new item", async ({ page }) => {
     await seedData(page, [
       makeItem({
         serial: 1,
@@ -925,7 +989,7 @@ test.describe("payment-method", () => {
     return stored.find((i) => i.serial !== 1);
   }
 
-  test("STRK-437: duplicate keeps the source item's fieldMeta provenance", async ({ page }) => {
+  test("duplicate keeps the source item's fieldMeta provenance", async ({ page }) => {
     await openDuplicateOfCustomisedItem(page);
     await submitItemModal(page);
 
@@ -941,9 +1005,7 @@ test.describe("payment-method", () => {
     expect(shared).toBe(false);
   });
 
-  test("STRK-437: a field changed on the Duplicate form is marked userModified", async ({
-    page,
-  }) => {
+  test("a field changed on the Duplicate form is marked userModified", async ({ page }) => {
     await openDuplicateOfCustomisedItem(page);
     await page.fill("#itemName", "STRK-437 Renamed Copy");
     await page.fill("#numistaDenomination", "10 Dollars");
@@ -956,7 +1018,7 @@ test.describe("payment-method", () => {
     expect(dup.fieldMeta.country).toEqual({ source: "manual", userModified: true });
   });
 
-  test("STRK-437: duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
+  test("duplicate re-pointed at a different catalog drops the source fieldMeta", async ({
     page,
   }) => {
     await openDuplicateOfCustomisedItem(page);
@@ -968,9 +1030,7 @@ test.describe("payment-method", () => {
     expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
   });
 
-  test("STRK-437: Add after a cancelled duplicate does not inherit its fieldMeta", async ({
-    page,
-  }) => {
+  test("Add after a cancelled duplicate does not inherit its fieldMeta", async ({ page }) => {
     await openDuplicateOfCustomisedItem(page);
     await page.click("#cancelItem");
     await expect(page.locator("#itemModal")).toBeHidden();
@@ -992,9 +1052,7 @@ test.describe("payment-method", () => {
     expect(dup.fieldMeta?.country?.userModified).not.toBe(true);
   });
 
-  test("STRK-433: stale Numista cache load cannot write into a later form context", async ({
-    page,
-  }) => {
+  test("stale Numista cache load cannot write into a later form context", async ({ page }) => {
     await seedData(page, [makeItem({ serial: 1, name: "STRK-433 Stale", numistaId: "1234" })]);
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -1017,9 +1075,7 @@ test.describe("payment-method", () => {
     expect(country).toBe("");
   });
 
-  test("STRK-170: applyBulkEdit field-application across types (characterization)", async ({
-    page,
-  }) => {
+  test("applyBulkEdit field-application across types (characterization)", async ({ page }) => {
     // Pins applyBulkEdit's per-field application semantics before the cohort-3.3
     // complexity refactor: plain text passthrough, numeric clamp coercion,
     // custom-purity acceptance, and gram→ozt weight-unit conversion. The
@@ -1134,9 +1190,7 @@ test.describe("payment-method", () => {
   // selection, the storageLocation "Unknown" sentinel→blank, and the date-N/A
   // toggle. MUST pass on current code BEFORE the refactor and stay green after —
   // it goes red only if the refactor changes observable behavior.
-  test("STRK-170: editItem populates form fields from item (characterization)", async ({
-    page,
-  }) => {
+  test("editItem populates form fields from item (characterization)", async ({ page }) => {
     await seedData(page, [
       // 0 — kitchen-sink oz item: full metadata + preset purity + present date
       makeItem({
@@ -1465,10 +1519,10 @@ test.describe("virtual-sort-options", () => {
 
 // ─── CRUD journey — serial (from crud.spec.js) ──────────────────────────────
 
-// This block uses test.describe.serial with a shared page because the CRUD
-// tests build on prior state (add, then edit, then delete). The shared page is
-// created via browser.newPage(), so extended-test's auto-mocking does not apply
-// — we install mocks manually.
+// The CRUD journey builds on prior state (add, then edit, then delete), so it runs
+// as one test with a step per stage on one page. The page is created via
+// browser.newPage(), so extended-test's auto-mocking does not apply; the test
+// installs the mocks itself.
 
 async function countCards(page) {
   return page.locator("#cardViewGrid article").count();
@@ -1510,9 +1564,12 @@ async function deleteItemByName(page, name) {
 
 let sharedPage;
 
-test.describe.serial("crud-journey", () => {
-  test.beforeAll(async ({ browser }) => {
+test.describe("crud-journey", () => {
+  test("the CRUD journey on one page, one step per stage", async ({ browser }) => {
+    // One per-test timeout for each of the 22 stages.
+    test.setTimeout(test.info().timeout * 22);
     sharedPage = await browser.newPage();
+    await prepareAppPage(sharedPage);
     await installStakTrakrNetworkMocks(sharedPage);
     await injectSeedInventory(sharedPage);
     await sharedPage.addInitScript(() => {
@@ -1529,412 +1586,413 @@ test.describe.serial("crud-journey", () => {
     if (await popup.isVisible()) {
       await sharedPage.click("#whatsNewDismissBtn");
     }
-  });
+    try {
+      await test.step("add item — Silver Coin", async () => {
+        const page = sharedPage;
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Silver");
+        await page.selectOption("#itemType", "Coin");
+        await page.fill("#itemName", "BB-SILVER-COIN");
+        await page.fill("#itemWeight", "1");
+        await page.fill("#itemPrice", "25");
+        await submitItemForm(page);
+        expect(await countCards(page)).toBe(9);
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-SILVER-COIN");
+      });
 
-  test.afterAll(async () => {
-    if (!sharedPage) return;
-    await sharedPage.click('[data-style="D"]');
-    await sharedPage.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+      await test.step("add item — Gold Bar", async () => {
+        const page = sharedPage;
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Gold");
+        await page.selectOption("#itemType", "Bar");
+        await page.fill("#itemName", "BB-GOLD-BAR");
+        await page.fill("#itemWeight", "1");
+        await page.fill("#itemPrice", "2000");
+        await submitItemForm(page);
+        expect(await countCards(page)).toBe(10);
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-GOLD-BAR");
+      });
 
-    const bbNames = [
-      "BB-SILVER-COIN",
-      "BB-GOLD-BAR",
-      "BB-GOLD-BAR-EDITED",
-      "BB-PLAT-ROUND",
-      "BB-PALL-BAR",
-      "BB-GOLDBACK",
-      "BB-OZ-ITEM",
-      "BB-G-ITEM",
-      "BB-KG-ITEM",
-      "BB-DWT-ITEM",
-      "BB-COUNT-TEST",
-    ];
+      await test.step("add item — Platinum Round", async () => {
+        const page = sharedPage;
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Platinum");
+        await page.selectOption("#itemType", "Round");
+        await page.fill("#itemName", "BB-PLAT-ROUND");
+        await page.fill("#itemWeight", "1");
+        await page.fill("#itemPrice", "1000");
+        await submitItemForm(page);
+        expect(await countCards(page)).toBe(11);
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-PLAT-ROUND");
+      });
 
-    for (const name of bbNames) {
-      const row = sharedPage.locator("#inventoryTable tbody tr").filter({ hasText: name });
-      if ((await row.count()) > 0) {
-        await deleteItemByName(sharedPage, name);
-        await expect(row).toBeHidden();
-      }
+      await test.step("add item — Palladium Bar", async () => {
+        const page = sharedPage;
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Palladium");
+        await page.selectOption("#itemType", "Bar");
+        await page.fill("#itemName", "BB-PALL-BAR");
+        await page.fill("#itemWeight", "1");
+        await page.fill("#itemPrice", "1000");
+        await submitItemForm(page);
+        expect(await countCards(page)).toBe(12);
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-PALL-BAR");
+      });
+
+      await test.step("add item — Goldback", async () => {
+        const page = sharedPage;
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Gold");
+        await page.selectOption("#itemType", "Goldback");
+        await page.fill("#itemName", "BB-GOLDBACK");
+        await page.fill("#itemPrice", "5");
+        await submitItemForm(page);
+        expect(await countCards(page)).toBe(13);
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-GOLDBACK");
+      });
+
+      await test.step("add items with each weight unit (oz, g, kg, lb)", async () => {
+        const page = sharedPage;
+
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Silver");
+        await page.selectOption("#itemType", "Coin");
+        await page.fill("#itemName", "BB-OZ-ITEM");
+        await page.selectOption("#itemWeightUnit", "oz");
+        await page.fill("#itemWeight", "1");
+        await page.fill("#itemPrice", "25");
+        await submitItemForm(page);
+
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Silver");
+        await page.selectOption("#itemType", "Coin");
+        await page.fill("#itemName", "BB-G-ITEM");
+        await page.selectOption("#itemWeightUnit", "g");
+        await page.fill("#itemWeight", "31.1");
+        await page.fill("#itemPrice", "25");
+        await submitItemForm(page);
+
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Silver");
+        await page.selectOption("#itemType", "Coin");
+        await page.fill("#itemName", "BB-KG-ITEM");
+        await page.selectOption("#itemWeightUnit", "kg");
+        await page.fill("#itemWeight", "0.0311");
+        await page.fill("#itemPrice", "25");
+        await submitItemForm(page);
+
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Silver");
+        await page.selectOption("#itemType", "Coin");
+        await page.fill("#itemName", "BB-DWT-ITEM");
+        await page.selectOption("#itemWeightUnit", "lb");
+        await page.fill("#itemWeight", "20");
+        await page.fill("#itemPrice", "25");
+        await submitItemForm(page);
+
+        expect(await countCards(page)).toBe(17);
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-OZ-ITEM");
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-G-ITEM");
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-KG-ITEM");
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-DWT-ITEM");
+      });
+
+      await test.step("upload obverse image", async () => {
+        const page = sharedPage;
+        const idx = await page.evaluate(() =>
+          window.inventory.findIndex((i) => i.name === "BB-SILVER-COIN")
+        );
+        expect(idx).toBeGreaterThanOrEqual(0);
+        await page.evaluate((i) => window.editItem(i), idx);
+        await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+
+        const pngBuffer = Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          "base64"
+        );
+        await page.setInputFiles("#itemImageFileObv", {
+          name: "test-obv.png",
+          mimeType: "image/png",
+          buffer: pngBuffer,
+        });
+        await expect(page.locator("#itemImagePreviewObv")).toBeVisible({ timeout: 10000 });
+        await submitItemForm(page);
+      });
+
+      await test.step("upload reverse image", async () => {
+        const page = sharedPage;
+        const idx = await page.evaluate(() =>
+          window.inventory.findIndex((i) => i.name === "BB-SILVER-COIN")
+        );
+        expect(idx).toBeGreaterThanOrEqual(0);
+        await page.evaluate((i) => window.editItem(i), idx);
+        await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+
+        const pngBuffer = Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          "base64"
+        );
+        await page.setInputFiles("#itemImageFileRev", {
+          name: "test-rev.png",
+          mimeType: "image/png",
+          buffer: pngBuffer,
+        });
+        await expect(page.locator("#itemImagePreviewRev")).toBeVisible({ timeout: 10000 });
+        await submitItemForm(page);
+      });
+
+      await test.step("remove an uploaded image", async () => {
+        const page = sharedPage;
+        const idx = await page.evaluate(() =>
+          window.inventory.findIndex((i) => i.name === "BB-SILVER-COIN")
+        );
+        expect(idx).toBeGreaterThanOrEqual(0);
+        await page.evaluate((i) => window.editItem(i), idx);
+        await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+
+        const removeBtn = page.locator("#itemImageRemoveBtnObv");
+        if (await removeBtn.isVisible()) {
+          await removeBtn.click();
+          await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
+        }
+        await submitItemForm(page);
+      });
+
+      await test.step("apply pattern-matched image (seed image rule)", async () => {
+        const page = sharedPage;
+        const hasGetCustomRules = await page.evaluate(
+          () => typeof window.NumistaLookup?.getCustomRules === "function"
+        );
+        expect(hasGetCustomRules).toBe(true);
+
+        const hasImageCache = await page.evaluate(
+          () => typeof window.imageCache?.isAvailable === "function"
+        );
+        expect(hasImageCache).toBe(true);
+      });
+
+      await test.step("remove pattern-matched image", async () => {
+        const page = sharedPage;
+        const hasDeleteImages = await page.evaluate(
+          () => typeof window.imageCache?.deleteImages === "function"
+        );
+        expect(hasDeleteImages).toBe(true);
+
+        const hasDeleteMetadata = await page.evaluate(
+          () => typeof window.imageCache?.deleteMetadata === "function"
+        );
+        expect(hasDeleteMetadata).toBe(true);
+      });
+
+      await test.step("edit an existing item (all fields)", async () => {
+        const page = sharedPage;
+        const idx = await page.evaluate(() =>
+          window.inventory.findIndex((i) => i.name === "BB-GOLD-BAR")
+        );
+        expect(idx).toBeGreaterThanOrEqual(0);
+
+        await page.evaluate((i) => window.editItem(i), idx);
+        await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
+        await expect(page.locator("#itemModalTitle")).toContainText("Edit");
+
+        await page.fill("#itemName", "BB-GOLD-BAR-EDITED");
+        await page.fill("#itemPrice", "2100");
+        await submitItemForm(page);
+
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-GOLD-BAR-EDITED");
+        expect(await countCards(page)).toBe(17);
+      });
+
+      await test.step("delete item — confirmation dialog appears before delete", async () => {
+        const page = sharedPage;
+        const idx = await page.evaluate(() =>
+          window.inventory.findIndex((i) => i.name === "BB-PALL-BAR")
+        );
+        expect(idx).toBeGreaterThanOrEqual(0);
+
+        await page.evaluate((i) => window.deleteItem(i), idx);
+        await expect(page.locator("#removeItemModal")).toBeVisible({ timeout: 5000 });
+        await expect(page.locator("#removeItemName")).toContainText("BB-PALL-BAR");
+
+        await page.click("#removeItemDeleteBtn");
+        await expect(page.locator("#removeItemModal")).toBeHidden();
+        expect(await countCards(page)).toBe(16);
+      });
+
+      await test.step("item count badge updates after add/edit/delete", async () => {
+        const page = sharedPage;
+
+        const initialCount = await page.locator("#totalItemsAll").textContent();
+        expect(parseInt(initialCount, 10)).toBe(16);
+
+        await openAddModalCrud(page);
+        await page.selectOption("#itemMetal", "Silver");
+        await page.selectOption("#itemType", "Coin");
+        await page.fill("#itemName", "BB-COUNT-TEST");
+        await page.fill("#itemWeight", "1");
+        await page.fill("#itemPrice", "25");
+        await submitItemForm(page);
+
+        const afterAdd = await page.locator("#totalItemsAll").textContent();
+        expect(parseInt(afterAdd, 10)).toBe(17);
+
+        const idx = await page.evaluate(() =>
+          window.inventory.findIndex((i) => i.name === "BB-COUNT-TEST")
+        );
+        expect(idx).toBeGreaterThanOrEqual(0);
+        await page.evaluate((i) => window.deleteItem(i), idx);
+        await expect(page.locator("#removeItemModal")).toBeVisible({ timeout: 5000 });
+        await page.click("#removeItemDeleteBtn");
+        await expect(page.locator("#removeItemModal")).toBeHidden();
+
+        const afterDelete = await page.locator("#totalItemsAll").textContent();
+        expect(parseInt(afterDelete, 10)).toBe(16);
+      });
+
+      await test.step("search for an item by name", async () => {
+        const page = sharedPage;
+        await page.fill("#searchInput", "BB-SILVER");
+
+        await expect(page.locator("#cardViewGrid")).toContainText("BB-SILVER-COIN");
+        const grid = page.locator("#cardViewGrid");
+        await expect(grid).not.toContainText("BB-GOLD-BAR-EDITED");
+      });
+
+      await test.step("filter chips reflect search results", async () => {
+        const page = sharedPage;
+        const chipContainer = page.locator("#activeFilters");
+        await expect(chipContainer).toBeVisible();
+        const chipCount = await chipContainer.locator(".filter-chip").count();
+        expect(chipCount).toBeGreaterThan(0);
+
+        await page.evaluate(() => window.clearAllFilters());
+        await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
+      });
+
+      await test.step("filter via chip (metal)", async () => {
+        const page = sharedPage;
+        await page.evaluate(() => window.clearAllFilters());
+        await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
+
+        const beforeCount = await countCards(page);
+        expect(beforeCount).toBe(16);
+
+        const silverChip = page.locator(".filter-chip").filter({ hasText: "Silver" }).first();
+        await expect(silverChip).toBeVisible({ timeout: 5000 });
+        await silverChip.click();
+        await expect(page.locator("#cardViewGrid article")).not.toHaveCount(beforeCount);
+        const afterCount = await countCards(page);
+        expect(afterCount).toBeGreaterThan(0);
+        expect(afterCount).toBeLessThan(beforeCount);
+      });
+
+      await test.step("remove filter chip narrows/expands results", async () => {
+        const page = sharedPage;
+        const filteredCount = await countCards(page);
+        expect(filteredCount).toBeLessThan(16);
+
+        const activeChip = page
+          .locator(".filter-chip.filter-chip-active")
+          .filter({ hasText: "Silver" })
+          .first();
+        await activeChip.click();
+        await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
+
+        const afterCount = await countCards(page);
+        expect(afterCount).toBe(16);
+
+        await page.evaluate(() => window.clearAllFilters());
+        await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
+      });
+
+      await test.step("switch card views A → B → C → Table (D)", async () => {
+        const page = sharedPage;
+
+        await page.click('[data-style="A"]');
+        await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
+
+        await page.click('[data-style="B"]');
+        await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
+
+        await page.click('[data-style="C"]');
+        await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
+
+        await page.click('[data-style="D"]');
+        await expect(page.locator("#inventoryTable")).toBeVisible();
+        const tableRows = await page.locator("#inventoryTable tbody tr").count();
+        expect(tableRows).toBeGreaterThan(0);
+
+        await page.click('[data-style="A"]');
+        await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
+      });
+
+      await test.step("melt value recalculates correctly when spot price changes", async () => {
+        const page = sharedPage;
+        const initialMelt = await page.evaluate(() => {
+          const item = window.inventory.find((i) => i.name === "BB-SILVER-COIN");
+          if (!item) return null;
+          const spot = spotPrices.silver || 0;
+          return typeof computeMeltValue === "function" ? computeMeltValue(item, spot) : null;
+        });
+
+        await page.evaluate(() => {
+          spotPrices.silver = 50;
+          if (typeof renderTable === "function") renderTable();
+        });
+
+        const updatedMelt = await page.evaluate(() => {
+          const item = window.inventory.find((i) => i.name === "BB-SILVER-COIN");
+          if (!item) return null;
+          return typeof computeMeltValue === "function" ? computeMeltValue(item, 50) : null;
+        });
+
+        expect(updatedMelt).not.toBeNull();
+        expect(updatedMelt).toBeGreaterThan(0);
+        if (initialMelt !== null && initialMelt > 0) {
+          expect(updatedMelt).not.toBe(initialMelt);
+        }
+      });
+
+      await test.step("cleanup — BB-* test items exist and deleteItem is callable", async () => {
+        const page = sharedPage;
+        const bbItems = await page.evaluate(() =>
+          window.inventory.filter((i) => i.name && i.name.startsWith("BB-")).map((i) => i.name)
+        );
+        expect(bbItems.length).toBeGreaterThan(0);
+
+        const hasDeleteItem = await page.evaluate(() => typeof window.deleteItem === "function");
+        expect(hasDeleteItem).toBe(true);
+      });
+
+      await test.step("delete every BB-* test item from the table view", async () => {
+        await sharedPage.click('[data-style="D"]');
+        await sharedPage.waitForSelector("#inventoryTable tbody tr", { state: "visible" });
+
+        const bbNames = [
+          "BB-SILVER-COIN",
+          "BB-GOLD-BAR",
+          "BB-GOLD-BAR-EDITED",
+          "BB-PLAT-ROUND",
+          "BB-PALL-BAR",
+          "BB-GOLDBACK",
+          "BB-OZ-ITEM",
+          "BB-G-ITEM",
+          "BB-KG-ITEM",
+          "BB-DWT-ITEM",
+          "BB-COUNT-TEST",
+        ];
+
+        for (const name of bbNames) {
+          const row = sharedPage.locator("#inventoryTable tbody tr").filter({ hasText: name });
+          if ((await row.count()) > 0) {
+            await deleteItemByName(sharedPage, name);
+            await expect(row).toBeHidden();
+          }
+        }
+      });
+    } finally {
+      await sharedPage.close();
     }
-    await sharedPage.close();
-  });
-
-  test("add item — Silver Coin", async () => {
-    const page = sharedPage;
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Silver");
-    await page.selectOption("#itemType", "Coin");
-    await page.fill("#itemName", "BB-SILVER-COIN");
-    await page.fill("#itemWeight", "1");
-    await page.fill("#itemPrice", "25");
-    await submitItemForm(page);
-    expect(await countCards(page)).toBe(9);
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-SILVER-COIN");
-  });
-
-  test("add item — Gold Bar", async () => {
-    const page = sharedPage;
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Gold");
-    await page.selectOption("#itemType", "Bar");
-    await page.fill("#itemName", "BB-GOLD-BAR");
-    await page.fill("#itemWeight", "1");
-    await page.fill("#itemPrice", "2000");
-    await submitItemForm(page);
-    expect(await countCards(page)).toBe(10);
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-GOLD-BAR");
-  });
-
-  test("add item — Platinum Round", async () => {
-    const page = sharedPage;
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Platinum");
-    await page.selectOption("#itemType", "Round");
-    await page.fill("#itemName", "BB-PLAT-ROUND");
-    await page.fill("#itemWeight", "1");
-    await page.fill("#itemPrice", "1000");
-    await submitItemForm(page);
-    expect(await countCards(page)).toBe(11);
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-PLAT-ROUND");
-  });
-
-  test("add item — Palladium Bar", async () => {
-    const page = sharedPage;
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Palladium");
-    await page.selectOption("#itemType", "Bar");
-    await page.fill("#itemName", "BB-PALL-BAR");
-    await page.fill("#itemWeight", "1");
-    await page.fill("#itemPrice", "1000");
-    await submitItemForm(page);
-    expect(await countCards(page)).toBe(12);
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-PALL-BAR");
-  });
-
-  test("add item — Goldback", async () => {
-    const page = sharedPage;
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Gold");
-    await page.selectOption("#itemType", "Goldback");
-    await page.fill("#itemName", "BB-GOLDBACK");
-    await page.fill("#itemPrice", "5");
-    await submitItemForm(page);
-    expect(await countCards(page)).toBe(13);
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-GOLDBACK");
-  });
-
-  test("add items with each weight unit (oz, g, kg, lb)", async () => {
-    const page = sharedPage;
-
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Silver");
-    await page.selectOption("#itemType", "Coin");
-    await page.fill("#itemName", "BB-OZ-ITEM");
-    await page.selectOption("#itemWeightUnit", "oz");
-    await page.fill("#itemWeight", "1");
-    await page.fill("#itemPrice", "25");
-    await submitItemForm(page);
-
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Silver");
-    await page.selectOption("#itemType", "Coin");
-    await page.fill("#itemName", "BB-G-ITEM");
-    await page.selectOption("#itemWeightUnit", "g");
-    await page.fill("#itemWeight", "31.1");
-    await page.fill("#itemPrice", "25");
-    await submitItemForm(page);
-
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Silver");
-    await page.selectOption("#itemType", "Coin");
-    await page.fill("#itemName", "BB-KG-ITEM");
-    await page.selectOption("#itemWeightUnit", "kg");
-    await page.fill("#itemWeight", "0.0311");
-    await page.fill("#itemPrice", "25");
-    await submitItemForm(page);
-
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Silver");
-    await page.selectOption("#itemType", "Coin");
-    await page.fill("#itemName", "BB-DWT-ITEM");
-    await page.selectOption("#itemWeightUnit", "lb");
-    await page.fill("#itemWeight", "20");
-    await page.fill("#itemPrice", "25");
-    await submitItemForm(page);
-
-    expect(await countCards(page)).toBe(17);
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-OZ-ITEM");
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-G-ITEM");
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-KG-ITEM");
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-DWT-ITEM");
-  });
-
-  test("upload obverse image", async () => {
-    const page = sharedPage;
-    const idx = await page.evaluate(() =>
-      window.inventory.findIndex((i) => i.name === "BB-SILVER-COIN")
-    );
-    expect(idx).toBeGreaterThanOrEqual(0);
-    await page.evaluate((i) => window.editItem(i), idx);
-    await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
-
-    const pngBuffer = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-      "base64"
-    );
-    await page.setInputFiles("#itemImageFileObv", {
-      name: "test-obv.png",
-      mimeType: "image/png",
-      buffer: pngBuffer,
-    });
-    await expect(page.locator("#itemImagePreviewObv")).toBeVisible({ timeout: 10000 });
-    await submitItemForm(page);
-  });
-
-  test("upload reverse image", async () => {
-    const page = sharedPage;
-    const idx = await page.evaluate(() =>
-      window.inventory.findIndex((i) => i.name === "BB-SILVER-COIN")
-    );
-    expect(idx).toBeGreaterThanOrEqual(0);
-    await page.evaluate((i) => window.editItem(i), idx);
-    await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
-
-    const pngBuffer = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-      "base64"
-    );
-    await page.setInputFiles("#itemImageFileRev", {
-      name: "test-rev.png",
-      mimeType: "image/png",
-      buffer: pngBuffer,
-    });
-    await expect(page.locator("#itemImagePreviewRev")).toBeVisible({ timeout: 10000 });
-    await submitItemForm(page);
-  });
-
-  test("remove an uploaded image", async () => {
-    const page = sharedPage;
-    const idx = await page.evaluate(() =>
-      window.inventory.findIndex((i) => i.name === "BB-SILVER-COIN")
-    );
-    expect(idx).toBeGreaterThanOrEqual(0);
-    await page.evaluate((i) => window.editItem(i), idx);
-    await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
-
-    const removeBtn = page.locator("#itemImageRemoveBtnObv");
-    if (await removeBtn.isVisible()) {
-      await removeBtn.click();
-      await expect(page.locator("#itemImagePreviewObv")).toBeHidden();
-    }
-    await submitItemForm(page);
-  });
-
-  test("apply pattern-matched image (seed image rule)", async () => {
-    const page = sharedPage;
-    const hasGetCustomRules = await page.evaluate(
-      () => typeof window.NumistaLookup?.getCustomRules === "function"
-    );
-    expect(hasGetCustomRules).toBe(true);
-
-    const hasImageCache = await page.evaluate(
-      () => typeof window.imageCache?.isAvailable === "function"
-    );
-    expect(hasImageCache).toBe(true);
-  });
-
-  test("remove pattern-matched image", async () => {
-    const page = sharedPage;
-    const hasDeleteImages = await page.evaluate(
-      () => typeof window.imageCache?.deleteImages === "function"
-    );
-    expect(hasDeleteImages).toBe(true);
-
-    const hasDeleteMetadata = await page.evaluate(
-      () => typeof window.imageCache?.deleteMetadata === "function"
-    );
-    expect(hasDeleteMetadata).toBe(true);
-  });
-
-  test("edit an existing item (all fields)", async () => {
-    const page = sharedPage;
-    const idx = await page.evaluate(() =>
-      window.inventory.findIndex((i) => i.name === "BB-GOLD-BAR")
-    );
-    expect(idx).toBeGreaterThanOrEqual(0);
-
-    await page.evaluate((i) => window.editItem(i), idx);
-    await expect(page.locator("#itemModal")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("#itemModalTitle")).toContainText("Edit");
-
-    await page.fill("#itemName", "BB-GOLD-BAR-EDITED");
-    await page.fill("#itemPrice", "2100");
-    await submitItemForm(page);
-
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-GOLD-BAR-EDITED");
-    expect(await countCards(page)).toBe(17);
-  });
-
-  test("delete item — confirmation dialog appears before delete", async () => {
-    const page = sharedPage;
-    const idx = await page.evaluate(() =>
-      window.inventory.findIndex((i) => i.name === "BB-PALL-BAR")
-    );
-    expect(idx).toBeGreaterThanOrEqual(0);
-
-    await page.evaluate((i) => window.deleteItem(i), idx);
-    await expect(page.locator("#removeItemModal")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator("#removeItemName")).toContainText("BB-PALL-BAR");
-
-    await page.click("#removeItemDeleteBtn");
-    await expect(page.locator("#removeItemModal")).toBeHidden();
-    expect(await countCards(page)).toBe(16);
-  });
-
-  test("item count badge updates after add/edit/delete", async () => {
-    const page = sharedPage;
-
-    const initialCount = await page.locator("#totalItemsAll").textContent();
-    expect(parseInt(initialCount, 10)).toBe(16);
-
-    await openAddModalCrud(page);
-    await page.selectOption("#itemMetal", "Silver");
-    await page.selectOption("#itemType", "Coin");
-    await page.fill("#itemName", "BB-COUNT-TEST");
-    await page.fill("#itemWeight", "1");
-    await page.fill("#itemPrice", "25");
-    await submitItemForm(page);
-
-    const afterAdd = await page.locator("#totalItemsAll").textContent();
-    expect(parseInt(afterAdd, 10)).toBe(17);
-
-    const idx = await page.evaluate(() =>
-      window.inventory.findIndex((i) => i.name === "BB-COUNT-TEST")
-    );
-    expect(idx).toBeGreaterThanOrEqual(0);
-    await page.evaluate((i) => window.deleteItem(i), idx);
-    await expect(page.locator("#removeItemModal")).toBeVisible({ timeout: 5000 });
-    await page.click("#removeItemDeleteBtn");
-    await expect(page.locator("#removeItemModal")).toBeHidden();
-
-    const afterDelete = await page.locator("#totalItemsAll").textContent();
-    expect(parseInt(afterDelete, 10)).toBe(16);
-  });
-
-  test("search for an item by name", async () => {
-    const page = sharedPage;
-    await page.fill("#searchInput", "BB-SILVER");
-
-    await expect(page.locator("#cardViewGrid")).toContainText("BB-SILVER-COIN");
-    const grid = page.locator("#cardViewGrid");
-    await expect(grid).not.toContainText("BB-GOLD-BAR-EDITED");
-  });
-
-  test("filter chips reflect search results", async () => {
-    const page = sharedPage;
-    const chipContainer = page.locator("#activeFilters");
-    await expect(chipContainer).toBeVisible();
-    const chipCount = await chipContainer.locator(".filter-chip").count();
-    expect(chipCount).toBeGreaterThan(0);
-
-    await page.evaluate(() => window.clearAllFilters());
-    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
-  });
-
-  test("filter via chip (metal)", async () => {
-    const page = sharedPage;
-    await page.evaluate(() => window.clearAllFilters());
-    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
-
-    const beforeCount = await countCards(page);
-    expect(beforeCount).toBe(16);
-
-    const silverChip = page.locator(".filter-chip").filter({ hasText: "Silver" }).first();
-    await expect(silverChip).toBeVisible({ timeout: 5000 });
-    await silverChip.click();
-    await expect(page.locator("#cardViewGrid article")).not.toHaveCount(beforeCount);
-    const afterCount = await countCards(page);
-    expect(afterCount).toBeGreaterThan(0);
-    expect(afterCount).toBeLessThan(beforeCount);
-  });
-
-  test("remove filter chip narrows/expands results", async () => {
-    const page = sharedPage;
-    const filteredCount = await countCards(page);
-    expect(filteredCount).toBeLessThan(16);
-
-    const activeChip = page
-      .locator(".filter-chip.filter-chip-active")
-      .filter({ hasText: "Silver" })
-      .first();
-    await activeChip.click();
-    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
-
-    const afterCount = await countCards(page);
-    expect(afterCount).toBe(16);
-
-    await page.evaluate(() => window.clearAllFilters());
-    await expect(page.locator("#activeFilters .filter-chip-active")).toHaveCount(0);
-  });
-
-  test("switch card views A → B → C → Table (D)", async () => {
-    const page = sharedPage;
-
-    await page.click('[data-style="A"]');
-    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
-
-    await page.click('[data-style="B"]');
-    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
-
-    await page.click('[data-style="C"]');
-    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
-
-    await page.click('[data-style="D"]');
-    await expect(page.locator("#inventoryTable")).toBeVisible();
-    const tableRows = await page.locator("#inventoryTable tbody tr").count();
-    expect(tableRows).toBeGreaterThan(0);
-
-    await page.click('[data-style="A"]');
-    await expect(page.locator("#cardViewGrid article")).toHaveCount(16);
-  });
-
-  test("melt value recalculates correctly when spot price changes", async () => {
-    const page = sharedPage;
-    const initialMelt = await page.evaluate(() => {
-      const item = window.inventory.find((i) => i.name === "BB-SILVER-COIN");
-      if (!item) return null;
-      const spot = spotPrices.silver || 0;
-      return typeof computeMeltValue === "function" ? computeMeltValue(item, spot) : null;
-    });
-
-    await page.evaluate(() => {
-      spotPrices.silver = 50;
-      if (typeof renderTable === "function") renderTable();
-    });
-
-    const updatedMelt = await page.evaluate(() => {
-      const item = window.inventory.find((i) => i.name === "BB-SILVER-COIN");
-      if (!item) return null;
-      return typeof computeMeltValue === "function" ? computeMeltValue(item, 50) : null;
-    });
-
-    expect(updatedMelt).not.toBeNull();
-    expect(updatedMelt).toBeGreaterThan(0);
-    if (initialMelt !== null && initialMelt > 0) {
-      expect(updatedMelt).not.toBe(initialMelt);
-    }
-  });
-
-  test("cleanup — BB-* test items exist and deleteItem is callable", async () => {
-    const page = sharedPage;
-    const bbItems = await page.evaluate(() =>
-      window.inventory.filter((i) => i.name && i.name.startsWith("BB-")).map((i) => i.name)
-    );
-    expect(bbItems.length).toBeGreaterThan(0);
-
-    const hasDeleteItem = await page.evaluate(() => typeof window.deleteItem === "function");
-    expect(hasDeleteItem).toBe(true);
   });
 });
 
@@ -2722,7 +2780,7 @@ const COIN_SERIES_INVENTORY = [
   coinSeriesItem(COIN_SERIES_UUIDS.GML, "Gold Maple Leaf", "Gold"),
 ];
 
-test.describe("filter-coin-series — cross-metal disambiguation (STRK-170)", () => {
+test.describe("filter-coin-series — cross-metal disambiguation", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript((inv) => {
       localStorage.setItem("metalInventory", JSON.stringify(inv));
@@ -2844,7 +2902,7 @@ async function trackSpaceDefault(page) {
 
 // ─── STRK-208: year/purity inline-tag click-to-filter (onclick escaping) ─────
 
-test.describe("year-purity-filter-tags — STRK-208", () => {
+test.describe("year-purity-filter-tags", () => {
   test("year/purity tag onclick is well-formed (not truncated) and click filters the table", async ({
     page,
   }) => {
@@ -2877,7 +2935,7 @@ test.describe("year-purity-filter-tags — STRK-208", () => {
 
 // ─── STRK-209: keyboard activation a11y for filter tags + name cell ──────────
 
-test.describe("keyboard-a11y-activation — STRK-209", () => {
+test.describe("keyboard-a11y-activation", () => {
   const TWO_ITEMS = [
     { ...SEED_ITEM, uuid: "strk-209-a", name: "STRK-209 Item A", year: "2026", purity: 0.999 },
     { ...SEED_ITEM, uuid: "strk-209-b", name: "STRK-209 Item B", year: "2020", purity: 0.5 },
@@ -2949,7 +3007,7 @@ test.describe("keyboard-a11y-activation — STRK-209", () => {
 
 // ─── STRK-232: keyboard activation a11y for delegated reference tags ──────────
 
-test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
+test.describe("keyboard-a11y-reference-tags", () => {
   // The N#/PCGS#/grade chips activate via a delegated document click handler
   // (not inline onclick like the year/purity chips), so STRK-209's inline
   // onkeydown did not reach them. This block exercises the delegated keydown
@@ -3052,5 +3110,183 @@ test.describe("keyboard-a11y-reference-tags — STRK-232", () => {
     const calls = await page.evaluate(() => window.__openCalls);
     expect(calls).toHaveLength(1);
     expect(calls[0]).toContain("1234567-001");
+  });
+});
+
+// A lone origin word ("american", "canadian") matches every item of that origin.
+// The assertions read the rendered table. Fuzzy autocomplete is off so the rows
+// come from the exact field-match path; the fuzzy fallback runs only when it fails.
+const ORIGIN_SEARCH_SEED = [
+  ["us-eagle", "American Silver Eagle"],
+  ["us-buffalo", "American Gold Buffalo", { metal: "Gold", composition: "Gold" }],
+  ["ca-maple", "Canadian Silver Maple Leaf"],
+  ["control-round", "Generic Silver Round"],
+].map(([uuid, name, overrides = {}], i) => ({
+  ...SEED_ITEM,
+  purchaseLocation: "LocalShop",
+  uuid,
+  name,
+  serial: i + 1,
+  ...overrides,
+}));
+
+const ORIGIN_NAME_CELL = "#inventoryTable tbody tr [data-column='name']";
+
+/**
+ * Seeds the origin items with fuzzy autocomplete off and waits for every row.
+ * @param {import('@playwright/test').Page} page - Page to boot.
+ * @returns {Promise<void>}
+ */
+async function seedOriginSearchAndGoto(page) {
+  await page.addInitScript((inventory) => {
+    localStorage.setItem("metalInventory", JSON.stringify(inventory));
+    localStorage.setItem("itemTags", JSON.stringify({}));
+    // The constants.js migration turns fuzzy back on unless its sentinel is set.
+    localStorage.setItem("featureFlags", JSON.stringify({ FUZZY_AUTOCOMPLETE: false }));
+    localStorage.setItem("ff_migration_fuzzy_autocomplete", "1");
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        if (typeof APP_VERSION !== "undefined") {
+          localStorage.setItem("ackVersion", APP_VERSION);
+        }
+      },
+      { once: true }
+    );
+  }, ORIGIN_SEARCH_SEED);
+  await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#newItemBtn", { state: "visible" });
+  await page.waitForFunction(
+    ({ cell, expectedRows }) =>
+      window.featureFlags &&
+      window.featureFlags.isEnabled("FUZZY_AUTOCOMPLETE") === false &&
+      document.querySelectorAll(cell).length === expectedRows,
+    { cell: ORIGIN_NAME_CELL, expectedRows: ORIGIN_SEARCH_SEED.length }
+  );
+}
+
+/**
+ * Types a search term, waits out the debounce and checks each expected row once.
+ * @param {import('@playwright/test').Page} page - Booted page.
+ * @param {string} term - Search text.
+ * @param {string[]} expectedNames - Item names the table must show.
+ * @returns {Promise<void>}
+ */
+async function expectSearchRows(page, term, expectedNames) {
+  await page.fill("#searchInput", term);
+  await page.waitForFunction(
+    ({ cell, count }) => document.querySelectorAll(cell).length === count,
+    { cell: ORIGIN_NAME_CELL, count: expectedNames.length }
+  );
+  for (const name of expectedNames) {
+    await expect(page.locator(ORIGIN_NAME_CELL).filter({ hasText: name })).toHaveCount(1);
+  }
+}
+
+test.describe("broad-origin single-word search", () => {
+  test("a lone origin word matches its origin; one with no items shows the empty state", async ({
+    page,
+  }) => {
+    await seedOriginSearchAndGoto(page);
+
+    await test.step("a lone origin word matches every item of that origin (not suppressed)", async () => {
+      await expectSearchRows(page, "american", ["American Silver Eagle", "American Gold Buffalo"]);
+      await expect(page.locator(ORIGIN_NAME_CELL)).toHaveCount(2);
+
+      await expectSearchRows(page, "canadian", ["Canadian Silver Maple Leaf"]);
+      await expect(page.locator(ORIGIN_NAME_CELL)).toHaveCount(1);
+    });
+
+    await test.step("an origin word with no matching items shows the empty state (no crash)", async () => {
+      // "mexican" is a broad term that no item carries.
+      await page.fill("#searchInput", "mexican");
+      await expect(page.locator("#inventoryTable tbody tr.empty-state-row")).toBeVisible();
+      await expect(page.locator(ORIGIN_NAME_CELL)).toHaveCount(0);
+      await expect(page.locator(".empty-state-row")).toContainText("No matching items found");
+    });
+  });
+});
+
+// 1x1 transparent PNG: the obverse gets a real <img> with no network request, so
+// the only placeholder left in the cell is the reverse slot.
+const TRANSPARENT_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+const OBVERSE_ONLY_ITEM = {
+  ...SEED_ITEM,
+  uuid: "strk-173-no-reverse",
+  name: "STRK-173 Obverse Only",
+  obverseImageUrl: TRANSPARENT_PNG,
+  // No reverse URL and no pattern lookup, so the reverse resolves to null.
+  reverseImageUrl: "",
+  ignorePatternImages: true,
+};
+
+// _loadBulkRowImages (js/bulkEdit.js) must render a reverse placeholder when the
+// table shows reverse images and the item has none. The gate sits past the
+// imageCache.isAvailable() guard, so the test forces the IndexedDB path.
+test.describe("bulk-edit reverse image render", () => {
+  test("reverse display + item with no reverse image renders a placeholder without throwing", async ({
+    page,
+  }) => {
+    // The loader runs un-awaited, so a throw surfaces as an unhandled rejection.
+    const pageErrors = [];
+    page.on("pageerror", (err) => pageErrors.push(String(err)));
+    await page.addInitScript(() => {
+      window.__bulkImgErrors = [];
+      window.addEventListener("unhandledrejection", (e) =>
+        window.__bulkImgErrors.push(String(e.reason))
+      );
+      window.addEventListener("error", (e) =>
+        window.__bulkImgErrors.push(String(e.error || e.message))
+      );
+    });
+
+    await page.addInitScript((item) => {
+      localStorage.setItem("metalInventory", JSON.stringify([item]));
+      localStorage.setItem("tableImageSides", "both");
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => {
+          if (typeof APP_VERSION !== "undefined") {
+            localStorage.setItem("ackVersion", APP_VERSION);
+          }
+        },
+        { once: true }
+      );
+    }, OBVERSE_ONLY_ITEM);
+
+    await page.goto("/index.html#/inventory", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#newItemBtn", { state: "visible" });
+    await page.waitForFunction(
+      () => typeof window.openBulkEdit === "function" && Array.isArray(window.inventory)
+    );
+
+    await page.waitForFunction(
+      () => window.imageCache && typeof window.imageCache.init === "function"
+    );
+    await page.evaluate(async () => {
+      await window.imageCache.init();
+    });
+    await page.waitForFunction(() => window.imageCache.isAvailable() === true);
+
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+
+    const cell = page.locator(
+      '#bulkEditModal .bulk-edit-table tbody tr[data-serial="1"] .bulk-img-cell'
+    );
+    // The obverse <img> shows the loader reached the obverse/reverse gate.
+    await expect(cell.locator('img[data-side="obverse"]')).toBeAttached({ timeout: 10000 });
+    await expect(cell.locator(".bulk-img-placeholder")).toHaveCount(1, { timeout: 10000 });
+
+    const resolvedErrors = [
+      ...pageErrors,
+      ...(await page.evaluate(() => window.__bulkImgErrors || [])),
+    ].filter((m) => /resolved/.test(m) && /not defined|ReferenceError/.test(m));
+    expect(
+      resolvedErrors,
+      `unexpected ReferenceError(s) from _loadBulkRowImages: ${resolvedErrors.join(" | ")}`
+    ).toEqual([]);
   });
 });

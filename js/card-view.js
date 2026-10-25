@@ -1042,7 +1042,9 @@ function _initCardCharts(container) {
     if (chart) {
       const chartOpts = chart.options;
       chartOpts.scales.x.grid = { display: false };
-      chartOpts.scales.y.grid = { color: "rgba(128,128,128,0.08)" };
+      chartOpts.scales.y.grid = {
+        color: resolveColor(`color-mix(in srgb, ${getThemeColorRGB("border")} 40%, transparent)`),
+      };
       Object.assign(chartOpts.plugins.legend, {
         position: "bottom",
         labels: {
@@ -1056,9 +1058,14 @@ function _initCardCharts(container) {
       });
       Object.assign(chartOpts.plugins.tooltip, {
         enabled: true,
-        backgroundColor: "rgba(0,0,0,0.8)",
-        titleColor: getThemeColorRGB("text-inverse"),
-        bodyColor: getThemeColorRGB("text-inverse"),
+        backgroundColor:
+          typeof getChartBackgroundColor === "function"
+            ? getChartBackgroundColor()
+            : getThemeColorRGB("bg-primary"),
+        titleColor: cvTextColor,
+        bodyColor: cvTextColor,
+        borderColor: getThemeColorRGB("border"),
+        borderWidth: 1,
         padding: 6,
         bodyFont: { size: 10 },
         titleFont: { size: 10 },

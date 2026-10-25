@@ -56,7 +56,7 @@ test("falls back to a module-local default when unset", () => {
 
 console.log("\n--- loadWebscaleCookie (absent) ---");
 test("missing file → null", () => {
-  eq(loadWebscaleCookie("www.jmbullion.com", tmpEnv().env), null);
+  eq(loadWebscaleCookie("www.providentmetals.com", tmpEnv().env), null);
 });
 test("null / empty hostname → null", () => {
   const { env } = tmpEnv();
@@ -67,69 +67,75 @@ test("null / empty hostname → null", () => {
 console.log("\n--- set + load round-trip ---");
 test("set then load returns wspc + UA + timestamp", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "ABC123", "UA/1.0", env, new Date("2026-06-19T00:00:00Z"));
-  const got = loadWebscaleCookie("www.jmbullion.com", env);
+  setWebscaleCookie(
+    "www.providentmetals.com",
+    "ABC123",
+    "UA/1.0",
+    env,
+    new Date("2026-06-19T00:00:00Z")
+  );
+  const got = loadWebscaleCookie("www.providentmetals.com", env);
   eq(got.wspc, "ABC123");
   eq(got.userAgent, "UA/1.0");
   eq(got.updatedAt, "2026-06-19T00:00:00.000Z");
 });
 test("unknown hostname in a populated store → null", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "ABC", "UA", env);
-  eq(loadWebscaleCookie("www.providentmetals.com", env), null);
+  setWebscaleCookie("www.providentmetals.com", "ABC", "UA", env);
+  eq(loadWebscaleCookie("www.example.com", env), null);
 });
 test("two hosts coexist independently", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "JM", "UA1", env);
+  setWebscaleCookie("www.example.com", "EX", "UA1", env);
   setWebscaleCookie("www.providentmetals.com", "PV", "UA2", env);
-  eq(loadWebscaleCookie("www.jmbullion.com", env).wspc, "JM");
+  eq(loadWebscaleCookie("www.example.com", env).wspc, "EX");
   eq(loadWebscaleCookie("www.providentmetals.com", env).wspc, "PV");
 });
 test("re-set overwrites the same host", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "OLD", "UA", env);
-  setWebscaleCookie("www.jmbullion.com", "NEW", "UA", env);
-  eq(loadWebscaleCookie("www.jmbullion.com", env).wspc, "NEW");
+  setWebscaleCookie("www.providentmetals.com", "OLD", "UA", env);
+  setWebscaleCookie("www.providentmetals.com", "NEW", "UA", env);
+  eq(loadWebscaleCookie("www.providentmetals.com", env).wspc, "NEW");
 });
 
 console.log("\n--- robustness ---");
 test("malformed JSON → null (no throw)", () => {
   const { env } = tmpEnv();
   writeFileSync(env.WEBSCALE_COOKIE_FILE, "{not json", "utf8");
-  eq(loadWebscaleCookie("www.jmbullion.com", env), null);
+  eq(loadWebscaleCookie("www.providentmetals.com", env), null);
 });
 test("entry missing wspc → null", () => {
   const { env } = tmpEnv();
   writeFileSync(
     env.WEBSCALE_COOKIE_FILE,
-    JSON.stringify({ "www.jmbullion.com": { userAgent: "UA" } }),
+    JSON.stringify({ "www.providentmetals.com": { userAgent: "UA" } }),
     "utf8"
   );
-  eq(loadWebscaleCookie("www.jmbullion.com", env), null);
+  eq(loadWebscaleCookie("www.providentmetals.com", env), null);
 });
 test("empty wspc string → null", () => {
   const { env } = tmpEnv();
   writeFileSync(
     env.WEBSCALE_COOKIE_FILE,
-    JSON.stringify({ "www.jmbullion.com": { wspc: "", userAgent: "UA" } }),
+    JSON.stringify({ "www.providentmetals.com": { wspc: "", userAgent: "UA" } }),
     "utf8"
   );
-  eq(loadWebscaleCookie("www.jmbullion.com", env), null);
+  eq(loadWebscaleCookie("www.providentmetals.com", env), null);
 });
 test("missing userAgent → wspc still returned, userAgent null", () => {
   const { env } = tmpEnv();
   writeFileSync(
     env.WEBSCALE_COOKIE_FILE,
-    JSON.stringify({ "www.jmbullion.com": { wspc: "X" } }),
+    JSON.stringify({ "www.providentmetals.com": { wspc: "X" } }),
     "utf8"
   );
-  const got = loadWebscaleCookie("www.jmbullion.com", env);
+  const got = loadWebscaleCookie("www.providentmetals.com", env);
   eq(got.wspc, "X");
   eq(got.userAgent, null);
 });
 test("set writes the cookie file with 0600 perms (credentials)", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "X", "UA", env);
+  setWebscaleCookie("www.providentmetals.com", "X", "UA", env);
   eq(statSync(env.WEBSCALE_COOKIE_FILE).mode & 0o777, 0o600);
 });
 test("set requires hostname and wspc", () => {
@@ -150,9 +156,9 @@ test("set requires hostname and wspc", () => {
 
 console.log("\n--- webscaleEnvKeys ---");
 test("derives per-host env var names from hostname", () => {
-  eq(webscaleEnvKeys("www.jmbullion.com"), {
-    wspcKey: "WEBSCALE_WSPC_WWW_JMBULLION_COM",
-    uaKey: "WEBSCALE_UA_WWW_JMBULLION_COM",
+  eq(webscaleEnvKeys("www.providentmetals.com"), {
+    wspcKey: "WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM",
+    uaKey: "WEBSCALE_UA_WWW_PROVIDENTMETALS_COM",
   });
 });
 
@@ -160,9 +166,9 @@ console.log("\n--- env-var source (Portainer path) ---");
 const REAL_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 test("env UA is base64 and round-trips through encodeUaForEnv", () => {
-  const got = loadWebscaleCookie("www.jmbullion.com", {
-    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
-    WEBSCALE_UA_WWW_JMBULLION_COM: encodeUaForEnv(REAL_UA),
+  const got = loadWebscaleCookie("www.providentmetals.com", {
+    WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM: "ENVWSPC",
+    WEBSCALE_UA_WWW_PROVIDENTMETALS_COM: encodeUaForEnv(REAL_UA),
   });
   eq(got.wspc, "ENVWSPC");
   eq(got.userAgent, REAL_UA);
@@ -173,15 +179,15 @@ test("encoded UA env value contains no shell-unsafe chars (sourceable)", () => {
   eq(/[\s();$`&|<>'"]/.test(encoded), false);
 });
 test("raw (non-base64) UA env value falls back to the literal string", () => {
-  const got = loadWebscaleCookie("www.jmbullion.com", {
-    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
-    WEBSCALE_UA_WWW_JMBULLION_COM: "Mozilla/5.0 (raw)",
+  const got = loadWebscaleCookie("www.providentmetals.com", {
+    WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM: "ENVWSPC",
+    WEBSCALE_UA_WWW_PROVIDENTMETALS_COM: "Mozilla/5.0 (raw)",
   });
   eq(got.userAgent, "Mozilla/5.0 (raw)");
 });
 test("wspc-only env (no UA) → userAgent null, source env", () => {
-  const got = loadWebscaleCookie("www.jmbullion.com", {
-    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
+  const got = loadWebscaleCookie("www.providentmetals.com", {
+    WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM: "ENVWSPC",
   });
   eq(got.wspc, "ENVWSPC");
   eq(got.userAgent, null);
@@ -189,20 +195,20 @@ test("wspc-only env (no UA) → userAgent null, source env", () => {
 });
 test("env var wspc overrides the file store", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "FILEWSPC", "FILE/UA", env);
-  const got = loadWebscaleCookie("www.jmbullion.com", {
+  setWebscaleCookie("www.providentmetals.com", "FILEWSPC", "FILE/UA", env);
+  const got = loadWebscaleCookie("www.providentmetals.com", {
     ...env,
-    WEBSCALE_WSPC_WWW_JMBULLION_COM: "ENVWSPC",
+    WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM: "ENVWSPC",
   });
   eq(got.wspc, "ENVWSPC");
   eq(got.source, "env");
 });
 test("empty env var falls through to file store", () => {
   const { env } = tmpEnv();
-  setWebscaleCookie("www.jmbullion.com", "FILEWSPC", "FILE/UA", env);
-  const got = loadWebscaleCookie("www.jmbullion.com", {
+  setWebscaleCookie("www.providentmetals.com", "FILEWSPC", "FILE/UA", env);
+  const got = loadWebscaleCookie("www.providentmetals.com", {
     ...env,
-    WEBSCALE_WSPC_WWW_JMBULLION_COM: "",
+    WEBSCALE_WSPC_WWW_PROVIDENTMETALS_COM: "",
   });
   eq(got.wspc, "FILEWSPC");
   eq(got.source, "file");
