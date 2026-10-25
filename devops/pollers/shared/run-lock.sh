@@ -24,6 +24,10 @@ RUN_LOCK_FILE=""
 # should pass an explicit value sized to their cron interval; see acquire_run_lock.
 RUN_LOCK_DEFAULT_MAX_SECONDS="${RUN_LOCK_DEFAULT_MAX_SECONDS:-3600}"
 
+# Claims to attempt while the lockfile keeps vanishing between a failed claim
+# and the owner read, before skipping the tick.
+RUN_LOCK_CLAIM_ATTEMPTS="${RUN_LOCK_CLAIM_ATTEMPTS:-3}"
+
 # Seconds to wait after SIGTERM before escalating to SIGKILL.
 RUN_LOCK_KILL_GRACE_SECONDS="${RUN_LOCK_KILL_GRACE_SECONDS:-5}"
 
@@ -177,13 +181,39 @@ acquire_run_lock() {
       ;;
   esac
 
-  if _run_lock_claim "$lockfile"; then
-    return 0
-  fi
+  # A failed claim followed by a missing lockfile means the holder released in
+  # between. That lock is free, not malformed: claim it again rather than force-
+  # claiming, whose `rm -f` would delete a lock a third contender just published.
+  # A junk limit would make `-ge` error and read as false, so the loop would
+  # never end. Accept 1 to 999 only.
+  local max_attempts="$RUN_LOCK_CLAIM_ATTEMPTS"
+  case "$max_attempts" in
+    [1-9] | [1-9][0-9] | [1-9][0-9][0-9]) ;;
+    *)
+      _run_lock_log "Ignoring run lock claim attempts '$max_attempts', using 3"
+      max_attempts=3
+      ;;
+  esac
+
+  local owner=""
+  local attempt=0
+  while :; do
+    if _run_lock_claim "$lockfile"; then
+      return 0
+    fi
+    if owner="$(cat "$lockfile" 2>/dev/null)"; then
+      break
+    fi
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge "$max_attempts" ]; then
+      _run_lock_log "Run lock at $lockfile changed owner ${attempt} times, skipping this tick"
+      return 1
+    fi
+  done
 
   local holder_pid=""
   local holder_epoch=""
-  read -r holder_pid holder_epoch <"$lockfile" 2>/dev/null || true
+  read -r holder_pid holder_epoch <<<"$owner" || true
 
   # A lockfile with no parseable PID predates this helper (bare `touch`) or was
   # truncated by an unclean shutdown. Either way nothing owns it.

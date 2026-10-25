@@ -42,15 +42,29 @@ let workDir;
  * @param {string} lockfile - Path to the lockfile under test.
  * @param {number} maxAge - Max age in seconds before a live holder is killed.
  * @param {string} [body] - Extra bash to run after a successful acquire.
+ * @param {string} [claimStub] - Bash run at the top of each `_run_lock_claim`
+ *   call, with `$_claim_calls` set to the call number; it may `return 1` early.
+ * @param {Record<string, string>} [env] - Extra environment for the bash run.
  * @returns {{status: number, stdout: string}} Exit status and combined output.
  */
-function runAcquire(lockfile, maxAge, body = "") {
+function runAcquire(lockfile, maxAge, body = "", claimStub = "", env = {}) {
+  const stub = claimStub
+    ? `
+    eval "$(declare -f _run_lock_claim | sed '1s/_run_lock_claim/_real_run_lock_claim/')"
+    _claim_calls=0
+    _run_lock_claim() {
+      _claim_calls=$((_claim_calls + 1))
+      ${claimStub}
+      _real_run_lock_claim "$@"
+    }`
+    : "";
   const script = `
     set -e
     # Shorten the SIGTERM grace so the kill path does not dominate suite time.
     # The grace duration itself is not under test.
     export RUN_LOCK_KILL_GRACE_SECONDS=1
     . "${LOCK_HELPER}"
+    ${stub}
     if acquire_run_lock "${lockfile}" ${maxAge}; then
       echo "ACQUIRED"
       ${body}
@@ -63,6 +77,9 @@ function runAcquire(lockfile, maxAge, body = "") {
     const stdout = execFileSync("bash", ["-c", script], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, ...env },
+      // A retry loop that never ends must fail the test, not hang the suite.
+      timeout: 20000,
     });
     return { status: 0, stdout };
   } catch (err) {
@@ -325,6 +342,68 @@ describe("STRK-255 retail poller run lock", () => {
     assert.doesNotMatch(stdout, /EMPTY_SEEN/);
     assert.match(stdout, /DONE/);
   });
+
+  // The holder can release between a failed claim and the owner read. That
+  // lock is free, not malformed: the force-claim path would `rm -f` whatever a
+  // third contender published in the meantime.
+  it("retries the claim when the lock vanishes before the owner read", () => {
+    const lockfile = join(workDir, "poller.lock");
+    // The first claim loses to a holder that has already released.
+    const res = runAcquire(
+      lockfile,
+      600,
+      `cat "${lockfile}"`,
+      '[ "$_claim_calls" -eq 1 ] && return 1'
+    );
+
+    assert.match(res.stdout, /ACQUIRED/);
+    assert.doesNotMatch(res.stdout, /WATCHDOG:/, "a vanished lock must not be force-claimed");
+    assert.match(res.stdout, /^\d+ \d{10}$/m);
+  });
+
+  it("skips when a new owner claims the vanished lock first", async () => {
+    const lockfile = join(workDir, "poller.lock");
+    const holder = spawnStandIn(30);
+    const owner = `${holder.pid} ${Math.floor(Date.now() / 1000)}`;
+    // Call 1 loses to a holder that releases; before call 2, a third contender
+    // publishes its own lock.
+    const stub = `
+      [ "$_claim_calls" -eq 1 ] && return 1
+      [ "$_claim_calls" -eq 2 ] && printf '%s\\n' "${owner}" >"${lockfile}"`;
+
+    const res = runAcquire(lockfile, 600, "", stub);
+
+    assert.match(res.stdout, /SKIPPED/);
+    assert.doesNotMatch(res.stdout, /WATCHDOG:/);
+    assert.equal(readFileSync(lockfile, "utf8").trim(), owner, "the new owner's lock must survive");
+
+    holder.kill("SIGKILL");
+    await waitForExit(holder);
+  });
+
+  it("gives up after bounded retries when the lock keeps vanishing", () => {
+    const lockfile = join(workDir, "poller.lock");
+    const res = runAcquire(lockfile, 600, "", "return 1");
+
+    assert.equal(res.status, 0);
+    assert.match(res.stdout, /SKIPPED/);
+    assert.doesNotMatch(res.stdout, /WATCHDOG:/);
+  });
+
+  for (const attempts of ["abc", "0", "99999999999999999999"]) {
+    it(`bounds the retries when RUN_LOCK_CLAIM_ATTEMPTS is '${attempts}'`, () => {
+      const lockfile = join(workDir, "poller.lock");
+      // `[ "$attempt" -ge abc ]` errors and reads as false, so a junk limit
+      // would retry forever against a lock directory that never accepts a claim.
+      const res = runAcquire(lockfile, 600, "", "return 1", {
+        RUN_LOCK_CLAIM_ATTEMPTS: attempts,
+      });
+
+      assert.equal(res.status, 0, "a junk retry limit must not hang or abort the run");
+      assert.match(res.stdout, /SKIPPED/);
+      assert.match(res.stdout, /changed owner 3 times/);
+    });
+  }
 
   it("falls back to the default budget instead of aborting on a junk budget", () => {
     const lockfile = join(workDir, "poller.lock");
