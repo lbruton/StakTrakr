@@ -26,6 +26,15 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # eslint and @eslint/js share a major version and move together in one
+      # hand-made PR that also fixes the new recommended-rule errors.
+      - dependency-name: "eslint"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@eslint/js"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "npm"
     directory: "/devops/pollers/shared"
