@@ -28,7 +28,10 @@ recorded post link.
 
 ```bash
 git fetch origin
-PREV=$(gh release view --json tagName -q .tagName)
+# A failed lookup must stop the ship; an empty tag would match the pre-gate exemption below.
+if ! PREV=$(gh release view --json tagName -q .tagName) || [ -z "$PREV" ]; then
+  echo "STOP: cannot read the latest release tag. Check gh auth and GitHub, then retry."; exit 1
+fi
 PREV_FILE="docs/announcements/$PREV.md"
 if ! git cat-file -e "origin/dev:$PREV_FILE" 2>/dev/null; then
   echo "No announcement file for $PREV (released before the gate). Continue."
