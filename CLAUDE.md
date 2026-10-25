@@ -110,7 +110,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 - The StakTrakrApi repo owns `api` branch data publishing and GHA workflows — use `mcp__github__*` to access it. Fly.io config is in-repo at `devops/pollers/remote-poller/fly.toml`.
 - `/codex:rescue` is disabled; see global CLAUDE.md Peer Review.
 - Code-search hint: the project uses script-tag globals.
-- When claude-context returns thin results for a global, Grep the identifier directly — script-tag globals have no import graph, so Grep is the authoritative way to find every reference.
+- Grep a global's identifier directly to find every reference. Script-tag globals have no import graph, so Grep is the authoritative way.
 
 ## Skills
 
