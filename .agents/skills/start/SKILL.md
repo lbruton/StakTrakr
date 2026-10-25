@@ -7,7 +7,7 @@ description: >
   for continuing same-day work or resuming after a short break.
   No indexing, no code search, no agent dispatch.
   Triggers: "start", "quick start", "resume", "orient me", "where were we".
-library-version: c8383f0c646f
+library-version: 3d109ab6d1d5
 ---
 
 # Start
@@ -37,6 +37,7 @@ If `.claude/project.json` is missing OR `pwd` differs from `git rev-parse --show
 (e.g., launched from a subdir whose parent is a different git repo — common when a project
 like Devops/ sits inside an outer workspace repo), STOP the flow and warn prominently.
 Call the verified root `ROOT`; every later command anchors to it.
+
 
 ### Step 1 — Git state snapshot
 

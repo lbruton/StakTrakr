@@ -7,7 +7,7 @@ description: >
   for continuing same-day work or resuming after a short break.
   No indexing, no code search, no agent dispatch.
   Triggers: "start", "quick start", "resume", "orient me", "where were we".
-library-version: c8383f0c646f
+library-version: 3d109ab6d1d5
 ---
 
 # Start
@@ -37,6 +37,20 @@ If `.claude/project.json` is missing OR `pwd` differs from `git rev-parse --show
 (e.g., launched from a subdir whose parent is a different git repo — common when a project
 like Devops/ sits inside an outer workspace repo), STOP the flow and warn prominently.
 Call the verified root `ROOT`; every later command anchors to it.
+
+### Step 0b — Name the session (Claude desktop app only)
+
+The desktop app titles every session "New Session" until it is renamed. Build the title from
+the repo folder name (`basename "$ROOT"`) and the local start time:
+
+```bash
+date '+%a %b %-d, %-I:%M %p'
+```
+
+Call `mcp__ccd_session_mgmt__set_session_title(session_id: "self", title: "<Project> · <date>")`,
+for example `Devops · Sun Oct 25, 2:30 PM`. Load it with `ToolSearch` if it is deferred. Skip
+the step when the tool is absent (CLI, cloud) or the session already has a title the user set.
+A rename the app declines is not an error: note it in one line and continue.
 
 ### Step 1 — Git state snapshot
 
