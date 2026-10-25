@@ -4033,7 +4033,7 @@ input[type="submit"] {
 
 /* ── STRK-427: shared image-frame editor (.ife) ────────────────────────────────────────
    Mounted by js/image-frame-editor.js in the Add/Edit Item modal and the Edit Collection
-   builder. Controls reuse the shipped .collections-segmented look; frames read the shared
+   builder. Controls reuse the shipped .segmented look; frames read the shared
    --frame-* ratio tokens (Round is 1). Theme tokens only: --bg-tertiary, --border,
    --border-hover (never --surface, which only the light :root defines — STRK-426). */
 .ife {
@@ -4069,12 +4069,12 @@ input[type="submit"] {
   letter-spacing: 0.04em;
 }
 
-.ife .collections-segmented {
+.ife .segmented {
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.ife .collections-segmented-option span {
+.ife .segmented-option span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -4314,13 +4314,13 @@ input[type="submit"] {
     --ife-box: 140px; /* the existing mobile preview cap */
   }
 
-  .ife .collections-segmented-option span {
+  .ife .segmented-option span {
     min-height: 44px; /* 44px touch target (design philosophy) */
     padding: 0.4rem 0.6rem;
     box-sizing: border-box;
   }
 
-  .ife .collections-segmented-option {
+  .ife .segmented-option {
     flex: 1 1 auto;
   }
 }
@@ -4333,7 +4333,7 @@ input[type="submit"] {
   :is(.collections-builder-form, #inventoryForm)
     .ife
     [data-ife-orientation]
-    .collections-segmented-option
+    .segmented-option
     span {
     font-size: 0;
     gap: 0;
@@ -4344,7 +4344,7 @@ input[type="submit"] {
   :is(.collections-builder-form, #inventoryForm)
     .ife
     [data-ife-orientation]
-    .collections-segmented-option
+    .segmented-option
     span
     svg {
     width: 20px;
@@ -20355,20 +20355,20 @@ input[type="number"] {
 
 /* STRK-434: the item modal's shared image-frame editor (#inventoryForm .ife) takes the same
    segmented look as the builder, so the Image shape selector is identical in both modals. */
-:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented {
+:is(.collections-builder-form, #inventoryForm .ife) .segmented {
   flex-wrap: wrap;
   justify-content: center;
   padding: 2px;
 }
 
 /* Segmented options are <label>s: undo the form's uppercase micro-label treatment. */
-:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option {
+:is(.collections-builder-form, #inventoryForm .ife) .segmented-option {
   margin: 0;
   text-transform: none;
   letter-spacing: 0;
 }
 
-:is(.collections-builder-form, #inventoryForm .ife) .collections-segmented-option span {
+:is(.collections-builder-form, #inventoryForm .ife) .segmented-option span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -20377,7 +20377,7 @@ input[type="number"] {
   line-height: 1.2;
 }
 
-.collections-builder-form .collections-segmented-option span.collections-builder-icon,
+.collections-builder-form .segmented-option span.collections-builder-icon,
 .collections-builder-icon {
   display: inline-flex;
   padding: 0;
@@ -20386,7 +20386,7 @@ input[type="number"] {
 /* Phone touch targets: text options (Orientation) meet the 44px baseline. */
 @media (max-width: 767px) {
   :is(.collections-builder-form, #inventoryForm .ife)
-    .collections-segmented-option
+    .segmented-option
     span:not(.collections-builder-icon) {
     min-height: 44px;
   }
@@ -20411,7 +20411,7 @@ input[type="number"] {
 }
 
 /* Segmented either/or control — radios styled as a pill pair. */
-.collections-segmented {
+.segmented {
   display: inline-flex;
   padding: 3px;
   gap: 2px;
@@ -20420,13 +20420,13 @@ input[type="number"] {
   background: var(--bg-tertiary);
 }
 
-.collections-segmented-option {
+.segmented-option {
   position: relative;
   margin: 0;
   cursor: pointer;
 }
 
-.collections-segmented-option input {
+.segmented-option input {
   position: absolute;
   inset: 0;
   margin: 0;
@@ -20434,7 +20434,7 @@ input[type="number"] {
   cursor: pointer;
 }
 
-.collections-segmented-option span {
+.segmented-option span {
   display: block;
   padding: 0.5rem 1.5rem;
   border-radius: 999px;
@@ -20446,16 +20446,16 @@ input[type="number"] {
     color 0.15s;
 }
 
-.collections-segmented-option:hover span {
+.segmented-option:hover span {
   color: var(--text-primary);
 }
 
-.collections-segmented-option input:checked + span {
+.segmented-option input:checked + span {
   background: var(--primary);
   color: var(--text-inverse);
 }
 
-.collections-segmented-option input:focus-visible + span {
+.segmented-option input:focus-visible + span {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
