@@ -21,6 +21,36 @@ If output is empty — nothing to ship. Stop.
 
 Confirm with user before proceeding if anything looks unexpected.
 
+## Step 1.2: Previous-announcement gate (MANDATORY)
+
+Every ship to `main` gets an r/staktrakr post. Do not ship again while the last release has no
+recorded post link.
+
+```bash
+git fetch origin
+# A failed lookup must stop the ship; an empty tag would match the pre-gate exemption below.
+if ! PREV=$(gh release view --json tagName -q .tagName) || [ -z "$PREV" ]; then
+  echo "STOP: cannot read the latest release tag. Check gh auth and GitHub, then retry."; exit 1
+fi
+PREV_FILE="docs/announcements/$PREV.md"
+if ! git cat-file -e "origin/dev:$PREV_FILE" 2>/dev/null; then
+  echo "No announcement file for $PREV (released before the gate). Continue."
+else
+  URL=$(git show "origin/dev:$PREV_FILE" | awk '
+    NR == 1 && $0 == "---" { fm = 1; next }
+    fm && $0 == "---" { exit }
+    fm && sub(/^reddit:[ \t]*/, "") { print; exit }')
+  case "$URL" in
+    https://www.reddit.com/r/staktrakr/comments/?*) echo "Announcement for $PREV posted: $URL" ;;
+    *) echo "STOP: $PREV_FILE has no Reddit link."; exit 1 ;;
+  esac
+fi
+```
+
+**On STOP:** print the previous announcement ready to paste (Step 7.5 format) and ask the user for
+the posted link. Do not continue until they give it. Write the link into `$PREV_FILE` in this
+ship's prep PR (Step 3.5).
+
 ## Step 1.5: Ancestry pre-flight (MANDATORY — prevents ship conflicts)
 
 **This is the gate that stops the recurring "ship from hell."** A `dev → main`
@@ -151,10 +181,19 @@ This ensures the PR description uses accurate titles, not just commit messages.
 > `lbruton/DocVault` (not cloned locally). Resolve with `gh api repos/lbruton/DocVault/contents/<path>`;
 > new work uses `STRK-###` only.
 
-## Step 3.5: About-page What's New audit (MANDATORY)
+## Step 3.5: Ship-prep PR — What's New audit + release announcement (MANDATORY)
 
-The release announcements live **only** in `js/about.js` `getEmbeddedWhatsNew()`
-(per STAK-513 — `docs/announcements.md` was retired). `/release patch` updates
+One `chore/ship-prep-vLATEST` PR to `dev` carries three things: the What's New audit, the release
+announcement draft and, when Step 1.2 collected one, the previous release's Reddit link.
+
+```bash
+LATEST="v$(grep -m1 -oE '## \[3\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '3\.[0-9]+\.[0-9]+')"
+```
+
+### What's New audit
+
+The in-app What's New lives **only** in `js/about.js` `getEmbeddedWhatsNew()`.
+`/release patch` updates
 this per-patch, but over a long release cycle entries drift and accumulate
 stale content. Before creating the ship PR, audit and rewrite the entries to
 reflect the full release being shipped.
@@ -168,20 +207,68 @@ reflect the full release being shipped.
    - **vX.X.X — Title**: Summary sentence. Additional detail sentence (STRK-XX).
    ```
 
+### Release announcement draft
+
+Read the "Release announcements" section of `.context/voice.md` first. It sets the reader, the
+shape, the rules and an example; this step does not repeat them.
+
+1. Write `docs/announcements/vLATEST.md` from the Step 2 version list, the CHANGELOG sections and
+   the Step 3 Plane titles. Start the file with this front matter:
+
+   ```yaml
+   ---
+   version: vLATEST
+   date: YYYY-MM-DD
+   reddit:
+   ---
+   ```
+
+2. Run `vale docs/announcements/vLATEST.md` and fix every alert. A draft with an alert is not
+   ready. The `Vale` check on the PR lints it again.
+3. Show the draft to the user and apply their edits before committing.
+
+### Release screenshots (never committed)
+
+Capture 1 to 3 screens of the current build that show the bullets. `docs/announcements/images/`
+is in `.gitignore`; these files reach users only as Release assets (Step 7) and Reddit uploads
+(Step 7.5).
+
+1. Point the `"set": "release"` entries in `devops/screenshots/shots.json` at this release's
+   screens. Commit the `shots.json` change in this PR.
+2. Capture them:
+
+   ```bash
+   npm run screenshots -- --set=release --version=vLATEST
+   ```
+
+3. A release shot may be a copy of a committed `screenshots/` file that already shows the feature.
+   Copy it to `docs/announcements/images/vLATEST-<screen>.png`. Never write into `screenshots/`;
+   that set belongs to `about.html` and the README.
+4. Reference each shot in the draft as `images/vLATEST-<screen>.png` with a one-line caption.
+
+### Previous release's Reddit link
+
+When Step 1.2 collected a link, set it on the `reddit:` line of `docs/announcements/<PREV>.md`.
+Record the link without the title slug, as `https://www.reddit.com/r/staktrakr/comments/<id>/`.
+Vale lints front-matter values too, and the slug repeats the title words.
+
 ### Commit the update via worktree + PR
 
-`dev` is protected. Do **NOT** push directly. Land the about.js audit through a
+`dev` is protected. Do **NOT** push directly. Land the ship prep through a
 chore PR:
 
 ```bash
 git fetch origin dev
 git worktree add .worktrees/ship-prep-vLATEST/ -b chore/ship-prep-vLATEST origin/dev
 cd .worktrees/ship-prep-vLATEST/
-# Edit js/about.js
-git add js/about.js
-git commit -m "chore: refresh about.js What's New for vLATEST release"
+# Edit js/about.js, write docs/announcements/vLATEST.md, update shots.json
+# and the previous announcement's reddit: line
+vale docs/announcements/*.md
+git add js/about.js docs/announcements/ devops/screenshots/shots.json
+git status --short docs/announcements/images/   # MUST print nothing (gitignored)
+git commit -m "chore: ship prep for vLATEST (What's New, release announcement)"
 git push -u origin chore/ship-prep-vLATEST
-gh pr create --base dev --title "chore: refresh about.js for vLATEST ship" --body "..."
+gh pr create --base dev --title "chore: ship prep for vLATEST" --body "..."
 # Wait for merge to dev, then proceed to Step 4
 ```
 
@@ -212,7 +299,7 @@ Use `mcp__github__create_pull_request` (owner: `lbruton`, repo: `StakTrakr`) wit
 - `body`: full PR description with Summary, Version Tags Shipped, Issues, QA Notes sections
 - `draft`: `false`
 
-Include `🤖 Generated with [Claude Code](https://claude.com/claude-code)` footer.
+Add no AI attribution line or footer to the PR body.
 
 Note the returned PR number for Step 5.
 
@@ -327,28 +414,58 @@ NOTES=$(awk -v ver="${LATEST#v}" '
   grab {print}
 ' "$(git rev-parse --show-toplevel)/CHANGELOG.md")
 
+ROOT="$(git rev-parse --show-toplevel)"
+ANN="$ROOT/docs/announcements/$LATEST.md"
+# Announcement body: drop the front matter and the title line; point images at the Release assets.
+BODY=$(awk 'NR == 1 && $0 == "---" { fm = 1; next }
+  fm { if ($0 == "---") fm = 0; next }
+  !titled && /^# / { titled = 1; next }
+  { print }' "$ANN" \
+  | sed "s#](images/#](https://github.com/lbruton/StakTrakr/releases/download/$LATEST/#g")
+TITLE=$(grep -m1 '^# ' "$ANN" | sed 's/^# //')
+
 gh release create "$LATEST" \
   --target main \
-  --title "$LATEST — [title from CHANGELOG]" \
+  --title "$TITLE" \
   --latest \
-  --notes "$NOTES"
+  --notes "$(printf '%s\n\n## Full changelog\n\n%s\n' "$BODY" "$NOTES")" \
+  "$ROOT"/docs/announcements/images/"$LATEST"-*.png
 
 # Verify
 gh release list --limit 3
-# Confirm new version shows as Latest
+gh release view "$LATEST" --json assets -q '.assets[].name'
+# Confirm new version shows as Latest and every screenshot is attached
 ```
+
+The image files are not in git. Run this step in the checkout that holds the Step 3.5 capture, or
+capture them again there with the `npm run screenshots` command from Step 3.5.
 
 > **Body-too-long guard:** GitHub rejects release notes over 125,000 chars. The
 > `sed '/^## [ver]/,/^## [/p'` range extracts a single version section; an
 > unbounded `awk '/ver/,/---/'` can swallow the whole changelog and 422.
+
+## Step 7.5: Hand-post the announcement (MANDATORY)
+
+The user posts as u/StakTrakr by hand. Never post for them.
+
+1. Print the Reddit title: `$TITLE` from Step 7.
+2. Print the body ready to paste: Step 7's `$BODY` without the image lines. Reddit shows an image
+   inline only when it is uploaded in the post editor.
+3. List the image paths to upload, with each caption: `docs/announcements/images/vLATEST-*.png`.
+4. Ask the user to post and paste back the link.
+
+When the link arrives in this session, record it with a one-line `chore:` PR to `dev` that sets
+the `reddit:` line (slug dropped, Step 3.5). Otherwise the Step 1.2 gate collects it at the next
+ship.
 
 ## Step 8: Confirm
 
 ```text
 Ship complete!
 
-Version:   vLATEST
-PR:        #XX merged (merge commit — ancestry verified ✅)
-Release:   https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
-Issues:    STRK-XX → Done (Plane)
+Version:      vLATEST
+PR:           #XX merged (merge commit — ancestry verified ✅)
+Release:      https://github.com/lbruton/StakTrakr/releases/tag/vLATEST
+Announcement: docs/announcements/vLATEST.md — <Reddit link, or "not posted yet">
+Issues:       STRK-XX → Done (Plane)
 ```
