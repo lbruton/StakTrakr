@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:unit": "node devops/testing/run-unit.mjs",
     "build:collections": "node devops/collections/build-collections-bundle.mjs",
+    "screenshots": "node devops/screenshots/run.mjs",
     "lint:md": "bash devops/hooks/lint-markdown-changed.sh --staged",
     "lint:md:changed": "bash devops/hooks/lint-markdown-changed.sh --changed",
     "lint:md:all": "npx --yes markdownlint-cli --config .markdownlint.json --ignore-path .markdownlintignore \"**/*.md\" \".context/**/*.md\" \".agents/**/*.md\" \".claude/**/*.md\"",
