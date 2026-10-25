@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.77] - 2026-10-25
+
+### Changed — STRK-431: Neutral class name for the shared segmented control
+
+- **Rename**: `.collections-segmented` and `.collections-segmented-option` become `.segmented` and `.segmented-option` in `css/styles.css`, `js/collections-picker.js` and `js/image-frame-editor.js`. The Add/Edit Item modal and the Collection builder share the control, so a Collections prefix was misleading. No visual change (STRK-431).
+- **References**: the image frame editor spec, `.context/style.html` and the STRK-421, STRK-424 and STRK-427 playground mockups use the new names. Archived spec docs keep the old names as history (STRK-431).
+
 ## [3.36.76] - 2026-10-25
 
 ### Changed — STRK-429: Cloud sync detects a frame-only image edit
