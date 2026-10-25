@@ -4,7 +4,7 @@ description: "Spec Phase 4 — break approach into a TDD sprint-cohort checklist
 user-invocable: true
 allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
-library-version: c8383f0c646f
+library-version: 3d109ab6d1d5
 ---
 
 # /spec-tasks ISSUE
