@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parse } from "acorn";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const issueId = /\b(?:STRK|STAK)-\d+/i;
+const issueId = /(?:\b|_)(?:STRK|STAK)-\d+/i;
 
 function checkTitles(node, file, failures) {
   if (!node || typeof node !== "object") return;
@@ -36,6 +36,32 @@ function checkTitles(node, file, failures) {
 }
 
 test("test filenames, titles and evidence names describe behavior without issue IDs", () => {
+  const names = [
+    ["STRK-123.spec.js", true],
+    ["feature_STRK-123.spec.js", true],
+    ["feature_STAK-123.test.js", true],
+    ["feature_strk-123.test.js", true],
+    ["feature-STAK-123.test.js", true],
+    ["feature.STAK-123.test.js", true],
+    ["handles STRK-123 state", true],
+    ["feature_MYSTAK-123.test.js", false],
+    ["feature_STRK-name.test.js", false],
+    ["feature.test.js", false],
+  ];
+  for (const [name, expected] of names) {
+    assert.equal(issueId.test(path.basename(name)), expected, name);
+    const failures = [];
+    checkTitles(
+      parse(`test(${JSON.stringify(name)}, () => {});`, {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        locations: true,
+      }),
+      "fixture.test.js",
+      failures
+    );
+    assert.equal(failures.length, Number(expected), name);
+  }
   const files = execFileSync("git", ["ls-files", "-z", "--", "tests"], {
     cwd: root,
     encoding: "utf8",
