@@ -413,4 +413,4 @@ This list aggregates pitfalls documented across Vendor Quirks, Providers Config,
 - .context/deep-dives/retail-modal.md: source for modal lifecycle and data flow
 - Retail Pipeline (deprecated DocVault page): end-to-end pipeline from poller to frontend
 - .context/deep-dives/dom-patterns.md: general DOM utility patterns
-- design-philosophy: design system and color tokens
+- DESIGN.md: design system and colour tokens

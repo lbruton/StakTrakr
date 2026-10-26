@@ -10,7 +10,7 @@ duplicating its rules here; on any conflict with source code, code wins.
 - `.context/architecture.md` — system design, frontend/API/data model, sqld schema.
 - `.context/infrastructure.md` — deploy topology, Fly.io, home poller, secrets, CI/CD.
 - `.context/coding-standards.md` — JS style, module boundaries, DOM/storage patterns. **Read before writing JavaScript.**
-- `.context/design-philosophy.md` — brand, tokens, four-theme rules, anti-references.
+- `.context/design-philosophy.md` — routes design work to `PRODUCT.md` (users, brand, anti-references) and `DESIGN.md` (tokens, four themes, components).
 - `.context/reusable-patterns.md` — vendor normalization, providers.json, retail modal, chart abstractions.
 - `.context/data-pipelines.md` — spot/retail/goldback/image pipelines, cron, failure modes.
 - `.context/cloud-sync.md` — Dropbox OAuth, AES-GCM encryption, rollback, backup/restore.
@@ -94,8 +94,8 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
-- Read `.context/design-philosophy.md`.
-- Check `.context/style.html` for live component and token patterns.
+- Read `PRODUCT.md` and `DESIGN.md`; `.context/design-philosophy.md` lists the rest.
+- Use the `impeccable` skill for critique, audit, shape and polish passes.
 - Search the issue/spec and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
 - Use existing StakTrakr design tokens and components.
