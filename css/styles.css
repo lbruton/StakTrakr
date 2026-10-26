@@ -2148,7 +2148,7 @@ input[type="submit"] {
    canvas to its parent, so the band sets the height. */
 .spot-sparkline-band {
   position: relative;
-  height: 2.5rem;
+  height: 3.5rem;
   margin: 0.25rem 0 0.125rem;
 }
 

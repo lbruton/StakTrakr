@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **No opacity fades**: The gain/loss percentage and ticker premiums drop their 0.7 and 0.8 opacity, and the mid premium tier drops its colour literal (STRK-486).
 - **Neutral prices**: Spot prices and ticker prices use the primary text colour. Only the change line carries the trend colour (STRK-486).
 - **Goldback chip**: The "GB" label uses the `--gold` text colour instead of the Goldback fill token (STRK-486).
-- **Sparkline row**: Each spot card's sparkline has its own row below the change line, so no card text sits on the chart (STRK-486).
+- **Sparkline row**: Each spot card's sparkline has its own row below the change line, so no card text sits on the chart. Its axis fits the data range, so long periods keep their shape in the shorter row (STRK-486).
 
 ---
 

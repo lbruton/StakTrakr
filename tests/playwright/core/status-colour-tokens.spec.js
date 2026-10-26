@@ -537,7 +537,8 @@ async function dashboardStatusFailures(page) {
       .map(([label]) => `"${label.textContent}" label colour differs from its value`)
   );
   for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
-    const records = await measureText(page, selector);
+    // An empty node (a ticker item with no premium) has no text to read.
+    const records = (await measureText(page, selector)).filter((r) => r.text !== "");
     if (!records.length) failures.push(`${what}: nothing rendered`);
     for (const r of records) {
       if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio}:1`);
@@ -545,6 +546,19 @@ async function dashboardStatusFailures(page) {
     }
   }
   return failures;
+}
+
+/** Waits until at least four spot cards have a drawn sparkline chart. */
+async function expectDrawnSparklines(page) {
+  await expect
+    .poll(() =>
+      page
+        .locator("#tabViewDashboard .spot-sparkline")
+        .evaluateAll(
+          (canvases) => canvases.filter((c) => c.width > 0 && window.Chart?.getChart(c)).length
+        )
+    )
+    .toBeGreaterThanOrEqual(4);
 }
 
 test.describe("Dashboard status text from theme tokens", () => {
@@ -596,16 +610,35 @@ test.describe("Dashboard status text from theme tokens", () => {
     }
   });
 
+  test("each sparkline spends its plot height on the data range", async ({ page }) => {
+    await expectDrawnSparklines(page);
+    const charts = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("#tabViewDashboard .spot-sparkline"))
+        .filter((canvas) => canvas.clientHeight > 0)
+        .map((canvas) => window.Chart?.getChart(canvas))
+        .filter(Boolean)
+        .map((chart) => {
+          const ys = chart.data.datasets[0].data.map((p) => p.y);
+          const { min, max } = chart.scales.y;
+          return {
+            id: chart.canvas.id,
+            plotHeight: chart.chartArea.height,
+            spread: (max - min) / (Math.max(...ys) - Math.min(...ys)),
+            inside: min <= Math.min(...ys) && max >= Math.max(...ys),
+          };
+        })
+    );
+    // A spread near 1 means the axis hugs the data; Chart.js tick rounding can double it.
+    const failures = charts
+      .filter((c) => c.plotHeight < 40 || c.spread > 1.15 || !c.inside)
+      .map(
+        (c) => `${c.id} plot ${c.plotHeight}px spread ${c.spread.toFixed(2)} inside ${c.inside}`
+      );
+    expect(failures).toEqual([]);
+  });
+
   test("no spot card text sits over its sparkline", async ({ page }) => {
-    await expect
-      .poll(() =>
-        page
-          .locator("#tabViewDashboard .spot-sparkline")
-          .evaluateAll(
-            (canvases) => canvases.filter((c) => c.width > 0 && window.Chart?.getChart(c)).length
-          )
-      )
-      .toBeGreaterThanOrEqual(4);
+    await expectDrawnSparklines(page);
     const overlaps = await page.evaluate(() => {
       const found = [];
       const textSelector =
