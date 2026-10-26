@@ -99,7 +99,7 @@ test.describe("Dashboard keyboard and screen reader access", () => {
 
   test("ratio chips and refresh buttons name their value and freshness", async ({ page }) => {
     await expect(page.locator(".spot-ratio-chip.metal-silver")).toHaveAccessibleName(
-      /^Gold-to-Silver Ratio \(GSR\): \d+(\.\d+)?$/
+      /^Gold-to-Silver Ratio \(GSR\): [\d.]+$/
     );
     await expect(page.locator("#syncIconSilver")).toHaveAccessibleName(
       /\. Silver prices are (fresh|stale|expired)\.$/

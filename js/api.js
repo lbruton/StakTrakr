@@ -2651,7 +2651,10 @@ const _applyFetchedSpotPrices = (prices, prov, generatedAt, priceTimestamps = {}
     if (metalConfig && price > 0) {
       localStorage.setItem(metalConfig.spotKey, price.toString());
       spotPrices[metal] = price;
-      elements.spotPriceDisplay[metal].textContent = formatCurrency(price);
+      const priceEl = elements.spotPriceDisplay[metal];
+      if (typeof isSpotInlineEditOpen !== "function" || !isSpotInlineEditOpen(priceEl)) {
+        priceEl.textContent = formatCurrency(price);
+      }
       updateSpotCardColor(metal, price);
       // STRK-333: a metal backfilled from a runner-up endpoint carries its own
       // (older) publication time so its history row is never stamped fresher

@@ -2247,7 +2247,8 @@ input[type="submit"] {
    steal taps from the shift-click-to-edit price. A genuine 44px target needs
    the card header re-laid out — that belongs to the Phase 4 dashboard redesign,
    which is already scoped to rebuild these cards. */
-.spot-sync-icon {
+.spot-sync-icon,
+.spot-edit-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2264,12 +2265,14 @@ input[type="submit"] {
   transition: var(--transition);
 }
 
-.spot-sync-icon:hover:not(:disabled) {
+.spot-sync-icon:hover:not(:disabled),
+.spot-edit-btn:hover {
   color: var(--primary);
   border-color: var(--primary);
 }
 
-.spot-sync-icon:focus-visible {
+.spot-sync-icon:focus-visible,
+.spot-edit-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
@@ -5890,9 +5893,6 @@ input.spot-lookup-flash {
   scroll-snap-align: start;
   min-width: 0;
 }
-.total-card:hover {
-  box-shadow: var(--shadow-lg);
-}
 
 @media (min-width: 580px) {
   .total-card {
@@ -6046,10 +6046,6 @@ input.spot-lookup-flash {
   overflow: hidden;
 }
 
-.total-card:hover {
-  box-shadow: var(--shadow-lg);
-}
-
 .total-title {
   font-size: var(--font-size-xl);
   font-weight: 700;
@@ -6101,6 +6097,7 @@ input.spot-lookup-flash {
 .total-title {
   font-size: var(--font-size-xl);
   font-weight: 700;
+  margin-top: 0;
   margin-bottom: var(--spacing);
   color: var(--text-primary);
   text-align: center;
@@ -6109,12 +6106,27 @@ input.spot-lookup-flash {
   transition:
     border-color 0.2s,
     color 0.2s;
-  cursor: pointer;
   user-select: none;
 }
 
 .total-title:hover {
   color: var(--primary);
+}
+
+/* The heading holds a real button so the details modal opens from the keyboard;
+   the button keeps the heading's look. */
+.total-title-btn {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+}
+.total-title-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Metal-specific underline accent */
@@ -16787,9 +16799,21 @@ input[type="number"] {
   font-size: var(--font-size-sm);
   white-space: nowrap;
   transition: background 0.2s;
+  /* Linked items are buttons; keep the pill's text styles instead of the UA button font. */
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
 }
 .ticker-item:hover {
   background: var(--border);
+}
+.ticker-item--link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* A focused dealer pauses the strip so the keyboard user can read and activate it. */
+.market-ticker:focus-within .ticker-track {
+  animation-play-state: paused;
 }
 
 .ticker-item .coin {

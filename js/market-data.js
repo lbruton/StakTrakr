@@ -588,15 +588,25 @@ const _buildTickerItem = (slug, coin, coinMetaMap, vendorMeta) => {
 
 /**
  * Build the DOM element for one ticker item (metal dot, coin name, vendor,
- * price, premium badge). Clickable when the vendor URL is safe.
+ * price, premium badge). A safe vendor URL makes it a button that opens the dealer page.
  * @param {Object} item - Ticker item descriptor from _buildTickerItem.
- * @returns {HTMLDivElement} The ".ticker-item" element.
+ * @returns {HTMLElement} The ".ticker-item" element.
  */
 const _buildTickerItemEl = (item) => {
-  const el = document.createElement("div");
+  const isLink = _isSafeUrl(item.vendorUrl);
+  const el = document.createElement(isLink ? "button" : "div");
   el.className = "ticker-item";
-  if (_isSafeUrl(item.vendorUrl)) {
+  if (isLink) {
+    el.type = "button";
     el.classList.add("ticker-item--link");
+    const premium =
+      item.premium != null
+        ? `, premium ${(item.premium >= 0 ? "+" : "") + item.premium.toFixed(1)}%`
+        : "";
+    el.setAttribute(
+      "aria-label",
+      `${item.name} at ${item.vendorName}, ${formatCurrency(item.bestPrice)}${premium}. Opens the dealer page in a new window.`
+    );
     el.addEventListener("click", () => {
       _openVendorPopup(item.vendorUrl, item.bestVid);
     });
@@ -659,6 +669,10 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   const block2 = document.createElement("div");
   block2.className = "ticker-block";
   block2.dataset.tickerBlock = "duplicate";
+  // The copy exists only for the seamless scroll loop: keep it out of the tab order and
+  // the accessibility tree so each dealer price is announced once.
+  block2.setAttribute("aria-hidden", "true");
+  block2.inert = true;
 
   for (const item of items) {
     block1.appendChild(_buildTickerItemEl(item));
@@ -713,7 +727,8 @@ const renderBestPriceTicker = () => {
   if (items.length === 0) {
     container.dataset.tickerSignature = "";
     container.setAttribute("hidden", "");
-    while (container.firstChild) container.removeChild(container.firstChild);
+    // Remove only the tracks: the region's heading stays for the next render.
+    container.querySelectorAll(".ticker-track").forEach((track) => track.remove());
     return;
   }
 

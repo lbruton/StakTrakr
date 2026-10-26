@@ -1097,7 +1097,7 @@ const renderSpotPanelManual = () => {
       title: "Manual / Offline Mode",
       badgeText: "Offline",
       badgeClass: "offline",
-      meta: "All feeds disabled. Shift+click spot cards on main page also edits.",
+      meta: "All feeds disabled. The edit button on each Dashboard spot card also sets the price.",
       actions,
     })
   );

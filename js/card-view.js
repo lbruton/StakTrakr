@@ -1382,14 +1382,30 @@ const _initSpotControls = () => {
 // =============================================================================
 
 /**
- * Initialises the totals cards carousel:
- *  - Generates one dot per card inside #totalsDots
- *  - Wires prev/next buttons to scroll by one card width
- *  - Wires the scroll event to update the active dot and button states
- *
- * At ≥1350px the nav buttons and dots are hidden via CSS; the carousel
- * degenerates to a plain flex row with no overflow.
+ * Returns the visible totals cards in rendered order. Sorting by offsetLeft respects CSS
+ * `order`: All Metals has order -1, so it renders first but is last in DOM order.
+ * @param {HTMLElement} carousel - The #totalsCarousel element
+ * @returns {HTMLElement[]}
  */
+const _visibleTotalsCards = (carousel) =>
+  [...carousel.querySelectorAll(".total-card")]
+    .filter((c) => c.style.display !== "none")
+    .sort((a, b) => a.offsetLeft - b.offsetLeft);
+
+/**
+ * Marks one totals dot active, in class and in aria-current, and clears the rest.
+ * @param {HTMLElement} dotsEl - The #totalsDots element
+ * @param {number} activeIdx - Index of the card most in view
+ */
+const _setActiveTotalsDot = (dotsEl, activeIdx) => {
+  dotsEl.querySelectorAll(".totals-dot").forEach((dot, i) => {
+    const active = i === activeIdx;
+    dot.classList.toggle("active", active);
+    if (active) dot.setAttribute("aria-current", "true");
+    else dot.removeAttribute("aria-current");
+  });
+};
+
 /**
  * Rebuilds totals carousel dots after metal order/visibility changes.
  * Safe to call multiple times — does not re-wire scroll or nav listeners.
@@ -1398,22 +1414,27 @@ const refreshTotalsDots = () => {
   const carousel = document.getElementById("totalsCarousel");
   const dotsEl = document.getElementById("totalsDots");
   if (!carousel || !dotsEl) return;
-  const cards = [...carousel.querySelectorAll(".total-card")].filter(
-    (c) => c.style.display !== "none"
-  );
   dotsEl.innerHTML = "";
-  cards.forEach((card, i) => {
+  _visibleTotalsCards(carousel).forEach((card, i) => {
     const dot = document.createElement("button");
-    dot.className = "totals-dot" + (i === 0 ? " active" : "");
+    dot.type = "button";
+    dot.className = "totals-dot";
     dot.setAttribute("aria-label", `Go to card ${i + 1}`);
     dot.addEventListener("click", () =>
       carousel.scrollTo({ left: card.offsetLeft, behavior: "smooth" })
     );
     dotsEl.appendChild(dot);
   });
+  _setActiveTotalsDot(dotsEl, 0);
 };
 window.refreshTotalsDots = refreshTotalsDots;
 
+/**
+ * Initialises the totals cards carousel: builds the dots, wires prev/next to scroll
+ * by one card width, and wires scroll to the active dot and button states.
+ * At ≥1350px the nav buttons and dots are hidden via CSS; the carousel
+ * degenerates to a plain flex row with no overflow.
+ */
 const _initTotalsCarousel = () => {
   const carousel = document.getElementById("totalsCarousel");
   const prevBtn = document.getElementById("totalsPrev");
@@ -1421,34 +1442,19 @@ const _initTotalsCarousel = () => {
   const dotsEl = document.getElementById("totalsDots");
 
   if (!carousel || !prevBtn || !nextBtn || !dotsEl) return;
+  if (!carousel.querySelector(".total-card")) return;
 
-  const cards = Array.from(carousel.querySelectorAll(".total-card"));
-  if (!cards.length) return;
-
-  // Sort by visual (rendered) left offset so CSS `order` is respected.
-  // All Metals has order:-1 so it renders first but is last in DOM order.
-  const sortedCards = [...cards].sort((a, b) => a.offsetLeft - b.offsetLeft);
-
-  // --- Build dots ---
-  dotsEl.innerHTML = "";
-  const dots = sortedCards.map((card, i) => {
-    const dot = document.createElement("button");
-    dot.className = "totals-dot" + (i === 0 ? " active" : "");
-    dot.setAttribute("aria-label", `Go to card ${i + 1}`);
-    dot.addEventListener("click", () => {
-      carousel.scrollTo({ left: card.offsetLeft, behavior: "smooth" });
-    });
-    dotsEl.appendChild(dot);
-    return dot;
-  });
+  refreshTotalsDots();
 
   // --- Helpers ---
   const getCardWidth = () => {
-    const card = sortedCards[0];
+    const card = _visibleTotalsCards(carousel)[0];
+    if (!card) return 1;
     const gap = parseFloat(getComputedStyle(carousel).gap) || 0;
     return card.getBoundingClientRect().width + gap;
   };
 
+  // Dots are queried live: refreshTotalsDots replaces them after a metal order change.
   const updateState = () => {
     const scrollLeft = carousel.scrollLeft;
     const maxScroll = carousel.scrollWidth - carousel.clientWidth;
@@ -1456,9 +1462,7 @@ const _initTotalsCarousel = () => {
     prevBtn.disabled = scrollLeft < 4;
     nextBtn.disabled = scrollLeft >= maxScroll - 1;
 
-    // Highlight the dot whose card is most in view
-    const activeIdx = Math.round(scrollLeft / getCardWidth());
-    dots.forEach((d, i) => d.classList.toggle("active", i === activeIdx));
+    _setActiveTotalsDot(dotsEl, Math.round(scrollLeft / getCardWidth()));
   };
 
   // --- Button clicks ---

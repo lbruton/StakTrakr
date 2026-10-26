@@ -134,11 +134,12 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.83 &ndash; Dashboard by keyboard and screen reader</strong>: Each spot card has an edit button for setting the price by hand, and totals card titles and ticker dealers are buttons you can reach with Tab. The Dashboard has headings for each section, the ticker pauses while a dealer has focus and reads each price once, and ratio chips and refresh buttons say what they show (STRK-487).</li>
     <li><strong>v3.36.82 &ndash; Dashboard numbers you can read</strong>: Gain, loss, spot change, dealer premiums and the Goldback chip meet AA contrast in light, dark, slate and sepia. Spot prices show in the plain text colour with an arrow, and the coloured change line below them shows the trend. Each card's sparkline sits in its own row, so no number is drawn over the chart (STRK-486).</li>
     <li><strong>v3.36.81 &ndash; Responsive control feedback</strong>: Buttons and shared controls smoothly respond to hover, focus and state changes again. The transitions leave layout unchanged, and reduced motion keeps feedback immediate (STRK-484).</li>
     <li><strong>v3.36.80 &ndash; Readable in every theme</strong>: Filter chips, retail vendor names, sync status text, the Item View header and the charts take their colours from the active theme and meet AA contrast in light, dark, slate and sepia. They recolour on a theme switch without a reload, and reduced motion turns transitions off (STRK-446, STRK-450, STRK-451, STRK-452, STRK-453, STRK-461).</li>
     <li><strong>v3.36.67 &ndash; Collections you can trust across tabs</strong>: Two open tabs no longer overwrite each other's Collections or delete each other's artwork, and backups include the newest artwork. An open Slot note stays open through price refreshes (STRK-439, STRK-440, STRK-468).</li>
-    <li><strong>v3.36.58 &ndash; Image options and title image links</strong>: Each Item image frame has an image options button for an image link and a "Use a matching pattern image" setting. Custom Collection title images accept a live image link, and builder Slot thumbnails follow the collection's Image shape (STRK-442, STRK-443, STRK-444).</li>      `;
+      `;
 };
 
 // Expose globally for access from other modules
