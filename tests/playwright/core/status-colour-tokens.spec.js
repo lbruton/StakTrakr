@@ -322,6 +322,173 @@ test.describe("theme colours with reduced motion", () => {
   });
 });
 
+// Shared motion must work both as a complete transition and after a property name.
+test.describe("shared control transitions", () => {
+  for (const reducedMotion of ["no-preference", "reduce"]) {
+    test(`controls complete hover, focus and disclosure feedback with ${reducedMotion} motion`, async ({
+      page,
+    }, testInfo) => {
+      test.setTimeout(120000);
+      await page.emulateMedia({ reducedMotion });
+      await suppressWhatsNewPopup(page);
+      await page.goto("/index.html#/inventory");
+      await page.locator("#newItemBtn").click();
+      await expect(page.locator("#itemModal")).toBeVisible();
+      const summary = page.locator("#attachmentsSection > summary");
+      await summary.click();
+      await page
+        .locator("#attachmentFileInput")
+        .setInputFiles("tests/playwright/helpers/test-obverse.png");
+      const action = page.locator("#attachmentQueuedList .attach-btn").first();
+      await expect(action).toBeVisible();
+
+      const sharedProperties = [
+        "background-color",
+        "color",
+        "border-color",
+        "box-shadow",
+        "opacity",
+        "transform",
+      ];
+      const settle = async (locator) => {
+        await locator.evaluate(async (el) => {
+          // Flush styles before collecting the running CSS transitions, including pseudos.
+          getComputedStyle(el).transform;
+          await Promise.all(
+            el.getAnimations({ subtree: true }).map((animation) => animation.finished)
+          );
+        });
+      };
+      const read = (locator, property, pseudo = null) =>
+        locator.evaluate(
+          (el, args) => getComputedStyle(el, args.pseudo).getPropertyValue(args.property),
+          {
+            property,
+            pseudo,
+          }
+        );
+      const expectTiming = async (
+        locator,
+        properties,
+        pseudo = null,
+        easing = "cubic-bezier(0.4, 0, 0.2, 1)"
+      ) => {
+        const style = await locator.evaluate((el, pseudo) => {
+          const cs = getComputedStyle(el, pseudo);
+          return {
+            properties: cs.transitionProperty.split(", "),
+            durations: cs.transitionDuration.split(", "),
+            delays: cs.transitionDelay.split(", "),
+            easings: cs.transitionTimingFunction,
+          };
+        }, pseudo);
+        expect(style.properties).toEqual(properties);
+        expect(
+          style.durations.every((value) => value === (reducedMotion === "reduce" ? "0s" : "0.2s"))
+        ).toBe(true);
+        expect(style.delays.every((value) => value === "0s")).toBe(true);
+        expect(style.easings).toContain(easing);
+      };
+
+      for (const theme of THEMES) {
+        await test.step(theme, async () => {
+          await page.evaluate((theme) => window.setTheme(theme), theme);
+          await settle(page.locator("#itemModal"));
+          const button = page.locator("#itemModalSubmit");
+          const input = page.locator("#itemName");
+          const drop = page.locator("#attachmentDropZone");
+          const browse = page.locator("#attachmentBrowseBtn");
+          await expectTiming(button, sharedProperties);
+          // The existing form-specific override is part of the acceptance contract.
+          await expectTiming(input, ["background", "border-color", "box-shadow"], null, "ease");
+          await expectTiming(summary, ["background-color"]);
+          await expectTiming(summary, ["transform"], "::after");
+          await expectTiming(drop, ["border-color", "background-color"]);
+          await expectTiming(browse, ["background-color", "border-color"]);
+          await expectTiming(action, ["background-color", "color"]);
+
+          // Focus changes the real form field's border, then blur restores its resting state.
+          await button.focus();
+          await settle(input);
+          const border = await read(input, "border-color");
+          await input.focus();
+          await settle(input);
+          expect(await read(input, "border-color")).not.toBe(border);
+          await button.focus();
+          await settle(input);
+          expect(await read(input, "border-color")).toBe(border);
+
+          const openTransform = await read(summary, "transform", "::after");
+          await summary.click();
+          await settle(summary);
+          expect(await read(summary, "transform", "::after")).not.toBe(openTransform);
+          await summary.click();
+          await settle(summary);
+          expect(await read(summary, "transform", "::after")).toBe(openTransform);
+
+          for (const [target, property] of [
+            [button, "transform"],
+            [drop, "background-color"],
+            // Transition events report the longhand for the border-color shorthand.
+            [browse, "border-top-color"],
+            [action, "background-color"],
+          ]) {
+            // Moving to the input also exits the drop zone before recording its resting state.
+            await input.hover();
+            await settle(target);
+            const rest = await read(target, property);
+            let hovered;
+            for (let repeat = 0; repeat < 2; repeat++) {
+              if (reducedMotion === "no-preference") {
+                await target.evaluate((el, property) => {
+                  el.dataset.observedTransition = "";
+                  // Record before hovering: CI may resume after the 200ms effect has finished.
+                  const record = (event) => {
+                    if (
+                      event.target !== el ||
+                      event.pseudoElement ||
+                      event.propertyName !== property
+                    )
+                      return;
+                    el.dataset.observedTransition = event.propertyName;
+                    el.removeEventListener("transitionrun", record);
+                  };
+                  el.addEventListener("transitionrun", record);
+                }, property);
+              }
+              await target.hover();
+              await settle(target);
+              if (reducedMotion === "no-preference") {
+                await expect(target).toHaveAttribute("data-observed-transition", property);
+              }
+              const actual = await read(target, property);
+              expect(actual).not.toBe(rest);
+              if (repeat) expect(actual).toBe(hovered);
+              hovered = actual;
+              await input.hover();
+              await settle(target);
+              expect(await read(target, property)).toBe(rest);
+            }
+          }
+          if (process.env.MOTION_EVIDENCE) {
+            for (const [name, width, height] of [
+              ["desktop", 1440, 1000],
+              ["phone", 390, 844],
+            ]) {
+              await page.setViewportSize({ width, height });
+              await browse.scrollIntoViewIfNeeded();
+              await page.screenshot({
+                path: testInfo.outputPath(`controls-${theme}-${name}-${reducedMotion}.png`),
+              });
+            }
+            await page.setViewportSize({ width: 1440, height: 1000 });
+          }
+        });
+      }
+    });
+  }
+});
+
 test.describe("card chart colours from theme tokens", () => {
   test("the card chart grid and tooltip follow each of the four themes", async ({ page }) => {
     await gotoApp(page);

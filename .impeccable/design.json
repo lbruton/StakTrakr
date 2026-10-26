@@ -36,6 +36,8 @@
       { "name": "overlay", "value": "var(--shadow-lg)", "purpose": "Modals and menus." }
     ],
     "motion": [
+      { "name": "transition-timing", "value": "0.2s cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Shared control timing; follows an explicit transition property." },
+      { "name": "transition", "value": "background-color var(--transition-timing), color var(--transition-timing), border-color var(--transition-timing), box-shadow var(--transition-timing), opacity var(--transition-timing), transform var(--transition-timing)", "purpose": "Complete shared control transition list; excludes layout properties. Reduced motion forces zero duration and delay." },
       { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Modal fade and slide-in." }
     ],
     "breakpoints": [
