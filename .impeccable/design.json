@@ -92,7 +92,7 @@
       "name": "Spot Card",
       "kind": "custom",
       "refersTo": "spot-card",
-      "description": "Signature per-metal spot price card with a low-opacity sparkline behind the figures.",
+      "description": "Signature per-metal spot price card: neutral price, status-coloured change line, and a sparkline in its own row below the text.",
       "html": "<div class=\"ds-spot\"><div class=\"ds-spot-metal\">Gold</div><div class=\"ds-spot-price\">$2,412.30</div><div class=\"ds-spot-change\">+18.40 (0.77%)</div></div>",
       "css": ".ds-spot { width: 12rem; text-align: center; padding: var(--spacing, 0.75rem); background: var(--bg-primary, oklch(0.18 0.008 85)); border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.3)); } .ds-spot-metal { color: var(--gold, oklch(0.811 0.157 79)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; } .ds-spot-price { color: var(--text-primary, oklch(0.95 0.005 85)); font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: var(--font-size-2xl, 1.5rem); } .ds-spot-change { color: var(--success-text, oklch(0.72 0.16 155)); font-family: var(--font-mono, 'Geist Mono', monospace); font-size: var(--font-size-sm, 0.75rem); }"
     }

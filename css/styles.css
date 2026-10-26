@@ -2144,14 +2144,19 @@ input[type="submit"] {
   height: 100%;
 }
 
-/* Sparkline canvas — positioned behind card content */
+/* The sparkline has its own row so no card text sits on the chart. Chart.js sizes the
+   canvas to its parent, so the band sets the height. */
+.spot-sparkline-band {
+  position: relative;
+  height: 3.5rem;
+  margin: 0.25rem 0 0.125rem;
+}
+
 .spot-sparkline {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  z-index: 0;
-  opacity: 0.35;
+  opacity: 0.7;
   pointer-events: none;
 }
 
@@ -2337,29 +2342,19 @@ input[type="submit"] {
   }
 }
 
-/* Card value — above sparkline */
+/* The price stays neutral: the arrow glyph shows the direction and only the change
+   line below carries the gain and loss colours. */
 .spot-card-value {
   position: relative;
   z-index: 1;
   font-size: var(--font-size-2xl);
   font-weight: 700;
-  color: var(--primary);
+  color: var(--text-primary);
   cursor: default;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   padding: 0 var(--spacing);
-}
-
-/* Spot price change indicators */
-.spot-up {
-  color: var(--success);
-}
-.spot-down {
-  color: var(--danger);
-}
-.spot-unchanged {
-  color: var(--warning);
 }
 
 .spot-card-change {
@@ -2372,18 +2367,31 @@ input[type="submit"] {
   min-height: 1.1em;
 }
 .spot-change-up {
-  color: var(--success);
+  color: var(--success-text);
 }
 .spot-change-down {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
-/* Portfolio card gain/loss percentage — subtle prefix left of value */
+/* Gain/loss percentage prefix: size and weight de-emphasise it, never opacity, which would
+   push the status colour under 4.5:1. */
 .gain-loss-pct {
   font-size: var(--font-size-xs);
   font-weight: 400;
-  opacity: 0.7;
   margin-right: 0.35em;
+}
+
+/* Gain and loss text set by formatLossProfit and the totals and table gain/loss writers.
+   The compound selectors outrank the later .total-label and .gainloss-estimated colours. */
+.gl-gain,
+.total-label.gl-gain,
+.gainloss-estimated.gl-gain {
+  color: var(--success-text);
+}
+.gl-loss,
+.total-label.gl-loss,
+.gainloss-estimated.gl-loss {
+  color: var(--danger-text);
 }
 
 .spot-card-timestamp {
@@ -8529,13 +8537,14 @@ a.about-badge:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Same text tokens as the Dashboard .gl-gain / .gl-loss, so the two read alike. */
 .dm-kpi--gain .dm-kpi-value,
 .dm-pos {
-  color: var(--success);
+  color: var(--success-text);
 }
 .dm-kpi--loss .dm-kpi-value,
 .dm-neg {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* 3 ── Hero chart card */
@@ -16798,24 +16807,22 @@ input[type="number"] {
   font-weight: 700;
   font-size: var(--font-size-base);
   font-family: var(--font-mono);
-  color: var(--success);
+  color: var(--text-primary);
 }
 
+/* Premium tiers use the text-role status tokens, which meet 4.5:1 at this size. */
 .ticker-item .premium {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
 .ticker-item .premium.low {
-  color: var(--success);
-  opacity: 0.8;
+  color: var(--success-text);
 }
 .ticker-item .premium.mid {
-  color: oklch(0.55 0.15 60);
-  opacity: 0.8;
+  color: var(--warning-text);
 }
 .ticker-item .premium.high {
-  color: var(--danger);
-  opacity: 0.8;
+  color: var(--danger-text);
 }
 
 /* ── Metal Dot Helper ── */
@@ -17745,8 +17752,9 @@ input[type="number"] {
 .spot-ratio-chip.metal-copper {
   --metal: var(--copper);
 }
+/* --type-goldback-bg is a fill colour and fails 4.5:1 as text in light and sepia. */
 .spot-ratio-chip.metal-gold {
-  --metal: var(--type-goldback-bg);
+  --metal: var(--gold);
 }
 
 /* JS-positioned fixed tooltip singleton (D-4): appended to <body> so it

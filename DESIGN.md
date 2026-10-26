@@ -343,9 +343,10 @@ Borders are 1px on surfaces and 2px on form fields.
 
 ### Spot Cards and Ticker
 
-The signature component. Each metal has a card with its spot price, change and a sparkline drawn behind
-the figures at low opacity. The ticker repeats the figures in one line. Both use the data face and the
-metal colours.
+The signature component. Each metal has a card with its spot price, change and a sparkline in its own row
+below the change line, so no text sits on the chart. The price is in the primary text colour with an arrow
+glyph; only the change line carries gain and loss, in the `*-text` tokens. The ticker repeats the figures
+in one line with neutral prices and status-coloured premiums. Both use the data face and the metal colours.
 
 ## Do's and Don'ts
 

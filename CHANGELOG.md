@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.82] - 2026-10-25
+
+### Changed — STRK-486: Dashboard status text contrast
+
+- **Status text tokens**: Gain/loss labels and values, the spot change line, ticker premiums and inventory gain/loss cells use the `--success-text`, `--warning-text` and `--danger-text` tokens through classes instead of inline fill colours. They meet 4.5:1 in all four themes (STRK-486).
+- **Details modal**: Gain and loss figures in the per-metal details modal use the same text tokens, so they match the Dashboard (STRK-486).
+- **No opacity fades**: The gain/loss percentage and ticker premiums drop their 0.7 and 0.8 opacity, and the mid premium tier drops its colour literal (STRK-486).
+- **Neutral prices**: Spot prices and ticker prices use the primary text colour. Only the change line carries the trend colour (STRK-486).
+- **Goldback chip**: The "GB" label uses the `--gold` text colour instead of the Goldback fill token (STRK-486).
+- **Sparkline row**: Each spot card's sparkline has its own row below the change line, so no card text sits on the chart. Its axis fits the data range, so long periods keep their shape in the shorter row (STRK-486).
+
+---
+
 ## [3.36.81] - 2026-10-25
 
 ### Changed — STRK-484: Restore shared control transitions

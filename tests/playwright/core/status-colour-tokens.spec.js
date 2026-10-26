@@ -26,6 +26,7 @@ async function gotoApp(page) {
 /**
  * Returns { color, ratio } for each selector match: the computed text colour and its WCAG
  * 2.x contrast over the element's background composited onto the nearest opaque ancestor.
+ * The text colour is faded by the element's own opacity; ancestors of hidden panels read 0.
  */
 function measureText(page, selector) {
   return page.evaluate((sel) => {
@@ -56,7 +57,9 @@ function measureText(page, selector) {
     return Array.from(document.querySelectorAll(sel)).map((el) => {
       const cs = getComputedStyle(el);
       const back = over(toRgba(cs.backgroundColor), opaqueBehind(el));
-      const fore = over(toRgba(cs.color), back);
+      const text = toRgba(cs.color);
+      text[3] *= Number(cs.opacity);
+      const fore = over(text, back);
       const [hi, lo] = [luminance(back), luminance(fore)].sort((a, b) => b - a);
       return {
         text: el.textContent.trim(),
@@ -487,6 +490,178 @@ test.describe("shared control transitions", () => {
       }
     });
   }
+});
+
+/** Seeds a silver Item bought far below spot and a gold Item bought far above it. */
+async function gotoDashboardWithGainAndLoss(page) {
+  const base = { qty: 1, weightUnit: "oz", purity: 0.999, type: "Round", date: "2026-04-01" };
+  const items = [
+    { ...base, uuid: "dash-gain", serial: 1, name: "Silver Gain Round", metal: "Silver" },
+    { ...base, uuid: "dash-loss", serial: 2, name: "Gold Loss Round", metal: "Gold" },
+  ];
+  Object.assign(items[0], { composition: "Silver", weight: 10, price: 1 });
+  Object.assign(items[1], { composition: "Gold", weight: 1, price: 100000 });
+  await page.addInitScript((inv) => {
+    localStorage.setItem("metalInventory", JSON.stringify(inv));
+  }, items);
+  await suppressWhatsNewPopup(page);
+  await page.goto("/index.html");
+  await expect(page.locator("#lossProfitSilver")).toContainText("$");
+  await expect(page.locator("#lossProfitGold")).toContainText("-");
+  await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+  await expect(page.locator(".spot-ratio-chip.metal-gold .lab")).toHaveText("GB");
+}
+
+// Each selector names Dashboard text whose colour carries a status or a metal mark.
+const DASHBOARD_STATUS_TEXT = {
+  "gain/loss label": "#tabViewDashboard .total-item-bottom-line .total-label",
+  "gain/loss value": "#tabViewDashboard .total-item-bottom-line .total-value > span",
+  "gain/loss percent": "#tabViewDashboard .gain-loss-pct",
+  "spot change": "#tabViewDashboard .spot-card-change span",
+  "ticker price": ".ticker-block[data-ticker-block='primary'] .ticker-item .price",
+  "ticker premium": ".ticker-block[data-ticker-block='primary'] .ticker-item .premium",
+  "goldback chip": ".spot-ratio-chip.metal-gold .lab",
+  "inventory gain/loss": "#inventoryTable td[data-column='gainLoss']",
+};
+
+/**
+ * Lists every Dashboard status text below AA or carrying an inline colour, and every
+ * Gain/Loss label whose colour differs from its value.
+ */
+async function dashboardStatusFailures(page) {
+  const failures = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("#tabViewDashboard .total-item-bottom-line"))
+      .map((row) => [row.querySelector(".total-label"), row.querySelector(".total-value > span")])
+      .filter(([label, value]) => label && value)
+      .filter(([label, value]) => getComputedStyle(label).color !== getComputedStyle(value).color)
+      .map(([label]) => `"${label.textContent}" label colour differs from its value`)
+  );
+  for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
+    // An empty node (a ticker item with no premium) has no text to read.
+    const records = (await measureText(page, selector)).filter((r) => r.text !== "");
+    if (!records.length) failures.push(`${what}: nothing rendered`);
+    for (const r of records) {
+      if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio}:1`);
+      if (r.inlineColor) failures.push(`${what} "${r.text}" inline ${r.inlineColor}`);
+    }
+  }
+  return failures;
+}
+
+/** Waits until at least four spot cards have a drawn sparkline chart. */
+async function expectDrawnSparklines(page) {
+  await expect
+    .poll(() =>
+      page
+        .locator("#tabViewDashboard .spot-sparkline")
+        .evaluateAll(
+          (canvases) => canvases.filter((c) => c.width > 0 && window.Chart?.getChart(c)).length
+        )
+    )
+    .toBeGreaterThanOrEqual(4);
+}
+
+test.describe("Dashboard status text from theme tokens", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoDashboardWithGainAndLoss(page);
+  });
+
+  test("gain, loss, change, ticker and chip text meet AA with no inline colour in all four themes", async ({
+    page,
+  }) => {
+    await expect(page.locator(DASHBOARD_STATUS_TEXT["gain/loss label"])).toContainText([
+      "Gain:",
+      "Loss:",
+    ]);
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect
+        .poll(() => dashboardStatusFailures(page), { message: `${theme} Dashboard status text` })
+        .toEqual([]);
+    }
+  });
+
+  test("spot prices use the primary text colour and the change line carries the trend", async ({
+    page,
+  }) => {
+    const values = "#tabViewDashboard .spot-card-value";
+    await expect(page.locator(values).first()).toContainText(/[▲▼=] \$/);
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const textPrimary = await page.evaluate(() => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--text-primary)";
+        document.body.appendChild(probe);
+        const colour = getComputedStyle(probe).color;
+        probe.remove();
+        return colour;
+      });
+      await expect
+        .poll(
+          async () =>
+            (await measureText(page, values))
+              .filter((r) => r.color !== textPrimary)
+              .map((r) => `${r.text} ${r.color}`),
+          { message: `${theme} spot prices are ${textPrimary}` }
+        )
+        .toEqual([]);
+    }
+  });
+
+  test("each sparkline spends its plot height on the data range", async ({ page }) => {
+    await expectDrawnSparklines(page);
+    const charts = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("#tabViewDashboard .spot-sparkline"))
+        .filter((canvas) => canvas.clientHeight > 0)
+        .map((canvas) => window.Chart?.getChart(canvas))
+        .filter(Boolean)
+        .map((chart) => {
+          const ys = chart.data.datasets[0].data.map((p) => p.y);
+          const { min, max } = chart.scales.y;
+          return {
+            id: chart.canvas.id,
+            plotHeight: chart.chartArea.height,
+            spread: (max - min) / (Math.max(...ys) - Math.min(...ys)),
+            inside: min <= Math.min(...ys) && max >= Math.max(...ys),
+          };
+        })
+    );
+    // A spread near 1 means the axis hugs the data; Chart.js tick rounding can double it.
+    const failures = charts
+      .filter((c) => c.plotHeight < 40 || c.spread > 1.15 || !c.inside)
+      .map(
+        (c) => `${c.id} plot ${c.plotHeight}px spread ${c.spread.toFixed(2)} inside ${c.inside}`
+      );
+    expect(failures).toEqual([]);
+  });
+
+  test("no spot card text sits over its sparkline", async ({ page }) => {
+    await expectDrawnSparklines(page);
+    const overlaps = await page.evaluate(() => {
+      const found = [];
+      const textSelector =
+        ".spot-card-label, .spot-card-period, .spot-card-value, .spot-card-change, .spot-ratio-chip, .spot-card-timestamp";
+      for (const card of document.querySelectorAll("#tabViewDashboard .spot-card")) {
+        const canvas = card.querySelector(".spot-sparkline");
+        const c = canvas.getBoundingClientRect();
+        if (!c.width || !c.height) continue;
+        for (const el of card.querySelectorAll(textSelector)) {
+          const t = el.getBoundingClientRect();
+          const overlapX = Math.min(c.right, t.right) - Math.max(c.left, t.left);
+          const overlapY = Math.min(c.bottom, t.bottom) - Math.max(c.top, t.top);
+          if (overlapX > 0.5 && overlapY > 0.5) {
+            found.push(
+              `${card.dataset.metal} ${el.className} overlaps by ${Math.round(overlapY)}px`
+            );
+          }
+        }
+      }
+      return found;
+    });
+    expect(overlaps).toEqual([]);
+  });
 });
 
 test.describe("card chart colours from theme tokens", () => {

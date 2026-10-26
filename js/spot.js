@@ -1177,6 +1177,13 @@ const updateSparkline = async (metalKey) => {
   gradient.addColorStop(0, color);
   gradient.addColorStop(1, "transparent");
 
+  // Fixed bounds stop Chart.js rounding the axis to tick-friendly values, which in a short
+  // band can double the range and flatten the line.
+  const finite = data.filter(Number.isFinite);
+  const lo = Math.min(...finite);
+  const hi = Math.max(...finite);
+  const pad = (hi - lo) * 0.05 || Math.abs(hi) * 0.01 || 1;
+
   const sparklineConfig = {
     type: "line",
     data: {
@@ -1196,7 +1203,7 @@ const updateSparkline = async (metalKey) => {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { top: 6, right: 0, bottom: 0, left: 0 } },
+      layout: { padding: { top: 2, right: 0, bottom: 0, left: 0 } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -1211,8 +1218,8 @@ const updateSparkline = async (metalKey) => {
         y: {
           display: false,
           beginAtZero: false,
-          suggestedMin: data.length ? Math.min(...data) * 0.99 : undefined,
-          suggestedMax: data.length ? Math.max(...data) * 1.01 : undefined,
+          min: lo - pad,
+          max: hi + pad,
         },
       },
       animation: { duration: 400 },
