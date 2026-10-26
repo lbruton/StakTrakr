@@ -4239,6 +4239,18 @@ const setupSpotPriceListeners = () => {
     true
   );
 
+  // Edit button: the keyboard path to the same inline edit; focus returns to the button.
+  document.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".spot-edit-btn");
+    if (!editBtn) return;
+    const card = editBtn.closest(".spot-card");
+    const valueEl = card && card.querySelector(".spot-card-value");
+    if (!valueEl || !card.dataset.metal) return;
+    if (typeof startSpotInlineEdit === "function") {
+      startSpotInlineEdit(valueEl, card.dataset.metal, editBtn);
+    }
+  });
+
   // Long-press handler for mobile inline spot price editing (STAK-285)
   // Mirrors shift+click behavior: hold 600ms on spot price to open manual input
   let _spotLongPressTimer = null;
