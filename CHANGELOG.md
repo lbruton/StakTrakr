@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.36.83] - 2026-10-25
+
+### Changed — STRK-487: Dashboard keyboard and screen reader access
+
+- **Spot edit button**: Each spot card has an "Edit spot price" button that opens the inline price input. Focus returns to the button when the edit closes. Shift+click and long-press still work (STRK-487).
+- **Totals titles**: Each totals card title is a heading that holds a button, so Enter opens the metal's details modal. The card no longer lifts on hover (STRK-487).
+- **Ticker**: Dealer items are buttons with a spoken name, inside a region named "Best dealer prices". The loop copy is hidden from assistive tech and the tab order, and the strip stops and brings a focused dealer into view (STRK-487).
+- **Headings and names**: The Dashboard has hidden section headings (Spot prices, Best dealer prices, Totals). Ratio chips name their measure, and refresh buttons say whether prices are fresh, stale or expired (STRK-487).
+- **Carousel dots**: The phone totals dot follows the scroll position after a metal order change, and the active dot sets `aria-current` (STRK-487).
+- **Open edits survive refreshes**: A background spot refresh no longer closes an open inline price edit (STRK-487).
+- **Card labels**: Spot card labels read "Silver Spot" and so on, so they fit beside the edit and refresh buttons (STRK-487).
+
+---
+
 ## [3.36.82] - 2026-10-25
 
 ### Changed — STRK-486: Dashboard status text contrast

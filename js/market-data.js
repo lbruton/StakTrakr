@@ -588,15 +588,25 @@ const _buildTickerItem = (slug, coin, coinMetaMap, vendorMeta) => {
 
 /**
  * Build the DOM element for one ticker item (metal dot, coin name, vendor,
- * price, premium badge). Clickable when the vendor URL is safe.
+ * price, premium badge). A safe vendor URL makes it a button that opens the dealer page.
  * @param {Object} item - Ticker item descriptor from _buildTickerItem.
- * @returns {HTMLDivElement} The ".ticker-item" element.
+ * @returns {HTMLElement} The ".ticker-item" element.
  */
 const _buildTickerItemEl = (item) => {
-  const el = document.createElement("div");
+  const isLink = _isSafeUrl(item.vendorUrl);
+  const el = document.createElement(isLink ? "button" : "div");
   el.className = "ticker-item";
-  if (_isSafeUrl(item.vendorUrl)) {
+  if (isLink) {
+    el.type = "button";
     el.classList.add("ticker-item--link");
+    const premium =
+      item.premium != null
+        ? `, premium ${(item.premium >= 0 ? "+" : "") + item.premium.toFixed(1)}%`
+        : "";
+    el.setAttribute(
+      "aria-label",
+      `${item.name} at ${item.vendorName}, ${formatCurrency(item.bestPrice)}${premium}. Opens the dealer page in a new window.`
+    );
     el.addEventListener("click", () => {
       _openVendorPopup(item.vendorUrl, item.bestVid);
     });
@@ -659,10 +669,16 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   const block2 = document.createElement("div");
   block2.className = "ticker-block";
   block2.dataset.tickerBlock = "duplicate";
+  // The copy exists only for the seamless scroll loop: keep it out of the tab order and
+  // the accessibility tree so each dealer price is announced once. It stays clickable
+  // (no `inert`), because the loop scrolls it through the visible strip.
+  block2.setAttribute("aria-hidden", "true");
 
   for (const item of items) {
     block1.appendChild(_buildTickerItemEl(item));
-    block2.appendChild(_buildTickerItemEl(item));
+    const copy = _buildTickerItemEl(item);
+    copy.tabIndex = -1;
+    block2.appendChild(copy);
   }
 
   if (items.length >= 4) {
@@ -689,9 +705,30 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   }
 };
 
+/**
+ * Keeps a keyboard-focused dealer visible. Keyboard focus stops the animation (CSS), which
+ * moves the track back to its start, so the dealer is scrolled into view after that restyle;
+ * the strip's scroll resets when focus leaves. Wires the container once.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _wireTickerFocus = (container) => {
+  if (!(container instanceof HTMLElement) || container.dataset.focusWired) return;
+  container.dataset.focusWired = "1";
+  container.addEventListener("focusin", (e) => {
+    const dealer = e.target.closest(".ticker-item");
+    if (!dealer || !dealer.matches(":focus-visible")) return;
+    requestAnimationFrame(() => dealer.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
+  container.addEventListener("focusout", (e) => {
+    if (!container.contains(e.relatedTarget)) container.scrollLeft = 0;
+  });
+};
+
 const renderBestPriceTicker = () => {
   const container = safeGetElement("bestPriceTickerEl");
   if (!container) return;
+  _wireTickerFocus(container);
 
   const coins = _getRetailCoins();
   const coinMetaMap = _getCoinMeta();
@@ -713,7 +750,8 @@ const renderBestPriceTicker = () => {
   if (items.length === 0) {
     container.dataset.tickerSignature = "";
     container.setAttribute("hidden", "");
-    while (container.firstChild) container.removeChild(container.firstChild);
+    // Remove only the tracks: the region's heading stays for the next render.
+    container.querySelectorAll(".ticker-track").forEach((track) => track.remove());
     return;
   }
 

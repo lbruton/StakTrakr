@@ -697,19 +697,21 @@
         <!-- =============================================================================
          SPOT PRICES SECTION
          
-         One card per metal: label, trend period, refresh, the spot price, the
-         period and 24h change, a sparkline row below the text, the ratio chip
-         and the sync timestamp. Shift+click the price to set it by hand.
+         One card per metal: label, trend period, edit, refresh, the spot price,
+         the period and 24h change, a sparkline row below the text, the ratio
+         chip and the sync timestamp. The edit button, Shift+click or a
+         long-press on the price sets it by hand.
 
          Spot prices are used for premium calculations and profit/loss analysis
          ============================================================================= -->
         <section class="spot-prices" id="spotPricesSection">
+          <h2 class="sr-only">Spot prices</h2>
           <div class="spot-cards-grid">
             <!-- Silver spot price card -->
             <div class="spot-input silver">
               <div class="spot-card" data-metal="silver">
                 <div class="spot-card-header">
-                  <div class="spot-card-label">Silver Spot Price</div>
+                  <div class="spot-card-label">Silver Spot</div>
                   <button
                     type="button"
                     class="spot-card-period"
@@ -736,6 +738,29 @@
                       <option value="1825">5Y</option>
                       <option value="3650">10Y</option>
                     </select>
+                    <button
+                      type="button"
+                      class="spot-edit-btn"
+                      id="spotEditSilver"
+                      data-metal="silver"
+                      aria-label="Edit silver spot price"
+                      title="Edit spot price"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                     <button
                       class="spot-sync-icon"
                       id="syncIconSilver"
@@ -778,7 +803,7 @@
             <div class="spot-input gold">
               <div class="spot-card" data-metal="gold">
                 <div class="spot-card-header">
-                  <div class="spot-card-label">Gold Spot Price</div>
+                  <div class="spot-card-label">Gold Spot</div>
                   <button
                     type="button"
                     class="spot-card-period"
@@ -805,6 +830,29 @@
                       <option value="1825">5Y</option>
                       <option value="3650">10Y</option>
                     </select>
+                    <button
+                      type="button"
+                      class="spot-edit-btn"
+                      id="spotEditGold"
+                      data-metal="gold"
+                      aria-label="Edit gold spot price"
+                      title="Edit spot price"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                     <button class="spot-sync-icon" id="syncIconGold" title="Sync from API" disabled>
                       <svg
                         width="14"
@@ -838,7 +886,7 @@
             <div class="spot-input platinum">
               <div class="spot-card" data-metal="platinum">
                 <div class="spot-card-header">
-                  <div class="spot-card-label">Platinum Spot Price</div>
+                  <div class="spot-card-label">Platinum Spot</div>
                   <button
                     type="button"
                     class="spot-card-period"
@@ -865,6 +913,29 @@
                       <option value="1825">5Y</option>
                       <option value="3650">10Y</option>
                     </select>
+                    <button
+                      type="button"
+                      class="spot-edit-btn"
+                      id="spotEditPlatinum"
+                      data-metal="platinum"
+                      aria-label="Edit platinum spot price"
+                      title="Edit spot price"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                     <button
                       class="spot-sync-icon"
                       id="syncIconPlatinum"
@@ -907,7 +978,7 @@
             <div class="spot-input palladium">
               <div class="spot-card" data-metal="palladium">
                 <div class="spot-card-header">
-                  <div class="spot-card-label">Palladium Spot Price</div>
+                  <div class="spot-card-label">Palladium Spot</div>
                   <button
                     type="button"
                     class="spot-card-period"
@@ -934,6 +1005,29 @@
                       <option value="1825">5Y</option>
                       <option value="3650">10Y</option>
                     </select>
+                    <button
+                      type="button"
+                      class="spot-edit-btn"
+                      id="spotEditPalladium"
+                      data-metal="palladium"
+                      aria-label="Edit palladium spot price"
+                      title="Edit spot price"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                     <button
                       class="spot-sync-icon"
                       id="syncIconPalladium"
@@ -982,7 +1076,7 @@
             <div class="spot-input copper" style="display: none">
               <div class="spot-card" data-metal="copper">
                 <div class="spot-card-header">
-                  <div class="spot-card-label">Copper Spot Price</div>
+                  <div class="spot-card-label">Copper Spot</div>
                   <button
                     type="button"
                     class="spot-card-period"
@@ -1009,6 +1103,29 @@
                       <option value="1825">5Y</option>
                       <option value="3650">10Y</option>
                     </select>
+                    <button
+                      type="button"
+                      class="spot-edit-btn"
+                      id="spotEditCopper"
+                      data-metal="copper"
+                      aria-label="Edit copper spot price"
+                      title="Edit spot price"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
                     <button
                       class="spot-sync-icon"
                       id="syncIconCopper"
@@ -1054,7 +1171,15 @@
           </div>
         </section>
         <!-- ── Best Price Ticker (STAK-504) ── -->
-        <div id="bestPriceTickerEl" class="market-ticker" hidden></div>
+        <div
+          id="bestPriceTickerEl"
+          class="market-ticker"
+          role="region"
+          aria-labelledby="bestPriceTickerHeading"
+          hidden
+        >
+          <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
+        </div>
         <!-- =============================================================================
          TOTALS SECTION
 
@@ -1069,6 +1194,7 @@
          Values are updated automatically when inventory changes
          ============================================================================= -->
         <section class="totals-section" id="totalsSectionEl">
+          <h2 class="sr-only">Totals</h2>
           <div class="totals-wrapper">
             <button class="totals-nav-btn totals-prev" id="totalsPrev" aria-label="Previous card">
               &#8249;
@@ -1076,7 +1202,9 @@
             <div class="totals" id="totalsCarousel">
               <!-- Silver totals card -->
               <div class="total-card silver">
-                <div class="total-title" data-metal="Silver">Silver</div>
+                <h3 class="total-title" data-metal="Silver">
+                  <button type="button" class="total-title-btn">Silver</button>
+                </h3>
                 <div class="total-group">
                   <div class="total-item">
                     <span class="total-label">Items:</span>
@@ -1116,7 +1244,9 @@
               </div>
               <!-- Gold totals card -->
               <div class="total-card gold">
-                <div class="total-title" data-metal="Gold">Gold</div>
+                <h3 class="total-title" data-metal="Gold">
+                  <button type="button" class="total-title-btn">Gold</button>
+                </h3>
                 <div class="total-group">
                   <div class="total-item">
                     <span class="total-label">Items:</span>
@@ -1156,7 +1286,9 @@
               </div>
               <!-- Platinum totals card -->
               <div class="total-card platinum">
-                <div class="total-title" data-metal="Platinum">Platinum</div>
+                <h3 class="total-title" data-metal="Platinum">
+                  <button type="button" class="total-title-btn">Platinum</button>
+                </h3>
                 <div class="total-group">
                   <div class="total-item">
                     <span class="total-label">Items:</span>
@@ -1196,7 +1328,9 @@
               </div>
               <!-- Palladium totals card -->
               <div class="total-card palladium">
-                <div class="total-title" data-metal="Palladium">Palladium</div>
+                <h3 class="total-title" data-metal="Palladium">
+                  <button type="button" class="total-title-btn">Palladium</button>
+                </h3>
                 <div class="total-group">
                   <div class="total-item">
                     <span class="total-label">Items:</span>
@@ -1237,7 +1371,9 @@
               <!-- Copper totals card (STRK-306) — hidden until enabled in
                    Settings › Metal Order; applyMetalOrder() shows it -->
               <div class="total-card copper" style="display: none">
-                <div class="total-title" data-metal="Copper">Copper</div>
+                <h3 class="total-title" data-metal="Copper">
+                  <button type="button" class="total-title-btn">Copper</button>
+                </h3>
                 <div class="total-group">
                   <div class="total-item">
                     <span class="total-label">Items:</span>
@@ -1277,7 +1413,9 @@
               </div>
               <!-- All metals combined totals card -->
               <div class="total-card total-card-all">
-                <div class="total-title" data-metal="All">All Metals</div>
+                <h3 class="total-title" data-metal="All">
+                  <button type="button" class="total-title-btn">All Metals</button>
+                </h3>
                 <div class="total-group">
                   <div class="total-item">
                     <span class="total-label">Items:</span>

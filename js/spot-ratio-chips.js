@@ -226,6 +226,9 @@ const upsertRatioChip = (cardEl, chip) => {
   chipEl.replaceChildren(
     ...buildRatioChipNodes(chip.glyph, chip.label, chip.value, chip.est, actionable)
   );
+  // The visible "Au:Ag 74.0" glyph run reads poorly aloud; name the measure instead.
+  const metal = cardEl.dataset.metal;
+  if (metal) chipEl.setAttribute("aria-label", `${ratioChipTipText(metal).heading}: ${chip.value}`);
 };
 
 /**
