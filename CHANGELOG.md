@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.84] - 2026-10-25
+
+### Changed — STRK-492: Metal Ratios chart axis labels
+
+- **Axis labels**: The Metal Ratios chart rounds its vertical-axis labels to the tick step with the Chart.js numeric formatter, so labels read 2.55:1 instead of 2.5500000000000003:1 (STRK-492).
+
+---
+
 ## [3.36.83] - 2026-10-25
 
 ### Changed — STRK-487: Dashboard keyboard and screen reader access

@@ -495,7 +495,15 @@ const renderRatiosPanel = (mountEl, options = {}) => {
           },
           y: {
             grid: { color: gridColor },
-            ticks: { color: textColor, font: { size: 10 }, callback: (v) => `${v}:1` },
+            ticks: {
+              color: textColor,
+              font: { size: 10 },
+              // Tick values carry float error from step addition; the numeric
+              // formatter rounds to the step's precision. It reads `this` (the scale).
+              callback(value, index, ticks) {
+                return `${Chart.Ticks.formatters.numeric.call(this, value, index, ticks)}:1`;
+              },
+            },
           },
         },
       },
