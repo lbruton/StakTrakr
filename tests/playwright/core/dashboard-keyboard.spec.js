@@ -105,18 +105,31 @@ test.describe("Dashboard keyboard and screen reader access", () => {
       };
     });
     await renderLoopingTicker(page);
-    // Freeze the strip at the loop point, where the copy fills the visible area.
-    const loop = await page
-      .locator("#bestPriceTickerEl [data-ticker-block='primary']")
-      .evaluate((el) => el.getBoundingClientRect().width);
-    await page.addStyleTag({
-      content: `#bestPriceTickerEl .ticker-track { animation: none !important; transform: translate3d(-${loop}px, 0, 0) !important; }`,
+    // Hold the running animation near the loop point, where the copy fills the strip. Only
+    // the play state and delay are set, so the app's own focus rules still apply.
+    await page.evaluate(() => {
+      const track = document.querySelector("#bestPriceTickerEl .ticker-track");
+      const duration = parseFloat(getComputedStyle(track).animationDuration);
+      track.style.animationDelay = `-${duration * 0.97}s`;
+      track.style.animationPlayState = "paused";
     });
-    const copy = page
+    const box = await page
       .locator("#bestPriceTickerEl [data-ticker-block='duplicate'] button.ticker-item")
-      .nth(1);
-    const box = await copy.boundingBox();
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      .evaluateAll((buttons) => {
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const visible = buttons
+          .map((b) => b.getBoundingClientRect())
+          .find((r) => r.left >= strip.left + 80 && r.right <= strip.right - 80);
+        return (
+          visible && { x: visible.x, y: visible.y, width: visible.width, height: visible.height }
+        );
+      });
+    expect(box, "a copy dealer is inside the strip").toBeTruthy();
+    // Press and release separately: a button that moves on pointer focus misses the release.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(50);
+    await page.mouse.up();
     expect(await page.evaluate(() => window.__opened.length)).toBe(1);
   });
 
@@ -140,6 +153,8 @@ test.describe("Dashboard keyboard and screen reader access", () => {
         return box.left >= strip.left - 1 && box.right <= strip.right + 1;
       });
     await expect.poll(inView).toBe(false);
+    // A key press sets keyboard modality, so the focus below counts as :focus-visible.
+    await page.keyboard.press("Shift");
     await first.focus();
     await expect.poll(inView).toBe(true);
     await page.locator(".total-title[data-metal='Silver'] > button").focus();
@@ -160,6 +175,27 @@ test.describe("Dashboard keyboard and screen reader access", () => {
     await expect(input).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.locator("#spotPriceDisplaySilver")).toContainText("$77.77");
+  });
+
+  test("tabbing out of an open edit restores the price and keeps the next focus", async ({
+    page,
+  }) => {
+    const edit = page.locator("#spotEditSilver");
+    await edit.click();
+    const input = page.locator("#spotPriceDisplaySilver .spot-inline-input");
+    await expect(input).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(input).toHaveCount(0);
+    await expect(edit).not.toBeFocused();
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("$25.00");
+  });
+
+  test("a stored-price reload leaves an open edit in place", async ({ page }) => {
+    await page.locator("#spotEditSilver").click();
+    const input = page.locator("#spotPriceDisplaySilver .spot-inline-input");
+    await expect(input).toBeFocused();
+    await page.evaluate(() => window.fetchSpotPrice());
+    await expect(input).toHaveCount(1);
   });
 
   test("the edit button sets a manual spot price and returns focus to itself", async ({ page }) => {

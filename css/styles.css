@@ -16811,9 +16811,10 @@ input[type="number"] {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
-/* A focused dealer stops the strip at its start; _wireTickerFocus scrolls the dealer
-   into view, so the keyboard user can read and activate it. */
-.market-ticker:focus-within .ticker-track {
+/* A keyboard-focused dealer stops the strip at its start; _wireTickerFocus scrolls the
+   dealer into view. Pointer focus does not match :focus-visible, so a pressed button
+   stays put until the release. */
+.market-ticker:has(.ticker-item:focus-visible) .ticker-track {
   animation: none;
 }
 

@@ -583,29 +583,11 @@ const fetchSpotPrice = () => {
   // Load spot prices for all metals
   Object.values(METALS).forEach((metalConfig) => {
     const storedSpot = localStorage.getItem(metalConfig.localStorageKey);
-    if (storedSpot) {
-      spotPrices[metalConfig.key] = parseFloat(storedSpot);
-      if (
-        elements.spotPriceDisplay[metalConfig.key] &&
-        elements.spotPriceDisplay[metalConfig.key].textContent !== undefined
-      ) {
-        elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(
-          spotPrices[metalConfig.key]
-        );
-      }
-    } else {
-      // Use default price if no stored price
-      const defaultPrice = metalConfig.defaultPrice;
-      spotPrices[metalConfig.key] = defaultPrice;
-      if (
-        elements.spotPriceDisplay[metalConfig.key] &&
-        elements.spotPriceDisplay[metalConfig.key].textContent !== undefined
-      ) {
-        elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(
-          spotPrices[metalConfig.key]
-        );
-      }
-      // Don't record default prices in history automatically
+    // Use the default price when none is stored; defaults are not recorded in history.
+    spotPrices[metalConfig.key] = storedSpot ? parseFloat(storedSpot) : metalConfig.defaultPrice;
+    const display = elements.spotPriceDisplay[metalConfig.key];
+    if (display && display.textContent !== undefined && !isSpotInlineEditOpen(display)) {
+      display.textContent = formatCurrency(spotPrices[metalConfig.key]);
     }
 
     // Update timestamp display
@@ -1454,8 +1436,10 @@ const startSpotInlineEdit = (valueEl, metalKey, returnFocusEl) => {
     if (returnFocusEl) returnFocusEl.focus();
   };
 
-  const cancel = () => {
+  // Restores the price without moving focus, so Tab or a click elsewhere keeps its target.
+  const restore = () => {
     if (closed) return;
+    closed = true;
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
     valueEl.innerHTML = originalHTML;
     // A background refresh may have saved a new price while the edit was open; the
@@ -1463,6 +1447,11 @@ const startSpotInlineEdit = (valueEl, metalKey, returnFocusEl) => {
     if (spotPrices[metalKey] !== currentPrice) {
       updateSpotCardColor(metalKey, spotPrices[metalKey]);
     }
+  };
+
+  const cancel = () => {
+    if (closed) return;
+    restore();
     close();
   };
 
@@ -1510,7 +1499,7 @@ const startSpotInlineEdit = (valueEl, metalKey, returnFocusEl) => {
     }
   });
 
-  input.addEventListener("blur", cancel);
+  input.addEventListener("blur", restore);
 };
 
 // =============================================================================
