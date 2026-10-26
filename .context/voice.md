@@ -7,7 +7,7 @@ dials. Where the two differ, this file is stricter.
 
 - Readers are precious metals holders on a consumer app: casual stackers, investors and preppers. The
   maintainer and coding agents read the code and `.context/`.
-- The register comes from the brand in `.impeccable.md`: sharp, capable, empowering. Write like a precision
+- The register comes from the brand in `PRODUCT.md`: sharp, capable, empowering. Write like a precision
   tool. State facts and numbers. Do not hand-hold, sell or cheer.
 
 ## Dials

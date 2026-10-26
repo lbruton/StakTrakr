@@ -34,5 +34,4 @@ hook worktree-safety
 hook docvault-lint
 hook block-pr-merge
 hook vale-staged
-skill ui-mockup
 vale Prose

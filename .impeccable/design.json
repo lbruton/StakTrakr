@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-26T02:40:00Z",
+  "title": "Design System: StakTrakr",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Assay Gold", "canonical": "oklch(0.72 0.16 75)", "tonalRamp": ["oklch(0.15 0.05 75)", "oklch(0.26 0.08 75)", "oklch(0.38 0.11 75)", "oklch(0.5 0.14 75)", "oklch(0.62 0.16 75)", "oklch(0.72 0.16 75)", "oklch(0.83 0.11 75)", "oklch(0.95 0.04 75)"] },
+      "secondary": { "role": "secondary", "displayName": "Gunmetal Grey", "canonical": "oklch(0.5 0.01 85)" },
+      "success": { "role": "tertiary", "displayName": "Gain Green", "canonical": "oklch(0.64 0.17 155)" },
+      "info": { "role": "tertiary", "displayName": "Retail Blue", "canonical": "oklch(0.72 0.12 220)" },
+      "warning": { "role": "tertiary", "displayName": "Caution Amber", "canonical": "oklch(0.72 0.16 80)" },
+      "danger": { "role": "tertiary", "displayName": "Loss Red", "canonical": "oklch(0.58 0.22 25)" },
+      "gunmetal-base": { "role": "neutral", "displayName": "Gunmetal Base", "canonical": "oklch(0.18 0.008 85)", "tonalRamp": ["oklch(0.15 0.008 85)", "oklch(0.18 0.008 85)", "oklch(0.22 0.008 85)", "oklch(0.28 0.007 85)", "oklch(0.32 0.008 85)", "oklch(0.4 0.01 85)", "oklch(0.65 0.012 85)", "oklch(0.95 0.005 85)"] },
+      "card": { "role": "neutral", "displayName": "Card", "canonical": "oklch(0.22 0.01 85)" },
+      "border": { "role": "neutral", "displayName": "Machined Edge", "canonical": "oklch(0.32 0.008 85)" },
+      "text-primary": { "role": "neutral", "displayName": "Bright Metal", "canonical": "oklch(0.95 0.005 85)" },
+      "text-secondary": { "role": "neutral", "displayName": "Brushed", "canonical": "oklch(0.8 0.008 85)" },
+      "text-muted": { "role": "neutral", "displayName": "Patina", "canonical": "oklch(0.65 0.012 85)" },
+      "metal-silver": { "role": "tertiary", "displayName": "Silver", "canonical": "oklch(0.851 0.011 248.8)" },
+      "metal-gold": { "role": "tertiary", "displayName": "Gold", "canonical": "oklch(0.811 0.157 79)" },
+      "metal-platinum": { "role": "tertiary", "displayName": "Platinum", "canonical": "oklch(0.961 0.003 264.5)" },
+      "metal-palladium": { "role": "tertiary", "displayName": "Palladium", "canonical": "oklch(0.794 0.119 305.9)" },
+      "metal-copper": { "role": "tertiary", "displayName": "Copper", "canonical": "oklch(0.75 0.11 55)" },
+      "brand-gold": { "role": "primary", "displayName": "Wordmark Gold", "canonical": "#d4a017" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "h1 only, in the primary colour." },
+      "headline": { "displayName": "Headline", "purpose": "h2, section titles and modal headers." },
+      "body": { "displayName": "Body", "purpose": "Default component text." },
+      "label": { "displayName": "Label", "purpose": "Form labels and emphasised body text." },
+      "data": { "displayName": "Data", "purpose": "Prices, weights, quantities and gain/loss with aligned figures." }
+    },
+    "shadows": [
+      { "name": "resting", "value": "var(--shadow-sm)", "purpose": "Spot cards and small raised controls." },
+      { "name": "lifted", "value": "var(--shadow)", "purpose": "Button hover and popovers." },
+      { "name": "overlay", "value": "var(--shadow-lg)", "purpose": "Modals and menus." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Modal fade and slide-in." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "480px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1350px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on a surface.",
+      "html": "<button class=\"ds-btn-primary\">Add Item</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius, 8px); background: var(--primary, oklch(0.72 0.16 75)); color: var(--text-inverse, oklch(0.98 0 0)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-md, 0.875rem); font-weight: 500; cursor: pointer; } .ds-btn-primary:hover { background: var(--primary-hover, oklch(0.64 0.18 75)); transform: translateY(-1px); box-shadow: var(--shadow, 0 4px 6px -1px rgb(0 0 0 / 0.3)); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive actions such as Delete Item.",
+      "html": "<button class=\"ds-btn-danger\">Delete Item</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius, 8px); background: var(--danger, oklch(0.58 0.22 25)); color: var(--text-inverse, oklch(0.98 0 0)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-md, 0.875rem); font-weight: 500; cursor: pointer; } .ds-btn-danger:hover { background: var(--danger-hover, oklch(0.5 0.22 25)); } .ds-btn-danger:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form fields in the item modal and Settings.",
+      "html": "<input class=\"ds-input\" placeholder=\"Purchase price\">",
+      "css": ".ds-input { width: 100%; padding: 0.75rem; border: 2px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius, 8px); background: var(--bg-primary, oklch(0.18 0.008 85)); color: var(--text-primary, oklch(0.95 0.005 85)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-lg, 1rem); } .ds-input:focus { outline: none; border-color: var(--primary, oklch(0.72 0.16 75)); box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
+    },
+    {
+      "name": "Metal Filter Chip",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "Pill filter for metal, type and tag.",
+      "html": "<button class=\"ds-chip\">Silver</button><button class=\"ds-chip ds-chip-active\">Gold</button>",
+      "css": ".ds-chip { padding: var(--spacing-sm, 0.4rem) 0.9rem; margin-right: 0.4rem; border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-pill, 999px); background: var(--bg-secondary, oklch(0.22 0.008 85)); color: var(--chip-text, oklch(0.95 0.005 85)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); cursor: pointer; } .ds-chip:hover { border-color: var(--border-hover, oklch(0.4 0.01 85)); } .ds-chip-active { background: var(--primary, oklch(0.72 0.16 75)); color: var(--text-inverse, oklch(0.98 0 0)); border-color: transparent; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard bordered surface for grouped content.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Collection value</h2><p class=\"ds-card-figure\">$12,480.00</p></div>",
+      "css": ".ds-card { background: var(--bg-card, oklch(0.22 0.01 85)); border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-lg, 12px); padding: var(--spacing-xl, 1.5rem); color: var(--text-primary, oklch(0.95 0.005 85)); } .ds-card-title { margin: 0 0 0.4rem; font-family: var(--font-heading, 'Instrument Serif', serif); font-size: var(--font-size-xl, 1.25rem); font-weight: 400; } .ds-card-figure { margin: 0; font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: var(--font-size-2xl, 1.5rem); }"
+    },
+    {
+      "name": "Spot Card",
+      "kind": "custom",
+      "refersTo": "spot-card",
+      "description": "Signature per-metal spot price card with a low-opacity sparkline behind the figures.",
+      "html": "<div class=\"ds-spot\"><div class=\"ds-spot-metal\">Gold</div><div class=\"ds-spot-price\">$2,412.30</div><div class=\"ds-spot-change\">+18.40 (0.77%)</div></div>",
+      "css": ".ds-spot { width: 12rem; text-align: center; padding: var(--spacing, 0.75rem); background: var(--bg-primary, oklch(0.18 0.008 85)); border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.3)); } .ds-spot-metal { color: var(--gold, oklch(0.811 0.157 79)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; } .ds-spot-price { color: var(--text-primary, oklch(0.95 0.005 85)); font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: var(--font-size-2xl, 1.5rem); } .ds-spot-change { color: var(--success-text, oklch(0.72 0.16 155)); font-family: var(--font-mono, 'Geist Mono', monospace); font-size: var(--font-size-sm, 0.75rem); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Assay Office",
+    "overview": "StakTrakr is where physical metal gets weighed, tested and recorded. Every surface behaves like an assayer's instrument: it shows the measurement, the reference value and the difference, and it does not decorate them. Screens are dense on purpose. The serious stacker reads many numbers at once and compares them, so tables, tickers and spot cards carry the page.\n\nThe material is warm gunmetal lit by gold. Neutrals in the dark theme sit at hue 85 with very low chroma, so greys read as metal rather than as blue screen. The five metal colours and the eleven vendor hues are identification marks, not decoration. Gold is the one accent that carries brand, and it is rationed.\n\nComponents are machined and exact: tight radii, crisp 1px borders, flat surfaces separated by tonal steps, and tabular numerals wherever numbers line up. Depth is reserved for layers that sit above the page: modals, popovers and menus.",
+    "keyCharacteristics": [
+      "Dense, scan-first layouts: tables, ticker, spot cards and ledgers are primary surfaces.",
+      "Warm gunmetal neutrals with a gold primary in the dark theme.",
+      "Metal and vendor colours are fixed identification systems.",
+      "Instrument-like controls: flat, bordered, small radii, numerals aligned.",
+      "Four themes (dark, light, slate, sepia) with one identity."
+    ],
+    "rules": [
+      { "name": "The Fixed Identity Rule", "body": "A metal or vendor never changes hue between views or themes. Users learn the mapping, so a remap is a regression.", "section": "colors" },
+      { "name": "The Rationed Gold Rule", "body": "Gold is the brand accent. It marks the primary action, the active state and the wordmark. It does not fill large areas or decorate headings beyond h1.", "section": "colors" },
+      { "name": "The Function First Rule", "body": "Every colour on screen identifies a metal or vendor, signals gain, loss or status, or marks the primary action. Colour with no job is removed.", "section": "colors" },
+      { "name": "The Regular Serif Rule", "body": "Instrument Serif ships at weight 400 only. Never set it bold or synthesise a bold.", "section": "typography" },
+      { "name": "The Aligned Figures Rule", "body": "Any column or stack of numbers uses the mono face or tabular numerals, so digits line up for comparison.", "section": "typography" },
+      { "name": "The Density Rule", "body": "Show the data. A surface does not trade visible information for whitespace or hide it behind an extra click.", "section": "layout" },
+      { "name": "The Flat Page Rule", "body": "Surfaces on the page are flat at rest. A shadow appears only for a layer above the page or as a hover response.", "section": "elevation" },
+      { "name": "The No Glass Rule", "body": "The frosted-glass treatment (backdrop-filter blur on .modal, .modal-content and the image badge overlay) is debt, not identity. New work does not add glass. Surface passes may remove it.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do author new components against the dark theme first, then check light, slate and sepia.",
+      "Do use var(--token) for every colour, size, radius and space. Raw colour literals in js/ fail lint.",
+      "Do set prices, weights and quantities in the data face with aligned figures.",
+      "Do keep text at 4.5:1 or more in all four themes, using the *-text tokens for status words.",
+      "Do keep 44px touch targets below 768px."
+    ],
+    "donts": [
+      "Don't add glass blur, neon glows, gradient text or purple-to-blue gradients (crypto and Web3 anti-reference).",
+      "Don't use oversized rounded cards or airy startup-dashboard spacing (generic fintech anti-reference).",
+      "Don't fall back to a bare grid of numbers with no metal colour, hierarchy or brand (spreadsheet anti-reference).",
+      "Don't remap a metal or vendor to a different hue.",
+      "Don't use colour as the only signal of state; pair it with a label or icon.",
+      "Don't add a fifth theme or reference a contrast theme; there are four."
+    ]
+  }
+}

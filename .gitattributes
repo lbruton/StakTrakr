@@ -9,7 +9,8 @@
 .claude/              export-ignore
 .codex/               export-ignore
 .context/             export-ignore
-.impeccable.md        export-ignore
+.impeccable/          export-ignore
+PRODUCT.md            export-ignore
 .jules/               export-ignore
 CLAUDE.md             export-ignore
 AGENTS.md             export-ignore

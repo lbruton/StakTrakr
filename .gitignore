@@ -94,5 +94,19 @@ temp/
 .mcp.json
 .playwright-mcp/
 
+# Impeccable engine binaries (multi-MB, per platform). The skill launcher falls back to
+# ~/.impeccable/bin/<version>/ and downloads a checksum-verified copy on first run.
+.claude/skills/impeccable/scripts/bin/
+.agents/skills/impeccable/scripts/bin/
+# Impeccable per-developer overrides and per-session working files. Tracked: config.json,
+# design.json, live/config.json, surfaces/ and critique/.
+.impeccable/config.local.json
+.impeccable/live/sessions/
+.impeccable/live/inject-journal.json
+.impeccable/live/roots.json
+.impeccable/build/
+.impeccable/mocks/
+.impeccable/review/
+
 # Obsidian per-machine state (vault retired in STRK-411)
 /.obsidian/

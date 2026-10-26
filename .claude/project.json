@@ -29,6 +29,6 @@
   "skills": {
     "profiles": ["code-core", "web"],
     "extra": ["vale:Prose"],
-    "exclude": ["release"]
+    "exclude": ["release", "ui-mockup"]
   }
 }

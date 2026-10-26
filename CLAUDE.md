@@ -56,7 +56,7 @@ docs and infra pages with LAN IPs live in the Devops repo vault, `Devops/DocVaul
 | `.context/architecture.md`           | System-design questions — frontend/API/data model, sqld schema         |
 | `.context/infrastructure.md`         | Deploy/infra claims — Fly.io, home poller, secrets, CI/CD, thresholds  |
 | `.context/coding-standards.md`       | **Writing any JavaScript** — style, module boundaries, DOM/storage     |
-| `.context/design-philosophy.md`      | UI work — brand, tokens, four themes, anti-references                  |
+| `.context/design-philosophy.md`      | UI work — routes to `PRODUCT.md`, `DESIGN.md` and Impeccable           |
 | `.context/reusable-patterns.md`      | Vendor normalization, providers.json, retail modal, chart abstractions |
 | `.context/data-pipelines.md`         | Spot/retail/goldback/image pipeline work — cron, thresholds, failures  |
 | `.context/cloud-sync.md`             | Dropbox sync — OAuth, AES-GCM encryption, rollback, backup/restore     |
@@ -129,12 +129,14 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 | `/release`                        | Version bump (project override of global `/release`)                |
 | `/start-patch`                    | Pick Plane issue, hand off to `/release patch` (lock + worktree)    |
 | `/glossary`                       | Harvest/list/search domain terms in `.context/GLOSSARY.md`          |
-| `/ui-mockup` (global)             | New multi-element UI — Playground prototype first                   |
+| `/impeccable`                     | UI critique, audit, shape, polish; loads `PRODUCT.md` + `DESIGN.md` |
 | `/context-drift` (global)         | Audit `.context/` docs against source truth after infra work        |
 
-**Skill authoring:** filename must be `SKILL.md` (`.gitignore` silently excludes other `.md` names).
+**Skill authoring:** a skill's entry file must be named `SKILL.md`.
 
 **Skill copies:** every `.claude/skills/<name>/SKILL.md` has a tracked twin under `.agents/skills/<name>/SKILL.md`. When fixing a skill doc, `git grep` the sibling and apply the identical fix to both — Copilot flags stale twins.
+
+**Vendored Impeccable:** `.claude/skills/impeccable/` and `.agents/skills/impeccable/` are per-harness builds that differ on purpose. Never edit them; change them only with `npx impeccable update` in a chore PR.
 
 ## Gotcha Index
 
@@ -180,10 +182,8 @@ ESLint config (with the local colour-literal rule) all live there.
 
 ## Design Context
 
-Users span casual stackers → serious investors → preppers. Primary context: home desktop, mobile matters.
-Brand voice: **sharp, capable, empowering** — pro trading terminal, not toy.
-Full design system, four-theme rules (light, dark, slate, sepia), and anti-references in `.context/design-philosophy.md`.
-Anti-references: not generic fintech, not crypto/Web3, not spreadsheet clone.
+Product and brand context lives in `PRODUCT.md`; the visual system lives in `DESIGN.md`. Read both before
+UI work. `.context/design-philosophy.md` lists the rest and the Impeccable workflow.
 
 ## Documentation locations
 
