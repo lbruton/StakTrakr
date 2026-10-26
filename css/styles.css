@@ -176,7 +176,11 @@
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace;
 
   /* Transitions */
-  --transition: var(--transition);
+  --transition-timing: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition:
+    background-color var(--transition-timing), color var(--transition-timing),
+    border-color var(--transition-timing), box-shadow var(--transition-timing),
+    opacity var(--transition-timing), transform var(--transition-timing);
 
   /* STRK-25 — Semantic text on colored backgrounds */
   --text-inverse: oklch(1 0 0);
@@ -1839,7 +1843,7 @@ textarea:focus {
   color: var(--text-primary);
   user-select: none;
   -webkit-user-select: none;
-  transition: background var(--transition);
+  transition: background-color var(--transition-timing);
   min-height: 36px;
   box-sizing: border-box;
 }
@@ -1900,7 +1904,7 @@ details.form-section > summary.form-section-header::after {
   transform: rotate(-45deg);
   margin-left: auto;
   flex-shrink: 0;
-  transition: transform var(--transition);
+  transition: transform var(--transition-timing);
 }
 
 details.form-section[open] > summary.form-section-header::after {
@@ -17312,8 +17316,8 @@ input[type="number"] {
   background: var(--glass-input-bg);
   cursor: pointer;
   transition:
-    border-color var(--transition),
-    background var(--transition);
+    border-color var(--transition-timing),
+    background-color var(--transition-timing);
   flex-wrap: wrap;
   row-gap: 0.4rem;
   column-gap: 0.6rem;
@@ -17349,8 +17353,8 @@ input[type="number"] {
   cursor: pointer;
   font-weight: 500;
   transition:
-    background var(--transition),
-    border-color var(--transition);
+    background-color var(--transition-timing),
+    border-color var(--transition-timing);
   white-space: nowrap;
 }
 .attachment-browse-btn:hover {
@@ -17472,8 +17476,8 @@ input[type="number"] {
   cursor: pointer;
   color: var(--text-muted);
   transition:
-    background var(--transition),
-    color var(--transition);
+    background-color var(--transition-timing),
+    color var(--transition-timing);
   font-size: 13px;
 }
 .attach-btn:hover {

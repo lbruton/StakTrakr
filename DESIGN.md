@@ -292,6 +292,14 @@ page or as a hover response.
 and the image badge overlay) is debt, not identity. New work does not add glass. Surface passes may remove
 it.
 
+## Motion
+
+Shared control feedback uses `--transition-timing`: `0.2s cubic-bezier(0.4, 0, 0.2, 1)`.
+`--transition` is a complete list for background colour, text colour, border colour, shadow, opacity and
+transform. Use the timing token after an explicit property name; use the complete token on its own.
+Layout properties are excluded. Reduced motion forces transition duration and delay to zero, preserving
+immediate state and theme feedback.
+
 ## Shapes
 
 Corners are tight and consistent: 4px for small elements, 8px for buttons, inputs and chips, 12px for

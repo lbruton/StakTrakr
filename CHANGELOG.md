@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.81] - 2026-10-25
+
+### Changed — STRK-484: Restore shared control transitions
+
+- **Control feedback**: Restore 200ms colour, border, shadow, opacity and transform transitions without animating layout. Reduced motion keeps state and theme changes immediate (STRK-484).
+
+---
+
 ## [3.36.80] - 2026-10-25
 
 ### Changed — STRK-476: Name tests by behavior and enforce test naming
